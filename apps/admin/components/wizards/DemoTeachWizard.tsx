@@ -547,6 +547,178 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     return () => clearInterval(interval);
   }, [currentStep, selectedDomainId, fetchReadiness]);
 
+  // ── Content upload step logic ─────────────────────
+
+  // Detect content on step 2 mount
+  useEffect(() => {
+    if (currentStep !== 2 || !selectedDomainId) return;
+    setContentPhase("loading");
+    setUploadError(null);
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        if (selectedCallerId) params.set("callerId", selectedCallerId);
+        const res = await fetch(`/api/domains/${selectedDomainId}/course-readiness?${params}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.ok) {
+          const lessonCheck = (data.checks || []).find((c: CourseCheck) => c.id === "lesson_plan");
+          if (lessonCheck?.passed) {
+            // Extract count from detail string like "117 content item(s) extracted"
+            const match = lessonCheck.detail?.match(/^(\d+)/);
+            setContentCount(match ? parseInt(match[1], 10) : 0);
+            setContentPhase("has-content");
+          } else {
+            setContentPhase("no-content");
+          }
+        } else {
+          setContentPhase("no-content");
+        }
+      } catch {
+        if (!cancelled) setContentPhase("no-content");
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [currentStep, selectedDomainId, selectedCallerId]);
+
+  // Cleanup poll/tick on unmount
+  useEffect(() => {
+    return () => {
+      if (extractPollRef.current) clearInterval(extractPollRef.current);
+      if (extractTickRef.current) clearInterval(extractTickRef.current);
+    };
+  }, []);
+
+  const handleUploadFile = useCallback((f: File) => {
+    const ext = "." + f.name.split(".").pop()?.toLowerCase();
+    if (!UPLOAD_ACCEPTED.includes(ext)) {
+      setUploadError(`Unsupported file type: ${ext}. Accepted: ${UPLOAD_ACCEPTED.join(", ")}`);
+      return;
+    }
+    setUploadFile(f);
+    setUploadError(null);
+  }, []);
+
+  const handleUploadDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setUploadDragOver(false);
+    if (e.dataTransfer.files.length > 0) handleUploadFile(e.dataTransfer.files[0]);
+  }, [handleUploadFile]);
+
+  const handleStartUpload = useCallback(async () => {
+    if (!uploadFile || !selectedDomainId) return;
+    setContentPhase("uploading");
+    setUploadError(null);
+
+    try {
+      // 1. Get domain detail to find subjects
+      const domRes = await fetch(`/api/domains/${selectedDomainId}`);
+      const domData = await domRes.json();
+      const domSlug = domData.domain?.slug || "content";
+      const domName = domData.domain?.name || "Content";
+      const subjects = domData.domain?.subjects || [];
+
+      let subjectId: string;
+
+      if (subjects.length > 0) {
+        subjectId = subjects[0].subjectId || subjects[0].subject?.id;
+      } else {
+        // Auto-create subject + link to domain
+        const slug = domSlug + "-content-" + Date.now();
+        const subRes = await fetch("/api/subjects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug, name: `${domName} Content` }),
+        });
+        const subData = await subRes.json();
+        if (!subData.subject?.id) throw new Error("Failed to create subject");
+        subjectId = subData.subject.id;
+
+        // Link subject to domain
+        await fetch(`/api/subjects/${subjectId}/domains`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domainId: selectedDomainId }),
+        });
+      }
+
+      // 2. Upload file to subject → creates ContentSource
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", uploadFile);
+      uploadFormData.append("sourceName", uploadFile.name);
+
+      const uploadRes = await fetch(`/api/subjects/${subjectId}/upload`, {
+        method: "POST",
+        body: uploadFormData,
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadData.ok || !uploadData.source?.id) {
+        throw new Error(uploadData.error || "Upload failed");
+      }
+      const sourceId = uploadData.source.id;
+
+      // 3. Start background extraction
+      const extractFormData = new FormData();
+      extractFormData.append("file", uploadFile);
+      extractFormData.append("mode", "background");
+      extractFormData.append("maxAssertions", "500");
+
+      const extractRes = await fetch(`/api/content-sources/${sourceId}/import`, {
+        method: "POST",
+        body: extractFormData,
+      });
+      const extractData = await extractRes.json();
+      if (!extractData.ok || !extractData.jobId) {
+        throw new Error(extractData.error || "Extraction start failed");
+      }
+
+      // 4. Start polling
+      setContentPhase("extracting");
+      setExtractProgress({ current: 0, total: extractData.totalChunks || 0, extracted: 0 });
+      setExtractElapsed(0);
+      extractTickRef.current = setInterval(() => setExtractElapsed((e) => e + 1), 1000);
+
+      const startedAt = Date.now();
+      extractPollRef.current = setInterval(async () => {
+        if (Date.now() - startedAt > 3 * 60 * 1000) {
+          if (extractPollRef.current) clearInterval(extractPollRef.current);
+          if (extractTickRef.current) clearInterval(extractTickRef.current);
+          setUploadError("Extraction timed out");
+          setContentPhase("error");
+          return;
+        }
+        try {
+          const pollRes = await fetch(`/api/content-sources/${sourceId}/import?jobId=${extractData.jobId}`);
+          const pollData = await pollRes.json();
+          if (!pollData.ok) return;
+          const job = pollData.job;
+          setExtractProgress({
+            current: job.currentChunk || 0,
+            total: job.totalChunks || 0,
+            extracted: job.extractedCount || 0,
+          });
+          if (job.status === "done") {
+            if (extractPollRef.current) clearInterval(extractPollRef.current);
+            if (extractTickRef.current) clearInterval(extractTickRef.current);
+            setContentCount(job.importedCount || job.extractedCount || 0);
+            setContentPhase("done");
+          } else if (job.status === "error") {
+            if (extractPollRef.current) clearInterval(extractPollRef.current);
+            if (extractTickRef.current) clearInterval(extractTickRef.current);
+            setUploadError(job.error || "Extraction failed");
+            setContentPhase("error");
+          }
+        } catch { /* network blip — keep polling */ }
+      }, 2000);
+    } catch (e: any) {
+      setUploadError(e.message || "Upload failed");
+      setContentPhase("error");
+    }
+  }, [uploadFile, selectedDomainId]);
+
   // ── Helpers ───────────────────────────────────────
 
   const selectedDomain = domains.find((d) => d.id === selectedDomainId);
@@ -575,12 +747,13 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       setData("domainName", selectedDomain?.name || "");
     } else if (currentStep === 1) {
       setData("goal", goalText.trim());
-    } else if (currentStep === 2) {
-      // Persist readiness state so step 3 (Launch) has it even after refresh
+    } else if (currentStep === 3) {
+      // Persist readiness state so Launch step has it even after refresh
       setData("ready", ready);
       setData("score", score);
       setData("level", level);
     }
+    // Steps 2 (content), 4 (preview) have no data to persist — just advance
     setStep(currentStep + 1);
   };
 
@@ -1046,9 +1219,157 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* STEP 2: Readiness Checks                        */}
+      {/* STEP 2: Upload Content                           */}
       {/* ═══════════════════════════════════════════════ */}
       {currentStep === 2 && selectedDomainId && (
+        <div className="dtw-section">
+          <div className="dtw-section-label">Content</div>
+
+          {/* Loading state */}
+          {contentPhase === "loading" && (
+            <div className="dtw-muted-text">Checking content...</div>
+          )}
+
+          {/* Content exists — summary */}
+          {contentPhase === "has-content" && (
+            <div className="dtw-content-summary">
+              <div className="dtw-content-summary-icon"><CheckCircle2 size={20} /></div>
+              <div className="dtw-content-summary-text">
+                <div className="dtw-content-summary-title">Content Ready</div>
+                <div className="dtw-content-summary-detail">
+                  {contentCount} teaching point{contentCount !== 1 ? "s" : ""} extracted
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* No content — upload dropzone */}
+          {(contentPhase === "no-content" || contentPhase === "error") && (
+            <>
+              <div
+                className={`dtw-dropzone ${uploadDragOver ? "dtw-dropzone--active" : ""}`}
+                onDragOver={(e) => { e.preventDefault(); setUploadDragOver(true); }}
+                onDragLeave={() => setUploadDragOver(false)}
+                onDrop={handleUploadDrop}
+                onClick={() => uploadFileRef.current?.click()}
+              >
+                <div className="dtw-dropzone-icon">
+                  {uploadFile ? <FileText size={32} /> : <Upload size={32} />}
+                </div>
+                {uploadFile ? (
+                  <div className="dtw-dropzone-filename">{uploadFile.name}</div>
+                ) : (
+                  <>
+                    <div className="dtw-dropzone-filename">
+                      Drop a file here or click to browse
+                    </div>
+                    <div className="dtw-dropzone-hint">
+                      PDF, TXT, MD, or JSON
+                    </div>
+                  </>
+                )}
+              </div>
+              <input
+                ref={uploadFileRef}
+                type="file"
+                className="dtw-file-input-hidden"
+                accept=".pdf,.txt,.md,.markdown,.json"
+                onChange={(e) => {
+                  if (e.target.files?.[0]) handleUploadFile(e.target.files[0]);
+                }}
+              />
+              {uploadError && (
+                <div className="dtw-upload-error">{uploadError}</div>
+              )}
+              <div className="dtw-upload-actions">
+                <button className="dtw-btn-skip" onClick={handleNext}>
+                  Skip for now
+                </button>
+                <button
+                  className="dtw-btn-upload"
+                  disabled={!uploadFile}
+                  onClick={handleStartUpload}
+                >
+                  Upload &amp; Extract
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Uploading */}
+          {contentPhase === "uploading" && (
+            <div>
+              <div className="dtw-extract-status">
+                <div className="dtw-pulse-dot" />
+                <div className="dtw-extract-label">Uploading...</div>
+              </div>
+              <div className="dtw-progress-track">
+                <div className="dtw-progress-fill dtw-progress-fill--indeterminate" />
+              </div>
+            </div>
+          )}
+
+          {/* Extracting */}
+          {contentPhase === "extracting" && (
+            <div>
+              <div className="dtw-extract-status">
+                <div className="dtw-pulse-dot" />
+                <div className="dtw-extract-label">Extracting teaching points...</div>
+                <div className="dtw-extract-elapsed">{extractElapsed}s</div>
+              </div>
+              <div className="dtw-progress-track">
+                <div
+                  className="dtw-progress-fill"
+                  style={{
+                    width: extractProgress.total > 0
+                      ? `${Math.round((extractProgress.current / extractProgress.total) * 100)}%`
+                      : undefined,
+                  }}
+                />
+              </div>
+              <div className="dtw-progress-labels">
+                <span>{extractProgress.extracted} extracted</span>
+                {extractProgress.total > 0 && (
+                  <span>Chunk {extractProgress.current}/{extractProgress.total}</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Done */}
+          {contentPhase === "done" && (
+            <div className="dtw-content-summary">
+              <div className="dtw-content-summary-icon"><CheckCircle2 size={20} /></div>
+              <div className="dtw-content-summary-text">
+                <div className="dtw-content-summary-title">Extraction Complete</div>
+                <div className="dtw-content-summary-detail">
+                  {contentCount} teaching point{contentCount !== 1 ? "s" : ""} extracted from {uploadFile?.name}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step navigation */}
+          {contentPhase !== "uploading" && contentPhase !== "extracting" && contentPhase !== "loading" && (
+            <div className="dtw-nav-between" style={{ marginTop: 20 }}>
+              <button onClick={handlePrev} className="dtw-btn-back">
+                <ChevronLeft size={16} /> Back
+              </button>
+              <button
+                onClick={handleNext}
+                className={`dtw-btn-next ${contentPhase === "has-content" || contentPhase === "done" ? "dtw-btn-next-enabled" : "dtw-btn-next-enabled"}`}
+              >
+                Next <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* STEP 3: Readiness Checks                        */}
+      {/* ═══════════════════════════════════════════════ */}
+      {currentStep === 3 && selectedDomainId && (
         <div className={`dtw-section ${level === "ready" ? "dtw-section-ready" : ""}`}>
           {/* Status badge */}
           <div className="dtw-readiness-header">
@@ -1141,16 +1462,16 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* STEP 3: Preview First Prompt                    */}
+      {/* STEP 4: Preview First Prompt                    */}
       {/* ═══════════════════════════════════════════════ */}
-      {currentStep === 3 && selectedDomainId && (
+      {currentStep === 4 && selectedDomainId && (
         <div className="dtw-section">
           <div className="dtw-section-label">First Prompt Preview</div>
           <PromptPreviewContent
             domainId={selectedDomainId}
             domainName={selectedDomain?.name}
             callerId={selectedCallerId || undefined}
-            open={currentStep === 3}
+            open={currentStep === 4}
           />
 
           {/* Step navigation */}
@@ -1169,9 +1490,9 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* STEP 4: Launch                                  */}
+      {/* STEP 5: Launch                                  */}
       {/* ═══════════════════════════════════════════════ */}
-      {currentStep === 4 && (
+      {currentStep === 5 && (
         <div className="dtw-section">
           <WizardSummary
             title="Ready to Go!"
