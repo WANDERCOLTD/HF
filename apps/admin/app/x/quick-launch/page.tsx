@@ -798,7 +798,7 @@ export default function QuickLaunchPage() {
   // ── Render ─────────────────────────────────────────
 
   return (
-    <div className="ql-page" style={{ maxWidth: 720 }}>
+    <div className="ql-page">
       {/* ── Header ── */}
       <div className="ql-hero">
         <div className="ql-hero-icon">
