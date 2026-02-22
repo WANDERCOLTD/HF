@@ -600,17 +600,8 @@ registerLoader("curriculumAssertions", async (callerId) => {
     .map((sd) => sd.subject.teachingDepth)
     .find((d) => d !== null) ?? null;
 
-  if (sourceIds.length === 0) {
-    // Fallback: try to find any active content sources directly (not linked via subjects)
-    // This covers the case where content sources were created but not yet linked to a subject
-    const domainSources = await prisma.contentSource.findMany({
-      where: { isActive: true },
-      select: { id: true },
-      take: 10,
-    });
-    if (domainSources.length === 0) return [];
-    sourceIds.push(...domainSources.map((s) => s.id));
-  }
+  // No sources linked to this domain → no teaching content (don't leak other domains' data)
+  if (sourceIds.length === 0) return [];
 
   // Fetch assertions from these sources
   // Order by depth (tree traversal) then orderIndex, with exam relevance as tiebreaker

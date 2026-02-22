@@ -4,6 +4,7 @@ import { retrieveKnowledgeForPrompt } from "@/lib/knowledge/retriever";
 import { verifyVapiRequest } from "@/lib/vapi/auth";
 import { embedText } from "@/lib/embeddings";
 import { getKnowledgeRetrievalSettings } from "@/lib/system-settings";
+import { getSourceIdsForDomain } from "@/lib/knowledge/domain-sources";
 import {
   searchAssertionsHybrid,
   searchAssertions,
@@ -65,15 +66,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ results: [] });
     }
 
-    // Find caller for personalized retrieval
+    // Find caller for personalized retrieval + domain scoping
     let callerId: string | null = null;
+    let domainId: string | null = null;
     if (customerPhone) {
       const caller = await prisma.caller.findFirst({
         where: { phone: customerPhone.replace(/\s+/g, "") },
         select: { id: true, domainId: true },
       });
       callerId = caller?.id || null;
+      domainId = caller?.domainId || null;
     }
+
+    // Resolve domain's content source IDs for scoped retrieval
+    const sourceIds = domainId ? await getSourceIdsForDomain(domainId) : undefined;
 
     // Embed query text for vector search (runs in parallel with DB lookups below)
     let queryEmbedding: number[] | undefined;
@@ -83,9 +89,10 @@ export async function POST(request: NextRequest) {
       console.warn("[vapi/knowledge] Embedding failed, falling back to keyword search:", err);
     }
 
-    // Run retrieval strategies in parallel
+    // Run retrieval strategies in parallel — scoped to caller's domain
     const [knowledgeResults, assertionResults, memoryResults, questionResults, vocabularyResults] = await Promise.all([
       // 1. Knowledge chunks (vector + keyword hybrid)
+      // NOTE: KnowledgeChunk has no domain FK — stays unscoped until schema migration
       retrieveKnowledgeForPrompt({
         queryText,
         queryEmbedding,
@@ -94,19 +101,19 @@ export async function POST(request: NextRequest) {
         minRelevance: ks.minRelevance,
       }),
 
-      // 2. Teaching assertions (vector + tag/keyword hybrid)
+      // 2. Teaching assertions (vector + tag/keyword hybrid) — domain-scoped
       queryEmbedding
-        ? searchAssertionsHybrid(queryText, queryEmbedding, ks.assertionLimit, ks.minRelevance)
-        : searchAssertions(queryText, ks.assertionLimit),
+        ? searchAssertionsHybrid(queryText, queryEmbedding, ks.assertionLimit, ks.minRelevance, sourceIds)
+        : searchAssertions(queryText, ks.assertionLimit, sourceIds),
 
-      // 3. Caller memories relevant to current topic
+      // 3. Caller memories relevant to current topic (already caller-scoped)
       callerId ? searchCallerMemories(callerId, queryText, ks.memoryLimit) : Promise.resolve([]),
 
-      // 4. Questions (for practice/assessment)
-      searchQuestions(queryText, 5),
+      // 4. Questions (for practice/assessment) — domain-scoped
+      searchQuestions(queryText, 5, sourceIds),
 
-      // 5. Vocabulary (for term definitions)
-      searchVocabulary(queryText, 5),
+      // 5. Vocabulary (for term definitions) — domain-scoped
+      searchVocabulary(queryText, 5, sourceIds),
     ]);
 
     // Merge and rank results

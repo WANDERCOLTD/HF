@@ -22,16 +22,21 @@ export type AssertionResult = {
 
 /**
  * Hybrid assertion search: runs vector + keyword in parallel, merges by ID, averages scores.
+ * @param sourceIds — when provided, only return assertions from these content sources (domain scoping)
  */
 export async function searchAssertionsHybrid(
   queryText: string,
   queryEmbedding: number[],
   limit: number,
   minRelevance = 0.3,
+  sourceIds?: string[],
 ): Promise<AssertionResult[]> {
+  // Empty sourceIds = domain has no content sources → no results
+  if (sourceIds && sourceIds.length === 0) return [];
+
   const [vectorResults, keywordResults] = await Promise.all([
-    searchAssertionsByVector(queryEmbedding, limit * 2, minRelevance),
-    searchAssertions(queryText, limit * 2),
+    searchAssertionsByVector(queryEmbedding, limit * 2, minRelevance, sourceIds),
+    searchAssertions(queryText, limit * 2, sourceIds),
   ]);
 
   // Merge by assertion text (dedup), average scores
@@ -58,12 +63,16 @@ export async function searchAssertionsHybrid(
 
 /**
  * Search ContentAssertions by vector similarity (pgvector cosine distance).
+ * @param sourceIds — when provided, only return assertions from these content sources (domain scoping)
  */
 export async function searchAssertionsByVector(
   queryEmbedding: number[],
   limit: number,
   minRelevance = 0.3,
+  sourceIds?: string[],
 ): Promise<AssertionResult[]> {
+  if (sourceIds && sourceIds.length === 0) return [];
+
   const vectorLiteral = toVectorLiteral(queryEmbedding);
 
   const rows = await prisma.$queryRaw<Array<{
@@ -76,17 +85,30 @@ export async function searchAssertionsByVector(
     sourceName: string;
     similarity: number;
   }>>(
-    Prisma.sql`
-      SELECT a.assertion, a.category, a.chapter, a.tags,
-             a."trustLevel"::text, a."examRelevance",
-             s.name as "sourceName",
-             1 - (a.embedding <=> ${vectorLiteral}::vector) as similarity
-      FROM "ContentAssertion" a
-      JOIN "ContentSource" s ON a."sourceId" = s.id
-      WHERE a.embedding IS NOT NULL
-      ORDER BY a.embedding <=> ${vectorLiteral}::vector
-      LIMIT ${limit}
-    `
+    sourceIds
+      ? Prisma.sql`
+          SELECT a.assertion, a.category, a.chapter, a.tags,
+                 a."trustLevel"::text, a."examRelevance",
+                 s.name as "sourceName",
+                 1 - (a.embedding <=> ${vectorLiteral}::vector) as similarity
+          FROM "ContentAssertion" a
+          JOIN "ContentSource" s ON a."sourceId" = s.id
+          WHERE a.embedding IS NOT NULL
+            AND a."sourceId" = ANY(${sourceIds}::text[])
+          ORDER BY a.embedding <=> ${vectorLiteral}::vector
+          LIMIT ${limit}
+        `
+      : Prisma.sql`
+          SELECT a.assertion, a.category, a.chapter, a.tags,
+                 a."trustLevel"::text, a."examRelevance",
+                 s.name as "sourceName",
+                 1 - (a.embedding <=> ${vectorLiteral}::vector) as similarity
+          FROM "ContentAssertion" a
+          JOIN "ContentSource" s ON a."sourceId" = s.id
+          WHERE a.embedding IS NOT NULL
+          ORDER BY a.embedding <=> ${vectorLiteral}::vector
+          LIMIT ${limit}
+        `
   );
 
   return rows
@@ -105,11 +127,15 @@ export async function searchAssertionsByVector(
 
 /**
  * Search ContentAssertions by tag and keyword matching (fallback).
+ * @param sourceIds — when provided, only return assertions from these content sources (domain scoping)
  */
 export async function searchAssertions(
   queryText: string,
   limit: number,
+  sourceIds?: string[],
 ): Promise<AssertionResult[]> {
+  if (sourceIds && sourceIds.length === 0) return [];
+
   // Extract keywords for tag matching
   const words = queryText
     .toLowerCase()
@@ -119,9 +145,10 @@ export async function searchAssertions(
 
   if (words.length === 0) return [];
 
-  // Search by content and tags
+  // Search by content and tags, scoped to domain's sources when available
   const assertions = await prisma.contentAssertion.findMany({
     where: {
+      ...(sourceIds ? { sourceId: { in: sourceIds } } : {}),
       OR: [
         // Match assertion text
         ...words.slice(0, 5).map((w) => ({
@@ -250,11 +277,15 @@ export type QuestionResult = {
 /**
  * Search ContentQuestions by keyword matching.
  * Used by VAPI knowledge endpoint when learner asks for practice/assessment.
+ * @param sourceIds — when provided, only return questions from these content sources (domain scoping)
  */
 export async function searchQuestions(
   queryText: string,
   limit: number,
+  sourceIds?: string[],
 ): Promise<QuestionResult[]> {
+  if (sourceIds && sourceIds.length === 0) return [];
+
   const words = queryText
     .toLowerCase()
     .replace(/[^\w\s]/g, " ")
@@ -265,6 +296,7 @@ export async function searchQuestions(
 
   const questions = await prisma.contentQuestion.findMany({
     where: {
+      ...(sourceIds ? { sourceId: { in: sourceIds } } : {}),
       OR: [
         ...words.slice(0, 5).map((w) => ({
           questionText: { contains: w, mode: "insensitive" as const },
@@ -319,11 +351,15 @@ export type VocabularyResult = {
 /**
  * Search ContentVocabulary by keyword matching.
  * Used by VAPI knowledge endpoint when learner asks "what does X mean?"
+ * @param sourceIds — when provided, only return vocabulary from these content sources (domain scoping)
  */
 export async function searchVocabulary(
   queryText: string,
   limit: number,
+  sourceIds?: string[],
 ): Promise<VocabularyResult[]> {
+  if (sourceIds && sourceIds.length === 0) return [];
+
   const words = queryText
     .toLowerCase()
     .replace(/[^\w\s]/g, " ")
@@ -334,6 +370,7 @@ export async function searchVocabulary(
 
   const vocabulary = await prisma.contentVocabulary.findMany({
     where: {
+      ...(sourceIds ? { sourceId: { in: sourceIds } } : {}),
       OR: [
         ...words.slice(0, 5).map((w) => ({
           term: { contains: w, mode: "insensitive" as const },

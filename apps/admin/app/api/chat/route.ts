@@ -14,6 +14,7 @@ import { CHAT_TOOLS, executeToolCall, buildContentCatalog } from "./tools";
 import { embedText } from "@/lib/embeddings";
 import { retrieveKnowledgeForPrompt } from "@/lib/knowledge/retriever";
 import { getKnowledgeRetrievalSettings } from "@/lib/system-settings";
+import { getSourceIdsForDomain } from "@/lib/knowledge/domain-sources";
 import {
   searchAssertionsHybrid,
   searchAssertions,
@@ -446,6 +447,19 @@ async function retrieveSimKnowledge(
 
     if (!queryText.trim()) return null;
 
+    // Resolve domain's content source IDs for scoped retrieval
+    let sourceIds: string[] | undefined;
+    if (callerId) {
+      const { prisma } = await import("@/lib/prisma");
+      const caller = await prisma.caller.findUnique({
+        where: { id: callerId },
+        select: { domainId: true },
+      });
+      if (caller?.domainId) {
+        sourceIds = await getSourceIdsForDomain(caller.domainId);
+      }
+    }
+
     // Embed query text for vector search
     let queryEmbedding: number[] | undefined;
     try {
@@ -454,8 +468,9 @@ async function retrieveSimKnowledge(
       // Fall back to keyword-only — don't block the sim call
     }
 
-    // Run retrieval strategies in parallel
+    // Run retrieval strategies in parallel — scoped to caller's domain
     const [knowledgeResults, assertionResults, memoryResults] = await Promise.all([
+      // NOTE: KnowledgeChunk has no domain FK — stays unscoped until schema migration
       retrieveKnowledgeForPrompt({
         queryText,
         queryEmbedding,
@@ -464,8 +479,8 @@ async function retrieveSimKnowledge(
         minRelevance: ks.minRelevance,
       }),
       queryEmbedding
-        ? searchAssertionsHybrid(queryText, queryEmbedding, ks.assertionLimit, ks.minRelevance)
-        : searchAssertions(queryText, ks.assertionLimit),
+        ? searchAssertionsHybrid(queryText, queryEmbedding, ks.assertionLimit, ks.minRelevance, sourceIds)
+        : searchAssertions(queryText, ks.assertionLimit, sourceIds),
       callerId ? searchCallerMemories(callerId, queryText, ks.memoryLimit) : Promise.resolve([]),
     ]);
 
