@@ -4987,7 +4987,7 @@ Update domain onboarding configuration (welcome message, identity spec, flow pha
 
 ### `POST` /api/domains/:domainId/preview-prompt
 
-Preview the first-call composed prompt for a domain without persisting it. Uses an existing caller in the domain or creates a minimal preview caller if none exist.
+Preview the first-call composed prompt for a domain without persisting it. Optionally accepts a callerId in the request body; otherwise uses an existing caller in the domain or creates a minimal preview caller.
 
 **Auth**: Session
 

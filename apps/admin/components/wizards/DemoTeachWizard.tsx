@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * DemoTeachWizard — shared 4-step wizard for Demonstrate and Teach flows.
+ * DemoTeachWizard — shared 5-step wizard for Demonstrate and Teach flows.
  *
  * Config-driven: the page wrapper passes a DemoTeachConfig that controls
  * flowId, labels, API filters, and terminology. All state, effects, and
  * rendering live here — the pages are thin wrappers.
  *
- * Steps: Select Institution & Caller → Set Your Goal → Readiness Checks → Launch
+ * Steps: Select Institution & Caller → Set Your Goal → Readiness Checks → Preview First Prompt → Launch
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -34,6 +34,7 @@ import {
   PlayCircle,
 } from "lucide-react";
 import { OnboardingTabContent } from "@/app/x/domains/components/OnboardingTab";
+import { PromptPreviewContent } from "@/app/x/domains/components/PromptPreviewModal";
 import type { DomainDetail } from "@/app/x/domains/components/types";
 import { AgentTuningPanel, type AgentTuningPanelOutput } from "@/components/shared/AgentTuningPanel";
 import { WizardSummary } from "@/components/shared/WizardSummary";
@@ -1123,9 +1124,37 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* STEP 3: Launch                                  */}
+      {/* STEP 3: Preview First Prompt                    */}
       {/* ═══════════════════════════════════════════════ */}
-      {currentStep === 3 && (
+      {currentStep === 3 && selectedDomainId && (
+        <div className="dtw-section">
+          <div className="dtw-section-label">First Prompt Preview</div>
+          <PromptPreviewContent
+            domainId={selectedDomainId}
+            domainName={selectedDomain?.name}
+            callerId={selectedCallerId || undefined}
+            open={currentStep === 3}
+          />
+
+          {/* Step navigation */}
+          <div className="dtw-nav-between" style={{ marginTop: 24 }}>
+            <button onClick={handlePrev} className="dtw-btn-back">
+              <ChevronLeft size={16} /> Back
+            </button>
+            <button
+              onClick={handleNext}
+              className="dtw-btn-next dtw-btn-next-enabled"
+            >
+              Next <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* STEP 4: Launch                                  */}
+      {/* ═══════════════════════════════════════════════ */}
+      {currentStep === 4 && (
         <div className="dtw-section">
           <WizardSummary
             title="Ready to Go!"

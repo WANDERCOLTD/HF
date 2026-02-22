@@ -10,6 +10,224 @@ interface PromptPreviewData {
   createdPreviewCaller: boolean;
 }
 
+// ── Reusable inline content (used by both modal and wizard step) ──
+
+interface PromptPreviewContentProps {
+  domainId: string;
+  domainName?: string;
+  callerId?: string;
+  open: boolean;
+}
+
+export function PromptPreviewContent({
+  domainId,
+  domainName,
+  callerId,
+  open,
+}: PromptPreviewContentProps) {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<PromptPreviewData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<"summary" | "voice" | "json">("summary");
+
+  useEffect(() => {
+    if (!open) return;
+
+    setLoading(true);
+    setError(null);
+    setData(null);
+    setTab("summary");
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/domains/${domainId}/preview-prompt`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(callerId ? { callerId } : {}),
+        });
+        const json = await res.json();
+        if (cancelled) return;
+        if (!json.ok) throw new Error(json.error || "Failed to generate preview");
+        setData(json);
+      } catch (e: any) {
+        if (!cancelled) {
+          setError(e.message || "Failed to generate preview");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, domainId, callerId]);
+
+  if (!open) return null;
+
+  return (
+    <>
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 0, marginBottom: 16 }}>
+        {(["summary", "voice", "json"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            style={{
+              flex: 1,
+              padding: "8px 16px",
+              background: "none",
+              border: "none",
+              borderBottom: tab === t
+                ? "2px solid var(--accent-primary)"
+                : "2px solid transparent",
+              color: tab === t
+                ? "var(--accent-primary)"
+                : "var(--text-muted)",
+              fontWeight: tab === t ? 600 : 400,
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            {t === "summary" ? "Full Summary" : t === "voice" ? "Voice Prompt" : "Raw JSON"}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
+          Composing first-call prompt...
+        </div>
+      ) : error ? (
+        <div style={{
+          padding: 16,
+          background: "var(--status-error-bg)",
+          color: "var(--status-error-text)",
+          borderRadius: 8,
+          fontSize: 14,
+        }}>
+          {error}
+        </div>
+      ) : data ? (
+        <>
+          {/* Metadata bar */}
+          <div style={{
+            marginBottom: 16,
+            padding: 12,
+            background: "var(--surface-secondary)",
+            borderRadius: 8,
+            fontSize: 12,
+            color: "var(--text-muted)",
+            lineHeight: 1.6,
+          }}>
+            <strong style={{ color: "var(--text-primary)" }}>
+              {data.metadata.sectionsActivated.length}
+            </strong>{" "}sections activated,{" "}
+            <strong style={{ color: "var(--text-primary)" }}>
+              {data.metadata.sectionsSkipped.length}
+            </strong>{" "}skipped
+            {data.metadata.identitySpec && (
+              <> &middot; Identity: <strong style={{ color: "var(--text-primary)" }}>{data.metadata.identitySpec}</strong></>
+            )}
+            {data.metadata.contentSpec && (
+              <> &middot; Content: <strong style={{ color: "var(--text-primary)" }}>{data.metadata.contentSpec}</strong></>
+            )}
+            {data.metadata.playbooksUsed.length > 0 && (
+              <> &middot; Playbooks: {data.metadata.playbooksUsed.join(", ")}</>
+            )}
+            <> &middot; {data.metadata.loadTimeMs}ms load, {data.metadata.transformTimeMs}ms transform</>
+            {data.createdPreviewCaller && (
+              <div style={{ marginTop: 4, fontStyle: "italic" }}>
+                Note: Created a preview caller (no existing callers in this domain)
+              </div>
+            )}
+          </div>
+
+          {/* Tab content */}
+          {tab === "summary" && (
+            <pre style={{
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              fontFamily: "inherit",
+              fontSize: 13,
+              lineHeight: 1.6,
+              margin: 0,
+              color: "var(--text-primary)",
+            }}>
+              {data.promptSummary}
+            </pre>
+          )}
+          {tab === "voice" && (
+            <pre style={{
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              fontFamily: "var(--font-mono, monospace)",
+              fontSize: 12,
+              lineHeight: 1.5,
+              margin: 0,
+              padding: 16,
+              background: "var(--surface-secondary)",
+              borderRadius: 8,
+              color: "var(--text-primary)",
+            }}>
+              {data.voicePrompt}
+            </pre>
+          )}
+          {tab === "json" && (
+            <pre style={{
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              fontFamily: "var(--font-mono, monospace)",
+              fontSize: 11,
+              lineHeight: 1.4,
+              margin: 0,
+              padding: 16,
+              background: "var(--surface-secondary)",
+              borderRadius: 8,
+              color: "var(--text-primary)",
+            }}>
+              {JSON.stringify(data.llmPrompt, null, 2)}
+            </pre>
+          )}
+
+          {/* Copy button */}
+          <div style={{ marginTop: 16 }}>
+            <button
+              onClick={() => {
+                const text =
+                  tab === "json"
+                    ? JSON.stringify(data.llmPrompt, null, 2)
+                    : tab === "voice"
+                      ? data.voicePrompt || ""
+                      : data.promptSummary || "";
+                navigator.clipboard.writeText(text).catch(() => {});
+              }}
+              style={{
+                padding: "8px 16px",
+                fontSize: 13,
+                background: "var(--surface-secondary)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--border-strong)",
+                borderRadius: 6,
+                cursor: "pointer",
+              }}
+            >
+              Copy to Clipboard
+            </button>
+          </div>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+// ── Modal wrapper (backwards-compatible) ──
+
 interface PromptPreviewModalProps {
   domainId: string;
   domainName?: string;
@@ -23,49 +241,6 @@ export function PromptPreviewModal({
   open,
   onClose,
 }: PromptPreviewModalProps) {
-  const [promptPreviewLoading, setPromptPreviewLoading] = useState(false);
-  const [promptPreviewData, setPromptPreviewData] = useState<PromptPreviewData | null>(null);
-  const [promptPreviewError, setPromptPreviewError] = useState<string | null>(null);
-  const [promptPreviewTab, setPromptPreviewTab] = useState<"summary" | "voice" | "json">("summary");
-
-  useEffect(() => {
-    if (!open) return;
-
-    // Reset state on open
-    setPromptPreviewLoading(true);
-    setPromptPreviewError(null);
-    setPromptPreviewData(null);
-    setPromptPreviewTab("summary");
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const res = await fetch(`/api/domains/${domainId}/preview-prompt`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        });
-        const data = await res.json();
-        if (cancelled) return;
-        if (!data.ok) throw new Error(data.error || "Failed to generate preview");
-        setPromptPreviewData(data);
-      } catch (e: any) {
-        if (!cancelled) {
-          setPromptPreviewError(e.message || "Failed to generate preview");
-        }
-      } finally {
-        if (!cancelled) {
-          setPromptPreviewLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, domainId]);
-
   if (!open) return null;
 
   return (
@@ -113,133 +288,15 @@ export function PromptPreviewModal({
               &times;
             </button>
           </div>
-          {/* Tabs */}
-          <div style={{ display: "flex", gap: 0, marginTop: 12 }}>
-            {(["summary", "voice", "json"] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setPromptPreviewTab(tab)}
-                style={{
-                  flex: 1,
-                  padding: "8px 16px",
-                  background: "none",
-                  border: "none",
-                  borderBottom: promptPreviewTab === tab
-                    ? "2px solid var(--accent-primary)"
-                    : "2px solid transparent",
-                  color: promptPreviewTab === tab
-                    ? "var(--accent-primary)"
-                    : "var(--text-muted)",
-                  fontWeight: promptPreviewTab === tab ? 600 : 400,
-                  fontSize: 13,
-                  cursor: "pointer",
-                }}
-              >
-                {tab === "summary" ? "Full Summary" : tab === "voice" ? "Voice Prompt" : "Raw JSON"}
-              </button>
-            ))}
-          </div>
         </div>
 
-        {/* Modal Content */}
+        {/* Content */}
         <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
-          {promptPreviewLoading ? (
-            <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
-              Composing first-call prompt...
-            </div>
-          ) : promptPreviewError ? (
-            <div style={{
-              padding: 16,
-              background: "var(--status-error-bg)",
-              color: "var(--status-error-text)",
-              borderRadius: 8,
-              fontSize: 14,
-            }}>
-              {promptPreviewError}
-            </div>
-          ) : promptPreviewData ? (
-            <>
-              {/* Metadata bar */}
-              <div style={{
-                marginBottom: 16,
-                padding: 12,
-                background: "var(--surface-secondary)",
-                borderRadius: 8,
-                fontSize: 12,
-                color: "var(--text-muted)",
-                lineHeight: 1.6,
-              }}>
-                <strong style={{ color: "var(--text-primary)" }}>
-                  {promptPreviewData.metadata.sectionsActivated.length}
-                </strong>{" "}sections activated,{" "}
-                <strong style={{ color: "var(--text-primary)" }}>
-                  {promptPreviewData.metadata.sectionsSkipped.length}
-                </strong>{" "}skipped
-                {promptPreviewData.metadata.identitySpec && (
-                  <> &middot; Identity: <strong style={{ color: "var(--text-primary)" }}>{promptPreviewData.metadata.identitySpec}</strong></>
-                )}
-                {promptPreviewData.metadata.contentSpec && (
-                  <> &middot; Content: <strong style={{ color: "var(--text-primary)" }}>{promptPreviewData.metadata.contentSpec}</strong></>
-                )}
-                {promptPreviewData.metadata.playbooksUsed.length > 0 && (
-                  <> &middot; Playbooks: {promptPreviewData.metadata.playbooksUsed.join(", ")}</>
-                )}
-                <> &middot; {promptPreviewData.metadata.loadTimeMs}ms load, {promptPreviewData.metadata.transformTimeMs}ms transform</>
-                {promptPreviewData.createdPreviewCaller && (
-                  <div style={{ marginTop: 4, fontStyle: "italic" }}>
-                    Note: Created a preview caller (no existing callers in this domain)
-                  </div>
-                )}
-              </div>
-
-              {/* Tab content */}
-              {promptPreviewTab === "summary" && (
-                <pre style={{
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  fontFamily: "inherit",
-                  fontSize: 13,
-                  lineHeight: 1.6,
-                  margin: 0,
-                  color: "var(--text-primary)",
-                }}>
-                  {promptPreviewData.promptSummary}
-                </pre>
-              )}
-              {promptPreviewTab === "voice" && (
-                <pre style={{
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  fontFamily: "var(--font-mono, monospace)",
-                  fontSize: 12,
-                  lineHeight: 1.5,
-                  margin: 0,
-                  padding: 16,
-                  background: "var(--surface-secondary)",
-                  borderRadius: 8,
-                  color: "var(--text-primary)",
-                }}>
-                  {promptPreviewData.voicePrompt}
-                </pre>
-              )}
-              {promptPreviewTab === "json" && (
-                <pre style={{
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  fontFamily: "var(--font-mono, monospace)",
-                  fontSize: 11,
-                  lineHeight: 1.4,
-                  margin: 0,
-                  padding: 16,
-                  background: "var(--surface-secondary)",
-                  borderRadius: 8,
-                  color: "var(--text-primary)",
-                }}>
-                  {JSON.stringify(promptPreviewData.llmPrompt, null, 2)}
-                </pre>
-              )}
-            </>
-          ) : null}
+          <PromptPreviewContent
+            domainId={domainId}
+            domainName={domainName}
+            open={open}
+          />
         </div>
 
         {/* Modal Footer */}
@@ -247,32 +304,8 @@ export function PromptPreviewModal({
           padding: "12px 20px",
           borderTop: "1px solid var(--border-default)",
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: "flex-end",
         }}>
-          <button
-            onClick={() => {
-              const text =
-                promptPreviewTab === "json"
-                  ? JSON.stringify(promptPreviewData?.llmPrompt, null, 2)
-                  : promptPreviewTab === "voice"
-                    ? promptPreviewData?.voicePrompt || ""
-                    : promptPreviewData?.promptSummary || "";
-              navigator.clipboard.writeText(text).catch(() => {});
-            }}
-            disabled={!promptPreviewData}
-            style={{
-              padding: "8px 16px",
-              fontSize: 13,
-              background: "var(--surface-secondary)",
-              color: "var(--text-primary)",
-              border: "1px solid var(--border-strong)",
-              borderRadius: 6,
-              cursor: promptPreviewData ? "pointer" : "not-allowed",
-              opacity: promptPreviewData ? 1 : 0.5,
-            }}
-          >
-            Copy to Clipboard
-          </button>
           <button
             onClick={onClose}
             style={{

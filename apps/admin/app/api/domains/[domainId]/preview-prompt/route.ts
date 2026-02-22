@@ -11,8 +11,9 @@ export const runtime = "nodejs";
  * @visibility internal
  * @auth session
  * @tags domains, composition, prompts
- * @description Preview the first-call composed prompt for a domain without persisting it. Uses an existing caller in the domain or creates a minimal preview caller if none exist.
+ * @description Preview the first-call composed prompt for a domain without persisting it. Optionally accepts a callerId in the request body; otherwise uses an existing caller in the domain or creates a minimal preview caller.
  * @pathParam domainId string - The domain ID to preview the prompt for
+ * @body { callerId?: string } Optional caller ID to use for composition
  * @response 200 { ok: true, promptSummary, voicePrompt, llmPrompt, metadata }
  * @response 404 { ok: false, error: "Domain not found" }
  * @response 500 { ok: false, error: string }
@@ -40,27 +41,44 @@ export async function POST(
       );
     }
 
-    // Find existing caller in domain, or create a minimal preview caller
+    // Resolve caller: use explicit callerId from body, find existing, or create preview
+    const body = await request.json().catch(() => ({}));
+    const requestedCallerId = body.callerId;
+
     let callerId: string;
     let createdPreviewCaller = false;
 
-    const existingCaller = await prisma.caller.findFirst({
-      where: { domainId },
-      orderBy: { createdAt: "desc" },
-      select: { id: true },
-    });
-
-    if (existingCaller) {
-      callerId = existingCaller.id;
-    } else {
-      const previewCaller = await prisma.caller.create({
-        data: {
-          name: `[Preview] ${domain.name}`,
-          domainId,
-        },
+    if (requestedCallerId) {
+      const caller = await prisma.caller.findFirst({
+        where: { id: requestedCallerId, domainId },
+        select: { id: true },
       });
-      callerId = previewCaller.id;
-      createdPreviewCaller = true;
+      if (!caller) {
+        return NextResponse.json(
+          { ok: false, error: "Caller not found in this domain" },
+          { status: 404 }
+        );
+      }
+      callerId = requestedCallerId;
+    } else {
+      const existingCaller = await prisma.caller.findFirst({
+        where: { domainId },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+
+      if (existingCaller) {
+        callerId = existingCaller.id;
+      } else {
+        const previewCaller = await prisma.caller.create({
+          data: {
+            name: `[Preview] ${domain.name}`,
+            domainId,
+          },
+        });
+        callerId = previewCaller.id;
+        createdPreviewCaller = true;
+      }
     }
 
     // Load COMPOSE spec config
