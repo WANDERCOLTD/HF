@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { WhatsAppHeader } from './WhatsAppHeader';
 import { MessageBubble } from './MessageBubble';
 import { TypingIndicator } from './TypingIndicator';
@@ -94,6 +95,7 @@ export function SimChat({
   onNewCall,
   onBack,
 }: SimChatProps) {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -568,7 +570,7 @@ export function SimChat({
           setShowMediaLibrary(prev => !prev);
           setShowContentPicker(false);
         }}
-        onAvatarClick={() => window.open(`/x/callers/${callerId}`, '_blank')}
+        onAvatarClick={() => router.push(`/x/callers/${callerId}`)}
         mediaLibraryActive={showMediaLibrary}
         callActive={messages.length > 0 && !callEnded}
         avatarColor={hashColor(callerId)}

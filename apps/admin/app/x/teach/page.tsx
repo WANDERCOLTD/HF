@@ -6,7 +6,7 @@ import type { StepDefinition } from "@/contexts/StepFlowContext";
 const TEACH_STEPS: StepDefinition[] = [
   { id: "domain", label: "Select Institution", activeLabel: "Selecting Institution" },
   { id: "goal", label: "Set Your Goal", activeLabel: "Setting Your Goal" },
-  { id: "content", label: "Upload Content", activeLabel: "Uploading Content" },
+  { id: "content", label: "Add Content", activeLabel: "Adding Content" },
   { id: "readiness", label: "Readiness Checks", activeLabel: "Checking Readiness" },
   { id: "preview", label: "Preview First Prompt", activeLabel: "Previewing First Prompt" },
   { id: "launch", label: "Launch", activeLabel: "Ready to Teach" },

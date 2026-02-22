@@ -206,3 +206,22 @@
 /* Quick actions footer */
 .dtw-quick-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .dtw-btn-quick { padding: 8px 16px; border-radius: 8px; background: transparent; border: 1px solid var(--border-default); font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-secondary); }
+
+/* ── Content mode toggle (segmented control) ── */
+.dtw-content-mode-toggle { display: flex; gap: 0; margin-bottom: 16px; border-radius: 10px; border: 1px solid var(--border-default); overflow: hidden; background: var(--surface-secondary); }
+.dtw-content-mode-tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--text-muted); background: transparent; border: none; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+.dtw-content-mode-tab:hover { color: var(--text-secondary); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); }
+.dtw-content-mode-tab--active { color: var(--accent-primary); background: var(--surface-primary); box-shadow: 0 1px 3px color-mix(in srgb, var(--text-primary) 8%, transparent); }
+
+/* ── Source library picker ── */
+.dtw-source-library { margin-bottom: 12px; }
+.dtw-source-list { display: flex; flex-direction: column; gap: 6px; }
+
+/* Source card (selectable row) */
+.dtw-source-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border-default); background: var(--surface-secondary); cursor: pointer; transition: all 0.15s; text-align: left; font-family: inherit; width: 100%; }
+.dtw-source-card:hover { border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); }
+.dtw-source-card--selected { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 8%, transparent); box-shadow: 0 0 0 1px var(--accent-primary); }
+.dtw-source-card--linked { opacity: 0.7; }
+.dtw-source-card-name { font-size: 14px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dtw-source-card-linked-badge { font-size: 10px; font-weight: 600; color: var(--status-success-text); background: color-mix(in srgb, var(--status-success-text) 12%, transparent); padding: 2px 8px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; }
+.dtw-source-card-pill { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 10%, transparent); white-space: nowrap; flex-shrink: 0; }

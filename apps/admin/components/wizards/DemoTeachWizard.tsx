@@ -7,7 +7,7 @@
  * flowId, labels, API filters, and terminology. All state, effects, and
  * rendering live here — the pages are thin wrappers.
  *
- * Steps: Select Institution [& Caller] → Set Your Goal → Upload Content → Readiness Checks → Preview First Prompt → Launch
+ * Steps: Select Institution [& Caller] → Set Your Goal → Add Content → Readiness Checks → Preview First Prompt → Launch
  *
  * When config.requireCallerUpfront is false (Teach flow), the caller is
  * auto-created at launch time instead of being selected in step 0.
@@ -38,6 +38,7 @@ import {
   Upload,
   FileText,
   CheckCircle2,
+  Library,
 } from "lucide-react";
 import { OnboardingTabContent } from "@/app/x/domains/components/OnboardingTab";
 import { PromptPreviewContent } from "@/app/x/domains/components/PromptPreviewModal";
@@ -82,6 +83,17 @@ type CallerGoal = {
   status: string;
   progress: number;
   priority: number;
+};
+
+type AvailableSource = {
+  id: string;
+  name: string;
+  _count: { assertions: number };
+  subjects: Array<{
+    subject: {
+      domains: Array<{ domain: { id: string } }>;
+    };
+  }>;
 };
 
 const GOAL_TYPE_EMOJI: Record<string, string> = {
@@ -181,7 +193,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const currentStep = state?.currentStep ?? 0;
 
   // Content upload step
-  type ContentPhase = "loading" | "has-content" | "no-content" | "uploading" | "extracting" | "generating-curriculum" | "composing-prompt" | "done" | "error";
+  type ContentPhase = "loading" | "has-content" | "no-content" | "uploading" | "extracting" | "generating-curriculum" | "composing-prompt" | "attaching-source" | "done" | "error";
   const [contentPhase, setContentPhase] = useState<ContentPhase>("loading");
   const [contentCount, setContentCount] = useState(0);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -193,6 +205,13 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const extractTickRef = useRef<NodeJS.Timeout | null>(null);
   const uploadFileRef = useRef<HTMLInputElement>(null);
   const UPLOAD_ACCEPTED = [".pdf", ".txt", ".md", ".markdown", ".json"];
+
+  // Content source selection (existing sources)
+  type ContentMode = "select" | "upload";
+  const [contentMode, setContentMode] = useState<ContentMode>("select");
+  const [availableSources, setAvailableSources] = useState<AvailableSource[]>([]);
+  const [loadingSources, setLoadingSources] = useState(false);
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
 
   // Post-extraction auto-wiring results
   const [autoWireResult, setAutoWireResult] = useState<{
@@ -613,6 +632,37 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     };
   }, []);
 
+  // Fetch available content sources when entering no-content phase
+  useEffect(() => {
+    if (contentPhase !== "no-content") return;
+    let cancelled = false;
+
+    (async () => {
+      setLoadingSources(true);
+      try {
+        const res = await fetch("/api/content-sources?activeOnly=true");
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.sources) {
+          const withAssertions = (data.sources as AvailableSource[]).filter(
+            (s) => s._count.assertions > 0
+          );
+          setAvailableSources(withAssertions);
+          setContentMode(withAssertions.length > 0 ? "select" : "upload");
+        }
+      } catch {
+        if (!cancelled) {
+          setAvailableSources([]);
+          setContentMode("upload");
+        }
+      } finally {
+        if (!cancelled) setLoadingSources(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [contentPhase]);
+
   const handleUploadFile = useCallback((f: File) => {
     const ext = "." + f.name.split(".").pop()?.toLowerCase();
     if (!UPLOAD_ACCEPTED.includes(ext)) {
@@ -814,6 +864,72 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       setContentPhase("error");
     }
   }, [uploadFile, selectedDomainId, runPostExtractionWiring]);
+
+  // ── Select existing content source ─────────────────
+
+  const handleSelectExistingSource = useCallback(async (sourceId: string) => {
+    if (!selectedDomainId) return;
+    setSelectedSourceId(sourceId);
+    setContentPhase("attaching-source");
+    setUploadError(null);
+
+    try {
+      // 1. Get domain detail to find or create subject
+      const domRes = await fetch(`/api/domains/${selectedDomainId}`);
+      const domData = await domRes.json();
+      const domSlug = domData.domain?.slug || "content";
+      const domName = domData.domain?.name || "Content";
+      const subjects = domData.domain?.subjects || [];
+
+      let subjectId: string;
+
+      if (subjects.length > 0) {
+        subjectId = subjects[0].subjectId || subjects[0].subject?.id;
+      } else {
+        // Auto-create subject + link to domain
+        const slug = domSlug + "-content-" + Date.now();
+        const subRes = await fetch("/api/subjects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug, name: `${domName} Content` }),
+        });
+        const subData = await subRes.json();
+        if (!subData.subject?.id) throw new Error("Failed to create subject");
+        subjectId = subData.subject.id;
+
+        // Link subject to domain
+        await fetch(`/api/subjects/${subjectId}/domains`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domainId: selectedDomainId }),
+        });
+      }
+
+      // 2. Attach the existing source to this subject (409 = already attached, OK)
+      const attachRes = await fetch(`/api/subjects/${subjectId}/sources`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceId }),
+      });
+      if (!attachRes.ok && attachRes.status !== 409) {
+        const attachData = await attachRes.json();
+        throw new Error(attachData.error || "Failed to attach source");
+      }
+
+      // 3. Get the assertion count from the selected source
+      const source = availableSources.find((s) => s.id === sourceId);
+      const count = source?._count.assertions || 0;
+      setContentCount(count);
+
+      // 4. Run post-extraction wiring (generate content spec + compose prompt)
+      await runPostExtractionWiring(count);
+    } catch (e: any) {
+      console.error("[Teach] Source selection failed:", e);
+      setUploadError(e.message || "Failed to attach content source");
+      setContentPhase("error");
+      setSelectedSourceId(null);
+    }
+  }, [selectedDomainId, availableSources, runPostExtractionWiring]);
 
   // ── Helpers ───────────────────────────────────────
 
@@ -1412,57 +1528,142 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             </div>
           )}
 
-          {/* No content — upload dropzone */}
+          {/* No content — select existing or upload new */}
           {(contentPhase === "no-content" || contentPhase === "error") && (
             <>
-              <div
-                className={`dtw-dropzone ${uploadDragOver ? "dtw-dropzone--active" : ""}`}
-                onDragOver={(e) => { e.preventDefault(); setUploadDragOver(true); }}
-                onDragLeave={() => setUploadDragOver(false)}
-                onDrop={handleUploadDrop}
-                onClick={() => uploadFileRef.current?.click()}
-              >
-                <div className="dtw-dropzone-icon">
-                  {uploadFile ? <FileText size={32} /> : <Upload size={32} />}
+              {/* Mode toggle (only when existing sources available) */}
+              {availableSources.length > 0 && (
+                <div className="dtw-content-mode-toggle">
+                  <button
+                    className={`dtw-content-mode-tab ${contentMode === "select" ? "dtw-content-mode-tab--active" : ""}`}
+                    onClick={() => setContentMode("select")}
+                  >
+                    <Library size={16} />
+                    Select Existing
+                  </button>
+                  <button
+                    className={`dtw-content-mode-tab ${contentMode === "upload" ? "dtw-content-mode-tab--active" : ""}`}
+                    onClick={() => setContentMode("upload")}
+                  >
+                    <Upload size={16} />
+                    Upload New
+                  </button>
                 </div>
-                {uploadFile ? (
-                  <div className="dtw-dropzone-filename">{uploadFile.name}</div>
-                ) : (
-                  <>
-                    <div className="dtw-dropzone-filename">
-                      Drop a file here or click to browse
+              )}
+
+              {/* SELECT EXISTING mode */}
+              {contentMode === "select" && availableSources.length > 0 && (
+                <div className="dtw-source-library">
+                  {loadingSources ? (
+                    <div className="dtw-muted-text">Loading content library...</div>
+                  ) : (
+                    <div className="dtw-source-list">
+                      {availableSources.map((source) => {
+                        const isSelected = selectedSourceId === source.id;
+                        const linkedToDomain = source.subjects.some((ss) =>
+                          ss.subject.domains.some((sd) => sd.domain.id === selectedDomainId)
+                        );
+                        return (
+                          <button
+                            key={source.id}
+                            className={`dtw-source-card ${isSelected ? "dtw-source-card--selected" : ""} ${linkedToDomain ? "dtw-source-card--linked" : ""}`}
+                            onClick={() => setSelectedSourceId(isSelected ? null : source.id)}
+                          >
+                            <div className="dtw-source-card-name">
+                              {source.name}
+                              {linkedToDomain && (
+                                <span className="dtw-source-card-linked-badge">Already linked</span>
+                              )}
+                            </div>
+                            <span className="dtw-source-card-pill">
+                              {source._count.assertions} teaching point{source._count.assertions !== 1 ? "s" : ""}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    <div className="dtw-dropzone-hint">
-                      PDF, TXT, MD, or JSON
+                  )}
+                </div>
+              )}
+
+              {/* UPLOAD NEW mode (or fallback when no sources exist) */}
+              {(contentMode === "upload" || availableSources.length === 0) && (
+                <>
+                  <div
+                    className={`dtw-dropzone ${uploadDragOver ? "dtw-dropzone--active" : ""}`}
+                    onDragOver={(e) => { e.preventDefault(); setUploadDragOver(true); }}
+                    onDragLeave={() => setUploadDragOver(false)}
+                    onDrop={handleUploadDrop}
+                    onClick={() => uploadFileRef.current?.click()}
+                  >
+                    <div className="dtw-dropzone-icon">
+                      {uploadFile ? <FileText size={32} /> : <Upload size={32} />}
                     </div>
-                  </>
-                )}
-              </div>
-              <input
-                ref={uploadFileRef}
-                type="file"
-                className="dtw-file-input-hidden"
-                accept=".pdf,.txt,.md,.markdown,.json"
-                onChange={(e) => {
-                  if (e.target.files?.[0]) handleUploadFile(e.target.files[0]);
-                }}
-              />
+                    {uploadFile ? (
+                      <div className="dtw-dropzone-filename">{uploadFile.name}</div>
+                    ) : (
+                      <>
+                        <div className="dtw-dropzone-filename">
+                          Drop a file here or click to browse
+                        </div>
+                        <div className="dtw-dropzone-hint">
+                          PDF, TXT, MD, or JSON
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <input
+                    ref={uploadFileRef}
+                    type="file"
+                    className="dtw-file-input-hidden"
+                    accept=".pdf,.txt,.md,.markdown,.json"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) handleUploadFile(e.target.files[0]);
+                    }}
+                  />
+                </>
+              )}
+
               {uploadError && (
                 <div className="dtw-upload-error">{uploadError}</div>
               )}
+
+              {/* Action buttons */}
               <div className="dtw-upload-actions">
                 <button className="dtw-btn-skip" onClick={handleNext}>
                   Skip for now
                 </button>
-                <button
-                  className="dtw-btn-upload"
-                  disabled={!uploadFile}
-                  onClick={handleStartUpload}
-                >
-                  Upload &amp; Extract
-                </button>
+                {contentMode === "select" && selectedSourceId ? (
+                  <button
+                    className="dtw-btn-upload"
+                    onClick={() => handleSelectExistingSource(selectedSourceId)}
+                  >
+                    Use Selected Content
+                  </button>
+                ) : contentMode === "upload" || availableSources.length === 0 ? (
+                  <button
+                    className="dtw-btn-upload"
+                    disabled={!uploadFile}
+                    onClick={handleStartUpload}
+                  >
+                    Upload &amp; Extract
+                  </button>
+                ) : null}
               </div>
             </>
+          )}
+
+          {/* Attaching existing source */}
+          {contentPhase === "attaching-source" && (
+            <div>
+              <div className="dtw-extract-status">
+                <div className="dtw-pulse-dot" />
+                <div className="dtw-extract-label">Linking content source...</div>
+              </div>
+              <div className="dtw-progress-track">
+                <div className="dtw-progress-fill dtw-progress-fill--indeterminate" />
+              </div>
+            </div>
           )}
 
           {/* Uploading */}
@@ -1569,7 +1770,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           )}
 
           {/* Step navigation */}
-          {contentPhase !== "uploading" && contentPhase !== "extracting" && contentPhase !== "generating-curriculum" && contentPhase !== "composing-prompt" && contentPhase !== "loading" && (
+          {contentPhase !== "uploading" && contentPhase !== "extracting" && contentPhase !== "generating-curriculum" && contentPhase !== "composing-prompt" && contentPhase !== "attaching-source" && contentPhase !== "loading" && (
             <div className="dtw-nav-between" style={{ marginTop: 20 }}>
               <button onClick={handlePrev} className="dtw-btn-back">
                 <ChevronLeft size={16} /> Back
