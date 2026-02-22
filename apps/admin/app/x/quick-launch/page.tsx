@@ -905,7 +905,7 @@ export default function QuickLaunchPage() {
         <div className="hf-flex-col" style={{ gap: 20 }}>
           {/* ── Summary ── */}
           <WizardSummary
-            title="Your Community is Ready!"
+            title={selectedDomainId ? `${terms.playbook} Added!` : "Your Community is Ready!"}
             subtitle={result.goalCount > 0 ? `${result.goalCount} goals` : undefined}
             intent={{
               items: [
@@ -1141,7 +1141,7 @@ export default function QuickLaunchPage() {
         <>
           {/* Step 1: Describe what you're building */}
           <FormCard>
-            <StepMarker number={1} label="Describe your community" completed={!!subjectName.trim()} />
+            <StepMarker number={1} label={selectedDomainId ? `Add a ${lower("playbook")}` : "Describe your community"} completed={!!subjectName.trim()} />
 
             {/* Domain picker */}
             {domains.length > 0 && (
@@ -1186,7 +1186,7 @@ export default function QuickLaunchPage() {
             <div className="hf-mt-md">
               <div className="hf-flex hf-gap-sm hf-mb-sm">
                 <label htmlFor="subject" className="ql-name-label">
-                  Community name
+                  {selectedDomainId ? `${terms.playbook} name` : "Community name"}
                 </label>
                 {nameLoading && (
                   <span className="ql-name-suggesting">
