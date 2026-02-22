@@ -339,7 +339,7 @@ export default function DomainsPage() {
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <AdvancedBanner />
       {/* Header */}
-      <div className="hf-card-compact hf-mb-md" style={{ borderRadius: 8 }}>
+      <div className="hf-card-compact hf-mb-md" style={{ borderRadius: 8, position: "relative", zIndex: 2 }}>
         <div className="hf-flex hf-flex-between" style={{ marginBottom: 10 }}>
           <h1 className="hf-section-title">{plural("domain")}</h1>
           <div className="hf-flex hf-gap-md hf-items-center">
@@ -430,7 +430,7 @@ export default function DomainsPage() {
       )}
 
       {/* Master-Detail Layout */}
-      <div className="hf-flex hf-gap-lg hf-flex-1" style={{ minHeight: 0 }}>
+      <div className="hf-flex hf-gap-lg hf-flex-1" style={{ minHeight: 0, overflow: "hidden" }}>
         {/* List Panel */}
         <div className="hf-master-list">
           {loading ? (
