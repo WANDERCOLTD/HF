@@ -945,10 +945,10 @@ export default function QuickLaunchPage() {
               { label: "Launch Another", onClick: handleReset },
             ]}
           >
-            {/* ── Editable agent name ── */}
+            {/* ── Editable community name ── */}
             <div className="wiz-section">
               <div className="wiz-section-label">
-                Agent Name {savingName && <span className="ql-saving-indicator">&mdash; saving...</span>}
+                Community Name {savingName && <span className="ql-saving-indicator">&mdash; saving...</span>}
               </div>
               <input
                 type="text"
@@ -1182,11 +1182,11 @@ export default function QuickLaunchPage() {
               }}
             />
 
-            {/* Agent name — AI-suggested or manually entered */}
+            {/* Community name — AI-suggested or manually entered */}
             <div className="hf-mt-md">
               <div className="hf-flex hf-gap-sm hf-mb-sm">
                 <label htmlFor="subject" className="ql-name-label">
-                  Agent name
+                  Community name
                 </label>
                 {nameLoading && (
                   <span className="ql-name-suggesting">
@@ -1418,7 +1418,7 @@ export default function QuickLaunchPage() {
                 {!canLaunch && (
                   <span>
                     {!subjectName.trim()
-                      ? "Enter an agent name"
+                      ? "Enter a community name"
                       : !persona
                         ? "Select a persona"
                         : ""}
