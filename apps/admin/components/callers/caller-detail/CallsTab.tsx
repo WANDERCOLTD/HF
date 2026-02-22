@@ -902,6 +902,7 @@ export function CallsSection({
                 callerId={callerId}
                 details={callDetails[call.id]}
                 loading={loadingDetails[call.id]}
+                isProcessing={!!processingCallIds?.has(call.id)}
               />
             )}
           </div>
@@ -917,11 +918,13 @@ function CallDetailPanel({
   callerId,
   details,
   loading,
+  isProcessing = false,
 }: {
   call: Call;
   callerId: string;
   details: any;
   loading: boolean;
+  isProcessing?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<"transcript" | "extraction" | "measurements" | "prompt">("transcript");
   const [extractionVis, toggleExtractionVis] = useSectionVisibility("call-extraction", {
@@ -993,6 +996,12 @@ function CallDetailPanel({
 
         {activeTab === "extraction" && (
           <>
+            {isProcessing && memories.length === 0 && scores.length === 0 && !personalityObservation && (
+              <div className="hf-banner hf-banner-info hf-mb-md" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="hf-spinner-inline" style={{ fontSize: 10 }}>⏳</span>
+                Pipeline running — memories, scores, and traits will appear here once analysis completes.
+              </div>
+            )}
             <SectionSelector
               storageKey="call-extraction"
               sections={[
@@ -1004,9 +1013,9 @@ function CallDetailPanel({
               visible={extractionVis}
               onToggle={toggleExtractionVis}
             />
-            {extractionVis.memories !== false && <MemoriesTab memories={memories} />}
-            {extractionVis.traits !== false && <CallTraitsTab observation={personalityObservation} />}
-            {extractionVis.scores !== false && <ScoresTab scores={scores} />}
+            {extractionVis.memories !== false && <MemoriesTab memories={memories} isProcessing={isProcessing} />}
+            {extractionVis.traits !== false && <CallTraitsTab observation={personalityObservation} isProcessing={isProcessing} />}
+            {extractionVis.scores !== false && <ScoresTab scores={scores} isProcessing={isProcessing} />}
             {extractionVis.actions !== false && callActions.length > 0 && (
               <div style={{ padding: "12px 16px" }}>
                 <div className="hf-text-bold hf-text-xs hf-mb-sm">Actions from this call</div>
@@ -1032,11 +1041,12 @@ function CallDetailPanel({
             behaviorTargets={effectiveTargets}
             measurements={measurements}
             rewardScore={rewardScore}
+            isProcessing={isProcessing}
           />
         )}
 
         {activeTab === "prompt" && (
-          <UnifiedDetailPromptTab prompts={triggeredPrompts} />
+          <UnifiedDetailPromptTab prompts={triggeredPrompts} isProcessing={isProcessing} />
         )}
       </div>
     </div>
@@ -1156,7 +1166,7 @@ function PromptTab({ prompts }: { prompts: any[] }) {
 
 // Unified Detail Prompt Tab - combines human-readable and LLM-friendly views
 // Matches the layout of UnifiedPromptSection in the header
-function UnifiedDetailPromptTab({ prompts }: { prompts: any[] }) {
+function UnifiedDetailPromptTab({ prompts, isProcessing = false }: { prompts: any[]; isProcessing?: boolean }) {
   const [viewMode, setViewMode] = useState<"human" | "llm">("human");
   const [llmViewMode, setLlmViewMode] = useState<"pretty" | "raw">("pretty");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -1170,7 +1180,7 @@ function UnifiedDetailPromptTab({ prompts }: { prompts: any[] }) {
   if (prompts.length === 0) {
     return (
       <div className="hf-text-center hf-text-placeholder hf-p-20">
-        No prompt generated after this call. Run the Prompt pipeline step to generate one.
+        {isProcessing ? "Processing — prompt will appear shortly." : "No prompt generated after this call. Run the Prompt pipeline step to generate one."}
       </div>
     );
   }
@@ -2433,7 +2443,7 @@ export function TwoColumnTargetsDisplay({
 
 // Targets Tab - uses shared TwoColumnTargetsDisplay
 // Scores Tab - per-call scores (agent behavior has its own Behaviour tab via BehaviorMeasurement)
-function ScoresTab({ scores }: { scores: any[] }) {
+function ScoresTab({ scores, isProcessing = false }: { scores: any[]; isProcessing?: boolean }) {
   const [expandedScore, setExpandedScore] = useState<string | null>(null);
 
   if (scores.length === 0) {
@@ -2442,7 +2452,7 @@ function ScoresTab({ scores }: { scores: any[] }) {
         <div style={{ fontSize: 48 }} className="hf-mb-md">📊</div>
         <div className="hf-text-md hf-text-500">No scores</div>
         <div className="hf-mt-sm" style={{ fontSize: 12 }}>
-          Scores haven't been measured for this call yet.
+          {isProcessing ? "Processing — scores will appear shortly." : "Scores haven't been measured for this call yet."}
         </div>
       </div>
     );
@@ -2571,13 +2581,13 @@ function ScoresTab({ scores }: { scores: any[] }) {
 }
 
 // Memories Tab - enhanced with expandable source/evidence info
-function MemoriesTab({ memories }: { memories: any[] }) {
+function MemoriesTab({ memories, isProcessing = false }: { memories: any[]; isProcessing?: boolean }) {
   const [expandedMemory, setExpandedMemory] = useState<string | null>(null);
 
   if (memories.length === 0) {
     return (
       <div className="hf-text-center hf-text-placeholder hf-p-20">
-        No memories extracted. Run LEARN to extract memories from this call.
+        {isProcessing ? "Processing — memories will appear shortly." : "No memories extracted. Run LEARN to extract memories from this call."}
       </div>
     );
   }
@@ -2700,14 +2710,14 @@ function MemoriesTab({ memories }: { memories: any[] }) {
 }
 
 // Call Traits Tab - shows personality observation from this specific call
-function CallTraitsTab({ observation }: { observation: any }) {
+function CallTraitsTab({ observation, isProcessing = false }: { observation: any; isProcessing?: boolean }) {
   if (!observation) {
     return (
       <div className="hf-empty">
         <div style={{ fontSize: 48 }} className="hf-mb-md">🧠</div>
         <div className="hf-text-md hf-text-500">No personality observation</div>
         <div className="hf-mt-sm" style={{ fontSize: 12 }}>
-          Personality traits haven't been measured for this call yet.
+          {isProcessing ? "Processing — traits will appear shortly." : "Personality traits haven't been measured for this call yet."}
         </div>
       </div>
     );
@@ -2801,11 +2811,11 @@ function CallTraitsTab({ observation }: { observation: any }) {
 }
 
 // Measurements Tab - Now uses slider visualization for consistency with Targets tab
-function MeasurementsTab({ callerTargets = [], behaviorTargets = [], measurements, rewardScore }: { callerTargets?: any[]; behaviorTargets?: any[]; measurements: any[]; rewardScore: any }) {
+function MeasurementsTab({ callerTargets = [], behaviorTargets = [], measurements, rewardScore, isProcessing = false }: { callerTargets?: any[]; behaviorTargets?: any[]; measurements: any[]; rewardScore: any; isProcessing?: boolean }) {
   if (measurements.length === 0 && behaviorTargets.length === 0 && callerTargets.length === 0) {
     return (
       <div className="hf-text-center hf-text-placeholder hf-p-20">
-        No behaviour data. Run BEHAVIOUR to measure behaviour.
+        {isProcessing ? "Processing — behaviour data will appear shortly." : "No behaviour data. Run BEHAVIOUR to measure behaviour."}
       </div>
     );
   }
