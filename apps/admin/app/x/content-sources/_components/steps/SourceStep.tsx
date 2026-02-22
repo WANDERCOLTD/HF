@@ -929,7 +929,7 @@ export default function SourceStep({
                 disabled={!selectedSubjectId}
                 className="hf-btn hf-btn-primary src-btn-lg"
               >
-                Continue to Plan Lessons
+                Continue to Plan Sessions
               </button>
             </div>
           )}

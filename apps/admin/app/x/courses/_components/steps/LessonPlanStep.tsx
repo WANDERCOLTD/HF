@@ -300,7 +300,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
     <div className="min-h-screen flex flex-col">
       <div className="flex-1 p-8 max-w-2xl mx-auto w-full">
         <div style={{ marginBottom: 24 }}>
-          <h1 className="hf-page-title">Plan your lessons</h1>
+          <h1 className="hf-page-title">Plan your sessions</h1>
           <p className="hf-page-subtitle">
             Set how many sessions, how long, and how deep — or generate a full plan.
           </p>

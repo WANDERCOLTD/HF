@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
   const goalsRaw = formData.get("learningGoals") as string | null;
   const qualificationRef = formData.get("qualificationRef") as string | null;
   const existingDomainId = formData.get("domainId") as string | null;
+  const kind = (formData.get("kind") as string | null) || "INSTITUTION";
   const institutionIdRaw = formData.get("institutionId") as string | null;
 
   // Validate required fields
@@ -194,9 +195,16 @@ export async function POST(req: NextRequest) {
             slug,
             name: subjectName.trim(),
             description: brief?.trim() || `Quick-launched domain for ${subjectName.trim()}`,
+            kind: kind as any,
             isActive: true,
             institutionId: resolvedInstitutionId ?? undefined,
           },
+        });
+      } else if (domain.kind !== kind) {
+        // Update kind if re-launching with different mode (e.g. existing INSTITUTION slug used for COMMUNITY)
+        domain = await prisma.domain.update({
+          where: { id: domain.id },
+          data: { kind: kind as any },
         });
       }
     }

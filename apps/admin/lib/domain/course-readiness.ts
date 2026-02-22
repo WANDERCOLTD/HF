@@ -113,7 +113,7 @@ export async function loadCourseReadinessChecks(): Promise<CourseReadinessCheck[
     {
       id: "prompt_composed",
       name: "Preview First Prompt",
-      description: "Preview what the AI tutor will say in the first lesson",
+      description: "Preview what the AI will say in the first conversation",
       severity: "critical",
       query: "prompt_composed",
       fixAction: { label: "Preview Prompt", hrefTemplate: "/x/callers/${callerId}" },

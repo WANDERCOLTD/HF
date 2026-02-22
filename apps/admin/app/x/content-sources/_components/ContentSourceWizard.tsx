@@ -17,7 +17,7 @@ export const CONTENT_STEPS: StepDefinition[] = [
   { id: "source", label: "Add Source", activeLabel: "Adding Source" },
   { id: "extract", label: "Extract", activeLabel: "Extracting Content" },
   { id: "review", label: "Review", activeLabel: "Reviewing Assertions" },
-  { id: "plan", label: "Plan Lessons", activeLabel: "Planning Lessons" },
+  { id: "plan", label: "Plan Sessions", activeLabel: "Planning Sessions" },
   { id: "onboard", label: "Onboard", activeLabel: "Configuring Onboarding" },
   { id: "preview", label: "Preview", activeLabel: "Previewing Prompt" },
   { id: "done", label: "Done", activeLabel: "Complete" },

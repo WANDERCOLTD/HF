@@ -1422,12 +1422,12 @@ export default function QuickLaunchPage() {
               paramCount: Object.keys(behaviorTargets).length,
             } : undefined}
             primaryAction={{
-              label: "Start Lesson",
+              label: "Try It",
               icon: <PlayCircle className="w-5 h-5" />,
               href: `/x/sim/${result.callerId}`,
-              disabled: !courseReady && courseChecks.length > 0,
             }}
             secondaryActions={[
+              { label: "View Community", href: `/x/domains?id=${result.domainId}` },
               { label: "Launch Another", onClick: handleReset },
             ]}
           >

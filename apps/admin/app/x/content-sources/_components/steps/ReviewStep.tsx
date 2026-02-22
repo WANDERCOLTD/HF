@@ -298,7 +298,7 @@ export default function ReviewStep({ setData, getData, onNext, onPrev }: StepPro
             background: "var(--accent-primary)", color: "var(--button-primary-text, #fff)", fontSize: 15, fontWeight: 700, cursor: "pointer",
           }}
         >
-          Continue to Plan Lessons
+          Continue to Plan Sessions
         </button>
         <button onClick={() => { setData("reviewedCount", reviewed); onNext(); }}
           style={{

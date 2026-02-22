@@ -104,10 +104,10 @@ const JOB_STEP_MAPS: Record<string, Record<number, { title: string; description:
     1: { title: "Add Source", description: "Create or upload a content source document", estimated: "2 min" },
     2: { title: "Extract", description: "AI extracts teaching points from your documents", estimated: "1-3 min" },
     3: { title: "Review", description: "Review and approve extracted teaching points", estimated: "2 min" },
-    4: { title: "Plan Lessons", description: "Set session count and generate a lesson plan", estimated: "2 min" },
+    4: { title: "Plan Sessions", description: "Set session count and generate a session plan", estimated: "2 min" },
     5: { title: "Onboard", description: "Configure domain and first-call onboarding", estimated: "2 min" },
-    6: { title: "Preview", description: "Preview the AI tutor's first prompt", estimated: "1 min" },
-    7: { title: "Done", description: "Review summary and check course readiness", estimated: "1 min" },
+    6: { title: "Preview", description: "Preview the AI's first prompt", estimated: "1 min" },
+    7: { title: "Done", description: "Review summary and check readiness", estimated: "1 min" },
   },
   course_setup: {
     1: { title: "Setting up course", description: "Creating institution and subject", estimated: "30 sec" },
