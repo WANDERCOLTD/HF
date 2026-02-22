@@ -14,7 +14,7 @@ const API_ENDPOINTS: FancySelectOption[] = [
   // Data
   { value: "/api/domains", label: "Domains", subtitle: "GET - All domains", badge: "Data" },
   { value: "/api/callers", label: "Callers", subtitle: "GET - All callers", badge: "Data" },
-  { value: "/api/playbooks", label: "Playbooks", subtitle: "GET - All playbooks", badge: "Data" },
+  { value: "/api/playbooks", label: "Subjects", subtitle: "GET - All subjects", badge: "Data" },
   { value: "/api/analysis-specs", label: "Specs", subtitle: "GET - All analysis specs", badge: "Data" },
   { value: "/api/parameters", label: "Parameters", subtitle: "GET - All parameters", badge: "Data" },
   { value: "/api/prompt-slugs", label: "Prompt Slugs", subtitle: "GET - All prompt slugs", badge: "Data" },

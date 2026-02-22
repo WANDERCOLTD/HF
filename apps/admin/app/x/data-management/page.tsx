@@ -4,6 +4,7 @@ import "./data-management.css";
 import { useState, useEffect } from "react";
 import { AIModelsManager } from "@/components/shared/AIModelsManager";
 import { SpecSyncDetailModal } from "@/components/shared/SpecSyncDetailModal";
+import { useTerminology } from "@/contexts/TerminologyContext";
 
 type OperationStatus = "idle" | "running" | "success" | "error";
 
@@ -75,6 +76,7 @@ const OPERATIONS: Operation[] = [
 ];
 
 export default function DataManagementPage() {
+  const { terms, plural, lower } = useTerminology();
   const [stats, setStats] = useState<{
     domains: number;
     playbooks: number;
@@ -290,7 +292,7 @@ export default function DataManagementPage() {
           Data Management
         </h1>
         <p className="dm-subtitle">
-          Initialize system from source files (specs, domains, playbooks, transcripts)
+          Initialize system from source files (specs, domains, {lower("playbook")}s, transcripts)
         </p>
       </div>
 
@@ -305,7 +307,7 @@ export default function DataManagementPage() {
         ) : stats ? (
           <div className="dm-stats-grid">
             <StatItem label="Institutions" value={stats.domains} icon="🌐" />
-            <StatItem label="Playbooks" value={stats.playbooks} icon="📚" />
+            <StatItem label={plural("playbook")} value={stats.playbooks} icon="📚" />
             <StatItem label="Specs" value={stats.specs} icon="📐" />
             <StatItem label="Callers" value={stats.callers} icon="👥" />
             <StatItem label="Calls" value={stats.calls} icon="📞" />
@@ -353,7 +355,7 @@ export default function DataManagementPage() {
             <strong>Sync All BDD Specs</strong> - Import all spec files from /docs-archive/bdd-specs directory (parameters, analysis specs, anchors)
           </li>
           <li>
-            <strong>Create Domains & Playbooks</strong> - Select and create domains with playbooks and behavior targets (requires specs to exist)
+            <strong>Create Domains & {plural("playbook")}</strong> - Select and create domains with {lower("playbook")}s and behavior targets (requires specs to exist)
           </li>
           <li>
             <strong>Import Transcripts</strong> - Create callers and calls from raw transcripts (requires domains for assignment)
@@ -430,12 +432,12 @@ export default function DataManagementPage() {
 
       {showModal === "create-domains" && (
         <ConfirmationModal
-          title={`Create ${selectedPlaybooks.size} Playbook(s)`}
+          title={`Create ${selectedPlaybooks.size} ${terms.playbook}(s)`}
           icon="🎯"
-          warning={`This will create ${selectedPlaybooks.size} domain(s) and playbook(s) with all required specs, behavior targets, and dependencies. Existing domains with the same slugs will be deleted first. All created playbooks will be set to PUBLISHED status.`}
+          warning={`This will create ${selectedPlaybooks.size} ${terms.domain.toLowerCase()}(s) and ${lower("playbook")}(s) with all required specs, behavior targets, and dependencies. Existing domains with the same slugs will be deleted first. All created ${lower("playbook")}s will be set to PUBLISHED status.`}
           details={
             <div className="dm-modal-details">
-              <strong>Selected playbooks:</strong>
+              <strong>Selected {lower("playbook")}s:</strong>
               <ul>
                 {Array.from(selectedPlaybooks).map((id) => {
                   const pb = availablePlaybooks.find((p) => p.id === id);
@@ -606,6 +608,7 @@ function CreateDomainsCard({
   onExecute: () => void;
   loadingPlaybooks: boolean;
 }) {
+  const { terms, plural, lower } = useTerminology();
   const isRunning = status === "running";
   const isSuccess = status === "success";
   const isError = status === "error";
@@ -617,15 +620,15 @@ function CreateDomainsCard({
       <div className="dm-op-row">
         <div className="dm-op-icon">🎯</div>
         <div className="dm-op-body">
-          <div className="dm-op-title-mb">Create Domains & Playbooks</div>
+          <div className="dm-op-title-mb">Create Domains & {plural("playbook")}</div>
           <div className="dm-op-desc">
-            Select playbooks to create with their domains, behavior targets, and all required specs. Each playbook
-            will be created as PUBLISHED and ready to use.
+            Select {lower("playbook")}s to create with their domains, behavior targets, and all required specs. Each {lower("playbook")}
+            {" "}will be created as PUBLISHED and ready to use.
           </div>
 
           {isRunning && (
             <div className="dm-status-banner dm-status-banner-running">
-              ⏳ Creating domains and playbooks...
+              ⏳ Creating domains and {lower("playbook")}s...
             </div>
           )}
 
@@ -641,12 +644,12 @@ function CreateDomainsCard({
             </div>
           )}
 
-          {/* Playbook Selection */}
+          {/* Selection */}
           {loadingPlaybooks ? (
-            <div className="dm-pb-loading">Loading available playbooks...</div>
+            <div className="dm-pb-loading">Loading available {lower("playbook")}s...</div>
           ) : (
             <div className="dm-pb-section">
-              <div className="dm-pb-label">Select playbooks to create:</div>
+              <div className="dm-pb-label">Select {lower("playbook")}s to create:</div>
               <div className="dm-pb-grid">
                 {availablePlaybooks.map((pb) => (
                   <PlaybookCheckbox
@@ -669,12 +672,12 @@ function CreateDomainsCard({
               {isRunning
                 ? "Creating..."
                 : selectedPlaybooks.size === 0
-                ? "Select Playbooks"
-                : `Create ${selectedPlaybooks.size} Playbook(s)`}
+                ? `Select ${plural("playbook")}`
+                : `Create ${selectedPlaybooks.size} ${terms.playbook}(s)`}
             </button>
             {selectedPlaybooks.size > 0 && (
               <span className="dm-pb-selected-count">
-                {selectedPlaybooks.size} playbook(s) selected
+                {selectedPlaybooks.size} {lower("playbook")}(s) selected
               </span>
             )}
           </div>
