@@ -59,7 +59,18 @@ export interface AIInsight {
  * Log an AI interaction for learning.
  * Call this after every AI interaction to build knowledge.
  */
+let _aiLogWarned = false;
+
 export async function logAIInteraction(interaction: AIInteraction): Promise<void> {
+  // Guard: AIInteractionLog model not yet in schema — skip silently
+  if (!prisma.aIInteractionLog) {
+    if (!_aiLogWarned) {
+      console.warn("[AI Learning] AIInteractionLog model not in schema — skipping interaction logging");
+      _aiLogWarned = true;
+    }
+    return;
+  }
+
   try {
     await prisma.aIInteractionLog.create({
       data: {
@@ -77,7 +88,10 @@ export async function logAIInteraction(interaction: AIInteraction): Promise<void
       analyzeForPatterns(interaction).catch(console.error);
     }
   } catch (error) {
-    console.error("[AI Learning] Failed to log interaction:", error);
+    if (!_aiLogWarned) {
+      console.warn("[AI Learning] Failed to log interaction (suppressing future errors):", (error as Error).message);
+      _aiLogWarned = true;
+    }
   }
 }
 

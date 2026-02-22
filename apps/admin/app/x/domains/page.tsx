@@ -336,7 +336,7 @@ export default function DomainsPage() {
   );
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <AdvancedBanner />
       {/* Header */}
       <div className="hf-card-compact hf-mb-md" style={{ borderRadius: 8 }}>

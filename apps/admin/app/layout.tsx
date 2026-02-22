@@ -320,7 +320,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
             className="flex-1 overflow-auto min-h-0 transition-all duration-200"
             style={getMainStyle()}
           >
-            <div className="py-6" style={{ paddingLeft: 32, paddingRight: 32 }}>
+            <div className="py-6 flex flex-col h-full min-h-0" style={{ paddingLeft: 32, paddingRight: 32 }}>
               {children}
             </div>
           </main>

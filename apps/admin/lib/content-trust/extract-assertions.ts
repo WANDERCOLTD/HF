@@ -250,6 +250,8 @@ async function extractFromChunk(
             { role: "system", content: extraction.systemPrompt },
             { role: "user", content: userPrompt },
           ],
+          maxTokens: extraction.llmConfig.maxTokens,
+          temperature: extraction.llmConfig.temperature,
         },
         { sourceOp: "content-trust:extract" }
       );
@@ -263,6 +265,11 @@ async function extractFromChunk(
         },
         { response: `Extracted assertions`, success: true }
       );
+
+      // Warn if response was truncated (max_tokens hit)
+      if (result.stopReason === "max_tokens") {
+        console.warn(`[extract-assertions] Chunk ${chunkIndex} response truncated (max_tokens=${extraction.llmConfig.maxTokens}). Consider increasing llmConfig.maxTokens.`);
+      }
 
       // Parse JSON response (with repair for common AI mistakes)
       const text = result.content.trim();

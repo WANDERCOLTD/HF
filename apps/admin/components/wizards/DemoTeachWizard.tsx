@@ -176,7 +176,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const currentStep = state?.currentStep ?? 0;
 
   // Content upload step
-  type ContentPhase = "loading" | "has-content" | "no-content" | "uploading" | "extracting" | "done" | "error";
+  type ContentPhase = "loading" | "has-content" | "no-content" | "uploading" | "extracting" | "generating-curriculum" | "composing-prompt" | "done" | "error";
   const [contentPhase, setContentPhase] = useState<ContentPhase>("loading");
   const [contentCount, setContentCount] = useState(0);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -188,6 +188,14 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const extractTickRef = useRef<NodeJS.Timeout | null>(null);
   const uploadFileRef = useRef<HTMLInputElement>(null);
   const UPLOAD_ACCEPTED = [".pdf", ".txt", ".md", ".markdown", ".json"];
+
+  // Post-extraction auto-wiring results
+  const [autoWireResult, setAutoWireResult] = useState<{
+    moduleCount: number;
+    contentSpecGenerated: boolean;
+    promptComposed: boolean;
+    warnings: string[];
+  } | null>(null);
 
   // Expandable sections on Launch step
   const [onboardingExpanded, setOnboardingExpanded] = useState(false);
@@ -608,6 +616,70 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     if (e.dataTransfer.files.length > 0) handleUploadFile(e.dataTransfer.files[0]);
   }, [handleUploadFile]);
 
+  // ── Post-extraction wiring ────────────────────────
+  // After assertions are extracted, generate a content spec (curriculum)
+  // and re-compose the caller's prompt so the first call has teaching content.
+  // Mirrors Quick Launch steps 6 + 8.
+
+  const runPostExtractionWiring = useCallback(async (extractedCount: number) => {
+    const warnings: string[] = [];
+    let moduleCount = 0;
+    let contentSpecGenerated = false;
+    let promptComposed = false;
+
+    // Phase 1: Generate content spec from assertions
+    setContentPhase("generating-curriculum");
+    try {
+      const specRes = await fetch(`/api/domains/${selectedDomainId}/generate-content-spec`, {
+        method: "POST",
+      });
+      const specData = await specRes.json();
+      if (specData.ok && specData.result?.contentSpec) {
+        moduleCount = specData.result.moduleCount || 0;
+        contentSpecGenerated = true;
+      } else if (specData.result?.skipped?.length > 0) {
+        // Already exists or no assertions — not an error
+        warnings.push(...specData.result.skipped);
+        contentSpecGenerated = true;
+      } else if (specData.error) {
+        warnings.push(`Curriculum: ${specData.error}`);
+      }
+    } catch (e: any) {
+      console.warn("[Teach] Content spec generation failed:", e);
+      warnings.push("Curriculum generation failed");
+    }
+
+    // Phase 2: Compose prompt (even if spec generation failed —
+    // per-turn RAG can still find raw assertions)
+    if (selectedCallerId) {
+      setContentPhase("composing-prompt");
+      try {
+        const composeRes = await fetch(`/api/callers/${selectedCallerId}/compose-prompt`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ triggerType: "teach-wizard" }),
+        });
+        const composeData = await composeRes.json();
+        if (composeData.ok) {
+          promptComposed = true;
+        } else {
+          warnings.push(`Prompt: ${composeData.error || "composition failed"}`);
+        }
+      } catch (e: any) {
+        console.warn("[Teach] Prompt composition failed:", e);
+        warnings.push("Prompt composition failed");
+      }
+    }
+
+    setAutoWireResult({
+      moduleCount,
+      contentSpecGenerated,
+      promptComposed,
+      warnings,
+    });
+    setContentPhase("done");
+  }, [selectedDomainId, selectedCallerId]);
+
   const handleStartUpload = useCallback(async () => {
     if (!uploadFile || !selectedDomainId) return;
     setContentPhase("uploading");
@@ -703,8 +775,10 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           if (job.status === "done") {
             if (extractPollRef.current) clearInterval(extractPollRef.current);
             if (extractTickRef.current) clearInterval(extractTickRef.current);
-            setContentCount(job.importedCount || job.extractedCount || 0);
-            setContentPhase("done");
+            const count = job.importedCount || job.extractedCount || 0;
+            setContentCount(count);
+            // Chain into content spec generation + prompt composition
+            runPostExtractionWiring(count);
           } else if (job.status === "error") {
             if (extractPollRef.current) clearInterval(extractPollRef.current);
             if (extractTickRef.current) clearInterval(extractTickRef.current);
@@ -717,7 +791,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       setUploadError(e.message || "Upload failed");
       setContentPhase("error");
     }
-  }, [uploadFile, selectedDomainId]);
+  }, [uploadFile, selectedDomainId, runPostExtractionWiring]);
 
   // ── Helpers ───────────────────────────────────────
 
@@ -1336,21 +1410,71 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             </div>
           )}
 
+          {/* Generating curriculum */}
+          {contentPhase === "generating-curriculum" && (
+            <div>
+              <div className="dtw-extract-status">
+                <div className="dtw-pulse-dot" />
+                <div className="dtw-extract-label">Generating curriculum...</div>
+              </div>
+              <div className="dtw-progress-track">
+                <div className="dtw-progress-fill dtw-progress-fill--indeterminate" />
+              </div>
+              <div className="dtw-progress-labels">
+                <span>{contentCount} teaching points extracted</span>
+                <span>Building modules</span>
+              </div>
+            </div>
+          )}
+
+          {/* Composing prompt */}
+          {contentPhase === "composing-prompt" && (
+            <div>
+              <div className="dtw-extract-status">
+                <div className="dtw-pulse-dot" />
+                <div className="dtw-extract-label">Preparing your tutor...</div>
+              </div>
+              <div className="dtw-progress-track">
+                <div className="dtw-progress-fill dtw-progress-fill--indeterminate" />
+              </div>
+              <div className="dtw-progress-labels">
+                <span>{contentCount} teaching points</span>
+                <span>Composing prompt</span>
+              </div>
+            </div>
+          )}
+
           {/* Done */}
           {contentPhase === "done" && (
             <div className="dtw-content-summary">
               <div className="dtw-content-summary-icon"><CheckCircle2 size={20} /></div>
               <div className="dtw-content-summary-text">
-                <div className="dtw-content-summary-title">Extraction Complete</div>
-                <div className="dtw-content-summary-detail">
-                  {contentCount} teaching point{contentCount !== 1 ? "s" : ""} extracted from {uploadFile?.name}
+                <div className="dtw-content-summary-title">
+                  {autoWireResult ? "Content Ready" : "Extraction Complete"}
                 </div>
+                <div className="dtw-content-summary-detail">
+                  {autoWireResult ? (
+                    <>
+                      {autoWireResult.moduleCount > 0
+                        ? `${autoWireResult.moduleCount} module${autoWireResult.moduleCount !== 1 ? "s" : ""}, ${contentCount} teaching point${contentCount !== 1 ? "s" : ""} ready`
+                        : `${contentCount} teaching point${contentCount !== 1 ? "s" : ""} extracted`}
+                      {autoWireResult.promptComposed && " — tutor updated"}
+                    </>
+                  ) : (
+                    <>{contentCount} teaching point{contentCount !== 1 ? "s" : ""} extracted from {uploadFile?.name}</>
+                  )}
+                </div>
+                {autoWireResult?.warnings && autoWireResult.warnings.length > 0 && (
+                  <div className="dtw-content-summary-detail" style={{ color: "var(--status-warning-text)", marginTop: 4, fontSize: 12 }}>
+                    {autoWireResult.warnings.join("; ")}
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           {/* Step navigation */}
-          {contentPhase !== "uploading" && contentPhase !== "extracting" && contentPhase !== "loading" && (
+          {contentPhase !== "uploading" && contentPhase !== "extracting" && contentPhase !== "generating-curriculum" && contentPhase !== "composing-prompt" && contentPhase !== "loading" && (
             <div className="dtw-nav-between" style={{ marginTop: 20 }}>
               <button onClick={handlePrev} className="dtw-btn-back">
                 <ChevronLeft size={16} /> Back
