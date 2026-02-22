@@ -4,10 +4,6 @@ import "./quick-launch.css";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import ReviewPanel from "./ReviewPanel";
-import type { AnalysisPreview, CommitOverrides } from "@/lib/domain/quick-launch";
-import { useContentJobQueue } from "@/components/shared/ContentJobQueue";
-import { useTaskPoll } from "@/hooks/useTaskPoll";
 import { useTerminology } from "@/contexts/TerminologyContext";
 import { AgentTuner } from "@/components/shared/AgentTuner";
 import type { AgentTunerOutput, AgentTunerPill } from "@/lib/agent-tuner/types";
@@ -18,8 +14,7 @@ import { FancySelect } from "@/components/shared/FancySelect";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import {
-  Building2, BookOpen, User, FileText, PlayCircle, Target,
-  HelpCircle, PenLine, Lightbulb, Eye, FileQuestion, Info,
+  Building2, BookOpen, User, PlayCircle, Target,
   ChevronDown, ChevronRight,
 } from "lucide-react";
 import { OnboardingTabContent } from "@/app/x/domains/components/OnboardingTab";
@@ -33,7 +28,7 @@ type Persona = {
   description: string | null;
 };
 
-type Phase = "form" | "building" | "review" | "committing" | "result";
+type Phase = "form" | "committing" | "result";
 
 type StepStatus = "pending" | "active" | "done" | "error" | "skipped";
 
@@ -49,27 +44,14 @@ type LaunchResult = {
   domainSlug: string;
   domainName: string;
   subjectId?: string;
-  sourceId?: string;
   callerId: string;
   callerName: string;
   assertionCount: number;
   moduleCount: number;
   goalCount: number;
-  enrichmentTaskId?: string;
   warnings: string[];
   identitySpecId?: string;
-  contentSpecId?: string;
   playbookId?: string;
-  documentStructure?: {
-    isComposite: boolean;
-    sections: Array<{
-      title: string;
-      sectionType: string;
-      pedagogicalRole: string;
-      hasQuestions: boolean;
-      hasAnswerKey: boolean;
-    }>;
-  };
 };
 
 type CourseCheck = {
@@ -113,69 +95,19 @@ function FormCard({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Pedagogical Role → Icon mapping ──────────────────
-
-const ROLE_ICONS: Record<string, React.ReactNode> = {
-  INPUT: <FileText className="w-4 h-4" />,
-  CHECK: <HelpCircle className="w-4 h-4" />,
-  PRODUCE: <PenLine className="w-4 h-4" />,
-  ACTIVATE: <Lightbulb className="w-4 h-4" />,
-  REFLECT: <Eye className="w-4 h-4" />,
-  REFERENCE: <BookOpen className="w-4 h-4" />,
-  META: <FileQuestion className="w-4 h-4" />,
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  INPUT: "Teaching Content",
-  CHECK: "Questions",
-  PRODUCE: "Exercises",
-  ACTIVATE: "Warm-up",
-  REFLECT: "Review",
-  REFERENCE: "Reference",
-  META: "Non-content",
-};
-
-// ── Progress Bar ───────────────────────────────────
-
-function ProgressBar({ progress, label }: { progress: number; label: string }) {
-  return (
-    <div className="ql-progress-bar">
-      <div className={`ql-progress-spinner ${progress < 100 ? "ql-progress-spinner-active" : "ql-progress-spinner-done"}`}>
-        {progress >= 100 && "\u2713"}
-      </div>
-      <div className="hf-flex-col" style={{ flex: 1 }}>
-        <div className="ql-progress-label">
-          {label}
-        </div>
-        <div className="ql-thin-track">
-          <div
-            className={`ql-thin-fill ${progress >= 100 ? "ql-thin-fill-success" : "ql-thin-fill-accent"}`}
-            style={{ width: `${progress}%`, transition: "width 0.5s ease" }}
-          />
-        </div>
-      </div>
-      <div className="ql-progress-pct">
-        {Math.round(progress)}%
-      </div>
-    </div>
-  );
-}
-
 // ── Main Page ──────────────────────────────────────
 
 export default function QuickLaunchPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { terms, lower } = useTerminology();
-  // Community mode is now the default — this page is the Community launcher
-  const communityMode = true;
 
   // ── Phase state machine ────────────────────────────
   const [phase, setPhase] = useState<Phase>("form");
   const [taskId, setTaskId] = useState<string | null>(null);
 
-  // Warn on browser refresh/close when in-progress (past form, not yet result)
-  useUnsavedGuard(phase !== "form" && phase !== "result");
+  // Warn on browser refresh/close when in-progress
+  useUnsavedGuard(phase === "committing");
 
   // Form state
   const [brief, setBrief] = useState("");
@@ -193,10 +125,8 @@ export default function QuickLaunchPage() {
   const [matrixTargets, setMatrixTargets] = useState<Record<string, number>>({});
   const [matrixTraits, setMatrixTraits] = useState<string[]>([]);
   const [matrixPositions, setMatrixPositions] = useState<Record<string, MatrixPosition>>({});
-  const [file, setFile] = useState<File | null>(null);
   const [qualificationRef, setQualificationRef] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [launchMode, setLaunchMode] = useState<"upload" | "generate">("generate");
 
   // Domain picker — use existing domain or create new
   const [domains, setDomains] = useState<{ id: string; slug: string; name: string }[]>([]);
@@ -213,57 +143,14 @@ export default function QuickLaunchPage() {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [personasLoading, setPersonasLoading] = useState(true);
 
-  // Progressive analysis state
-  const [preview, setPreview] = useState<Partial<AnalysisPreview>>({});
-  const [overrides, setOverrides] = useState<CommitOverrides>({});
-  const [analysisComplete, setAnalysisComplete] = useState(false);
-  const [analysisProgress, setAnalysisProgress] = useState(0);
-  const [analysisLabel, setAnalysisLabel] = useState("Starting analysis...");
-
   // Commit state
   const [commitTimeline, setCommitTimeline] = useState<TimelineStep[]>([]);
   const [result, setResult] = useState<LaunchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const commitAbortRef = useRef<AbortController | null>(null);
 
-  // Enrichment polling (skeleton → full curriculum detail)
-  const [enriching, setEnriching] = useState(false);
-  const [enrichedModuleCount, setEnrichedModuleCount] = useState<number | null>(null);
-
-  // Start polling when result arrives with an enrichment task
-  useEffect(() => {
-    if (result?.enrichmentTaskId) {
-      setEnriching(true);
-      setEnrichedModuleCount(null);
-    }
-  }, [result?.enrichmentTaskId]);
-
-  useTaskPoll({
-    taskId: result?.enrichmentTaskId ?? null,
-    onProgress: () => {},
-    onComplete: (task) => {
-      setEnriching(false);
-      const count = task.context?.moduleCount ?? task.context?.summary?.counts?.modules;
-      if (typeof count === "number" && count > 0) {
-        setEnrichedModuleCount(count);
-      }
-    },
-    onError: () => {
-      // Enrichment failure is non-critical — skeleton remains usable
-      setEnriching(false);
-    },
-    timeoutMs: 120_000, // 2 min — enrichment can take 30-60s
-  });
-
   // Resume
   const [resumeTask, setResumeTask] = useState<ResumeTask | null>(null);
-
-  // File drop ref
-  const dropRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Autosave debounce ref
-  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Load personas + domains ────────────────────────
 
@@ -297,7 +184,7 @@ export default function QuickLaunchPage() {
       })
       .catch(() => {});
 
-    // Load institutions for institution picker (user-scoped — works for all roles)
+    // Load institutions for institution picker
     fetch("/api/user/institutions")
       .then((r) => r.json())
       .then((data) => {
@@ -323,23 +210,17 @@ export default function QuickLaunchPage() {
   // ── Check for resumable task ──────────────────────
 
   useEffect(() => {
-    // Check both in_progress (building) and completed with review/result phase
     fetch("/api/tasks?status=in_progress,completed&taskType=quick_launch&limit=1&sort=recent")
       .then((r) => r.json())
       .then((data) => {
         if (data.ok && data.tasks) {
-          // Prefer in_progress tasks; fall back to recently completed ones
           const inProgress = data.tasks.find((t: any) => t.taskType === "quick_launch" && t.status === "in_progress");
-          const reviewPhase = data.tasks.find(
-            (t: any) => t.taskType === "quick_launch" && t.status === "completed" && t.context?.phase === "review"
-          );
           const resultPhase = data.tasks.find(
             (t: any) => t.taskType === "quick_launch" && t.status === "completed" && t.context?.phase === "result" && t.context?.result
           );
 
-          // For in_progress/review, show resume banner
-          const qlTask = inProgress || reviewPhase;
-          // Skip if another tab already claimed this task
+          // For in_progress, show resume banner
+          const qlTask = inProgress;
           const claimedId = localStorage.getItem("ql-active-task");
           if (qlTask && qlTask.context && qlTask.id !== claimedId) {
             setResumeTask({
@@ -359,7 +240,6 @@ export default function QuickLaunchPage() {
     if (!resumeTask?.context) return;
     const ctx = resumeTask.context;
 
-    // Mark task as claimed to prevent duplicate resume in other tabs
     try { localStorage.setItem("ql-active-task", resumeTask.id); } catch {}
     setTaskId(resumeTask.id);
 
@@ -373,23 +253,6 @@ export default function QuickLaunchPage() {
       setQualificationRef(ctx.input.qualificationRef || "");
     }
 
-    // Restore launch mode
-    if (ctx.mode) {
-      setLaunchMode(ctx.mode);
-    }
-
-    // Restore preview if available
-    if (ctx.preview) {
-      setPreview(ctx.preview);
-      setAnalysisComplete(true);
-      setAnalysisProgress(100);
-    }
-
-    // Restore overrides
-    if (ctx.overrides) {
-      setOverrides(ctx.overrides);
-    }
-
     // If result phase, restore summary directly
     if (ctx.phase === "result" && ctx.result) {
       setResult(ctx.result as LaunchResult);
@@ -398,56 +261,9 @@ export default function QuickLaunchPage() {
       return;
     }
 
-    // If still building (extraction in progress), resume polling instead of going to form
-    if (ctx.phase === "building" && ctx.sourceId && ctx.jobId) {
-      setPreview({
-        domainId: ctx.domainId,
-        domainSlug: ctx.domainSlug,
-        domainName: ctx.domainName,
-        subjectId: ctx.subjectId,
-        sourceId: ctx.sourceId,
-      });
-      setExtractionJobId(ctx.jobId);
-      setExtractionSourceId(ctx.sourceId);
-      setAnalysisProgress(10);
-      setAnalysisLabel("Resuming extraction...");
-      setPhase("review"); // Shows review panel with progress bar + skeletons
-    } else if (ctx.phase === "review") {
-      setPhase("review");
-    } else {
-      setPhase("form");
-    }
-
+    setPhase("form");
     setResumeTask(null);
   }, [resumeTask]);
-
-  // ── Autosave overrides to task ────────────────────
-
-  const autosaveOverrides = useCallback(
-    (newOverrides: CommitOverrides) => {
-      if (!taskId) return;
-      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-      autosaveTimer.current = setTimeout(() => {
-        fetch("/api/tasks", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            taskId,
-            updates: { context: { phase: "review", overrides: newOverrides } },
-          }),
-        }).catch((e) => console.warn("[QuickLaunch] Failed to save task overrides:", e));
-      }, 1000);
-    },
-    [taskId]
-  );
-
-  const handleOverridesChange = useCallback(
-    (o: CommitOverrides) => {
-      setOverrides(o);
-      autosaveOverrides(o);
-    },
-    [autosaveOverrides]
-  );
 
   // ── AI field suggestions (fires on blur of brief textarea) ──
 
@@ -457,12 +273,10 @@ export default function QuickLaunchPage() {
     async (text: string) => {
       if (text.trim().length < 20) return;
 
-      // Abort any in-flight request
       suggestAbort.current?.abort();
       const controller = new AbortController();
       suggestAbort.current = controller;
 
-      // Hard timeout — 10s max
       const timeout = setTimeout(() => controller.abort(), 10_000);
 
       setNameLoading(true);
@@ -479,7 +293,6 @@ export default function QuickLaunchPage() {
         const data = await res.json();
         if (!data.ok) return;
 
-        // Name: apply directly if empty, otherwise show as suggestion
         if (data.name && !nameManuallyEdited) {
           if (!subjectName.trim()) {
             setSubjectName(data.name);
@@ -488,7 +301,6 @@ export default function QuickLaunchPage() {
           }
         }
 
-        // Persona: suggest if user hasn't picked one yet, or show chip
         if (data.persona && personas.some((p) => p.slug === data.persona)) {
           if (!persona) {
             setPersona(data.persona);
@@ -497,7 +309,6 @@ export default function QuickLaunchPage() {
           }
         }
 
-        // Goals: suggest if user hasn't added any, or show chips
         if (data.goals?.length) {
           if (goals.length === 0) {
             setGoals(data.goals);
@@ -510,8 +321,6 @@ export default function QuickLaunchPage() {
             }
           }
         }
-
-        // Traits: no longer auto-populated — use AgentTuner instead
       } catch {
         // Silently fail — user can fill fields manually
       } finally {
@@ -547,272 +356,101 @@ export default function QuickLaunchPage() {
     setMatrixPositions(mp);
   }, []);
 
-  // ── File handling ──────────────────────────────────
+  // ── Launch (Analyze → Commit in sequence) ─────────
 
-  const handleFile = (f: File | null) => {
-    if (!f) return;
-    const name = f.name.toLowerCase();
-    const valid = [".pdf", ".txt", ".md", ".markdown", ".json"];
-    if (!valid.some((ext) => name.endsWith(ext))) {
-      setError(`Unsupported file type. Supported: ${valid.join(", ")}`);
-      return;
-    }
-    setFile(f);
-    setError(null);
-  };
+  const canLaunch = !!subjectName.trim() && !!persona && phase === "form";
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const f = e.dataTransfer.files[0];
-    if (f) handleFile(f);
-  }, []);
+  // Track the domainId from analyze across the two-step flow
+  const analyzeResultRef = useRef<{ domainId: string; subjectId: string; identityConfig: any } | null>(null);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-
-  // ── Global job queue ──────────────────────────────
-  const { addJob: addToGlobalQueue } = useContentJobQueue();
-
-  // Poll extraction job for completion
-  const jobPollRef = useRef<NodeJS.Timeout | null>(null);
-  const [extractionJobId, setExtractionJobId] = useState<string | null>(null);
-  const [extractionSourceId, setExtractionSourceId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!extractionJobId || !extractionSourceId) return;
-    if (analysisComplete) return;
-
-    const startedAt = Date.now();
-    const POLL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
-
-    const poll = async () => {
-      // Timeout guard
-      if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
-        if (jobPollRef.current) clearInterval(jobPollRef.current);
-        setError("Content extraction timed out. Please try again.");
-        return;
-      }
-
-      try {
-        const res = await fetch(
-          `/api/content-sources/${extractionSourceId}/import?jobId=${extractionJobId}`
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!data.ok || !data.job) return;
-
-        const job = data.job;
-        const pct =
-          job.totalChunks > 0
-            ? Math.round((job.currentChunk / job.totalChunks) * 80) + 10
-            : 10;
-
-        if (job.status === "extracting") {
-          setAnalysisProgress(pct);
-          setAnalysisLabel(
-            `Extracting... ${job.extractedCount} teaching points found`
-          );
-        } else if (job.status === "importing") {
-          setAnalysisProgress(85);
-          setAnalysisLabel("Saving content...");
-        } else if (job.status === "done") {
-          // Extraction complete — fetch full preview from UserTask
-          setAnalysisProgress(95);
-          setAnalysisLabel("Finishing up...");
-          if (jobPollRef.current) clearInterval(jobPollRef.current);
-
-          // Update preview with assertion count from job
-          setPreview((prev) => ({
-            ...prev,
-            assertionCount: job.importedCount ?? job.extractedCount ?? 0,
-          }));
-
-          // Fetch full preview from task by ID (not by status filter)
-          if (taskId) {
-            try {
-              const taskRes = await fetch(`/api/tasks?taskId=${taskId}`);
-              const taskData = await taskRes.json();
-              const qlTask = taskData.task || taskData.tasks?.[0];
-              if (qlTask?.context?.preview) {
-                setPreview(qlTask.context.preview as Partial<AnalysisPreview>);
-              }
-            } catch {
-              // Preview from task unavailable — continue with what we have
-            }
-          }
-
-          setAnalysisComplete(true);
-          setAnalysisProgress(100);
-          setAnalysisLabel("Analysis complete!");
-        } else if (job.status === "error") {
-          if (jobPollRef.current) clearInterval(jobPollRef.current);
-          setError(job.error || "Content extraction failed");
-        }
-      } catch {
-        // Keep polling
-      }
-    };
-
-    jobPollRef.current = setInterval(poll, 3000);
-    poll(); // Run immediately
-    return () => {
-      if (jobPollRef.current) clearInterval(jobPollRef.current);
-    };
-  }, [extractionJobId, extractionSourceId, analysisComplete, taskId]);
-
-  // ── Build (Analyze) ─────────────────────────────
-
-  // In community mode, content is optional; in institution mode, content is required
-  const hasInstitution = communityMode || (selectedInstitutionId === "__new__" ? !!newInstitutionName.trim() : !!selectedInstitutionId);
-  const canLaunch = subjectName.trim() && persona && hasInstitution && (communityMode || launchMode === "generate" || !!file) && phase === "form";
-
-  const handleBuild = async () => {
+  const handleLaunch = async () => {
     if (!canLaunch) return;
 
-    setPhase("building");
-    setError(null);
-    // Clear previous analysis state (user chose to re-build, not return to review)
-    setOverrides({});
-    setAnalysisComplete(false);
-    setAnalysisProgress(5);
-    setAnalysisLabel("Setting up agent...");
-    // NOTE: preview is NOT cleared here — we read preview.domainId below to reuse the domain
-
-    const formData = new FormData();
-    formData.append("subjectName", subjectName.trim());
-    formData.append("persona", persona);
-    formData.append("mode", launchMode);
-    formData.append("kind", communityMode ? "COMMUNITY" : "INSTITUTION");
-    // Institution — send selected ID or "create:Name" for inline creation
-    if (selectedInstitutionId === "__new__" && newInstitutionName.trim()) {
-      formData.append("institutionId", `create:${newInstitutionName.trim()}`);
-    } else if (selectedInstitutionId && selectedInstitutionId !== "__new__") {
-      formData.append("institutionId", selectedInstitutionId);
-    }
-    // Reuse existing domain if we have one from a previous analyze (prevents orphans on Back + re-submit)
-    const domainIdToUse = selectedDomainId || preview.domainId;
-    if (domainIdToUse) {
-      formData.append("domainId", domainIdToUse);
-    }
-    if (brief.trim()) {
-      formData.append("brief", brief.trim());
-    }
-    if (launchMode === "upload" && file) {
-      formData.append("file", file);
-    }
-    if (goals.length > 0) {
-      formData.append("learningGoals", JSON.stringify(goals));
-    }
-    // Merge traits: matrix-derived + pill labels (deduplicated)
-    const allTraits = [...new Set([...matrixTraits, ...tunerPills.map((p) => p.label)])];
-    if (allTraits.length > 0) {
-      formData.append("toneTraits", JSON.stringify(allTraits));
-    }
-    if (qualificationRef.trim()) {
-      formData.append("qualificationRef", qualificationRef.trim());
-    }
-
-    try {
-      const response = await fetch("/api/domains/quick-launch/analyze", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || `Server error: ${response.status}`);
-      }
-
-      // Set scaffold data immediately
-      setTaskId(data.taskId || null);
-      setPreview({
-        domainId: data.domainId,
-        domainSlug: data.domainSlug,
-        domainName: data.domainName,
-        subjectId: data.subjectId,
-        sourceId: data.sourceId || "",
-        identityConfig: data.identityConfig || null,
-        mode: launchMode,
-      });
-
-      if (launchMode === "upload" && file) {
-        // Upload mode: start polling for extraction completion
-        addToGlobalQueue(
-          data.jobId,
-          data.sourceId,
-          data.domainName || subjectName.trim(),
-          file.name
-        );
-        setExtractionJobId(data.jobId);
-        setExtractionSourceId(data.sourceId);
-        setAnalysisProgress(10);
-        setAnalysisLabel("Extracting content...");
-      } else {
-        // Generate mode: no extraction needed — go straight to review
-        setAnalysisComplete(true);
-        setAnalysisProgress(100);
-        setAnalysisLabel("Ready for review");
-      }
-
-      // Transition to review
-      setPhase("review");
-    } catch (err: any) {
-      const msg = err.message || "Analysis failed";
-      const isNetworkError = msg === "Load failed" || msg === "Failed to fetch" || msg === "NetworkError when attempting to fetch resource.";
-      setError(
-        isNetworkError
-          ? "Connection lost — the server may have restarted. Check your tunnel and try again."
-          : msg
-      );
-      setPhase("form");
-    }
-  };
-
-  // ── Commit (Create) ──────────────────────────────
-
-  const handleCommit = async () => {
     setPhase("committing");
     setCommitTimeline([]);
     setError(null);
 
-    // Create abort controller for cancel escape hatch
+    // Create abort controller
     commitAbortRef.current?.abort();
     const controller = new AbortController();
     commitAbortRef.current = controller;
 
     try {
-      const response = await fetch("/api/domains/quick-launch/commit", {
+      // ── Step 1: Analyze (create domain + generate identity) ──
+      const institutionId = selectedInstitutionId === "__new__" && newInstitutionName.trim()
+        ? `create:${newInstitutionName.trim()}`
+        : selectedInstitutionId || undefined;
+
+      const allTraits = [...new Set([...matrixTraits, ...tunerPills.map((p) => p.label)])];
+
+      const analyzeRes = await fetch("/api/domains/quick-launch/analyze", {
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          taskId,
-          domainId: preview.domainId,
-          preview,
-          overrides,
+          subjectName: subjectName.trim(),
+          brief: brief.trim() || undefined,
+          persona,
+          learningGoals: goals,
+          toneTraits: allTraits.length > 0 ? allTraits : undefined,
+          qualificationRef: qualificationRef.trim() || undefined,
+          domainId: selectedDomainId || undefined,
+          kind: "COMMUNITY",
+          institutionId,
+        }),
+      });
+
+      const analyzeData = await analyzeRes.json();
+      if (!analyzeRes.ok || !analyzeData.ok) {
+        throw new Error(analyzeData.error || `Server error: ${analyzeRes.status}`);
+      }
+
+      setTaskId(analyzeData.taskId || null);
+      analyzeResultRef.current = {
+        domainId: analyzeData.domainId,
+        subjectId: analyzeData.subjectId,
+        identityConfig: analyzeData.identityConfig,
+      };
+
+      // ── Step 2: Commit (scaffold + caller + prompt via SSE) ──
+      const commitRes = await fetch("/api/domains/quick-launch/commit", {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId: analyzeData.taskId,
+          domainId: analyzeData.domainId,
+          preview: {
+            domainId: analyzeData.domainId,
+            domainSlug: analyzeData.domainSlug,
+            domainName: analyzeData.domainName,
+            subjectId: analyzeData.subjectId,
+            sourceId: "",
+            assertionCount: 0,
+            assertionSummary: {},
+            identityConfig: analyzeData.identityConfig,
+            warnings: [],
+          },
+          overrides: {},
           input: {
             subjectName: subjectName.trim(),
             brief: brief.trim() || undefined,
             persona,
-            learningGoals: overrides.learningGoals ?? goals,
+            learningGoals: goals,
             qualificationRef: qualificationRef.trim() || undefined,
-            mode: launchMode,
-            kind: communityMode ? "COMMUNITY" : "INSTITUTION",
+            kind: "COMMUNITY",
             behaviorTargets: { ...matrixTargets, ...behaviorTargets },
             matrixPositions: Object.keys(matrixPositions).length > 0 ? matrixPositions : undefined,
           },
         }),
       });
 
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.error || `Server error: ${response.status}`);
+      if (!commitRes.ok) {
+        const body = await commitRes.json().catch(() => null);
+        throw new Error(body?.error || `Server error: ${commitRes.status}`);
       }
 
-      const reader = response.body?.getReader();
+      const reader = commitRes.body?.getReader();
       if (!reader) throw new Error("No response stream");
 
       const decoder = new TextDecoder();
@@ -829,10 +467,8 @@ export default function QuickLaunchPage() {
         for (const block of lines) {
           const dataLine = block.split("\n").find((l) => l.startsWith("data: "));
           if (!dataLine) continue;
-
           try {
-            const event = JSON.parse(dataLine.slice(6));
-            handleCommitEvent(event);
+            handleCommitEvent(JSON.parse(dataLine.slice(6)));
           } catch {
             // Ignore
           }
@@ -851,25 +487,23 @@ export default function QuickLaunchPage() {
       }
     } catch (err: any) {
       if (err.name === "AbortError") {
-        // User cancelled — go back to review quietly
-        setPhase("review");
+        setPhase("form");
         return;
       }
       const msg = err.message || "Creation failed";
-      // Translate browser network errors to user-friendly messages
       const isNetworkError = msg === "Load failed" || msg === "Failed to fetch" || msg === "NetworkError when attempting to fetch resource.";
       setError(
         isNetworkError
           ? "Connection lost — the server may have restarted. Check your tunnel and try again."
           : msg
       );
-      setPhase("review");
+      setPhase("form");
     }
   };
 
   const handleCancelCommit = () => {
     commitAbortRef.current?.abort();
-    setPhase("review");
+    setPhase("form");
   };
 
   const handleCommitEvent = (event: any) => {
@@ -884,7 +518,7 @@ export default function QuickLaunchPage() {
 
     if (evtPhase === "error") {
       setError(message);
-      setPhase("review");
+      setPhase("form");
       return;
     }
 
@@ -919,26 +553,7 @@ export default function QuickLaunchPage() {
     });
   };
 
-  // ── Back to form (non-destructive) ────────────────
-  //
-  // Preserves preview + overrides so user can tweak inputs
-  // and return to review without re-running extraction.
-  // Clears polling to stop background fetches.
-
-  const handleBackToForm = () => {
-    setPhase("form");
-    // Stop any in-flight extraction polling
-    if (jobPollRef.current) {
-      clearInterval(jobPollRef.current);
-      jobPollRef.current = null;
-    }
-    setExtractionJobId(null);
-    setExtractionSourceId(null);
-    // NOTE: preview, overrides, analysisComplete, analysisProgress
-    // are intentionally preserved so the user can return to review.
-  };
-
-  // ── Result screen state (inline editing + classroom) ──
+  // ── Result screen state ──
 
   const [editDomainName, setEditDomainName] = useState("");
   const [editWelcome, setEditWelcome] = useState("");
@@ -958,13 +573,12 @@ export default function QuickLaunchPage() {
   const [domainDetailLoading, setDomainDetailLoading] = useState(false);
   const [savingPersona, setSavingPersona] = useState(false);
 
-  // Fetch course readiness checks + onboarding data when result screen appears
+  // Fetch course readiness checks when result screen appears
   const fetchCourseReadiness = useCallback(async () => {
     if (!result) return;
     setChecksLoading(true);
     try {
       const params = new URLSearchParams({ callerId: result.callerId });
-      if (result.sourceId) params.set("sourceId", result.sourceId);
       if (result.subjectId) params.set("subjectId", result.subjectId);
       const res = await fetch(`/api/domains/${result.domainId}/course-readiness?${params}`);
       const data = await res.json();
@@ -1035,7 +649,7 @@ export default function QuickLaunchPage() {
     }
   }, [result]);
 
-  // Sync inline welcome when domainDetail refreshes (after OnboardingTabContent save)
+  // Sync inline welcome when domainDetail refreshes
   useEffect(() => {
     if (domainDetail?.onboardingWelcome !== undefined) {
       setEditWelcome(domainDetail.onboardingWelcome || "");
@@ -1055,15 +669,13 @@ export default function QuickLaunchPage() {
         })
         .catch((e) => console.warn("[QuickLaunch] Failed to load domain welcome:", e));
 
-      // Auto-expand onboarding in community mode
-      if (communityMode) {
-        setOnboardingExpanded(true);
-        fetchDomainDetail();
-      }
+      // Auto-expand onboarding — it's the main feature for community
+      setOnboardingExpanded(true);
+      fetchDomainDetail();
     }
-  }, [phase, result, fetchCourseReadiness, communityMode, fetchDomainDetail]);
+  }, [phase, result, fetchCourseReadiness, fetchDomainDetail]);
 
-  // Poll readiness every 10s while on result page (admin may complete steps in other tabs)
+  // Poll readiness every 10s while on result page
   useEffect(() => {
     if (phase !== "result" || !result) return;
     const interval = setInterval(fetchCourseReadiness, 10_000);
@@ -1131,7 +743,6 @@ export default function QuickLaunchPage() {
   // ── Reset all ─────────────────────────────────────
 
   const handleReset = () => {
-    // Archive the completed task so it doesn't trigger summary mode on next mount
     if (taskId) {
       fetch("/api/tasks", {
         method: "PATCH",
@@ -1139,19 +750,12 @@ export default function QuickLaunchPage() {
         body: JSON.stringify({ taskIds: [taskId], action: "archive" }),
       }).catch(() => {});
     }
-    // Stop any in-flight extraction polling
-    if (jobPollRef.current) {
-      clearInterval(jobPollRef.current);
-      jobPollRef.current = null;
-    }
-    // Reset phase + result
     setPhase("form");
     setResult(null);
     try { localStorage.removeItem("ql-active-task"); } catch {}
     setCommitTimeline([]);
     setTaskId(null);
     setError(null);
-    // Reset form inputs
     setBrief("");
     setSubjectName("");
     setSuggestedName(null);
@@ -1161,28 +765,14 @@ export default function QuickLaunchPage() {
     setPersona("");
     setGoals([]);
     setGoalInput("");
-    setFile(null);
     setQualificationRef("");
-    setLaunchMode("generate");
     setShowAdvanced(false);
     setSelectedDomainId("");
-    // Reset tuning state
     setTunerPills([]);
     setBehaviorTargets({});
     setMatrixTargets({});
     setMatrixTraits([]);
     setMatrixPositions({});
-    // Reset analysis/preview
-    setPreview({});
-    setOverrides({});
-    setAnalysisComplete(false);
-    setAnalysisProgress(0);
-    setAnalysisLabel("Starting analysis...");
-    setExtractionJobId(null);
-    setExtractionSourceId(null);
-    // Reset result screen state
-    setEnriching(false);
-    setEnrichedModuleCount(null);
     setClassroom(null);
     setEditDomainName("");
     setEditWelcome("");
@@ -1194,14 +784,12 @@ export default function QuickLaunchPage() {
     setDomainDetail(null);
     setDomainDetailLoading(false);
     setSavingPersona(false);
+    analyzeResultRef.current = null;
   };
 
   // ── Form completion ───────────────────────────────
 
-  // In community mode, institution is not required; in institution mode, it is
-  const formSteps = communityMode
-    ? [!!subjectName.trim(), !!persona, hasInstitution]
-    : [!!subjectName.trim(), !!persona, hasInstitution, launchMode === "generate" || !!file];
+  const formSteps = [!!subjectName.trim(), !!persona];
   const completedSteps = formSteps.filter(Boolean).length;
   const totalRequired = formSteps.length;
 
@@ -1210,7 +798,7 @@ export default function QuickLaunchPage() {
   // ── Render ─────────────────────────────────────────
 
   return (
-    <div className="ql-page" style={{ maxWidth: phase === "form" || phase === "result" ? 720 : 1280 }}>
+    <div className="ql-page" style={{ maxWidth: 720 }}>
       {/* ── Header ── */}
       <div className="ql-hero">
         <div className="ql-hero-icon">
@@ -1221,8 +809,6 @@ export default function QuickLaunchPage() {
         </h1>
         <p className="ql-hero-subtitle">
           {phase === "form" && "Create a community for individuals to have meaningful conversations with an AI companion."}
-          {phase === "building" && "Setting up your community..."}
-          {phase === "review" && "Review what AI created and customize before finalizing."}
           {phase === "committing" && "Creating your community..."}
           {phase === "result" && "Your community is ready!"}
         </p>
@@ -1251,7 +837,6 @@ export default function QuickLaunchPage() {
             </button>
             <button
               onClick={() => {
-                // Abandon old task so it doesn't resurface
                 if (resumeTask?.id) {
                   fetch(`/api/tasks?taskId=${resumeTask.id}`, { method: "DELETE" }).catch((e) => console.warn("[QuickLaunch] Failed to delete old task:", e));
                 }
@@ -1265,21 +850,8 @@ export default function QuickLaunchPage() {
         </div>
       )}
 
-      {/* ── Progress Bar (building/review) ── */}
-      {(phase === "building" || phase === "review") && (
-        <div>
-          <ProgressBar progress={analysisProgress} label={analysisLabel} />
-          {phase === "building" && analysisProgress < 100 && (
-            <div className="ql-progress-hint">
-              You can leave this page &mdash; check progress anytime on the{" "}
-              <a href="/x/jobs" className="ql-progress-link">Jobs</a> page.
-            </div>
-          )}
-        </div>
-      )}
-
       {/* ── Error Banner ── */}
-      {error && phase !== "building" && (
+      {error && (
         <div className="ql-error-banner">
           <span>{error}</span>
           <button
@@ -1290,30 +862,6 @@ export default function QuickLaunchPage() {
             &times;
           </button>
         </div>
-      )}
-
-      {/* ── Phase: Building & Review (3-column) ── */}
-      {(phase === "building" || phase === "review") && (
-        <ReviewPanel
-          input={{
-            subjectName: subjectName.trim(),
-            brief: brief.trim() || undefined,
-            persona,
-            personaName: selectedPersona?.name,
-            goals,
-            fileName: file?.name,
-            fileSize: file?.size,
-            qualificationRef: qualificationRef.trim() || undefined,
-            mode: launchMode,
-            agentStyleTraits: [...new Set([...matrixTraits, ...tunerPills.map((p) => p.label)])],
-          }}
-          preview={preview}
-          overrides={overrides}
-          analysisComplete={analysisComplete}
-          onOverridesChange={handleOverridesChange}
-          onConfirm={handleCommit}
-          onBack={handleBackToForm}
-        />
       )}
 
       {/* ── Phase: Committing (progress timeline) ── */}
@@ -1346,7 +894,6 @@ export default function QuickLaunchPage() {
             </div>
           ))}
 
-          {/* Cancel escape hatch */}
           <button onClick={handleCancelCommit} className="ql-cancel-btn">
             Cancel
           </button>
@@ -1359,17 +906,12 @@ export default function QuickLaunchPage() {
           {/* ── Summary ── */}
           <WizardSummary
             title="Your Community is Ready!"
-            subtitle={[
-              ...(result.assertionCount > 0 ? [`${result.assertionCount} teaching points`] : []),
-              ...((enrichedModuleCount ?? result.moduleCount) > 0 ? [`${enrichedModuleCount ?? result.moduleCount} modules${enriching ? " (enriching...)" : ""}`] : []),
-              ...(result.goalCount > 0 ? [`${result.goalCount} goals`] : []),
-            ].join(", ") || undefined}
+            subtitle={result.goalCount > 0 ? `${result.goalCount} goals` : undefined}
             intent={{
               items: [
                 { icon: <BookOpen className="w-4 h-4" />, label: "Subject", value: subjectName || "—" },
                 ...(selectedPersona ? [{ icon: <User className="w-4 h-4" />, label: "Persona", value: selectedPersona.name }] : []),
                 ...(goals.length > 0 ? [{ icon: <Target className="w-4 h-4" />, label: "Goals", value: `${goals.length} learning goal${goals.length !== 1 ? "s" : ""}` }] : []),
-                ...(file ? [{ icon: <FileText className="w-4 h-4" />, label: "Source", value: file.name }] : []),
               ],
             }}
             created={{
@@ -1386,19 +928,9 @@ export default function QuickLaunchPage() {
                   name: result.callerName,
                   href: `/x/callers/${result.callerId}`,
                 },
-                ...(result.identitySpecId ? [{
-                  icon: <FileText className="w-5 h-5" />,
-                  label: "Identity",
-                  name: "AI Persona",
-                  href: `/x/specs/${result.identitySpecId}`,
-                }] : []),
               ],
             }}
-            stats={[
-              ...(result.assertionCount > 0 ? [{ label: "Teaching Points", value: result.assertionCount }] : []),
-              ...((enrichedModuleCount ?? result.moduleCount) > 0 ? [{ label: enriching ? "Modules (enriching...)" : "Modules", value: enrichedModuleCount ?? result.moduleCount }] : []),
-              ...(result.goalCount > 0 ? [{ label: "Goals", value: result.goalCount }] : []),
-            ]}
+            stats={result.goalCount > 0 ? [{ label: "Goals", value: result.goalCount }] : []}
             tuning={matrixTraits.length > 0 || tunerPills.length > 0 ? {
               traits: [...new Set([...matrixTraits, ...tunerPills.map(p => p.label)])],
               paramCount: Object.keys(behaviorTargets).length,
@@ -1413,39 +945,6 @@ export default function QuickLaunchPage() {
               { label: "Launch Another", onClick: handleReset },
             ]}
           >
-            {/* ── Document Structure (when file uploaded) ── */}
-            {result.documentStructure && result.documentStructure.sections.length > 0 && (
-              <div className="wiz-section">
-                <div className="wiz-section-label">Document Structure</div>
-                {result.assertionCount === 0 && (
-                  <div className="ql-doc-info">
-                    <Info className="w-4 h-4" style={{ flexShrink: 0 }} />
-                    <span>
-                      This document contains questions and exercises rather than teaching content
-                      {result.goalCount > 0 ? " — curriculum was generated from your learning goals instead." : "."}
-                    </span>
-                  </div>
-                )}
-                <div className="ql-doc-structure-list">
-                  {result.documentStructure.sections
-                    .filter(s => s.pedagogicalRole !== "META")
-                    .map((section, i) => (
-                    <div key={i} className="ql-doc-structure-row">
-                      <div className="ql-doc-structure-icon">
-                        {ROLE_ICONS[section.pedagogicalRole] || <FileText className="w-4 h-4" />}
-                      </div>
-                      <div className="ql-doc-structure-title">{section.title}</div>
-                      <div className="ql-doc-structure-pills">
-                        <span className="ql-doc-structure-pill">{ROLE_LABELS[section.pedagogicalRole] || section.pedagogicalRole}</span>
-                        {section.hasQuestions && <span className="ql-doc-structure-pill ql-doc-pill-questions">Q&amp;A</span>}
-                        {section.hasAnswerKey && <span className="ql-doc-structure-pill ql-doc-pill-answers">Answers</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* ── Editable agent name ── */}
             <div className="wiz-section">
               <div className="wiz-section-label">
@@ -1508,53 +1007,7 @@ export default function QuickLaunchPage() {
             )}
           </WizardSummary>
 
-          {/* ── Tune Persona (Boston Matrix) ── */}
-          <div className="ql-result-card">
-            <button
-              onClick={handleToggleTunePersona}
-              className="ql-accordion-toggle"
-              style={{ borderTop: "none", paddingTop: 0, marginTop: 0 }}
-            >
-              {tunePersonaExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              <span>Tune Persona</span>
-              {savingPersona && (
-                <span className="ql-saving-indicator">&mdash; saving...</span>
-              )}
-            </button>
-            <div className="ql-accordion-hint">
-              Drag the dots to adjust your companion&apos;s voice and personality.
-            </div>
-            {tunePersonaExpanded && (
-              <div className="ql-accordion-content">
-                {domainDetailLoading && !domainDetail ? (
-                  <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
-                    <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
-                    <span className="hf-text-sm hf-text-muted">Loading persona settings...</span>
-                  </div>
-                ) : (
-                  <AgentTuningPanel
-                    initialPositions={
-                      (domainDetail?.onboardingDefaultTargets as any)?._matrixPositions
-                      || (Object.keys(matrixPositions).length > 0 ? matrixPositions : undefined)
-                    }
-                    existingParams={
-                      domainDetail?.onboardingDefaultTargets
-                        ? Object.fromEntries(
-                            Object.entries(domainDetail.onboardingDefaultTargets as Record<string, any>)
-                              .filter(([k]) => !k.startsWith("_"))
-                              .map(([k, v]) => [k, typeof v === "object" && v !== null ? (v as any).value : v])
-                          )
-                        : undefined
-                    }
-                    onChange={handlePersonaTuningChange}
-                    compact
-                  />
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── Onboarding Configuration ── */}
+          {/* ── Onboarding Configuration (FIRST — the main feature) ── */}
           <div className="ql-result-card">
             {/* Always-visible: Welcome message quick edit */}
             <div className="ql-result-section-label">
@@ -1597,6 +1050,52 @@ export default function QuickLaunchPage() {
                     onDomainRefresh={fetchDomainDetail}
                   />
                 ) : null}
+              </div>
+            )}
+          </div>
+
+          {/* ── Tune Persona (Boston Matrix) ── */}
+          <div className="ql-result-card">
+            <button
+              onClick={handleToggleTunePersona}
+              className="ql-accordion-toggle"
+              style={{ borderTop: "none", paddingTop: 0, marginTop: 0 }}
+            >
+              {tunePersonaExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              <span>Tune Persona</span>
+              {savingPersona && (
+                <span className="ql-saving-indicator">&mdash; saving...</span>
+              )}
+            </button>
+            <div className="ql-accordion-hint">
+              Drag the dots to adjust your companion&apos;s voice and personality.
+            </div>
+            {tunePersonaExpanded && (
+              <div className="ql-accordion-content">
+                {domainDetailLoading && !domainDetail ? (
+                  <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
+                    <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
+                    <span className="hf-text-sm hf-text-muted">Loading persona settings...</span>
+                  </div>
+                ) : (
+                  <AgentTuningPanel
+                    initialPositions={
+                      (domainDetail?.onboardingDefaultTargets as any)?._matrixPositions
+                      || (Object.keys(matrixPositions).length > 0 ? matrixPositions : undefined)
+                    }
+                    existingParams={
+                      domainDetail?.onboardingDefaultTargets
+                        ? Object.fromEntries(
+                            Object.entries(domainDetail.onboardingDefaultTargets as Record<string, any>)
+                              .filter(([k]) => !k.startsWith("_"))
+                              .map(([k, v]) => [k, typeof v === "object" && v !== null ? (v as any).value : v])
+                          )
+                        : undefined
+                    }
+                    onChange={handlePersonaTuningChange}
+                    compact
+                  />
+                )}
               </div>
             )}
           </div>
@@ -1644,35 +1143,8 @@ export default function QuickLaunchPage() {
           <FormCard>
             <StepMarker number={1} label="Describe your community" completed={!!subjectName.trim()} />
 
-            {/* Institution picker */}
-            {!communityMode && (
-              <div className="hf-mb-md">
-                <FancySelect
-                  options={[
-                    ...institutions.map((i) => ({ value: i.id, label: i.name })),
-                    { value: "__new__", label: "+ Create new institution" },
-                  ]}
-                  value={selectedInstitutionId}
-                  onChange={setSelectedInstitutionId}
-                  placeholder="Select institution..."
-                  loading={institutionsLoading}
-                  searchable={institutions.length > 3}
-                  sortable={false}
-                />
-                {selectedInstitutionId === "__new__" && (
-                  <input
-                    type="text"
-                    value={newInstitutionName}
-                    onChange={(e) => setNewInstitutionName(e.target.value)}
-                    placeholder="Institution name (e.g. Oakwood Academy)"
-                    className="ql-input-inline"
-                  />
-                )}
-              </div>
-            )}
-
-            {/* Domain picker — only in community mode (institution mode auto-scaffolds domain) */}
-            {communityMode && domains.length > 0 && (
+            {/* Domain picker */}
+            {domains.length > 0 && (
               <div className="hf-mb-md">
                 <label className="hf-label">
                   {terms.domain}
@@ -1904,137 +1376,6 @@ export default function QuickLaunchPage() {
             )}
           </FormCard>
 
-          {/* Step 4: Curriculum Source — hidden in community mode */}
-          {!communityMode && <FormCard>
-            <StepMarker
-              number={4}
-              label="Content source"
-              completed={launchMode === "generate" || !!file}
-            />
-            <div className="ql-form-hint">
-              Where the knowledge for your AI comes from &mdash; generate it or upload your own material.
-            </div>
-
-            {/* Mode toggle */}
-            <div className="hf-flex" style={{ gap: 10, marginBottom: 20 }}>
-              <button
-                onClick={() => setLaunchMode("generate")}
-                className={`ql-mode-btn ${launchMode === "generate" ? "ql-mode-btn-active" : ""}`}
-              >
-                <div className="ql-mode-btn-title">Generate with AI</div>
-                <div className="ql-mode-btn-desc">AI generates content from your description</div>
-              </button>
-              <button
-                onClick={() => setLaunchMode("upload")}
-                className={`ql-mode-btn ${launchMode === "upload" ? "ql-mode-btn-active" : ""}`}
-              >
-                <div className="ql-mode-btn-title">Upload Materials</div>
-                <div className="ql-mode-btn-desc">Extract from your documents</div>
-              </button>
-            </div>
-
-            {/* Generate mode: inline summary card */}
-            {launchMode === "generate" && (
-              <div className="ql-summary-card">
-                <div className="ql-summary-title">
-                  We&apos;ll build an agent for:
-                </div>
-                <div className="hf-flex-col hf-gap-sm">
-                  {brief.trim() && (
-                    <div className="ql-summary-row">
-                      <span className="ql-summary-label">Brief</span>
-                      <span className="ql-summary-value">
-                        {brief.trim().length > 120 ? brief.trim().slice(0, 120) + "..." : brief.trim()}
-                      </span>
-                    </div>
-                  )}
-                  <div className="ql-summary-row">
-                    <span className="ql-summary-label">Name</span>
-                    <span className={subjectName.trim() ? "ql-summary-value" : "ql-summary-value-empty"}>
-                      {subjectName.trim() || "enter agent name above"}
-                    </span>
-                  </div>
-                  <div className="ql-summary-row">
-                    <span className="ql-summary-label">{terms.persona}</span>
-                    <span className={selectedPersona ? "ql-summary-value" : "ql-summary-value-empty"}>
-                      {selectedPersona?.name || "select above"}
-                    </span>
-                  </div>
-                  <div className="ql-summary-row">
-                    <span className="ql-summary-label">Goals</span>
-                    {goals.length > 0 ? (
-                      <div className="hf-flex hf-flex-wrap" style={{ gap: 6 }}>
-                        {goals.map((g, i) => (
-                          <span key={i} className="ql-summary-goal-chip">
-                            {g}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="ql-summary-value-empty" style={{ fontStyle: "italic" }}>
-                        none (AI will infer)
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {goals.length === 0 && (
-                  <div className="ql-goals-hint">
-                    Adding goals helps AI create a more tailored experience
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Upload mode: file dropzone */}
-            {launchMode === "upload" && (
-              <>
-                <div
-                  ref={dropRef}
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`ql-dropzone ${file ? "ql-dropzone-active" : ""}`}
-                >
-                  {file ? (
-                    <div>
-                      <div className="ql-file-name">{file.name}</div>
-                      <div className="ql-file-size">
-                        {(file.size / 1024).toFixed(0)} KB
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setFile(null);
-                          }}
-                          className="ql-file-remove"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="ql-dropzone-icon">&#8613;</div>
-                      <div className="ql-dropzone-title">
-                        Drop a file here or click to browse
-                      </div>
-                      <div className="ql-dropzone-hint">
-                        PDF, TXT, Markdown, or JSON
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.txt,.md,.markdown,.json"
-                  onChange={(e) => handleFile(e.target.files?.[0] || null)}
-                  hidden
-                />
-              </>
-            )}
-          </FormCard>}
-
           {/* Advanced Options */}
           <div style={{ padding: "16px 0 0" }}>
             <button
@@ -2062,14 +1403,8 @@ export default function QuickLaunchPage() {
 
           {/* ── Build Button ── */}
           <div style={{ padding: "32px 0 0" }}>
-            {/* Return to Review — shown when user went Back but analysis is still valid */}
-            {analysisComplete && preview.domainId && (
-              <button onClick={() => setPhase("review")} className="ql-return-btn">
-                Return to Review
-              </button>
-            )}
             <button
-              onClick={handleBuild}
+              onClick={handleLaunch}
               disabled={!canLaunch}
               className={`ql-build-btn ${canLaunch ? "ql-build-btn-active" : "ql-build-btn-disabled"}`}
             >
@@ -2086,11 +1421,7 @@ export default function QuickLaunchPage() {
                       ? "Enter an agent name"
                       : !persona
                         ? "Select a persona"
-                        : !hasInstitution
-                          ? "Select an institution"
-                          : launchMode === "upload" && !file
-                            ? "Upload material"
-                            : ""}
+                        : ""}
                   </span>
                 )}
               </div>
