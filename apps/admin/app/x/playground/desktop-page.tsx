@@ -127,7 +127,7 @@ type MatrixCell = {
 
 const WIZARD_MODES: { id: WizardMode; label: string; icon: string; description: string }[] = [
   { id: "caller", label: "Prompt Tuner", icon: "✏️", description: "Tune prompt output for one caller" },
-  { id: "matrix", label: "Test Playbooks", icon: "📊", description: "Test N callers × M playbooks" },
+  { id: "matrix", label: "Test Matrix", icon: "📊", description: "Test N callers × M subjects" },
 ];
 
 const SPEC_TYPE_INFO: Record<string, { label: string; description: string; icon: string }> = {
@@ -252,7 +252,7 @@ function formatDate(dateStr: string): string {
 export default function PlaygroundPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { terms } = useTerminology();
+  const { terms, plural, lower } = useTerminology();
 
   // Read mode from URL, default to "caller"
   const modeParam = searchParams.get("mode") as WizardMode | null;
@@ -792,7 +792,7 @@ export default function PlaygroundPage() {
                     }
                   }}
                   options={[
-                    { value: "__create__", label: "+ Create new playbook...", isAction: true },
+                    { value: "__create__", label: `+ Create new ${lower("playbook")}...`, isAction: true },
                     ...playbooks
                       .filter((pb) => !selectedDomainId || pb.domainId === selectedDomainId)
                       .map((pb) => ({
@@ -802,7 +802,7 @@ export default function PlaygroundPage() {
                         badge: pb.status,
                       })),
                   ]}
-                  placeholder="Select playbook..."
+                  placeholder={`Select ${lower("playbook")}...`}
                   disabled={!selectedCallerId}
                   selectedStyle={{
                     border: `1px solid ${entityColors.playbook.accent}`,
@@ -1121,7 +1121,7 @@ export default function PlaygroundPage() {
               <div style={{ fontSize: 20, marginBottom: 8 }}>1️⃣</div>
               <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)", marginBottom: 6 }}>Add Items to Matrix</div>
               <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                Click <strong style={{ color: entityColors.caller.accent }}>+ Add Callers</strong> and <strong style={{ color: entityColors.playbook.accent }}>+ Add Playbooks</strong> in the left panel to build your test matrix.
+                Click <strong style={{ color: entityColors.caller.accent }}>+ Add Callers</strong> and <strong style={{ color: entityColors.playbook.accent }}>+ Add {plural("playbook")}</strong> in the left panel to build your test matrix.
               </div>
             </div>
 
@@ -1440,8 +1440,8 @@ export default function PlaygroundPage() {
                 {!selectedPlaybookId && (
                   <div style={{ textAlign: "center", padding: "60px 20px", background: "var(--surface-primary)", borderRadius: 12, border: "1px solid var(--border-default)" }}>
                     <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}>📚</div>
-                    <h3 style={{ fontSize: 18, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 8px 0" }}>Select a Playbook</h3>
-                    <p style={{ fontSize: 14, color: "var(--text-muted)" }}>Choose a playbook from the control bar above to generate prompts</p>
+                    <h3 style={{ fontSize: 18, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 8px 0" }}>Select a {terms.playbook}</h3>
+                    <p style={{ fontSize: 14, color: "var(--text-muted)" }}>Choose a {lower("playbook")} from the control bar above to generate prompts</p>
                   </div>
                 )}
 
@@ -1663,7 +1663,7 @@ export default function PlaygroundPage() {
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                   <span style={{ fontSize: 16 }}>📒</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>Playbooks</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{plural("playbook")}</span>
                   <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: "auto" }}>
                     {matrixPlaybookIds.length} selected
                   </span>
@@ -1710,7 +1710,7 @@ export default function PlaygroundPage() {
                   }}
                   placeholder="+ Add configuration..."
                   options={[
-                    { value: "__baseline__", label: "(baseline)", subtitle: "No playbook - system defaults only" },
+                    { value: "__baseline__", label: "(baseline)", subtitle: `No ${lower("playbook")} - system defaults only` },
                     ...playbooks
                       .filter(p => p.status === "PUBLISHED" && !matrixPlaybookIds.includes(p.id))
                       .map(p => ({
@@ -2187,7 +2187,7 @@ export default function PlaygroundPage() {
                   type="text"
                   value={newPlaybookName}
                   onChange={(e) => setNewPlaybookName(e.target.value)}
-                  placeholder="Enter playbook name"
+                  placeholder={`Enter ${lower("playbook")} name`}
                   style={{
                     width: "100%",
                     padding: "10px 12px",
@@ -2252,10 +2252,10 @@ export default function PlaygroundPage() {
                       setNewPlaybookName("");
                       setNewPlaybookDomainId("");
                     } else {
-                      setError(data.error || "Failed to create playbook");
+                      setError(data.error || `Failed to create ${lower("playbook")}`);
                     }
                   } catch {
-                    setError("Failed to create playbook");
+                    setError(`Failed to create ${lower("playbook")}`);
                   } finally {
                     setCreatingPlaybook(false);
                   }
@@ -2513,10 +2513,10 @@ export default function PlaygroundPage() {
                       setNewPlaybookName("");
                       setNewPlaybookDomainId("");
                     } else {
-                      setError(data.error || "Failed to create playbook");
+                      setError(data.error || `Failed to create ${lower("playbook")}`);
                     }
                   } catch {
-                    setError("Failed to create playbook");
+                    setError(`Failed to create ${lower("playbook")}`);
                   } finally {
                     setCreatingPlaybook(false);
                   }

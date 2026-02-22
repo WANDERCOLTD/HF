@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { StepFormProps } from "@/lib/workflow/types";
+import { useTerminology } from "@/contexts/TerminologyContext";
 import { ReadinessChecklist } from "@/components/shared/ReadinessBadge";
 
 // ============================================================================
@@ -49,6 +50,7 @@ export function ActivateStepForm({
   onSkip,
   onError,
 }: StepFormProps) {
+  const { terms } = useTerminology();
   const [readiness, setReadiness] = useState<ReadinessData | null>(null);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
@@ -303,7 +305,7 @@ export function ActivateStepForm({
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
               }}>
-                Publish Playbook
+                Publish {terms.playbook}
               </label>
               {draftPlaybooks.map((pb) => (
                 <label

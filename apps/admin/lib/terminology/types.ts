@@ -65,7 +65,7 @@ export const TERM_KEY_LABELS: Record<TermKey, string> = {
  */
 export const TECHNICAL_TERMS: TermMap = {
   domain: "Institution",
-  playbook: "Playbook",
+  playbook: "Subject",
   spec: "Spec",
   caller: "Caller",
   cohort: "Cohort",

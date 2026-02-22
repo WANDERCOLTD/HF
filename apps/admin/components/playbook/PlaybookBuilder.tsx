@@ -8,6 +8,7 @@ import { EditableTitle } from "@/components/shared/EditableTitle";
 import { VerticalSlider, SliderGroup } from "@/components/shared/VerticalSlider";
 import { DraggableTabs } from "@/components/shared/DraggableTabs";
 import { useEntityContext } from "@/contexts/EntityContext";
+import { useTerminology } from "@/contexts/TerminologyContext";
 import { TreeNode } from "@/components/shared/ExplorerTree";
 import { SpecRoleBadge } from "@/components/shared/SpecRoleBadge";
 import { ClipboardList, Layers, Target, GitBranch, Settings, Zap, Orbit, Users } from "lucide-react";
@@ -26,6 +27,7 @@ import type {
 export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilderProps) {
   const router = useRouter();
   const { pushEntity } = useEntityContext();
+  const { terms, plural } = useTerminology();
 
   const [playbook, setPlaybook] = useState<Playbook | null>(null);
   const [availableItems, setAvailableItems] = useState<AvailableItems | null>(null);
@@ -968,7 +970,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
   };
 
   const handleCreateNewVersion = async () => {
-    if (!confirm("Clone this playbook as a new draft?")) {
+    if (!confirm(`Clone this ${terms.playbook.toLowerCase()} as a new draft?`)) {
       return;
     }
 
@@ -983,10 +985,10 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
         // Navigate to the new clone
         router.push(`${routePrefix}/playbooks/${data.playbook.id}`);
       } else {
-        alert("Failed to clone playbook: " + data.error);
+        alert(`Failed to clone ${terms.playbook.toLowerCase()}: ` + data.error);
       }
     } catch (err: any) {
-      alert("Error cloning playbook: " + err.message);
+      alert(`Error cloning ${terms.playbook.toLowerCase()}: ` + err.message);
     } finally {
       setCreatingNewVersion(false);
     }
@@ -1012,7 +1014,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
     }
   };
   const handleUnpublish = async () => {
-    if (!confirm("Unpublish this playbook? It will be removed from the active stack and reverted to DRAFT status.")) {
+    if (!confirm(`Unpublish this ${terms.playbook.toLowerCase()}? It will be removed from the active stack and reverted to DRAFT status.`)) {
       return;
     }
 
@@ -1156,7 +1158,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
   };
 
   const handlePublish = async () => {
-    if (!confirm("Publish this playbook? This will archive any currently published playbook for this domain.")) {
+    if (!confirm(`Publish this ${terms.playbook.toLowerCase()}? This will archive any currently published ${terms.playbook.toLowerCase()} for this ${terms.domain.toLowerCase()}.`)) {
       return;
     }
 
@@ -1175,7 +1177,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
       if (data.ok) {
         setPlaybook(data.playbook);
         setNeedsRepublish(false);
-        alert(`Playbook published successfully!\n\nStats:\n- ${data.stats.measureSpecCount} MEASURE specs\n- ${data.stats.learnSpecCount} LEARN specs\n- ${data.stats.adaptSpecCount} ADAPT specs\n- ${data.stats.parameterCount} unique parameters`);
+        alert(`${terms.playbook} published successfully!\n\nStats:\n- ${data.stats.measureSpecCount} MEASURE specs\n- ${data.stats.learnSpecCount} LEARN specs\n- ${data.stats.adaptSpecCount} ADAPT specs\n- ${data.stats.parameterCount} unique parameters`);
       } else {
         const errors = data.validationErrors?.map((e: any) => `- ${e.error}`).join("\n") || data.error;
         alert(`Failed to publish:\n${errors}`);
@@ -1189,7 +1191,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
 
   // Republish after system spec changes
   const handleRepublish = async () => {
-    if (!confirm("Republish this playbook with the updated system spec settings?")) {
+    if (!confirm(`Republish this ${terms.playbook.toLowerCase()} with the updated system spec settings?`)) {
       return;
     }
 
@@ -1203,7 +1205,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
       if (data.ok) {
         setPlaybook(data.playbook);
         setNeedsRepublish(false);
-        alert("Playbook republished successfully with updated system specs!");
+        alert(`${terms.playbook} republished successfully with updated system specs!`);
       } else {
         const errors = data.validationErrors?.map((e: any) => `- ${e.error}`).join("\n") || data.error;
         alert(`Failed to republish:\n${errors}`);
@@ -1216,7 +1218,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete this playbook? This action cannot be undone.")) {
+    if (!confirm(`Delete this ${terms.playbook.toLowerCase()}? This action cannot be undone.`)) {
       return;
     }
 
@@ -1289,7 +1291,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
 
       // Check if already added
       if (items.some((item) => item.specId === id)) {
-        alert("This spec is already in the playbook");
+        alert(`This spec is already in the ${terms.playbook.toLowerCase()}`);
         return;
       }
 
@@ -1309,7 +1311,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
 
       // Check if already added
       if (items.some((item) => item.promptTemplateId === id)) {
-        alert("This template is already in the playbook");
+        alert(`This template is already in the ${terms.playbook.toLowerCase()}`);
         return;
       }
 
@@ -1508,7 +1510,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
       category: "agent",
       meta: s.specRole,
       disabled: items.some((i) => i.specId === s.id),
-      disabledReason: "Already in playbook",
+      disabledReason: `Already in ${terms.playbook.toLowerCase()}`,
     })),
     ...availableCallerSpecs.map((s) => ({
       id: s.id,
@@ -1517,7 +1519,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
       category: "caller",
       meta: s.specRole,
       disabled: items.some((i) => i.specId === s.id),
-      disabledReason: "Already in playbook",
+      disabledReason: `Already in ${terms.playbook.toLowerCase()}`,
     })),
     ...availableContentSpecs.map((s) => ({
       id: s.id,
@@ -1526,7 +1528,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
       category: "content",
       meta: s.specRole,
       disabled: items.some((i) => i.specId === s.id),
-      disabledReason: "Already in playbook",
+      disabledReason: `Already in ${terms.playbook.toLowerCase()}`,
     })),
   ];
 
@@ -1601,7 +1603,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
   const specTypeOrder = ["SYSTEM", "DOMAIN"];
   const specTypeLabels: Record<string, string> = {
     SYSTEM: "System (Always Run)",
-    DOMAIN: "Domain (From Playbook)",
+    DOMAIN: `${terms.domain} (From ${terms.playbook})`,
   };
 
   // Helper: Infer field type from value for config override modal
@@ -1839,8 +1841,8 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
   if (error || !playbook) {
     return (
       <div className="hf-p-lg">
-        <p className="hf-text-error">Error: {error || "Playbook not found"}</p>
-        <Link href={`${routePrefix}/playbooks`} className="hf-link-accent">Back to Playbooks</Link>
+        <p className="hf-text-error">Error: {error || `${terms.playbook} not found`}</p>
+        <Link href={`${routePrefix}/playbooks`} className="hf-link-accent">Back to {plural("playbook")}</Link>
       </div>
     );
   }
@@ -1982,11 +1984,11 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
         tabs={[
           { id: "grid", label: "Specs", icon: <ClipboardList size={14} />, count: items.length, title: "4-column grid view of all specs" },
           { id: "explorer", label: "Explorer", icon: <Layers size={14} />, title: "Browse specs with tree navigation and inline toggles" },
-          { id: "targets", label: "Targets", icon: <Target size={14} />, count: targetsData?.counts.total ?? null, title: "Configure playbook targets and thresholds" },
-          { id: "slugs", label: "Slugs", icon: <GitBranch size={14} />, count: slugsData?.counts.total ?? null, title: "URL slug mappings for playbook routing" },
+          { id: "targets", label: "Targets", icon: <Target size={14} />, count: targetsData?.counts.total ?? null, title: `Configure ${terms.playbook.toLowerCase()} targets and thresholds` },
+          { id: "slugs", label: "Slugs", icon: <GitBranch size={14} />, count: slugsData?.counts.total ?? null, title: `URL slug mappings for ${terms.playbook.toLowerCase()} routing` },
           { id: "parameters", label: "Parameters", icon: <Settings size={14} />, count: parametersData?.counts.parameters ?? null, title: "Parameter definitions and configuration" },
           { id: "triggers", label: "Triggers", icon: <Zap size={14} />, count: triggersData?.counts.triggers ?? null, title: "Trigger configurations and rules" },
-          { id: "visualizer", label: "Visualizer", icon: <Orbit size={14} />, title: "Interactive graph visualization of playbook structure" },
+          { id: "visualizer", label: "Visualizer", icon: <Orbit size={14} />, title: `Interactive graph visualization of ${terms.playbook.toLowerCase()} structure` },
           { id: "roster", label: "Roster", icon: <Users size={14} />, count: rosterCount, title: "Enrolled callers (class roster)" },
         ]}
         activeTab={activeTab}
@@ -2345,7 +2347,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
                               <button
                                 onClick={(e) => { e.stopPropagation(); removeItem(item.id); }}
                                 className="hf-delete-hover"
-                                title="Remove from playbook"
+                                title={`Remove from ${terms.playbook.toLowerCase()}`}
                               >
                                 ×
                               </button>
@@ -3097,10 +3099,10 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
                       </div>
                       <div>
                         <h3 className="hf-text-bold" style={{ margin: 0, fontSize: 18 }}>
-                          Modify Published Playbook?
+                          Modify Published {terms.playbook}?
                         </h3>
                         <p className="hf-text-muted hf-text-sm" style={{ margin: "4px 0 0 0" }}>
-                          This playbook is currently active
+                          This {terms.playbook.toLowerCase()} is currently active
                         </p>
                       </div>
                     </div>
@@ -3881,7 +3883,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
             <iframe
               src={`/x/taxonomy-graph?focus=playbook:${playbookId}&depth=6&embed=1`}
               style={{ width: "100%", height: "100%", border: "none" }}
-              title="Playbook Visualizer"
+              title={`${terms.playbook} Visualizer`}
             />
           </div>
           <div className="hf-flex hf-gap-sm hf-mt-md">
@@ -3918,7 +3920,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onSelect={handlePickerSelect}
-        title="Add Spec to Playbook"
+        title={`Add Spec to ${terms.playbook}`}
         categories={pickerCategories}
         items={pickerItems}
         searchPlaceholder="Search specs..."

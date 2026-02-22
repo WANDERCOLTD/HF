@@ -5,6 +5,7 @@ import { useApi } from "@/hooks/useApi";
 import { FancySelect } from "@/components/shared/FancySelect";
 import { UnifiedAssistantPanel } from "@/components/shared/UnifiedAssistantPanel";
 import { useAssistant, useAssistantKeyboardShortcut } from "@/hooks/useAssistant";
+import { useTerminology } from "@/contexts/TerminologyContext";
 import "./dictionary.css";
 
 // ── Types matching /api/data-dictionary/parameters response ──
@@ -179,6 +180,7 @@ function RelChip({ label, sub, color }: { label: string; sub?: string; color: st
 // ── Main Page ──
 
 export default function DictionaryPage() {
+  const { plural } = useTerminology();
   const [search, setSearch] = useState("");
   const [filterDomain, setFilterDomain] = useState("");
   const [showOrphans, setShowOrphans] = useState(false);
@@ -275,7 +277,7 @@ export default function DictionaryPage() {
           <StatCard label="Total" value={summary.total} />
           <StatCard label="Active" value={summary.active} accent="var(--status-success-text)" />
           <StatCard label="With Specs" value={summary.withSpecs} accent="var(--accent-primary)" />
-          <StatCard label="With Playbooks" value={summary.withPlaybooks} accent="var(--accent-primary)" />
+          <StatCard label={`With ${plural("playbook")}`} value={summary.withPlaybooks} accent="var(--accent-primary)" />
           <StatCard label="With Targets" value={summary.withTargets} accent="var(--badge-yellow-text)" />
           <StatCard label="Orphaned" value={summary.orphaned} accent={summary.orphaned > 0 ? "var(--status-error-text)" : "var(--text-muted)"} />
         </div>
@@ -419,7 +421,7 @@ export default function DictionaryPage() {
                           {/* Relationship pills */}
                           <div className="dict-pills">
                             <Pill label="Specs" count={param._counts.specs} color="var(--accent-primary)" />
-                            <Pill label="Playbooks" count={param._counts.playbooks} color="var(--accent-primary)" />
+                            <Pill label={plural("playbook")} count={param._counts.playbooks} color="var(--accent-primary)" />
                             <Pill label="Targets" count={param._counts.behaviorTargets} color="var(--badge-yellow-text)" />
                             <Pill label="Slugs" count={param._counts.promptSlugs} color="var(--badge-cyan-text)" />
                             <Pill label="Anchors" count={param._counts.scoringAnchors} color="var(--badge-purple-text)" />
@@ -455,7 +457,7 @@ export default function DictionaryPage() {
 
                             {/* Playbooks */}
                             {param.playbooks.length > 0 && (
-                              <RelSection title={`Playbooks (${param.playbooks.length})`}>
+                              <RelSection title={`${plural("playbook")} (${param.playbooks.length})`}>
                                 <div className="dict-rel-chips">
                                   {param.playbooks.map((pb) => (
                                     <RelChip

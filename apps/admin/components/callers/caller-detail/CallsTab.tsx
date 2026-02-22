@@ -7,6 +7,7 @@ import { DraggableTabs } from "@/components/shared/DraggableTabs";
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
 import { FileText as FileTextIcon, FileSearch, Brain, MessageCircle, BarChart3, Target, ClipboardCheck, CheckSquare, Gauge } from "lucide-react";
 import { useViewMode } from "@/contexts/ViewModeContext";
+import { useTerminology } from "@/contexts/TerminologyContext";
 import { CATEGORY_COLORS, ACTION_TYPE_ICONS, ASSIGNEE_COLORS } from "./constants";
 import type { Call, CallerIdentity, Domain, Memory, PersonalityObservation } from "./types";
 
@@ -234,6 +235,7 @@ function PipelineLogsPanel({
   mode: PipelineMode;
   onClose: () => void;
 }) {
+  const { terms } = useTerminology();
   const logLevel = getLogLevel();
 
   if (!result) {
@@ -304,7 +306,7 @@ function PipelineLogsPanel({
           </span>
           {result.data.playbookUsed && (
             <span className="hf-text-placeholder">
-              📋 Playbook: <strong style={{ color: "var(--terminal-purple-text)" }}>{result.data.playbookUsed}</strong>
+              📋 {terms.playbook}: <strong style={{ color: "var(--terminal-purple-text)" }}>{result.data.playbookUsed}</strong>
             </span>
           )}
         </div>

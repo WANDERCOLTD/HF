@@ -3,6 +3,8 @@
  *
  * Generates session goal suggestions based on domain curriculum and caller history.
  * Uses metered AI completion via the standard instrumented-ai pattern.
+ *
+ * callerId is optional — when absent, suggestions are domain-only (no learner context).
  */
 
 import { prisma } from "@/lib/prisma";
@@ -10,48 +12,59 @@ import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai
 
 interface SuggestGoalsParams {
   domainId: string;
-  callerId: string;
+  callerId?: string;
   currentGoal?: string;
 }
 
 export async function suggestGoals(params: SuggestGoalsParams): Promise<string[]> {
   const { domainId, callerId, currentGoal } = params;
 
-  // Load domain + caller context in parallel
+  // Load domain + caller context in parallel (caller queries skipped when no callerId)
   const [domain, caller, recentCalls, memorySummary] = await Promise.all([
     prisma.domain.findUnique({
       where: { id: domainId },
       select: { name: true, slug: true, description: true },
     }),
-    prisma.caller.findUnique({
-      where: { id: callerId },
-      select: { name: true, email: true },
-    }),
-    prisma.call.findMany({
-      where: { callerId },
-      orderBy: { createdAt: "desc" },
-      take: 3,
-      select: {
-        id: true,
-        createdAt: true,
-        _count: { select: { artifacts: true } },
-      },
-    }),
-    prisma.callerMemorySummary.findFirst({
-      where: { callerId },
-      orderBy: { updatedAt: "desc" },
-      select: { keyFacts: true, topTopics: true, factCount: true, topicCount: true },
-    }),
+    callerId
+      ? prisma.caller.findUnique({
+          where: { id: callerId },
+          select: { name: true, email: true },
+        })
+      : null,
+    callerId
+      ? prisma.call.findMany({
+          where: { callerId },
+          orderBy: { createdAt: "desc" },
+          take: 3,
+          select: {
+            id: true,
+            createdAt: true,
+            _count: { select: { artifacts: true } },
+          },
+        })
+      : [],
+    callerId
+      ? prisma.callerMemorySummary.findFirst({
+          where: { callerId },
+          orderBy: { updatedAt: "desc" },
+          select: { keyFacts: true, topTopics: true, factCount: true, topicCount: true },
+        })
+      : null,
   ]);
 
-  if (!domain || !caller) return [];
+  if (!domain) return [];
 
   // Build the prompt context
   const contextParts: string[] = [
     `Domain: ${domain.name} (${domain.slug})`,
     domain.description ? `Description: ${domain.description}` : "",
-    `Learner: ${caller.name || caller.email || "Unknown"}`,
   ];
+
+  if (caller) {
+    contextParts.push(`Learner: ${caller.name || caller.email || "Unknown"}`);
+  } else {
+    contextParts.push("No specific learner selected (generic session)");
+  }
 
   if (memorySummary) {
     contextParts.push(`Learner has ${memorySummary.factCount} known facts and ${memorySummary.topicCount} topics`);

@@ -1819,6 +1819,61 @@ html.light {
   align-items: center;
   gap: 4px;
 }
+.hf-filter-pill:hover {
+  border-color: var(--accent-primary);
+  color: var(--text-secondary);
+}
+.hf-filter-pill-active {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+/* Sortable table header cell */
+.hf-th-sort {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.15s;
+}
+.hf-th-sort:hover {
+  color: var(--text-primary);
+}
+.hf-th-sort-active {
+  color: var(--accent-primary);
+}
+
+/* Student table layout */
+.students-table-grid {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 0.8fr 1fr 1.2fr;
+  align-items: center;
+}
+.students-table-grid > .hf-th-sort {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.students-table-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-default);
+}
+.students-status-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.students-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
 
 /* Clear/dismiss inline button */
 .hf-clear-btn {

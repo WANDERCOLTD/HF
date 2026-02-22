@@ -4,7 +4,7 @@ import DemoTeachWizard from "@/components/wizards/DemoTeachWizard";
 import type { StepDefinition } from "@/contexts/StepFlowContext";
 
 const TEACH_STEPS: StepDefinition[] = [
-  { id: "domain", label: "Select Institution & Learner", activeLabel: "Selecting Institution & Learner" },
+  { id: "domain", label: "Select Institution", activeLabel: "Selecting Institution" },
   { id: "goal", label: "Set Your Goal", activeLabel: "Setting Your Goal" },
   { id: "content", label: "Upload Content", activeLabel: "Uploading Content" },
   { id: "readiness", label: "Readiness Checks", activeLabel: "Checking Readiness" },
@@ -24,6 +24,7 @@ export default function TeachPage() {
         headerEmoji: "\uD83D\uDC68\u200D\uD83C\uDFEB",
         domainApiFilter: "?onlyInstitution=true",
         useTerminologyLabels: true,
+        requireCallerUpfront: false,
       }}
     />
   );

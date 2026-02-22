@@ -6,6 +6,7 @@ import { Layers } from "lucide-react";
 import { SortableList } from "@/components/shared/SortableList";
 import { reorderItems } from "@/lib/sortable/reorder";
 import type { DomainDetail } from "./types";
+import { useTerminology } from "@/contexts/TerminologyContext";
 import { AgentTuningPanel, type AgentTuningPanelOutput } from "@/components/shared/AgentTuningPanel";
 import type { MatrixPosition } from "@/lib/domain/agent-tuning";
 
@@ -20,6 +21,7 @@ export function OnboardingTabContent({
   onPreviewPrompt?: () => void;
   promptPreviewLoading?: boolean;
 }) {
+  const { terms } = useTerminology();
   // Onboarding editing state
   const [editingOnboarding, setEditingOnboarding] = useState(false);
   const [onboardingForm, setOnboardingForm] = useState({
@@ -327,7 +329,7 @@ export function OnboardingTabContent({
                           {/* Completion summary */}
                           {task.status === "completed" && task.context?.summary && (
                             <div className="hf-text-sm hf-text-secondary" style={{ marginLeft: 30, padding: "8px 0", fontSize: 12 }}>
-                              <div>&#x2713; Playbook: <strong>{task.context.summary.playbook}</strong></div>
+                              <div>&#x2713; {terms.playbook}: <strong>{task.context.summary.playbook}</strong></div>
                               <div>&#x2713; {task.context.summary.modules} modules from {task.context.summary.assertions} points</div>
                             </div>
                           )}

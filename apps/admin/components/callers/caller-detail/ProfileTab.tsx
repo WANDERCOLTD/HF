@@ -9,6 +9,7 @@ import Link from "next/link";
 import type { Memory, MemorySummary, PersonalityProfile, PersonalityObservation, ParamConfig } from "./types";
 import { CATEGORY_COLORS } from "./constants";
 import { useViewMode } from "@/contexts/ViewModeContext";
+import { useTerminology } from "@/contexts/TerminologyContext";
 
 export function MemoriesSection({
   memories,
@@ -797,6 +798,7 @@ export function CallerEnrollmentsSection({
   domainId: string | null | undefined;
   onCountChange: (count: number) => void;
 }) {
+  const { terms, plural } = useTerminology();
   const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEnroll, setShowEnroll] = useState(false);
@@ -897,7 +899,7 @@ export function CallerEnrollmentsSection({
             className="hf-btn hf-btn-primary"
             style={{ padding: "6px 14px", fontSize: 12 }}
           >
-            Enroll in Playbook
+            Enroll in {terms.playbook}
           </button>
         )}
       </div>
@@ -908,7 +910,7 @@ export function CallerEnrollmentsSection({
     <div className="hf-mt-sm">
       <div className="hf-flex-between hf-mb-sm">
         <span className="hf-category-label">
-          Enrolled Playbooks
+          Enrolled {plural("playbook")}
         </span>
         {domainId && (
           <button

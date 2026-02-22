@@ -7,7 +7,10 @@
  * flowId, labels, API filters, and terminology. All state, effects, and
  * rendering live here — the pages are thin wrappers.
  *
- * Steps: Select Institution & Caller → Set Your Goal → Upload Content → Readiness Checks → Preview First Prompt → Launch
+ * Steps: Select Institution [& Caller] → Set Your Goal → Upload Content → Readiness Checks → Preview First Prompt → Launch
+ *
+ * When config.requireCallerUpfront is false (Teach flow), the caller is
+ * auto-created at launch time instead of being selected in step 0.
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -109,6 +112,8 @@ export interface DemoTeachConfig {
   domainApiFilter?: string;
   /** When true, uses useTerminology() for dynamic labels */
   useTerminologyLabels: boolean;
+  /** When false, skip caller selection in step 0 and auto-create at launch. Default: true */
+  requireCallerUpfront?: boolean;
 }
 
 // ── Component ──────────────────────────────────────
@@ -206,6 +211,14 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const [teachingPointsLoading, setTeachingPointsLoading] = useState(false);
   const [tunePersonaExpanded, setTunePersonaExpanded] = useState(false);
   const [savingPersona, setSavingPersona] = useState(false);
+
+  // Launch-time caller creation (when requireCallerUpfront === false)
+  type LaunchPhase = "idle" | "scaffolding" | "creating-caller" | "creating-goals" | "composing-prompt" | "redirecting";
+  const [launching, setLaunching] = useState(false);
+  const [launchPhase, setLaunchPhase] = useState<LaunchPhase>("idle");
+
+  // Convenience flag
+  const needsCallerUpfront = config.requireCallerUpfront !== false;
 
   // Warn on browser refresh/close when user has started filling in data
   useUnsavedGuard(goalText.trim().length > 0 || !!selectedDomainId);
@@ -322,6 +335,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   // ── Load callers when domain changes ──────────────
 
   useEffect(() => {
+    if (!needsCallerUpfront) return; // Caller created at launch time
     if (!selectedDomainId) {
       setCallers([]);
       setCallerOptions([]);
@@ -377,16 +391,15 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
 
   const fetchSuggestions = useCallback(
     async (forceText?: string) => {
-      if (!selectedDomainId || !selectedCallerId) return;
+      if (!selectedDomainId) return;
+      if (needsCallerUpfront && !selectedCallerId) return;
       const text = forceText ?? goalText;
       if (text === lastSuggestText.current && suggestions.length > 0) return;
       lastSuggestText.current = text;
       setLoadingSuggestions(true);
       try {
-        const params = new URLSearchParams({
-          domainId: selectedDomainId,
-          callerId: selectedCallerId,
-        });
+        const params = new URLSearchParams({ domainId: selectedDomainId });
+        if (selectedCallerId) params.set("callerId", selectedCallerId);
         if (text) params.set("currentGoal", text);
         const res = await fetch(`/api/demonstrate/suggest?${params}`);
         const data = await res.json();
@@ -399,11 +412,11 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         setLoadingSuggestions(false);
       }
     },
-    [selectedDomainId, selectedCallerId, goalText, suggestions.length],
+    [selectedDomainId, selectedCallerId, needsCallerUpfront, goalText, suggestions.length],
   );
 
   useEffect(() => {
-    if (currentStep === 1 && selectedDomainId && selectedCallerId) {
+    if (currentStep === 1 && selectedDomainId && (needsCallerUpfront ? selectedCallerId : true)) {
       fetchSuggestions("");
     }
   }, [currentStep, selectedDomainId, selectedCallerId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -627,6 +640,15 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     let contentSpecGenerated = false;
     let promptComposed = false;
 
+    // Phase 0: Ensure domain has a published playbook (idempotent scaffold)
+    // Without this, generateContentSpec can't link the content spec to a playbook
+    try {
+      await fetch(`/api/domains/${selectedDomainId}/scaffold`, { method: "POST" });
+    } catch (e: any) {
+      console.warn("[Teach] Scaffold failed (non-critical):", e);
+      warnings.push("Domain scaffold failed — content spec may not be linked to playbook");
+    }
+
     // Phase 1: Generate content spec from assertions
     setContentPhase("generating-curriculum");
     try {
@@ -811,14 +833,16 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         ? "Almost Ready"
         : "Incomplete";
 
-  const canAdvanceFromDomain = !!selectedDomainId && !!selectedCallerId;
+  const canAdvanceFromDomain = !!selectedDomainId && (needsCallerUpfront ? !!selectedCallerId : true);
   const canAdvanceFromGoal = goalText.trim().length > 0;
 
   const handleNext = () => {
     if (currentStep === 0) {
       setData("domainId", selectedDomainId);
-      setData("callerId", selectedCallerId);
       setData("domainName", selectedDomain?.name || "");
+      if (needsCallerUpfront) {
+        setData("callerId", selectedCallerId);
+      }
     } else if (currentStep === 1) {
       setData("goal", goalText.trim());
     } else if (currentStep === 3) {
@@ -843,17 +867,87 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     setStep(currentStep - 1);
   };
 
-  const handleStartLesson = () => {
-    if (!selectedCallerId || !ready) return;
-    const goal = goalText.trim();
-    const params = new URLSearchParams();
-    if (selectedDomainId) params.set("domainId", selectedDomainId);
-    if (goal) params.set("goal", goal);
-    const qs = params.toString();
-    const url = `/x/sim/${selectedCallerId}${qs ? `?${qs}` : ""}`;
-    endFlow();
-    router.push(url);
-  };
+  const handleStartLesson = useCallback(async () => {
+    if (needsCallerUpfront) {
+      // Original behavior: caller already exists, just redirect
+      if (!selectedCallerId || !ready) return;
+      const goal = goalText.trim();
+      const params = new URLSearchParams();
+      if (selectedDomainId) params.set("domainId", selectedDomainId);
+      if (goal) params.set("goal", goal);
+      const qs = params.toString();
+      endFlow();
+      router.push(`/x/sim/${selectedCallerId}${qs ? `?${qs}` : ""}`);
+      return;
+    }
+
+    // New behavior: auto-create caller at launch time
+    if (!selectedDomainId || launching) return;
+    setLaunching(true);
+    setLaunchPhase("idle");
+    clearWizardError();
+
+    try {
+      const domainName = selectedDomain?.name || "Unknown";
+
+      // Step 1: Scaffold domain (ensure playbook exists — idempotent)
+      setLaunchPhase("scaffolding");
+      await fetch(`/api/domains/${selectedDomainId}/scaffold`, { method: "POST" });
+
+      // Step 2: Create test caller (auto-enrolls in domain playbooks via API)
+      setLaunchPhase("creating-caller");
+      const callerRes = await fetch("/api/callers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `Test Learner — ${domainName}`,
+          domainId: selectedDomainId,
+        }),
+      });
+      const callerData = await callerRes.json();
+      if (!callerData.ok || !callerData.caller?.id) {
+        throw new Error(callerData.error || "Failed to create test learner");
+      }
+      const newCallerId = callerData.caller.id;
+
+      // Step 3: Create goal if provided
+      const goal = goalText.trim();
+      if (goal) {
+        setLaunchPhase("creating-goals");
+        await fetch("/api/goals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            callerId: newCallerId,
+            name: goal,
+            type: "LEARN",
+          }),
+        });
+      }
+
+      // Step 4: Compose prompt
+      setLaunchPhase("composing-prompt");
+      await fetch(`/api/callers/${newCallerId}/compose-prompt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ triggerType: "teach-wizard" }),
+      });
+
+      // Step 5: Redirect to sim
+      setLaunchPhase("redirecting");
+      const params = new URLSearchParams();
+      if (selectedDomainId) params.set("domainId", selectedDomainId);
+      if (goal) params.set("goal", goal);
+      const qs = params.toString();
+      endFlow();
+      router.push(`/x/sim/${newCallerId}${qs ? `?${qs}` : ""}`);
+    } catch (e: any) {
+      console.error("[Teach] Launch failed:", e);
+      setWizardError(e.message || "Failed to start lesson. Please try again.");
+      setLaunching(false);
+      setLaunchPhase("idle");
+    }
+  }, [needsCallerUpfront, selectedDomainId, selectedCallerId, selectedDomain, goalText, ready, launching, endFlow, router, clearWizardError, setWizardError]);
 
   // Fetch full domain detail for onboarding accordion
   const fetchDomainDetail = useCallback(async () => {
@@ -1034,8 +1128,8 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             />
           )}
 
-          {/* Caller selector */}
-          {selectedDomainId && callerOptions.length > 0 && (
+          {/* Caller selector (only when caller required upfront) */}
+          {needsCallerUpfront && selectedDomainId && callerOptions.length > 0 && (
             <div className="dtw-caller-section">
               <div className="dtw-section-label">
                 {callerOptions.length > 1
@@ -1058,8 +1152,9 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             </div>
           )}
 
-          {/* Zero-callers warning */}
-          {selectedDomainId &&
+          {/* Zero-callers warning (only when caller required upfront) */}
+          {needsCallerUpfront &&
+            selectedDomainId &&
             !loadingDomains &&
             callerOptions.length === 0 && (
               <div className="dtw-warning-box">
@@ -1147,8 +1242,8 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             </div>
           )}
 
-          {/* Save as Goal button */}
-          {goalText.trim() && (
+          {/* Save as Goal button (only when caller exists upfront) */}
+          {needsCallerUpfront && goalText.trim() && (
             <div className="dtw-save-goal-row">
               <button
                 onClick={handleSaveAsGoal}
@@ -1161,8 +1256,8 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             </div>
           )}
 
-          {/* ── Caller Goals (CRUD) ── */}
-          {(callerGoals.length > 0 || loadingGoals) && (
+          {/* ── Caller Goals (CRUD) — only when caller exists upfront ── */}
+          {needsCallerUpfront && (callerGoals.length > 0 || loadingGoals) && (
             <div className="dtw-goals-section">
               <div className="dtw-goals-label">
                 {t.caller}&apos;s Goals
@@ -1567,21 +1662,28 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           )}
 
           {/* Step navigation */}
-          <div className="dtw-nav-between">
-            <button onClick={handlePrev} className="dtw-btn-back">
-              <ChevronLeft size={16} /> Back
-            </button>
-            <button
-              onClick={ready ? handleNext : undefined}
-              disabled={!ready}
-              className={`dtw-btn-next ${ready ? "dtw-btn-next-enabled" : "dtw-btn-next-disabled"}`}
-              title={
-                !ready ? "Complete required checks above first" : undefined
-              }
-            >
-              Next <ChevronRight size={16} />
-            </button>
-          </div>
+          {(() => {
+            // When no caller upfront, allow advancing even if not fully ready
+            // (caller-related checks will pass after auto-creation at launch)
+            const canAdvanceReadiness = ready || !needsCallerUpfront;
+            return (
+              <div className="dtw-nav-between">
+                <button onClick={handlePrev} className="dtw-btn-back">
+                  <ChevronLeft size={16} /> Back
+                </button>
+                <button
+                  onClick={canAdvanceReadiness ? handleNext : undefined}
+                  disabled={!canAdvanceReadiness}
+                  className={`dtw-btn-next ${canAdvanceReadiness ? "dtw-btn-next-enabled" : "dtw-btn-next-disabled"}`}
+                  title={
+                    !canAdvanceReadiness ? "Complete required checks above first" : undefined
+                  }
+                >
+                  Next <ChevronRight size={16} />
+                </button>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1619,11 +1721,22 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       {currentStep === 5 && (
         <div className="dtw-section">
           <WizardSummary
-            title="Ready to Go!"
+            title={launching ? "Launching..." : "Ready to Go!"}
             subtitle={
-              ready
-                ? `All checks passed. Start your ${t.session.toLowerCase()}.`
-                : `${levelLabel} — ${score}% readiness`
+              launching
+                ? ({
+                    idle: "Preparing...",
+                    scaffolding: "Setting up course infrastructure...",
+                    "creating-caller": "Creating test learner...",
+                    "creating-goals": "Setting learning goals...",
+                    "composing-prompt": "Preparing your tutor...",
+                    redirecting: "Opening simulator...",
+                  }[launchPhase])
+                : ready
+                  ? `All checks passed. Start your ${t.session.toLowerCase()}.`
+                  : needsCallerUpfront
+                    ? `${levelLabel} — ${score}% readiness`
+                    : `Start your ${t.session.toLowerCase()} — a test learner will be created automatically.`
             }
             intent={{
               items: [
@@ -1632,13 +1745,17 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                   label: t.domain,
                   value: selectedDomain?.name || "—",
                 },
-                {
-                  icon: <User className="w-4 h-4" />,
-                  label: t.caller,
-                  value:
-                    callers.find((c) => c.id === selectedCallerId)?.name ||
-                    "—",
-                },
+                ...(needsCallerUpfront
+                  ? [{
+                      icon: <User className="w-4 h-4" />,
+                      label: t.caller,
+                      value: callers.find((c) => c.id === selectedCallerId)?.name || "—",
+                    }]
+                  : [{
+                      icon: <User className="w-4 h-4" />,
+                      label: "Test Learner",
+                      value: "Created automatically at launch",
+                    }]),
                 ...(goalText
                   ? [
                       {
@@ -1652,10 +1769,21 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             }}
             stats={[{ label: "Readiness", value: `${score}%` }]}
             primaryAction={{
-              label: `Start ${t.session}`,
-              icon: <PlayCircle className="w-5 h-5" />,
+              label: launching
+                ? ({
+                    idle: `Start ${t.session}`,
+                    scaffolding: "Setting up...",
+                    "creating-caller": "Creating learner...",
+                    "creating-goals": "Setting goals...",
+                    "composing-prompt": "Preparing tutor...",
+                    redirecting: "Launching...",
+                  }[launchPhase])
+                : `Start ${t.session}`,
+              icon: launching
+                ? <div className="hf-spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+                : <PlayCircle className="w-5 h-5" />,
               onClick: handleStartLesson,
-              disabled: !ready || !selectedCallerId,
+              disabled: launching || (needsCallerUpfront ? (!ready || !selectedCallerId) : !selectedDomainId),
             }}
             secondaryActions={[
               ...(selectedDomainId
@@ -1666,7 +1794,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                     },
                   ]
                 : []),
-              ...(selectedCallerId
+              ...(needsCallerUpfront && selectedCallerId
                 ? [
                     {
                       label: `View ${t.caller}`,

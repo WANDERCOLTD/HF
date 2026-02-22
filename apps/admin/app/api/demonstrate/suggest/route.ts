@@ -5,7 +5,7 @@
  * @apiPermission OPERATOR
  *
  * @apiQuery {String} domainId - Domain to suggest goals for
- * @apiQuery {String} callerId - Caller to suggest goals for
+ * @apiQuery {String} [callerId] - Caller to suggest goals for (optional — enriches suggestions with learner history)
  * @apiQuery {String} [currentGoal] - Partial goal text for refinement
  *
  * @apiSuccess {Boolean} ok=true
@@ -25,14 +25,14 @@ export async function GET(req: NextRequest) {
   const callerId = searchParams.get("callerId");
   const currentGoal = searchParams.get("currentGoal") || undefined;
 
-  if (!domainId || !callerId) {
+  if (!domainId) {
     return NextResponse.json(
-      { ok: false, error: "domainId and callerId are required" },
+      { ok: false, error: "domainId is required" },
       { status: 400 },
     );
   }
 
-  const suggestions = await suggestGoals({ domainId, callerId, currentGoal });
+  const suggestions = await suggestGoals({ domainId, callerId: callerId || undefined, currentGoal });
 
   return NextResponse.json({ ok: true, suggestions });
 }

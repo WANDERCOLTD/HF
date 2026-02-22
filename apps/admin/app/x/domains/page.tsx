@@ -636,7 +636,7 @@ export default function DomainsPage() {
                 </div>
                 <div className="hf-stat-card" style={{ minWidth: 100, gap: 0 }}>
                   <div className="hf-stat-value-sm">{domain._count.playbooks}</div>
-                  <div className="hf-text-xs hf-text-muted">Playbooks</div>
+                  <div className="hf-text-xs hf-text-muted">{plural("playbook")}</div>
                 </div>
                 <div className="hf-stat-card" style={{ minWidth: 100, gap: 0 }}>
                   <div className="hf-stat-value-sm">
@@ -668,7 +668,7 @@ export default function DomainsPage() {
               {activeTab === "playbooks" && (
                 <div>
                   <div className="hf-flex hf-flex-between hf-mb-md hf-items-center">
-                    <h3 className="hf-heading-lg">Playbooks</h3>
+                    <h3 className="hf-heading-lg">{plural("playbook")}</h3>
                     <button
                       onClick={() => setShowPlaybookModal(true)}
                       className="hf-btn hf-btn-primary"
@@ -680,8 +680,8 @@ export default function DomainsPage() {
                   {/* Stack Order Info */}
                   {publishedPlaybooks.length > 1 && (
                     <div className="hf-banner hf-banner-info hf-mb-md hf-text-xs" style={{ borderRadius: 6 }}>
-                      <strong>Stack Order:</strong> {publishedPlaybooks.length} published playbooks will be stacked.
-                      First playbook wins on spec conflicts. Use arrows to reorder.
+                      <strong>Stack Order:</strong> {publishedPlaybooks.length} published {plural("playbook").toLowerCase()} will be stacked.
+                      First {terms.playbook.toLowerCase()} wins on spec conflicts. Use arrows to reorder.
                     </div>
                   )}
 
@@ -692,7 +692,7 @@ export default function DomainsPage() {
                         onClick={() => setShowPlaybookModal(true)}
                         className="hf-btn hf-btn-primary"
                       >
-                        Add First Playbook
+                        Add First {terms.playbook}
                       </button>
                     </div>
                   ) : (
