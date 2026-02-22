@@ -1637,7 +1637,21 @@ export default function QuickLaunchPage() {
             </button>
           </div>
 
-          {/* Launch Another is in WizardSummary secondary actions */}
+          {/* ── Bottom Actions ── */}
+          <div className="hf-flex" style={{ justifyContent: "center", gap: 12, paddingTop: 8, paddingBottom: 24 }}>
+            <button
+              onClick={handleReset}
+              className="hf-btn hf-btn-secondary"
+            >
+              Launch Another
+            </button>
+            <button
+              onClick={() => router.push("/x/communities")}
+              className="hf-btn hf-btn-secondary"
+            >
+              View All Communities
+            </button>
+          </div>
         </div>
       )}
 

@@ -451,6 +451,14 @@ const stepExecutors: Record<string, StepExecutor> = {
     const domainId = ctx.results.domainId!;
     const p = db(ctx.tx);
 
+    // Ensure domain kind is correct (defensive: analyze step sets it, but commit may override)
+    if (ctx.input.kind) {
+      await p.domain.update({
+        where: { id: domainId },
+        data: { kind: ctx.input.kind as any },
+      });
+    }
+
     // Load persona flow phases from INIT-001 spec
     const flowPhases = await loadPersonaFlowPhases(ctx.input.persona);
 

@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
       learningGoals: string[];
       qualificationRef?: string;
       mode?: "upload" | "generate";
+      kind?: "INSTITUTION" | "COMMUNITY";
       behaviorTargets?: Record<string, number>;
       matrixPositions?: Record<string, { x: number; y: number }>;
     };
@@ -114,6 +115,7 @@ export async function POST(req: NextRequest) {
             learningGoals: overrides.learningGoals ?? input.learningGoals,
             qualificationRef: input.qualificationRef,
             mode: input.mode,
+            kind: input.kind,
             domainId, // Forward so scaffold knows this is an existing domain
             behaviorTargets: input.behaviorTargets,
             matrixPositions: input.matrixPositions,
