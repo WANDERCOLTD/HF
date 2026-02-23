@@ -13,14 +13,14 @@
     "title": "Configure",
     "href": "/x/domains",
     "items": [
-      { "id": "domains", "href": "/x/domains", "label": "Domains", "icon": "Globe", "terminologyLabel": "domain_plural" },
-      { "id": "playbooks", "href": "/x/playbooks", "label": "Playbooks", "icon": "BookOpen", "terminologyLabel": "playbook_plural" },
-      { "id": "specs", "href": "/x/specs", "label": "Specs", "icon": "ClipboardList", "terminologyLabel": "spec_plural" },
+      { "id": "domains", "href": "/x/domains", "label": "Domains", "icon": "Globe" },
+      { "id": "playbooks", "href": "/x/playbooks", "label": "Playbooks", "icon": "BookOpen" },
+      { "id": "specs", "href": "/x/specs", "label": "Specs", "icon": "ClipboardList" },
       { "id": "layers", "href": "/x/layers", "label": "Layers", "icon": "Layers" },
       { "id": "taxonomy-graph", "href": "/x/taxonomy-graph", "label": "Taxonomy", "icon": "Orbit" },
       { "id": "flows", "href": "/x/flows", "label": "Flows", "icon": "Workflow" },
       { "id": "content-explorer", "href": "/x/content-explorer", "label": "Content Explorer", "icon": "FileSearch" },
-      { "id": "courses", "href": "/x/courses", "label": "Courses", "icon": "BookOpen", "wizard": true, "terminologyLabel": "playbook_plural", "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] }
+      { "id": "courses", "href": "/x/courses", "label": "Courses", "icon": "BookOpen", "wizard": true, "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] }
     ]
   },
   {
