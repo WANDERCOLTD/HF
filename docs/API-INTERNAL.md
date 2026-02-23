@@ -40,6 +40,7 @@
   - [Content Trust](#content-trust)
   - [Courses](#courses)
   - [Curricula](#curricula)
+  - [Dashboard](#dashboard)
   - [Data Dictionary](#data-dictionary)
   - [Dev Tools](#dev-tools)
   - [Domains](#domains)
@@ -4368,6 +4369,31 @@ Save or update the lesson plan. Validates session numbers and types.
 **Response** `404`
 ```json
 { ok: false, error: "Curriculum not found" }
+```
+
+---
+
+## Dashboard
+
+### `GET` /api/dashboard
+
+Consolidated dashboard data — entity previews, counts, recent calls, active tasks. Role-scoped.
+
+**Auth**: Session · **Scope**: `dashboard:read`
+
+**Response** `200`
+```json
+{ ok: true, role: string, entities: {...}, counts: {...}, recentCalls: [...], activeTasks: [...] }
+```
+
+**Response** `401`
+```json
+Unauthorized
+```
+
+**Response** `500`
+```json
+{ ok: false, error: "..." }
 ```
 
 ---
@@ -11240,8 +11266,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 305 |
-| Files with annotations | 304 |
+| Route files found | 306 |
+| Files with annotations | 305 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

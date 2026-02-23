@@ -1,32 +1,14 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import SuperadminDashboard from "./_dashboards/SuperadminDashboard";
-import AdminDashboard from "./_dashboards/AdminDashboard";
-import TesterDashboard from "./_dashboards/TesterDashboard";
-import DemoDashboard from "./_dashboards/DemoDashboard";
+import DashboardClient from "./_dashboards/DashboardClient";
 
 export default async function XDashboardPage() {
   const session = await auth();
   const role = session?.user?.role;
 
-  switch (role) {
-    case "SUPERADMIN":
-      return <SuperadminDashboard />;
-    case "ADMIN":
-      return <AdminDashboard />;
-    case "EDUCATOR":
-      redirect("/x/educator");
-    case "STUDENT":
-      redirect("/x/student/progress");
-    case "SUPER_TESTER":
-      return <TesterDashboard enhanced />;
-    case "TESTER":
-    case "VIEWER": // @deprecated alias
-      return <TesterDashboard />;
-    case "DEMO":
-      return <DemoDashboard />;
-    case "OPERATOR":
-    default:
-      return <AdminDashboard />;
-  }
+  // Educator and Student have their own dedicated pages
+  if (role === "EDUCATOR") redirect("/x/educator");
+  if (role === "STUDENT") redirect("/x/student/progress");
+
+  return <DashboardClient role={role || "DEMO"} />;
 }

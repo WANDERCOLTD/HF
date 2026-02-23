@@ -154,6 +154,9 @@ export default function QuickLaunchPage() {
   // Resume
   const [resumeTask, setResumeTask] = useState<ResumeTask | null>(null);
 
+  // Community-specific terminology (bypasses role-gated TECHNICAL_TERMS for admin users)
+  const [communityTerms, setCommunityTerms] = useState<Record<string, string> | null>(null);
+
   // ── Load personas + domains ────────────────────────
 
   useEffect(() => {
@@ -201,6 +204,18 @@ export default function QuickLaunchPage() {
       })
       .catch(() => {})
       .finally(() => setInstitutionsLoading(false));
+
+    // Fetch community institution type terminology for context-appropriate labels
+    // (Admin users get TECHNICAL_TERMS globally, but this page is community-specific)
+    fetch("/api/admin/institution-types")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok && data.types) {
+          const ct = data.types.find((t: any) => t.slug === "community");
+          if (ct?.terminology) setCommunityTerms(ct.terminology);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // ── Auto-select user's institution from session ──
@@ -913,7 +928,7 @@ export default function QuickLaunchPage() {
             subtitle={result.goalCount > 0 ? `${result.goalCount} goals` : undefined}
             intent={{
               items: [
-                { icon: <BookOpen className="w-4 h-4" />, label: terms.playbook, value: subjectName || "—" },
+                { icon: <BookOpen className="w-4 h-4" />, label: communityTerms?.playbook || terms.playbook, value: subjectName || "—" },
                 ...(selectedPersona ? [{ icon: <User className="w-4 h-4" />, label: "Persona", value: selectedPersona.name }] : []),
                 ...(goals.length > 0 ? [{ icon: <Target className="w-4 h-4" />, label: "Goals", value: `${goals.length} learning goal${goals.length !== 1 ? "s" : ""}` }] : []),
               ],
@@ -922,7 +937,7 @@ export default function QuickLaunchPage() {
               entities: [
                 {
                   icon: <Building2 className="w-5 h-5" />,
-                  label: terms.domain,
+                  label: communityTerms?.domain || terms.domain,
                   name: result.domainName,
                   href: `/x/domains?id=${result.domainId}`,
                 },
