@@ -37,7 +37,6 @@ interface TeachPlanStepProps {
   getData: <T = any>(key: string) => T | undefined;
   onNext: () => void;
   onPrev: () => void;
-  onTaskStarted?: (taskId: string) => void;
 }
 
 interface CurriculumModule {
@@ -67,7 +66,6 @@ export function TeachPlanStep({
   getData,
   onNext,
   onPrev,
-  onTaskStarted,
 }: TeachPlanStepProps) {
   // Content availability from the content step (step 2)
   const contentAvailable = getData<boolean>("contentAvailable") ?? false;
@@ -257,17 +255,11 @@ export function TeachPlanStep({
       if (!data.ok) throw new Error(data.error || "Generation request failed");
       setTaskId(data.taskId);
       setData("contentSpecTaskId", data.taskId);
-
-      // Notify parent to start polling at wizard level (survives step transitions)
-      onTaskStarted?.(data.taskId);
-
-      // Auto-advance to Launch step — generation continues in background
-      onNext();
     } catch (err: any) {
       setError(err.message);
       setPhase("intents");
     }
-  }, [taskId, phase, domainId, sessionCount, durationMins, emphasis, assessments, saveIntents, setData, onTaskStarted, onNext]);
+  }, [taskId, phase, domainId, sessionCount, durationMins, emphasis, assessments, saveIntents, setData]);
 
   const handleAccept = useCallback(() => {
     saveIntents();
@@ -433,7 +425,7 @@ export function TeachPlanStep({
                 className={`dtw-btn-next ${contentAvailable ? "dtw-btn-next-enabled" : "dtw-btn-next-disabled"}`}
                 title={contentAvailable ? undefined : "Upload content first"}
               >
-                Generate & Continue <ArrowRight style={{ width: 16, height: 16 }} />
+                Generate Lesson Plan <ArrowRight style={{ width: 16, height: 16 }} />
               </button>
             </div>
           </div>

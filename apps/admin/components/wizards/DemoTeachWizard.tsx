@@ -41,7 +41,6 @@ import {
   FileText,
   CheckCircle2,
   Library,
-  Loader2,
   RotateCcw,
 } from "lucide-react";
 import { OnboardingTabContent } from "@/app/x/domains/components/OnboardingTab";
@@ -53,7 +52,6 @@ import { useWizardError } from "@/hooks/useWizardError";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { TeachPlanStep } from "@/components/wizards/TeachPlanStep";
 import { POLL_TIMEOUT_MS } from "@/lib/tasks/constants";
-import { useTaskPoll, type PollableTask } from "@/hooks/useTaskPoll";
 import "./demo-teach-wizard.css";
 
 // ── Types ──────────────────────────────────────────
@@ -246,7 +244,6 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const [teachingPointsLoading, setTeachingPointsLoading] = useState(false);
   const [tunePersonaExpanded, setTunePersonaExpanded] = useState(false);
   const [promptPreviewExpanded, setPromptPreviewExpanded] = useState(false);
-  const [lessonPlanExpanded, setLessonPlanExpanded] = useState(false);
   const [savingPersona, setSavingPersona] = useState(false);
 
   // Launch-time caller creation (when requireCallerUpfront === false)
@@ -255,9 +252,6 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const [launchPhase, setLaunchPhase] = useState<LaunchPhase>("idle");
 
   // Curriculum generation tracking (parent-level, survives step transitions)
-  const [curriculumTaskId, setCurriculumTaskId] = useState<string | null>(null);
-  const [curriculumGenerating, setCurriculumGenerating] = useState(false);
-  const existingCurriculumFetched = useRef(false);
 
   // Convenience flag
   const needsCallerUpfront = config.requireCallerUpfront !== false;
@@ -293,16 +287,12 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     setTeachingPointsExpanded(false);
     setTunePersonaExpanded(false);
     setPromptPreviewExpanded(false);
-    setLessonPlanExpanded(false);
     setDomainDetail(null);
     setTeachingPoints([]);
     setLaunching(false);
     setLaunchPhase("idle");
-    setCurriculumTaskId(null);
-    setCurriculumGenerating(false);
     clearWizardError();
     domainsFetchedRef.current = false; // Allow domain refetch on restart
-    existingCurriculumFetched.current = false; // Allow curriculum refetch on restart
     setLoadingDomains(true);
     // Re-start the flow fresh
     startFlow({
@@ -357,116 +347,13 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         if (savedReady !== undefined) setReady(savedReady);
         if (savedScore !== undefined) setScore(savedScore);
         if (savedLevel) setLevel(savedLevel);
-        // Restore curriculum task state
-        const savedCurrTaskId = getData<string>("contentSpecTaskId");
-        if (savedCurrTaskId) {
-          setCurriculumTaskId(savedCurrTaskId);
-          setCurriculumGenerating(true);
-        }
+        // (Curriculum task state restored by TeachPlanStep on step 3 mount)
       }
     };
     initFlow();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Curriculum generation polling (parent-level, survives step transitions) ──
-
-  const fetchCurriculumModules = useCallback(async (specId: string) => {
-    try {
-      const res = await fetch(`/api/specs/${specId}`);
-      const data = await res.json();
-      const specConfig = data.spec?.config || data.config;
-      if (specConfig?.modules && Array.isArray(specConfig.modules)) {
-        setData("curriculumModules", specConfig.modules);
-        setData("moduleCount", specConfig.modules.length);
-      }
-    } catch (err: any) {
-      console.warn("[Teach] Failed to fetch enriched modules:", err);
-    }
-  }, [setData]);
-
-  // Load existing curriculum from DB when data bag is empty (e.g. fresh wizard, domain already has content spec)
-  const fetchExistingCurriculum = useCallback(async () => {
-    if (!selectedDomainId) return;
-    try {
-      // Get domain's playbooks
-      const domRes = await fetch(`/api/domains/${selectedDomainId}`);
-      const domData = await domRes.json();
-      if (!domData.ok) return;
-      const playbooks = domData.domain?.playbooks || [];
-      if (playbooks.length === 0) return;
-
-      // Fetch first playbook's items to find CONTENT spec
-      const pbRes = await fetch(`/api/playbooks/${playbooks[0].id}`);
-      const pbData = await pbRes.json();
-      if (!pbData.ok) return;
-
-      const contentItem = (pbData.playbook?.items || [])
-        .find((item: any) => item.spec?.specRole === "CONTENT" && item.isEnabled);
-      if (!contentItem?.spec?.config?.modules) return;
-
-      const modules = contentItem.spec.config.modules;
-      if (Array.isArray(modules) && modules.length > 0) {
-        setData("curriculumModules", modules);
-        setData("moduleCount", modules.length);
-        setData("contentSpecId", contentItem.spec.id);
-      }
-    } catch (e) {
-      console.warn("[Teach] Failed to fetch existing curriculum:", e);
-    }
-  }, [selectedDomainId, setData]);
-
-  useTaskPoll({
-    taskId: curriculumTaskId,
-    onProgress: useCallback((task: PollableTask) => {
-      const ctx = task.context || {};
-      if (ctx.skeletonReady && ctx.skeletonModules) {
-        const skeletonMods = ctx.skeletonModules.map((m: any, i: number) => ({
-          id: m.id || `MOD-${i + 1}`,
-          title: m.title || `Module ${i + 1}`,
-          description: m.description || "",
-          learningOutcomes: [],
-          assessmentCriteria: [],
-          keyTerms: [],
-          estimatedDurationMinutes: null,
-          sortOrder: m.sortOrder || i + 1,
-        }));
-        setData("curriculumModules", skeletonMods);
-        setData("moduleCount", skeletonMods.length);
-        setData("curriculumEnriching", true);
-      }
-    }, [setData]),
-    onComplete: useCallback((task: PollableTask) => {
-      const ctx = task.context || {};
-      if (ctx.error || !ctx.result) {
-        setData("curriculumError", ctx.error || "Generation completed but no result");
-        setCurriculumGenerating(false);
-        setCurriculumTaskId(null);
-        setData("contentSpecTaskId", null);
-        return;
-      }
-      const result = ctx.result;
-      if (result.contentSpec && result.moduleCount > 0) {
-        fetchCurriculumModules(result.contentSpec.id);
-        setData("contentSpecId", result.contentSpec.id);
-        setData("contentSpecGenerated", true);
-        setData("lessonPlanMode", "auto-accepted");
-      }
-      setCurriculumGenerating(false);
-      setCurriculumTaskId(null);
-      setData("contentSpecTaskId", null);
-      setData("curriculumEnriching", false);
-    }, [setData, fetchCurriculumModules]),
-    onError: useCallback((message: string) => {
-      const existingModules = getData<any[]>("curriculumModules");
-      if (!existingModules || existingModules.length === 0) {
-        setData("curriculumError", message);
-      }
-      setCurriculumGenerating(false);
-      setCurriculumTaskId(null);
-      setData("contentSpecTaskId", null);
-      setData("curriculumEnriching", false);
-    }, [setData, getData]),
-  });
+  // (Curriculum polling handled by TeachPlanStep internally — user stays on step 3 until accepted)
 
   // ── Push flow breadcrumb for Cmd+K awareness ──────
 
@@ -763,16 +650,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     if (currentStep === STEP_LAUNCH && selectedDomainId) fetchReadiness();
   }, [currentStep, STEP_LAUNCH, selectedDomainId, selectedCallerId, fetchReadiness]);
 
-  // Load existing curriculum from DB when data bag is empty (fresh wizard with pre-existing content spec)
-  useEffect(() => {
-    if (currentStep !== STEP_LAUNCH || !isTeachFlow || !selectedDomainId) return;
-    if (existingCurriculumFetched.current) return; // Already tried
-    if (curriculumGenerating) return; // Generation in progress
-    const existingModules = getData<any[]>("curriculumModules");
-    if (existingModules && existingModules.length > 0) return; // Already have modules
-    existingCurriculumFetched.current = true;
-    fetchExistingCurriculum();
-  }, [currentStep, STEP_LAUNCH, isTeachFlow, selectedDomainId, curriculumGenerating, getData, fetchExistingCurriculum]);
+  // (Existing curriculum loaded by TeachPlanStep on step 3 mount)
 
   // ── Content upload step logic ─────────────────────
 
@@ -1296,10 +1174,12 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     }
   }, [selectedDomainId]);
 
-  // Prefetch teaching points when arriving at the Launch step (badge shows count immediately)
+  // Fetch teaching points when content becomes available on step 2
   useEffect(() => {
-    if (currentStep === STEP_LAUNCH && selectedDomainId) fetchTeachingPoints();
-  }, [currentStep, STEP_LAUNCH, selectedDomainId, fetchTeachingPoints]);
+    if (currentStep === 2 && selectedDomainId && (contentPhase === "done" || contentPhase === "has-content")) {
+      fetchTeachingPoints();
+    }
+  }, [currentStep, selectedDomainId, contentPhase, fetchTeachingPoints]);
 
   const handleToggleOnboarding = useCallback(() => {
     const willExpand = !onboardingExpanded;
@@ -1308,14 +1188,6 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       fetchDomainDetail();
     }
   }, [onboardingExpanded, domainDetail, domainDetailLoading, fetchDomainDetail]);
-
-  const handleToggleTeachingPoints = useCallback(() => {
-    const willExpand = !teachingPointsExpanded;
-    setTeachingPointsExpanded(willExpand);
-    if (willExpand && teachingPoints.length === 0 && !teachingPointsLoading) {
-      fetchTeachingPoints();
-    }
-  }, [teachingPointsExpanded, teachingPoints.length, teachingPointsLoading, fetchTeachingPoints]);
 
   const handleToggleTunePersona = useCallback(() => {
     const willExpand = !tunePersonaExpanded;
@@ -1381,7 +1253,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
               completed: i < currentStep,
               active: i === currentStep,
               processing: stepProcessing,
-              backgroundProcessing: i === STEP_PLAN && i < currentStep && curriculumGenerating,
+              backgroundProcessing: false,
               onClick: i < currentStep ? () => setStep(i) : undefined,
             };
           })}
@@ -1970,6 +1842,53 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             </div>
           )}
 
+          {/* Teaching points preview (after extraction or when content exists) */}
+          {(contentPhase === "done" || contentPhase === "has-content") && (
+            <div className="dtw-accordion-card" style={{ marginTop: 12 }}>
+              <button onClick={() => setTeachingPointsExpanded((v) => !v)} className="dtw-accordion-toggle">
+                {teachingPointsExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                <span>Teaching Points</span>
+                {teachingPointsLoading && (
+                  <div className="hf-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                )}
+                {teachingPoints.length > 0 && (
+                  <span className="dtw-accordion-badge">{teachingPoints.length}{contentCount > teachingPoints.length ? "+" : ""}</span>
+                )}
+              </button>
+              {teachingPointsExpanded && (
+                <div className="dtw-accordion-content">
+                  {teachingPointsLoading ? (
+                    <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
+                      <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
+                      <span className="hf-text-sm hf-text-muted">Loading teaching points...</span>
+                    </div>
+                  ) : teachingPoints.length === 0 ? (
+                    <div className="hf-text-sm hf-text-muted" style={{ padding: 16, textAlign: "center" }}>
+                      No teaching points found.
+                    </div>
+                  ) : (
+                    <div className="dtw-teaching-points">
+                      {teachingPoints.map((point) => (
+                        <div key={point.id} className="dtw-teaching-point">
+                          <div className={`dtw-tp-indicator ${point.reviewed ? "dtw-tp-reviewed" : "dtw-tp-pending"}`}>
+                            {point.reviewed ? "\u2713" : "\u2022"}
+                          </div>
+                          <div className="dtw-tp-text">{point.text}</div>
+                          <span className="dtw-tp-type">{point.type}</span>
+                        </div>
+                      ))}
+                      {contentCount > teachingPoints.length && (
+                        <div className="hf-text-sm hf-text-muted" style={{ padding: "8px 16px", textAlign: "center" }}>
+                          Showing {teachingPoints.length} of {contentCount}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Step navigation */}
           {contentPhase !== "uploading" && contentPhase !== "extracting" && contentPhase !== "generating-curriculum" && contentPhase !== "composing-prompt" && contentPhase !== "attaching-source" && contentPhase !== "loading" && (
             <div className="dtw-nav-between" style={{ marginTop: 20 }}>
@@ -1997,10 +1916,6 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           getData={getData}
           onNext={handleNext}
           onPrev={handlePrev}
-          onTaskStarted={(taskId) => {
-            setCurriculumTaskId(taskId);
-            setCurriculumGenerating(true);
-          }}
         />
       )}
 
@@ -2159,105 +2074,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             )}
           </div>
 
-          {/* ── 3. Review Teaching Points (raw assertions) ── */}
-          <div className="dtw-accordion-card">
-            <button onClick={handleToggleTeachingPoints} className="dtw-accordion-toggle">
-              {teachingPointsExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              <span>Review Teaching Points</span>
-              {teachingPointsLoading && (
-                <div className="hf-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-              )}
-              {teachingPoints.length > 0 && (
-                <span className="dtw-accordion-badge">{teachingPoints.length}</span>
-              )}
-            </button>
-            {teachingPointsExpanded && (
-              <div className="dtw-accordion-content">
-                {teachingPointsLoading ? (
-                  <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
-                    <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
-                    <span className="hf-text-sm hf-text-muted">Loading teaching points...</span>
-                  </div>
-                ) : teachingPoints.length === 0 ? (
-                  <div className="hf-text-sm hf-text-muted" style={{ padding: 16, textAlign: "center" }}>
-                    No teaching points found. Upload content to extract key facts and concepts.
-                  </div>
-                ) : (
-                  <div className="dtw-teaching-points">
-                    {teachingPoints.map((point) => (
-                      <div key={point.id} className="dtw-teaching-point">
-                        <div className={`dtw-tp-indicator ${point.reviewed ? "dtw-tp-reviewed" : "dtw-tp-pending"}`}>
-                          {point.reviewed ? "\u2713" : "\u2022"}
-                        </div>
-                        <div className="dtw-tp-text">{point.text}</div>
-                        <span className="dtw-tp-type">{point.type}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── 4. Lesson Plan (generating indicator or review accordion) ── */}
-          {isTeachFlow && curriculumGenerating && !(getData<any[]>("curriculumModules")?.length) && (
-            <div className="dtw-accordion-card">
-              <div className="dtw-accordion-toggle" style={{ cursor: "default" }}>
-                <Loader2 size={16} style={{ animation: "spin 1s linear infinite", flexShrink: 0, color: "var(--accent-primary)" }} />
-                <span>Generating Lesson Plan...</span>
-              </div>
-            </div>
-          )}
-          {isTeachFlow && (() => {
-            const modules = getData<Array<{ id: string; title: string; description: string; learningOutcomes: string[]; assessmentCriteria?: string[]; keyTerms?: string[]; estimatedDurationMinutes?: number | null; sortOrder: number }>>("curriculumModules");
-            const moduleCount = getData<number>("moduleCount") ?? 0;
-            if (!modules || modules.length === 0) return null;
-            return (
-              <div className="dtw-accordion-card">
-                <button onClick={() => setLessonPlanExpanded((v) => !v)} className="dtw-accordion-toggle">
-                  {lessonPlanExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  <span>Review Lesson Plan</span>
-                  {moduleCount > 0 && (
-                    <span className="dtw-accordion-badge">{moduleCount} module{moduleCount !== 1 ? "s" : ""}</span>
-                  )}
-                </button>
-                {lessonPlanExpanded && (
-                  <div className="dtw-accordion-content">
-                    <div className="dtw-lesson-plan-modules">
-                      {modules.map((mod, idx) => (
-                        <div key={mod.id} className="dtw-lp-module">
-                          <div className="dtw-lp-module-header">
-                            <span className="dtw-lp-module-number">{idx + 1}</span>
-                            <div className="dtw-lp-module-title">{mod.title}</div>
-                            {mod.estimatedDurationMinutes != null && (
-                              <span className="dtw-lp-module-duration">{mod.estimatedDurationMinutes}m</span>
-                            )}
-                          </div>
-                          <div className="dtw-lp-module-desc">{mod.description}</div>
-                          {mod.learningOutcomes.length > 0 && (
-                            <ul className="dtw-lp-outcomes">
-                              {mod.learningOutcomes.map((lo, i) => (
-                                <li key={i}>{lo}</li>
-                              ))}
-                            </ul>
-                          )}
-                          {mod.keyTerms && mod.keyTerms.length > 0 && (
-                            <div className="dtw-lp-key-terms">
-                              {mod.keyTerms.map((term, i) => (
-                                <span key={i} className="dtw-lp-term-chip">{term}</span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* ── 5. Preview First Prompt (lazy-load accordion) ── */}
+          {/* ── 3. Preview First Prompt (lazy-load accordion) ── */}
           <div className="dtw-accordion-card">
             <button
               onClick={() => setPromptPreviewExpanded((v) => !v)}
