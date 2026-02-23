@@ -214,6 +214,10 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const [loadingSources, setLoadingSources] = useState(false);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
 
+  // Track sourceId/subjectId created during upload/select for readiness link resolution
+  const [createdSourceId, setCreatedSourceId] = useState<string | null>(null);
+  const [createdSubjectId, setCreatedSubjectId] = useState<string | null>(null);
+
   // Post-extraction auto-wiring results
   const [autoWireResult, setAutoWireResult] = useState<{
     moduleCount: number;
@@ -264,6 +268,8 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     setAutoWireResult(null);
     setAvailableSources([]);
     setSelectedSourceId(null);
+    setCreatedSourceId(null);
+    setCreatedSubjectId(null);
     setContentMode("select");
     setOnboardingExpanded(false);
     setTeachingPointsExpanded(false);
@@ -585,6 +591,8 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     try {
       const params = new URLSearchParams();
       if (selectedCallerId) params.set("callerId", selectedCallerId);
+      if (createdSourceId) params.set("sourceId", createdSourceId);
+      if (createdSubjectId) params.set("subjectId", createdSubjectId);
       const res = await fetch(
         `/api/domains/${selectedDomainId}/course-readiness?${params}`,
         { signal: controller.signal },
@@ -606,7 +614,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     } finally {
       if (!controller.signal.aborted) setChecksLoading(false);
     }
-  }, [selectedDomainId, selectedCallerId, config.headerTitle]);
+  }, [selectedDomainId, selectedCallerId, createdSourceId, createdSubjectId, config.headerTitle]);
 
   useEffect(() => {
     if (currentStep === 3 && selectedDomainId) fetchReadiness();
@@ -827,6 +835,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           body: JSON.stringify({ domainId: selectedDomainId }),
         });
       }
+      setCreatedSubjectId(subjectId);
 
       // 2. Upload file to subject → creates ContentSource
       const uploadFormData = new FormData();
@@ -842,6 +851,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         throw new Error(uploadData.error || "Upload failed");
       }
       const sourceId = uploadData.source.id;
+      setCreatedSourceId(sourceId);
 
       // 3. Start background extraction
       const extractFormData = new FormData();
@@ -943,6 +953,9 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           body: JSON.stringify({ domainId: selectedDomainId }),
         });
       }
+
+      setCreatedSubjectId(subjectId);
+      setCreatedSourceId(sourceId);
 
       // 2. Attach the existing source to this subject (409 = already attached, OK)
       const attachRes = await fetch(`/api/subjects/${subjectId}/sources`, {

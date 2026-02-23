@@ -104,7 +104,7 @@ export async function loadCourseReadinessChecks(specSlug?: string): Promise<Cour
       description: "Check the generated curriculum structure",
       severity: "recommended",
       query: "lesson_plan",
-      fixAction: { label: "Review Plan", hrefTemplate: "/x/domains?id=${domainId}&tab=content" },
+      fixAction: { label: "Review Plan", hrefTemplate: "/x/subjects/${subjectId}" },
     },
     {
       id: "onboarding_configured",

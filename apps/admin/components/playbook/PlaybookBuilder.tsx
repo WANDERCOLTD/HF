@@ -2099,13 +2099,14 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
                 }
 
                 // Category order and labels (new + deprecated roles)
-                const specRoleOrder = ["ORCHESTRATE", "IDENTITY", "CONTENT", "VOICE", "EXTRACT", "SYNTHESISE", "CONSTRAIN", "MEASURE", "ADAPT", "GUARDRAIL", "REWARD", "BOOTSTRAP"];
+                const specRoleOrder = ["ORCHESTRATE", "IDENTITY", "CONTENT", "VOICE", "EXTRACT", "SYNTHESISE", "CONSTRAIN", "OBSERVE", "MEASURE", "ADAPT", "GUARDRAIL", "REWARD", "BOOTSTRAP"];
                 const specRoleLabels: Record<string, string> = {
                   // New taxonomy
                   ORCHESTRATE: "🎯 ORCHESTRATE (Flow Control)",
                   EXTRACT: "🔍 EXTRACT (Measurement)",
                   SYNTHESISE: "🧮 SYNTHESISE (Transform)",
                   CONSTRAIN: "📏 CONSTRAIN (Guardrails)",
+                  OBSERVE: "📡 OBSERVE (Metrics & Health)",
                   IDENTITY: "👤 IDENTITY (Who)",
                   CONTENT: "📚 CONTENT (Curriculum)",
                   VOICE: "🎙️ VOICE (Speech)",

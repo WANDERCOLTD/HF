@@ -1927,6 +1927,9 @@ enum SpecRole {
   EXTRACT // Measurement/learning → Standard spec editor (PERS-001, VARK-001, MEM-001, STYLE-001, SUPV-001)
   SYNTHESISE // Combine/transform → Formula Builder UI (COMP-001, LEARN-PROF-001, REW-001, ADAPT-*)
 
+  // === OBSERVABILITY (System monitoring) ===
+  OBSERVE // System health/metrics → Dashboard UI (AIKNOW-001, ERRMON-001, METER-001)
+
   // === VALIDATION (Enforces rules) ===
   CONSTRAIN // Bounds/guards → Rule Editor UI (GUARD-001, GUARD-VOICEMAIL-001)
 

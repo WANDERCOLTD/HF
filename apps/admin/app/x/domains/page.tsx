@@ -430,7 +430,7 @@ export default function DomainsPage() {
       )}
 
       {/* Master-Detail Layout */}
-      <div className="hf-flex hf-gap-lg hf-flex-1" style={{ minHeight: 0, overflow: "hidden" }}>
+      <div className="hf-flex hf-gap-lg hf-flex-1" style={{ minHeight: 0, overflow: "hidden", alignItems: "stretch" }}>
         {/* List Panel */}
         <div className="hf-master-list">
           {loading ? (

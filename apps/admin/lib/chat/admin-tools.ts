@@ -21,7 +21,7 @@ export const ADMIN_TOOLS: AITool[] = [
         },
         spec_role: {
           type: "string",
-          enum: ["IDENTITY", "CONTENT", "EXTRACT", "SYNTHESISE", "CONSTRAIN", "ORCHESTRATE", "VOICE"],
+          enum: ["IDENTITY", "CONTENT", "EXTRACT", "SYNTHESISE", "CONSTRAIN", "ORCHESTRATE", "OBSERVE", "VOICE"],
           description: "Filter by spec role",
         },
         slug: {

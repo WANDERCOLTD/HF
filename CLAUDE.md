@@ -83,6 +83,7 @@ No manual wiring. System auto-scaffolds when readiness checks fail.
 - `EXTRACT` — Measurement and learning (PERS-001, VARK-001, MEM-001)
 - `SYNTHESISE` — Combine/transform data (COMP-001, REW-001, ADAPT-*)
 - `CONSTRAIN` — Bounds and guards (GUARD-001)
+- `OBSERVE` — System health/metrics (AIKNOW-001, ERRMON-001, METER-001)
 - `IDENTITY` — Agent personas (TUT-001, COACH-001)
 - `CONTENT` — Curriculum material (WNF-CONTENT-001)
 - `VOICE` — Voice guidance (VOICE-001)

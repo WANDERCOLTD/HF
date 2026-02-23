@@ -6,7 +6,7 @@
   "date": "2026-02-01",
   "domain": "voice",
   "specType": "SYSTEM",
-  "specRole": "IDENTITY",
+  "specRole": "VOICE",
   "agentScope": "SYSTEM",
   "story": {
     "asA": "voice AI agent (VAPI)",

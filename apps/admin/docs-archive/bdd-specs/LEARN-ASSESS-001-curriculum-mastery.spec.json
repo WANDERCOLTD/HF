@@ -7,6 +7,7 @@
   "date": "2026-02-12",
   "domain": "curriculum",
   "specType": "SYSTEM",
+  "specRole": "EXTRACT",
   "outputType": "LEARN",
   "config": {
     "assessmentMode": "curriculum_mastery",

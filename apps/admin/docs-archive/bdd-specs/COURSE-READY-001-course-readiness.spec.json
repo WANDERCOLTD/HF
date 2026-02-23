@@ -50,7 +50,7 @@
             "description": "Check the generated lesson plan — session types, order, and module mapping",
             "severity": "recommended",
             "query": "lesson_plan",
-            "fixAction": { "label": "Review Plan", "hrefTemplate": "/x/domains?id=${domainId}&tab=content" }
+            "fixAction": { "label": "Review Plan", "hrefTemplate": "/x/subjects/${subjectId}" }
           },
           {
             "id": "onboarding_configured",

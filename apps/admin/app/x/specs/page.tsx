@@ -156,6 +156,7 @@ const roleColors: Record<string, { bg: string; text: string; label: string; icon
   IDENTITY: { bg: "var(--badge-indigo-bg)", text: "var(--badge-indigo-text)", label: "Identity", icon: "👤", desc: "Agent personas" },
   CONTENT: { bg: "var(--badge-pink-bg)", text: "var(--badge-pink-text)", label: "Content", icon: "📚", desc: "Curriculum" },
   VOICE: { bg: "var(--badge-indigo-bg)", text: "var(--badge-indigo-text)", label: "Voice", icon: "🎙️", desc: "Voice guidance" },
+  OBSERVE: { bg: "var(--badge-purple-bg)", text: "var(--badge-purple-text)", label: "Observe", icon: "📡", desc: "System health/metrics" },
   // Deprecated (backward compatibility) - grayed out
   MEASURE: { bg: "var(--badge-gray-bg)", text: "var(--badge-gray-text)", label: "Measure (→Extract)", icon: "📊", desc: "DEPRECATED: Use EXTRACT" },
   ADAPT: { bg: "var(--badge-gray-bg)", text: "var(--badge-gray-text)", label: "Adapt (→Synthesise)", icon: "🔄", desc: "DEPRECATED: Use SYNTHESISE" },

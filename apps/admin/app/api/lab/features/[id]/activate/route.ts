@@ -102,6 +102,8 @@ export async function POST(
       specRole = SpecRole.CONTENT;
     } else if (declaredSpecRole === SpecRole.VOICE) {
       specRole = SpecRole.VOICE;
+    } else if (declaredSpecRole === SpecRole.OBSERVE) {
+      specRole = SpecRole.OBSERVE;
     // DEPRECATED VALUES (backward compatibility) - map to new taxonomy
     } else if (declaredSpecRole === SpecRole.MEASURE) {
       specRole = SpecRole.EXTRACT;

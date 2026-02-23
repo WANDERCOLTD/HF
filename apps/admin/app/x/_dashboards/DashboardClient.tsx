@@ -578,7 +578,7 @@ function getBadgeClass(value: string): string {
   if (v === "COMMUNITY") return "dash-entity-badge-ready";
   if (v === "DRAFT") return "dash-entity-badge-draft";
   // Spec roles
-  if (["ORCHESTRATE", "EXTRACT", "SYNTHESISE", "CONSTRAIN", "IDENTITY", "CONTENT", "VOICE"].includes(v)) {
+  if (["ORCHESTRATE", "EXTRACT", "SYNTHESISE", "CONSTRAIN", "OBSERVE", "IDENTITY", "CONTENT", "VOICE"].includes(v)) {
     return "dash-entity-badge-setup";
   }
   return "dash-entity-badge-draft";

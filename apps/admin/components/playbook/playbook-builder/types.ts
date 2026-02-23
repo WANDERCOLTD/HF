@@ -48,7 +48,7 @@ export type SpecDetail = {
   scope: "CALLER" | "DOMAIN" | "SYSTEM";
   specType: "SYSTEM" | "DOMAIN";
   outputType: "LEARN" | "MEASURE" | "ADAPT" | "COMPOSE" | "MEASURE_AGENT" | "AGGREGATE" | "REWARD" | "SUPERVISE";
-  specRole: "ORCHESTRATE" | "EXTRACT" | "SYNTHESISE" | "CONSTRAIN" | "IDENTITY" | "CONTENT" | "VOICE" | "MEASURE" | "ADAPT" | "REWARD" | "GUARDRAIL" | "BOOTSTRAP";
+  specRole: "ORCHESTRATE" | "EXTRACT" | "SYNTHESISE" | "CONSTRAIN" | "OBSERVE" | "IDENTITY" | "CONTENT" | "VOICE" | "MEASURE" | "ADAPT" | "REWARD" | "GUARDRAIL" | "BOOTSTRAP";
   domain: string | null;
   priority: number;
   isActive: boolean;
@@ -66,7 +66,7 @@ export type Spec = {
   scope: "CALLER" | "DOMAIN" | "SYSTEM";
   specType: "SYSTEM" | "DOMAIN";
   outputType: "LEARN" | "MEASURE" | "ADAPT" | "COMPOSE" | "MEASURE_AGENT" | "AGGREGATE" | "REWARD" | "SUPERVISE";
-  specRole: "ORCHESTRATE" | "EXTRACT" | "SYNTHESISE" | "CONSTRAIN" | "IDENTITY" | "CONTENT" | "VOICE" | "MEASURE" | "ADAPT" | "REWARD" | "GUARDRAIL" | "BOOTSTRAP";
+  specRole: "ORCHESTRATE" | "EXTRACT" | "SYNTHESISE" | "CONSTRAIN" | "OBSERVE" | "IDENTITY" | "CONTENT" | "VOICE" | "MEASURE" | "ADAPT" | "REWARD" | "GUARDRAIL" | "BOOTSTRAP";
   domain: string | null;
   priority: number;
   isActive?: boolean;

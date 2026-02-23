@@ -12,6 +12,7 @@ type SpecRole =
   | "EXTRACT"
   | "SYNTHESISE"
   | "CONSTRAIN"
+  | "OBSERVE"
   | "IDENTITY"
   | "CONTENT"
   | "VOICE"
@@ -95,6 +96,14 @@ const ROLE_CONFIG: Record<
     text: "var(--badge-indigo-text, #4338ca)",
     description: "Voice guidance → Standard spec editor",
     uiEditor: "Standard Editor",
+  },
+  OBSERVE: {
+    label: "Observe",
+    icon: "📡",
+    bg: "var(--badge-purple-bg, #f3e8ff)",
+    text: "var(--badge-purple-text, #7c3aed)",
+    description: "System health/metrics → Dashboard UI",
+    uiEditor: "Dashboard",
   },
   // Deprecated roles (legacy support)
   MEASURE: {
