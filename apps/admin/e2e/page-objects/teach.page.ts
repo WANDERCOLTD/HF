@@ -4,13 +4,14 @@ import { BasePage } from './base.page';
 /**
  * Page Object for the Teach page (/x/teach)
  *
- * Step-based flow: Institution & Learner → Goal → Readiness → Launch
+ * Step-based flow: Institution → Goal → Content → Plan Sessions → Launch
  */
 export class TeachPage extends BasePage {
   readonly path = '/x/teach';
 
   readonly heading: Locator;
   readonly institutionSelector: Locator;
+  /** @deprecated Readiness is now shown on the Launch step, not a separate section */
   readonly readinessSection: Locator;
   readonly startSessionButton: Locator;
   readonly viewInstitutionButton: Locator;

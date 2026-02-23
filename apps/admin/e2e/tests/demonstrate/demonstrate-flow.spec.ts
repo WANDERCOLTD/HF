@@ -3,7 +3,7 @@ import { TeachPage } from '../../page-objects';
 
 /**
  * Teach Flow Tests
- * Tests the multi-step teach flow: Institution → Goal → Readiness → Launch
+ * Tests the multi-step teach flow: Institution → Goal → Content → Plan Sessions → Launch
  */
 test.describe('Teach Flow', () => {
   test.beforeEach(async ({ page, loginAs }) => {

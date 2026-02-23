@@ -9,6 +9,20 @@
     ]
   },
   {
+    "id": "library",
+    "title": "Library",
+    "href": "/x/subjects",
+    "requiredRole": "OPERATOR",
+    "advancedOnly": true,
+    "items": [
+      { "id": "subjects", "href": "/x/subjects", "label": "Subjects", "icon": "BookMarked" },
+      { "id": "content-sources", "href": "/x/content-sources", "label": "Sources", "icon": "ShieldCheck", "wizard": true },
+      { "id": "content-review", "href": "/x/content-review", "label": "Review", "icon": "ClipboardCheck" },
+      { "id": "dictionary", "href": "/x/dictionary", "label": "Dictionary", "icon": "BookA" },
+      { "id": "import", "href": "/x/import", "label": "Import", "icon": "Download" }
+    ]
+  },
+  {
     "id": "config",
     "title": "Configure",
     "href": "/x/domains",
@@ -67,20 +81,6 @@
       { "id": "sim", "href": "/x/sim", "label": "Sim", "icon": "MessageCircle" },
       { "id": "analytics", "href": "/x/analytics", "label": "Analytics", "icon": "TrendingUp", "advancedOnly": true },
       { "id": "testimony", "href": "/x/testimony", "label": "Testimony", "icon": "BarChart3", "requiredRole": "OPERATOR" }
-    ]
-  },
-  {
-    "id": "library",
-    "title": "Library",
-    "href": "/x/subjects",
-    "requiredRole": "OPERATOR",
-    "advancedOnly": true,
-    "items": [
-      { "id": "subjects", "href": "/x/subjects", "label": "Subjects", "icon": "BookMarked" },
-      { "id": "content-sources", "href": "/x/content-sources", "label": "Sources", "icon": "ShieldCheck", "wizard": true },
-      { "id": "content-review", "href": "/x/content-review", "label": "Review", "icon": "ClipboardCheck" },
-      { "id": "dictionary", "href": "/x/dictionary", "label": "Dictionary", "icon": "BookA" },
-      { "id": "import", "href": "/x/import", "label": "Import", "icon": "Download" }
     ]
   },
   {

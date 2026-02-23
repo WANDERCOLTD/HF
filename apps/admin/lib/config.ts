@@ -336,7 +336,7 @@ export const config = {
 
     /**
      * Demonstrate Flow Wizard Spec (default: DEMONSTRATE-FLOW-001)
-     * Defines demonstrate wizard steps: select domain/caller, set goal, readiness, launch.
+     * Defines demonstrate wizard steps: select domain/caller, set goal, content, preview, launch.
      * Can be overridden via DEMONSTRATE_FLOW_SPEC_SLUG env var.
      */
     get demonstrateFlow(): string {
@@ -345,7 +345,7 @@ export const config = {
 
     /**
      * Teach Flow Wizard Spec (default: TEACH-FLOW-001)
-     * Defines teach wizard steps: select institution/learner, set goal, readiness, launch.
+     * Defines teach wizard steps: select institution/learner, set goal, content, plan, preview, launch.
      * Can be overridden via TEACH_FLOW_SPEC_SLUG env var.
      */
     get teachFlow(): string {

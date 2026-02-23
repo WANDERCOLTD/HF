@@ -1,13 +1,15 @@
 "use client";
 
 /**
- * DemoTeachWizard — shared wizard for Demonstrate (6-step) and Teach (7-step) flows.
+ * DemoTeachWizard — shared wizard for Demonstrate (4-step) and Teach (5-step) flows.
  *
  * Config-driven: the page wrapper passes a DemoTeachConfig that controls
  * flowId, labels, API filters, and terminology. All state, effects, and
  * rendering live here — the pages are thin wrappers.
  *
- * Steps: Select Institution [& Caller] → Set Your Goal → Add Content → [Plan Sessions (Teach only)] → Readiness Checks → Preview First Prompt → Launch
+ * Steps: Select Institution [& Caller] → Set Your Goal → Add Content → [Plan Sessions (Teach only)] → Launch
+ *
+ * Preview First Prompt is an accordion within the Launch step, not a standalone step.
  *
  * When config.requireCallerUpfront is false (Teach flow), the caller is
  * auto-created at launch time instead of being selected in step 0.
@@ -158,9 +160,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   // ── Step indices (teach flow has an extra "Plan Sessions" step at index 3) ──
   const isTeachFlow = config.flowId === "teach";
   const STEP_PLAN = isTeachFlow ? 3 : -1; // -1 = doesn't exist for demonstrate
-  const STEP_READINESS = isTeachFlow ? 4 : 3;
-  const STEP_PREVIEW = isTeachFlow ? 5 : 4;
-  const STEP_LAUNCH = isTeachFlow ? 6 : 5;
+  const STEP_LAUNCH = isTeachFlow ? 4 : 3;
 
   // ── State ──────────────────────────────────────────
 
@@ -242,6 +242,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const [teachingPoints, setTeachingPoints] = useState<Array<{ id: string; text: string; type: string; reviewed: boolean }>>([]);
   const [teachingPointsLoading, setTeachingPointsLoading] = useState(false);
   const [tunePersonaExpanded, setTunePersonaExpanded] = useState(false);
+  const [promptPreviewExpanded, setPromptPreviewExpanded] = useState(false);
   const [savingPersona, setSavingPersona] = useState(false);
 
   // Launch-time caller creation (when requireCallerUpfront === false)
@@ -282,6 +283,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     setOnboardingExpanded(false);
     setTeachingPointsExpanded(false);
     setTunePersonaExpanded(false);
+    setPromptPreviewExpanded(false);
     setDomainDetail(null);
     setTeachingPoints([]);
     setLaunching(false);
@@ -625,23 +627,10 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     }
   }, [selectedDomainId, selectedCallerId, createdSourceId, createdSubjectId, config.headerTitle]);
 
+  // Fetch readiness when arriving at the Launch step
   useEffect(() => {
-    if (currentStep === STEP_READINESS && selectedDomainId) fetchReadiness();
-  }, [currentStep, STEP_READINESS, selectedDomainId, selectedCallerId, fetchReadiness]);
-
-  // Poll readiness every 10s while on step 3 (with timeout guard)
-  useEffect(() => {
-    if (currentStep !== STEP_READINESS || !selectedDomainId) return;
-    const startedAt = Date.now();
-    const interval = setInterval(() => {
-      if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
-        clearInterval(interval);
-        return;
-      }
-      fetchReadiness();
-    }, 10_000);
-    return () => clearInterval(interval);
-  }, [currentStep, STEP_READINESS, selectedDomainId, fetchReadiness]);
+    if (currentStep === STEP_LAUNCH && selectedDomainId) fetchReadiness();
+  }, [currentStep, STEP_LAUNCH, selectedDomainId, selectedCallerId, fetchReadiness]);
 
   // ── Content upload step logic ─────────────────────
 
@@ -1002,13 +991,6 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
 
   const selectedDomain = domains.find((d) => d.id === selectedDomainId);
 
-  const levelColor =
-    level === "ready"
-      ? "var(--status-success-text)"
-      : level === "almost"
-        ? "var(--status-warning-text)"
-        : "var(--text-muted)";
-
   const levelLabel =
     level === "ready"
       ? "Ready"
@@ -1028,13 +1010,12 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       }
     } else if (currentStep === 1) {
       setData("goal", goalText.trim());
-    } else if (currentStep === STEP_READINESS) {
-      // Persist readiness state so Launch step has it even after refresh
-      setData("ready", ready);
-      setData("score", score);
-      setData("level", level);
+    } else if (currentStep === 2) {
+      // Persist content availability for downstream steps (e.g. Plan Sessions)
+      const hasContent = contentPhase === "has-content" || contentPhase === "done";
+      setData("contentAvailable", hasContent);
+      setData("contentCount", contentCount);
     }
-    // Steps 2 (content), 4 (preview) have no data to persist — just advance
     setStep(currentStep + 1);
   };
 
@@ -1189,6 +1170,11 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     }
   }, [selectedDomainId]);
 
+  // Prefetch teaching points when arriving at the Launch step (badge shows count immediately)
+  useEffect(() => {
+    if (currentStep === STEP_LAUNCH && selectedDomainId) fetchTeachingPoints();
+  }, [currentStep, STEP_LAUNCH, selectedDomainId, fetchTeachingPoints]);
+
   const handleToggleOnboarding = useCallback(() => {
     const willExpand = !onboardingExpanded;
     setOnboardingExpanded(willExpand);
@@ -1263,8 +1249,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
               (i === 0 && loadingDomains) ||
               (i === 1 && (loadingSuggestions || loadingGoals || savingGoal)) ||
               (i === 2 && ["uploading", "extracting", "generating-curriculum", "composing-prompt", "attaching-source"].includes(contentPhase)) ||
-              (i === STEP_READINESS && checksLoading) ||
-              (i === STEP_LAUNCH && launching);
+              (i === STEP_LAUNCH && (checksLoading || launching));
             return {
               label: s.label,
               completed: i < currentStep,
@@ -1317,7 +1302,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                 className="dtw-inline-link"
                 onClick={() => router.push("/x/quick-launch")}
               >
-                Create one with Community
+                Create one with Quick Launch
               </span>
             </div>
           ) : (
@@ -1888,157 +1873,8 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         />
       )}
 
-      {/* STEP 3/4: Readiness Checks                      */}
       {/* ═══════════════════════════════════════════════ */}
-      {currentStep === STEP_READINESS && selectedDomainId && (
-        <div className={`dtw-section ${level === "ready" ? "dtw-section-ready" : ""}`}>
-          {/* Status badge */}
-          <div className="dtw-readiness-header">
-            <div className="dtw-section-label">Course Readiness</div>
-            <div className="dtw-readiness-badges">
-              <div
-                className="dtw-readiness-level-badge"
-                style={{
-                  color: levelColor,
-                  background: `color-mix(in srgb, ${levelColor} 12%, transparent)`,
-                }}
-              >
-                {levelLabel}
-              </div>
-              <div className="dtw-readiness-score">
-                {score}%
-              </div>
-            </div>
-          </div>
-
-          {/* Check items */}
-          {checksLoading && checks.length === 0 ? (
-            <div className="dtw-muted-text dtw-loading-text">
-              <span className="dtw-inline-spinner" />
-              Loading checks...
-            </div>
-          ) : checks.length === 0 ? (
-            <div className="dtw-muted-text">
-              No readiness checks configured.
-            </div>
-          ) : (
-            <div className="dtw-checks-list">
-              {checks.map((check) => (
-                <div
-                  key={check.id}
-                  className={`dtw-check-row ${check.passed ? "dtw-check-row-pass" : "dtw-check-row-pending"} ${check.fixAction?.href ? "dtw-check-row-clickable" : ""}`}
-                  onClick={() => {
-                    // Persist readiness data before any jump
-                    setData("ready", ready);
-                    setData("score", score);
-                    setData("level", level);
-
-                    switch (check.id) {
-                      case "onboarding_configured":
-                        if (!onboardingExpanded) handleToggleOnboarding();
-                        setStep(STEP_LAUNCH);
-                        return;
-                      case "lesson_plan_set":
-                        if (!teachingPointsExpanded) handleToggleTeachingPoints();
-                        setStep(STEP_LAUNCH);
-                        return;
-                      case "prompt_composed":
-                        handleNext();
-                        return;
-                      default:
-                        if (check.fixAction?.href) router.push(check.fixAction.href);
-                        return;
-                    }
-                  }}
-                >
-                  <div
-                    className={`dtw-check-circle ${check.passed ? "dtw-check-circle-pass" : check.severity === "critical" ? "dtw-check-circle-critical" : "dtw-check-circle-default"}`}
-                  >
-                    {check.passed
-                      ? "\u2713"
-                      : check.severity === "critical"
-                        ? "!"
-                        : "\u2022"}
-                  </div>
-                  <div className="dtw-check-content">
-                    <div className="dtw-check-name">
-                      {check.name}
-                      {check.severity === "critical" && !check.passed && (
-                        <span className="dtw-check-required">
-                          REQUIRED
-                        </span>
-                      )}
-                    </div>
-                    <div className="dtw-check-detail">
-                      {check.detail}
-                    </div>
-                  </div>
-                  {check.fixAction?.href && (
-                    <div className="dtw-check-fix">
-                      {check.fixAction.label} &rarr;
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Step navigation */}
-          {(() => {
-            // When no caller upfront, allow advancing even if not fully ready
-            // (caller-related checks will pass after auto-creation at launch)
-            const canAdvanceReadiness = ready || !needsCallerUpfront;
-            return (
-              <div className="dtw-nav-between">
-                <button onClick={handlePrev} className="dtw-btn-back">
-                  <ChevronLeft size={16} /> Back
-                </button>
-                <button
-                  onClick={canAdvanceReadiness ? handleNext : undefined}
-                  disabled={!canAdvanceReadiness}
-                  className={`dtw-btn-next ${canAdvanceReadiness ? "dtw-btn-next-enabled" : "dtw-btn-next-disabled"}`}
-                  title={
-                    !canAdvanceReadiness ? "Complete required checks above first" : undefined
-                  }
-                >
-                  Next <ChevronRight size={16} />
-                </button>
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════ */}
-      {/* STEP 4/5: Preview First Prompt                   */}
-      {/* ═══════════════════════════════════════════════ */}
-      {currentStep === STEP_PREVIEW && selectedDomainId && (
-        <div className="dtw-section">
-          <div className="dtw-section-label">First Prompt Preview</div>
-          <PromptPreviewContent
-            domainId={selectedDomainId}
-            domainName={selectedDomain?.name}
-            callerId={selectedCallerId || undefined}
-            open={currentStep === STEP_PREVIEW}
-          />
-
-          {/* Step navigation */}
-          <div className="dtw-nav-between" style={{ marginTop: 24 }}>
-            <button onClick={handlePrev} className="dtw-btn-back">
-              <ChevronLeft size={16} /> Back
-            </button>
-            <button
-              onClick={handleNext}
-              className="dtw-btn-next dtw-btn-next-enabled"
-            >
-              Next <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════ */}
-      {/* STEP 5/6: Launch                                */}
+      {/* STEP 3/4: Launch                                 */}
       {/* ═══════════════════════════════════════════════ */}
       {currentStep === STEP_LAUNCH && (
         <div className="dtw-section">
@@ -2128,7 +1964,71 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             onBack={handlePrev}
           />
 
-          {/* ── Teaching Points (expandable) ── */}
+          {/* ── 1. Tune Persona (Boston Matrix) ── */}
+          <div className="dtw-accordion-card">
+            <button onClick={handleToggleTunePersona} className="dtw-accordion-toggle">
+              {tunePersonaExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              <span>Tune Persona</span>
+              {savingPersona && (
+                <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 400 }}>&mdash; saving...</span>
+              )}
+            </button>
+            {tunePersonaExpanded && (
+              <div className="dtw-accordion-content">
+                {domainDetailLoading && !domainDetail ? (
+                  <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
+                    <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
+                    <span className="hf-text-sm hf-text-muted">Loading persona settings...</span>
+                  </div>
+                ) : (
+                  <AgentTuningPanel
+                    initialPositions={
+                      (domainDetail?.onboardingDefaultTargets as any)?._matrixPositions
+                    }
+                    existingParams={
+                      domainDetail?.onboardingDefaultTargets
+                        ? Object.fromEntries(
+                            Object.entries(domainDetail.onboardingDefaultTargets as Record<string, any>)
+                              .filter(([k]) => !k.startsWith("_"))
+                              .map(([k, v]) => [k, typeof v === "object" && v !== null ? (v as any).value : v])
+                          )
+                        : undefined
+                    }
+                    onChange={handlePersonaTuningChange}
+                    compact
+                  />
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── 2. Customise Onboarding (expandable) ── */}
+          <div className="dtw-accordion-card">
+            <button onClick={handleToggleOnboarding} className="dtw-accordion-toggle">
+              {onboardingExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              <span>Customise Onboarding</span>
+              {domainDetailLoading && !domainDetail && (
+                <div className="hf-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+              )}
+            </button>
+            {onboardingExpanded && (
+              <div className="dtw-accordion-content">
+                {domainDetailLoading && !domainDetail ? (
+                  <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
+                    <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
+                    <span className="hf-text-sm hf-text-muted">Loading configuration...</span>
+                  </div>
+                ) : domainDetail ? (
+                  <OnboardingTabContent
+                    domain={domainDetail}
+                    onDomainRefresh={fetchDomainDetail}
+                  />
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {/* ── 3. Review Teaching Points (expandable) ── */}
           <div className="dtw-accordion-card">
             <button onClick={handleToggleTeachingPoints} className="dtw-accordion-toggle">
               {teachingPointsExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -2168,66 +2068,23 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             )}
           </div>
 
-          {/* ── Tune Persona (Boston Matrix) ── */}
+          {/* ── 4. Preview First Prompt (lazy-load accordion) ── */}
           <div className="dtw-accordion-card">
-            <button onClick={handleToggleTunePersona} className="dtw-accordion-toggle">
-              {tunePersonaExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              <span>Tune Persona</span>
-              {savingPersona && (
-                <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 400 }}>&mdash; saving...</span>
-              )}
+            <button
+              onClick={() => setPromptPreviewExpanded((v) => !v)}
+              className="dtw-accordion-toggle"
+            >
+              {promptPreviewExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              <span>Preview First Prompt</span>
             </button>
-            {tunePersonaExpanded && (
+            {promptPreviewExpanded && (
               <div className="dtw-accordion-content">
-                {domainDetailLoading && !domainDetail ? (
-                  <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
-                    <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
-                    <span className="hf-text-sm hf-text-muted">Loading persona settings...</span>
-                  </div>
-                ) : (
-                  <AgentTuningPanel
-                    initialPositions={
-                      (domainDetail?.onboardingDefaultTargets as any)?._matrixPositions
-                    }
-                    existingParams={
-                      domainDetail?.onboardingDefaultTargets
-                        ? Object.fromEntries(
-                            Object.entries(domainDetail.onboardingDefaultTargets as Record<string, any>)
-                              .filter(([k]) => !k.startsWith("_"))
-                              .map(([k, v]) => [k, typeof v === "object" && v !== null ? (v as any).value : v])
-                          )
-                        : undefined
-                    }
-                    onChange={handlePersonaTuningChange}
-                    compact
-                  />
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── Customise Onboarding (expandable) ── */}
-          <div className="dtw-accordion-card">
-            <button onClick={handleToggleOnboarding} className="dtw-accordion-toggle">
-              {onboardingExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              <span>Customise Onboarding</span>
-              {domainDetailLoading && !domainDetail && (
-                <div className="hf-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-              )}
-            </button>
-            {onboardingExpanded && (
-              <div className="dtw-accordion-content">
-                {domainDetailLoading && !domainDetail ? (
-                  <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
-                    <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
-                    <span className="hf-text-sm hf-text-muted">Loading configuration...</span>
-                  </div>
-                ) : domainDetail ? (
-                  <OnboardingTabContent
-                    domain={domainDetail}
-                    onDomainRefresh={fetchDomainDetail}
-                  />
-                ) : null}
+                <PromptPreviewContent
+                  domainId={selectedDomainId}
+                  domainName={selectedDomain?.name}
+                  callerId={selectedCallerId || undefined}
+                  open={promptPreviewExpanded}
+                />
               </div>
             )}
           </div>
@@ -2261,7 +2118,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             }}
             className="dtw-btn-quick"
           >
-            Community
+            Quick Launch
           </button>
         </div>
       )}

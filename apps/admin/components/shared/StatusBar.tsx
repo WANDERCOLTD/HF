@@ -5,7 +5,7 @@
  *
  * Normal mode:
  *   Left:  [Institution] [ENV badge] [Health RAG] [Calls] [Jobs]
- *   Right: [Spend] [Deep Log] [Bug] [User] [Version]
+ *   Right: [Spend] [Logs] [Bug] [User] [Version]
  *
  * Masquerade mode (entire bar turns purple):
  *   Left:  [Mask icon + user info + EXIT]
@@ -19,7 +19,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Building2, VenetianMask, X, Bug, Cog, Phone, User } from 'lucide-react';
+import { Building2, VenetianMask, X, Bug, Cog, Phone, User, FileText } from 'lucide-react';
 import { useBranding } from '@/contexts/BrandingContext';
 import { useMasquerade } from '@/contexts/MasqueradeContext';
 import { useErrorCapture } from '@/contexts/ErrorCaptureContext';
@@ -30,6 +30,7 @@ import type { IniResult } from './HealthPopup';
 import { CallsPopup } from './CallsPopup';
 import type { ActivityData } from './CallsPopup';
 import { VersionPopup } from './VersionPopup';
+import { LogsPopup } from './LogsPopup';
 
 /** Height of the status bar in pixels — use for layout calculations */
 export const STATUS_BAR_HEIGHT = 32;
@@ -88,12 +89,14 @@ export function StatusBar() {
   const healthChipRef = useRef<HTMLSpanElement>(null);
   const callsChipRef = useRef<HTMLSpanElement>(null);
   const jobsChipRef = useRef<HTMLSpanElement>(null);
+  const logsChipRef = useRef<HTMLSpanElement>(null);
   const versionChipRef = useRef<HTMLSpanElement>(null);
 
   // ── Popup open states ──
   const [healthPopupOpen, setHealthPopupOpen] = useState(false);
   const [callsPopupOpen, setCallsPopupOpen] = useState(false);
   const [jobsPopupOpen, setJobsPopupOpen] = useState(false);
+  const [logsPopupOpen, setLogsPopupOpen] = useState(false);
   const [versionPopupOpen, setVersionPopupOpen] = useState(false);
 
   // ── Data states ──
@@ -118,6 +121,7 @@ export function StatusBar() {
     setHealthPopupOpen(false);
     setCallsPopupOpen(false);
     setJobsPopupOpen(false);
+    setLogsPopupOpen(false);
     setVersionPopupOpen(false);
   }, []);
 
@@ -408,21 +412,28 @@ export function StatusBar() {
           </span>
         )}
 
-        {/* Deep Logging toggle (ADMIN+) */}
+        {/* Logs → LogsPopup (ADMIN+) */}
         {isAdmin && (
           <span
+            ref={logsChipRef}
             className={`hf-status-item hf-status-clickable${deepLogging ? ' hf-status-deep-logging-active' : ''}`}
-            onClick={handleToggleDeepLogging}
+            onClick={() => {
+              closeAllPopups();
+              setLogsPopupOpen((v) => !v);
+            }}
             title={
               deepLogging
-                ? 'Deep logging ON — capturing full AI prompts/responses (click to turn off)'
-                : 'Deep logging OFF (click to turn on)'
+                ? 'Logs — deep logging ON (click to peek)'
+                : 'Logs (click to peek)'
             }
           >
-            <span
-              className={`hf-status-deep-dot${deepLogging ? ' hf-status-deep-dot-active' : ''}`}
-            />
-            <span>{deepLogging ? 'DEEP LOG' : 'LOG'}</span>
+            <FileText size={12} />
+            {deepLogging && (
+              <span
+                className="hf-status-deep-dot hf-status-deep-dot-active"
+              />
+            )}
+            <span>Logs</span>
           </span>
         )}
 
@@ -499,6 +510,16 @@ export function StatusBar() {
           open={jobsPopupOpen}
           onClose={() => setJobsPopupOpen(false)}
           anchorRef={jobsChipRef}
+        />
+      )}
+
+      {isAdmin && (
+        <LogsPopup
+          open={logsPopupOpen}
+          onClose={() => setLogsPopupOpen(false)}
+          anchorRef={logsChipRef}
+          deepLogging={deepLogging}
+          onToggleDeepLogging={handleToggleDeepLogging}
         />
       )}
 

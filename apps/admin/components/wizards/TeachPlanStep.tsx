@@ -26,6 +26,7 @@ import {
   Loader2,
   RotateCcw,
   SkipForward,
+  AlertTriangle,
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────
@@ -66,6 +67,10 @@ export function TeachPlanStep({
   onNext,
   onPrev,
 }: TeachPlanStepProps) {
+  // Content availability from the content step (step 2)
+  const contentAvailable = getData<boolean>("contentAvailable") ?? false;
+  const upstreamContentCount = getData<number>("contentCount") ?? 0;
+
   // Restore state from data bag
   const restoredTaskId = getData<string>("contentSpecTaskId") || null;
 
@@ -272,6 +277,27 @@ export function TeachPlanStep({
 
       {error && <ErrorBanner error={error} />}
 
+      {/* ── No Content Warning ──────────── */}
+      {!contentAvailable && phase === "intents" && (
+        <div className="hf-banner hf-banner-warning" style={{ marginBottom: 16 }}>
+          <AlertTriangle style={{ width: 16, height: 16, flexShrink: 0 }} />
+          <span>
+            No content uploaded yet. Go back to the Content step to upload or select
+            teaching material before generating a curriculum.
+          </span>
+        </div>
+      )}
+
+      {/* Content count badge when content exists */}
+      {contentAvailable && upstreamContentCount > 0 && phase === "intents" && (
+        <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+          <span className="dtw-accordion-badge">{upstreamContentCount}</span>
+          <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            teaching point{upstreamContentCount !== 1 ? "s" : ""} available
+          </span>
+        </div>
+      )}
+
       {/* ── Phase A: Intent Capture ──────────── */}
       {phase === "intents" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -353,7 +379,12 @@ export function TeachPlanStep({
               <button onClick={handleSkip} className="dtw-btn-skip">
                 <SkipForward style={{ width: 14, height: 14 }} /> Skip
               </button>
-              <button onClick={handleGenerate} className="dtw-btn-next">
+              <button
+                onClick={handleGenerate}
+                disabled={!contentAvailable}
+                className={`dtw-btn-next ${contentAvailable ? "dtw-btn-next-enabled" : "dtw-btn-next-disabled"}`}
+                title={contentAvailable ? undefined : "Upload content first"}
+              >
                 Generate & Review <ArrowRight style={{ width: 16, height: 16 }} />
               </button>
             </div>

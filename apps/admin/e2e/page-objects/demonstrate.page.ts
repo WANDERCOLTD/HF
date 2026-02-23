@@ -4,13 +4,14 @@ import { BasePage } from './base.page';
 /**
  * Page Object for the Demonstrate page (/x/demonstrate)
  *
- * Step-based flow: Domain & Caller → Goal → Readiness → Launch
+ * Step-based flow: Domain & Caller → Goal → Content → Launch
  */
 export class DemonstratePage extends BasePage {
   readonly path = '/x/demonstrate';
 
   readonly heading: Locator;
   readonly domainSelector: Locator;
+  /** @deprecated Readiness is now shown on the Launch step, not a separate section */
   readonly readinessSection: Locator;
   readonly startLessonButton: Locator;
   readonly viewDomainButton: Locator;

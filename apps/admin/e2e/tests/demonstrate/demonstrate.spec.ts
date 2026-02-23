@@ -3,7 +3,7 @@ import { TeachPage } from '../../page-objects';
 
 /**
  * Teach Page Tests
- * Tests the /x/teach page — step-based flow with institution, goal, readiness, and launch
+ * Tests the /x/teach page — step-based flow with institution, goal, content, plan sessions, and launch
  */
 test.describe('Teach Page', () => {
   test.beforeEach(async ({ page, loginAs }) => {
@@ -27,7 +27,7 @@ test.describe('Teach Page', () => {
     // The step flow banner should be visible
     const banner = page.getByRole('navigation', { name: /flow/i });
     await expect(banner).toBeVisible();
-    await expect(banner).toContainText('Step 1 of 4');
+    await expect(banner).toContainText('Step 1 of 5');
   });
 
   test('should show Next button on step 1', async ({ page }) => {
