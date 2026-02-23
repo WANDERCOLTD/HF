@@ -94,7 +94,7 @@ async function testAnthropicKey(key: string): Promise<{ valid: boolean; message:
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-3-haiku-20240307",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 10,
         messages: [{ role: "user", content: "Hi" }],
       }),
@@ -104,7 +104,7 @@ async function testAnthropicKey(key: string): Promise<{ valid: boolean; message:
       return {
         valid: true,
         message: "Key is valid",
-        model: "claude-3-haiku-20240307",
+        model: "claude-haiku-4-5-20251001",
       };
     }
 

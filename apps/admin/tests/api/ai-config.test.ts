@@ -50,9 +50,7 @@ const EXPECTED_PROVIDERS = ["claude", "openai", "mock"];
 
 const EXPECTED_CLAUDE_MODELS = [
   "claude-sonnet-4-20250514",
-  "claude-3-5-haiku-20241022",
   "claude-haiku-4-5-20251001",
-  "claude-3-haiku-20240307",
 ];
 
 const EXPECTED_OPENAI_MODELS = ["gpt-4o", "gpt-4o-mini"];
@@ -228,8 +226,8 @@ describe("AI Config API", () => {
         json: vi.fn().mockResolvedValue({
           callPoint: "pipeline.measure",
           provider: "claude",
-          model: "claude-3-haiku-20240307", // 4096 max output
-          maxTokens: 8000, // Exceeds limit
+          model: "claude-haiku-4-5-20251001", // 8192 max output
+          maxTokens: 16000, // Exceeds limit
         }),
       } as any;
 
@@ -428,7 +426,7 @@ describe("AI Config Loader Logic", () => {
   const DEFAULT_CONFIGS: Record<string, { provider: string; model: string }> = {
     "pipeline.measure": { provider: "claude", model: "claude-sonnet-4-20250514" },
     "pipeline.learn": { provider: "claude", model: "claude-sonnet-4-20250514" },
-    "analysis.measure": { provider: "claude", model: "claude-3-5-haiku-20241022" },
+    "analysis.measure": { provider: "claude", model: "claude-haiku-4-5-20251001" },
   };
 
   // Simulates the config loading logic
@@ -510,6 +508,6 @@ describe("AI Config Loader Logic", () => {
     const analysisConfig = simulateGetConfig("analysis.measure", null);
 
     expect(pipelineConfig.model).toBe("claude-sonnet-4-20250514");
-    expect(analysisConfig.model).toBe("claude-3-5-haiku-20241022");
+    expect(analysisConfig.model).toBe("claude-haiku-4-5-20251001");
   });
 });

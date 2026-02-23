@@ -419,15 +419,11 @@ export const AI_CALL_POINTS = [
 export const AVAILABLE_MODELS = {
   claude: [
     { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4", tier: "flagship", maxOutputTokens: 16384 },
-    { id: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet", tier: "standard", maxOutputTokens: 8192 },
-    { id: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku", tier: "fast", maxOutputTokens: 8192 },
     { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", tier: "fast", maxOutputTokens: 8192 },
-    { id: "claude-3-haiku-20240307", label: "Claude 3 Haiku", tier: "legacy", maxOutputTokens: 4096 },
   ],
   openai: [
     { id: "gpt-4o", label: "GPT-4o", tier: "flagship", maxOutputTokens: 16384 },
     { id: "gpt-4o-mini", label: "GPT-4o Mini", tier: "fast", maxOutputTokens: 16384 },
-    { id: "gpt-4-turbo", label: "GPT-4 Turbo", tier: "standard", maxOutputTokens: 4096 },
   ],
   mock: [
     { id: "mock-model", label: "Mock (Testing)", tier: "test", maxOutputTokens: 4096 },

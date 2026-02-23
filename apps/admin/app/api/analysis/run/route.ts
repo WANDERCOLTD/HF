@@ -20,7 +20,7 @@ export const runtime = "nodejs";
  * @body specs string[] - Specific spec slugs to analyze (optional)
  * @body domains string[] - Filter by domains like personality, memory (optional)
  * @body outputTypes string[] - Filter by output type: "MEASURE" or "LEARN" (optional)
- * @body model string - Claude model to use (default: claude-3-haiku-20240307)
+ * @body model string - Claude model to use (default: from AI config system)
  * @body storeResults boolean - Whether to persist results to database (default: false)
  * @response 200 { ok: true, callId, callerId, model, analysisTime, usage: {...}, measures: {...}, learned: [...], stored: {...}, adapt: {...}, summary: {...} }
  * @response 400 { ok: false, error: "transcript is required" }

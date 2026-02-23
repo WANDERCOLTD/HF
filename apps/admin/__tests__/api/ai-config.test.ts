@@ -88,7 +88,7 @@ describe("/api/ai-config", () => {
     // Default mock for available models
     mockPrisma.aIModel.findMany.mockResolvedValue([
       createMockAIModel(),
-      createMockAIModel({ modelId: "claude-3-haiku-20240307", label: "Claude 3 Haiku", tier: "fast" }),
+      createMockAIModel({ modelId: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", tier: "fast" }),
     ]);
   });
 

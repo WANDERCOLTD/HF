@@ -13,17 +13,12 @@ export const runtime = "nodejs";
 
 // Default models to seed if table is empty
 const DEFAULT_MODELS = [
-  // Claude models
+  // Claude models (active as of Feb 2026 — see platform.claude.com/docs/en/about-claude/model-deprecations)
   { modelId: "claude-sonnet-4-20250514", provider: "claude", label: "Claude Sonnet 4", tier: "flagship", sortOrder: 1, maxOutputTokens: 16384 },
-  { modelId: "claude-3-5-sonnet-20241022", provider: "claude", label: "Claude 3.5 Sonnet", tier: "standard", sortOrder: 2, maxOutputTokens: 8192 },
-  { modelId: "claude-3-5-haiku-20241022", provider: "claude", label: "Claude 3.5 Haiku", tier: "fast", sortOrder: 3, maxOutputTokens: 8192 },
-  { modelId: "claude-haiku-4-5-20251001", provider: "claude", label: "Claude Haiku 4.5", tier: "fast", sortOrder: 4, maxOutputTokens: 8192 },
-  { modelId: "claude-3-haiku-20240307", provider: "claude", label: "Claude 3 Haiku", tier: "legacy", sortOrder: 5, maxOutputTokens: 4096 },
+  { modelId: "claude-haiku-4-5-20251001", provider: "claude", label: "Claude Haiku 4.5", tier: "fast", sortOrder: 2, maxOutputTokens: 8192 },
   // OpenAI models
   { modelId: "gpt-4o", provider: "openai", label: "GPT-4o", tier: "flagship", sortOrder: 1, maxOutputTokens: 16384 },
   { modelId: "gpt-4o-mini", provider: "openai", label: "GPT-4o Mini", tier: "fast", sortOrder: 2, maxOutputTokens: 16384 },
-  { modelId: "gpt-4-turbo", provider: "openai", label: "GPT-4 Turbo", tier: "standard", sortOrder: 3, maxOutputTokens: 4096 },
-  { modelId: "gpt-3.5-turbo", provider: "openai", label: "GPT-3.5 Turbo", tier: "legacy", sortOrder: 4, maxOutputTokens: 4096 },
   // Mock models
   { modelId: "mock-model", provider: "mock", label: "Mock Model", tier: "test", sortOrder: 1, maxOutputTokens: 4096 },
 ];

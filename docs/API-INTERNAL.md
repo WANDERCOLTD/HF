@@ -1444,7 +1444,7 @@ Unified analysis endpoint that handles both MEASURE and LEARN specs. Analyzes a 
 | transcript | body | string | No | The transcript text to analyze (required) |
 | callId | body | string | No | Call ID for storing results (optional) |
 | callerId | body | string | No | Caller ID for storing memories (optional) |
-| model | body | string | No | Claude model to use (default: claude-3-haiku-20240307) |
+| model | body | string | No | Claude model to use (default: from AI config system) |
 | storeResults | body | boolean | No | Whether to persist results to database (default: false) |
 
 **Response** `200`
