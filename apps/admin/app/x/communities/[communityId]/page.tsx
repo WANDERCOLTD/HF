@@ -162,7 +162,7 @@ export default function CommunityDetailPage() {
         <MembersTab community={community} onRefresh={loadCommunity} />
       )}
       {activeTab === 'onboarding' && (
-        <OnboardingTab community={community} onSave={handleSave} saving={saving} />
+        <OnboardingTab communityId={communityId} />
       )}
       {activeTab === 'settings' && (
         <SettingsTab community={community} onSave={handleSave} saving={saving} />

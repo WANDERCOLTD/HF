@@ -591,6 +591,7 @@ export default function QuickLaunchPage() {
   const [domainDetail, setDomainDetail] = useState<DomainDetail | null>(null);
   const [domainDetailLoading, setDomainDetailLoading] = useState(false);
   const [savingPersona, setSavingPersona] = useState(false);
+  const onboardingRef = useRef<HTMLDivElement>(null);
 
   // Fetch course readiness checks when result screen appears
   const fetchCourseReadiness = useCallback(async () => {
@@ -997,6 +998,11 @@ export default function QuickLaunchPage() {
                       className={`ql-readiness-row ${check.passed ? "ql-readiness-row-pass" : "ql-readiness-row-pending"}`}
                       style={{ cursor: check.fixAction?.href ? "pointer" : "default" }}
                       onClick={() => {
+                        if (check.id === "onboarding_configured") {
+                          if (!onboardingExpanded) handleToggleOnboarding();
+                          onboardingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          return;
+                        }
                         if (check.fixAction?.href) router.push(check.fixAction.href);
                       }}
                     >
@@ -1033,7 +1039,7 @@ export default function QuickLaunchPage() {
           </WizardSummary>
 
           {/* ── Onboarding Configuration (FIRST — the main feature) ── */}
-          <div className="ql-result-card">
+          <div className="ql-result-card" ref={onboardingRef}>
             {/* Always-visible: Welcome message quick edit */}
             <div className="ql-result-section-label">
               Onboarding Welcome {savingWelcome && <span className="ql-saving-indicator">&mdash; saving...</span>}
