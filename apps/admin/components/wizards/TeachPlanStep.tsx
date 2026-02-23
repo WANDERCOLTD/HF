@@ -129,6 +129,8 @@ export function TeachPlanStep({
 
   // Track whether we're showing skeleton (pre-enrichment) modules
   const [enriching, setEnriching] = useState(false);
+  // Live progress message from server
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
 
   // ── Task Polling ──────────────────────────────────
 
@@ -137,6 +139,11 @@ export function TeachPlanStep({
     onProgress: useCallback((task: PollableTask) => {
       setError(null);
       const ctx = task.context || {};
+
+      // Update progress message from server
+      if (ctx.message) {
+        setProgressMessage(ctx.message);
+      }
 
       // Phase 1 complete: skeleton modules available — show immediately
       if (ctx.skeletonReady && ctx.skeletonModules && phase === "generating") {
@@ -439,7 +446,7 @@ export function TeachPlanStep({
             style={{ width: 36, height: 36, color: "var(--accent-primary)", animation: "spin 1s linear infinite" }}
           />
           <div style={{ color: "var(--text-primary)", fontWeight: 500 }}>
-            Generating curriculum from your content...
+            {progressMessage || "Generating curriculum from your content..."}
           </div>
           <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
             Analysing teaching points and organising into modules. This may take 30-60 seconds.

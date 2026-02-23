@@ -88,9 +88,14 @@ async function runTwoPhaseGeneration(
   domainId: string,
   options: GenerateContentSpecOptions,
 ): Promise<void> {
-  await updateTaskProgress(taskId, { currentStep: 1 });
+  await updateTaskProgress(taskId, {
+    currentStep: 1,
+    totalSteps: 3,
+    context: { phase: "loading", message: "Loading teaching points..." },
+  });
 
   // ── Phase 1: Skeleton (~3-5s via Haiku) ──────────────
+  let skeletonShown = false;
   try {
     const { domain, assertions, subjectName, qualificationRef } = await loadDomainAssertions(domainId);
 
@@ -98,6 +103,12 @@ async function runTwoPhaseGeneration(
       await failTask(taskId, "No assertions extracted from content sources yet");
       return;
     }
+
+    await updateTaskProgress(taskId, {
+      currentStep: 1,
+      totalSteps: 3,
+      context: { phase: "skeleton", message: `Organising ${assertions.length} teaching points into modules...` },
+    });
 
     const skeleton = await extractSkeletonFromAssertions(
       assertions,
@@ -107,9 +118,11 @@ async function runTwoPhaseGeneration(
     );
 
     if (skeleton.ok && skeleton.modules.length > 0) {
+      skeletonShown = true;
       // Push skeleton to task context — UI shows modules immediately
       await updateTaskProgress(taskId, {
         currentStep: 2,
+        totalSteps: 3,
         context: {
           skeletonReady: true,
           skeletonModules: skeleton.modules,
@@ -117,6 +130,8 @@ async function runTwoPhaseGeneration(
           skeletonDescription: skeleton.description,
           assertionCount: assertions.length,
           domainName: domain.name,
+          phase: "enriching",
+          message: `Adding learning outcomes to ${skeleton.modules.length} modules...`,
         },
       });
     }
@@ -124,6 +139,15 @@ async function runTwoPhaseGeneration(
   } catch (e) {
     // Skeleton failure is non-fatal — fall through to full generation
     console.warn(`[generate-content-spec] Skeleton failed for ${domainId}, continuing to full:`, e);
+  }
+
+  // Update progress if skeleton didn't show (user still on spinner)
+  if (!skeletonShown) {
+    await updateTaskProgress(taskId, {
+      currentStep: 2,
+      totalSteps: 3,
+      context: { phase: "generating", message: "Generating full curriculum (this may take 30-60 seconds)..." },
+    });
   }
 
   // ── Phase 2: Full enrichment (light model) ───────────
@@ -137,6 +161,7 @@ async function runTwoPhaseGeneration(
   // Store enriched result in task context
   await updateTaskProgress(taskId, {
     currentStep: 3,
+    totalSteps: 3,
     context: {
       skeletonReady: true, // Preserve flag so UI doesn't flash
       result,
@@ -144,6 +169,8 @@ async function runTwoPhaseGeneration(
       assertionCount: result.assertionCount,
       contentSpecId: result.contentSpec?.id,
       wasRegenerated: result.wasRegenerated,
+      phase: "complete",
+      message: "Done",
     },
   });
 
