@@ -287,20 +287,16 @@ export function TeachPlanStep({
   }, [setData, onNext]);
 
   const handleReorder = useCallback((from: number, to: number) => {
-    setModules((prev) => {
-      const next = reorderItems(prev, from, to);
-      setData("curriculumModules", next);
-      return next;
-    });
-  }, [setData]);
+    const next = reorderItems(modules, from, to);
+    setModules(next);
+    setData("curriculumModules", next);
+  }, [modules, setData]);
 
   const handleRemove = useCallback((index: number) => {
-    setModules((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      setData("curriculumModules", next);
-      return next;
-    });
-  }, [setData]);
+    const next = modules.filter((_, i) => i !== index);
+    setModules(next);
+    setData("curriculumModules", next);
+  }, [modules, setData]);
 
   const toggleExpand = useCallback((moduleId: string) => {
     setExpandedModules((prev) => {

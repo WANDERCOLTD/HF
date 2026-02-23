@@ -44,6 +44,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { PromptPreviewContent } from "@/app/x/domains/components/PromptPreviewModal";
+import { OnboardingTabContent } from "@/app/x/domains/components/OnboardingTab";
 import type { DomainDetail } from "@/app/x/domains/components/types";
 import { AgentTuningPanel, type AgentTuningPanelOutput } from "@/components/shared/AgentTuningPanel";
 import { WizardSummary } from "@/components/shared/WizardSummary";
@@ -2084,7 +2085,33 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             )}
           </div>
 
-          {/* ── 2. Preview First Prompt (lazy-load accordion) ── */}
+          {/* ── 2. Tune Onboarding ── */}
+          <div className="dtw-accordion-card">
+            <button onClick={handleToggleOnboarding} className="dtw-accordion-toggle">
+              {onboardingExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              <span>Tune Onboarding</span>
+              {domainDetailLoading && !domainDetail && onboardingExpanded && (
+                <div className="hf-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+              )}
+            </button>
+            {onboardingExpanded && (
+              <div className="dtw-accordion-content">
+                {domainDetailLoading && !domainDetail ? (
+                  <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
+                    <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
+                    <span className="hf-text-sm hf-text-muted">Loading onboarding configuration...</span>
+                  </div>
+                ) : domainDetail ? (
+                  <OnboardingTabContent
+                    domain={domainDetail}
+                    onDomainRefresh={fetchDomainDetail}
+                  />
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {/* ── 3. Preview First Prompt (lazy-load accordion) ── */}
           <div className="dtw-accordion-card">
             <button
               onClick={() => setPromptPreviewExpanded((v) => !v)}
