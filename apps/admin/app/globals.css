@@ -1923,6 +1923,7 @@ html.light {
 /* Master-detail right panel */
 .hf-master-detail-right {
   flex: 1;
+  min-height: 0;
   background: var(--surface-primary);
   border: 1px solid var(--border-default);
   border-radius: 8px;
