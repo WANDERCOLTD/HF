@@ -29,21 +29,73 @@ export interface GenerateContentSpecOptions {
   regenerate?: boolean;
 }
 
+// ── Load domain assertions (shared between skeleton + full generation) ──
+
+export interface DomainAssertionData {
+  domain: { id: string; slug: string; name: string };
+  assertions: Array<{ assertion: string; category: string; chapter: string | null; section: string | null; tags: string[] }>;
+  subjectName: string;
+  qualificationRef?: string;
+  sourceCount: number;
+}
+
+/**
+ * Load assertions from a domain's content sources.
+ * Shared data-loading step used by both skeleton extraction and full generation.
+ */
+export async function loadDomainAssertions(domainId: string, tx?: TxClient): Promise<DomainAssertionData> {
+  const p = db(tx);
+
+  const domain = await p.domain.findUnique({
+    where: { id: domainId },
+    select: { id: true, slug: true, name: true },
+  });
+
+  if (!domain) throw new Error(`Domain not found: ${domainId}`);
+
+  const subjectSources = await p.subjectSource.findMany({
+    where: { subject: { domains: { some: { domainId } } } },
+    select: {
+      sourceId: true,
+      tags: true,
+      subject: { select: { name: true, qualificationRef: true } },
+    },
+  });
+
+  if (subjectSources.length === 0) {
+    return { domain, assertions: [], subjectName: domain.name, sourceCount: 0 };
+  }
+
+  const sourceIds = subjectSources.map((ss) => ss.sourceId);
+  const assertions = await p.contentAssertion.findMany({
+    where: { sourceId: { in: sourceIds } },
+    select: { assertion: true, category: true, chapter: true, section: true, tags: true },
+    orderBy: [{ chapter: "asc" }, { section: "asc" }, { createdAt: "asc" }],
+  });
+
+  return {
+    domain,
+    assertions: assertions.map((a) => ({
+      assertion: a.assertion,
+      category: a.category || "fact",
+      chapter: a.chapter,
+      section: a.section,
+      tags: (a.tags as string[]) || [],
+    })),
+    subjectName: subjectSources[0]?.subject?.name || domain.name,
+    qualificationRef: subjectSources[0]?.subject?.qualificationRef || undefined,
+    sourceCount: subjectSources.length,
+  };
+}
+
 // ── Main function ──────────────────────────────────────
 
 export async function generateContentSpec(domainId: string, options?: GenerateContentSpecOptions, tx?: TxClient): Promise<ContentSpecResult> {
   const skipped: string[] = [];
   const p = db(tx);
 
-  // 1. Load domain
-  const domain = await p.domain.findUnique({
-    where: { id: domainId },
-    select: { id: true, slug: true, name: true },
-  });
-
-  if (!domain) {
-    throw new Error(`Domain not found: ${domainId}`);
-  }
+  // 1. Load domain + assertions via shared loader
+  const { domain, assertions, subjectName, qualificationRef, sourceCount } = await loadDomainAssertions(domainId, tx);
 
   // 2. Check if content spec already exists
   const contentSlug = `${domain.slug}-content`;
@@ -62,26 +114,7 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
     };
   }
 
-  // 3. Load assertions from domain's subject sources
-  const subjectSources = await p.subjectSource.findMany({
-    where: {
-      subject: {
-        domains: { some: { domainId } },
-      },
-    },
-    select: {
-      sourceId: true,
-      tags: true,
-      subject: {
-        select: {
-          name: true,
-          qualificationRef: true,
-        },
-      },
-    },
-  });
-
-  if (subjectSources.length === 0) {
+  if (sourceCount === 0) {
     return {
       contentSpec: null,
       moduleCount: 0,
@@ -90,19 +123,6 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
       skipped: ["No content sources linked to domain subjects"],
     };
   }
-
-  const sourceIds = subjectSources.map((ss) => ss.sourceId);
-  const assertions = await p.contentAssertion.findMany({
-    where: { sourceId: { in: sourceIds } },
-    select: {
-      assertion: true,
-      category: true,
-      chapter: true,
-      section: true,
-      tags: true,
-    },
-    orderBy: [{ chapter: "asc" }, { section: "asc" }, { createdAt: "asc" }],
-  });
 
   if (assertions.length === 0) {
     return {
@@ -114,19 +134,9 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
     };
   }
 
-  // 4. Get subject metadata for AI context
-  const subjectName = subjectSources[0]?.subject?.name || domain.name;
-  const qualificationRef = subjectSources[0]?.subject?.qualificationRef || undefined;
-
-  // 5. Call existing AI curriculum extraction
+  // 3. Call existing AI curriculum extraction
   const curriculum = await extractCurriculumFromAssertions(
-    assertions.map((a) => ({
-      assertion: a.assertion,
-      category: a.category || "fact",
-      chapter: a.chapter,
-      section: a.section,
-      tags: a.tags,
-    })),
+    assertions,
     subjectName,
     qualificationRef,
     options?.intents,
@@ -147,7 +157,7 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
   const specData = {
     slug: contentSlug,
     name: `${domain.name} Curriculum`,
-    description: curriculum.description || `Structured curriculum for ${domain.name}, auto-generated from ${assertions.length} teaching points across ${subjectSources.length} source(s).`,
+    description: curriculum.description || `Structured curriculum for ${domain.name}, auto-generated from ${assertions.length} teaching points across ${sourceCount} source(s).`,
     outputType: "COMPOSE" as const,
     specRole: "CONTENT" as const,
     specType: "DOMAIN" as const,
@@ -159,7 +169,7 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
     config: JSON.parse(JSON.stringify({
       modules: curriculum.modules,
       deliveryConfig: curriculum.deliveryConfig,
-      sourceCount: subjectSources.length,
+      sourceCount: sourceCount,
       assertionCount: assertions.length,
       generatedAt: new Date().toISOString(),
     })),

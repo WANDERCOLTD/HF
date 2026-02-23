@@ -292,6 +292,98 @@ Generate a structured curriculum from these assertions.`;
 }
 
 // ------------------------------------------------------------------
+// Skeleton extraction from assertions (fast, Haiku)
+// ------------------------------------------------------------------
+
+const SKELETON_FROM_ASSERTIONS_PROMPT = `You are a curriculum designer. Given teaching assertions from a syllabus, group them into logical modules.
+Output ONLY module titles and one-sentence descriptions. Do NOT generate learning outcomes, assessment criteria, or key terms.
+
+Return valid JSON only:
+{
+  "name": "Curriculum title",
+  "description": "One-sentence summary",
+  "modules": [
+    { "id": "MOD-1", "title": "Module title", "description": "One sentence", "sortOrder": 1 }
+  ]
+}
+
+Rules:
+- Group related assertions into 4-8 modules
+- Order from foundational to advanced
+- Preserve the source material's chapter/section structure if present
+- Use module IDs: MOD-1, MOD-2, etc.
+- Return ONLY valid JSON, no explanation`;
+
+/**
+ * Fast skeleton extraction from assertions using Haiku.
+ * Returns module titles + descriptions only (~3-5s).
+ * Used as Phase 1 of two-phase curriculum generation.
+ */
+export async function extractSkeletonFromAssertions(
+  assertions: Array<{ assertion: string; category: string; chapter?: string | null; section?: string | null }>,
+  subjectName: string,
+  qualificationRef?: string,
+  intents?: CurriculumIntents,
+): Promise<ExtractedCurriculum> {
+  if (assertions.length === 0) {
+    return { ok: false, name: subjectName, description: "", modules: [], deliveryConfig: {}, warnings: [], error: "No assertions provided" };
+  }
+
+  // Compact assertion format for skeleton (less detail = faster)
+  const assertionText = assertions
+    .map((a, i) => {
+      const loc = [a.chapter, a.section].filter(Boolean).join(" > ");
+      return `[${i + 1}] ${loc ? `(${loc}) ` : ""}${a.assertion}`;
+    })
+    .join("\n");
+
+  // Add intent hints if provided
+  const intentHints = intents?.sessionCount
+    ? `\nTarget approximately ${intents.sessionCount} modules.`
+    : "";
+
+  try {
+    // @ai-call content-trust.curriculum-skeleton — Fast skeleton from assertions (titles + descriptions only) | config: /x/ai-config
+    const response = await getConfiguredMeteredAICompletion({
+      callPoint: "content-trust.curriculum-skeleton",
+      messages: [
+        { role: "system", content: SKELETON_FROM_ASSERTIONS_PROMPT },
+        {
+          role: "user",
+          content: `Subject: ${subjectName}${qualificationRef ? `\nQualification: ${qualificationRef}` : ""}${intentHints}\n\n${assertions.length} assertions:\n${assertionText}`,
+        },
+      ],
+      timeoutMs: 15000,
+    });
+
+    const parsed = parseAIJSON(response.content || "");
+    if (!parsed) {
+      return { ok: false, name: subjectName, description: "", modules: [], deliveryConfig: {}, warnings: [], error: "No JSON in skeleton response" };
+    }
+
+    return {
+      ok: true,
+      name: parsed.name || subjectName,
+      description: parsed.description || "",
+      modules: (parsed.modules || []).map((m: any, i: number) => ({
+        id: m.id || `MOD-${i + 1}`,
+        title: m.title || `Module ${i + 1}`,
+        description: m.description || "",
+        learningOutcomes: [],
+        assessmentCriteria: [],
+        keyTerms: [],
+        estimatedDurationMinutes: null,
+        sortOrder: m.sortOrder || i + 1,
+      })),
+      deliveryConfig: {},
+      warnings: [],
+    };
+  } catch (error: any) {
+    return { ok: false, name: subjectName, description: "", modules: [], deliveryConfig: {}, warnings: [], error: `Skeleton extraction failed: ${error.message}` };
+  }
+}
+
+// ------------------------------------------------------------------
 // Goals-based curriculum generation (no document required)
 // ------------------------------------------------------------------
 

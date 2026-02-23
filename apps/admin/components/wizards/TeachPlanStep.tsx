@@ -115,14 +115,35 @@ export function TeachPlanStep({
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Track whether we're showing skeleton (pre-enrichment) modules
+  const [enriching, setEnriching] = useState(false);
+
   // ── Task Polling ──────────────────────────────────
 
   useTaskPoll({
     taskId,
-    onProgress: useCallback((_task: PollableTask) => {
-      // Clear stale errors while making progress
+    onProgress: useCallback((task: PollableTask) => {
       setError(null);
-    }, []),
+      const ctx = task.context || {};
+
+      // Phase 1 complete: skeleton modules available — show immediately
+      if (ctx.skeletonReady && ctx.skeletonModules && phase === "generating") {
+        const skeletonMods: CurriculumModule[] = ctx.skeletonModules.map((m: any, i: number) => ({
+          id: m.id || `MOD-${i + 1}`,
+          title: m.title || `Module ${i + 1}`,
+          description: m.description || "",
+          learningOutcomes: [],
+          assessmentCriteria: [],
+          keyTerms: [],
+          estimatedDurationMinutes: null,
+          sortOrder: m.sortOrder || i + 1,
+        }));
+        setModules(skeletonMods);
+        setData("curriculumModules", skeletonMods);
+        setEnriching(true);
+        setPhase("review");
+      }
+    }, [phase, setData]),
     onComplete: useCallback((task: PollableTask) => {
       const ctx = task.context || {};
       if (ctx.error || !ctx.result) {
@@ -134,26 +155,33 @@ export function TeachPlanStep({
       }
 
       const result = ctx.result;
-      // Load modules from the created/updated content spec
+      // Load enriched modules from the created/updated content spec
       if (result.contentSpec && result.moduleCount > 0) {
-        // Fetch the spec's modules from the API
         fetchModules(result.contentSpec.id);
         setContentSpecId(result.contentSpec.id);
         setData("contentSpecId", result.contentSpec.id);
-      } else {
+      } else if (phase !== "review") {
+        // Only show error if we don't already have skeleton modules
         setError("No modules generated — check that content sources have teaching points");
         setPhase("intents");
       }
 
+      setEnriching(false);
       setTaskId(null);
       setData("contentSpecTaskId", null);
-    }, [setData]), // eslint-disable-line react-hooks/exhaustive-deps
+    }, [phase, setData]), // eslint-disable-line react-hooks/exhaustive-deps
     onError: useCallback((message: string) => {
+      // If we have skeleton modules, keep showing them — just note the enrichment failed
+      if (phase === "review") {
+        setEnriching(false);
+        // Skeleton modules are still usable — don't throw user back to intents
+        return;
+      }
       setError(message);
       setPhase("intents");
       setTaskId(null);
       setData("contentSpecTaskId", null);
-    }, [setData]),
+    }, [phase, setData]),
   });
 
   // ── Fetch modules from content spec ──────────────
@@ -425,8 +453,17 @@ export function TeachPlanStep({
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <p className="hf-section-desc" style={{ margin: 0 }}>
             {modules.length} module{modules.length !== 1 ? "s" : ""} generated.
-            Drag to reorder, remove unwanted modules, or expand to see details.
+            {enriching
+              ? " Adding learning outcomes and detail..."
+              : " Drag to reorder, remove unwanted modules, or expand to see details."}
           </p>
+
+          {enriching && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, background: "var(--surface-secondary)", fontSize: 13, color: "var(--text-muted)" }}>
+              <Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite", flexShrink: 0 }} />
+              Enriching modules with learning outcomes, assessment criteria, and key terms...
+            </div>
+          )}
 
           <SortableList
             items={modules}

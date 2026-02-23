@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import { generateContentSpec, type GenerateContentSpecOptions } from "@/lib/domain/generate-content-spec";
+import { generateContentSpec, loadDomainAssertions, type GenerateContentSpecOptions } from "@/lib/domain/generate-content-spec";
+import { extractSkeletonFromAssertions } from "@/lib/content-trust/extract-curriculum";
 import { startTaskTracking, updateTaskProgress, completeTask, failTask } from "@/lib/ai/task-guidance";
 
 /**
@@ -9,8 +10,9 @@ import { startTaskTracking, updateTaskProgress, completeTask, failTask } from "@
  * @auth session (OPERATOR)
  * @tags domains, content, specs
  * @description Auto-generate a CONTENT spec from the domain's content source assertions.
- *              Uses AI to extract curriculum structure (modules, learning outcomes) from
- *              teaching points, then creates an AnalysisSpec and adds it to the playbook.
+ *              Uses two-phase AI generation: Phase 1 returns a skeleton (titles + descriptions)
+ *              in ~3-5s for immediate UI feedback, Phase 2 enriches with learning outcomes,
+ *              assessment criteria, and key terms.
  *              Idempotent — skips if content spec already exists (unless regenerate: true).
  *              Supports async mode with task tracking for long-running generation.
  * @pathParam domainId string - The domain ID
@@ -53,8 +55,8 @@ export async function POST(
         intents: body.intents,
       });
 
-      // Fire-and-forget background generation
-      runAsyncGeneration(taskId, domainId, options).catch(async (err) => {
+      // Fire-and-forget background generation (two-phase)
+      runTwoPhaseGeneration(taskId, domainId, options).catch(async (err) => {
         console.error(`[generate-content-spec] Task ${taskId} unhandled error:`, err);
         await failTask(taskId, err.message || "Content spec generation failed");
       });
@@ -79,15 +81,52 @@ export async function POST(
   }
 }
 
-// ── Background runner for async mode ──────────────────
+// ── Two-phase background runner ──────────────────────
 
-async function runAsyncGeneration(
+async function runTwoPhaseGeneration(
   taskId: string,
   domainId: string,
   options: GenerateContentSpecOptions,
 ): Promise<void> {
   await updateTaskProgress(taskId, { currentStep: 1 });
 
+  // ── Phase 1: Skeleton (~3-5s via Haiku) ──────────────
+  try {
+    const { domain, assertions, subjectName, qualificationRef } = await loadDomainAssertions(domainId);
+
+    if (assertions.length === 0) {
+      await failTask(taskId, "No assertions extracted from content sources yet");
+      return;
+    }
+
+    const skeleton = await extractSkeletonFromAssertions(
+      assertions,
+      subjectName,
+      qualificationRef,
+      options.intents,
+    );
+
+    if (skeleton.ok && skeleton.modules.length > 0) {
+      // Push skeleton to task context — UI shows modules immediately
+      await updateTaskProgress(taskId, {
+        currentStep: 2,
+        context: {
+          skeletonReady: true,
+          skeletonModules: skeleton.modules,
+          skeletonName: skeleton.name,
+          skeletonDescription: skeleton.description,
+          assertionCount: assertions.length,
+          domainName: domain.name,
+        },
+      });
+    }
+    // If skeleton fails, continue to full generation — it's just a preview
+  } catch (e) {
+    // Skeleton failure is non-fatal — fall through to full generation
+    console.warn(`[generate-content-spec] Skeleton failed for ${domainId}, continuing to full:`, e);
+  }
+
+  // ── Phase 2: Full enrichment (light model) ───────────
   const result = await generateContentSpec(domainId, options);
 
   if (result.error) {
@@ -95,10 +134,11 @@ async function runAsyncGeneration(
     return;
   }
 
-  // Store result in task context for UI to read
+  // Store enriched result in task context
   await updateTaskProgress(taskId, {
-    currentStep: 2,
+    currentStep: 3,
     context: {
+      skeletonReady: true, // Preserve flag so UI doesn't flash
       result,
       moduleCount: result.moduleCount,
       assertionCount: result.assertionCount,
