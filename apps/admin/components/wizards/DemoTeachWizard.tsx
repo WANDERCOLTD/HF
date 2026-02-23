@@ -1928,8 +1928,27 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                   key={check.id}
                   className={`dtw-check-row ${check.passed ? "dtw-check-row-pass" : "dtw-check-row-pending"} ${check.fixAction?.href ? "dtw-check-row-clickable" : ""}`}
                   onClick={() => {
-                    if (check.fixAction?.href)
-                      router.push(check.fixAction.href);
+                    // Persist readiness data before any jump
+                    setData("ready", ready);
+                    setData("score", score);
+                    setData("level", level);
+
+                    switch (check.id) {
+                      case "onboarding_configured":
+                        if (!onboardingExpanded) handleToggleOnboarding();
+                        setStep(STEP_LAUNCH);
+                        return;
+                      case "lesson_plan_set":
+                        if (!teachingPointsExpanded) handleToggleTeachingPoints();
+                        setStep(STEP_LAUNCH);
+                        return;
+                      case "prompt_composed":
+                        handleNext();
+                        return;
+                      default:
+                        if (check.fixAction?.href) router.push(check.fixAction.href);
+                        return;
+                    }
                   }}
                 >
                   <div
