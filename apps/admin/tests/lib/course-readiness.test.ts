@@ -170,7 +170,7 @@ describe("checkCourseReadiness", () => {
     expect(assertionCheck?.fixAction?.href).toBe("/x/content-sources/src-1");
 
     const lessonCheck = result.checks.find((c) => c.id === "lesson_plan_set");
-    expect(lessonCheck?.fixAction?.href).toBe("/x/subjects/subj-1");
+    expect(lessonCheck?.fixAction?.href).toBe("/x/subjects?id=subj-1");
 
     const promptCheck = result.checks.find((c) => c.id === "prompt_composed");
     expect(promptCheck?.fixAction?.href).toBe("/x/callers/caller-1");

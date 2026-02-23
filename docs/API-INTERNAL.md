@@ -4937,9 +4937,19 @@ Auto-generate a CONTENT spec from the domain's content source assertions.
 { ok: true, result: ContentSpecResult }
 ```
 
+**Response** `202`
+```json
+{ ok: true, taskId: string } (async mode)
+```
+
 **Response** `404`
 ```json
 { ok: false, error: "Domain not found: ..." }
+```
+
+**Response** `422`
+```json
+{ ok: false, error: string, result: ContentSpecResult }
 ```
 
 **Response** `500`

@@ -24,6 +24,13 @@ export interface CurriculumModule {
   sortOrder: number;
 }
 
+export interface CurriculumIntents {
+  sessionCount?: number;    // target number of sessions
+  durationMins?: number;    // target minutes per session
+  emphasis?: string;        // "breadth" | "balanced" | "depth"
+  assessments?: string;     // "formal" | "light" | "none"
+}
+
 export interface ExtractedCurriculum {
   ok: boolean;
   name: string;
@@ -164,6 +171,7 @@ export async function extractCurriculumFromAssertions(
   assertions: Array<{ assertion: string; category: string; chapter?: string | null; section?: string | null; tags?: string[] }>,
   subjectName: string,
   qualificationRef?: string,
+  intents?: CurriculumIntents,
 ): Promise<ExtractedCurriculum> {
   const warnings: string[] = [];
 
@@ -199,12 +207,39 @@ ${assertionText}
 
 Generate a structured curriculum from these assertions.`;
 
+  // Build intent-aware system prompt
+  const intentRules = intents ? [
+    intents.sessionCount
+      ? `7. Target approximately ${intents.sessionCount} sessions total — size modules so each maps to roughly one session`
+      : "",
+    intents.durationMins
+      ? `8. Target session duration: ${intents.durationMins} minutes — set estimatedDurationMinutes per module accordingly`
+      : "",
+    intents.emphasis === "breadth"
+      ? "9. Teaching emphasis: BREADTH-FIRST — many smaller modules covering all topics at surface level first"
+      : intents.emphasis === "depth"
+        ? "9. Teaching emphasis: DEPTH-FIRST — fewer, deeper modules with more learning outcomes each"
+        : "",
+    intents.assessments === "formal"
+      ? "10. Include formal assessment criteria for every module"
+      : intents.assessments === "none"
+        ? "10. Skip assessment criteria — focus on learning outcomes only"
+        : "",
+  ].filter(Boolean).join("\n") : "";
+
+  const systemPrompt = intentRules
+    ? CURRICULUM_SYSTEM_PROMPT.replace(
+        "6. Generate practical module IDs (MOD-1, MOD-2, etc.)",
+        `6. Generate practical module IDs (MOD-1, MOD-2, etc.)\n${intentRules}`,
+      )
+    : CURRICULUM_SYSTEM_PROMPT;
+
   try {
     // @ai-call content-trust.curriculum — Generate structured curriculum from assertions | config: /x/ai-config
     const response = await getConfiguredMeteredAICompletion({
       callPoint: "content-trust.curriculum",
       messages: [
-        { role: "system", content: CURRICULUM_SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       timeoutMs: 90000, // Assertion-based curriculum can process 300+ assertions into modules

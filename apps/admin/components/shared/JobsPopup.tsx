@@ -78,13 +78,13 @@ function getResultPath(task: UserTask): string {
       if (ctx?.sourceId) return `/x/content-sources/${ctx.sourceId}`;
       break;
     case 'curriculum_generation':
-      if (summary?.subject?.id) return `/x/subjects/${summary.subject.id}`;
-      if (ctx?.subjectId) return `/x/subjects/${ctx.subjectId}`;
+      if (summary?.subject?.id) return `/x/subjects?id=${summary.subject.id}`;
+      if (ctx?.subjectId) return `/x/subjects?id=${ctx.subjectId}`;
       break;
     case 'content_wizard':
-      if (summary?.subject?.id) return `/x/subjects/${summary.subject.id}`;
+      if (summary?.subject?.id) return `/x/subjects?id=${summary.subject.id}`;
       if (summary?.domain?.id) return `/x/domains?id=${summary.domain.id}`;
-      if (ctx?.subjectId) return `/x/subjects/${ctx.subjectId}`;
+      if (ctx?.subjectId) return `/x/subjects?id=${ctx.subjectId}`;
       break;
     case 'configure_caller':
       if (summary?.callerId) return `/x/callers/${summary.callerId}`;
@@ -106,8 +106,8 @@ function getResultPath(task: UserTask): string {
 
 function getResumePath(task: UserTask): string {
   const ctx = task.context;
-  if (task.taskType === 'curriculum_generation' && ctx?.subjectId) return `/x/subjects/${ctx.subjectId}`;
-  if (task.taskType === 'content_wizard' && ctx?.subjectId) return `/x/subjects/${ctx.subjectId}`;
+  if (task.taskType === 'curriculum_generation' && ctx?.subjectId) return `/x/subjects?id=${ctx.subjectId}`;
+  if (task.taskType === 'content_wizard' && ctx?.subjectId) return `/x/subjects?id=${ctx.subjectId}`;
   return JOB_TYPE_LABELS[task.taskType]?.resumePath || '/x';
 }
 

@@ -158,10 +158,10 @@ function getJobLabel(task: UserTask): string {
 function getResumePath(task: UserTask): string {
   const ctx = task.context;
   if (task.taskType === "curriculum_generation" && ctx?.subjectId) {
-    return `/x/subjects/${ctx.subjectId}`;
+    return `/x/subjects?id=${ctx.subjectId}`;
   }
   if (task.taskType === "content_wizard" && ctx?.subjectId) {
-    return `/x/subjects/${ctx.subjectId}`;
+    return `/x/subjects?id=${ctx.subjectId}`;
   }
   return JOB_TYPE_LABELS[task.taskType]?.resumePath || "/x";
 }
@@ -180,13 +180,13 @@ function getResultPath(task: UserTask): string {
       if (ctx?.sourceId) return `/x/content-sources/${ctx.sourceId}`;
       break;
     case "curriculum_generation":
-      if (summary?.subject?.id) return `/x/subjects/${summary.subject.id}`;
-      if (ctx?.subjectId) return `/x/subjects/${ctx.subjectId}`;
+      if (summary?.subject?.id) return `/x/subjects?id=${summary.subject.id}`;
+      if (ctx?.subjectId) return `/x/subjects?id=${ctx.subjectId}`;
       break;
     case "content_wizard":
-      if (summary?.subject?.id) return `/x/subjects/${summary.subject.id}`;
+      if (summary?.subject?.id) return `/x/subjects?id=${summary.subject.id}`;
       if (summary?.domain?.id) return `/x/domains?id=${summary.domain.id}`;
-      if (ctx?.subjectId) return `/x/subjects/${ctx.subjectId}`;
+      if (ctx?.subjectId) return `/x/subjects?id=${ctx.subjectId}`;
       break;
     case "configure_caller":
       if (summary?.callerId) return `/x/callers/${summary.callerId}`;
@@ -313,7 +313,7 @@ function JobSummary({ task }: { task: UserTask }) {
     return (
       <div className="jobs-summary-badges">
         {summary.subject?.name && (
-          <EntityLink label="Subject" name={summary.subject.name} href={`/x/subjects/${summary.subject.id}`} />
+          <EntityLink label="Subject" name={summary.subject.name} href={`/x/subjects?id=${summary.subject.id}`} />
         )}
         {summary.counts?.modules > 0 && <CountBadge label="modules" count={summary.counts.modules} />}
         {summary.counts?.assertions > 0 && <CountBadge label="assertions" count={summary.counts.assertions} />}
@@ -325,7 +325,7 @@ function JobSummary({ task }: { task: UserTask }) {
     return (
       <div className="jobs-summary-badges">
         {summary.subject?.name && (
-          <EntityLink label="Subject" name={summary.subject.name} href={`/x/subjects/${summary.subject.id}`} />
+          <EntityLink label="Subject" name={summary.subject.name} href={`/x/subjects?id=${summary.subject.id}`} />
         )}
         {summary.domain?.name && (
           <EntityLink label="Domain" name={summary.domain.name} href={`/x/domains?id=${summary.domain.id}`} />

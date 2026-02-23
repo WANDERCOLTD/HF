@@ -563,7 +563,7 @@ const stepExecutors: Record<string, StepExecutor> = {
     const p = db(ctx.tx);
 
     // Try assertion-based generation first (upload mode)
-    const result = await generateContentSpec(domainId, ctx.tx);
+    const result = await generateContentSpec(domainId, undefined, ctx.tx);
 
     if (result.contentSpec) {
       ctx.results.contentSpecId = result.contentSpec.id;

@@ -226,8 +226,8 @@ export const RESUME_PATHS: Record<string, (ctx: Record<string, unknown>) => stri
   content_wizard: () => "/x/content-sources",
   create_spec: () => "/x/specs",
   configure_caller: (ctx) => ctx.callerId ? `/x/callers/${ctx.callerId}` : "/x/callers",
-  extraction: (ctx) => ctx.subjectId ? `/x/subjects/${ctx.subjectId}` : "/x/subjects",
-  curriculum_generation: (ctx) => ctx.subjectId ? `/x/subjects/${ctx.subjectId}` : "/x/subjects",
+  extraction: (ctx) => ctx.subjectId ? `/x/subjects?id=${ctx.subjectId}` : "/x/subjects",
+  curriculum_generation: (ctx) => ctx.subjectId ? `/x/subjects?id=${ctx.subjectId}` : "/x/subjects",
 };
 
 // ── Footer Links (SUPERADMIN only) ──────────────────────────

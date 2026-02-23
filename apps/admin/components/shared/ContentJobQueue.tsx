@@ -559,7 +559,7 @@ export function ContentJobQueue() {
     if (j.taskType === "extraction") {
       router.push("/x/content-sources");
     } else if (j.taskType === "curriculum_generation" && j.subjectId) {
-      router.push(`/x/subjects/${j.subjectId}`);
+      router.push(`/x/subjects?id=${j.subjectId}`);
     } else if (j.taskType === "course_setup") {
       router.push("/x/courses");
     } else if (j.taskType === "snapshot_take" || j.taskType === "snapshot_restore") {

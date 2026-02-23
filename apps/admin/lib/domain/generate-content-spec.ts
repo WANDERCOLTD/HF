@@ -10,7 +10,7 @@
  */
 
 import { db, type TxClient } from "@/lib/prisma";
-import { extractCurriculumFromAssertions } from "@/lib/content-trust/extract-curriculum";
+import { extractCurriculumFromAssertions, type CurriculumIntents } from "@/lib/content-trust/extract-curriculum";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -20,12 +20,18 @@ export interface ContentSpecResult {
   assertionCount: number;
   addedToPlaybook: boolean;
   skipped: string[];
+  wasRegenerated?: boolean;
   error?: string;
+}
+
+export interface GenerateContentSpecOptions {
+  intents?: CurriculumIntents;
+  regenerate?: boolean;
 }
 
 // ── Main function ──────────────────────────────────────
 
-export async function generateContentSpec(domainId: string, tx?: TxClient): Promise<ContentSpecResult> {
+export async function generateContentSpec(domainId: string, options?: GenerateContentSpecOptions, tx?: TxClient): Promise<ContentSpecResult> {
   const skipped: string[] = [];
   const p = db(tx);
 
@@ -46,7 +52,7 @@ export async function generateContentSpec(domainId: string, tx?: TxClient): Prom
     select: { id: true, slug: true, name: true },
   });
 
-  if (existing) {
+  if (existing && !options?.regenerate) {
     return {
       contentSpec: existing,
       moduleCount: 0,
@@ -123,6 +129,7 @@ export async function generateContentSpec(domainId: string, tx?: TxClient): Prom
     })),
     subjectName,
     qualificationRef,
+    options?.intents,
   );
 
   if (!curriculum.ok || curriculum.modules.length === 0) {
@@ -136,41 +143,62 @@ export async function generateContentSpec(domainId: string, tx?: TxClient): Prom
     };
   }
 
-  // 6. Create Content spec
-  const contentSpec = await p.analysisSpec.create({
-    data: {
-      slug: contentSlug,
-      name: `${domain.name} Curriculum`,
-      description: curriculum.description || `Structured curriculum for ${domain.name}, auto-generated from ${assertions.length} teaching points across ${subjectSources.length} source(s).`,
-      outputType: "COMPOSE",
-      specRole: "CONTENT",
-      specType: "DOMAIN",
-      domain: "content",
-      scope: "DOMAIN",
-      isActive: true,
-      isDirty: false,
-      isDeletable: true,
-      config: JSON.parse(JSON.stringify({
-        modules: curriculum.modules,
-        deliveryConfig: curriculum.deliveryConfig,
-        sourceCount: subjectSources.length,
-        assertionCount: assertions.length,
-        generatedAt: new Date().toISOString(),
-      })),
-      triggers: {
-        create: [
-          {
-            given: `A ${domain.name} teaching session with curriculum content`,
-            when: "The system needs to deliver structured teaching material",
-            then: "Content is presented following the curriculum module sequence with appropriate learning outcomes",
-            name: "Curriculum delivery",
-            sortOrder: 0,
-          },
-        ],
+  // 6. Create or update Content spec
+  const specData = {
+    slug: contentSlug,
+    name: `${domain.name} Curriculum`,
+    description: curriculum.description || `Structured curriculum for ${domain.name}, auto-generated from ${assertions.length} teaching points across ${subjectSources.length} source(s).`,
+    outputType: "COMPOSE" as const,
+    specRole: "CONTENT" as const,
+    specType: "DOMAIN" as const,
+    domain: "content",
+    scope: "DOMAIN" as const,
+    isActive: true,
+    isDirty: false,
+    isDeletable: true,
+    config: JSON.parse(JSON.stringify({
+      modules: curriculum.modules,
+      deliveryConfig: curriculum.deliveryConfig,
+      sourceCount: subjectSources.length,
+      assertionCount: assertions.length,
+      generatedAt: new Date().toISOString(),
+    })),
+  };
+
+  const wasRegenerated = !!existing;
+  let contentSpec: { id: string; slug: string; name: string };
+
+  if (existing) {
+    // Regenerate: update existing spec with new curriculum
+    contentSpec = await p.analysisSpec.update({
+      where: { id: existing.id },
+      data: {
+        name: specData.name,
+        description: specData.description,
+        config: specData.config,
+        isDirty: false,
       },
-    },
-    select: { id: true, slug: true, name: true },
-  });
+      select: { id: true, slug: true, name: true },
+    });
+  } else {
+    contentSpec = await p.analysisSpec.create({
+      data: {
+        ...specData,
+        triggers: {
+          create: [
+            {
+              given: `A ${domain.name} teaching session with curriculum content`,
+              when: "The system needs to deliver structured teaching material",
+              then: "Content is presented following the curriculum module sequence with appropriate learning outcomes",
+              name: "Curriculum delivery",
+              sortOrder: 0,
+            },
+          ],
+        },
+      },
+      select: { id: true, slug: true, name: true },
+    });
+  }
 
   // 7. Add to published playbook
   let addedToPlaybook = false;
@@ -217,6 +245,7 @@ export async function generateContentSpec(domainId: string, tx?: TxClient): Prom
     moduleCount: curriculum.modules.length,
     assertionCount: assertions.length,
     addedToPlaybook,
+    wasRegenerated,
     skipped,
   };
 }

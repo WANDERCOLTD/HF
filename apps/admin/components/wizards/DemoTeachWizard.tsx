@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * DemoTeachWizard — shared 6-step wizard for Demonstrate and Teach flows.
+ * DemoTeachWizard — shared wizard for Demonstrate (6-step) and Teach (7-step) flows.
  *
  * Config-driven: the page wrapper passes a DemoTeachConfig that controls
  * flowId, labels, API filters, and terminology. All state, effects, and
  * rendering live here — the pages are thin wrappers.
  *
- * Steps: Select Institution [& Caller] → Set Your Goal → Add Content → Readiness Checks → Preview First Prompt → Launch
+ * Steps: Select Institution [& Caller] → Set Your Goal → Add Content → [Plan Sessions (Teach only)] → Readiness Checks → Preview First Prompt → Launch
  *
  * When config.requireCallerUpfront is false (Teach flow), the caller is
  * auto-created at launch time instead of being selected in step 0.
@@ -48,6 +48,7 @@ import { AgentTuningPanel, type AgentTuningPanelOutput } from "@/components/shar
 import { WizardSummary } from "@/components/shared/WizardSummary";
 import { useWizardError } from "@/hooks/useWizardError";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
+import { TeachPlanStep } from "@/components/wizards/TeachPlanStep";
 import { POLL_TIMEOUT_MS } from "@/lib/tasks/constants";
 import "./demo-teach-wizard.css";
 
@@ -153,6 +154,13 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         caller: "Caller",
         session: "Lesson",
       };
+
+  // ── Step indices (teach flow has an extra "Plan Sessions" step at index 3) ──
+  const isTeachFlow = config.flowId === "teach";
+  const STEP_PLAN = isTeachFlow ? 3 : -1; // -1 = doesn't exist for demonstrate
+  const STEP_READINESS = isTeachFlow ? 4 : 3;
+  const STEP_PREVIEW = isTeachFlow ? 5 : 4;
+  const STEP_LAUNCH = isTeachFlow ? 6 : 5;
 
   // ── State ──────────────────────────────────────────
 
@@ -617,12 +625,12 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   }, [selectedDomainId, selectedCallerId, createdSourceId, createdSubjectId, config.headerTitle]);
 
   useEffect(() => {
-    if (currentStep === 3 && selectedDomainId) fetchReadiness();
-  }, [currentStep, selectedDomainId, selectedCallerId, fetchReadiness]);
+    if (currentStep === STEP_READINESS && selectedDomainId) fetchReadiness();
+  }, [currentStep, STEP_READINESS, selectedDomainId, selectedCallerId, fetchReadiness]);
 
   // Poll readiness every 10s while on step 3 (with timeout guard)
   useEffect(() => {
-    if (currentStep !== 3 || !selectedDomainId) return;
+    if (currentStep !== STEP_READINESS || !selectedDomainId) return;
     const startedAt = Date.now();
     const interval = setInterval(() => {
       if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
@@ -632,7 +640,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       fetchReadiness();
     }, 10_000);
     return () => clearInterval(interval);
-  }, [currentStep, selectedDomainId, fetchReadiness]);
+  }, [currentStep, STEP_READINESS, selectedDomainId, fetchReadiness]);
 
   // ── Content upload step logic ─────────────────────
 
@@ -747,25 +755,31 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     }
 
     // Phase 1: Generate content spec from assertions
-    setContentPhase("generating-curriculum");
-    try {
-      const specRes = await fetch(`/api/domains/${selectedDomainId}/generate-content-spec`, {
-        method: "POST",
-      });
-      const specData = await specRes.json();
-      if (specData.ok && specData.result?.contentSpec) {
-        moduleCount = specData.result.moduleCount || 0;
-        contentSpecGenerated = true;
-      } else if (specData.result?.skipped?.length > 0) {
-        // Already exists or no assertions — not an error
-        warnings.push(...specData.result.skipped);
-        contentSpecGenerated = true;
-      } else if (specData.error) {
-        warnings.push(`Curriculum: ${specData.error}`);
+    // For Teach flow, skip auto-generation — the Plan Sessions step handles it
+    if (!isTeachFlow) {
+      setContentPhase("generating-curriculum");
+      try {
+        const specRes = await fetch(`/api/domains/${selectedDomainId}/generate-content-spec`, {
+          method: "POST",
+        });
+        const specData = await specRes.json();
+        if (specData.ok && specData.result?.contentSpec) {
+          moduleCount = specData.result.moduleCount || 0;
+          contentSpecGenerated = true;
+        } else if (specData.result?.skipped?.length > 0) {
+          // Already exists or no assertions — not an error
+          warnings.push(...specData.result.skipped);
+          contentSpecGenerated = true;
+        } else if (specData.error) {
+          warnings.push(`Curriculum: ${specData.error}`);
+        }
+      } catch (e: any) {
+        console.warn("[Teach] Content spec generation failed:", e);
+        warnings.push("Curriculum generation failed");
       }
-    } catch (e: any) {
-      console.warn("[Teach] Content spec generation failed:", e);
-      warnings.push("Curriculum generation failed");
+    } else {
+      // Teach flow: TPs extracted, curriculum will be generated in Plan Sessions step
+      contentSpecGenerated = false;
     }
 
     // Phase 2: Compose prompt (even if spec generation failed —
@@ -1013,7 +1027,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       }
     } else if (currentStep === 1) {
       setData("goal", goalText.trim());
-    } else if (currentStep === 3) {
+    } else if (currentStep === STEP_READINESS) {
       // Persist readiness state so Launch step has it even after refresh
       setData("ready", ready);
       setData("score", score);
@@ -1248,8 +1262,8 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
               (i === 0 && loadingDomains) ||
               (i === 1 && (loadingSuggestions || loadingGoals || savingGoal)) ||
               (i === 2 && ["uploading", "extracting", "generating-curriculum", "composing-prompt", "attaching-source"].includes(contentPhase)) ||
-              (i === 3 && checksLoading) ||
-              (i === 5 && launching);
+              (i === STEP_READINESS && checksLoading) ||
+              (i === STEP_LAUNCH && launching);
             return {
               label: s.label,
               completed: i < currentStep,
@@ -1861,9 +1875,21 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* STEP 3: Readiness Checks                        */}
+      {/* STEP 3 (Teach only): Plan Sessions                */}
       {/* ═══════════════════════════════════════════════ */}
-      {currentStep === 3 && selectedDomainId && (
+      {currentStep === STEP_PLAN && isTeachFlow && selectedDomainId && (
+        <TeachPlanStep
+          domainId={selectedDomainId}
+          setData={setData}
+          getData={getData}
+          onNext={handleNext}
+          onPrev={handlePrev}
+        />
+      )}
+
+      {/* STEP 3/4: Readiness Checks                      */}
+      {/* ═══════════════════════════════════════════════ */}
+      {currentStep === STEP_READINESS && selectedDomainId && (
         <div className={`dtw-section ${level === "ready" ? "dtw-section-ready" : ""}`}>
           {/* Status badge */}
           <div className="dtw-readiness-header">
@@ -1964,16 +1990,16 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* STEP 4: Preview First Prompt                    */}
+      {/* STEP 4/5: Preview First Prompt                   */}
       {/* ═══════════════════════════════════════════════ */}
-      {currentStep === 4 && selectedDomainId && (
+      {currentStep === STEP_PREVIEW && selectedDomainId && (
         <div className="dtw-section">
           <div className="dtw-section-label">First Prompt Preview</div>
           <PromptPreviewContent
             domainId={selectedDomainId}
             domainName={selectedDomain?.name}
             callerId={selectedCallerId || undefined}
-            open={currentStep === 4}
+            open={currentStep === STEP_PREVIEW}
           />
 
           {/* Step navigation */}
@@ -1992,9 +2018,9 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* STEP 5: Launch                                  */}
+      {/* STEP 5/6: Launch                                */}
       {/* ═══════════════════════════════════════════════ */}
-      {currentStep === 5 && (
+      {currentStep === STEP_LAUNCH && (
         <div className="dtw-section">
           <WizardSummary
             title={launching ? "Launching..." : "Ready to Go!"}

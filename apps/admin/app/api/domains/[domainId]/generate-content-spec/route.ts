@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import { generateContentSpec } from "@/lib/domain/generate-content-spec";
+import { generateContentSpec, type GenerateContentSpecOptions } from "@/lib/domain/generate-content-spec";
+import { startTaskTracking, updateTaskProgress, completeTask, failTask } from "@/lib/ai/task-guidance";
 
 /**
  * @api POST /api/domains/:domainId/generate-content-spec
@@ -10,14 +11,20 @@ import { generateContentSpec } from "@/lib/domain/generate-content-spec";
  * @description Auto-generate a CONTENT spec from the domain's content source assertions.
  *              Uses AI to extract curriculum structure (modules, learning outcomes) from
  *              teaching points, then creates an AnalysisSpec and adds it to the playbook.
- *              Idempotent — skips if content spec already exists or no assertions available.
+ *              Idempotent — skips if content spec already exists (unless regenerate: true).
+ *              Supports async mode with task tracking for long-running generation.
  * @pathParam domainId string - The domain ID
+ * @bodyParam intents? { sessionCount?: number, durationMins?: number, emphasis?: string, assessments?: string } - Curriculum intent hints
+ * @bodyParam regenerate? boolean - Update existing spec instead of skipping
+ * @bodyParam async? boolean - Return taskId for polling instead of blocking
  * @response 200 { ok: true, result: ContentSpecResult }
+ * @response 202 { ok: true, taskId: string } (async mode)
  * @response 404 { ok: false, error: "Domain not found: ..." }
+ * @response 422 { ok: false, error: string, result: ContentSpecResult }
  * @response 500 { ok: false, error: string }
  */
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ domainId: string }> }
 ) {
   try {
@@ -25,7 +32,38 @@ export async function POST(
     if (isAuthError(authResult)) return authResult.error;
 
     const { domainId } = await params;
-    const result = await generateContentSpec(domainId);
+
+    // Parse optional body (existing callers send no body)
+    let body: { intents?: any; regenerate?: boolean; async?: boolean } = {};
+    try {
+      body = await req.json();
+    } catch {
+      // No body — backwards-compatible with existing callers
+    }
+
+    const options: GenerateContentSpecOptions = {
+      intents: body.intents,
+      regenerate: body.regenerate,
+    };
+
+    // Async mode: return taskId for polling
+    if (body.async) {
+      const taskId = await startTaskTracking(authResult.session.user.id, "content_spec_generation", {
+        domainId,
+        intents: body.intents,
+      });
+
+      // Fire-and-forget background generation
+      runAsyncGeneration(taskId, domainId, options).catch(async (err) => {
+        console.error(`[generate-content-spec] Task ${taskId} unhandled error:`, err);
+        await failTask(taskId, err.message || "Content spec generation failed");
+      });
+
+      return NextResponse.json({ ok: true, taskId }, { status: 202 });
+    }
+
+    // Sync mode: block until complete
+    const result = await generateContentSpec(domainId, options);
 
     if (result.error) {
       return NextResponse.json({ ok: false, error: result.error, result }, { status: 422 });
@@ -39,4 +77,35 @@ export async function POST(
       { status }
     );
   }
+}
+
+// ── Background runner for async mode ──────────────────
+
+async function runAsyncGeneration(
+  taskId: string,
+  domainId: string,
+  options: GenerateContentSpecOptions,
+): Promise<void> {
+  await updateTaskProgress(taskId, { currentStep: 1 });
+
+  const result = await generateContentSpec(domainId, options);
+
+  if (result.error) {
+    await failTask(taskId, result.error);
+    return;
+  }
+
+  // Store result in task context for UI to read
+  await updateTaskProgress(taskId, {
+    currentStep: 2,
+    context: {
+      result,
+      moduleCount: result.moduleCount,
+      assertionCount: result.assertionCount,
+      contentSpecId: result.contentSpec?.id,
+      wasRegenerated: result.wasRegenerated,
+    },
+  });
+
+  await completeTask(taskId);
 }
