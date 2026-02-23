@@ -189,6 +189,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   // AI goal suggestions
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState(false);
   const lastSuggestText = useRef("");
   const suggestFetchId = useRef(0);
 
@@ -271,6 +272,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     setScore(0);
     setLevel("incomplete");
     setSuggestions([]);
+    setSuggestionsError(false);
     setCallerGoals([]);
     setContentPhase("loading");
     setContentCount(0);
@@ -483,6 +485,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       lastSuggestText.current = text;
       const thisId = ++suggestFetchId.current;
       setLoadingSuggestions(true);
+      setSuggestionsError(false);
       try {
         const params = new URLSearchParams({ domainId: selectedDomainId });
         if (selectedCallerId) params.set("callerId", selectedCallerId);
@@ -491,12 +494,16 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         const data = await res.json();
         // Only update state from the most recent request (prevents race conditions)
         if (suggestFetchId.current !== thisId) return;
-        if (data.ok && data.suggestions) {
+        if (data.ok && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
           setSuggestions(data.suggestions);
+        } else {
+          console.warn("[Teach] Suggest API returned:", data);
+          setSuggestionsError(true);
         }
-      } catch {
-        // Non-critical — suggestions are optional
+      } catch (e) {
+        console.warn("[Teach] Suggest API failed:", e);
         if (suggestFetchId.current !== thisId) return;
+        setSuggestionsError(true);
       } finally {
         // Only clear loading if this is still the latest request
         if (suggestFetchId.current === thisId) {
@@ -1405,7 +1412,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           />
 
           {/* AI suggestions */}
-          {(loadingSuggestions || suggestions.length > 0) && (
+          {(loadingSuggestions || suggestions.length > 0 || suggestionsError) && (
             <div className="dtw-suggestions">
               <div className="dtw-suggestions-label">
                 Suggested goals
@@ -1420,7 +1427,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                     />
                   ))}
                 </div>
-              ) : (
+              ) : suggestions.length > 0 ? (
                 <div className="dtw-suggestion-list">
                   {suggestions.map((s, i) => (
                     <button
@@ -1432,7 +1439,16 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                     </button>
                   ))}
                 </div>
-              )}
+              ) : suggestionsError ? (
+                <div className="dtw-suggestion-list">
+                  <button
+                    onClick={() => { lastSuggestText.current = ""; fetchSuggestions(""); }}
+                    className="dtw-suggestion-chip"
+                  >
+                    Retry suggestions
+                  </button>
+                </div>
+              ) : null}
             </div>
           )}
 

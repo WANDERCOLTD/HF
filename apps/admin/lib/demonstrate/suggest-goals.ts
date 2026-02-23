@@ -52,7 +52,10 @@ export async function suggestGoals(params: SuggestGoalsParams): Promise<string[]
       : null,
   ]);
 
-  if (!domain) return [];
+  if (!domain) {
+    console.warn("[suggest-goals] Domain not found:", domainId);
+    return [];
+  }
 
   // Build the prompt context
   const contextParts: string[] = [
@@ -127,9 +130,14 @@ export async function suggestGoals(params: SuggestGoalsParams): Promise<string[]
     if (match) {
       const parsed: unknown = JSON.parse(match[0]);
       if (Array.isArray(parsed)) {
-        return (parsed as unknown[]).filter((s): s is string => typeof s === "string").slice(0, 4);
+        const results = (parsed as unknown[]).filter((s): s is string => typeof s === "string").slice(0, 4);
+        if (results.length === 0) {
+          console.warn("[suggest-goals] AI returned empty array. Raw:", text.slice(0, 200));
+        }
+        return results;
       }
     }
+    console.warn("[suggest-goals] Could not parse suggestions from AI response:", text.slice(0, 200));
   } catch (e) {
     console.warn("[suggest-goals] AI suggestion failed:", e);
   }
