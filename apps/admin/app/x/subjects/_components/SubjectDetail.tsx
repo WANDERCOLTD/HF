@@ -11,6 +11,8 @@ import { reorderItems } from "@/lib/sortable/reorder";
 import { SessionCountPicker } from "@/components/shared/SessionCountPicker";
 import { ProgressStepper } from "@/components/shared/ProgressStepper";
 import { EditableTitle } from "@/components/shared/EditableTitle";
+import { SourceStatusDots } from "@/components/shared/SourceStatusDots";
+import { useSourceStatus } from "@/hooks/useSourceStatus";
 import {
   TrustBadge,
   DocumentTypeBadge as SharedDocumentTypeBadge,
@@ -175,9 +177,11 @@ interface SubjectDetailProps {
   subjectId: string;
   onSubjectUpdated: () => void;
   isOperator: boolean;
+  /** When rendered inside /x/courses/[courseId], enables hierarchy-aware links */
+  courseId?: string;
 }
 
-export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator }: SubjectDetailProps) {
+export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator, courseId }: SubjectDetailProps) {
   const router = useRouter();
   const { addExtractionJob, addCurriculumJob, jobs } = useBackgroundTaskQueue();
   const { isAdvanced } = useViewMode();
@@ -599,7 +603,7 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       if (data.jobId) {
-        addExtractionJob(data.jobId, sourceId, sourceName, sourceName, subjectId);
+        addExtractionJob(data.jobId, sourceId, sourceName, sourceName, subjectId, courseId);
       }
     } catch (err: any) {
       setError(err.message);
@@ -663,7 +667,7 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator 
       if (!res.ok) throw new Error(data.error);
       if (data.taskId) {
         setCurriculumTaskId(data.taskId);
-        addCurriculumJob(data.taskId, subjectId, subject?.name || "Subject");
+        addCurriculumJob(data.taskId, subjectId, subject?.name || "Subject", courseId);
       }
     } catch (err: any) {
       setError(err.message);
@@ -715,6 +719,10 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator 
   // ------------------------------------------------------------------
   // Render
   // ------------------------------------------------------------------
+
+  // Hook must be called unconditionally (before early returns)
+  const sourceIds = (subject?.sources ?? []).map((ss) => ss.sourceId);
+  const statusMap = useSourceStatus(sourceIds, { enabled: !!subject });
 
   if (loading) {
     return (
@@ -824,7 +832,7 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator 
       <ProgressStepper
         steps={[
           {
-            label: "Sources",
+            label: "Materials",
             completed: subject.sources.length > 0,
             active: subject.sources.length === 0,
             onClick: () => document.getElementById("section-sources")?.scrollIntoView({ behavior: "smooth", block: "start" }),
@@ -852,7 +860,7 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator 
 
       {/* === SOURCES SECTION === */}
       <section id="section-sources" style={{ marginBottom: 32 }}>
-        <h3 className="hf-heading-lg hf-mb-md">Sources</h3>
+        <h3 className="hf-heading-lg hf-mb-md">Materials</h3>
 
         {subject.sources.length > 0 && (() => {
           const sorted = [...subject.sources].sort((a, b) => {
@@ -883,12 +891,13 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator 
                       <div className="hf-flex hf-gap-sm hf-items-center hf-flex-1">
                         <TagPills tags={ss.tags || []} />
                         <DetailDocumentTypeBadge type={ss.source.documentType} source={ss.source.documentTypeSource} />
-                        <Link href={`/x/content-sources/${ss.sourceId}`} className="hf-text-md hf-text-bold" style={{ color: "var(--accent-primary)" }}>
+                        <Link href={courseId ? `/x/courses/${courseId}/subjects/${subjectId}/sources/${ss.sourceId}` : `/x/content-sources/${ss.sourceId}`} className="hf-text-md hf-text-bold" style={{ color: "var(--accent-primary)" }}>
                           {ss.source.name}
                         </Link>
                         <TrustBadge level={ss.trustLevelOverride || ss.source.trustLevel} />
+                        <SourceStatusDots status={statusMap[ss.sourceId] ?? null} />
                         <Link
-                          href={`/x/content-sources/${ss.sourceId}`}
+                          href={courseId ? `/x/courses/${courseId}/subjects/${subjectId}/sources/${ss.sourceId}` : `/x/content-sources/${ss.sourceId}`}
                           className="hf-text-xs hf-text-muted"
                           style={{ textDecoration: "underline", textDecorationStyle: "dotted" }}
                           title="View assertions in source detail"
@@ -1049,7 +1058,7 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator 
                   ? "Regenerate"
                   : hasSyllabus
                   ? "Generate from Syllabus"
-                  : "Generate from All Sources"}
+                  : "Generate from All Materials"}
               </button>
             )}
           </div>
@@ -1110,7 +1119,7 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator 
         {/* No sources yet */}
         {subject.sources.length === 0 && (
           <p className="hf-text-md hf-text-muted">
-            Upload content sources first, then generate a curriculum and lesson plan.
+            Upload materials first, then generate a curriculum and lesson plan.
           </p>
         )}
 

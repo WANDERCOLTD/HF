@@ -166,15 +166,15 @@
     },
     {
       "id": "content-sources",
-      "title": "Content Sources",
-      "description": "Navigate to Content Sources to define WHAT the tutor teaches. Each source has a trust level (L0-L5) that controls how the AI uses it.",
+      "title": "Materials",
+      "description": "Navigate to Materials to define WHAT the tutor teaches. Each material has a trust level (L0-L5) that controls how the AI uses it.",
       "content": {
         "type": "screenshot",
         "src": "/demos/DEMO-TUTOR-001/07-content-sources.png",
-        "alt": "Content Sources page with trust level badges",
+        "alt": "Materials page with trust level badges",
         "annotations": [
           { "x": "80%", "y": "30%", "label": "Trust: L3", "direction": "left" },
-          { "x": "85%", "y": "12%", "label": "Add Source", "direction": "left", "highlight": true }
+          { "x": "85%", "y": "12%", "label": "Add Material", "direction": "left", "highlight": true }
         ]
       },
       "reason": "Trust levels control accuracy requirements. L5 (Verified Fact) content must be quoted exactly. L1 (Community) content can be discussed freely. This matters for regulated training domains like food safety.",
@@ -184,8 +184,8 @@
       ],
       "sidebarHighlight": { "href": "/x/content-sources", "type": "pulse" },
       "aiContext": {
-        "currentView": "Content Sources page with trust level badges",
-        "action": "Adding content sources with trust levels",
+        "currentView": "Materials page with trust level badges",
+        "action": "Adding materials with trust levels",
         "relatedConcepts": ["content trust", "trust levels L0-L5", "content assertions", "regulated training"],
         "assistantLocation": { "page": "/x/content-sources", "action": "create" }
       }

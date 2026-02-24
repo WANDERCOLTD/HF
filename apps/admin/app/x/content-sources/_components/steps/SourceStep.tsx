@@ -348,8 +348,8 @@ function UploadNewSourceSection({
         <div className="src-created-icon">{"\u2705"}</div>
         <div className="src-created-title">
           {getData<boolean>("hasFile")
-            ? `File uploaded & source created: ${getData<string>("sourceName")}`
-            : `Source created: ${getData<string>("sourceName")}`}
+            ? `File uploaded & material created: ${getData<string>("sourceName")}`
+            : `Material created: ${getData<string>("sourceName")}`}
         </div>
         {classificationResult && (
           <div className="src-created-classification">
@@ -424,7 +424,7 @@ function UploadNewSourceSection({
         {/* Path B: Describe it */}
         <div className="src-describe-col">
           <div className="src-describe-label">
-            Or describe the source
+            Or describe the material
           </div>
           <div className="src-describe-row">
             <input
@@ -467,7 +467,7 @@ function UploadNewSourceSection({
         <div className="src-meta-card">
           <div className="src-meta-header">
             <span className="src-meta-title">
-              Source Details
+              Material Details
             </span>
             <button
               onClick={() => setEditingMetadata(!editingMetadata)}
@@ -660,12 +660,12 @@ function UploadNewSourceSection({
         className="hf-btn hf-btn-primary src-btn-lg"
       >
         {creating
-          ? "Creating source..."
+          ? "Creating material..."
           : classifying
             ? "Classifying document..."
             : file
-              ? "Upload File & Create Source"
-              : "Create Source & Continue"}
+              ? "Upload File & Create Material"
+              : "Create Material & Continue"}
       </button>
     </>
   );
@@ -820,7 +820,7 @@ export default function SourceStep({
         What do you want to teach from?
       </h2>
       <p className="src-subtitle">
-        Select an existing content source or upload a new one.
+        Select an existing material or upload a new one.
       </p>
 
       {/* ── Section A: Library Grid (primary) ── */}
@@ -830,7 +830,7 @@ export default function SourceStep({
           <div className="src-filter-row">
             <input
               type="text"
-              placeholder="Search sources..."
+              placeholder="Search materials..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="hf-input src-search-input"
@@ -855,7 +855,7 @@ export default function SourceStep({
 
           {/* Source count */}
           <div className="src-count">
-            {filteredSources.length} source
+            {filteredSources.length} material
             {filteredSources.length !== 1 ? "s" : ""} available
           </div>
 
@@ -865,8 +865,8 @@ export default function SourceStep({
           ) : filteredSources.length === 0 ? (
             <div className="src-empty">
               {sources.length === 0
-                ? "No content sources yet. Upload one below to get started."
-                : "No sources match your search."}
+                ? "No materials yet. Upload one below to get started."
+                : "No materials match your search."}
             </div>
           ) : (
             <div className="src-card-grid">
@@ -943,7 +943,7 @@ export default function SourceStep({
           onClick={() => setShowUploadNew(!showUploadNew)}
           className="src-divider-btn"
         >
-          {showUploadNew ? "Back to library" : "Or upload a new source"}
+          {showUploadNew ? "Back to library" : "Or upload a new material"}
         </button>
         <div className="src-divider-line" />
       </div>

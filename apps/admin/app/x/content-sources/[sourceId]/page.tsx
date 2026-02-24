@@ -158,6 +158,64 @@ function CategoryBadge({ category }: { category: string }) {
   );
 }
 
+/** Inline category selector — looks like a badge, click to reclassify */
+function CategorySelect({
+  category,
+  sourceId,
+  assertionId,
+  onChanged,
+}: {
+  category: string;
+  sourceId: string;
+  assertionId: string;
+  onChanged: (newCategory: string) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const cfg = CATEGORIES.find((c) => c.value === category);
+  const color = cfg?.color || "var(--text-muted)";
+
+  const handleChange = async (newCat: string) => {
+    if (newCat === category || saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/content-sources/${sourceId}/assertions/${assertionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: newCat }),
+      });
+      if (res.ok) {
+        onChanged(newCat);
+      }
+    } catch {
+      // Silent fail — badge stays unchanged
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <select
+      value={category}
+      onChange={(e) => handleChange(e.target.value)}
+      disabled={saving}
+      className="csd-category-select"
+      style={{
+        color,
+        backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
+        borderColor: `color-mix(in srgb, ${color} 25%, transparent)`,
+        opacity: saving ? 0.5 : 1,
+      }}
+      title="Click to reclassify"
+    >
+      {CATEGORIES.map((c) => (
+        <option key={c.value} value={c.value}>
+          {c.icon} {c.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function ReviewBadge({ reviewed }: { reviewed: boolean }) {
   return reviewed ? (
     <span className="csd-review-reviewed">Reviewed</span>
@@ -277,7 +335,7 @@ export default function SourceDetailPage() {
       const res = await fetch(url, { method: "DELETE" });
       const data = await res.json();
       if (data.ok) {
-        setFeedback({ type: "success", message: "Content source archived" });
+        setFeedback({ type: "success", message: "Material archived" });
         setArchiveConfirm(false);
         fetchSource();
       } else if (res.status === 409) {
@@ -301,7 +359,7 @@ export default function SourceDetailPage() {
       const res = await fetch(`/api/content-sources/${sourceId}/unarchive`, { method: "POST" });
       const data = await res.json();
       if (data.ok) {
-        setFeedback({ type: "success", message: "Content source restored" });
+        setFeedback({ type: "success", message: "Material restored" });
         fetchSource();
       } else {
         setFeedback({ type: "error", message: data.error || "Unarchive failed" });
@@ -389,8 +447,8 @@ export default function SourceDetailPage() {
   if (!source) {
     return (
       <div className="csd-error-wrap">
-        <p className="csd-error-text">Source not found</p>
-        <Link href="/x/content-sources" className="csd-back-link">Back to Content Sources</Link>
+        <p className="csd-error-text">Material not found</p>
+        <Link href="/x/content-sources" className="csd-back-link">Back to Materials</Link>
       </div>
     );
   }
@@ -399,14 +457,14 @@ export default function SourceDetailPage() {
     <div>
       {/* Back link */}
       <Link href="/x/content-sources" className="csd-back-nav">
-        <span className="csd-back-arrow">&larr;</span> Back to Content Sources
+        <span className="csd-back-arrow">&larr;</span> Back to Materials
       </Link>
 
       {/* Archived banner */}
       {source.archivedAt && (
         <div className="hf-banner hf-banner-warning csd-archived-banner">
           <span>
-            This source was archived on {new Date(source.archivedAt).toLocaleDateString()}.
+            This material was archived on {new Date(source.archivedAt).toLocaleDateString()}.
             It is hidden from pickers but its content remains in the knowledge base.
           </span>
           <button
@@ -621,6 +679,13 @@ export default function SourceDetailPage() {
                           setFeedback({ type: "success", message: "Marked as reviewed" });
                           fetchAssertions();
                         }}
+                        onCategoryChanged={(assertionId, newCat) => {
+                          setAssertions((prev) =>
+                            prev.map((x) =>
+                              x.id === assertionId ? { ...x, category: newCat } : x
+                            )
+                          );
+                        }}
                         onError={(msg) => setFeedback({ type: "error", message: msg })}
                       />
                     ))}
@@ -683,7 +748,7 @@ export default function SourceDetailPage() {
             Danger Zone
           </h3>
           <p className="csd-danger-desc">
-            Archiving this source hides it from pickers and the library. Its teaching content remains
+            Archiving this material hides it from pickers and the library. Its teaching content remains
             in the knowledge base until permanently deleted by a Super Admin.
           </p>
           {!archiveConfirm ? (
@@ -691,14 +756,14 @@ export default function SourceDetailPage() {
               className="hf-btn hf-btn-destructive"
               onClick={() => { setArchiveConfirm(true); fetchUsage(); }}
             >
-              Archive Source
+              Archive Material
             </button>
           ) : (
             <div>
               {usageLoading && <p className="csd-danger-checking">Checking usage...</p>}
               {usageData && (usageData.subjects.length > 0 || usageData.curricula.length > 0) && (
                 <div className="hf-banner hf-banner-warning csd-danger-usage">
-                  <strong>This source is in use:</strong>
+                  <strong>This material is in use:</strong>
                   {usageData.subjects.length > 0 && (
                     <span> {usageData.subjects.length} subject{usageData.subjects.length !== 1 ? "s" : ""} ({usageData.subjects.map((s) => s.name).join(", ")})</span>
                   )}
@@ -881,6 +946,7 @@ function AssertionRow({
   onSaved,
   onDeleted,
   onReviewed,
+  onCategoryChanged,
   onError,
 }: {
   assertion: Assertion;
@@ -895,6 +961,7 @@ function AssertionRow({
   onSaved: () => void;
   onDeleted: () => void;
   onReviewed: () => void;
+  onCategoryChanged: (assertionId: string, newCat: string) => void;
   onError: (msg: string) => void;
 }) {
   const isReviewed = !!a.reviewedAt;
@@ -911,8 +978,8 @@ function AssertionRow({
     <>
       <tr
         onClick={(e) => {
-          // Don't toggle if clicking checkbox or buttons
-          if ((e.target as HTMLElement).closest("input, button")) return;
+          // Don't toggle if clicking checkbox, buttons, or select
+          if ((e.target as HTMLElement).closest("input, button, select")) return;
           onToggleExpand();
         }}
         className={rowClasses}
@@ -934,7 +1001,12 @@ function AssertionRow({
           )}
         </td>
         <td className="csd-td-default">
-          <CategoryBadge category={a.category} />
+          <CategorySelect
+            category={a.category}
+            sourceId={sourceId}
+            assertionId={a.id}
+            onChanged={(newCat) => onCategoryChanged(a.id, newCat)}
+          />
         </td>
         <td className="csd-td-location">
           {location || "-"}
@@ -963,6 +1035,7 @@ function AssertionRow({
                 sourceId={sourceId}
                 onEdit={onStartEdit}
                 onReviewed={onReviewed}
+                onCategoryChanged={(newCat) => onCategoryChanged(a.id, newCat)}
                 onError={onError}
               />
             )}
@@ -980,12 +1053,14 @@ function DetailView({
   sourceId,
   onEdit,
   onReviewed,
+  onCategoryChanged,
   onError,
 }: {
   assertion: Assertion;
   sourceId: string;
   onEdit: () => void;
   onReviewed: () => void;
+  onCategoryChanged: (newCat: string) => void;
   onError: (msg: string) => void;
 }) {
   const [reviewing, setReviewing] = useState(false);
@@ -1022,7 +1097,12 @@ function DetailView({
       <div className="csd-detail-grid">
         <div>
           <div className="csd-detail-label">Category</div>
-          <CategoryBadge category={a.category} />
+          <CategorySelect
+            category={a.category}
+            sourceId={sourceId}
+            assertionId={a.id}
+            onChanged={onCategoryChanged}
+          />
         </div>
         <div>
           <div className="csd-detail-label">Tags</div>

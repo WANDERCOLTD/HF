@@ -139,7 +139,7 @@
     {
       "id": "domain-ready",
       "title": "Domain Ready!",
-      "description": "Your domain is live. The system created a domain, identity spec, content source, playbook, and a test caller — all from one file upload.",
+      "description": "Your domain is live. The system created a domain, identity spec, material, playbook, and a test caller — all from one file upload.",
       "content": {
         "type": "markdown",
         "body": "# Your Domain is Live\n\nQuick Launch created everything you need:\n\n- **Domain** — configured and active\n- **Identity Spec** — tutor personality set\n- **Content Source** — syllabus imported with assertions\n- **Playbook** — all specs bundled and published\n- **Test Caller** — ready to try the tutor\n\n## What's Next?\n\n1. **Test it** — Open the Simulator and chat with your tutor\n2. **Invite callers** — Use the invite system to bring in real learners\n3. **Customize** — Refine specs, add more content, adjust parameters\n4. **Monitor** — Track caller progress on the Goals page\n\n## Related Demos\n\n- *Test Your Tutor Before Going Live* (DEMO-SIM-001)\n- *Track a Caller's Learning Journey* (DEMO-CALLER-001)\n- *Add Trusted Teaching Content* (DEMO-CONTENT-001)"

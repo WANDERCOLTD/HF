@@ -324,20 +324,54 @@ No re-seeding is needed after initial setup unless you want to add new spec file
 
 ---
 
-## Live Infrastructure
+## Live Infrastructure (3 Environments)
+
+All 3 environments live in the same GCP project (`hf-admin-prod`, region `europe-west2`). Public URLs route through a **Cloudflare Tunnel** (`00d2c2cc-...`), NOT directly to Cloud Run.
+
+| Env | Domain | Cloud Run Service | DB Secret | Seed Job | Migrate Job |
+|-----|--------|-------------------|-----------|----------|-------------|
+| **DEV** | `dev.humanfirstfoundation.com` | `hf-admin-dev` | `DATABASE_URL_DEV` | `hf-seed-dev` | `hf-migrate-dev` |
+| **TEST** | `test.humanfirstfoundation.com` | `hf-admin-test` | `DATABASE_URL_TEST` | `hf-seed-test` | `hf-migrate-test` |
+| **PROD** | `lab.humanfirstfoundation.com` | `hf-admin` | `DATABASE_URL` | `hf-seed` | `hf-migrate` |
+
+### Shared Infrastructure
 
 | Resource | Details |
 |----------|---------|
-| **Cloud Run** | `hf-admin` — 512Mi, 1 CPU, 0-3 instances, europe-west2 |
-| **Cloud SQL** | `hf-db` — PostgreSQL 16, db-f1-micro, private IP only (172.23.0.3) |
+| **Cloud SQL** | `hf-db` — PostgreSQL 16, db-f1-micro, private IP only (172.23.0.3). Separate databases per env. |
 | **VPC Connector** | `hf-connector` — bridges Cloud Run → Cloud SQL |
 | **Artifact Registry** | `europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker/` |
-| **Cloud Run Jobs** | `hf-migrate` (schema sync), `hf-seed` (seed scripts) |
-| **Secrets Manager** | `DATABASE_URL`, `AUTH_SECRET`, `HF_SUPERADMIN_TOKEN` |
+| **Secrets Manager** | `DATABASE_URL`, `DATABASE_URL_DEV`, `DATABASE_URL_TEST`, `AUTH_SECRET`, `HF_SUPERADMIN_TOKEN` |
+| **Cloudflare** | Zone `humanfirstfoundation.com`, Tunnel `00d2c2cc-...` routes all 3 domains |
 
-**URL**: `https://hf-admin-311250123759.europe-west2.run.app`
+### Environment-Specific Deploy Commands
+
+```bash
+# Deploy to a specific environment (interactive — asks which env)
+# Use the /deploy slash command in Claude Code
+
+# Manual: deploy to DEV
+gcloud run deploy hf-admin-dev \
+  --image=europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker/hf-admin:latest \
+  --region=europe-west2
+
+# Manual: run migrations on TEST
+gcloud run jobs execute hf-migrate-test --region=europe-west2 --wait
+
+# Manual: seed PROD
+gcloud run jobs execute hf-seed --region=europe-west2 --wait
+```
+
+### Environment Indicator
+
+Each environment should set `NEXT_PUBLIC_APP_ENV` to show a colored stripe:
+- `DEV` → blue stripe
+- `TEST` → purple stripe
+- `STG` → amber stripe
+- `LIVE` → no stripe (production)
+
 **GCP Project**: `hf-admin-prod`
-**Estimated cost**: ~$17/mo (Cloud SQL $10 + VPC connector $7)
+**Estimated cost**: ~$17/mo per environment (Cloud SQL $10 + VPC connector $7)
 
 ---
 

@@ -83,7 +83,7 @@ export default function DoneStep({ getData, onPrev, endFlow }: StepProps) {
       }
       intent={{
         items: [
-          { icon: <FileText className="w-4 h-4" />, label: "Source", value: sourceName || "—" },
+          { icon: <FileText className="w-4 h-4" />, label: "Material", value: sourceName || "—" },
           ...(subjectName ? [{ icon: <GraduationCap className="w-4 h-4" />, label: "Subject", value: subjectName }] : []),
           ...(domainName ? [{ icon: <Building2 className="w-4 h-4" />, label: "Institution", value: domainName }] : []),
         ],
@@ -92,7 +92,7 @@ export default function DoneStep({ getData, onPrev, endFlow }: StepProps) {
         entities: [
           ...(sourceId ? [{
             icon: <FileText className="w-5 h-5" />,
-            label: "Content Source",
+            label: "Material",
             name: sourceName || "—",
             detail: assertionCount != null ? `${assertionCount} teaching points` : undefined,
             href: `/x/content-sources/${sourceId}`,
@@ -118,7 +118,7 @@ export default function DoneStep({ getData, onPrev, endFlow }: StepProps) {
         onClick: endFlow,
       }}
       secondaryActions={[
-        ...(sourceId ? [{ label: "View Source", href: `/x/content-sources/${sourceId}`, onClick: endFlow }] : []),
+        ...(sourceId ? [{ label: "View Material", href: `/x/content-sources/${sourceId}`, onClick: endFlow }] : []),
         ...(domainId ? [{ label: "Go to Institution", href: `/x/domains?id=${domainId}`, onClick: endFlow }] : []),
         { label: "Start Another", onClick: endFlow },
       ]}

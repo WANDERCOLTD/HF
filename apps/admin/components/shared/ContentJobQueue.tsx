@@ -42,6 +42,7 @@ export interface QueuedTask {
   label: string;
   subjectId?: string;
   sourceId?: string;
+  courseId?: string;
   startedAt: number;
   progress: TaskProgress;
 }
@@ -50,8 +51,8 @@ export interface QueuedTask {
 
 interface BackgroundTaskQueueContextValue {
   jobs: QueuedTask[];
-  addExtractionJob: (taskId: string, sourceId: string, sourceName: string, fileName: string, subjectId?: string) => void;
-  addCurriculumJob: (taskId: string, subjectId: string, subjectName: string) => void;
+  addExtractionJob: (taskId: string, sourceId: string, sourceName: string, fileName: string, subjectId?: string, courseId?: string) => void;
+  addCurriculumJob: (taskId: string, subjectId: string, subjectName: string, courseId?: string) => void;
   addCurriculumEnrichmentJob: (taskId: string, subjectName: string) => void;
   addCourseSetupJob: (taskId: string, courseName: string) => void;
   addSnapshotJob: (taskId: string, snapshotName: string, operation: "take" | "restore") => void;
@@ -289,6 +290,7 @@ export function ContentJobQueueProvider({ children }: { children: React.ReactNod
                         : ctx.courseName || "Course Setup",
               subjectId: ctx.subjectId,
               sourceId: ctx.sourceId,
+              courseId: ctx.courseId,
               startedAt: new Date(st.startedAt).getTime(),
               progress: serverTaskToProgress(st),
             };
@@ -311,7 +313,7 @@ export function ContentJobQueueProvider({ children }: { children: React.ReactNod
   }, []);
 
   const addExtractionJob = useCallback(
-    (taskId: string, sourceId: string, sourceName: string, fileName: string, subjectId?: string) => {
+    (taskId: string, sourceId: string, sourceName: string, fileName: string, subjectId?: string, courseId?: string) => {
       setJobs((prev) => {
         if (prev.some((j) => j.taskId === taskId)) return prev;
         return [
@@ -321,6 +323,7 @@ export function ContentJobQueueProvider({ children }: { children: React.ReactNod
             label: sourceName || fileName,
             sourceId,
             subjectId,
+            courseId,
             startedAt: Date.now(),
             progress: {
               status: "in_progress",
@@ -340,7 +343,7 @@ export function ContentJobQueueProvider({ children }: { children: React.ReactNod
   );
 
   const addCurriculumJob = useCallback(
-    (taskId: string, subjectId: string, subjectName: string) => {
+    (taskId: string, subjectId: string, subjectName: string, courseId?: string) => {
       setJobs((prev) => {
         if (prev.some((j) => j.taskId === taskId)) return prev;
         return [
@@ -349,6 +352,7 @@ export function ContentJobQueueProvider({ children }: { children: React.ReactNod
             taskType: "curriculum_generation" as BackgroundTaskType,
             label: subjectName,
             subjectId,
+            courseId,
             startedAt: Date.now(),
             progress: {
               status: "in_progress",
@@ -557,9 +561,17 @@ export function ContentJobQueue() {
   const handleClick = (j: QueuedTask) => {
     if (!isDone(j)) return;
     if (j.taskType === "extraction") {
-      router.push("/x/content-sources");
+      if (j.courseId && j.subjectId) {
+        router.push(`/x/courses/${j.courseId}/subjects/${j.subjectId}`);
+      } else {
+        router.push("/x/content-sources");
+      }
     } else if (j.taskType === "curriculum_generation" && j.subjectId) {
-      router.push(`/x/subjects?id=${j.subjectId}`);
+      if (j.courseId) {
+        router.push(`/x/courses/${j.courseId}/subjects/${j.subjectId}`);
+      } else {
+        router.push(`/x/subjects?id=${j.subjectId}`);
+      }
     } else if (j.taskType === "course_setup") {
       router.push("/x/courses");
     } else if (j.taskType === "snapshot_take" || j.taskType === "snapshot_restore") {

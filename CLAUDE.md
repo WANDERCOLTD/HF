@@ -40,7 +40,7 @@ apps/admin/
 ├── app/api/         ← API routes (requireAuth on every one)
 ├── app/x/           ← Admin UI (all under /x/ prefix)
 ├── lib/
-│   ├── config.ts    ← Env vars, 6 canonical spec slugs (all env-overridable)
+│   ├── config.ts    ← Env vars, 16 spec slugs in config.specs.* (all env-overridable)
 │   ├── permissions.ts ← RBAC: requireAuth() + isAuthError()
 │   ├── pipeline/    ← Pipeline stage config + runners
 │   ├── prompt/      ← SectionDataLoader (16 parallel loaders) + PromptTemplateCompiler
@@ -197,9 +197,15 @@ Dark navy/gold theme. Classes: `login-bg`, `login-card`, `login-form-card`, `log
 
 ## RBAC
 
-**SUPERADMIN (5) > ADMIN (4) > OPERATOR (3) > SUPER_TESTER (2) > TESTER/VIEWER (1) > DEMO (0)**
+**SUPERADMIN (5) > ADMIN (4) > OPERATOR/EDUCATOR (3) > SUPER_TESTER (2) > TESTER/STUDENT/VIEWER (1) > DEMO (0)**
 
-Public routes (no auth): `/api/auth/*`, `/api/health`, `/api/ready`, `/api/system/readiness`, `/api/invite/*`
+- `EDUCATOR` (level 3) — educator portal, scoped to own cohorts + students
+- `STUDENT` (level 1) — student portal, own data only
+- `VIEWER` — deprecated alias for TESTER
+
+Public routes (no auth): `/api/auth/*`, `/api/health`, `/api/ready`, `/api/system/readiness`, `/api/invite/*`, `/api/join/*`
+
+Webhook-secret routes (no session auth, validated via `lib/vapi/auth.ts`): `/api/vapi/*`, `/api/webhook/*`
 
 Sim access: all sim routes use `requireAuth("VIEWER")`.
 

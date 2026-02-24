@@ -74,14 +74,17 @@ function getResultPath(task: UserTask): string {
       if (ctx?.domainId) return `/x/domains?id=${ctx.domainId}`;
       break;
     case 'extraction':
+      if (ctx?.courseId && ctx?.subjectId) return `/x/courses/${ctx.courseId}/subjects/${ctx.subjectId}`;
       if (summary?.sourceId) return `/x/content-sources/${summary.sourceId}`;
       if (ctx?.sourceId) return `/x/content-sources/${ctx.sourceId}`;
       break;
     case 'curriculum_generation':
+      if (ctx?.courseId && ctx?.subjectId) return `/x/courses/${ctx.courseId}/subjects/${ctx.subjectId}`;
       if (summary?.subject?.id) return `/x/subjects?id=${summary.subject.id}`;
       if (ctx?.subjectId) return `/x/subjects?id=${ctx.subjectId}`;
       break;
     case 'content_wizard':
+      if (ctx?.courseId && ctx?.subjectId) return `/x/courses/${ctx.courseId}/subjects/${ctx.subjectId}`;
       if (summary?.subject?.id) return `/x/subjects?id=${summary.subject.id}`;
       if (summary?.domain?.id) return `/x/domains?id=${summary.domain.id}`;
       if (ctx?.subjectId) return `/x/subjects?id=${ctx.subjectId}`;
@@ -95,6 +98,7 @@ function getResultPath(task: UserTask): string {
       if (ctx?.specId) return `/x/specs/${ctx.specId}`;
       break;
     case 'course_setup':
+      if (summary?.playbook?.id) return `/x/courses/${summary.playbook.id}`;
       if (summary?.domain?.id) return `/x/domains?id=${summary.domain.id}`;
       break;
     case 'classroom_setup':
@@ -106,7 +110,9 @@ function getResultPath(task: UserTask): string {
 
 function getResumePath(task: UserTask): string {
   const ctx = task.context;
+  if (task.taskType === 'curriculum_generation' && ctx?.courseId && ctx?.subjectId) return `/x/courses/${ctx.courseId}/subjects/${ctx.subjectId}`;
   if (task.taskType === 'curriculum_generation' && ctx?.subjectId) return `/x/subjects?id=${ctx.subjectId}`;
+  if (task.taskType === 'content_wizard' && ctx?.courseId && ctx?.subjectId) return `/x/courses/${ctx.courseId}/subjects/${ctx.subjectId}`;
   if (task.taskType === 'content_wizard' && ctx?.subjectId) return `/x/subjects?id=${ctx.subjectId}`;
   return JOB_TYPE_LABELS[task.taskType]?.resumePath || '/x';
 }

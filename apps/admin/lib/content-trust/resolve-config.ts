@@ -29,7 +29,7 @@ export interface ExtractionCategory {
   description: string;
 }
 
-export type DocumentType = "CURRICULUM" | "TEXTBOOK" | "WORKSHEET" | "EXAMPLE" | "ASSESSMENT" | "REFERENCE" | "COMPREHENSION" | "LESSON_PLAN" | "POLICY_DOCUMENT";
+export type DocumentType = "CURRICULUM" | "TEXTBOOK" | "WORKSHEET" | "EXAMPLE" | "ASSESSMENT" | "REFERENCE" | "COMPREHENSION" | "LESSON_PLAN" | "POLICY_DOCUMENT" | "READING_PASSAGE" | "QUESTION_BANK";
 
 export interface ClassificationConfig {
   systemPrompt: string;
@@ -180,21 +180,25 @@ You receive a multi-point sample from a document (start, middle, and end section
 - EXAMPLE: An illustrative or case-study document used as source material for discussion. Something the AI will talk ABOUT with the learner. Examples: sample cross-contamination report, case study document, sample complaint letter.
 - LESSON_PLAN: A teacher-facing plan with objectives, activities, timing, differentiation strategies, and assessment opportunities. NOT a student document. Examples: lesson plan for "Introduction to Negotiation", scheme of work, teaching guide.
 - POLICY_DOCUMENT: A regulatory, compliance, or safety procedure document. Defines required practices, hazards, control measures, legal requirements. Examples: Food Standards Agency pest control guide, HACCP procedures, health & safety policy, regulatory compliance manual.
+- READING_PASSAGE: A standalone reading passage or text extract that the learner reads before or during a tutoring session. Contains narrative, descriptive, or informational prose but NO questions, exercises, or answer keys. Often has metadata headers (title, author, word count, text type). The document IS the text the learner reads — nothing more. Examples: chapter extract from The Secret Garden, a poem for analysis, a news article for discussion, a descriptive passage for comprehension practice.
+- QUESTION_BANK: A tutor reference document containing questions mapped to skills or learning outcomes, with model answers at multiple proficiency tiers (e.g., Emerging / Developing / Secure), suggested tutor responses or "next moves" at each tier, and assessment guidance. NOT a learner-facing test — it is a teaching script or tutor playbook. The tutor uses this to guide conversation. Typically references a separate reading passage. Examples: comprehension question bank with tiered model responses, skill-mapped discussion guide, tutor playbook for a specific passage.
 
 DISAMBIGUATION RULES (apply in order):
 1. Has numbered LOs/ACs/Range statements → CURRICULUM (not TEXTBOOK)
-2. Has reading passage + comprehension questions + answers, learner reads but doesn't fill in → COMPREHENSION (not WORKSHEET)
-3. Has blank spaces, fill-in tables, or requires learner to write/produce content → WORKSHEET (not COMPREHENSION)
-4. Has mark scheme, grade boundaries, or is explicitly an exam/test → ASSESSMENT (not WORKSHEET)
-5. Is teacher-facing with lesson timing, activities, differentiation → LESSON_PLAN (not TEXTBOOK)
-6. Defines safety procedures, hazards, control measures, legal requirements → POLICY_DOCUMENT (not TEXTBOOK or REFERENCE)
-7. Is flat lookup (glossary, chart, table) with no narrative → REFERENCE (not TEXTBOOK)
+2. Pure reading text with NO questions, exercises, or answer keys — just the passage → READING_PASSAGE (not TEXTBOOK or COMPREHENSION)
+3. Questions with tiered model responses (Emerging/Developing/Secure) + tutor guidance + skill mappings → QUESTION_BANK (not ASSESSMENT or COMPREHENSION)
+4. Has reading passage + comprehension questions + answers IN THE SAME DOCUMENT, learner reads but doesn't fill in → COMPREHENSION (not WORKSHEET or READING_PASSAGE)
+5. Has blank spaces, fill-in tables, or requires learner to write/produce content → WORKSHEET (not COMPREHENSION)
+6. Has mark scheme, grade boundaries, or is explicitly an exam/test → ASSESSMENT (not WORKSHEET)
+7. Is teacher-facing with lesson timing, activities, differentiation → LESSON_PLAN (not TEXTBOOK)
+8. Defines safety procedures, hazards, control measures, legal requirements → POLICY_DOCUMENT (not TEXTBOOK or REFERENCE)
+9. Is flat lookup (glossary, chart, table) with no narrative → REFERENCE (not TEXTBOOK)
 
 IMPORTANT: Look at ALL sections (start, middle, AND end) before classifying. Many teaching documents are COMPOSITE.
 
 Return a JSON object:
 {
-  "documentType": "CURRICULUM" | "TEXTBOOK" | "COMPREHENSION" | "WORKSHEET" | "ASSESSMENT" | "REFERENCE" | "EXAMPLE" | "LESSON_PLAN" | "POLICY_DOCUMENT",
+  "documentType": "CURRICULUM" | "TEXTBOOK" | "COMPREHENSION" | "WORKSHEET" | "ASSESSMENT" | "REFERENCE" | "EXAMPLE" | "LESSON_PLAN" | "POLICY_DOCUMENT" | "READING_PASSAGE" | "QUESTION_BANK",
   "confidence": 0.0-1.0,
   "reasoning": "one sentence explaining why"
 }
@@ -481,6 +485,84 @@ Return ONLY valid JSON.`,
           { depth: 0, label: "topic", maxChildren: 10, renderAs: "heading", description: "Major topic area" },
           { depth: 1, label: "safety_point", maxChildren: 6, renderAs: "bold", description: "Individual safety point or requirement" },
           { depth: 2, label: "detail", maxChildren: 4, renderAs: "bullet", description: "Supporting detail or measure" },
+        ],
+      },
+    },
+    READING_PASSAGE: {
+      extraction: {
+        systemPrompt: `You are extracting from a standalone reading passage — a text the learner reads before or during a tutoring session.
+This is literary or informational prose. There are no questions. Your job is to extract the content that a tutor would discuss with the learner.
+
+Categories:
+- key_event: A major plot event, turning point, or factual point in the passage
+- character: A character introduction, description, or significant action
+- vocabulary_highlight: A word or phrase that is rich for vocabulary-in-context discussion (challenging, unusual, or deliberately chosen by the writer)
+- language_feature: A notable use of language — metaphor, simile, personification, imagery, alliteration, atmosphere, tone shift
+- theme: A theme, idea, or message the passage explores or implies
+- key_quote: A significant quote worth close reading or discussion (include the exact text)
+- setting: A place, time, or atmosphere detail that matters to the passage
+
+IMPORTANT:
+- Extract vocabulary_highlight items that a tutor would ask "What do you think this word means here?"
+- Extract language_feature items that a tutor would ask "Why did the writer describe it this way?"
+- For key_quote, include the EXACT text from the passage in quotation marks
+- Capture the passage's emotional arc or atmosphere shifts
+- Do NOT invent content not present in the source text
+- Return ONLY valid JSON`,
+        categories: [
+          { id: "key_event", label: "Key Event", description: "A major plot event or factual point" },
+          { id: "character", label: "Character", description: "A character introduction or significant action" },
+          { id: "vocabulary_highlight", label: "Vocabulary", description: "A word/phrase rich for vocabulary discussion" },
+          { id: "language_feature", label: "Language Feature", description: "Notable language use (metaphor, imagery, etc.)" },
+          { id: "theme", label: "Theme", description: "A theme or idea the passage explores" },
+          { id: "key_quote", label: "Key Quote", description: "A significant quote for close reading" },
+          { id: "setting", label: "Setting", description: "Place, time, or atmosphere detail" },
+        ],
+        maxAssertionsPerDocument: 100,
+      },
+      structuring: {
+        levels: [
+          { depth: 0, label: "passage", maxChildren: 1, renderAs: "paragraph", description: "Passage overview and context" },
+          { depth: 1, label: "section", maxChildren: 5, renderAs: "heading", description: "Major section or scene" },
+          { depth: 2, label: "teaching_point", maxChildren: 6, renderAs: "bold", description: "Individual teaching point" },
+          { depth: 3, label: "detail", maxChildren: 4, renderAs: "bullet", description: "Supporting detail or quote" },
+        ],
+      },
+    },
+    QUESTION_BANK: {
+      extraction: {
+        systemPrompt: `You are extracting from a tutor question bank — a teaching reference document with skill-mapped questions and tiered model responses.
+This is NOT a learner-facing test. It is a structured guide for an AI tutor, containing:
+- Questions organized by comprehension/teaching skill
+- Model responses at multiple proficiency tiers (e.g., Emerging, Developing, Secure)
+- Suggested tutor moves (what to say/do next) at each tier
+- Assessment notes explaining what the question tests
+- Text references pointing to specific parts of the reading passage
+
+Categories:
+- session_metadata: Session-level information (recommended sequence, objective, passage metadata)
+- skill_description: A description of a skill being assessed (e.g., "Retrieval: Locating explicit information...")
+- tutor_question: A question the tutor asks, with its full tiered response structure (this is the primary output)
+- assessment_guidance: General assessment notes or teaching guidance
+
+For tutor_question items, the assertion text should be the question itself.
+Tag each tutor_question with the skill it targets (e.g., "retrieval", "inference", "vocabulary", "language-effect").
+
+Return a JSON array with: assertion, category, chapter (= skill name), section (= question number like "1.1"), tags, learningOutcomeRef.
+Return ONLY valid JSON.`,
+        categories: [
+          { id: "session_metadata", label: "Session Metadata", description: "Session info, recommended sequence, passage metadata" },
+          { id: "skill_description", label: "Skill Description", description: "Description of a comprehension skill" },
+          { id: "tutor_question", label: "Tutor Question", description: "A skill-mapped question with tiered responses" },
+          { id: "assessment_guidance", label: "Assessment Guidance", description: "General assessment or teaching guidance" },
+        ],
+        maxAssertionsPerDocument: 200,
+      },
+      structuring: {
+        levels: [
+          { depth: 0, label: "skill_group", maxChildren: 10, renderAs: "heading", description: "Comprehension skill (Retrieval, Inference, etc.)" },
+          { depth: 1, label: "question", maxChildren: 5, renderAs: "bold", description: "Individual question with tiered responses" },
+          { depth: 2, label: "detail", maxChildren: 4, renderAs: "bullet", description: "Model response or assessment note" },
         ],
       },
     },

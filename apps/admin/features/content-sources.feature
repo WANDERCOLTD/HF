@@ -1,4 +1,4 @@
-Feature: Content Sources
+Feature: Materials
   As an educator or admin
   I want to upload course materials and extract teaching content
   So that the AI tutor has accurate, trusted curriculum to teach from
@@ -8,11 +8,11 @@ Feature: Content Sources
     And a domain exists with a published playbook
 
   # =============================================================================
-  # CONTENT SOURCE WIZARD (Multi-Step)
+  # MATERIAL WIZARD (Multi-Step)
   # =============================================================================
 
   @wizard @critical
-  Scenario: Content source wizard follows step sequence
+  Scenario: Material wizard follows step sequence
     When I navigate to /x/content-sources and start the wizard
     Then the wizard should present steps in order:
       | step    | name      | description                              |
@@ -28,7 +28,7 @@ Feature: Content Sources
   # =============================================================================
 
   @wizard @source
-  Scenario: Upload a document as content source
+  Scenario: Upload a document as material
     Given I am on the Source step
     When I upload a PDF file "chapter-1.pdf"
     Then the file should be stored as a ContentSource record
@@ -112,11 +112,11 @@ Feature: Content Sources
     And the Vocabulary tab should show a count badge
 
   # =============================================================================
-  # CONTENT SOURCE LIBRARY
+  # MATERIALS LIBRARY
   # =============================================================================
 
   @library
-  Scenario: View content sources library
+  Scenario: View materials library
     When I navigate to /x/content-sources
     Then I should see a list of all ContentSource records
     And each source should show:
@@ -129,7 +129,7 @@ Feature: Content Sources
 
   @library
   Scenario: Active jobs banner shows processing status
-    Given 2 content sources are currently being processed
+    Given 2 materials are currently being processed
     When I view /x/content-sources
     Then the ActiveJobsBanner should show 2 active jobs
     And each job should show progress
@@ -139,7 +139,7 @@ Feature: Content Sources
   # =============================================================================
 
   @import
-  Scenario: Import content source into domain
+  Scenario: Import material into domain
     Given a reviewed ContentSource exists
     When I POST /api/content-sources/{sourceId}/import
     Then the content should be linked to the domain's CONTENT spec
@@ -151,8 +151,8 @@ Feature: Content Sources
   # =============================================================================
 
   @auth
-  Scenario: Content source routes require authentication
-    Given the following content source routes exist:
+  Scenario: Material routes require authentication
+    Given the following material routes exist:
       | route                                     | method |
       | /api/content-sources                      | GET    |
       | /api/content-sources                      | POST   |

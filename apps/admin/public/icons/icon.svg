@@ -2,6 +2,6 @@
   <rect width="512" height="512" rx="96" fill="#1F1B4A"/>
   <text x="256" y="264" text-anchor="middle" dominant-baseline="central"
         font-family="system-ui, -apple-system, Helvetica, Arial, sans-serif"
-        font-size="210" font-weight="700"
-        fill="#F5B856">HF</text>
+        font-size="160" font-weight="800" letter-spacing="-8"
+        fill="#F5B856">HFF</text>
 </svg>

@@ -340,7 +340,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         {/* PWA manifest and mobile meta tags */}
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#075E54" />
+        <meta name="theme-color" content="#1F1B4A" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />

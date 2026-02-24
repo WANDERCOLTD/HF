@@ -47,6 +47,8 @@ export async function saveQuestions(
       answerExplanation: q.answerExplanation || null,
       markScheme: q.markScheme || null,
       learningOutcomeRef: q.learningOutcomeRef || null,
+      skillRef: q.skillRef || null,
+      metadata: q.metadata || undefined,
       difficulty: q.difficulty || null,
       pageRef: q.pageRef || null,
       chapter: q.chapter || null,

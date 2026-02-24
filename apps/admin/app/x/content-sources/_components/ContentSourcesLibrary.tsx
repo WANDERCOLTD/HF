@@ -14,6 +14,8 @@ import {
   UsedByCell,
   ArchivedBadge,
 } from "./shared/badges";
+import { SourceStatusDots, type SourceStatusData } from "@/components/shared/SourceStatusDots";
+import { useSourceStatus } from "@/hooks/useSourceStatus";
 
 // ── Inline Uploader (background extraction) ─────────────
 
@@ -251,12 +253,14 @@ function SourceRow({
   onToggleUpload,
   onUploadDone,
   onRefresh,
+  status,
 }: {
   source: ContentSource;
   isUploading: boolean;
   onToggleUpload: () => void;
   onUploadDone: () => void;
   onRefresh: () => void;
+  status?: SourceStatusData | null;
 }) {
   const [extracting, setExtracting] = useState(false);
   const [changingType, setChangingType] = useState(false);
@@ -361,13 +365,16 @@ function SourceRow({
           <UsedByCell subjects={s.subjects} />
         </td>
         <td className="cs-td-right">
-          {s._count.assertions > 0 ? (
-            <Link href={`/x/content-sources/${s.id}`} className="hf-no-decoration hf-text-500" style={{ color: "var(--accent-primary)" }}>
-              {s._count.assertions}
-            </Link>
-          ) : (
-            <span className="hf-text-muted">0</span>
-          )}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <SourceStatusDots status={status ?? null} />
+            {s._count.assertions > 0 ? (
+              <Link href={`/x/content-sources/${s.id}`} className="hf-no-decoration hf-text-500" style={{ color: "var(--accent-primary)" }}>
+                {s._count.assertions}
+              </Link>
+            ) : (
+              <span className="hf-text-muted">0</span>
+            )}
+          </div>
         </td>
         <td className="cs-td-right">
           <div className="hf-flex hf-gap-xs hf-justify-end">
@@ -382,7 +389,7 @@ function SourceRow({
             <button
               onClick={handleArchiveToggle}
               disabled={archiveAction}
-              title={isArchived ? "Restore this source" : "Archive this source"}
+              title={isArchived ? "Restore this material" : "Archive this material"}
               className="hf-btn hf-btn-secondary hf-btn-xs"
             >
               {archiveAction ? "..." : isArchived ? "Unarchive" : "Archive"}
@@ -515,13 +522,13 @@ function CreateSourceForm({ onCreated, onCancel }: { onCreated: () => void; onCa
 
   return (
     <form onSubmit={handleSubmit} className="hf-form-panel">
-      <h3 className="hf-heading-sm" style={{ margin: "0 0 12px", fontSize: 16 }}>Add Content Source</h3>
+      <h3 className="hf-heading-sm" style={{ margin: "0 0 12px", fontSize: 16 }}>Add Material</h3>
 
       <div className="hf-mb-md">
         <div className="hf-flex hf-gap-sm">
           <input type="text" value={intentText} onChange={(e) => setIntentText(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && intentText.trim() && !suggesting) { e.preventDefault(); handleSuggest(); } }}
-            placeholder='Describe the source... e.g. "CII R04 Insurance Syllabus 2025/26" or paste an ISBN'
+            placeholder='Describe the material... e.g. "CII R04 Insurance Syllabus 2025/26" or paste an ISBN'
             disabled={suggesting}
             className="hf-input-compact hf-flex-1"
             style={{ padding: "8px 12px" }}
@@ -586,7 +593,7 @@ function CreateSourceForm({ onCreated, onCancel }: { onCreated: () => void; onCa
 
       <div className="hf-flex hf-gap-sm">
         <button type="submit" disabled={saving} className="hf-btn hf-btn-primary">
-          {saving ? "Saving..." : "Create Source"}
+          {saving ? "Saving..." : "Create Material"}
         </button>
         <button type="button" onClick={onCancel} className="hf-btn hf-btn-secondary">
           Cancel
@@ -648,7 +655,7 @@ export default function ContentSourcesLibrary() {
     const slug = baseName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const name = baseName.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-    setDropStatus({ phase: "creating", message: `Creating source "${name}"...` });
+    setDropStatus({ phase: "creating", message: `Creating material "${name}"...` });
     try {
       const createRes = await fetch("/api/content-sources", {
         method: "POST",
@@ -656,7 +663,7 @@ export default function ContentSourcesLibrary() {
         body: JSON.stringify({ slug, name, trustLevel: "UNVERIFIED" }),
       });
       const createData = await createRes.json();
-      if (!createRes.ok) throw new Error(createData.error || "Failed to create source");
+      if (!createRes.ok) throw new Error(createData.error || "Failed to create material");
 
       const sourceId = createData.source.id;
 
@@ -678,7 +685,7 @@ export default function ContentSourcesLibrary() {
         ? Math.round(classifyData.classification.confidence * 100)
         : 0;
       const typeMsg = detectedType ? ` Classified as ${detectedType.icon} ${detectedType.label} (${pct}%).` : "";
-      setDropStatus({ phase: "done", message: `Source created.${typeMsg} Review the type, then extract.` });
+      setDropStatus({ phase: "done", message: `Material created.${typeMsg} Review the type, then extract.` });
       fetchSources();
       setTimeout(() => setDropStatus({ phase: "idle", message: "" }), 5000);
     } catch (err: any) {
@@ -697,6 +704,10 @@ export default function ContentSourcesLibrary() {
       (s.publisherOrg || "").toLowerCase().includes(q)
     );
   });
+
+  // Batch-fetch processing status for all visible sources
+  const sourceIds = filtered.map((s) => s.id);
+  const statusMap = useSourceStatus(sourceIds);
 
   const expired = sources.filter((s) => s.validUntil && new Date(s.validUntil) < new Date());
   const expiringSoon = sources.filter((s) => {
@@ -717,7 +728,7 @@ export default function ContentSourcesLibrary() {
         <div className="hf-drop-overlay">
           <div className="hf-drop-card">
             <div className="hf-mb-sm" style={{ fontSize: 32 }}>&#128196;</div>
-            <div className="hf-text-bold" style={{ fontSize: 16, color: "var(--text-primary)" }}>Drop to create source &amp; classify</div>
+            <div className="hf-text-bold" style={{ fontSize: 16, color: "var(--text-primary)" }}>Drop to create material &amp; classify</div>
             <div className="hf-text-xs hf-text-muted hf-mt-xs">PDF, TXT, MD, JSON</div>
           </div>
         </div>
@@ -739,20 +750,20 @@ export default function ContentSourcesLibrary() {
           {expired.length > 0 && (
             <div className="hf-banner hf-banner-error hf-text-sm hf-mb-0">
               <span className="hf-text-bold hf-text-error">{expired.length} expired</span>
-              <span className="hf-text-error"> source{expired.length > 1 ? "s" : ""} need{expired.length === 1 ? "s" : ""} updating</span>
+              <span className="hf-text-error"> material{expired.length > 1 ? "s" : ""} need{expired.length === 1 ? "s" : ""} updating</span>
             </div>
           )}
           {expiringSoon.length > 0 && (
             <div className="hf-banner hf-banner-warning hf-text-sm hf-mb-0">
               <span className="hf-text-bold hf-text-warning">{expiringSoon.length}</span>
-              <span className="hf-text-warning"> source{expiringSoon.length > 1 ? "s" : ""} expiring within 60 days</span>
+              <span className="hf-text-warning"> material{expiringSoon.length > 1 ? "s" : ""} expiring within 60 days</span>
             </div>
           )}
         </div>
       )}
 
       <div className="hf-flex hf-gap-md hf-mb-md hf-flex-wrap">
-        <input type="text" placeholder="Search sources..." value={search} onChange={(e) => setSearch(e.target.value)}
+        <input type="text" placeholder="Search materials..." value={search} onChange={(e) => setSearch(e.target.value)}
           className="hf-input" style={{ width: 240 }}
         />
         <select value={filterTrust} onChange={(e) => setFilterTrust(e.target.value)}
@@ -766,9 +777,9 @@ export default function ContentSourcesLibrary() {
         </label>
         <button onClick={() => setShowCreateForm(!showCreateForm)}
           className="hf-btn hf-btn-primary">
-          + Add Source
+          + Add Material
         </button>
-        <span className="hf-text-xs hf-text-muted">{filtered.length} source{filtered.length !== 1 ? "s" : ""}</span>
+        <span className="hf-text-xs hf-text-muted">{filtered.length} material{filtered.length !== 1 ? "s" : ""}</span>
       </div>
 
       {showCreateForm && (
@@ -780,13 +791,13 @@ export default function ContentSourcesLibrary() {
       ) : error ? (
         <div className="hf-banner hf-banner-error">Error: {error}</div>
       ) : filtered.length === 0 ? (
-        <p className="hf-text-muted">No content sources found. Add one to get started.</p>
+        <p className="hf-text-muted">No materials found. Add one to get started.</p>
       ) : (
         <div style={{ overflowX: "auto" }}>
           <table className="hf-html-table">
             <thead>
               <tr className="hf-thead-border">
-                <th className="cs-th">Source</th>
+                <th className="cs-th">Material</th>
                 <th className="cs-th">Type</th>
                 <th className="cs-th">Trust Level</th>
                 <th className="cs-th">Qualification</th>
@@ -806,6 +817,7 @@ export default function ContentSourcesLibrary() {
                   onToggleUpload={() => setUploadSourceId(uploadSourceId === s.id ? null : s.id)}
                   onUploadDone={() => { setUploadSourceId(null); fetchSources(); }}
                   onRefresh={fetchSources}
+                  status={statusMap[s.id] ?? null}
                 />
               ))}
             </tbody>

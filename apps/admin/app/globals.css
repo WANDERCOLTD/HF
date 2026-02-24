@@ -40,6 +40,9 @@
   --accent-primary-text: #ffffff;
   --accent: var(--accent-primary); /* shorthand alias used by communities/courses */
 
+  /* Secondary accent (AI, purple highlights) */
+  --accent-secondary: #8b5cf6;
+
   /* Masquerade accent */
   --masquerade-color: #7c3aed;
   --masquerade-border: #6d28d9;
@@ -281,6 +284,9 @@ html.dark {
   --accent-primary-text: #0f0f0f;
   --accent: var(--accent-primary); /* shorthand alias */
 
+  /* Secondary accent (AI, purple highlights) — brighter for dark mode */
+  --accent-secondary: #a78bfa;
+
   /* Masquerade accent — same purple works in dark mode */
   --masquerade-color: #7c3aed;
   --masquerade-border: #6d28d9;
@@ -519,6 +525,9 @@ html.dark {
     --accent-primary-hover: #3b82f6;
     --accent-primary-text: #0f0f0f;
     --accent: var(--accent-primary); /* shorthand alias */
+
+    /* Secondary accent (AI, purple highlights) — brighter for dark mode */
+    --accent-secondary: #a78bfa;
 
     /* Masquerade accent — same purple works in dark mode */
     --masquerade-color: #7c3aed;
@@ -1310,6 +1319,51 @@ html.light {
   color: var(--status-error-text);
 }
 
+/* Hierarchy Breadcrumb */
+.hf-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+  font-size: 13px;
+  min-height: 36px;
+}
+.hf-breadcrumb-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.hf-breadcrumb-segment:hover {
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+.hf-breadcrumb-current {
+  color: var(--text-primary);
+  font-weight: 600;
+  pointer-events: none;
+}
+.hf-breadcrumb-separator {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+.hf-breadcrumb-skeleton {
+  display: inline-block;
+  width: 80px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--surface-secondary);
+  animation: hf-pulse 1.5s ease-in-out infinite;
+}
+
 /* Category labels (sidebar headers, tab section labels) */
 .hf-category-label {
   font-size: 11px;
@@ -1663,6 +1717,7 @@ html.light {
   flex-direction: column;
   gap: 12px;
 }
+.hf-stat-card-compact { min-width: 90px; gap: 0; }
 
 /* Code / prompt display blocks (dark monospace panels) */
 .hf-code-block {
@@ -2103,6 +2158,32 @@ html.light {
   color: var(--accent-primary);
 }
 
+/* Chip card variant — large selectable cards (e.g., content mode picker) */
+.hf-chip-card-row { display: flex; gap: 12px; margin-bottom: 32px; }
+.hf-chip-card {
+  flex: 1;
+  padding: 16px;
+  text-align: center;
+  display: block;
+  border-radius: 10px;
+  border: 2px solid var(--border-default);
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+.hf-chip-card:hover { border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent); }
+.hf-chip-card-selected {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  color: var(--accent-primary);
+}
+.hf-chip-card-icon { width: 20px; height: 20px; margin: 0 auto 8px; }
+.hf-chip-card-emoji { font-size: 20px; display: block; margin-bottom: 8px; }
+.hf-chip-card-title { font-weight: 600; font-size: 14px; }
+.hf-chip-card-desc { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
 /* AI reasoning callout box */
 .hf-ai-callout {
   padding: 12px 16px;
@@ -2403,6 +2484,16 @@ html.light {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 10px;
+}
+.hf-card-grid-lg {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.hf-card-grid-md {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
 }
 
 /* ── Floating action bar (bottom-center) ── */
@@ -4528,6 +4619,12 @@ html.light {
   flex-shrink: 0;
 }
 @keyframes hf-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* Source status dots (SourceStatusDots component) */
+.source-status-dots { display: inline-flex; align-items: center; gap: 4px; }
+.source-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.source-dot--pulse { animation: hf-pulse 1.5s ease-in-out infinite; }
+.source-dot-label { font-size: 11px; color: var(--text-muted); margin-left: 4px; }
 
 /* Drop overlay (drag-and-drop target) */
 .hf-drop-overlay {

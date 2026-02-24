@@ -101,10 +101,25 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
   const contentSlug = `${domain.slug}-content`;
   const existing = await p.analysisSpec.findFirst({
     where: { slug: contentSlug },
-    select: { id: true, slug: true, name: true },
+    select: { id: true, slug: true, name: true, config: true },
   });
 
   if (existing && !options?.regenerate) {
+    // Check if new assertions have arrived since last generation → mark dirty
+    if (assertions.length > 0) {
+      const cfg = existing.config as Record<string, any> | null;
+      const generatedCount = cfg?.assertionCount ?? 0;
+      if (assertions.length > generatedCount) {
+        await p.analysisSpec.update({
+          where: { id: existing.id },
+          data: {
+            isDirty: true,
+            dirtyReason: `New teaching points: ${assertions.length} now vs ${generatedCount} at generation`,
+          },
+        });
+      }
+    }
+
     return {
       contentSpec: existing,
       moduleCount: 0,
@@ -187,6 +202,7 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
         description: specData.description,
         config: specData.config,
         isDirty: false,
+        dirtyReason: null,
       },
       select: { id: true, slug: true, name: true },
     });

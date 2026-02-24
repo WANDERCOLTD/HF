@@ -257,6 +257,31 @@ export default function SimpleSidebarNav({
     return () => clearInterval(interval);
   }, [userId, userRole]);
 
+  // Content review queue count badge (OPERATOR+ only)
+  const [reviewCount, setReviewCount] = useState(0);
+  const isOperatorPlus = ["OPERATOR", "ADMIN", "SUPERADMIN"].includes(userRole || "");
+
+  useEffect(() => {
+    if (!userId || !isOperatorPlus) return;
+
+    const fetchReviewCount = async () => {
+      try {
+        const res = await fetch("/api/content-review/counts");
+        const data = await res.json();
+        if (data.ok) {
+          const c = data.counts;
+          setReviewCount((c?.unreviewed ?? 0) + (c?.dirty ?? 0) + (c?.errors ?? 0));
+        }
+      } catch {
+        // Silent fail
+      }
+    };
+
+    fetchReviewCount();
+    const interval = setInterval(fetchReviewCount, 30000);
+    return () => clearInterval(interval);
+  }, [userId, isOperatorPlus]);
+
   // Collapse state
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const collapsed = externalCollapsed ?? internalCollapsed;
@@ -733,6 +758,9 @@ export default function SimpleSidebarNav({
                         {item.href === "/x/student/stuff" && studentUnreadCount > 0 && (
                           <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: "var(--accent-primary)" }} />
                         )}
+                        {item.href === "/x/content-review" && reviewCount > 0 && (
+                          <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: "var(--status-warning-text)" }} />
+                        )}
                       </Link>
                     ) : (
                       <Link
@@ -816,6 +844,17 @@ export default function SimpleSidebarNav({
                             }}
                           >
                             {studentUnreadCount}
+                          </span>
+                        )}
+                        {item.href === "/x/content-review" && reviewCount > 0 && (
+                          <span
+                            className="ml-auto inline-flex items-center justify-center rounded-full text-[10px] font-semibold text-white min-w-[18px] px-1.5 py-0.5"
+                            style={{
+                              background: "var(--status-warning-text)",
+                              opacity: active ? 0.8 : 1,
+                            }}
+                          >
+                            {reviewCount}
                           </span>
                         )}
                       </Link>

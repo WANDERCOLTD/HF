@@ -11,12 +11,16 @@ import { GenericExtractor } from "./generic-extractor";
 import { CurriculumExtractor } from "./curriculum-extractor";
 import { ComprehensionExtractor } from "./comprehension-extractor";
 import { AssessmentExtractor } from "./assessment-extractor";
+import { ReadingPassageExtractor } from "./reading-passage-extractor";
+import { QuestionBankExtractor } from "./question-bank-extractor";
 
 // Registry of specialist extractors (by document type)
 const SPECIALIST_EXTRACTORS: Partial<Record<DocumentType, new () => DocumentExtractor>> = {
   CURRICULUM: CurriculumExtractor,
   COMPREHENSION: ComprehensionExtractor,
   ASSESSMENT: AssessmentExtractor,
+  READING_PASSAGE: ReadingPassageExtractor,
+  QUESTION_BANK: QuestionBankExtractor,
 };
 
 /**

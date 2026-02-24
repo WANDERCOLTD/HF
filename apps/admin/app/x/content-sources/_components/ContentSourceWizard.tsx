@@ -14,7 +14,7 @@ import PreviewStep from "./steps/PreviewStep";
 import DoneStep from "./steps/DoneStep";
 
 export const CONTENT_STEPS: StepDefinition[] = [
-  { id: "source", label: "Add Source", activeLabel: "Adding Source" },
+  { id: "source", label: "Add Material", activeLabel: "Adding Material" },
   { id: "extract", label: "Extract", activeLabel: "Extracting Content" },
   { id: "review", label: "Review", activeLabel: "Reviewing Assertions" },
   { id: "plan", label: "Plan Sessions", activeLabel: "Planning Sessions" },

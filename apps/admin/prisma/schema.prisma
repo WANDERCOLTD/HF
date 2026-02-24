@@ -36,17 +36,19 @@ enum ContentTrustLevel {
 // Document classification - intrinsic type of a content source document
 // Determines extraction strategy, categories, and pyramid structure
 enum DocumentType {
-  // --- Existing (6) ---
+  // --- Core (6) ---
   CURRICULUM // Formal syllabus with LOs/ACs — auto-structures pyramid
   TEXTBOOK // Dense reference material — full extraction + structuring
   WORKSHEET // Fill-in / write-up / production sheet (student completes it)
   EXAMPLE // Illustrative document — light concept extraction
   ASSESSMENT // Test/quiz material — questions/answers/misconceptions
   REFERENCE // Glossary/cheat sheet — flat term extraction
-  // --- New (3) ---
+  // --- Extended (5) ---
   COMPREHENSION // Reading passage + comprehension questions + answers (Black Death, Negotiating)
   LESSON_PLAN // Teacher's plan: objectives, activities, timing, resources
   POLICY_DOCUMENT // Regulatory/compliance/safety procedure (Pest Control, HACCP)
+  READING_PASSAGE // Standalone reading text — learner reads before/during session (no questions)
+  QUESTION_BANK // Tutor reference: skill-mapped questions with tiered model responses + guidance
 }
 
 // Question types for ContentQuestion model
@@ -59,6 +61,7 @@ enum QuestionType {
   OPEN // Open-ended discussion question
   UNSCRAMBLE // Rearrange letters/words
   ORDERING // Put items in correct order
+  TUTOR_QUESTION // Skill-mapped question with tiered model responses + tutor moves (from QUESTION_BANK)
 }
 
 // Conversation artifact types - content worth sharing from a call
@@ -741,10 +744,15 @@ model Invite {
   invitedById   String? // Track invitation chain (User ID who sent the invite)
   invitedBy     User?        @relation("SentInvites", fields: [invitedById], references: [id])
 
+  // Course scoping — invite to a specific playbook (course)
+  playbookId String?
+  playbook   Playbook? @relation(fields: [playbookId], references: [id])
+
   @@index([token])
   @@index([email])
   @@index([domainId])
   @@index([cohortGroupId])
+  @@index([playbookId])
 }
 
 model Caller {
@@ -1096,6 +1104,9 @@ model CallerPlaybook {
   // Source tracking — how this enrollment was created
   enrolledBy String? // "quick-launch" | "invite" | "auto" | "manual" | "migration"
 
+  // Default course — used when no explicit playbookId is provided (e.g. phone-in callers)
+  isDefault Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1173,6 +1184,10 @@ model Call {
 
   caller Caller? @relation(fields: [callerId], references: [id])
 
+  // Course scoping — which playbook (course) this call belongs to
+  playbookId String?
+  playbook   Playbook? @relation("PlaybookCalls", fields: [playbookId], references: [id])
+
   // Call sequencing for delta calculations
   // Links to the previous call for this caller (for computing ADAPT parameters)
   previousCallId String?
@@ -1220,6 +1235,7 @@ model Call {
   @@index([callerId], map: "Call_userId_idx")
   @@index([previousCallId])
   @@index([usedPromptId])
+  @@index([playbookId])
 }
 
 model CallMessage {
@@ -2332,6 +2348,11 @@ model Playbook {
   // Cohort assignments — which classrooms use this playbook (course)
   cohortAssignments CohortPlaybook[]
 
+  // Inverse relations for course scoping
+  calls           Call[]           @relation("PlaybookCalls")
+  composedPrompts ComposedPrompt[] @relation("PlaybookPrompts")
+  invites         Invite[]
+
   @@index([domainId])
   @@index([domainId, sortOrder])
   @@index([status])
@@ -2659,6 +2680,10 @@ model ComposedPrompt {
   id       String @id @default(uuid())
   callerId String
 
+  // Course scoping — which playbook (course) this prompt was composed for
+  playbookId String?
+  playbook   Playbook? @relation("PlaybookPrompts", fields: [playbookId], references: [id])
+
   // The composed prompt text (human-readable prose)
   prompt String @db.Text
 
@@ -2695,6 +2720,7 @@ model ComposedPrompt {
   createdAt DateTime @default(now())
 
   @@index([callerId])
+  @@index([playbookId])
   @@index([composedAt])
   @@index([triggerCallId])
   @@index([status])
@@ -3285,6 +3311,11 @@ model ContentSource {
   verifiedAt        DateTime?
   verificationNotes String?   @db.Text
 
+  // Content pairing (passage ↔ question bank)
+  linkedSourceId String? // FK to paired source (e.g., QB links to its reading passage)
+  linkedSource   ContentSource?  @relation("SourcePairing", fields: [linkedSourceId], references: [id], onDelete: SetNull)
+  linkedBy       ContentSource[] @relation("SourcePairing")
+
   // Lifecycle
   isActive       Boolean        @default(true)
   archivedAt     DateTime? // Set when archived; null = active
@@ -3310,6 +3341,7 @@ model ContentSource {
   @@index([isActive])
   @@index([archivedAt])
   @@index([classificationCorrected])
+  @@index([linkedSourceId])
 }
 
 // An atomic trusted teaching point with full provenance
@@ -3404,6 +3436,7 @@ model ContentQuestion {
 
   // Curriculum reference
   learningOutcomeRef String?
+  skillRef           String? // Comprehension skill ref (e.g., "SKILL-01:Retrieval", "SKILL-05:Language Effect")
   difficulty         Int? // 1-5
   pageRef            String?
   chapter            String?
@@ -3412,6 +3445,9 @@ model ContentQuestion {
   sortOrder          Int                          @default(0)
   contentHash        String?
   embedding          Unsupported("vector(1536)")?
+
+  // Type-specific metadata (tiered responses, tutor moves, text references for TUTOR_QUESTION)
+  metadata Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3425,6 +3461,7 @@ model ContentQuestion {
   @@index([questionType])
   @@index([assertionId])
   @@index([learningOutcomeRef])
+  @@index([skillRef])
 }
 
 // =========================

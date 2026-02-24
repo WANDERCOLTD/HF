@@ -43,24 +43,24 @@ The Content Trust system adds two pages under **Configure** in the sidebar, plus
 
 | Sidebar Item | Page | Purpose |
 |---|---|---|
-| **Sources** | `/x/content-sources` | Register and manage authoritative content sources |
+| **Materials** | `/x/content-sources` | Register and manage authoritative materials |
 | **Review** | `/x/content-review` | Verify content trust levels and import documents |
-| *(existing)* Specs | `/x/specs` | Freshness alert banner for expiring sources |
+| *(existing)* Specs | `/x/specs` | Freshness alert banner for expiring materials |
 | *(existing)* Caller detail | Callers > [Caller] | Trust-weighted certification progress bars |
 
 ---
 
-## 1. Content Sources — Registering Authoritative Material
+## 1. Materials — Registering Authoritative Material
 
-**Navigate to:** Configure > Sources
+**Navigate to:** Configure > Materials
 
-This is your registry of authoritative sources — the books, syllabi, handbooks, and documents that your AI tutor is permitted to teach from.
+This is your registry of authoritative materials — the books, syllabi, handbooks, and documents that your AI tutor is permitted to teach from.
 
-### Viewing Sources
+### Viewing Materials
 
-The page displays a table of all registered sources with:
+The page displays a table of all registered materials with:
 
-- **Source** — Name, slug (unique identifier), and authors
+- **Material** — Name, slug (unique identifier), and authors
 - **Trust Level** — Colour-coded badge (L0–L5)
 - **Qualification** — Qualification reference and accreditation details
 - **Publisher** — Publishing organisation and accrediting body
@@ -69,13 +69,13 @@ The page displays a table of all registered sources with:
 
 ### Filtering & Searching
 
-- **Trust Level dropdown** — Filter sources by a specific trust level
+- **Trust Level dropdown** — Filter materials by a specific trust level
 - **Search box** — Search by name, slug, qualification ref, or publisher
-- **Result count** — Shows how many sources match your filters
+- **Result count** — Shows how many materials match your filters
 
-### Adding a New Source
+### Adding a New Material
 
-Click **Add Source** to open the creation form:
+Click **Add Material** to open the creation form:
 
 | Field | Description | Example |
 |---|---|---|
@@ -168,7 +168,7 @@ The import feature lets you upload a document (PDF, text, markdown, or JSON) and
 
 ### Step-by-Step
 
-1. **Select a source** — Choose which registered content source this document belongs to from the dropdown
+1. **Select a material** — Choose which registered material this document belongs to from the dropdown
 2. **Upload a file** — Drag or select a file (supported: `.pdf`, `.txt`, `.md`, `.json`)
 3. **Preview extraction** — Click **Preview Extraction** to run AI analysis without saving anything
 4. **Review the results** — Each extracted assertion shows:
@@ -211,14 +211,14 @@ The system automatically prevents duplicate assertions:
 
 **Navigate to:** Configure > Specs
 
-If any content sources are expired or expiring soon, a banner appears at the top of the Specs page:
+If any materials are expired or expiring soon, a banner appears at the top of the Specs page:
 
-- **Red banner** — "X expired sources need updating" — content has passed its validity date and may contain outdated information (e.g. last year's tax rates)
-- **Orange banner** — "X sources expiring soon" — content will expire within 60 days
+- **Red banner** — "X expired materials need updating" — content has passed its validity date and may contain outdated information (e.g. last year's tax rates)
+- **Orange banner** — "X materials expiring soon" — content will expire within 60 days
 
-Click **Manage sources** to go directly to the Content Sources page.
+Click **Manage materials** to go directly to the Materials page.
 
-**Why this is here:** Specs drive the AI tutor's behaviour. If the content sources backing those specs are stale, the AI may teach outdated material. This banner ensures you see freshness issues where they matter most.
+**Why this is here:** Specs drive the AI tutor's behaviour. If the materials backing those specs are stale, the AI may teach outdated material. This banner ensures you see freshness issues where they matter most.
 
 ---
 
@@ -311,14 +311,14 @@ A: Yes, but duplicates are automatically skipped. Each assertion has a content h
 
 | Term | Definition |
 |---|---|
-| **Content Source** | A registered authoritative document (book, syllabus, handbook) |
-| **Content Assertion** | A single, atomic teaching point extracted from a source |
-| **Trust Level** | A classification (L0–L5) indicating the authority and reliability of a source |
+| **Material** | A registered authoritative document (book, syllabus, handbook) |
+| **Content Assertion** | A single, atomic teaching point extracted from a material |
+| **Trust Level** | A classification (L0–L5) indicating the authority and reliability of a material |
 | **Certification Readiness** | Learner progress measured only against L3+ (authoritative) content |
 | **General Understanding** | Learner progress across all content regardless of trust level |
-| **Freshness** | Whether a source is still within its validity period |
+| **Freshness** | Whether a material is still within its validity period |
 | **Content Hash** | A unique fingerprint of an assertion's text, used for deduplication |
-| **Source Authority** | The `sourceAuthority` section in a spec that links curriculum content to registered sources |
+| **Source Authority** | The `sourceAuthority` section in a spec that links curriculum content to registered materials |
 
 ---
 

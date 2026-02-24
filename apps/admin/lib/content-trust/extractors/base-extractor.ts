@@ -24,12 +24,14 @@ import crypto from "crypto";
 
 export interface ExtractedQuestion {
   questionText: string;
-  questionType: "MCQ" | "TRUE_FALSE" | "MATCHING" | "FILL_BLANK" | "SHORT_ANSWER" | "OPEN" | "UNSCRAMBLE" | "ORDERING";
+  questionType: "MCQ" | "TRUE_FALSE" | "MATCHING" | "FILL_BLANK" | "SHORT_ANSWER" | "OPEN" | "UNSCRAMBLE" | "ORDERING" | "TUTOR_QUESTION";
   options?: Array<{ label: string; text: string; isCorrect?: boolean }>;
   correctAnswer?: string;
   answerExplanation?: string;
   markScheme?: string;
   learningOutcomeRef?: string;
+  skillRef?: string;
+  metadata?: Record<string, unknown>;
   difficulty?: number;
   pageRef?: string;
   chapter?: string;

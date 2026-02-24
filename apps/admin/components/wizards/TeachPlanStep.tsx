@@ -27,14 +27,15 @@ import {
   RotateCcw,
   SkipForward,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────
 
 interface TeachPlanStepProps {
   domainId: string;
-  setData: (key: string, value: any) => void;
-  getData: <T = any>(key: string) => T | undefined;
+  setData: (key: string, value: unknown) => void;
+  getData: <T = unknown>(key: string) => T | undefined;
   onNext: () => void;
   onPrev: () => void;
 }
@@ -70,6 +71,8 @@ export function TeachPlanStep({
   // Content availability from the content step (step 2)
   const contentAvailable = getData<boolean>("contentAvailable") ?? false;
   const upstreamContentCount = getData<number>("contentCount") ?? 0;
+  const extractionInProgress = getData<boolean>("extractionInProgress") ?? false;
+  const packSourceCount = getData<number>("packSourceCount") ?? 0;
 
   // Restore state from data bag
   const restoredTaskId = getData<string>("contentSpecTaskId") || null;
@@ -132,6 +135,51 @@ export function TeachPlanStep({
   // Live progress message from server
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
 
+  // ── Extraction-in-progress auto-refresh ────────────
+  const [livePointCount, setLivePointCount] = useState<number>(upstreamContentCount);
+  const [extractionDone, setExtractionDone] = useState(!extractionInProgress);
+
+  useEffect(() => {
+    if (!extractionInProgress || !domainId) return;
+
+    let cancelled = false;
+
+    const checkPoints = async () => {
+      try {
+        const res = await fetch(`/api/domains/${domainId}/content-stats`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const count = data.assertionCount ?? 0;
+        if (!cancelled) {
+          setLivePointCount(count);
+          if (count > 0) {
+            // Update data bag so Generate uses real count
+            setData("contentCount", count);
+            setData("contentAvailable", true);
+          }
+          // Check if all sources are done extracting
+          if (data.allExtracted) {
+            setExtractionDone(true);
+            setData("extractionInProgress", false);
+          }
+        }
+      } catch {
+        // Silently continue — next poll will retry
+      }
+    };
+
+    // Initial check
+    checkPoints();
+
+    // Poll every 10 seconds
+    const interval = setInterval(checkPoints, 10_000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [extractionInProgress, domainId, setData]);
+
   // ── Task Polling ──────────────────────────────────
 
   useTaskPoll({
@@ -147,7 +195,7 @@ export function TeachPlanStep({
 
       // Phase 1 complete: skeleton modules available — show immediately
       if (ctx.skeletonReady && ctx.skeletonModules && phase === "generating") {
-        const skeletonMods: CurriculumModule[] = ctx.skeletonModules.map((m: any, i: number) => ({
+        const skeletonMods: CurriculumModule[] = ctx.skeletonModules.map((m: { id?: string; title?: string; description?: string; sortOrder?: number }, i: number) => ({
           id: m.id || `MOD-${i + 1}`,
           title: m.title || `Module ${i + 1}`,
           description: m.description || "",
@@ -219,8 +267,8 @@ export function TeachPlanStep({
         setError("Content spec has no modules");
         setPhase("intents");
       }
-    } catch (err: any) {
-      setError(`Failed to load modules: ${err.message}`);
+    } catch (err: unknown) {
+      setError(`Failed to load modules: ${err instanceof Error ? err.message : "Unknown error"}`);
       setPhase("intents");
     }
   }, [setData]);
@@ -262,8 +310,8 @@ export function TeachPlanStep({
       if (!data.ok) throw new Error(data.error || "Generation request failed");
       setTaskId(data.taskId);
       setData("contentSpecTaskId", data.taskId);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Generation failed");
       setPhase("intents");
     }
   }, [taskId, phase, domainId, sessionCount, durationMins, emphasis, assessments, saveIntents, setData]);
@@ -321,8 +369,8 @@ export function TeachPlanStep({
       {error && <ErrorBanner error={error} />}
 
       {/* ── No Content Warning ──────────── */}
-      {!contentAvailable && phase === "intents" && (
-        <div className="hf-banner hf-banner-warning" style={{ marginBottom: 16 }}>
+      {!contentAvailable && !extractionInProgress && phase === "intents" && (
+        <div className="hf-banner hf-banner-warning hf-mb-md">
           <AlertTriangle style={{ width: 16, height: 16, flexShrink: 0 }} />
           <span>
             No content uploaded yet. Go back to the Content step to upload or select
@@ -331,12 +379,34 @@ export function TeachPlanStep({
         </div>
       )}
 
+      {/* Extraction in progress — friendly status */}
+      {extractionInProgress && !extractionDone && phase === "intents" && (
+        <div className="hf-banner hf-banner-info hf-mb-md">
+          <RefreshCw style={{ width: 16, height: 16, flexShrink: 0, animation: "spin 2s linear infinite" }} />
+          <div className="hf-flex-col hf-gap-xs">
+            <span>
+              Extracting teaching points from {packSourceCount} file{packSourceCount !== 1 ? "s" : ""}...
+            </span>
+            {livePointCount > 0 ? (
+              <span className="hf-text-xs hf-text-muted">
+                {livePointCount} point{livePointCount !== 1 ? "s" : ""} found so far — you can generate now or wait for more
+              </span>
+            ) : (
+              <span className="hf-text-xs hf-text-muted">
+                This usually takes 30-60 seconds. You can generate a plan now or wait.
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Content count badge when content exists */}
-      {contentAvailable && upstreamContentCount > 0 && phase === "intents" && (
-        <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-          <span className="dtw-accordion-badge">{upstreamContentCount}</span>
-          <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            teaching point{upstreamContentCount !== 1 ? "s" : ""} available
+      {(contentAvailable || extractionDone) && livePointCount > 0 && phase === "intents" && (
+        <div className="hf-flex hf-gap-sm hf-items-center hf-mb-md">
+          <span className="dtw-accordion-badge">{livePointCount}</span>
+          <span className="hf-text-xs hf-text-muted">
+            teaching point{livePointCount !== 1 ? "s" : ""} available
+            {extractionInProgress && !extractionDone && " (still extracting...)"}
           </span>
         </div>
       )}
@@ -424,11 +494,14 @@ export function TeachPlanStep({
               </button>
               <button
                 onClick={handleGenerate}
-                disabled={!contentAvailable}
-                className={`dtw-btn-next ${contentAvailable ? "dtw-btn-next-enabled" : "dtw-btn-next-disabled"}`}
-                title={contentAvailable ? undefined : "Upload content first"}
+                disabled={!contentAvailable && !extractionInProgress}
+                className={`dtw-btn-next ${contentAvailable || extractionInProgress ? "dtw-btn-next-enabled" : "dtw-btn-next-disabled"}`}
+                title={contentAvailable || extractionInProgress ? undefined : "Upload content first"}
               >
-                Generate Lesson Plan <ArrowRight style={{ width: 16, height: 16 }} />
+                {extractionInProgress && !extractionDone && livePointCount === 0
+                  ? <>Plan Anyway <ArrowRight style={{ width: 16, height: 16 }} /></>
+                  : <>Generate Lesson Plan <ArrowRight style={{ width: 16, height: 16 }} /></>
+                }
               </button>
             </div>
           </div>

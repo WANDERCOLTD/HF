@@ -23,7 +23,7 @@ import { Building2, VenetianMask, X, Bug, Cog, Phone, User, FileText } from 'luc
 import { useBranding } from '@/contexts/BrandingContext';
 import { useMasquerade } from '@/contexts/MasqueradeContext';
 import { useErrorCapture } from '@/contexts/ErrorCaptureContext';
-import { envLabel, envSidebarColor, envTextColor, showEnvBanner } from './EnvironmentBanner';
+import { envLabel, envSidebarColor, envTextColor, showEnvBanner, isLocalhost } from './EnvironmentBanner';
 import { JobsPopup } from './JobsPopup';
 import { HealthPopup } from './HealthPopup';
 import type { IniResult } from './HealthPopup';
@@ -318,7 +318,7 @@ export function StatusBar() {
                 onClick={() => router.push('/x/settings')}
                 title="View settings"
               >
-                {envLabel}
+                {isLocalhost() && envLabel === 'DEV' ? 'VM' : envLabel}
               </span>
             )}
 

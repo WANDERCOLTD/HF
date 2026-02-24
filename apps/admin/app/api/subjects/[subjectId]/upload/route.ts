@@ -20,7 +20,7 @@ import { config } from "@/lib/config";
  *   Does NOT start extraction — user must confirm the classification first,
  *   then trigger extraction via POST /api/content-sources/:sourceId/extract.
  *
- * @body file File (PDF, TXT, MD, JSON)
+ * @body file File (PDF, DOCX, TXT, MD, JSON)
  * @body tags string — comma-separated tags (default: "content")
  * @body sourceName string — optional display name (defaults to filename)
  * @body trustLevel string — optional override (defaults to subject's defaultTrustLevel)
@@ -59,7 +59,7 @@ export async function POST(
 
     // Validate file type
     const fileName = file.name.toLowerCase();
-    const validExtensions = [".pdf", ".txt", ".md", ".markdown", ".json"];
+    const validExtensions = [".pdf", ".docx", ".txt", ".md", ".markdown", ".json"];
     if (!validExtensions.some((ext) => fileName.endsWith(ext))) {
       return NextResponse.json(
         { ok: false, error: `Unsupported file type. Supported: ${validExtensions.join(", ")}` },

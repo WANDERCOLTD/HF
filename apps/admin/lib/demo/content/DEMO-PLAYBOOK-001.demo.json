@@ -179,17 +179,17 @@
         "alt": "PlaybookBuilder with content spec added alongside identity and measurement",
         "annotations": [
           { "x": "30%", "y": "75%", "label": "CONTENT: Curriculum spec", "direction": "right", "highlight": true },
-          { "x": "70%", "y": "75%", "label": "Links to content sources", "direction": "left" }
+          { "x": "70%", "y": "75%", "label": "Links to materials", "direction": "left" }
         ]
       },
-      "reason": "The content spec connects the playbook to your teaching material. It defines what the tutor can teach, references content sources with trust levels, and controls how the AI uses that material.",
+      "reason": "The content spec connects the playbook to your teaching material. It defines what the tutor can teach, references materials with trust levels, and controls how the AI uses that material.",
       "tips": [
-        { "type": "tip", "message": "Content specs reference Content Sources \u2014 make sure you've uploaded your curriculum before linking it here" }
+        { "type": "tip", "message": "Content specs reference Materials \u2014 make sure you've uploaded your curriculum before linking it here" }
       ],
       "aiContext": {
         "currentView": "PlaybookBuilder \u2014 content spec added",
         "action": "Adding the content/teaching spec to the playbook",
-        "relatedConcepts": ["content spec", "content sources", "trust levels", "curriculum structure", "teaching material"]
+        "relatedConcepts": ["content spec", "materials", "trust levels", "curriculum structure", "teaching material"]
       },
       "capture": { "url": "/x/playbooks", "delay": 500 }
     },

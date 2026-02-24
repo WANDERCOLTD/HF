@@ -54,6 +54,12 @@ export const envSidebarWidth = ENV_CONFIG?.sidebarWidth ?? 0;
 /** Short label for the environment (null if unknown env) */
 export const envLabel = ENV_CONFIG?.label ?? null;
 
+/** Whether we're running on localhost/VM (vs Cloud Run) — detected at runtime */
+export function isLocalhost(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+}
+
 /**
  * Invisible component — only prefixes the browser tab title.
  * Environment badge is rendered by StatusBar.
@@ -61,10 +67,10 @@ export const envLabel = ENV_CONFIG?.label ?? null;
 export default function EnvironmentBanner() {
   useEffect(() => {
     if (ENV_NORMALIZED === 'LIVE') return;
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isLocal = isLocalhost();
     const label = isLocal && ENV_NORMALIZED === 'DEV' ? 'VM' : ENV_NORMALIZED;
     const base = document.title.replace(/^\[(DEV|TEST|STG|LIVE|VM)\]\s*/, '');
-    document.title = `[${label}] ${base || 'HF Admin'}`;
+    document.title = `[${label}] ${base || 'HFF'}`;
   }, []);
 
   return null;

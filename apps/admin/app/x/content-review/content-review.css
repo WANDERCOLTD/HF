@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Content Review Page — cr-* classes
-   Migrated from inline styles. Uses CSS vars from globals.css.
+   Content Review Page — cr-* page-specific classes
+   Uses CSS vars from globals.css. Global patterns use hf-* classes.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Trust Badge (dynamic colors via CSS vars set inline) ── */
@@ -50,30 +50,6 @@
   margin-bottom: 16px;
 }
 
-.cr-header-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.cr-header-desc {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 4px 0 0;
-}
-
-.cr-header-link {
-  padding: 6px 12px;
-  background: var(--surface-secondary);
-  color: var(--text-secondary);
-  border: 1px solid var(--input-border);
-  border-radius: 6px;
-  font-weight: 500;
-  font-size: 12px;
-  text-decoration: none;
-}
-
 /* ── Summary stat cards ── */
 .cr-summary-row {
   display: flex;
@@ -108,54 +84,18 @@
   color: var(--text-primary);
 }
 
-.cr-stat-value-error {
-  color: var(--status-error-text);
-}
-
-.cr-stat-value-warning {
-  color: var(--status-warning-text);
-}
-
-.cr-stat-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.cr-stat-label-error {
-  color: var(--status-error-text);
-}
-
-.cr-stat-label-warning {
-  color: var(--status-warning-text);
-}
-
-/* ── Save message banner ── */
-.cr-save-banner {
-  padding: 8px 14px;
-  margin-bottom: 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.cr-save-banner-success {
-  background: var(--status-success-bg);
-  color: var(--status-success-text);
-  border: 1px solid var(--status-success-border);
-}
-
-.cr-save-banner-error {
-  background: var(--status-error-bg);
-  color: var(--status-error-text);
-  border: 1px solid var(--status-error-border);
-}
+.cr-stat-value-error { color: var(--status-error-text); }
+.cr-stat-value-warning { color: var(--status-warning-text); }
+.cr-stat-label { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+.cr-stat-label-error { color: var(--status-error-text); }
+.cr-stat-label-warning { color: var(--status-warning-text); }
 
 /* ── Tabs ── */
 .cr-tabs {
   display: flex;
   gap: 4px;
   margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
 .cr-tab {
@@ -193,27 +133,10 @@
 }
 
 /* ── Empty state ── */
-.cr-empty {
-  padding: 40px;
-  text-align: center;
-}
-
-.cr-empty-icon {
-  font-size: 32px;
-  margin-bottom: 8px;
-}
-
-.cr-empty-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.cr-empty-hint {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
+.cr-empty { padding: 40px; text-align: center; }
+.cr-empty-icon { font-size: 32px; margin-bottom: 8px; }
+.cr-empty-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.cr-empty-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
 
 /* ── Source row ── */
 .cr-source-row {
@@ -227,10 +150,7 @@
   border-bottom: 1px solid var(--border-default);
 }
 
-.cr-source-info {
-  flex: 1;
-  min-width: 0;
-}
+.cr-source-info { flex: 1; min-width: 0; }
 
 .cr-source-name-row {
   display: flex;
@@ -252,9 +172,7 @@
   color: var(--text-muted);
 }
 
-.cr-source-slug {
-  font-family: ui-monospace, monospace;
-}
+.cr-source-slug { font-family: ui-monospace, monospace; }
 
 .cr-source-verified {
   font-size: 10px;
@@ -267,6 +185,7 @@
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+  align-items: center;
 }
 
 .cr-btn-review {
@@ -313,85 +232,15 @@
   margin-bottom: 16px;
 }
 
-.cr-detail-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.cr-detail-meta-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.cr-detail-slug {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-family: ui-monospace, monospace;
-}
-
-.cr-detail-field {
-  font-size: 11px;
-  color: var(--text-muted);
-}
+.cr-detail-name { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+.cr-detail-meta-row { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.cr-detail-slug { font-size: 11px; color: var(--text-muted); font-family: ui-monospace, monospace; }
+.cr-detail-field { font-size: 11px; color: var(--text-muted); }
 
 /* ── Form fields ── */
-.cr-field {
-  margin-bottom: 12px;
-}
-
-.cr-field-lg {
-  margin-bottom: 16px;
-}
-
-.cr-field-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  display: block;
-  margin-bottom: 4px;
-}
-
-.cr-select {
-  width: 100%;
-  padding: 8px 10px;
-  font-size: 12px;
-  border: 1px solid var(--input-border);
-  border-radius: 6px;
-  background: var(--surface-primary);
-  color: var(--text-primary);
-}
-
-.cr-textarea {
-  width: 100%;
-  padding: 10px;
-  font-size: 12px;
-  border: 1px solid var(--input-border);
-  border-radius: 6px;
-  min-height: 80px;
-  resize: vertical;
-  background: var(--surface-primary);
-  color: var(--text-primary);
-}
-
-.cr-field-hint {
-  font-size: 10px;
-  color: var(--text-placeholder);
-  margin-top: 2px;
-}
-
-/* ── Modal inline error ── */
-.cr-modal-error {
-  padding: 6px 10px;
-  background: var(--status-error-bg);
-  color: var(--status-error-text);
-  border-radius: 6px;
-  font-size: 11px;
-  margin-bottom: 12px;
-}
+.cr-field { margin-bottom: 12px; }
+.cr-field-lg { margin-bottom: 16px; }
+.cr-field-hint { font-size: 10px; color: var(--text-placeholder); margin-top: 2px; }
 
 /* ── Modal actions ── */
 .cr-modal-actions {
@@ -400,35 +249,18 @@
   justify-content: flex-end;
 }
 
-.cr-btn-cancel {
-  padding: 8px 16px;
-  font-size: 12px;
-  font-weight: 500;
-  background: var(--surface-secondary);
-  color: var(--text-secondary);
-  border: 1px solid var(--input-border);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.cr-btn-save {
-  padding: 8px 16px;
-  font-size: 12px;
-  font-weight: 600;
-  background: var(--status-success-text);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.cr-btn-save:disabled {
-  background: var(--surface-secondary);
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
-
 /* ── Accent link ── */
 .cr-link-accent {
   color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.cr-link-accent:hover {
+  text-decoration: underline;
+}
+
+/* ── Spin animation for regenerate button ── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

@@ -1,11 +1,11 @@
 {
-  "name": "HF Call Simulator",
-  "short_name": "HF Sim",
-  "description": "Practice call center conversations with AI",
-  "start_url": "/x/sim",
+  "name": "Human First Foundation",
+  "short_name": "HFF",
+  "description": "Adaptive learning platform — AI-powered voice tutoring",
+  "start_url": "/x",
   "display": "standalone",
   "background_color": "#FFFFFF",
-  "theme_color": "#075E54",
+  "theme_color": "#1F1B4A",
   "orientation": "portrait",
   "icons": [
     {

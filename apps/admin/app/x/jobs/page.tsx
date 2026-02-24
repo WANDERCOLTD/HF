@@ -101,7 +101,7 @@ const JOB_STEP_MAPS: Record<string, Record<number, { title: string; description:
     3: { title: "Complete", description: "Curriculum ready for review" },
   },
   content_wizard: {
-    1: { title: "Add Source", description: "Create or upload a content source document", estimated: "2 min" },
+    1: { title: "Add Material", description: "Create or upload a material document", estimated: "2 min" },
     2: { title: "Extract", description: "AI extracts teaching points from your documents", estimated: "1-3 min" },
     3: { title: "Review", description: "Review and approve extracted teaching points", estimated: "2 min" },
     4: { title: "Plan Sessions", description: "Set session count and generate a session plan", estimated: "2 min" },

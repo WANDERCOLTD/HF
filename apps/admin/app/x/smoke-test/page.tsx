@@ -70,7 +70,7 @@ const SMOKE_CHECKLIST: CheckGroup[] = [
     items: [
       { id: "course-list", label: "Subjects page loads", path: "/x/subjects", hint: "Grid of course cards" },
       { id: "course-detail", label: "Click into a subject → detail loads", hint: "Lessons, content, settings visible" },
-      { id: "course-content", label: "Content sources tab shows uploaded material", hint: "Files listed with trust levels" },
+      { id: "course-content", label: "Materials tab shows uploaded content", hint: "Files listed with trust levels" },
     ],
   },
   {
@@ -114,7 +114,7 @@ const SMOKE_CHECKLIST: CheckGroup[] = [
     title: "Content & Knowledge",
     items: [
       { id: "content-explorer", label: "Content Explorer loads", path: "/x/content-explorer", hint: "Hierarchy tree renders" },
-      { id: "content-sources", label: "Content Sources page loads", path: "/x/content-sources", hint: "Upload panel, file list" },
+      { id: "content-sources", label: "Materials page loads", path: "/x/content-sources", hint: "Upload panel, file list" },
       { id: "content-specs", label: "Specs page loads", path: "/x/specs", hint: "Spec cards with roles, versions" },
     ],
   },

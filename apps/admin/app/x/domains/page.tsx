@@ -17,6 +17,8 @@ import { AdvancedBanner } from "@/components/shared/AdvancedBanner";
 import { SortableList } from "@/components/shared/SortableList";
 import type { DomainListItem, DomainDetail } from "./components/types";
 import { statusColors, playbookStatusMap, TrustBadge, DocTypeBadge } from "./components/constants";
+import { SourceStatusDots } from "@/components/shared/SourceStatusDots";
+import { useSourceStatus } from "@/hooks/useSourceStatus";
 import { CreateDomainModal } from "./components/CreateDomainModal";
 import { AddPlaybookModal } from "./components/AddPlaybookModal";
 import { PromptPreviewModal } from "./components/PromptPreviewModal";
@@ -50,6 +52,12 @@ export default function DomainsPage() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"callers" | "playbooks" | "content" | "onboarding">("playbooks");
   const [showPlaybookModal, setShowPlaybookModal] = useState(false);
+
+  // Source processing status (for status dots on content tab)
+  const domainSourceIds = (domain?.subjects ?? []).flatMap(
+    (sd) => sd.subject.sources.map((ss) => ss.source.id)
+  );
+  const sourceStatusMap = useSourceStatus(domainSourceIds, { enabled: activeTab === "content" });
 
   // Delete domain state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -834,7 +842,7 @@ export default function DomainsPage() {
               {/* Content Tab */}
               {activeTab === "content" && (
                 <div>
-                  <h3 className="hf-heading-lg hf-mb-md">Subjects & Content Sources</h3>
+                  <h3 className="hf-heading-lg hf-mb-md">Subjects & Materials</h3>
                   {(!domain.subjects || domain.subjects.length === 0) ? (
                     <div className="hf-empty-compact">
                       <div style={{ fontSize: 32 }} className="hf-mb-md">📚</div>
@@ -931,6 +939,7 @@ export default function DomainsPage() {
                                       {ss.source.name}
                                     </Link>
                                     <TrustBadge level={ss.source.trustLevel} />
+                                    <SourceStatusDots status={sourceStatusMap[ss.source.id] ?? null} />
                                     <span className="hf-text-xs hf-text-muted hf-text-right" style={{ minWidth: 80 }}>
                                       {ss.source._count.assertions} assertion{ss.source._count.assertions !== 1 ? "s" : ""}
                                     </span>

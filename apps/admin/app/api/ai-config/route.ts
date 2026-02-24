@@ -275,7 +275,7 @@ export const AI_CALL_POINTS = [
   },
   {
     callPoint: "content-sources.suggest",
-    label: "Content Sources - Suggest",
+    label: "Materials - Suggest",
     description: "Suggests content source metadata from document text",
     defaultProvider: "claude",
     defaultModel: config.ai.claude.lightModel,

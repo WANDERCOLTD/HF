@@ -141,7 +141,8 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
 
   const handleGoToCourses = () => {
     endFlow();
-    router.push('/x/courses');
+    const pbId = taskSummary?.playbook?.id;
+    router.push(pbId ? `/x/courses/${pbId}` : '/x/courses');
   };
 
   // ── Success State ──────────────────────────────────
@@ -186,6 +187,7 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
                   icon: <BookOpen className="w-5 h-5" />,
                   label: 'Course',
                   name: taskSummary.playbook.name || courseName || '—',
+                  href: `/x/courses/${taskSummary.playbook.id}`,
                 }] : []),
               ],
             }}

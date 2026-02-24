@@ -41,35 +41,35 @@
       "aiContext": {
         "currentView": "Demo welcome screen",
         "action": "Starting the Add Trusted Teaching Content demo",
-        "relatedConcepts": ["content trust", "trust levels", "regulated training", "content sources", "assertion extraction"]
+        "relatedConcepts": ["content trust", "trust levels", "regulated training", "materials", "assertion extraction"]
       },
       "durationOverrideSec": 15
     },
     {
       "id": "open-content-sources",
-      "title": "Open Content Sources",
-      "description": "Navigate to the Content Sources page from the sidebar. This is where all teaching material is managed — documents, links, and their trust classifications.",
+      "title": "Open Materials",
+      "description": "Navigate to the Materials page from the sidebar. This is where all teaching material is managed — documents, links, and their trust classifications.",
       "content": {
         "type": "screenshot",
         "src": "/demos/DEMO-CONTENT-001/02-open-content-sources.png",
-        "alt": "Sidebar with Content Sources highlighted",
+        "alt": "Sidebar with Materials highlighted",
         "annotations": [
-          { "x": "8%", "y": "48%", "label": "Content Sources", "direction": "right", "highlight": true }
+          { "x": "8%", "y": "48%", "label": "Materials", "direction": "right", "highlight": true }
         ]
       },
-      "reason": "The Content Sources page is the central hub for all teaching material. Every document, link, and assertion lives here.",
+      "reason": "The Materials page is the central hub for all teaching material. Every document, link, and assertion lives here.",
       "sidebarHighlight": { "href": "/x/content-sources", "type": "pulse" },
       "aiContext": {
         "currentView": "Sidebar navigation",
-        "action": "Navigating to the Content Sources page",
-        "relatedConcepts": ["content sources", "sidebar navigation", "content management"],
+        "action": "Navigating to the Materials page",
+        "relatedConcepts": ["materials", "sidebar navigation", "content management"],
         "assistantLocation": { "page": "/x/content-sources", "action": "navigate" }
       }
     },
     {
       "id": "upload-document",
       "title": "Upload a Document",
-      "description": "Click 'Add Source' or drag a file into the upload area. The system accepts PDF, DOCX, and TXT files. Larger documents are processed in the background.",
+      "description": "Click 'Add Material' or drag a file into the upload area. The system accepts PDF, DOCX, and TXT files. Larger documents are processed in the background.",
       "content": {
         "type": "screenshot",
         "src": "/demos/DEMO-CONTENT-001/03-upload-document.png",
@@ -77,7 +77,7 @@
         "annotations": [
           { "x": "50%", "y": "40%", "label": "Drop file here", "direction": "down", "highlight": true },
           { "x": "50%", "y": "70%", "label": "PDF, DOCX, TXT supported", "direction": "up" },
-          { "x": "85%", "y": "12%", "label": "Add Source", "direction": "left", "highlight": true }
+          { "x": "85%", "y": "12%", "label": "Add Material", "direction": "left", "highlight": true }
         ]
       },
       "reason": "Uploading is the first step. The system needs raw content before it can extract assertions and assign trust levels.",
@@ -86,7 +86,7 @@
       ],
       "sidebarHighlight": { "href": "/x/content-sources", "type": "glow" },
       "aiContext": {
-        "currentView": "Content Sources page with upload dialog",
+        "currentView": "Materials page with upload dialog",
         "action": "Uploading a curriculum document",
         "relatedConcepts": ["document upload", "file formats", "content processing", "background processing"]
       }
@@ -170,7 +170,7 @@
     {
       "id": "link-to-subject",
       "title": "Link to Subject",
-      "description": "Connect the content source to specific curriculum subjects. This tells the tutor which topics this material covers, enabling targeted teaching.",
+      "description": "Connect the material to specific curriculum subjects. This tells the tutor which topics this material covers, enabling targeted teaching.",
       "content": {
         "type": "screenshot",
         "src": "/demos/DEMO-CONTENT-001/07-link-to-subject.png",
@@ -185,7 +185,7 @@
       "sidebarHighlight": { "href": "/x/content-sources", "type": "glow" },
       "aiContext": {
         "currentView": "Subject linking interface with curriculum structure",
-        "action": "Connecting content source to curriculum subjects",
+        "action": "Connecting material to curriculum subjects",
         "relatedConcepts": ["subject linking", "curriculum structure", "content mapping", "topic coverage", "teaching map"]
       }
     },

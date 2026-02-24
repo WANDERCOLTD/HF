@@ -187,7 +187,7 @@ async function runBackgroundExtraction(
   },
 ) {
   // Check if this document type has a specialist extractor
-  const SPECIALIST_TYPES: DocumentType[] = ["CURRICULUM", "COMPREHENSION", "ASSESSMENT"];
+  const SPECIALIST_TYPES: DocumentType[] = ["CURRICULUM", "COMPREHENSION", "ASSESSMENT", "READING_PASSAGE", "QUESTION_BANK"];
   const useSpecialist = SPECIALIST_TYPES.includes(opts.documentType);
 
   let assertionResult: { ok: boolean; assertions: any[]; warnings: string[]; error?: string };

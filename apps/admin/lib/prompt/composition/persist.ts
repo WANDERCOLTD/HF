@@ -10,6 +10,7 @@ import type { CompositionResult } from "./types";
 
 export interface PersistOptions {
   callerId: string;
+  playbookId?: string | null;
   triggerType?: string;
   triggerCallId?: string | null;
   composeSpecSlug?: string | null;
@@ -42,6 +43,7 @@ export async function persistComposedPrompt(
 ): Promise<PersistedPrompt> {
   const {
     callerId,
+    playbookId,
     triggerType = "pipeline",
     triggerCallId,
     composeSpecSlug,
@@ -54,6 +56,7 @@ export async function persistComposedPrompt(
   const composedPrompt = await p.composedPrompt.create({
     data: {
       callerId,
+      playbookId: playbookId || null,
       prompt: promptSummary,
       llmPrompt,
       triggerType,
@@ -82,12 +85,14 @@ export async function persistComposedPrompt(
     },
   });
 
-  // Supersede previous active prompts for this caller
+  // Supersede previous active prompts for this caller, scoped to same playbook.
+  // A caller can have one active prompt per playbook (course) simultaneously.
   await p.composedPrompt.updateMany({
     where: {
       callerId,
       id: { not: composedPrompt.id },
       status: "active",
+      ...(playbookId ? { playbookId } : { playbookId: null }),
     },
     data: {
       status: "superseded",

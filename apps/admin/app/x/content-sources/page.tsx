@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useStepFlow } from "@/contexts/StepFlowContext";
 import { useWizardResume } from "@/hooks/useWizardResume";
 import { WizardResumeBanner } from "@/components/shared/WizardResumeBanner";
@@ -26,8 +27,16 @@ async function loadWizardSteps() {
 
 export default function ContentSourcesPage() {
   const [viewMode, setViewMode] = useState<"wizard" | "library">("library");
+  const searchParams = useSearchParams();
   const { state, isActive, startFlow } = useStepFlow();
   const { pendingTask, isLoading: resumeLoading } = useWizardResume("content_wizard");
+
+  // Accept hierarchy context from search params (when launched from course > subject)
+  const hierarchyCourseId = searchParams.get("courseId");
+  const hierarchySubjectId = searchParams.get("subjectId");
+  const hierarchyReturnPath = hierarchyCourseId && hierarchySubjectId
+    ? `/x/courses/${hierarchyCourseId}/subjects/${hierarchySubjectId}`
+    : "/x/content-sources";
 
   const showWizard = isActive && state?.flowId === "content-sources";
 
@@ -45,7 +54,15 @@ export default function ContentSourcesPage() {
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskType: "content_wizard", currentStep: 0, context: { _wizardStep: 0 } }),
+        body: JSON.stringify({
+          taskType: "content_wizard",
+          currentStep: 0,
+          context: {
+            _wizardStep: 0,
+            ...(hierarchyCourseId && { courseId: hierarchyCourseId }),
+            ...(hierarchySubjectId && { subjectId: hierarchySubjectId }),
+          },
+        }),
       });
       const data = await res.json();
       if (data.ok) taskId = data.taskId;
@@ -56,7 +73,7 @@ export default function ContentSourcesPage() {
     startFlow({
       flowId: "content-sources",
       steps: stepsToUse,
-      returnPath: "/x/content-sources",
+      returnPath: hierarchyReturnPath,
       taskType: "content_wizard",
       taskId,
     });
@@ -68,10 +85,15 @@ export default function ContentSourcesPage() {
     const stepsToUse = await loadWizardSteps();
     const ctx = pendingTask.context || {};
 
+    // Use hierarchy return path if context has courseId, else fall back
+    const resumeReturnPath = ctx.courseId && ctx.subjectId
+      ? `/x/courses/${ctx.courseId}/subjects/${ctx.subjectId}`
+      : hierarchyReturnPath;
+
     startFlow({
       flowId: "content-sources",
       steps: stepsToUse,
-      returnPath: "/x/content-sources",
+      returnPath: resumeReturnPath,
       taskType: "content_wizard",
       taskId: pendingTask.id,
       initialData: ctx,
@@ -98,7 +120,7 @@ export default function ContentSourcesPage() {
             task={pendingTask}
             onResume={handleResumeContentSource}
             onDiscard={handleDiscardResume}
-            label="Content Sources"
+            label="Materials"
           />
         </div>
       </div>
@@ -116,7 +138,7 @@ export default function ContentSourcesPage() {
         <div>
           <h1 className="hf-page-title">Content Library</h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 4 }}>
-            Manage all content sources, upload documents, and review assertions.
+            Manage all materials, upload documents, and review assertions.
           </p>
         </div>
         <button
@@ -124,7 +146,7 @@ export default function ContentSourcesPage() {
           className="hf-btn hf-btn-primary"
           style={{ whiteSpace: "nowrap" }}
         >
-          New Content Source
+          New Material
         </button>
       </div>
 

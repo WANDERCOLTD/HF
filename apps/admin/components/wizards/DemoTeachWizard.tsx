@@ -52,6 +52,8 @@ import { useWizardError } from "@/hooks/useWizardError";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { TeachPlanStep } from "@/components/wizards/TeachPlanStep";
 import { CreateInstitutionModal } from "./CreateInstitutionModal";
+import { PackUploadStep } from "./PackUploadStep";
+import type { PackUploadResult } from "./PackUploadStep";
 import { POLL_TIMEOUT_MS } from "@/lib/tasks/constants";
 import { useSession } from "next-auth/react";
 import "./demo-teach-wizard.css";
@@ -101,6 +103,13 @@ type AvailableSource = {
     };
   }>;
 };
+
+// API response shapes (for typed .filter/.map/.reduce on untyped JSON)
+type ApiWizardStep = { id: string; label: string; activeLabel?: string };
+type ApiCaller = { id: string; name?: string; email?: string; domainId: string };
+type ApiPlaybook = { id: string; name: string; status: string };
+type ApiSubjectSource = { source?: { _count?: { assertions?: number } } };
+type ApiSubjectDomain = { subject?: { sources?: ApiSubjectSource[] } };
 
 const GOAL_TYPE_EMOJI: Record<string, string> = {
   LEARN: "\uD83D\uDCDA",
@@ -174,7 +183,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const [loadingDomains, setLoadingDomains] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const canCreateInstitution = ["OPERATOR", "ADMIN", "SUPERADMIN"].includes(
-    (sessionData?.user as any)?.role || "",
+    (sessionData?.user as { role?: string })?.role || "",
   );
 
   // Caller for selected domain
@@ -235,6 +244,10 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const [createdSourceId, setCreatedSourceId] = useState<string | null>(null);
   const [createdSubjectId, setCreatedSubjectId] = useState<string | null>(null);
 
+  // Pack upload — existing courses for the selected domain
+  type ExistingCourseInfo = { id: string; name: string; status: string; subjectCount: number; assertionCount: number };
+  const [existingCourses, setExistingCourses] = useState<ExistingCourseInfo[]>([]);
+
   // Post-extraction auto-wiring results
   const [autoWireResult, setAutoWireResult] = useState<{
     moduleCount: number;
@@ -248,7 +261,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const [teachingPointsExpanded, setTeachingPointsExpanded] = useState(false);
   const [domainDetail, setDomainDetail] = useState<DomainDetail | null>(null);
   const [domainDetailLoading, setDomainDetailLoading] = useState(false);
-  const [teachingPoints, setTeachingPoints] = useState<Array<{ id: string; text: string; type: string; reviewed: boolean }>>([]);
+  const [teachingPoints, setTeachingPoints] = useState<Array<{ id: string; text: string; type: string; reviewed: boolean; chapter?: string }>>([]);
   const [teachingPointsLoading, setTeachingPointsLoading] = useState(false);
   const [tunePersonaExpanded, setTunePersonaExpanded] = useState(false);
   const [promptPreviewExpanded, setPromptPreviewExpanded] = useState(false);
@@ -326,7 +339,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         );
         const data = await res.json();
         if (data.ok && data.steps?.length > 0) {
-          stepsToUse = data.steps.map((s: any) => ({
+          stepsToUse = data.steps.map((s: ApiWizardStep) => ({
             id: s.id,
             label: s.label,
             activeLabel: s.activeLabel,
@@ -446,9 +459,9 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         if (controller.signal.aborted) return;
         if (data.ok) {
           const domainCallers = (data.callers || []).filter(
-            (c: any) => c.domainId === selectedDomainId,
+            (c: ApiCaller) => c.domainId === selectedDomainId,
           );
-          const list: CallerInfo[] = domainCallers.map((c: any) => ({
+          const list: CallerInfo[] = domainCallers.map((c: ApiCaller) => ({
             id: c.id,
             name: c.name || c.email || c.id,
           }));
@@ -475,8 +488,8 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             setSelectedCallerId("");
           }
         }
-      } catch (e: any) {
-        if (e.name === "AbortError") return;
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name === "AbortError") return;
         console.warn(`[${config.headerTitle}] Failed to load callers:`, e);
       }
     })();
@@ -652,8 +665,8 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         setData("score", data.score ?? 0);
         setData("level", data.level ?? "incomplete");
       }
-    } catch (e: any) {
-      if (e.name === "AbortError") return;
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
       console.warn(`[${config.headerTitle}] Readiness fetch failed:`, e);
     } finally {
       if (!controller.signal.aborted) setChecksLoading(false);
@@ -712,7 +725,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     };
   }, []);
 
-  // Fetch available content sources when entering no-content phase
+  // Fetch available content sources + existing courses when entering no-content phase
   useEffect(() => {
     if (contentPhase !== "no-content") return;
     let cancelled = false;
@@ -740,8 +753,39 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       }
     })();
 
+    // Also fetch existing courses (playbooks) for this domain
+    if (selectedDomainId) {
+      (async () => {
+        try {
+          const res = await fetch(`/api/domains/${selectedDomainId}`);
+          const data = await res.json();
+          if (cancelled || !data.ok) return;
+          const domain = data.domain;
+          const playbooks = (domain.playbooks || [])
+            .filter((pb: ApiPlaybook) => pb.status === "PUBLISHED")
+            .map((pb: ApiPlaybook) => {
+              const subjects = domain.subjects || [];
+              const totalAssertions = subjects.reduce((sum: number, sd: ApiSubjectDomain) => {
+                return sum + (sd.subject?.sources || []).reduce((s2: number, ss: ApiSubjectSource) =>
+                  s2 + (ss.source?._count?.assertions || 0), 0);
+              }, 0);
+              return {
+                id: pb.id,
+                name: pb.name,
+                status: pb.status,
+                subjectCount: subjects.length,
+                assertionCount: totalAssertions,
+              };
+            });
+          if (!cancelled) setExistingCourses(playbooks);
+        } catch {
+          if (!cancelled) setExistingCourses([]);
+        }
+      })();
+    }
+
     return () => { cancelled = true; };
-  }, [contentPhase]);
+  }, [contentPhase, selectedDomainId]);
 
   const handleUploadFile = useCallback((f: File) => {
     const ext = "." + f.name.split(".").pop()?.toLowerCase();
@@ -774,7 +818,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     // Without this, generateContentSpec can't link the content spec to a playbook
     try {
       await fetch(`/api/domains/${selectedDomainId}/scaffold`, { method: "POST" });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.warn("[Teach] Scaffold failed (non-critical):", e);
       warnings.push("Domain scaffold failed — content spec may not be linked to playbook");
     }
@@ -798,7 +842,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         } else if (specData.error) {
           warnings.push(`Curriculum: ${specData.error}`);
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.warn("[Teach] Content spec generation failed:", e);
         warnings.push("Curriculum generation failed");
       }
@@ -823,7 +867,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         } else {
           warnings.push(`Prompt: ${composeData.error || "composition failed"}`);
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.warn("[Teach] Prompt composition failed:", e);
         warnings.push("Prompt composition failed");
       }
@@ -837,6 +881,36 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     });
     setContentPhase("done");
   }, [selectedDomainId, selectedCallerId]);
+
+  // ── Pack upload result handler ─────────────────────
+  const handlePackResult = useCallback(async (result: PackUploadResult) => {
+    if (result.mode === "skip") {
+      handleNext();
+      return;
+    }
+
+    if (result.mode === "existing-course") {
+      // User picked an existing course — content is already extracted
+      // Just mark as has-content and move forward
+      setContentPhase("has-content");
+      return;
+    }
+
+    if (result.mode === "pack-upload") {
+      // Fire-and-forget: extraction runs in background on the server.
+      // The extract endpoint auto-triggers scaffolding + content spec when done.
+      setContentCount(result.sourceCount || 0);
+      setContentPhase("done");
+      // Tell downstream steps that extraction is still in progress
+      setData("extractionInProgress", true);
+      setData("packSourceCount", result.sourceCount || 0);
+      // Persist content availability for downstream steps (mirrors handleNext step 2)
+      setData("contentAvailable", true);
+      setData("contentCount", result.sourceCount || 0);
+      // Advance past content step (step 2 → step 3)
+      setStep(currentStep + 1);
+    }
+  }, [setData, setStep, currentStep]);
 
   const handleStartUpload = useCallback(async () => {
     if (!uploadFile || !selectedDomainId) return;
@@ -947,8 +1021,8 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           }
         } catch { /* network blip — keep polling */ }
       }, 2000);
-    } catch (e: any) {
-      setUploadError(e.message || "Upload failed");
+    } catch (e: unknown) {
+      setUploadError(e instanceof Error ? e.message : "Upload failed");
       setContentPhase("error");
     }
   }, [uploadFile, selectedDomainId, runPostExtractionWiring]);
@@ -1014,9 +1088,9 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
 
       // 4. Run post-extraction wiring (generate content spec + compose prompt)
       await runPostExtractionWiring(count);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[Teach] Source selection failed:", e);
-      setUploadError(e.message || "Failed to attach content source");
+      setUploadError(e instanceof Error ? e.message : "Failed to attach material");
       setContentPhase("error");
       setSelectedSourceId(null);
     }
@@ -1050,6 +1124,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       const hasContent = contentPhase === "has-content" || contentPhase === "done";
       setData("contentAvailable", hasContent);
       setData("contentCount", contentCount);
+      // extractionInProgress is already set by handlePackResult if applicable
     }
     setStep(currentStep + 1);
   };
@@ -1138,9 +1213,9 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       const qs = params.toString();
       endFlow();
       router.push(`/x/sim/${newCallerId}${qs ? `?${qs}` : ""}`);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[Teach] Launch failed:", e);
-      setWizardError(e.message || "Failed to start lesson. Please try again.");
+      setWizardError(e instanceof Error ? e.message : "Failed to start lesson. Please try again.");
       setLaunching(false);
       setLaunchPhase("idle");
     }
@@ -1179,11 +1254,12 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       const data = await res.json();
       if (data.ok) {
         setTeachingPoints(
-          (data.teachingPoints || []).map((tp: any) => ({
+          (data.teachingPoints || []).map((tp: { id: string; text: string; type?: string; reviewed?: boolean; chapter?: string }) => ({
             id: tp.id,
             text: tp.text,
             type: tp.type || "FACT",
             reviewed: !!tp.reviewed,
+            chapter: tp.chapter || undefined,
           }))
         );
       }
@@ -1222,7 +1298,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     if (!selectedDomainId) return;
     setSavingPersona(true);
     try {
-      const targets: Record<string, any> = {};
+      const targets: Record<string, unknown> = {};
       for (const [paramId, value] of Object.entries(output.parameterMap)) {
         targets[paramId] = { value, confidence: 0.5 };
       }
@@ -1647,7 +1723,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       {/* ═══════════════════════════════════════════════ */}
       {currentStep === 2 && selectedDomainId && (
         <div className="dtw-section">
-          <div className="dtw-section-label">Content</div>
+          <div className="dtw-section-label">Course Materials</div>
 
           {/* Loading state */}
           {contentPhase === "loading" && (
@@ -1670,125 +1746,139 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           {/* No content — select existing or upload new */}
           {(contentPhase === "no-content" || contentPhase === "error") && (
             <>
-              {/* Mode toggle (only when existing sources available) */}
-              {availableSources.length > 0 && (
-                <div className="dtw-content-mode-toggle">
-                  <button
-                    className={`dtw-content-mode-tab ${contentMode === "select" ? "dtw-content-mode-tab--active" : ""}`}
-                    onClick={() => setContentMode("select")}
-                  >
-                    <Library size={16} />
-                    Select Existing
-                  </button>
-                  <button
-                    className={`dtw-content-mode-tab ${contentMode === "upload" ? "dtw-content-mode-tab--active" : ""}`}
-                    onClick={() => setContentMode("upload")}
-                  >
-                    <Upload size={16} />
-                    Upload New
-                  </button>
-                </div>
-              )}
-
-              {/* SELECT EXISTING mode */}
-              {contentMode === "select" && availableSources.length > 0 && (
-                <div className="dtw-source-library">
-                  {loadingSources ? (
-                    <div className="dtw-muted-text dtw-loading-text"><span className="dtw-inline-spinner" /> Loading content library...</div>
-                  ) : (
-                    <div className="dtw-source-list">
-                      {availableSources.map((source) => {
-                        const isSelected = selectedSourceId === source.id;
-                        const linkedToDomain = source.subjects.some((ss) =>
-                          ss.subject.domains.some((sd) => sd.domain.id === selectedDomainId)
-                        );
-                        return (
-                          <button
-                            key={source.id}
-                            className={`dtw-source-card ${isSelected ? "dtw-source-card--selected" : ""} ${linkedToDomain ? "dtw-source-card--linked" : ""}`}
-                            onClick={() => setSelectedSourceId(isSelected ? null : source.id)}
-                          >
-                            <div className="dtw-source-card-name">
-                              {source.name}
-                              {linkedToDomain && (
-                                <span className="dtw-source-card-linked-badge">Already linked</span>
-                              )}
-                            </div>
-                            <span className="dtw-source-card-pill">
-                              {source._count.assertions} teaching point{source._count.assertions !== 1 ? "s" : ""}
-                            </span>
-                          </button>
-                        );
-                      })}
+              {/* Teach flow: Pack upload with course selection + multi-file */}
+              {isTeachFlow ? (
+                <PackUploadStep
+                  domainId={selectedDomainId}
+                  courseName={goalText}
+                  existingCourses={existingCourses}
+                  onResult={handlePackResult}
+                  onBack={handlePrev}
+                />
+              ) : (
+                <>
+                  {/* Demonstrate flow: original single-file + source selection */}
+                  {/* Mode toggle (only when existing sources available) */}
+                  {availableSources.length > 0 && (
+                    <div className="dtw-content-mode-toggle">
+                      <button
+                        className={`dtw-content-mode-tab ${contentMode === "select" ? "dtw-content-mode-tab--active" : ""}`}
+                        onClick={() => setContentMode("select")}
+                      >
+                        <Library size={16} />
+                        Select Existing
+                      </button>
+                      <button
+                        className={`dtw-content-mode-tab ${contentMode === "upload" ? "dtw-content-mode-tab--active" : ""}`}
+                        onClick={() => setContentMode("upload")}
+                      >
+                        <Upload size={16} />
+                        Upload New
+                      </button>
                     </div>
                   )}
-                </div>
-              )}
 
-              {/* UPLOAD NEW mode (or fallback when no sources exist) */}
-              {(contentMode === "upload" || availableSources.length === 0) && (
-                <>
-                  <div
-                    className={`dtw-dropzone ${uploadDragOver ? "dtw-dropzone--active" : ""}`}
-                    onDragOver={(e) => { e.preventDefault(); setUploadDragOver(true); }}
-                    onDragLeave={() => setUploadDragOver(false)}
-                    onDrop={handleUploadDrop}
-                    onClick={() => uploadFileRef.current?.click()}
-                  >
-                    <div className="dtw-dropzone-icon">
-                      {uploadFile ? <FileText size={32} /> : <Upload size={32} />}
+                  {/* SELECT EXISTING mode */}
+                  {contentMode === "select" && availableSources.length > 0 && (
+                    <div className="dtw-source-library">
+                      {loadingSources ? (
+                        <div className="dtw-muted-text dtw-loading-text"><span className="dtw-inline-spinner" /> Loading content library...</div>
+                      ) : (
+                        <div className="dtw-source-list">
+                          {availableSources.map((source) => {
+                            const isSelected = selectedSourceId === source.id;
+                            const linkedToDomain = source.subjects.some((ss) =>
+                              ss.subject.domains.some((sd) => sd.domain.id === selectedDomainId)
+                            );
+                            return (
+                              <button
+                                key={source.id}
+                                className={`dtw-source-card ${isSelected ? "dtw-source-card--selected" : ""} ${linkedToDomain ? "dtw-source-card--linked" : ""}`}
+                                onClick={() => setSelectedSourceId(isSelected ? null : source.id)}
+                              >
+                                <div className="dtw-source-card-name">
+                                  {source.name}
+                                  {linkedToDomain && (
+                                    <span className="dtw-source-card-linked-badge">Already linked</span>
+                                  )}
+                                </div>
+                                <span className="dtw-source-card-pill">
+                                  {source._count.assertions} teaching point{source._count.assertions !== 1 ? "s" : ""}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    {uploadFile ? (
-                      <div className="dtw-dropzone-filename">{uploadFile.name}</div>
-                    ) : (
-                      <>
-                        <div className="dtw-dropzone-filename">
-                          Drop a file here or click to browse
+                  )}
+
+                  {/* UPLOAD NEW mode (or fallback when no sources exist) */}
+                  {(contentMode === "upload" || availableSources.length === 0) && (
+                    <>
+                      <div
+                        className={`dtw-dropzone ${uploadDragOver ? "dtw-dropzone--active" : ""}`}
+                        onDragOver={(e) => { e.preventDefault(); setUploadDragOver(true); }}
+                        onDragLeave={() => setUploadDragOver(false)}
+                        onDrop={handleUploadDrop}
+                        onClick={() => uploadFileRef.current?.click()}
+                      >
+                        <div className="dtw-dropzone-icon">
+                          {uploadFile ? <FileText size={32} /> : <Upload size={32} />}
                         </div>
-                        <div className="dtw-dropzone-hint">
-                          PDF, TXT, MD, or JSON
-                        </div>
-                      </>
-                    )}
+                        {uploadFile ? (
+                          <div className="dtw-dropzone-filename">{uploadFile.name}</div>
+                        ) : (
+                          <>
+                            <div className="dtw-dropzone-filename">
+                              Drop a file here or click to browse
+                            </div>
+                            <div className="dtw-dropzone-hint">
+                              PDF, DOCX, TXT, MD, or JSON
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <input
+                        ref={uploadFileRef}
+                        type="file"
+                        className="dtw-file-input-hidden"
+                        accept=".pdf,.docx,.txt,.md,.markdown,.json"
+                        onChange={(e) => {
+                          if (e.target.files?.[0]) handleUploadFile(e.target.files[0]);
+                        }}
+                      />
+                    </>
+                  )}
+
+                  {uploadError && (
+                    <div className="dtw-upload-error">{uploadError}</div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div className="dtw-upload-actions">
+                    <button className="dtw-btn-skip" onClick={handleNext}>
+                      Skip for now
+                    </button>
+                    {contentMode === "select" && selectedSourceId ? (
+                      <button
+                        className="dtw-btn-upload"
+                        onClick={() => handleSelectExistingSource(selectedSourceId)}
+                      >
+                        Use Selected Content
+                      </button>
+                    ) : contentMode === "upload" || availableSources.length === 0 ? (
+                      <button
+                        className="dtw-btn-upload"
+                        disabled={!uploadFile}
+                        onClick={handleStartUpload}
+                      >
+                        Upload &amp; Extract
+                      </button>
+                    ) : null}
                   </div>
-                  <input
-                    ref={uploadFileRef}
-                    type="file"
-                    className="dtw-file-input-hidden"
-                    accept=".pdf,.txt,.md,.markdown,.json"
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) handleUploadFile(e.target.files[0]);
-                    }}
-                  />
                 </>
               )}
-
-              {uploadError && (
-                <div className="dtw-upload-error">{uploadError}</div>
-              )}
-
-              {/* Action buttons */}
-              <div className="dtw-upload-actions">
-                <button className="dtw-btn-skip" onClick={handleNext}>
-                  Skip for now
-                </button>
-                {contentMode === "select" && selectedSourceId ? (
-                  <button
-                    className="dtw-btn-upload"
-                    onClick={() => handleSelectExistingSource(selectedSourceId)}
-                  >
-                    Use Selected Content
-                  </button>
-                ) : contentMode === "upload" || availableSources.length === 0 ? (
-                  <button
-                    className="dtw-btn-upload"
-                    disabled={!uploadFile}
-                    onClick={handleStartUpload}
-                  >
-                    Upload &amp; Extract
-                  </button>
-                ) : null}
-              </div>
             </>
           )}
 
@@ -1797,7 +1887,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             <div>
               <div className="dtw-extract-status">
                 <div className="dtw-pulse-dot" />
-                <div className="dtw-extract-label">Linking content source...</div>
+                <div className="dtw-extract-label">Linking material...</div>
               </div>
               <div className="dtw-progress-track">
                 <div className="dtw-progress-fill dtw-progress-fill--indeterminate" />
@@ -1934,15 +2024,52 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                     </div>
                   ) : (
                     <div className="dtw-teaching-points">
-                      {teachingPoints.map((point) => (
-                        <div key={point.id} className="dtw-teaching-point">
-                          <div className={`dtw-tp-indicator ${point.reviewed ? "dtw-tp-reviewed" : "dtw-tp-pending"}`}>
-                            {point.reviewed ? "\u2713" : "\u2022"}
+                      {(() => {
+                        // Group TPs by chapter, preserving API sort order
+                        const groups: Array<{ chapter: string; points: typeof teachingPoints }> = [];
+                        const seen = new Map<string, number>();
+                        for (const tp of teachingPoints) {
+                          const key = tp.chapter || "General";
+                          const idx = seen.get(key);
+                          if (idx !== undefined) {
+                            groups[idx].points.push(tp);
+                          } else {
+                            seen.set(key, groups.length);
+                            groups.push({ chapter: key, points: [tp] });
+                          }
+                        }
+
+                        // If only one group, render flat (no headers needed)
+                        if (groups.length <= 1) {
+                          return teachingPoints.map((point) => (
+                            <div key={point.id} className="dtw-teaching-point">
+                              <div className={`dtw-tp-indicator ${point.reviewed ? "dtw-tp-reviewed" : "dtw-tp-pending"}`}>
+                                {point.reviewed ? "\u2713" : "\u2022"}
+                              </div>
+                              <div className="dtw-tp-text">{point.text}</div>
+                              <span className="dtw-tp-type">{point.type}</span>
+                            </div>
+                          ));
+                        }
+
+                        return groups.map((group) => (
+                          <div key={group.chapter} className="dtw-tp-group">
+                            <div className="dtw-tp-group-header">
+                              <span>{group.chapter}</span>
+                              <span className="dtw-tp-group-count">{group.points.length}</span>
+                            </div>
+                            {group.points.map((point) => (
+                              <div key={point.id} className="dtw-teaching-point">
+                                <div className={`dtw-tp-indicator ${point.reviewed ? "dtw-tp-reviewed" : "dtw-tp-pending"}`}>
+                                  {point.reviewed ? "\u2713" : "\u2022"}
+                                </div>
+                                <div className="dtw-tp-text">{point.text}</div>
+                                <span className="dtw-tp-type">{point.type}</span>
+                              </div>
+                            ))}
                           </div>
-                          <div className="dtw-tp-text">{point.text}</div>
-                          <span className="dtw-tp-type">{point.type}</span>
-                        </div>
-                      ))}
+                        ));
+                      })()}
                       {contentCount > teachingPoints.length && (
                         <div className="hf-text-sm hf-text-muted" style={{ padding: "8px 16px", textAlign: "center" }}>
                           Showing {teachingPoints.length} of {contentCount}
@@ -2080,7 +2207,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
               <div className="dtw-config-strip">
                 <div className="dtw-config-chip">{"\uD83D\uDC64"} {domainDetail.onboardingIdentitySpec?.name || "Default persona"}</div>
                 <div className="dtw-config-chip">{"\uD83D\uDCAC"} {domainDetail.onboardingWelcome ? "Custom welcome" : "Default welcome"}</div>
-                <div className="dtw-config-chip">{"\uD83D\uDD04"} {(domainDetail.onboardingFlowPhases as any)?.phases?.length ? `${(domainDetail.onboardingFlowPhases as any).phases.length} phases` : "Default flow"}</div>
+                <div className="dtw-config-chip">{"\uD83D\uDD04"} {(domainDetail.onboardingFlowPhases as { phases?: unknown[] })?.phases?.length ? `${(domainDetail.onboardingFlowPhases as { phases: unknown[] }).phases.length} phases` : "Default flow"}</div>
                 <div className="dtw-config-chip">{"\u2699\uFE0F"} {domainDetail.onboardingDefaultTargets ? `${Object.keys(domainDetail.onboardingDefaultTargets as object).filter(k => !k.startsWith("_")).length} params` : "Default targets"}</div>
               </div>
             ) : domainDetailLoading ? (
@@ -2109,15 +2236,16 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                 ) : (
                   <AgentTuningPanel
                     initialPositions={
-                      (domainDetail?.onboardingDefaultTargets as any)?._matrixPositions
+                      (domainDetail?.onboardingDefaultTargets as Record<string, unknown>)?._matrixPositions as
+                        React.ComponentProps<typeof AgentTuningPanel>["initialPositions"]
                     }
                     existingParams={
                       domainDetail?.onboardingDefaultTargets
                         ? Object.fromEntries(
-                            Object.entries(domainDetail.onboardingDefaultTargets as Record<string, any>)
+                            Object.entries(domainDetail.onboardingDefaultTargets as Record<string, unknown>)
                               .filter(([k]) => !k.startsWith("_"))
-                              .map(([k, v]) => [k, typeof v === "object" && v !== null ? (v as any).value : v])
-                          )
+                              .map(([k, v]) => [k, typeof v === "object" && v !== null ? (v as Record<string, unknown>).value : v])
+                          ) as Record<string, number>
                         : undefined
                     }
                     onChange={handlePersonaTuningChange}

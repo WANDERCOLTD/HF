@@ -1,39 +1,48 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Upload, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { ArrowRight, Upload, AlertCircle, CheckCircle, FolderUp } from 'lucide-react';
+import { PackUploadStep } from '@/components/wizards/PackUploadStep';
+import type { PackUploadResult } from '@/components/wizards/PackUploadStep';
 import type { StepProps } from '../CourseSetupWizard';
 
 export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
-  const [uploadMode, setUploadMode] = useState<'file' | 'describe'>('file');
+  const [uploadMode, setUploadMode] = useState<'file' | 'pack' | 'describe'>('pack');
   const [file, setFile] = useState<File | null>(null);
   const [description, setDescription] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadedSourceId, setUploadedSourceId] = useState<string | null>(null);
+  const [packComplete, setPackComplete] = useState(false);
+  const [packSummary, setPackSummary] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get domain/course info from flow context
+  const domainId = getData<string>('domainId') || '';
+  const courseName = getData<string>('courseName') || '';
 
   // Restore saved file name indicator from context
   const savedFileName = getData<string>('contentFileName');
 
   // Load saved data
   useEffect(() => {
-    const savedMode = getData<'file' | 'describe'>('contentMode');
+    const savedMode = getData<'file' | 'pack' | 'describe'>('contentMode');
     if (savedMode) setUploadMode(savedMode);
     const savedDesc = getData<string>('contentDescription');
     if (savedDesc) setDescription(savedDesc);
     const savedSourceId = getData<string>('sourceId');
     if (savedSourceId) setUploadedSourceId(savedSourceId);
+    const savedPackComplete = getData<boolean>('packComplete');
+    if (savedPackComplete) setPackComplete(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && ['application/pdf', 'text/plain', 'text/markdown'].includes(droppedFile.type)) {
+    if (droppedFile) {
       setFile(droppedFile);
-      // Clear old sourceId if user picks a different file
       if (uploadedSourceId) {
         setUploadedSourceId(null);
         setData('sourceId', undefined);
@@ -43,7 +52,6 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
 
   const handleFileSelect = (selectedFile: File) => {
     setFile(selectedFile);
-    // Clear old sourceId if user picks a different file
     if (uploadedSourceId) {
       setUploadedSourceId(null);
       setData('sourceId', undefined);
@@ -54,13 +62,11 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
     setData('contentMode', uploadMode);
 
     if (uploadMode === 'file' && (file || uploadedSourceId)) {
-      // Already uploaded on a previous visit — skip re-upload
       if (uploadedSourceId && !file) {
         onNext();
         return;
       }
       if (uploadedSourceId) {
-        // Same step re-visit with sourceId already set, no new file
         onNext();
         return;
       }
@@ -71,7 +77,6 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
       setUploadError(null);
 
       try {
-        // Step 1: Create ContentSource metadata
         const slug = `course-upload-${Date.now()}`;
         const name = file.name.replace(/\.[^.]+$/, '');
         const createRes = await fetch('/api/content-sources', {
@@ -88,7 +93,6 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
         if (!createRes.ok) throw new Error(createData.error || 'Failed to create content source');
         const sourceId = createData.source.id;
 
-        // Step 2: Upload file + classify via existing Content Sources API
         const formData = new FormData();
         formData.append('file', file);
         formData.append('mode', 'classify');
@@ -99,56 +103,115 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
         const importData = await importRes.json();
         if (!importRes.ok) throw new Error(importData.error || 'File upload failed');
 
-        // Store sourceId in flow bag
         setData('sourceId', sourceId);
         setData('contentFileName', file.name);
         setUploadedSourceId(sourceId);
         onNext();
-      } catch (err: any) {
-        setUploadError(err.message || 'Upload failed');
+      } catch (err: unknown) {
+        setUploadError(err instanceof Error ? err.message : 'Upload failed');
       } finally {
         setUploading(false);
       }
     } else if (uploadMode === 'describe') {
       setData('contentDescription', description);
       onNext();
+    } else if (uploadMode === 'pack' && packComplete) {
+      onNext();
     }
   };
 
+  // ── Pack upload result handler ──
+  const handlePackResult = useCallback((result: PackUploadResult) => {
+    if (result.mode === 'skip') {
+      setData('contentMode', 'skip');
+      onNext();
+      return;
+    }
+
+    if (result.mode === 'pack-upload') {
+      // Pack ingestion complete
+      setData('packTaskId', result.taskId);
+      setData('packSubjects', result.subjects);
+      setData('packSourceCount', result.sourceCount);
+      setData('packComplete', true);
+      setData('contentMode', 'pack');
+      setPackComplete(true);
+      const subjectNames = (result.subjects || []).map((s) => s.name).join(', ');
+      setPackSummary(`${result.subjects?.length || 0} subject${(result.subjects?.length || 0) !== 1 ? 's' : ''} · ${result.sourceCount || 0} files uploaded (${subjectNames})`);
+      onNext();
+    }
+
+    if (result.mode === 'existing-course') {
+      setData('existingCourseId', result.courseId);
+      setData('contentMode', 'existing-course');
+      setPackComplete(true);
+      onNext();
+    }
+  }, [setData, onNext]);
+
   const hasFile = !!file;
-  const isValid = uploadMode === 'file' ? (hasFile || !!uploadedSourceId) : description.trim().length > 0;
+  const isValid =
+    uploadMode === 'file' ? (hasFile || !!uploadedSourceId) :
+    uploadMode === 'describe' ? description.trim().length > 0 :
+    uploadMode === 'pack' ? packComplete :
+    false;
 
   return (
     <div className="min-h-screen flex flex-col">
       <div className="flex-1 p-8 max-w-2xl mx-auto w-full">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Add Content</h1>
-          <p className="text-[var(--text-secondary)]">Upload your curriculum or describe your course topics</p>
+          <h1 className="hf-page-title hf-mb-sm">Add Content</h1>
+          <p className="hf-page-subtitle">Upload your course files, or describe your topics</p>
         </div>
 
-        {/* Mode Toggle */}
-        <div style={{ marginBottom: 32, display: "flex", gap: 16 }}>
+        {/* Mode Toggle — 3 options */}
+        <div className="hf-chip-card-row">
+          <button
+            onClick={() => setUploadMode('pack')}
+            className={`hf-chip-card${uploadMode === 'pack' ? ' hf-chip-card-selected' : ''}`}
+          >
+            <FolderUp className="hf-chip-card-icon" />
+            <h3 className="hf-chip-card-title">Course Pack</h3>
+            <p className="hf-chip-card-desc">Multiple files</p>
+          </button>
           <button
             onClick={() => setUploadMode('file')}
-            className={uploadMode === 'file' ? "hf-chip hf-chip-selected" : "hf-chip"}
-            style={{ flex: 1, padding: 16, textAlign: "center", display: "block", borderRadius: 10, borderWidth: 2 }}
+            className={`hf-chip-card${uploadMode === 'file' ? ' hf-chip-card-selected' : ''}`}
           >
-            <Upload style={{ width: 20, height: 20, margin: "0 auto 8px" }} />
-            <h3 style={{ fontWeight: 600 }}>Upload File</h3>
-            <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>PDF, TXT, or MD</p>
+            <Upload className="hf-chip-card-icon" />
+            <h3 className="hf-chip-card-title">Single File</h3>
+            <p className="hf-chip-card-desc">PDF, DOCX, TXT, MD</p>
           </button>
           <button
             onClick={() => setUploadMode('describe')}
-            className={uploadMode === 'describe' ? "hf-chip hf-chip-selected" : "hf-chip"}
-            style={{ flex: 1, padding: 16, textAlign: "center", display: "block", borderRadius: 10, borderWidth: 2 }}
+            className={`hf-chip-card${uploadMode === 'describe' ? ' hf-chip-card-selected' : ''}`}
           >
-            <span style={{ fontSize: 24, display: "block", marginBottom: 8 }}>✍️</span>
-            <h3 style={{ fontWeight: 600 }}>Describe</h3>
-            <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>Write topics in text</p>
+            <span className="hf-chip-card-emoji">{'\u270D\uFE0F'}</span>
+            <h3 className="hf-chip-card-title">Describe</h3>
+            <p className="hf-chip-card-desc">Write topics in text</p>
           </button>
         </div>
 
-        {/* Upload File */}
+        {/* Pack Upload */}
+        {uploadMode === 'pack' && (
+          <div className="mb-8">
+            {packComplete && packSummary ? (
+              <div className="hf-banner hf-banner-success">
+                <CheckCircle style={{ width: 16, height: 16, flexShrink: 0 }} />
+                <span>{packSummary}</span>
+              </div>
+            ) : (
+              <PackUploadStep
+                domainId={domainId}
+                courseName={courseName}
+                onResult={handlePackResult}
+                onBack={onPrev}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Single File Upload */}
         {uploadMode === 'file' && (
           <div className="mb-8">
             <div
@@ -207,7 +270,7 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.txt,.md"
+                accept=".pdf,.docx,.txt,.md"
                 onChange={(e) => e.currentTarget.files?.[0] && handleFileSelect(e.currentTarget.files[0])}
                 className="hidden"
               />
@@ -246,40 +309,43 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
         )}
       </div>
 
-      <div className="hf-step-footer">
-        <button
-          onClick={onPrev}
-          className="hf-btn hf-btn-ghost"
-          disabled={uploading}
-        >
-          Back
-        </button>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      {/* Footer — only show for non-pack modes (pack has its own buttons) */}
+      {uploadMode !== 'pack' && (
+        <div className="hf-step-footer">
           <button
-            onClick={() => {
-              setData('contentMode', 'skip');
-              setData('contentFileName', undefined);
-              setData('sourceId', undefined);
-              onNext();
-            }}
+            onClick={onPrev}
             className="hf-btn hf-btn-ghost"
             disabled={uploading}
           >
-            Skip
+            Back
           </button>
-          <button
-            onClick={handleNext}
-            disabled={!isValid || uploading}
-            className="hf-btn hf-btn-primary"
-          >
-            {uploading ? (
-              <>Uploading<div className="hf-spinner" style={{ width: 16, height: 16 }} /></>
-            ) : (
-              <>Next <ArrowRight style={{ width: 16, height: 16 }} /></>
-            )}
-          </button>
+          <div className="hf-flex hf-gap-md hf-items-center">
+            <button
+              onClick={() => {
+                setData('contentMode', 'skip');
+                setData('contentFileName', undefined);
+                setData('sourceId', undefined);
+                onNext();
+              }}
+              className="hf-btn hf-btn-ghost"
+              disabled={uploading}
+            >
+              Skip
+            </button>
+            <button
+              onClick={handleNext}
+              disabled={!isValid || uploading}
+              className="hf-btn hf-btn-primary"
+            >
+              {uploading ? (
+                <>Uploading<div className="hf-spinner" style={{ width: 16, height: 16 }} /></>
+              ) : (
+                <>Next <ArrowRight style={{ width: 16, height: 16 }} /></>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
