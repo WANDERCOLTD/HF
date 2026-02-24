@@ -377,7 +377,44 @@ export async function getVoiceCallSettings(): Promise<VoiceCallSettings> {
 }
 
 // ═══════════════════════════════════════════════════════
-// 8. PERFORMANCE & CACHING (renumbered from 7)
+// 8. VOICE I/O (simulator STT + TTS config)
+// ═══════════════════════════════════════════════════════
+
+export interface VoiceIOSettings {
+  /** OpenAI TTS voice — "alloy" | "echo" | "fern" | "nova" | "onyx" | "shimmer" */
+  ttsVoice: string;
+  /** TTS speaking rate: 0.25–4.0 */
+  ttsSpeakingRate: number;
+  /** Whisper language hint (BCP-47, e.g. "en") */
+  whisperLanguage: string;
+  /** Max recording duration in seconds before auto-stop */
+  recordingMaxSeconds: number;
+  /** Auto-play TTS when sim is in voice mode */
+  autoPlayInVoiceMode: boolean;
+}
+
+export const VOICE_IO_DEFAULTS: VoiceIOSettings = {
+  ttsVoice: "nova",
+  ttsSpeakingRate: 1.0,
+  whisperLanguage: "en",
+  recordingMaxSeconds: 60,
+  autoPlayInVoiceMode: true,
+};
+
+const VOICE_IO_KEYS: Record<keyof VoiceIOSettings, string> = {
+  ttsVoice: "voice_io.tts_voice",
+  ttsSpeakingRate: "voice_io.tts_speaking_rate",
+  whisperLanguage: "voice_io.whisper_language",
+  recordingMaxSeconds: "voice_io.recording_max_seconds",
+  autoPlayInVoiceMode: "voice_io.auto_play_in_voice_mode",
+};
+
+export async function getVoiceIOSettings(): Promise<VoiceIOSettings> {
+  return loadGroup(VOICE_IO_KEYS, VOICE_IO_DEFAULTS);
+}
+
+// ═══════════════════════════════════════════════════════
+// 9. PERFORMANCE & CACHING (renumbered from 8)
 // ═══════════════════════════════════════════════════════
 
 export interface CacheSettings {

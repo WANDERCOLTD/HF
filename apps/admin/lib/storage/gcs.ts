@@ -44,13 +44,14 @@ export class GCSStorageAdapter implements StorageAdapter {
     return { storageKey };
   }
 
-  async getSignedUrl(storageKey: string, expirySeconds = config.storage.signedUrlExpirySec): Promise<string> {
+  async getSignedUrl(storageKey: string, expirySeconds = config.storage.signedUrlExpirySec, fileName?: string): Promise<string> {
     const bucket = getBucket();
     const blob = bucket.file(storageKey);
 
     const [url] = await blob.getSignedUrl({
       action: "read",
       expires: Date.now() + expirySeconds * 1000,
+      ...(fileName && { responseDisposition: `attachment; filename="${fileName}"` }),
     });
 
     return url;

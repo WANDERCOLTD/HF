@@ -691,6 +691,284 @@
   font-weight: 600;
 }
 
+/* ===== Sim Nav Strip (desktop — left vertical icon bar) ===== */
+
+.wa-nav-strip {
+  width: 48px;
+  min-width: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  background: var(--wa-green-darker);
+  border-right: 1px solid color-mix(in srgb, var(--wa-green-dark) 60%, transparent);
+  z-index: 51;
+  gap: 4px;
+}
+
+.wa-nav-strip-spacer {
+  flex: 1;
+}
+
+.wa-nav-strip-item {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, white 70%, transparent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.wa-nav-strip-item:hover {
+  background: color-mix(in srgb, white 15%, transparent);
+  color: white;
+}
+
+.wa-nav-strip-item.active {
+  background: color-mix(in srgb, white 20%, transparent);
+  color: white;
+}
+
+/* Tooltip on hover */
+.wa-nav-strip-item::after {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1f2937;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 200;
+}
+
+.wa-nav-strip-item:hover::after {
+  opacity: 1;
+}
+
+/* Badge on strip icon */
+.wa-nav-strip-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  background: var(--wa-green-primary);
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  border: 2px solid var(--wa-green-darker);
+}
+
+/* ===== Sim Nav Bar (mobile/tablet — bottom tab bar) ===== */
+
+.wa-nav-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(60px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--wa-surface);
+  border-top: 1px solid var(--wa-divider);
+  display: flex;
+  align-items: stretch;
+  z-index: 60;
+}
+
+.wa-nav-bar-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--wa-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.15s;
+  position: relative;
+  padding: 8px 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wa-nav-bar-item:active {
+  background: var(--wa-surface-hover);
+}
+
+.wa-nav-bar-item.active {
+  color: var(--wa-green-dark);
+}
+
+.wa-nav-bar-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
+
+/* Badge on tab bar icon */
+.wa-nav-bar-badge {
+  position: absolute;
+  top: 6px;
+  left: calc(50% + 6px);
+  min-width: 16px;
+  height: 16px;
+  background: var(--wa-green-primary);
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+
+/* Push content above the nav bar on mobile */
+.wa-mobile-container.has-nav-bar {
+  padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VOICE MODE — compact voice bar replacing the text input bar
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Container — same sticky bottom-0 structure as wa-input-bar */
+.wa-voice-bar-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: var(--wa-surface);
+  border-top: 1px solid var(--wa-border);
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+/* Waveform pill — same visual language as wa-input-field */
+.wa-voice-waveform {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  height: 36px;
+  padding: 6px 12px;
+  background: var(--wa-input-bg);
+  border-radius: 24px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Individual waveform bars */
+.wa-voice-bar {
+  width: 4px;
+  min-height: 4px;
+  height: 30%;
+  border-radius: 2px;
+  background: var(--wa-green-primary);
+  flex-shrink: 0;
+  transition: height 0.08s ease;
+}
+
+/* Idle/AI-speaking ambient pulse — staggered per bar */
+.wa-voice-bar--pulse {
+  animation: wa-voice-idle-pulse 1.4s ease-in-out infinite alternate;
+}
+.wa-voice-bar--pulse:nth-child(1) { animation-delay: 0s; }
+.wa-voice-bar--pulse:nth-child(2) { animation-delay: 0.28s; }
+.wa-voice-bar--pulse:nth-child(3) { animation-delay: 0.56s; }
+.wa-voice-bar--pulse:nth-child(4) { animation-delay: 0.84s; }
+.wa-voice-bar--pulse:nth-child(5) { animation-delay: 1.12s; }
+
+@keyframes wa-voice-idle-pulse {
+  from { height: 15%; }
+  to   { height: 70%; }
+}
+
+/* State label below the waveform pill */
+.wa-voice-label {
+  font-size: 11px;
+  color: var(--wa-text-muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
+  padding-bottom: 2px;
+}
+
+/* Primary action button — matches wa-send-btn size (48×48px circle) */
+.wa-voice-action-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: var(--wa-green-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s, transform 0.15s;
+}
+.wa-voice-action-btn:disabled {
+  background: var(--wa-border);
+  cursor: default;
+}
+.wa-voice-action-btn--recording {
+  background: var(--status-error-text, #ef4444);
+  transform: scale(1.08);
+}
+.wa-voice-action-btn--speaking {
+  background: var(--wa-green-dark);
+}
+
+/* Exit / content-picker icon buttons */
+.wa-voice-exit-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--wa-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: 50%;
+  transition: color 0.15s;
+}
+.wa-voice-exit-btn:hover {
+  color: var(--wa-text-primary);
+}
+
 /* Embedded mode — bounded container within admin pages */
 .sim-embedded {
   display: flex;

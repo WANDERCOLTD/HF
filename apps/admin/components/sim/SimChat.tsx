@@ -10,6 +10,8 @@ import { ArtifactCard } from './ArtifactCard';
 import { ActionCard } from './ActionCard';
 import { ContentPicker } from './ContentPicker';
 import { MediaLibraryPanel } from './MediaLibraryPanel';
+import { VoicePanel } from './VoicePanel';
+import { useVoiceMode } from './useVoiceMode';
 import type { MediaInfo } from './MessageBubble';
 
 interface Message {
@@ -119,6 +121,12 @@ export function SimChat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const callIdRef = useRef<string | null>(null);
+
+  // Voice mode — wired so transcribed speech sends as user message
+  const voiceMode = useVoiceMode(useCallback((transcript: string) => {
+    sendVoiceMessage(transcript);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []));
 
   // Abort in-flight stream on unmount (prevents orphaned fetches during key-based remount)
   useEffect(() => {
@@ -399,6 +407,11 @@ export function SimChat({
           body: JSON.stringify({ role: 'assistant', content: fullContent }),
         }).catch((err) => console.warn("[sim] Observer relay failed:", err));
       }
+
+      // Auto-play TTS when voice mode is active
+      if (fullContent && voiceMode.state !== 'off') {
+        voiceMode.speakText(fullContent).catch((err) => console.warn("[sim] TTS failed:", err));
+      }
     } catch (e: any) {
       if (e.name === 'AbortError') {
         // Stream was aborted (e.g. component unmount) — save any partial content
@@ -458,6 +471,34 @@ export function SimChat({
     streamAIResponse(input.trim(), history);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [input, isStreaming, messages]);
+
+  // Send a voice-transcribed message (bypasses text input state)
+  function sendVoiceMessage(transcript: string) {
+    if (isStreaming) return;
+
+    const userMsg: Message = {
+      id: `msg-${Date.now()}`,
+      role: 'user',
+      content: transcript,
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => {
+      const updated = [...prev, userMsg];
+
+      if (callIdRef.current) {
+        fetch(`/api/calls/${callIdRef.current}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: 'user', content: transcript }),
+        }).catch((err) => console.warn("[sim] Observer relay failed:", err));
+      }
+
+      const history = updated.map(m => ({ role: m.role, content: m.content }));
+      streamAIResponse(transcript, history);
+      return updated;
+    });
+  }
 
   // End call
   const handleEndCall = useCallback(async () => {
@@ -574,8 +615,10 @@ export function SimChat({
           setShowMediaLibrary(prev => !prev);
           setShowContentPicker(false);
         }}
+        onVoiceToggle={!callEnded ? voiceMode.toggle : undefined}
         onAvatarClick={() => router.push(`/x/callers/${callerId}`)}
         mediaLibraryActive={showMediaLibrary}
+        voiceActive={voiceMode.state !== 'off'}
         callActive={messages.length > 0 && !callEnded}
         avatarColor={hashColor(callerId)}
       />
@@ -759,35 +802,44 @@ export function SimChat({
         />
       )}
 
-      {/* Input */}
+      {/* Input — text mode or voice mode */}
       {!callEnded && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-          {callId && (
-            <button
-              onClick={() => { setShowContentPicker(!showContentPicker); setShowMediaLibrary(false); }}
-              title="Share content"
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '8px 8px 8px 12px',
-                fontSize: 20,
-                cursor: 'pointer',
-                color: showContentPicker ? 'var(--accent-primary)' : 'var(--text-muted)',
-                flexShrink: 0,
-              }}
-            >
-              {'\u{1F4CE}'}
-            </button>
-          )}
-          <div style={{ flex: 1 }}>
-            <MessageInput
-              value={input}
-              onChange={setInput}
-              onSend={handleSend}
-              disabled={isStreaming}
-            />
+        voiceMode.state !== 'off' ? (
+          <VoicePanel
+            voiceMode={voiceMode}
+            callId={callId}
+            onContentPicker={() => { setShowContentPicker(prev => !prev); setShowMediaLibrary(false); }}
+            showContentPicker={showContentPicker}
+          />
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            {callId && (
+              <button
+                onClick={() => { setShowContentPicker(!showContentPicker); setShowMediaLibrary(false); }}
+                title="Share content"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '8px 8px 8px 12px',
+                  fontSize: 20,
+                  cursor: 'pointer',
+                  color: showContentPicker ? 'var(--accent-primary)' : 'var(--text-muted)',
+                  flexShrink: 0,
+                }}
+              >
+                {'\u{1F4CE}'}
+              </button>
+            )}
+            <div style={{ flex: 1 }}>
+              <MessageInput
+                value={input}
+                onChange={setInput}
+                onSend={handleSend}
+                disabled={isStreaming}
+              />
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {/* Post-call: start new call (embedded mode only) */}

@@ -9526,6 +9526,52 @@ Saves the current user's personal sidebar layout preference. Creates or updates 
 
 ## Sim
 
+### `POST` /api/sim/audio/transcribe
+
+Transcribe an audio blob using OpenAI Whisper. Used by the voice sim.
+
+**Auth**: Session
+
+**Response** `200`
+```json
+{ ok: true, transcript: string }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
+### `POST` /api/sim/audio/tts
+
+Convert text to speech using OpenAI TTS. Returns audio/mpeg stream. Used by the voice sim.
+
+**Auth**: Session
+
+**Response** `200`
+```json
+audio/mpeg binary stream
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `GET` /api/sim/conversations
 
 Returns callers with their last call message preview for the chat list UI. Session-authenticated OPERATORs see only their own callers; ADMINs and sim-token users see all.
@@ -11518,8 +11564,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 317 |
-| Files with annotations | 316 |
+| Route files found | 319 |
+| Files with annotations | 318 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

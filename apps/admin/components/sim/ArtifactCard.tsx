@@ -106,11 +106,12 @@ export function ArtifactCard({ artifact }: { artifact: Artifact }) {
           />
         )}
         {mediaUrl && mediaMime === 'application/pdf' && (
-          <a href={mediaUrl} target="_blank" rel="noopener noreferrer"
+          <a href={mediaUrl}
+            download={artifact.media?.fileName || 'document.pdf'}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', background: 'var(--surface-secondary)', borderRadius: 4, marginBottom: 8, textDecoration: 'none', color: 'var(--text-primary)', fontSize: 12 }}
             onClick={(e) => e.stopPropagation()}
           >
-            {'\u{1F4C4}'} {artifact.media?.fileName || 'Document'} <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>Open</span>
+            {'\u{1F4C4}'} {artifact.media?.fileName || 'Document'} <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>Download ↓</span>
           </a>
         )}
         {mediaUrl && mediaMime?.startsWith('audio/') && (

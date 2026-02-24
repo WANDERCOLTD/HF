@@ -31,7 +31,7 @@ export class LocalStorageAdapter implements StorageAdapter {
     return { storageKey };
   }
 
-  async getSignedUrl(storageKey: string): Promise<string> {
+  async getSignedUrl(storageKey: string, _expirySeconds?: number, _fileName?: string): Promise<string> {
     // Local adapter doesn't use signed URLs — the API route handles auth
     // Return a relative URL that the /api/media/[id] route will serve
     return `/api/media/local/${encodeURIComponent(storageKey)}`;

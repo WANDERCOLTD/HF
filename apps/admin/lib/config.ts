@@ -376,6 +376,20 @@ export const config = {
   },
 
   // ---------------------------------------------------------------------------
+  // Voice I/O (Sim STT + TTS — reuses OpenAI key from config.ai.openai)
+  // ---------------------------------------------------------------------------
+  voice: {
+    /** OpenAI TTS model (tts-1 = fast, tts-1-hd = higher quality) */
+    get ttsModel(): string {
+      return optional("VOICE_TTS_MODEL", "tts-1");
+    },
+    /** OpenAI Whisper model for speech-to-text */
+    get whisperModel(): string {
+      return optional("VOICE_WHISPER_MODEL", "whisper-1");
+    },
+  },
+
+  // ---------------------------------------------------------------------------
   // Application
   // ---------------------------------------------------------------------------
   app: {

@@ -24,6 +24,8 @@ function buildCSP(): string {
     // Tailwind and MUI generate inline styles
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
+    // audio/video blob: URLs for voice sim TTS playback
+    "media-src 'self' blob:",
     "font-src 'self'",
     "connect-src 'self' https://api.openai.com https://api.anthropic.com https://api.vapi.ai",
     "frame-ancestors 'none'",

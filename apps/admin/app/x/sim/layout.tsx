@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useResponsive } from '@/hooks/useResponsive';
 import { ConversationList } from '@/components/sim/ConversationList';
+import { SimNavBar } from '@/components/sim/SimNavBar';
 import './sim.css';
 
 export default function SimLayout({ children }: { children: React.ReactNode }) {
@@ -14,10 +15,11 @@ export default function SimLayout({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Desktop: WhatsApp Web split view
+  // Desktop: icon strip + conversation sidebar + main chat panel
   if (isDesktop) {
     return (
       <div className="wa-desktop-container">
+        <SimNavBar />
         <div className="wa-desktop-sidebar">
           <ConversationList />
         </div>
@@ -28,10 +30,11 @@ export default function SimLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Mobile/Tablet: full-screen single panel
+  // Mobile/Tablet: full-screen single panel + bottom nav bar
   return (
-    <div className="wa-mobile-container">
+    <div className="wa-mobile-container has-nav-bar">
       {children}
+      <SimNavBar />
     </div>
   );
 }

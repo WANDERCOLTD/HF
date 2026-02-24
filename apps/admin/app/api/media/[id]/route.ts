@@ -30,28 +30,26 @@ export async function GET(
 
   const storage = getStorageAdapter();
 
-  // For local storage, stream the file directly
+  // For local storage, stream the file directly using a fresh local adapter instance
   if (media.storageType === "local") {
     try {
       const { LocalStorageAdapter } = await import("@/lib/storage/local");
-      const localAdapter = storage as InstanceType<typeof LocalStorageAdapter>;
-      if ("download" in localAdapter) {
-        const buffer = await localAdapter.download(media.storageKey);
-        return new Response(new Uint8Array(buffer), {
-          headers: {
-            "Content-Type": media.mimeType,
-            "Content-Disposition": `inline; filename="${media.fileName}"`,
-            "Cache-Control": "private, max-age=3600",
-          },
-        });
-      }
+      const localAdapter = new LocalStorageAdapter();
+      const buffer = await localAdapter.download(media.storageKey);
+      return new Response(new Uint8Array(buffer), {
+        headers: {
+          "Content-Type": media.mimeType,
+          "Content-Disposition": `attachment; filename="${media.fileName}"`,
+          "Cache-Control": "private, max-age=3600",
+        },
+      });
     } catch {
-      // Fall through to signed URL approach
+      return NextResponse.json({ ok: false, error: "File not found" }, { status: 404 });
     }
   }
 
-  // For GCS (and fallback), redirect to signed URL
-  const signedUrl = await storage.getSignedUrl(media.storageKey, 3600);
+  // For GCS (and fallback), redirect to signed URL with original filename in Content-Disposition
+  const signedUrl = await storage.getSignedUrl(media.storageKey, 3600, media.fileName);
   return NextResponse.redirect(signedUrl);
 }
 

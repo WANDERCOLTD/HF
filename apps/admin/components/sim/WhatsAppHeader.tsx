@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Phone, PhoneOff, FolderOpen } from 'lucide-react';
+import { ArrowLeft, PhoneOff, FolderOpen, Mic, MicOff } from 'lucide-react';
 
 interface WhatsAppHeaderProps {
   title: string;
@@ -9,12 +9,14 @@ interface WhatsAppHeaderProps {
   onEndCall?: () => void;
   onMediaLibrary?: () => void;
   onAvatarClick?: () => void;
+  onVoiceToggle?: () => void;
   mediaLibraryActive?: boolean;
+  voiceActive?: boolean;
   callActive?: boolean;
   avatarColor?: string;
 }
 
-export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibrary, onAvatarClick, mediaLibraryActive, callActive, avatarColor = 'var(--text-muted)' }: WhatsAppHeaderProps) {
+export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibrary, onAvatarClick, onVoiceToggle, mediaLibraryActive, voiceActive, callActive, avatarColor = 'var(--text-muted)' }: WhatsAppHeaderProps) {
   const initials = title.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
@@ -46,6 +48,17 @@ export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibr
           style={{ color: mediaLibraryActive ? 'var(--accent-primary)' : undefined }}
         >
           <FolderOpen size={20} />
+        </button>
+      )}
+      {onVoiceToggle && (
+        <button
+          className="wa-back-btn"
+          onClick={onVoiceToggle}
+          aria-label={voiceActive ? 'Exit voice mode' : 'Enter voice mode'}
+          title={voiceActive ? 'Exit voice mode' : 'Voice mode'}
+          style={{ color: voiceActive ? 'var(--wa-green-primary)' : undefined }}
+        >
+          {voiceActive ? <MicOff size={20} /> : <Mic size={20} />}
         </button>
       )}
       {callActive && onEndCall && (

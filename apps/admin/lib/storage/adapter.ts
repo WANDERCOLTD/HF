@@ -22,8 +22,8 @@ export interface StorageAdapter {
   /** Download a file by storage key */
   download(storageKey: string): Promise<Buffer>;
 
-  /** Generate a time-limited signed URL for reading */
-  getSignedUrl(storageKey: string, expirySeconds?: number): Promise<string>;
+  /** Generate a time-limited signed URL for reading. Pass fileName to set Content-Disposition on the response. */
+  getSignedUrl(storageKey: string, expirySeconds?: number, fileName?: string): Promise<string>;
 
   /** Delete a file by storage key */
   delete(storageKey: string): Promise<void>;
