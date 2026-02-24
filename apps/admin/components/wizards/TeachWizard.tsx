@@ -188,7 +188,6 @@ export default function TeachWizard() {
   const [selectedDomainId, setSelectedDomainId] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newDomainName, setNewDomainName] = useState("");
-  const [showNewDomainInput, setShowNewDomainInput] = useState(false);
   const domainsFetched = useRef(false);
 
   useEffect(() => {
@@ -206,7 +205,6 @@ export default function TeachWizard() {
   const handleSelectDomain = useCallback(
     (id: string) => {
       setSelectedDomainId(id);
-      setShowNewDomainInput(false);
       completeSection("institution");
     },
     [completeSection]
@@ -744,39 +742,40 @@ export default function TeachWizard() {
             <div className="tw-loading">
               <span className="tw-spinner" /> Loading institutions...
             </div>
+          ) : domains.length === 0 ? (
+            <p className="tw-hint" style={{ marginTop: 8 }}>
+              No institutions yet.{" "}
+              {canCreateInstitution
+                ? "Create one to get started."
+                : "Ask your admin to set one up."}
+            </p>
           ) : (
-            <>
-              <div className="tw-chip-grid">
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <select
+                className="tw-input"
+                style={{ maxWidth: 400 }}
+                value={selectedDomainId}
+                onChange={(e) => {
+                  if (e.target.value) handleSelectDomain(e.target.value);
+                }}
+              >
+                <option value="">Select an institution…</option>
                 {domains.map((d) => (
-                  <button
-                    key={d.id}
-                    className={`tw-chip ${selectedDomainId === d.id ? "tw-chip-selected" : ""}`}
-                    onClick={() => handleSelectDomain(d.id)}
-                    type="button"
-                  >
+                  <option key={d.id} value={d.id}>
                     {d.name}
-                  </button>
+                  </option>
                 ))}
-                {canCreateInstitution && !showNewDomainInput && (
-                  <button
-                    className="tw-chip tw-chip-new"
-                    onClick={() => setShowCreateModal(true)}
-                    type="button"
-                  >
-                    <Plus size={14} /> New institution
-                  </button>
-                )}
-              </div>
-
-              {domains.length === 0 && (
-                <p className="tw-hint" style={{ marginTop: 8 }}>
-                  No institutions yet.{" "}
-                  {canCreateInstitution
-                    ? "Create one to get started."
-                    : "Ask your admin to set one up."}
-                </p>
+              </select>
+              {canCreateInstitution && (
+                <button
+                  className="tw-chip tw-chip-new"
+                  onClick={() => setShowCreateModal(true)}
+                  type="button"
+                >
+                  <Plus size={14} /> New institution
+                </button>
               )}
-            </>
+            </div>
           )}
 
           <CreateInstitutionModal
