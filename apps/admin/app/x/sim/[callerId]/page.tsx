@@ -24,8 +24,10 @@ export default function SimConversationPage() {
   const { isDesktop } = useResponsive();
   const sessionGoal = searchParams.get('goal') || undefined;
   const expectedDomainId = searchParams.get('domainId') || undefined;
+  const playbookId = searchParams.get('playbookId') || undefined;
 
   const [caller, setCaller] = useState<CallerInfo | null>(null);
+  const [playbookName, setPlaybookName] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,6 +62,16 @@ export default function SimConversationPage() {
             domain: data.caller.domain,
             pastCalls: calls,
           });
+
+          // Fetch playbook name if scoped to a specific course
+          if (playbookId) {
+            fetch(`/api/playbooks/${playbookId}`)
+              .then(r => r.json())
+              .then(pbData => {
+                if (!cancelled && pbData.ok) setPlaybookName(pbData.playbook?.name);
+              })
+              .catch(() => {}); // Non-critical — falls back to domainName
+          }
         }
       } catch {
         if (!cancelled) setError('Failed to load caller');
@@ -68,7 +80,7 @@ export default function SimConversationPage() {
 
     fetchCaller();
     return () => { cancelled = true; };
-  }, [callerId, expectedDomainId]);
+  }, [callerId, expectedDomainId, playbookId]);
 
   if (error) {
     return (
@@ -97,6 +109,8 @@ export default function SimConversationPage() {
       callerId={callerId}
       callerName={caller.name}
       domainName={caller.domain?.name}
+      playbookId={playbookId}
+      playbookName={playbookName}
       pastCalls={caller.pastCalls}
       mode="standalone"
       sessionGoal={sessionGoal}

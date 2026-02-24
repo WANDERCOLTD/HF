@@ -71,6 +71,7 @@ export async function GET(
  * @body source string - Call source identifier (default: "ai-simulation")
  * @body callSequence number - Explicit sequence number (optional, auto-incremented if omitted)
  * @body transcript string - Call transcript text (default: "")
+ * @body playbookId string - Optional playbook (course) ID to scope this call
  * @response 200 { ok: true, call: { id, callSequence, source, createdAt } }
  * @response 404 { ok: false, error: "Caller not found" }
  * @response 500 { ok: false, error: "Failed to create call" }
@@ -85,7 +86,7 @@ export async function POST(
 
     const { callerId } = await params;
     const body = await request.json();
-    const { source = "ai-simulation", callSequence, transcript = "", usedPromptId } = body;
+    const { source = "ai-simulation", callSequence, transcript = "", usedPromptId, playbookId } = body;
 
     // Verify caller exists
     const caller = await prisma.caller.findUnique({
@@ -127,6 +128,7 @@ export async function POST(
         transcript: transcript || "",
         externalId: source === "playground-upload" ? `upload-${Date.now()}` : `ai-sim-${Date.now()}`,
         ...(usedPromptId ? { usedPromptId } : {}),
+        ...(playbookId ? { playbookId } : {}),
       },
     });
 

@@ -25,6 +25,8 @@ export interface SimChatProps {
   callerId: string;
   callerName: string;
   domainName?: string;
+  playbookId?: string;
+  playbookName?: string;
   pastCalls?: { transcript: string; createdAt: string }[];
   mode: 'standalone' | 'embedded';
   sessionGoal?: string;
@@ -88,6 +90,8 @@ export function SimChat({
   callerId,
   callerName,
   domainName,
+  playbookId,
+  playbookName,
   pastCalls,
   mode,
   sessionGoal,
@@ -275,7 +279,7 @@ export function SimChat({
         const composeRes = await fetch(`/api/callers/${callerId}/compose-prompt`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ triggerType: 'sim' }),
+          body: JSON.stringify({ triggerType: 'sim', ...(playbookId ? { playbookIds: [playbookId] } : {}) }),
         });
         if (composeRes.ok) {
           const composeData = await composeRes.json();
@@ -289,7 +293,7 @@ export function SimChat({
         const callRes = await fetch(`/api/callers/${callerId}/calls`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source: 'sim', usedPromptId }),
+          body: JSON.stringify({ source: 'sim', usedPromptId, ...(playbookId ? { playbookId } : {}) }),
         });
         const callData = await callRes.json();
         if (!cancelled && callData.ok) {
@@ -514,7 +518,7 @@ export function SimChat({
                 fetch(`/api/callers/${callerId}/compose-prompt`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ triggerType: 'post-call' }),
+                  body: JSON.stringify({ triggerType: 'post-call', ...(playbookId ? { playbookIds: [playbookId] } : {}) }),
                 }).then(r => r.json()).catch(() => null),
               ]).then(([artData, actData, promptData]) => {
                 const artCount = artData?.ok && artData.artifacts?.length > 0 ? artData.artifacts.length : 0;
@@ -563,7 +567,7 @@ export function SimChat({
       {/* Header */}
       <WhatsAppHeader
         title={callerName}
-        subtitle={domainName}
+        subtitle={playbookName || domainName}
         onBack={onBack}
         onEndCall={() => setShowEndSheet(true)}
         onMediaLibrary={() => {

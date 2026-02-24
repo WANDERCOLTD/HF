@@ -75,6 +75,7 @@ export async function POST(
     // Persist and supersede (shared helper)
     const composedPrompt = await persistComposedPrompt(composition, promptSummary, {
       callerId,
+      playbookId: playbookIds?.[0] || null,
       triggerType,
       triggerCallId,
       composeSpecSlug: specSlug,

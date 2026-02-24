@@ -2349,6 +2349,7 @@ Create a new call record for a caller. Auto-determines call sequence number if n
 | source | body | string | No | Call source identifier (default: "ai-simulation") |
 | callSequence | body | number | No | Explicit sequence number (optional, auto-incremented if omitted) |
 | transcript | body | string | No | Call transcript text (default: "") |
+| playbookId | body | string | No | Optional playbook (course) ID to scope this call |
 
 **Response** `200`
 ```json

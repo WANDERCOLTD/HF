@@ -1164,7 +1164,9 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     try {
       // Step 1: Scaffold domain (ensure playbook exists — idempotent)
       setLaunchPhase("scaffolding");
-      await fetch(`/api/domains/${selectedDomainId}/scaffold`, { method: "POST" });
+      const scaffoldRes = await fetch(`/api/domains/${selectedDomainId}/scaffold`, { method: "POST" });
+      const scaffoldData = await scaffoldRes.json().catch(() => null);
+      const scaffoldPlaybookId = scaffoldData?.result?.playbook?.id || null;
 
       // Step 2: Create test caller (auto-enrolls in domain playbooks via API)
       setLaunchPhase("creating-caller");
@@ -1197,19 +1199,20 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         });
       }
 
-      // Step 4: Compose prompt
+      // Step 4: Compose prompt (scoped to scaffolded playbook)
       setLaunchPhase("composing-prompt");
       await fetch(`/api/callers/${newCallerId}/compose-prompt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ triggerType: "teach-wizard" }),
+        body: JSON.stringify({ triggerType: "teach-wizard", ...(scaffoldPlaybookId ? { playbookIds: [scaffoldPlaybookId] } : {}) }),
       });
 
-      // Step 5: Redirect to sim
+      // Step 5: Redirect to sim (with course scoping)
       setLaunchPhase("redirecting");
       const params = new URLSearchParams();
       if (selectedDomainId) params.set("domainId", selectedDomainId);
       if (goal) params.set("goal", goal);
+      if (scaffoldPlaybookId) params.set("playbookId", scaffoldPlaybookId);
       const qs = params.toString();
       endFlow();
       router.push(`/x/sim/${newCallerId}${qs ? `?${qs}` : ""}`);

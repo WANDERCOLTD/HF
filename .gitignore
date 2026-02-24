@@ -27,3 +27,7 @@ build/
 supabase/
 
 .runtime/
+
+# User content uploads (not code)
+New Docs/
+nnew docs/
