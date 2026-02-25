@@ -503,6 +503,7 @@ export default function TeachWizard() {
   const [contentError, setContentError] = useState<string | null>(null);
   const extractPollRef = useRef<NodeJS.Timeout | null>(null);
   const extractionStartRef = useRef<number>(0);
+  const lastPollCountRef = useRef<number>(0);
 
   // Two-phase extraction (task-based polling, like DemoTeachWizard)
   const [extractionTaskId, setExtractionTaskId] = useState<string | null>(null);
@@ -522,6 +523,7 @@ export default function TeachWizard() {
     (domainId: string, sIds: string[]) => {
       if (extractPollRef.current) clearInterval(extractPollRef.current);
       extractionStartRef.current = Date.now();
+      lastPollCountRef.current = 0;
       setExtractionTimedOut(false);
 
       const checkExtraction = async () => {
@@ -539,15 +541,20 @@ export default function TeachWizard() {
           const qs = sIds.length ? `?subjectIds=${sIds.join(",")}` : "";
           const res = await fetch(`/api/domains/${domainId}/content-stats${qs}`);
           const data = await res.json();
+          const totalCount = (data.assertionCount || 0) + (data.questionCount || 0) + (data.vocabularyCount || 0);
           if (data.allExtracted) {
             clearInterval(extractPollRef.current!);
             extractPollRef.current = null;
             setExtractionInProgress(false);
+            lastPollCountRef.current = totalCount;
             loadCategoryGroups(domainId, sIds);
-          } else if (data.assertionCount > 0) {
-            // Have some TPs already — show partial groups
+          } else if (totalCount > 0 && totalCount !== lastPollCountRef.current) {
+            // New content found — reload groups (skip if count unchanged to prevent jumping)
+            lastPollCountRef.current = totalCount;
             loadCategoryGroups(domainId, sIds);
           }
+          // Update the live point count even without reloading groups
+          if (totalCount > 0) setContentTotal(totalCount);
         } catch {
           // keep polling
         }

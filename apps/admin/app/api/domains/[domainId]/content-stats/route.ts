@@ -51,23 +51,29 @@ export async function GET(
       },
       select: {
         id: true,
-        _count: { select: { assertions: true } },
+        _count: { select: { assertions: true, questions: true, vocabulary: true } },
       },
     });
 
     const sourceCount = sources.length;
     const sourceIds = sources.map((s) => s.id);
-    const extractedSourceCount = sources.filter((s) => s._count.assertions > 0).length;
+    // A source is "extracted" if it produced any assertions, questions, or vocabulary
+    const extractedSourceCount = sources.filter(
+      (s) => s._count.assertions > 0 || s._count.questions > 0 || s._count.vocabulary > 0
+    ).length;
     const assertionCount = sources.reduce((sum, s) => sum + s._count.assertions, 0);
 
-    // Check for recent in-progress extraction tasks (30-min staleness guard)
+    // Check for in-progress pack ingest tasks scoped to this domain (30-min staleness guard).
+    // Previously this was a GLOBAL check across all task types, which caused any
+    // unrelated extraction task to block allExtracted for every domain.
     let hasActiveJobs = false;
     if (sourceIds.length > 0) {
       const activeTasks = await prisma.userTask.count({
         where: {
-          taskType: { in: ["extraction", "content_extraction", "course_pack_ingest"] },
+          taskType: "course_pack_ingest",
           status: "in_progress",
           startedAt: { gte: new Date(Date.now() - 30 * 60_000) },
+          context: { path: ["domainId"], equals: domainId },
         },
       });
       hasActiveJobs = activeTasks > 0;
