@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useResponsive } from '@/hooks/useResponsive';
-import { ROLE_LEVEL } from '@/lib/permissions';
+import { ROLE_LEVEL } from '@/lib/roles';
 import type { UserRole } from '@prisma/client';
 
 interface SimTab {

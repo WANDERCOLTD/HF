@@ -16,18 +16,8 @@ import type { UserRole } from "@prisma/client";
 import type { Session } from "next-auth";
 import { getMasqueradeState, canMasquerade, isRoleEscalation } from "@/lib/masquerade";
 
-// Role hierarchy: higher number = more access
-export const ROLE_LEVEL: Record<UserRole, number> = {
-  SUPERADMIN: 5,
-  ADMIN: 4,
-  OPERATOR: 3,
-  EDUCATOR: 3, // Same level as OPERATOR — scoped to own cohorts + students
-  SUPER_TESTER: 2,
-  TESTER: 1,
-  STUDENT: 1, // Same level as TESTER — scoped to own data via student-access.ts
-  DEMO: 0,
-  VIEWER: 1, // @deprecated — alias for TESTER level
-};
+// Re-export from client-safe module so existing server imports still work
+export { ROLE_LEVEL } from "@/lib/roles";
 
 type AuthSuccess = { session: Session };
 type AuthFailure = { error: NextResponse };

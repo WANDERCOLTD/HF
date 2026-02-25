@@ -15,7 +15,7 @@
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { logAssistantCall } from "@/lib/ai/assistant-wrapper";
 import type { ExtractionConfig, DocumentType } from "../resolve-config";
-import type { ExtractedAssertion, ExtractionOptions, ExtractionResult } from "../extract-assertions";
+import type { ExtractedAssertion, ExtractionOptions, ExtractionResult, ChunkCompleteData } from "../extract-assertions";
 import crypto from "crypto";
 
 // ------------------------------------------------------------------
@@ -72,6 +72,12 @@ export interface ExtractionContext {
   sourceSlug: string;
   qualificationRef?: string;
   focusChapters?: string[];
+}
+
+/** Data emitted per-chunk for specialist extractors (includes questions + vocabulary) */
+export interface SpecialistChunkCompleteData extends ChunkCompleteData {
+  questions: ExtractedQuestion[];
+  vocabulary: ExtractedVocabulary[];
 }
 
 // ------------------------------------------------------------------
@@ -146,11 +152,16 @@ export abstract class DocumentExtractor {
   /**
    * Main extraction pipeline. Chunks text, extracts from each chunk,
    * deduplicates, and returns combined results.
+   *
+   * @param onChunkComplete - Optional callback for progressive persistence.
+   *   Called after each chunk with assertions, questions, and vocabulary.
+   *   Errors are caught and logged (extraction continues on save failure).
    */
   async extract(
     text: string,
     options: ExtractionOptions,
     extractionConfig: ExtractionConfig,
+    onChunkComplete?: (data: SpecialistChunkCompleteData) => Promise<void>,
   ): Promise<FullExtractionResult> {
     const warnings: string[] = [];
 
@@ -209,6 +220,22 @@ export abstract class DocumentExtractor {
         allQuestions.push(...chunkResult.questions);
         allVocabulary.push(...chunkResult.vocabulary);
         warnings.push(...chunkResult.warnings);
+
+        // Progressive persistence: emit chunk data for per-chunk DB saves
+        const hasContent = chunkResult.assertions.length > 0 || chunkResult.questions.length > 0 || chunkResult.vocabulary.length > 0;
+        if (hasContent && onChunkComplete) {
+          try {
+            await onChunkComplete({
+              assertions: chunkResult.assertions,
+              questions: chunkResult.questions,
+              vocabulary: chunkResult.vocabulary,
+              chunkIndex: i,
+              totalChunks: chunks.length,
+            });
+          } catch (err: any) {
+            console.warn(`[${this.documentType}-extractor] onChunkComplete failed for chunk ${i}:`, err.message);
+          }
+        }
       }
 
       options.onChunkDone?.(i, chunks.length, allAssertions.length);

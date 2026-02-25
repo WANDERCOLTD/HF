@@ -5,7 +5,9 @@ import {
   extractAssertionsSegmented,
   extractTextFromBuffer,
   chunkText,
+  type ChunkCompleteData,
 } from "@/lib/content-trust/extract-assertions";
+import type { SpecialistChunkCompleteData } from "@/lib/content-trust/extractors/base-extractor";
 import { segmentDocument } from "@/lib/content-trust/segment-document";
 import { saveAssertions } from "@/lib/content-trust/save-assertions";
 import { saveQuestions } from "@/lib/content-trust/save-questions";
@@ -186,6 +188,47 @@ async function runBackgroundExtraction(
     maxAssertions: number;
   },
 ) {
+  // Track cumulative per-chunk save counts for the final job record
+  let totalCreated = 0;
+  let totalDuplicatesSkipped = 0;
+  let totalQuestionsCreated = 0;
+  let totalVocabularyCreated = 0;
+  let chunkSaveFailures = 0;
+
+  // Per-chunk save callback for generic extractors (assertions only)
+  const onChunkComplete = async (data: ChunkCompleteData) => {
+    try {
+      const { created, duplicatesSkipped } = await saveAssertions(sourceId, data.assertions);
+      totalCreated += created;
+      totalDuplicatesSkipped += duplicatesSkipped;
+    } catch (err: any) {
+      chunkSaveFailures++;
+      console.error(`[extract] Per-chunk save failed for chunk ${data.chunkIndex}:`, err.message);
+    }
+  };
+
+  // Per-chunk save callback for specialist extractors (assertions + questions + vocabulary)
+  const onSpecialistChunkComplete = async (data: SpecialistChunkCompleteData) => {
+    try {
+      if (data.assertions.length > 0) {
+        const { created, duplicatesSkipped } = await saveAssertions(sourceId, data.assertions);
+        totalCreated += created;
+        totalDuplicatesSkipped += duplicatesSkipped;
+      }
+      if (data.questions.length > 0) {
+        const qResult = await saveQuestions(sourceId, data.questions);
+        totalQuestionsCreated += qResult.created;
+      }
+      if (data.vocabulary.length > 0) {
+        const vResult = await saveVocabulary(sourceId, data.vocabulary);
+        totalVocabularyCreated += vResult.created;
+      }
+    } catch (err: any) {
+      chunkSaveFailures++;
+      console.error(`[extract] Per-chunk save failed for chunk ${data.chunkIndex}:`, err.message);
+    }
+  };
+
   // Check if this document type has a specialist extractor
   const SPECIALIST_TYPES: DocumentType[] = ["CURRICULUM", "COMPREHENSION", "ASSESSMENT", "READING_PASSAGE", "QUESTION_BANK"];
   const useSpecialist = SPECIALIST_TYPES.includes(opts.documentType);
@@ -208,7 +251,7 @@ async function runBackgroundExtraction(
           extractedCount: extractedSoFar,
         });
       },
-    }, extractionConfig);
+    }, extractionConfig, onSpecialistChunkComplete);
 
     assertionResult = fullResult;
     extractedQuestions = fullResult.questions || [];
@@ -216,30 +259,23 @@ async function runBackgroundExtraction(
   } else {
     // Use existing pipeline (segment → extract assertions)
     const segmentation = await segmentDocument(text, fileName);
+    const sharedOpts = {
+      ...opts,
+      onChunkDone: (chunkIndex: number, totalChunks: number, extractedSoFar: number) => {
+        updateJob(jobId, {
+          currentChunk: chunkIndex + 1,
+          totalChunks,
+          extractedCount: extractedSoFar,
+        });
+      },
+      onChunkComplete,
+    };
 
     if (segmentation.isComposite && segmentation.sections.length > 1) {
       console.log(`[extract] Composite document detected: ${segmentation.sections.length} sections`);
-      assertionResult = await extractAssertionsSegmented(text, segmentation.sections, {
-        ...opts,
-        onChunkDone: (chunkIndex, totalChunks, extractedSoFar) => {
-          updateJob(jobId, {
-            currentChunk: chunkIndex + 1,
-            totalChunks,
-            extractedCount: extractedSoFar,
-          });
-        },
-      });
+      assertionResult = await extractAssertionsSegmented(text, segmentation.sections, sharedOpts);
     } else {
-      assertionResult = await extractAssertions(text, {
-        ...opts,
-        onChunkDone: (chunkIndex, totalChunks, extractedSoFar) => {
-          updateJob(jobId, {
-            currentChunk: chunkIndex + 1,
-            totalChunks,
-            extractedCount: extractedSoFar,
-          });
-        },
-      });
+      assertionResult = await extractAssertions(text, sharedOpts);
     }
   }
 
@@ -252,28 +288,31 @@ async function runBackgroundExtraction(
     return;
   }
 
-  // Save to DB
-  updateJob(jobId, { status: "importing", extractedCount: assertionResult.assertions.length, warnings: assertionResult.warnings });
+  // Reconciliation save: catch any assertions that failed per-chunk saves
+  // saveAssertions deduplicates by contentHash, so this is a no-op if all chunks saved successfully
+  if (chunkSaveFailures > 0) {
+    console.log(`[extract] ${chunkSaveFailures} chunk save(s) failed — running reconciliation save`);
+    try {
+      const { created, duplicatesSkipped } = await saveAssertions(sourceId, assertionResult.assertions);
+      totalCreated += created;
+      totalDuplicatesSkipped += duplicatesSkipped;
 
-  const { created, duplicatesSkipped } = await saveAssertions(sourceId, assertionResult.assertions);
-
-  // Save questions and vocabulary (from specialist extractors)
-  let questionsCreated = 0;
-  let vocabularyCreated = 0;
-
-  if (extractedQuestions.length > 0) {
-    const qResult = await saveQuestions(sourceId, extractedQuestions);
-    questionsCreated = qResult.created;
-  }
-
-  if (extractedVocabulary.length > 0) {
-    const vResult = await saveVocabulary(sourceId, extractedVocabulary);
-    vocabularyCreated = vResult.created;
+      if (extractedQuestions.length > 0) {
+        const qResult = await saveQuestions(sourceId, extractedQuestions);
+        totalQuestionsCreated += qResult.created;
+      }
+      if (extractedVocabulary.length > 0) {
+        const vResult = await saveVocabulary(sourceId, extractedVocabulary);
+        totalVocabularyCreated += vResult.created;
+      }
+    } catch (err: any) {
+      console.error(`[extract] Reconciliation save failed for source ${sourceId}:`, err.message);
+    }
   }
 
   // Link questions/vocabulary to their best-matching assertions
   let linkingWarnings: string[] = [];
-  if (questionsCreated > 0 || vocabularyCreated > 0) {
+  if (totalQuestionsCreated > 0 || totalVocabularyCreated > 0) {
     try {
       const linkResult = await linkContentForSource(sourceId);
       linkingWarnings = linkResult.warnings;
@@ -289,16 +328,16 @@ async function runBackgroundExtraction(
 
   await updateJob(jobId, {
     status: "done",
-    importedCount: created,
-    duplicatesSkipped,
+    importedCount: totalCreated,
+    duplicatesSkipped: totalDuplicatesSkipped,
     extractedCount: assertionResult.assertions.length,
     warnings: [...(assertionResult.warnings || []), ...linkingWarnings],
   });
 
-  console.log(`[extract] Source ${sourceId}: ${created} assertions, ${questionsCreated} questions, ${vocabularyCreated} vocabulary items`);
+  console.log(`[extract] Source ${sourceId}: ${totalCreated} assertions, ${totalQuestionsCreated} questions, ${totalVocabularyCreated} vocabulary items`);
 
   // Embed new assertions in background (non-blocking)
-  if (created > 0) {
+  if (totalCreated > 0) {
     embedAssertionsForSource(sourceId).catch((err) =>
       console.error(`[extract] Embedding failed for source ${sourceId}:`, err)
     );
@@ -315,7 +354,7 @@ async function runBackgroundExtraction(
 
   // Auto-scaffold playbook + content spec for each linked domain via task tracking
   // This ensures teachers can configure onboarding without needing to manually set up specs
-  if (subjectId && created > 0) {
+  if (subjectId && totalCreated > 0) {
     try {
       const linkedDomains = await prisma.domain.findMany({
         where: {

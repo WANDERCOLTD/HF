@@ -11,6 +11,7 @@
 
 import { cookies } from "next/headers";
 import type { UserRole } from "@prisma/client";
+import { ROLE_LEVEL } from "@/lib/roles";
 
 export const MASQUERADE_COOKIE = "hf.masquerade";
 export const MASQUERADE_MAX_AGE = 8 * 60 * 60; // 8 hours
@@ -25,18 +26,6 @@ export interface MasqueradeState {
   startedAt: string;
   startedBy: string;
 }
-
-// Role hierarchy (duplicated from permissions.ts to avoid circular import)
-const ROLE_LEVEL: Record<string, number> = {
-  SUPERADMIN: 5,
-  ADMIN: 4,
-  OPERATOR: 3,
-  EDUCATOR: 3,
-  SUPER_TESTER: 2,
-  TESTER: 1,
-  DEMO: 0,
-  VIEWER: 1,
-};
 
 /**
  * Read masquerade state from cookie. Returns null if not masquerading or invalid.

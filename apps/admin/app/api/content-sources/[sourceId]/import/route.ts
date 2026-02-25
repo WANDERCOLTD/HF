@@ -4,6 +4,7 @@ import {
   extractText,
   extractAssertions,
   chunkText,
+  type ChunkCompleteData,
 } from "@/lib/content-trust/extract-assertions";
 import type { DocumentType } from "@/lib/content-trust/resolve-config";
 import { resolveExtractionConfig } from "@/lib/content-trust/resolve-config";
@@ -409,33 +410,43 @@ async function runBackgroundExtraction(
   pages: number | undefined,
   options: { sourceSlug: string; sourceId?: string; documentType?: DocumentType; qualificationRef?: string; focusChapters?: string[]; maxAssertions?: number }
 ) {
+  // Track cumulative per-chunk save counts
+  let totalCreated = 0;
+  let totalDuplicatesSkipped = 0;
+  let chunkSaveFailures = 0;
+
+  // Per-chunk save callback
+  const onChunkComplete = async (data: ChunkCompleteData) => {
+    try {
+      const { created, duplicatesSkipped } = await saveAssertions(source.id, data.assertions);
+      totalCreated += created;
+      totalDuplicatesSkipped += duplicatesSkipped;
+    } catch (err: any) {
+      chunkSaveFailures++;
+      console.error(`[import] Per-chunk save failed for chunk ${data.chunkIndex}:`, err.message);
+    }
+  };
+
   // Try section segmentation for composite documents
   const segmentation = await segmentDocument(text, fileName);
+  const sharedOpts = {
+    ...options,
+    onChunkDone: (chunkIndex: number, totalChunks: number, extractedSoFar: number) => {
+      updateJob(jobId, {
+        currentChunk: chunkIndex + 1,
+        totalChunks,
+        extractedCount: extractedSoFar,
+      });
+    },
+    onChunkComplete,
+  };
 
   let result;
   if (segmentation.isComposite && segmentation.sections.length > 1) {
     console.log(`[import] Composite document detected: ${segmentation.sections.length} sections in "${fileName}"`);
-    result = await extractAssertionsSegmented(text, segmentation.sections, {
-      ...options,
-      onChunkDone: (chunkIndex, totalChunks, extractedSoFar) => {
-        updateJob(jobId, {
-          currentChunk: chunkIndex + 1,
-          totalChunks,
-          extractedCount: extractedSoFar,
-        });
-      },
-    });
+    result = await extractAssertionsSegmented(text, segmentation.sections, sharedOpts);
   } else {
-    result = await extractAssertions(text, {
-      ...options,
-      onChunkDone: (chunkIndex, totalChunks, extractedSoFar) => {
-        updateJob(jobId, {
-          currentChunk: chunkIndex + 1,
-          totalChunks,
-          extractedCount: extractedSoFar,
-        });
-      },
-    });
+    result = await extractAssertions(text, sharedOpts);
   }
 
   if (!result.ok) {
@@ -447,15 +458,22 @@ async function runBackgroundExtraction(
     return;
   }
 
-  // Now import to DB
-  await updateJob(jobId, { status: "importing", extractedCount: result.assertions.length, warnings: result.warnings });
-
-  const { created, duplicatesSkipped } = await saveAssertions(source.id, result.assertions);
+  // Reconciliation save: catch any assertions that failed per-chunk saves
+  if (chunkSaveFailures > 0) {
+    console.log(`[import] ${chunkSaveFailures} chunk save(s) failed — running reconciliation save`);
+    try {
+      const { created, duplicatesSkipped } = await saveAssertions(source.id, result.assertions);
+      totalCreated += created;
+      totalDuplicatesSkipped += duplicatesSkipped;
+    } catch (err: any) {
+      console.error(`[import] Reconciliation save failed for source ${source.id}:`, err.message);
+    }
+  }
 
   await updateJob(jobId, {
     status: "done",
-    importedCount: created,
-    duplicatesSkipped,
+    importedCount: totalCreated,
+    duplicatesSkipped: totalDuplicatesSkipped,
     extractedCount: result.assertions.length,
   });
 }

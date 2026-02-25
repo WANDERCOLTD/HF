@@ -48,6 +48,13 @@ export interface ExtractionResult {
   error?: string;
 }
 
+/** Data emitted per-chunk for progressive persistence */
+export interface ChunkCompleteData {
+  assertions: ExtractedAssertion[];
+  chunkIndex: number;
+  totalChunks: number;
+}
+
 export interface ExtractionOptions {
   sourceSlug: string;
   sourceId?: string;
@@ -57,6 +64,8 @@ export interface ExtractionOptions {
   maxAssertions?: number;
   /** Called after each chunk completes (for progress tracking) */
   onChunkDone?: (chunkIndex: number, totalChunks: number, extractedSoFar: number) => void;
+  /** Called after each chunk completes with the chunk's extracted data (for progressive DB saves) */
+  onChunkComplete?: (data: ChunkCompleteData) => Promise<void>;
 }
 
 // ------------------------------------------------------------------
@@ -352,6 +361,16 @@ export async function extractAssertions(
       failedChunks++;
     }
     allAssertions.push(...chunkAssertions);
+
+    // Progressive persistence: emit chunk data for per-chunk DB saves
+    if (chunkAssertions.length > 0 && options.onChunkComplete) {
+      try {
+        await options.onChunkComplete({ assertions: chunkAssertions, chunkIndex: i, totalChunks: chunks.length });
+      } catch (err: any) {
+        console.warn(`[extract-assertions] onChunkComplete failed for chunk ${i}:`, err.message);
+      }
+    }
+
     options.onChunkDone?.(i, chunks.length, allAssertions.length);
   }
 
@@ -425,6 +444,8 @@ export async function extractAssertionsSegmented(
       documentType: section.sectionType,
       // Don't fire chunk progress for individual sections — we track overall
       onChunkDone: undefined,
+      // Don't fire per-chunk saves for inner chunks — we fire once per section after enrichment
+      onChunkComplete: undefined,
     });
 
     if (!sectionResult.ok) {
@@ -462,6 +483,19 @@ export async function extractAssertionsSegmented(
     allAssertions.push(...sectionResult.assertions);
     warnings.push(...sectionResult.warnings.map((w) => `[${section.title}] ${w}`));
     totalChunksProcessed++;
+
+    // Progressive persistence: emit section's enriched assertions for per-section DB saves
+    if (sectionResult.assertions.length > 0 && options.onChunkComplete) {
+      try {
+        await options.onChunkComplete({
+          assertions: sectionResult.assertions,
+          chunkIndex: sIdx,
+          totalChunks: filteredSections.length,
+        });
+      } catch (err: any) {
+        console.warn(`[extract-assertions] onChunkComplete failed for section "${section.title}":`, err.message);
+      }
+    }
 
     // Report overall progress
     options.onChunkDone?.(sIdx, filteredSections.length, allAssertions.length);

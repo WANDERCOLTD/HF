@@ -402,6 +402,7 @@ async function createSourceAndStartExtraction(
 
   // ── Fire-and-forget: extraction using specialist extractor pipeline ──
   // Same quality path as POST /api/content-sources/:id/extract
+  // Per-chunk saves: assertions appear in DB progressively as chunks complete
   (async () => {
     try {
       const { getExtractor } = await import("@/lib/content-trust/extractors/registry");
@@ -412,6 +413,11 @@ async function createSourceAndStartExtraction(
       const { linkContentForSource } = await import("@/lib/content-trust/link-content");
       const { embedAssertionsForSource } = await import("@/lib/embeddings");
 
+      let totalCreated = 0;
+      let chunkSaveFailures = 0;
+      let totalQuestionsCreated = 0;
+      let totalVocabularyCreated = 0;
+
       const extractor = getExtractor(finalDocType);
       const extractionConfig = await resolveExtractionConfig(source.id, finalDocType);
 
@@ -420,32 +426,60 @@ async function createSourceAndStartExtraction(
         sourceId: source.id,
         documentType: finalDocType,
         maxAssertions: extractionConfig.extraction.maxAssertionsPerDocument,
-      }, extractionConfig);
+      }, extractionConfig, async (data) => {
+        // Per-chunk save: assertions + questions + vocabulary appear in DB progressively
+        try {
+          if (data.assertions.length > 0) {
+            const { created } = await saveAssertions(source.id, data.assertions);
+            totalCreated += created;
+          }
+          if (data.questions.length > 0) {
+            const qResult = await saveQuestions(source.id, data.questions);
+            totalQuestionsCreated += qResult.created;
+          }
+          if (data.vocabulary.length > 0) {
+            const vResult = await saveVocabulary(source.id, data.vocabulary);
+            totalVocabularyCreated += vResult.created;
+          }
+        } catch (err: unknown) {
+          chunkSaveFailures++;
+          console.error(`[course-pack/ingest] Per-chunk save failed for ${file.name} chunk ${data.chunkIndex}:`, err instanceof Error ? err.message : err);
+        }
+      });
 
       if (!result.ok) {
         console.error(`[course-pack/ingest] Extraction failed for ${file.name}:`, result.error);
         return;
       }
 
-      // Save all extracted content
-      const { created } = await saveAssertions(source.id, result.assertions);
-
-      if (result.questions?.length) {
-        await saveQuestions(source.id, result.questions);
-      }
-      if (result.vocabulary?.length) {
-        await saveVocabulary(source.id, result.vocabulary);
+      // Reconciliation save if any per-chunk saves failed
+      if (chunkSaveFailures > 0) {
+        console.log(`[course-pack/ingest] ${chunkSaveFailures} chunk save(s) failed for ${file.name} — running reconciliation`);
+        try {
+          const { created } = await saveAssertions(source.id, result.assertions);
+          totalCreated += created;
+          if (result.questions?.length) {
+            const qResult = await saveQuestions(source.id, result.questions);
+            totalQuestionsCreated += qResult.created;
+          }
+          if (result.vocabulary?.length) {
+            const vResult = await saveVocabulary(source.id, result.vocabulary);
+            totalVocabularyCreated += vResult.created;
+          }
+        } catch (reconErr: unknown) {
+          console.error(`[course-pack/ingest] Reconciliation save failed for ${file.name}:`, reconErr instanceof Error ? reconErr.message : reconErr);
+        }
       }
 
       // Link questions/vocabulary to assertions
-      if ((result.questions?.length || 0) > 0 || (result.vocabulary?.length || 0) > 0) {
+      if (totalQuestionsCreated > 0 || totalVocabularyCreated > 0) {
         await linkContentForSource(source.id).catch((err: unknown) => {
           console.error(`[course-pack/ingest] Linking failed for ${file.name}:`, err instanceof Error ? err.message : err);
         });
       }
 
       // Embed assertions for semantic search (non-blocking)
-      if (created > 0) {
+      if (totalCreated > 0) {
         embedAssertionsForSource(source.id).catch((err: unknown) => {
           console.error(`[course-pack/ingest] Embedding failed for ${file.name}:`, err instanceof Error ? err.message : err);
         });
