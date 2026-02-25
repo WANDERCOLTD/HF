@@ -47,6 +47,7 @@ interface LLMPrompt {
     primaryGoal?: string;
     techniques?: Array<{ name: string; description?: string; when?: string }>;
     boundaries?: { does?: string[]; doesNot?: string[] };
+    styleGuidelines?: string[];
   };
   curriculum?: {
     name?: string;
@@ -161,6 +162,10 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
     parts.push(id.role.substring(0, 300));
   }
   if (id?.primaryGoal) parts.push(`Goal: ${id.primaryGoal}`);
+  // Domain description provides audience context (e.g. "Year 5 pupils", "adult learners")
+  if (llmPrompt.domain?.description) {
+    parts.push(`Context: ${llmPrompt.domain.description}`);
+  }
   parts.push("");
 
   // --- STYLE ---
@@ -178,6 +183,10 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
   if (qs?.critical_voice) {
     const cv = qs.critical_voice;
     parts.push(`${cv.sentences_per_turn || "2-3"} sentences per turn. Wait ${cv.silence_wait || "3s"} before prompting.`);
+  }
+  // Style guidelines from identity spec (language complexity, jargon rules, etc.)
+  if (id?.styleGuidelines?.length) {
+    id.styleGuidelines.slice(0, 4).forEach(g => parts.push(`- ${g}`));
   }
   // Personality adaptation (concise)
   const adapt = llmPrompt.instructions?.personality_adaptation;
@@ -428,6 +437,12 @@ export function renderPromptSummary(llmPrompt: LLMPrompt): string {
     parts.push("## Identity\n");
     if (id.role) parts.push(`**Role**: ${id.role.substring(0, 200)}${id.role.length > 200 ? "..." : ""}`);
     if (id.primaryGoal) parts.push(`**Goal**: ${id.primaryGoal}`);
+    if (llmPrompt.domain?.description) parts.push(`**Context**: ${llmPrompt.domain.description}`);
+
+    if (id.styleGuidelines?.length) {
+      parts.push("\n**Style Guidelines**:");
+      id.styleGuidelines.forEach(g => parts.push(`- ${g}`));
+    }
 
     if (id.techniques?.length) {
       parts.push("\n**Techniques**:");

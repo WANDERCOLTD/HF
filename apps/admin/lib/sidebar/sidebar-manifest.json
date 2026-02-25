@@ -5,6 +5,7 @@
     "items": [
       { "id": "quick-launch", "href": "/x/quick-launch", "label": "Community", "icon": "Users", "highlighted": true, "wizard": true, "terminologyLabel": "cohort" },
       { "id": "teach", "href": "/x/teach", "label": "Teach", "icon": "GraduationCap", "wizard": true, "terminologyLabel": "teach_action" },
+      { "id": "create-course", "href": "/x/courses?action=setup", "label": "Create Course", "icon": "BookPlus", "wizard": true },
       { "id": "demos", "href": "/x/demos", "label": "Demos", "icon": "Presentation" }
     ]
   },
@@ -39,7 +40,7 @@
     "title": "Manage",
     "defaultHiddenFor": ["STUDENT", "DEMO", "TESTER"],
     "items": [
-      { "id": "manage-cohorts", "href": "/x/cohorts", "label": "Cohorts", "icon": "School", "terminologyLabel": "cohort_plural", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"], "roleVariants": { "EDUCATOR": { "href": "/x/educator/classrooms" } } },
+      { "id": "manage-cohorts", "href": "/x/cohorts", "label": "Communities", "icon": "School", "terminologyLabel": "cohort_plural", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"], "roleVariants": { "EDUCATOR": { "href": "/x/educator/classrooms" } } },
       { "id": "manage-callers", "href": "/x/callers", "label": "Callers", "icon": "User", "terminologyLabel": "caller_plural", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"], "roleVariants": { "EDUCATOR": { "href": "/x/educator/students" } } },
       { "id": "manage-jobs", "href": "/x/jobs", "label": "Jobs", "icon": "Cog", "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] }
     ]
