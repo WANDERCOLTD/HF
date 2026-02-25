@@ -870,6 +870,7 @@ export default function TeachWizard() {
   const [lessonPlan, setLessonPlan] = useState<LessonPlanItem[]>([]);
   const [lessonPlanLoading, setLessonPlanLoading] = useState(false);
   const [lessonPlanError, setLessonPlanError] = useState<string | null>(null);
+  const lessonPlanLoadingTimer = useRef<ReturnType<typeof setTimeout>>();
 
   // Fallback: naive generation from included groups (escape route)
   const fallbackGenerateLessonPlan = useCallback(() => {
@@ -907,7 +908,9 @@ export default function TeachWizard() {
       fallbackGenerateLessonPlan();
       return;
     }
-    setLessonPlanLoading(true);
+    // Delay spinner by 300ms to prevent flash on fast responses
+    clearTimeout(lessonPlanLoadingTimer.current);
+    lessonPlanLoadingTimer.current = setTimeout(() => setLessonPlanLoading(true), 300);
     setLessonPlanError(null);
     try {
       const res = await fetch("/api/lesson-plan/generate", {
@@ -948,6 +951,7 @@ export default function TeachWizard() {
       );
       fallbackGenerateLessonPlan();
     } finally {
+      clearTimeout(lessonPlanLoadingTimer.current);
       setLessonPlanLoading(false);
     }
   }, [subjectIds, fallbackGenerateLessonPlan]);

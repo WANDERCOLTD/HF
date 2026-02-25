@@ -95,6 +95,11 @@ const DEFAULT_CONFIGS: Record<string, { provider: AIEngine; model: string; tempe
   "targets.suggest": { provider: "claude", model: config.ai.claude.lightModel },
   "content-sources.suggest": { provider: "claude", model: config.ai.claude.lightModel },
   "agent-tuner.interpret": { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.3, maxTokens: 2048 },
+  // Specialist extractors — structured JSON output needs more room than default 1024
+  "content-trust.extract-comprehension": { provider: "claude", model: config.ai.claude.model, temperature: 0.1, maxTokens: 8000 },
+  "content-trust.extract-assessment": { provider: "claude", model: config.ai.claude.model, temperature: 0.1, maxTokens: 8000 },
+  "content-trust.extract-reading-passage": { provider: "claude", model: config.ai.claude.model, temperature: 0.1, maxTokens: 4000 },
+  "content-trust.extract-question-bank": { provider: "claude", model: config.ai.claude.model, temperature: 0.1, maxTokens: 8000 },
   // Missing from original — synced from route.ts AI_CALL_POINTS
   "pipeline.artifacts": { provider: "claude", model: config.ai.claude.lightModel },
   "pipeline.actions": { provider: "claude", model: config.ai.claude.lightModel },

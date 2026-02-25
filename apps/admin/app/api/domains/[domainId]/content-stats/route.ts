@@ -67,7 +67,7 @@ export async function GET(
         where: {
           taskType: { in: ["extraction", "content_extraction", "course_pack_ingest"] },
           status: "in_progress",
-          createdAt: { gte: new Date(Date.now() - 30 * 60_000) },
+          startedAt: { gte: new Date(Date.now() - 30 * 60_000) },
         },
       });
       hasActiveJobs = activeTasks > 0;
