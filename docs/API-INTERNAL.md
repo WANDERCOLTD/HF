@@ -3616,6 +3616,36 @@ List all communities (Domains with kind=COMMUNITY)
 
 ---
 
+### `POST` /api/communities
+
+Create a new community with optional topics and founding members
+
+**Auth**: Session · **Scope**: `communities:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| name | body | string | No | Community name (required) |
+| description | body | string | No | Community purpose/description |
+| communityKind | body | string | No | TOPIC_BASED or OPEN_CONNECTION |
+| hubPattern | body | string | No | InteractionPattern for OPEN_CONNECTION hubs |
+
+**Response** `200`
+```json
+{ ok: true, community: { id, name, slug, memberCount } }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "name is required" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: "..." }
+```
+
+---
+
 ### `DELETE` /api/communities/[communityId]
 
 Archive a community (soft delete)
@@ -3740,6 +3770,138 @@ Remove a caller from a community by clearing their domainId
 **Response** `404`
 ```json
 { ok: false, error: "Community not found" | "Member not found" }
+```
+
+---
+
+### `GET` /api/communities/[communityId]/topics
+
+List topics (playbooks) for a community
+
+**Auth**: Session · **Scope**: `communities:read`
+
+**Response** `200`
+```json
+{ ok: true, topics: Array<{ id, name, pattern, sortOrder }> }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Community not found" }
+```
+
+---
+
+### `POST` /api/communities/[communityId]/topics
+
+Add a topic (playbook) to a community
+
+**Auth**: Session · **Scope**: `communities:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| name | body | string | No | Topic name (required) |
+| pattern | body | string | No | InteractionPattern value |
+
+**Response** `200`
+```json
+{ ok: true, topic: { id, name, pattern, sortOrder } }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "name is required" }
+```
+
+---
+
+### `DELETE` /api/communities/[communityId]/topics/[topicId]
+
+Remove a topic from a community (archive the playbook)
+
+**Auth**: Session · **Scope**: `communities:write`
+
+**Response** `200`
+```json
+{ ok: true }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Topic not found" }
+```
+
+---
+
+### `PATCH` /api/communities/[communityId]/topics/[topicId]
+
+Update a community topic (name or pattern)
+
+**Auth**: Session · **Scope**: `communities:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| name | body | string | No | New topic name |
+| pattern | body | string | No | New InteractionPattern value |
+
+**Response** `200`
+```json
+{ ok: true, topic: { id, name, pattern, sortOrder } }
+```
+
+---
+
+### `POST` /api/communities/suggest-kind
+
+AI suggests whether a community is topic-based or open-connection from its description
+
+**Auth**: Session · **Scope**: `communities:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| description | body | string | No | Community description/purpose |
+
+**Response** `200`
+```json
+{ ok: true, kind: "TOPIC_BASED" | "OPEN_CONNECTION", confidence: number }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "description is required" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: "..." }
+```
+
+---
+
+### `POST` /api/communities/suggest-pattern
+
+AI suggests an interaction pattern from a hub or topic description
+
+**Auth**: Session · **Scope**: `communities:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| text | body | string | No | Hub or topic description to analyse |
+| context | body | string | No | "hub" or "topic" (affects prompt framing) |
+
+**Response** `200`
+```json
+{ ok: true, pattern: InteractionPattern, confidence: number }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "text is required" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: "..." }
 ```
 
 ---
@@ -7753,9 +7915,9 @@ Get a single institution by ID.
 
 ### `PATCH` /api/institutions/[id]
 
-Update institution fields (name, branding, active status).
+Update institution fields (name, branding, type, active status).
 
-**Auth**: SUPERADMIN
+**Auth**: ADMIN
 
 ---
 
@@ -11824,8 +11986,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 332 |
-| Files with annotations | 331 |
+| Route files found | 336 |
+| Files with annotations | 335 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

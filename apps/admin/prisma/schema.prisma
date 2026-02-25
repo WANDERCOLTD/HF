@@ -368,6 +368,9 @@ model Domain {
   onboardingFlowPhases     Json? // Custom first-call flow phases (optional override of INIT-001 defaults)
   onboardingDefaultTargets Json? // Custom default behavior targets for first call
 
+  // Community configuration (for COMMUNITY kind domains)
+  config Json? // Stores communityKind, hubPattern, and other community-specific settings
+
   // Institution ownership (null = demo/system/test domain, not a real institution)
   institutionId String?
   institution   Institution? @relation(fields: [institutionId], references: [id])

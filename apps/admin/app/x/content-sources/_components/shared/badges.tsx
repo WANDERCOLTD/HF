@@ -14,6 +14,8 @@ export const DOCUMENT_TYPES = [
   { value: "REFERENCE", label: "Reference", icon: "\uD83D\uDCD1" },
   { value: "LESSON_PLAN", label: "Lesson Plan", icon: "\uD83D\uDCCB" },
   { value: "POLICY_DOCUMENT", label: "Policy Document", icon: "\uD83C\uDFDB\uFE0F" },
+  { value: "READING_PASSAGE", label: "Reading Passage", icon: "\uD83D\uDCC3" },
+  { value: "QUESTION_BANK", label: "Question Bank", icon: "\u2753" },
 ];
 
 export const TRUST_LEVELS = [

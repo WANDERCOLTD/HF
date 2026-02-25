@@ -6,11 +6,17 @@ export interface CommunityMember {
   createdAt: string;
 }
 
+export interface CommunityConfig {
+  communityKind?: 'TOPIC_BASED' | 'OPEN_CONNECTION';
+  hubPattern?: string;
+}
+
 export interface CommunityDetail {
   id: string;
   name: string;
   slug: string;
   description: string | null;
+  config: CommunityConfig | null;
   onboardingWelcome: string | null;
   onboardingIdentitySpecId: string | null;
   onboardingFlowPhases: unknown;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { randomFakeName } from "@/lib/fake-names";
 import {
   startTaskTracking,
   updateTaskProgress,
@@ -140,7 +141,7 @@ async function runLaunchSequence(taskId: string, params: LaunchParams, cookieHea
       method: "POST",
       headers: headers(),
       body: JSON.stringify({
-        autoName: true,
+        name: randomFakeName(),
         domainId: params.domainId,
       }),
     });

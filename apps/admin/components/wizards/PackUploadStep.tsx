@@ -63,6 +63,13 @@ export interface PackUploadResult {
   taskId?: string;
   subjects?: Array<{ id: string; name: string }>;
   sourceCount?: number;
+  /** Classification info per file from the analyze manifest */
+  classifications?: Array<{
+    fileName: string;
+    documentType: string;
+    confidence: number;
+    reasoning: string;
+  }>;
 }
 
 interface PackUploadStepProps {
@@ -252,12 +259,25 @@ export function PackUploadStep({
         throw new Error(data.error || 'Ingest failed');
       }
 
+      // Extract classification info from manifest for the wizard UI
+      const classifications = manifest.groups.flatMap(g =>
+        g.files.map(f => ({
+          fileName: f.fileName,
+          documentType: f.documentType,
+          confidence: f.confidence,
+          reasoning: f.reasoning,
+        }))
+      );
+
+      setIngesting(false);
+
       // Fire-and-forget: advance immediately after 202, background extraction runs on server
       onResult({
         mode: 'pack-upload',
         taskId: data.taskId,
         subjects: data.subjects,
         sourceCount: data.sourceCount,
+        classifications,
       });
     } catch (err: unknown) {
       setIngestError(err instanceof Error ? err.message : 'Ingest failed');

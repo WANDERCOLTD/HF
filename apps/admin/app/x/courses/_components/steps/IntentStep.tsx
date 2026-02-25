@@ -2,18 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, AlertCircle, ExternalLink } from 'lucide-react';
-import { useTerminology } from '@/contexts/TerminologyContext';
+import { AlertCircle, ExternalLink } from 'lucide-react';
 import { FieldHint } from '@/components/shared/FieldHint';
 import { WIZARD_HINTS } from '@/lib/wizard-hints';
+import {
+  INTERACTION_PATTERN_ORDER,
+  INTERACTION_PATTERN_LABELS,
+  suggestInteractionPattern,
+  type InteractionPattern,
+} from '@/lib/content-trust/resolve-config';
 import type { StepProps } from '../CourseSetupWizard';
-
-type PersonaOption = {
-  slug: string;
-  name: string;
-  description: string | null;
-  icon: string;
-};
 
 interface ExistingCourse {
   name: string;
@@ -22,58 +20,33 @@ interface ExistingCourse {
 }
 
 export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepProps) {
-  const { lower } = useTerminology();
   const router = useRouter();
   const [courseName, setCourseName] = useState('');
   const [outcomes, setOutcomes] = useState<string[]>(['', '', '']);
-  const [persona, setPersona] = useState<string | undefined>();
-  const [personas, setPersonas] = useState<PersonaOption[]>([]);
-  const [personasLoading, setPersonasLoading] = useState(true);
+  const [pattern, setPattern] = useState<InteractionPattern | undefined>();
+  const [suggestedPattern, setSuggestedPattern] = useState<InteractionPattern | null>(null);
   const [existingCourse, setExistingCourse] = useState<ExistingCourse | null>(null);
 
   // Load saved data
   useEffect(() => {
     const saved = getData<string>('courseName');
     const savedOutcomes = getData<string[]>('learningOutcomes');
-    const savedPersona = getData<string>('persona') || getData<string>('teachingStyle');
+    const savedPattern = getData<InteractionPattern>('interactionPattern');
 
     if (saved) setCourseName(saved);
     if (savedOutcomes) setOutcomes(savedOutcomes);
-    if (savedPersona) setPersona(savedPersona);
+    if (savedPattern) setPattern(savedPattern);
   }, [getData]);
 
-  // Fetch personas from API (same source as Quick Launch)
+  // Auto-suggest pattern from course name
   useEffect(() => {
-    const ac = new AbortController();
-    (async () => {
-      try {
-        const res = await fetch('/api/onboarding', { signal: ac.signal });
-        if (!res.ok) throw new Error('Failed to fetch personas');
-        const data = await res.json();
-        if (!ac.signal.aborted && data.ok && data.personasList?.length > 0) {
-          setPersonas(data.personasList.map((p: any) => ({
-            slug: p.slug,
-            name: p.name,
-            description: p.description || null,
-            icon: p.icon || '🎭',
-          })));
-        } else if (!ac.signal.aborted) {
-          throw new Error(data.error || 'No personas returned');
-        }
-      } catch (e: any) {
-        if (e.name === 'AbortError') return;
-        console.warn('[IntentStep] Failed to load personas, using fallback:', e);
-        if (!ac.signal.aborted) {
-          setPersonas([
-            { slug: 'tutor', name: 'Tutor', description: 'Patient teaching expert', icon: '🧑‍🏫' },
-          ]);
-        }
-      } finally {
-        if (!ac.signal.aborted) setPersonasLoading(false);
-      }
-    })();
-    return () => ac.abort();
-  }, []);
+    if (!pattern) {
+      const suggestion = suggestInteractionPattern(courseName);
+      setSuggestedPattern(suggestion);
+    } else {
+      setSuggestedPattern(null);
+    }
+  }, [courseName, pattern]);
 
   // Check for existing course when name changes
   useEffect(() => {
@@ -112,17 +85,55 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
     setOutcomes(newOutcomes);
   };
 
-  const handleNext = () => {
-    const selected = personas.find(p => p.slug === persona);
-    setData('courseName', courseName.trim());
-    setData('learningOutcomes', outcomes.filter(o => o.trim()));
-    setData('persona', persona);
-    setData('personaName', selected?.name || persona);
-    setData('teachingStyle', persona);
+  const handlePatternSelect = (p: InteractionPattern) => {
+    setPattern(p);
+    setSuggestedPattern(null);
+  };
+
+  const handleNext = async () => {
+    const selectedPattern = pattern || suggestedPattern || 'directive';
+    const patternInfo = INTERACTION_PATTERN_LABELS[selectedPattern as InteractionPattern];
+    const trimmedName = courseName.trim();
+    const filteredOutcomes = outcomes.filter(o => o.trim());
+
+    setData('courseName', trimmedName);
+    setData('learningOutcomes', filteredOutcomes);
+    setData('interactionPattern', selectedPattern);
+    setData('interactionPatternName', patternInfo?.label || selectedPattern);
+    // Keep teachingStyle for backward compat with lesson plan generation
+    setData('teachingStyle', 'tutor');
+
+    // Eager generation — fire background plan generation so it's ready before user
+    // reaches LessonPlanStep. The POST returns ~50ms (just creates task + returns taskId).
+    try {
+      const res = await fetch('/api/courses/generate-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseName: trimmedName,
+          learningOutcomes: filteredOutcomes,
+          teachingStyle: 'tutor',
+          interactionPattern: selectedPattern,
+          sessionCount: 12,
+          durationMins: 30,
+          emphasis: 'balanced',
+          assessments: 'light',
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && data.taskId) {
+        setData('planTaskId', data.taskId);
+        setData('stepProcessing_lesson-plan', true);
+      }
+    } catch {
+      // Non-fatal — LessonPlanStep will handle manual generation if no taskId
+    }
+
     onNext();
   };
 
-  const isValid = courseName.trim().length > 0 && persona;
+  const effectivePattern = pattern || suggestedPattern;
+  const isValid = courseName.trim().length > 0 && !!effectivePattern;
 
   return (
     <div className="hf-wizard-page">
@@ -195,31 +206,40 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
           </p>
         </div>
 
-        {/* Persona Selection */}
+        {/* Interaction Pattern */}
         <div className="hf-mb-lg">
-          <FieldHint label={`Choose a ${lower('persona')}`} hint={WIZARD_HINTS["course.persona"]} labelClass="hf-label" />
-          {personasLoading ? (
-            <div className="hf-loading-row">
-              <div className="hf-spinner hf-icon-sm" />
-              <span className="hf-text-sm">Loading {lower('persona')}s...</span>
-            </div>
-          ) : (
-            <div className="hf-chip-row">
-              {personas.map((p) => (
+          <FieldHint
+            label="How should the AI teach?"
+            hint={WIZARD_HINTS["course.interactionPattern"]}
+            labelClass="hf-label"
+          />
+          <div className="hf-chip-row">
+            {INTERACTION_PATTERN_ORDER.map((p) => {
+              const info = INTERACTION_PATTERN_LABELS[p];
+              const isSelected = pattern === p;
+              const isSuggested = !pattern && suggestedPattern === p;
+              return (
                 <button
-                  key={p.slug}
-                  onClick={() => setPersona(p.slug)}
-                  className={persona === p.slug ? "hf-chip hf-chip-selected" : "hf-chip"}
+                  key={p}
+                  onClick={() => handlePatternSelect(p)}
+                  className={isSelected || isSuggested ? "hf-chip hf-chip-selected" : "hf-chip"}
+                  title={info.description}
                 >
-                  <span>{p.icon}</span>
-                  <span>{p.name}</span>
+                  <span>{info.icon}</span>
+                  <span>{info.label}</span>
+                  {isSuggested && (
+                    <span className="hf-chip-badge">Suggested</span>
+                  )}
                 </button>
-              ))}
-            </div>
-          )}
-          {persona && personas.find(p => p.slug === persona)?.description && (
-            <p className="hf-hint">
-              {personas.find(p => p.slug === persona)!.description}
+              );
+            })}
+          </div>
+          {effectivePattern && (
+            <p className="hf-hint hf-mt-xs">
+              <strong>{INTERACTION_PATTERN_LABELS[effectivePattern].label}:</strong>{' '}
+              {INTERACTION_PATTERN_LABELS[effectivePattern].description}
+              {' · '}
+              <em>{INTERACTION_PATTERN_LABELS[effectivePattern].examples}</em>
             </p>
           )}
         </div>
@@ -231,7 +251,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
           Back
         </button>
         <button onClick={handleNext} disabled={!isValid} className="hf-btn hf-btn-primary">
-          Next <ArrowRight className="hf-icon-sm" />
+          Next
         </button>
       </div>
     </div>

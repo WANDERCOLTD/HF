@@ -621,6 +621,7 @@ export function deepMerge<T extends Record<string, any>>(base: T, override: Part
 export async function resolveExtractionConfig(
   sourceId?: string,
   documentType?: DocumentType,
+  interactionPattern?: InteractionPattern,
 ): Promise<ExtractionConfig> {
   // 1. Load system spec
   const systemSpec = await prisma.analysisSpec.findFirst({
@@ -647,6 +648,9 @@ export async function resolveExtractionConfig(
 
   // 3. Apply document-type-specific overrides
   resolved = applyTypeOverrides(resolved, documentType);
+
+  // 4. Apply interaction pattern overrides (most specific — prepends extraction preamble)
+  resolved = applyPatternOverrides(resolved, interactionPattern);
 
   return resolved;
 }
@@ -791,11 +795,264 @@ export function getLeafLabel(extractionConfig: ExtractionConfig): string {
   return levels[levels.length - 1].label;
 }
 
+// ── Communication Style ───────────────────────────────────────────────────────
+
+/**
+ * WHO the AI is — the personality archetype set at Domain level.
+ * Maps to Identity Spec slugs: TUT-001, COACH-001, COMPANION-001,
+ * GUIDE-001, MENTOR-001, FACILITATOR-001, ADVISOR-001.
+ */
+export type CommunicationStyle =
+  | "tutor" | "coach" | "companion"
+  | "guide" | "mentor" | "facilitator" | "advisor";
+
+export const COMMUNICATION_STYLE_LABELS: Record<CommunicationStyle, { label: string; icon: string; description: string }> = {
+  tutor:       { label: "Tutor",       icon: "🧑‍🏫", description: "Patient, Socratic, scaffolded — schools and tutoring" },
+  coach:       { label: "Coach",       icon: "🏆",   description: "Goal-driven, accountability — corporate and exec dev" },
+  companion:   { label: "Companion",   icon: "💙",   description: "Warm peer, no pressure — wellbeing and elder care" },
+  guide:       { label: "Guide",       icon: "🗺️",   description: "Calm navigator, informational — healthcare and govt" },
+  mentor:      { label: "Mentor",      icon: "🌟",   description: "Wise counsellor, reflective — youth and leadership" },
+  facilitator: { label: "Facilitator", icon: "🤝",   description: "Group enabler, process authority — communities" },
+  advisor:     { label: "Advisor",     icon: "📋",   description: "Clinical expert, evidence-based — finance and legal" },
+};
+
+export const COMMUNICATION_STYLE_ORDER: CommunicationStyle[] = [
+  "tutor", "coach", "companion", "guide", "mentor", "facilitator", "advisor",
+];
+
+// ── Interaction Pattern ───────────────────────────────────────────────────────
+
+/**
+ * WHAT the session does — the communication style set at Playbook level.
+ * Drives extraction emphasis (what gets pulled from content) and session flow.
+ * Stored in Playbook.config.interactionPattern.
+ */
+export type InteractionPattern =
+  | "socratic" | "directive" | "advisory" | "coaching"
+  | "companion" | "facilitation" | "reflective" | "open";
+
+export const INTERACTION_PATTERN_LABELS: Record<InteractionPattern, { label: string; icon: string; description: string; examples: string }> = {
+  socratic:    { label: "Socratic",     icon: "🔍", description: "Question → reflect → discover",         examples: "Philosophy, critical thinking, Socratic seminars" },
+  directive:   { label: "Directive",    icon: "📢", description: "Tell → check → reinforce",              examples: "Lessons, tutorials, onboarding, instruction" },
+  advisory:    { label: "Advisory",     icon: "⚖️", description: "Fact → cite → scope limit",            examples: "Legal, medical, financial, compliance" },
+  coaching:    { label: "Coaching",     icon: "🎯", description: "Goal → action → accountability",        examples: "Career, leadership, performance coaching" },
+  companion:   { label: "Companion",    icon: "💙", description: "Listen → empathise → presence",         examples: "Wellbeing, support, check-ins, counselling" },
+  facilitation:{ label: "Facilitation", icon: "🗺️", description: "Coordinate → suggest → organise",      examples: "Groups, projects, decision-making, workshops" },
+  reflective:  { label: "Reflective",   icon: "🪞", description: "Share → explore → meaning-making",     examples: "Journaling, supervision, personal development" },
+  open:        { label: "Open",         icon: "✨", description: "Follow wherever the caller leads",       examples: "Creative, exploratory, research, open dialogue" },
+};
+
+export const INTERACTION_PATTERN_ORDER: InteractionPattern[] = [
+  "socratic", "directive", "advisory", "coaching",
+  "companion", "facilitation", "reflective", "open",
+];
+
+// ── Intent Pattern Overrides ──────────────────────────────────────────────────
+
+export interface IntentPatternOverride {
+  intentPreamble: string;
+  supplementaryCategories?: ExtractionCategory[];
+}
+
+export const INTENT_PATTERN_OVERRIDES: Record<InteractionPattern, IntentPatternOverride> = {
+  socratic: {
+    intentPreamble: `INTERACTION PATTERN: SOCRATIC
+The session uses questions to provoke reflection and discovery. Prioritise:
+- Open questions and dilemmas that have no single answer
+- Tensions, paradoxes, and competing perspectives
+- Claims that invite challenge ("Is this always true?")
+- Discussion starters and thought experiments
+Avoid extracting bare facts — prioritise content that can provoke thinking.`,
+    supplementaryCategories: [
+      { id: "dilemma",          label: "Dilemma",          description: "A situation with no clear right answer" },
+      { id: "discussion_prompt", label: "Discussion prompt", description: "An open question worth exploring" },
+    ],
+  },
+  directive: {
+    intentPreamble: `INTERACTION PATTERN: DIRECTIVE
+The session delivers knowledge and checks understanding. Prioritise:
+- Core concepts with clear definitions
+- Rules, procedures, and steps in order
+- Common misconceptions to correct
+- Check-questions to verify understanding
+Extract items that can be stated, demonstrated, and confirmed.`,
+    supplementaryCategories: [
+      { id: "misconception", label: "Misconception", description: "A common misunderstanding to address" },
+    ],
+  },
+  advisory: {
+    intentPreamble: `INTERACTION PATTERN: ADVISORY
+The session gives authoritative guidance within defined scope limits. Prioritise:
+- Statements of fact with citations or sources
+- Scope conditions ("this applies when...", "this does not apply if...")
+- Red lines and caveats
+- Recommended actions with rationale
+Extract authoritative, citable content. Flag scope limits explicitly.`,
+    supplementaryCategories: [
+      { id: "caveat",   label: "Caveat",   description: "A limit or condition on when advice applies" },
+      { id: "citation", label: "Citation", description: "A reference or source to cite" },
+    ],
+  },
+  coaching: {
+    intentPreamble: `INTERACTION PATTERN: COACHING
+The session focuses on goals, actions, and accountability. Prioritise:
+- Goal-framing questions ("What do you want to achieve?")
+- Action steps and commitments
+- Obstacles and how to overcome them
+- Reflection questions for progress review
+Extract content that supports goal-setting, planning, and follow-through.`,
+    supplementaryCategories: [
+      { id: "action_step",         label: "Action step",         description: "A concrete next step a person can take" },
+      { id: "reflection_question", label: "Reflection question", description: "A question to support self-review" },
+    ],
+  },
+  companion: {
+    intentPreamble: `INTERACTION PATTERN: COMPANION
+The session holds space, listens, and validates without agenda. Prioritise:
+- Common experiences and emotions to normalise
+- Validation statements ("It makes sense that...")
+- Gentle prompts for elaboration
+- Resources or signposting (if appropriate)
+Avoid directive or factual content — prioritise emotional attunement.`,
+    supplementaryCategories: [
+      { id: "normalising_statement", label: "Normalising statement", description: "A statement that validates a common experience" },
+    ],
+  },
+  facilitation: {
+    intentPreamble: `INTERACTION PATTERN: FACILITATION
+The session coordinates people, surfaces options, and organises next steps. Prioritise:
+- Decision frameworks and structured options
+- Process steps and agendas
+- Roles and responsibilities
+- Questions to surface perspectives ("What does the group think?")
+Extract content that supports organising, choosing, and coordinating.`,
+    supplementaryCategories: [
+      { id: "decision_framework", label: "Decision framework", description: "A model or structure for making a choice" },
+    ],
+  },
+  reflective: {
+    intentPreamble: `INTERACTION PATTERN: REFLECTIVE
+The session explores personal meaning and deeper understanding. Prioritise:
+- Narrative hooks and story prompts
+- Questions about significance ("What did that mean to you?")
+- Multiple interpretations of the same event
+- Themes and patterns across experiences
+Extract content that invites personal exploration rather than factual recall.`,
+    supplementaryCategories: [
+      { id: "narrative_prompt", label: "Narrative prompt", description: "A prompt that invites storytelling or reflection" },
+    ],
+  },
+  open: {
+    intentPreamble: `INTERACTION PATTERN: OPEN
+The session follows wherever the caller leads — no fixed agenda. Extract broadly:
+- All categories with equal weight
+- Diverse content types (facts, questions, stories, frameworks)
+- Anything that might be relevant to an unpredictable conversation
+Prioritise breadth over depth.`,
+  },
+};
+
+/**
+ * Apply interaction pattern overrides to an extraction config.
+ * Prepends the intent preamble to the system prompt and appends supplementary categories.
+ * Pattern overrides run after type overrides — most specific wins.
+ */
+export function applyPatternOverrides(
+  resolved: ExtractionConfig,
+  pattern?: InteractionPattern,
+): ExtractionConfig {
+  if (!pattern) return resolved;
+  const override = INTENT_PATTERN_OVERRIDES[pattern];
+  if (!override) return resolved;
+
+  const updatedPrompt = override.intentPreamble
+    ? `${override.intentPreamble}\n\n${resolved.extraction.systemPrompt}`
+    : resolved.extraction.systemPrompt;
+
+  const existingIds = new Set(resolved.extraction.categories.map(c => c.id));
+  const newCats = (override.supplementaryCategories ?? []).filter(c => !existingIds.has(c.id));
+
+  return {
+    ...resolved,
+    extraction: {
+      ...resolved.extraction,
+      systemPrompt: updatedPrompt,
+      categories: [...resolved.extraction.categories, ...newCats],
+    },
+  };
+}
+
+// ── Pattern Keyword Suggestion ────────────────────────────────────────────────
+
+// Sorted longest-match-first so multi-word keys match before substrings
+const PATTERN_KEYWORD_ENTRIES: Array<[string, InteractionPattern]> = [
+  // socratic (questioning, reflective-inquiry)
+  ["critical thinking", "socratic"],
+  ["philosoph",         "socratic"],
+  ["ethics",            "socratic"],
+  ["debate",            "socratic"],
+  ["seminar",           "socratic"],
+  // directive (tell, check, reinforce)
+  ["onboard",     "directive"],
+  ["instruction", "directive"],
+  ["tutorial",    "directive"],
+  ["training",    "directive"],
+  ["lesson",      "directive"],
+  ["teach",       "directive"],
+  // advisory (authoritative, scoped)
+  ["regulation",  "advisory"],
+  ["compliance",  "advisory"],
+  ["financial",   "advisory"],
+  ["medical",     "advisory"],
+  ["legal",       "advisory"],
+  ["advice",      "advisory"],
+  // coaching (goals, actions)
+  ["personal development", "coaching"],
+  ["leadership",           "coaching"],
+  ["performance",          "coaching"],
+  ["career",               "coaching"],
+  ["goal",                 "coaching"],
+  ["coach",                "coaching"],
+  // companion (presence, emotional)
+  ["mental health", "companion"],
+  ["wellbeing",     "companion"],
+  ["well-being",    "companion"],
+  ["counsel",       "companion"],
+  ["check-in",      "companion"],
+  ["support",       "companion"],
+  // facilitation (groups, organising)
+  ["facilitat",  "facilitation"],
+  ["workshop",   "facilitation"],
+  ["project",    "facilitation"],
+  ["decision",   "facilitation"],
+  ["group",      "facilitation"],
+  // reflective (meaning-making)
+  ["supervision",          "reflective"],
+  ["personal development", "reflective"],
+  ["reflect",              "reflective"],
+  ["journal",              "reflective"],
+  // open — no keywords (manual fallback choice)
+].sort((a, b) => b[0].length - a[0].length);
+
+/**
+ * Suggest an InteractionPattern from a course name using keyword matching.
+ * Returns null if no keyword matches.
+ */
+export function suggestInteractionPattern(courseName: string): InteractionPattern | null {
+  if (!courseName || courseName.trim().length < 3) return null;
+  const lower = courseName.toLowerCase();
+  for (const [keyword, pattern] of PATTERN_KEYWORD_ENTRIES) {
+    if (lower.includes(keyword)) return pattern;
+  }
+  return null;
+}
+
 // ── Teaching Mode ────────────────────────────────────────────────────────────
 
 /**
  * The teacher's macro intent for a course. Drives extraction weights and
  * lesson plan shape. Stored in Playbook.config.teachingMode.
+ * @deprecated Use InteractionPattern instead. Kept for backward compatibility.
  */
 export type TeachingMode = "recall" | "comprehension" | "practice" | "syllabus";
 
@@ -1030,10 +1287,14 @@ export function categoryToTeachMethod(
 
   // Among candidates, pick the one with the highest intent weight for this category
   const weights = intentCategoryWeights[intent];
-  return candidates.reduce((best, [method]) => {
-    const bestWeight = weights[category] ?? 1;
-    const candidateWeight = weights[category] ?? 1;
-    // If same weight, prefer the first (stable sort by TEACH_METHOD_CONFIG order)
-    return candidateWeight > bestWeight ? method : best;
-  }, candidates[0][0]);
+  let bestMethod = candidates[0][0];
+  let bestWeight = weights[candidates[0][1].categories[0]] ?? 1;
+  for (const [method, cfg] of candidates) {
+    const w = weights[cfg.categories[0]] ?? 1;
+    if (w > bestWeight) {
+      bestMethod = method;
+      bestWeight = w;
+    }
+  }
+  return bestMethod;
 }

@@ -26,6 +26,8 @@ export interface ClassificationResult {
   documentType: DocumentType;
   confidence: number;
   reasoning: string;
+  /** True when the AI call failed and the type is a fallback default */
+  classificationFailed?: boolean;
 }
 
 export interface ClassificationExample {
@@ -205,7 +207,7 @@ export function buildMultiPointSample(fullText: string, totalSize: number): stri
  * When fewShotExamples are provided, they are appended to the user prompt
  * so the AI can learn from past admin corrections.
  *
- * Falls back to TEXTBOOK with confidence 0.0 on any error.
+ * Falls back to TEXTBOOK with confidence 0.0 and classificationFailed=true on any error.
  */
 export async function classifyDocument(
   textSample: string,
@@ -293,7 +295,8 @@ export async function classifyDocument(
     return {
       documentType: "TEXTBOOK",
       confidence: 0.0,
-      reasoning: `Classification failed: ${error?.message || "unknown error"}`,
+      reasoning: `Classification failed: ${error?.message || "unknown error"}. Defaulted to Textbook — please verify and correct if needed.`,
+      classificationFailed: true,
     };
   }
 }

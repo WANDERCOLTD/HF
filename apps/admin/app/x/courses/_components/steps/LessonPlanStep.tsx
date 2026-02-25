@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowRight, CheckCircle, FileText } from "lucide-react";
+import { ArrowRight, CheckCircle, FileText, RefreshCw } from "lucide-react";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { SessionCountPicker } from "@/components/shared/SessionCountPicker";
 import { SortableList } from "@/components/shared/SortableList";
@@ -13,7 +13,7 @@ import type { StepProps } from "../CourseSetupWizard";
 
 // ── Types ──────────────────────────────────────────────
 
-type Phase = "intents" | "generating" | "editing";
+type Phase = "loading" | "skeleton" | "editing" | "intents";
 
 type LessonEntry = {
   session: number;
@@ -55,8 +55,12 @@ function getTypeLabel(type: string): string {
 // ── Component ──────────────────────────────────────────
 
 export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) {
-  const restoredTaskId = getData<string>("planTaskId") || null;
-  const [phase, setPhase] = useState<Phase>(restoredTaskId ? "generating" : "intents");
+  // ── Phase & task state ─────────────────────────────────
+  const [phase, setPhase] = useState<Phase>("loading");
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
+  const [progressStep, setProgressStep] = useState<{ index: number; total: number } | null>(null);
 
   // Intent inputs
   const [sessionCount, setSessionCount] = useState<number | null>(null);
@@ -64,12 +68,9 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
   const [emphasis, setEmphasis] = useState<typeof EMPHASIS_OPTIONS[number]>("balanced");
   const [assessments, setAssessments] = useState<typeof ASSESSMENT_OPTIONS[number]>("light");
 
-  // Generation
-  const [taskId, setTaskId] = useState<string | null>(restoredTaskId);
-  const [error, setError] = useState<string | null>(null);
-
-  // Lesson plan editing
+  // Lesson plan data
   const [entries, setEntries] = useState<LessonEntry[]>([]);
+  const [skeletonEntries, setSkeletonEntries] = useState<LessonEntry[]>([]);
   const [reasoning, setReasoning] = useState("");
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [curriculumId, setCurriculumId] = useState<string | null>(null);
@@ -91,9 +92,18 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
   const contentMode = getData<string>("contentMode");
   const contentFileName = getData<string>("contentFileName");
   const contentDescription = getData<string>("contentDescription");
+  const sourceId = getData<string>("sourceId");
 
-  // Restore saved intents from flow bag
+  // Stable ref for phase (used in callbacks to avoid stale closures)
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const skeletonRef = useRef(skeletonEntries);
+  skeletonRef.current = skeletonEntries;
+
+  // ── On mount: check for eager generation or saved plan ──
+
   useEffect(() => {
+    // Restore saved intents
     const saved = getData<{ sessionCount: number; durationMins: number; emphasis: string; assessments: string }>("planIntents");
     if (saved) {
       if (saved.sessionCount) setSessionCount(saved.sessionCount);
@@ -101,42 +111,81 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
       if (saved.emphasis) setEmphasis(saved.emphasis as typeof emphasis);
       if (saved.assessments) setAssessments(saved.assessments as typeof assessments);
     }
+
+    // Check for saved plan first (stepping back & forward)
+    const savedPlan = getData<LessonEntry[]>("lessonPlan");
+    if (savedPlan && savedPlan.length > 0) {
+      setEntries(savedPlan);
+      setReasoning(getData<string>("planReasoning") || "");
+      setSubjectId(getData<string>("subjectId") || null);
+      setCurriculumId(getData<string>("curriculumId") || null);
+      setPhase("editing");
+      return;
+    }
+
+    // Check for eager generation task from IntentStep
+    const eagerTaskId = getData<string>("planTaskId");
+    if (eagerTaskId) {
+      setTaskId(eagerTaskId);
+      setPhase("loading");
+      return;
+    }
+
+    // No task, no plan — show intents (manual path)
+    setPhase("intents");
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Task polling for Generate & Review ────────────────
+  // ── Task polling — picks up eager generation or manual generate ──
 
   useTaskPoll({
     taskId,
     onProgress: useCallback((task: PollableTask) => {
       const ctx = task.context || {};
-      if (ctx.message) setError(null);
+      if (ctx.message) {
+        setProgressMessage(ctx.message);
+        setError(null);
+      }
+      if (ctx.stepIndex !== undefined && ctx.totalSteps) {
+        setProgressStep({ index: ctx.stepIndex, total: ctx.totalSteps });
+      }
+      // Skeleton detection — show partial plan immediately
+      if (ctx.skeletonReady && ctx.skeletonPlan && phaseRef.current !== "skeleton" && phaseRef.current !== "editing") {
+        setSkeletonEntries(ctx.skeletonPlan);
+        setSubjectId(ctx.subjectId || null);
+        setCurriculumId(ctx.curriculumId || null);
+        setPhase("skeleton");
+      }
     }, []),
     onComplete: useCallback((task: PollableTask) => {
       const ctx = task.context || {};
-      if (ctx.error) {
-        setError(ctx.error);
-        setPhase("intents");
-        setTaskId(null);
-        setData("planTaskId", null);
-        return;
-      }
-      setError(null);
-      if (ctx.plan && Array.isArray(ctx.plan)) {
+      if (ctx.plan && Array.isArray(ctx.plan) && ctx.plan.length > 0) {
         setEntries(ctx.plan);
         setReasoning(ctx.reasoning || "");
         setSubjectId(ctx.subjectId || null);
         setCurriculumId(ctx.curriculumId || null);
-        setPhase("editing");
-      } else {
-        setError("Lesson plan not found in task result");
-        setPhase("intents");
+      } else if (skeletonRef.current.length > 0) {
+        // Graceful: use skeleton as the plan
+        setEntries(skeletonRef.current);
       }
+      setPhase("editing");
+      setProgressMessage(null);
+      setProgressStep(null);
+      setData("stepProcessing_lesson-plan", false);
       setTaskId(null);
       setData("planTaskId", null);
     }, [setData]),
     onError: useCallback((message: string) => {
-      setError(message);
-      setPhase("intents");
+      if (phaseRef.current === "skeleton" && skeletonRef.current.length > 0) {
+        // Graceful degradation — keep skeleton as usable plan
+        setEntries(skeletonRef.current);
+        setPhase("editing");
+      } else {
+        setError(message);
+        setPhase("intents");
+      }
+      setProgressMessage(null);
+      setProgressStep(null);
+      setData("stepProcessing_lesson-plan", false);
       setTaskId(null);
       setData("planTaskId", null);
     }, [setData]),
@@ -156,13 +205,8 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
     setData("emphasis", emphasis);
   }
 
-  function handleAccept() {
-    savePlanIntents();
-    setData("lessonPlanMode", "accept");
-    onNext();
-  }
-
   function handleSkip() {
+    setData("stepProcessing_lesson-plan", false);
     setData("lessonPlanMode", "skipped");
     setData("sessionCount", 12);
     setData("durationMins", 30);
@@ -170,12 +214,13 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
   }
 
   async function handleGenerate() {
-    if (taskId || phase === "generating") return;
+    if (taskId || phase === "loading") return;
     savePlanIntents();
     setError(null);
-    setPhase("generating");
+    setProgressMessage(null);
+    setProgressStep(null);
+    setPhase("loading");
 
-    // Abort any previous generate request
     generateAbortRef.current?.abort();
     const controller = new AbortController();
     generateAbortRef.current = controller;
@@ -184,14 +229,14 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
     const courseName = getData<string>("courseName");
     const learningOutcomes = getData<string[]>("learningOutcomes") || [];
     const teachingStyle = getData<string>("teachingStyle") || "tutor";
-    const sourceId = getData<string>("sourceId");
+    const interactionPattern = getData<string>("interactionPattern") || undefined;
 
     try {
       const res = await fetch("/api/courses/generate-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          courseName, learningOutcomes, teachingStyle,
+          courseName, learningOutcomes, teachingStyle, interactionPattern,
           sessionCount: sessionCount || 12, durationMins, emphasis, assessments,
           sourceId: sourceId || undefined,
         }),
@@ -201,6 +246,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
       if (!data.ok) throw new Error(data.error || "Failed to start plan generation");
       setTaskId(data.taskId);
       setData("planTaskId", data.taskId);
+      setData("stepProcessing_lesson-plan", true);
     } catch (err: any) {
       if (err.name === "AbortError") {
         setError("Generation request timed out. Please try again.");
@@ -213,18 +259,39 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
     }
   }
 
-  // ── Save & Continue — with timeout guard ───────────────
+  function handleCancelGeneration() {
+    generateAbortRef.current?.abort();
+    setTaskId(null);
+    setData("planTaskId", null);
+    setData("stepProcessing_lesson-plan", false);
+    setProgressMessage(null);
+    setProgressStep(null);
+    setError(null);
+    setPhase("intents");
+  }
+
+  function handleUseOutline() {
+    // Accept skeleton entries as the plan
+    savePlanIntents();
+    setData("lessonPlanMode", "reviewed");
+    setData("subjectId", subjectId);
+    setData("curriculumId", curriculumId);
+    setData("lessonPlan", skeletonEntries.map((e, i) => ({ ...e, session: i + 1 })));
+    setData("stepProcessing_lesson-plan", false);
+    setTaskId(null);
+    setData("planTaskId", null);
+    onNext();
+  }
+
+  // ── Save & Continue ───────────────────────────────────
 
   async function handleSave() {
     setSaving(true);
     setError(null);
 
-    // Abort any previous in-flight save
     saveAbortRef.current?.abort();
     const controller = new AbortController();
     saveAbortRef.current = controller;
-
-    // Timeout guard — abort after SAVE_TIMEOUT_MS
     const timeout = setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS);
 
     try {
@@ -246,6 +313,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
       setData("subjectId", subjectId);
       setData("curriculumId", curriculumId);
       setData("lessonPlan", numbered);
+      setData("planReasoning", reasoning);
       onNext();
     } catch (err: any) {
       if (err.name === "AbortError") {
@@ -297,6 +365,75 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
     setEditingIndex(null);
   }
 
+  // ── Render helpers ────────────────────────────────────
+
+  const progressPct = progressStep
+    ? Math.round(((progressStep.index + 1) / progressStep.total) * 100)
+    : 0;
+
+  // Check if eager plan was goals-only but user uploaded content
+  const eagerWasGoalsOnly = !!(sourceId && entries.length > 0 && getData<string>("lessonPlanMode") !== "reviewed");
+
+  const renderSessionCard = (entry: LessonEntry, index: number, skeleton?: boolean) => (
+    <div className={skeleton ? "hf-session-enter" : undefined}>
+      {!skeleton && editingIndex === index ? (
+        <div className="hf-inline-edit-row">
+          <select
+            value={editType}
+            onChange={(e) => setEditType(e.target.value)}
+            className="hf-input hf-input-inline"
+          >
+            {SESSION_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={editLabel}
+            onChange={(e) => setEditLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleInlineEditSave(index);
+              if (e.key === "Escape") setEditingIndex(null);
+            }}
+            autoFocus
+            className="hf-input hf-input-inline-md"
+          />
+          <button onClick={() => handleInlineEditSave(index)} className="hf-btn hf-btn-primary hf-btn-sm">Save</button>
+          <button onClick={() => setEditingIndex(null)} className="hf-btn hf-btn-secondary hf-btn-sm">Cancel</button>
+        </div>
+      ) : (
+        <div
+          className={`hf-session-row${skeleton ? " hf-session-row--skeleton" : ""}`}
+          onClick={skeleton ? undefined : () => {
+            setEditingIndex(index);
+            setEditLabel(entry.label);
+            setEditType(entry.type);
+          }}
+        >
+          <span className="hf-session-num">{index + 1}</span>
+          <span
+            className="hf-session-type"
+            style={{
+              color: getTypeColor(entry.type),
+              background: `color-mix(in srgb, ${getTypeColor(entry.type)} 10%, transparent)`,
+            }}
+          >
+            {getTypeLabel(entry.type)}
+          </span>
+          <span className="hf-session-label">{entry.label}</span>
+          {entry.moduleLabel && (
+            <span className="hf-session-meta">{entry.moduleLabel}</span>
+          )}
+          {skeleton ? (
+            <span className="hf-shimmer-bar" />
+          ) : entry.estimatedDurationMins ? (
+            <span className="hf-session-meta">{entry.estimatedDurationMins}m</span>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+
   // ── Render ────────────────────────────────────────────
 
   return (
@@ -305,15 +442,170 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
         <div className="hf-mb-lg">
           <h1 className="hf-page-title">Plan your sessions</h1>
           <p className="hf-page-subtitle">
-            Set how many sessions, how long, and how deep — or generate a full plan.
+            {phase === "editing"
+              ? "Review and customize your lesson plan. Drag to reorder, click to edit."
+              : phase === "loading" || phase === "skeleton"
+                ? "Your lesson plan is being generated..."
+                : "Set how many sessions, how long, and how deep — then generate a plan."}
           </p>
         </div>
 
         {/* Error banner */}
         <ErrorBanner error={error} className="hf-mb-md" />
 
-        {/* ── Phase A: Intent Pills ────────────────────── */}
-        {(phase === "intents" || phase === "generating") && (
+        {/* ── Phase: Loading (eager generation in progress) ── */}
+        {phase === "loading" && (
+          <div className="hf-flex hf-flex-col hf-gap-md">
+            {/* Content status */}
+            {contentMode === "file" && contentFileName && (
+              <div className="hf-banner hf-banner-success">
+                <CheckCircle className="hf-icon-sm hf-flex-shrink-0" />
+                <span>
+                  <FileText className="hf-icon-xs hf-icon-inline" />
+                  {contentFileName} uploaded
+                </span>
+              </div>
+            )}
+
+            {/* Progress */}
+            <div className="hf-flex hf-flex-col hf-items-center hf-gap-sm hf-py-lg">
+              <div className="hf-spinner hf-icon-lg hf-spinner-thick" />
+              <p className="hf-text-sm hf-text-secondary">
+                {progressMessage || "Generating your lesson plan..."}
+              </p>
+              {progressStep && (
+                <div className="hf-progress-bar-track" style={{ width: "200px" }}>
+                  <div
+                    className="hf-progress-bar-fill"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+              )}
+              <p className="hf-text-xs hf-text-muted">This usually takes 15-30 seconds</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Phase: Skeleton (modules ready, plan refining) ── */}
+        {phase === "skeleton" && (
+          <div className="hf-flex hf-flex-col hf-gap-md">
+            {/* Progress banner */}
+            <div className="hf-banner hf-banner-info">
+              <div className="hf-pulse-dot" />
+              <div className="hf-flex hf-flex-col hf-gap-xs hf-flex-1">
+                <span className="hf-text-sm hf-text-bold">
+                  {progressMessage || "Modules ready — generating detailed session plan..."}
+                </span>
+                {progressStep && (
+                  <div className="hf-progress-bar-track">
+                    <div
+                      className="hf-progress-bar-fill"
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Skeleton session cards */}
+            <div className="hf-flex hf-items-center hf-gap-md hf-mb-xs">
+              <span className="hf-section-title">{skeletonEntries.length} sessions</span>
+              <span className="hf-text-xs hf-text-muted">(refining...)</span>
+            </div>
+            {skeletonEntries.map((entry, i) => (
+              <div key={`skel-${i}`}>
+                {renderSessionCard(entry, i, true)}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Phase: Editing (full plan available) ────────── */}
+        {phase === "editing" && (
+          <div>
+            {/* Regenerate with content banner */}
+            {eagerWasGoalsOnly && (
+              <div className="hf-banner hf-banner-info hf-mb-md">
+                <FileText className="hf-icon-sm hf-flex-shrink-0" />
+                <span className="hf-flex-1">
+                  Plan generated from learning outcomes. Want to incorporate your uploaded content?
+                </span>
+                <button
+                  onClick={() => {
+                    setEntries([]);
+                    setSkeletonEntries([]);
+                    setReasoning("");
+                    handleGenerate();
+                  }}
+                  className="hf-btn hf-btn-secondary hf-btn-sm"
+                >
+                  <RefreshCw className="hf-icon-xs" /> Regenerate with content
+                </button>
+              </div>
+            )}
+
+            {reasoning && (
+              <div className="hf-ai-callout hf-mb-md">
+                <strong className="hf-text-primary">AI reasoning:</strong> {reasoning}
+              </div>
+            )}
+
+            <div className="hf-flex hf-items-center hf-gap-md hf-mb-md">
+              <span className="hf-section-title">{entries.length} sessions</span>
+              <span className="hf-text-xs hf-text-muted">
+                {SESSION_TYPES.map((t) => {
+                  const count = entries.filter((e) => e.type === t.value).length;
+                  return count > 0 ? `${count} ${t.label.toLowerCase()}` : null;
+                }).filter(Boolean).join(" \u00b7 ")}
+              </span>
+            </div>
+
+            {/* Session cards via SortableList */}
+            <SortableList
+              items={entries}
+              onReorder={handleReorder}
+              onRemove={handleRemove}
+              onDuplicate={handleDuplicate}
+              onAdd={() => setShowAdd(true)}
+              getItemId={(e) => `${e.session}-${e.label}`}
+              addLabel="+ Add Session"
+              emptyLabel="No sessions in plan."
+              renderCard={(entry, index) => renderSessionCard(entry, index)}
+            />
+
+            {/* Add session inline form */}
+            {showAdd && (
+              <div className="hf-add-form">
+                <select
+                  value={newType}
+                  onChange={(e) => setNewType(e.target.value)}
+                  className="hf-input hf-input-inline"
+                >
+                  {SESSION_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddSession();
+                    if (e.key === "Escape") setShowAdd(false);
+                  }}
+                  placeholder="Session label..."
+                  autoFocus
+                  className="hf-input hf-input-inline-md"
+                />
+                <button onClick={handleAddSession} className="hf-btn hf-btn-primary hf-btn-sm">Add</button>
+                <button onClick={() => setShowAdd(false)} className="hf-btn hf-btn-secondary hf-btn-sm">Cancel</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Phase: Intents (manual fallback) ───────────── */}
+        {phase === "intents" && (
           <div className="hf-flex hf-flex-col hf-gap-lg">
             {/* Content status banner */}
             {contentMode === "file" && contentFileName && (
@@ -321,7 +613,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
                 <CheckCircle className="hf-icon-sm hf-flex-shrink-0" />
                 <span>
                   <FileText className="hf-icon-xs hf-icon-inline" />
-                  {contentFileName} uploaded{getData<string>("sourceId") ? " — will inform your lesson plan" : ""}
+                  {contentFileName} uploaded{sourceId ? " — will inform your lesson plan" : ""}
                 </span>
               </div>
             )}
@@ -386,134 +678,6 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
                 <ChipButton selected={assessments === "none"} onClick={() => setAssessments("none")}>No assessments</ChipButton>
               </div>
             </div>
-
-            {/* Generating spinner */}
-            {phase === "generating" && (
-              <div className="hf-flex hf-flex-col hf-items-center hf-gap-sm hf-py-lg">
-                <div className="hf-spinner hf-icon-lg hf-spinner-thick" />
-                <p className="hf-text-sm hf-text-secondary">Generating your lesson plan...</p>
-                <p className="hf-text-xs hf-text-muted">This usually takes 15-30 seconds</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Phase C: Editing ─────────────────────────── */}
-        {phase === "editing" && (
-          <div>
-            {reasoning && (
-              <div className="hf-ai-callout hf-mb-md">
-                <strong className="hf-text-primary">AI reasoning:</strong> {reasoning}
-              </div>
-            )}
-
-            <div className="hf-flex hf-items-center hf-gap-md hf-mb-md">
-              <span className="hf-section-title">{entries.length} sessions</span>
-              <span className="hf-text-xs hf-text-muted">
-                {SESSION_TYPES.map((t) => {
-                  const count = entries.filter((e) => e.type === t.value).length;
-                  return count > 0 ? `${count} ${t.label.toLowerCase()}` : null;
-                }).filter(Boolean).join(" \u00b7 ")}
-              </span>
-            </div>
-
-            {/* Session cards via SortableList */}
-            <SortableList
-              items={entries}
-              onReorder={handleReorder}
-              onRemove={handleRemove}
-              onDuplicate={handleDuplicate}
-              onAdd={() => setShowAdd(true)}
-              getItemId={(e) => `${e.session}-${e.label}`}
-              addLabel="+ Add Session"
-              emptyLabel="No sessions in plan."
-              renderCard={(entry, index) => (
-                <div>
-                  {editingIndex === index ? (
-                    <div className="hf-inline-edit-row">
-                      <select
-                        value={editType}
-                        onChange={(e) => setEditType(e.target.value)}
-                        className="hf-input hf-input-inline"
-                      >
-                        {SESSION_TYPES.map((t) => (
-                          <option key={t.value} value={t.value}>{t.label}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        value={editLabel}
-                        onChange={(e) => setEditLabel(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleInlineEditSave(index);
-                          if (e.key === "Escape") setEditingIndex(null);
-                        }}
-                        autoFocus
-                        className="hf-input hf-input-inline-md"
-                      />
-                      <button onClick={() => handleInlineEditSave(index)} className="hf-btn hf-btn-primary hf-btn-sm">Save</button>
-                      <button onClick={() => setEditingIndex(null)} className="hf-btn hf-btn-secondary hf-btn-sm">Cancel</button>
-                    </div>
-                  ) : (
-                    <div
-                      className="hf-session-row"
-                      onClick={() => {
-                        setEditingIndex(index);
-                        setEditLabel(entry.label);
-                        setEditType(entry.type);
-                      }}
-                    >
-                      <span className="hf-session-num">{index + 1}</span>
-                      <span
-                        className="hf-session-type"
-                        style={{
-                          color: getTypeColor(entry.type),
-                          background: `color-mix(in srgb, ${getTypeColor(entry.type)} 10%, transparent)`,
-                        }}
-                      >
-                        {getTypeLabel(entry.type)}
-                      </span>
-                      <span className="hf-session-label">{entry.label}</span>
-                      {entry.moduleLabel && (
-                        <span className="hf-session-meta">{entry.moduleLabel}</span>
-                      )}
-                      {entry.estimatedDurationMins && (
-                        <span className="hf-session-meta">{entry.estimatedDurationMins}m</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            />
-
-            {/* Add session inline form */}
-            {showAdd && (
-              <div className="hf-add-form">
-                <select
-                  value={newType}
-                  onChange={(e) => setNewType(e.target.value)}
-                  className="hf-input hf-input-inline"
-                >
-                  {SESSION_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  value={newLabel}
-                  onChange={(e) => setNewLabel(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleAddSession();
-                    if (e.key === "Escape") setShowAdd(false);
-                  }}
-                  placeholder="Session label..."
-                  autoFocus
-                  className="hf-input hf-input-inline-md"
-                />
-                <button onClick={handleAddSession} className="hf-btn hf-btn-primary hf-btn-sm">Add</button>
-                <button onClick={() => setShowAdd(false)} className="hf-btn hf-btn-secondary hf-btn-sm">Cancel</button>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -523,38 +687,39 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
         <button
           className="hf-btn hf-btn-ghost"
           onClick={() => {
-            if (phase === "generating") {
-              generateAbortRef.current?.abort();
-              setTaskId(null);
-              setData("planTaskId", null);
-              setPhase("intents");
-              setError(null);
+            if (phase === "loading" || phase === "skeleton") {
+              handleCancelGeneration();
             } else {
               onPrev();
             }
           }}
         >
-          {phase === "generating" ? "Cancel" : "Back"}
+          {phase === "loading" || phase === "skeleton" ? "Cancel" : "Back"}
         </button>
 
         <div className="hf-flex hf-gap-sm hf-items-center">
-          {phase === "intents" && (
-            <button className="hf-btn hf-btn-ghost" onClick={handleSkip}>Skip</button>
+          {/* Skeleton: accept outline early */}
+          {phase === "skeleton" && (
+            <button onClick={handleUseOutline} className="hf-btn hf-btn-secondary">
+              Use outline <ArrowRight className="hf-icon-sm" />
+            </button>
           )}
 
+          {/* Intents: generate or skip */}
           {phase === "intents" && (
             <>
-              <button onClick={handleGenerate} className="hf-btn hf-btn-secondary">Generate & Review</button>
-              <button onClick={handleAccept} className="hf-btn hf-btn-primary">
-                Accept <ArrowRight className="hf-icon-sm" />
+              <button className="hf-btn hf-btn-ghost" onClick={handleSkip}>Skip</button>
+              <button onClick={handleGenerate} className="hf-btn hf-btn-primary">
+                Generate & Review
               </button>
             </>
           )}
 
+          {/* Editing: regenerate or save */}
           {phase === "editing" && (
             <>
               <button
-                onClick={() => { setPhase("intents"); setEntries([]); setReasoning(""); }}
+                onClick={() => { setPhase("intents"); setEntries([]); setSkeletonEntries([]); setReasoning(""); }}
                 className="hf-btn hf-btn-secondary"
               >
                 Regenerate

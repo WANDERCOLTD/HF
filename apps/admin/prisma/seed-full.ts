@@ -20,17 +20,18 @@
  *
  * Steps (full profile):
  *   1.  seed-clean              → 51 specs, 160 params, admin user, contracts
- *   2.  seed-institution-types  → 6 institution types (school, corporate, community, coaching, healthcare, training)
- *   3.  seed-domains            → 4 professional domains
- *   4.  seed-default-institution → "HumanFirst" institution
- *   5.  seed-demo-domains       → 12 demo callers + 4 playbooks (3 per domain)
- *   6.  seed-run-configs        → 8 analysis run config templates
- *   7.  seed (dedup)            → Parameter deduplication cleanup
- *   8.  seed-e2e                → E2E test fixtures                    [test, full]
- *   9.  seed-educator-demo      → 3 schools, 10 teachers, 210 pupils   [full only]
- *   10. seed-school-institutions → School institution records           [full only]
- *   11. seed-demo-fixtures      → "Paul" demo caller, QM overlay       [full only]
- *   12. seed-demo-logins        → 6 demo login accounts (non-PROD)     [test, full]
+ *   2.  seed-identity-archetypes → 7 communication style archetypes (TUT, COACH, COMPANION, GUIDE, MENTOR, ADVISOR, FACILITATOR)
+ *   3.  seed-institution-types  → 6 institution types (school, corporate, community, coaching, healthcare, training)
+ *   4.  seed-domains            → 4 professional domains
+ *   5.  seed-default-institution → "HumanFirst" institution
+ *   6.  seed-demo-domains       → 12 demo callers + 4 playbooks (3 per domain)
+ *   7.  seed-run-configs        → 8 analysis run config templates
+ *   8.  seed (dedup)            → Parameter deduplication cleanup
+ *   9.  seed-e2e                → E2E test fixtures                    [test, full]
+ *   10. seed-educator-demo      → 3 schools, 10 teachers, 210 pupils   [full only]
+ *   11. seed-school-institutions → School institution records           [full only]
+ *   12. seed-demo-fixtures      → "Paul" demo caller, QM overlay       [full only]
+ *   13. seed-demo-logins        → 6 demo login accounts (non-PROD)     [test, full]
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -48,6 +49,7 @@ import { main as seedDemoFixtures } from "./seed-demo-fixtures";
 import { main as seedInstitutionTypes } from "./seed-institution-types";
 import { main as seedDemoLogins } from "./seed-demo-logins";
 import { main as seedGolden } from "./seed-golden";
+import { main as seedIdentityArchetypes } from "./seed-identity-archetypes";
 
 type Profile = "core" | "test" | "full" | "golden";
 
@@ -61,6 +63,7 @@ interface Step {
 const ALL_STEPS: Step[] = [
   // ── Foundation (runs in every profile including golden) ─
   { name: "seed-clean", fn: seedClean },
+  { name: "seed-identity-archetypes", fn: seedIdentityArchetypes },
   { name: "seed-institution-types", fn: seedInstitutionTypes },
 
   // ── Core (runs in core/test/full but NOT golden) ────────

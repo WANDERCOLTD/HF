@@ -10,7 +10,7 @@ import type { CourseSetupInput, CourseSetupResult } from "@/lib/domain/course-se
  * @auth OPERATOR+
  * @tags courses
  * @description Create a course via the setup wizard. Returns a task ID immediately; actual setup runs non-blocking.
- * @body {object} { courseName, learningOutcomes, teachingStyle, sessionCount, durationMins, emphasis, welcomeMessage, studentEmails, domainId?, sourceId? }
+ * @body {object} { courseName, learningOutcomes, teachingStyle, sessionCount, durationMins, emphasis, welcomeMessage, studentEmails, domainId?, sourceId?, interactionPattern? }
  * @response 200 { ok: true, taskId: string }
  * @response 400 { ok: false, error: string }
  * @response 500 { ok: false, error: string }

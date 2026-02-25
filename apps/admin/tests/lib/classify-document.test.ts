@@ -124,7 +124,7 @@ describe("classifyDocument", () => {
     expect(result.reasoning).toBe("test");
   });
 
-  it("falls back to TEXTBOOK on AI error", async () => {
+  it("falls back to TEXTBOOK on AI error with classificationFailed flag", async () => {
     mocks.getConfiguredMeteredAICompletion.mockRejectedValueOnce(new Error("API timeout"));
 
     const result = await classify("Some text", "broken.pdf", makeConfig());
@@ -132,7 +132,8 @@ describe("classifyDocument", () => {
     expect(result).toEqual({
       documentType: "TEXTBOOK",
       confidence: 0.0,
-      reasoning: "Classification failed: API timeout",
+      reasoning: expect.stringContaining("Classification failed: API timeout"),
+      classificationFailed: true,
     });
 
     // logAssistantCall should NOT have been called since the error happened before it

@@ -14,6 +14,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { randomFakeName } from "@/lib/fake-names";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -41,6 +42,7 @@ import {
   type TeachingMode,
   type TeachMethod,
 } from "@/lib/content-trust/resolve-config";
+import { getDocTypeInfo, DOC_TYPE_INFO } from "@/lib/doc-type-icons";
 import "./teach-wizard.css";
 
 // ── Constants ───────────────────────────────────────
@@ -509,6 +511,12 @@ export default function TeachWizard() {
   const [quickPreview, setQuickPreview] = useState<Array<{ text: string; category: string }>>([]);
   const [uploadSourceCount, setUploadSourceCount] = useState(0);
 
+  // Classification state (from analyze manifest)
+  const [classifications, setClassifications] = useState<
+    Array<{ fileName: string; documentType: string; confidence: number; reasoning: string }>
+  >([]);
+  const [classificationCorrected, setClassificationCorrected] = useState(false);
+
   // Poll for extraction completion then load categories (Bug Fix B: every 5s)
   const startExtractionPoll = useCallback(
     (domainId: string, sIds: string[]) => {
@@ -703,6 +711,12 @@ export default function TeachWizard() {
       setSubjectIds(newSubjectIds);
       setContentDone(true);
       setUploadSourceCount(result.sourceCount ?? 0);
+
+      // Capture classification info for the review card
+      if (result.classifications?.length) {
+        setClassifications(result.classifications);
+        setClassificationCorrected(false);
+      }
 
       if (result.mode === "pack-upload") {
         // Start extraction: prefer task-based polling (two-phase UI)
@@ -1084,7 +1098,7 @@ export default function TeachWizard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: learnerName.trim() || "Learner",
+          name: learnerName.trim() || randomFakeName(),
           email: learnerEmail.trim() || undefined,
           domainId: selectedDomainId,
         }),
@@ -1355,7 +1369,7 @@ export default function TeachWizard() {
                     </div>
                   </div>
 
-                  <div className="ws-continue-row">
+                  <div className="tw-continue-row">
                     <button
                       className="tw-btn-continue"
                       onClick={handleNewCourseConfirm}
@@ -1390,7 +1404,7 @@ export default function TeachWizard() {
                     })}
                   </div>
 
-                  <div className="ws-continue-row">
+                  <div className="tw-continue-row">
                     <button
                       className="tw-btn-continue"
                       onClick={() => completeSection("course")}
@@ -1480,7 +1494,7 @@ export default function TeachWizard() {
             />
           </div>
 
-          <div className="ws-continue-row">
+          <div className="tw-continue-row">
             <button
               className="tw-btn-continue"
               onClick={() => completeSection("goal")}
@@ -1538,6 +1552,60 @@ export default function TeachWizard() {
           summary={contentSummary}
           onEdit={() => editSection("review")}
         >
+          {/* Classification card — shows what AI identified the files as */}
+          {classifications.length > 0 && (
+            <div className="tw-classify-card">
+              {classifications.map((c, idx) => {
+                const info = getDocTypeInfo(c.documentType);
+                const Icon = info.icon;
+                const confPct = Math.round(c.confidence * 100);
+                const confLevel = confPct >= 80 ? "high" : confPct >= 50 ? "medium" : "low";
+                return (
+                  <div key={idx} className="tw-classify-item">
+                    <div className={`tw-classify-icon-box tw-classify-icon--${confLevel}`}>
+                      <Icon size={20} />
+                    </div>
+                    <div className="tw-classify-body">
+                      <div className="tw-classify-header">
+                        <span className="tw-classify-type-label">{info.label}</span>
+                        <span className={`tw-classify-confidence tw-classify-conf--${confLevel}`}>
+                          {confPct}%
+                        </span>
+                      </div>
+                      <div className="tw-classify-file">{c.fileName}</div>
+                      <div className="tw-classify-desc">{info.description}</div>
+                    </div>
+                    <div className="tw-classify-actions">
+                      <select
+                        className="tw-classify-select"
+                        value={c.documentType}
+                        onChange={(e) => {
+                          setClassifications(prev =>
+                            prev.map((cl, i) =>
+                              i === idx
+                                ? { ...cl, documentType: e.target.value, confidence: 1.0, reasoning: "Corrected by teacher" }
+                                : cl
+                            )
+                          );
+                          setClassificationCorrected(true);
+                        }}
+                      >
+                        {Object.entries(DOC_TYPE_INFO).map(([value, typeInfo]) => (
+                          <option key={value} value={value}>{typeInfo.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                );
+              })}
+              {classificationCorrected && (
+                <div className="tw-classify-corrected-note">
+                  Classification corrected — this will be used for extraction.
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Two-phase extraction progress (task-based, pack-upload path) */}
           {extractionInProgress && extractionTaskId && !extractionTimedOut && (
             <div className="tw-extraction-progress">
@@ -1815,7 +1883,7 @@ export default function TeachWizard() {
           )}
 
           {/* Continue — always available, even during extraction */}
-          <div className="ws-continue-row">
+          <div className="tw-continue-row">
             {extractionInProgress && contentGroups.length > 0 && (
               <span className="tw-hint" style={{ marginRight: "auto" }}>
                 You can continue now — extraction will finish in the background.
@@ -1937,7 +2005,7 @@ export default function TeachWizard() {
                 <Plus size={14} /> Add lesson
               </button>
 
-              <div className="ws-continue-row">
+              <div className="tw-continue-row">
                 <button
                   className="tw-btn-continue"
                   disabled={lessonPlan.length === 0}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Plus, Trash2, Search, Users } from 'lucide-react';
+import { Plus, Trash2, Search, Users, MessageSquare } from 'lucide-react';
 import { ErrorBanner } from '@/components/shared/ErrorBanner';
 import type { CommunityDetail, CommunityMember } from './types';
 
@@ -142,21 +142,39 @@ export function MembersTab({ community, onRefresh }: MembersTabProps) {
                     <span>Joined {new Date(member.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleRemove(member.id)}
-                  disabled={removing === member.id}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--status-error-text)',
-                    opacity: removing === member.id ? 0.5 : 0.7,
-                    padding: 4,
-                  }}
-                  title="Remove from community"
-                >
-                  <Trash2 size={14} />
-                </button>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <Link
+                    href={`/x/sim/${member.id}?communityName=${encodeURIComponent(community.name)}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--accent-primary)',
+                      opacity: 0.8,
+                      padding: 4,
+                    }}
+                    title="Start sim"
+                  >
+                    <MessageSquare size={14} />
+                  </Link>
+                  <button
+                    onClick={() => handleRemove(member.id)}
+                    disabled={removing === member.id}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--status-error-text)',
+                      opacity: removing === member.id ? 0.5 : 0.7,
+                      padding: 4,
+                    }}
+                    title="Remove from community"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

@@ -35,11 +35,23 @@ interface LessonPlanEntry {
 
 // ── Background job ─────────────────────────────────────
 
+const INTERACTION_PATTERN_SESSION_HINTS: Record<string, string> = {
+  directive:    "Teaching style: DIRECTIVE. Prefer clear introduce → deepen → review progressions. Fewer open-ended sessions.",
+  socratic:     "Teaching style: SOCRATIC. Include more deepen sessions for debate and exploration. Fewer rote introduce sessions; pair each topic introduction with a deeper questioning session.",
+  advisory:     "Teaching style: ADVISORY. Structure sessions around case studies and compliance scenarios. Include assess sessions to verify understanding of rules.",
+  coaching:     "Teaching style: COACHING. Include reflection and practice sessions. Fewer formal assess sessions; prefer consolidate sessions that integrate skills.",
+  companion:    "Teaching style: COMPANION. Sessions should feel exploratory, not assessed. Prefer introduce and deepen over assess. End with consolidate not assess.",
+  facilitation: "Teaching style: FACILITATION. Sessions should be collaborative and discussion-based. Include review sessions that bring multiple topics together.",
+  reflective:   "Teaching style: REFLECTIVE. Sessions should build inward — start broad then move toward personal application. Include deepen sessions with reflective prompts.",
+  open:         "Teaching style: OPEN. No fixed structure preference. Propose a plan that fits the content naturally.",
+};
+
 async function runGeneratePlan(
   taskId: string,
   courseName: string,
   learningOutcomes: string[],
   teachingStyle: string,
+  interactionPattern: string | null,
   sessionCount: number | null,
   durationMins: number | null,
   emphasis: string,
@@ -52,7 +64,7 @@ async function runGeneratePlan(
     if (sourceId) {
       try {
         await updateTaskProgress(taskId, {
-          context: { phase: "reading", message: "Reading uploaded document..." },
+          context: { phase: "reading", message: "Reading uploaded document...", stepIndex: 0, totalSteps: 4 },
         });
 
         const source = await prisma.contentSource.findUnique({
@@ -83,7 +95,7 @@ async function runGeneratePlan(
 
     // 1. Generate curriculum from goals (enriched with document text if available)
     await updateTaskProgress(taskId, {
-      context: { phase: "curriculum", message: documentText ? "Generating curriculum from your goals and document..." : "Generating curriculum from your goals..." },
+      context: { phase: "curriculum", message: documentText ? "Generating curriculum from your goals and document..." : "Generating curriculum from your goals...", stepIndex: 1, totalSteps: 4 },
     });
 
     // Inject document context into learning outcomes to enrich AI generation
@@ -149,9 +161,35 @@ async function runGeneratePlan(
       console.warn("[courses/generate-plan] Module sync failed (non-fatal):", err.message);
     }
 
+    // 2c. Emit skeleton plan so frontend can show session cards while AI refines
+    const skeletonPlan: LessonPlanEntry[] = [
+      { session: 1, type: "onboarding", moduleId: null, moduleLabel: "", label: "Welcome & Background" },
+      ...curriculum.modules.map((m, i) => ({
+        session: i + 2,
+        type: "introduce" as const,
+        moduleId: `MOD-${i + 1}`,
+        moduleLabel: m.title,
+        label: `Introduction to ${m.title}`,
+      })),
+    ];
+
+    await updateTaskProgress(taskId, {
+      context: {
+        phase: "skeleton",
+        message: "Modules ready — generating detailed session plan...",
+        stepIndex: 2,
+        totalSteps: 4,
+        skeletonReady: true,
+        skeletonPlan,
+        subjectId: subject.id,
+        curriculumId: curriculumRecord.id,
+        estimatedSessions: skeletonPlan.length,
+      },
+    });
+
     // 3. Generate lesson plan from curriculum modules
     await updateTaskProgress(taskId, {
-      context: { phase: "plan", message: "Generating lesson plan..." },
+      context: { phase: "plan", message: "Generating lesson plan...", stepIndex: 3, totalSteps: 4 },
     });
 
     const moduleSummary = curriculum.modules
@@ -183,6 +221,10 @@ async function runGeneratePlan(
           ? 'Do NOT include any "assess" sessions. Skip formal assessments entirely.'
           : 'Include light assessment checks — one "assess" session near the end is sufficient.';
 
+    const patternHint = interactionPattern
+      ? (INTERACTION_PATTERN_SESSION_HINTS[interactionPattern] || "")
+      : "";
+
     const systemPrompt = `You are a curriculum planning assistant. Given a set of teaching modules, propose a structured lesson plan — an ordered sequence of call sessions that covers all modules effectively.
 
 Rules:
@@ -194,7 +236,7 @@ Rules:
 - ${targetHint}
 - ${durationHint}
 - ${emphasisHint}
-- ${assessmentHint}
+- ${assessmentHint}${patternHint ? `\n- ${patternHint}` : ""}
 
 Respond with ONLY a JSON object (no markdown, no explanation outside JSON):
 {
@@ -283,7 +325,9 @@ Total modules: ${curriculum.modules.length}${documentExcerpt}`;
  * @tags courses, lesson-plan
  * @description Generate a curriculum + lesson plan from course intent (name, outcomes, style).
  * Creates temporary Subject + Curriculum, generates lesson plan via AI.
- * Returns taskId to poll for progress. Used by Course Setup Wizard "Generate & Review" path.
+ * Returns taskId to poll for progress. Used by Course Setup Wizard eager generation.
+ * Task context reports phases: reading(0) → curriculum(1) → skeleton(2) → plan(3).
+ * Skeleton phase emits skeletonReady + skeletonPlan for progressive UI display.
  * @body { courseName: string, learningOutcomes: string[], teachingStyle: string, sessionCount?: number, durationMins?: number, emphasis?: string, assessments?: string, sourceId?: string }
  * @response 202 { ok: true, taskId: string }
  * @response 400 { ok: false, error: "..." }
@@ -298,6 +342,7 @@ export async function POST(request: NextRequest) {
       courseName,
       learningOutcomes,
       teachingStyle,
+      interactionPattern,
       sessionCount,
       durationMins,
       emphasis,
@@ -337,6 +382,7 @@ export async function POST(request: NextRequest) {
       courseName,
       learningOutcomes,
       teachingStyle || "tutor",
+      interactionPattern || null,
       sessionCount || null,
       durationMins || null,
       emphasis || "balanced",

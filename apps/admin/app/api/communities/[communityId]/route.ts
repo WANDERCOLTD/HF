@@ -78,6 +78,7 @@ export async function GET(
         name: community.name,
         slug: community.slug,
         description: community.description,
+        config: community.config,
         onboardingWelcome: community.onboardingWelcome,
         onboardingIdentitySpecId: community.onboardingIdentitySpecId,
         onboardingFlowPhases: community.onboardingFlowPhases,
@@ -150,6 +151,7 @@ export async function PATCH(
     const {
       name,
       description,
+      config,
       onboardingWelcome,
       onboardingIdentitySpecId,
       onboardingFlowPhases,
@@ -159,6 +161,7 @@ export async function PATCH(
     const updateData: Record<string, any> = {};
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
+    if (config !== undefined) updateData.config = config;
     if (onboardingWelcome !== undefined) updateData.onboardingWelcome = onboardingWelcome;
     if (onboardingIdentitySpecId !== undefined) updateData.onboardingIdentitySpecId = onboardingIdentitySpecId;
     if (onboardingFlowPhases !== undefined) updateData.onboardingFlowPhases = onboardingFlowPhases;

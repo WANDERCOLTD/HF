@@ -15,7 +15,7 @@ import { BulkDeleteModal } from "@/components/shared/BulkDeleteModal";
 import { useBackgroundTaskQueue } from "@/components/shared/ContentJobQueue";
 import type { BulkDeletePreview, BulkDeleteResult } from "@/lib/admin/bulk-delete";
 import { EditableTitle } from "@/components/shared/EditableTitle";
-import { BookOpen, Users, FileText, Rocket } from "lucide-react";
+import { BookOpen, Users, FileText, Rocket, Pencil } from "lucide-react";
 import { AdvancedBanner } from "@/components/shared/AdvancedBanner";
 import { SortableList } from "@/components/shared/SortableList";
 import type { DomainListItem, DomainDetail } from "./components/types";
@@ -26,6 +26,7 @@ import { CreateDomainModal } from "./components/CreateDomainModal";
 import { AddPlaybookModal } from "./components/AddPlaybookModal";
 import { PromptPreviewModal } from "./components/PromptPreviewModal";
 import { SectorBadge } from "./components/SectorBadge";
+import { TypePicker } from "@/components/shared/TypePicker";
 import { OnboardingTabContent } from "./components/OnboardingTab";
 
 export default function DomainsPage() {
@@ -49,6 +50,9 @@ export default function DomainsPage() {
   const isOperator = ["OPERATOR", "EDUCATOR", "ADMIN", "SUPERADMIN"].includes(
     (session?.user?.role as string) || ""
   );
+  const isAdmin = ["ADMIN", "SUPERADMIN"].includes(
+    (session?.user?.role as string) || ""
+  );
 
   // Detail state
   const [domain, setDomain] = useState<DomainDetail | null>(null);
@@ -56,6 +60,8 @@ export default function DomainsPage() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"callers" | "playbooks" | "content" | "onboarding">("playbooks");
   const [showPlaybookModal, setShowPlaybookModal] = useState(false);
+  const [editingType, setEditingType] = useState(false);
+  const [savingType, setSavingType] = useState(false);
 
   // Source processing status (for status dots on content tab)
   const domainSourceIds = (domain?.subjects ?? []).flatMap(
@@ -120,6 +126,7 @@ export default function DomainsPage() {
 
     setDetailLoading(true);
     setDetailError(null);
+    setEditingType(false);
 
     fetch(`/api/domains/${selectedId}`)
       .then((r) => r.json())
@@ -590,7 +597,29 @@ export default function DomainsPage() {
                         fetchDomains();
                       }}
                     />
-                    <SectorBadge typeSlug={domain.institution?.type?.slug} typeName={domain.institution?.type?.name} size="md" />
+                    {domain.institution?.type?.slug ? (
+                      <span className="hf-flex hf-gap-xs hf-items-center">
+                        <SectorBadge typeSlug={domain.institution.type.slug} typeName={domain.institution.type.name} size="md" />
+                        {isAdmin && domain.institution && (
+                          <button
+                            onClick={() => setEditingType(true)}
+                            className="hf-btn-icon-xs"
+                            title="Change institution type"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                        )}
+                      </span>
+                    ) : domain.institution && isAdmin ? (
+                      <button
+                        onClick={() => setEditingType(true)}
+                        className="hf-btn-sm hf-btn-secondary"
+                      >
+                        Set type
+                      </button>
+                    ) : (
+                      <SectorBadge typeSlug={null} />
+                    )}
                     {domain.isDefault && (
                       <span className="hf-badge hf-badge-info">
                         Default
@@ -632,6 +661,49 @@ export default function DomainsPage() {
                   </>
                 )}
               </div>
+
+              {/* Inline Type Picker */}
+              {editingType && domain.institution && (
+                <div className="hf-card-compact hf-mb-md" style={{ padding: 16 }}>
+                  <div className="hf-text-sm hf-text-bold hf-mb-sm">Change institution type</div>
+                  <TypePicker
+                    value={domain.institution.type?.slug ?? null}
+                    onChange={async (slug, typeId) => {
+                      if (!typeId || !domain.institution) return;
+                      setSavingType(true);
+                      try {
+                        const res = await fetch(`/api/institutions/${domain.institution.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ typeId }),
+                        });
+                        const data = await res.json();
+                        if (!data.ok) throw new Error(data.error);
+                        // Refresh domain detail to pick up new type
+                        const detailRes = await fetch(`/api/domains/${domain.id}`);
+                        const detailData = await detailRes.json();
+                        if (detailData.ok) setDomain(detailData.domain);
+                        fetchDomains();
+                        setEditingType(false);
+                      } catch (err) {
+                        console.error("Failed to update institution type:", err);
+                      } finally {
+                        setSavingType(false);
+                      }
+                    }}
+                  />
+                  <div className="hf-flex hf-gap-sm hf-mt-sm">
+                    <button
+                      onClick={() => setEditingType(false)}
+                      disabled={savingType}
+                      className="hf-btn-sm hf-btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                    {savingType && <span className="hf-text-sm hf-text-muted">Saving...</span>}
+                  </div>
+                </div>
+              )}
 
               {/* Deactivate Confirmation */}
               {showDeleteConfirm && (

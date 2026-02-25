@@ -1739,6 +1739,36 @@ List all communities (Domains with kind=COMMUNITY)
 
 ---
 
+### `POST` /api/v1/communities
+
+Create a new community with optional topics and founding members
+
+**Auth**: Session · **Scope**: `communities:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| name | body | string | No | Community name (required) |
+| description | body | string | No | Community purpose/description |
+| communityKind | body | string | No | TOPIC_BASED or OPEN_CONNECTION |
+| hubPattern | body | string | No | InteractionPattern for OPEN_CONNECTION hubs |
+
+**Response** `200`
+```json
+{ ok: true, community: { id, name, slug, memberCount } }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "name is required" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: "..." }
+```
+
+---
+
 ### `DELETE` /api/v1/communities/[communityId]
 
 Archive a community (soft delete)
@@ -1863,6 +1893,83 @@ Remove a caller from a community by clearing their domainId
 **Response** `404`
 ```json
 { ok: false, error: "Community not found" | "Member not found" }
+```
+
+---
+
+### `GET` /api/v1/communities/[communityId]/topics
+
+List topics (playbooks) for a community
+
+**Auth**: Session · **Scope**: `communities:read`
+
+**Response** `200`
+```json
+{ ok: true, topics: Array<{ id, name, pattern, sortOrder }> }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Community not found" }
+```
+
+---
+
+### `POST` /api/v1/communities/[communityId]/topics
+
+Add a topic (playbook) to a community
+
+**Auth**: Session · **Scope**: `communities:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| name | body | string | No | Topic name (required) |
+| pattern | body | string | No | InteractionPattern value |
+
+**Response** `200`
+```json
+{ ok: true, topic: { id, name, pattern, sortOrder } }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "name is required" }
+```
+
+---
+
+### `DELETE` /api/v1/communities/[communityId]/topics/[topicId]
+
+Remove a topic from a community (archive the playbook)
+
+**Auth**: Session · **Scope**: `communities:write`
+
+**Response** `200`
+```json
+{ ok: true }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Topic not found" }
+```
+
+---
+
+### `PATCH` /api/v1/communities/[communityId]/topics/[topicId]
+
+Update a community topic (name or pattern)
+
+**Auth**: Session · **Scope**: `communities:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| name | body | string | No | New topic name |
+| pattern | body | string | No | New InteractionPattern value |
+
+**Response** `200`
+```json
+{ ok: true, topic: { id, name, pattern, sortOrder } }
 ```
 
 ---

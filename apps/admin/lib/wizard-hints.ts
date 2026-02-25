@@ -90,6 +90,17 @@ export const WIZARD_HINTS: Record<string, FieldHintContent> = {
     examples: ["Tutor (patient, structured)", "Coach (goal-driven)", "Socratic (questioning)"],
   },
 
+  "course.interactionPattern": {
+    why: "Sets how the AI communicates — the relationship style, not just the topic.",
+    effect: "Directive → explains and checks. Socratic → questions and provokes. Advisory → cites and scopes. Coaching → goal-focused. Companion → listens without agenda. Facilitation → coordinates and organises. Reflective → explores meaning. Open → follows the caller.",
+    examples: [
+      "History lesson → Directive",
+      "Ethics seminar → Socratic",
+      "Compliance training → Advisory",
+      "Leadership programme → Coaching",
+    ],
+  },
+
   "course.content": {
     why: "Content gives the AI real subject matter to teach from.",
     effect: "Files are processed into teaching points that form the AI's knowledge base.",
@@ -144,5 +155,37 @@ export const WIZARD_HINTS: Record<string, FieldHintContent> = {
     why: "Enrolling students connects them to this course's content and AI tutor.",
     effect: "Students receive access and the AI tracks their individual progress across sessions.",
     examples: ["Add a class group", "Pick individuals", "Invite by email"],
+  },
+
+  // ── Community Setup wizard ────────────────────────
+
+  "community.hubName": {
+    why: "The hub name is how members will identify the community — it appears in every call.",
+    effect: "The AI introduces itself as part of this hub and references it when orienting new members.",
+    examples: ["Riverside Residents", "Over-60s Wellbeing Club", "Building Maintenance Hub"],
+  },
+
+  "community.hubDescription": {
+    why: "The purpose statement shapes how the AI understands and serves this community.",
+    effect: "The AI uses this to set context for every call — it influences tone, topics, and what the AI considers relevant.",
+    examples: ["A community for elderly residents who want someone to talk to", "Housing association members with property queries", "Peer support for caregivers"],
+  },
+
+  "community.communityKind": {
+    why: "Topic-based hubs organise conversations around specific subjects. Open-connection hubs let members talk freely.",
+    effect: "Topic-based unlocks topic rows with per-topic AI patterns. Open-connection shows a single hub-level pattern.",
+    examples: ["Building Maintenance, Social Events → Topic-based", "Companion calls, peer support → Open connection"],
+  },
+
+  "community.topicName": {
+    why: "The topic name helps the AI understand what this conversation is about.",
+    effect: "The AI uses the name to select the right interaction style and focus its knowledge retrieval.",
+    examples: ["Building Maintenance", "Social Events", "Health & Wellbeing", "Financial Guidance"],
+  },
+
+  "community.hubPattern": {
+    why: "The pattern controls how the AI engages — it's the conversational protocol, not just the topic.",
+    effect: "Companion listens without agenda. Advisory answers from the docs. Coaching tracks goals. Socratic asks questions.",
+    examples: ["Elderly companion → Just be there", "Maintenance line → Give clear answers", "Support group → Explore and reflect"],
   },
 };

@@ -65,7 +65,7 @@ export default function CommunitiesPage() {
   }, []);
 
   const handleNewCommunity = () => {
-    router.push('/x/quick-launch?mode=community');
+    router.push('/x/communities/new');
   };
 
   const handleSelectCommunity = (communityId: string) => {

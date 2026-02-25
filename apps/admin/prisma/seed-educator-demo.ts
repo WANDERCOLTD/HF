@@ -2,20 +2,19 @@
  * Seed Educator Demo Data
  *
  * Creates realistic test data for the Educator Studio:
- *   - 3 schools (Oakwood Primary, St Mary's CE Primary, Riverside Academy)
+ *   - 2 schools (Oakwood Primary, St Mary's CE Primary)
  *   - 2 subjects: Creative Comprehension + SPAG
  *   - 12 parameters (8 CC + 4 SPAG)
- *   - 10 teachers (Users + Callers)
- *   - 7 classrooms (CohortGroups)
- *   - 210 pupils (30 per class)
- *   - ~850 calls with realistic transcripts (Oakwood + St Mary's only)
+ *   - 8 teachers (Users + Callers)
+ *   - 6 classrooms (CohortGroups)
+ *   - 180 pupils (30 per class)
+ *   - ~850 calls with realistic transcripts
  *   - ~5000+ CallScores
  *   - ~600 CallerMemories
  *   - ~140 CallerPersonalityProfiles
  *   - ~400 Goals
  *
  * Idempotent: tagged with "educator-demo" source markers.
- * Riverside Academy is a NEW school with zero calls.
  *
  * Prerequisites:
  *   - Database migrated (npx prisma migrate dev)
@@ -79,14 +78,6 @@ const SCHOOLS: SchoolDef[] = [
       "Church of England primary school with excellent pastoral care. Focus on creative reading and SPAG mastery.",
     onboardingWelcome:
       "Welcome to St Mary's! We use AI-assisted practice sessions to help each child grow in confidence with reading comprehension and grammar.",
-  },
-  {
-    slug: "riverside-academy",
-    name: "Riverside Academy",
-    description:
-      "Newly onboarded academy. Just completed teacher training — no pupil sessions yet.",
-    onboardingWelcome:
-      "Welcome to Riverside Academy! We're excited to start our AI tutoring programme. Your teachers are trained and ready.",
   },
 ];
 
@@ -254,9 +245,6 @@ const TEACHERS: TeacherDef[] = [
   { firstName: "Priya", lastName: "Patel", email: "p.patel@stmarys.sch.uk", schoolSlug: "st-marys-ce-primary", userRole: "EDUCATOR", className: "Year 5 Oak" },
   { firstName: "Thomas", lastName: "O'Brien", email: "t.obrien@stmarys.sch.uk", schoolSlug: "st-marys-ce-primary", userRole: "EDUCATOR", className: "Year 5 Ash" },
   { firstName: "Jessica", lastName: "Martinez", email: "j.martinez@stmarys.sch.uk", schoolSlug: "st-marys-ce-primary", userRole: "EDUCATOR", className: "Year 5 Elm" },
-  // Riverside Academy
-  { firstName: "Sophie", lastName: "Bennett", email: "s.bennett@riverside.sch.uk", schoolSlug: "riverside-academy", userRole: "ADMIN", className: null },
-  { firstName: "Ali", lastName: "Rahman", email: "a.rahman@riverside.sch.uk", schoolSlug: "riverside-academy", userRole: "EDUCATOR", className: "5R" },
 ];
 
 // ══════════════════════════════════════════════════════════
@@ -318,15 +306,6 @@ const PUPIL_POOLS: string[][] = [
     "Anais Dubois", "Harrison Blake", "Flora Gibbs", "Leo Hayward", "Ruby Lambert",
     "Yousef Saleh", "Mabel Owens", "Rory MacLeod", "Summer Ellis", "Jack Barton",
   ],
-  // Pool 6: Riverside 5R
-  [
-    "Amina Diallo", "Henry Preston", "Isobel Craig", "Dexter Holland", "Noor Abbas",
-    "Sebastian Cole", "Wren Fletcher", "Theo Blackwell", "Orla Doherty", "Marcus Riley",
-    "Khadija Osman", "Felix Cunningham", "Thea Armstrong", "Jaylen Edwards", "Lottie Hart",
-    "Zaki Patel", "Maisie Dodd", "Tristan Hale", "Annabel Frost", "Koby Briggs",
-    "Sana Mirza", "Rupert Nash", "Eloise Reed", "Jordan Marsh", "Kitty Vickers",
-    "Omar Siddiqui", "Ottilie Crane", "Harvey Lamb", "Pearl Whitfield", "Ciaran Boyle",
-  ],
 ];
 
 // ══════════════════════════════════════════════════════════
@@ -340,7 +319,6 @@ const CLASSROOMS = [
   { name: "Year 5 Oak", schoolSlug: "st-marys-ce-primary", poolIndex: 3 },
   { name: "Year 5 Ash", schoolSlug: "st-marys-ce-primary", poolIndex: 4 },
   { name: "Year 5 Elm", schoolSlug: "st-marys-ce-primary", poolIndex: 5 },
-  { name: "5R", schoolSlug: "riverside-academy", poolIndex: 6 },
 ];
 
 // ══════════════════════════════════════════════════════════
@@ -1204,14 +1182,9 @@ async function createCalls(
   console.log("  Creating calls...");
   const pupilCallIds = new Map<string, string[]>(); // callerId → callIds
 
-  // Only create calls for Oakwood + St Mary's (not Riverside)
-  const activePupils = pupils.filter(
-    (p) => p.schoolSlug !== "riverside-academy"
-  );
-
   let totalCalls = 0;
 
-  for (const pupil of activePupils) {
+  for (const pupil of pupils) {
     const [minCalls, maxCalls] = bandCallCount(pupil.band);
     const numCalls = seededInt(minCalls, maxCalls, `calls-${pupil.externalId}`);
 
@@ -1262,11 +1235,6 @@ async function createCalls(
     }
 
     pupilCallIds.set(pupil.id, callIds);
-  }
-
-  // Riverside pupils get empty arrays
-  for (const pupil of pupils.filter((p) => p.schoolSlug === "riverside-academy")) {
-    pupilCallIds.set(pupil.id, []);
   }
 
   console.log(`    Total calls: ${totalCalls}`);
@@ -1513,16 +1481,10 @@ async function createGoals(
   }> = [];
 
   for (const pupil of pupils) {
-    const [minProgress, maxProgress] = pupil.schoolSlug === "riverside-academy"
-      ? [0, 0]
-      : bandGoalProgress(pupil.band);
+    const [minProgress, maxProgress] = bandGoalProgress(pupil.band);
 
-    const ccProgress = pupil.schoolSlug === "riverside-academy"
-      ? 0
-      : r2(seededRange(minProgress, maxProgress, `goal-cc-${pupil.externalId}`));
-    const spagProgress = pupil.schoolSlug === "riverside-academy"
-      ? 0
-      : r2(seededRange(minProgress, maxProgress, `goal-spag-${pupil.externalId}`));
+    const ccProgress = r2(seededRange(minProgress, maxProgress, `goal-cc-${pupil.externalId}`));
+    const spagProgress = r2(seededRange(minProgress, maxProgress, `goal-spag-${pupil.externalId}`));
 
     const startedAt = new Date();
     startedAt.setDate(startedAt.getDate() - 60);

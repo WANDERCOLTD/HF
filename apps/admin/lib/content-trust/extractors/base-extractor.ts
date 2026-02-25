@@ -72,6 +72,8 @@ export interface ExtractionContext {
   sourceSlug: string;
   qualificationRef?: string;
   focusChapters?: string[];
+  /** Interaction pattern from the playbook — shapes extraction emphasis */
+  interactionPattern?: string;
 }
 
 /** Data emitted per-chunk for specialist extractors (includes questions + vocabulary) */

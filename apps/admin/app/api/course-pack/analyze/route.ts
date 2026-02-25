@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { extractTextFromBuffer } from "@/lib/content-trust/extract-assertions";
+import { classifyDocument, fetchFewShotExamples } from "@/lib/content-trust/classify-document";
+import { resolveExtractionConfig } from "@/lib/content-trust/resolve-config";
 
 /**
  * @api POST /api/course-pack/analyze
@@ -54,6 +56,25 @@ const VALID_DOC_TYPES = [
   "READING_PASSAGE", "QUESTION_BANK",
 ];
 
+// ── Helpers ────────────────────────────────────────────
+
+function roleFromType(docType: string): PackFile["role"] {
+  const map: Record<string, PackFile["role"]> = {
+    READING_PASSAGE: "passage",
+    TEXTBOOK: "passage",
+    COMPREHENSION: "passage",
+    QUESTION_BANK: "questions",
+    ASSESSMENT: "questions",
+    WORKSHEET: "questions",
+    LESSON_PLAN: "pedagogy",
+    POLICY_DOCUMENT: "pedagogy",
+    REFERENCE: "reference",
+    CURRICULUM: "reference",
+    EXAMPLE: "reference",
+  };
+  return map[docType] || "passage";
+}
+
 // ── Route ──────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -79,22 +100,62 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Single file — skip pack analysis, return simple manifest
+    // Single file — classify via AI (same classifier as content-trust pipeline)
     if (files.length === 1) {
       const f = files[0];
+
+      // Validate file type
+      const fname = f.name.toLowerCase();
+      if (!VALID_EXTENSIONS.some((ext) => fname.endsWith(ext))) {
+        return NextResponse.json(
+          { ok: false, error: `Unsupported file type: ${f.name}. Supported: ${VALID_EXTENSIONS.join(", ")}` },
+          { status: 400 },
+        );
+      }
+
+      // Extract text sample
+      let textSample = "";
+      try {
+        const buffer = Buffer.from(await f.arrayBuffer());
+        const { text } = await extractTextFromBuffer(buffer, f.name);
+        textSample = text;
+      } catch {
+        // Falls through to classification with empty text → TEXTBOOK fallback
+      }
+
+      // Run classification
+      let docType = "TEXTBOOK";
+      let confidence = 0.5;
+      let reasoning = "Could not extract text for classification";
+
+      if (textSample.length > 50) {
+        try {
+          const extractionConfig = await resolveExtractionConfig();
+          const fewShot = await fetchFewShotExamples();
+          const result = await classifyDocument(textSample, f.name, extractionConfig, fewShot);
+          docType = result.documentType;
+          confidence = result.confidence;
+          reasoning = result.reasoning;
+        } catch (err: unknown) {
+          console.warn("[course-pack/analyze] Single-file classification failed:", err);
+          reasoning = "Classification failed — defaulted to Textbook";
+        }
+      }
+
+      const groupName = f.name.replace(/\.[^/.]+$/, "");
       return NextResponse.json({
         ok: true,
         manifest: {
           groups: [{
-            groupName: f.name.replace(/\.[^/.]+$/, ""),
-            suggestedSubjectName: courseName || f.name.replace(/\.[^/.]+$/, ""),
+            groupName,
+            suggestedSubjectName: courseName || groupName,
             files: [{
               fileIndex: 0,
               fileName: f.name,
-              documentType: "TEXTBOOK",
-              role: "passage" as const,
-              confidence: 0.5,
-              reasoning: "Single file — will be classified during extraction",
+              documentType: docType,
+              role: roleFromType(docType),
+              confidence,
+              reasoning,
             }],
           }],
           pedagogyFiles: [],
@@ -224,7 +285,8 @@ Analyze these files and group them by subject. Return JSON only.`;
     );
 
     // Parse AI response
-    const responseText = result.content.trim();
+    const raw = typeof result === "string" ? result : result?.content || "";
+    const responseText = raw.trim();
     let jsonStr = responseText.startsWith("{")
       ? responseText
       : responseText.replace(/^```json?\n?/, "").replace(/\n?```$/, "");

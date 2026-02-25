@@ -20,6 +20,7 @@ const SCHOOLS = [
     name: "Oakwood Primary School",
     slug: "oakwood-primary",
     emailDomain: "@oakwood.sch.uk",
+    typeSlug: "school",
     primaryColor: "#166534",    // Forest green
     secondaryColor: "#ca8a04",  // Warm gold
     welcomeMessage:
@@ -30,6 +31,7 @@ const SCHOOLS = [
     name: "St Mary's CE Primary School",
     slug: "st-marys-ce-primary",
     emailDomain: "@stmarys.sch.uk",
+    typeSlug: "school",
     primaryColor: "#1e3a5f",    // Navy blue
     secondaryColor: "#b45309",  // Warm gold/burgundy
     welcomeMessage:
@@ -40,6 +42,7 @@ const SCHOOLS = [
     name: "Riverside Academy",
     slug: "riverside-academy",
     emailDomain: "@riverside.sch.uk",
+    typeSlug: "school",
     primaryColor: "#0284c7",    // Sky blue
     secondaryColor: "#0d9488",  // Teal
     welcomeMessage:
@@ -53,6 +56,11 @@ export async function main(externalPrisma?: PrismaClient) {
   console.log("Seeding school institutions...\n");
 
   for (const school of SCHOOLS) {
+    // Look up institution type by slug
+    const instType = school.typeSlug
+      ? await prisma.institutionType.findUnique({ where: { slug: school.typeSlug } })
+      : null;
+
     // Upsert institution
     const institution = await prisma.institution.upsert({
       where: { slug: school.slug },
@@ -62,6 +70,7 @@ export async function main(externalPrisma?: PrismaClient) {
         secondaryColor: school.secondaryColor,
         welcomeMessage: school.welcomeMessage,
         logoUrl: school.logoUrl,
+        ...(instType ? { typeId: instType.id } : {}),
       },
       create: {
         name: school.name,
@@ -70,6 +79,7 @@ export async function main(externalPrisma?: PrismaClient) {
         secondaryColor: school.secondaryColor,
         welcomeMessage: school.welcomeMessage,
         logoUrl: school.logoUrl,
+        ...(instType ? { typeId: instType.id } : {}),
       },
     });
 

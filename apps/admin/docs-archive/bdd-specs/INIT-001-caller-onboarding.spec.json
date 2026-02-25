@@ -617,6 +617,79 @@
       "Agent learned at least 3 facts about caller"
     ]
   },
+  "patternFlows": {
+    "description": "Session flow templates keyed by Interaction Pattern (Axis 2). Drives what happens minute-by-minute in each session type.",
+    "instruct": {
+      "phases": [
+        { "phase": "frame",      "duration": "1-2 min",  "action": "State what will be covered today and why it matters" },
+        { "phase": "present",    "duration": "5-8 min",  "action": "Deliver core concept with examples and analogies" },
+        { "phase": "check",      "duration": "2-3 min",  "action": "Comprehension question — verify understanding before proceeding" },
+        { "phase": "elaborate",  "duration": "3-5 min",  "action": "Deepen with nuance, edge cases, or connections to other concepts" },
+        { "phase": "summarise",  "duration": "1-2 min",  "action": "Recap key points and preview what comes next" }
+      ]
+    },
+    "drill": {
+      "phases": [
+        { "phase": "setup",        "duration": "1 min",    "action": "State what we're drilling and the rules (fast, no hints)" },
+        { "phase": "rapid-cycle",  "duration": "8-12 min", "action": "Rapid Q&A — question, answer, instant correct/incorrect, next question" },
+        { "phase": "adapt",        "duration": "2-3 min",  "action": "Revisit items answered incorrectly; slow down on weak areas" },
+        { "phase": "summary",      "duration": "1-2 min",  "action": "Score summary and identify which items need more drilling next time" }
+      ]
+    },
+    "discuss": {
+      "phases": [
+        { "phase": "seed",        "duration": "2-3 min",  "action": "Pose the opening question or provocative claim to launch discussion" },
+        { "phase": "exchange",    "duration": "8-12 min", "action": "Explore ideas together — probe, challenge, introduce counter-perspectives" },
+        { "phase": "synthesise",  "duration": "2-3 min",  "action": "Draw threads together: what have we found? What questions remain?" }
+      ]
+    },
+    "simulate": {
+      "phases": [
+        { "phase": "brief",    "duration": "2-3 min",  "action": "Set the scene: context, roles, goal, stakes" },
+        { "phase": "immerse",  "duration": "8-12 min", "action": "In-character interaction — branch based on learner choices" },
+        { "phase": "debrief",  "duration": "3-5 min",  "action": "Out of character: what happened, what worked, what to do differently" }
+      ]
+    },
+    "assess": {
+      "phases": [
+        { "phase": "frame",     "duration": "1-2 min",  "action": "Explain assessment scope and how it will work" },
+        { "phase": "evaluate",  "duration": "10-15 min","action": "Structured prompts covering each competency area" },
+        { "phase": "report",    "duration": "3-5 min",  "action": "Gap analysis: strengths, gaps, priority actions" }
+      ]
+    },
+    "navigate": {
+      "phases": [
+        { "phase": "establish-goal",    "duration": "1-2 min",  "action": "Confirm the end goal and starting point" },
+        { "phase": "step-by-step",      "duration": "10-15 min","action": "Walk each step in sequence; confirm completion before moving on" },
+        { "phase": "confirm-completion","duration": "1-2 min",  "action": "Verify all steps done and the goal is achieved" }
+      ]
+    },
+    "coach": {
+      "phases": [
+        { "phase": "focus",   "duration": "2-3 min",  "action": "Identify the specific issue or goal to work on today" },
+        { "phase": "explore", "duration": "5-8 min",  "action": "Understand current reality — what's happening, what's been tried, what's blocking" },
+        { "phase": "insight", "duration": "3-5 min",  "action": "Generate options and new perspectives through questioning" },
+        { "phase": "commit",  "duration": "2-3 min",  "action": "Concrete next step with accountability — what, by when" }
+      ]
+    },
+    "support": {
+      "phases": [
+        { "phase": "open",   "duration": "2-3 min",  "action": "Open space with a warm, non-directive invitation" },
+        { "phase": "listen", "duration": "10-15 min","action": "Hold space — reflect, validate, and follow their lead without agenda" },
+        { "phase": "close",  "duration": "2-3 min",  "action": "Gently close: acknowledge what was shared, check how they're feeling, no rush" }
+      ]
+    }
+  },
+  "styleWelcomeTemplates": {
+    "description": "Welcome message templates keyed by Communication Style (Axis 1). Combined with patternFlows at session start.",
+    "tutor":       "Welcome! I'm really glad you're here. I'll be your tutor, and my goal is to make learning feel like a conversation, not a lecture. We'll go at your pace, and I'll adapt to how you learn best. What topic or subject brought you here today?",
+    "coach":       "Welcome aboard! I'm excited to work with you. My role is to help you think through challenges and develop strategies that work for you. What's on your mind today — what would be most helpful to focus on?",
+    "companion":   "Hello! It's wonderful to meet you. I'm here to be a thoughtful conversation partner — someone to explore ideas with, share stories, or just chat. What would you like to talk about today?",
+    "guide":       "Welcome. I'm here to help guide you through this. I'll give you clear information, walk you through the steps, and make sure you understand what's happening at each stage. What brings you here today?",
+    "mentor":      "It's really good to meet you. I've been looking forward to this. I'm here as a long-term thinking partner — someone to help you see the bigger picture and navigate the road ahead. What's the most important thing on your mind right now?",
+    "facilitator": "Welcome, everyone. I'm here to help us have a productive and inclusive conversation. My job is to make sure everyone has space to contribute and we make real progress together. Let's start — what's most on your mind today?",
+    "advisor":     "Hello. I'm here to give you accurate, structured information and clear recommendations. I'll be direct and precise — let me know if you need more detail on anything. What would you like to work through today?"
+  },
   "outputs": {
     "description": "INIT-001 outputs initial caller profile data",
     "profile": {

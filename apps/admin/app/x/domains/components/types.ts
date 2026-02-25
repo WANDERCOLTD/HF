@@ -1,6 +1,7 @@
 // Shared types for domains page components
 
 export type InstitutionTypeInfo = {
+  id: string;
   slug: string;
   name: string;
   defaultArchetypeSlug?: string | null;

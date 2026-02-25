@@ -36,26 +36,12 @@ if (!IS_PRODUCTION && !existsSync(LOG_DIR)) {
 }
 
 // =====================================================
-// TYPES
+// TYPES — canonical definitions in lib/log-types.ts
+// Re-exported here for backwards compatibility
 // =====================================================
 
-export type LogType = "ai" | "api" | "system" | "user";
-
-export interface LogEntry {
-  timestamp: string;
-  type: LogType;
-  stage: string;
-  message?: string;
-  // AI-specific fields
-  promptLength?: number;
-  promptPreview?: string;
-  responseLength?: number;
-  responsePreview?: string;
-  usage?: { inputTokens?: number; outputTokens?: number };
-  durationMs?: number;
-  // General metadata
-  metadata?: Record<string, unknown>;
-}
+export type { LogType, LogLevel, LogEntry } from "./log-types";
+import type { LogType, LogLevel, LogEntry } from "./log-types";
 
 interface LoggingConfig {
   enabled: boolean;
@@ -143,10 +129,12 @@ export function log(
   if (!enabledTypes.includes(type)) return;
 
   try {
+    const level = (data as any)?.level as LogLevel | undefined;
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       type,
       stage,
+      ...(level ? { level } : {}),
       message: data?.message,
       durationMs: data?.durationMs,
       metadata: data,

@@ -65,12 +65,17 @@ export function CourseSetupWizard({ onComplete }: CourseSetupWizardProps) {
     return <div>Unknown step: {currentStepId}</div>;
   }
 
-  const progressSteps = state.steps.map((s, i) => ({
-    label: s.label,
-    completed: i < state.currentStep,
-    active: i === state.currentStep,
-    onClick: i < state.currentStep ? () => setStep(i) : undefined,
-  }));
+  const progressSteps = state.steps.map((s, i) => {
+    const isProcessing = !!getData<boolean>(`stepProcessing_${s.id}`);
+    return {
+      label: s.label,
+      completed: i < state.currentStep,
+      active: i === state.currentStep,
+      processing: i === state.currentStep && isProcessing,
+      backgroundProcessing: i < state.currentStep && isProcessing,
+      onClick: i < state.currentStep ? () => setStep(i) : undefined,
+    };
+  });
 
   return (
     <div className="hf-page-container hf-page-scroll">

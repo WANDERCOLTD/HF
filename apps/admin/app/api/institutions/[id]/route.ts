@@ -19,6 +19,7 @@ export async function GET(
   const institution = await prisma.institution.findUnique({
     where: { id },
     include: {
+      type: { select: { id: true, slug: true, name: true } },
       _count: { select: { users: true, cohortGroups: true } },
     },
   });
@@ -42,6 +43,7 @@ export async function GET(
       welcomeMessage: institution.welcomeMessage,
       terminology: institution.terminology,
       isActive: institution.isActive,
+      type: institution.type,
       userCount: institution._count.users,
       cohortCount: institution._count.cohortGroups,
       createdAt: institution.createdAt.toISOString(),
@@ -51,19 +53,19 @@ export async function GET(
 
 /**
  * @api PATCH /api/institutions/[id]
- * @auth SUPERADMIN
- * @description Update institution fields (name, branding, active status).
+ * @auth ADMIN
+ * @description Update institution fields (name, branding, type, active status).
  */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth("SUPERADMIN");
+  const auth = await requireAuth("ADMIN");
   if (isAuthError(auth)) return auth.error;
 
   const { id } = await params;
   const body = await request.json();
-  const { name, logoUrl, primaryColor, secondaryColor, welcomeMessage, isActive, terminology } = body;
+  const { name, logoUrl, primaryColor, secondaryColor, welcomeMessage, isActive, terminology, typeId } = body;
 
   // Build update object from provided fields only
   const updates: Record<string, unknown> = {};
@@ -80,6 +82,7 @@ export async function PATCH(
       updates.terminology = terminology;
     }
   }
+  if (typeId !== undefined) updates.typeId = typeId || null;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(

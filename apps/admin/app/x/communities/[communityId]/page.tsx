@@ -8,8 +8,9 @@ import { IdentityTab } from './_components/IdentityTab';
 import { OnboardingTab } from './_components/OnboardingTab';
 import { MembersTab } from './_components/MembersTab';
 import { SettingsTab } from './_components/SettingsTab';
+import { TopicsTab } from './_components/TopicsTab';
 
-type Tab = 'identity' | 'members' | 'onboarding' | 'settings';
+type Tab = 'identity' | 'topics' | 'members' | 'onboarding' | 'settings';
 
 export default function CommunityDetailPage() {
   const params = useParams();
@@ -97,8 +98,11 @@ export default function CommunityDetailPage() {
 
   if (!community) return null;
 
+  const isTopicBased = community.config?.communityKind === 'TOPIC_BASED';
+
   const tabs: { id: Tab; label: string }[] = [
     { id: 'identity', label: 'Identity' },
+    ...(isTopicBased ? [{ id: 'topics' as Tab, label: `Topics (${community.playbookCount})` }] : []),
     { id: 'members', label: `Members (${community.memberCount})` },
     { id: 'onboarding', label: 'Onboarding' },
     { id: 'settings', label: 'Settings' },
@@ -157,6 +161,9 @@ export default function CommunityDetailPage() {
       {/* Tab Content */}
       {activeTab === 'identity' && (
         <IdentityTab community={community} onSave={handleSave} saving={saving} />
+      )}
+      {activeTab === 'topics' && isTopicBased && (
+        <TopicsTab communityId={communityId} />
       )}
       {activeTab === 'members' && (
         <MembersTab community={community} onRefresh={loadCommunity} />

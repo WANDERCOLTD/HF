@@ -1,6 +1,8 @@
 # CLAUDE.md
 
 > **Configuration over Code. Database over Filesystem. Evidence over Assumption. Reuse over Reinvention.**
+>
+> **Plan creatively. No hardcodes. qmd + graph. Gold UI. Wizards must flow.**
 
 @/Users/paulwander/projects/skills/dev-principles-SKILL.md
 @/Users/paulwander/projects/skills/hf-nextjs-patterns-SKILL.md

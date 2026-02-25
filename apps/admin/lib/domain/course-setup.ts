@@ -9,14 +9,12 @@
 
 import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
+import { logSystem } from "@/lib/logger";
 import { scaffoldDomain } from "@/lib/domain/scaffold";
-import { generateContentSpec } from "@/lib/domain/generate-content-spec";
-import { generateCurriculumFromGoals } from "@/lib/content-trust/extract-curriculum";
 import { loadPersonaFlowPhases, loadPersonaArchetype } from "@/lib/domain/quick-launch";
 import { applyBehaviorTargets } from "@/lib/domain/agent-tuning";
 import { enrollCaller, enrollCallerInDomainPlaybooks } from "@/lib/enrollment";
 import { updateTaskProgress, completeTask, failTask } from "@/lib/ai/task-guidance";
-import type { SpecConfig } from "@/lib/types/json-fields";
 import type { ProgressEvent, ProgressCallback } from "./types";
 export type { ProgressEvent, ProgressCallback };
 
@@ -32,7 +30,7 @@ export interface PlanIntents {
 export interface CourseSetupInput {
   courseName: string;
   learningOutcomes: string[];
-  teachingStyle: string; // "tutor" | "coach" | "mentor" | "socratic"
+  teachingStyle: string; // "tutor" | "coach" | "mentor" | "socratic" (kept for backward compat)
   sessionCount: number;
   durationMins: number;
   emphasis: string; // "breadth" | "balanced" | "depth"
@@ -50,6 +48,10 @@ export interface CourseSetupInput {
   selectedCallerIds?: string[];
   // Config step — behavior tuning targets from AgentTuner
   behaviorTargets?: Record<string, number>;
+  // Two-axis identity: session structure (stored in Playbook.config)
+  interactionPattern?: string; // "socratic" | "directive" | "advisory" | "coaching" | "companion" | "facilitation" | "reflective" | "open"
+  // Wizard task tracking — reuse wizard task for launch progress
+  wizardTaskId?: string;
 }
 
 export interface CourseSetupResult {
@@ -96,8 +98,12 @@ async function loadCourseSetupSteps(): Promise<CourseSetupStep[]> {
   });
 
   if (!spec) {
+    logSystem("course-setup", {
+      level: "error",
+      message: `Spec "${config.specs.courseSetup}" not found. Run "Import All" on /x/admin/spec-sync to import it.`,
+    });
     throw new Error(
-      'COURSE-SETUP-001 spec not found. Run "Import All" on /x/admin/spec-sync to import it.'
+      'Course setup is temporarily unavailable. Please try again later or contact your administrator.'
     );
   }
 
@@ -107,8 +113,12 @@ async function loadCourseSetupSteps(): Promise<CourseSetupStep[]> {
   const steps = stepsParam?.config?.steps;
 
   if (!Array.isArray(steps) || steps.length === 0) {
+    logSystem("course-setup", {
+      level: "error",
+      message: `Spec "${config.specs.courseSetup}" has no wizard_steps configured. Check config.parameters[id=wizard_steps].config.steps.`,
+    });
     throw new Error(
-      `COURSE-SETUP-001 spec has no steps configured. Check config.parameters[id=wizard_steps].config.steps array.`
+      'Course setup configuration is incomplete. Please contact your administrator.'
     );
   }
 
@@ -233,6 +243,21 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
     if (scaffoldResult.playbook) {
       ctx.results.playbookId = scaffoldResult.playbook.id;
       ctx.results.playbookName = scaffoldResult.playbook.name;
+
+      // Store interactionPattern in playbook config if provided
+      if (ctx.input.interactionPattern) {
+        const pb = await prisma.playbook.findUnique({
+          where: { id: scaffoldResult.playbook.id },
+          select: { config: true },
+        });
+        const existingConfig = (pb?.config as Record<string, any>) || {};
+        await prisma.playbook.update({
+          where: { id: scaffoldResult.playbook.id },
+          data: {
+            config: { ...existingConfig, interactionPattern: ctx.input.interactionPattern },
+          },
+        });
+      }
     }
 
     ctx.results.warnings = [...(ctx.results.warnings || []), ...scaffoldResult.skipped];
@@ -262,96 +287,6 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
         ctx.results.warnings!.push(`Enrollment: ${err.message}`);
       }
     }
-  },
-
-  generate_curriculum: async (ctx) => {
-    const domainId = ctx.results.domainId!;
-
-    // Reuse pre-created curriculum from "Generate & Review" path
-    if (ctx.input.curriculumId) {
-      ctx.results.curriculumId = ctx.input.curriculumId;
-      return;
-    }
-
-    // Try assertion-based generation first (if sourceId provided)
-    if (ctx.input.sourceId) {
-      const result = await generateContentSpec(domainId);
-      if (result.contentSpec) {
-        ctx.results.contentSpecId = result.contentSpec.id;
-        ctx.results.curriculumId = result.contentSpec.id;
-        return;
-      }
-    }
-
-    // Fall back to goals-based generation
-    const curriculum = await generateCurriculumFromGoals(
-      ctx.input.courseName,
-      ctx.input.teachingStyle,
-      ctx.input.learningOutcomes,
-      null // no qualificationRef
-    );
-
-    if (!curriculum.ok || curriculum.modules.length === 0) {
-      ctx.results.warnings!.push(curriculum.error || "Curriculum generation produced no modules");
-      return;
-    }
-
-    // Create CONTENT spec from goals-based curriculum
-    const domain = await prisma.domain.findUnique({
-      where: { id: domainId },
-      select: { slug: true, name: true },
-    });
-
-    const contentSlug = `${domain!.slug}-content`;
-
-    // Check idempotency
-    const existing = await prisma.analysisSpec.findFirst({
-      where: { slug: contentSlug },
-      select: { id: true },
-    });
-
-    if (existing) {
-      ctx.results.contentSpecId = existing.id;
-      ctx.results.curriculumId = existing.id;
-      return;
-    }
-
-    const contentSpec = await prisma.analysisSpec.create({
-      data: {
-        slug: contentSlug,
-        name: `${domain!.name} Curriculum`,
-        description: curriculum.description || `AI-generated curriculum for ${domain!.name}`,
-        outputType: "COMPOSE",
-        specRole: "CONTENT",
-        specType: "DOMAIN",
-        domain: "content",
-        scope: "DOMAIN",
-        isActive: true,
-        isDirty: false,
-        isDeletable: true,
-        config: JSON.parse(JSON.stringify({
-          modules: curriculum.modules,
-          deliveryConfig: curriculum.deliveryConfig,
-          sourceCount: 0,
-          assertionCount: 0,
-          generatedFrom: "goals",
-          generatedAt: new Date().toISOString(),
-        })),
-        triggers: {
-          create: [{
-            given: `A ${domain!.name} teaching session with curriculum content`,
-            when: "The system needs to deliver structured teaching material",
-            then: "Content is presented following the curriculum module sequence",
-            name: "Curriculum delivery",
-            sortOrder: 0,
-          }],
-        },
-      },
-      select: { id: true },
-    });
-
-    ctx.results.contentSpecId = contentSpec.id;
-    ctx.results.curriculumId = contentSpec.id;
   },
 
   configure_onboarding: async (ctx) => {
@@ -596,7 +531,10 @@ export async function courseSetup(
       warnings: ctx.results.warnings || [],
     };
   } catch (error: any) {
-    console.error("[course-setup] Fatal error:", error.message);
+    logSystem("course-setup", {
+      level: "error",
+      message: `Fatal error: ${error.message}`,
+    });
     await failTask(taskId, error.message);
     throw error;
   }

@@ -911,3 +911,120 @@
   flex-shrink: 0;
   white-space: nowrap;
 }
+
+/* ── Classification card ────────────────────────────── */
+
+.tw-classify-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1.5px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface-secondary);
+}
+
+.tw-classify-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.tw-classify-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tw-classify-icon--high {
+  background: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+  color: var(--status-success-text);
+}
+
+.tw-classify-icon--medium {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+}
+
+.tw-classify-icon--low {
+  background: color-mix(in srgb, var(--status-warning-text) 12%, transparent);
+  color: var(--status-warning-text);
+}
+
+.tw-classify-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.tw-classify-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.tw-classify-type-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tw-classify-confidence {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.tw-classify-conf--high {
+  background: color-mix(in srgb, var(--status-success-text) 10%, transparent);
+  color: var(--status-success-text);
+}
+
+.tw-classify-conf--medium {
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  color: var(--accent-primary);
+}
+
+.tw-classify-conf--low {
+  background: color-mix(in srgb, var(--status-warning-text) 10%, transparent);
+  color: var(--status-warning-text);
+}
+
+.tw-classify-file {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.tw-classify-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.tw-classify-actions {
+  flex-shrink: 0;
+}
+
+.tw-classify-select {
+  font-size: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.tw-classify-corrected-note {
+  font-size: 12px;
+  color: var(--status-success-text);
+  font-weight: 500;
+  padding: 6px 0 0;
+}

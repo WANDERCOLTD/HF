@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { PlayCircle, BookOpen, Users, GraduationCap, Building2 } from 'lucide-react';
+import { PlayCircle, BookOpen, Users, GraduationCap, Building2, FileText } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTaskPoll, type PollableTask } from '@/hooks/useTaskPoll';
 import { useBackgroundTaskQueue } from '@/components/shared/ContentJobQueue';
@@ -45,7 +45,8 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
   // Read all flow bag keys
   const courseName = getData<string>('courseName');
   const teachingStyle = getData<string>('teachingStyle');
-  const personaName = getData<string>('personaName');
+  const interactionPattern = getData<string>('interactionPattern');
+  const interactionPatternName = getData<string>('interactionPatternName') || interactionPattern || '—';
   const learningOutcomes = getData<string[]>('learningOutcomes') || [];
   const lessonPlanMode = getData<string>('lessonPlanMode') || 'skipped';
   const planIntents = getData<{ sessionCount: number; durationMins: number; emphasis: string; assessments: string }>('planIntents');
@@ -58,6 +59,24 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
   const totalStudents = studentEmails.length + cohortGroupIds.length + selectedCallerIds.length;
   const behaviorTargets = getData<Record<string, number>>('behaviorTargets');
   const tunerPills = getData<AgentTunerPill[]>('tunerPills') || [];
+  const lessonPlan = getData<{ session: number; type: string; label: string }[]>('lessonPlan') || [];
+
+  // Build plan summary from actual lesson plan entries
+  const planSummaryValue = (() => {
+    if (lessonPlan.length === 0) {
+      return lessonPlanMode === 'reviewed' ? 'Custom plan' : 'Defaults';
+    }
+    const typeCounts: Record<string, number> = {};
+    for (const entry of lessonPlan) {
+      typeCounts[entry.type] = (typeCounts[entry.type] || 0) + 1;
+    }
+    const parts: string[] = [];
+    const order = ['onboarding', 'introduce', 'deepen', 'review', 'assess', 'consolidate'];
+    for (const t of order) {
+      if (typeCounts[t]) parts.push(`${typeCounts[t]} ${t}`);
+    }
+    return `${lessonPlan.length} sessions (${parts.join(', ')})`;
+  })();
 
   // On mount: resume if taskId already in flow bag (page refresh during setup)
   useEffect(() => {
@@ -111,6 +130,7 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           courseName, learningOutcomes, teachingStyle, sessionCount, durationMins, emphasis,
+          interactionPattern: interactionPattern || undefined,
           welcomeMessage: getData<string>('welcomeMessage') || '',
           studentEmails,
           subjectId: getData<string>('subjectId') || undefined,
@@ -170,7 +190,10 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
               items: [
                 { icon: <BookOpen className="hf-icon-sm" />, label: 'Course', value: courseName || '—' },
                 { icon: <GraduationCap className="hf-icon-sm" />, label: 'Sessions', value: `${sessionCount} × ${durationMins} min` },
-                { icon: <Users className="hf-icon-sm" />, label: 'Style', value: personaName || teachingStyle || '—' },
+                { icon: <Users className="hf-icon-sm" />, label: 'Pattern', value: interactionPatternName },
+                ...(lessonPlan.length > 0
+                  ? [{ icon: <FileText className="hf-icon-sm" />, label: 'Plan', value: planSummaryValue }]
+                  : []),
                 ...(learningOutcomes.length > 0
                   ? [{ label: 'Goals', value: `${learningOutcomes.length} learning outcome${learningOutcomes.length !== 1 ? 's' : ''}` }]
                   : []),
@@ -200,15 +223,23 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
             ]}
             tuning={tuningTraits.length > 0 ? { traits: tuningTraits, paramCount } : undefined}
             primaryAction={{
-              label: 'Start Teaching',
-              icon: <PlayCircle className="hf-icon-md" />,
+              label: 'View Your Course',
+              icon: <BookOpen className="hf-icon-md" />,
               onClick: () => {
                 endFlow();
-                router.push(domainId ? `/x/teach?domainId=${domainId}` : '/x/courses');
+                const pbId = taskSummary?.playbook?.id;
+                router.push(pbId ? `/x/courses/${pbId}` : '/x/courses');
               },
             }}
             secondaryActions={[
-              { label: 'Back to Courses', onClick: handleGoToCourses },
+              {
+                label: 'Start Teaching',
+                icon: <PlayCircle className="hf-icon-md" />,
+                onClick: () => {
+                  endFlow();
+                  router.push(domainId ? `/x/teach?domainId=${domainId}` : '/x/courses');
+                },
+              },
             ]}
           />
         </div>
@@ -294,8 +325,8 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
               { icon: <BookOpen className="hf-icon-sm" />, label: 'Course', value: courseName || '—' },
               { icon: <GraduationCap className="hf-icon-sm" />, label: 'Sessions', value: `${sessionCount} × ${durationMins} min` },
               { icon: <Users className="hf-icon-sm" />, label: 'Students', value: totalStudents > 0 ? `${totalStudents} to enroll` : 'None yet' },
-              { label: 'Plan', value: lessonPlanMode === 'reviewed' ? 'Custom plan' : lessonPlanMode === 'accept' ? 'Auto-generated' : 'Defaults' },
-              { label: 'Style', value: personaName || teachingStyle || '—' },
+              { icon: <FileText className="hf-icon-sm" />, label: 'Plan', value: planSummaryValue },
+              { label: 'Pattern', value: interactionPatternName },
             ],
           }}
           stats={[

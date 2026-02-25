@@ -30,7 +30,7 @@ import type { IniResult } from './HealthPopup';
 import { CallsPopup } from './CallsPopup';
 import type { ActivityData } from './CallsPopup';
 import { VersionPopup } from './VersionPopup';
-import { LogsPopup } from './LogsPopup';
+import { LogViewer } from './LogViewer';
 
 /** Height of the status bar in pixels — use for layout calculations */
 export const STATUS_BAR_HEIGHT = 32;
@@ -97,6 +97,7 @@ export function StatusBar() {
   const [callsPopupOpen, setCallsPopupOpen] = useState(false);
   const [jobsPopupOpen, setJobsPopupOpen] = useState(false);
   const [logsPopupOpen, setLogsPopupOpen] = useState(false);
+  const [logsOverlayOpen, setLogsOverlayOpen] = useState(false);
   const [versionPopupOpen, setVersionPopupOpen] = useState(false);
 
   // ── Data states ──
@@ -412,7 +413,7 @@ export function StatusBar() {
           </span>
         )}
 
-        {/* Logs → LogsPopup (ADMIN+) */}
+        {/* Logs → LogViewer popup (ADMIN+) */}
         {isAdmin && (
           <span
             ref={logsChipRef}
@@ -514,13 +515,34 @@ export function StatusBar() {
       )}
 
       {isAdmin && (
-        <LogsPopup
+        <LogViewer
+          mode="popup"
           open={logsPopupOpen}
           onClose={() => setLogsPopupOpen(false)}
           anchorRef={logsChipRef}
           deepLogging={deepLogging}
           onToggleDeepLogging={handleToggleDeepLogging}
+          onExpand={() => {
+            setLogsPopupOpen(false);
+            setLogsOverlayOpen(true);
+          }}
         />
+      )}
+
+      {isAdmin && logsOverlayOpen && (
+        <div className="logs-viewer-overlay" onClick={() => setLogsOverlayOpen(false)}>
+          <div className="logs-viewer-overlay-inner" onClick={(e) => e.stopPropagation()}>
+            <LogViewer
+              mode="fullscreen"
+              onMinimize={() => {
+                setLogsOverlayOpen(false);
+                setLogsPopupOpen(true);
+              }}
+              deepLogging={deepLogging}
+              onToggleDeepLogging={handleToggleDeepLogging}
+            />
+          </div>
+        </div>
       )}
 
       {APP_VERSION && (

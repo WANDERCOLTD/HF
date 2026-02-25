@@ -4,7 +4,25 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Layers } from 'lucide-react';
 import { AgentTuningPanel, type AgentTuningPanelOutput } from '@/components/shared/AgentTuningPanel';
+import {
+  INTERACTION_PATTERN_LABELS,
+  type InteractionPattern,
+} from '@/lib/content-trust/resolve-config';
 import type { CommunityDetail } from './types';
+
+const COMMUNITY_PATTERNS: InteractionPattern[] = [
+  'companion', 'advisory', 'coaching', 'socratic', 'facilitation', 'reflective', 'open',
+];
+
+const COMMUNITY_PATTERN_LABELS: Partial<Record<InteractionPattern, string>> = {
+  companion:    'Just be there',
+  advisory:     'Give clear answers',
+  coaching:     'Help them take action',
+  socratic:     'Guide their thinking',
+  facilitation: 'Help them organise',
+  reflective:   'Explore and reflect',
+  open:         'Follow their lead',
+};
 
 interface IdentityTabProps {
   community: CommunityDetail;
@@ -16,6 +34,11 @@ export function IdentityTab({ community, onSave, saving }: IdentityTabProps) {
   const [selectedSpecId, setSelectedSpecId] = useState(community.onboardingIdentitySpecId || '');
   const [matrixOutput, setMatrixOutput] = useState<AgentTuningPanelOutput | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [hubPattern, setHubPattern] = useState<InteractionPattern>(
+    (community.config?.hubPattern as InteractionPattern) || 'companion'
+  );
+
+  const isOpenConnection = community.config?.communityKind === 'OPEN_CONNECTION' || !community.config?.communityKind;
 
   const handleSpecChange = (specId: string) => {
     setSelectedSpecId(specId);
@@ -45,6 +68,10 @@ export function IdentityTab({ community, onSave, saving }: IdentityTabProps) {
         _matrixPositions: matrixOutput.matrixPositions,
         _traits: matrixOutput.traits,
       };
+    }
+
+    if (isOpenConnection && hubPattern !== (community.config?.hubPattern || 'companion')) {
+      patch.config = { ...(community.config ?? {}), hubPattern };
     }
 
     if (Object.keys(patch).length > 0) {
@@ -81,6 +108,40 @@ export function IdentityTab({ community, onSave, saving }: IdentityTabProps) {
           </Link>
         )}
       </div>
+
+      {/* Hub Pattern (OPEN_CONNECTION only) */}
+      {isOpenConnection && (
+        <div className="hf-card" style={{ marginBottom: 20 }}>
+          <label className="hf-label" style={{ marginBottom: 8, display: 'block' }}>
+            AI Interaction Style
+          </label>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+            How the AI engages with members during calls.
+          </p>
+          <div className="hf-chip-row">
+            {COMMUNITY_PATTERNS.map((p) => {
+              const info = INTERACTION_PATTERN_LABELS[p];
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => { setHubPattern(p); setDirty(true); }}
+                  className={hubPattern === p ? 'hf-chip hf-chip-selected' : 'hf-chip'}
+                  title={info.description}
+                >
+                  {info.icon} {COMMUNITY_PATTERN_LABELS[p] ?? info.label}
+                </button>
+              );
+            })}
+          </div>
+          {hubPattern && (
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+              <strong>{COMMUNITY_PATTERN_LABELS[hubPattern] ?? INTERACTION_PATTERN_LABELS[hubPattern]?.label}:</strong>{' '}
+              {INTERACTION_PATTERN_LABELS[hubPattern]?.description}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Archetype Picker */}
       <div className="hf-card" style={{ marginBottom: 20 }}>

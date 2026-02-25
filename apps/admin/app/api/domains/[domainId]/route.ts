@@ -89,6 +89,7 @@ export async function GET(
             name: true,
             type: {
               select: {
+                id: true,
                 slug: true,
                 name: true,
                 defaultArchetypeSlug: true,
