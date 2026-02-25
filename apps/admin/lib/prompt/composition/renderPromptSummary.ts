@@ -239,6 +239,15 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
   if (qs?.curriculum_progress) parts.push(qs.curriculum_progress);
   parts.push("");
 
+  // --- PEDAGOGY MODE ---
+  const pedMode = (llmPrompt as any).pedagogyMode;
+  if (pedMode?.mode) {
+    parts.push("[PEDAGOGY MODE]");
+    parts.push(`Mode: ${pedMode.label} (${pedMode.mode})`);
+    parts.push(pedMode.instructions);
+    parts.push("");
+  }
+
   // --- ACTIVITIES ---
   const activities = (llmPrompt as any).activityToolkit;
   if (activities?.hasActivities && activities.recommended?.length > 0) {
@@ -267,6 +276,9 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
   // --- RETRIEVAL ---
   parts.push("[RETRIEVAL]");
   parts.push("You have access to the caller's knowledge base. When the caller asks about specific topics, teaching content, or curriculum details, the system will automatically provide relevant material.");
+  if (pedMode?.knowledgeGuidance) {
+    parts.push(pedMode.knowledgeGuidance);
+  }
   if (id?.techniques?.length) {
     const techNames = id.techniques.slice(0, 4).map(t => t.name);
     parts.push(`Techniques available: ${techNames.join(", ")}`);

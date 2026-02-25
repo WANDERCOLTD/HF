@@ -14,7 +14,7 @@
 
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { logAssistantCall } from "@/lib/ai/assistant-wrapper";
-import { resolveExtractionConfig, type ExtractionConfig, type DocumentType } from "./resolve-config";
+import { resolveExtractionConfig, type ExtractionConfig, type DocumentType, categoryToTeachMethod } from "./resolve-config";
 import type { DocumentSection } from "./segment-document";
 import { filterSections, detectFigureRefs } from "./filter-sections";
 import crypto from "crypto";
@@ -37,6 +37,8 @@ export interface ExtractedAssertion {
   contentHash: string;
   /** Figure/diagram/table references detected in this assertion's source text */
   figureRefs?: string[];
+  /** Teach method auto-assigned from category + teaching mode (e.g., "recall_quiz") */
+  teachMethod?: string;
 }
 
 export interface ExtractionResult {
@@ -62,6 +64,8 @@ export interface ExtractionOptions {
   qualificationRef?: string;
   focusChapters?: string[];
   maxAssertions?: number;
+  /** Teaching mode for auto-assigning teachMethod to extracted assertions */
+  teachingMode?: import("./resolve-config").TeachingMode;
   /** Called after each chunk completes (for progress tracking) */
   onChunkDone?: (chunkIndex: number, totalChunks: number, extractedSoFar: number) => void;
   /** Called after each chunk completes with the chunk's extracted data (for progressive DB saves) */
@@ -261,6 +265,7 @@ async function extractFromChunk(
           ],
           maxTokens: extraction.llmConfig.maxTokens,
           temperature: extraction.llmConfig.temperature,
+          timeoutMs: 120000, // 2 min — extraction prompts are large + structured JSON output
         },
         { sourceOp: "content-trust:extract" }
       );
@@ -292,19 +297,25 @@ async function extractFromChunk(
 
       if (!Array.isArray(raw)) return [];
 
-      return raw.map((item: any) => ({
-        assertion: String(item.assertion || ""),
-        category: validCategoryIds.has(item.category) ? item.category : "fact",
-        chapter: item.chapter || undefined,
-        section: item.section || undefined,
-        tags: Array.isArray(item.tags) ? item.tags : [],
-        examRelevance: typeof item.examRelevance === "number" ? item.examRelevance : undefined,
-        learningOutcomeRef: item.learningOutcomeRef || undefined,
-        validUntil: item.validUntil || undefined,
-        taxYear: item.taxYear || undefined,
-        contentHash: hashAssertion(item.assertion || ""),
-        figureRefs: Array.isArray(item.figureRefs) ? item.figureRefs : undefined,
-      }));
+      return raw.map((item: any) => {
+        const category = validCategoryIds.has(item.category) ? item.category : "fact";
+        return {
+          assertion: String(item.assertion || ""),
+          category,
+          chapter: item.chapter || undefined,
+          section: item.section || undefined,
+          tags: Array.isArray(item.tags) ? item.tags : [],
+          examRelevance: typeof item.examRelevance === "number" ? item.examRelevance : undefined,
+          learningOutcomeRef: item.learningOutcomeRef || undefined,
+          validUntil: item.validUntil || undefined,
+          taxYear: item.taxYear || undefined,
+          contentHash: hashAssertion(item.assertion || ""),
+          figureRefs: Array.isArray(item.figureRefs) ? item.figureRefs : undefined,
+          teachMethod: options.teachingMode
+            ? categoryToTeachMethod(category, options.teachingMode)
+            : undefined,
+        };
+      });
     } catch (err: any) {
       const isLastAttempt = attempt === MAX_CHUNK_RETRIES - 1;
       if (isLastAttempt) {
@@ -518,6 +529,74 @@ export async function extractAssertionsSegmented(
     assertions: deduplicated,
     warnings,
   };
+}
+
+// ------------------------------------------------------------------
+// Quick extraction (fast first-pass preview)
+// ------------------------------------------------------------------
+
+/** Quick preview item — lightweight teaching point for immediate display */
+export interface QuickPreviewItem {
+  text: string;
+  category: string;
+}
+
+/**
+ * Fast first-pass extraction using lightweight model.
+ * Returns 5-15 key teaching points for immediate preview while
+ * full extraction runs in background.
+ *
+ * Results are NOT saved to DB — they live in the job context only.
+ */
+export async function quickExtract(
+  text: string,
+  categories: string[],
+): Promise<QuickPreviewItem[]> {
+  // Use first ~6000 chars (enough for most documents, fast for AI)
+  const sample = text.substring(0, 6000);
+
+  // @ai-call content-trust.quick-extract — Fast first-pass teaching point preview | config: /x/ai-config
+  const result = await getConfiguredMeteredAICompletion(
+    {
+      callPoint: "content-trust.quick-extract",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a content extraction specialist. Quickly identify the main teaching points from this material. Return a JSON array of objects with {text, category}. Be concise — one sentence per point. Extract 5-15 key points.",
+        },
+        {
+          role: "user",
+          content: `Extract the key teaching points.\n\nValid categories: ${categories.join(", ")}\n\n---\n${sample}\n---`,
+        },
+      ],
+      maxTokens: 1500,
+      temperature: 0.3,
+      timeoutMs: 15000, // 15s generous timeout for Haiku
+    },
+    { sourceOp: "content-trust:quick-extract" },
+  );
+
+  // Parse JSON array from response
+  const text_ = result.content.trim();
+  let jsonStr = text_.startsWith("[") ? text_ : text_.replace(/^```json?\n?/, "").replace(/\n?```$/, "");
+  jsonStr = jsonStr.replace(/,\s*([\]}])/g, "$1");
+  const match = jsonStr.match(/\[[\s\S]*\]/);
+  if (!match) return [];
+
+  try {
+    const parsed: unknown = JSON.parse(match[0]);
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as any[])
+      .filter((item) => item?.text && typeof item.text === "string")
+      .map((item) => ({
+        text: String(item.text),
+        category: categories.includes(item.category) ? item.category : "fact",
+      }))
+      .slice(0, 20);
+  } catch {
+    return [];
+  }
 }
 
 // ── FUTURE: Image Extraction ──

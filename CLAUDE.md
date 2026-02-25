@@ -168,6 +168,7 @@ No inline `style={{}}` for anything that has a CSS class. No hardcoded hex. No o
 - Inputs: `hf-input` | Buttons: `hf-btn` + `hf-btn-primary` / `hf-btn-secondary` / `hf-btn-destructive`
 - Banners: `hf-banner` + `hf-banner-info` / `hf-banner-warning` / `hf-banner-success` / `hf-banner-error`
 - Full list: `hf-page-title`, `hf-page-subtitle`, `hf-card`, `hf-card-compact`, `hf-section-title`, `hf-section-desc`, `hf-info-footer`, `hf-icon-box`, `hf-icon-box-lg`, `hf-label`, `hf-input`, `hf-btn`, `hf-spinner`, `hf-empty`, `hf-list-row`, `hf-banner`, `hf-category-label`
+- **FieldHint popovers (MANDATORY)**: Every wizard intent field MUST use `<FieldHint>` with Why/Effect/Examples content. Hint data in `lib/wizard-hints.ts`. CSS: `hf-field-hint-*` classes in `globals.css`. Component: `components/shared/FieldHint.tsx`.
 
 ### Auth Pages (`/login/**`) — `login-*` classes
 

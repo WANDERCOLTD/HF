@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { deletePlaybookData } from "@/lib/gdpr/delete-playbook-data";
 
 /**
  * Extract systemSpecs toggle state and configSettings from playbook.config.
@@ -492,18 +493,13 @@ export async function DELETE(
       );
     }
 
-    // Delete items first (cascade should handle this, but being explicit)
-    await prisma.playbookItem.deleteMany({
-      where: { playbookId },
-    });
-
-    await prisma.playbook.delete({
-      where: { id: playbookId },
-    });
+    // Delete playbook and all FK relationships (fixes prior orphan bugs)
+    const counts = await deletePlaybookData(playbookId);
 
     return NextResponse.json({
       ok: true,
       message: "Playbook deleted",
+      counts,
     });
   } catch (error: any) {
     console.error("Error deleting playbook:", error);

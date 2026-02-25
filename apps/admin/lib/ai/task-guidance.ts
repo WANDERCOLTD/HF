@@ -741,6 +741,22 @@ const TASK_STEP_MAPS: Record<string, Record<number, TaskStep>> = {
       description: "Database restored successfully",
     },
   },
+  bulk_delete: {
+    1: {
+      title: "Validating",
+      description: "Checking entity relationships and permissions",
+      estimated: "5 sec",
+    },
+    2: {
+      title: "Deleting",
+      description: "Removing entities and cleaning up references",
+      estimated: "10 sec - 5 min",
+    },
+    3: {
+      title: "Complete",
+      description: "Bulk delete finished",
+    },
+  },
 };
 
 function getTaskStepCount(taskType: string): number {

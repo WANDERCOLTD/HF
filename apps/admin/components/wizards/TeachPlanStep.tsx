@@ -17,6 +17,8 @@ import { SortableList } from "@/components/shared/SortableList";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { reorderItems } from "@/lib/sortable/reorder";
 import { useTaskPoll, type PollableTask } from "@/hooks/useTaskPoll";
+import { FieldHint } from "@/components/shared/FieldHint";
+import { WIZARD_HINTS } from "@/lib/wizard-hints";
 import {
   ChevronDown,
   ChevronUp,
@@ -428,8 +430,8 @@ export function TeachPlanStep({
 
           {/* Session Count */}
           <div>
-            <div className="hf-label" style={{ marginBottom: 8 }}>
-              How many sessions?
+            <div style={{ marginBottom: 8 }}>
+              <FieldHint label="How many sessions?" hint={WIZARD_HINTS["teach.plan"]} labelClass="hf-label" />
             </div>
             <SessionCountPicker value={sessionCount} onChange={setSessionCount} />
             <div className="hf-hint" style={{ marginTop: 4 }}>

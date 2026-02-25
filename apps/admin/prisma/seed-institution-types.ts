@@ -34,6 +34,7 @@ interface InstitutionTypeSeed {
   };
   setupSpecSlug: string | null;
   defaultDomainKind: "INSTITUTION" | "COMMUNITY";
+  defaultArchetypeSlug: string | null;
 }
 
 const TYPES: InstitutionTypeSeed[] = [
@@ -58,6 +59,7 @@ const TYPES: InstitutionTypeSeed[] = [
     },
     setupSpecSlug: "COURSE-SETUP-001",
     defaultDomainKind: "INSTITUTION",
+    defaultArchetypeSlug: "TUT-001",
   },
   {
     slug: "corporate",
@@ -80,6 +82,7 @@ const TYPES: InstitutionTypeSeed[] = [
     },
     setupSpecSlug: "COURSE-SETUP-001",
     defaultDomainKind: "INSTITUTION",
+    defaultArchetypeSlug: "COACH-001",
   },
   {
     slug: "community",
@@ -102,6 +105,7 @@ const TYPES: InstitutionTypeSeed[] = [
     },
     setupSpecSlug: "COMMUNITY-SETUP-001",
     defaultDomainKind: "COMMUNITY",
+    defaultArchetypeSlug: "COMPANION-001",
   },
   {
     slug: "coaching",
@@ -124,6 +128,7 @@ const TYPES: InstitutionTypeSeed[] = [
     },
     setupSpecSlug: "COURSE-SETUP-001",
     defaultDomainKind: "INSTITUTION",
+    defaultArchetypeSlug: "COACH-001",
   },
   {
     slug: "healthcare",
@@ -146,6 +151,7 @@ const TYPES: InstitutionTypeSeed[] = [
     },
     setupSpecSlug: "COURSE-SETUP-001",
     defaultDomainKind: "INSTITUTION",
+    defaultArchetypeSlug: "COMPANION-001",
   },
   {
     slug: "training",
@@ -168,6 +174,7 @@ const TYPES: InstitutionTypeSeed[] = [
     },
     setupSpecSlug: "COURSE-SETUP-001",
     defaultDomainKind: "INSTITUTION",
+    defaultArchetypeSlug: "COACH-001",
   },
 ];
 
@@ -185,6 +192,7 @@ export async function main(externalPrisma?: PrismaClient) {
         terminology: typeDef.terminology,
         setupSpecSlug: typeDef.setupSpecSlug,
         defaultDomainKind: typeDef.defaultDomainKind,
+        defaultArchetypeSlug: typeDef.defaultArchetypeSlug,
       },
       create: {
         slug: typeDef.slug,
@@ -193,6 +201,7 @@ export async function main(externalPrisma?: PrismaClient) {
         terminology: typeDef.terminology,
         setupSpecSlug: typeDef.setupSpecSlug,
         defaultDomainKind: typeDef.defaultDomainKind,
+        defaultArchetypeSlug: typeDef.defaultArchetypeSlug,
       },
     });
 

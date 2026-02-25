@@ -80,6 +80,7 @@ const DEFAULT_CONFIGS: Record<string, { provider: AIEngine; model: string; tempe
   "assistant.data": { provider: "claude", model: config.ai.claude.model },
   "assistant.spec": { provider: "claude", model: config.ai.claude.model },
   "content-trust.extract": { provider: "claude", model: config.ai.claude.model, temperature: 0.1, maxTokens: 4000 },
+  "content-trust.quick-extract": { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.3, maxTokens: 1500 },
   "content-trust.structure": { provider: "claude", model: config.ai.claude.model, temperature: 0.2, maxTokens: 8000 },
   "content-trust.classify": { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.1, maxTokens: 500 },
   "content-trust.curriculum": { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.3, maxTokens: 8000 }, // lightModel for market test — switch to full model post-launch

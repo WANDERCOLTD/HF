@@ -7,6 +7,8 @@ import { SessionCountPicker } from "@/components/shared/SessionCountPicker";
 import { SortableList } from "@/components/shared/SortableList";
 import { useTaskPoll, type PollableTask } from "@/hooks/useTaskPoll";
 import { reorderItems } from "@/lib/sortable/reorder";
+import { FieldHint } from "@/components/shared/FieldHint";
+import { WIZARD_HINTS } from "@/lib/wizard-hints";
 import type { StepProps } from "../CourseSetupWizard";
 
 // ── Types ──────────────────────────────────────────────
@@ -339,8 +341,8 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
 
             {/* Duration */}
             <div>
-              <div className="hf-label" style={{ marginBottom: 8 }}>
-                How long is each session?
+              <div style={{ marginBottom: 8 }}>
+                <FieldHint label="How long is each session?" hint={WIZARD_HINTS["course.duration"]} labelClass="hf-label" />
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {DURATIONS.map((d) => (
@@ -353,8 +355,8 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
 
             {/* Emphasis */}
             <div>
-              <div className="hf-label" style={{ marginBottom: 8 }}>
-                Teaching emphasis
+              <div style={{ marginBottom: 8 }}>
+                <FieldHint label="Teaching emphasis" hint={WIZARD_HINTS["course.emphasis"]} labelClass="hf-label" />
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {EMPHASIS_OPTIONS.map((e) => (
@@ -374,8 +376,8 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
 
             {/* Assessments */}
             <div>
-              <div className="hf-label" style={{ marginBottom: 8 }}>
-                Include assessments?
+              <div style={{ marginBottom: 8 }}>
+                <FieldHint label="Include assessments?" hint={WIZARD_HINTS["course.assessments"]} labelClass="hf-label" />
               </div>
               <div className="flex flex-wrap gap-1.5">
                 <ChipButton selected={assessments === "formal"} onClick={() => setAssessments("formal")}>

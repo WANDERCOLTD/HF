@@ -58,7 +58,10 @@ import { CreateInstitutionModal } from "./CreateInstitutionModal";
 import { PackUploadStep } from "./PackUploadStep";
 import type { PackUploadResult } from "./PackUploadStep";
 import { POLL_TIMEOUT_MS } from "@/lib/tasks/constants";
+import { useTaskPoll } from "@/hooks/useTaskPoll";
 import { useSession } from "next-auth/react";
+import { FieldHint } from "@/components/shared/FieldHint";
+import { WIZARD_HINTS } from "@/lib/wizard-hints";
 import "./demo-teach-wizard.css";
 
 // ── Types ──────────────────────────────────────────
@@ -116,7 +119,7 @@ type AvailableSource = {
 // API response shapes (for typed .filter/.map/.reduce on untyped JSON)
 type ApiWizardStep = { id: string; label: string; activeLabel?: string };
 type ApiCaller = { id: string; name?: string; email?: string; domainId: string };
-type ApiPlaybook = { id: string; name: string; status: string };
+type ApiPlaybook = { id: string; name: string; status: string; config?: { teachingMode?: string } };
 type ApiSubjectSource = { source?: { _count?: { assertions?: number } } };
 type ApiSubjectDomain = { subject?: { id?: string; name?: string; sources?: ApiSubjectSource[] } };
 
@@ -248,10 +251,10 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [extractProgress, setExtractProgress] = useState({ current: 0, total: 0, extracted: 0 });
   const [extractElapsed, setExtractElapsed] = useState(0);
-  const extractPollRef = useRef<NodeJS.Timeout | null>(null);
-  const extractTickRef = useRef<NodeJS.Timeout | null>(null);
+  const [quickPreview, setQuickPreview] = useState<Array<{ text: string; category: string }>>([]);
+  const [extractionTaskId, setExtractionTaskId] = useState<string | null>(null);
   const uploadFileRef = useRef<HTMLInputElement>(null);
-  const UPLOAD_ACCEPTED = [".pdf", ".txt", ".md", ".markdown", ".json"];
+  const UPLOAD_ACCEPTED = [".pdf", ".txt", ".md", ".markdown", ".json", ".docx"];
 
   // Content source selection (existing sources)
   type ContentMode = "select" | "upload";
@@ -265,7 +268,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const [createdSubjectId, setCreatedSubjectId] = useState<string | null>(null);
 
   // Pack upload — existing courses for the selected domain
-  type ExistingCourseInfo = { id: string; name: string; status: string; subjectCount: number; assertionCount: number };
+  type ExistingCourseInfo = { id: string; name: string; status: string; subjectCount: number; assertionCount: number; teachingMode?: string };
   const [existingCourses, setExistingCourses] = useState<ExistingCourseInfo[]>([]);
 
   // Subject picker — subjects with content for the selected domain (Teach flow)
@@ -299,9 +302,8 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const [matrixPositions, setMatrixPositions] = useState<Record<string, MatrixPosition>>({});
 
   // Launch-time caller creation (when requireCallerUpfront === false)
-  type LaunchPhase = "idle" | "scaffolding" | "creating-caller" | "creating-goals" | "composing-prompt" | "redirecting";
-  const [launching, setLaunching] = useState(false);
-  const [launchPhase, setLaunchPhase] = useState<LaunchPhase>("idle");
+  const [launchTaskId, setLaunchTaskId] = useState<string | null>(null);
+  const [launchMessage, setLaunchMessage] = useState<string>("");
 
   // Curriculum generation tracking (parent-level, survives step transitions)
 
@@ -310,6 +312,67 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
 
   // Warn on browser refresh/close when user has started filling in data
   useUnsavedGuard(goalText.trim().length > 0 || !!selectedDomainId);
+
+  // Derived: launching is true when a launch task is in progress
+  const launching = launchTaskId !== null;
+
+  // ── Extraction polling via useTaskPoll ──────────────
+  useTaskPoll({
+    taskId: extractionTaskId,
+    intervalMs: 2000,
+    onProgress: (task) => {
+      const ctx = task.context || {};
+      setExtractProgress({
+        current: ctx.currentChunk || 0,
+        total: ctx.totalChunks || 0,
+        extracted: ctx.extractedCount || 0,
+      });
+      if (ctx.quickPreview?.length > 0) {
+        setQuickPreview((prev) => prev.length === 0 ? ctx.quickPreview : prev);
+      }
+    },
+    onComplete: (task) => {
+      const ctx = task.context || {};
+      setExtractionTaskId(null);
+      setQuickPreview([]);
+      const count = ctx.importedCount || ctx.extractedCount || 0;
+      setContentCount(count);
+      runPostExtractionWiring(count);
+    },
+    onError: (msg) => {
+      setExtractionTaskId(null);
+      setUploadError(msg);
+      setContentPhase("error");
+    },
+  });
+
+  // ── Launch polling via useTaskPoll ──────────────────
+  useTaskPoll({
+    taskId: launchTaskId,
+    intervalMs: 2000,
+    onProgress: (task) => {
+      const ctx = task.context || {};
+      if (ctx.progress) setLaunchMessage(ctx.progress);
+    },
+    onComplete: (task) => {
+      const ctx = task.context || {};
+      setLaunchTaskId(null);
+      endFlow();
+      const params = new URLSearchParams();
+      if (selectedDomainId) params.set("domainId", selectedDomainId);
+      const goal = goalText.trim();
+      if (goal) params.set("goal", goal);
+      if (ctx.playbookId) params.set("playbookId", ctx.playbookId);
+      if (selectedPersona) params.set("persona", selectedPersona);
+      const qs = params.toString();
+      router.push(`/x/sim/${ctx.callerId}${qs ? `?${qs}` : ""}`);
+    },
+    onError: (msg) => {
+      setLaunchTaskId(null);
+      setLaunchMessage("");
+      setWizardError(msg);
+    },
+  });
 
   // ── Start Over (reset wizard to step 0) ───────────
 
@@ -343,8 +406,10 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     setPromptPreviewExpanded(false);
     setDomainDetail(null);
     setTeachingPoints([]);
-    setLaunching(false);
-    setLaunchPhase("idle");
+    setLaunchTaskId(null);
+    setLaunchMessage("");
+    setExtractionTaskId(null);
+    setExtractElapsed(0);
     setShowCreateModal(false);
     setTunerPills([]);
     setBehaviorTargets({});
@@ -810,13 +875,14 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     return () => { cancelled = true; };
   }, [currentStep, selectedDomainId, selectedCallerId]);
 
-  // Cleanup poll/tick on unmount
+  // Note: extraction + launch polling cleanup handled by useTaskPoll hooks
+
+  // Elapsed time counter while extraction is running
   useEffect(() => {
-    return () => {
-      if (extractPollRef.current) clearInterval(extractPollRef.current);
-      if (extractTickRef.current) clearInterval(extractTickRef.current);
-    };
-  }, []);
+    if (!extractionTaskId) return;
+    const interval = setInterval(() => setExtractElapsed((e) => e + 1), 1000);
+    return () => clearInterval(interval);
+  }, [extractionTaskId]);
 
   // Fetch available content sources + existing courses when entering no-content phase
   useEffect(() => {
@@ -868,6 +934,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                 status: pb.status,
                 subjectCount: subjects.length,
                 assertionCount: totalAssertions,
+                teachingMode: pb.config?.teachingMode,
               };
             });
           if (!cancelled) setExistingCourses(playbooks);
@@ -925,11 +992,13 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
     let moduleCount = 0;
     let contentSpecGenerated = false;
     let promptComposed = false;
+    // 60s timeout per step — prevents forever spinners on hanging fetches
+    const timeout = () => AbortSignal.timeout(60_000);
 
     // Phase 0: Ensure domain has a published playbook (idempotent scaffold)
     // Without this, generateContentSpec can't link the content spec to a playbook
     try {
-      await fetch(`/api/domains/${selectedDomainId}/scaffold`, { method: "POST" });
+      await fetch(`/api/domains/${selectedDomainId}/scaffold`, { method: "POST", signal: timeout() });
     } catch (e: unknown) {
       console.warn("[Teach] Scaffold failed (non-critical):", e);
       warnings.push("Domain scaffold failed — content spec may not be linked to playbook");
@@ -942,6 +1011,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       try {
         const specRes = await fetch(`/api/domains/${selectedDomainId}/generate-content-spec`, {
           method: "POST",
+          signal: timeout(),
         });
         const specData = await specRes.json();
         if (specData.ok && specData.result?.contentSpec) {
@@ -955,8 +1025,9 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           warnings.push(`Curriculum: ${specData.error}`);
         }
       } catch (e: unknown) {
+        const msg = e instanceof Error && e.name === "TimeoutError" ? "Curriculum generation timed out" : "Curriculum generation failed";
         console.warn("[Teach] Content spec generation failed:", e);
-        warnings.push("Curriculum generation failed");
+        warnings.push(msg);
       }
     } else {
       // Teach flow: TPs extracted, curriculum will be generated in Plan Sessions step
@@ -972,6 +1043,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ triggerType: "teach-wizard" }),
+          signal: timeout(),
         });
         const composeData = await composeRes.json();
         if (composeData.ok) {
@@ -980,8 +1052,9 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           warnings.push(`Prompt: ${composeData.error || "composition failed"}`);
         }
       } catch (e: unknown) {
+        const msg = e instanceof Error && e.name === "TimeoutError" ? "Prompt composition timed out" : "Prompt composition failed";
         console.warn("[Teach] Prompt composition failed:", e);
-        warnings.push("Prompt composition failed");
+        warnings.push(msg);
       }
     }
 
@@ -1103,6 +1176,11 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       extractFormData.append("file", uploadFile);
       extractFormData.append("mode", "background");
       extractFormData.append("maxAssertions", "500");
+      // Pass teachingMode if the domain's course has one configured
+      const courseTeachingMode = existingCourses[0]?.teachingMode;
+      if (courseTeachingMode) {
+        extractFormData.append("teachingMode", courseTeachingMode);
+      }
 
       const extractRes = await fetch(`/api/content-sources/${sourceId}/import`, {
         method: "POST",
@@ -1113,51 +1191,17 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
         throw new Error(extractData.error || "Extraction start failed");
       }
 
-      // 4. Start polling
+      // 4. Start polling via useTaskPoll (jobId is a UserTask ID)
       setContentPhase("extracting");
       setExtractProgress({ current: 0, total: extractData.totalChunks || 0, extracted: 0 });
       setExtractElapsed(0);
-      extractTickRef.current = setInterval(() => setExtractElapsed((e) => e + 1), 1000);
-
-      const startedAt = Date.now();
-      extractPollRef.current = setInterval(async () => {
-        if (Date.now() - startedAt > 3 * 60 * 1000) {
-          if (extractPollRef.current) clearInterval(extractPollRef.current);
-          if (extractTickRef.current) clearInterval(extractTickRef.current);
-          setUploadError("Extraction timed out");
-          setContentPhase("error");
-          return;
-        }
-        try {
-          const pollRes = await fetch(`/api/content-sources/${sourceId}/import?jobId=${extractData.jobId}`);
-          const pollData = await pollRes.json();
-          if (!pollData.ok) return;
-          const job = pollData.job;
-          setExtractProgress({
-            current: job.currentChunk || 0,
-            total: job.totalChunks || 0,
-            extracted: job.extractedCount || 0,
-          });
-          if (job.status === "done") {
-            if (extractPollRef.current) clearInterval(extractPollRef.current);
-            if (extractTickRef.current) clearInterval(extractTickRef.current);
-            const count = job.importedCount || job.extractedCount || 0;
-            setContentCount(count);
-            // Chain into content spec generation + prompt composition
-            runPostExtractionWiring(count);
-          } else if (job.status === "error") {
-            if (extractPollRef.current) clearInterval(extractPollRef.current);
-            if (extractTickRef.current) clearInterval(extractTickRef.current);
-            setUploadError(job.error || "Extraction failed");
-            setContentPhase("error");
-          }
-        } catch { /* network blip — keep polling */ }
-      }, 2000);
+      setQuickPreview([]);
+      setExtractionTaskId(extractData.jobId);
     } catch (e: unknown) {
       setUploadError(e instanceof Error ? e.message : "Upload failed");
       setContentPhase("error");
     }
-  }, [uploadFile, selectedDomainId, runPostExtractionWiring, isTeachFlow, setData]);
+  }, [uploadFile, selectedDomainId, isTeachFlow, setData, existingCourses]);
 
   // ── Select existing content source ─────────────────
 
@@ -1321,107 +1365,34 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       return;
     }
 
-    // New behavior: auto-create caller at launch time
+    // New behavior: server-side launch via task polling
     if (!selectedDomainId || launching) return;
-    setLaunching(true);
-    setLaunchPhase("idle");
     clearWizardError();
+    setLaunchMessage("Setting up your lesson...");
 
     try {
-      // Step 1: Scaffold domain (ensure playbook exists — idempotent)
-      setLaunchPhase("scaffolding");
-      const scaffoldRes = await fetch(`/api/domains/${selectedDomainId}/scaffold`, { method: "POST" });
-      const scaffoldData = await scaffoldRes.json().catch(() => null);
-      const scaffoldPlaybookId = scaffoldData?.result?.playbook?.id || null;
-
-      // Step 1b: Link subjects to playbook (course-scoped content)
-      const subjectIds = getData<string[]>("subjectIds");
-      if (scaffoldPlaybookId && subjectIds?.length) {
-        try {
-          await fetch(`/api/playbooks/${scaffoldPlaybookId}/subjects`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ subjectIds }),
-          });
-        } catch (e) {
-          console.warn("[Teach] PlaybookSubject link failed (non-critical):", e);
-        }
-      }
-
-      // Step 1c: Apply behavior targets to playbook (from matrix + pills)
-      const mergedBehavior = getData<Record<string, number>>("behaviorTargets");
-      if (scaffoldPlaybookId && mergedBehavior && Object.keys(mergedBehavior).length > 0) {
-        try {
-          const targets = Object.entries(mergedBehavior).map(([parameterId, targetValue]) => ({
-            parameterId,
-            targetValue,
-          }));
-          await fetch(`/api/playbooks/${scaffoldPlaybookId}/targets`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ targets }),
-          });
-        } catch (e) {
-          console.warn("[Teach] Behavior target application failed (non-critical):", e);
-        }
-      }
-
-      // Step 2: Create test caller (auto-enrolls in domain playbooks via API)
-      setLaunchPhase("creating-caller");
-      const callerRes = await fetch("/api/callers", {
+      const res = await fetch("/api/teach-wizard/launch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          autoName: true,
           domainId: selectedDomainId,
+          goal: goalText.trim() || undefined,
+          persona: selectedPersona || undefined,
+          subjectIds: getData<string[]>("subjectIds") || undefined,
+          behaviorTargets: getData<Record<string, number>>("behaviorTargets") || undefined,
         }),
       });
-      const callerData = await callerRes.json();
-      if (!callerData.ok || !callerData.caller?.id) {
-        throw new Error(callerData.error || "Failed to create test caller");
+      const data = await res.json();
+      if (!data.ok || !data.taskId) {
+        throw new Error(data.error || "Failed to start launch");
       }
-      const newCallerId = callerData.caller.id;
-
-      // Step 3: Create goal if provided
-      const goal = goalText.trim();
-      if (goal) {
-        setLaunchPhase("creating-goals");
-        await fetch("/api/goals", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            callerId: newCallerId,
-            name: goal,
-            type: "LEARN",
-          }),
-        });
-      }
-
-      // Step 4: Compose prompt (scoped to scaffolded playbook)
-      setLaunchPhase("composing-prompt");
-      await fetch(`/api/callers/${newCallerId}/compose-prompt`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ triggerType: "teach-wizard", ...(scaffoldPlaybookId ? { playbookIds: [scaffoldPlaybookId] } : {}) }),
-      });
-
-      // Step 5: Redirect to sim (with course scoping)
-      setLaunchPhase("redirecting");
-      const params = new URLSearchParams();
-      if (selectedDomainId) params.set("domainId", selectedDomainId);
-      if (goal) params.set("goal", goal);
-      if (scaffoldPlaybookId) params.set("playbookId", scaffoldPlaybookId);
-      if (selectedPersona) params.set("persona", selectedPersona);
-      const qs = params.toString();
-      endFlow();
-      router.push(`/x/sim/${newCallerId}${qs ? `?${qs}` : ""}`);
+      setLaunchTaskId(data.taskId);
     } catch (e: unknown) {
       console.error("[Teach] Launch failed:", e);
       setWizardError(e instanceof Error ? e.message : "Failed to start lesson. Please try again.");
-      setLaunching(false);
-      setLaunchPhase("idle");
+      setLaunchMessage("");
     }
-  }, [needsCallerUpfront, selectedDomainId, selectedCallerId, selectedDomain, goalText, selectedPersona, ready, launching, endFlow, router, clearWizardError, setWizardError, getData]);
+  }, [needsCallerUpfront, selectedDomainId, selectedCallerId, goalText, selectedPersona, ready, launching, endFlow, router, clearWizardError, setWizardError, getData]);
 
   // Fetch full domain detail for onboarding accordion
   const fetchDomainDetail = useCallback(async () => {
@@ -1592,7 +1563,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       {/* ═══════════════════════════════════════════════ */}
       {currentStep === 0 && (
         <div className="dtw-section">
-          <div className="dtw-section-label">{t.domain}</div>
+          <FieldHint label={t.domain} hint={WIZARD_HINTS["teach.institution"]} />
           {loadingDomains ? (
             <div className="dtw-muted-text dtw-loading-text">
               <span className="dtw-inline-spinner" />
@@ -1725,7 +1696,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       {/* ═══════════════════════════════════════════════ */}
       {currentStep === 1 && (
         <div className="dtw-section">
-          <div className="dtw-section-label">Session Goal</div>
+          <FieldHint label="Session Goal" hint={WIZARD_HINTS["teach.goal"]} />
           <textarea
             className="dtw-textarea"
             value={goalText}
@@ -1843,9 +1814,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           {/* ── Caller Goals (CRUD) — only when caller exists upfront ── */}
           {needsCallerUpfront && (callerGoals.length > 0 || loadingGoals) && (
             <div className="dtw-goals-section">
-              <div className="dtw-goals-label">
-                {t.caller}&apos;s Goals
-              </div>
+              <FieldHint label={`${t.caller}'s Goals`} hint={WIZARD_HINTS["teach.objectives"]} labelClass="dtw-goals-label" />
               {loadingGoals ? (
                 <div className="dtw-goals-loading dtw-loading-text">
                   <span className="dtw-inline-spinner" />
@@ -1977,7 +1946,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
       {/* ═══════════════════════════════════════════════ */}
       {currentStep === 2 && selectedDomainId && (
         <div className="dtw-section">
-          <div className="dtw-section-label">Course Materials</div>
+          <FieldHint label="Course Materials" hint={WIZARD_HINTS["teach.content"]} />
 
           {/* Loading state */}
           {contentPhase === "loading" && (
@@ -2000,6 +1969,13 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
           {/* No content — select existing or upload new */}
           {(contentPhase === "no-content" || contentPhase === "error") && (
             <>
+              {/* Extraction error banner (visible in both Teach + Demonstrate flows) */}
+              {uploadError && contentPhase === "error" && (
+                <div className="hf-banner hf-banner-error dtw-upload-error">
+                  {uploadError}
+                </div>
+              )}
+
               {/* Teach flow: Pack upload with course selection + multi-file */}
               {isTeachFlow ? (
                 <PackUploadStep
@@ -2163,17 +2139,47 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             </div>
           )}
 
-          {/* Extracting */}
+          {/* Extracting — two-phase: quick preview + enrichment progress */}
           {contentPhase === "extracting" && (
             <div>
-              <div className="dtw-extract-status">
-                <div className="dtw-pulse-dot" />
-                <div className="dtw-extract-label">Extracting teaching points...</div>
-                <div className="dtw-extract-elapsed">{extractElapsed}s</div>
-              </div>
+              {/* Quick preview rows (appear ~5s after upload) */}
+              {quickPreview.length > 0 ? (
+                <div className="dtw-quick-preview-wrap">
+                  <div className="dtw-extract-status">
+                    <div className="dtw-quick-preview-dot" />
+                    <div className="dtw-extract-label">Quick scan — {quickPreview.length} key points found</div>
+                  </div>
+                  <div className="dtw-quick-preview-list">
+                    {quickPreview.map((item, i) => (
+                      <div key={i} className="dtw-teaching-point">
+                        <div className="dtw-tp-indicator dtw-tp-pending">{i + 1}</div>
+                        <div className="dtw-tp-text">{item.text}</div>
+                        <div className="dtw-tp-type">{item.category}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="dtw-extract-status">
+                  <div className="dtw-pulse-dot" />
+                  <div className="dtw-extract-label">Scanning document...</div>
+                  <div className="dtw-extract-elapsed">{extractElapsed}s</div>
+                </div>
+              )}
+
+              {/* Enrichment progress (runs below quick preview) */}
+              {quickPreview.length > 0 && (
+                <div>
+                  <div className="dtw-extract-status">
+                    <div className="dtw-pulse-dot" />
+                    <div className="dtw-extract-label">Enriching with full details...</div>
+                    <div className="dtw-extract-elapsed">{extractElapsed}s</div>
+                  </div>
+                </div>
+              )}
               <div className="dtw-progress-track">
                 <div
-                  className="dtw-progress-fill"
+                  className={`dtw-progress-fill${extractProgress.total === 0 && quickPreview.length === 0 ? " dtw-progress-fill--indeterminate" : ""}`}
                   style={{
                     width: extractProgress.total > 0
                       ? `${Math.round((extractProgress.current / extractProgress.total) * 100)}%`
@@ -2182,7 +2188,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                 />
               </div>
               <div className="dtw-progress-labels">
-                <span>{extractProgress.extracted} extracted</span>
+                <span>{extractProgress.extracted} teaching points extracted</span>
                 {extractProgress.total > 0 && (
                   <span>Chunk {extractProgress.current}/{extractProgress.total}</span>
                 )}
@@ -2245,7 +2251,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                   )}
                 </div>
                 {autoWireResult?.warnings && autoWireResult.warnings.length > 0 && (
-                  <div className="dtw-content-summary-detail" style={{ color: "var(--status-warning-text)", marginTop: 4, fontSize: 12 }}>
+                  <div className="dtw-content-summary-detail dtw-warning-detail">
                     {autoWireResult.warnings.join("; ")}
                   </div>
                 )}
@@ -2255,7 +2261,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
 
           {/* Teaching points preview (after extraction or when content exists) */}
           {(contentPhase === "done" || contentPhase === "has-content") && (
-            <div className="dtw-accordion-card" style={{ marginTop: 12 }}>
+            <div className="dtw-accordion-card dtw-tp-accordion">
               <button onClick={() => setTeachingPointsExpanded((v) => !v)} className="dtw-accordion-toggle">
                 {teachingPointsExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 <span>Teaching Points</span>
@@ -2269,12 +2275,12 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
               {teachingPointsExpanded && (
                 <div className="dtw-accordion-content">
                   {teachingPointsLoading ? (
-                    <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
+                    <div className="dtw-centered-loader">
                       <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
                       <span className="hf-text-sm hf-text-muted">Loading teaching points...</span>
                     </div>
                   ) : teachingPoints.length === 0 ? (
-                    <div className="hf-text-sm hf-text-muted" style={{ padding: 16, textAlign: "center" }}>
+                    <div className="hf-text-sm hf-text-muted dtw-empty-text">
                       No teaching points found.
                     </div>
                   ) : (
@@ -2326,7 +2332,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                         ));
                       })()}
                       {contentCount > teachingPoints.length && (
-                        <div className="hf-text-sm hf-text-muted" style={{ padding: "8px 16px", textAlign: "center" }}>
+                        <div className="hf-text-sm hf-text-muted dtw-showing-count">
                           Showing {teachingPoints.length} of {contentCount}
                         </div>
                       )}
@@ -2339,7 +2345,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
 
           {/* Step navigation */}
           {contentPhase !== "uploading" && contentPhase !== "extracting" && contentPhase !== "generating-curriculum" && contentPhase !== "composing-prompt" && contentPhase !== "attaching-source" && contentPhase !== "loading" && (
-            <div className="dtw-nav-between" style={{ marginTop: 20 }}>
+            <div className="dtw-nav-between dtw-nav-between--spaced">
               <button onClick={handlePrev} className="dtw-btn-back">
                 <ChevronLeft size={16} /> Back
               </button>
@@ -2376,14 +2382,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             title={launching ? "Launching..." : "Ready to Go!"}
             subtitle={
               launching
-                ? ({
-                    idle: "Preparing...",
-                    scaffolding: "Setting up course infrastructure...",
-                    "creating-caller": "Creating test caller...",
-                    "creating-goals": "Setting learning goals...",
-                    "composing-prompt": "Preparing your tutor...",
-                    redirecting: "Opening simulator...",
-                  }[launchPhase])
+                ? (launchMessage || "Preparing...")
                 : ready
                   ? `All checks passed. Start your ${t.session.toLowerCase()}.`
                   : needsCallerUpfront
@@ -2422,14 +2421,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             stats={[{ label: "Readiness", value: `${score}%` }]}
             primaryAction={{
               label: launching
-                ? ({
-                    idle: `Start ${t.session}`,
-                    scaffolding: "Setting up...",
-                    "creating-caller": "Creating learner...",
-                    "creating-goals": "Setting goals...",
-                    "composing-prompt": "Preparing tutor...",
-                    redirecting: "Launching...",
-                  }[launchPhase])
+                ? (launchMessage || "Launching...")
                 : `Start ${t.session}`,
               icon: launching
                 ? <div className="hf-spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
@@ -2478,13 +2470,13 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
               {tunePersonaExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               <span>Tune Persona</span>
               {savingPersona && (
-                <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 400 }}>&mdash; saving...</span>
+                <span className="dtw-saving-hint">&mdash; saving...</span>
               )}
             </button>
             {tunePersonaExpanded && (
               <div className="dtw-accordion-content">
                 {domainDetailLoading && !domainDetail ? (
-                  <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
+                  <div className="dtw-centered-loader">
                     <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
                     <span className="hf-text-sm hf-text-muted">Loading persona settings...</span>
                   </div>
@@ -2523,7 +2515,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
             {onboardingExpanded && (
               <div className="dtw-accordion-content">
                 {domainDetailLoading && !domainDetail ? (
-                  <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
+                  <div className="dtw-centered-loader">
                     <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
                     <span className="hf-text-sm hf-text-muted">Loading onboarding configuration...</span>
                   </div>

@@ -250,6 +250,14 @@ export const AI_CALL_POINTS = [
     category: "content-processing" as AIConfigCategory,
   },
   {
+    callPoint: "content-trust.quick-extract",
+    label: "Content Trust - Quick Extract",
+    description: "Fast first-pass extraction of key teaching points (shown as preview while full extraction runs)",
+    defaultProvider: "claude",
+    defaultModel: config.ai.claude.lightModel,
+    category: "content-processing" as AIConfigCategory,
+  },
+  {
     callPoint: "content-trust.extract",
     label: "Content Trust - Extraction",
     description: "Extracts assertions from training materials for content trust verification",

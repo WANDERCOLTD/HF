@@ -6,7 +6,7 @@ import { TASK_STATUS, isTerminal, POLL_INTERVAL_MS as DEFAULT_POLL_INTERVAL, POL
 
 // ── Types ──
 
-type BackgroundTaskType = "extraction" | "curriculum_generation" | "curriculum_enrichment" | "course_setup" | "snapshot_take" | "snapshot_restore";
+type BackgroundTaskType = "extraction" | "curriculum_generation" | "curriculum_enrichment" | "course_setup" | "snapshot_take" | "snapshot_restore" | "bulk_delete";
 
 interface TaskProgress {
   status: string;            // "in_progress" | "completed" | "abandoned"
@@ -56,6 +56,7 @@ interface BackgroundTaskQueueContextValue {
   addCurriculumEnrichmentJob: (taskId: string, subjectName: string) => void;
   addCourseSetupJob: (taskId: string, courseName: string) => void;
   addSnapshotJob: (taskId: string, snapshotName: string, operation: "take" | "restore") => void;
+  addBulkDeleteJob: (taskId: string, entityType: string, count: number) => void;
   /** @deprecated Use addExtractionJob */
   addJob: (taskId: string, sourceId: string, sourceName: string, fileName: string) => void;
   dismissJob: (taskId: string) => void;
@@ -68,6 +69,7 @@ const BackgroundTaskQueueContext = createContext<BackgroundTaskQueueContextValue
   addCurriculumJob: () => {},
   addCourseSetupJob: () => {},
   addSnapshotJob: () => {},
+  addBulkDeleteJob: () => {},
   addJob: () => {},
   dismissJob: () => {},
   activeCount: 0,
@@ -269,7 +271,7 @@ export function ContentJobQueueProvider({ children }: { children: React.ReactNod
         }
 
         // Check server for any auto-triggered tasks we don't know about yet
-        const backgroundTypes: BackgroundTaskType[] = ["extraction", "curriculum_generation", "curriculum_enrichment", "course_setup", "snapshot_take", "snapshot_restore"];
+        const backgroundTypes: BackgroundTaskType[] = ["extraction", "curriculum_generation", "curriculum_enrichment", "course_setup", "snapshot_take", "snapshot_restore", "bulk_delete"];
         const knownIds = new Set(current.map((j) => j.taskId));
         for (const st of serverTasks) {
           if (backgroundTypes.includes(st.taskType) && !knownIds.has(st.id)) {
@@ -287,7 +289,9 @@ export function ContentJobQueueProvider({ children }: { children: React.ReactNod
                       ? `Take: ${ctx.snapshotName || "Snapshot"}`
                       : st.taskType === "snapshot_restore"
                         ? `Restore: ${ctx.snapshotName || "Snapshot"}`
-                        : ctx.courseName || "Course Setup",
+                        : st.taskType === "bulk_delete"
+                          ? `Delete ${ctx.totalCount || "?"} ${ctx.entityType || "items"}s`
+                          : ctx.courseName || "Course Setup",
               subjectId: ctx.subjectId,
               sourceId: ctx.sourceId,
               courseId: ctx.courseId,
@@ -443,6 +447,32 @@ export function ContentJobQueueProvider({ children }: { children: React.ReactNod
     []
   );
 
+  const addBulkDeleteJob = useCallback(
+    (taskId: string, entityType: string, count: number) => {
+      setJobs((prev) => {
+        if (prev.some((j) => j.taskId === taskId)) return prev;
+        const label = `Delete ${count} ${entityType}${count !== 1 ? "s" : ""}`;
+        return [
+          {
+            taskId,
+            taskType: "bulk_delete" as BackgroundTaskType,
+            label,
+            startedAt: Date.now(),
+            progress: {
+              status: "in_progress",
+              currentStep: 1,
+              totalSteps: 3,
+              entityType,
+              entityCount: count,
+            },
+          },
+          ...prev,
+        ];
+      });
+    },
+    []
+  );
+
   // Backward-compat alias
   const addJob = useCallback(
     (taskId: string, sourceId: string, sourceName: string, fileName: string) => {
@@ -459,7 +489,7 @@ export function ContentJobQueueProvider({ children }: { children: React.ReactNod
 
   return (
     <BackgroundTaskQueueContext.Provider
-      value={{ jobs, addExtractionJob, addCurriculumJob, addCurriculumEnrichmentJob, addCourseSetupJob, addSnapshotJob, addJob, dismissJob, activeCount }}
+      value={{ jobs, addExtractionJob, addCurriculumJob, addCurriculumEnrichmentJob, addCourseSetupJob, addSnapshotJob, addBulkDeleteJob, addJob, dismissJob, activeCount }}
     >
       {children}
     </BackgroundTaskQueueContext.Provider>
@@ -528,6 +558,12 @@ export function ContentJobQueue() {
       if (p.phase === "inserting") return `Inserting ${p.currentTable || ""}`;
       return "Validating...";
     }
+    if (j.taskType === "bulk_delete") {
+      if (isError(j)) return p.error || "Failed";
+      if (isDone(j)) return `${p.deletedCount ?? 0} deleted${p.failedCount ? `, ${p.failedCount} failed` : ""}`;
+      if (p.currentEntity) return `Deleting ${p.currentEntity}`;
+      return `${p.deletedCount ?? 0}/${p.totalCount ?? "?"} deleted`;
+    }
     return isActive(j) ? "Running..." : isDone(j) ? "Done" : "Failed";
   };
 
@@ -576,6 +612,13 @@ export function ContentJobQueue() {
       router.push("/x/courses");
     } else if (j.taskType === "snapshot_take" || j.taskType === "snapshot_restore") {
       router.push("/x/snapshots");
+    } else if (j.taskType === "bulk_delete") {
+      const et = j.progress.entityType;
+      if (et === "caller") router.push("/x/callers");
+      else if (et === "playbook") router.push("/x/playbooks");
+      else if (et === "domain") router.push("/x/domains");
+      else if (et === "subject") router.push("/x/subjects");
+      else router.push("/x/jobs");
     }
     setExpanded(false);
   };
@@ -710,6 +753,7 @@ export function ContentJobQueue() {
                         : job.taskType === "curriculum_enrichment" ? "Curriculum Enrichment"
                         : job.taskType === "snapshot_take" ? "Snapshot Take"
                         : job.taskType === "snapshot_restore" ? "Snapshot Restore"
+                        : job.taskType === "bulk_delete" ? "Bulk Delete"
                         : "Course Setup"}
                     </div>
                   </div>

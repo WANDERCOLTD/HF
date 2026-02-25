@@ -9,6 +9,9 @@ import { DomainPill } from "@/src/components/shared/EntityPill";
 import { UnifiedAssistantPanel } from "@/components/shared/UnifiedAssistantPanel";
 import { useAssistant, useAssistantKeyboardShortcut } from "@/hooks/useAssistant";
 import { useArchiveFilter } from "@/hooks/useArchiveFilter";
+import { BulkDeleteModal } from "@/components/shared/BulkDeleteModal";
+import { useBackgroundTaskQueue } from "@/components/shared/ContentJobQueue";
+import type { BulkDeletePreview, BulkDeleteResult } from "@/lib/admin/bulk-delete";
 
 type Caller = {
   id: string;
@@ -84,6 +87,10 @@ export function CallersPage({ routePrefix = "" }: CallersPageProps) {
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [mergeTarget, setMergeTarget] = useState<string | null>(null);
   const [merging, setMerging] = useState(false);
+
+  // Bulk delete state
+  const [bulkDeletePreview, setBulkDeletePreview] = useState<BulkDeletePreview | null>(null);
+  const { addBulkDeleteJob } = useBackgroundTaskQueue();
 
   // Create caller state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -799,6 +806,26 @@ export function CallersPage({ routePrefix = "" }: CallersPageProps) {
             Archive Selected ({selectedCallers.size})
           </button>
           <button
+            onClick={async () => {
+              setActionLoading("bulk-delete");
+              try {
+                const res = await fetch("/api/admin/bulk-delete/preview", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ entityType: "caller", entityIds: Array.from(selectedCallers) }),
+                });
+                const data = await res.json();
+                if (data.ok) setBulkDeletePreview(data.preview);
+              } finally {
+                setActionLoading(null);
+              }
+            }}
+            disabled={actionLoading === "bulk-delete"}
+            className="hf-btn hf-btn-destructive"
+          >
+            {actionLoading === "bulk-delete" ? "Loading..." : `Delete Selected (${selectedCallers.size})`}
+          </button>
+          <button
             onClick={exitSelectionMode}
             className="hf-btn hf-btn-secondary cp-btn-cancel-muted"
           >
@@ -1098,6 +1125,30 @@ export function CallersPage({ routePrefix = "" }: CallersPageProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Bulk Delete Modal */}
+      {bulkDeletePreview && (
+        <BulkDeleteModal
+          preview={bulkDeletePreview}
+          onCancel={() => setBulkDeletePreview(null)}
+          onConfirm={(result: BulkDeleteResult) => {
+            setBulkDeletePreview(null);
+            setSelectionMode(false);
+            setSelectedCallers(new Set());
+            fetchCallers();
+            setSuccessMessage(
+              `Deleted ${result.totalDeleted} caller${result.totalDeleted === 1 ? "" : "s"}${result.totalFailed ? ` (${result.totalFailed} failed)` : ""}`
+            );
+          }}
+          onJobStarted={(taskId: string) => {
+            addBulkDeleteJob(taskId, "caller", selectedCallers.size);
+            setBulkDeletePreview(null);
+            setSelectionMode(false);
+            setSelectedCallers(new Set());
+            setSuccessMessage("Bulk delete started in background. Check the job queue for progress.");
+          }}
+        />
       )}
 
       {/* AI Assistant */}

@@ -35,6 +35,7 @@ export interface AgentTunerProps {
   context?: InterpretContext;
   onChange: (output: AgentTunerOutput) => void;
   label?: string; // override default "Advanced: Tune behavior"
+  bare?: boolean; // render without AdvancedSection wrapper (for when parent provides its own section header)
 }
 
 // ── API types ─────────────────────────────────────────

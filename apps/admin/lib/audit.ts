@@ -48,6 +48,12 @@ export const AuditAction = {
   MASQUERADE_START: "masquerade_start",
   MASQUERADE_STOP: "masquerade_stop",
 
+  // Bulk Operations
+  BULK_DELETED_CALLERS: "bulk_deleted_callers",
+  BULK_DELETED_PLAYBOOKS: "bulk_deleted_playbooks",
+  BULK_DEACTIVATED_DOMAINS: "bulk_deactivated_domains",
+  BULK_DELETED_SUBJECTS: "bulk_deleted_subjects",
+
   // RBAC and Terminology
   UPDATED_ENTITY_ACCESS: "updated_entity_access",
   RESET_ENTITY_ACCESS: "reset_entity_access",

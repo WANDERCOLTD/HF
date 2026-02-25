@@ -16,19 +16,23 @@ import type {
  *
  * Users describe agent style in natural language, AI translates to pills
  * backed by real Parameter records. Pills are manageable chips; the numeric
- * details stay hidden. Always wrapped in <AdvancedSection>.
+ * details stay hidden. Wrapped in <AdvancedSection> by default; pass `bare`
+ * to render inline when the parent provides its own section header.
  *
  * Usage:
  *   <AgentTuner
  *     context={{ personaSlug: "TUT-001", subjectName: "Level 2 Hygiene" }}
  *     onChange={({ pills, parameterMap }) => { ... }}
  *   />
+ *   // Or without AdvancedSection wrapper:
+ *   <AgentTuner bare onChange={...} />
  */
 export function AgentTuner({
   initialPills,
   context,
   onChange,
   label = "Advanced: Tune behavior",
+  bare = false,
 }: AgentTunerProps) {
   const [pills, setPills] = useState<AgentTunerPill[]>(initialPills ?? []);
   const [intent, setIntent] = useState("");
@@ -111,64 +115,70 @@ export function AgentTuner({
     [suggest]
   );
 
+  const tunerContent = (
+    <div className="hf-tuner-layout">
+      {/* ── Intent input + Suggest button ── */}
+      <div className="hf-tuner-input-row">
+        <input
+          type="text"
+          value={intent}
+          onChange={(e) => setIntent(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="e.g. warm, patient, challenges thinking"
+          className="hf-input hf-tuner-input-fill"
+        />
+        <button
+          onClick={suggest}
+          disabled={intent.trim().length < 3 || loading}
+          className="hf-btn hf-btn-secondary hf-tuner-suggest-btn"
+        >
+          {loading ? (
+            <Loader2 size={14} className="hf-spinner" />
+          ) : (
+            <Sparkles size={14} />
+          )}
+          Suggest
+        </button>
+      </div>
+
+      {/* ── Error banner ── */}
+      <ErrorBanner error={error} />
+
+      {/* ── Interpretation summary ── */}
+      {interpretation && pills.length > 0 && (
+        <div className="hf-tuner-interpretation">
+          {interpretation}
+        </div>
+      )}
+
+      {/* ── Pills ── */}
+      {pills.length > 0 && (
+        <div className="hf-tuner-pills">
+          {pills.map((pill) => (
+            <span
+              key={pill.id}
+              title={`${pill.description} (${pill.parameters.length} parameter${pill.parameters.length !== 1 ? "s" : ""})`}
+              className="hf-tuner-pill"
+            >
+              {pill.label}
+              <button
+                onClick={() => removePill(pill.id)}
+                className="hf-tuner-pill-remove"
+              >
+                &times;
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  if (bare) return tunerContent;
+
   return (
     <AdvancedSection label={label}>
-      <div className="hf-tuner-layout">
-        {/* ── Intent input + Suggest button ── */}
-        <div className="hf-tuner-input-row">
-          <input
-            type="text"
-            value={intent}
-            onChange={(e) => setIntent(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="e.g. warm, patient, challenges thinking"
-            className="hf-input hf-tuner-input-fill"
-          />
-          <button
-            onClick={suggest}
-            disabled={intent.trim().length < 3 || loading}
-            className="hf-btn hf-btn-secondary hf-tuner-suggest-btn"
-          >
-            {loading ? (
-              <Loader2 size={14} className="hf-spinner" />
-            ) : (
-              <Sparkles size={14} />
-            )}
-            Suggest
-          </button>
-        </div>
-
-        {/* ── Error banner ── */}
-        <ErrorBanner error={error} />
-
-        {/* ── Interpretation summary ── */}
-        {interpretation && pills.length > 0 && (
-          <div className="hf-tuner-interpretation">
-            {interpretation}
-          </div>
-        )}
-
-        {/* ── Pills ── */}
-        {pills.length > 0 && (
-          <div className="hf-tuner-pills">
-            {pills.map((pill) => (
-              <span
-                key={pill.id}
-                title={`${pill.description} (${pill.parameters.length} parameter${pill.parameters.length !== 1 ? "s" : ""})`}
-                className="hf-tuner-pill"
-              >
-                {pill.label}
-                <button
-                  onClick={() => removePill(pill.id)}
-                  className="hf-tuner-pill-remove"
-                >
-                  &times;
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+      {tunerContent}
     </AdvancedSection>
   );
 }

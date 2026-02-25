@@ -2385,6 +2385,7 @@ Create a new domain
 | description | body | string | No | Optional description |
 | isDefault | body | boolean | No | Set as default domain |
 | institutionId | body | string | No | Optional institution ID to link this domain to |
+| institutionTypeSlug | body | string | No | Optional institution type slug; auto-creates Institution linked to this type |
 
 **Response** `200`
 ```json

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
 import { useTerminology } from '@/contexts/TerminologyContext';
+import { FieldHint } from '@/components/shared/FieldHint';
+import { WIZARD_HINTS } from '@/lib/wizard-hints';
 import type { StepProps } from '../CourseSetupWizard';
 
 type PersonaOption = {
@@ -138,9 +140,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
 
         {/* Course Name */}
         <div className="mb-8">
-          <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
-            What&apos;s your course called?
-          </label>
+          <FieldHint label="What's your course called?" hint={WIZARD_HINTS["course.name"]} labelClass="block text-sm font-semibold text-[var(--text-primary)] mb-2" />
           <input
             type="text"
             value={courseName}
@@ -183,9 +183,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
 
         {/* Learning Outcomes */}
         <div className="mb-8">
-          <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
-            What will students learn? (1-3 outcomes)
-          </label>
+          <FieldHint label="What will students learn? (1-3 outcomes)" hint={WIZARD_HINTS["course.outcomes"]} labelClass="block text-sm font-semibold text-[var(--text-primary)] mb-2" />
           <div className="space-y-2">
             {outcomes.map((outcome, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -207,9 +205,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
 
         {/* Persona Selection */}
         <div className="mb-8">
-          <label className="block text-sm font-semibold text-[var(--text-primary)] mb-3">
-            Choose a {lower('persona')}
-          </label>
+          <FieldHint label={`Choose a ${lower('persona')}`} hint={WIZARD_HINTS["course.persona"]} labelClass="block text-sm font-semibold text-[var(--text-primary)] mb-3" />
           {personasLoading ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 0", color: "var(--text-muted)" }}>
               <div className="hf-spinner" style={{ width: 16, height: 16 }} />

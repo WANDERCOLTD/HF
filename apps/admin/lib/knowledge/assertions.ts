@@ -18,6 +18,7 @@ export type AssertionResult = {
   examRelevance: number | null;
   sourceName: string;
   relevanceScore: number;
+  teachMethod: string | null;
 };
 
 /**
@@ -82,6 +83,7 @@ export async function searchAssertionsByVector(
     tags: string[];
     trustLevel: string | null;
     examRelevance: number | null;
+    teachMethod: string | null;
     sourceName: string;
     similarity: number;
   }>>(
@@ -89,6 +91,7 @@ export async function searchAssertionsByVector(
       ? Prisma.sql`
           SELECT a.assertion, a.category, a.chapter, a.tags,
                  a."trustLevel"::text, a."examRelevance",
+                 a."teachMethod",
                  s.name as "sourceName",
                  1 - (a.embedding <=> ${vectorLiteral}::vector) as similarity
           FROM "ContentAssertion" a
@@ -101,6 +104,7 @@ export async function searchAssertionsByVector(
       : Prisma.sql`
           SELECT a.assertion, a.category, a.chapter, a.tags,
                  a."trustLevel"::text, a."examRelevance",
+                 a."teachMethod",
                  s.name as "sourceName",
                  1 - (a.embedding <=> ${vectorLiteral}::vector) as similarity
           FROM "ContentAssertion" a
@@ -120,6 +124,7 @@ export async function searchAssertionsByVector(
       tags: r.tags || [],
       trustLevel: r.trustLevel,
       examRelevance: r.examRelevance,
+      teachMethod: r.teachMethod,
       sourceName: r.sourceName,
       relevanceScore: r.similarity,
     }));
@@ -187,6 +192,7 @@ export async function searchAssertions(
         tags: a.tags,
         trustLevel: a.trustLevel,
         examRelevance: a.examRelevance,
+        teachMethod: a.teachMethod ?? null,
         sourceName: a.source.name,
         relevanceScore,
       };
@@ -253,8 +259,11 @@ export function formatAssertion(a: {
   chapter: string | null;
   sourceName: string;
   trustLevel: string | null;
+  teachMethod?: string | null;
 }): string {
-  const parts = [`[${a.category.toUpperCase()}]`];
+  const parts: string[] = [];
+  if (a.teachMethod) parts.push(`[${a.teachMethod}]`);
+  parts.push(`[${a.category.toUpperCase()}]`);
   if (a.chapter) parts.push(`(${a.chapter})`);
   parts.push(a.assertion);
   if (a.trustLevel) parts.push(`[Trust: ${a.trustLevel}]`);

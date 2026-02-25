@@ -11,6 +11,9 @@ import { DraggableTabs } from "@/components/shared/DraggableTabs";
 import { UnifiedAssistantPanel } from "@/components/shared/UnifiedAssistantPanel";
 import { useAssistant, useAssistantKeyboardShortcut } from "@/hooks/useAssistant";
 import { ReadinessBadge } from "@/components/shared/ReadinessBadge";
+import { BulkDeleteModal } from "@/components/shared/BulkDeleteModal";
+import { useBackgroundTaskQueue } from "@/components/shared/ContentJobQueue";
+import type { BulkDeletePreview, BulkDeleteResult } from "@/lib/admin/bulk-delete";
 import { EditableTitle } from "@/components/shared/EditableTitle";
 import { BookOpen, Users, FileText, Rocket } from "lucide-react";
 import { AdvancedBanner } from "@/components/shared/AdvancedBanner";
@@ -22,6 +25,7 @@ import { useSourceStatus } from "@/hooks/useSourceStatus";
 import { CreateDomainModal } from "./components/CreateDomainModal";
 import { AddPlaybookModal } from "./components/AddPlaybookModal";
 import { PromptPreviewModal } from "./components/PromptPreviewModal";
+import { SectorBadge } from "./components/SectorBadge";
 import { OnboardingTabContent } from "./components/OnboardingTab";
 
 export default function DomainsPage() {
@@ -63,6 +67,14 @@ export default function DomainsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Multi-select + bulk deactivate
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set());
+  const [bulkDeletePreview, setBulkDeletePreview] = useState<BulkDeletePreview | null>(null);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { addBulkDeleteJob } = useBackgroundTaskQueue();
 
   // Remove playbook state
   const [removingPlaybookId, setRemovingPlaybookId] = useState<string | null>(null);
@@ -351,6 +363,17 @@ export default function DomainsPage() {
         <div className="hf-flex hf-flex-between" style={{ marginBottom: 10 }}>
           <h1 className="hf-section-title">{plural("domain")}</h1>
           <div className="hf-flex hf-gap-md hf-items-center">
+            {isOperator && (
+              <button
+                onClick={() => {
+                  setSelectionMode(!selectionMode);
+                  setSelectedDomains(new Set());
+                }}
+                className={`hf-btn-sm ${selectionMode ? "hf-btn-warning" : "hf-btn-secondary"}`}
+              >
+                {selectionMode ? "Cancel Select" : "Select"}
+              </button>
+            )}
             <button
               onClick={() => setShowCreate(true)}
               className="hf-btn-sm hf-btn-primary"
@@ -455,11 +478,39 @@ export default function DomainsPage() {
               {filteredAndSortedDomains.map((d) => (
                 <div
                   key={d.id}
-                  onClick={() => selectDomain(d.id)}
-                  className={`hf-master-item${selectedId === d.id ? " hf-master-item-selected" : ""}${!d.isActive ? " hf-master-item-inactive" : ""}`}
+                  onClick={() => {
+                    if (selectionMode) {
+                      setSelectedDomains((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(d.id)) next.delete(d.id);
+                        else next.add(d.id);
+                        return next;
+                      });
+                    } else {
+                      selectDomain(d.id);
+                    }
+                  }}
+                  className={`hf-master-item${selectedId === d.id && !selectionMode ? " hf-master-item-selected" : ""}${!d.isActive ? " hf-master-item-inactive" : ""}${selectionMode && selectedDomains.has(d.id) ? " hf-master-item-selected" : ""}`}
                 >
                   <div className="hf-flex hf-gap-sm hf-mb-sm hf-items-center">
+                    {selectionMode && (
+                      <input
+                        type="checkbox"
+                        checked={selectedDomains.has(d.id)}
+                        onChange={() => {
+                          setSelectedDomains((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(d.id)) next.delete(d.id);
+                            else next.add(d.id);
+                            return next;
+                          });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="cp-selection-checkbox"
+                      />
+                    )}
                     <h3 className="hf-heading-sm hf-mb-0">{d.name}</h3>
+                    <SectorBadge typeSlug={d.institution?.type?.slug} typeName={d.institution?.type?.name} />
                     {statusBadge(d)}
                   </div>
                   <p className="hf-text-xs hf-text-muted" style={{ margin: 0, marginBottom: 10, lineHeight: 1.4 }}>
@@ -539,6 +590,7 @@ export default function DomainsPage() {
                         fetchDomains();
                       }}
                     />
+                    <SectorBadge typeSlug={domain.institution?.type?.slug} typeName={domain.institution?.type?.name} size="md" />
                     {domain.isDefault && (
                       <span className="hf-badge hf-badge-info">
                         Default
@@ -975,6 +1027,82 @@ export default function DomainsPage() {
           )}
         </div>
       </div>
+
+      {/* Success message */}
+      {successMessage && (
+        <div
+          className="hf-banner hf-banner-success"
+          style={{ position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)", zIndex: 100, borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+          onClick={() => setSuccessMessage(null)}
+        >
+          {successMessage}
+        </div>
+      )}
+
+      {/* Bulk Selection Floating Bar */}
+      {selectionMode && selectedDomains.size > 0 && (
+        <div className="hf-floating-bar">
+          <span className="hf-text-sm hf-text-bold">
+            {selectedDomains.size} selected
+          </span>
+          <button
+            onClick={async () => {
+              setBulkActionLoading(true);
+              try {
+                const res = await fetch("/api/admin/bulk-delete/preview", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ entityType: "domain", entityIds: Array.from(selectedDomains) }),
+                });
+                const data = await res.json();
+                if (data.ok) setBulkDeletePreview(data.preview);
+              } finally {
+                setBulkActionLoading(false);
+              }
+            }}
+            disabled={bulkActionLoading}
+            className="hf-btn hf-btn-warning"
+          >
+            {bulkActionLoading ? "Loading..." : `Deactivate Selected (${selectedDomains.size})`}
+          </button>
+          <button
+            onClick={() => { setSelectionMode(false); setSelectedDomains(new Set()); }}
+            className="hf-btn hf-btn-secondary"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* Bulk Deactivate Modal */}
+      {bulkDeletePreview && (
+        <BulkDeleteModal
+          preview={bulkDeletePreview}
+          onCancel={() => setBulkDeletePreview(null)}
+          onConfirm={(result: BulkDeleteResult) => {
+            setBulkDeletePreview(null);
+            setSelectionMode(false);
+            setSelectedDomains(new Set());
+            fetchDomains();
+            // Refresh detail if current domain was deactivated
+            if (selectedId && result.succeeded.some((s) => s.id === selectedId)) {
+              fetch(`/api/domains/${selectedId}`)
+                .then((r) => r.json())
+                .then((data) => { if (data.ok) setDomain(data.domain); });
+            }
+            setSuccessMessage(
+              `Deactivated ${result.totalDeleted} ${result.totalDeleted === 1 ? terms.domain.toLowerCase() : plural("domain").toLowerCase()}${result.totalFailed ? ` (${result.totalFailed} failed)` : ""}`
+            );
+          }}
+          onJobStarted={(taskId: string) => {
+            addBulkDeleteJob(taskId, "domain", selectedDomains.size);
+            setBulkDeletePreview(null);
+            setSelectionMode(false);
+            setSelectedDomains(new Set());
+            setSuccessMessage("Bulk deactivate started in background. Check the job queue for progress.");
+          }}
+        />
+      )}
 
       {/* Create Domain Modal */}
       <CreateDomainModal

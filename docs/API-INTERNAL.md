@@ -211,6 +211,72 @@ Toggle audit logging on or off (ADMIN role required)
 
 ---
 
+### `POST` /api/admin/bulk-delete
+
+Execute synchronous bulk delete for small batches.
+
+**Auth**: session (ADMIN+) · **Scope**: `admin:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| entityType | body | string | No | "caller" | "playbook" | "domain" | "subject" |
+
+**Response** `200`
+```json
+{ ok: true, result: BulkDeleteResult }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "...", useBackground?: true }
+```
+
+---
+
+### `POST` /api/admin/bulk-delete/job
+
+Start a background bulk delete job. Returns taskId for polling.
+
+**Auth**: session (ADMIN+) · **Scope**: `admin:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| entityType | body | string | No | "caller" | "playbook" | "domain" | "subject" |
+
+**Response** `200`
+```json
+{ ok: true, taskId: string }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "..." }
+```
+
+---
+
+### `POST` /api/admin/bulk-delete/preview
+
+Preview cascade impact for bulk delete. Returns per-entity counts
+
+**Auth**: session (ADMIN+) · **Scope**: `admin:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| entityType | body | string | No | "caller" | "playbook" | "domain" | "subject" |
+
+**Response** `200`
+```json
+{ ok: true, preview: BulkDeletePreview }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "..." }
+```
+
+---
+
 ### `GET` /api/admin/institution-types
 
 List all institution types with terminology and config (ADMIN role required)
@@ -4394,6 +4460,40 @@ Ingest a confirmed course pack manifest. Creates Subjects, ContentSources,
 
 ## Courses
 
+### `GET` /api/courses/:courseId/content-breakdown
+
+Returns teaching point counts grouped by teachMethod for a course (playbook).
+
+**Auth**: VIEWER · **Scope**: `courses:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| courseId | path | string | Yes | Playbook UUID |
+| sourceId | query | string | No | Optional: scope to a single content source |
+| bySubject | query | boolean | No | Optional: include per-subject breakdown |
+| teachMethod | query | string | No | Optional: drill-down mode — return individual assertions for this method |
+| limit | query | number | No | Drill-down pagination limit (default 50, max 50) |
+| offset | query | number | No | Drill-down pagination offset (default 0) |
+| sortBy | query | string | No | Drill-down sort field: "category" | "chapter" | "source" (default "chapter") |
+| sortDir | query | string | No | Sort direction: "asc" | "desc" (default "asc") |
+
+**Response** `200`
+```json
+{ ok, teachingMode, methods, total, reviewedCount } (summary mode)
+```
+
+**Response** `200`
+```json
+{ ok, assertions, total } (drill-down mode)
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+---
+
 ### `GET` /api/courses/:courseId/subjects
 
 **Auth**: VIEWER+
@@ -4864,6 +4964,7 @@ Create a new domain
 | description | body | string | No | Optional description |
 | isDefault | body | boolean | No | Set as default domain |
 | institutionId | body | string | No | Optional institution ID to link this domain to |
+| institutionTypeSlug | body | string | No | Optional institution type slug; auto-creates Institution linked to this type |
 
 **Response** `200`
 ```json
@@ -11497,6 +11598,25 @@ Returns a hierarchical tree of the full taxonomy:
 
 ## Wizard
 
+### `POST` /api/teach-wizard/launch
+
+Server-side launch for the Teach wizard. Creates a UserTask that runs the
+
+**Auth**: session (OPERATOR+) · **Scope**: `teach-wizard:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| domainId | body | string | No | Domain to launch in (required) |
+| goal | body | string | No | Learning goal text (optional) |
+| persona | body | string | No | Selected persona slug (optional) |
+
+**Response** `202`
+```json
+{ ok: true, taskId: string }
+```
+
+---
+
 ### `GET` /api/wizard-steps
 
 Load wizard step definitions from a spec. Accepts either `wizard` (name resolved via config) or `slug` (direct). Returns hardcoded fallback if spec not found.
@@ -11651,8 +11771,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 322 |
-| Files with annotations | 321 |
+| Route files found | 327 |
+| Files with annotations | 326 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

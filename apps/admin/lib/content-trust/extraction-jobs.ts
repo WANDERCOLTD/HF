@@ -31,6 +31,9 @@ export interface ExtractionJob {
   duplicatesSkipped?: number;
   warnings: string[];
   error?: string;
+  /** Quick-pass preview teaching points (lives in job context only, not DB) */
+  quickPreview?: Array<{ text: string; category: string }>;
+  quickPreviewCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -69,6 +72,8 @@ function taskToJob(task: {
     duplicatesSkipped: ctx.duplicatesSkipped,
     warnings: ctx.warnings ?? [],
     error: ctx.error,
+    quickPreview: ctx.quickPreview || undefined,
+    quickPreviewCount: ctx.quickPreviewCount || 0,
     createdAt: task.startedAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
   };
@@ -136,6 +141,8 @@ export async function updateJob(id: string, patch: Partial<ExtractionJob>) {
   if (patch.duplicatesSkipped !== undefined) contextPatch.duplicatesSkipped = patch.duplicatesSkipped;
   if (patch.warnings !== undefined) contextPatch.warnings = patch.warnings;
   if (patch.error !== undefined) contextPatch.error = patch.error;
+  if (patch.quickPreview !== undefined) contextPatch.quickPreview = patch.quickPreview;
+  if (patch.quickPreviewCount !== undefined) contextPatch.quickPreviewCount = patch.quickPreviewCount;
 
   // Map legacy status to UserTask step + status
   const updates: {

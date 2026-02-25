@@ -4,16 +4,16 @@ import {
   extractText,
   extractAssertions,
   chunkText,
+  quickExtract,
   type ChunkCompleteData,
 } from "@/lib/content-trust/extract-assertions";
-import type { DocumentType } from "@/lib/content-trust/resolve-config";
+import type { DocumentType, TeachingMode } from "@/lib/content-trust/resolve-config";
 import { resolveExtractionConfig } from "@/lib/content-trust/resolve-config";
 import { classifyDocument, fetchFewShotExamples } from "@/lib/content-trust/classify-document";
 import { segmentDocument } from "@/lib/content-trust/segment-document";
 import { extractAssertionsSegmented } from "@/lib/content-trust/extract-assertions";
 import { saveAssertions } from "@/lib/content-trust/save-assertions";
-import { createJob, getJob, updateJob } from "@/lib/content-trust/extraction-jobs";
-// Note: createJob/getJob/updateJob now delegate to UserTask DB storage
+import { createExtractionTask, getJob, updateJob } from "@/lib/content-trust/extraction-jobs";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { getStorageAdapter, computeContentHash } from "@/lib/storage";
 import { config } from "@/lib/config";
@@ -179,6 +179,7 @@ export async function POST(
     const mode = (formData.get("mode") as string) || "preview";
     const focusChaptersRaw = formData.get("focusChapters") as string | null;
     const maxAssertionsRaw = formData.get("maxAssertions") as string | null;
+    const teachingModeRaw = formData.get("teachingMode") as string | null;
 
     if (!file) {
       return NextResponse.json({ ok: false, error: "No file uploaded" }, { status: 400 });
@@ -196,6 +197,11 @@ export async function POST(
 
     const focusChapters = focusChaptersRaw?.split(",").map((s) => s.trim()).filter(Boolean);
     const maxAssertions = maxAssertionsRaw ? parseInt(maxAssertionsRaw, 10) : 500;
+    const VALID_TEACHING_MODES: TeachingMode[] = ["recall", "comprehension", "practice", "syllabus"];
+    const teachingMode: TeachingMode | undefined =
+      teachingModeRaw && VALID_TEACHING_MODES.includes(teachingModeRaw as TeachingMode)
+        ? (teachingModeRaw as TeachingMode)
+        : undefined;
 
     // ── Classify mode: start background classification ──
     if (mode === "classify") {
@@ -257,7 +263,7 @@ export async function POST(
         }
       }
 
-      const job = await createJob(sourceId, file.name);
+      const job = await createExtractionTask(authResult.session.user.id, sourceId, file.name);
       await updateJob(job.id, { status: "extracting", totalChunks: chunks.length });
 
       // Fire-and-forget the extraction + import
@@ -268,6 +274,7 @@ export async function POST(
         qualificationRef: source.qualificationRef || undefined,
         focusChapters,
         maxAssertions,
+        teachingMode,
       }).catch(async (err) => {
         console.error(`[extraction-job] ${job.id} unhandled error:`, err);
         await updateJob(job.id, { status: "error", error: err.message || "Unknown error" });
@@ -323,6 +330,7 @@ export async function POST(
       qualificationRef: source.qualificationRef || undefined,
       focusChapters,
       maxAssertions,
+      teachingMode,
     };
 
     const result = syncSegmentation.isComposite && syncSegmentation.sections.length > 1
@@ -408,8 +416,27 @@ async function runBackgroundExtraction(
   fileName: string,
   fileType: string,
   pages: number | undefined,
-  options: { sourceSlug: string; sourceId?: string; documentType?: DocumentType; qualificationRef?: string; focusChapters?: string[]; maxAssertions?: number }
+  options: { sourceSlug: string; sourceId?: string; documentType?: DocumentType; qualificationRef?: string; focusChapters?: string[]; maxAssertions?: number; teachingMode?: TeachingMode }
 ) {
+  // ── Phase 1: Quick pass (Haiku, ~3-8s) ──
+  try {
+    const extractionConfig = await resolveExtractionConfig(source.id);
+    const categories = extractionConfig.extraction.categories.map((c) => c.id);
+    const quickResults = await quickExtract(text, categories);
+
+    if (quickResults.length > 0) {
+      await updateJob(jobId, {
+        quickPreview: quickResults,
+        quickPreviewCount: quickResults.length,
+      } as any);
+    }
+  } catch (err: any) {
+    console.warn(`[extraction-job] ${jobId} quick pass failed (non-fatal):`, err?.message);
+    // Quick pass failure is non-fatal — continue to full extraction
+  }
+
+  // ── Phase 2: Full extraction (existing pipeline) ──
+
   // Track cumulative per-chunk save counts
   let totalCreated = 0;
   let totalDuplicatesSkipped = 0;

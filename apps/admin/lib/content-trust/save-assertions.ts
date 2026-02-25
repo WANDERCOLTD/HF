@@ -60,6 +60,7 @@ export async function saveAssertions(
         validUntil: a.validUntil ? new Date(a.validUntil) : null,
         taxYear: a.taxYear || null,
         contentHash: a.contentHash,
+        teachMethod: a.teachMethod || null,
       })),
     });
   }

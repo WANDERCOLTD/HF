@@ -568,6 +568,10 @@ model InstitutionType {
   // Default DomainKind for new domains created under this institution type
   defaultDomainKind DomainKind @default(INSTITUTION)
 
+  // Default archetype spec slug for this institution type (e.g., "TUT-001", "COACH-001", "COMPANION-001")
+  // Cascades through scaffold → identity overlay → prompt composition
+  defaultArchetypeSlug String?
+
   institutions Institution[]
 
   createdAt DateTime @default(now())

@@ -1,5 +1,17 @@
 // Shared types for domains page components
 
+export type InstitutionTypeInfo = {
+  slug: string;
+  name: string;
+  defaultArchetypeSlug?: string | null;
+};
+
+export type InstitutionInfo = {
+  id: string;
+  name: string;
+  type?: InstitutionTypeInfo | null;
+};
+
 export type DomainListItem = {
   id: string;
   slug: string;
@@ -15,6 +27,7 @@ export type DomainListItem = {
     version: string;
     publishedAt: string;
   } | null;
+  institution?: InstitutionInfo | null;
 };
 
 export type Caller = {
@@ -78,6 +91,7 @@ export type DomainDetail = {
   callers: Caller[];
   playbooks: Playbook[];
   subjects?: SubjectItem[];
+  institution?: InstitutionInfo | null;
   onboardingWelcome?: string | null;
   onboardingIdentitySpec?: {
     id: string;

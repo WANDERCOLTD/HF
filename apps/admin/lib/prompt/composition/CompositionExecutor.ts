@@ -27,6 +27,7 @@ import "./transforms/memories";
 import "./transforms/targets";
 import "./transforms/modules";
 import "./transforms/pedagogy";
+import "./transforms/pedagogy-mode";
 import "./transforms/voice";
 import "./transforms/quickstart";
 import "./transforms/preamble";
@@ -605,6 +606,17 @@ export function getDefaultSections(): CompositionSectionDef[] {
       transform: "renderTeachingContent",
       outputKey: "teachingContent",
       dependsOn: ["content_trust"],
+    },
+    {
+      id: "pedagogy_mode",
+      name: "Pedagogy Mode",
+      priority: 12.7,
+      dataSource: "_assembled",
+      activateWhen: { condition: "always" },
+      fallback: { action: "null" },
+      transform: "computePedagogyMode",
+      outputKey: "pedagogyMode",
+      dependsOn: ["curriculum"],
     },
     {
       id: "activity_toolkit",

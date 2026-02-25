@@ -360,3 +360,24 @@
 
 /* Ingest progress */
 .pack-ingest-progress { padding: 20px 0; }
+
+/* ── Quick preview (extraction step) ── */
+.dtw-quick-preview-wrap { margin-bottom: 16px; }
+.dtw-quick-preview-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-success-text); flex-shrink: 0; }
+.dtw-quick-preview-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.dtw-warning-detail { color: var(--status-warning-text); margin-top: 4px; font-size: 12px; }
+.dtw-saving-hint { font-size: 12px; color: var(--text-muted); font-weight: 400; }
+
+/* ── Centered loader (shared pattern) ── */
+.dtw-centered-loader { display: flex; gap: 8px; align-items: center; justify-content: center; padding: 24px; }
+
+/* ── Accordion top margin ── */
+.dtw-accordion-card + .dtw-accordion-card { margin-top: 0; }
+.dtw-tp-accordion { margin-top: 12px; }
+
+/* ── Nav top margin ── */
+.dtw-nav-between--spaced { margin-top: 20px; }
+
+/* ── Empty centered text ── */
+.dtw-empty-text { padding: 16px; text-align: center; }
+.dtw-showing-count { padding: 8px 16px; text-align: center; }

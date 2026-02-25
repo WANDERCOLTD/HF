@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { TEACH_METHOD_CONFIG } from "@/lib/content-trust/resolve-config";
 
 const VALID_CATEGORIES = ["fact", "definition", "threshold", "rule", "process", "example"];
+const VALID_TEACH_METHODS = Object.keys(TEACH_METHOD_CONFIG);
 
 /**
  * @api PATCH /api/content-sources/:sourceId/assertions/:assertionId
@@ -114,6 +116,16 @@ export async function PATCH(
 
     if (body.learningOutcomeRef !== undefined) {
       updates.learningOutcomeRef = body.learningOutcomeRef || null;
+    }
+
+    if (body.teachMethod !== undefined) {
+      if (body.teachMethod !== null && !VALID_TEACH_METHODS.includes(body.teachMethod)) {
+        return NextResponse.json(
+          { ok: false, error: `Invalid teachMethod. Must be one of: ${VALID_TEACH_METHODS.join(", ")}` },
+          { status: 400 }
+        );
+      }
+      updates.teachMethod = body.teachMethod || null;
     }
 
     // Mark as reviewed

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowRight, Plus, Trash2, Users, User, Mail, Search, X, Loader2 } from 'lucide-react';
+import { FieldHint } from '@/components/shared/FieldHint';
+import { WIZARD_HINTS } from '@/lib/wizard-hints';
 import type { StepProps } from '../CourseSetupWizard';
 
 type EnrollMode = 'group' | 'individual' | 'email';
@@ -184,10 +186,14 @@ export function StudentsStep({ setData, getData, onNext, onPrev }: StepProps) {
     <div className="min-h-screen flex flex-col">
       <div className="flex-1 p-8 max-w-2xl mx-auto w-full">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Add Students</h1>
+          <FieldHint label="Add Students" hint={WIZARD_HINTS["course.students"]} labelClass="text-3xl font-bold text-[var(--text-primary)] mb-2" />
           <p className="text-[var(--text-secondary)]">
             Enroll students now, or skip and add them later
           </p>
+          <div className="hf-banner hf-banner-info" style={{ marginTop: 12 }}>
+            <strong>WhatsApp Follow-ups:</strong> After each lesson, students receive a message on WhatsApp.
+            Make sure students have provided phone numbers during enrollment.
+          </div>
           {!hasDomain && (
             <p className="text-xs text-[var(--text-muted)] mt-2">
               Group enrollment will be available after the course is created.

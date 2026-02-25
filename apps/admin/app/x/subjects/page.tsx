@@ -9,6 +9,9 @@ import { FancySelect } from '@/components/shared/FancySelect';
 import { DomainPill } from '@/src/components/shared/EntityPill';
 import { AdvancedBanner } from '@/components/shared/AdvancedBanner';
 import { TrustBadge, TRUST_LEVELS } from '@/app/x/content-sources/_components/shared/badges';
+import { BulkDeleteModal } from '@/components/shared/BulkDeleteModal';
+import { useBackgroundTaskQueue } from '@/components/shared/ContentJobQueue';
+import type { BulkDeletePreview, BulkDeleteResult } from '@/lib/admin/bulk-delete';
 import SubjectDetail from './_components/SubjectDetail';
 import SubjectCreateModal from './_components/SubjectCreateModal';
 
@@ -64,6 +67,14 @@ export default function SubjectsPage() {
   const [selectedTrustLevels, setSelectedTrustLevels] = useState<Set<string>>(new Set());
   const [selectedDomain, setSelectedDomain] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Multi-select + bulk delete
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedSubjects, setSelectedSubjects] = useState<Set<string>>(new Set());
+  const [bulkDeletePreview, setBulkDeletePreview] = useState<BulkDeletePreview | null>(null);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { addBulkDeleteJob } = useBackgroundTaskQueue();
 
   const loadSubjects = async () => {
     try {
@@ -147,12 +158,25 @@ export default function SubjectsPage() {
       <div className="hf-card-compact hf-mb-md" style={{ borderRadius: 8, position: 'relative', zIndex: 2 }}>
         <div className="hf-flex hf-flex-between" style={{ marginBottom: 10 }}>
           <h1 className="hf-section-title">Subjects</h1>
-          {isOperator && (
-            <button onClick={() => setShowCreateModal(true)} className="hf-btn-sm hf-btn-primary">
-              <Plus size={14} style={{ marginRight: 4 }} />
-              New Subject
-            </button>
-          )}
+          <div className="hf-flex hf-gap-md hf-items-center">
+            {isOperator && (
+              <button
+                onClick={() => {
+                  setSelectionMode(!selectionMode);
+                  setSelectedSubjects(new Set());
+                }}
+                className={`hf-btn-sm ${selectionMode ? 'hf-btn-warning' : 'hf-btn-secondary'}`}
+              >
+                {selectionMode ? 'Cancel Select' : 'Select'}
+              </button>
+            )}
+            {isOperator && (
+              <button onClick={() => setShowCreateModal(true)} className="hf-btn-sm hf-btn-primary">
+                <Plus size={14} style={{ marginRight: 4 }} />
+                New Subject
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="hf-flex hf-flex-wrap hf-gap-lg hf-items-center">
@@ -250,10 +274,37 @@ export default function SubjectsPage() {
               {filteredSubjects.map((subject) => (
                 <div
                   key={subject.id}
-                  onClick={() => selectSubject(subject.id)}
-                  className={`hf-master-item${selectedId === subject.id ? ' hf-master-item-selected' : ''}${!subject.isActive ? ' hf-master-item-inactive' : ''}`}
+                  onClick={() => {
+                    if (selectionMode) {
+                      setSelectedSubjects((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(subject.id)) next.delete(subject.id);
+                        else next.add(subject.id);
+                        return next;
+                      });
+                    } else {
+                      selectSubject(subject.id);
+                    }
+                  }}
+                  className={`hf-master-item${selectedId === subject.id && !selectionMode ? ' hf-master-item-selected' : ''}${!subject.isActive ? ' hf-master-item-inactive' : ''}${selectionMode && selectedSubjects.has(subject.id) ? ' hf-master-item-selected' : ''}`}
                 >
                   <div className="hf-flex hf-gap-sm hf-mb-sm hf-items-center">
+                    {selectionMode && (
+                      <input
+                        type="checkbox"
+                        checked={selectedSubjects.has(subject.id)}
+                        onChange={() => {
+                          setSelectedSubjects((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(subject.id)) next.delete(subject.id);
+                            else next.add(subject.id);
+                            return next;
+                          });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="cp-selection-checkbox"
+                      />
+                    )}
                     <h3 className="hf-heading-sm hf-mb-0" style={{ flex: 1 }}>{subject.name}</h3>
                     <TrustBadge level={subject.defaultTrustLevel} />
                   </div>
@@ -301,6 +352,80 @@ export default function SubjectsPage() {
           )}
         </div>
       </div>
+
+      {/* Success message */}
+      {successMessage && (
+        <div
+          className="hf-banner hf-banner-success"
+          style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 100, borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+          onClick={() => setSuccessMessage(null)}
+        >
+          {successMessage}
+        </div>
+      )}
+
+      {/* Bulk Selection Floating Bar */}
+      {selectionMode && selectedSubjects.size > 0 && (
+        <div className="hf-floating-bar">
+          <span className="hf-text-sm hf-text-bold">
+            {selectedSubjects.size} selected
+          </span>
+          <button
+            onClick={async () => {
+              setBulkActionLoading(true);
+              try {
+                const res = await fetch('/api/admin/bulk-delete/preview', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ entityType: 'subject', entityIds: Array.from(selectedSubjects) }),
+                });
+                const data = await res.json();
+                if (data.ok) setBulkDeletePreview(data.preview);
+              } finally {
+                setBulkActionLoading(false);
+              }
+            }}
+            disabled={bulkActionLoading}
+            className="hf-btn hf-btn-destructive"
+          >
+            {bulkActionLoading ? 'Loading...' : `Delete Selected (${selectedSubjects.size})`}
+          </button>
+          <button
+            onClick={() => { setSelectionMode(false); setSelectedSubjects(new Set()); }}
+            className="hf-btn hf-btn-secondary"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* Bulk Delete Modal */}
+      {bulkDeletePreview && (
+        <BulkDeleteModal
+          preview={bulkDeletePreview}
+          onCancel={() => setBulkDeletePreview(null)}
+          onConfirm={(result: BulkDeleteResult) => {
+            setBulkDeletePreview(null);
+            setSelectionMode(false);
+            setSelectedSubjects(new Set());
+            loadSubjects();
+            // If current detail was deleted, clear selection
+            if (selectedId && result.succeeded.some((s) => s.id === selectedId)) {
+              router.push('/x/subjects', { scroll: false });
+            }
+            setSuccessMessage(
+              `Deleted ${result.totalDeleted} subject${result.totalDeleted === 1 ? '' : 's'}${result.totalFailed ? ` (${result.totalFailed} failed)` : ''}`
+            );
+          }}
+          onJobStarted={(taskId: string) => {
+            addBulkDeleteJob(taskId, 'subject', selectedSubjects.size);
+            setBulkDeletePreview(null);
+            setSelectionMode(false);
+            setSelectedSubjects(new Set());
+            setSuccessMessage('Bulk delete started in background. Check the job queue for progress.');
+          }}
+        />
+      )}
 
       {/* Create Modal */}
       <SubjectCreateModal

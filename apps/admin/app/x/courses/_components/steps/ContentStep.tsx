@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowRight, Upload, AlertCircle, CheckCircle, FolderUp } from 'lucide-react';
 import { PackUploadStep } from '@/components/wizards/PackUploadStep';
 import type { PackUploadResult } from '@/components/wizards/PackUploadStep';
+import { FieldHint } from '@/components/shared/FieldHint';
+import { WIZARD_HINTS } from '@/lib/wizard-hints';
 import type { StepProps } from '../CourseSetupWizard';
 
 export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
@@ -160,7 +162,7 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
     <div className="min-h-screen flex flex-col">
       <div className="flex-1 p-8 max-w-2xl mx-auto w-full">
         <div className="mb-8">
-          <h1 className="hf-page-title hf-mb-sm">Add Content</h1>
+          <FieldHint label="Add Content" hint={WIZARD_HINTS["course.content"]} labelClass="hf-page-title hf-mb-sm" />
           <p className="hf-page-subtitle">Upload your course files, or describe your topics</p>
         </div>
 

@@ -49,10 +49,23 @@ export async function GET(request: NextRequest) {
             publishedAt: true,
           },
         },
+        institution: {
+          select: {
+            id: true,
+            name: true,
+            type: {
+              select: {
+                slug: true,
+                name: true,
+                defaultArchetypeSlug: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    // Transform to include published playbook info
+    // Transform to include published playbook info + institution type
     const domainsWithInfo = domains.map((domain) => ({
       ...domain,
       callerCount: domain._count.callers,
@@ -61,6 +74,7 @@ export async function GET(request: NextRequest) {
       _count: undefined,
       playbooks: undefined,
       institutionId: domain.institutionId,
+      institution: domain.institution || null,
     }));
 
     return NextResponse.json({
@@ -89,6 +103,7 @@ export async function GET(request: NextRequest) {
  * @body description string - Optional description
  * @body isDefault boolean - Set as default domain
  * @body institutionId string - Optional institution ID to link this domain to
+ * @body institutionTypeSlug string - Optional institution type slug; auto-creates Institution linked to this type
  * @response 200 { ok: true, domain: Domain }
  * @response 400 { ok: false, error: "slug and name are required" }
  * @response 409 { ok: false, error: "Domain with slug ... already exists" }
@@ -101,7 +116,7 @@ export async function POST(request: NextRequest) {
     const { session } = authResult;
 
     const body = await request.json();
-    const { slug, name, description, isDefault, institutionId } = body;
+    const { slug, name, description, isDefault, institutionId, institutionTypeSlug } = body;
 
     if (!slug || !name) {
       return NextResponse.json(
@@ -130,6 +145,21 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Auto-create Institution from type slug if provided and no explicit institutionId
+    let resolvedInstitutionId = institutionId || session?.user?.institutionId || undefined;
+    if (!resolvedInstitutionId && institutionTypeSlug) {
+      const instType = await prisma.institutionType.findUnique({
+        where: { slug: institutionTypeSlug },
+        select: { id: true },
+      });
+      if (instType) {
+        const institution = await prisma.institution.create({
+          data: { name, slug, typeId: instType.id },
+        });
+        resolvedInstitutionId = institution.id;
+      }
+    }
+
     const domain = await prisma.domain.create({
       data: {
         slug,
@@ -137,7 +167,7 @@ export async function POST(request: NextRequest) {
         description: description || null,
         isDefault: isDefault || false,
         isActive: true,
-        institutionId: institutionId || session?.user?.institutionId || undefined,
+        institutionId: resolvedInstitutionId,
       },
     });
 

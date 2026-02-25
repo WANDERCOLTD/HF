@@ -8,6 +8,9 @@ import { useTerminology } from "@/contexts/TerminologyContext";
 import { FancySelect } from "@/components/shared/FancySelect";
 import { EntityPill, DomainPill, PlaybookPill, SpecPill, StatusBadge } from "@/src/components/shared/EntityPill";
 import { AdvancedBanner } from "@/components/shared/AdvancedBanner";
+import { BulkDeleteModal } from "@/components/shared/BulkDeleteModal";
+import { useBackgroundTaskQueue } from "@/components/shared/ContentJobQueue";
+import type { BulkDeletePreview, BulkDeleteResult } from "@/lib/admin/bulk-delete";
 import "./playbooks.css";
 
 type Domain = {
@@ -111,6 +114,14 @@ export default function PlaybooksPage() {
   const [archiving, setArchiving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [archivingList, setArchivingList] = useState<Set<string>>(new Set());
+
+  // Multi-select + bulk delete
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedPlaybooks, setSelectedPlaybooks] = useState<Set<string>>(new Set());
+  const [bulkDeletePreview, setBulkDeletePreview] = useState<BulkDeletePreview | null>(null);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { addBulkDeleteJob } = useBackgroundTaskQueue();
 
   // RBAC
   const { data: session } = useSession();
@@ -431,6 +442,17 @@ export default function PlaybooksPage() {
         <div className="pb-header-top">
           <h1 className="hf-section-title">{plural("playbook")}</h1>
           <div className="pb-header-actions">
+            {isOperator && (
+              <button
+                onClick={() => {
+                  setSelectionMode(!selectionMode);
+                  setSelectedPlaybooks(new Set());
+                }}
+                className={`hf-btn-sm ${selectionMode ? "hf-btn-warning" : "hf-btn-secondary"}`}
+              >
+                {selectionMode ? "Cancel Select" : "Select"}
+              </button>
+            )}
             <button
               onClick={() => setShowCreate(true)}
               className="pb-new-btn"
@@ -541,13 +563,46 @@ export default function PlaybooksPage() {
                       {domainName} ({playbooksInDomain.length})
                     </h2>
                     <div className="pb-domain-items">
-                      {playbooksInDomain.map((pb) => (
+                      {playbooksInDomain.map((pb) => {
+                        const isPublished = pb.status === "PUBLISHED";
+                        const canSelect = selectionMode && !isPublished;
+                        return (
                         <div
                           key={pb.id}
-                          onClick={() => selectPlaybook(pb.id)}
-                          className={`pb-card ${selectedId === pb.id ? "pb-card--selected" : ""} ${pb.status === "ARCHIVED" ? "pb-card--archived" : ""}`}
+                          onClick={() => {
+                            if (canSelect) {
+                              setSelectedPlaybooks((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(pb.id)) next.delete(pb.id);
+                                else next.add(pb.id);
+                                return next;
+                              });
+                            } else if (!selectionMode) {
+                              selectPlaybook(pb.id);
+                            }
+                          }}
+                          className={`pb-card ${selectedId === pb.id && !selectionMode ? "pb-card--selected" : ""} ${pb.status === "ARCHIVED" ? "pb-card--archived" : ""}${selectionMode && selectedPlaybooks.has(pb.id) ? " pb-card--selected" : ""}${selectionMode && isPublished ? " pb-card--archived" : ""}`}
                         >
                           <div className="pb-card-badges">
+                            {canSelect && (
+                              <input
+                                type="checkbox"
+                                checked={selectedPlaybooks.has(pb.id)}
+                                onChange={() => {
+                                  setSelectedPlaybooks((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(pb.id)) next.delete(pb.id);
+                                    else next.add(pb.id);
+                                    return next;
+                                  });
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="cp-selection-checkbox"
+                              />
+                            )}
+                            {selectionMode && isPublished && (
+                              <span className="hf-text-xs hf-text-muted" title="Archive before deleting">🔒</span>
+                            )}
                             <StatusBadge status={playbookStatusMap[pb.status]} size="compact" />
                             <span className="pb-version-tag">
                               v{pb.version}
@@ -584,7 +639,7 @@ export default function PlaybooksPage() {
                             </div>
                           )}
                         </div>
-                      ))}
+                      ); })}
                     </div>
                   </div>
                 ))}
@@ -813,6 +868,80 @@ export default function PlaybooksPage() {
           )}
         </div>
       </div>
+
+      {/* Success message */}
+      {successMessage && (
+        <div
+          className="hf-banner hf-banner-success"
+          style={{ position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)", zIndex: 100, borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+          onClick={() => setSuccessMessage(null)}
+        >
+          {successMessage}
+        </div>
+      )}
+
+      {/* Bulk Selection Floating Bar */}
+      {selectionMode && selectedPlaybooks.size > 0 && (
+        <div className="hf-floating-bar">
+          <span className="hf-text-sm hf-text-bold">
+            {selectedPlaybooks.size} selected
+          </span>
+          <button
+            onClick={async () => {
+              setBulkActionLoading(true);
+              try {
+                const res = await fetch("/api/admin/bulk-delete/preview", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ entityType: "playbook", entityIds: Array.from(selectedPlaybooks) }),
+                });
+                const data = await res.json();
+                if (data.ok) setBulkDeletePreview(data.preview);
+              } finally {
+                setBulkActionLoading(false);
+              }
+            }}
+            disabled={bulkActionLoading}
+            className="hf-btn hf-btn-destructive"
+          >
+            {bulkActionLoading ? "Loading..." : `Delete Selected (${selectedPlaybooks.size})`}
+          </button>
+          <button
+            onClick={() => { setSelectionMode(false); setSelectedPlaybooks(new Set()); }}
+            className="hf-btn hf-btn-secondary"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* Bulk Delete Modal */}
+      {bulkDeletePreview && (
+        <BulkDeleteModal
+          preview={bulkDeletePreview}
+          onCancel={() => setBulkDeletePreview(null)}
+          onConfirm={(result: BulkDeleteResult) => {
+            setBulkDeletePreview(null);
+            setSelectionMode(false);
+            setSelectedPlaybooks(new Set());
+            fetchPlaybooks();
+            // If current detail was deleted, clear it
+            if (selectedId && result.succeeded.some((s) => s.id === selectedId)) {
+              router.push("/x/playbooks", { scroll: false });
+            }
+            setSuccessMessage(
+              `Deleted ${result.totalDeleted} ${result.totalDeleted === 1 ? terms.playbook.toLowerCase() : plural("playbook").toLowerCase()}${result.totalFailed ? ` (${result.totalFailed} failed)` : ""}`
+            );
+          }}
+          onJobStarted={(taskId: string) => {
+            addBulkDeleteJob(taskId, "playbook", selectedPlaybooks.size);
+            setBulkDeletePreview(null);
+            setSelectionMode(false);
+            setSelectedPlaybooks(new Set());
+            setSuccessMessage("Bulk delete started in background. Check the job queue for progress.");
+          }}
+        />
+      )}
 
       {/* Create Modal */}
       {showCreate && (

@@ -51,6 +51,7 @@ export async function GET(
             status: true,
             version: true,
             sortOrder: true,
+            config: true,
             publishedAt: true,
             createdAt: true,
             updatedAt: true,
