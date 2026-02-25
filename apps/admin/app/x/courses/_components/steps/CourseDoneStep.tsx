@@ -135,7 +135,6 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
           studentEmails,
           subjectId: getData<string>('subjectId') || undefined,
           curriculumId: getData<string>('curriculumId') || undefined,
-          sourceId: getData<string>('sourceId') || undefined,
           planIntents: planIntents || undefined,
           lessonPlanMode,
           cohortGroupIds: cohortGroupIds.length > 0 ? cohortGroupIds : undefined,

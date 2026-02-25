@@ -540,7 +540,7 @@ export function PackUploadStep({
               <Upload size={32} />
             </div>
             <div className="dtw-dropzone-filename">
-              Drop your course files here
+              Drop your files here
             </div>
             <div className="dtw-dropzone-hint">
               Readings, questions, course docs — PDF, DOCX, TXT, MD, JSON

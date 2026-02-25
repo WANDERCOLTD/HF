@@ -90,9 +90,6 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
 
   // Content from previous step
   const contentMode = getData<string>("contentMode");
-  const contentFileName = getData<string>("contentFileName");
-  const contentDescription = getData<string>("contentDescription");
-  const sourceId = getData<string>("sourceId");
 
   // Stable ref for phase (used in callbacks to avoid stale closures)
   const phaseRef = useRef(phase);
@@ -238,7 +235,6 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
         body: JSON.stringify({
           courseName, learningOutcomes, teachingStyle, interactionPattern,
           sessionCount: sessionCount || 12, durationMins, emphasis, assessments,
-          sourceId: sourceId || undefined,
         }),
         signal: controller.signal,
       });
@@ -372,7 +368,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
     : 0;
 
   // Check if eager plan was goals-only but user uploaded content
-  const eagerWasGoalsOnly = !!(sourceId && entries.length > 0 && getData<string>("lessonPlanMode") !== "reviewed");
+  const eagerWasGoalsOnly = !!(contentMode === "pack" && entries.length > 0 && getData<string>("lessonPlanMode") !== "reviewed");
 
   const renderSessionCard = (entry: LessonEntry, index: number, skeleton?: boolean) => (
     <div className={skeleton ? "hf-session-enter" : undefined}>
@@ -457,13 +453,10 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
         {phase === "loading" && (
           <div className="hf-flex hf-flex-col hf-gap-md">
             {/* Content status */}
-            {contentMode === "file" && contentFileName && (
+            {contentMode === "pack" && (
               <div className="hf-banner hf-banner-success">
                 <CheckCircle className="hf-icon-sm hf-flex-shrink-0" />
-                <span>
-                  <FileText className="hf-icon-xs hf-icon-inline" />
-                  {contentFileName} uploaded
-                </span>
+                <span>Course files uploaded — will inform your lesson plan</span>
               </div>
             )}
 
@@ -608,19 +601,10 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
         {phase === "intents" && (
           <div className="hf-flex hf-flex-col hf-gap-lg">
             {/* Content status banner */}
-            {contentMode === "file" && contentFileName && (
+            {contentMode === "pack" && (
               <div className="hf-banner hf-banner-success">
                 <CheckCircle className="hf-icon-sm hf-flex-shrink-0" />
-                <span>
-                  <FileText className="hf-icon-xs hf-icon-inline" />
-                  {contentFileName} uploaded{sourceId ? " — will inform your lesson plan" : ""}
-                </span>
-              </div>
-            )}
-            {contentMode === "describe" && contentDescription && (
-              <div className="hf-banner hf-banner-info">
-                <CheckCircle className="hf-icon-sm hf-flex-shrink-0" />
-                <span>Course description provided</span>
+                <span>Course files uploaded — will inform your lesson plan</span>
               </div>
             )}
             {contentMode === "skip" && (

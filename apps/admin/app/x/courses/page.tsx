@@ -252,7 +252,7 @@ export default function CoursesPage() {
   );
 
   return (
-    <div className="hf-page-container hf-page-wide hf-page-scroll hf-flex hf-flex-col">
+    <div className="hf-page-container hf-page-wide hf-page-scroll hf-flex-col">
       <AdvancedBanner />
 
       {/* Header + Filters */}
