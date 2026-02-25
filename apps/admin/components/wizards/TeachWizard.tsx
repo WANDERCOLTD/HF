@@ -13,12 +13,13 @@
  * - Review shows two-phase extraction progress (quick preview + enrichment)
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { randomFakeName } from "@/lib/fake-names";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   ChevronRight,
+  ChevronDown,
   Plus,
   PlayCircle,
   Pencil,
@@ -104,6 +105,7 @@ type LessonPlanItem = {
   title: string;
   sessionType: "introduce" | "deepen" | "review" | "assess" | "consolidate";
   tpCount: number;
+  tpIds: string[];
   durationMins: number;
   objectives: string[];
   editing: boolean;
@@ -787,7 +789,7 @@ export default function TeachWizard() {
         const qs = new URLSearchParams({
           ...(subjectIds.length ? { subjectIds: subjectIds.join(",") } : {}),
           groupType,
-          category: category.toUpperCase(),
+          category,
           limit: "100",
         });
         const res = await fetch(`/api/domains/${selectedDomainId}/content-detail?${qs}`);
@@ -878,6 +880,28 @@ export default function TeachWizard() {
   const [lessonPlanLoading, setLessonPlanLoading] = useState(false);
   const [lessonPlanError, setLessonPlanError] = useState<string | null>(null);
   const lessonPlanLoadingTimer = useRef<ReturnType<typeof setTimeout>>();
+  const [expandedLessons, setExpandedLessons] = useState<Set<string>>(new Set());
+
+  const toggleLessonExpand = useCallback((id: string) => {
+    setExpandedLessons((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // Build lookup map: assertion/question/vocab ID → display text
+  const tpLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const g of contentGroups) {
+      if (!g.items) continue;
+      for (const item of g.items) {
+        if (!item.excluded) map.set(item.id, item.text);
+      }
+    }
+    return map;
+  }, [contentGroups]);
 
   // Fallback: naive generation from included groups (escape route)
   const fallbackGenerateLessonPlan = useCallback(() => {
@@ -893,6 +917,9 @@ export default function TeachWizard() {
     const lessons: LessonPlanItem[] = Object.entries(methodGroups).map(
       ([method, groups], i) => {
         const tpCount = groups.reduce((s, g) => s + g.count, 0);
+        const tpIds = groups.flatMap((g) =>
+          g.items?.filter((item) => !item.excluded).map((item) => item.id) ?? []
+        );
         const methodCfg = TEACH_METHOD_CONFIG[method as TeachMethod];
         return {
           id: `lesson-${i + 1}`,
@@ -900,6 +927,7 @@ export default function TeachWizard() {
           title: methodCfg?.label ?? method,
           sessionType: "introduce" as const,
           tpCount,
+          tpIds,
           durationMins: estimateDuration(tpCount),
           objectives: [],
           editing: false,
@@ -932,20 +960,27 @@ export default function TeachWizard() {
       ) {
         setLessonPlan(
           data.plan.sessions.map(
-            (s: { sessionNumber: number; title: string; sessionType: string; assertionIds?: string[]; questionIds?: string[]; estimatedMinutes: number; objectives?: string[] }, i: number) => ({
-              id: `lesson-${i + 1}`,
-              sessionNumber: s.sessionNumber,
-              title: s.title,
-              sessionType:
-                s.sessionType === "practice"
-                  ? "deepen"
-                  : (s.sessionType as LessonPlanItem["sessionType"]),
-              tpCount:
-                (s.assertionIds?.length ?? 0) + (s.questionIds?.length ?? 0),
-              durationMins: s.estimatedMinutes,
-              objectives: s.objectives ?? [],
-              editing: false,
-            })
+            (s: { sessionNumber: number; title: string; sessionType: string; assertionIds?: string[]; questionIds?: string[]; vocabularyIds?: string[]; estimatedMinutes: number; objectives?: string[] }, i: number) => {
+              const ids = [
+                ...(s.assertionIds ?? []),
+                ...(s.questionIds ?? []),
+                ...(s.vocabularyIds ?? []),
+              ];
+              return {
+                id: `lesson-${i + 1}`,
+                sessionNumber: s.sessionNumber,
+                title: s.title,
+                sessionType:
+                  s.sessionType === "practice"
+                    ? "deepen"
+                    : (s.sessionType as LessonPlanItem["sessionType"]),
+                tpCount: ids.length || (s.assertionIds?.length ?? 0) + (s.questionIds?.length ?? 0),
+                tpIds: ids,
+                durationMins: s.estimatedMinutes,
+                objectives: s.objectives ?? [],
+                editing: false,
+              };
+            }
           )
         );
       } else {
@@ -1002,6 +1037,7 @@ export default function TeachWizard() {
         title: "New lesson",
         sessionType: "introduce" as const,
         tpCount: 0,
+        tpIds: [],
         durationMins: 30,
         objectives: [],
         editing: true,
@@ -1966,57 +2002,81 @@ export default function TeachWizard() {
               <div className="tw-lesson-list">
                 {lessonPlan.map((lesson, i) => {
                   const badge = SESSION_TYPE_STYLES[lesson.sessionType];
+                  const isExpanded = expandedLessons.has(lesson.id);
+                  const resolvedTps = lesson.tpIds
+                    .map((id) => tpLookup.get(id))
+                    .filter((t): t is string => !!t);
+                  const hasExpandableTps = resolvedTps.length > 0;
                   return (
-                    <div key={lesson.id} className="tw-lesson-row">
-                      <div className="tw-lesson-number">{i + 1}</div>
-                      <div className="tw-lesson-title-wrap">
-                        {lesson.editing ? (
-                          <input
-                            className="tw-lesson-title-input"
-                            value={lesson.title}
-                            onChange={(e) =>
-                              updateLessonTitle(lesson.id, e.target.value)
-                            }
-                            onBlur={() => toggleLessonEdit(lesson.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === "Escape")
-                                toggleLessonEdit(lesson.id);
-                            }}
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="tw-lesson-title">{lesson.title}</div>
-                        )}
-                        <div className="tw-lesson-meta">
-                          {lesson.durationMins} min · {lesson.tpCount} teaching point{lesson.tpCount !== 1 ? "s" : ""}
+                    <div key={lesson.id} className="tw-lesson-item">
+                      <div className="tw-lesson-row">
+                        <div className="tw-lesson-number">{i + 1}</div>
+                        <div className="tw-lesson-title-wrap">
+                          {lesson.editing ? (
+                            <input
+                              className="tw-lesson-title-input"
+                              value={lesson.title}
+                              onChange={(e) =>
+                                updateLessonTitle(lesson.id, e.target.value)
+                              }
+                              onBlur={() => toggleLessonEdit(lesson.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === "Escape")
+                                  toggleLessonEdit(lesson.id);
+                              }}
+                              autoFocus
+                            />
+                          ) : (
+                            <div className="tw-lesson-title">{lesson.title}</div>
+                          )}
+                          <button
+                            className={`tw-lesson-meta${hasExpandableTps ? " tw-lesson-meta-expandable" : ""}`}
+                            onClick={() => hasExpandableTps && toggleLessonExpand(lesson.id)}
+                            type="button"
+                          >
+                            {lesson.durationMins} min · {lesson.tpCount} teaching point{lesson.tpCount !== 1 ? "s" : ""}
+                            {hasExpandableTps && (
+                              <ChevronDown
+                                size={12}
+                                className={`tw-lesson-chevron${isExpanded ? " tw-lesson-chevron-open" : ""}`}
+                              />
+                            )}
+                          </button>
+                          {lesson.objectives.length > 0 && (
+                            <div className="tw-lesson-objectives">
+                              {lesson.objectives.slice(0, 2).join("; ")}
+                            </div>
+                          )}
                         </div>
-                        {lesson.objectives.length > 0 && (
-                          <div className="tw-lesson-objectives">
-                            {lesson.objectives.slice(0, 2).join("; ")}
-                          </div>
+                        {badge && (
+                          <span className={`tw-session-badge ${badge.className}`}>
+                            {badge.label}
+                          </span>
                         )}
+                        <button
+                          className="tw-lesson-edit-btn"
+                          onClick={() => toggleLessonEdit(lesson.id)}
+                          title="Rename"
+                          type="button"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          className="tw-lesson-remove-btn"
+                          onClick={() => removeLesson(lesson.id)}
+                          title="Remove lesson"
+                          type="button"
+                        >
+                          <XIcon size={13} />
+                        </button>
                       </div>
-                      {badge && (
-                        <span className={`tw-session-badge ${badge.className}`}>
-                          {badge.label}
-                        </span>
+                      {isExpanded && hasExpandableTps && (
+                        <ul className="tw-lesson-tp-list">
+                          {resolvedTps.map((text, j) => (
+                            <li key={j} className="tw-lesson-tp-item">{text}</li>
+                          ))}
+                        </ul>
                       )}
-                      <button
-                        className="tw-lesson-edit-btn"
-                        onClick={() => toggleLessonEdit(lesson.id)}
-                        title="Rename"
-                        type="button"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      <button
-                        className="tw-lesson-remove-btn"
-                        onClick={() => removeLesson(lesson.id)}
-                        title="Remove lesson"
-                        type="button"
-                      >
-                        <XIcon size={13} />
-                      </button>
                     </div>
                   );
                 })}

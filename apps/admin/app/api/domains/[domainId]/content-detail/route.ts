@@ -71,7 +71,7 @@ export async function GET(
       const assertions = await prisma.contentAssertion.findMany({
         where: {
           sourceId: { in: sourceIds },
-          ...(category ? { category: category.toUpperCase() } : {}),
+          ...(category ? { category } : {}),
         },
         select: {
           id: true,

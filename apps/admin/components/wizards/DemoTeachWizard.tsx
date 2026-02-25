@@ -40,7 +40,6 @@ import {
   Upload,
   FileText,
   CheckCircle2,
-  Library,
   RotateCcw,
 } from "lucide-react";
 import { PromptPreviewContent } from "@/app/x/domains/components/PromptPreviewModal";
@@ -257,8 +256,6 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const [extractionTaskId, setExtractionTaskId] = useState<string | null>(null);
 
   // Content source selection (existing sources)
-  type ContentMode = "select" | "upload";
-  const [contentMode, setContentMode] = useState<ContentMode>("select");
   const [availableSources, setAvailableSources] = useState<AvailableSource[]>([]);
   const [loadingSources, setLoadingSources] = useState(false);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
@@ -1965,29 +1962,8 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                 />
               ) : (
                 <>
-                  {/* Demonstrate flow: source selection + pack upload */}
-                  {/* Mode toggle (only when existing sources available) */}
+                  {/* Demonstrate flow: source library + drag zone (both visible) */}
                   {availableSources.length > 0 && (
-                    <div className="dtw-content-mode-toggle">
-                      <button
-                        className={`dtw-content-mode-tab ${contentMode === "select" ? "dtw-content-mode-tab--active" : ""}`}
-                        onClick={() => setContentMode("select")}
-                      >
-                        <Library size={16} />
-                        Select Existing
-                      </button>
-                      <button
-                        className={`dtw-content-mode-tab ${contentMode === "upload" ? "dtw-content-mode-tab--active" : ""}`}
-                        onClick={() => setContentMode("upload")}
-                      >
-                        <Upload size={16} />
-                        Upload New
-                      </button>
-                    </div>
-                  )}
-
-                  {/* SELECT EXISTING mode */}
-                  {contentMode === "select" && availableSources.length > 0 && (
                     <div className="dtw-source-library">
                       {loadingSources ? (
                         <div className="dtw-muted-text dtw-loading-text"><span className="dtw-inline-spinner" /> Loading content library...</div>
@@ -2018,32 +1994,24 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                           })}
                         </div>
                       )}
-                      {/* Select existing action buttons */}
-                      <div className="dtw-upload-actions">
-                        <button className="dtw-btn-skip" onClick={handleNext}>
-                          Skip for now
+                      {selectedSourceId && (
+                        <button
+                          className="dtw-btn-upload"
+                          onClick={() => handleSelectExistingSource(selectedSourceId)}
+                        >
+                          Use Selected Content
                         </button>
-                        {selectedSourceId && (
-                          <button
-                            className="dtw-btn-upload"
-                            onClick={() => handleSelectExistingSource(selectedSourceId)}
-                          >
-                            Use Selected Content
-                          </button>
-                        )}
-                      </div>
+                      )}
+                      <div className="pack-or-divider">or upload new</div>
                     </div>
                   )}
 
-                  {/* UPLOAD NEW mode — uses PackUploadStep (specialist extraction) */}
-                  {(contentMode === "upload" || availableSources.length === 0) && (
-                    <PackUploadStep
-                      domainId={selectedDomainId}
-                      courseName={goalText}
-                      onResult={handlePackResult}
-                      onBack={handlePrev}
-                    />
-                  )}
+                  <PackUploadStep
+                    domainId={selectedDomainId}
+                    courseName={goalText}
+                    onResult={handlePackResult}
+                    onBack={handlePrev}
+                  />
 
                   {uploadError && (
                     <div className="dtw-upload-error">{uploadError}</div>

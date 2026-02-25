@@ -555,6 +555,60 @@
 .tw-lesson-meta {
   font-size: 12px;
   color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: default;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tw-lesson-meta-expandable {
+  cursor: pointer;
+}
+
+.tw-lesson-meta-expandable:hover {
+  color: var(--accent-primary);
+}
+
+.tw-lesson-chevron {
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.tw-lesson-chevron-open {
+  transform: rotate(180deg);
+}
+
+.tw-lesson-item {
+  border: 1.5px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-primary);
+  overflow: hidden;
+}
+
+.tw-lesson-item .tw-lesson-row {
+  border: none;
+  border-radius: 0;
+}
+
+.tw-lesson-tp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 12px 10px 46px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border-default);
+}
+
+.tw-lesson-tp-item {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 3px 0;
+  line-height: 1.4;
 }
 
 .tw-lesson-edit-btn {

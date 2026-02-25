@@ -25,7 +25,11 @@
   align-items: center;
   gap: 12px;
   padding: 14px 20px;
-  cursor: default;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.ws-summary-row:hover {
+  background: var(--surface-secondary);
 }
 
 .ws-done-icon {
@@ -58,21 +62,40 @@
   text-overflow: ellipsis;
 }
 
-.ws-edit-btn {
+/* ── Expanded done state ──────────────────────────────── */
+
+.ws-wrap--expanded {
+  border-color: color-mix(in srgb, var(--status-success-text) 30%, var(--border-default));
+}
+
+.ws-body--done {
+  border-top: 1px solid var(--border-default);
+  opacity: 0.85;
+}
+
+.ws-edit-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-default);
+  margin-top: 16px;
+}
+
+.ws-edit-inline-btn {
   background: none;
   border: 1px solid var(--border-default);
   border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: 6px 14px;
+  font-size: 13px;
   color: var(--accent-primary);
   cursor: pointer;
-  white-space: nowrap;
   font-weight: 500;
-  transition: background 0.1s;
+  transition: background 0.12s, border-color 0.12s;
 }
 
-.ws-edit-btn:hover {
+.ws-edit-inline-btn:hover {
   background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  border-color: var(--accent-primary);
 }
 
 /* ── Active / Locked header ───────────────────────────── */

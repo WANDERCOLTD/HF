@@ -134,9 +134,7 @@ export function PackUploadStep({
   onResult,
   onBack,
 }: PackUploadStepProps) {
-  // Mode: 'select' (pick existing course/subject) or 'upload' (multi-file pack)
   const hasExistingItems = existingCourses.length > 0 || existingSubjects.length > 0;
-  const [mode, setMode] = useState<'select' | 'upload'>(hasExistingItems ? 'select' : 'upload');
 
   // File state
   const [files, setFiles] = useState<File[]>([]);
@@ -413,122 +411,88 @@ export function PackUploadStep({
 
   return (
     <div className="pack-upload-step">
-      {/* Mode toggle (only when existing items available) */}
-      {hasExistingItems && (
-        <div className="pack-mode-toggle">
-          <button
-            className={`pack-mode-btn ${mode === 'select' ? 'pack-mode-btn--active' : ''}`}
-            onClick={() => setMode('select')}
-            disabled={analyzing || ingesting}
-          >
-            <BookOpen size={16} />
-            {existingSubjects.length > 0 ? 'Use Existing Subject' : 'Use Existing Course'}
-          </button>
-          <button
-            className={`pack-mode-btn ${mode === 'upload' ? 'pack-mode-btn--active' : ''}`}
-            onClick={() => setMode('upload')}
-            disabled={analyzing || ingesting}
-          >
-            <Upload size={16} />
-            Upload New Files
-          </button>
-        </div>
+      {/* ── Existing subject/course picker (hidden during manifest review / ingest) ── */}
+      {hasExistingItems && !manifest && !ingesting && (
+        <>
+          {existingSubjects.length > 0 && (
+            <div className="pack-select-courses">
+              <p className="pack-section-desc">
+                Pick a subject with existing content to teach from.
+              </p>
+              <div className="pack-course-list">
+                {existingSubjects.map((subject) => (
+                  <button
+                    key={subject.id}
+                    className={`dtw-source-card ${selectedSubjectId === subject.id ? 'dtw-source-card--selected' : ''}`}
+                    onClick={() => setSelectedSubjectId(selectedSubjectId === subject.id ? null : subject.id)}
+                  >
+                    <div className="dtw-source-card-name">
+                      <BookOpen size={16} />
+                      {subject.name}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span className="dtw-source-card-pill">
+                        {subject.sourceCount} source{subject.sourceCount !== 1 ? 's' : ''}
+                      </span>
+                      <span className="dtw-source-card-pill">
+                        {subject.assertionCount} teaching point{subject.assertionCount !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <button
+                className="dtw-btn-upload"
+                disabled={!selectedSubjectId}
+                onClick={handleSelectSubject}
+              >
+                Use This Subject
+              </button>
+            </div>
+          )}
+          {existingSubjects.length === 0 && existingCourses.length > 0 && (
+            <div className="pack-select-courses">
+              <p className="pack-section-desc">
+                Pick a course to teach from. All its subjects and content come with it.
+              </p>
+              <div className="pack-course-list">
+                {existingCourses.map((course) => (
+                  <button
+                    key={course.id}
+                    className={`dtw-source-card ${selectedCourseId === course.id ? 'dtw-source-card--selected' : ''}`}
+                    onClick={() => setSelectedCourseId(selectedCourseId === course.id ? null : course.id)}
+                  >
+                    <div className="dtw-source-card-name">
+                      <BookOpen size={16} />
+                      {course.name}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span className="dtw-source-card-pill">
+                        {course.subjectCount} subject{course.subjectCount !== 1 ? 's' : ''}
+                      </span>
+                      <span className="dtw-source-card-pill">
+                        {course.assertionCount} teaching point{course.assertionCount !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <button
+                className="dtw-btn-upload"
+                disabled={!selectedCourseId}
+                onClick={handleSelectCourse}
+              >
+                Use This Course
+              </button>
+            </div>
+          )}
+          <div className="pack-or-divider">or upload new</div>
+        </>
       )}
 
-      {/* ── MODE A: Select existing subject or course ── */}
-      {mode === 'select' && existingSubjects.length > 0 && (
-        <div className="pack-select-courses">
-          <p className="pack-section-desc">
-            Pick a subject with existing content to teach from.
-          </p>
-          <div className="pack-course-list">
-            {existingSubjects.map((subject) => (
-              <button
-                key={subject.id}
-                className={`dtw-source-card ${selectedSubjectId === subject.id ? 'dtw-source-card--selected' : ''}`}
-                onClick={() => setSelectedSubjectId(selectedSubjectId === subject.id ? null : subject.id)}
-              >
-                <div className="dtw-source-card-name">
-                  <BookOpen size={16} />
-                  {subject.name}
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span className="dtw-source-card-pill">
-                    {subject.sourceCount} source{subject.sourceCount !== 1 ? 's' : ''}
-                  </span>
-                  <span className="dtw-source-card-pill">
-                    {subject.assertionCount} teaching point{subject.assertionCount !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-          <div className="dtw-upload-actions">
-            {onBack && (
-              <button className="dtw-btn-skip" onClick={onBack}>Back</button>
-            )}
-            <button className="dtw-btn-skip" onClick={() => onResult({ mode: 'skip' })}>
-              Skip for now
-            </button>
-            <button
-              className="dtw-btn-upload"
-              disabled={!selectedSubjectId}
-              onClick={handleSelectSubject}
-            >
-              Use This Subject
-            </button>
-          </div>
-        </div>
-      )}
-      {mode === 'select' && existingSubjects.length === 0 && existingCourses.length > 0 && (
-        <div className="pack-select-courses">
-          <p className="pack-section-desc">
-            Pick a course to teach from. All its subjects and content come with it.
-          </p>
-          <div className="pack-course-list">
-            {existingCourses.map((course) => (
-              <button
-                key={course.id}
-                className={`dtw-source-card ${selectedCourseId === course.id ? 'dtw-source-card--selected' : ''}`}
-                onClick={() => setSelectedCourseId(selectedCourseId === course.id ? null : course.id)}
-              >
-                <div className="dtw-source-card-name">
-                  <BookOpen size={16} />
-                  {course.name}
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span className="dtw-source-card-pill">
-                    {course.subjectCount} subject{course.subjectCount !== 1 ? 's' : ''}
-                  </span>
-                  <span className="dtw-source-card-pill">
-                    {course.assertionCount} teaching point{course.assertionCount !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-          <div className="dtw-upload-actions">
-            {onBack && (
-              <button className="dtw-btn-skip" onClick={onBack}>Back</button>
-            )}
-            <button className="dtw-btn-skip" onClick={() => onResult({ mode: 'skip' })}>
-              Skip for now
-            </button>
-            <button
-              className="dtw-btn-upload"
-              disabled={!selectedCourseId}
-              onClick={handleSelectCourse}
-            >
-              Use This Course
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── MODE B: Upload new files ── */}
-      {mode === 'upload' && !manifest && !ingesting && (
+      {/* ── Drop zone + file upload (always visible, hidden during manifest review / ingest) ── */}
+      {!manifest && !ingesting && (
         <div className="pack-upload-section">
-          {/* Drop zone */}
           <div
             className={`dtw-dropzone ${dragOver ? 'dtw-dropzone--active' : ''}`}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}

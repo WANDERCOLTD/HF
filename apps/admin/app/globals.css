@@ -1607,6 +1607,42 @@ html.light {
   display: flex;
   align-items: center;
 }
+
+/* ── Expand/Collapse Chevron Primitive ───────────────────
+   Gold UI standard for any section that can expand/contract.
+   Use with lucide ChevronRight or ChevronDown icons.
+   ──────────────────────────────────────────────────────── */
+.hf-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  transition: transform 0.2s ease, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.hf-chevron:hover {
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+.hf-chevron--open {
+  transform: rotate(90deg);
+}
+/* Small variant (20×20, for inline/compact rows) */
+.hf-chevron--sm {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+}
+/* Large variant (36×36, for prominent section headers) */
+.hf-chevron--lg {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
 .hf-detail-panel {
   margin-top: 16px;
   background: var(--surface-primary);

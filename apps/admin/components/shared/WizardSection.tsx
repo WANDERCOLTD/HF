@@ -1,6 +1,7 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, Sparkles } from "lucide-react";
 import "./wizard-section.css";
 
 export type SectionStatus = "locked" | "active" | "done";
@@ -15,7 +16,7 @@ interface WizardSectionProps {
   summaryLabel?: string;
   /** Content shown in the collapsed done row */
   summary?: React.ReactNode;
-  /** Called when "Edit ›" is clicked — triggers cascade in parent */
+  /** Called when the section is expanded from done state — triggers cascade in parent */
   onEdit?: () => void;
   /** Show sparkles icon to indicate AI auto-suggest in this section. */
   aiEnhanced?: boolean;
@@ -38,21 +39,52 @@ export default function WizardSection({
   aiLoading,
   children,
 }: WizardSectionProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Reset expanded state when section transitions away from "done"
+  // (e.g. when cascade re-locks it or it becomes active again)
+  const isExpanded = status === "done" && expanded;
+
   if (status === "done") {
     return (
-      <div className="ws-wrap" data-status="done" data-section={id}>
-        <div className="ws-summary-row">
+      <div
+        className={`ws-wrap${isExpanded ? " ws-wrap--expanded" : ""}`}
+        data-status="done"
+        data-section={id}
+      >
+        <div
+          className="ws-summary-row"
+          onClick={() => setExpanded((prev) => !prev)}
+        >
           <div className="ws-done-icon">✓</div>
           {summaryLabel && (
             <span className="ws-summary-label">{summaryLabel}</span>
           )}
           <span className="ws-summary-text">{summary}</span>
-          {onEdit && (
-            <button className="ws-edit-btn" onClick={onEdit} type="button">
-              Edit ›
-            </button>
-          )}
+          <div className={`hf-chevron${isExpanded ? " hf-chevron--open" : ""}`}>
+            <ChevronRight size={18} />
+          </div>
         </div>
+        {isExpanded && (
+          <div className="ws-body ws-body--done">
+            {children}
+            {onEdit && (
+              <div className="ws-edit-row">
+                <button
+                  className="ws-edit-inline-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpanded(false);
+                    onEdit();
+                  }}
+                  type="button"
+                >
+                  Make changes
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
