@@ -14,6 +14,7 @@
 
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { logAssistantCall } from "@/lib/ai/assistant-wrapper";
+import { logAI } from "@/lib/logger";
 import type { ExtractionConfig, DocumentType } from "../resolve-config";
 import type { ExtractedAssertion, ExtractionOptions, ExtractionResult, ChunkCompleteData } from "../extract-assertions";
 import crypto from "crypto";
@@ -206,12 +207,25 @@ export abstract class DocumentExtractor {
           chunkResult = await this.extractFromChunk(chunks[i], extractionConfig, context);
           break;
         } catch (err: any) {
-          if (attempt === MAX_CHUNK_RETRIES - 1) {
-            console.error(`[${this.documentType}-extractor] Chunk ${i} failed after ${MAX_CHUNK_RETRIES} attempts:`, err.message);
+          const isLastAttempt = attempt === MAX_CHUNK_RETRIES - 1;
+          const errorMsg = err.message || String(err);
+
+          // Structured log so failures appear in AI Logs panel
+          logAI(`content-trust.extract:error`, `Chunk ${i} attempt ${attempt + 1}/${MAX_CHUNK_RETRIES} for ${options.sourceSlug}`, errorMsg, {
+            chunkIndex: i,
+            attempt: attempt + 1,
+            maxAttempts: MAX_CHUNK_RETRIES,
+            documentType: this.documentType,
+            final: isLastAttempt,
+            sourceOp: "content-trust:extract",
+          });
+
+          if (isLastAttempt) {
+            console.error(`[${this.documentType}-extractor] Chunk ${i} failed after ${MAX_CHUNK_RETRIES} attempts:`, errorMsg);
             failedChunks++;
           } else {
             const delayMs = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
-            console.warn(`[${this.documentType}-extractor] Chunk ${i} attempt ${attempt + 1} failed, retrying in ${delayMs}ms:`, err.message);
+            console.warn(`[${this.documentType}-extractor] Chunk ${i} attempt ${attempt + 1} failed, retrying in ${delayMs}ms:`, errorMsg);
             await sleep(delayMs);
           }
         }
@@ -316,6 +330,10 @@ export async function callAI(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
+      maxTokens: config.maxTokens,
+      temperature: config.temperature,
+      timeoutMs: 120000, // 2 min — extraction prompts are large + structured JSON output
+      maxRetries: 0, // Outer extractor loop handles retry with better backoff
     },
     { sourceOp: `content-trust:${callPoint}` },
   );

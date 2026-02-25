@@ -106,6 +106,17 @@ export function useVoiceMode(onTranscribed: (transcript: string) => void): Voice
   const toggle = useCallback(() => {
     if (state === 'off') {
       ensureAudioContext();
+
+      // Prime HTMLAudioElement on this user gesture so Safari allows
+      // programmatic play() later (after async TTS fetch).
+      if (!ttsAudioRef.current) {
+        ttsAudioRef.current = new Audio();
+      }
+      const a = ttsAudioRef.current;
+      a.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRBqSAAAAAAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRBqSAAAAAAAAAAAAAAAAAAAA';
+      a.volume = 0;
+      a.play().then(() => { a.pause(); a.volume = 1; }).catch(() => {});
+
       setState('idle');
     } else {
       // Exit voice mode — clean up everything

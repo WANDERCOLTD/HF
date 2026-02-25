@@ -123,6 +123,7 @@ export function SimChat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const callIdRef = useRef<string | null>(null);
+  const msgCounter = useRef(0);
 
   // Voice mode — wired so transcribed speech sends as user message
   const voiceMode = useVoiceMode(useCallback((transcript: string) => {
@@ -343,7 +344,7 @@ export function SimChat({
     setIsStreaming(true);
     setError(null);
 
-    const assistantMsgId = `msg-${Date.now()}-ai`;
+    const assistantMsgId = `msg-${Date.now()}-${++msgCounter.current}-ai`;
     const assistantMsg: Message = {
       id: assistantMsgId,
       role: 'assistant',
@@ -446,7 +447,7 @@ export function SimChat({
     if (!input.trim() || isStreaming) return;
 
     const userMsg: Message = {
-      id: `msg-${Date.now()}`,
+      id: `msg-${Date.now()}-${++msgCounter.current}`,
       role: 'user',
       content: input.trim(),
       timestamp: new Date(),
@@ -479,7 +480,7 @@ export function SimChat({
     if (isStreaming) return;
 
     const userMsg: Message = {
-      id: `msg-${Date.now()}`,
+      id: `msg-${Date.now()}-${++msgCounter.current}`,
       role: 'user',
       content: transcript,
       timestamp: new Date(),

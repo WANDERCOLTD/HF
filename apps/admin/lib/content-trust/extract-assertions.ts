@@ -14,6 +14,7 @@
 
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { logAssistantCall } from "@/lib/ai/assistant-wrapper";
+import { logAI } from "@/lib/logger";
 import { resolveExtractionConfig, type ExtractionConfig, type DocumentType, categoryToTeachMethod } from "./resolve-config";
 import type { DocumentSection } from "./segment-document";
 import { filterSections, detectFigureRefs } from "./filter-sections";
@@ -266,6 +267,7 @@ async function extractFromChunk(
           maxTokens: extraction.llmConfig.maxTokens,
           temperature: extraction.llmConfig.temperature,
           timeoutMs: 120000, // 2 min — extraction prompts are large + structured JSON output
+          maxRetries: 0, // Outer loop handles retry with better backoff
         },
         { sourceOp: "content-trust:extract" }
       );
@@ -318,12 +320,23 @@ async function extractFromChunk(
       });
     } catch (err: any) {
       const isLastAttempt = attempt === MAX_CHUNK_RETRIES - 1;
+      const errorMsg = err.message || String(err);
+
+      // Structured log so failures appear in AI Logs panel
+      logAI(`content-trust.extract:error`, `Chunk ${chunkIndex} attempt ${attempt + 1}/${MAX_CHUNK_RETRIES} for ${options.sourceSlug}`, errorMsg, {
+        chunkIndex,
+        attempt: attempt + 1,
+        maxAttempts: MAX_CHUNK_RETRIES,
+        final: isLastAttempt,
+        sourceOp: "content-trust:extract",
+      });
+
       if (isLastAttempt) {
-        console.error(`[extract-assertions] Chunk ${chunkIndex} failed after ${MAX_CHUNK_RETRIES} attempts:`, err.message);
+        console.error(`[extract-assertions] Chunk ${chunkIndex} failed after ${MAX_CHUNK_RETRIES} attempts:`, errorMsg);
         return [];
       }
       const delayMs = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
-      console.warn(`[extract-assertions] Chunk ${chunkIndex} attempt ${attempt + 1} failed, retrying in ${delayMs}ms:`, err.message);
+      console.warn(`[extract-assertions] Chunk ${chunkIndex} attempt ${attempt + 1} failed, retrying in ${delayMs}ms:`, errorMsg);
       await sleep(delayMs);
     }
   }
