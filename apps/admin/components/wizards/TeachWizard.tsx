@@ -242,7 +242,7 @@ export default function TeachWizard() {
   useEffect(() => {
     if (domainsFetched.current) return;
     domainsFetched.current = true;
-    fetch("/api/domains?onlyInstitution=true")
+    fetch("/api/domains")
       .then((r) => r.json())
       .then((data) => {
         if (data.ok && data.domains) setDomains(data.domains);
@@ -1048,12 +1048,24 @@ export default function TeachWizard() {
               <span className="tw-spinner" /> Loading institutions...
             </div>
           ) : domains.length === 0 ? (
-            <p className="tw-hint" style={{ marginTop: 8 }}>
-              No institutions yet.{" "}
-              {canCreateInstitution
-                ? "Create one to get started."
-                : "Ask your admin to set one up."}
-            </p>
+            <div style={{ marginTop: 8 }}>
+              <p className="tw-hint">
+                No institutions yet.{" "}
+                {canCreateInstitution
+                  ? "Create one to get started."
+                  : "Ask your admin to set one up."}
+              </p>
+              {canCreateInstitution && (
+                <button
+                  className="tw-chip tw-chip-new"
+                  style={{ marginTop: 12 }}
+                  onClick={() => setShowCreateModal(true)}
+                  type="button"
+                >
+                  <Plus size={14} /> New institution
+                </button>
+              )}
+            </div>
           ) : (
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <select
