@@ -158,6 +158,14 @@ export function BugReportButton() {
     }
   }, [expanded]);
 
+  // Dismiss with Escape
+  useEffect(() => {
+    if (!expanded) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setExpanded(false); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [expanded]);
+
   const recentErrors = getRecentErrors();
 
   // Build full context markdown for Claude Code

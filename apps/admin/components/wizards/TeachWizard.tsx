@@ -665,14 +665,28 @@ export default function TeachWizard() {
     onComplete: useCallback((task: PollableTask) => {
       const ctx = task.context || {};
       setExtractionTaskId(null);
-      setExtractionInProgress(false);
       setQuickPreview([]);
       const count = ctx.importedCount || ctx.extractedCount || 0;
       setContentTotal(count);
-      if (selectedDomainId) {
-        loadCategoryGroups(selectedDomainId, subjectIds);
+
+      // Update subjectIds from task context (response had empty subjects
+      // because they're created inside backgroundRun after the 202 response)
+      const taskSubjectIds: string[] = ctx.subjects?.length
+        ? ctx.subjects.map((s: { id: string }) => s.id)
+        : subjectIds;
+      if (ctx.subjects?.length) {
+        setSubjectIds(taskSubjectIds);
       }
-    }, [selectedDomainId, subjectIds, loadCategoryGroups]),
+
+      // The ingest task tracks upload + source creation, but extraction
+      // runs fire-and-forget per file. Start content-stats poll to wait
+      // for assertions to actually appear in the DB.
+      if (selectedDomainId) {
+        startExtractionPoll(selectedDomainId, taskSubjectIds);
+      } else {
+        setExtractionInProgress(false);
+      }
+    }, [selectedDomainId, subjectIds, startExtractionPoll]),
     onError: useCallback((msg: string) => {
       setExtractionTaskId(null);
       setExtractionInProgress(false);

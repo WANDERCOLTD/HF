@@ -139,6 +139,7 @@ async function runGeneratePlan(
 
       const curriculumRecord = await tx.curriculum.create({
         data: {
+          slug: `${slug}-curriculum`,
           name: `${courseName} Curriculum`,
           description: curriculum.description || `AI-generated curriculum for ${courseName}`,
           subjectId: subject.id,

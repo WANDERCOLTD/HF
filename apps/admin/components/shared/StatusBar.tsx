@@ -210,6 +210,14 @@ export function StatusBar() {
     return () => clearInterval(interval);
   }, [session?.user]);
 
+  // ── Dismiss logs overlay with Escape ──
+  useEffect(() => {
+    if (!logsOverlayOpen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setLogsOverlayOpen(false); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [logsOverlayOpen]);
+
   // ── Handlers ──
   const handleToggleDeepLogging = useCallback(async () => {
     const newValue = !deepLogging;
