@@ -175,6 +175,64 @@ export async function updateCurriculumProgress(
   }
 
   await Promise.all(writes);
+
+  // Dual-write: also update CallerModuleProgress if moduleId maps to a DB record
+  if (updates.moduleMastery) {
+    for (const [moduleId, mastery] of Object.entries(updates.moduleMastery)) {
+      try {
+        await updateModuleMastery(callerId, moduleId, mastery);
+      } catch {
+        // Non-fatal — CallerModuleProgress is supplementary during transition
+      }
+    }
+  }
+}
+
+/**
+ * Update mastery for a specific module using the first-class CallerModuleProgress model.
+ * moduleId can be either a CurriculumModule.id (UUID) or a slug (e.g. "MOD-1").
+ */
+export async function updateModuleMastery(
+  callerId: string,
+  moduleId: string,
+  mastery: number,
+  callId?: string,
+): Promise<void> {
+  // Resolve slug to id if needed (slugs aren't UUIDs)
+  let resolvedModuleId = moduleId;
+  if (!moduleId.includes("-") || moduleId.startsWith("MOD-")) {
+    const mod = await prisma.curriculumModule.findFirst({
+      where: { slug: moduleId },
+      select: { id: true },
+    });
+    if (!mod) return; // Module not in DB yet — skip silently
+    resolvedModuleId = mod.id;
+  }
+
+  const status = mastery >= 1.0 ? "COMPLETED" : mastery > 0 ? "IN_PROGRESS" : "NOT_STARTED";
+
+  await prisma.callerModuleProgress.upsert({
+    where: {
+      callerId_moduleId: { callerId, moduleId: resolvedModuleId },
+    },
+    create: {
+      callerId,
+      moduleId: resolvedModuleId,
+      mastery,
+      status,
+      startedAt: mastery > 0 ? new Date() : null,
+      completedAt: mastery >= 1.0 ? new Date() : null,
+      lastCallId: callId || null,
+      callCount: 1,
+    },
+    update: {
+      mastery,
+      status,
+      completedAt: mastery >= 1.0 ? new Date() : null,
+      lastCallId: callId || undefined,
+      callCount: { increment: 1 },
+    },
+  });
 }
 
 /**

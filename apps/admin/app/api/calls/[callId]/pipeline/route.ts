@@ -1753,6 +1753,24 @@ const stageExecutors: Record<string, StageExecutor> = {
       ctx.log.warn(`Curriculum progress tracking failed (non-blocking): ${err.message}`);
     }
 
+    // Write CurriculumModule FK on Call (non-blocking)
+    if (callerResult.learningAssessment?.moduleId) {
+      try {
+        const mod = await prisma.curriculumModule.findFirst({
+          where: { slug: callerResult.learningAssessment.moduleId },
+          select: { id: true },
+        });
+        if (mod) {
+          await prisma.call.update({
+            where: { id: ctx.callId },
+            data: { curriculumModuleId: mod.id },
+          });
+        }
+      } catch (err: any) {
+        ctx.log.warn(`Call moduleId write failed (non-blocking): ${err.message}`);
+      }
+    }
+
     // Track onboarding completion on first call (non-blocking)
     let onboardingCompleted = false;
     try {

@@ -1455,6 +1455,7 @@ html.light {
 .hf-text-tertiary { color: var(--text-tertiary); }
 .hf-text-accent { color: var(--accent-primary); }
 .hf-text-bold { font-weight: 600; }
+.hf-text-normal { font-weight: 400; }
 .hf-text-center { text-align: center; }
 .hf-truncate {
   overflow: hidden;
@@ -2646,6 +2647,11 @@ html.light {
 .hf-icon-md { width: 20px; height: 20px; }
 .hf-icon-lg { width: 32px; height: 32px; }
 .hf-icon-xl { width: 48px; height: 48px; }
+.hf-icon-block { display: block; margin: 0 auto 8px; }
+.hf-flex-shrink-0 { flex-shrink: 0; }
+.hf-min-w-0 { min-width: 0; }
+.hf-bullet-spacer { width: 24px; flex-shrink: 0; }
+.hf-icon-inline { display: inline; margin-right: 4px; vertical-align: middle; }
 
 /* Loading state — inline flex row with muted text */
 .hf-loading-row {
@@ -2655,6 +2661,16 @@ html.light {
   color: var(--text-muted);
   padding: 16px 0;
 }
+.hf-loading-row-lg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  padding: 32px 0;
+}
+
+/* Spinner variants */
+.hf-spinner-thick { border-width: 3px; }
 
 /* Progress bar (container + fill) */
 .hf-progress-bar {
@@ -4687,7 +4703,6 @@ html.light {
 .hf-gap-2xl { gap: 32px; }
 .hf-gap-14 { gap: 14px; }
 .hf-gap-10 { gap: 10px; }
-.hf-min-w-0 { min-width: 0; }
 .hf-relative { position: relative; }
 
 /* ── Users Page ─────────────────────────────── */
@@ -5451,6 +5466,7 @@ html.light {
 /* Padding utilities */
 .hf-p-0 { padding: 0; }
 .hf-py-sm { padding-top: 8px; padding-bottom: 8px; }
+.hf-py-lg { padding-top: 32px; padding-bottom: 32px; }
 
 /* Margin utilities */
 .hf-mt-6 { margin-top: 6px; }

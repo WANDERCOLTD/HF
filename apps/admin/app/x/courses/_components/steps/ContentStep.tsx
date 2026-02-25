@@ -21,6 +21,7 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
   const [packTimedOut, setPackTimedOut] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const packTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const uploadAbortRef = useRef<AbortController | null>(null);
 
   const domainId = getData<string>('domainId') || '';
   const courseName = getData<string>('courseName') || '';
@@ -80,6 +81,12 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
       setUploading(true);
       setUploadError(null);
 
+      // Abort any previous upload
+      uploadAbortRef.current?.abort();
+      const controller = new AbortController();
+      uploadAbortRef.current = controller;
+      const timeout = setTimeout(() => controller.abort(), 120_000);
+
       try {
         const slug = `course-upload-${Date.now()}`;
         const name = file.name.replace(/\.[^.]+$/, '');
@@ -87,6 +94,7 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ slug, name, description: 'Uploaded via Course Setup Wizard', trustLevel: 'UNVERIFIED' }),
+          signal: controller.signal,
         });
         const createData = await createRes.json();
         if (!createRes.ok) throw new Error(createData.error || 'Failed to create content source');
@@ -95,7 +103,9 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('mode', 'classify');
-        const importRes = await fetch(`/api/content-sources/${sourceId}/import`, { method: 'POST', body: formData });
+        const importRes = await fetch(`/api/content-sources/${sourceId}/import`, {
+          method: 'POST', body: formData, signal: controller.signal,
+        });
         const importData = await importRes.json();
         if (!importRes.ok) throw new Error(importData.error || 'File upload failed');
 
@@ -104,8 +114,13 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
         setUploadedSourceId(sourceId);
         onNext();
       } catch (err: unknown) {
-        setUploadError(err instanceof Error ? err.message : 'Upload failed');
+        if (err instanceof Error && err.name === 'AbortError') {
+          setUploadError('Upload timed out. Please try again.');
+        } else {
+          setUploadError(err instanceof Error ? err.message : 'Upload failed');
+        }
       } finally {
+        clearTimeout(timeout);
         setUploading(false);
       }
     } else if (uploadMode === 'describe') {
@@ -189,7 +204,7 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
           <div className="hf-mb-lg">
             {packComplete && packSummary ? (
               <div className="hf-banner hf-banner-success">
-                <CheckCircle className="hf-icon-sm" style={{ flexShrink: 0 }} />
+                <CheckCircle className="hf-icon-sm hf-flex-shrink-0" />
                 <span>{packSummary}</span>
               </div>
             ) : (
@@ -210,7 +225,7 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
             >
               {uploadedSourceId && !file ? (
                 <div>
-                  <CheckCircle className="hf-icon-md hf-text-success" style={{ margin: '0 auto 8px' }} />
+                  <CheckCircle className="hf-icon-md hf-text-success hf-icon-block" />
                   <p className="hf-text-sm hf-text-bold">{savedFileName || 'File uploaded'}</p>
                   <p className="hf-text-sm hf-text-success">Uploaded and ready</p>
                   <button
@@ -233,14 +248,14 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
                 </div>
               ) : savedFileName && !uploadedSourceId ? (
                 <div>
-                  <AlertCircle className="hf-icon-md" style={{ margin: '0 auto 8px', color: 'var(--status-warning-text)' }} />
+                  <AlertCircle className="hf-icon-md hf-text-warning hf-icon-block" />
                   <p className="hf-text-sm hf-text-bold">{savedFileName}</p>
-                  <p className="hf-text-sm" style={{ color: 'var(--status-warning-text)' }}>File needs to be re-selected after page refresh</p>
+                  <p className="hf-text-sm hf-text-warning">File needs to be re-selected after page refresh</p>
                   <p className="hf-text-xs hf-text-secondary hf-mt-xs">Click to re-upload, or Skip this step</p>
                 </div>
               ) : (
                 <div>
-                  <Upload className="hf-icon-lg hf-text-tertiary" style={{ margin: '0 auto 8px' }} />
+                  <Upload className="hf-icon-lg hf-text-tertiary hf-icon-block" />
                   <p className="hf-text-sm hf-text-bold">Drag your file here</p>
                   <p className="hf-text-sm hf-text-secondary hf-mt-xs">or click to select</p>
                 </div>
@@ -256,7 +271,7 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
 
             {uploadError && (
               <div className="hf-banner hf-banner-error hf-mt-sm">
-                <AlertCircle className="hf-icon-sm" style={{ flexShrink: 0 }} />
+                <AlertCircle className="hf-icon-sm hf-flex-shrink-0" />
                 <span className="hf-flex-1">{uploadError}</span>
                 <button onClick={() => setUploadError(null)} className="hf-link-subtle hf-text-xs">
                   Dismiss
@@ -281,12 +296,17 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
         )}
       </div>
 
-      {/* Footer — show for non-pack modes, OR if pack timed out (safety net) */}
-      {(uploadMode !== 'pack' || packTimedOut) && (
-        <div className="hf-step-footer">
-          <button onClick={onPrev} className="hf-btn hf-btn-ghost" disabled={uploading}>
-            Back
+      {/* Footer — always visible so user is never stuck */}
+      <div className="hf-step-footer">
+        <button onClick={onPrev} className="hf-btn hf-btn-ghost" disabled={uploading}>
+          Back
+        </button>
+        {/* Pack mode: PackUploadStep has its own nav, but show Skip as safety escape */}
+        {uploadMode === 'pack' && !packComplete ? (
+          <button onClick={handleSkip} className="hf-btn hf-btn-ghost">
+            Skip
           </button>
+        ) : (
           <div className="hf-flex hf-gap-md hf-items-center">
             <button onClick={handleSkip} className="hf-btn hf-btn-ghost" disabled={uploading}>
               Skip
@@ -299,8 +319,8 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
               )}
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

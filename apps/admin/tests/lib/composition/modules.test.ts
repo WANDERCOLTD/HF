@@ -78,30 +78,30 @@ function makeCallerAttribute(overrides: Partial<CallerAttributeData> = {}): Call
 
 describe("computeSharedState", () => {
   describe("no modules available", () => {
-    it("returns empty modules when no content spec and no subject curriculum", () => {
+    it("returns empty modules when no content spec and no subject curriculum", async () => {
       const data = makeLoadedData();
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.modules).toHaveLength(0);
       expect(result.nextModule).toBeNull();
       expect(result.moduleToReview).toBeNull();
     });
 
-    it("detects first call correctly", () => {
+    it("detects first call correctly", async () => {
       const data = makeLoadedData({ recentCalls: [] });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.isFirstCall).toBe(true);
     });
 
-    it("detects non-first call", () => {
+    it("detects non-first call", async () => {
       const data = makeLoadedData({
         recentCalls: [{ id: "call-1", transcript: "hello", createdAt: new Date(), scores: [] }],
       });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.isFirstCall).toBe(false);
     });
@@ -159,10 +159,10 @@ describe("computeSharedState", () => {
       ],
     };
 
-    it("extracts modules from Subject curriculum when no content spec", () => {
+    it("extracts modules from Subject curriculum when no content spec", async () => {
       const data = makeLoadedData({ subjectSources });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.modules).toHaveLength(3);
       expect(result.modules[0].id).toBe("MOD-1");
@@ -171,37 +171,37 @@ describe("computeSharedState", () => {
       expect(result.modules[2].id).toBe("MOD-3");
     });
 
-    it("preserves learningOutcomes from subject modules", () => {
+    it("preserves learningOutcomes from subject modules", async () => {
       const data = makeLoadedData({ subjectSources });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.modules[0].learningOutcomes).toContain("LO1: Explain why food safety matters");
       expect(result.modules[1].learningOutcomes).toContain("LO2: Identify hazard types");
     });
 
-    it("sets curriculumSpecSlug from curriculum slug", () => {
+    it("sets curriculumSpecSlug from curriculum slug", async () => {
       const data = makeLoadedData({ subjectSources });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.curriculumSpecSlug).toBe("CURR-FS-L2-001");
     });
 
-    it("sets default metadata for Subject curriculum", () => {
+    it("sets default metadata for Subject curriculum", async () => {
       const data = makeLoadedData({ subjectSources });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.curriculumMetadata).toBeDefined();
       expect(result.curriculumMetadata!.type).toBe("sequential");
       expect(result.curriculumMetadata!.trackingMode).toBe("module-based");
     });
 
-    it("identifies next module when no progress", () => {
+    it("identifies next module when no progress", async () => {
       const data = makeLoadedData({ subjectSources });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       // With no calls/mastery, MOD-1 is moduleToReview (index 0) and nextModule is MOD-2 (index 1)
       expect(result.moduleToReview).toBeDefined();
@@ -210,7 +210,7 @@ describe("computeSharedState", () => {
       expect(result.nextModule!.id).toBe("MOD-2");
     });
 
-    it("skips subjects with no curriculum", () => {
+    it("skips subjects with no curriculum", async () => {
       const noModulesSources = {
         subjects: [
           {
@@ -221,7 +221,7 @@ describe("computeSharedState", () => {
       };
       const data = makeLoadedData({ subjectSources: noModulesSources });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.modules).toHaveLength(0);
     });
@@ -250,34 +250,34 @@ describe("computeSharedState", () => {
       },
     };
 
-    it("extracts modules using metadata.moduleSelector", () => {
+    it("extracts modules using metadata.moduleSelector", async () => {
       const data = makeLoadedData();
       const specs = makeResolvedSpecs({ contentSpec });
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.modules).toHaveLength(2);
       expect(result.modules[0].id).toBe("MOD-A");
       expect(result.modules[1].id).toBe("MOD-B");
     });
 
-    it("does not include parameters from other sections", () => {
+    it("does not include parameters from other sections", async () => {
       const data = makeLoadedData();
       const specs = makeResolvedSpecs({ contentSpec });
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       const moduleIds = result.modules.map(m => m.id);
       expect(moduleIds).not.toContain("PARAM-X");
     });
 
-    it("reads masteryThreshold from spec metadata", () => {
+    it("reads masteryThreshold from spec metadata", async () => {
       const data = makeLoadedData();
       const specs = makeResolvedSpecs({ contentSpec });
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.curriculumMetadata!.masteryThreshold).toBe(0.7);
     });
 
-    it("prefers content spec over Subject curriculum", () => {
+    it("prefers content spec over Subject curriculum", async () => {
       const subjectSources = {
         subjects: [{
           id: "s-1", slug: "s", name: "S", defaultTrustLevel: "L3", qualificationRef: null, sources: [],
@@ -292,7 +292,7 @@ describe("computeSharedState", () => {
       };
       const data = makeLoadedData({ subjectSources });
       const specs = makeResolvedSpecs({ contentSpec });
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       // Should use content spec, not subject
       expect(result.modules[0].id).toBe("MOD-A");
@@ -319,7 +319,7 @@ describe("computeSharedState", () => {
       }],
     };
 
-    it("detects completed modules from mastery attributes", () => {
+    it("detects completed modules from mastery attributes", async () => {
       const data = makeLoadedData({
         subjectSources,
         callerAttributes: [
@@ -327,13 +327,13 @@ describe("computeSharedState", () => {
         ],
       });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.completedModules.has("MOD-1")).toBe(true);
       expect(result.completedModules.size).toBe(1);
     });
 
-    it("detects completed modules from boolean completed_ attributes", () => {
+    it("detects completed modules from boolean completed_ attributes", async () => {
       const data = makeLoadedData({
         subjectSources,
         callerAttributes: [
@@ -341,12 +341,12 @@ describe("computeSharedState", () => {
         ],
       });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.completedModules.has("MOD-1")).toBe(true);
     });
 
-    it("advances nextModule past completed ones", () => {
+    it("advances nextModule past completed ones", async () => {
       const data = makeLoadedData({
         subjectSources,
         callerAttributes: [
@@ -354,7 +354,7 @@ describe("computeSharedState", () => {
         ],
       });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       // MOD-1 completed, so next should be MOD-2
       expect(result.nextModule).toBeDefined();
@@ -363,7 +363,7 @@ describe("computeSharedState", () => {
   });
 
   describe("review schedule (from specConfig, not hardcoded)", () => {
-    it("uses default review schedule when not in specConfig", () => {
+    it("uses default review schedule when not in specConfig", async () => {
       const data = makeLoadedData({
         recentCalls: [{
           id: "call-1",
@@ -373,13 +373,13 @@ describe("computeSharedState", () => {
         }],
       });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       // 15 days >= default 14-day reintroduce threshold
       expect(result.reviewType).toBe("reintroduce");
     });
 
-    it("uses custom review schedule from specConfig", () => {
+    it("uses custom review schedule from specConfig", async () => {
       const data = makeLoadedData({
         recentCalls: [{
           id: "call-1",
@@ -390,7 +390,7 @@ describe("computeSharedState", () => {
       });
       const specs = makeResolvedSpecs();
       // Custom schedule: reintroduce at 20 days, deep review at 10, application at 5
-      const result = computeSharedState(data, specs, {
+      const result = await computeSharedState(data, specs, {
         reviewSchedule: { reintroduce: 20, deepReview: 10, application: 5 },
       });
 
@@ -398,7 +398,7 @@ describe("computeSharedState", () => {
       expect(result.reviewType).toBe("deep_review");
     });
 
-    it("returns quick_recall when gap is short", () => {
+    it("returns quick_recall when gap is short", async () => {
       const data = makeLoadedData({
         recentCalls: [{
           id: "call-1",
@@ -408,7 +408,7 @@ describe("computeSharedState", () => {
         }],
       });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.reviewType).toBe("quick_recall");
     });
@@ -447,7 +447,7 @@ describe("computeSharedState", () => {
       }],
     };
 
-    it("does NOT use lesson plan when onboarding is incomplete", () => {
+    it("does NOT use lesson plan when onboarding is incomplete", async () => {
       const data = makeLoadedData({
         subjectSources: subjectSourcesWithPlan,
         recentCalls: [{ id: "call-1", transcript: "hi", createdAt: new Date(), scores: [] }],
@@ -457,14 +457,14 @@ describe("computeSharedState", () => {
         ],
       });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       // Should use mastery-based selection, not lesson plan
       expect(result.lessonPlanSessionType).toBeNull();
       expect(result.lessonPlanEntry).toBeNull();
     });
 
-    it("uses lesson plan when onboarding is complete and currentSession is set", () => {
+    it("uses lesson plan when onboarding is complete and currentSession is set", async () => {
       const data = makeLoadedData({
         subjectSources: subjectSourcesWithPlan,
         recentCalls: [{ id: "call-1", transcript: "hi", createdAt: new Date(), scores: [] }],
@@ -474,7 +474,7 @@ describe("computeSharedState", () => {
         ],
       });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.currentSessionNumber).toBe(2);
       expect(result.lessonPlanSessionType).toBe("introduce");
@@ -483,7 +483,7 @@ describe("computeSharedState", () => {
       expect(result.lessonPlanEntry!.moduleLabel).toBe("Introduction");
     });
 
-    it("overrides nextModule to match lesson plan entry", () => {
+    it("overrides nextModule to match lesson plan entry", async () => {
       const data = makeLoadedData({
         subjectSources: subjectSourcesWithPlan,
         recentCalls: [{ id: "call-1", transcript: "hi", createdAt: new Date(), scores: [] }],
@@ -493,7 +493,7 @@ describe("computeSharedState", () => {
         ],
       });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       // Session 4 is "introduce MOD-2"
       expect(result.nextModule).toBeDefined();
@@ -501,7 +501,7 @@ describe("computeSharedState", () => {
       expect(result.lessonPlanSessionType).toBe("introduce");
     });
 
-    it("handles cross-module sessions (review, assess) with null moduleId", () => {
+    it("handles cross-module sessions (review, assess) with null moduleId", async () => {
       const data = makeLoadedData({
         subjectSources: subjectSourcesWithPlan,
         recentCalls: [{ id: "call-1", transcript: "hi", createdAt: new Date(), scores: [] }],
@@ -511,14 +511,14 @@ describe("computeSharedState", () => {
         ],
       });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       // Session 5 is "review" with no moduleId
       expect(result.lessonPlanSessionType).toBe("review");
       expect(result.lessonPlanEntry!.moduleId).toBeNull();
     });
 
-    it("falls back to mastery-based selection when no lesson plan", () => {
+    it("falls back to mastery-based selection when no lesson plan", async () => {
       const subjectSourcesNoLP = {
         subjects: [{
           ...subjectSourcesWithPlan.subjects[0],
@@ -534,14 +534,14 @@ describe("computeSharedState", () => {
         onboardingSession: { isComplete: true, completedPhases: [], currentPhase: null },
       });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.lessonPlanSessionType).toBeNull();
       expect(result.lessonPlanEntry).toBeNull();
       expect(result.currentSessionNumber).toBeNull();
     });
 
-    it("returns null fields when currentSession not in callerAttributes", () => {
+    it("returns null fields when currentSession not in callerAttributes", async () => {
       const data = makeLoadedData({
         subjectSources: subjectSourcesWithPlan,
         recentCalls: [{ id: "call-1", transcript: "hi", createdAt: new Date(), scores: [] }],
@@ -549,7 +549,7 @@ describe("computeSharedState", () => {
         callerAttributes: [], // no currentSession
       });
       const specs = makeResolvedSpecs();
-      const result = computeSharedState(data, specs, {});
+      const result = await computeSharedState(data, specs, {});
 
       expect(result.currentSessionNumber).toBeNull();
       expect(result.lessonPlanSessionType).toBeNull();

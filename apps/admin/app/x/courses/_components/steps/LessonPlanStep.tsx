@@ -75,6 +75,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
   const [curriculumId, setCurriculumId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const saveAbortRef = useRef<AbortController | null>(null);
+  const generateAbortRef = useRef<AbortController | null>(null);
 
   // Inline edit state
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -174,6 +175,12 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
     setError(null);
     setPhase("generating");
 
+    // Abort any previous generate request
+    generateAbortRef.current?.abort();
+    const controller = new AbortController();
+    generateAbortRef.current = controller;
+    const timeout = setTimeout(() => controller.abort(), 120_000);
+
     const courseName = getData<string>("courseName");
     const learningOutcomes = getData<string[]>("learningOutcomes") || [];
     const teachingStyle = getData<string>("teachingStyle") || "tutor";
@@ -188,14 +195,21 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
           sessionCount: sessionCount || 12, durationMins, emphasis, assessments,
           sourceId: sourceId || undefined,
         }),
+        signal: controller.signal,
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Failed to start plan generation");
       setTaskId(data.taskId);
       setData("planTaskId", data.taskId);
     } catch (err: any) {
-      setError(err.message || "Failed to start plan generation");
+      if (err.name === "AbortError") {
+        setError("Generation request timed out. Please try again.");
+      } else {
+        setError(err.message || "Failed to start plan generation");
+      }
       setPhase("intents");
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -304,16 +318,16 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
             {/* Content status banner */}
             {contentMode === "file" && contentFileName && (
               <div className="hf-banner hf-banner-success">
-                <CheckCircle className="hf-icon-sm" style={{ flexShrink: 0 }} />
+                <CheckCircle className="hf-icon-sm hf-flex-shrink-0" />
                 <span>
-                  <FileText className="hf-icon-xs" style={{ display: "inline", marginRight: 4 }} />
+                  <FileText className="hf-icon-xs hf-icon-inline" />
                   {contentFileName} uploaded{getData<string>("sourceId") ? " — will inform your lesson plan" : ""}
                 </span>
               </div>
             )}
             {contentMode === "describe" && contentDescription && (
               <div className="hf-banner hf-banner-info">
-                <CheckCircle className="hf-icon-sm" style={{ flexShrink: 0 }} />
+                <CheckCircle className="hf-icon-sm hf-flex-shrink-0" />
                 <span>Course description provided</span>
               </div>
             )}
@@ -375,8 +389,8 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
 
             {/* Generating spinner */}
             {phase === "generating" && (
-              <div className="hf-flex hf-flex-col hf-items-center hf-gap-sm" style={{ padding: '32px 0' }}>
-                <div className="hf-spinner hf-icon-lg" style={{ borderWidth: 3 }} />
+              <div className="hf-flex hf-flex-col hf-items-center hf-gap-sm hf-py-lg">
+                <div className="hf-spinner hf-icon-lg hf-spinner-thick" />
                 <p className="hf-text-sm hf-text-secondary">Generating your lesson plan...</p>
                 <p className="hf-text-xs hf-text-muted">This usually takes 15-30 seconds</p>
               </div>
@@ -510,6 +524,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
           className="hf-btn hf-btn-ghost"
           onClick={() => {
             if (phase === "generating") {
+              generateAbortRef.current?.abort();
               setTaskId(null);
               setData("planTaskId", null);
               setPhase("intents");

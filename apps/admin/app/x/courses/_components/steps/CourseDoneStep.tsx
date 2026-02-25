@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { PlayCircle, BookOpen, Users, GraduationCap, Building2 } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTaskPoll, type PollableTask } from '@/hooks/useTaskPoll';
 import { useBackgroundTaskQueue } from '@/components/shared/ContentJobQueue';
 import { useTerminology } from '@/contexts/TerminologyContext';
@@ -10,6 +10,9 @@ import { WizardSummary } from '@/components/shared/WizardSummary';
 import type { AgentTunerPill } from '@/lib/agent-tuner/types';
 import { useStepFlow } from '@/contexts/StepFlowContext';
 import type { StepProps } from '../CourseSetupWizard';
+
+/** @system-constant course-setup — Launch API timeout in ms (2 minutes) */
+const LAUNCH_TIMEOUT_MS = 120_000;
 
 interface TaskSummary {
   domain?: { id: string; name: string; slug: string };
@@ -37,27 +40,22 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
   const [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
   const [taskSummary, setTaskSummary] = useState<TaskSummary | null>(null);
+  const launchAbortRef = useRef<AbortController | null>(null);
 
   // Read all flow bag keys
   const courseName = getData<string>('courseName');
   const teachingStyle = getData<string>('teachingStyle');
   const personaName = getData<string>('personaName');
   const learningOutcomes = getData<string[]>('learningOutcomes') || [];
-
-  // Lesson plan keys
   const lessonPlanMode = getData<string>('lessonPlanMode') || 'skipped';
   const planIntents = getData<{ sessionCount: number; durationMins: number; emphasis: string; assessments: string }>('planIntents');
   const sessionCount = getData<number>('sessionCount') || planIntents?.sessionCount || 12;
   const durationMins = getData<number>('durationMins') || planIntents?.durationMins || 30;
   const emphasis = getData<string>('emphasis') || planIntents?.emphasis || 'balanced';
-
-  // Student keys
   const studentEmails = getData<string[]>('studentEmails') || [];
   const cohortGroupIds = getData<string[]>('cohortGroupIds') || [];
   const selectedCallerIds = getData<string[]>('selectedCallerIds') || [];
   const totalStudents = studentEmails.length + cohortGroupIds.length + selectedCallerIds.length;
-
-  // Config keys (AgentTuner behavior targets + pills)
   const behaviorTargets = getData<Record<string, number>>('behaviorTargets');
   const tunerPills = getData<AgentTunerPill[]>('tunerPills') || [];
 
@@ -99,17 +97,20 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
     setLoading(true);
     setError(null);
 
+    // Abort any previous in-flight launch
+    launchAbortRef.current?.abort();
+    const controller = new AbortController();
+    launchAbortRef.current = controller;
+
+    // Timeout guard
+    const timeout = setTimeout(() => controller.abort(), LAUNCH_TIMEOUT_MS);
+
     try {
       const res = await fetch('/api/courses/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          courseName,
-          learningOutcomes,
-          teachingStyle,
-          sessionCount,
-          durationMins,
-          emphasis,
+          courseName, learningOutcomes, teachingStyle, sessionCount, durationMins, emphasis,
           welcomeMessage: getData<string>('welcomeMessage') || '',
           studentEmails,
           subjectId: getData<string>('subjectId') || undefined,
@@ -122,20 +123,24 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
           behaviorTargets: behaviorTargets && Object.keys(behaviorTargets).length > 0 ? behaviorTargets : undefined,
           wizardTaskId: wizardTaskId || undefined,
         }),
+        signal: controller.signal,
       });
 
       const data = await res.json();
-
-      if (!data.ok) {
-        throw new Error(data.error || 'Failed to start course setup');
-      }
+      if (!data.ok) throw new Error(data.error || 'Failed to start course setup');
 
       setData('taskId', data.taskId);
       setTaskId(data.taskId);
       addCourseSetupJob(data.taskId, courseName || 'Course Setup');
     } catch (err: any) {
-      setError(err.message || 'Failed to launch course setup');
+      if (err.name === 'AbortError') {
+        setError('Request timed out. The server may be busy — please retry.');
+      } else {
+        setError(err.message || 'Failed to launch course setup');
+      }
       setLoading(false);
+    } finally {
+      clearTimeout(timeout);
     }
   };
 
@@ -149,16 +154,12 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
   if (completed && !loading) {
     const domainId = taskSummary?.domain?.id;
     const domainName = taskSummary?.domain?.name || courseName || 'Your Course';
-
-    // Build tuning traits from pills
-    const tuningTraits = tunerPills
-      .map(p => p.label)
-      .filter(Boolean);
+    const tuningTraits = tunerPills.map(p => p.label).filter(Boolean);
     const paramCount = behaviorTargets ? Object.keys(behaviorTargets).length : 0;
 
     return (
-      <div className="min-h-screen flex flex-col">
-        <div className="flex-1 p-8 max-w-2xl mx-auto w-full">
+      <div className="hf-wizard-page">
+        <div className="hf-wizard-step">
           <WizardSummary
             title="Course Created Successfully!"
             subtitle={taskSummary?.invitationCount
@@ -167,9 +168,9 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
             }
             intent={{
               items: [
-                { icon: <BookOpen className="w-4 h-4" />, label: 'Course', value: courseName || '—' },
-                { icon: <GraduationCap className="w-4 h-4" />, label: 'Sessions', value: `${sessionCount} × ${durationMins} min` },
-                { icon: <Users className="w-4 h-4" />, label: 'Style', value: personaName || teachingStyle || '—' },
+                { icon: <BookOpen className="hf-icon-sm" />, label: 'Course', value: courseName || '—' },
+                { icon: <GraduationCap className="hf-icon-sm" />, label: 'Sessions', value: `${sessionCount} × ${durationMins} min` },
+                { icon: <Users className="hf-icon-sm" />, label: 'Style', value: personaName || teachingStyle || '—' },
                 ...(learningOutcomes.length > 0
                   ? [{ label: 'Goals', value: `${learningOutcomes.length} learning outcome${learningOutcomes.length !== 1 ? 's' : ''}` }]
                   : []),
@@ -178,13 +179,13 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
             created={{
               entities: [
                 ...(domainId ? [{
-                  icon: <Building2 className="w-5 h-5" />,
+                  icon: <Building2 className="hf-icon-md" />,
                   label: terms.domain,
                   name: domainName,
                   href: `/x/domains?id=${domainId}`,
                 }] : []),
                 ...(taskSummary?.playbook ? [{
-                  icon: <BookOpen className="w-5 h-5" />,
+                  icon: <BookOpen className="hf-icon-md" />,
                   label: 'Course',
                   name: taskSummary.playbook.name || courseName || '—',
                   href: `/x/courses/${taskSummary.playbook.id}`,
@@ -200,7 +201,7 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
             tuning={tuningTraits.length > 0 ? { traits: tuningTraits, paramCount } : undefined}
             primaryAction={{
               label: 'Start Teaching',
-              icon: <PlayCircle className="w-5 h-5" />,
+              icon: <PlayCircle className="hf-icon-md" />,
               onClick: () => {
                 endFlow();
                 router.push(domainId ? `/x/teach?domainId=${domainId}` : '/x/courses');
@@ -217,41 +218,36 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
 
   // ── Loading / Error State ──────────────────────────
   if (loading || taskId) {
+    const hasError = !!(error || taskProgress?.error);
     return (
-      <div className="min-h-screen flex flex-col">
-        <div className="flex-1 p-8 max-w-2xl mx-auto w-full flex flex-col items-center justify-center">
-          <div className="text-center">
-            {taskProgress?.error || error ? (
+      <div className="hf-wizard-page">
+        <div className="hf-wizard-step hf-flex hf-flex-col hf-items-center hf-justify-center">
+          <div className="hf-text-center">
+            {hasError ? (
               <>
-                <div className="text-5xl mb-4">&#x274C;</div>
-                <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--status-error-text)" }}>
+                <div className="hf-text-xl hf-mb-md">&#x274C;</div>
+                <h1 className="hf-page-title hf-mb-xs hf-text-error">
                   Course Setup Failed
                 </h1>
-                <p className="text-[var(--text-secondary)] mb-6">
+                <p className="hf-page-subtitle hf-mb-lg">
                   {error || taskProgress?.error || 'An error occurred while creating the course'}
                 </p>
               </>
             ) : (
               <>
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-                  <div className="hf-spinner" style={{ width: 48, height: 48, borderWidth: 3 }} />
+                <div className="hf-flex hf-justify-center hf-mb-md">
+                  <div className="hf-spinner hf-icon-xl hf-spinner-thick" />
                 </div>
-                <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">
-                  Creating Your Course
-                </h1>
-                <p className="text-[var(--text-secondary)] mb-4">
+                <h1 className="hf-page-title hf-mb-xs">Creating Your Course</h1>
+                <p className="hf-page-subtitle hf-mb-md">
                   {taskProgress?.message || 'Setting up...'}
                 </p>
                 {taskProgress?.totalSteps && (
-                  <div className="w-full max-w-xs mx-auto bg-[var(--surface-secondary)] rounded-full h-2">
+                  <div className="hf-progress-bar">
                     <div
-                      className="bg-[var(--accent)] h-2 rounded-full transition-all duration-300"
+                      className="hf-progress-fill"
                       style={{
-                        width: `${
-                          ((taskProgress.stepIndex || 0) + 1) /
-                          (taskProgress.totalSteps || 1) *
-                          100
-                        }%`,
+                        width: `${((taskProgress.stepIndex || 0) + 1) / (taskProgress.totalSteps || 1) * 100}%`,
                       }}
                     />
                   </div>
@@ -261,51 +257,43 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
           </div>
         </div>
 
-        {/* Error Actions */}
-        {(error || taskProgress?.error) && (
-          <div className="p-6 border-t border-[var(--border-default)] bg-[var(--surface-secondary)]">
-            <div className="max-w-2xl mx-auto flex gap-3">
-              <button
-                onClick={() => {
-                  setLoading(false);
-                  setTaskId(null);
-                  setTaskProgress(null);
-                  setError(null);
-                  setData('taskId', undefined);
-                  // Use rAF to ensure state clears before re-launching
-                  requestAnimationFrame(() => handleLaunch());
-                }}
-                className="hf-btn hf-btn-primary"
-                style={{ flex: 1 }}
-              >
-                Retry
-              </button>
-              <button
-                onClick={handleGoToCourses}
-                className="hf-btn hf-btn-secondary"
-                style={{ flex: 1 }}
-              >
-                Back to Courses
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Always show footer — error gets Retry, polling gets Cancel */}
+        <div className="hf-step-footer">
+          <button onClick={handleGoToCourses} className="hf-btn hf-btn-secondary">
+            {hasError ? 'Back to Courses' : 'Cancel'}
+          </button>
+          {hasError && (
+            <button
+              onClick={() => {
+                setLoading(false);
+                setTaskId(null);
+                setTaskProgress(null);
+                setError(null);
+                setData('taskId', undefined);
+                requestAnimationFrame(() => handleLaunch());
+              }}
+              className="hf-btn hf-btn-primary"
+            >
+              Retry
+            </button>
+          )}
+        </div>
       </div>
     );
   }
 
   // ── Pre-launch Review State ────────────────────────
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="flex-1 p-8 max-w-2xl mx-auto w-full">
+    <div className="hf-wizard-page">
+      <div className="hf-wizard-step">
         <WizardSummary
           title="Ready to Launch"
           subtitle="Review your course and launch when ready"
           intent={{
             items: [
-              { icon: <BookOpen className="w-4 h-4" />, label: 'Course', value: courseName || '—' },
-              { icon: <GraduationCap className="w-4 h-4" />, label: 'Sessions', value: `${sessionCount} × ${durationMins} min` },
-              { icon: <Users className="w-4 h-4" />, label: 'Students', value: totalStudents > 0 ? `${totalStudents} to enroll` : 'None yet' },
+              { icon: <BookOpen className="hf-icon-sm" />, label: 'Course', value: courseName || '—' },
+              { icon: <GraduationCap className="hf-icon-sm" />, label: 'Sessions', value: `${sessionCount} × ${durationMins} min` },
+              { icon: <Users className="hf-icon-sm" />, label: 'Students', value: totalStudents > 0 ? `${totalStudents} to enroll` : 'None yet' },
               { label: 'Plan', value: lessonPlanMode === 'reviewed' ? 'Custom plan' : lessonPlanMode === 'accept' ? 'Auto-generated' : 'Defaults' },
               { label: 'Style', value: personaName || teachingStyle || '—' },
             ],
@@ -321,15 +309,12 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
           } : undefined}
           primaryAction={{
             label: 'Launch Course',
-            icon: <PlayCircle className="w-5 h-5" />,
+            icon: <PlayCircle className="hf-icon-md" />,
             onClick: handleLaunch,
             disabled: loading,
           }}
           secondaryActions={[
-            {
-              label: 'Cancel',
-              onClick: handleGoToCourses,
-            },
+            { label: 'Cancel', onClick: handleGoToCourses },
           ]}
           onBack={onPrev}
         />

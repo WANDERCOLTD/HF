@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { BookOpen, CheckSquare } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { BookOpen, CheckSquare, Layers } from "lucide-react";
 import { VerticalSlider, SliderGroup } from "@/components/shared/VerticalSlider";
 import { GoalPill, PlaybookPill, StatusBadge } from "@/src/components/shared/EntityPill";
 import { EXAM_LEVEL_CONFIG } from "@/lib/curriculum/constants";
@@ -1229,6 +1229,110 @@ export function PlanProgressSection({
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// =====================================================
+// ModuleProgressView — first-class module mastery
+// =====================================================
+
+interface ModuleProgressItem {
+  id: string;
+  mastery: number;
+  status: string;
+  callCount: number;
+  module: {
+    id: string;
+    slug: string;
+    title: string;
+    sortOrder: number;
+    curriculum: { id: string; name: string };
+  };
+}
+
+export function ModuleProgressView({ callerId }: { callerId: string }) {
+  const [items, setItems] = useState<ModuleProgressItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/callers/${callerId}/module-progress`, {
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || res.statusText);
+      const data = await res.json();
+      setItems(data.progress || []);
+    } catch (err: any) {
+      if (err.name !== "AbortError") setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [callerId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return null; // Don't show spinner — section appears when data exists
+  if (error) {
+    return (
+      <div className="hf-banner hf-banner-error hf-mb-md">
+        Module progress: {error}
+      </div>
+    );
+  }
+  if (items.length === 0) return null; // No module progress yet — hide section
+
+  const statusColor = (status: string) => {
+    if (status === "COMPLETED") return "var(--status-success-text)";
+    if (status === "IN_PROGRESS") return "var(--accent-primary)";
+    return "var(--text-muted)";
+  };
+
+  return (
+    <div className="hf-card hf-mb-md">
+      <div className="hf-flex hf-gap-sm hf-items-center hf-mb-md">
+        <Layers size={16} style={{ color: "var(--accent-primary)" }} />
+        <span className="hf-section-title" style={{ margin: 0 }}>Module Progress</span>
+        <span className="hf-text-xs hf-text-muted">
+          {items.filter((i) => i.status === "COMPLETED").length}/{items.length} completed
+        </span>
+      </div>
+      <div style={{ display: "grid", gap: 8 }}>
+        {items.map((item) => (
+          <div key={item.id} className="hf-list-row hf-flex hf-items-center hf-gap-sm">
+            <span className="hf-text-xs hf-mono" style={{ fontWeight: 700, color: "var(--accent-primary)", minWidth: 48 }}>
+              {item.module.slug}
+            </span>
+            <span className="hf-text-sm hf-text-primary hf-flex-1">{item.module.title}</span>
+            {/* Mastery bar */}
+            <div style={{
+              width: 80,
+              height: 6,
+              borderRadius: 3,
+              background: "var(--surface-secondary)",
+              overflow: "hidden",
+            }}>
+              <div style={{
+                width: `${Math.round(item.mastery * 100)}%`,
+                height: "100%",
+                borderRadius: 3,
+                background: statusColor(item.status),
+                transition: "width 0.3s ease",
+              }} />
+            </div>
+            <span className="hf-text-xs hf-text-muted" style={{ minWidth: 32, textAlign: "right" }}>
+              {Math.round(item.mastery * 100)}%
+            </span>
+            <span className="hf-text-xs" style={{ color: statusColor(item.status), minWidth: 36 }}>
+              {item.status === "COMPLETED" ? "Done" : item.status === "IN_PROGRESS" ? "Active" : "—"}
+            </span>
+            <span className="hf-text-xs hf-text-muted">{item.callCount} call{item.callCount !== 1 ? "s" : ""}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

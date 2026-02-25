@@ -79,7 +79,7 @@ export async function executeComposition(
   console.log(`[CompositionExecutor] Voice: ${resolvedSpecs.voiceSpec?.name || "NONE"}`);
 
   // 3. Compute shared state (modules, session flow, etc.)
-  const sharedState = computeSharedState(loadedData, resolvedSpecs, specConfig);
+  const sharedState = await computeSharedState(loadedData, resolvedSpecs, specConfig);
 
   // 4. Initialize assembled context
   const context: AssembledContext = {

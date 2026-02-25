@@ -73,6 +73,9 @@ export type Call = {
   hasBehaviorMeasurements?: boolean;
   hasRewardScore?: boolean;
   hasPrompt?: boolean;
+  // Module context
+  curriculumModuleId?: string | null;
+  curriculumModule?: { slug: string; title: string } | null;
 };
 
 export type CallerIdentity = {

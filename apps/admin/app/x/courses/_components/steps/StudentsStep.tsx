@@ -204,19 +204,19 @@ export function StudentsStep({ setData, getData, onNext, onPrev }: StepProps) {
             {cohortsError && (
               <div className="hf-banner hf-banner-error hf-mb-sm">
                 {cohortsError}
-                <button onClick={() => fetchCohorts()} className="hf-link-subtle hf-text-sm" style={{ marginLeft: 8 }}>
+                <button onClick={() => fetchCohorts()} className="hf-link-subtle hf-text-sm hf-ml-sm">
                   Retry
                 </button>
               </div>
             )}
             {cohortsLoading ? (
-              <div className="hf-loading-row" style={{ padding: '32px 0' }}>
+              <div className="hf-loading-row-lg">
                 <Loader2 className="hf-spinner hf-icon-sm" />
                 <span className="hf-text-sm">Loading groups...</span>
               </div>
             ) : cohorts.length === 0 && !cohortsError ? (
               <div className="hf-empty-compact">
-                <Users className="hf-icon-xl hf-text-tertiary hf-mb-sm" style={{ display: 'block', margin: '0 auto 12px' }} />
+                <Users className="hf-icon-xl hf-text-tertiary hf-icon-block" />
                 <p className="hf-text-sm hf-text-secondary">No groups found for this institution.</p>
                 <p className="hf-text-xs hf-text-muted hf-mt-xs">Create a classroom first, or use another enrollment method.</p>
               </div>
@@ -257,7 +257,7 @@ export function StudentsStep({ setData, getData, onNext, onPrev }: StepProps) {
             {callersError && (
               <div className="hf-banner hf-banner-error hf-mb-sm">
                 {callersError}
-                <button onClick={() => fetchCallers()} className="hf-link-subtle hf-text-sm" style={{ marginLeft: 8 }}>
+                <button onClick={() => fetchCallers()} className="hf-link-subtle hf-text-sm hf-ml-sm">
                   Retry
                 </button>
               </div>
@@ -284,13 +284,13 @@ export function StudentsStep({ setData, getData, onNext, onPrev }: StepProps) {
             )}
 
             {callersLoading ? (
-              <div className="hf-loading-row" style={{ padding: '32px 0' }}>
+              <div className="hf-loading-row-lg">
                 <Loader2 className="hf-spinner hf-icon-sm" />
                 <span className="hf-text-sm">Loading learners...</span>
               </div>
             ) : filteredCallers.length === 0 ? (
               <div className="hf-empty-compact">
-                <User className="hf-icon-xl hf-text-tertiary" style={{ display: 'block', margin: '0 auto 12px' }} />
+                <User className="hf-icon-xl hf-text-tertiary hf-icon-block" />
                 <p className="hf-text-sm hf-text-secondary">
                   {callerSearch ? 'No learners match your search.' : 'No learners found.'}
                 </p>
@@ -307,17 +307,17 @@ export function StudentsStep({ setData, getData, onNext, onPrev }: StepProps) {
                     >
                       <div className={`hf-checkbox hf-checkbox-sm${selected ? ' hf-checkbox-checked' : ''}`}>
                         {selected && (
-                          <svg className="hf-icon-xs" fill="none" stroke="white" viewBox="0 0 24 24" style={{ width: 10, height: 10 }}>
+                          <svg className="hf-icon-xs" fill="none" stroke="white" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
                         )}
                       </div>
-                      <div className="hf-flex-1" style={{ minWidth: 0 }}>
-                        <p className="hf-text-sm hf-text-bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div className="hf-flex-1 hf-min-w-0">
+                        <p className="hf-text-sm hf-text-bold hf-truncate">
                           {caller.name}
                         </p>
                         {caller.email && (
-                          <p className="hf-text-xs hf-text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <p className="hf-text-xs hf-text-muted hf-truncate">
                             {caller.email}
                           </p>
                         )}

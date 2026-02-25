@@ -44,34 +44,35 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
 
   // Fetch personas from API (same source as Quick Launch)
   useEffect(() => {
-    let cancelled = false;
+    const ac = new AbortController();
     (async () => {
       try {
-        const res = await fetch('/api/onboarding');
+        const res = await fetch('/api/onboarding', { signal: ac.signal });
         if (!res.ok) throw new Error('Failed to fetch personas');
         const data = await res.json();
-        if (!cancelled && data.ok && data.personasList?.length > 0) {
+        if (!ac.signal.aborted && data.ok && data.personasList?.length > 0) {
           setPersonas(data.personasList.map((p: any) => ({
             slug: p.slug,
             name: p.name,
             description: p.description || null,
             icon: p.icon || '🎭',
           })));
-        } else if (!cancelled) {
+        } else if (!ac.signal.aborted) {
           throw new Error(data.error || 'No personas returned');
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e.name === 'AbortError') return;
         console.warn('[IntentStep] Failed to load personas, using fallback:', e);
-        if (!cancelled) {
+        if (!ac.signal.aborted) {
           setPersonas([
             { slug: 'tutor', name: 'Tutor', description: 'Patient teaching expert', icon: '🧑‍🏫' },
           ]);
         }
       } finally {
-        if (!cancelled) setPersonasLoading(false);
+        if (!ac.signal.aborted) setPersonasLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => ac.abort();
   }, []);
 
   // Check for existing course when name changes
@@ -143,7 +144,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
           />
           {existingCourse && (
             <div className="hf-banner hf-banner-warning hf-mt-xs hf-flex hf-flex-wrap hf-items-start hf-gap-sm">
-              <AlertCircle className="hf-icon-md" style={{ flexShrink: 0 }} />
+              <AlertCircle className="hf-icon-md hf-flex-shrink-0" />
               <div className="hf-flex-1">
                 <p className="hf-text-sm hf-text-bold">Course exists: &quot;{existingCourse.name}&quot;</p>
                 <div className="hf-flex hf-gap-sm hf-mt-xs">
@@ -178,7 +179,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
           <div className="hf-flex hf-flex-col hf-gap-sm">
             {outcomes.map((outcome, i) => (
               <div key={i} className="hf-flex hf-items-center hf-gap-sm">
-                <span className="hf-text-sm hf-text-tertiary" style={{ width: 24 }}>•</span>
+                <span className="hf-text-sm hf-text-tertiary hf-bullet-spacer">•</span>
                 <input
                   type="text"
                   value={outcome}

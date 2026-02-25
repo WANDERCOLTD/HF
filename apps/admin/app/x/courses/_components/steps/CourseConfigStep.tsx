@@ -43,28 +43,29 @@ export function CourseConfigStep({ setData, getData, onNext, onPrev }: StepProps
   // Fetch persona config: welcome template + flow phases
   useEffect(() => {
     if (!personaSlug) return;
-    let cancelled = false;
+    const ac = new AbortController();
     setLoadingWelcome(true);
 
     (async () => {
       try {
-        const res = await fetch(`/api/onboarding?persona=${encodeURIComponent(personaSlug)}`);
+        const res = await fetch(`/api/onboarding?persona=${encodeURIComponent(personaSlug)}`, { signal: ac.signal });
         if (!res.ok) throw new Error('Failed to fetch persona config');
         const data = await res.json();
-        if (!cancelled && data.ok) {
+        if (!ac.signal.aborted && data.ok) {
           setDefaultWelcome(data.welcomeTemplate || '');
           if (data.firstCallFlow?.phases) {
             setFlowPhases(data.firstCallFlow.phases);
           }
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e.name === 'AbortError') return;
         console.warn('[CourseConfigStep] Failed to load persona config:', e);
       } finally {
-        if (!cancelled) setLoadingWelcome(false);
+        if (!ac.signal.aborted) setLoadingWelcome(false);
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => ac.abort();
   }, [personaSlug]);
 
   const handleTunerChange = ({ pills, parameterMap }: AgentTunerOutput) => {
@@ -107,7 +108,7 @@ export function CourseConfigStep({ setData, getData, onNext, onPrev }: StepProps
               {courseName && (
                 <>
                   <span className="hf-text-muted">·</span>
-                  <span className="hf-text-muted" style={{ fontWeight: 400 }}>{courseName}</span>
+                  <span className="hf-text-muted hf-text-normal">{courseName}</span>
                 </>
               )}
             </div>

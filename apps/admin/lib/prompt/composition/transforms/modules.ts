@@ -19,6 +19,54 @@ import type {
   AssembledContext,
   CallerAttributeData,
 } from "../types";
+import { prisma } from "@/lib/prisma";
+
+// =============================================================================
+// DB-FIRST MODULE LOADING (CurriculumModule model)
+// =============================================================================
+
+/**
+ * Load modules from first-class CurriculumModule + LearningObjective records.
+ * Returns ModuleData[] if records exist, null to fall back to JSON/spec paths.
+ */
+async function loadModulesFromDB(curriculumId: string): Promise<ModuleData[] | null> {
+  try {
+    const dbModules = await prisma.curriculumModule.findMany({
+      where: { curriculumId, isActive: true },
+      include: { learningObjectives: { orderBy: { sortOrder: "asc" } } },
+      orderBy: { sortOrder: "asc" },
+    });
+    if (dbModules.length === 0) return null;
+    return dbModules.map((m) => ({
+      id: m.id,
+      slug: m.slug,
+      name: m.title,
+      description: m.description,
+      sortOrder: m.sortOrder,
+      sequence: m.sortOrder,
+      masteryThreshold: m.masteryThreshold ?? 0.7,
+      prerequisites: m.prerequisites,
+      concepts: m.keyTerms,
+      learningOutcomes: m.learningObjectives.map((lo) => lo.description),
+    }));
+  } catch (err: any) {
+    console.warn("[modules] DB module load failed, falling back to JSON:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Try to find a curriculum ID from the loaded data context.
+ * Looks in subjectSources → subjects → curriculum.
+ */
+function findCurriculumId(data: LoadedDataContext): string | null {
+  const subjects = data.subjectSources?.subjects;
+  if (!subjects?.length) return null;
+  for (const subject of subjects) {
+    if (subject.curriculum?.id) return subject.curriculum.id;
+  }
+  return null;
+}
 
 // =============================================================================
 // CURRICULUM METADATA TYPES (from CURRICULUM_PROGRESS_V1 contract)
@@ -221,16 +269,33 @@ function extractSubjectCurriculumModules(
  * Compute shared module state from loaded data.
  * Called once in executor setup, stored in AssembledContext.sharedState.
  */
-export function computeSharedState(
+export async function computeSharedState(
   data: LoadedDataContext,
   resolvedSpecs: ResolvedSpecs,
   specConfig: Record<string, any>,
-): SharedComputedState {
-  // Extract modules using contract-driven approach
-  let { modules, metadata } = extractModules(resolvedSpecs.contentSpec);
+): Promise<SharedComputedState> {
+  // DB-first: try CurriculumModule records before JSON paths
+  const curriculumId = findCurriculumId(data);
+  let modules: ModuleData[] = [];
+  let metadata: CurriculumMetadata | null = null;
   let specSlug = resolvedSpecs.contentSpec?.slug || '';
 
-  // Fallback: if no modules from CONTENT spec, try Subject-based curriculum
+  if (curriculumId) {
+    const dbModules = await loadModulesFromDB(curriculumId);
+    if (dbModules && dbModules.length > 0) {
+      modules = dbModules;
+      console.log(`[modules] DB-first: loaded ${modules.length} modules from CurriculumModule records`);
+    }
+  }
+
+  // Fallback 1: Contract-driven extraction from CONTENT spec
+  if (modules.length === 0) {
+    const extracted = extractModules(resolvedSpecs.contentSpec);
+    modules = extracted.modules;
+    metadata = extracted.metadata;
+  }
+
+  // Fallback 2: Subject-based curriculum (JSON in notableInfo)
   if (modules.length === 0) {
     const subjectResult = extractSubjectCurriculumModules(data);
     if (subjectResult && subjectResult.modules.length > 0) {

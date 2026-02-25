@@ -177,6 +177,10 @@ export async function GET(
           transcript: true,
           createdAt: true,
           callSequence: true,
+          curriculumModuleId: true,
+          curriculumModule: {
+            select: { slug: true, title: true },
+          },
           _count: {
             select: {
               scores: true,
@@ -462,6 +466,9 @@ export async function GET(
       hasRewardScore: !!call.rewardScore,
       // Prompt status
       hasPrompt: promptedCallIds.has(call.id),
+      // Module context
+      curriculumModuleId: call.curriculumModuleId || null,
+      curriculumModule: call.curriculumModule || null,
     }));
 
     // Extract available slug variable names from playbook templates

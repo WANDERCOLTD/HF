@@ -13,6 +13,7 @@ import { ProgressStepper } from "@/components/shared/ProgressStepper";
 import { EditableTitle } from "@/components/shared/EditableTitle";
 import { SourceStatusDots } from "@/components/shared/SourceStatusDots";
 import { useSourceStatus } from "@/hooks/useSourceStatus";
+import CurriculumEditor from "./CurriculumEditor";
 import {
   TrustBadge,
   DocumentTypeBadge as SharedDocumentTypeBadge,
@@ -1081,7 +1082,11 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
         </>
 
         {curriculum && !curriculumPreview && (
-          <CurriculumView modules={curriculumModules} name={curriculum.name} description={curriculum.description} />
+          <CurriculumEditor
+            curriculumId={curriculum.id}
+            curriculumName={curriculum.name}
+            curriculumDescription={curriculum.description}
+          />
         )}
 
         {!curriculum && !curriculumPreview && totalAssertions === 0 && (

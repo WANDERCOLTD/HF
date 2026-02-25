@@ -7622,6 +7622,12 @@ Toggle deep logging on/off
 
 ---
 
+### `GET` /api/callers/:callerId/module-progress
+
+**Auth**: session (VIEWER+) · **Scope**: `callers:read`
+
+---
+
 ### `POST` /api/content-sources/:sourceId/structure
 
 **Auth**: OPERATOR
@@ -11805,8 +11811,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 330 |
-| Files with annotations | 329 |
+| Route files found | 331 |
+| Files with annotations | 330 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

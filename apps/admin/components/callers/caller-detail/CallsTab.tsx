@@ -799,6 +799,15 @@ export function CallsSection({
                       NEW
                     </span>
                   )}
+                  {call.curriculumModule && (
+                    <span
+                      title={`Module: ${call.curriculumModule.title}`}
+                      className="hf-micro-badge"
+                      style={{ background: "color-mix(in srgb, var(--accent-primary) 12%, transparent)", color: "var(--accent-primary)" }}
+                    >
+                      {call.curriculumModule.slug}
+                    </span>
+                  )}
                 </div>
               </button>
 

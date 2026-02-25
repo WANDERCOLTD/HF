@@ -17,7 +17,7 @@ import { useAssistant, useAssistantKeyboardShortcut } from "@/hooks/useAssistant
 import { OverviewSection } from "./caller-detail/OverviewSection";
 import { CallsSection, ProcessingNotice } from "./caller-detail/CallsTab";
 import { MemoriesSection, PersonalitySection, CallerSlugsSection, CallerEnrollmentsSection } from "./caller-detail/ProfileTab";
-import { ScoresSection, LearningSection, TopicsCoveredSection, ExamReadinessSection, TopLevelAgentBehaviorSection, PlanProgressSection } from "./caller-detail/ProgressTab";
+import { ScoresSection, LearningSection, TopicsCoveredSection, ExamReadinessSection, TopLevelAgentBehaviorSection, PlanProgressSection, ModuleProgressView } from "./caller-detail/ProgressTab";
 import { ArtifactsSection } from "./caller-detail/ArtifactsTab";
 import { UnifiedPromptSection } from "./caller-detail/PromptsSection";
 
@@ -847,6 +847,7 @@ export default function CallerDetailPage() {
           />
           {progressVis.scores !== false && <ScoresSection scores={data.scores} />}
           {progressVis.behaviour !== false && <TopLevelAgentBehaviorSection callerId={callerId} calls={data.calls} callerTargets={data.callerTargets} />}
+          <ModuleProgressView callerId={callerId} />
           {progressVis.goals !== false && (
             <LearningSection curriculum={data.curriculum} learnerProfile={data.learnerProfile} goals={data.goals} callerId={callerId} />
           )}
