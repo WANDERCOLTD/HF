@@ -1,3 +1,5 @@
+"use client";
+
 import { WizardShell } from "@/components/wizards/WizardShell";
 import type { WizardConfig } from "@/components/wizards/types";
 import { HubStep } from "./_steps/HubStep";
