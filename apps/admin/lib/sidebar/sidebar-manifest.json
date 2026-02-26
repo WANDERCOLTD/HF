@@ -15,7 +15,7 @@
     "href": "/x/courses",
     "requiredRole": "OPERATOR",
     "items": [
-      { "id": "courses", "href": "/x/courses", "label": "Courses", "icon": "BookOpen", "wizard": true, "terminologyLabel": "playbook_plural", "visibleFor": ["OPERATOR", "EDUCATOR", "ADMIN", "SUPERADMIN"] },
+      { "id": "courses", "href": "/x/courses", "label": "Courses", "icon": "BookOpen", "wizard": true, "visibleFor": ["OPERATOR", "EDUCATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "subjects", "href": "/x/subjects", "label": "Subjects", "icon": "Library", "requiredRole": "OPERATOR" },
       { "id": "content-review", "href": "/x/content-review", "label": "Review", "icon": "ClipboardCheck", "requiredRole": "OPERATOR", "advancedOnly": true },
       { "id": "dictionary", "href": "/x/dictionary", "label": "Dictionary", "icon": "BookA", "requiredRole": "OPERATOR", "advancedOnly": true },

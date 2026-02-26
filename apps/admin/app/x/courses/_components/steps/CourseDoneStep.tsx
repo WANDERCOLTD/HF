@@ -130,6 +130,7 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           courseName, learningOutcomes, teachingStyle, sessionCount, durationMins, emphasis,
+          domainId: getData<string>('domainId') || undefined,
           interactionPattern: interactionPattern || undefined,
           welcomeMessage: getData<string>('welcomeMessage') || '',
           studentEmails,

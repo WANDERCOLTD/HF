@@ -26,6 +26,11 @@ interface GroupOption {
   name: string;
 }
 
+interface DomainOption {
+  id: string;
+  name: string;
+}
+
 export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepProps) {
   const router = useRouter();
   const [courseName, setCourseName] = useState('');
@@ -36,9 +41,38 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
   const [hoveredPattern, setHoveredPattern] = useState<InteractionPattern | null>(null);
   const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>('direct_instruction');
 
+  // Institution (domain) state
+  const [domains, setDomains] = useState<DomainOption[]>([]);
+  const [loadingDomains, setLoadingDomains] = useState(true);
+  const [selectedDomainId, setSelectedDomainId] = useState('');
+
   // Department selector state
   const [groupId, setGroupId] = useState<string | null>(null);
   const [availableGroups, setAvailableGroups] = useState<GroupOption[]>([]);
+
+  // Load domains on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/domains');
+        const data = await res.json();
+        if (data.ok && data.domains) {
+          setDomains(data.domains);
+          // Auto-select if only one domain (or restore saved)
+          const savedDomainId = getData<string>('domainId');
+          if (savedDomainId) {
+            setSelectedDomainId(savedDomainId);
+          } else if (data.domains.length === 1) {
+            setSelectedDomainId(data.domains[0].id);
+          }
+        }
+      } catch {
+        // Non-critical — user can still proceed if they pick manually
+      } finally {
+        setLoadingDomains(false);
+      }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load saved data
   useEffect(() => {
@@ -46,7 +80,6 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
     const savedOutcomes = getData<string[]>('learningOutcomes');
     const savedPattern = getData<InteractionPattern>('interactionPattern');
     const savedGroupId = getData<string>('groupId');
-
     const savedModel = getData<LessonPlanModel>('lessonPlanModel');
 
     if (saved) setCourseName(saved);
@@ -56,14 +89,14 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
     if (savedModel) setLessonPlanModel(savedModel);
   }, [getData]);
 
-  // Load available groups for the domain
+  // Load available groups when domain is selected
   useEffect(() => {
-    const domainId = getData<string>('domainId');
-    if (!domainId) return;
+    if (!selectedDomainId) return;
+    setAvailableGroups([]);
 
     (async () => {
       try {
-        const res = await fetch(`/api/playbook-groups?domainId=${domainId}`);
+        const res = await fetch(`/api/playbook-groups?domainId=${selectedDomainId}`);
         const data = await res.json();
         if (data.ok && data.groups.length > 0) {
           setAvailableGroups(data.groups.map((g: any) => ({ id: g.id, name: g.name })));
@@ -72,7 +105,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
         // Non-critical — selector just won't show
       }
     })();
-  }, [getData]);
+  }, [selectedDomainId]);
 
   // Auto-suggest pattern from course name
   useEffect(() => {
@@ -133,6 +166,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
     const filteredOutcomes = outcomes.filter(o => o.trim());
 
     setData('courseName', trimmedName);
+    setData('domainId', selectedDomainId);
     setData('learningOutcomes', filteredOutcomes);
     setData('interactionPattern', selectedPattern);
     setData('interactionPatternName', patternInfo?.label || selectedPattern);
@@ -172,7 +206,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
   };
 
   const effectivePattern = pattern || suggestedPattern;
-  const isValid = courseName.trim().length > 0 && !!effectivePattern;
+  const isValid = courseName.trim().length > 0 && !!effectivePattern && !!selectedDomainId;
 
   return (
     <div className="hf-wizard-page">
@@ -181,6 +215,28 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
           <h1 className="hf-page-title hf-mb-xs">Create Your Course</h1>
           <p className="hf-page-subtitle">Tell us about your course and how you want to teach</p>
         </div>
+
+        {/* Institution — only show picker when >1 domain exists */}
+        {!loadingDomains && domains.length === 0 && (
+          <div className="hf-banner hf-banner-warning hf-mb-lg">
+            No institutions found. <a href="/x/domains" className="hf-link">Create an institution</a> first.
+          </div>
+        )}
+        {!loadingDomains && domains.length > 1 && (
+          <div className="hf-mb-lg">
+            <label className="hf-label">Institution</label>
+            <select
+              className="hf-input"
+              value={selectedDomainId}
+              onChange={(e) => { setSelectedDomainId(e.target.value); setGroupId(null); }}
+            >
+              <option value="">Select an institution…</option>
+              {domains.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Course Name */}
         <div className="hf-mb-lg">
