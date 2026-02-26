@@ -23,6 +23,17 @@
     ]
   },
   {
+    "id": "manage",
+    "title": "Manage",
+    "defaultHiddenFor": ["STUDENT", "DEMO", "TESTER"],
+    "items": [
+      { "id": "communities", "href": "/x/communities", "label": "Communities", "icon": "Users2", "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] },
+      { "id": "manage-cohorts", "href": "/x/cohorts", "label": "Classrooms", "icon": "School", "terminologyLabel": "cohort_plural", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"], "roleVariants": { "EDUCATOR": { "href": "/x/educator/classrooms" } } },
+      { "id": "manage-callers", "href": "/x/callers", "label": "Callers", "icon": "User", "terminologyLabel": "caller_plural", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"], "roleVariants": { "EDUCATOR": { "href": "/x/educator/students" } } },
+      { "id": "manage-jobs", "href": "/x/jobs", "label": "Jobs", "icon": "Cog", "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] }
+    ]
+  },
+  {
     "id": "config",
     "title": "Configure",
     "href": "/x/domains",
@@ -34,17 +45,6 @@
       { "id": "taxonomy-graph", "href": "/x/taxonomy-graph", "label": "Taxonomy", "icon": "Orbit" },
       { "id": "flows", "href": "/x/flows", "label": "Flows", "icon": "Workflow" },
       { "id": "content-explorer", "href": "/x/content-explorer", "label": "Content Explorer", "icon": "FileSearch" }
-    ]
-  },
-  {
-    "id": "manage",
-    "title": "Manage",
-    "defaultHiddenFor": ["STUDENT", "DEMO", "TESTER"],
-    "items": [
-      { "id": "communities", "href": "/x/communities", "label": "Communities", "icon": "Users2", "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] },
-      { "id": "manage-cohorts", "href": "/x/cohorts", "label": "Classrooms", "icon": "School", "terminologyLabel": "cohort_plural", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"], "roleVariants": { "EDUCATOR": { "href": "/x/educator/classrooms" } } },
-      { "id": "manage-callers", "href": "/x/callers", "label": "Callers", "icon": "User", "terminologyLabel": "caller_plural", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"], "roleVariants": { "EDUCATOR": { "href": "/x/educator/students" } } },
-      { "id": "manage-jobs", "href": "/x/jobs", "label": "Jobs", "icon": "Cog", "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] }
     ]
   },
   {

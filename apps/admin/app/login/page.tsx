@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
 import { useBranding } from "@/contexts/BrandingContext";
 import { showEnvBanner, envSidebarColor, envLabel, envTextColor, isNonProd } from "@/components/shared/EnvironmentBanner";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -15,8 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/x";
+  const callbackUrl = "/x";
   const { branding } = useBranding();
 
   const handleLogin = async (e: React.FormEvent) => {
