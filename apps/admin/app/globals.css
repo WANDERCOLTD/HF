@@ -2830,7 +2830,7 @@ html.light {
 
 .hf-wizard-stepper {
   padding: 16px 32px 0;
-  max-width: 900px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 
@@ -2838,7 +2838,7 @@ html.light {
 .hf-wizard-step {
   flex: 1;
   padding: 32px;
-  max-width: 900px;
+  max-width: 1100px;
   margin: 0 auto;
   width: 100%;
 }
@@ -3024,14 +3024,45 @@ html.light {
   font-size: 11px;
 }
 .hf-session-phase-methods {
-  font-size: 10px;
-  color: var(--accent-primary);
-  font-family: var(--font-mono, monospace);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 .hf-session-phase-guidance {
   color: var(--text-muted);
   font-size: 11px;
   font-style: italic;
+}
+
+/* TP count badge (BookOpen icon + count) */
+.hf-session-tp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* TeachMethods bar — shown below session row, always visible */
+.hf-session-methods-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 0 4px 90px; /* indent to align under session label */
+}
+.hf-session-methods-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Small chip variant */
+.hf-chip-sm {
+  padding: 1px 6px !important;
+  font-size: 10px !important;
+  border-radius: 4px !important;
 }
 
 /* Compact select/input for inline forms */

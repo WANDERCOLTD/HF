@@ -46,9 +46,11 @@ interface TypePickerProps {
   onChange: (slug: string, typeId?: string) => void;
   /** Label above the picker */
   label?: string;
+  /** Auto-suggested type slug (shown with badge, not yet confirmed) */
+  suggestedValue?: string | null;
 }
 
-export function TypePicker({ value, onChange, label = "What kind of organisation is this?" }: TypePickerProps) {
+export function TypePicker({ value, onChange, label = "What kind of organisation is this?", suggestedValue }: TypePickerProps) {
   const [apiTypes, setApiTypes] = useState<TypePickerOption[] | null>(null);
   const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
 
@@ -99,6 +101,7 @@ export function TypePicker({ value, onChange, label = "What kind of organisation
           const IconComp = sectorDef ? ICON_COMPONENTS[sectorDef.icon] : HelpCircle;
           const isSelected = value === t.slug;
 
+          const isSuggested = !value && suggestedValue === t.slug;
           return (
             <button
               key={t.slug}
@@ -106,10 +109,11 @@ export function TypePicker({ value, onChange, label = "What kind of organisation
               onClick={() => onChange(t.slug, t.id)}
               onMouseEnter={() => setHoveredSlug(t.slug)}
               onMouseLeave={() => setHoveredSlug(null)}
-              className={`hf-chip${isSelected ? " hf-chip-selected" : ""}`}
+              className={`hf-chip${isSelected || isSuggested ? " hf-chip-selected" : ""}`}
             >
               {IconComp && <IconComp size={14} />}
               <span>{t.name}</span>
+              {isSuggested && <span className="hf-chip-badge">Suggested</span>}
             </button>
           );
         })}

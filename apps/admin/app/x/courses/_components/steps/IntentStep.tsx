@@ -45,6 +45,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
   const [outcomeSuggestions, setOutcomeSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const lastSuggestName = useRef('');
+  const outcomesRef = useRef<string[]>(['', '', '']);
 
   // Institution (domain) state
   const [domains, setDomains] = useState<DomainOption[]>([]);
@@ -151,6 +152,9 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
     return () => clearTimeout(timer);
   }, [courseName]);
 
+  // Keep ref in sync so fetchOutcomeSuggestions can read current value without stale closure
+  useEffect(() => { outcomesRef.current = outcomes; }, [outcomes]);
+
   // Fetch AI outcome suggestions (called on blur or when name is committed)
   const fetchOutcomeSuggestions = useCallback(async (name: string) => {
     if (name.length < 3 || name === lastSuggestName.current) return;
@@ -164,8 +168,18 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
       });
       const data = await res.json();
       if (data.ok && Array.isArray(data.outcomes) && data.outcomes.length > 0) {
-        setOutcomeSuggestions(data.outcomes);
-        setData('outcomeSuggestions', data.outcomes);
+        // Auto-fill outcomes if all slots are still empty
+        const allEmpty = outcomesRef.current.every(o => !o.trim());
+        if (allEmpty) {
+          const autoFilled = [...data.outcomes.slice(0, 3), '', '', ''].slice(0, 3);
+          setOutcomes(autoFilled);
+          const remaining = data.outcomes.slice(3);
+          setOutcomeSuggestions(remaining);
+          setData('outcomeSuggestions', remaining);
+        } else {
+          setOutcomeSuggestions(data.outcomes);
+          setData('outcomeSuggestions', data.outcomes);
+        }
       }
     } catch {
       // Non-critical

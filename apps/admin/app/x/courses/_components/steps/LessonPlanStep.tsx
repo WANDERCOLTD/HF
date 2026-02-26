@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowRight, CheckCircle, FileText, RefreshCw } from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle, FileText, RefreshCw, Zap } from "lucide-react";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { SessionCountPicker } from "@/components/shared/SessionCountPicker";
 import { SortableList } from "@/components/shared/SortableList";
@@ -422,98 +422,122 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
   // Check if eager plan was goals-only but user uploaded content
   const eagerWasGoalsOnly = !!(contentMode === "pack" && entries.length > 0 && getData<string>("lessonPlanMode") !== "reviewed");
 
-  const renderSessionCard = (entry: LessonEntry, index: number, skeleton?: boolean) => (
-    <div className={skeleton ? "hf-session-enter" : undefined}>
-      {!skeleton && editingIndex === index ? (
-        <div className="hf-inline-edit-row">
-          <select
-            value={editType}
-            onChange={(e) => setEditType(e.target.value)}
-            className="hf-input hf-input-inline"
-          >
-            {SESSION_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
-          <input
-            type="text"
-            value={editLabel}
-            onChange={(e) => setEditLabel(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleInlineEditSave(index);
-              if (e.key === "Escape") setEditingIndex(null);
-            }}
-            autoFocus
-            className="hf-input hf-input-inline-md"
-          />
-          <button onClick={() => handleInlineEditSave(index)} className="hf-btn hf-btn-primary hf-btn-sm">Save</button>
-          <button onClick={() => setEditingIndex(null)} className="hf-btn hf-btn-secondary hf-btn-sm">Cancel</button>
-        </div>
-      ) : (
-        <div
-          className={`hf-session-row${skeleton ? " hf-session-row--skeleton" : ""}`}
-          onClick={skeleton ? undefined : () => {
-            setEditingIndex(index);
-            setEditLabel(entry.label);
-            setEditType(entry.type);
-          }}
-        >
-          <span className="hf-session-num">{index + 1}</span>
-          <span
-            className="hf-session-type"
-            style={{
-              color: getTypeColor(entry.type),
-              background: `color-mix(in srgb, ${getTypeColor(entry.type)} 10%, transparent)`,
-            }}
-          >
-            {getTypeLabel(entry.type)}
-          </span>
-          <span className="hf-session-label">{entry.label}</span>
-          {entry.moduleLabel && (
-            <span className="hf-session-meta">{entry.moduleLabel}</span>
-          )}
-          {skeleton ? (
-            <span className="hf-shimmer-bar" />
-          ) : entry.estimatedDurationMins ? (
-            <span className="hf-session-meta">{entry.estimatedDurationMins}m</span>
-          ) : null}
-          {!skeleton && entry.phases?.length ? (
-            <button
-              className="hf-session-expand-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpandedSession(expandedSession === index ? null : index);
-              }}
-              title={expandedSession === index ? "Collapse phases" : "Show phases"}
+  const renderSessionCard = (entry: LessonEntry, index: number, skeleton?: boolean) => {
+    // Aggregate unique teach methods from all phases (editing only)
+    const allMethods = !skeleton
+      ? [...new Set((entry.phases ?? []).flatMap((p) => p.teachMethods ?? []))]
+      : [];
+
+    return (
+      <div className={skeleton ? "hf-session-enter" : undefined}>
+        {!skeleton && editingIndex === index ? (
+          <div className="hf-inline-edit-row">
+            <select
+              value={editType}
+              onChange={(e) => setEditType(e.target.value)}
+              className="hf-input hf-input-inline"
             >
-              <span className={`hf-chevron--sm${expandedSession === index ? " hf-chevron--open" : ""}`} />
-            </button>
-          ) : null}
-        </div>
-      )}
-      {/* Phase expansion */}
-      {!skeleton && expandedSession === index && entry.phases?.length && (
-        <div className="hf-session-phases">
-          {entry.phases.map((phase, pi) => (
-            <div key={phase.id + pi} className="hf-session-phase">
-              <span className="hf-session-phase-label">{phase.label}</span>
-              {phase.durationMins && (
-                <span className="hf-session-phase-dur">{phase.durationMins}m</span>
-              )}
-              {phase.teachMethods?.length ? (
-                <span className="hf-session-phase-methods">
-                  {phase.teachMethods.map((m) => `[${m}]`).join(" ")}
-                </span>
-              ) : null}
-              {phase.guidance && (
-                <span className="hf-session-phase-guidance">{phase.guidance}</span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+              {SESSION_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={editLabel}
+              onChange={(e) => setEditLabel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleInlineEditSave(index);
+                if (e.key === "Escape") setEditingIndex(null);
+              }}
+              autoFocus
+              className="hf-input hf-input-inline-md"
+            />
+            <button onClick={() => handleInlineEditSave(index)} className="hf-btn hf-btn-primary hf-btn-sm">Save</button>
+            <button onClick={() => setEditingIndex(null)} className="hf-btn hf-btn-secondary hf-btn-sm">Cancel</button>
+          </div>
+        ) : (
+          <div
+            className={`hf-session-row${skeleton ? " hf-session-row--skeleton" : ""}`}
+            onClick={skeleton ? undefined : () => {
+              setEditingIndex(index);
+              setEditLabel(entry.label);
+              setEditType(entry.type);
+            }}
+          >
+            <span className="hf-session-num">{index + 1}</span>
+            <span
+              className="hf-session-type"
+              style={{
+                color: getTypeColor(entry.type),
+                background: `color-mix(in srgb, ${getTypeColor(entry.type)} 10%, transparent)`,
+              }}
+            >
+              {getTypeLabel(entry.type)}
+            </span>
+            <span className="hf-session-label">{entry.label}</span>
+            {!skeleton && entry.assertionCount ? (
+              <span className="hf-session-tp-badge" title="Teaching points">
+                <BookOpen size={10} />
+                {entry.assertionCount} TPs
+              </span>
+            ) : null}
+            {entry.moduleLabel && (
+              <span className="hf-session-meta">{entry.moduleLabel}</span>
+            )}
+            {skeleton ? (
+              <span className="hf-shimmer-bar" />
+            ) : entry.estimatedDurationMins ? (
+              <span className="hf-session-meta">{entry.estimatedDurationMins}m</span>
+            ) : null}
+            {!skeleton && entry.phases?.length ? (
+              <button
+                className="hf-session-expand-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpandedSession(expandedSession === index ? null : index);
+                }}
+                title={expandedSession === index ? "Collapse phases" : "Show phases"}
+              >
+                <span className={`hf-chevron--sm${expandedSession === index ? " hf-chevron--open" : ""}`} />
+              </button>
+            ) : null}
+          </div>
+        )}
+        {/* TeachMethods bar — always visible when methods are known */}
+        {allMethods.length > 0 && (
+          <div className="hf-session-methods-bar">
+            <Zap size={10} className="hf-session-methods-icon" />
+            {allMethods.map((m) => (
+              <span key={m} className="hf-chip hf-chip-sm">{m}</span>
+            ))}
+          </div>
+        )}
+        {/* Phase expansion */}
+        {!skeleton && expandedSession === index && entry.phases?.length && (
+          <div className="hf-session-phases">
+            {entry.phases.map((phase, pi) => (
+              <div key={phase.id + pi} className="hf-session-phase">
+                <span className="hf-session-phase-label">{phase.label}</span>
+                {phase.durationMins && (
+                  <span className="hf-session-phase-dur">{phase.durationMins}m</span>
+                )}
+                {phase.teachMethods?.length ? (
+                  <span className="hf-session-phase-methods">
+                    {phase.teachMethods.map((m) => (
+                      <span key={m} className="hf-chip hf-chip-sm">{m}</span>
+                    ))}
+                  </span>
+                ) : null}
+                {phase.guidance && (
+                  <span className="hf-session-phase-guidance">{phase.guidance}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // ── Render ────────────────────────────────────────────
 
@@ -536,7 +560,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
 
         {/* ── Phase: Loading (eager generation in progress) ── */}
         {phase === "loading" && (
-          <div className="hf-flex hf-flex-col hf-gap-md">
+          <div className="hf-flex-col hf-gap-md">
             {/* Content status */}
             {contentMode === "pack" && (
               <div className="hf-banner hf-banner-success">
@@ -566,7 +590,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
 
         {/* ── Phase: Skeleton (modules ready, plan refining) ── */}
         {phase === "skeleton" && (
-          <div className="hf-flex hf-flex-col hf-gap-md">
+          <div className="hf-flex-col hf-gap-md">
             {/* Progress banner */}
             <div className="hf-banner hf-banner-info">
               <div className="hf-pulse-dot" />
@@ -715,7 +739,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
 
         {/* ── Phase: Intents (manual fallback) ───────────── */}
         {phase === "intents" && (
-          <div className="hf-flex hf-flex-col hf-gap-lg">
+          <div className="hf-flex-col hf-gap-lg">
             {/* Content status banner */}
             {contentMode === "pack" && (
               <div className="hf-banner hf-banner-success">

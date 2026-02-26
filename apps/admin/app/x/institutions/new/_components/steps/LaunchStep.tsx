@@ -29,6 +29,7 @@ export function LaunchStep({ getData, setData, onPrev, endFlow }: StepRenderProp
   const primaryColor = getData<string>("primaryColor") ?? "";
   const secondaryColor = getData<string>("secondaryColor") ?? "";
   const welcomeMessage = getData<string>("welcomeMessage") ?? "";
+  const terminologyOverrides = getData<Record<string, string>>("terminologyOverrides") ?? null;
 
   // Resume support: if IDs already set (e.g. page refresh after success), go straight to success
   const savedInstId = getData<string>("createdInstitutionId");
@@ -57,6 +58,7 @@ export function LaunchStep({ getData, setData, onPrev, endFlow }: StepRenderProp
       };
       if (typeId) instBody.typeId = typeId;
       else if (typeSlug) instBody.typeSlug = typeSlug;
+      if (terminologyOverrides) instBody.terminologyOverrides = terminologyOverrides;
 
       const instRes = await fetch("/api/institutions", {
         method: "POST",
@@ -115,6 +117,7 @@ export function LaunchStep({ getData, setData, onPrev, endFlow }: StepRenderProp
     primaryColor,
     secondaryColor,
     welcomeMessage,
+    terminologyOverrides,
     refreshBranding,
     setData,
   ]);

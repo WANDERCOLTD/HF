@@ -33,6 +33,7 @@
   - [Callers](#callers)
   - [Calls](#calls)
   - [Chat](#chat)
+  - [Classrooms](#classrooms)
   - [Cohorts](#cohorts)
   - [Communities](#communities)
   - [Content](#content)
@@ -3196,6 +3197,52 @@ text/plain (streaming response)
 
 ---
 
+## Classrooms
+
+### `POST` /api/educator/classrooms/suggest-description
+
+AI drafts a short cohort description from its name and institution
+
+**Auth**: Session · **Scope**: `educator`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| cohortName | body | string | No | Cohort name (min 3 chars) |
+
+**Response** `200`
+```json
+{ ok: true, description: string }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "cohortName must be at least 3 characters" }
+```
+
+---
+
+### `POST` /api/educator/classrooms/suggest-name
+
+AI suggests cohort names from institution and optional department context
+
+**Auth**: Session · **Scope**: `educator`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| domainName | body | string | No | Institution name |
+
+**Response** `200`
+```json
+{ ok: true, names: string[] }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "domainName is required" }
+```
+
+---
+
 ## Cohorts
 
 ### `GET` /api/callers/:callerId/cohorts
@@ -3948,6 +3995,28 @@ Update a community topic (name or pattern)
 **Response** `200`
 ```json
 { ok: true, topic: { id, name, pattern, sortOrder } }
+```
+
+---
+
+### `POST` /api/communities/suggest-description
+
+AI drafts a one-sentence description for a new community hub from its name
+
+**Auth**: Session · **Scope**: `communities:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| hubName | body | string | No | Community hub name |
+
+**Response** `200`
+```json
+{ ok: true, description: string }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "hubName must be at least 3 characters" }
 ```
 
 ---
@@ -12482,8 +12551,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 360 |
-| Files with annotations | 359 |
+| Route files found | 363 |
+| Files with annotations | 362 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

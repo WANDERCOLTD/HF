@@ -45,7 +45,7 @@ const TYPES: InstitutionTypeSeed[] = [
     description: "Primary/secondary schools and educational institutions",
     terminology: {
       domain: "School",
-      playbook: "Lesson Plan",
+      playbook: "Subject",
       spec: "Content",
       caller: "Student",
       cohort: "Class",

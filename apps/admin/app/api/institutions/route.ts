@@ -48,13 +48,14 @@ export async function GET() {
  * @body welcomeMessage string (optional)
  * @body typeId string (optional) — InstitutionType ID to link this institution to
  * @body typeSlug string (optional) — InstitutionType slug (resolved to typeId if typeId not provided)
+ * @body terminologyOverrides object (optional) — per-institution terminology overrides (partial TermMap)
  */
 export async function POST(request: NextRequest) {
   const auth = await requireAuth("OPERATOR");
   if (isAuthError(auth)) return auth.error;
 
   const body = await request.json();
-  const { name, slug, logoUrl, primaryColor, secondaryColor, welcomeMessage, typeId, typeSlug } = body;
+  const { name, slug, logoUrl, primaryColor, secondaryColor, welcomeMessage, typeId, typeSlug, terminologyOverrides } = body;
 
   if (!name?.trim() || !slug?.trim()) {
     return NextResponse.json(
@@ -86,9 +87,24 @@ export async function POST(request: NextRequest) {
   if (!resolvedTypeId && typeSlug) {
     const instType = await prisma.institutionType.findUnique({
       where: { slug: typeSlug },
-      select: { id: true },
+      select: { id: true, terminology: true },
     });
     resolvedTypeId = instType?.id || null;
+  }
+
+  // Merge type terminology with any wizard overrides (overrides win)
+  let resolvedTerminology: Record<string, string> | null = null;
+  if (terminologyOverrides && typeof terminologyOverrides === "object") {
+    if (resolvedTypeId) {
+      const instType = await prisma.institutionType.findUnique({
+        where: { id: resolvedTypeId },
+        select: { terminology: true },
+      });
+      const base = (instType?.terminology as Record<string, string> | null) ?? {};
+      resolvedTerminology = { ...base, ...terminologyOverrides };
+    } else {
+      resolvedTerminology = terminologyOverrides as Record<string, string>;
+    }
   }
 
   const institution = await prisma.institution.create({
@@ -100,6 +116,7 @@ export async function POST(request: NextRequest) {
       secondaryColor: secondaryColor?.trim() || null,
       welcomeMessage: welcomeMessage?.trim() || null,
       typeId: resolvedTypeId,
+      ...(resolvedTerminology ? { terminology: resolvedTerminology } : {}),
     },
   });
 

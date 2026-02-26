@@ -286,6 +286,27 @@ export const CALL_POINTS: CallPointDef[] = [
     category: "course-setup",
     defaults: { provider: "claude", model: config.ai.claude.lightModel },
   },
+  {
+    id: "community.suggest-description",
+    label: "Community - Suggest Description",
+    description: "Suggests a one-sentence description for a new community hub",
+    category: "course-setup",
+    defaults: { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.4, maxTokens: 80 },
+  },
+  {
+    id: "classroom.suggest-name",
+    label: "Classroom - Suggest Name",
+    description: "Suggests cohort names from institution and department context",
+    category: "course-setup",
+    defaults: { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.5, maxTokens: 120 },
+  },
+  {
+    id: "classroom.suggest-description",
+    label: "Classroom - Suggest Description",
+    description: "Drafts a short description for a cohort from its name and institution",
+    category: "course-setup",
+    defaults: { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.4, maxTokens: 80 },
+  },
 
   // ── Admin AI ──
   {

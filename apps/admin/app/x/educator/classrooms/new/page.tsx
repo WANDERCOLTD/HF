@@ -11,7 +11,7 @@ import { WizardResumeBanner } from "@/components/shared/WizardResumeBanner";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { WizardSummary } from "@/components/shared/WizardSummary";
-import { Building2, Users, BookOpen, ExternalLink } from "lucide-react";
+import { Building2, Users, BookOpen, ExternalLink, Sparkles, Loader2 } from "lucide-react";
 import { FancySelect } from "@/components/shared/FancySelect";
 import "./classroom-wizard.css";
 
@@ -102,6 +102,12 @@ export default function NewClassroomPage() {
   const [playbooks, setPlaybooks] = useState<PlaybookOption[]>([]);
   const [selectedPlaybooks, setSelectedPlaybooks] = useState<Set<string>>(new Set());
   const [loadingPlaybooks, setLoadingPlaybooks] = useState(false);
+
+  // AI suggestion state
+  const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
+  const [loadingNameSugg, setLoadingNameSugg] = useState(false);
+  const [suggDescription, setSuggDescription] = useState("");
+  const [loadingDescSugg, setLoadingDescSugg] = useState(false);
 
   const loadClassroomSteps = async () => {
     try {
@@ -230,6 +236,25 @@ export default function NewClassroomPage() {
       });
   }, [domainId]);
 
+  // Fetch cohort name suggestions when domain is selected
+  useEffect(() => {
+    if (!domainId || name.trim()) return;
+    const domain = domains.find((d) => d.id === domainId);
+    if (!domain) return;
+    const group = availableGroups.find((g) => g.id === groupId);
+    setNameSuggestions([]);
+    setLoadingNameSugg(true);
+    fetchApi("/api/educator/classrooms/suggest-name", {
+      method: "POST",
+      body: JSON.stringify({ domainName: domain.name, groupName: group?.name }),
+    })
+      .then((res: { ok: boolean; names?: string[] }) => {
+        if (res?.ok && res.names?.length) setNameSuggestions(res.names);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingNameSugg(false));
+  }, [domainId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Load playbooks when domain changes
   useEffect(() => {
     if (!domainId) {
@@ -248,6 +273,23 @@ export default function NewClassroomPage() {
       })
       .finally(() => setLoadingPlaybooks(false));
   }, [domainId]);
+
+  const handleNameBlur = async () => {
+    if (name.trim().length < 3 || description.trim()) return;
+    const domain = domains.find((d) => d.id === domainId);
+    setLoadingDescSugg(true);
+    try {
+      const res = await fetchApi("/api/educator/classrooms/suggest-description", {
+        method: "POST",
+        body: JSON.stringify({ cohortName: name, domainName: domain?.name ?? "" }),
+      });
+      if (res?.ok && res.description) setSuggDescription(res.description);
+    } catch {
+      // Silent
+    } finally {
+      setLoadingDescSugg(false);
+    }
+  };
 
   const handleCreate = async () => {
     setCreating(true);
@@ -383,9 +425,35 @@ export default function NewClassroomPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onBlur={handleNameBlur}
               placeholder="e.g. Year 10 English, Tuesday Coaching Group"
               className="hf-input cwiz-input-full"
             />
+            {loadingNameSugg && (
+              <div className="hf-ai-loading-row hf-mt-xs">
+                <Loader2 size={12} className="hf-spinner" />
+                <span className="hf-text-xs hf-text-muted">Generating name ideas…</span>
+              </div>
+            )}
+            {!loadingNameSugg && nameSuggestions.length > 0 && !name.trim() && (
+              <div className="hf-mt-xs">
+                <p className="hf-ai-inline-hint hf-mb-xs">
+                  <Sparkles size={11} /> Suggestions — click to use:
+                </p>
+                <div className="hf-suggestion-chips">
+                  {nameSuggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className="hf-suggestion-chip"
+                      onClick={() => { setName(s); setNameSuggestions([]); }}
+                    >
+                      + {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="cwiz-field-group">
@@ -397,6 +465,28 @@ export default function NewClassroomPage() {
               rows={3}
               className="hf-input cwiz-textarea-full"
             />
+            {loadingDescSugg && (
+              <div className="hf-ai-loading-row hf-mt-xs">
+                <Loader2 size={12} className="hf-spinner" />
+                <span className="hf-text-xs hf-text-muted">Drafting description…</span>
+              </div>
+            )}
+            {!loadingDescSugg && suggDescription && !description.trim() && (
+              <div className="hf-mt-xs">
+                <p className="hf-ai-inline-hint hf-mb-xs">
+                  <Sparkles size={11} /> Suggestion:
+                </p>
+                <div className="hf-suggestion-chips">
+                  <button
+                    type="button"
+                    className="hf-suggestion-chip"
+                    onClick={() => { setDescription(suggDescription); setSuggDescription(""); }}
+                  >
+                    {suggDescription}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="cwiz-field-group-lg">

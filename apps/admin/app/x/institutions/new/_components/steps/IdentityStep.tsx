@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Loader2, Check, Globe } from "lucide-react";
+import { Loader2, Check, Globe, Sparkles } from "lucide-react";
 import { TypePicker } from "@/components/shared/TypePicker";
 import { FieldHint } from "@/components/shared/FieldHint";
 import { WIZARD_HINTS } from "@/lib/wizard-hints";
@@ -22,6 +22,54 @@ function toSlug(name: string): string {
     .replace(/^-|-$/g, "");
 }
 
+const URL_STOP_WORDS = new Set(["the", "a", "an", "of", "and", "or", "school", "high", "primary", "junior", "senior", "academy", "st", "saint"]);
+
+function suggestTypeFromName(name: string): string | null {
+  if (!name.trim()) return null;
+  if (/school|primary|secondary|infant|junior|nursery|prep|sixth.?form/i.test(name)) return "school";
+  if (/hospital|clinic|health|care|nhs|therapy|medical|dental/i.test(name)) return "healthcare";
+  if (/charity|foundation|community|trust|wellbeing|centre|center|society|association/i.test(name)) return "community";
+  if (/gym|fitness|sport|athletics|personal.train/i.test(name)) return "coaching";
+  if (/training|learning|workshop|development/i.test(name)) return "training";
+  if (/ltd|limited|consulting|solutions|group|agency|corp|company|plc/i.test(name)) return "corporate";
+  return null;
+}
+
+function nameToUrlSuggestions(name: string, typeSlug?: string | null): string[] {
+  const clean = name.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim();
+  const full = clean.replace(/\s+/g, "");
+  const short = clean.split(/\s+/).filter((w) => !URL_STOP_WORDS.has(w)).slice(0, 2).join("");
+  const base = short || full;
+  if (!base) return [];
+
+  // Detect type from name keywords + typeSlug
+  const isSchool = typeSlug === "school" || /school|primary|junior|secondary|infant|prep|nursery/i.test(name);
+  const isHigher = /university|college|polytechnic/i.test(name) || typeSlug === "higher";
+  const isCharity = /trust|foundation|charity|association|society/i.test(name) || typeSlug === "community";
+  const isCorporate = typeSlug === "corporate" || typeSlug === "training" || typeSlug === "coaching" || typeSlug === "healthcare";
+
+  if (isSchool) {
+    // UK schools: {name}.sch.uk is the pattern (real domains add LA: name.borough.sch.uk)
+    return [`${base}.sch.uk`, `${base}.co.uk`];
+  }
+  if (isHigher) {
+    return [`${base}.ac.uk`, `${base}.co.uk`];
+  }
+  if (isCharity) {
+    return [`${base}.org.uk`, `${base}.co.uk`];
+  }
+  if (isCorporate) {
+    const out = [`${full}.com`];
+    if (short && short !== full) out.push(`${short}.co.uk`);
+    return out.slice(0, 3);
+  }
+  // Generic fallback — .com first, .co.uk second
+  const out: string[] = [];
+  if (full) out.push(`${full}.com`);
+  if (short && short !== full) out.push(`${short}.co.uk`);
+  return out.slice(0, 3);
+}
+
 export function IdentityStep({ getData, setData, onNext }: StepRenderProps) {
   const [name, setName] = useState(getData<string>("institutionName") ?? "");
   const [typeSlug, setTypeSlug] = useState<string | null>(getData<string>("typeSlug") ?? null);
@@ -34,7 +82,18 @@ export function IdentityStep({ getData, setData, onNext }: StepRenderProps) {
   const urlImportAttempted = useRef(!!urlImportResult);
 
   const slug = toSlug(name);
-  const canContinue = name.trim().length > 0 && typeSlug !== null;
+  const suggestedType = !typeSlug ? suggestTypeFromName(name) : null;
+  const effectiveType = typeSlug ?? suggestedType;
+  const canContinue = name.trim().length > 0 && !!effectiveType;
+  const urlSuggestions = name.length >= 5 && !websiteUrl.trim() && !urlImportResult
+    ? nameToUrlSuggestions(name, effectiveType)
+    : [];
+
+  const handleUrlChipClick = (url: string) => {
+    urlImportAttempted.current = false; // allow fresh import from chip
+    setWebsiteUrl(url);
+    handleUrlImport(url);
+  };
 
   const handleUrlImport = useCallback(
     async (url: string) => {
@@ -115,6 +174,20 @@ export function IdentityStep({ getData, setData, onNext }: StepRenderProps) {
             style={{ flex: 1 }}
           />
         </div>
+        {urlSuggestions.length > 0 && (
+          <div className="hf-mt-xs">
+            <p className="hf-ai-inline-hint hf-mb-xs">
+              <Sparkles size={11} /> Try:
+            </p>
+            <div className="hf-suggestion-chips">
+              {urlSuggestions.map((url) => (
+                <button key={url} type="button" className="hf-suggestion-chip" onClick={() => handleUrlChipClick(url)}>
+                  🔗 {url}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {urlImporting && (
           <div className="iw-url-importing">
             <Loader2 size={14} className="hf-spinner" />

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Sparkles, Loader2 } from 'lucide-react';
 import { FieldHint } from '@/components/shared/FieldHint';
 import { WIZARD_HINTS } from '@/lib/wizard-hints';
 import type { StepRenderProps } from '@/components/wizards/types';
@@ -28,6 +29,10 @@ export function HubStep({ getData, setData, onNext, onPrev }: StepRenderProps) {
   const [suggesting, setSuggesting] = useState(false);
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Description suggestion from hub name
+  const [suggDesc, setSuggDesc] = useState('');
+  const [loadingSuggDesc, setLoadingSuggDesc] = useState(false);
+
   // Restore saved data
   useEffect(() => {
     const savedName = getData<string>('hubName');
@@ -37,6 +42,26 @@ export function HubStep({ getData, setData, onNext, onPrev }: StepRenderProps) {
     if (savedDesc) setDescription(savedDesc);
     if (savedKind) setKind(savedKind);
   }, [getData]);
+
+  const handleNameBlur = async () => {
+    if (name.trim().length < 3 || description.trim()) return;
+    setLoadingSuggDesc(true);
+    try {
+      const res = await fetch('/api/communities/suggest-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hubName: name, communityKind: kind ?? suggestedKind ?? undefined }),
+      });
+      const data = await res.json();
+      if (data.ok && data.description && !description.trim()) {
+        setSuggDesc(data.description);
+      }
+    } catch {
+      // Silent — suggestion is optional
+    } finally {
+      setLoadingSuggDesc(false);
+    }
+  };
 
   const handleDescriptionBlur = () => {
     if (!description.trim() || kind) return;
@@ -96,6 +121,7 @@ export function HubStep({ getData, setData, onNext, onPrev }: StepRenderProps) {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onBlur={handleNameBlur}
             placeholder="e.g., Riverside Residents, Over-60s Wellbeing Club"
             className="hf-input"
           />
@@ -116,6 +142,28 @@ export function HubStep({ getData, setData, onNext, onPrev }: StepRenderProps) {
             className="hf-input"
             rows={3}
           />
+          {loadingSuggDesc && (
+            <div className="hf-ai-loading-row hf-mt-xs">
+              <Loader2 size={12} className="hf-spinner" />
+              <span className="hf-text-xs hf-text-muted">Drafting description…</span>
+            </div>
+          )}
+          {!loadingSuggDesc && suggDesc && !description.trim() && (
+            <div className="hf-mt-xs">
+              <p className="hf-ai-inline-hint hf-mb-xs">
+                <Sparkles size={11} /> Suggestion:
+              </p>
+              <div className="hf-suggestion-chips">
+                <button
+                  type="button"
+                  className="hf-suggestion-chip"
+                  onClick={() => { setDescription(suggDesc); setSuggDesc(''); }}
+                >
+                  {suggDesc}
+                </button>
+              </div>
+            </div>
+          )}
           {suggesting && (
             <p className="hf-hint hf-mt-xs">Thinking about the best setup…</p>
           )}
