@@ -233,3 +233,214 @@
   width: 100%;
   resize: vertical;
 }
+
+/* ── Lesson Plan Tab ──────────────────────────────── */
+
+.cls-lp-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 32px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.cls-lp-banner {
+  margin-bottom: 16px;
+}
+
+.cls-lp-root {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Course section */
+.cls-lp-course {
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.cls-lp-course-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.cls-lp-course-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Session list */
+.cls-lp-sessions {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Session item (row + optional expand) */
+.cls-lp-session-item {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.cls-lp-session-item:last-child {
+  border-bottom: none;
+}
+
+/* Session row */
+.cls-lp-session-row {
+  display: grid;
+  grid-template-columns: 36px 90px 1fr auto 140px 24px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+}
+.cls-lp-session-row--expandable {
+  cursor: pointer;
+}
+.cls-lp-session-row--expandable:hover {
+  background: var(--surface-secondary);
+}
+
+/* Session number */
+.cls-lp-session-num {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: right;
+  padding-right: 4px;
+}
+
+/* Type badge */
+.cls-lp-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  text-align: center;
+}
+
+/* Session title */
+.cls-lp-session-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cls-lp-module-label {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* Duration */
+.cls-lp-session-dur {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Progress */
+.cls-lp-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cls-lp-progress-bar {
+  width: 80px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-default);
+  overflow: hidden;
+}
+.cls-lp-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+.cls-lp-progress-count {
+  font-size: 12px;
+  white-space: nowrap;
+  min-width: 44px;
+  text-align: right;
+}
+
+/* Chevron */
+.cls-lp-chevron {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  position: relative;
+}
+.cls-lp-chevron::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -60%) rotate(45deg);
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transition: transform 0.15s ease;
+}
+.cls-lp-chevron--open::after {
+  transform: translate(-50%, -40%) rotate(-135deg);
+}
+
+/* Expanded panel */
+.cls-lp-expand {
+  padding: 10px 16px 12px 62px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface-secondary);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Phase row */
+.cls-lp-phase {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.cls-lp-phase::before {
+  content: "—";
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.cls-lp-phase-label {
+  font-weight: 500;
+}
+.cls-lp-phase-dur {
+  color: var(--text-muted);
+}
+.cls-lp-phase-methods {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Student groups in expand */
+.cls-lp-student-group {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+}
+.cls-lp-student-group-label {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.cls-lp-student-names {
+  color: var(--text-secondary);
+}

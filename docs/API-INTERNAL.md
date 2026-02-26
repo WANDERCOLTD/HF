@@ -6089,6 +6089,24 @@ Regenerate the magic join token for a classroom, invalidating the previous link.
 
 ---
 
+### `GET` /api/educator/classrooms/[id]/lesson-plan
+
+Returns the lesson plan sessions for all courses assigned to a classroom,
+
+**Auth**: EDUCATOR · **Scope**: `classroom:read`
+
+**Response** `200`
+```json
+{ ok, courses, studentProgress }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Classroom not found" }
+```
+
+---
+
 ### `DELETE` /api/educator/classrooms/[id]/members/[callerId]
 
 Remove a student from a classroom by unlinking them from the cohort. Does not delete the caller record. Requires educator ownership of the cohort.
@@ -12309,8 +12327,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 350 |
-| Files with annotations | 349 |
+| Route files found | 351 |
+| Files with annotations | 350 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

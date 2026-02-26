@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { SendArtifactModal } from "@/components/educator/SendArtifactModal";
 import { DifferentiationTab } from "@/components/educator/differentiation/DifferentiationTab";
+import { LessonPlanTab } from "./LessonPlanTab";
 import { useTerminology } from "@/contexts/TerminologyContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import "./classroom-detail.css";
@@ -37,7 +38,7 @@ interface ClassroomDetail {
   createdAt: string;
 }
 
-type Tab = "roster" | "differentiation" | "settings";
+type Tab = "roster" | "lesson-plan" | "differentiation" | "settings";
 
 export default function ClassroomDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -221,13 +222,13 @@ export default function ClassroomDetailPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 cls-tab-bar">
-        {(["roster", "differentiation", "settings"] as Tab[]).map((t) => (
+        {(["roster", "lesson-plan", "differentiation", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`hf-tab${tab === t ? " hf-tab-active" : ""}`}
           >
-            {t}
+            {t === "lesson-plan" ? "Lesson Plan" : t}
           </button>
         ))}
       </div>
@@ -347,6 +348,9 @@ export default function ClassroomDetailPage() {
           )}
         </div>
       )}
+
+      {/* Lesson Plan Tab */}
+      {tab === "lesson-plan" && <LessonPlanTab classroomId={id} />}
 
       {/* Differentiation Tab */}
       {tab === "differentiation" && <DifferentiationTab classroomId={id} />}
