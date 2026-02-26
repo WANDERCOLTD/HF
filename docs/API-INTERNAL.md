@@ -6662,6 +6662,19 @@ List available group templates, optionally filtered by institution type.
 
 ## Institutions
 
+### `POST` /api/institutions/launch
+
+SSE streaming endpoint for the institution setup wizard LaunchStep.
+
+**Auth**: OPERATOR · **Scope**: `institutions:write`
+
+**Response** `200`
+```json
+text/event-stream — SSE progress events
+```
+
+---
+
 ### `POST` /api/institutions/suggest-welcome
 
 AI-suggests 3 welcome message options for a new institution.
@@ -12551,8 +12564,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 363 |
-| Files with annotations | 362 |
+| Route files found | 364 |
+| Files with annotations | 363 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

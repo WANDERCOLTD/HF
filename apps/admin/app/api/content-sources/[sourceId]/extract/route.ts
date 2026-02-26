@@ -248,6 +248,12 @@ async function runBackgroundExtraction(
       chunkSaveFailures++;
       console.error(`[extract] Per-chunk save failed for chunk ${data.chunkIndex}:`, err.message);
     }
+    // After first chunk: store quick preview in job context so UI can show "Quick scan" immediately
+    if (data.chunkIndex === 0 && data.assertions.length > 0) {
+      updateJob(jobId, {
+        quickPreview: data.assertions.slice(0, 5).map((a) => ({ text: a.assertion, category: a.category })),
+      });
+    }
   };
 
   // Per-chunk save callback for specialist extractors (assertions + questions + vocabulary)
@@ -269,6 +275,12 @@ async function runBackgroundExtraction(
     } catch (err: any) {
       chunkSaveFailures++;
       console.error(`[extract] Per-chunk save failed for chunk ${data.chunkIndex}:`, err.message);
+    }
+    // After first chunk: store quick preview in job context so UI can show "Quick scan" immediately
+    if (data.chunkIndex === 0 && data.assertions.length > 0) {
+      updateJob(jobId, {
+        quickPreview: data.assertions.slice(0, 5).map((a) => ({ text: a.assertion, category: a.category })),
+      });
     }
   };
 

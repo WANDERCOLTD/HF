@@ -23,6 +23,7 @@ export default function ExtractStep({ setData, getData, onNext, onPrev }: StepPr
   const [warnings, setWarnings] = useState<string[]>([]);
 
   // Task ID for polling (UserTask ID returned from extract API as jobId)
+  const [quickPreview, setQuickPreview] = useState<Array<{ text: string; category: string }>>([]);
   const [extractTaskId, setExtractTaskId] = useState<string | null>(null);
   const tickRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -67,6 +68,7 @@ export default function ExtractStep({ setData, getData, onNext, onPrev }: StepPr
   const handleComplete = useCallback(async (task: PollableTask) => {
     if (tickRef.current) clearInterval(tickRef.current);
     setExtractTaskId(null);
+    setQuickPreview([]);
 
     // Capture warnings from task context
     const ctx = task.context || {};
@@ -110,6 +112,9 @@ export default function ExtractStep({ setData, getData, onNext, onPrev }: StepPr
     const ctx = task.context || {};
     setExtractedCount(ctx.extractedCount || 0);
     setChunkProgress({ current: ctx.currentChunk || 0, total: ctx.totalChunks || 0 });
+    if (ctx.quickPreview?.length > 0) {
+      setQuickPreview((prev) => prev.length === 0 ? ctx.quickPreview : prev);
+    }
   }, []);
 
   useTaskPoll({
@@ -241,6 +246,17 @@ export default function ExtractStep({ setData, getData, onNext, onPrev }: StepPr
                 Chunk {chunkProgress.current}/{chunkProgress.total} ({pct}%)
               </div>
             </>
+          )}
+          {quickPreview.length > 0 && (
+            <div className="hf-banner hf-banner-info hf-mt-sm">
+              <p className="hf-text-sm hf-text-bold hf-mb-xs">
+                Quick scan — {quickPreview.length} key points found
+              </p>
+              {quickPreview.map((item, i) => (
+                <div key={i} className="hf-list-row hf-text-sm">{item.text}</div>
+              ))}
+              <p className="hf-text-xs hf-text-muted hf-mt-xs">Full enrichment running…</p>
+            </div>
           )}
           <style>{`@keyframes extract-pulse { 0%,100% { opacity:1 } 50% { opacity:0.3 } }`}</style>
         </div>

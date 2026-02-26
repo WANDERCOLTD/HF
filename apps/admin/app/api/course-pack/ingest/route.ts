@@ -13,6 +13,7 @@ import {
   failTask,
   backgroundRun,
 } from "@/lib/ai/task-guidance";
+import { checkAutoTriggerCurriculum } from "@/lib/jobs/auto-trigger";
 
 /**
  * @api POST /api/course-pack/ingest
@@ -188,6 +189,7 @@ export async function POST(req: NextRequest) {
               domain.slug,
               mf.documentType,
               authResult.session.user.id,
+              taskId,
               interactionPattern as InteractionPattern | undefined,
             );
             groupSources.push({ sourceId: result.sourceId, role: mf.role, fileName: file.name });
@@ -267,6 +269,7 @@ export async function POST(req: NextRequest) {
               domain.slug,
               mf.documentType || "LESSON_PLAN",
               authResult.session.user.id,
+              taskId,
               interactionPattern as InteractionPattern | undefined,
             );
             sourceCount++;
@@ -323,6 +326,7 @@ async function createSourceAndStartExtraction(
   domainSlug: string,
   documentType: string,
   userId: string,
+  parentTaskId: string,
   interactionPattern?: InteractionPattern,
 ) {
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -450,6 +454,16 @@ async function createSourceAndStartExtraction(
           chunkSaveFailures++;
           console.error(`[course-pack/ingest] Per-chunk save failed for ${file.name} chunk ${data.chunkIndex}:`, err instanceof Error ? err.message : err);
         }
+
+        // After first chunk: push quick preview to parent task context so TeachWizard
+        // can show "Quick scan — N key points found" while enrichment continues
+        if (data.chunkIndex === 0 && data.assertions.length > 0) {
+          updateTaskProgress(parentTaskId, {
+            context: {
+              quickPreview: data.assertions.slice(0, 5).map((a) => ({ text: a.assertion, category: a.category })),
+            },
+          }).catch(() => {});
+        }
       });
 
       if (!result.ok) {
@@ -496,6 +510,12 @@ async function createSourceAndStartExtraction(
           console.error(`[course-pack/ingest] Auto-structure failed for ${file.name}:`, err instanceof Error ? err.message : err);
         });
       }
+
+      // Auto-trigger curriculum generation when all extractions for this subject are done
+      // (same pattern as content-sources/[sourceId]/extract/route.ts)
+      await checkAutoTriggerCurriculum(subjectId, userId).catch((err: unknown) => {
+        console.error(`[course-pack/ingest] Auto-trigger error for ${file.name}:`, err instanceof Error ? err.message : err);
+      });
 
       console.log(
         `[course-pack/ingest] ${file.name}: ${result.assertions.length} assertions, ` +
