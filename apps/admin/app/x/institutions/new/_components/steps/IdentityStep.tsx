@@ -127,7 +127,7 @@ export function IdentityStep({ getData, setData, onNext }: StepRenderProps) {
 
   const handleNext = () => {
     setData("institutionName", name.trim());
-    setData("typeSlug", typeSlug);
+    setData("typeSlug", effectiveType);
     if (typeId) setData("typeId", typeId);
     setData("websiteUrl", websiteUrl);
     onNext();
@@ -139,6 +139,7 @@ export function IdentityStep({ getData, setData, onNext }: StepRenderProps) {
         <FieldHint label="Institution Type" hint={WIZARD_HINTS["institution.type"]} />
         <TypePicker
           value={typeSlug}
+          suggestedValue={suggestedType}
           onChange={(slug, id) => {
             setTypeSlug(slug);
             setTypeId(id);

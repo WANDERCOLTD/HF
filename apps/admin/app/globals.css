@@ -3004,19 +3004,29 @@ html.light {
 }
 .hf-session-phases {
   margin-left: 30px;
-  padding: 6px 0 6px 12px;
+  margin-top: 4px;
+  padding: 2px 0 2px 12px;
   border-left: 2px solid var(--border-default);
 }
 .hf-session-phase {
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-default) 50%, transparent);
+}
+.hf-session-phase:last-child {
+  border-bottom: none;
+}
+.hf-session-phase-header {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  padding: 3px 0;
-  font-size: 12px;
 }
 .hf-session-phase-label {
   color: var(--text-primary);
   font-weight: 500;
+  font-size: 12px;
 }
 .hf-session-phase-dur {
   color: var(--text-muted);
@@ -3026,12 +3036,14 @@ html.light {
 .hf-session-phase-methods {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
 }
 .hf-session-phase-guidance {
   color: var(--text-muted);
   font-size: 11px;
   font-style: italic;
+  padding-left: 2px;
 }
 
 /* TP count badge (BookOpen icon + count) */
@@ -3051,7 +3063,7 @@ html.light {
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  padding: 3px 0 4px 90px; /* indent to align under session label */
+  padding: 3px 0 4px 110px; /* indent to align under session label (num 20px + gap 10px + type-badge ~70px + gap 10px) */
 }
 .hf-session-methods-icon {
   color: var(--text-muted);

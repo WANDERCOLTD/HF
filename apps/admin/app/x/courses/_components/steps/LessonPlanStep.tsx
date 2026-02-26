@@ -512,24 +512,27 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
             ))}
           </div>
         )}
-        {/* Phase expansion */}
+        {/* Phase expansion — multi-row per phase */}
         {!skeleton && expandedSession === index && entry.phases?.length && (
           <div className="hf-session-phases">
             {entry.phases.map((phase, pi) => (
               <div key={phase.id + pi} className="hf-session-phase">
-                <span className="hf-session-phase-label">{phase.label}</span>
-                {phase.durationMins && (
-                  <span className="hf-session-phase-dur">{phase.durationMins}m</span>
-                )}
+                <div className="hf-session-phase-header">
+                  <span className="hf-session-phase-label">{phase.label}</span>
+                  {phase.durationMins && (
+                    <span className="hf-session-phase-dur">{phase.durationMins}m</span>
+                  )}
+                </div>
                 {phase.teachMethods?.length ? (
-                  <span className="hf-session-phase-methods">
+                  <div className="hf-session-phase-methods">
+                    <Zap size={9} className="hf-session-methods-icon" />
                     {phase.teachMethods.map((m) => (
                       <span key={m} className="hf-chip hf-chip-sm">{m}</span>
                     ))}
-                  </span>
+                  </div>
                 ) : null}
                 {phase.guidance && (
-                  <span className="hf-session-phase-guidance">{phase.guidance}</span>
+                  <div className="hf-session-phase-guidance">{phase.guidance}</div>
                 )}
               </div>
             ))}
@@ -594,7 +597,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
             {/* Progress banner */}
             <div className="hf-banner hf-banner-info">
               <div className="hf-pulse-dot" />
-              <div className="hf-flex hf-flex-col hf-gap-xs hf-flex-1">
+              <div className="hf-flex-col hf-gap-xs hf-flex-1">
                 <span className="hf-text-sm hf-text-bold">
                   {progressMessage || "Modules ready — generating detailed session plan..."}
                 </span>
