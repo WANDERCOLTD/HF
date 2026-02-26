@@ -4,6 +4,8 @@ description: Deploy to Cloud Run — environment-aware (dev, test, prod)
 
 Interactive deployment guide for GCP Cloud Run. Supports 3 environments.
 
+> **Auto-deploy:** DEV and TEST auto-deploy on every push to `main` via GitHub Actions (`deploy-dev.yml`, `deploy-test.yml`). Use `/deploy` only for: PROD deploys, rollbacks, manual re-deploys, or pre-flight checks.
+
 ## CRITICAL: Environment Selection
 
 **ALWAYS ask which environment FIRST.** Never assume. Use AskUserQuestion:

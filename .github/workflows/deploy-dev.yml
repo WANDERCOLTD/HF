@@ -1,0 +1,99 @@
+name: Deploy to Dev
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/admin/**"
+      - ".github/workflows/deploy-dev.yml"
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: true
+
+env:
+  PROJECT_ID: hf-admin-prod
+  REGION: europe-west2
+  REGISTRY: europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker
+  SERVICE: hf-admin-dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/311250123759/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deploy@hf-admin-prod.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west2-docker.pkg.dev --quiet
+
+      - name: Build runner image
+        run: |
+          docker build --platform linux/amd64 --target runner \
+            --build-arg NEXT_PUBLIC_APP_ENV=DEV \
+            -t ${{ env.REGISTRY }}/hf-admin:dev \
+            -t ${{ env.REGISTRY }}/hf-admin:dev-${{ github.sha }} \
+            -f apps/admin/Dockerfile apps/admin
+
+      - name: Build seed image
+        run: |
+          docker build --platform linux/amd64 --target seed \
+            -t ${{ env.REGISTRY }}/hf-seed:dev \
+            -f apps/admin/Dockerfile apps/admin
+
+      - name: Push images
+        run: |
+          docker push ${{ env.REGISTRY }}/hf-admin:dev
+          docker push ${{ env.REGISTRY }}/hf-admin:dev-${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/hf-seed:dev
+
+      - name: Run schema migration
+        run: |
+          gcloud run jobs update hf-migrate-dev \
+            --image=${{ env.REGISTRY }}/hf-seed:dev \
+            --region=${{ env.REGION }}
+          gcloud run jobs execute hf-migrate-dev \
+            --region=${{ env.REGION }} --wait
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image=${{ env.REGISTRY }}/hf-admin:dev \
+            --region=${{ env.REGION }}
+
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE }} --region=${{ env.REGION }} --format='value(status.url)')
+          echo "Testing $URL..."
+          for i in $(seq 1 12); do
+            if curl -sf "$URL/api/health" > /dev/null 2>&1; then
+              echo "Health check passed"
+              break
+            fi
+            echo "Waiting for service... (attempt $i/12)"
+            sleep 5
+          done
+          curl -sf "$URL/api/health" | jq .
+          curl -sf "$URL/api/ready" | jq .
+
+      - name: Seed demo data
+        continue-on-error: true
+        run: |
+          gcloud run jobs update hf-seed-dev \
+            --image=${{ env.REGISTRY }}/hf-seed:dev \
+            --set-env-vars=SEED_PROFILE=full \
+            --region=${{ env.REGION }}
+          gcloud run jobs execute hf-seed-dev \
+            --region=${{ env.REGION }} --wait

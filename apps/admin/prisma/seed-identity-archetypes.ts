@@ -15,7 +15,7 @@
 
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+let prisma: PrismaClient;
 
 interface ArchetypeSpec {
   slug: string;
@@ -172,7 +172,8 @@ const ARCHETYPES: ArchetypeSpec[] = [
   }
 ];
 
-async function seedIdentityArchetypes() {
+export async function main(externalPrisma?: PrismaClient) {
+  prisma = externalPrisma || new PrismaClient();
   console.log("Seeding identity archetypes...");
 
   let created = 0;
@@ -246,8 +247,11 @@ async function seedIdentityArchetypes() {
   }
 
   console.log(`\nDone. Created: ${created}, Updated: ${updated}`);
+
+  if (!externalPrisma) await prisma.$disconnect();
 }
 
-seedIdentityArchetypes()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+// Standalone runner
+if (require.main === module) {
+  main().catch(console.error);
+}
