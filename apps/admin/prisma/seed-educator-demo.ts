@@ -1570,7 +1570,7 @@ async function createPlaybooks(
         version: "1.0",
         publishedAt: new Date(),
         publishedBy: "educator-demo",
-        config: { systemSpecToggles },
+        config: { systemSpecToggles, teachingMode: "comprehension" },
         measureSpecCount: 2,
         learnSpecCount: 1,
         adaptSpecCount: 1,
