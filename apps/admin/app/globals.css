@@ -2830,15 +2830,15 @@ html.light {
 
 .hf-wizard-stepper {
   padding: 16px 32px 0;
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
-/* Wizard step content area — standard max-width + padding */
+/* Wizard step content area — max-width matches page container */
 .hf-wizard-step {
   flex: 1;
   padding: 32px;
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
 }
