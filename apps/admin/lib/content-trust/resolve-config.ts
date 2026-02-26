@@ -1168,12 +1168,12 @@ export const TEACH_METHOD_CONFIG: Record<
   recall_quiz: {
     label: "Recall quiz",
     icon: "🧠",
-    categories: ["fact", "concept"],
+    categories: ["fact", "concept", "rule", "threshold"],
   },
   definition_matching: {
     label: "Definition matching",
     icon: "🔤",
-    categories: ["vocabulary", "key_term"],
+    categories: ["vocabulary", "key_term", "definition"],
   },
   close_reading: {
     label: "Close reading",
@@ -1203,7 +1203,7 @@ export const TEACH_METHOD_CONFIG: Record<
   worked_example: {
     label: "Worked example",
     icon: "📝",
-    categories: ["worked_example"],
+    categories: ["worked_example", "example", "process"],
   },
 };
 

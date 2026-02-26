@@ -1726,11 +1726,18 @@ async function createContentAssertions(
   console.log("  Creating content assertions...");
   let totalAssertions = 0;
 
+  const categoryToTeachMethod = (cat: string): string => {
+    if (cat === "definition") return "definition_matching";
+    if (cat === "example" || cat === "process") return "worked_example";
+    return "recall_quiz"; // fact, rule, threshold, concept
+  };
+
   const assertionBatch: Array<{
     sourceId: string;
     assertion: string;
     category: string;
     tags: string[];
+    teachMethod: string;
     createdBy: string;
   }> = [];
 
@@ -1745,6 +1752,7 @@ async function createContentAssertions(
           assertion: a.assertion,
           category: a.category,
           tags: [...a.tags, a.param],
+          teachMethod: categoryToTeachMethod(a.category),
           createdBy: "educator-demo",
         });
         totalAssertions++;
@@ -1758,6 +1766,7 @@ async function createContentAssertions(
           assertion: a.assertion,
           category: a.category,
           tags: [...a.tags, a.param],
+          teachMethod: categoryToTeachMethod(a.category),
           createdBy: "educator-demo",
         });
         totalAssertions++;
