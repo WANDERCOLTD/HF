@@ -491,13 +491,6 @@ export function LogViewer({
                       </>
                     )}
                     {log.durationMs && <span className="hf-text-muted">{log.durationMs}ms</span>}
-                    <span className="logs-viewer-expand-arrow">{isExpanded ? '\u25BC' : '\u25B6'}</span>
-                  </div>
-                </div>
-
-                {/* Expanded detail */}
-                {isExpanded && (
-                  <div className="logs-viewer-card-detail">
                     {/* Copy buttons */}
                     <div className="logs-viewer-card-copy-row">
                       {log.type === 'ai' && log.promptPreview && (
@@ -506,7 +499,7 @@ export function LogViewer({
                           className="hf-btn hf-btn-secondary hf-btn-sm"
                         >
                           <Copy size={12} />
-                          {copied === `prompt-${idx}` ? 'Copied!' : 'Copy Prompt'}
+                          {copied === `prompt-${idx}` ? 'Copied!' : 'Prompt'}
                         </button>
                       )}
                       {log.type === 'ai' && log.responsePreview && (
@@ -515,7 +508,7 @@ export function LogViewer({
                           className="hf-btn hf-btn-secondary hf-btn-sm"
                         >
                           <FileText size={12} />
-                          {copied === `response-${idx}` ? 'Copied!' : 'Copy Response'}
+                          {copied === `response-${idx}` ? 'Copied!' : 'Response'}
                         </button>
                       )}
                       <button
@@ -523,10 +516,16 @@ export function LogViewer({
                         className="hf-btn hf-btn-secondary hf-btn-sm"
                       >
                         <ClipboardCopy size={12} />
-                        {copied === `full-${idx}` ? 'Copied!' : 'Copy Full'}
+                        {copied === `full-${idx}` ? 'Copied!' : 'Full'}
                       </button>
                     </div>
+                    <span className="logs-viewer-expand-arrow">{isExpanded ? '\u25BC' : '\u25B6'}</span>
+                  </div>
+                </div>
 
+                {/* Expanded detail */}
+                {isExpanded && (
+                  <div className="logs-viewer-card-detail">
                     {/* Prompt */}
                     {log.type === 'ai' && log.promptPreview && (
                       <div>

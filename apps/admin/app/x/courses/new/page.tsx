@@ -22,7 +22,7 @@ const PATTERN_LABELS: Record<string, string> = {
 
 const config: WizardConfig = {
   flowId: "course-setup",
-  wizardName: "course-setup",
+  wizardName: "course",
   returnPath: "/x/courses",
   cancelLabel: "Courses",
   taskType: "course_setup",
