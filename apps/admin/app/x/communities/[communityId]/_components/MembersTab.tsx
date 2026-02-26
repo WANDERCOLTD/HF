@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Plus, Trash2, Search, Users, MessageSquare } from 'lucide-react';
+import { Plus, Trash2, Search, Users, MessageSquare, Copy, Check, Mail } from 'lucide-react';
 import { ErrorBanner } from '@/components/shared/ErrorBanner';
 import type { CommunityDetail, CommunityMember } from './types';
 
@@ -18,10 +18,54 @@ export function MembersTab({ community, onRefresh }: MembersTabProps) {
   const [removing, setRemoving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Join link
+  const [copied, setCopied] = useState(false);
+
+  // Email invite
+  const [inviteEmails, setInviteEmails] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ ok: boolean; message: string } | null>(null);
+
   const filtered = (community.members || []).filter(m =>
     !search || (m.name || '').toLowerCase().includes(search.toLowerCase()) ||
     (m.email || '').toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleCopyLink = () => {
+    if (!community.joinToken) return;
+    navigator.clipboard.writeText(`${window.location.origin}/join/${community.joinToken}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSendInvites = async () => {
+    if (!inviteEmails.trim()) return;
+    const emails = inviteEmails.split(/[,\n]+/).map((e) => e.trim()).filter((e) => e.includes('@'));
+    if (emails.length === 0) return;
+    setInviting(true);
+    setInviteResult(null);
+    try {
+      const res = await fetch(`/api/communities/${community.id}/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const parts: string[] = [];
+        if (data.created > 0) parts.push(`${data.created} invite${data.created !== 1 ? 's' : ''} sent`);
+        if (data.skipped > 0) parts.push(`${data.skipped} already invited`);
+        setInviteResult({ ok: true, message: parts.join(', ') || 'Done' });
+        setInviteEmails('');
+      } else {
+        setInviteResult({ ok: false, message: data.error ?? 'Failed to send invites' });
+      }
+    } catch {
+      setInviteResult({ ok: false, message: 'Network error' });
+    } finally {
+      setInviting(false);
+    }
+  };
 
   const handleAdd = async () => {
     if (!addCallerId.trim()) return;
@@ -77,7 +121,69 @@ export function MembersTab({ community, onRefresh }: MembersTabProps) {
 
       <ErrorBanner error={error} style={{ marginBottom: 16 }} />
 
-      {/* Add member */}
+      {/* Join link */}
+      {community.joinToken && (
+        <div className="hf-card" style={{ marginBottom: 20 }}>
+          <label className="hf-label" style={{ marginBottom: 8, display: 'block' }}>
+            <Copy size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+            Join Link
+          </label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              readOnly
+              value={`${window.location.origin}/join/${community.joinToken}`}
+              className="hf-input"
+              style={{ flex: 1, fontSize: 13 }}
+            />
+            <button
+              className="hf-btn hf-btn-secondary"
+              onClick={handleCopyLink}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+            Share this link so people can join the community themselves.
+          </p>
+        </div>
+      )}
+
+      {/* Email invite */}
+      {community.cohortGroupId && (
+        <div className="hf-card" style={{ marginBottom: 20 }}>
+          <label className="hf-label" style={{ marginBottom: 8, display: 'block' }}>
+            <Mail size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+            Invite by Email
+          </label>
+          <textarea
+            value={inviteEmails}
+            onChange={(e) => setInviteEmails(e.target.value)}
+            placeholder={'Enter email addresses (one per line or comma-separated)\ne.g. alice@example.com, bob@example.com'}
+            className="hf-input"
+            rows={3}
+            style={{ width: '100%', resize: 'vertical', marginBottom: 8 }}
+          />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              className="hf-btn hf-btn-primary"
+              onClick={handleSendInvites}
+              disabled={inviting || !inviteEmails.trim()}
+              style={{ fontSize: 13 }}
+            >
+              {inviting ? 'Sending...' : 'Send Invites'}
+            </button>
+            {inviteResult && (
+              <span style={{ fontSize: 12, color: inviteResult.ok ? 'var(--status-success-text)' : 'var(--status-error-text)' }}>
+                {inviteResult.message}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Add member by ID */}
       <div className="hf-card" style={{ marginBottom: 20 }}>
         <label className="hf-label" style={{ marginBottom: 8, display: 'block' }}>
           Add Member by Caller ID

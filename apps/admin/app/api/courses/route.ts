@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const query: any = {
       include: {
         domain: { select: { id: true, name: true } },
+        group: { select: { id: true, name: true, groupType: true } },
         _count: { select: { enrollments: true, items: true } },
       },
       orderBy: { name: 'asc' },
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
       name: pb.name,
       description: pb.description,
       domain: pb.domain,
+      group: pb.group || null,
       studentCount: pb._count.enrollments,
       specCount: pb._count.items,
       status: pb.status.toLowerCase(),
@@ -96,6 +98,7 @@ export async function POST(request: NextRequest) {
       teachingStyle,
       welcomeMessage,
       studentEmails,
+      groupId,
     } = body;
 
     if (!domainId || !courseName) {
@@ -110,6 +113,7 @@ export async function POST(request: NextRequest) {
       data: {
         name: courseName,
         domainId,
+        groupId: groupId || undefined,
         status: 'PUBLISHED',
         description: learningOutcomes?.join('\n') || '',
       },

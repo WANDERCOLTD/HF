@@ -27,4 +27,6 @@ export interface CommunityDetail {
   identitySpec: { id: string; slug: string; name: string } | null;
   identitySpecs: Array<{ id: string; slug: string; name: string }>;
   members: CommunityMember[];
+  joinToken: string | null;
+  cohortGroupId: string | null;
 }

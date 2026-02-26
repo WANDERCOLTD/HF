@@ -49,6 +49,9 @@ export default function EducatorDashboard() {
   const [institutions, setInstitutions] = useState<InstitutionOption[]>([]);
   const [selectedInstitutionId, setSelectedInstitutionId] = useState<string | null>(null);
 
+  // Department data
+  const [departments, setDepartments] = useState<{ id: string; name: string; courseCount: number; classCount: number }[]>([]);
+
   // Invite teacher state
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -115,6 +118,30 @@ export default function EducatorDashboard() {
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+
+  // Load departments when dashboard data is available
+  useEffect(() => {
+    if (!data?.classrooms?.length) return;
+    const domainId = data.classrooms[0]?.domain?.id;
+    if (!domainId) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/playbook-groups?domainId=${domainId}`);
+        const body = await res.json();
+        if (body.ok && body.groups?.length > 0) {
+          setDepartments(body.groups.map((g: any) => ({
+            id: g.id,
+            name: g.name,
+            courseCount: g._count?.playbooks ?? 0,
+            classCount: g._count?.cohortGroups ?? 0,
+          })));
+        }
+      } catch {
+        // Non-critical — department cards just won't show
+      }
+    })();
+  }, [data]);
 
   const handleSelectSchool = useCallback((institutionId: string) => {
     setSelectedInstitutionId(institutionId);
@@ -230,6 +257,28 @@ export default function EducatorDashboard() {
           </div>
         ))}
       </div>
+
+      {/* Departments */}
+      {departments.length > 0 && (
+        <div className="edu-departments-section">
+          <h2 className="hf-section-title">{plural("group")}</h2>
+          <div className="edu-stats-grid">
+            {departments.map((dept) => (
+              <Link
+                key={dept.id}
+                href={`/x/educator/departments`}
+                className="hf-card-compact edu-dept-card"
+              >
+                <div className="edu-dept-name">{dept.name}</div>
+                <div className="hf-flex hf-gap-md hf-text-xs hf-text-muted">
+                  <span>{dept.courseCount} {dept.courseCount === 1 ? lower("playbook") : lowerPlural("playbook")}</span>
+                  <span>{dept.classCount} {dept.classCount === 1 ? lower("cohort") : lowerPlural("cohort")}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Readiness Card */}
       {hasClassrooms && (

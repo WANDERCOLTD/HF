@@ -79,7 +79,8 @@ function renderFlatTeachingPoints(
       for (const a of assertions) {
         const citation = a.pageRef ? ` [${a.sourceName}, ${a.pageRef}]` : ` [${a.sourceName}]`;
         const loRef = a.learningOutcomeRef ? ` (${a.learningOutcomeRef})` : "";
-        lines.push(`  - ${a.assertion}${citation}${loRef}`);
+        const methodTag = a.teachMethod ? ` [${a.teachMethod}]` : "";
+        lines.push(`  - ${a.assertion}${citation}${loRef}${methodTag}`);
       }
     }
 
@@ -98,7 +99,8 @@ function renderFlatTeachingPoints(
       }
       for (const a of assertions) {
         const citation = a.pageRef ? ` [${a.sourceName}, ${a.pageRef}]` : ` [${a.sourceName}]`;
-        lines.push(`  - ${a.assertion}${citation}`);
+        const methodTag = a.teachMethod ? ` [${a.teachMethod}]` : "";
+        lines.push(`  - ${a.assertion}${citation}${methodTag}`);
       }
     }
     lines.push("");
@@ -264,7 +266,8 @@ function buildCitation(a: CurriculumAssertionData): string {
   }
   const citation = parts.length > 0 ? ` [${parts.join(", ")}]` : "";
   const loRef = a.learningOutcomeRef ? ` (${a.learningOutcomeRef})` : "";
-  return `${citation}${loRef}`;
+  const methodTag = a.teachMethod ? ` [${a.teachMethod}]` : "";
+  return `${citation}${loRef}${methodTag}`;
 }
 
 // ------------------------------------------------------------------
@@ -310,7 +313,20 @@ registerTransform("renderTeachingContent", (
   }
   let assertions = allAssertions;
 
-  if (currentModule?.learningOutcomes?.length && allAssertions.length > 0) {
+  // Priority 1: Session-specific LO refs from lesson plan (most precise — only TPs for THIS session)
+  const sessionLORefs = context.sharedState?.lessonPlanEntry?.learningOutcomeRefs;
+  if (sessionLORefs?.length && allAssertions.length > 0) {
+    const sessionAssertions = allAssertions.filter((a) => {
+      if (!a.learningOutcomeRef) return false;
+      return sessionLORefs.some((ref) => a.learningOutcomeRef!.includes(ref));
+    });
+    if (sessionAssertions.length > 0) {
+      assertions = sessionAssertions;
+    }
+  }
+
+  // Priority 2: Fall back to current module LOs (existing behavior)
+  if (assertions === allAssertions && currentModule?.learningOutcomes?.length && allAssertions.length > 0) {
     const moduleLOs = currentModule.learningOutcomes as string[];
     const loIds = moduleLOs.map((lo) => {
       const match = lo.match(/^(LO\d+|AC[\d.]+)/i);

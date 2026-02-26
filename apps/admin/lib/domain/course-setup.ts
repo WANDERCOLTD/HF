@@ -52,6 +52,8 @@ export interface CourseSetupInput {
   interactionPattern?: string; // "socratic" | "directive" | "advisory" | "coaching" | "companion" | "facilitation" | "reflective" | "open"
   // Wizard task tracking — reuse wizard task for launch progress
   wizardTaskId?: string;
+  // Optional department/division/track grouping
+  groupId?: string;
 }
 
 export interface CourseSetupResult {
@@ -238,6 +240,7 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
       extendsAgent: archetypeSlug || undefined,
       forceNewPlaybook: !!ctx.input.domainId,
       playbookName: ctx.input.courseName,
+      groupId: ctx.input.groupId || undefined,
     });
 
     if (scaffoldResult.playbook) {

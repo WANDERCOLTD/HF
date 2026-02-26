@@ -127,7 +127,7 @@ function SpecChipList({ specs, icon: Icon, label }: {
       <div className="hf-flex hf-flex-col hf-gap-xs">
         {specs.map(s => (
           <div key={s.slug} className="hf-flex hf-gap-sm hf-items-start">
-            <ChevronRight size={12} className="hf-text-placeholder hf-flex-shrink-0" style={{ marginTop: 3 }} />
+            <ChevronRight size={12} className="hf-text-placeholder hf-flex-shrink-0 hf-mt-xs" />
             <div>
               <div className="hf-text-sm">{s.name}</div>
               {s.description && (
@@ -477,6 +477,9 @@ export default function CourseDetailPage() {
           </div>
           <div className="hf-flex hf-gap-sm hf-items-center">
             <DomainPill label={detail.domain.name} href={`/x/domains?id=${detail.domain.id}`} size="compact" />
+            {(detail as any).group && (
+              <span className="hf-pill hf-pill-neutral">{(detail as any).group.name}</span>
+            )}
             <span className="hf-text-xs hf-text-placeholder">v{detail.version}</span>
           </div>
         </div>
@@ -531,7 +534,7 @@ export default function CourseDetailPage() {
         <>
           {/* TeachMethod summary stats */}
           {contentMethods.length > 0 && (
-            <div className="hf-mb-lg" style={{ marginTop: 20 }}>
+            <div className="hf-mb-lg hf-mt-md">
               <div className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase hf-mb-sm">
                 Teaching Methods
               </div>
@@ -648,7 +651,7 @@ export default function CourseDetailPage() {
                       <div className="hf-phase-pill">
                         <div className="hf-text-xs hf-text-bold">{phase.label}</div>
                         {phase.duration && (
-                          <div className="hf-text-xs hf-text-muted" style={{ fontSize: 10, marginTop: 2 }}>
+                          <div className="hf-text-xs hf-text-muted hf-phase-duration">
                             {phase.duration}
                           </div>
                         )}
@@ -729,7 +732,7 @@ export default function CourseDetailPage() {
       {/* CONTENT TAB — drill-down by teachMethod        */}
       {/* ═══════════════════════════════════════════════ */}
       {activeTab === 'content' && (
-        <div style={{ marginTop: 20 }}>
+        <div className="hf-mt-lg">
           {contentMethods.length === 0 ? (
             <div className="hf-empty-compact">
               <BookMarked size={36} className="hf-text-tertiary hf-mb-sm" />
@@ -782,7 +785,7 @@ export default function CourseDetailPage() {
                         }}
                       >
                         <span className="hf-method-group-icon">{icon}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="hf-flex-1 hf-min-w-0">
                           <div className="hf-method-group-label">{label}</div>
                           {subjectParts.length > 1 && (
                             <div className="hf-method-group-subtitle">
@@ -808,7 +811,7 @@ export default function CourseDetailPage() {
                         <div className="hf-method-group-items">
                           {drill?.loading && !drill.items.length && (
                             <div className="hf-method-group-item">
-                              <div className="hf-spinner" style={{ width: 14, height: 14 }} />
+                              <div className="hf-spinner hf-spinner-sm" />
                               <span className="hf-text-xs hf-text-muted">Loading...</span>
                             </div>
                           )}
@@ -844,7 +847,7 @@ export default function CourseDetailPage() {
 
                           {drill?.loading && drill.items.length > 0 && (
                             <div className="hf-method-group-item">
-                              <div className="hf-spinner" style={{ width: 14, height: 14 }} />
+                              <div className="hf-spinner hf-spinner-sm" />
                               <span className="hf-text-xs hf-text-muted">Loading more...</span>
                             </div>
                           )}

@@ -56,6 +56,13 @@ export async function GET(
             name: true,
           },
         },
+        group: {
+          select: {
+            id: true,
+            name: true,
+            groupType: true,
+          },
+        },
         // agent: removed - FK relation deprecated, agentId is now just a string reference
         // curriculum: removed - FK relation no longer exists on Playbook model
         items: {

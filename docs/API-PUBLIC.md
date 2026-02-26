@@ -1755,7 +1755,7 @@ Create a new community hub with full scaffolding.
 
 **Response** `200`
 ```json
-{ ok: true, community: { id, name, slug, memberCount } }
+{ ok: true, community: { id, name, slug, memberCount, joinToken, cohortGroupId } }
 ```
 
 **Response** `400`
@@ -1801,7 +1801,7 @@ Get a single community detail with identity specs, onboarding config, and member
 
 **Response** `200`
 ```json
-{ ok: true, community: { id, name, slug, description, onboardingWelcome, onboardingIdentitySpecId, onboardingFlowPhases, onboardingDefaultTargets, memberCount, playbookCount, personaName, identitySpec, identitySpecs, members } }
+{ ok: true, community: { id, name, slug, description, onboardingWelcome, onboardingIdentitySpecId, onboardingFlowPhases, onboardingDefaultTargets, memberCount, playbookCount, personaName, identitySpec, identitySpecs, members, joinToken, cohortGroupId } }
 ```
 
 **Response** `404`
@@ -3018,7 +3018,7 @@ Create a new memory manually for a caller. Handles deduplication: if a memory wi
 
 ### `GET` /api/v1/join/[token]
 
-Verify a classroom join token. Returns classroom info if valid.
+Verify a classroom/community join token. Returns group info if valid.
 
 **Auth**: None
 

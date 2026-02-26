@@ -13,7 +13,7 @@
 
 import { loadAllData } from "./SectionDataLoader";
 import { getTransform } from "./TransformRegistry";
-import { resolveSpecs, resolveVoiceSpecFallback, mergeIdentitySpec } from "./transforms/identity";
+import { resolveSpecs, resolveVoiceSpecFallback, mergeIdentitySpec, applyGroupToneOverride } from "./transforms/identity";
 import { computeSharedState } from "./transforms/modules";
 import type {
   AssembledContext,
@@ -72,6 +72,19 @@ export async function executeComposition(
       ...resolvedSpecs,
       identitySpec: await mergeIdentitySpec(resolvedSpecs.identitySpec),
     };
+  }
+
+  // 2c. Apply department/group tone override (layers between domain identity + course identity)
+  const groupOverride = loadedData.playbooks?.[0]?.group?.identityOverride;
+  if (resolvedSpecs.identitySpec && groupOverride && typeof groupOverride === "object") {
+    resolvedSpecs = {
+      ...resolvedSpecs,
+      identitySpec: applyGroupToneOverride(
+        resolvedSpecs.identitySpec,
+        groupOverride as Record<string, any>,
+      ),
+    };
+    console.log(`[CompositionExecutor] Applied group tone override from "${loadedData.playbooks[0].group?.name}"`);
   }
 
   console.log(`[CompositionExecutor] Playbooks stacked: ${loadedData.playbooks.length} (${loadedData.playbooks.map(p => p.name).join(", ") || "none"})`);

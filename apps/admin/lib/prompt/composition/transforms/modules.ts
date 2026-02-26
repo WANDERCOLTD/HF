@@ -413,6 +413,8 @@ export async function computeSharedState(
           moduleId: entry.moduleId || null,
           moduleLabel: entry.moduleLabel || '',
           label: entry.label || '',
+          phases: entry.phases || null,
+          learningOutcomeRefs: entry.learningOutcomeRefs || null,
         };
 
         // Override nextModule if entry specifies a moduleId

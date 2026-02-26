@@ -10,6 +10,7 @@ import {
   failTask,
 } from "@/lib/ai/task-guidance";
 import { syncModulesToDB } from "@/lib/curriculum/sync-modules";
+import { getLessonPlanModel } from "@/lib/lesson-plan/models";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -31,6 +32,17 @@ interface LessonPlanEntry {
   notes?: string;
   estimatedDurationMins?: number;
   assertionCount?: number;
+  /** Per-session phases from pedagogical model */
+  phases?: Array<{
+    id: string;
+    label: string;
+    durationMins?: number;
+    teachMethods?: string[];
+    learningOutcomeRefs?: string[];
+    guidance?: string;
+  }>;
+  /** Which learning outcomes this session covers */
+  learningOutcomeRefs?: string[];
 }
 
 // ── Background job ─────────────────────────────────────
@@ -57,6 +69,7 @@ async function runGeneratePlan(
   emphasis: string,
   assessments: string,
   sourceId: string | null,
+  lessonPlanModel: string | null,
 ) {
   try {
     // 0. If sourceId provided, read document text from uploaded file
@@ -226,14 +239,26 @@ async function runGeneratePlan(
       ? (INTERACTION_PATTERN_SESSION_HINTS[interactionPattern] || "")
       : "";
 
+    // Load pedagogical model definition
+    const modelDef = getLessonPlanModel(lessonPlanModel);
+
     const systemPrompt = `You are a curriculum planning assistant. Given a set of teaching modules, propose a structured lesson plan — an ordered sequence of call sessions that covers all modules effectively.
 
-Rules:
-- Each session has a type: onboarding (first session), introduce (first exposure to module), deepen (revisit module for mastery), review (consolidate multiple modules), assess (test knowledge), consolidate (final synthesis)
+You are using the "${modelDef.label}" pedagogical framework.
+${modelDef.description}
+
+Session sequencing rules for this model:
+${modelDef.sessionPatternRules}
+
+Phase structure:
+Each session MUST include a "phases" array — ordered activities within the session.
+Use the model's phase templates as a starting point, then customise labels and guidance for the specific content.
+${modelDef.tpDistributionHints}
+
+General rules:
+- Valid session types: onboarding, introduce, deepen, review, assess, consolidate
 - First session should always be onboarding
-- Each module should have at least an "introduce" session, and larger modules should also have "deepen" sessions
-- Include periodic "review" sessions every 3-4 modules
-- End with a "consolidate" session
+- Cognitive load limit: max ${modelDef.defaults.maxTpsPerSession} new teaching points per session — split larger modules across multiple sessions
 - ${targetHint}
 - ${durationHint}
 - ${emphasisHint}
@@ -241,11 +266,27 @@ Rules:
 
 Respond with ONLY a JSON object (no markdown, no explanation outside JSON):
 {
-  "reasoning": "Brief explanation of your plan structure",
+  "reasoning": "Brief explanation of your plan structure and how the ${modelDef.label} model shapes it",
   "entries": [
-    { "session": 1, "type": "onboarding", "moduleId": null, "moduleLabel": "", "label": "Welcome + Background Probe" },
-    { "session": 2, "type": "introduce", "moduleId": "MOD-1", "moduleLabel": "Module Name", "label": "Introduction to Module Name", "estimatedDurationMins": 30 },
-    ...
+    {
+      "session": 1, "type": "onboarding", "moduleId": null, "moduleLabel": "", "label": "Welcome + Background Probe",
+      "phases": [
+        { "id": "welcome", "label": "Welcome & Introductions", "durationMins": 5, "guidance": "Warm greeting, set expectations" },
+        { "id": "probe", "label": "Background Probe", "durationMins": 15, "teachMethods": ["guided_discussion"], "guidance": "Explore prior knowledge and learning goals" },
+        { "id": "preview", "label": "Course Preview", "durationMins": 10, "guidance": "Overview of what they'll learn" }
+      ]
+    },
+    {
+      "session": 2, "type": "introduce", "moduleId": "MOD-1", "moduleLabel": "Module Name", "label": "Introduction to Module Name",
+      "estimatedDurationMins": 30,
+      "learningOutcomeRefs": ["LO1", "LO2"],
+      "phases": [
+        { "id": "hook", "label": "Hook — Real-world scenario", "durationMins": 3, "teachMethods": ["guided_discussion"], "guidance": "Connect topic to learner's experience" },
+        { "id": "direct_instruction", "label": "Key Concepts", "durationMins": 12, "teachMethods": ["definition_matching", "recall_quiz"], "learningOutcomeRefs": ["LO1"], "guidance": "Present definitions and core facts" },
+        { "id": "guided_practice", "label": "Practice Together", "durationMins": 10, "teachMethods": ["worked_example"], "learningOutcomeRefs": ["LO2"], "guidance": "Work through examples with scaffolding" },
+        { "id": "check", "label": "Quick Check", "durationMins": 5, "teachMethods": ["recall_quiz"], "guidance": "Verify understanding before closing" }
+      ]
+    }
   ]
 }`;
 
@@ -295,6 +336,15 @@ Total modules: ${curriculum.modules.length}${documentExcerpt}`;
         notes: e.notes || undefined,
         estimatedDurationMins: e.estimatedDurationMins || undefined,
         assertionCount: e.assertionCount || undefined,
+        phases: Array.isArray(e.phases) ? e.phases.map((p: any) => ({
+          id: p.id || "unknown",
+          label: p.label || p.id || "Phase",
+          durationMins: p.durationMins || undefined,
+          teachMethods: Array.isArray(p.teachMethods) ? p.teachMethods : undefined,
+          learningOutcomeRefs: Array.isArray(p.learningOutcomeRefs) ? p.learningOutcomeRefs : undefined,
+          guidance: p.guidance || undefined,
+        })) : undefined,
+        learningOutcomeRefs: Array.isArray(e.learningOutcomeRefs) ? e.learningOutcomeRefs : undefined,
       }),
     );
 
@@ -306,6 +356,7 @@ Total modules: ${curriculum.modules.length}${documentExcerpt}`;
         plan: entries,
         estimatedSessions: entries.length,
         reasoning: parsed.reasoning || "",
+        lessonPlanModel: lessonPlanModel || "direct_instruction",
       },
     });
 
@@ -329,7 +380,7 @@ Total modules: ${curriculum.modules.length}${documentExcerpt}`;
  * Returns taskId to poll for progress. Used by Course Setup Wizard eager generation.
  * Task context reports phases: reading(0) → curriculum(1) → skeleton(2) → plan(3).
  * Skeleton phase emits skeletonReady + skeletonPlan for progressive UI display.
- * @body { courseName: string, learningOutcomes: string[], teachingStyle: string, sessionCount?: number, durationMins?: number, emphasis?: string, assessments?: string, sourceId?: string }
+ * @body { courseName: string, learningOutcomes: string[], teachingStyle: string, sessionCount?: number, durationMins?: number, emphasis?: string, assessments?: string, sourceId?: string, lessonPlanModel?: string }
  * @response 202 { ok: true, taskId: string }
  * @response 400 { ok: false, error: "..." }
  */
@@ -349,6 +400,7 @@ export async function POST(request: NextRequest) {
       emphasis,
       assessments,
       sourceId,
+      lessonPlanModel,
     } = body;
 
     if (!courseName || typeof courseName !== "string") {
@@ -389,6 +441,7 @@ export async function POST(request: NextRequest) {
       emphasis || "balanced",
       assessments || "light",
       sourceId || null,
+      lessonPlanModel || null,
     ).catch(async (err) => {
       console.error("[courses/generate-plan] Unhandled error:", err);
       await failTask(taskId, err.message);

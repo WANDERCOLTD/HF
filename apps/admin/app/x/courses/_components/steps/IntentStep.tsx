@@ -19,6 +19,11 @@ interface ExistingCourse {
   domainId?: string;
 }
 
+interface GroupOption {
+  id: string;
+  name: string;
+}
+
 export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepProps) {
   const router = useRouter();
   const [courseName, setCourseName] = useState('');
@@ -26,16 +31,41 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
   const [pattern, setPattern] = useState<InteractionPattern | undefined>();
   const [suggestedPattern, setSuggestedPattern] = useState<InteractionPattern | null>(null);
   const [existingCourse, setExistingCourse] = useState<ExistingCourse | null>(null);
+  const [hoveredPattern, setHoveredPattern] = useState<InteractionPattern | null>(null);
+
+  // Department selector state
+  const [groupId, setGroupId] = useState<string | null>(null);
+  const [availableGroups, setAvailableGroups] = useState<GroupOption[]>([]);
 
   // Load saved data
   useEffect(() => {
     const saved = getData<string>('courseName');
     const savedOutcomes = getData<string[]>('learningOutcomes');
     const savedPattern = getData<InteractionPattern>('interactionPattern');
+    const savedGroupId = getData<string>('groupId');
 
     if (saved) setCourseName(saved);
     if (savedOutcomes) setOutcomes(savedOutcomes);
     if (savedPattern) setPattern(savedPattern);
+    if (savedGroupId) setGroupId(savedGroupId);
+  }, [getData]);
+
+  // Load available groups for the domain
+  useEffect(() => {
+    const domainId = getData<string>('domainId');
+    if (!domainId) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/playbook-groups?domainId=${domainId}`);
+        const data = await res.json();
+        if (data.ok && data.groups.length > 0) {
+          setAvailableGroups(data.groups.map((g: any) => ({ id: g.id, name: g.name })));
+        }
+      } catch {
+        // Non-critical — selector just won't show
+      }
+    })();
   }, [getData]);
 
   // Auto-suggest pattern from course name
@@ -102,6 +132,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
     setData('interactionPatternName', patternInfo?.label || selectedPattern);
     // Keep teachingStyle for backward compat with lesson plan generation
     setData('teachingStyle', 'tutor');
+    if (groupId) setData('groupId', groupId);
 
     // Eager generation — fire background plan generation so it's ready before user
     // reaches LessonPlanStep. The POST returns ~50ms (just creates task + returns taskId).
@@ -184,6 +215,31 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
           )}
         </div>
 
+        {/* Department selector (only shows when domain has groups) */}
+        {availableGroups.length > 0 && (
+          <div className="hf-mb-lg">
+            <FieldHint
+              label="Department (optional)"
+              hint={{
+                why: "Groups related courses so educators can manage by subject area.",
+                effect: "The course will appear under this department in filters and listings.",
+                examples: "Science Department, Year 10, Leadership Track",
+              }}
+              labelClass="hf-label"
+            />
+            <select
+              className="hf-input"
+              value={groupId || ''}
+              onChange={(e) => setGroupId(e.target.value || null)}
+            >
+              <option value="">None</option>
+              {availableGroups.map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Learning Outcomes */}
         <div className="hf-mb-lg">
           <FieldHint label="What will students learn? (1-3 outcomes)" hint={WIZARD_HINTS["course.outcomes"]} labelClass="hf-label" />
@@ -222,8 +278,9 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
                 <button
                   key={p}
                   onClick={() => handlePatternSelect(p)}
+                  onMouseEnter={() => setHoveredPattern(p)}
+                  onMouseLeave={() => setHoveredPattern(null)}
                   className={isSelected || isSuggested ? "hf-chip hf-chip-selected" : "hf-chip"}
-                  title={info.description}
                 >
                   <span>{info.icon}</span>
                   <span>{info.label}</span>
@@ -234,14 +291,22 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
               );
             })}
           </div>
-          {effectivePattern && (
-            <p className="hf-hint hf-mt-xs">
-              <strong>{INTERACTION_PATTERN_LABELS[effectivePattern].label}:</strong>{' '}
-              {INTERACTION_PATTERN_LABELS[effectivePattern].description}
-              {' · '}
-              <em>{INTERACTION_PATTERN_LABELS[effectivePattern].examples}</em>
-            </p>
-          )}
+          {(() => {
+            const previewPattern = hoveredPattern || effectivePattern;
+            if (!previewPattern) return (
+              <div className="hf-chip-preview">
+                <span className="hf-chip-preview-empty">Hover over an option to learn more</span>
+              </div>
+            );
+            const info = INTERACTION_PATTERN_LABELS[previewPattern];
+            return (
+              <div className="hf-chip-preview">
+                <span className="hf-chip-preview-label">{info.icon} {info.label}:</span>
+                <span className="hf-chip-preview-desc">{info.description}</span>
+                <span className="hf-chip-preview-examples">{info.examples}</span>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

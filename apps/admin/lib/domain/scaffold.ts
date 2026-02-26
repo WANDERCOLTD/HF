@@ -27,6 +27,8 @@ export interface ScaffoldOptions {
   forceNewPlaybook?: boolean;
   /** Custom playbook name (used when forceNewPlaybook=true). Falls back to "{domain.name} Playbook". */
   playbookName?: string;
+  /** Optional PlaybookGroup ID to assign the created playbook to a department/division/track. */
+  groupId?: string;
 }
 
 export interface ScaffoldResult {
@@ -270,6 +272,7 @@ export async function scaffoldDomain(domainId: string, options?: ScaffoldOptions
         domainId,
         status: "DRAFT",
         version: "1.0",
+        groupId: options?.groupId || undefined,
       },
       select: { id: true, name: true },
     });

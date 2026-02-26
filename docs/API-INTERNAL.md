@@ -2891,6 +2891,19 @@ Merge multiple source callers into a single target caller. Moves all data (calls
 
 ---
 
+### `GET` /api/callers/roster
+
+Enriched caller list with mastery, momentum, and triage data.
+
+**Auth**: Bearer token · **Scope**: `callers:read`
+
+**Response** `200`
+```json
+{ ok: true, roster: RosterCaller[] }
+```
+
+---
+
 ## Calls
 
 ### `GET` /api/calls
@@ -3695,7 +3708,7 @@ Create a new community hub with full scaffolding.
 
 **Response** `200`
 ```json
-{ ok: true, community: { id, name, slug, memberCount } }
+{ ok: true, community: { id, name, slug, memberCount, joinToken, cohortGroupId } }
 ```
 
 **Response** `400`
@@ -3741,7 +3754,7 @@ Get a single community detail with identity specs, onboarding config, and member
 
 **Response** `200`
 ```json
-{ ok: true, community: { id, name, slug, description, onboardingWelcome, onboardingIdentitySpecId, onboardingFlowPhases, onboardingDefaultTargets, memberCount, playbookCount, personaName, identitySpec, identitySpecs, members } }
+{ ok: true, community: { id, name, slug, description, onboardingWelcome, onboardingIdentitySpecId, onboardingFlowPhases, onboardingDefaultTargets, memberCount, playbookCount, personaName, identitySpec, identitySpecs, members, joinToken, cohortGroupId } }
 ```
 
 **Response** `404`
@@ -3784,6 +3797,29 @@ Update a community — name, description, welcome message, identity spec, flow p
 **Response** `500`
 ```json
 { ok: false, error: "..." }
+```
+
+---
+
+### `POST` /api/communities/[communityId]/invite
+
+Send email invites to join a community. Creates TESTER-role invites with
+
+**Auth**: Session · **Scope**: `communities:write`
+
+**Response** `200`
+```json
+{ ok: true, created: number, skipped: number }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "..." }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Community not found" }
 ```
 
 ---
@@ -6397,6 +6433,119 @@ Create one or more playbook groups. Use `bulk` for batch creation from templates
 
 ---
 
+### `DELETE` /api/playbook-groups/:id
+
+Soft-delete (archive) a playbook group. Sets isActive=false and nulls groupId on child playbooks/cohorts.
+
+**Auth**: Bearer token · **Scope**: `groups:write`
+
+**Response** `200`
+```json
+{ ok: true, archived: true }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Group not found" }
+```
+
+---
+
+### `GET` /api/playbook-groups/:id
+
+Get a single playbook group with playbook and cohort counts.
+
+**Auth**: Bearer token · **Scope**: `groups:read`
+
+**Response** `200`
+```json
+{ ok: true, group: {...} }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Group not found" }
+```
+
+---
+
+### `PATCH` /api/playbook-groups/:id
+
+Update a playbook group's properties.
+
+**Auth**: Bearer token · **Scope**: `groups:write`
+
+**Response** `200`
+```json
+{ ok: true, group: {...} }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Group not found" }
+```
+
+**Response** `409`
+```json
+{ ok: false, error: "Slug conflict" }
+```
+
+---
+
+### `POST` /api/playbook-groups/:id/preview-tone
+
+Preview how a department's tone override combines with the domain identity. Returns a text preview showing base tone + department override = combined.
+
+**Auth**: Bearer token · **Scope**: `groups:read`
+
+**Response** `200`
+```json
+{ ok: true, preview: { baseTone, departmentOverride, combined } }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Group not found" }
+```
+
+---
+
+### `POST` /api/playbook-groups/generate
+
+AI-generate department/division/track structure from a description. Returns groups, optional clarifying questions, and confidence score.
+
+**Auth**: Bearer token · **Scope**: `groups:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| domainId | body | string | No | Domain context for the generation |
+| description | body | string | No | Free-text description of institution structure |
+
+**Response** `200`
+```json
+{ ok: true, groups: [...], questions: [...], confidence: number }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "description is required" }
+```
+
+---
+
+### `GET` /api/playbook-groups/templates
+
+List available group templates, optionally filtered by institution type.
+
+**Auth**: Bearer token · **Scope**: `groups:read`
+
+**Response** `200`
+```json
+{ ok: true, templates: [...], defaultId: string|null }
+```
+
+---
+
 ## Invites
 
 ### `POST` /api/invite/accept
@@ -8084,7 +8233,7 @@ Extract metadata (name, logo, colors) from a website URL
 
 ### `GET` /api/join/[token]
 
-Verify a classroom join token. Returns classroom info if valid.
+Verify a classroom/community join token. Returns group info if valid.
 
 **Auth**: None
 
@@ -12147,8 +12296,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 343 |
-| Files with annotations | 342 |
+| Route files found | 349 |
+| Files with annotations | 348 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

@@ -254,7 +254,7 @@ export const CALL_POINTS: CallPointDef[] = [
   {
     id: "lesson-plan.generate",
     label: "Lesson Plan - Generate",
-    description: "AI-generates a structured lesson plan from curriculum modules",
+    description: "AI-generates a structured lesson plan with per-session phases from curriculum modules using a pedagogical model (Direct Instruction, 5E, Spiral, Mastery, Project-Based)",
     category: "course-setup",
     defaults: { provider: "claude", model: config.ai.claude.model },
   },

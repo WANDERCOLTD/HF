@@ -81,6 +81,12 @@
 /* Stat card override padding */
 .edu-stat-card { padding: 20px 16px; }
 
+/* Department cards */
+.edu-departments-section { margin-bottom: 24px; }
+.edu-dept-card { text-decoration: none; transition: border-color 0.15s; }
+.edu-dept-card:hover { border-color: var(--accent-primary); }
+.edu-dept-name { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+
 /* Quick actions section */
 .edu-actions-section { margin-bottom: 32px; }
 .edu-actions-title { margin-bottom: 12px; }

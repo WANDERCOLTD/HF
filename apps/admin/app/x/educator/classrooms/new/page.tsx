@@ -12,6 +12,13 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { WizardSummary } from "@/components/shared/WizardSummary";
 import { Building2, Users, BookOpen, ExternalLink } from "lucide-react";
+import { FancySelect } from "@/components/shared/FancySelect";
+import "./classroom-wizard.css";
+
+interface GroupOption {
+  id: string;
+  name: string;
+}
 
 interface Domain {
   id: string;
@@ -82,6 +89,15 @@ export default function NewClassroomPage() {
   // Steps are managed by StepFlowContext; FALLBACK_STEPS used as reference for labels
   const flowSteps = state?.steps || FALLBACK_STEPS;
 
+  // Department picker state
+  const [groupId, setGroupId] = useState("");
+  const [availableGroups, setAvailableGroups] = useState<GroupOption[]>([]);
+
+  // Email invite state
+  const [inviteEmails, setInviteEmails] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ ok: boolean; message: string } | null>(null);
+
   // Course picker state
   const [playbooks, setPlaybooks] = useState<PlaybookOption[]>([]);
   const [selectedPlaybooks, setSelectedPlaybooks] = useState<Set<string>>(new Set());
@@ -143,6 +159,7 @@ export default function NewClassroomPage() {
     if (ctx.name) setName(ctx.name);
     if (ctx.description) setDescription(ctx.description);
     if (ctx.domainId) setDomainId(ctx.domainId);
+    if (ctx.groupId) setGroupId(ctx.groupId);
     if (ctx.created) setCreated(ctx.created);
     if (ctx.selectedPlaybooks) setSelectedPlaybooks(new Set(ctx.selectedPlaybooks));
   };
@@ -168,11 +185,13 @@ export default function NewClassroomPage() {
       const savedName = flowGetData<string>("name");
       const savedDesc = flowGetData<string>("description");
       const savedDomainId = flowGetData<string>("domainId");
+      const savedGroupId = flowGetData<string>("groupId");
       const savedCreated = flowGetData<{ id: string; joinToken: string }>("created");
       const savedPlaybooks = flowGetData<string[]>("selectedPlaybooks");
       if (savedName) setName(savedName);
       if (savedDesc) setDescription(savedDesc);
       if (savedDomainId) setDomainId(savedDomainId);
+      if (savedGroupId) setGroupId(savedGroupId);
       if (savedCreated) setCreated(savedCreated);
       if (savedPlaybooks) setSelectedPlaybooks(new Set(savedPlaybooks));
     } else {
@@ -193,6 +212,23 @@ export default function NewClassroomPage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  // Load groups when domain changes
+  useEffect(() => {
+    if (!domainId) {
+      setAvailableGroups([]);
+      setGroupId("");
+      return;
+    }
+    fetchApi(`/api/playbook-groups?domainId=${domainId}`)
+      .then((res: { ok: boolean; groups?: { id: string; name: string }[] }) => {
+        if (res?.ok && res.groups) {
+          setAvailableGroups(res.groups.map((g) => ({ id: g.id, name: g.name })));
+        } else {
+          setAvailableGroups([]);
+        }
+      });
+  }, [domainId]);
 
   // Load playbooks when domain changes
   useEffect(() => {
@@ -224,6 +260,7 @@ export default function NewClassroomPage() {
           name,
           description,
           domainId,
+          groupId: groupId || undefined,
           playbookIds: [...selectedPlaybooks],
         }),
       });
@@ -245,6 +282,37 @@ export default function NewClassroomPage() {
     }
   };
 
+  const handleSendInvites = async () => {
+    if (!created) return;
+    const emails = inviteEmails
+      .split(/[,\n]+/)
+      .map((e) => e.trim())
+      .filter((e) => e.includes("@"));
+    if (emails.length === 0) return;
+
+    setInviting(true);
+    setInviteResult(null);
+    try {
+      const res = await fetchApi(`/api/educator/classrooms/${created.id}/invite`, {
+        method: "POST",
+        body: JSON.stringify({ emails }),
+      });
+      if (res?.ok) {
+        const parts: string[] = [];
+        if (res.created > 0) parts.push(`${res.created} invite${res.created !== 1 ? "s" : ""} sent`);
+        if (res.skipped > 0) parts.push(`${res.skipped} already invited`);
+        setInviteResult({ ok: true, message: parts.join(", ") || "Done" });
+        setInviteEmails("");
+      } else {
+        setInviteResult({ ok: false, message: res?.error ?? "Failed to send invites" });
+      }
+    } catch {
+      setInviteResult({ ok: false, message: "Network error" });
+    } finally {
+      setInviting(false);
+    }
+  };
+
   const joinUrl = created?.joinToken
     ? `${window.location.origin}/join/${created.joinToken}`
     : "";
@@ -262,7 +330,7 @@ export default function NewClassroomPage() {
   const showWizard = isActive && state?.flowId === "create-classroom";
   if (!showWizard && !resumeLoading && pendingTask) {
     return (
-      <div style={{ maxWidth: 560, margin: "0 auto", paddingTop: 64 }}>
+      <div className="cwiz-container-padded">
         <WizardResumeBanner
           task={pendingTask}
           onResume={handleResume}
@@ -275,19 +343,19 @@ export default function NewClassroomPage() {
 
   if (loading || resumeLoading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: 32 }}>
+      <div className="cwiz-loading">
         <div className="hf-spinner" />
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 560, margin: "0 auto" }}>
-      <h1 className="hf-page-title flex items-center gap-2" style={{ marginBottom: 8 }}>
+    <div className="cwiz-container">
+      <h1 className="hf-page-title flex items-center gap-2 cwiz-title-gap">
         Create {terms.cohort}
         <span className="hf-gf-badge">GF</span>
       </h1>
-      <p className="hf-page-subtitle" style={{ marginBottom: 32 }}>
+      <p className="hf-page-subtitle cwiz-subtitle-gap">
         Set up a new {lower("cohort")} for your {lowerPlural("caller")}.
       </p>
 
@@ -305,41 +373,39 @@ export default function NewClassroomPage() {
       {/* Step 1: Name & Focus */}
       {step === 1 && (
         <div className="hf-card">
-          <h2 className="hf-section-title" style={{ marginBottom: 20 }}>
+          <h2 className="hf-section-title cwiz-section-header">
             {flowSteps[0]?.label ?? "Name & Focus"}
           </h2>
 
-          <div style={{ marginBottom: 16 }}>
+          <div className="cwiz-field-group">
             <label className="hf-label">{terms.cohort} Name *</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Year 10 English, Tuesday Coaching Group"
-              className="hf-input"
-              style={{ width: "100%" }}
+              className="hf-input cwiz-input-full"
             />
           </div>
 
-          <div style={{ marginBottom: 16 }}>
+          <div className="cwiz-field-group">
             <label className="hf-label">Description (optional)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={`A short note about this ${lower("cohort")}...`}
               rows={3}
-              className="hf-input"
-              style={{ width: "100%", resize: "vertical" }}
+              className="hf-input cwiz-textarea-full"
             />
           </div>
 
-          <div style={{ marginBottom: 24 }}>
+          <div className="cwiz-field-group-lg">
             <label className="hf-label">Learning Focus *</label>
             {domains.length === 0 ? (
-              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+              <p className="cwiz-no-domain">
                 No institutions available.{" "}
                 <span
-                  style={{ color: "var(--accent-primary)", cursor: "pointer", fontWeight: 600 }}
+                  className="cwiz-create-link"
                   onClick={() => router.push("/x/quick-launch")}
                 >
                   Create one with Community
@@ -360,6 +426,20 @@ export default function NewClassroomPage() {
             )}
           </div>
 
+          {availableGroups.length > 0 && (
+            <div className="cwiz-field-group-lg">
+              <label className="hf-label">{terms.group || "Department"} (optional)</label>
+              <FancySelect
+                value={groupId}
+                onChange={setGroupId}
+                placeholder={`All ${(terms.group || "Department").toLowerCase()}s`}
+                clearable
+                options={availableGroups.map((g) => ({ value: g.id, label: g.name }))}
+                style={{ width: "100%" }}
+              />
+            </div>
+          )}
+
           <div className="flex gap-3">
             <button
               onClick={() => { endFlow(); router.push("/x/educator/classrooms"); }}
@@ -373,10 +453,10 @@ export default function NewClassroomPage() {
                 flowSetData("name", name);
                 flowSetData("description", description);
                 flowSetData("domainId", domainId);
+                flowSetData("groupId", groupId || undefined);
                 flowSetStep(1);
               }}
-              className="hf-btn hf-btn-primary"
-              style={{ flex: 2 }}
+              className="hf-btn hf-btn-primary cwiz-btn-wide"
             >
               Continue
             </button>
@@ -387,23 +467,23 @@ export default function NewClassroomPage() {
       {/* Step 2: Courses */}
       {step === 2 && (
         <div className="hf-card">
-          <h2 className="hf-section-title" style={{ marginBottom: 8 }}>
+          <h2 className="hf-section-title cwiz-section-header-sm">
             {flowSteps[1]?.label ?? "Courses"}
           </h2>
-          <p className="hf-hint" style={{ marginBottom: 20 }}>
+          <p className="hf-hint cwiz-section-header">
             Select which courses to include in this {lower("cohort")}. All are selected by default.
           </p>
 
           {loadingPlaybooks ? (
-            <div style={{ display: "flex", justifyContent: "center", padding: 16 }}>
+            <div className="cwiz-spinner-wrap">
               <div className="hf-spinner" />
             </div>
           ) : playbooks.length === 0 ? (
-            <div className="hf-banner hf-banner-info" style={{ marginBottom: 20, textAlign: "center" }}>
+            <div className="hf-banner hf-banner-info cwiz-banner-gap">
               No published courses for this domain. Your {lowerPlural("caller")} can still join — courses can be added later.
             </div>
           ) : (
-            <div className="flex flex-col gap-2" style={{ marginBottom: 20 }}>
+            <div className="flex flex-col gap-2 cwiz-course-list">
               {playbooks.map((pb) => {
                 const isSelected = selectedPlaybooks.has(pb.id);
                 return (
@@ -417,29 +497,23 @@ export default function NewClassroomPage() {
                         return next;
                       });
                     }}
-                    className={`hf-chip${isSelected ? " hf-chip-selected" : ""} flex items-start gap-3 text-left w-full`}
-                    style={{ padding: 12, borderRadius: 8 }}
+                    className={`hf-chip${isSelected ? " hf-chip-selected" : ""} flex items-start gap-3 text-left w-full cwiz-course-chip`}
                   >
                     <div
-                      className="flex items-center justify-center flex-shrink-0"
-                      style={{
-                        width: 20, height: 20, borderRadius: 4, marginTop: 2,
-                        border: `2px solid ${isSelected ? "var(--accent-primary)" : "var(--border-default)"}`,
-                        background: isSelected ? "var(--accent-primary)" : "transparent",
-                      }}
+                      className={`cwiz-checkbox-visual flex-shrink-0 ${isSelected ? "cwiz-checkbox-checked" : "cwiz-checkbox-unchecked"}`}
                     >
                       {isSelected && (
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                          <path d="M2.5 6L5 8.5L9.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M2.5 6L5 8.5L9.5 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       )}
                     </div>
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>
+                      <div className="cwiz-course-name">
                         {pb.name}
                       </div>
                       {pb.description && (
-                        <div className="hf-hint" style={{ marginTop: 2 }}>
+                        <div className="hf-hint cwiz-course-desc">
                           {pb.description}
                         </div>
                       )}
@@ -465,8 +539,7 @@ export default function NewClassroomPage() {
                 flowSetData("selectedPlaybooks", [...selectedPlaybooks]);
                 flowSetStep(2);
               }}
-              className="hf-btn hf-btn-primary"
-              style={{ flex: 2 }}
+              className="hf-btn hf-btn-primary cwiz-btn-wide"
             >
               Continue
             </button>
@@ -477,57 +550,32 @@ export default function NewClassroomPage() {
       {/* Step 3: Review & Create */}
       {step === 3 && (
         <div className="hf-card">
-          <h2 className="hf-section-title" style={{ marginBottom: 20 }}>
+          <h2 className="hf-section-title cwiz-section-header">
             {flowSteps[2]?.label ?? "Review"}
           </h2>
 
-          <div
-            style={{
-              padding: 16,
-              background: "var(--surface-secondary)",
-              borderRadius: 8,
-              marginBottom: 20,
-            }}
-          >
-            <div style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>
+          <div className="cwiz-review-box">
+            <div className="cwiz-review-title">
               {name}
             </div>
             {description && (
-              <div style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 8 }}>
+              <div className="cwiz-review-desc">
                 {description}
               </div>
             )}
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "var(--text-secondary)",
-                  padding: "4px 10px",
-                  background: "var(--surface-primary)",
-                  borderRadius: 6,
-                  display: "inline-block",
-                }}
-              >
+            <div className="cwiz-review-tags">
+              <div className="cwiz-review-tag">
                 {selectedDomain?.name}
               </div>
               {selectedPlaybooks.size > 0 && (
-                <div
-                  style={{
-                    fontSize: 13,
-                    color: "var(--text-secondary)",
-                    padding: "4px 10px",
-                    background: "var(--surface-primary)",
-                    borderRadius: 6,
-                    display: "inline-block",
-                  }}
-                >
+                <div className="cwiz-review-tag">
                   {selectedPlaybooks.size} course{selectedPlaybooks.size !== 1 ? "s" : ""}
                 </div>
               )}
             </div>
           </div>
 
-          <ErrorBanner error={error} style={{ marginBottom: 16 }} />
+          <ErrorBanner error={error} className="cwiz-error-gap" />
 
           <div className="flex gap-3">
             <button
@@ -539,10 +587,9 @@ export default function NewClassroomPage() {
             <button
               disabled={creating}
               onClick={handleCreate}
-              className="hf-btn hf-btn-primary"
-              style={{ flex: 2 }}
+              className="hf-btn hf-btn-primary cwiz-btn-wide"
             >
-              {creating ? <><span className="hf-spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> Creating...</> : `Create ${terms.cohort}`}
+              {creating ? <><span className="hf-spinner cwiz-spinner-sm" /> Creating...</> : `Create ${terms.cohort}`}
             </button>
           </div>
         </div>
@@ -589,12 +636,16 @@ export default function NewClassroomPage() {
                 setName("");
                 setDescription("");
                 setDomainId(domains.length === 1 ? domains[0].id : "");
+                setGroupId("");
                 setCreated(null);
                 setSelectedPlaybooks(new Set());
+                setInviteEmails("");
+                setInviteResult(null);
                 // Clear stale bag data so the new flow starts fresh
                 flowSetData("name", undefined);
                 flowSetData("description", undefined);
                 flowSetData("domainId", undefined);
+                flowSetData("groupId", undefined);
                 flowSetData("created", undefined);
                 flowSetData("selectedPlaybooks", undefined);
                 flowSetStep(0);
@@ -605,51 +656,59 @@ export default function NewClassroomPage() {
           {/* Join Link */}
           <div className="wiz-section">
             <div className="wiz-section-label">Join Link</div>
-            <div style={{
-              display: "flex", gap: 8, padding: "10px 12px",
-              background: "var(--surface-secondary)", borderRadius: 8, alignItems: "center",
-            }}>
+            <div className="cwiz-join-box">
               <input
                 type="text"
                 readOnly
                 value={joinUrl}
-                className="hf-input"
-                style={{ flex: 1, border: "none", background: "transparent" }}
+                className="hf-input cwiz-join-input"
               />
               <button
                 onClick={copyLink}
-                className="wiz-action-primary"
-                style={{
-                  padding: "6px 14px", fontSize: 12, whiteSpace: "nowrap",
-                  background: copiedKey === "link" ? "var(--status-success-text)" : undefined,
-                }}
+                className={`wiz-action-primary cwiz-copy-btn${copiedKey === "link" ? " cwiz-copy-btn-copied" : ""}`}
               >
                 {copiedKey === "link" ? "Copied!" : "Copy Link"}
               </button>
             </div>
           </div>
 
+          {/* Email Invites */}
+          <div className="wiz-section">
+            <div className="wiz-section-label">Invite by Email</div>
+            <textarea
+              value={inviteEmails}
+              onChange={(e) => setInviteEmails(e.target.value)}
+              placeholder={`Enter email addresses (one per line or comma-separated)\ne.g. alice@school.com, bob@school.com`}
+              rows={3}
+              className="hf-input cwiz-email-textarea"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSendInvites}
+                disabled={inviting || !inviteEmails.trim()}
+                className="hf-btn hf-btn-primary cwiz-invite-btn"
+              >
+                {inviting ? "Sending..." : "Send Invites"}
+              </button>
+              {inviteResult && (
+                <span className={`cwiz-invite-result ${inviteResult.ok ? "cwiz-invite-result-ok" : "cwiz-invite-result-err"}`}>
+                  {inviteResult.message}
+                </span>
+              )}
+            </div>
+          </div>
+
           {/* Invite Message */}
           <div className="wiz-section">
             <div className="wiz-section-label">Invite Message</div>
-            <div style={{
-              padding: 12, background: "var(--surface-secondary)", borderRadius: 8, marginBottom: 8,
-            }}>
-              <pre style={{
-                fontSize: 13, color: "var(--text-secondary)", whiteSpace: "pre-wrap",
-                wordBreak: "break-word", margin: 0, fontFamily: "inherit",
-              }}>
+            <div className="cwiz-message-box">
+              <pre className="cwiz-message-pre">
                 {inviteMessage}
               </pre>
             </div>
             <button
               onClick={copyMessage}
-              className="wiz-action-secondary"
-              style={{
-                background: copiedKey === "message" ? "var(--status-success-text)" : undefined,
-                color: copiedKey === "message" ? "white" : undefined,
-                border: copiedKey === "message" ? "none" : undefined,
-              }}
+              className={`wiz-action-secondary${copiedKey === "message" ? " cwiz-copy-msg-copied" : ""}`}
             >
               {copiedKey === "message" ? "Copied!" : "Copy Message"}
             </button>

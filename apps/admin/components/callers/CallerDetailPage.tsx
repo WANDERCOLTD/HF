@@ -11,6 +11,7 @@ import { CallerDomainSection } from "@/components/callers/CallerDomainSection";
 import { SimChat } from "@/components/sim/SimChat";
 import '@/app/x/sim/sim.css';
 import './caller-detail-page.css';
+import './caller-detail/lens.css';
 import { useAssistant, useAssistantKeyboardShortcut } from "@/hooks/useAssistant";
 
 // Extracted sub-components
@@ -20,6 +21,13 @@ import { MemoriesSection, PersonalitySection, CallerSlugsSection, CallerEnrollme
 import { ScoresSection, LearningSection, TopicsCoveredSection, ExamReadinessSection, TopLevelAgentBehaviorSection, PlanProgressSection, ModuleProgressView } from "./caller-detail/ProgressTab";
 import { ArtifactsSection } from "./caller-detail/ArtifactsTab";
 import { UnifiedPromptSection } from "./caller-detail/PromptsSection";
+
+// Lens system
+import { useCallerLens } from "./caller-detail/hooks/useCallerLens";
+import { useCallerInsights } from "./caller-detail/hooks/useCallerInsights";
+import { LensBar } from "./caller-detail/lenses/LensBar";
+import { GuideLens } from "./caller-detail/lenses/GuideLens";
+import { ExploreLens } from "./caller-detail/lenses/ExploreLens";
 
 // Shared types
 import type { CallerData, CallerProfile, Domain, ComposedPrompt, SectionId, ParamConfig } from "./caller-detail/types";
@@ -58,6 +66,11 @@ export default function CallerDetailPage() {
 
   // Dynamic parameter display configuration (fetched from database)
   const [paramConfig, setParamConfig] = useState<ParamConfig>(null);
+
+  // Lens system
+  const { activeLens, setActiveLens, visibleLenses } = useCallerLens();
+  const insights = useCallerInsights(data);
+  const isLensView = activeLens === "guide" || activeLens === "grow" || activeLens === "showcase";
 
   // Section visibility for consolidated tabs (persisted to localStorage)
   const [profileVis, toggleProfileVis] = useSectionVisibility("caller-profile", {
@@ -677,6 +690,41 @@ export default function CallerDetailPage() {
         </div>
       )}
 
+      {/* Lens Bar */}
+      <LensBar
+        lenses={visibleLenses}
+        activeLens={activeLens}
+        onLensChange={setActiveLens}
+      />
+
+      {/* Guide/Grow Lens — replaces tabs with card layout */}
+      {isLensView && data && insights && (
+        <div className="cdp-content">
+          <GuideLens
+            data={data}
+            insights={insights}
+            paramConfig={paramConfig}
+            onNavigateToCall={(callId) => {
+              setActiveLens("explore");
+              setActiveSection("calls");
+              setExpandedCall(callId);
+            }}
+            onNavigateToTab={(tab) => {
+              setActiveLens("explore");
+              setActiveSection(tab as SectionId);
+            }}
+            onStartSim={() => {
+              setActiveLens("explore");
+              setActiveSection("ai-call");
+              setSimChatMounted(true);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Explore Lens — existing tab layout */}
+      {!isLensView && (
+      <>
       {/* Section Tabs */}
       <div className="cdp-tab-bar">
         {sections.map((section) => {
@@ -889,6 +937,8 @@ export default function CallerDetailPage() {
         </div>
       )}
       </div>
+      </>
+      )}
     </div>
   );
 }

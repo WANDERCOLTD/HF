@@ -12,7 +12,7 @@ const RATE_LIMIT_KEY_VERIFY = "join-verify";
  * @api GET /api/join/[token]
  * @visibility public
  * @auth none
- * @description Verify a classroom join token. Returns classroom info if valid.
+ * @description Verify a classroom/community join token. Returns group info if valid.
  */
 export async function GET(
   request: NextRequest,
@@ -30,7 +30,7 @@ export async function GET(
       name: true,
       isActive: true,
       joinTokenExp: true,
-      domain: { select: { name: true, onboardingWelcome: true } },
+      domain: { select: { name: true, kind: true, onboardingWelcome: true } },
       owner: { select: { name: true } },
       institution: {
         select: {
@@ -72,6 +72,7 @@ export async function GET(
       institutionPrimaryColor: cohort.institution?.primaryColor ?? null,
       institutionWelcome: cohort.institution?.welcomeMessage ?? null,
       domainWelcome: cohort.domain.onboardingWelcome ?? null,
+      isCommunity: cohort.domain.kind === "COMMUNITY",
     },
   });
 }

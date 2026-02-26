@@ -136,6 +136,8 @@ export interface CurriculumAssertionData {
   parentId: string | null;
   orderIndex: number;
   topicSlug: string | null;
+  /** Teach method tag from extraction (recall_quiz, definition_matching, etc.) */
+  teachMethod?: string | null;
 }
 
 export interface CurriculumQuestionData {
@@ -238,6 +240,17 @@ export interface SharedComputedState {
     moduleId: string | null;
     moduleLabel: string;
     label: string;
+    /** Per-session phases from pedagogical model (hook → instruction → practice → check) */
+    phases?: Array<{
+      id: string;
+      label: string;
+      durationMins?: number;
+      teachMethods?: string[];
+      learningOutcomeRefs?: string[];
+      guidance?: string;
+    }> | null;
+    /** Which learning outcomes this session covers (subset of module LOs) */
+    learningOutcomeRefs?: string[] | null;
   } | null;
 }
 
@@ -401,6 +414,7 @@ export interface PlaybookData {
   name: string;
   status: string;
   domain: { id: string; name: string; description: string | null } | null;
+  group?: { id: string; name: string; identityOverride: any } | null;
   items: Array<{
     spec: SystemSpecData | null;
   }>;

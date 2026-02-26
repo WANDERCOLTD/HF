@@ -22,7 +22,13 @@
   --wa-surface-secondary: #F0F2F5;
   --wa-surface-hover: #F5F6F6;
   --wa-surface-active: #F0F2F5;
-  --wa-shadow: rgba(0, 0, 0, 0.18);
+  --wa-shadow: color-mix(in srgb, black 18%, transparent);
+  --wa-teacher-bg: #fffbeb;
+  --wa-teacher-border: #fcd34d;
+  --wa-teacher-shadow: color-mix(in srgb, #d97706 10%, transparent);
+  --wa-toast-bg: #323232;
+  --wa-tooltip-bg: #1f2937;
+  --wa-avatar-bg: #DFE5E7;
   --wa-pattern-fill: %23c8c3bb;
   --wa-pattern-opacity: 0.15;
 }
@@ -49,7 +55,13 @@
   --wa-surface-secondary: #1F2C33;
   --wa-surface-hover: #2A3942;
   --wa-surface-active: #2A3942;
-  --wa-shadow: rgba(0, 0, 0, 0.4);
+  --wa-shadow: color-mix(in srgb, black 40%, transparent);
+  --wa-teacher-bg: #451a03;
+  --wa-teacher-border: #92400e;
+  --wa-teacher-shadow: color-mix(in srgb, #92400e 15%, transparent);
+  --wa-toast-bg: #1a1a1a;
+  --wa-tooltip-bg: #374151;
+  --wa-avatar-bg: #2A3942;
   --wa-pattern-fill: %23182520;
   --wa-pattern-opacity: 0.3;
 }
@@ -94,24 +106,17 @@
   align-self: flex-start;
   border-top-left-radius: 2px;
   margin-right: 48px;
-  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+  box-shadow: 0 1px 0.5px var(--wa-shadow);
 }
 
 .wa-bubble-teacher {
-  background: #fffbeb;
+  background: var(--wa-teacher-bg);
   align-self: center;
   border-radius: 10px;
-  border: 1px solid #fcd34d;
+  border: 1px solid var(--wa-teacher-border);
   margin-left: 24px;
   margin-right: 24px;
-  box-shadow: 0 1px 2px rgba(217, 119, 6, 0.1);
-}
-
-@media (prefers-color-scheme: dark) {
-  .wa-bubble-teacher {
-    background: #451a03;
-    border-color: #92400e;
-  }
+  box-shadow: 0 1px 2px var(--wa-teacher-shadow);
 }
 
 .wa-bubble-time {
@@ -130,7 +135,7 @@
   background: var(--wa-bubble-in);
   border-radius: 8px;
   border-top-left-radius: 2px;
-  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+  box-shadow: 0 1px 0.5px var(--wa-shadow);
 }
 
 .wa-typing-dot {
@@ -271,7 +276,7 @@
   height: 40px;
   min-width: 40px;
   border-radius: 50%;
-  background: #DFE5E7;
+  background: var(--wa-avatar-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -396,7 +401,7 @@
 .wa-sheet-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: color-mix(in srgb, black 40%, transparent);
   z-index: 100;
   animation: wa-fade-in 0.2s ease;
 }
@@ -451,7 +456,7 @@
   top: 2px;
   left: 2px;
   transition: transform 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px color-mix(in srgb, black 20%, transparent);
 }
 
 .wa-toggle.active::after {
@@ -464,8 +469,8 @@
   bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
-  background: #323232;
-  color: white;
+  background: var(--wa-toast-bg);
+  color: var(--wa-surface);
   padding: 10px 20px;
   border-radius: 8px;
   font-size: 14px;
@@ -772,8 +777,8 @@
   left: calc(100% + 10px);
   top: 50%;
   transform: translateY(-50%);
-  background: #1f2937;
-  color: white;
+  background: var(--wa-tooltip-bg);
+  color: var(--wa-surface);
   font-size: 12px;
   font-weight: 500;
   padding: 5px 10px;
@@ -957,7 +962,7 @@
   border-radius: 50%;
   border: none;
   background: var(--wa-green-primary);
-  color: #fff;
+  color: var(--wa-surface);
   display: flex;
   align-items: center;
   justify-content: center;

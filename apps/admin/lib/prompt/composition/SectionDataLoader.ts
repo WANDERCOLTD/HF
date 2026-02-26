@@ -430,7 +430,11 @@ registerLoader("playbooks", async (callerId, loaderConfig?: { playbookIds?: stri
       const playbooks = await prisma.playbook.findMany({
         where: { id: { in: playbookIds }, status: "PUBLISHED" },
         orderBy: { sortOrder: "asc" },
-        include: { domain: true, items: itemInclude },
+        include: {
+          domain: true,
+          items: itemInclude,
+          group: { select: { id: true, name: true, identityOverride: true } },
+        },
       });
 
       if (playbooks.length > 0) return playbooks;
@@ -457,7 +461,11 @@ registerLoader("playbooks", async (callerId, loaderConfig?: { playbookIds?: stri
   return prisma.playbook.findMany({
     where: whereClause,
     orderBy: { sortOrder: "asc" },
-    include: { domain: true, items: itemInclude },
+    include: {
+      domain: true,
+      items: itemInclude,
+      group: { select: { id: true, name: true, identityOverride: true } },
+    },
   });
 });
 
@@ -662,6 +670,7 @@ registerLoader("curriculumAssertions", async (_callerId, loaderConfig) => {
       parentId: true,
       orderIndex: true,
       topicSlug: true,
+      teachMethod: true,
       source: {
         select: {
           name: true,
@@ -688,6 +697,7 @@ registerLoader("curriculumAssertions", async (_callerId, loaderConfig) => {
     parentId: a.parentId,
     orderIndex: a.orderIndex,
     topicSlug: a.topicSlug,
+    teachMethod: a.teachMethod ?? null,
   }));
 
   // Attach teachingDepth as metadata on the loader context

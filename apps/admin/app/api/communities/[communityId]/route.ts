@@ -10,7 +10,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
  * @tags communities
  * @description Get a single community detail with identity specs, onboarding config, and members
  * @param communityId string - Community domain ID
- * @response 200 { ok: true, community: { id, name, slug, description, onboardingWelcome, onboardingIdentitySpecId, onboardingFlowPhases, onboardingDefaultTargets, memberCount, playbookCount, personaName, identitySpec, identitySpecs, members } }
+ * @response 200 { ok: true, community: { id, name, slug, description, onboardingWelcome, onboardingIdentitySpecId, onboardingFlowPhases, onboardingDefaultTargets, memberCount, playbookCount, personaName, identitySpec, identitySpecs, members, joinToken, cohortGroupId } }
  * @response 404 { ok: false, error: "Community not found" }
  * @response 500 { ok: false, error: "..." }
  */
@@ -52,6 +52,16 @@ export async function GET(
           orderBy: { createdAt: "desc" },
           take: 100,
         },
+        cohortGroups: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            joinToken: true,
+            joinTokenExp: true,
+          },
+          take: 1,
+          orderBy: { createdAt: "asc" },
+        },
       },
     });
 
@@ -70,6 +80,7 @@ export async function GET(
     });
 
     const specConfig = community.onboardingIdentitySpec?.config as Record<string, any> | null;
+    const cohort = community.cohortGroups?.[0] ?? null;
 
     return NextResponse.json({
       ok: true,
@@ -95,6 +106,8 @@ export async function GET(
           : null,
         identitySpecs,
         members: community.callers,
+        joinToken: cohort?.joinToken ?? null,
+        cohortGroupId: cohort?.id ?? null,
       },
     });
   } catch (error: any) {

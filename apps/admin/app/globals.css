@@ -1407,9 +1407,27 @@ html.light {
   background: var(--status-info-bg);
   color: var(--status-info-text);
 }
-.hf-badge-muted {
+.hf-badge-muted, .hf-badge-neutral {
   background: var(--surface-secondary);
   color: var(--text-muted);
+}
+
+/* Department / group pill — compact inline tag */
+.hf-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  border: 1px solid var(--border-default);
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+}
+.hf-pill-neutral {
+  background: var(--surface-secondary);
+  border-color: transparent;
 }
 
 /* Flex utilities */
@@ -2200,6 +2218,7 @@ html.light {
   align-items: center;
   gap: 6px;
   padding: 6px 14px;
+  min-height: 36px;
   border-radius: 6px;
   font-size: 13px;
   font-weight: 600;
@@ -2253,6 +2272,34 @@ html.light {
 .hf-chip-card-title { font-weight: 600; font-size: 14px; }
 .hf-chip-card-desc { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 
+/* Chip preview panel — hover-aware description below chip rows */
+.hf-chip-preview {
+  margin-top: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-primary) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  min-height: 36px;
+  transition: opacity 0.12s ease;
+}
+.hf-chip-preview-label { font-weight: 600; color: var(--text-primary); }
+.hf-chip-preview-desc { margin-left: 4px; }
+.hf-chip-preview-examples {
+  display: block;
+  font-style: italic;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.hf-chip-preview-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 12px;
+}
+
 /* AI reasoning callout box */
 .hf-ai-callout {
   padding: 12px 16px;
@@ -2271,13 +2318,12 @@ html.light {
   margin-top: 6px;
 }
 
-/* ── FieldHint — contextual help popovers for wizard labels ── */
+/* ── FieldHint — inline contextual help for wizard labels ── */
 
 .hf-field-hint-wrap {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  position: relative;
 }
 
 .hf-field-hint-ai {
@@ -2329,33 +2375,34 @@ html.light {
   background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
 }
 
-.hf-field-hint-popover {
-  position: absolute;
-  left: 0;
-  top: calc(100% + 6px);
-  z-index: 50;
-  width: 280px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: var(--surface-primary);
-  border: 1px solid var(--border-default);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--text-primary) 10%, transparent);
-  flex-direction: column;
-  display: none;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  pointer-events: none;
+/* Always-visible "why" helper text below the label */
+.hf-field-hint-why {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 2px;
 }
 
-.hf-field-hint-trigger:hover + .hf-field-hint-popover,
-.hf-field-hint-trigger:focus-visible + .hf-field-hint-popover,
-.hf-field-hint-popover:hover,
-.hf-field-hint-trigger--active + .hf-field-hint-popover {
+/* Expandable detail section (Effect + Examples) — inline, pushes content down */
+.hf-field-hint-detail {
+  margin-top: 6px;
+  margin-bottom: 4px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-primary) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 12%, transparent);
   display: flex;
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
+  flex-direction: column;
+  animation: hf-hint-slide 0.15s ease-out;
+}
+
+@keyframes hf-hint-slide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hf-field-hint-detail { animation: none; }
 }
 
 .hf-field-hint-row {
@@ -2388,14 +2435,6 @@ html.light {
 .hf-field-hint-examples {
   font-style: italic;
   color: var(--text-muted);
-}
-
-@media (max-width: 600px) {
-  .hf-field-hint-popover {
-    width: 240px;
-    left: auto;
-    right: -8px;
-  }
 }
 
 /* Wizard step footer (sticky bottom bar) */
@@ -2741,6 +2780,8 @@ html.light {
 
 /* Spinner variants */
 .hf-spinner-thick { border-width: 3px; }
+.hf-spinner-sm { width: 14px; height: 14px; }
+.hf-spinner-xs { width: 12px; height: 12px; }
 
 /* Progress bar (container + fill) */
 .hf-progress-bar {
@@ -2819,6 +2860,51 @@ html.light {
   font-size: 11px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+}
+
+/* Session phase expansion */
+.hf-session-expand-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  color: var(--text-muted);
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.hf-session-expand-btn:hover {
+  color: var(--text-primary);
+}
+.hf-session-phases {
+  margin-left: 30px;
+  padding: 6px 0 6px 12px;
+  border-left: 2px solid var(--border-default);
+}
+.hf-session-phase {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+.hf-session-phase-label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.hf-session-phase-dur {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+.hf-session-phase-methods {
+  font-size: 10px;
+  color: var(--accent-primary);
+  font-family: var(--font-mono, monospace);
+}
+.hf-session-phase-guidance {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-style: italic;
 }
 
 /* Compact select/input for inline forms */
@@ -5831,6 +5917,7 @@ html.light {
   background: var(--surface-secondary);
   border: 1px solid var(--border-default);
 }
+.hf-phase-duration { font-size: 10px; margin-top: 2px; }
 
 /* ── Call Flow Phase Cards (wizard first-call setup) ── */
 .hf-flow-card {

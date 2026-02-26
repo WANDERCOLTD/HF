@@ -1,0 +1,107 @@
+/* Classroom wizard styles */
+
+.cwiz-container { max-width: 560px; margin: 0 auto; }
+.cwiz-container-padded { max-width: 560px; margin: 0 auto; padding-top: 64px; }
+.cwiz-loading { display: flex; justify-content: center; padding: 32px; }
+.cwiz-title-gap { margin-bottom: 8px; }
+.cwiz-subtitle-gap { margin-bottom: 32px; }
+
+/* Step sections */
+.cwiz-section-header { margin-bottom: 20px; }
+.cwiz-section-header-sm { margin-bottom: 8px; }
+.cwiz-field-group { margin-bottom: 16px; }
+.cwiz-field-group-lg { margin-bottom: 24px; }
+.cwiz-input-full { width: 100%; }
+.cwiz-textarea-full { width: 100%; resize: vertical; }
+.cwiz-no-domain { font-size: 13px; color: var(--text-muted); }
+.cwiz-create-link { color: var(--accent-primary); cursor: pointer; font-weight: 600; }
+.cwiz-select-full { width: 100%; }
+.cwiz-btn-wide { flex: 2; }
+
+/* Course list */
+.cwiz-course-list { margin-bottom: 20px; }
+.cwiz-course-chip { padding: 12px; border-radius: 8px; }
+.cwiz-checkbox-visual {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.cwiz-checkbox-checked {
+  border: 2px solid var(--accent-primary);
+  background: var(--accent-primary);
+}
+.cwiz-checkbox-unchecked {
+  border: 2px solid var(--border-default);
+  background: transparent;
+}
+.cwiz-course-name { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+.cwiz-course-desc { margin-top: 2px; }
+.cwiz-banner-gap { margin-bottom: 20px; text-align: center; }
+.cwiz-spinner-wrap { display: flex; justify-content: center; padding: 16px; }
+
+/* Review step */
+.cwiz-review-box {
+  padding: 16px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+.cwiz-review-title { font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+.cwiz-review-desc { font-size: 14px; color: var(--text-muted); margin-bottom: 8px; }
+.cwiz-review-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.cwiz-review-tag {
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  background: var(--surface-primary);
+  border-radius: 6px;
+  display: inline-block;
+}
+.cwiz-error-gap { margin-bottom: 16px; }
+.cwiz-spinner-sm { width: 16px; height: 16px; border-width: 2px; }
+
+/* Invite step - join link */
+.cwiz-join-box {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  align-items: center;
+}
+.cwiz-join-input { flex: 1; border: none; background: transparent; }
+.cwiz-copy-btn { padding: 6px 14px; font-size: 12px; white-space: nowrap; }
+.cwiz-copy-btn-copied { background: var(--status-success-text); }
+
+/* Invite step - email */
+.cwiz-email-textarea { width: 100%; resize: vertical; margin-bottom: 8px; }
+.cwiz-invite-btn { font-size: 13px; padding: 6px 16px; }
+.cwiz-invite-result { font-size: 12px; }
+.cwiz-invite-result-ok { color: var(--status-success-text); }
+.cwiz-invite-result-err { color: var(--status-error-text); }
+
+/* Invite step - message */
+.cwiz-message-box {
+  padding: 12px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.cwiz-message-pre {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  font-family: inherit;
+}
+.cwiz-copy-msg-copied {
+  background: var(--status-success-text);
+  color: var(--surface-primary);
+  border: none;
+}

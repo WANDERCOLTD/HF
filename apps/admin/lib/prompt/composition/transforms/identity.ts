@@ -214,6 +214,76 @@ export async function mergeIdentitySpec(
 }
 
 /**
+ * Apply department/group tone override to a merged identity spec.
+ * Sits between mergeIdentitySpec() and the final prompt in the cascade:
+ *   Base archetype → Domain overlay → mergeIdentitySpec → applyGroupToneOverride → Final
+ *
+ * Reads `toneSliders` (non-neutral values only) and `styleNotes` from the
+ * group's `identityOverride` JSON, converts them to style directives, and
+ * appends them to the spec config's `styleGuidelines` array.
+ *
+ * Does NOT mutate the original spec — returns a new ResolvedSpec.
+ */
+export function applyGroupToneOverride(
+  spec: ResolvedSpec,
+  override: Record<string, any>,
+): ResolvedSpec {
+  const sliders: Record<string, number> | undefined = override.toneSliders;
+  const styleNotes: string | undefined = override.styleNotes;
+
+  // Nothing to apply
+  if (!sliders && !styleNotes) return spec;
+
+  const specConfig = { ...((spec.config as Record<string, any>) || {}) };
+  const guidelines: string[] = [...(specConfig.styleGuidelines || [])];
+
+  // Convert non-neutral slider values to style directives
+  if (sliders) {
+    const SLIDER_LABELS: Record<string, [string, string]> = {
+      formality:  ["casual and conversational", "formal and professional"],
+      warmth:     ["matter-of-fact and direct", "warm and empathetic"],
+      pace:       ["quick and efficient", "patient and measured"],
+      encourage:  ["objective and neutral", "encouraging and supportive"],
+      precision:  ["broad and conceptual", "precise and detailed"],
+    };
+
+    for (const [key, value] of Object.entries(sliders)) {
+      // Neutral (0.5) means no override — skip
+      if (typeof value !== "number" || Math.abs(value - 0.5) < 0.05) continue;
+
+      const labels = SLIDER_LABELS[key];
+      if (!labels) continue;
+
+      const [lowLabel, highLabel] = labels;
+      if (value < 0.5) {
+        const intensity = value < 0.25 ? "strongly" : "somewhat";
+        guidelines.push(`Department tone: Be ${intensity} ${lowLabel}.`);
+      } else {
+        const intensity = value > 0.75 ? "strongly" : "somewhat";
+        guidelines.push(`Department tone: Be ${intensity} ${highLabel}.`);
+      }
+    }
+  }
+
+  // Append freeform style notes
+  if (styleNotes?.trim()) {
+    guidelines.push(`Department teaching style: ${styleNotes.trim()}`);
+  }
+
+  if (guidelines.length === (specConfig.styleGuidelines || []).length) {
+    // Nothing was actually added
+    return spec;
+  }
+
+  specConfig.styleGuidelines = guidelines;
+
+  return {
+    ...spec,
+    config: specConfig,
+  };
+}
+
+/**
  * Extract identity spec into llmPrompt output.
  * Extracted from route.ts lines 2337-2373.
  */

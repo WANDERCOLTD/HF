@@ -1,0 +1,541 @@
+/* ============================================================
+   Caller Roster — Triage-First Student List
+   ============================================================ */
+
+/* ── Filter bar utilities ────────────────────────────────────── */
+
+.ros-filter-count { opacity: 0.7; }
+.ros-classroom-select { appearance: auto; padding-right: 20px; }
+
+/* ── Summary Strip ───────────────────────────────────────────── */
+
+.ros-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.ros-summary-attention {
+  color: var(--status-warning-text);
+}
+
+.ros-summary-live {
+  color: var(--status-success-text);
+}
+
+/* ── Filters ─────────────────────────────────────────────────── */
+
+.ros-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.ros-search {
+  width: 220px;
+}
+
+.ros-toolbar-spacer {
+  flex: 1;
+}
+
+/* ── Table ────────────────────────────────────────────────────── */
+
+.ros-table {
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-primary);
+}
+
+.ros-header {
+  display: grid;
+  grid-template-columns: 2.5fr 1.2fr 1.2fr 1.4fr 0.8fr 0.8fr 80px;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border-default);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+}
+
+.ros-header-sortable {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+
+.ros-header-sortable:hover {
+  color: var(--text-primary);
+}
+
+.ros-header-active {
+  color: var(--accent-primary);
+}
+
+/* ── Rows ─────────────────────────────────────────────────────── */
+
+.ros-row {
+  display: grid;
+  grid-template-columns: 2.5fr 1.2fr 1.2fr 1.4fr 0.8fr 0.8fr 80px;
+  gap: 8px;
+  padding: 10px 16px;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle, var(--border-default));
+  cursor: pointer;
+  transition: background 0.1s ease;
+  border-left: 3px solid transparent;
+}
+
+.ros-row:last-child {
+  border-bottom: none;
+}
+
+.ros-row:hover {
+  background: var(--surface-secondary);
+}
+
+.ros-row-attention {
+  border-left-color: var(--status-warning-text);
+}
+
+.ros-row-advancing {
+  border-left-color: var(--status-success-text);
+}
+
+.ros-row-in-call {
+  border-left-color: var(--status-success-text);
+  background: color-mix(in srgb, var(--status-success-text) 4%, transparent);
+}
+
+.ros-row-active {
+  border-left-color: transparent;
+}
+
+.ros-row-inactive {
+  border-left-color: transparent;
+  opacity: 0.7;
+}
+
+.ros-row-new {
+  border-left-color: var(--accent-primary);
+}
+
+/* ── Section Headers (triage groups) ─────────────────────────── */
+
+.ros-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.ros-section-icon {
+  font-size: 12px;
+}
+
+.ros-section-count {
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: auto;
+  font-size: 11px;
+}
+
+.ros-section-attention { color: var(--status-warning-text); }
+.ros-section-advancing { color: var(--status-success-text); }
+.ros-section-active { color: var(--text-secondary); }
+.ros-section-inactive { color: var(--text-muted); }
+.ros-section-new { color: var(--accent-primary); }
+
+/* ── Cell: Name ──────────────────────────────────────────────── */
+
+.ros-cell-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ros-triage-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.ros-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ros-name-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Cell: Group ─────────────────────────────────────────────── */
+
+.ros-cell-group {
+  display: flex;
+  align-items: center;
+}
+
+.ros-group-badge {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.ros-group-none {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Cell: Subject ───────────────────────────────────────────── */
+
+.ros-cell-subject {
+  display: flex;
+  align-items: center;
+}
+
+.ros-subject {
+  font-size: 13px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Cell: Mastery Bar ───────────────────────────────────────── */
+
+.ros-cell-mastery {
+  display: flex;
+  align-items: center;
+}
+
+.ros-mastery {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.ros-mastery-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border-default);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ros-mastery-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.ros-mastery-fill-low { background: var(--status-error-text); }
+.ros-mastery-fill-mid { background: var(--status-warning-text); }
+.ros-mastery-fill-good { background: var(--accent-primary); }
+.ros-mastery-fill-high { background: var(--status-success-text); }
+
+.ros-mastery-pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 32px;
+  text-align: right;
+}
+
+.ros-mastery-none {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ── Cell: Momentum ──────────────────────────────────────────── */
+
+.ros-cell-momentum {
+  display: flex;
+  align-items: center;
+}
+
+.ros-momentum {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ros-momentum-up { color: var(--status-success-text); }
+.ros-momentum-steady { color: var(--text-muted); }
+.ros-momentum-down { color: var(--status-warning-text); }
+.ros-momentum-new { color: var(--accent-primary); }
+
+/* ── Cell: Recency ───────────────────────────────────────────── */
+
+.ros-cell-recency {
+  display: flex;
+  align-items: center;
+}
+
+.ros-recency {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── In Call Badge ───────────────────────────────────────────── */
+
+.ros-in-call-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--status-success-text);
+  padding: 2px 8px;
+  background: var(--status-success-bg);
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--status-success-text) 20%, transparent);
+}
+
+.ros-in-call-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--status-success-text);
+  animation: ros-pulse 2s infinite;
+}
+
+@keyframes ros-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Cell: Actions ───────────────────────────────────────────── */
+
+.ros-cell-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.ros-detail-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.1s ease;
+}
+
+.ros-detail-btn:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.ros-observe-btn {
+  font-size: 12px;
+  padding: 4px 12px;
+}
+
+/* ── Overflow Menu ───────────────────────────────────────────── */
+
+.ros-overflow {
+  position: relative;
+}
+
+.ros-overflow-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.1s ease;
+}
+
+.ros-overflow-btn:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.ros-overflow-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 50;
+  min-width: 180px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--text-primary) 10%, transparent);
+  padding: 4px;
+}
+
+.ros-overflow-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+  text-align: left;
+  font-family: inherit;
+}
+
+.ros-overflow-menu button:hover {
+  background: var(--surface-secondary);
+}
+
+.ros-overflow-danger {
+  color: var(--status-error-text) !important;
+}
+
+.ros-overflow-divider {
+  height: 1px;
+  background: var(--border-default);
+  margin: 4px 0;
+}
+
+/* ── Empty State ─────────────────────────────────────────────── */
+
+.ros-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.ros-empty-icon {
+  font-size: 48px;
+}
+
+.ros-empty-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ros-empty-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.ros-empty-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ── Loading Skeleton ────────────────────────────────────────── */
+
+.ros-skeleton-row {
+  display: grid;
+  grid-template-columns: 2.5fr 1.2fr 1.2fr 1.4fr 0.8fr 0.8fr 80px;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle, var(--border-default));
+}
+
+.ros-skeleton-cell {
+  height: 14px;
+  background: var(--surface-secondary);
+  border-radius: 4px;
+  animation: ros-shimmer 1.5s ease-in-out infinite;
+}
+
+.ros-skeleton-cell-sm {
+  height: 10px;
+  margin-top: 4px;
+  width: 60%;
+}
+
+@keyframes ros-shimmer {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ── Footer ──────────────────────────────────────────────────── */
+
+.ros-footer {
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-default);
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  .ros-col-subject {
+    display: none;
+  }
+
+  .ros-header,
+  .ros-row,
+  .ros-skeleton-row {
+    grid-template-columns: 2.5fr 1fr 1.4fr 0.7fr 0.7fr 60px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ros-header,
+  .ros-row,
+  .ros-skeleton-row {
+    grid-template-columns: 2fr 1.2fr 0.7fr 60px;
+  }
+
+  .ros-cell-group,
+  .ros-cell-momentum {
+    display: none;
+  }
+}

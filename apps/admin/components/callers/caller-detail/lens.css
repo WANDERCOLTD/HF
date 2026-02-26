@@ -1,0 +1,590 @@
+/* ============================================================
+   Lens Switcher — Holographic Caller Detail
+   ============================================================ */
+
+/* ── Lens Bar ─────────────────────────────────────────────── */
+
+.hf-lens-bar {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-secondary);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  width: fit-content;
+}
+
+.hf-lens-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.hf-lens-btn:hover {
+  background: var(--surface-primary);
+  color: var(--text-primary);
+}
+
+.hf-lens-btn-active {
+  background: var(--surface-primary);
+  color: var(--accent-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.hf-lens-btn-icon {
+  font-size: 15px;
+}
+
+.hf-lens-btn-label {
+  font-size: 13px;
+}
+
+/* ── Guide Lens ───────────────────────────────────────────── */
+
+.hf-guide-lens {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── At a Glance Strip ────────────────────────────────────── */
+
+.hf-glance-strip {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface-secondary);
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+.hf-glance-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 72px;
+  padding: 4px 8px;
+}
+
+.hf-glance-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.hf-glance-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.hf-glance-positive .hf-glance-value { color: var(--status-success-text); }
+.hf-glance-warning .hf-glance-value { color: var(--status-warning-text); }
+.hf-glance-neutral .hf-glance-value { color: var(--text-secondary); }
+.hf-glance-new .hf-glance-value { color: var(--accent-primary); }
+
+/* ── Progress Stack ───────────────────────────────────────── */
+
+.hf-progress-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.hf-ps-layer {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.hf-ps-layer:last-child {
+  border-bottom: none;
+}
+
+.hf-ps-layer-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.hf-ps-layer-icon {
+  font-size: 14px;
+}
+
+.hf-ps-layer-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.hf-ps-layer-summary {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Module rows */
+.hf-ps-module-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 40px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.hf-ps-module-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hf-ps-bar-wrap {
+  height: 6px;
+  background: var(--border-default);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.hf-ps-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.hf-ps-bar-mastered { background: var(--status-success-text); }
+.hf-ps-bar-in_progress { background: var(--accent-primary); }
+.hf-ps-bar-needs_attention { background: var(--status-warning-text); }
+.hf-ps-bar-not_started { background: var(--border-default); }
+.hf-ps-bar-goal { background: var(--accent-primary); }
+
+.hf-ps-module-pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.hf-ps-module-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.hf-ps-badge-mastered { color: var(--status-success-text); background: var(--status-success-bg); }
+.hf-ps-badge-in_progress { color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 10%, transparent); }
+.hf-ps-badge-needs_attention { color: var(--status-warning-text); background: var(--status-warning-bg); }
+.hf-ps-badge-not_started { color: var(--text-muted); background: var(--surface-secondary); }
+
+/* Goal rows */
+.hf-ps-goal-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 40px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.hf-ps-goal-name {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.hf-ps-goal-pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.hf-ps-goal-date {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* LO chips */
+.hf-ps-lo-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.hf-ps-lo-chip {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.hf-ps-lo-mastered { color: var(--status-success-text); background: var(--status-success-bg); }
+.hf-ps-lo-progress { color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 10%, transparent); }
+
+.hf-ps-lo-summary {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 4px;
+}
+
+/* Target rows */
+.hf-ps-target-row {
+  display: grid;
+  grid-template-columns: 100px auto 48px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.hf-ps-target-name {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.hf-ps-target-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.hf-ps-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-default);
+}
+
+.hf-ps-dot-filled {
+  background: var(--accent-primary);
+}
+
+.hf-ps-target-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.hf-ps-target-status {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.hf-ps-met { color: var(--status-success-text); }
+.hf-ps-trending { color: var(--text-muted); }
+
+.hf-ps-empty {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ── Focus Card ───────────────────────────────────────────── */
+
+.hf-focus-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hf-focus-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hf-focus-group-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.hf-focus-attention { color: var(--status-warning-text); }
+.hf-focus-advance { color: var(--status-success-text); }
+
+.hf-focus-item {
+  padding: 10px 12px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+}
+
+.hf-focus-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hf-focus-item-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hf-focus-item-pct {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.hf-focus-item-reason {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.hf-focus-item-rec {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* ── Who They Are Card ────────────────────────────────────── */
+
+.hf-who-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hf-who-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .hf-who-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hf-who-col-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+
+.hf-who-trait-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hf-who-trait {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.hf-who-trait-high { color: var(--status-success-text); background: var(--status-success-bg); }
+.hf-who-trait-mid { color: var(--text-secondary); background: var(--surface-secondary); }
+.hf-who-trait-low { color: var(--status-warning-text); background: var(--status-warning-bg); }
+
+.hf-who-memory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hf-who-memory {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.hf-who-memory-more {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ── Recent Calls Card ────────────────────────────────────── */
+
+.hf-recent-calls-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hf-rc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hf-rc-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 40px 24px 16px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font-family: inherit;
+  transition: background 0.1s ease;
+}
+
+.hf-rc-row:hover {
+  background: var(--surface-secondary);
+}
+
+.hf-rc-date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.hf-rc-module {
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hf-rc-duration {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.hf-rc-sentiment {
+  font-size: 12px;
+  text-align: center;
+}
+
+.hf-rc-analyzed { color: var(--status-success-text); }
+.hf-rc-prompted { color: var(--accent-primary); }
+.hf-rc-pending { color: var(--text-muted); }
+
+.hf-rc-chevron {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.hf-rc-view-all {
+  border: none;
+  background: transparent;
+  color: var(--accent-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px;
+  text-align: center;
+  font-family: inherit;
+}
+
+.hf-rc-view-all:hover {
+  text-decoration: underline;
+}
+
+/* ── Achievements Card ────────────────────────────────────── */
+
+.hf-achievements-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hf-ach-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hf-ach-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.hf-ach-icon {
+  font-size: 15px;
+}
+
+.hf-ach-label {
+  font-size: 13px;
+}
+
+/* ── Quick Actions ────────────────────────────────────────── */
+
+.hf-quick-actions {
+  padding: 12px !important;
+}
+
+.hf-qa-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Empty State ──────────────────────────────────────────── */
+
+.hf-lens-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.hf-lens-empty-icon {
+  font-size: 48px;
+}
+
+.hf-lens-empty-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hf-lens-empty-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.hf-lens-empty-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ── Explore Lens (thin wrapper) ──────────────────────────── */
+
+.hf-explore-lens {
+  /* Inherits existing cdp-* styles */
+}

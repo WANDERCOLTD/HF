@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * TypePicker — card grid for selecting institution type (sector).
+ * TypePicker — compact chip selector for institution type (sector).
  *
  * Shared between CreateInstitutionModal (Teach wizard) and CreateDomainModal (Domains page).
- * Each card shows: icon, name, description, and tooltip on hover explaining
- * how the choice affects the AI agent's personality.
+ * Compact `hf-chip` buttons with icon + name. Hover-aware preview panel below
+ * shows the full description and AI personality tooltip.
  *
  * Fetches types from /api/admin/institution-types on mount.
  * Falls back to static SECTOR_CONFIG if API fails (graceful degradation for non-admin roles).
@@ -32,16 +32,6 @@ const ICON_COMPONENTS: Record<string, React.ComponentType<{ size: number }>> = {
   Dumbbell,
 };
 
-/** CSS color overrides per sector color key */
-const COLOR_VARS: Record<string, { text: string; bg: string; border: string }> = {
-  blue:   { text: "var(--badge-blue-text)",   bg: "var(--badge-blue-bg)",   border: "var(--badge-blue-border)" },
-  amber:  { text: "var(--badge-amber-text)",  bg: "var(--badge-amber-bg)",  border: "var(--badge-amber-border)" },
-  green:  { text: "var(--badge-green-text)",  bg: "var(--badge-green-bg)",  border: "var(--badge-green-border)" },
-  purple: { text: "var(--badge-purple-text)", bg: "var(--badge-purple-bg)", border: "var(--badge-purple-border)" },
-  pink:   { text: "var(--badge-pink-text)",   bg: "var(--badge-pink-bg)",   border: "var(--badge-pink-border)" },
-  cyan:   { text: "var(--badge-cyan-text)",   bg: "var(--badge-cyan-bg)",   border: "var(--badge-cyan-border)" },
-};
-
 export interface TypePickerOption {
   id: string;
   slug: string;
@@ -60,6 +50,7 @@ interface TypePickerProps {
 
 export function TypePicker({ value, onChange, label = "What kind of organisation is this?" }: TypePickerProps) {
   const [apiTypes, setApiTypes] = useState<TypePickerOption[] | null>(null);
+  const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
 
   // Try to load types from API (includes id for linking), fall back to static config
   useEffect(() => {
@@ -93,20 +84,18 @@ export function TypePicker({ value, onChange, label = "What kind of organisation
           description: SECTOR_CONFIG[slug].description,
         }));
 
+  const previewSlug = hoveredSlug || value;
+  const previewType = previewSlug ? types.find((t) => t.slug === previewSlug) : null;
+  const previewSector = previewSlug ? SECTOR_CONFIG[previewSlug as SectorSlug] : null;
+
   return (
     <div>
-      <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text-primary)" }}>
+      <label className="hf-label" style={{ marginBottom: 8 }}>
         {label}
       </label>
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(3, 1fr)",
-        gap: 8,
-      }}>
+      <div className="hf-chip-row">
         {types.map((t) => {
           const sectorDef = SECTOR_CONFIG[t.slug as SectorSlug];
-          const colorKey = sectorDef?.colorKey || "blue";
-          const colors = COLOR_VARS[colorKey] || COLOR_VARS.blue;
           const IconComp = sectorDef ? ICON_COMPONENTS[sectorDef.icon] : HelpCircle;
           const isSelected = value === t.slug;
 
@@ -114,51 +103,29 @@ export function TypePicker({ value, onChange, label = "What kind of organisation
             <button
               key={t.slug}
               type="button"
-              title={sectorDef?.tooltip || t.description}
               onClick={() => onChange(t.slug, t.id)}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 4,
-                padding: "12px 8px",
-                borderRadius: 10,
-                border: isSelected ? `2px solid ${colors.text}` : "2px solid var(--border-default)",
-                background: isSelected ? colors.bg : "var(--surface-primary)",
-                color: isSelected ? colors.text : "var(--text-primary)",
-                cursor: "pointer",
-                transition: "all 120ms ease",
-                textAlign: "center",
-              }}
+              onMouseEnter={() => setHoveredSlug(t.slug)}
+              onMouseLeave={() => setHoveredSlug(null)}
+              className={`hf-chip${isSelected ? " hf-chip-selected" : ""}`}
             >
-              {IconComp && <IconComp size={20} />}
-              <span style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2 }}>{t.name}</span>
-              <span style={{
-                fontSize: 11,
-                lineHeight: 1.3,
-                color: isSelected ? colors.text : "var(--text-muted)",
-                opacity: 0.85,
-              }}>
-                {t.description.split(" ").slice(0, 5).join(" ")}
-              </span>
+              {IconComp && <IconComp size={14} />}
+              <span>{t.name}</span>
             </button>
           );
         })}
       </div>
-      {value && SECTOR_CONFIG[value as SectorSlug] && (
-        <p style={{
-          marginTop: 8,
-          marginBottom: 0,
-          fontSize: 12,
-          lineHeight: 1.4,
-          color: "var(--text-muted)",
-          display: "flex",
-          alignItems: "flex-start",
-          gap: 6,
-        }}>
-          <HelpCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>{SECTOR_CONFIG[value as SectorSlug].tooltip}</span>
-        </p>
+      {previewType ? (
+        <div className="hf-chip-preview">
+          <span className="hf-chip-preview-label">{previewType.name}:</span>
+          <span className="hf-chip-preview-desc">{previewType.description}</span>
+          {previewSector?.tooltip && (
+            <span className="hf-chip-preview-examples">{previewSector.tooltip}</span>
+          )}
+        </div>
+      ) : (
+        <div className="hf-chip-preview">
+          <span className="hf-chip-preview-empty">Hover over an option to learn more</span>
+        </div>
       )}
     </div>
   );

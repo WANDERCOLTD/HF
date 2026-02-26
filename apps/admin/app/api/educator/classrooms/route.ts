@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
     where: cohortFilter,
     include: {
       domain: { select: { id: true, name: true, slug: true } },
+      group: { select: { id: true, name: true, groupType: true } },
       _count: { select: { members: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -81,6 +82,7 @@ export async function GET(request: NextRequest) {
       name: c.name,
       description: c.description,
       domain: c.domain,
+      group: c.group || null,
       memberCount: c._count.members,
       maxMembers: c.maxMembers,
       isActive: c.isActive,
@@ -111,7 +113,7 @@ export async function POST(request: NextRequest) {
   if (isEducatorAuthError(auth)) return auth.error;
 
   const body = await request.json();
-  const { name, description, domainId, playbookIds } = body;
+  const { name, description, domainId, playbookIds, groupId } = body;
 
   if (!name?.trim()) {
     return NextResponse.json(
@@ -151,6 +153,7 @@ export async function POST(request: NextRequest) {
       ownerId: auth.callerId,
       joinToken,
       institutionId: auth.institutionId,
+      groupId: groupId || undefined,
     },
     include: {
       domain: { select: { id: true, name: true, slug: true } },

@@ -36,6 +36,18 @@ export const WIZARD_HINTS: Record<string, FieldHintContent> = {
     ],
   },
 
+  "course.model": {
+    why: "Different teaching models structure sessions differently — choosing one shapes how knowledge is sequenced, practiced, and assessed.",
+    effect: "The AI distributes teaching points across sessions using the model's phase structure. Direct Instruction gives clear linear progression; 5E encourages exploration before explanation; Spiral revisits topics at increasing depth.",
+    examples: [
+      "Direct Instruction — maths, languages, sequential skills",
+      "5E Inquiry — science, investigation-based topics",
+      "Spiral — broad curricula with interconnected topics",
+      "Mastery — skills where each step requires the previous",
+      "Project-Based — vocational, creative, applied subjects",
+    ],
+  },
+
   "teach.content": {
     why: "Source materials give the AI accurate, trusted content to teach from.",
     effect: "The AI extracts teaching points and builds its knowledge base from these files.",

@@ -1,15 +1,14 @@
 "use client";
 
 import { useResponsive } from "@/hooks/useResponsive";
-import { CallersPage } from "@/components/callers/CallersPage";
+import { CallerRoster } from "@/components/callers/roster/CallerRoster";
 import CallersMobile from "./mobile-page";
 
 /**
  * Callers Page - Responsive Wrapper
  *
- * Routes to mobile-simplified or desktop version based on:
- * - Device size (< 768px = mobile)
- * - User preference (forceDesktopMode toggle)
+ * Desktop: CallerRoster (triage-first roster with mastery bars, momentum, diagnostics)
+ * Mobile: CallersMobile (simplified card view)
  */
 export default function CallersPageRoute() {
   const { showDesktop } = useResponsive();
@@ -18,5 +17,5 @@ export default function CallersPageRoute() {
     return <CallersMobile />;
   }
 
-  return <CallersPage routePrefix="/x" />;
+  return <CallerRoster routePrefix="/x" />;
 }

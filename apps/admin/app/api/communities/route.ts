@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
  * @body topics Array<{ name: string; pattern: string }> - Topics for TOPIC_BASED hubs
  * @body memberCallerIds string[] - Caller IDs to add as founding members
  * @body institutionId string - Parent institution ID (optional)
- * @response 200 { ok: true, community: { id, name, slug, memberCount } }
+ * @response 200 { ok: true, community: { id, name, slug, memberCount, joinToken, cohortGroupId } }
  * @response 400 { ok: false, error: "name is required" }
  * @response 500 { ok: false, error: "..." }
  */
@@ -151,8 +151,16 @@ export async function POST(request: NextRequest) {
         : (topics[0]?.pattern || "companion");
     const archetype = PATTERN_ARCHETYPE_MAP[primaryPattern] || "COMPANION-001";
 
-    // 1. Create Domain (kind=COMMUNITY) in transaction with topic playbooks + members
-    const community = await prisma.$transaction(async (tx) => {
+    // Resolve operator's Caller ID for CohortGroup ownership
+    const userId = authResult.session.user?.id;
+    let operatorCaller = userId
+      ? await prisma.caller.findFirst({ where: { userId }, select: { id: true } })
+      : null;
+
+    // 1. Create Domain (kind=COMMUNITY) in transaction with topic playbooks + CohortGroup + members
+    const joinToken = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+
+    const { domain: community, cohortGroupId } = await prisma.$transaction(async (tx) => {
       const domain = await tx.domain.create({
         data: {
           name: name.trim(),
@@ -181,7 +189,47 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Add founding members (connect callers to domain)
+      // Create a minimal Caller for the operator if they don't have one (needed for CohortGroup.ownerId)
+      if (!operatorCaller && userId) {
+        operatorCaller = await tx.caller.create({
+          data: {
+            name: authResult.session.user?.name || "Operator",
+            email: authResult.session.user?.email || undefined,
+            role: "ADMIN",
+            userId,
+            domainId: domain.id,
+          },
+          select: { id: true },
+        });
+      }
+
+      // Create CohortGroup with join token (reuses classroom join infrastructure)
+      const cohortGroup = await tx.cohortGroup.create({
+        data: {
+          name: name.trim(),
+          domainId: domain.id,
+          ownerId: operatorCaller!.id,
+          joinToken,
+          institutionId: institutionId || null,
+        },
+      });
+
+      // Link topic playbooks to CohortGroup so join flow auto-enrolls
+      const topicPlaybooks = await tx.playbook.findMany({
+        where: { domainId: domain.id, status: "PUBLISHED" },
+        select: { id: true },
+      });
+      if (topicPlaybooks.length > 0) {
+        await tx.cohortPlaybook.createMany({
+          data: topicPlaybooks.map((pb) => ({
+            cohortGroupId: cohortGroup.id,
+            playbookId: pb.id,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      // Add founding members (connect callers to domain + CohortGroup membership)
       if (memberCallerIds.length > 0) {
         await tx.domain.update({
           where: { id: domain.id },
@@ -191,9 +239,16 @@ export async function POST(request: NextRequest) {
             },
           },
         });
+        await tx.callerCohortMembership.createMany({
+          data: memberCallerIds.map((id: string) => ({
+            callerId: id,
+            cohortGroupId: cohortGroup.id,
+          })),
+          skipDuplicates: true,
+        });
       }
 
-      return domain;
+      return { domain, cohortGroupId: cohortGroup.id };
     });
 
     // 2. Scaffold domain — creates identity spec, main playbook, onboarding config
@@ -205,6 +260,21 @@ export async function POST(request: NextRequest) {
       forceNewPlaybook: communityKind === "TOPIC_BASED" && topics.length > 0,
     });
 
+    // 3. Link scaffold-created playbooks to CohortGroup (scaffold runs outside transaction)
+    const allPlaybooks = await prisma.playbook.findMany({
+      where: { domainId: community.id, status: "PUBLISHED" },
+      select: { id: true },
+    });
+    if (allPlaybooks.length > 0) {
+      await prisma.cohortPlaybook.createMany({
+        data: allPlaybooks.map((pb) => ({
+          cohortGroupId,
+          playbookId: pb.id,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
     const memberCount = memberCallerIds.length;
 
     return NextResponse.json({
@@ -214,6 +284,8 @@ export async function POST(request: NextRequest) {
         name: community.name,
         slug: community.slug,
         memberCount,
+        joinToken,
+        cohortGroupId,
       },
     });
   } catch (error: any) {

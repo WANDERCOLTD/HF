@@ -18,6 +18,8 @@ const TEACH_PLAN_POLL_MS = 10_000;
 import { SessionCountPicker } from "@/components/shared/SessionCountPicker";
 import { SortableList } from "@/components/shared/SortableList";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
+import { LessonPlanModelPicker } from "@/components/shared/LessonPlanModelPicker";
+import type { LessonPlanModel } from "@/lib/lesson-plan/types";
 import { reorderItems } from "@/lib/sortable/reorder";
 import { useTaskPoll, type PollableTask } from "@/hooks/useTaskPoll";
 import { FieldHint } from "@/components/shared/FieldHint";
@@ -89,6 +91,7 @@ export function TeachPlanStep({
   const [durationMins, setDurationMins] = useState(30);
   const [emphasis, setEmphasis] = useState<Emphasis>("balanced");
   const [assessments, setAssessments] = useState<Assessment>("light");
+  const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>("direct_instruction");
 
   // Generation state
   const [taskId, setTaskId] = useState<string | null>(restoredTaskId);
@@ -106,12 +109,14 @@ export function TeachPlanStep({
       durationMins: number;
       emphasis: Emphasis;
       assessments: Assessment;
+      lessonPlanModel?: LessonPlanModel;
     }>("curriculumIntents");
     if (saved) {
       if (saved.sessionCount != null) setSessionCount(saved.sessionCount);
       if (saved.durationMins) setDurationMins(saved.durationMins);
       if (saved.emphasis) setEmphasis(saved.emphasis);
       if (saved.assessments) setAssessments(saved.assessments);
+      if (saved.lessonPlanModel) setLessonPlanModel(saved.lessonPlanModel);
     }
     // Check for error from parent-level poll
     const currError = getData<string>("curriculumError");
@@ -282,9 +287,11 @@ export function TeachPlanStep({
       durationMins,
       emphasis,
       assessments,
+      lessonPlanModel,
     };
     setData("curriculumIntents", intents);
-  }, [sessionCount, durationMins, emphasis, assessments, setData]);
+    setData("lessonPlanModel", lessonPlanModel);
+  }, [sessionCount, durationMins, emphasis, assessments, lessonPlanModel, setData]);
 
   const handleGenerate = useCallback(async () => {
     if (taskId || phase === "generating") return;
@@ -420,6 +427,14 @@ export function TeachPlanStep({
             Tell us how you want to structure your teaching. We&apos;ll generate a curriculum
             from your uploaded content.
           </p>
+
+          {/* Teaching Model */}
+          <div>
+            <div className="hf-mb-xs">
+              <FieldHint label="Teaching model" hint={WIZARD_HINTS["course.model"]} labelClass="hf-label" />
+            </div>
+            <LessonPlanModelPicker value={lessonPlanModel} onChange={setLessonPlanModel} />
+          </div>
 
           {/* Session Count */}
           <div>

@@ -1,10 +1,12 @@
 "use client";
 
 /**
- * FieldHint — Gold UI contextual help popover for wizard labels.
+ * FieldHint — Gold UI contextual help for wizard labels.
  *
- * Renders a label with an inline (?) icon. On hover/tap, shows a structured
- * popover with Why? / Effect / Examples. CSS lives in globals.css (hf-field-hint-*).
+ * Renders a label with:
+ *   1. Always-visible "why" helper text below the label (subtle, 12px muted)
+ *   2. A (?) icon that toggles an inline expansion showing Effect + Examples
+ *      (accordion-style, pushes content down — never overlays the input)
  *
  * Optional `aiEnhanced` prop adds a sparkles icon to indicate the field has
  * AI auto-suggest (e.g. on blur). Pass `aiLoading` to animate it during fetch.
@@ -16,7 +18,7 @@
  */
 
 import { useState, useCallback } from "react";
-import { HelpCircle, Sparkles } from "lucide-react";
+import { HelpCircle, ChevronDown, Sparkles } from "lucide-react";
 
 export interface FieldHintContent {
   /** What is this for? */
@@ -24,7 +26,7 @@ export interface FieldHintContent {
   /** How it affects the AI / system */
   effect: string;
   /** Example values */
-  examples: string[];
+  examples: string[] | string;
 }
 
 interface FieldHintProps {
@@ -39,15 +41,16 @@ interface FieldHintProps {
 }
 
 export function FieldHint({ label, hint, labelClass = "dtw-section-label", aiEnhanced, aiLoading }: FieldHintProps) {
-  const [tapped, setTapped] = useState(false);
+  const [open, setOpen] = useState(false);
 
-  const handleTap = useCallback((e: React.MouseEvent) => {
+  const handleToggle = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setTapped((prev) => !prev);
+    setOpen((prev) => !prev);
   }, []);
 
-  const handleBlur = useCallback(() => setTapped(false), []);
+  const examples = Array.isArray(hint.examples) ? hint.examples : [hint.examples];
+  const hasExamples = examples.length > 0 && examples[0] !== "";
 
   return (
     <div className={labelClass}>
@@ -63,32 +66,31 @@ export function FieldHint({ label, hint, labelClass = "dtw-section-label", aiEnh
         )}
         <button
           type="button"
-          className={`hf-field-hint-trigger${tapped ? " hf-field-hint-trigger--active" : ""}`}
-          onClick={handleTap}
-          onBlur={handleBlur}
+          className={`hf-field-hint-trigger${open ? " hf-field-hint-trigger--active" : ""}`}
+          onClick={handleToggle}
           aria-label={`Help: ${label}`}
+          aria-expanded={open}
         >
-          <HelpCircle size={13} />
+          {open ? <ChevronDown size={13} /> : <HelpCircle size={13} />}
         </button>
-        <span className="hf-field-hint-popover" role="tooltip">
-          <span className="hf-field-hint-row">
-            <span className="hf-field-hint-key">Why?</span>
-            <span className="hf-field-hint-val">{hint.why}</span>
-          </span>
-          <span className="hf-field-hint-row">
+      </span>
+      <span className="hf-field-hint-why">{hint.why}</span>
+      {open && (
+        <div className="hf-field-hint-detail" role="region" aria-label={`Details: ${label}`}>
+          <div className="hf-field-hint-row">
             <span className="hf-field-hint-key">Effect</span>
             <span className="hf-field-hint-val">{hint.effect}</span>
-          </span>
-          {hint.examples.length > 0 && (
-            <span className="hf-field-hint-row">
+          </div>
+          {hasExamples && (
+            <div className="hf-field-hint-row">
               <span className="hf-field-hint-key">Examples</span>
               <span className="hf-field-hint-val hf-field-hint-examples">
-                {hint.examples.join(", ")}
+                {examples.join(", ")}
               </span>
-            </span>
+            </div>
           )}
-        </span>
-      </span>
+        </div>
+      )}
     </div>
   );
 }

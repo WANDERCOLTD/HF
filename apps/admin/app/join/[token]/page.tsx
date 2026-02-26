@@ -13,6 +13,7 @@ interface ClassroomInfo {
   institutionPrimaryColor?: string | null;
   institutionWelcome?: string | null;
   domainWelcome?: string | null;
+  isCommunity?: boolean;
 }
 
 export default function JoinPage() {
@@ -127,13 +128,17 @@ export default function JoinPage() {
                   style={{ height: 48, margin: "0 auto 12px", objectFit: "contain" }}
                 />
               ) : (
-                <div style={{ fontSize: 40, marginBottom: 12 }}>🏫</div>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>{classroom.isCommunity ? '🤝' : '🏫'}</div>
               )}
               <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
                 Join {classroom.name}
               </h1>
               <p style={{ fontSize: 14, color: "var(--text-muted)" }}>
-                {classroom.institutionWelcome ?? classroom.domainWelcome ?? `${classroom.teacher} has invited you to a learning experience`}
+                {classroom.institutionWelcome ?? classroom.domainWelcome ?? (
+                  classroom.isCommunity
+                    ? `You've been invited to join the ${classroom.name} community`
+                    : `${classroom.teacher} has invited you to a learning experience`
+                )}
               </p>
             </div>
 
@@ -240,7 +245,7 @@ export default function JoinPage() {
                 transition: "all 0.2s",
               }}
             >
-              {joining ? "Joining..." : "Join Classroom"}
+              {joining ? "Joining..." : classroom.isCommunity ? "Join Community" : "Join Classroom"}
             </button>
           </>
         ) : null}

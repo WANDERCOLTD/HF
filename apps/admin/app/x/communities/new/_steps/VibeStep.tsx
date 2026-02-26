@@ -45,27 +45,48 @@ function PatternChips({
   suggested: InteractionPattern | null;
   onSelect: (p: InteractionPattern) => void;
 }) {
+  const [hovered, setHovered] = useState<InteractionPattern | null>(null);
+  const effectivePattern = selected ?? suggested;
+  const previewPattern = hovered ?? effectivePattern;
+
   return (
-    <div className="hf-chip-row">
-      {COMMUNITY_PATTERNS.map((p) => {
-        const isSelected = selected === p;
-        const isSuggested = !selected && suggested === p;
-        const info = INTERACTION_PATTERN_LABELS[p];
-        return (
-          <button
-            key={p}
-            type="button"
-            onClick={() => onSelect(p)}
-            className={isSelected || isSuggested ? 'hf-chip hf-chip-selected' : 'hf-chip'}
-            title={info.description}
-          >
-            <span>{info.icon}</span>
-            <span>{COMMUNITY_PATTERN_LABELS[p] ?? info.label}</span>
-            {isSuggested && <span className="hf-chip-badge">Suggested</span>}
-          </button>
-        );
-      })}
-    </div>
+    <>
+      <div className="hf-chip-row">
+        {COMMUNITY_PATTERNS.map((p) => {
+          const isSelected = selected === p;
+          const isSuggested = !selected && suggested === p;
+          const info = INTERACTION_PATTERN_LABELS[p];
+          return (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onSelect(p)}
+              onMouseEnter={() => setHovered(p)}
+              onMouseLeave={() => setHovered(null)}
+              className={isSelected || isSuggested ? 'hf-chip hf-chip-selected' : 'hf-chip'}
+            >
+              <span>{info.icon}</span>
+              <span>{COMMUNITY_PATTERN_LABELS[p] ?? info.label}</span>
+              {isSuggested && <span className="hf-chip-badge">Suggested</span>}
+            </button>
+          );
+        })}
+      </div>
+      {previewPattern ? (
+        <div className="hf-chip-preview">
+          <span className="hf-chip-preview-label">
+            {INTERACTION_PATTERN_LABELS[previewPattern].icon}{' '}
+            {COMMUNITY_PATTERN_LABELS[previewPattern] ?? INTERACTION_PATTERN_LABELS[previewPattern].label}:
+          </span>
+          <span className="hf-chip-preview-desc">{INTERACTION_PATTERN_LABELS[previewPattern].description}</span>
+          <span className="hf-chip-preview-examples">{INTERACTION_PATTERN_LABELS[previewPattern].examples}</span>
+        </div>
+      ) : (
+        <div className="hf-chip-preview">
+          <span className="hf-chip-preview-empty">Hover over an option to learn more</span>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -193,14 +214,6 @@ export function VibeStep({ getData, setData, onNext, onPrev }: StepRenderProps) 
               suggested={suggestedHubPattern}
               onSelect={(p) => { setHubPattern(p); setSuggestedHubPattern(null); }}
             />
-            {effectivePattern && (
-              <p className="hf-hint hf-mt-xs">
-                <strong>{INTERACTION_PATTERN_LABELS[effectivePattern].label}:</strong>{' '}
-                {INTERACTION_PATTERN_LABELS[effectivePattern].description}
-                {' · '}
-                <em>{INTERACTION_PATTERN_LABELS[effectivePattern].examples}</em>
-              </p>
-            )}
           </div>
 
           <div className="hf-banner hf-banner-info hf-mb-lg">
@@ -272,15 +285,6 @@ export function VibeStep({ getData, setData, onNext, onPrev }: StepRenderProps) 
                   suggested={topic.suggestedPattern}
                   onSelect={(p) => handleTopicPatternSelect(index, p)}
                 />
-                {(topic.pattern ?? topic.suggestedPattern) && (
-                  <p className="hf-hint hf-mt-xs">
-                    {(() => {
-                      const p = topic.pattern ?? topic.suggestedPattern!;
-                      const info = INTERACTION_PATTERN_LABELS[p];
-                      return <>{info.icon} <strong>{COMMUNITY_PATTERN_LABELS[p] ?? info.label}:</strong> {info.description}</>;
-                    })()}
-                  </p>
-                )}
               </div>
             </div>
           ))}

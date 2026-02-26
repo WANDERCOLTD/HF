@@ -221,6 +221,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
   const [personas, setPersonas] = useState<PersonaInfo[]>([]);
   const [personasLoading, setPersonasLoading] = useState(true);
   const [selectedPersona, setSelectedPersona] = useState("");
+  const [hoveredPersona, setHoveredPersona] = useState<string | null>(null);
 
   // Course readiness
   const [checks, setChecks] = useState<CourseCheck[]>([]);
@@ -1752,22 +1753,32 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
 
           {/* Persona selector (Teach flow only) */}
           {isTeachFlow && !personasLoading && personas.length > 1 && (
-            <div className="dtw-persona-section">
+            <div style={{ marginTop: 16 }}>
               <div className="dtw-section-label">Guide Persona</div>
-              <div className="dtw-persona-chips">
+              <div className="hf-chip-row">
                 {personas.map((p) => (
                   <button
                     key={p.slug}
                     onClick={() => setSelectedPersona(p.slug)}
-                    className={`dtw-persona-chip ${selectedPersona === p.slug ? "dtw-persona-chip-selected" : ""}`}
+                    onMouseEnter={() => setHoveredPersona(p.slug)}
+                    onMouseLeave={() => setHoveredPersona(null)}
+                    className={`hf-chip${selectedPersona === p.slug ? " hf-chip-selected" : ""}`}
                   >
-                    <span className="dtw-persona-chip-name">{p.name}</span>
-                    {p.description && (
-                      <span className="dtw-persona-chip-desc">{p.description}</span>
-                    )}
+                    {p.name}
                   </button>
                 ))}
               </div>
+              {(() => {
+                const previewSlug = hoveredPersona || selectedPersona;
+                const previewP = personas.find((p) => p.slug === previewSlug);
+                if (!previewP) return null;
+                return (
+                  <div className="hf-chip-preview">
+                    <span className="hf-chip-preview-label">{previewP.name}:</span>
+                    <span className="hf-chip-preview-desc">{previewP.description}</span>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

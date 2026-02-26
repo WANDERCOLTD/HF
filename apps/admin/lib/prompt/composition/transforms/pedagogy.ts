@@ -106,6 +106,36 @@ registerTransform("computeSessionPedagogy", (
       label: lessonPlanEntry.label,
     };
 
+    // Phase-driven flow (model-aware) — when lesson plan entry has phases
+    if (lessonPlanEntry.phases?.length) {
+      plan.flow = lessonPlanEntry.phases.map((phase: any, i: number) => {
+        const dur = phase.durationMins ? ` (${phase.durationMins}m)` : "";
+        const methods = phase.teachMethods?.length
+          ? ` — use ${phase.teachMethods.join("/")} techniques` : "";
+        const guidance = phase.guidance ? ` — ${phase.guidance}` : "";
+        return `${i + 1}. ${phase.label}${dur}${methods}${guidance}`;
+      });
+
+      if (moduleToReview && lessonPlanSessionType !== "introduce") {
+        plan.reviewFirst = {
+          module: moduleToReview.name,
+          reason: reviewReason || "Spaced retrieval before new material",
+          technique: reviewType === "quick_recall"
+            ? "Ask one recall question, wait for their attempt"
+            : "Walk through concepts with fresh examples",
+        };
+      }
+
+      if (nextModule) {
+        plan.newMaterial = {
+          module: nextModule.name,
+          approach: `Session focus: ${lessonPlanEntry.label}`,
+        };
+      }
+
+      console.log(`[pedagogy] Phase-driven session ${currentSessionNumber}: ${lessonPlanSessionType} with ${lessonPlanEntry.phases.length} phases`);
+    } else {
+    // Fallback to hardcoded flows per session type (backward compatible)
     switch (lessonPlanSessionType) {
       case "introduce":
         plan.flow = [
@@ -193,6 +223,7 @@ registerTransform("computeSessionPedagogy", (
     }
 
     console.log(`[pedagogy] Lesson plan session ${currentSessionNumber}: ${lessonPlanSessionType} - ${lessonPlanEntry.label}`);
+    } // end fallback switch
   } else {
     // === GENERIC RETURNING CALLER MODE ===
     plan.flow = [

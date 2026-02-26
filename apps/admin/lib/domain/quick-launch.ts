@@ -61,6 +61,7 @@ export interface QuickLaunchInput {
   institutionId?: string; // Link domain to an institution
   behaviorTargets?: Record<string, number>; // Matrix/pill-derived behavior targets → BehaviorTarget rows + onboardingDefaultTargets
   matrixPositions?: Record<string, { x: number; y: number }>; // UI metadata for round-trip matrix reconstruction
+  groupId?: string; // Optional department/division/track grouping
 }
 
 export interface QuickLaunchResult {
@@ -508,6 +509,7 @@ const stepExecutors: Record<string, StepExecutor> = {
         extendsAgent: archetype || undefined,
         forceNewPlaybook: !!ctx.results.useExistingDomain,
         playbookName: ctx.results.useExistingDomain ? ctx.input.subjectName : undefined,
+        groupId: ctx.input.groupId || undefined,
       }, ctx.tx);
 
       if (scaffoldResult.identitySpec) {
@@ -823,6 +825,7 @@ const stepExecutors: Record<string, StepExecutor> = {
           domainId,
           ownerId: facilitator.id,
           institutionId: ctx.input.institutionId ?? undefined,
+          groupId: ctx.input.groupId || undefined,
           joinToken,
         },
       });

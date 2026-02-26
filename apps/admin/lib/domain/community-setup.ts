@@ -25,6 +25,7 @@ export interface CommunitySetupInput {
   memberEmails: string[];
   domainId?: string; // if attaching to existing hub
   institutionId?: string; // parent institution
+  groupId?: string; // optional department/division/track grouping
 }
 
 export interface CommunitySetupResult {
@@ -153,6 +154,7 @@ const stepExecutors: Record<
     const scaffoldResult = await scaffoldDomain(domain.id, {
       playbookName: ctx.input.communityName,
       extendsAgent: "COMPANION-001",
+      groupId: ctx.input.groupId || undefined,
     });
 
     if (scaffoldResult.playbook) {
@@ -169,6 +171,7 @@ const stepExecutors: Record<
         domainId: domain.id,
         ownerId: ctx.userId,
         institutionId: ctx.input.institutionId || null,
+        groupId: ctx.input.groupId || undefined,
       },
     });
 

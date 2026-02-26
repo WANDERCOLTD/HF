@@ -84,16 +84,6 @@
 .dtw-suggestion-chip { padding: 6px 14px; border-radius: 16px; background: color-mix(in srgb, var(--accent-primary) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent-primary) 20%, transparent); color: var(--accent-primary); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
 .dtw-suggestion-chip:hover { background: color-mix(in srgb, var(--accent-primary) 18%, transparent); }
 
-/* Persona selector (Teach flow) */
-.dtw-persona-section { margin-top: 16px; }
-.dtw-persona-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-.dtw-persona-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border-default); background: var(--surface-primary); cursor: pointer; transition: all 0.15s; text-align: left; }
-.dtw-persona-chip:hover { border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent); background: color-mix(in srgb, var(--accent-primary) 4%, var(--surface-primary)); }
-.dtw-persona-chip-selected { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 8%, var(--surface-primary)); box-shadow: 0 0 0 1px var(--accent-primary); }
-.dtw-persona-chip-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.dtw-persona-chip-selected .dtw-persona-chip-name { color: var(--accent-primary); }
-.dtw-persona-chip-desc { font-size: 11px; color: var(--text-muted); line-height: 1.3; }
-
 /* Agent tuning section (Goal step) */
 .dtw-tuning-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-default); }
 .dtw-tuning-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4; }
@@ -290,7 +280,7 @@
 .dtw-btn-create-new:hover { border-color: var(--accent-primary); color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); }
 
 /* ── Create Institution Modal ── */
-.dtw-modal-card { background: var(--surface-primary); border: 1px solid var(--border-default); border-radius: 16px; width: 440px; max-width: 90vw; box-shadow: 0 16px 48px rgba(0,0,0,0.2); overflow: hidden; }
+.dtw-modal-card { background: var(--surface-primary); border: 1px solid var(--border-default); border-radius: 16px; width: 440px; max-width: 90vw; box-shadow: 0 16px 48px color-mix(in srgb, black 20%, transparent); overflow: hidden; }
 .dtw-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; border-bottom: 1px solid var(--border-default); }
 .dtw-modal-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
 .dtw-modal-close { width: 28px; height: 28px; border: none; background: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; }

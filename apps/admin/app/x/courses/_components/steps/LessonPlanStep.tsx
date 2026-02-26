@@ -9,6 +9,8 @@ import { useTaskPoll, type PollableTask } from "@/hooks/useTaskPoll";
 import { reorderItems } from "@/lib/sortable/reorder";
 import { FieldHint } from "@/components/shared/FieldHint";
 import { WIZARD_HINTS } from "@/lib/wizard-hints";
+import { LessonPlanModelPicker } from "@/components/shared/LessonPlanModelPicker";
+import type { LessonPlanModel } from "@/lib/lesson-plan/types";
 import KnowledgeMapTree, { type SourceTree, type KnowledgeMapStats } from "@/components/shared/KnowledgeMapTree";
 import type { StepProps } from "../CourseSetupWizard";
 
@@ -27,6 +29,15 @@ type LessonEntry = {
   assertionCount?: number;
   questionCount?: number;
   vocabularyCount?: number;
+  phases?: Array<{
+    id: string;
+    label: string;
+    durationMins?: number;
+    teachMethods?: string[];
+    learningOutcomeRefs?: string[];
+    guidance?: string;
+  }>;
+  learningOutcomeRefs?: string[];
 };
 
 const SESSION_TYPES = [
@@ -68,6 +79,10 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
   const [durationMins, setDurationMins] = useState<number>(30);
   const [emphasis, setEmphasis] = useState<typeof EMPHASIS_OPTIONS[number]>("balanced");
   const [assessments, setAssessments] = useState<typeof ASSESSMENT_OPTIONS[number]>("light");
+  const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>("direct_instruction");
+
+  // Phase expansion (for session cards)
+  const [expandedSession, setExpandedSession] = useState<number | null>(null);
 
   // Lesson plan data
   const [entries, setEntries] = useState<LessonEntry[]>([]);
@@ -108,12 +123,13 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
 
   useEffect(() => {
     // Restore saved intents
-    const saved = getData<{ sessionCount: number; durationMins: number; emphasis: string; assessments: string }>("planIntents");
+    const saved = getData<{ sessionCount: number; durationMins: number; emphasis: string; assessments: string; lessonPlanModel?: string }>("planIntents");
     if (saved) {
       if (saved.sessionCount) setSessionCount(saved.sessionCount);
       if (saved.durationMins) setDurationMins(saved.durationMins);
       if (saved.emphasis) setEmphasis(saved.emphasis as typeof emphasis);
       if (saved.assessments) setAssessments(saved.assessments as typeof assessments);
+      if (saved.lessonPlanModel) setLessonPlanModel(saved.lessonPlanModel as LessonPlanModel);
     }
 
     // Check for saved plan first (stepping back & forward)
@@ -225,10 +241,12 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
       durationMins,
       emphasis,
       assessments,
+      lessonPlanModel,
     });
     setData("sessionCount", sessionCount || 12);
     setData("durationMins", durationMins);
     setData("emphasis", emphasis);
+    setData("lessonPlanModel", lessonPlanModel);
   }
 
   function handleSkip() {
@@ -264,6 +282,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
         body: JSON.stringify({
           courseName, learningOutcomes, teachingStyle, interactionPattern,
           sessionCount: sessionCount || 12, durationMins, emphasis, assessments,
+          lessonPlanModel,
         }),
         signal: controller.signal,
       });
@@ -454,6 +473,39 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
           ) : entry.estimatedDurationMins ? (
             <span className="hf-session-meta">{entry.estimatedDurationMins}m</span>
           ) : null}
+          {!skeleton && entry.phases?.length ? (
+            <button
+              className="hf-session-expand-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpandedSession(expandedSession === index ? null : index);
+              }}
+              title={expandedSession === index ? "Collapse phases" : "Show phases"}
+            >
+              <span className={`hf-chevron--sm${expandedSession === index ? " hf-chevron--open" : ""}`} />
+            </button>
+          ) : null}
+        </div>
+      )}
+      {/* Phase expansion */}
+      {!skeleton && expandedSession === index && entry.phases?.length && (
+        <div className="hf-session-phases">
+          {entry.phases.map((phase, pi) => (
+            <div key={phase.id + pi} className="hf-session-phase">
+              <span className="hf-session-phase-label">{phase.label}</span>
+              {phase.durationMins && (
+                <span className="hf-session-phase-dur">{phase.durationMins}m</span>
+              )}
+              {phase.teachMethods?.length ? (
+                <span className="hf-session-phase-methods">
+                  {phase.teachMethods.map((m) => `[${m}]`).join(" ")}
+                </span>
+              ) : null}
+              {phase.guidance && (
+                <span className="hf-session-phase-guidance">{phase.guidance}</span>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -665,6 +717,14 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
                 No content added — we&apos;ll generate the plan from your learning outcomes.
               </div>
             )}
+
+            {/* Teaching model */}
+            <div>
+              <div className="hf-mb-xs">
+                <FieldHint label="Teaching model" hint={WIZARD_HINTS["course.model"]} labelClass="hf-label" />
+              </div>
+              <LessonPlanModelPicker value={lessonPlanModel} onChange={setLessonPlanModel} />
+            </div>
 
             {/* Session count */}
             <SessionCountPicker value={sessionCount} onChange={setSessionCount} />

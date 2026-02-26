@@ -15,12 +15,14 @@ import { FancySelect } from '@/components/shared/FancySelect';
 import { AdvancedBanner } from '@/components/shared/AdvancedBanner';
 
 type Domain = { id: string; name: string };
+type Group = { id: string; name: string; groupType: string };
 
 type CourseListItem = {
   id: string;
   name: string;
   description: string | null;
   domain: Domain;
+  group: Group | null;
   studentCount: number;
   specCount: number;
   status: string;
@@ -41,6 +43,34 @@ const statusMap: Record<string, 'draft' | 'active' | 'archived'> = {
   published: 'active',
   archived: 'archived',
 };
+
+function CourseCard({ course, plural }: { course: CourseListItem; plural: (k: string) => string }) {
+  return (
+    <Link
+      href={`/x/courses/${course.id}`}
+      className={`hf-card-compact hf-card-link${course.status === 'archived' ? ' hf-faded' : ''}`}
+    >
+      <div className="hf-flex hf-flex-between hf-items-start hf-mb-sm">
+        <h3 className="hf-heading-sm hf-mb-0 hf-flex-1">{course.name}</h3>
+        <StatusBadge status={statusMap[course.status] || 'draft'} size="compact" />
+      </div>
+      <div className="hf-flex hf-gap-xs hf-mb-sm hf-flex-wrap">
+        <DomainPill label={course.domain.name} size="compact" />
+        {course.group && (
+          <span className="hf-pill hf-pill-neutral">{course.group.name}</span>
+        )}
+      </div>
+      {course.description && (
+        <p className="hf-text-xs hf-text-muted hf-mb-sm hf-line-clamp-2">{course.description}</p>
+      )}
+      <div className="hf-flex hf-gap-md hf-text-xs hf-text-muted hf-items-center">
+        <span><Users size={12} className="hf-icon-inline" /><strong>{course.studentCount}</strong> {plural('caller').toLowerCase()}</span>
+        <span><strong>{course.specCount}</strong> content</span>
+        <span className="hf-text-placeholder">v{course.version}</span>
+      </div>
+    </Link>
+  );
+}
 
 export default function CoursesPage() {
   const router = useRouter();
@@ -68,6 +98,8 @@ export default function CoursesPage() {
   const [search, setSearch] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
   const [selectedDomain, setSelectedDomain] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [groupBy, setGroupBy] = useState<'none' | 'department'>('none');
 
   // Wizard
   const showWizard = isSetupFlowActive && state?.flowId === 'create-course';
@@ -100,19 +132,63 @@ export default function CoursesPage() {
     if (!legacyId) loadCourses();
   }, [legacyId]);
 
+  // Derive unique groups from courses
+  const availableGroups = useMemo(() => {
+    const map = new Map<string, Group>();
+    for (const c of courses) {
+      if (c.group) map.set(c.group.id, c.group);
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [courses]);
+
   // Filter courses (client-side)
   const filteredCourses = useMemo(() => {
     return courses.filter((c) => {
       if (search) {
         const s = search.toLowerCase();
-        const matchesSearch = c.name.toLowerCase().includes(s) || c.description?.toLowerCase().includes(s) || c.domain.name.toLowerCase().includes(s);
+        const matchesSearch = c.name.toLowerCase().includes(s) || c.description?.toLowerCase().includes(s) || c.domain.name.toLowerCase().includes(s) || c.group?.name.toLowerCase().includes(s);
         if (!matchesSearch) return false;
       }
       if (selectedStatuses.size > 0 && !selectedStatuses.has(c.status.toUpperCase())) return false;
       if (selectedDomain && selectedDomain !== c.domain.id) return false;
+      if (selectedGroup && c.group?.id !== selectedGroup) return false;
       return true;
     });
-  }, [courses, search, selectedStatuses, selectedDomain]);
+  }, [courses, search, selectedStatuses, selectedDomain, selectedGroup]);
+
+  // Group courses by department for group-by view
+  const groupedCourses = useMemo(() => {
+    if (groupBy !== 'department') return null;
+    const groups: { label: string; courses: CourseListItem[] }[] = [];
+    const byGroup = new Map<string, CourseListItem[]>();
+    const ungrouped: CourseListItem[] = [];
+
+    for (const c of filteredCourses) {
+      if (c.group) {
+        const arr = byGroup.get(c.group.id) || [];
+        arr.push(c);
+        byGroup.set(c.group.id, arr);
+      } else {
+        ungrouped.push(c);
+      }
+    }
+
+    // Sort by group name
+    const sortedEntries = Array.from(byGroup.entries()).sort((a, b) => {
+      const nameA = a[1][0]?.group?.name || '';
+      const nameB = b[1][0]?.group?.name || '';
+      return nameA.localeCompare(nameB);
+    });
+
+    for (const [, items] of sortedEntries) {
+      groups.push({ label: items[0].group!.name, courses: items });
+    }
+    if (ungrouped.length > 0) {
+      groups.push({ label: 'Ungrouped', courses: ungrouped });
+    }
+
+    return groups;
+  }, [filteredCourses, groupBy]);
 
   const toggleStatus = (status: string) => {
     setSelectedStatuses((prev) => {
@@ -324,6 +400,43 @@ export default function CoursesPage() {
             </>
           )}
 
+          {/* Department Filter */}
+          {availableGroups.length > 0 && (
+            <>
+              <div className="hf-divider-v" />
+              <div className="hf-flex hf-gap-sm hf-items-center">
+                <span className="hf-text-xs hf-text-muted hf-text-bold">{terms.group || 'Department'}</span>
+                <FancySelect
+                  value={selectedGroup}
+                  onChange={setSelectedGroup}
+                  placeholder={`All`}
+                  clearable
+                  options={availableGroups.map((g) => ({ value: g.id, label: g.name }))}
+                  style={{ width: 160 }}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Group-by Toggle */}
+          {availableGroups.length > 0 && (
+            <>
+              <div className="hf-divider-v" />
+              <div className="hf-flex hf-gap-sm hf-items-center">
+                <span className="hf-text-xs hf-text-muted hf-text-bold">Group by</span>
+                <FancySelect
+                  value={groupBy}
+                  onChange={(v) => setGroupBy(v as 'none' | 'department')}
+                  options={[
+                    { value: 'none', label: 'None' },
+                    { value: 'department', label: terms.group || 'Department' },
+                  ]}
+                  style={{ width: 140 }}
+                />
+              </div>
+            </>
+          )}
+
           {/* Results count */}
           <span className="hf-text-xs hf-text-muted hf-text-bold">
             {filteredCourses.length} of {courses.length}
@@ -362,31 +475,31 @@ export default function CoursesPage() {
           )}
         </div>
       ) : (
-        <div className="hf-card-grid-lg">
-          {filteredCourses.map((course) => (
-            <Link
-              key={course.id}
-              href={`/x/courses/${course.id}`}
-              className={`hf-card-compact hf-card-link${course.status === 'archived' ? ' hf-faded' : ''}`}
-            >
-              <div className="hf-flex hf-flex-between hf-items-start hf-mb-sm">
-                <h3 className="hf-heading-sm hf-mb-0 hf-flex-1">{course.name}</h3>
-                <StatusBadge status={statusMap[course.status] || 'draft'} size="compact" />
+        {groupedCourses ? (
+          /* Group-by department view */
+          <div className="hf-flex hf-flex-col hf-gap-lg">
+            {groupedCourses.map((group) => (
+              <div key={group.label}>
+                <div className="hf-flex hf-items-center hf-gap-sm hf-mb-sm">
+                  <h2 className="hf-section-title hf-mb-0">{group.label}</h2>
+                  <span className="hf-badge hf-badge-neutral">{group.courses.length}</span>
+                </div>
+                <div className="hf-card-grid-lg">
+                  {group.courses.map((course) => (
+                    <CourseCard key={course.id} course={course} plural={plural} />
+                  ))}
+                </div>
               </div>
-              <div className="hf-mb-sm">
-                <DomainPill label={course.domain.name} size="compact" />
-              </div>
-              {course.description && (
-                <p className="hf-text-xs hf-text-muted hf-mb-sm hf-line-clamp-2">{course.description}</p>
-              )}
-              <div className="hf-flex hf-gap-md hf-text-xs hf-text-muted hf-items-center">
-                <span><Users size={12} className="hf-icon-inline" /><strong>{course.studentCount}</strong> {plural('caller').toLowerCase()}</span>
-                <span><strong>{course.specCount}</strong> content</span>
-                <span className="hf-text-placeholder">v{course.version}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          /* Flat view */
+          <div className="hf-card-grid-lg">
+            {filteredCourses.map((course) => (
+              <CourseCard key={course.id} course={course} plural={plural} />
+            ))}
+          </div>
+        )}
       )}
     </div>
   );

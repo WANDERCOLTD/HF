@@ -1,0 +1,72 @@
+/* Departments page styles */
+
+/* Common layout */
+.dept-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.dept-back-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.dept-review-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.dept-review-header-inner { display: flex; align-items: center; gap: 12px; }
+.dept-title-flush { margin: 0; }
+.dept-section-gap { margin-bottom: 24px; }
+.dept-section-gap-sm { margin-bottom: 20px; }
+.dept-desc-hint { margin-top: 8px; }
+.dept-desc-gap { margin-top: 4px; }
+
+/* Suggest phase */
+.dept-suggest-card { margin-bottom: 24px; }
+.dept-suggest-desc { margin-bottom: 12px; }
+.dept-tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.dept-action-row { display: flex; gap: 12px; margin-top: 16px; }
+.dept-btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.dept-skip-btn { opacity: 0.7; }
+
+/* Template phase */
+.dept-tmpl-list { display: flex; flex-direction: column; gap: 12px; }
+.dept-tmpl-card { cursor: pointer; }
+.dept-tmpl-inner { display: flex; justify-content: space-between; align-items: center; }
+
+/* Generate row */
+.dept-gen-row { display: flex; justify-content: flex-end; margin-top: 16px; }
+
+/* Questions phase */
+.dept-q-spacer { margin-bottom: 20px; }
+.dept-q-spacer:last-child { margin-bottom: 0; }
+.dept-radio-group { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.dept-radio-label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.dept-q-input { margin-top: 8px; }
+
+/* Review phase */
+.dept-group-list { display: flex; flex-direction: column; gap: 4px; }
+.dept-list-item { display: flex; align-items: center; gap: 12px; }
+.dept-grip-icon { opacity: 0.3; flex-shrink: 0; }
+.dept-item-body { flex: 1; }
+.dept-item-name { font-weight: 500; }
+.dept-item-notes { color: var(--text-muted); margin-left: 8px; font-size: 13px; }
+.dept-add-row { display: flex; gap: 8px; margin-bottom: 24px; }
+.dept-add-input { flex: 1; }
+.dept-footer-row { display: flex; justify-content: space-between; }
+
+/* Management view */
+.dept-empty-icon { opacity: 0.3; }
+
+/* Banners */
+.dept-banner-mt { margin-top: 16px; }
+.dept-banner-mb { margin-bottom: 16px; }
+.dept-dismiss-btn { margin-left: 8px; }
+
+/* Group card */
+.dept-card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+.dept-card-notes { font-size: 13px; color: var(--text-muted); margin-top: 4px; font-style: italic; }
+.dept-card-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* Modals */
+.dept-modal-card { max-width: 480px; margin: auto; }
+.dept-modal-card-lg { max-width: 520px; margin: auto; }
+.dept-field-group { margin-bottom: 16px; }
+.dept-type-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.dept-modal-footer { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Sliders */
+.dept-slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.dept-slider-label { width: 90px; font-size: 13px; color: var(--text-muted); text-transform: capitalize; }
+.dept-slider-input { flex: 1; }
+.dept-slider-value { width: 32px; font-size: 12px; color: var(--text-muted); text-align: right; }

@@ -141,6 +141,7 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
           selectedCallerIds: selectedCallerIds.length > 0 ? selectedCallerIds : undefined,
           behaviorTargets: behaviorTargets && Object.keys(behaviorTargets).length > 0 ? behaviorTargets : undefined,
           wizardTaskId: wizardTaskId || undefined,
+          groupId: getData<string>('groupId') || undefined,
         }),
         signal: controller.signal,
       });

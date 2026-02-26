@@ -686,7 +686,7 @@
   padding: 9px 18px;
   border-radius: 8px;
   background: var(--accent-primary);
-  color: #fff;
+  color: var(--surface-primary);
   font-size: 14px;
   font-weight: 600;
   border: none;
@@ -725,7 +725,7 @@
   padding: 12px 24px;
   border-radius: 10px;
   background: var(--accent-primary);
-  color: #fff;
+  color: var(--surface-primary);
   font-size: 16px;
   font-weight: 700;
   border: none;
@@ -782,10 +782,10 @@
 .tw-banner-warning {
   padding: 10px 14px;
   border-radius: 8px;
-  background: color-mix(in srgb, #f59e0b 8%, transparent);
-  color: #b45309;
+  background: color-mix(in srgb, var(--status-warning-text) 8%, transparent);
+  color: var(--status-warning-text);
   font-size: 13px;
-  border: 1px solid color-mix(in srgb, #f59e0b 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-warning-text) 25%, transparent);
 }
 
 .tw-banner-error {
