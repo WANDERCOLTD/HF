@@ -5,6 +5,7 @@ import { useParams, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEntityContext } from "@/contexts/EntityContext";
 import { DomainPill } from "@/src/components/shared/EntityPill";
+import { HierarchyBreadcrumb } from "@/components/shared/HierarchyBreadcrumb";
 import { Smartphone, User, BookMarked, PlayCircle, Brain, BarChart3, Target, BookOpen, ClipboardCheck, CheckSquare, GitBranch, MessageCircle, Gauge } from "lucide-react";
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
 import { CallerDomainSection } from "@/components/callers/CallerDomainSection";
@@ -414,12 +415,10 @@ export default function CallerDetailPage() {
   if (error || !data) {
     return (
       <div className="cdp-error-wrap">
+        <HierarchyBreadcrumb segments={[{ label: "Callers", href: backLink }]} />
         <div className="cdp-error-box">
           {error || "Caller not found"}
         </div>
-        <Link href={backLink} className="cdp-error-back">
-          ← Back to Callers
-        </Link>
       </div>
     );
   }
@@ -439,11 +438,16 @@ export default function CallerDetailPage() {
 
   return (
     <div className="cdp-root">
+      {/* Breadcrumb */}
+      <HierarchyBreadcrumb
+        className="cdp-breadcrumb"
+        segments={[
+          { label: "Callers", href: backLink },
+          { label: getCallerLabel(data.caller), href: `${isInXArea ? '/x' : ''}/callers/${callerId}` },
+        ]}
+      />
       {/* Header */}
       <div className="cdp-header">
-        <Link href={backLink} className="cdp-back-link">
-          ← Back to Callers
-        </Link>
         <div className="cdp-header-row">
           <div className="cdp-avatar">
             👤

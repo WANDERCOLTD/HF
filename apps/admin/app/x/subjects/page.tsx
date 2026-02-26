@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { BookOpen, Plus } from 'lucide-react';
 import { useTerminology } from '@/contexts/TerminologyContext';
@@ -12,7 +12,6 @@ import { TrustBadge, TRUST_LEVELS } from '@/app/x/content-sources/_components/sh
 import { BulkDeleteModal } from '@/components/shared/BulkDeleteModal';
 import { useBackgroundTaskQueue } from '@/components/shared/ContentJobQueue';
 import type { BulkDeletePreview, BulkDeleteResult } from '@/lib/admin/bulk-delete';
-import SubjectDetail from './_components/SubjectDetail';
 import SubjectCreateModal from './_components/SubjectCreateModal';
 
 type Subject = {
@@ -52,8 +51,6 @@ const TRUST_PILLS = [
 
 export default function SubjectsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const selectedId = searchParams.get('id');
   const { data: session } = useSession();
   const isOperator = ['OPERATOR', 'EDUCATOR', 'ADMIN', 'SUPERADMIN'].includes((session?.user?.role as string) || '');
   const { terms, plural } = useTerminology();
@@ -127,7 +124,7 @@ export default function SubjectsPage() {
   }), [subjects]);
 
   const selectSubject = (id: string) => {
-    router.push(`/x/subjects?id=${id}`, { scroll: false });
+    router.push(`/x/subjects/${id}`);
   };
 
   const toggleTrustLevel = (level: string) => {
@@ -158,7 +155,7 @@ export default function SubjectsPage() {
   );
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="hf-page-container hf-page-scroll">
       <AdvancedBanner />
 
       {/* Header + Filters */}
@@ -273,10 +270,8 @@ export default function SubjectsPage() {
         </div>
       )}
 
-      {/* Master-Detail Layout */}
-      <div className="hf-flex hf-gap-lg hf-flex-1" style={{ minHeight: 0, overflow: 'hidden', alignItems: 'stretch' }}>
-        {/* List Panel */}
-        <div className="hf-master-list">
+      {/* Subject List */}
+      <div>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[...Array(5)].map((_, i) => (
@@ -323,7 +318,7 @@ export default function SubjectsPage() {
                       selectSubject(subject.id);
                     }
                   }}
-                  className={`hf-master-item${selectedId === subject.id && !selectionMode ? ' hf-master-item-selected' : ''}${!subject.isActive ? ' hf-master-item-inactive' : ''}${selectionMode && selectedSubjects.has(subject.id) ? ' hf-master-item-selected' : ''}`}
+                  className={`hf-master-item${!subject.isActive ? ' hf-master-item-inactive' : ''}${selectionMode && selectedSubjects.has(subject.id) ? ' hf-master-item-selected' : ''}`}
                 >
                   <div className="hf-flex hf-gap-sm hf-mb-sm hf-items-center">
                     {selectionMode && (
@@ -370,25 +365,6 @@ export default function SubjectsPage() {
             </div>
           )}
         </div>
-
-        {/* Detail Panel */}
-        <div className="hf-master-detail-right">
-          {!selectedId ? (
-            <div className="hf-flex-center hf-text-placeholder" style={{ height: '100%' }}>
-              <div className="hf-text-center">
-                <BookOpen size={48} style={{ color: 'var(--text-tertiary)', marginBottom: 12 }} />
-                <div className="hf-text-md">Select a subject to view details</div>
-              </div>
-            </div>
-          ) : (
-            <SubjectDetail
-              subjectId={selectedId}
-              onSubjectUpdated={loadSubjects}
-              isOperator={isOperator}
-            />
-          )}
-        </div>
-      </div>
 
       {/* Success message */}
       {successMessage && (
@@ -447,8 +423,8 @@ export default function SubjectsPage() {
             setSelectedSubjects(new Set());
             loadSubjects();
             // If current detail was deleted, clear selection
-            if (selectedId && result.succeeded.some((s) => s.id === selectedId)) {
-              router.push('/x/subjects', { scroll: false });
+            if (result.succeeded.length > 0) {
+              router.push('/x/subjects');
             }
             setSuccessMessage(
               `Deleted ${result.totalDeleted} subject${result.totalDeleted === 1 ? '' : 's'}${result.totalFailed ? ` (${result.totalFailed} failed)` : ''}`
@@ -470,8 +446,7 @@ export default function SubjectsPage() {
         onClose={() => setShowCreateModal(false)}
         onCreated={(id) => {
           setShowCreateModal(false);
-          loadSubjects();
-          router.push(`/x/subjects?id=${id}`, { scroll: false });
+          router.push(`/x/subjects/${id}`);
         }}
       />
     </div>

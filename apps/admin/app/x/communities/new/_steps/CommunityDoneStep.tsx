@@ -259,11 +259,11 @@ export function CommunityDoneStep({ getData, setData, onPrev, endFlow }: StepRen
             <button
               onClick={() => {
                 endFlow();
-                router.push('/x/communities');
+                router.push('/x/communities/new');
               }}
               className="hf-btn hf-btn-secondary hf-flex hf-items-center hf-gap-sm"
             >
-              All communities
+              Create Another
               <ArrowRight size={16} />
             </button>
           </div>

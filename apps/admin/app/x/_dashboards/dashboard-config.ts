@@ -267,6 +267,13 @@ export const WIZARD_ACTIONS = [
     description: "Set up a new group",
     primary: false,
   },
+  {
+    label: "Try It",
+    icon: "PlayCircle",
+    href: "/x/educator/try",
+    description: "Preview the voice AI prompt",
+    primary: false,
+  },
 ];
 
 // ── Helpers ─────────────────────────────────────────────────
