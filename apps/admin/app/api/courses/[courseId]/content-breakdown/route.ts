@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import { getSourceIdsForPlaybook } from "@/lib/knowledge/domain-sources";
+import { getSubjectsForPlaybook } from "@/lib/knowledge/domain-sources";
 
 /**
  * @api GET /api/courses/:courseId/content-breakdown
@@ -10,6 +10,8 @@ import { getSourceIdsForPlaybook } from "@/lib/knowledge/domain-sources";
  * @auth VIEWER
  * @tags courses, content-trust
  * @description Returns teaching point counts grouped by teachMethod for a course (playbook).
+ *   Only returns course-scoped sources (PlaybookSubject records) — does NOT fall back to
+ *   domain-wide sources. Returns { noCourseSources: true } if no subjects are linked yet.
  *   In summary mode (default), returns aggregate counts. In drill-down mode (when teachMethod
  *   query param is set), returns paginated individual assertions for that method.
  * @pathParam courseId string - Playbook UUID
@@ -86,8 +88,21 @@ export async function GET(
       }
       sourceIds = [sourceIdParam];
     } else {
-      // All sources for this course (playbook-scoped, domain fallback)
-      sourceIds = await getSourceIdsForPlaybook(courseId);
+      // Course-scoped only — no domain fallback for display.
+      // Domain fallback is for runtime prompt composition only; bleeding
+      // domain sources into a new course's content view causes false duplicates.
+      const { subjects, scoped } = await getSubjectsForPlaybook(courseId, domainId);
+      if (!scoped) {
+        return NextResponse.json({
+          ok: true,
+          teachingMode,
+          methods: [],
+          total: 0,
+          reviewedCount: 0,
+          noCourseSources: true,
+        });
+      }
+      sourceIds = [...new Set(subjects.flatMap((s) => s.sources.map((ss) => ss.sourceId)))];
     }
 
     if (sourceIds.length === 0) {
@@ -237,21 +252,8 @@ export async function GET(
         },
       });
 
-      // Fall back to domain-wide if no PlaybookSubject records
-      const subjectRecords = playbookSubjects.length > 0
-        ? playbookSubjects.map((ps) => ps.subject)
-        : (await prisma.subjectDomain.findMany({
-            where: { domainId },
-            select: {
-              subject: {
-                select: {
-                  id: true,
-                  name: true,
-                  sources: { select: { sourceId: true } },
-                },
-              },
-            },
-          })).map((sd) => sd.subject);
+      // If we reached here, scoped=true, so playbookSubjects is always populated
+      const subjectRecords = playbookSubjects.map((ps) => ps.subject);
 
       bySubjectData = [];
       for (const subject of subjectRecords) {

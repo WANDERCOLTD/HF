@@ -165,6 +165,13 @@ async function runGeneratePlan(
         },
       });
 
+      // Link uploaded document to the new subject so content is scoped to this course
+      if (sourceId) {
+        await tx.subjectSource.create({
+          data: { subjectId: subject.id, sourceId, tags: ["content"] },
+        });
+      }
+
       return { subject, curriculumRecord };
     });
 

@@ -239,6 +239,18 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
     }
     ctx.results.subjectId = subject.id;
 
+    // 2b. Link uploaded ContentSource to Subject (if sourceId provided and not already linked)
+    if (ctx.input.sourceId) {
+      const existingSourceLink = await prisma.subjectSource.findFirst({
+        where: { subjectId: subject.id, sourceId: ctx.input.sourceId },
+      });
+      if (!existingSourceLink) {
+        await prisma.subjectSource.create({
+          data: { subjectId: subject.id, sourceId: ctx.input.sourceId, tags: ["content"] },
+        });
+      }
+    }
+
     // 3. Link Subject to Domain
     const existing = await prisma.subjectDomain.findFirst({
       where: { subjectId: subject.id, domainId: domain.id },
