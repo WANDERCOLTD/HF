@@ -30,7 +30,12 @@ export async function saveQuestions(
   });
   const existingHashes = new Set(existing.map((e) => e.contentHash).filter(Boolean));
 
-  const toCreate = questions.filter((q) => !existingHashes.has(q.contentHash));
+  const seen = new Set<string>();
+  const toCreate = questions.filter((q) => {
+    if (existingHashes.has(q.contentHash) || seen.has(q.contentHash)) return false;
+    seen.add(q.contentHash);
+    return true;
+  });
   const duplicatesSkipped = questions.length - toCreate.length;
 
   if (toCreate.length === 0) {

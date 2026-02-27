@@ -15,7 +15,6 @@ import {
   PRESET_OPTIONS,
   resolveTerminology,
 } from "@/lib/terminology/types";
-import { HierarchyBreadcrumb } from "@/components/shared/HierarchyBreadcrumb";
 import { DraggableTabs, type TabDefinition } from "@/components/shared/DraggableTabs";
 import "./institution-detail.css";
 
@@ -268,7 +267,6 @@ export default function InstitutionDetailPage() {
   if (fetchError === "forbidden") {
     return (
       <div className="hf-page-container">
-        <HierarchyBreadcrumb segments={[{ label: "Institutions", href: "/x/institutions" }]} />
         <div className="hf-banner hf-banner-error hf-mt-md">
           You don&apos;t have permission to view this institution.
         </div>
@@ -282,7 +280,6 @@ export default function InstitutionDetailPage() {
   if (!institution) {
     return (
       <div className="hf-page-container">
-        <HierarchyBreadcrumb segments={[{ label: "Institutions", href: "/x/institutions" }]} />
         <div className="hf-banner hf-banner-error hf-mt-md">Institution not found.</div>
       </div>
     );
@@ -305,13 +302,6 @@ export default function InstitutionDetailPage() {
 
   return (
     <div className="hf-page-container hf-page-scroll">
-      <HierarchyBreadcrumb
-        segments={[
-          { label: "Institutions", href: "/x/institutions" },
-          { label: institution.name, href: `/x/institutions/${id}` },
-        ]}
-      />
-
       {/* ── Hero ─────────────────────────────── */}
       <div className="inst-detail-hero">
         {hasLogo ? (

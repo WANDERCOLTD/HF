@@ -55,6 +55,7 @@ export interface LessonPlanOptions {
   sessionLength?: number; // default 30 min
   includeAssessment?: boolean; // default true
   includeReview?: boolean; // default true
+  targetSessionCount?: number; // if set, consolidate small sessions to hit this target
 }
 
 // ------------------------------------------------------------------
@@ -86,6 +87,7 @@ export async function generateLessonPlan(
   const sessionLength = options.sessionLength || DEFAULT_SESSION_LENGTH;
   const includeAssessment = options.includeAssessment !== false;
   const includeReview = options.includeReview !== false;
+  const targetSessionCount = options.targetSessionCount;
 
   // Load content
   const [assertions, questions, vocabulary] = await Promise.all([
@@ -192,6 +194,12 @@ export async function generateLessonPlan(
       }
     }
   }
+
+  // Consolidate small sessions into session-length blocks
+  const teachSessions = consolidateSessions(sessions, { sessionLength, targetSessionCount });
+  sessions.length = 0;
+  sessions.push(...teachSessions);
+  sessionNumber = sessions.length + 1;
 
   // Add assessment session if requested
   if (includeAssessment && questions.length > 0) {
@@ -308,6 +316,80 @@ async function resolveSessionMedia(sessions: LessonSession[]): Promise<void> {
       session.media = media;
     }
   }
+}
+
+// ------------------------------------------------------------------
+// Session consolidation
+// ------------------------------------------------------------------
+
+/**
+ * Merge consecutive small sessions until each reaches the target duration.
+ * Greedy first-fit: walk sessions in order, keep merging the next one into the
+ * current "bucket" until adding it would exceed `targetMinutes`. Then start a
+ * new bucket.
+ *
+ * If `targetSessionCount` is provided, we derive `targetMinutes` from the total
+ * estimated time ÷ target count (clamped to a sane range).
+ */
+export function consolidateSessions(
+  sessions: LessonSession[],
+  opts: { sessionLength: number; targetSessionCount?: number },
+): LessonSession[] {
+  if (sessions.length <= 1) return sessions;
+
+  const totalMinutes = sessions.reduce((s, sess) => s + sess.estimatedMinutes, 0);
+
+  // Derive how full each consolidated session should be
+  let targetMinutes: number;
+  if (opts.targetSessionCount && opts.targetSessionCount > 0) {
+    // Use target count to size sessions, but clamp between 5 and 2× sessionLength
+    targetMinutes = Math.max(5, Math.min(totalMinutes / opts.targetSessionCount, opts.sessionLength * 2));
+  } else {
+    // Default: fill to 80% of session length so there's breathing room
+    targetMinutes = opts.sessionLength * 0.8;
+  }
+
+  const consolidated: LessonSession[] = [];
+  let bucket: LessonSession | null = null;
+
+  for (const sess of sessions) {
+    if (!bucket) {
+      bucket = { ...sess };
+      continue;
+    }
+
+    // Would adding this session exceed the target?
+    if (bucket.estimatedMinutes + sess.estimatedMinutes > targetMinutes && bucket.estimatedMinutes > 0) {
+      consolidated.push(bucket);
+      bucket = { ...sess };
+    } else {
+      // Merge into current bucket
+      bucket = mergeTwoSessions(bucket, sess);
+    }
+  }
+  if (bucket) consolidated.push(bucket);
+
+  // Re-number
+  for (let i = 0; i < consolidated.length; i++) {
+    consolidated[i].sessionNumber = i + 1;
+  }
+
+  return consolidated;
+}
+
+/** Merge session B into session A, combining all content arrays and picking the best title. */
+function mergeTwoSessions(a: LessonSession, b: LessonSession): LessonSession {
+  return {
+    sessionNumber: a.sessionNumber, // re-numbered later
+    title: a.title, // AI refinement fixes titles afterward
+    objectives: [...a.objectives, ...b.objectives].slice(0, 5),
+    assertionIds: [...a.assertionIds, ...b.assertionIds],
+    questionIds: [...a.questionIds, ...b.questionIds],
+    vocabularyIds: [...a.vocabularyIds, ...b.vocabularyIds],
+    estimatedMinutes: a.estimatedMinutes + b.estimatedMinutes,
+    sessionType: a.sessionType === "practice" || b.sessionType === "practice" ? "practice" : "introduce",
+    media: [...(a.media || []), ...(b.media || [])],
+  };
 }
 
 // ------------------------------------------------------------------

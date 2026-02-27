@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { DraggableTabs } from "@/components/shared/DraggableTabs";
 import { DomainPill } from "@/src/components/shared/EntityPill";
-import { HierarchyBreadcrumb } from "@/components/shared/HierarchyBreadcrumb";
 import {
   ArrowLeft,
   Users,
@@ -147,7 +146,6 @@ export default function CohortDashboardPage() {
   if (error || !dashboard) {
     return (
       <div className="hf-p-lg">
-        <HierarchyBreadcrumb segments={[{ label: "Cohorts", href: "/x/cohorts" }]} />
         <div className="hf-banner hf-banner-error hf-mt-md">
           {error || "Cohort not found"}
         </div>
@@ -161,13 +159,6 @@ export default function CohortDashboardPage() {
     <div className="hf-page-container hf-page-scroll">
       {/* Header */}
       <div style={{ padding: "16px 24px 0 24px" }}>
-        <HierarchyBreadcrumb
-          segments={[
-            { label: "Cohorts", href: "/x/cohorts" },
-            { label: cohort.name, href: `/x/cohorts/${cohortId}` },
-          ]}
-        />
-
         <div className="hf-flex-between hf-items-start hf-mb-md">
           <div>
             <div className="hf-flex hf-gap-sm hf-items-center hf-mb-xs">

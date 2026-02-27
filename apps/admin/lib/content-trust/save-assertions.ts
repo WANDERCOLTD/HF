@@ -36,13 +36,15 @@ export async function saveAssertions(
   );
 
   const toCreate: ExtractedAssertion[] = [];
+  const seen = new Set<string>();
   let duplicatesSkipped = 0;
 
   for (const assertion of assertions) {
-    if (existingHashes.has(assertion.contentHash)) {
+    if (existingHashes.has(assertion.contentHash) || seen.has(assertion.contentHash)) {
       duplicatesSkipped++;
       continue;
     }
+    seen.add(assertion.contentHash);
     toCreate.push(assertion);
   }
 
@@ -63,6 +65,7 @@ export async function saveAssertions(
         teachMethod: a.teachMethod || null,
         figureRefs: a.figureRefs?.length ? a.figureRefs : [],
       })),
+      skipDuplicates: true,
     });
   }
 

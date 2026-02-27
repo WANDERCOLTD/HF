@@ -9,6 +9,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
  * @auth bearer
  * @tags admin, masquerade
  * @query search - Optional name/email search filter
+ * @query role - Optional role filter (e.g. EDUCATOR, STUDENT)
  * @description List users available to step in as (excludes current user, active only, max 50)
  * @response { users: Array<{ id, email, name, displayName, role, assignedDomainId, assignedDomain }> }
  */
@@ -19,11 +20,16 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("search")?.trim() || "";
+  const role = searchParams.get("role")?.trim() || "";
 
   const where: Record<string, unknown> = {
     id: { not: session.user.id }, // Exclude self
     isActive: true,
   };
+
+  if (role) {
+    where.role = role;
+  }
 
   if (search) {
     where.OR = [

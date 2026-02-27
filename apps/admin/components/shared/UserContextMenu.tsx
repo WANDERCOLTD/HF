@@ -16,6 +16,8 @@ import {
   Loader2,
   Bug,
   Radio,
+  GraduationCap,
+  BookOpen,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useMasquerade } from "@/contexts/MasqueradeContext";
@@ -65,8 +67,10 @@ export function UserContextMenu({
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [stepInOpen, setStepInOpen] = useState(false);
   const [stepInSearch, setStepInSearch] = useState("");
+  const [stepInRoleFilter, setStepInRoleFilter] = useState("");
   const [stepInUsers, setStepInUsers] = useState<{ id: string; email: string; name: string | null; displayName: string | null; role: string }[]>([]);
   const [stepInLoading, setStepInLoading] = useState(false);
+  const [quickPickLoading, setQuickPickLoading] = useState<string>("");
   const stepInSearchRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { isMasquerading, startMasquerade } = useMasquerade();
@@ -120,11 +124,14 @@ export function UserContextMenu({
   }, [deepLogging]);
 
   // Fetch users for step-in picker
-  const fetchStepInUsers = useCallback(async (q: string) => {
+  const fetchStepInUsers = useCallback(async (q: string, roleFilter: string) => {
     setStepInLoading(true);
     try {
-      const params = q ? `?search=${encodeURIComponent(q)}` : "";
-      const res = await fetch(`/api/admin/masquerade/users${params}`);
+      const params = new URLSearchParams();
+      if (q) params.set("search", q);
+      if (roleFilter) params.set("role", roleFilter);
+      const qs = params.toString();
+      const res = await fetch(`/api/admin/masquerade/users${qs ? `?${qs}` : ""}`);
       if (res.ok) {
         const data = await res.json();
         setStepInUsers(data.users || []);
@@ -134,12 +141,33 @@ export function UserContextMenu({
     }
   }, []);
 
+  // Quick step-in by role: auto-pick if exactly 1 user, otherwise show filtered list
+  const handleQuickStepIn = useCallback(async (role: "EDUCATOR" | "STUDENT") => {
+    setQuickPickLoading(role);
+    try {
+      const res = await fetch(`/api/admin/masquerade/users?role=${role}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const users = data.users || [];
+
+      if (users.length === 1) {
+        await startMasquerade(users[0].id);
+        onClose();
+      } else {
+        setStepInRoleFilter(role);
+        setStepInUsers(users);
+      }
+    } finally {
+      setQuickPickLoading("");
+    }
+  }, [startMasquerade, onClose]);
+
   // Fetch when step-in expands or search changes
   useEffect(() => {
     if (!stepInOpen) return;
-    const timer = setTimeout(() => fetchStepInUsers(stepInSearch), 200);
+    const timer = setTimeout(() => fetchStepInUsers(stepInSearch, stepInRoleFilter), 200);
     return () => clearTimeout(timer);
-  }, [stepInOpen, stepInSearch, fetchStepInUsers]);
+  }, [stepInOpen, stepInSearch, stepInRoleFilter, fetchStepInUsers]);
 
   // Auto-focus search when step-in expands
   useEffect(() => {
@@ -152,7 +180,9 @@ export function UserContextMenu({
       setAppearanceOpen(false);
       setStepInOpen(false);
       setStepInSearch("");
+      setStepInRoleFilter("");
       setStepInUsers([]);
+      setQuickPickLoading("");
     }
   }, [isOpen]);
 
@@ -348,6 +378,49 @@ export function UserContextMenu({
 
               {stepInOpen && (
                 <div className="mx-2 mb-1 p-2 rounded-lg bg-[var(--surface-secondary)]">
+                  {/* Quick-pick: Teacher / Learner */}
+                  <div className="flex gap-1.5 mb-2">
+                    {([
+                      { role: "EDUCATOR" as const, label: "Teacher", Icon: GraduationCap },
+                      { role: "STUDENT" as const, label: "Learner", Icon: BookOpen },
+                    ]).map(({ role, label, Icon }) => (
+                      <button
+                        key={role}
+                        onClick={() => handleQuickStepIn(role)}
+                        disabled={!!quickPickLoading}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[13px] font-medium rounded-lg border transition-colors hover:bg-[var(--hover-bg)]"
+                        style={{
+                          borderColor: stepInRoleFilter === role ? "var(--accent-primary)" : "var(--border-default)",
+                          background: stepInRoleFilter === role ? "var(--surface-primary)" : "transparent",
+                          color: stepInRoleFilter === role ? "var(--accent-primary)" : "var(--text-primary)",
+                          cursor: quickPickLoading ? "wait" : "pointer",
+                        }}
+                      >
+                        {quickPickLoading === role
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : <Icon className="w-4 h-4" />
+                        }
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Filter indicator */}
+                  {stepInRoleFilter && (
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                        Showing {stepInRoleFilter === "EDUCATOR" ? "teachers" : "learners"}
+                      </span>
+                      <button
+                        onClick={() => { setStepInRoleFilter(""); setStepInSearch(""); }}
+                        className="text-[11px] font-medium transition-colors hover:underline"
+                        style={{ color: "var(--accent-primary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                      >
+                        Show all
+                      </button>
+                    </div>
+                  )}
+
                   {/* Search input */}
                   <div className="relative mb-2">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />
@@ -356,7 +429,7 @@ export function UserContextMenu({
                       type="text"
                       value={stepInSearch}
                       onChange={(e) => setStepInSearch(e.target.value)}
-                      placeholder="Search users…"
+                      placeholder={stepInRoleFilter ? `Search ${stepInRoleFilter === "EDUCATOR" ? "teachers" : "learners"}…` : "Search all users…"}
                       className="w-full rounded-md border pl-8 pr-3 py-2 text-[13px] outline-none transition-colors focus:border-[var(--accent-primary)]"
                       style={{
                         borderColor: "var(--border-default)",
@@ -374,7 +447,9 @@ export function UserContextMenu({
                       </div>
                     ) : stepInUsers.length === 0 ? (
                       <div className="py-3 text-center text-xs" style={{ color: "var(--text-muted)" }}>
-                        No users found
+                        {stepInRoleFilter
+                          ? `No ${stepInRoleFilter === "EDUCATOR" ? "teachers" : "learners"} found`
+                          : "No users found"}
                       </div>
                     ) : (
                       stepInUsers.map((u) => (

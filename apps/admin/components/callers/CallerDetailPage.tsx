@@ -5,7 +5,6 @@ import { useParams, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEntityContext } from "@/contexts/EntityContext";
 import { DomainPill } from "@/src/components/shared/EntityPill";
-import { HierarchyBreadcrumb } from "@/components/shared/HierarchyBreadcrumb";
 import { Smartphone, User, BookMarked, PlayCircle, Brain, BarChart3, Target, BookOpen, ClipboardCheck, CheckSquare, GitBranch, MessageCircle, Gauge, Archive } from "lucide-react";
 import { EditableTitle } from "@/components/shared/EditableTitle";
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
@@ -498,7 +497,6 @@ export default function CallerDetailPage() {
   if (error || !data) {
     return (
       <div className="cdp-error-wrap">
-        <HierarchyBreadcrumb segments={[{ label: "Callers", href: backLink }]} />
         <div className="cdp-error-box">
           {error || "Caller not found"}
         </div>
@@ -521,14 +519,6 @@ export default function CallerDetailPage() {
 
   return (
     <div className="cdp-root">
-      {/* Breadcrumb */}
-      <HierarchyBreadcrumb
-        className="cdp-breadcrumb"
-        segments={[
-          { label: "Callers", href: backLink },
-          { label: getCallerLabel(data.caller), href: `${isInXArea ? '/x' : ''}/callers/${callerId}` },
-        ]}
-      />
       {/* Header */}
       <div className="cdp-header">
         <div className="cdp-header-row">

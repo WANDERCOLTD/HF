@@ -167,7 +167,7 @@ export function WizardShell({ config, onComplete, initialData }: WizardShellProp
   const currentStep = state.currentStep;
 
   return (
-    <div className="hf-page-container hf-page-scroll">
+    <div className="hf-page-scroll">
       <div className="hf-ws-accordion">
         {config.cancelLabel && currentStep < config.steps.length - 1 && (
           <button type="button" className="hf-wizard-cancel" onClick={handleCancel}>

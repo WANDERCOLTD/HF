@@ -10,7 +10,8 @@
       { "id": "new-community", "href": "/x/communities/new", "label": "Community", "icon": "Rocket", "wizard": true, "terminologyLabel": "cohort" },
       { "id": "teach", "href": "/x/teach", "label": "Teach", "icon": "GraduationCap", "wizard": true, "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "demonstrate", "href": "/x/demonstrate", "label": "Demonstrate", "icon": "PlayCircle", "wizard": true, "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] },
-      { "id": "preview-prompt", "href": "/x/educator/try", "label": "Try It", "icon": "PlayCircle", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"] }
+      { "id": "preview-prompt", "href": "/x/educator/try", "label": "Try It", "icon": "PlayCircle", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"] },
+      { "id": "holographic", "href": "/x/holographic", "label": "Holographic", "icon": "Scan", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"] }
     ]
   },
   {

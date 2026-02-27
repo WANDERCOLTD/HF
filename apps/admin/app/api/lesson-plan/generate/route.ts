@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import { generateLessonPlan, type LessonPlan, type LessonSession } from "@/lib/content-trust/lesson-planner";
+import { generateLessonPlan, consolidateSessions, type LessonPlan, type LessonSession } from "@/lib/content-trust/lesson-planner";
 import { getLessonPlanModel } from "@/lib/lesson-plan/models";
 
 /**
@@ -13,7 +13,7 @@ import { getLessonPlanModel } from "@/lib/lesson-plan/models";
  * @description Generate a multi-subject lesson plan using the content trust lesson planner.
  *   Resolves sourceIds from subjects, generates per-source plans in parallel,
  *   then merges sessions sequentially with assessment + review at the end.
- * @body { subjectIds: string[], sessionLength?: number, lessonPlanModel?: string }
+ * @body { subjectIds: string[], sessionLength?: number, lessonPlanModel?: string, targetSessionCount?: number }
  * @response 200 { ok, plan: LessonPlan }
  * @response 400 { ok: false, error: "..." }
  */
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     if (isAuthError(authResult)) return authResult.error;
 
     const body = await req.json();
-    const { subjectIds, sessionLength = 30, lessonPlanModel } = body;
+    const { subjectIds, sessionLength = 30, lessonPlanModel, targetSessionCount } = body;
     const modelConfig = getLessonPlanModel(lessonPlanModel);
 
     if (!Array.isArray(subjectIds) || subjectIds.length === 0) {
@@ -114,6 +114,15 @@ export async function POST(req: NextRequest) {
         },
       });
     }
+
+    // Consolidate small sessions into session-length blocks
+    const consolidated = consolidateSessions(allSessions, {
+      sessionLength: effectiveSessionLength,
+      targetSessionCount: targetSessionCount ?? undefined,
+    });
+    allSessions.length = 0;
+    allSessions.push(...consolidated);
+    sessionNumber = allSessions.length + 1;
 
     // Append combined assessment session
     const allQuestionIds = allSessions.flatMap((s) => s.questionIds);

@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { DraggableTabs, type TabDefinition } from '@/components/shared/DraggableTabs';
-import { HierarchyBreadcrumb } from '@/components/shared/HierarchyBreadcrumb';
 import type { CommunityDetail } from './_components/types';
 import { IdentityTab } from './_components/IdentityTab';
 import { OnboardingTab } from './_components/OnboardingTab';
@@ -86,7 +85,6 @@ export default function CommunityDetailPage() {
   if (error && !community) {
     return (
       <div className="hf-page-container hf-page-scroll">
-        <HierarchyBreadcrumb segments={[{ label: 'Communities', href: '/x/communities' }]} />
         <div className="hf-banner hf-banner-error">{error}</div>
       </div>
     );
@@ -106,14 +104,6 @@ export default function CommunityDetailPage() {
 
   return (
     <div className="hf-page-container hf-page-scroll">
-      {/* Breadcrumb */}
-      <HierarchyBreadcrumb
-        segments={[
-          { label: 'Communities', href: '/x/communities' },
-          { label: community.name, href: `/x/communities/${communityId}` },
-        ]}
-      />
-
       {error && (
         <div className="hf-banner hf-banner-error hf-mb-sm">{error}</div>
       )}

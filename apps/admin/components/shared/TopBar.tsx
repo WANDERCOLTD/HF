@@ -4,9 +4,65 @@ import React, { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useMasquerade } from "@/contexts/MasqueradeContext";
-import { VenetianMask, X } from "lucide-react";
+import { useChatContext } from "@/contexts/ChatContext";
+import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
+import { HierarchyBreadcrumb } from "./HierarchyBreadcrumb";
 import { UserAvatar } from "./UserAvatar";
 import { UserContextMenu } from "./UserContextMenu";
+import { VenetianMask, X, Search, Building2 } from "lucide-react";
+
+// ── Search Trigger ───────────────────────────────────────
+
+function SearchTrigger() {
+  const { openPanel } = useChatContext();
+  const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
+
+  return (
+    <button
+      className="hf-topbar-search"
+      onClick={openPanel}
+      title={`Search or jump to... ${isMac ? "⌘K" : "Ctrl+K"}`}
+      aria-label="Open search"
+    >
+      <Search size={14} />
+      <span className="hf-topbar-search-label">Search...</span>
+      <kbd className="hf-topbar-kbd">{isMac ? "⌘K" : "⌃K"}</kbd>
+    </button>
+  );
+}
+
+// ── Institution Chip ─────────────────────────────────────
+
+function InstitutionChip() {
+  const { data: session } = useSession();
+  const [name, setName] = useState<string | null>(null);
+
+  const institutionId = (session?.user as Record<string, unknown> | undefined)?.institutionId as
+    | string
+    | undefined;
+
+  useEffect(() => {
+    if (!institutionId) return;
+    fetch(`/api/institutions/${institutionId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.institution?.name) setName(data.institution.name);
+        else if (data?.name) setName(data.name);
+      })
+      .catch(() => {});
+  }, [institutionId]);
+
+  if (!institutionId || !name) return null;
+
+  return (
+    <span className="hf-topbar-institution" title={name}>
+      <Building2 size={12} />
+      {name}
+    </span>
+  );
+}
+
+// ── Top Bar ──────────────────────────────────────────────
 
 export function TopBar() {
   const pathname = usePathname();
@@ -14,6 +70,7 @@ export function TopBar() {
   const [showMenu, setShowMenu] = useState(false);
   const { masquerade, isMasquerading, stopMasquerade } = useMasquerade();
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const breadcrumbs = useBreadcrumbs();
 
   // Close menu on pathname change
   useEffect(() => {
@@ -28,29 +85,26 @@ export function TopBar() {
   const masqueradeName = masquerade?.name || masquerade?.email || "Unknown";
 
   return (
-    <header
-      className="w-full h-12 flex items-center justify-between border-b flex-shrink-0"
-      style={{
-        background: "var(--surface-primary)",
-        borderColor: "var(--border-subtle)",
-        paddingLeft: 32,
-        paddingRight: 40,
-      }}
-    >
-      {/* Left: masquerade status chip */}
-      <div className="flex items-center">
+    <header className="hf-topbar">
+      {/* Left: breadcrumbs */}
+      <div className="hf-topbar-left">
+        <HierarchyBreadcrumb segments={breadcrumbs} />
+      </div>
+
+      {/* Center: search trigger */}
+      <div className="hf-topbar-center">
+        <SearchTrigger />
+      </div>
+
+      {/* Right: institution + masquerade + avatar */}
+      <div className="hf-topbar-right">
+        <InstitutionChip />
+
         {isMasquerading && masquerade && (
           <div
             role="status"
             aria-label={`Viewing as ${masqueradeName}`}
-            className="flex items-center gap-2 rounded-full px-3 py-1"
-            style={{
-              background: "var(--masquerade-color)",
-              color: "var(--surface-primary)",
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: "0.02em",
-            }}
+            className="hf-topbar-masquerade"
           >
             <VenetianMask size={14} />
             <span>
@@ -61,22 +115,7 @@ export function TopBar() {
                 e.preventDefault();
                 stopMasquerade();
               }}
-              className="flex items-center justify-center rounded-full ml-1 transition-colors"
-              style={{
-                background: "rgba(255,255,255,0.2)",
-                border: "none",
-                color: "var(--surface-primary)",
-                width: 20,
-                height: 20,
-                cursor: "pointer",
-                padding: 0,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.35)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.2)";
-              }}
+              className="hf-topbar-masquerade-exit"
               title="Exit masquerade"
               aria-label="Exit masquerade"
             >
@@ -84,10 +123,7 @@ export function TopBar() {
             </button>
           </div>
         )}
-      </div>
 
-      {/* Right: avatar */}
-      <div className="ml-auto">
         <button
           ref={triggerRef}
           onClick={() => setShowMenu((v) => !v)}

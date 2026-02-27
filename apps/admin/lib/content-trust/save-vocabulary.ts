@@ -30,7 +30,13 @@ export async function saveVocabulary(
   });
   const existingTerms = new Set(existing.map((e) => e.term.toLowerCase()));
 
-  const toCreate = vocabulary.filter((v) => !existingTerms.has(v.term.toLowerCase()));
+  const seen = new Set<string>();
+  const toCreate = vocabulary.filter((v) => {
+    const key = v.term.toLowerCase();
+    if (existingTerms.has(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   const duplicatesSkipped = vocabulary.length - toCreate.length;
 
   if (toCreate.length === 0) {

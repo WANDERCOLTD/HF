@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { useTerminology } from '@/contexts/TerminologyContext';
 import { useEntityContext } from '@/contexts/EntityContext';
-import { HierarchyBreadcrumb, type BreadcrumbSegment } from '@/components/shared/HierarchyBreadcrumb';
 import { CourseContextBanner } from '@/components/shared/CourseContextBanner';
 import { TeachMethodStats } from '@/components/shared/TeachMethodStats';
 import { TrustBadge } from '@/app/x/content-sources/_components/shared/badges';
@@ -31,11 +29,8 @@ export default function CourseSourceDetailPage() {
     subjectId: string;
     sourceId: string;
   }>();
-  const { plural } = useTerminology();
   const { pushEntity } = useEntityContext();
 
-  const [courseName, setCourseName] = useState<string | null>(null);
-  const [subjectName, setSubjectName] = useState<string | null>(null);
   const [source, setSource] = useState<SourceDetail | null>(null);
   const [contentMethods, setContentMethods] = useState<{ teachMethod: string; count: number }[]>([]);
   const [contentTotal, setContentTotal] = useState(0);
@@ -47,14 +42,10 @@ export default function CourseSourceDetailPage() {
     setLoading(true);
 
     Promise.all([
-      fetch(`/api/playbooks/${courseId}`).then((r) => r.json()),
-      fetch(`/api/subjects/${subjectId}`).then((r) => r.json()),
       fetch(`/api/content-sources/${sourceId}`).then((r) => r.json()),
       fetch(`/api/courses/${courseId}/content-breakdown?sourceId=${sourceId}`).then((r) => r.json()).catch(() => null),
     ])
-      .then(([pbData, subData, srcData, breakdownData]) => {
-        setCourseName(pbData.ok ? pbData.playbook.name : 'Course');
-        setSubjectName((subData.ok || subData.subject) ? (subData.subject?.name || subData.name) : 'Subject');
+      .then(([srcData, breakdownData]) => {
         if (breakdownData?.ok) {
           setContentMethods(breakdownData.methods || []);
           setContentTotal(breakdownData.total || 0);
@@ -88,17 +79,9 @@ export default function CourseSourceDetailPage() {
       .finally(() => setLoading(false));
   }, [courseId, subjectId, sourceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const segments: BreadcrumbSegment[] = [
-    { label: plural('playbook'), href: '/x/courses' },
-    { label: courseName || '', href: `/x/courses/${courseId}`, loading: !courseName },
-    { label: subjectName || '', href: `/x/courses/${courseId}/subjects/${subjectId}`, loading: !subjectName },
-    { label: source?.name || '', href: `/x/courses/${courseId}/subjects/${subjectId}/sources/${sourceId}`, loading: !source },
-  ];
-
   if (loading) {
     return (
       <div style={{ padding: 24 }}>
-        <HierarchyBreadcrumb segments={segments} />
         <div className="hf-text-center hf-text-muted" style={{ padding: 80 }}>
           <div className="hf-spinner" />
         </div>
@@ -109,7 +92,6 @@ export default function CourseSourceDetailPage() {
   if (error || !source) {
     return (
       <div style={{ padding: 24 }}>
-        <HierarchyBreadcrumb segments={segments} />
         <div className="hf-banner hf-banner-error" style={{ borderRadius: 8 }}>
           {error || 'Source not found'}
         </div>
@@ -126,7 +108,6 @@ export default function CourseSourceDetailPage() {
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 24 }}>
-      <HierarchyBreadcrumb segments={segments} />
       <CourseContextBanner courseId={courseId} />
 
       {/* Header */}

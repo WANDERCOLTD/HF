@@ -15,12 +15,10 @@ import { SortableList } from '@/components/shared/SortableList';
 import { reorderItems } from '@/lib/sortable/reorder';
 import type { OnboardingPhase } from '@/lib/types/json-fields';
 import { useSession } from 'next-auth/react';
-import { useTerminology } from '@/contexts/TerminologyContext';
 import { useEntityContext } from '@/contexts/EntityContext';
 import { EditableTitle } from '@/components/shared/EditableTitle';
 import { StatusBadge, DomainPill } from '@/src/components/shared/EntityPill';
 import { TrustBadge } from '@/app/x/content-sources/_components/shared/badges';
-import { HierarchyBreadcrumb } from '@/components/shared/HierarchyBreadcrumb';
 import { DraggableTabs, type TabDefinition } from '@/components/shared/DraggableTabs';
 import { TeachMethodStats } from '@/components/shared/TeachMethodStats';
 import { SessionTPList, UnassignedTPList, type TPItem, type SessionOption } from '@/components/shared/SessionTPList';
@@ -257,7 +255,6 @@ export default function CourseDetailPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const isOperator = ['OPERATOR', 'EDUCATOR', 'ADMIN', 'SUPERADMIN'].includes((session?.user?.role as string) || '');
-  const { plural } = useTerminology();
   const { pushEntity } = useEntityContext();
 
   // ── State ──────────────────────────────────────────
@@ -970,9 +967,6 @@ export default function CourseDetailPage() {
   if (error || !detail) {
     return (
       <div className="hf-page-container">
-        <HierarchyBreadcrumb
-          segments={[{ label: plural('playbook'), href: '/x/courses' }]}
-        />
         <div className="hf-banner hf-banner-error">
           {error || 'Course not found'}
         </div>
@@ -983,14 +977,6 @@ export default function CourseDetailPage() {
   // ── Render ───────────────────────────────────────────
   return (
     <div className="hf-page-container hf-page-scroll">
-      {/* Breadcrumb */}
-      <HierarchyBreadcrumb
-        segments={[
-          { label: plural('playbook'), href: '/x/courses' },
-          { label: detail.name, href: `/x/courses/${detail.id}` },
-        ]}
-      />
-
       {/* ── Hero (always visible above tabs) ───────────── */}
       <div className="hf-flex hf-flex-between hf-items-start hf-mb-lg">
         <div>
