@@ -39,6 +39,7 @@
   - [Goals](#goals)
   - [Invites](#invites)
   - [Layers](#layers)
+  - [Media](#media)
   - [Memories](#memories)
   - [Other](#other)
   - [Parameters](#parameters)
@@ -2455,6 +2456,24 @@ Save or update the lesson plan. Validates session numbers and types.
 
 ---
 
+### `GET` /api/v1/curricula/:curriculumId/lesson-plan/media-map
+
+Resolve which images belong to each lesson plan session (from persisted media[] or
+
+**Auth**: session (VIEWER+) · **Scope**: `curricula:read`
+
+**Response** `200`
+```json
+{ ok, sessions, unassigned, stats }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "..." }
+```
+
+---
+
 ## Domains
 
 ### `GET` /api/v1/domains
@@ -2942,6 +2961,36 @@ List all overlay identity specs grouped by their base archetype
 **Response** `500`
 ```json
 { ok: false, error: "..." }
+```
+
+---
+
+## Media
+
+### `GET` /api/v1/media/:id/public?token=<hmac>&expires=<epoch>
+
+Serve a media file without session auth, validated by HMAC token.
+
+**Auth**: hmac-token · **Scope**: `media:public-read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| token | query | string | No | HMAC-SHA256 token |
+| expires | query | string | No | Unix epoch expiry timestamp |
+
+**Response** `200`
+```json
+File stream with Content-Type
+```
+
+**Response** `401`
+```json
+{ error: "Invalid or expired token" }
+```
+
+**Response** `404`
+```json
+{ error: "Media not found" }
 ```
 
 ---

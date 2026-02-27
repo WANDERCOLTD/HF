@@ -1,0 +1,29 @@
+/* ── Course Detail Page ── cd-* prefix ── */
+
+/* Fill bar (capacity indicator) */
+.cd-fill-bar {
+  width: 60px;
+  height: 4px;
+  background: var(--surface-secondary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.cd-fill-bar-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: 2px;
+}
+
+/* Session row overrides */
+.cd-session-row-static {
+  cursor: default;
+}
+.cd-session-icon {
+  flex-shrink: 0;
+}
+
+/* Session type badge — uses CSS custom property for dynamic color */
+.cd-session-type {
+  color: var(--session-color);
+  background: color-mix(in srgb, var(--session-color) 10%, transparent);
+}

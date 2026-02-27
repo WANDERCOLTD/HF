@@ -16,6 +16,14 @@ import { logAssistantCall } from "@/lib/ai/assistant-wrapper";
 // Types
 // ------------------------------------------------------------------
 
+export interface SessionMediaRef {
+  mediaId: string;
+  fileName?: string;
+  captionText?: string | null;
+  figureRef?: string | null;
+  mimeType?: string;
+}
+
 export interface LessonSession {
   sessionNumber: number;
   title: string;
@@ -25,6 +33,8 @@ export interface LessonSession {
   vocabularyIds: string[];
   estimatedMinutes: number;
   sessionType: "introduce" | "practice" | "assess" | "review";
+  /** Images auto-resolved from assertion → AssertionMedia → MediaAsset links */
+  media?: SessionMediaRef[];
 }
 
 export interface PrerequisiteLink {
@@ -225,6 +235,9 @@ export async function generateLessonPlan(
   // AI refinement: improve session titles and objectives
   const refined = await refineWithAI(sessions, assertions.length, questions.length, vocabulary.length);
 
+  // Resolve images linked to each session's assertions via AssertionMedia
+  await resolveSessionMedia(refined);
+
   return {
     totalSessions: refined.length,
     estimatedMinutesPerSession: sessionLength,
@@ -232,6 +245,69 @@ export async function generateLessonPlan(
     prerequisites,
     generatedAt: new Date().toISOString(),
   };
+}
+
+// ------------------------------------------------------------------
+// Session media resolution
+// ------------------------------------------------------------------
+
+/**
+ * Batch-resolve images linked to each session's assertions.
+ * Queries AssertionMedia → MediaAsset for all assertion IDs across sessions,
+ * then groups results back by session. Mutates sessions in place.
+ */
+async function resolveSessionMedia(sessions: LessonSession[]): Promise<void> {
+  const allAssertionIds = sessions.flatMap((s) => s.assertionIds);
+  if (allAssertionIds.length === 0) return;
+
+  const links = await prisma.assertionMedia.findMany({
+    where: { assertionId: { in: allAssertionIds } },
+    select: {
+      assertionId: true,
+      media: {
+        select: {
+          id: true,
+          fileName: true,
+          captionText: true,
+          figureRef: true,
+          mimeType: true,
+        },
+      },
+    },
+  });
+
+  if (links.length === 0) return;
+
+  // Build assertionId → media refs map
+  const assertionMediaMap = new Map<string, SessionMediaRef[]>();
+  for (const link of links) {
+    const refs = assertionMediaMap.get(link.assertionId) || [];
+    refs.push({
+      mediaId: link.media.id,
+      fileName: link.media.fileName,
+      captionText: link.media.captionText,
+      figureRef: link.media.figureRef,
+      mimeType: link.media.mimeType,
+    });
+    assertionMediaMap.set(link.assertionId, refs);
+  }
+
+  // Assign to sessions, deduplicating by mediaId
+  for (const session of sessions) {
+    const seen = new Set<string>();
+    const media: SessionMediaRef[] = [];
+    for (const aId of session.assertionIds) {
+      for (const ref of assertionMediaMap.get(aId) || []) {
+        if (!seen.has(ref.mediaId)) {
+          seen.add(ref.mediaId);
+          media.push(ref);
+        }
+      }
+    }
+    if (media.length > 0) {
+      session.media = media;
+    }
+  }
 }
 
 // ------------------------------------------------------------------

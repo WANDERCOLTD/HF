@@ -82,6 +82,7 @@ export interface PackUploadResult {
     assertions: number;
     questions: number;
     vocabulary: number;
+    images: number;
   };
 }
 
@@ -169,7 +170,7 @@ export function PackUploadStep({
 
   // SSE extraction progress
   const [timeline, setTimeline] = useState<TimelineStep[]>([]);
-  const [extractionTotals, setExtractionTotals] = useState({ assertions: 0, questions: 0, vocabulary: 0 });
+  const [extractionTotals, setExtractionTotals] = useState({ assertions: 0, questions: 0, vocabulary: 0, images: 0 });
   const [currentFile, setCurrentFile] = useState<{ name: string; chunks: number; completedSet: Set<number> } | null>(null);
 
   // Course / subject selection
@@ -276,6 +277,7 @@ export function PackUploadStep({
           assertions: data?.totalAssertions || 0,
           questions: data?.totalQuestions || 0,
           vocabulary: data?.totalVocabulary || 0,
+          images: data?.totalImages || 0,
         },
       });
       return;
@@ -302,11 +304,20 @@ export function PackUploadStep({
       });
       // Accumulate per-chunk deltas (not running totals — avoids double-counting)
       setExtractionTotals(prev => ({
+        ...prev,
         assertions: prev.assertions + (data.chunkAssertions || 0),
         questions: prev.questions + (data.chunkQuestions || 0),
         vocabulary: prev.vocabulary + (data.chunkVocabulary || 0),
       }));
       return; // Don't add chunk events to timeline
+    }
+
+    // Accumulate image counts from images-complete events
+    if (phase === 'images-complete' && data?.images) {
+      setExtractionTotals(prev => ({
+        ...prev,
+        images: prev.images + (data.images || 0),
+      }));
     }
 
     if (phase === 'file-complete' || phase === 'file-error') {
@@ -319,7 +330,7 @@ export function PackUploadStep({
       const id = phase === 'file-complete' || phase === 'file-error'
         ? `file-${data?.fileName}` : `${phase}-${data?.subjectName || data?.fileName || ''}`;
       const existing = prev.find((s) => s.id === id);
-      const isDone = phase === 'subject-created' || phase === 'source-created' || phase === 'file-complete' || phase === 'post-processing';
+      const isDone = phase === 'subject-created' || phase === 'source-created' || phase === 'file-complete' || phase === 'images-complete' || phase === 'post-processing';
       const isError = phase === 'file-error';
       const status = isError ? 'error' : isDone ? 'done' : 'active';
 
@@ -345,7 +356,7 @@ export function PackUploadStep({
     setIngesting(true);
     setIngestError(null);
     setTimeline([]);
-    setExtractionTotals({ assertions: 0, questions: 0, vocabulary: 0 });
+    setExtractionTotals({ assertions: 0, questions: 0, vocabulary: 0, images: 0 });
     setCurrentFile(null);
 
     ingestAbortRef.current?.abort();
@@ -878,9 +889,9 @@ export function PackUploadStep({
           )}
 
           {/* Running totals */}
-          {(extractionTotals.assertions > 0 || extractionTotals.questions > 0 || extractionTotals.vocabulary > 0) && (
+          {(extractionTotals.assertions > 0 || extractionTotals.questions > 0 || extractionTotals.vocabulary > 0 || extractionTotals.images > 0) && (
             <div className="hf-card hf-card-compact" style={{ marginTop: 8 }}>
-              <div className="hf-flex hf-gap-md hf-text-sm">
+              <div className="hf-flex hf-gap-md hf-text-sm hf-flex-wrap">
                 {extractionTotals.assertions > 0 && (
                   <span><strong>{extractionTotals.assertions}</strong> teaching points</span>
                 )}
@@ -889,6 +900,9 @@ export function PackUploadStep({
                 )}
                 {extractionTotals.vocabulary > 0 && (
                   <span><strong>{extractionTotals.vocabulary}</strong> vocabulary</span>
+                )}
+                {extractionTotals.images > 0 && (
+                  <span><strong>{extractionTotals.images}</strong> images</span>
                 )}
               </div>
             </div>

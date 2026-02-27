@@ -44,6 +44,7 @@
 }
 .cls-send-btn {
   font-size: 13px;
+  flex-shrink: 0;
 }
 
 /* Join link banner */
@@ -59,13 +60,27 @@
   font-family: monospace;
   font-size: 12px;
 }
+.cls-banner-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
 .cls-copy-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+}
+.cls-copy-btn--copied {
+  background: var(--status-success-text);
+}
+.cls-regen-btn {
   padding: 4px 12px;
   font-size: 12px;
 }
 
 /* Tabs */
 .cls-tab-bar {
+  display: flex;
+  gap: 4px;
   margin-bottom: 20px;
   border-bottom: 1px solid var(--border-default);
 }
@@ -80,6 +95,10 @@
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 8px;
+}
+.cls-invite-row {
+  display: flex;
+  gap: 8px;
 }
 .cls-invite-input {
   flex: 1;
@@ -204,6 +223,14 @@
   border-radius: 50%;
 }
 
+/* Status modifier classes */
+.cls-status--not-started { color: var(--text-muted); }
+.cls-status--not-started .cls-status-dot { background: var(--text-muted); }
+.cls-status--active { color: var(--status-success-text); }
+.cls-status--active .cls-status-dot { background: var(--status-success-text); }
+.cls-status--inactive { color: var(--status-warning-text); }
+.cls-status--inactive .cls-status-dot { background: var(--status-warning-text); }
+
 /* Remove button */
 .cls-remove-btn {
   background: none;
@@ -232,6 +259,26 @@
 .cls-settings-textarea {
   width: 100%;
   resize: vertical;
+}
+
+/* Max members */
+.cls-max-members-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cls-max-members-input {
+  width: 100px;
+}
+.cls-max-members-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Settings actions */
+.cls-settings-actions {
+  display: flex;
+  gap: 12px;
 }
 
 /* ── Lesson Plan Tab ──────────────────────────────── */

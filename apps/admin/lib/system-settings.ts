@@ -335,6 +335,7 @@ export interface VoiceCallSettings {
   toolLogActivityResult: boolean;
   toolSendText: boolean;
   toolRequestArtifact: boolean;
+  toolShareContent: boolean;
   // Fallback prompts
   unknownCallerPrompt: string;
   noActivePromptFallback: string;
@@ -353,6 +354,7 @@ export const VOICE_CALL_DEFAULTS: VoiceCallSettings = {
   toolLogActivityResult: true,
   toolSendText: true,
   toolRequestArtifact: true,
+  toolShareContent: true,
   unknownCallerPrompt: "You are a helpful voice assistant. This caller is not yet registered in the system. Have a friendly conversation and gather their name.",
   noActivePromptFallback: "You are a helpful voice tutor. No personalized prompt is available yet — have a warm, friendly conversation.",
 };
@@ -370,6 +372,7 @@ const VOICE_CALL_KEYS: Record<keyof VoiceCallSettings, string> = {
   toolLogActivityResult: "voice.tool_log_activity_result",
   toolSendText: "voice.tool_send_text",
   toolRequestArtifact: "voice.tool_request_artifact",
+  toolShareContent: "voice.tool_share_content",
   unknownCallerPrompt: "voice.unknown_caller_prompt",
   noActivePromptFallback: "voice.no_active_prompt_fallback",
 };

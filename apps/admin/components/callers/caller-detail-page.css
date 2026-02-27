@@ -130,6 +130,136 @@
   color: var(--text-muted);
 }
 
+/* Editable contact items — click-to-edit */
+.cdp-contact-editable {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 6px;
+  transition: background 0.15s;
+}
+
+.cdp-contact-editable:hover {
+  background: var(--surface-secondary);
+}
+
+.cdp-contact-add {
+  cursor: pointer;
+  font-style: italic;
+  color: var(--text-placeholder);
+  border-radius: 4px;
+  padding: 2px 6px;
+  transition: background 0.15s;
+}
+
+.cdp-contact-add:hover {
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+}
+
+.cdp-contact-input {
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--surface-primary);
+  border: 1px solid var(--accent-primary);
+  border-radius: 4px;
+  padding: 2px 6px;
+  outline: none;
+  min-width: 140px;
+  font-family: inherit;
+}
+
+.cdp-contact-input:focus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 20%, transparent);
+}
+
+/* ── Role badge ── */
+.cdp-role-badge-wrap {
+  position: relative;
+}
+
+.cdp-role-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.15s;
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+}
+
+.cdp-role-badge:hover {
+  filter: brightness(0.95);
+}
+
+/* Role-specific colors */
+.cdp-role-learner {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+}
+
+.cdp-role-teacher {
+  background: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+  color: var(--status-success-text);
+}
+
+.cdp-role-tutor {
+  background: color-mix(in srgb, var(--accent-secondary) 12%, transparent);
+  color: var(--accent-secondary);
+}
+
+.cdp-role-parent {
+  background: color-mix(in srgb, var(--status-warning-text) 12%, transparent);
+  color: var(--status-warning-text);
+}
+
+.cdp-role-mentor {
+  background: color-mix(in srgb, var(--login-gold) 15%, transparent);
+  color: var(--login-gold);
+}
+
+/* Role dropdown */
+.cdp-role-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 20;
+  min-width: 120px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+.cdp-role-dropdown-item {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 4px;
+  color: var(--text-primary);
+  transition: background 0.15s;
+}
+
+.cdp-role-dropdown-item:hover {
+  background: var(--surface-secondary);
+}
+
+.cdp-role-dropdown-item--active {
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
 .cdp-external-id {
   font-size: 11px;
   font-family: monospace;
@@ -151,12 +281,24 @@
   color: var(--text-muted);
 }
 
-/* Personality param chips — dynamic colors set inline for level */
+/* Personality param chips */
 .cdp-param-chip {
   font-size: 10px;
   font-weight: 600;
   padding: 1px 4px;
   border-radius: 3px;
+}
+.cdp-param-chip--high {
+  color: var(--status-success-text);
+  background: var(--status-success-bg);
+}
+.cdp-param-chip--low {
+  color: var(--status-error-text);
+  background: var(--status-error-bg);
+}
+.cdp-param-chip--med {
+  color: var(--text-muted);
+  background: var(--border-default);
 }
 
 /* ── Header action buttons ── */
@@ -204,9 +346,9 @@
 
 .cdp-btn-ask-ai {
   padding: 10px 20px;
-  background: color-mix(in srgb, var(--accent-secondary, #8b5cf6) 10%, transparent);
-  color: var(--accent-secondary, #8b5cf6);
-  border: 1px solid color-mix(in srgb, var(--accent-secondary, #8b5cf6) 20%, transparent);
+  background: color-mix(in srgb, var(--accent-secondary) 10%, transparent);
+  color: var(--accent-secondary);
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 20%, transparent);
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
@@ -239,6 +381,33 @@
 }
 
 .cdp-btn-export:disabled {
+  background: var(--text-placeholder);
+  color: var(--text-muted);
+  border-color: transparent;
+  cursor: not-allowed;
+  filter: none;
+}
+
+/* Archive button */
+.cdp-btn-archive {
+  padding: 10px 20px;
+  background: color-mix(in srgb, var(--status-error-text) 10%, transparent);
+  color: var(--status-error-text);
+  border: 1px solid color-mix(in srgb, var(--status-error-text) 20%, transparent);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cdp-btn-archive:hover {
+  filter: brightness(1.05);
+}
+
+.cdp-btn-archive:disabled {
   background: var(--text-placeholder);
   color: var(--text-muted);
   border-color: transparent;
@@ -465,4 +634,28 @@
   font-size: 11px;
   border-radius: 12px;
   font-weight: 500;
+}
+.cdp-memory-cat-chip--fact {
+  background: var(--badge-blue-bg);
+  color: var(--badge-blue-text);
+}
+.cdp-memory-cat-chip--preference {
+  background: var(--badge-yellow-bg);
+  color: var(--badge-yellow-text);
+}
+.cdp-memory-cat-chip--event {
+  background: var(--badge-green-bg);
+  color: var(--badge-green-text);
+}
+.cdp-memory-cat-chip--topic {
+  background: var(--badge-purple-bg);
+  color: var(--badge-purple-text);
+}
+.cdp-memory-cat-chip--relationship {
+  background: var(--badge-pink-bg);
+  color: var(--badge-pink-text);
+}
+.cdp-memory-cat-chip--context {
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
 }

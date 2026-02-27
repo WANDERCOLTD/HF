@@ -130,6 +130,7 @@ export async function POST(req: NextRequest) {
         let grandTotalAssertions = 0;
         let grandTotalQuestions = 0;
         let grandTotalVocabulary = 0;
+        let grandTotalImages = 0;
 
         // ── Process each subject group ──
 
@@ -193,7 +194,7 @@ export async function POST(req: NextRequest) {
               data: { fileName: file.name, fileIndex: fi, totalFiles: totalFilesInGroup },
             });
 
-            const { sourceId, mediaId, text, source } = await createSource(
+            const { sourceId, mediaId, mediaStorageKey, text, source } = await createSource(
               file, subject.id, domain.slug, mf.documentType, userId,
             );
             groupSources.push({ sourceId, role: mf.role, fileName: file.name });
@@ -209,12 +210,13 @@ export async function POST(req: NextRequest) {
             const fileTotals = await extractSource(
               source, text, mf.documentType as DocumentType, file.name,
               subject.id, userId, interactionPattern as InteractionPattern | undefined,
-              send,
+              send, mediaStorageKey,
             );
 
             grandTotalAssertions += fileTotals.assertions;
             grandTotalQuestions += fileTotals.questions;
             grandTotalVocabulary += fileTotals.vocabulary;
+            grandTotalImages += fileTotals.images;
           }
 
           // ── Auto-pair passage ↔ question bank within this group ──
@@ -276,7 +278,7 @@ export async function POST(req: NextRequest) {
               data: { fileName: file.name },
             });
 
-            const { sourceId, text, source } = await createSource(
+            const { sourceId, mediaStorageKey: pedMediaKey, text, source } = await createSource(
               file, pedSubject.id, domain.slug, mf.documentType || "LESSON_PLAN", userId,
             );
             sourceCount++;
@@ -290,12 +292,13 @@ export async function POST(req: NextRequest) {
             const fileTotals = await extractSource(
               source, text, (mf.documentType || "LESSON_PLAN") as DocumentType, file.name,
               pedSubject.id, userId, interactionPattern as InteractionPattern | undefined,
-              send,
+              send, pedMediaKey,
             );
 
             grandTotalAssertions += fileTotals.assertions;
             grandTotalQuestions += fileTotals.questions;
             grandTotalVocabulary += fileTotals.vocabulary;
+            grandTotalImages += fileTotals.images;
           }
         }
 
@@ -310,6 +313,7 @@ export async function POST(req: NextRequest) {
             totalAssertions: grandTotalAssertions,
             totalQuestions: grandTotalQuestions,
             totalVocabulary: grandTotalVocabulary,
+            totalImages: grandTotalImages,
           },
         });
       } catch (err: unknown) {
@@ -383,9 +387,11 @@ async function createSource(
 
   const existingMedia = await prisma.mediaAsset.findUnique({ where: { contentHash } });
   let mediaId: string;
+  let mediaStorageKey: string | undefined;
 
   if (existingMedia) {
     mediaId = existingMedia.id;
+    mediaStorageKey = existingMedia.storageKey;
     await prisma.mediaAsset.update({
       where: { id: existingMedia.id },
       data: { sourceId: source.id },
@@ -412,6 +418,7 @@ async function createSource(
       },
     });
     mediaId = media.id;
+    mediaStorageKey = storageKey;
   }
 
   // Link media to subject
@@ -421,13 +428,14 @@ async function createSource(
     create: { subjectId, mediaId },
   });
 
-  return { sourceId: source.id, mediaId, text, source };
+  return { sourceId: source.id, mediaId, mediaStorageKey, text, source };
 }
 
 /**
  * Run extraction on a source with SSE progress events per chunk.
  * Awaited (not fire-and-forget) so the stream stays open until extraction completes.
  * Post-processing (embedding, structuring, curriculum) remains fire-and-forget.
+ * Image extraction runs after text extraction and is awaited for accurate counts.
  */
 async function extractSource(
   source: { id: string; slug: string },
@@ -438,7 +446,8 @@ async function extractSource(
   userId: string,
   interactionPattern: InteractionPattern | undefined,
   send: SendIngestEvent,
-): Promise<{ assertions: number; questions: number; vocabulary: number }> {
+  mediaStorageKey?: string,
+): Promise<{ assertions: number; questions: number; vocabulary: number; images: number }> {
   try {
     const { getExtractor } = await import("@/lib/content-trust/extractors/registry");
     const { resolveExtractionConfig } = await import("@/lib/content-trust/resolve-config");
@@ -515,7 +524,7 @@ async function extractSource(
         message: `${fileName}: extraction failed`,
         data: { fileName, sourceId: source.id, error: result.error || "Extraction failed" },
       });
-      return { assertions: 0, questions: 0, vocabulary: 0 };
+      return { assertions: 0, questions: 0, vocabulary: 0, images: 0 };
     }
 
     // Reconciliation save if any per-chunk saves failed
@@ -544,15 +553,63 @@ async function extractSource(
       });
     }
 
+    // ── Image extraction (awaited for accurate counts) ──
+    let totalImagesExtracted = 0;
+    const nameLower = fileName.toLowerCase();
+    const isPdf = nameLower.endsWith(".pdf");
+    const isDocx = nameLower.endsWith(".docx");
+
+    if (mediaStorageKey && (isPdf || isDocx)) {
+      try {
+        const { extractImagesFromPdf, extractImagesFromDocx, linkImagesToSubject, persistImageMetadata } =
+          await import("@/lib/content-trust/extract-images");
+        const { linkFiguresToAssertions } = await import("@/lib/content-trust/link-figures");
+        const { getImageExtractionSettings } = await import("@/lib/system-settings");
+        const { getStorageAdapter: getStorage } = await import("@/lib/storage");
+
+        const imgSettings = await getImageExtractionSettings();
+        if (imgSettings.enabled) {
+          send({
+            phase: "images-extracting",
+            message: `${fileName}: extracting images...`,
+            data: { fileName, sourceId: source.id },
+          });
+
+          const storage = getStorage();
+          const buffer = await storage.download(mediaStorageKey);
+
+          const imgResult = isPdf
+            ? await extractImagesFromPdf(buffer, source.id, userId, imgSettings)
+            : await extractImagesFromDocx(buffer, source.id, userId, imgSettings);
+
+          if (imgResult.ok && imgResult.images.length > 0) {
+            await persistImageMetadata(imgResult.images);
+            await linkImagesToSubject(source.id, imgResult.images);
+            await linkFiguresToAssertions(source.id, imgResult.images);
+            totalImagesExtracted = imgResult.images.length;
+
+            send({
+              phase: "images-complete",
+              message: `${fileName}: ${totalImagesExtracted} image${totalImagesExtracted !== 1 ? "s" : ""} extracted`,
+              data: { fileName, sourceId: source.id, images: totalImagesExtracted },
+            });
+          }
+        }
+      } catch (imgErr: unknown) {
+        console.error(`[course-pack/ingest] Image extraction failed for ${fileName}:`, imgErr instanceof Error ? imgErr.message : imgErr);
+      }
+    }
+
     send({
       phase: "file-complete",
-      message: `${fileName}: ${totalCreated} points${totalQuestionsCreated ? `, ${totalQuestionsCreated} questions` : ""}${totalVocabularyCreated ? `, ${totalVocabularyCreated} vocab` : ""}`,
+      message: `${fileName}: ${totalCreated} points${totalQuestionsCreated ? `, ${totalQuestionsCreated} questions` : ""}${totalVocabularyCreated ? `, ${totalVocabularyCreated} vocab` : ""}${totalImagesExtracted ? `, ${totalImagesExtracted} images` : ""}`,
       data: {
         fileName,
         sourceId: source.id,
         assertions: totalCreated,
         questions: totalQuestionsCreated,
         vocabulary: totalVocabularyCreated,
+        images: totalImagesExtracted,
       },
     });
 
@@ -582,13 +639,14 @@ async function extractSource(
 
     console.log(
       `[course-pack/ingest] ${fileName}: ${totalCreated} assertions, ` +
-      `${totalQuestionsCreated} questions, ${totalVocabularyCreated} vocabulary`,
+      `${totalQuestionsCreated} questions, ${totalVocabularyCreated} vocabulary, ${totalImagesExtracted} images`,
     );
 
     return {
       assertions: totalCreated,
       questions: totalQuestionsCreated,
       vocabulary: totalVocabularyCreated,
+      images: totalImagesExtracted,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Extraction crashed";
@@ -598,6 +656,6 @@ async function extractSource(
       message: `${fileName}: ${msg}`,
       data: { fileName, sourceId: source.id, error: msg },
     });
-    return { assertions: 0, questions: 0, vocabulary: 0 };
+    return { assertions: 0, questions: 0, vocabulary: 0, images: 0 };
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Loader2, Check, Globe, Sparkles } from "lucide-react";
+import { Loader2, Check, Globe, Lightbulb } from "lucide-react";
 import { TypePicker } from "@/components/shared/TypePicker";
 import { FieldHint } from "@/components/shared/FieldHint";
 import { WIZARD_HINTS } from "@/lib/wizard-hints";
@@ -183,7 +183,7 @@ export function IdentityStep({ getData, setData, onNext, onPrev }: StepRenderPro
           {urlSuggestions.length > 0 && (
             <div className="hf-mt-xs">
               <p className="hf-ai-inline-hint hf-mb-xs">
-                <Sparkles size={11} /> Try:
+                <Lightbulb size={11} /> Try:
               </p>
               <div className="hf-suggestion-chips">
                 {urlSuggestions.map((url) => (

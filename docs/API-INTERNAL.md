@@ -4850,9 +4850,89 @@ Returns teaching point counts grouped by teachMethod for a course (playbook).
 
 ---
 
+### `GET` /api/courses/:courseId/onboarding
+
+Get resolved onboarding flow for a course (course override > domain > INIT-001 fallback). Returns phase source ("course" | "domain" | "none") and available domain media for the editor picker.
+
+**Auth**: Session
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| courseId | path | string | Yes | The playbook ID (course) |
+
+**Response** `200`
+```json
+{ ok: true, source, phases, domainName, domainId, media }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+---
+
+### `PUT` /api/courses/:courseId/onboarding
+
+Set or clear course-level onboarding flow phase override. Pass null to reset to institution default.
+
+**Auth**: session (OPERATOR+)
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| courseId | path | string | Yes | The playbook ID (course) |
+
+**Response** `200`
+```json
+{ ok: true }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+---
+
+### `GET` /api/courses/:courseId/sessions
+
+Returns the lesson plan sessions for a course. Looks up subjects via
+
+**Auth**: session (VIEWER+) · **Scope**: `courses:read`
+
+**Response** `200`
+```json
+{ ok, plan, modules, curriculumId, subjectCount }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+---
+
 ### `GET` /api/courses/:courseId/subjects
 
 **Auth**: VIEWER+
+
+---
+
+### `GET` /api/courses/[courseId]/media
+
+List media assets (extracted images, uploaded files) across all subjects
+
+**Auth**: VIEWER · **Scope**: `content-sources:read`
+
+**Response** `200`
+```json
+{ ok, media, total }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
 
 ---
 
@@ -5015,6 +5095,42 @@ Save or update the lesson plan. Validates session numbers and types.
 **Response** `400`
 ```json
 { ok: false, error: "..." }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Curriculum not found" }
+```
+
+---
+
+### `GET` /api/curricula/:curriculumId/lesson-plan/media-map
+
+Resolve which images belong to each lesson plan session (from persisted media[] or
+
+**Auth**: session (VIEWER+) · **Scope**: `curricula:read`
+
+**Response** `200`
+```json
+{ ok, sessions, unassigned, stats }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "..." }
+```
+
+---
+
+### `GET` /api/curricula/:curriculumId/session-assertions
+
+Returns content assertions grouped by lesson plan session.
+
+**Auth**: session (VIEWER+) · **Scope**: `curricula:read`
+
+**Response** `200`
+```json
+{ ok, sessions, unassigned, total }
 ```
 
 **Response** `404`
@@ -7325,6 +7441,34 @@ Replace the file content of an existing media asset. Validates MIME type and fil
 **Response** `409`
 ```json
 { ok: false, error: "A file with this content already exists" }
+```
+
+---
+
+### `GET` /api/media/:id/public?token=<hmac>&expires=<epoch>
+
+Serve a media file without session auth, validated by HMAC token.
+
+**Auth**: hmac-token · **Scope**: `media:public-read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| token | query | string | No | HMAC-SHA256 token |
+| expires | query | string | No | Unix epoch expiry timestamp |
+
+**Response** `200`
+```json
+File stream with Content-Type
+```
+
+**Response** `401`
+```json
+{ error: "Invalid or expired token" }
+```
+
+**Response** `404`
+```json
+{ error: "Media not found" }
 ```
 
 ---
@@ -12621,8 +12765,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 366 |
-| Files with annotations | 365 |
+| Route files found | 372 |
+| Files with annotations | 371 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

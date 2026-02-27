@@ -2375,92 +2375,60 @@ html.light {
   color: var(--text-muted);
 }
 
-/* ── Outcome input group ─────────────────────────── */
-.hf-outcome-group {
+/* ── Committed value chips (outcomes, goals) ────── */
+.hf-outcome-chips {
   display: flex;
-  flex-direction: column;
-  gap: 0;
-  border: 1px solid var(--border-default);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--surface-primary);
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
 }
-
-.hf-outcome-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--border-subtle, var(--border-default));
-  transition: background 0.15s ease;
-}
-.hf-outcome-row:last-child {
-  border-bottom: none;
-}
-.hf-outcome-row:focus-within {
-  background: color-mix(in srgb, var(--accent-primary) 3%, var(--surface-primary));
-}
-.hf-outcome-row--filled {
-  background: color-mix(in srgb, var(--status-success-text) 3%, var(--surface-primary));
-}
-.hf-outcome-row--filled:focus-within {
-  background: color-mix(in srgb, var(--accent-primary) 5%, var(--surface-primary));
-}
-
-.hf-outcome-num {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--surface-secondary);
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
-}
-.hf-outcome-row--filled .hf-outcome-num {
-  background: color-mix(in srgb, var(--status-success-text) 12%, var(--surface-secondary));
-  color: var(--status-success-text);
-}
-.hf-outcome-row:focus-within .hf-outcome-num {
-  background: color-mix(in srgb, var(--accent-primary) 12%, var(--surface-secondary));
-  color: var(--accent-primary);
-}
-
-.hf-outcome-input {
-  border: none !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-.hf-outcome-input:focus {
-  box-shadow: none !important;
-  outline: none !important;
-}
-
-/* ── AI Suggestion Panel ─────────────────────────── */
-.hf-suggestion-panel {
-  margin-top: 12px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--accent-primary) 15%, var(--border-default));
-  background: color-mix(in srgb, var(--accent-primary) 3%, var(--surface-primary));
-}
-
-.hf-suggestion-panel-header {
-  display: flex;
+.hf-outcome-chip {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  animation: hf-suggestion-enter 0.2s ease both;
+}
+.hf-outcome-chip button {
+  all: unset;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+.hf-outcome-chip button:hover { opacity: 1; }
+
+/* ── Suggest slot (stable-height container) ─────── */
+.hf-suggest-slot {
+  min-height: 36px;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  padding: 4px 0;
+}
+.hf-suggest-slot__hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 0.4;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0;
+  transition: opacity 0.2s;
+}
+
+/* ── Auto-filled badge (inline with label) ─────── */
+.hf-ai-badge {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
   color: var(--accent-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin-bottom: 10px;
 }
 
 /* Suggestion chips container */
@@ -3249,6 +3217,172 @@ html.light {
   flex-shrink: 0;
 }
 
+/* ── Session media thumbnails ── */
+
+.hf-session-media-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.hf-session-media-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 6px 110px;
+}
+.hf-session-media-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.hf-session-media-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hf-session-media-thumb:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px var(--accent-primary);
+}
+.hf-session-media-icon {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 2px;
+  word-break: break-all;
+}
+.hf-session-media-more {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+
+/* ── Teaching Point rows (inside expanded session cards) ── */
+
+.hf-tp-section {
+  margin-left: 30px;
+  margin-top: 6px;
+  padding: 4px 0 4px 12px;
+  border-left: 2px solid color-mix(in srgb, var(--accent-primary) 25%, transparent);
+}
+.hf-tp-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.hf-tp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+.hf-tp-row:hover {
+  background: var(--surface-secondary);
+}
+.hf-tp-category {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: lowercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 36px;
+  text-align: center;
+}
+.hf-tp-category--fact { color: var(--status-info-text); background: color-mix(in srgb, var(--status-info-text) 10%, transparent); }
+.hf-tp-category--definition { color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 10%, transparent); }
+.hf-tp-category--rule { color: var(--status-error-text); background: color-mix(in srgb, var(--status-error-text) 10%, transparent); }
+.hf-tp-category--process { color: var(--status-success-text); background: color-mix(in srgb, var(--status-success-text) 10%, transparent); }
+.hf-tp-category--example { color: var(--status-warning-text); background: color-mix(in srgb, var(--status-warning-text) 10%, transparent); }
+.hf-tp-category--threshold { color: #d97706; background: color-mix(in srgb, #d97706 10%, transparent); }
+.hf-tp-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hf-tp-method {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.hf-tp-move {
+  padding: 1px 4px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--surface-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: center;
+}
+.hf-tp-move:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+.hf-tp-show-more {
+  display: block;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--accent-primary);
+  padding: 4px 6px;
+}
+.hf-tp-show-more:hover {
+  text-decoration: underline;
+}
+.hf-tp-empty {
+  font-size: 11px;
+  color: var(--text-placeholder);
+  padding: 4px 6px;
+  font-style: italic;
+}
+.hf-tp-unassigned {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--status-warning-text) 3%, transparent);
+}
+.hf-tp-unassigned-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
 /* Small chip variant */
 .hf-chip-sm {
   padding: 1px 6px !important;
@@ -3423,6 +3557,40 @@ html.light {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 12px;
+}
+
+/* ── Media grid (image thumbnails) ── */
+.hf-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.hf-media-card {
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-primary);
+  overflow: hidden;
+  transition: box-shadow 0.15s;
+}
+.hf-media-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.hf-media-card-preview {
+  height: 120px;
+  background: var(--surface-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hf-media-card-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}
+.hf-media-card-info {
+  padding: 8px 10px 10px;
 }
 
 /* ── Floating action bar (bottom-center) ── */
@@ -6278,6 +6446,16 @@ html.light {
   border-color: var(--border-strong);
 }
 
+/* Inner link within a card (removes anchor styling, clickable area) */
+.hf-card-link-inner {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.hf-card-link-inner:hover {
+  color: inherit;
+}
+
 /* Section divider with icon + title (top border separator) */
 .hf-section-divider {
   padding-top: 28px;
@@ -6373,6 +6551,27 @@ html.light {
   line-height: 1.5;
 }
 .hf-flow-phase-avoid { color: var(--text-muted); font-style: italic; }
+
+/* Phase media badge (inline chip: paperclip + count) */
+.hf-flow-phase-media-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Inherit footer (shows source: "Inherited from: Maths Academy") */
+.hf-flow-inherit-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-default);
+}
 
 /* ── Editable flow phase (CourseConfigStep) ──────────── */
 .hf-flow-phase-edit {

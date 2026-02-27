@@ -8,12 +8,15 @@ export type Domain = {
   isDefault: boolean;
 };
 
+export type CallerRole = "LEARNER" | "TEACHER" | "TUTOR" | "PARENT" | "MENTOR";
+
 export type CallerProfile = {
   id: string;
   name: string | null;
   email: string | null;
   phone: string | null;
   externalId: string | null;
+  role: CallerRole;
   createdAt: string;
   archivedAt: string | null;
   domainId: string | null;

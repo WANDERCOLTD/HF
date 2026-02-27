@@ -33,6 +33,7 @@ interface ClassroomDetail {
   description: string | null;
   domain: { id: string; name: string; slug: string };
   memberCount: number;
+  maxMembers: number;
   isActive: boolean;
   joinToken: string | null;
   createdAt: string;
@@ -63,6 +64,12 @@ export default function ClassroomDetailPage() {
   // Active calls for "In Call" badges
   const [activeCalls, setActiveCalls] = useState<Map<string, string>>(new Map());
 
+  // Max members editing
+  const [editMaxMembers, setEditMaxMembers] = useState(50);
+
+  // Token regeneration
+  const [regeneratingToken, setRegeneratingToken] = useState(false);
+
   // Send to class modal
   const [showSendModal, setShowSendModal] = useState(false);
 
@@ -76,6 +83,7 @@ export default function ClassroomDetailPage() {
       setMembers(classroomRes.members);
       setEditName(classroomRes.classroom.name);
       setEditDesc(classroomRes.classroom.description ?? "");
+      setEditMaxMembers(classroomRes.classroom.maxMembers ?? 50);
     }
     if (callsRes?.ok) {
       const map = new Map<string, string>();
@@ -104,12 +112,24 @@ export default function ClassroomDetailPage() {
     setSaving(true);
     const res = await fetchApi(`/api/educator/classrooms/${id}`, {
       method: "PATCH",
-      body: JSON.stringify({ name: editName, description: editDesc }),
+      body: JSON.stringify({ name: editName, description: editDesc, maxMembers: editMaxMembers }),
     });
     if (res?.ok) {
-      setClassroom((prev) => prev ? { ...prev, name: editName, description: editDesc || null } : prev);
+      setClassroom((prev) => prev ? { ...prev, name: editName, description: editDesc || null, maxMembers: editMaxMembers } : prev);
     }
     setSaving(false);
+  };
+
+  const handleRegenerateToken = async () => {
+    if (!confirm("Regenerate the invite link? The current link will stop working immediately.")) return;
+    setRegeneratingToken(true);
+    const res = await fetchApi(`/api/educator/classrooms/${id}/invite-link`, {
+      method: "POST",
+    });
+    if (res?.ok) {
+      setClassroom((prev) => prev ? { ...prev, joinToken: res.joinToken } : prev);
+    }
+    setRegeneratingToken(false);
   };
 
   const handleArchive = async () => {
@@ -197,7 +217,7 @@ export default function ClassroomDetailPage() {
           </div>
           <button
             onClick={() => setShowSendModal(true)}
-            className="hf-btn hf-btn-primary flex-shrink-0 cls-send-btn"
+            className="hf-btn hf-btn-primary cls-send-btn"
           >
             Send to Class
           </button>
@@ -206,22 +226,31 @@ export default function ClassroomDetailPage() {
 
       {/* Join Link Banner */}
       {classroom.joinToken && (
-        <div className="hf-banner hf-banner-info flex items-center gap-3 cls-banner">
+        <div className="hf-banner hf-banner-info cls-banner">
           <span className="cls-banner-text">
             Invite link: <span className="cls-banner-url">{joinUrl}</span>
           </span>
-          <button
-            onClick={copyLink}
-            className="hf-btn hf-btn-primary cls-copy-btn"
-            style={copied ? { background: "var(--status-success-text)" } : undefined}
-          >
-            {copied ? "Copied!" : "Copy"}
-          </button>
+          <div className="cls-banner-actions">
+            <button
+              onClick={copyLink}
+              className={`hf-btn hf-btn-primary cls-copy-btn${copied ? " cls-copy-btn--copied" : ""}`}
+            >
+              {copied ? "Copied!" : "Copy"}
+            </button>
+            <button
+              onClick={handleRegenerateToken}
+              disabled={regeneratingToken}
+              className="hf-btn hf-btn-secondary cls-regen-btn"
+              title="Generate a new link (invalidates the current one)"
+            >
+              {regeneratingToken ? "Regenerating..." : "Regenerate"}
+            </button>
+          </div>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 cls-tab-bar">
+      <div className="cls-tab-bar">
         {(["roster", "lesson-plan", "differentiation", "settings"] as Tab[]).map((t) => (
           <button
             key={t}
@@ -241,7 +270,7 @@ export default function ClassroomDetailPage() {
             <div className="cls-invite-title">
               Invite {plural("caller")}
             </div>
-            <div className="flex gap-2">
+            <div className="cls-invite-row">
               <input
                 type="text"
                 value={inviteEmails}
@@ -287,7 +316,7 @@ export default function ClassroomDetailPage() {
                     const lastCall = m.lastCallAt ? new Date(m.lastCallAt).getTime() : 0;
                     const isActive = lastCall > sevenDaysAgo;
                     const neverCalled = !m.lastCallAt;
-                    const statusColor = neverCalled ? "var(--text-muted)" : isActive ? "var(--status-success-text)" : "var(--status-warning-text)";
+                    const statusClass = neverCalled ? "cls-status--not-started" : isActive ? "cls-status--active" : "cls-status--inactive";
                     const statusLabel = neverCalled ? "Not started" : isActive ? "Active" : "Inactive";
 
                     return (
@@ -318,14 +347,8 @@ export default function ClassroomDetailPage() {
                               In Call
                             </Link>
                           ) : (
-                            <span
-                              className="cls-status-indicator"
-                              style={{ color: statusColor }}
-                            >
-                              <span
-                                className="cls-status-dot"
-                                style={{ background: statusColor }}
-                              />
+                            <span className={`cls-status-indicator ${statusClass}`}>
+                              <span className="cls-status-dot" />
                               {statusLabel}
                             </span>
                           )}
@@ -376,7 +399,23 @@ export default function ClassroomDetailPage() {
               className="hf-input cls-settings-textarea"
             />
           </div>
-          <div className="flex gap-3">
+          <div className="cls-settings-field">
+            <label className="hf-label">Max {plural("caller")}</label>
+            <div className="cls-max-members-row">
+              <input
+                type="number"
+                min={1}
+                max={500}
+                value={editMaxMembers}
+                onChange={(e) => setEditMaxMembers(Math.max(1, Math.min(500, Number(e.target.value) || 1)))}
+                className="hf-input cls-max-members-input"
+              />
+              <span className="cls-max-members-hint">
+                {classroom.memberCount}/{editMaxMembers} seats used
+              </span>
+            </div>
+          </div>
+          <div className="cls-settings-actions">
             <button
               disabled={saving}
               onClick={handleSave}

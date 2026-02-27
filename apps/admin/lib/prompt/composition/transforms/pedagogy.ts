@@ -24,6 +24,8 @@ registerTransform("computeSessionPedagogy", (
   } = context.sharedState;
   const domain = context.loadedData.caller?.domain;
   const onboardingSpec = context.loadedData.onboardingSpec;
+  // First playbook's config for course-level onboarding override
+  const primaryPlaybook = context.loadedData.playbooks?.[0];
 
   const plan: {
     sessionType: string;
@@ -55,11 +57,12 @@ registerTransform("computeSessionPedagogy", (
     // === ONBOARDING MODE ===
     const firstModule = modules[0];
 
-    // Priority: Domain onboarding flow > INIT-001 fallback
+    // Priority: Playbook (course) override > Domain > INIT-001 fallback
+    const playbookFlow = primaryPlaybook?.config?.onboardingFlowPhases as { phases: any[]; successMetrics?: string[] } | undefined;
     const domainFlow = domain?.onboardingFlowPhases as { phases: any[]; successMetrics?: string[] } | null;
     const initFlow = onboardingSpec?.config?.firstCallFlow;
-    const fcFlow = domainFlow || initFlow;
-    const source = domainFlow ? `Domain ${domain?.slug}` : "INIT-001";
+    const fcFlow = playbookFlow || domainFlow || initFlow;
+    const source = playbookFlow ? `Playbook ${primaryPlaybook?.name}` : domainFlow ? `Domain ${domain?.slug}` : "INIT-001";
 
     if (fcFlow?.phases) {
       plan.firstCallPhases = fcFlow.phases;

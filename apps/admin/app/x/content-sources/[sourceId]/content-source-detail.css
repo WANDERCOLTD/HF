@@ -131,6 +131,196 @@
   max-width: 700px;
 }
 
+/* ── Inline Editing ── */
+
+.csd-editable {
+  cursor: pointer;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 4px;
+  transition: background-color 0.15s;
+}
+
+.csd-editable:hover {
+  background-color: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+}
+
+.csd-edit-pencil {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ── Description editing ── */
+
+.csd-desc-edit {
+  margin-top: 8px;
+  max-width: 700px;
+}
+
+.csd-desc-textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  min-height: 60px;
+}
+
+.csd-desc-edit-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.csd-btn-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.csd-desc-placeholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: none;
+  border: 1px dashed var(--border-default);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.csd-desc-placeholder:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+/* ── Dropdown (Trust Level & Doc Type) ── */
+
+.csd-dropdown-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.csd-badge-clickable {
+  cursor: pointer;
+  transition: opacity 0.15s, box-shadow 0.15s;
+}
+
+.csd-badge-clickable:hover {
+  opacity: 0.85;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 25%, transparent);
+}
+
+.csd-badge-clickable:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.csd-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  min-width: 200px;
+  padding: 4px 0;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.csd-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.1s;
+}
+
+.csd-dropdown-item:hover {
+  background-color: var(--surface-secondary);
+}
+
+.csd-dropdown-item--active {
+  font-weight: 600;
+  background-color: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+
+.csd-dropdown-item:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.csd-dropdown-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.csd-dropdown-item-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* ── Metadata inline editing ── */
+
+.csd-meta-value {
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.csd-meta-value:hover {
+  text-decoration: underline;
+}
+
+.csd-meta-edit-inline {
+  display: inline-flex;
+  align-items: center;
+}
+
+.csd-meta-input {
+  width: 100px;
+  padding: 1px 4px;
+  font-size: 12px;
+  height: 22px;
+  line-height: 1;
+}
+
+.csd-meta-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: none;
+  border: 1px dashed var(--border-default);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.csd-meta-add-btn:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
 /* ── Review Progress Bar ── */
 
 .csd-progress-wrap {

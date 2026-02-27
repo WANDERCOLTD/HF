@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useEntityContext } from "@/contexts/EntityContext";
 import { DomainPill } from "@/src/components/shared/EntityPill";
 import { HierarchyBreadcrumb } from "@/components/shared/HierarchyBreadcrumb";
-import { Smartphone, User, BookMarked, PlayCircle, Brain, BarChart3, Target, BookOpen, ClipboardCheck, CheckSquare, GitBranch, MessageCircle, Gauge } from "lucide-react";
+import { Smartphone, User, BookMarked, PlayCircle, Brain, BarChart3, Target, BookOpen, ClipboardCheck, CheckSquare, GitBranch, MessageCircle, Gauge, Archive } from "lucide-react";
+import { EditableTitle } from "@/components/shared/EditableTitle";
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
 import { CallerDomainSection } from "@/components/callers/CallerDomainSection";
 import { SimChat } from "@/components/sim/SimChat";
@@ -31,8 +32,8 @@ import { GuideLens } from "./caller-detail/lenses/GuideLens";
 import { ExploreLens } from "./caller-detail/lenses/ExploreLens";
 
 // Shared types
-import type { CallerData, CallerProfile, Domain, ComposedPrompt, SectionId, ParamConfig } from "./caller-detail/types";
-import { CATEGORY_COLORS } from "./caller-detail/constants";
+import type { CallerData, CallerProfile, CallerRole, Domain, ComposedPrompt, SectionId, ParamConfig } from "./caller-detail/types";
+
 
 export default function CallerDetailPage() {
   const params = useParams();
@@ -110,6 +111,88 @@ export default function CallerDetailPage() {
     setCopiedButton(buttonId);
     setTimeout(() => setCopiedButton(null), 1500);
   };
+
+  // ── Inline editing state ──
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [phoneDraft, setPhoneDraft] = useState("");
+  const [emailDraft, setEmailDraft] = useState("");
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+
+  const CALLER_ROLES: CallerRole[] = ["LEARNER", "TEACHER", "TUTOR", "PARENT", "MENTOR"];
+
+  // Generic PATCH helper for caller fields
+  const patchCaller = useCallback(async (fields: Record<string, unknown>) => {
+    const res = await fetch(`/api/callers/${callerId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    });
+    const result = await res.json();
+    if (!result.ok) throw new Error(result.error || "Update failed");
+    return result;
+  }, [callerId]);
+
+  const handleSaveName = useCallback(async (newName: string) => {
+    const result = await patchCaller({ name: newName });
+    if (data) {
+      setData({ ...data, caller: result.caller });
+    }
+  }, [patchCaller, data]);
+
+  const handleSavePhone = useCallback(async () => {
+    const trimmed = phoneDraft.trim();
+    if (trimmed === (data?.caller.phone || "")) {
+      setEditingPhone(false);
+      return;
+    }
+    try {
+      const result = await patchCaller({ phone: trimmed || null });
+      if (data) setData({ ...data, caller: result.caller });
+    } catch (err: any) {
+      alert("Failed to update phone: " + err.message);
+    }
+    setEditingPhone(false);
+  }, [phoneDraft, data, patchCaller]);
+
+  const handleSaveEmail = useCallback(async () => {
+    const trimmed = emailDraft.trim();
+    if (trimmed === (data?.caller.email || "")) {
+      setEditingEmail(false);
+      return;
+    }
+    try {
+      const result = await patchCaller({ email: trimmed || null });
+      if (data) setData({ ...data, caller: result.caller });
+    } catch (err: any) {
+      alert("Failed to update email: " + err.message);
+    }
+    setEditingEmail(false);
+  }, [emailDraft, data, patchCaller]);
+
+  const handleRoleChange = useCallback(async (newRole: CallerRole) => {
+    setShowRoleDropdown(false);
+    try {
+      const result = await patchCaller({ role: newRole });
+      if (data) setData({ ...data, caller: result.caller });
+    } catch (err: any) {
+      alert("Failed to update role: " + err.message);
+    }
+  }, [patchCaller, data]);
+
+  const handleArchive = useCallback(async () => {
+    if (!confirm("Archive this caller? They will no longer appear in active lists.")) return;
+    setArchiving(true);
+    try {
+      const result = await patchCaller({ archive: true });
+      if (data) setData({ ...data, caller: { ...data.caller, archivedAt: result.caller.archivedAt } });
+    } catch (err: any) {
+      alert("Failed to archive: " + err.message);
+    } finally {
+      setArchiving(false);
+    }
+  }, [patchCaller, data]);
 
   // AI Assistant
   const assistant = useAssistant({
@@ -454,7 +537,34 @@ export default function CallerDetailPage() {
           </div>
           <div className="cdp-info">
             <div className="cdp-name-row">
-              <h1 className="cdp-name">{getCallerLabel(data.caller)}</h1>
+              <EditableTitle
+                value={getCallerLabel(data.caller)}
+                onSave={handleSaveName}
+                as="h1"
+              />
+              {/* Role Badge */}
+              <div className="cdp-role-badge-wrap">
+                <button
+                  className={`cdp-role-badge cdp-role-${(data.caller.role || "LEARNER").toLowerCase()}`}
+                  onClick={() => setShowRoleDropdown(!showRoleDropdown)}
+                  title="Click to change role"
+                >
+                  {data.caller.role || "LEARNER"}
+                </button>
+                {showRoleDropdown && (
+                  <div className="cdp-role-dropdown">
+                    {CALLER_ROLES.map((r) => (
+                      <button
+                        key={r}
+                        className={`cdp-role-dropdown-item${r === (data.caller.role || "LEARNER") ? " cdp-role-dropdown-item--active" : ""}`}
+                        onClick={() => handleRoleChange(r)}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               {/* Domain Badge (click to expand domain section) */}
               <div
                 onClick={() => {
@@ -477,11 +587,75 @@ export default function CallerDetailPage() {
               </div>
             </div>
             <div className="cdp-contact-row">
-              {data.caller.phone && (
-                <span className="cdp-contact-item">📱 {data.caller.phone}</span>
+              {/* Editable Phone */}
+              {editingPhone ? (
+                <span className="cdp-contact-item">
+                  📱{" "}
+                  <input
+                    className="cdp-contact-input"
+                    type="tel"
+                    value={phoneDraft}
+                    onChange={(e) => setPhoneDraft(e.target.value)}
+                    onBlur={handleSavePhone}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); handleSavePhone(); }
+                      if (e.key === "Escape") { setEditingPhone(false); }
+                    }}
+                    autoFocus
+                    placeholder="Phone number"
+                  />
+                </span>
+              ) : data.caller.phone ? (
+                <span
+                  className="cdp-contact-item cdp-contact-editable"
+                  onClick={() => { setPhoneDraft(data.caller.phone || ""); setEditingPhone(true); }}
+                  title="Click to edit phone"
+                >
+                  📱 {data.caller.phone}
+                </span>
+              ) : (
+                <span
+                  className="cdp-contact-item cdp-contact-add"
+                  onClick={() => { setPhoneDraft(""); setEditingPhone(true); }}
+                  title="Click to add phone"
+                >
+                  📱 Add phone
+                </span>
               )}
-              {data.caller.email && (
-                <span className="cdp-contact-item">✉️ {data.caller.email}</span>
+              {/* Editable Email */}
+              {editingEmail ? (
+                <span className="cdp-contact-item">
+                  ✉️{" "}
+                  <input
+                    className="cdp-contact-input"
+                    type="email"
+                    value={emailDraft}
+                    onChange={(e) => setEmailDraft(e.target.value)}
+                    onBlur={handleSaveEmail}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); handleSaveEmail(); }
+                      if (e.key === "Escape") { setEditingEmail(false); }
+                    }}
+                    autoFocus
+                    placeholder="Email address"
+                  />
+                </span>
+              ) : data.caller.email ? (
+                <span
+                  className="cdp-contact-item cdp-contact-editable"
+                  onClick={() => { setEmailDraft(data.caller.email || ""); setEditingEmail(true); }}
+                  title="Click to edit email"
+                >
+                  ✉️ {data.caller.email}
+                </span>
+              ) : (
+                <span
+                  className="cdp-contact-item cdp-contact-add"
+                  onClick={() => { setEmailDraft(""); setEditingEmail(true); }}
+                  title="Click to add email"
+                >
+                  ✉️ Add email
+                </span>
               )}
               {data.caller.externalId && (
                 <span className="cdp-external-id">
@@ -497,17 +671,12 @@ export default function CallerDetailPage() {
                     .map(([key, value]) => {
                       const info = paramConfig.params[key];
                       if (!info || value === undefined || value === null) return null;
-                      const level = value >= 0.7 ? "HIGH" : value <= 0.3 ? "LOW" : "MED";
-                      const levelColor = level === "HIGH" ? "var(--status-success-text)" : level === "LOW" ? "var(--status-error-text)" : "var(--text-muted)";
+                      const level = value >= 0.7 ? "high" : value <= 0.3 ? "low" : "med";
                       return (
                         <span
                           key={key}
                           title={`${info.label}: ${(value * 100).toFixed(0)}%`}
-                          className="cdp-param-chip"
-                          style={{
-                            color: levelColor,
-                            background: level === "HIGH" ? "var(--status-success-bg)" : level === "LOW" ? "var(--status-error-bg)" : "var(--border-default)",
-                          }}
+                          className={`cdp-param-chip cdp-param-chip--${level}`}
                         >
                           {info.label.charAt(0)}{(value * 100).toFixed(0)}
                         </span>
@@ -623,6 +792,19 @@ export default function CallerDetailPage() {
           >
             {exporting ? "Exporting..." : "Export Data"}
           </button>
+
+          {/* Archive Button — only shown when NOT archived */}
+          {!data.caller.archivedAt && (
+            <button
+              onClick={handleArchive}
+              disabled={archiving}
+              title="Archive this caller"
+              className="cdp-btn-archive"
+            >
+              <Archive size={14} />
+              {archiving ? "Archiving..." : "Archive"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -838,15 +1020,14 @@ export default function CallerDetailPage() {
               <>
                 <div className="cdp-section-divider" />
                 {[
-                  { label: "Facts", count: data.memorySummary.factCount, color: CATEGORY_COLORS.FACT },
-                  { label: "Prefs", count: data.memorySummary.preferenceCount, color: CATEGORY_COLORS.PREFERENCE },
-                  { label: "Events", count: data.memorySummary.eventCount, color: CATEGORY_COLORS.EVENT },
-                  { label: "Topics", count: data.memorySummary.topicCount, color: CATEGORY_COLORS.TOPIC },
+                  { label: "Facts", count: data.memorySummary.factCount, cat: "fact" },
+                  { label: "Prefs", count: data.memorySummary.preferenceCount, cat: "preference" },
+                  { label: "Events", count: data.memorySummary.eventCount, cat: "event" },
+                  { label: "Topics", count: data.memorySummary.topicCount, cat: "topic" },
                 ].map((stat) => (
                   <span
                     key={stat.label}
-                    className="cdp-memory-cat-chip"
-                    style={{ background: stat.color.bg, color: stat.color.text }}
+                    className={`cdp-memory-cat-chip cdp-memory-cat-chip--${stat.cat}`}
                   >
                     {stat.count} {stat.label}
                   </span>

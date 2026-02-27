@@ -26,7 +26,6 @@ export function HubStep({ getData, setData, onNext, onPrev }: StepRenderProps) {
   const [description, setDescription] = useState('');
   const [kind, setKind] = useState<CommunityKind | undefined>();
   const [suggestedKind, setSuggestedKind] = useState<CommunityKind | null>(null);
-  const [suggesting, setSuggesting] = useState(false);
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Description suggestion from hub name
@@ -67,7 +66,7 @@ export function HubStep({ getData, setData, onNext, onPrev }: StepRenderProps) {
     if (!description.trim() || kind) return;
     if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
     suggestTimerRef.current = setTimeout(async () => {
-      setSuggesting(true);
+
       try {
         const res = await fetch('/api/communities/suggest-kind', {
           method: 'POST',
@@ -81,7 +80,7 @@ export function HubStep({ getData, setData, onNext, onPrev }: StepRenderProps) {
       } catch {
         // Silent — suggestion is optional
       } finally {
-        setSuggesting(false);
+
       }
     }, 300);
   };
@@ -142,31 +141,35 @@ export function HubStep({ getData, setData, onNext, onPrev }: StepRenderProps) {
             className="hf-input"
             rows={3}
           />
-          {loadingSuggDesc && (
-            <div className="hf-ai-loading-row hf-mt-xs">
-              <Loader2 size={12} className="hf-spinner" />
-              <span className="hf-text-xs hf-text-muted">Drafting description…</span>
-            </div>
-          )}
-          {!loadingSuggDesc && suggDesc && !description.trim() && (
-            <div className="hf-mt-xs">
-              <p className="hf-ai-inline-hint hf-mb-xs">
-                <Sparkles size={11} /> Suggestion:
-              </p>
-              <div className="hf-suggestion-chips">
-                <button
-                  type="button"
-                  className="hf-suggestion-chip"
-                  onClick={() => { setDescription(suggDesc); setSuggDesc(''); }}
-                >
-                  {suggDesc}
-                </button>
+          <div className="hf-suggest-slot">
+            {loadingSuggDesc ? (
+              <div className="hf-ai-loading-row">
+                <Loader2 size={12} className="hf-spinner" />
+                <span className="hf-text-xs hf-text-muted">Suggesting…</span>
               </div>
-            </div>
-          )}
-          {suggesting && (
-            <p className="hf-hint hf-mt-xs">Thinking about the best setup…</p>
-          )}
+            ) : suggDesc && !description.trim() ? (
+              <>
+                <div className="hf-ai-inline-hint">
+                  <Sparkles size={11} />
+                  Suggestions
+                </div>
+                <div className="hf-suggestion-chips">
+                  <button
+                    type="button"
+                    className="hf-suggestion-chip"
+                    onClick={() => { setDescription(suggDesc); setSuggDesc(''); }}
+                  >
+                    {suggDesc}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <span className="hf-suggest-slot__hint">
+                <Sparkles size={11} />
+                A description will be suggested from the name
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Community Kind */}
@@ -176,10 +179,11 @@ export function HubStep({ getData, setData, onNext, onPrev }: StepRenderProps) {
             hint={WIZARD_HINTS['community.communityKind']}
             labelClass="hf-label"
           />
-          <div className="hf-chip-row">
+          <div className="hf-chip-row" role="radiogroup" aria-label="Community kind">
             {KIND_OPTIONS.map((opt) => {
               const isSelected = kind === opt.value;
               const isSuggested = !kind && suggestedKind === opt.value;
+              const isFocusable = isSelected || isSuggested;
               return (
                 <button
                   key={opt.value}
@@ -187,6 +191,9 @@ export function HubStep({ getData, setData, onNext, onPrev }: StepRenderProps) {
                   onClick={() => handleKindSelect(opt.value)}
                   className={isSelected || isSuggested ? 'hf-chip hf-chip-selected' : 'hf-chip'}
                   title={opt.description}
+                  tabIndex={isFocusable ? 0 : -1}
+                  role="radio"
+                  aria-checked={isSelected || isSuggested}
                 >
                   <span>{opt.label}</span>
                   {isSuggested && <span className="hf-chip-badge">Suggested</span>}

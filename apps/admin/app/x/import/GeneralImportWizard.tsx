@@ -362,7 +362,7 @@ export function GeneralImportWizard({
               <div className="giw-detected-badge">
                 <span className="giw-detected-badge-icon">✓</span>
                 <span className="giw-detected-badge-text">
-                  AI detected: <strong>{detectedType}</strong>
+                  Suggested: <strong>{detectedType}</strong>
                 </span>
               </div>
             )}
@@ -385,8 +385,8 @@ export function GeneralImportWizard({
                       <div className="giw-type-label">
                         {type.label}
                         {type.value === detectedType && (
-                          <span className="giw-type-detected-tag">
-                            DETECTED
+                          <span className="hf-chip-badge">
+                            Suggested
                           </span>
                         )}
                       </div>

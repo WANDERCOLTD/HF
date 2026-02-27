@@ -13,6 +13,7 @@ import { LessonPlanModelPicker } from "@/components/shared/LessonPlanModelPicker
 import { getLessonPlanModel } from "@/lib/lesson-plan/models";
 import type { LessonPlanModel } from "@/lib/lesson-plan/types";
 import KnowledgeMapTree, { type SourceTree, type KnowledgeMapStats } from "@/components/shared/KnowledgeMapTree";
+import { SessionTPList, UnassignedTPList, type TPItem, type SessionOption } from "@/components/shared/SessionTPList";
 import type { StepProps } from "../CourseSetupWizard";
 
 // ── Types ──────────────────────────────────────────────
@@ -39,6 +40,16 @@ type LessonEntry = {
     guidance?: string;
   }>;
   learningOutcomeRefs?: string[];
+  /** Explicit TP-to-session binding (educator-curated) */
+  assertionIds?: string[];
+  /** Images auto-resolved from assertion links or manually assigned */
+  media?: Array<{
+    mediaId: string;
+    fileName?: string;
+    captionText?: string | null;
+    figureRef?: string | null;
+    mimeType?: string;
+  }>;
 };
 
 const SESSION_TYPES = [
@@ -122,6 +133,12 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
   const [kmSources, setKmSources] = useState<SourceTree[]>([]);
   const [kmStats, setKmStats] = useState<KnowledgeMapStats | null>(null);
   const kmFetchedRef = useRef(false);
+
+  // Teaching Points per session
+  const [sessionAssertions, setSessionAssertions] = useState<Record<number, TPItem[]>>({});
+  const [unassignedAssertions, setUnassignedAssertions] = useState<TPItem[]>([]);
+  const [tpLoading, setTpLoading] = useState(false);
+  const tpFetchedRef = useRef(false);
 
   // Content from previous step
   const contentMode = getData<string>("contentMode");
@@ -258,6 +275,32 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
       })
       .catch(() => {}); // silent — Knowledge Map is supplementary
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fetch session assertions (once, when editing + has curriculum) ──
+
+  useEffect(() => {
+    if (phase !== "editing" || tpFetchedRef.current || !curriculumId) return;
+    if (contentMode !== "pack") return; // TPs only exist for uploaded content
+    tpFetchedRef.current = true;
+    setTpLoading(true);
+
+    fetch(`/api/curricula/${curriculumId}/session-assertions`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok) {
+          const bySession: Record<number, TPItem[]> = {};
+          if (data.sessions) {
+            for (const [key, group] of Object.entries(data.sessions)) {
+              bySession[Number(key)] = (group as any).assertions || [];
+            }
+          }
+          setSessionAssertions(bySession);
+          setUnassignedAssertions(data.unassigned || []);
+        }
+      })
+      .catch(() => {}) // silent — TP list is supplementary
+      .finally(() => setTpLoading(false));
+  }, [phase, curriculumId, contentMode]);
 
   // ── Intent helpers ────────────────────────────────────
 
@@ -417,6 +460,60 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
     });
   }, []);
 
+  // ── TP move handler ──────────────────────────────────
+
+  const sessionOptions: SessionOption[] = entries.map((e, i) => ({
+    session: i + 1,
+    label: e.label,
+  }));
+
+  const handleTPMove = useCallback((assertionId: string, toSession: number) => {
+    // Find the TP being moved (from sessions or unassigned)
+    let movedTp: TPItem | undefined;
+
+    setSessionAssertions((prev) => {
+      const next: Record<number, TPItem[]> = {};
+      for (const [key, tps] of Object.entries(prev)) {
+        const found = tps.find((tp) => tp.id === assertionId);
+        if (found) movedTp = found;
+        next[Number(key)] = tps.filter((tp) => tp.id !== assertionId);
+      }
+      return next;
+    });
+
+    setUnassignedAssertions((prev) => {
+      const found = prev.find((tp) => tp.id === assertionId);
+      if (found) movedTp = found;
+      return prev.filter((tp) => tp.id !== assertionId);
+    });
+
+    // Use microtask to ensure removal is batched, then add to target
+    queueMicrotask(() => {
+      if (!movedTp) return;
+      const tp = movedTp;
+      if (toSession === 0) {
+        setUnassignedAssertions((prev) => [...prev, tp]);
+      } else {
+        setSessionAssertions((prev) => ({
+          ...prev,
+          [toSession]: [...(prev[toSession] || []), tp],
+        }));
+      }
+
+      // Sync assertionIds on entries for persistence
+      setEntries((prev) =>
+        prev.map((e, i) => {
+          const session = i + 1;
+          const currentIds = (e.assertionIds || []).filter((id) => id !== assertionId);
+          if (session === toSession) {
+            currentIds.push(assertionId);
+          }
+          return { ...e, assertionIds: currentIds.length > 0 ? currentIds : undefined };
+        }),
+      );
+    });
+  }, []);
+
   function handleAddSession() {
     if (!newLabel.trim()) return;
     setEntries((prev) => [
@@ -501,12 +598,17 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
               {getTypeLabel(entry.type)}
             </span>
             <span className="hf-session-label">{entry.label}</span>
-            {!skeleton && entry.assertionCount ? (
+            {!skeleton && (sessionAssertions[index + 1]?.length || entry.assertionCount) ? (
               <span className="hf-session-tp-badge" title="Teaching points">
                 <BookOpen size={10} />
-                {entry.assertionCount} TPs
+                {sessionAssertions[index + 1]?.length || entry.assertionCount} TPs
               </span>
             ) : null}
+            {!skeleton && entry.media && entry.media.length > 0 && (
+              <span className="hf-session-media-badge" title={`${entry.media.length} image${entry.media.length > 1 ? "s" : ""}`}>
+                🖼 {entry.media.length}
+              </span>
+            )}
             {entry.learningOutcomeRefs?.length ? (
               <span className="hf-session-lo-badges">
                 {entry.learningOutcomeRefs.map((lo) => (
@@ -522,14 +624,14 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
             ) : entry.estimatedDurationMins ? (
               <span className="hf-session-meta">{entry.estimatedDurationMins}m</span>
             ) : null}
-            {!skeleton && entry.phases?.length ? (
+            {!skeleton && (entry.phases?.length || (contentMode === "pack" && (sessionAssertions[index + 1]?.length ?? 0) > 0)) ? (
               <button
                 className="hf-session-expand-btn"
                 onClick={(e) => {
                   e.stopPropagation();
                   setExpandedSession(expandedSession === index ? null : index);
                 }}
-                title={expandedSession === index ? "Collapse phases" : "Show phases"}
+                title={expandedSession === index ? "Collapse details" : "Show details"}
               >
                 <span className={`hf-chevron--sm${expandedSession === index ? " hf-chevron--open" : ""}`} />
               </button>
@@ -543,6 +645,23 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
             {allMethods.map((m) => (
               <span key={m} className="hf-chip hf-chip-sm">{m}</span>
             ))}
+          </div>
+        )}
+        {/* Session images — read-only thumbnails */}
+        {!skeleton && entry.media && entry.media.length > 0 && (
+          <div className="hf-session-media-strip">
+            {entry.media.slice(0, 6).map((m) => (
+              <div key={m.mediaId} className="hf-session-media-thumb" title={m.captionText || m.figureRef || m.fileName || ""}>
+                {m.mimeType?.startsWith("image/") ? (
+                  <img src={`/api/media/${m.mediaId}`} alt={m.captionText || m.figureRef || ""} />
+                ) : (
+                  <span className="hf-session-media-icon">{m.figureRef || "File"}</span>
+                )}
+              </div>
+            ))}
+            {entry.media.length > 6 && (
+              <span className="hf-session-media-more">+{entry.media.length - 6}</span>
+            )}
           </div>
         )}
         {/* Phase expansion — multi-row per phase */}
@@ -570,6 +689,15 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
               </div>
             ))}
           </div>
+        )}
+        {/* Teaching Points per session — shown in expanded view */}
+        {!skeleton && expandedSession === index && contentMode === "pack" && (
+          <SessionTPList
+            sessionNumber={index + 1}
+            assertions={sessionAssertions[index + 1] || []}
+            sessions={sessionOptions}
+            onMove={handleTPMove}
+          />
         )}
       </div>
     );
@@ -856,6 +984,15 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
                 renderCard={(entry, index) => renderSessionCard(entry, index)}
               />
             </div>
+
+            {/* Unassigned Teaching Points */}
+            {contentMode === "pack" && !tpLoading && unassignedAssertions.length > 0 && (
+              <UnassignedTPList
+                assertions={unassignedAssertions}
+                sessions={sessionOptions}
+                onMove={handleTPMove}
+              />
+            )}
 
             {/* Add session inline form */}
             {showAdd && (

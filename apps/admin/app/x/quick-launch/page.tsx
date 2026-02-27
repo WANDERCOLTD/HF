@@ -15,7 +15,7 @@ import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import {
   Building2, BookOpen, User, PlayCircle, Target,
-  ChevronDown, ChevronRight, Link2, Copy, Check, Sparkles,
+  ChevronDown, ChevronRight, Link2, Copy, Check, Sparkles, Loader2,
 } from "lucide-react";
 import { OnboardingTabContent } from "@/app/x/domains/components/OnboardingTab";
 import type { DomainDetail } from "@/app/x/domains/components/types";
@@ -1232,14 +1232,14 @@ export default function QuickLaunchPage() {
                   {selectedDomainId ? "Topic name" : "Community name"}
                 </label>
                 {nameLoading && (
-                  <span className="ql-name-suggesting">
-                    <span className="ql-spinner-xs" />
-                    Suggesting...
-                  </span>
+                  <div className="hf-ai-loading-row">
+                    <Loader2 size={12} className="hf-spinner" />
+                    <span className="hf-text-xs hf-text-muted">Suggesting…</span>
+                  </div>
                 )}
                 {!nameLoading && subjectName && !nameManuallyEdited && !suggestedName && (
-                  <span className="ql-ai-badge">
-                    AI suggested
+                  <span className="hf-ai-badge">
+                    Suggested
                   </span>
                 )}
               </div>
@@ -1256,26 +1256,25 @@ export default function QuickLaunchPage() {
                 className="ql-input-hero ql-input-hero-name"
               />
               {suggestedName && suggestedName !== subjectName && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSubjectName(suggestedName);
-                    setSuggestedName(null);
-                    setNameManuallyEdited(false);
-                  }}
-                  className="ql-suggestion-btn"
-                >
-                  <span className="ql-suggestion-label">Suggestion:</span>
-                  {suggestedName}
-                  <span className="ql-suggestion-use">Use</span>
-                  <span
-                    role="button"
-                    onClick={(e) => { e.stopPropagation(); setSuggestedName(null); }}
-                    className="ql-suggestion-dismiss"
-                  >
-                    &times;
-                  </span>
-                </button>
+                <div className="hf-suggest-slot">
+                  <div className="hf-ai-inline-hint">
+                    <Sparkles size={11} />
+                    Suggestions
+                  </div>
+                  <div className="hf-suggestion-chips">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSubjectName(suggestedName);
+                        setSuggestedName(null);
+                        setNameManuallyEdited(false);
+                      }}
+                      className="hf-suggestion-chip"
+                    >
+                      {suggestedName}
+                    </button>
+                  </div>
+                </div>
               )}
               {!brief.trim() && !subjectName.trim() && !suggestedName && (
                 <div className="ql-no-brief-hint">
@@ -1302,22 +1301,21 @@ export default function QuickLaunchPage() {
               const sp = personas.find((p) => p.slug === suggestedPersona);
               if (!sp) return null;
               return (
-                <button
-                  type="button"
-                  onClick={() => { setPersona(suggestedPersona); setSuggestedPersona(null); }}
-                  className="ql-suggestion-btn"
-                >
-                  <span className="ql-suggestion-label">Suggestion:</span>
-                  {sp.name}
-                  <span className="ql-suggestion-use">Use</span>
-                  <span
-                    role="button"
-                    onClick={(e) => { e.stopPropagation(); setSuggestedPersona(null); }}
-                    className="ql-suggestion-dismiss"
-                  >
-                    &times;
-                  </span>
-                </button>
+                <div className="hf-suggest-slot">
+                  <div className="hf-ai-inline-hint">
+                    <Sparkles size={11} />
+                    Suggestions
+                  </div>
+                  <div className="hf-suggestion-chips">
+                    <button
+                      type="button"
+                      onClick={() => { setPersona(suggestedPersona); setSuggestedPersona(null); }}
+                      className="hf-suggestion-chip"
+                    >
+                      {sp.name}
+                    </button>
+                  </div>
+                </div>
               );
             })()}
 
@@ -1377,46 +1375,45 @@ export default function QuickLaunchPage() {
               </button>
             </div>
             {goals.length > 0 && (
-              <div className="hf-flex hf-flex-wrap hf-gap-sm">
+              <div className="hf-outcome-chips">
                 {goals.map((g, i) => (
-                  <span key={i} className="ql-goal-chip">
+                  <span key={i} className="hf-outcome-chip">
                     {g}
-                    <button onClick={() => removeGoal(i)} className="ql-goal-chip-remove">
-                      &times;
-                    </button>
+                    <button type="button" onClick={() => removeGoal(i)}>&times;</button>
                   </span>
                 ))}
               </div>
             )}
-            {suggestedGoals && suggestedGoals.length > 0 && (
-              <div style={{ marginTop: goals.length > 0 ? 10 : 0 }}>
-                <div className="ql-suggest-header">
-                  Suggestions
-                  <span
-                    role="button"
-                    onClick={() => setSuggestedGoals(null)}
-                    className="ql-suggest-dismiss-sm"
-                  >
-                    &times;
-                  </span>
-                </div>
-                <div className="hf-flex hf-flex-wrap" style={{ gap: 6 }}>
-                  {suggestedGoals.map((g, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => {
-                        setGoals((prev) => [...prev, g]);
-                        setSuggestedGoals((prev) => prev ? prev.filter((_, j) => j !== i) : null);
-                      }}
-                      className="ql-goal-suggest"
-                    >
-                      + {g}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="hf-suggest-slot">
+              {suggestedGoals && suggestedGoals.length > 0 ? (
+                <>
+                  <div className="hf-ai-inline-hint">
+                    <Sparkles size={11} />
+                    Suggestions
+                  </div>
+                  <div className="hf-suggestion-chips">
+                    {suggestedGoals.map((g, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          setGoals((prev) => [...prev, g]);
+                          setSuggestedGoals((prev) => prev ? prev.filter((_, j) => j !== i) : null);
+                        }}
+                        className="hf-suggestion-chip"
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <span className="hf-suggest-slot__hint">
+                  <Sparkles size={11} />
+                  Describe what you&apos;re building and we&apos;ll suggest goals
+                </span>
+              )}
+            </div>
           </FormCard>
 
           {/* Advanced Options */}

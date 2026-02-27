@@ -429,31 +429,38 @@ export default function NewClassroomPage() {
               placeholder="e.g. Year 10 English, Tuesday Coaching Group"
               className="hf-input cwiz-input-full"
             />
-            {loadingNameSugg && (
-              <div className="hf-ai-loading-row hf-mt-xs">
-                <Loader2 size={12} className="hf-spinner" />
-                <span className="hf-text-xs hf-text-muted">Generating name ideas…</span>
-              </div>
-            )}
-            {!loadingNameSugg && nameSuggestions.length > 0 && !name.trim() && (
-              <div className="hf-mt-xs">
-                <p className="hf-ai-inline-hint hf-mb-xs">
-                  <Sparkles size={11} /> Suggestions — click to use:
-                </p>
-                <div className="hf-suggestion-chips">
-                  {nameSuggestions.map((s, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      className="hf-suggestion-chip"
-                      onClick={() => { setName(s); setNameSuggestions([]); }}
-                    >
-                      + {s}
-                    </button>
-                  ))}
+            <div className="hf-suggest-slot">
+              {loadingNameSugg ? (
+                <div className="hf-ai-loading-row">
+                  <Loader2 size={12} className="hf-spinner" />
+                  <span className="hf-text-xs hf-text-muted">Suggesting…</span>
                 </div>
-              </div>
-            )}
+              ) : nameSuggestions.length > 0 && !name.trim() ? (
+                <>
+                  <div className="hf-ai-inline-hint">
+                    <Sparkles size={11} />
+                    Suggestions
+                  </div>
+                  <div className="hf-suggestion-chips">
+                    {nameSuggestions.map((s, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        className="hf-suggestion-chip"
+                        onClick={() => { setName(s); setNameSuggestions([]); }}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <span className="hf-suggest-slot__hint">
+                  <Sparkles size={11} />
+                  Name ideas will appear when you select a focus
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="cwiz-field-group">
@@ -465,28 +472,35 @@ export default function NewClassroomPage() {
               rows={3}
               className="hf-input cwiz-textarea-full"
             />
-            {loadingDescSugg && (
-              <div className="hf-ai-loading-row hf-mt-xs">
-                <Loader2 size={12} className="hf-spinner" />
-                <span className="hf-text-xs hf-text-muted">Drafting description…</span>
-              </div>
-            )}
-            {!loadingDescSugg && suggDescription && !description.trim() && (
-              <div className="hf-mt-xs">
-                <p className="hf-ai-inline-hint hf-mb-xs">
-                  <Sparkles size={11} /> Suggestion:
-                </p>
-                <div className="hf-suggestion-chips">
-                  <button
-                    type="button"
-                    className="hf-suggestion-chip"
-                    onClick={() => { setDescription(suggDescription); setSuggDescription(""); }}
-                  >
-                    {suggDescription}
-                  </button>
+            <div className="hf-suggest-slot">
+              {loadingDescSugg ? (
+                <div className="hf-ai-loading-row">
+                  <Loader2 size={12} className="hf-spinner" />
+                  <span className="hf-text-xs hf-text-muted">Suggesting…</span>
                 </div>
-              </div>
-            )}
+              ) : suggDescription && !description.trim() ? (
+                <>
+                  <div className="hf-ai-inline-hint">
+                    <Sparkles size={11} />
+                    Suggestions
+                  </div>
+                  <div className="hf-suggestion-chips">
+                    <button
+                      type="button"
+                      className="hf-suggestion-chip"
+                      onClick={() => { setDescription(suggDescription); setSuggDescription(""); }}
+                    >
+                      {suggDescription}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <span className="hf-suggest-slot__hint">
+                  <Sparkles size={11} />
+                  A description will be suggested when you name your class
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="cwiz-field-group-lg">

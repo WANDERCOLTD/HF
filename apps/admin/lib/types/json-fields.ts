@@ -54,12 +54,29 @@ export interface TargetUpdate {
 }
 
 // ---------------------------------------------------------------------------
+// Onboarding flow phases — shared shape used by Domain + Playbook config
+// ---------------------------------------------------------------------------
+
+export interface OnboardingPhase {
+  phase: string;
+  duration: string;
+  goals: string[];
+  content?: Array<{ mediaId: string; instruction?: string }>;
+}
+
+export interface OnboardingFlowPhases {
+  phases: OnboardingPhase[];
+  successMetrics?: string[];
+}
+
+// ---------------------------------------------------------------------------
 // Playbook.config
 // ---------------------------------------------------------------------------
 
 export interface PlaybookConfig {
   systemSpecToggles?: Record<string, { isEnabled: boolean }>;
   goals?: Array<Record<string, any>>;
+  onboardingFlowPhases?: OnboardingFlowPhases;
   [key: string]: any;
 }
 

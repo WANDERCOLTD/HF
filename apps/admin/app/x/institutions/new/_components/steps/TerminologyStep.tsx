@@ -38,6 +38,8 @@ export function TerminologyStep({ getData, setData, onNext, onPrev }: StepRender
   const typeSlug = getData<string>("typeSlug") ?? null;
   const [baseTerminology, setBaseTerminology] = useState<Record<string, string> | null>(null);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [customEditing, setCustomEditing] = useState<Record<string, boolean>>({});
+  const [customText, setCustomText] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const fetched = useRef(false);
 
@@ -104,30 +106,75 @@ export function TerminologyStep({ getData, setData, onNext, onPrev }: StepRender
           </div>
         ) : baseTerminology ? (
           <div className="hf-flex hf-flex-col hf-gap-md">
-            {TERM_PREVIEW_KEYS.map(({ key, label }) => (
-              <div key={key}>
-                <label className="hf-label">{label}</label>
-                <input
-                  type="text"
-                  className="hf-input"
-                  value={overrides[key] ?? ""}
-                  onChange={(e) => handleChange(key, e.target.value)}
-                  placeholder={baseTerminology[key] ?? label}
-                />
-                <div className="hf-suggestion-chips hf-mt-xs">
-                  {TERM_SUGGESTIONS[key]?.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      className={`hf-chip${overrides[key] === s ? " hf-chip-selected" : ""}`}
-                      onClick={() => handleChange(key, s)}
-                    >
-                      {s}
-                    </button>
-                  ))}
+            {TERM_PREVIEW_KEYS.map(({ key, label }) => {
+              const isCustom = overrides[key] && !TERM_SUGGESTIONS[key]?.includes(overrides[key]);
+              const openEditor = () => {
+                setCustomText(prev => ({ ...prev, [key]: overrides[key] ?? "" }));
+                setCustomEditing(prev => ({ ...prev, [key]: true }));
+              };
+              const applyCustom = () => {
+                const val = customText[key]?.trim();
+                if (val) handleChange(key, val);
+                setCustomEditing(prev => ({ ...prev, [key]: false }));
+              };
+              const cancelCustom = () => {
+                setCustomEditing(prev => ({ ...prev, [key]: false }));
+              };
+              return (
+                <div key={key}>
+                  <label className="hf-label">{label}</label>
+                  <div className="hf-chip-row">
+                    {TERM_SUGGESTIONS[key]?.map((s) => {
+                      const isDefault = baseTerminology?.[key] === s;
+                      const isSelected = overrides[key] === s;
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          className={`hf-chip${isSelected ? " hf-chip-selected" : ""}`}
+                          onClick={() => { handleChange(key, s); setCustomEditing(prev => ({ ...prev, [key]: false })); }}
+                        >
+                          {s}
+                          {isDefault && <span className="hf-chip-badge">Default</span>}
+                        </button>
+                      );
+                    })}
+                    {!customEditing[key] && isCustom && (
+                      <button type="button" className="hf-chip hf-chip-selected" onClick={openEditor}>
+                        {overrides[key]}
+                      </button>
+                    )}
+                    {!customEditing[key] && (
+                      <button type="button" className="hf-chip" onClick={openEditor}>
+                        Other…
+                      </button>
+                    )}
+                  </div>
+                  {customEditing[key] && (
+                    <div className="hf-flex hf-gap-sm hf-mt-xs">
+                      <input
+                        type="text"
+                        className="hf-input"
+                        value={customText[key] ?? ""}
+                        onChange={(e) => setCustomText(prev => ({ ...prev, [key]: e.target.value }))}
+                        placeholder={label}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { e.preventDefault(); applyCustom(); }
+                          if (e.key === "Escape") cancelCustom();
+                        }}
+                      />
+                      <button type="button" className="hf-btn hf-btn-primary hf-btn-sm" disabled={!customText[key]?.trim()} onClick={applyCustom}>
+                        Use
+                      </button>
+                      <button type="button" className="hf-btn hf-btn-ghost hf-btn-sm" onClick={cancelCustom}>
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="hf-hint hf-mt-xs">

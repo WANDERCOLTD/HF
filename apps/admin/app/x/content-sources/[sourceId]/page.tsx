@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Pencil, Plus, Check } from "lucide-react";
 import { DraggableTabs, type TabDefinition } from "@/components/shared/DraggableTabs";
+import { EditableTitle } from "@/components/shared/EditableTitle";
 import { ReviewTabBadge } from "./_components/ReviewTabBadge";
 import QuestionsPanel from "./_components/QuestionsPanel";
 import VocabularyPanel from "./_components/VocabularyPanel";
@@ -84,17 +86,17 @@ const TRUST_LEVELS = [
 const CATEGORIES = [
   // Textbook categories
   { value: "fact", label: "Fact", color: "var(--accent-primary)", icon: "\u2139\uFE0F" },
-  { value: "definition", label: "Definition", color: "var(--accent-secondary, #8b5cf6)", icon: "\uD83D\uDCD6" },
+  { value: "definition", label: "Definition", color: "var(--accent-secondary)", icon: "\uD83D\uDCD6" },
   { value: "threshold", label: "Threshold", color: "var(--status-warning-text)", icon: "\uD83D\uDCCF" },
   { value: "rule", label: "Rule", color: "var(--status-error-text)", icon: "\u26A0\uFE0F" },
   { value: "process", label: "Process", color: "var(--status-success-text)", icon: "\u2699\uFE0F" },
   { value: "example", label: "Example", color: "var(--text-muted)", icon: "\uD83D\uDCC4" },
   // Worksheet categories
   { value: "question", label: "Question", color: "var(--accent-primary)", icon: "\u2753" },
-  { value: "true_false", label: "True/False", color: "var(--badge-cyan-text, #0891B2)", icon: "\u2696\uFE0F" },
-  { value: "matching_exercise", label: "Matching", color: "var(--accent-secondary, #8b5cf6)", icon: "\uD83D\uDD17" },
-  { value: "vocabulary_exercise", label: "Vocabulary", color: "var(--badge-purple-text, #9333EA)", icon: "\uD83D\uDCDA" },
-  { value: "discussion_prompt", label: "Discussion", color: "var(--badge-pink-text, #DB2777)", icon: "\uD83D\uDCAC" },
+  { value: "true_false", label: "True/False", color: "var(--badge-cyan-text)", icon: "\u2696\uFE0F" },
+  { value: "matching_exercise", label: "Matching", color: "var(--accent-secondary)", icon: "\uD83D\uDD17" },
+  { value: "vocabulary_exercise", label: "Vocabulary", color: "var(--badge-purple-text)", icon: "\uD83D\uDCDA" },
+  { value: "discussion_prompt", label: "Discussion", color: "var(--badge-pink-text)", icon: "\uD83D\uDCAC" },
   { value: "activity", label: "Activity", color: "var(--status-success-text)", icon: "\u270D\uFE0F" },
   { value: "information", label: "Information", color: "var(--accent-primary)", icon: "\uD83D\uDCD6" },
   { value: "reference", label: "Reference", color: "var(--status-warning-text)", icon: "\uD83D\uDCD1" },
@@ -105,13 +107,13 @@ const CATEGORIES = [
   { value: "range", label: "Range/Scope", color: "var(--status-warning-text)", icon: "\uD83D\uDCCF" },
   // Assessment categories
   { value: "answer", label: "Answer", color: "var(--status-success-text)", icon: "\u2705" },
-  { value: "matching_item", label: "Matching Item", color: "var(--accent-secondary, #8b5cf6)", icon: "\uD83D\uDD17" },
+  { value: "matching_item", label: "Matching Item", color: "var(--accent-secondary)", icon: "\uD83D\uDD17" },
   { value: "misconception", label: "Misconception", color: "var(--status-error-text)", icon: "\u274C" },
-  { value: "mark_scheme", label: "Mark Scheme", color: "var(--badge-orange-text, #EA580C)", icon: "\uD83D\uDCDD" },
+  { value: "mark_scheme", label: "Mark Scheme", color: "var(--badge-orange-text)", icon: "\uD83D\uDCDD" },
   // Example categories
   { value: "concept", label: "Concept", color: "var(--accent-primary)", icon: "\uD83D\uDCA1" },
   { value: "observation", label: "Observation", color: "var(--status-success-text)", icon: "\uD83D\uDC41\uFE0F" },
-  { value: "discussion_point", label: "Discussion Point", color: "var(--accent-secondary, #8b5cf6)", icon: "\uD83D\uDCAC" },
+  { value: "discussion_point", label: "Discussion Point", color: "var(--accent-secondary)", icon: "\uD83D\uDCAC" },
   { value: "context", label: "Context", color: "var(--text-muted)", icon: "\uD83D\uDCC4" },
 ];
 
@@ -221,6 +223,352 @@ function ReviewBadge({ reviewed }: { reviewed: boolean }) {
     <span className="csd-review-reviewed">Reviewed</span>
   ) : (
     <span className="csd-review-pending">Pending</span>
+  );
+}
+
+// ── Inline Editing Components ─────────────────────────
+
+/** Click-to-edit description with textarea */
+function EditableDescription({
+  value,
+  onSave,
+}: {
+  value: string | null;
+  onSave: (v: string | null) => Promise<boolean>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value || "");
+  const [saving, setSaving] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!editing) setDraft(value || "");
+  }, [value, editing]);
+
+  useEffect(() => {
+    if (editing && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.select();
+    }
+  }, [editing]);
+
+  const save = async () => {
+    const trimmed = draft.trim();
+    const newVal = trimmed || null;
+    if (newVal === (value || null)) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    const ok = await onSave(newVal);
+    setSaving(false);
+    if (ok) setEditing(false);
+  };
+
+  const cancel = () => {
+    setDraft(value || "");
+    setEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") cancel();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      save();
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className="csd-desc-edit">
+        <textarea
+          ref={textareaRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={saving}
+          rows={3}
+          className="hf-input csd-desc-textarea"
+          placeholder="Add a description..."
+        />
+        <div className="csd-desc-edit-actions">
+          <button
+            className="hf-btn hf-btn-primary csd-btn-inline"
+            onClick={save}
+            disabled={saving}
+          >
+            <Check size={12} /> Save
+          </button>
+          <button
+            className="hf-btn hf-btn-secondary csd-btn-inline"
+            onClick={cancel}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!value) {
+    return (
+      <button
+        className="csd-desc-placeholder"
+        onClick={() => setEditing(true)}
+      >
+        <Plus size={12} /> Add description...
+      </button>
+    );
+  }
+
+  return (
+    <p
+      className="csd-description csd-editable"
+      onClick={() => setEditing(true)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      title="Click to edit"
+    >
+      {value}
+      {hovered && <Pencil size={12} className="csd-edit-pencil" />}
+    </p>
+  );
+}
+
+/** Clickable trust badge with dropdown */
+function EditableTrustBadge({
+  level,
+  onSave,
+}: {
+  level: string;
+  onSave: (v: string) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const handleSelect = async (value: string) => {
+    if (value === level || saving) return;
+    setSaving(true);
+    const ok = await onSave(value);
+    setSaving(false);
+    if (ok) setOpen(false);
+  };
+
+  const cfg = TRUST_LEVELS.find((t) => t.value === level) || TRUST_LEVELS[5];
+
+  return (
+    <div className="csd-dropdown-wrap" ref={dropdownRef}>
+      <button
+        className="csd-trust-badge csd-badge-clickable"
+        style={{ color: cfg.color, backgroundColor: cfg.bg, border: `1px solid color-mix(in srgb, ${cfg.color} 20%, transparent)` }}
+        onClick={() => setOpen(!open)}
+        title="Click to change trust level"
+        disabled={saving}
+      >
+        {cfg.label}
+      </button>
+      {open && (
+        <div className="csd-dropdown-menu">
+          {TRUST_LEVELS.map((t) => (
+            <button
+              key={t.value}
+              className={`csd-dropdown-item ${t.value === level ? "csd-dropdown-item--active" : ""}`}
+              onClick={() => handleSelect(t.value)}
+              disabled={saving}
+            >
+              <span
+                className="csd-dropdown-dot"
+                style={{ backgroundColor: t.color }}
+              />
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Clickable doc type badge with dropdown */
+function EditableDocTypeBadge({
+  documentType,
+  documentTypeSource,
+  onSave,
+}: {
+  documentType: string;
+  documentTypeSource: string | null;
+  onSave: (v: string) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const handleSelect = async (value: string) => {
+    if (value === documentType || saving) return;
+    setSaving(true);
+    const ok = await onSave(value);
+    setSaving(false);
+    if (ok) setOpen(false);
+  };
+
+  const dtCfg = DOCUMENT_TYPES[documentType];
+  if (!dtCfg) return null;
+
+  return (
+    <div className="csd-dropdown-wrap" ref={dropdownRef}>
+      <button
+        className="csd-doc-type-badge csd-badge-clickable"
+        onClick={() => setOpen(!open)}
+        title="Click to change document type"
+        disabled={saving}
+      >
+        <span className="csd-doc-type-icon">{dtCfg.icon}</span>
+        {dtCfg.label}
+        {documentTypeSource?.startsWith("ai:") && (
+          <span className="csd-doc-type-auto">auto</span>
+        )}
+      </button>
+      {open && (
+        <div className="csd-dropdown-menu">
+          {Object.entries(DOCUMENT_TYPES).map(([key, val]) => (
+            <button
+              key={key}
+              className={`csd-dropdown-item ${key === documentType ? "csd-dropdown-item--active" : ""}`}
+              onClick={() => handleSelect(key)}
+              disabled={saving}
+            >
+              <span className="csd-dropdown-item-icon">{val.icon}</span>
+              {val.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Inline editable metadata field (publisherOrg, edition, publicationYear) */
+function EditableMetaField({
+  value,
+  label,
+  onSave,
+  type = "text",
+}: {
+  value: string | number | null;
+  label: string;
+  onSave: (v: string | number | null) => Promise<boolean>;
+  type?: "text" | "number";
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value != null ? String(value) : "");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) setDraft(value != null ? String(value) : "");
+  }, [value, editing]);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const save = async () => {
+    const trimmed = draft.trim();
+    let newVal: string | number | null;
+    if (!trimmed) {
+      newVal = null;
+    } else if (type === "number") {
+      newVal = parseInt(trimmed, 10);
+      if (isNaN(newVal)) { cancel(); return; }
+    } else {
+      newVal = trimmed;
+    }
+    if (newVal === value) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    const ok = await onSave(newVal);
+    setSaving(false);
+    if (ok) setEditing(false);
+  };
+
+  const cancel = () => {
+    setDraft(value != null ? String(value) : "");
+    setEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") { e.preventDefault(); save(); }
+    if (e.key === "Escape") cancel();
+  };
+
+  if (editing) {
+    return (
+      <span className="csd-meta-edit-inline">
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={save}
+          onKeyDown={handleKeyDown}
+          disabled={saving}
+          className="hf-input csd-meta-input"
+          placeholder={label}
+          type={type}
+        />
+      </span>
+    );
+  }
+
+  if (value == null) {
+    return (
+      <button
+        className="csd-meta-add-btn"
+        onClick={() => setEditing(true)}
+        title={`Add ${label}`}
+      >
+        <Plus size={10} /> {label}
+      </button>
+    );
+  }
+
+  return (
+    <span
+      className="csd-meta-value csd-editable"
+      onClick={() => setEditing(true)}
+      title={`Click to edit ${label}`}
+    >
+      {value}
+    </span>
   );
 }
 
@@ -371,6 +719,23 @@ export default function SourceDetailPage() {
     }
   };
 
+  // ── Patch source fields (inline editing) ──
+  const patchSource = useCallback(async (fields: Partial<ContentSource>) => {
+    const res = await fetch(`/api/content-sources/${sourceId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      setSource((prev) => prev ? { ...prev, ...fields } : prev);
+      return true;
+    } else {
+      setFeedback({ type: "error", message: data.error || "Save failed" });
+      return false;
+    }
+  }, [sourceId]);
+
   useEffect(() => { fetchAssertions(); }, [fetchAssertions]);
 
   // Reset page when filters change
@@ -480,21 +845,21 @@ export default function SourceDetailPage() {
       {/* Source header */}
       <div className="csd-header">
         <div className="csd-header-row">
-          <h1 className="hf-page-title">
-            {source.name}
-          </h1>
-          <TrustBadge level={source.trustLevel} />
+          <EditableTitle
+            value={source.name}
+            as="h1"
+            onSave={async (newName) => { await patchSource({ name: newName }); }}
+          />
+          <EditableTrustBadge
+            level={source.trustLevel}
+            onSave={(v) => patchSource({ trustLevel: v })}
+          />
           {source.documentType && DOCUMENT_TYPES[source.documentType] && (
-            <span
-              title={source.documentTypeSource ? `Classified by: ${source.documentTypeSource}` : "Default"}
-              className="csd-doc-type-badge"
-            >
-              <span className="csd-doc-type-icon">{DOCUMENT_TYPES[source.documentType].icon}</span>
-              {DOCUMENT_TYPES[source.documentType].label}
-              {source.documentTypeSource?.startsWith("ai:") && (
-                <span className="csd-doc-type-auto">auto</span>
-              )}
-            </span>
+            <EditableDocTypeBadge
+              documentType={source.documentType}
+              documentTypeSource={source.documentTypeSource}
+              onSave={(v) => patchSource({ documentType: v })}
+            />
           )}
           {source.archivedAt ? (
             <span className="csd-status-archived">
@@ -508,16 +873,28 @@ export default function SourceDetailPage() {
         </div>
         <div className="csd-meta-row">
           <span className="csd-slug">{source.slug}</span>
-          {source.publisherOrg && <span>{source.publisherOrg}</span>}
-          {source.edition && <span>{source.edition}</span>}
-          {source.publicationYear && <span>{source.publicationYear}</span>}
+          <EditableMetaField
+            value={source.publisherOrg}
+            label="Publisher"
+            onSave={(v) => patchSource({ publisherOrg: v as string | null })}
+          />
+          <EditableMetaField
+            value={source.edition}
+            label="Edition"
+            onSave={(v) => patchSource({ edition: v as string | null })}
+          />
+          <EditableMetaField
+            value={source.publicationYear}
+            label="Year"
+            type="number"
+            onSave={(v) => patchSource({ publicationYear: v as number | null })}
+          />
           <span>Created {new Date(source.createdAt).toLocaleDateString()}</span>
         </div>
-        {source.description && (
-          <p className="csd-description">
-            {source.description}
-          </p>
-        )}
+        <EditableDescription
+          value={source.description}
+          onSave={(v) => patchSource({ description: v })}
+        />
 
         {/* Aggregate review progress */}
         {(() => {

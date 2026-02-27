@@ -58,6 +58,8 @@ export interface EnhancedLessonPlanEntry {
   phases?: SessionPhase[];
   /** Which learning outcomes this session covers (subset of module LOs) */
   learningOutcomeRefs?: string[];
+  /** Explicit TP-to-session binding (educator-curated). Overrides learningOutcomeRefs matching at runtime. */
+  assertionIds?: string[];
 }
 
 // ---------------------------------------------------------------------------

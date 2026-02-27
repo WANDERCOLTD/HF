@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { PlayCircle, BookOpen, Users, GraduationCap, Building2, FileText, Mic, Sparkles } from 'lucide-react';
+import { PlayCircle, BookOpen, Users, GraduationCap, Building2, FileText, Mic, Sparkles, ChevronRight, ChevronDown, MessageCircle } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TeachMethodStats } from '@/components/shared/TeachMethodStats';
 import { useTaskPoll, type PollableTask } from '@/hooks/useTaskPoll';
@@ -43,6 +43,7 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
   const [taskSummary, setTaskSummary] = useState<TaskSummary | null>(null);
   const [contentMethods, setContentMethods] = useState<{ teachMethod: string; count: number }[]>([]);
   const [contentTotal, setContentTotal] = useState(0);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const launchAbortRef = useRef<AbortController | null>(null);
 
   // Read all flow bag keys
@@ -65,6 +66,8 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
   const behaviorTargets = getData<Record<string, number>>('behaviorTargets');
   const tunerPills = getData<AgentTunerPill[]>('tunerPills') || [];
   const lessonPlan = getData<{ session: number; type: string; label: string }[]>('lessonPlan') || [];
+  const flowPhases = getData<Array<{ phase: string; duration: string; goals: string[] }>>('flowPhases') || [];
+  const welcomeMsg = getData<string>('welcomeMessage') || '';
 
   // Build plan summary from actual lesson plan entries
   const planSummaryValue = (() => {
@@ -145,7 +148,6 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
     const timeout = setTimeout(() => controller.abort(), LAUNCH_TIMEOUT_MS);
 
     try {
-      const flowPhases = getData<Array<{ phase: string; duration: string; goals: string[] }>>('flowPhases');
       const res = await fetch('/api/courses/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -396,7 +398,69 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
             { label: 'Cancel', onClick: handleGoToCourses },
           ]}
           onBack={onPrev}
-        />
+        >
+          {/* ── First Call Preview (collapsible) ── */}
+          {(flowPhases.length > 0 || welcomeMsg) && (
+            <div className="hf-mt-md">
+              <button
+                className="hf-btn hf-btn-ghost"
+                onClick={() => setPreviewOpen(!previewOpen)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0', width: '100%' }}
+              >
+                {previewOpen
+                  ? <ChevronDown size={16} className="hf-text-muted" />
+                  : <ChevronRight size={16} className="hf-text-muted" />
+                }
+                <MessageCircle size={14} className="hf-text-muted" />
+                <span className="hf-text-sm hf-text-bold">First Call Preview</span>
+                {flowPhases.length > 0 && (
+                  <span className="hf-text-xs hf-text-muted" style={{ marginLeft: 'auto' }}>
+                    {flowPhases.length} phase{flowPhases.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </button>
+
+              {previewOpen && (
+                <div style={{ paddingTop: 8 }}>
+                  {/* Greeting quote */}
+                  {welcomeMsg && (
+                    <p className="hf-greeting-text" style={{ marginBottom: flowPhases.length > 0 ? 12 : 0 }}>
+                      &ldquo;{welcomeMsg}&rdquo;
+                    </p>
+                  )}
+
+                  {/* Phase timeline */}
+                  {flowPhases.length > 0 && (
+                    <div className="hf-flow-card">
+                      {flowPhases.map((phase, i) => {
+                        const goalsSummary = phase.goals?.slice(0, 2).join(' \u00B7 ') || '';
+                        return (
+                          <div key={`${phase.phase}-${i}`} className="hf-flow-phase">
+                            <span className="hf-flow-phase-num">{i + 1}</span>
+                            <div className="hf-flow-phase-body">
+                              <div className="hf-flow-phase-header">
+                                <span className="hf-flow-phase-name">{phase.phase}</span>
+                                <span className="hf-flow-phase-dur">{phase.duration}</span>
+                              </div>
+                              {goalsSummary && (
+                                <div className="hf-flow-phase-goals">{goalsSummary}</div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Edit later hint */}
+                  <p className="hf-text-xs hf-text-muted" style={{ marginTop: 10 }}>
+                    You can edit these in {terms.domain} settings after launch.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </WizardSummary>
       </div>
     </div>
   );

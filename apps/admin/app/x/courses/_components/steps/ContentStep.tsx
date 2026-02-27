@@ -48,6 +48,9 @@ export function ContentStep({ setData, getData, onNext, onPrev }: StepProps) {
       setData('packSourceCount', result.sourceCount);
       setData('packComplete', true);
       setData('contentMode', 'pack');
+      if (result.extractionTotals) {
+        setData('extractionTotals', result.extractionTotals);
+      }
       setPackComplete(true);
       const subjectNames = (result.subjects || []).map((s) => s.name).join(', ');
       setPackSummary(`${result.subjects?.length || 0} subject${(result.subjects?.length || 0) !== 1 ? 's' : ''} · ${result.sourceCount || 0} files uploaded (${subjectNames})`);

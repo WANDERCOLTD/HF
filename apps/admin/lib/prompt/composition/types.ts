@@ -413,6 +413,7 @@ export interface PlaybookData {
   id: string;
   name: string;
   status: string;
+  config?: any;
   domain: { id: string; name: string; description: string | null } | null;
   group?: { id: string; name: string; identityOverride: any } | null;
   items: Array<{

@@ -51,10 +51,11 @@ function PatternChips({
 
   return (
     <>
-      <div className="hf-chip-row">
+      <div className="hf-chip-row" role="radiogroup" aria-label="Interaction pattern">
         {COMMUNITY_PATTERNS.map((p) => {
           const isSelected = selected === p;
           const isSuggested = !selected && suggested === p;
+          const isFocusable = isSelected || isSuggested;
           const info = INTERACTION_PATTERN_LABELS[p];
           return (
             <button
@@ -64,6 +65,9 @@ function PatternChips({
               onMouseEnter={() => setHovered(p)}
               onMouseLeave={() => setHovered(null)}
               className={isSelected || isSuggested ? 'hf-chip hf-chip-selected' : 'hf-chip'}
+              tabIndex={isFocusable ? 0 : -1}
+              role="radio"
+              aria-checked={isSelected || isSuggested}
             >
               <span>{info.icon}</span>
               <span>{COMMUNITY_PATTERN_LABELS[p] ?? info.label}</span>

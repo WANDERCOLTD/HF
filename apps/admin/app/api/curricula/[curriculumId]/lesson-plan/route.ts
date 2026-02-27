@@ -23,6 +23,14 @@ const VALID_SESSION_TYPES = [
   "consolidate",
 ] as const;
 
+interface LessonPlanMediaRef {
+  mediaId: string;
+  fileName?: string;
+  captionText?: string | null;
+  figureRef?: string | null;
+  mimeType?: string;
+}
+
 interface LessonPlanEntry {
   session: number;
   type: string;
@@ -32,6 +40,9 @@ interface LessonPlanEntry {
   notes?: string;
   estimatedDurationMins?: number;
   assertionCount?: number;
+  assertionIds?: string[];
+  /** Images linked to this session (auto-resolved or manually assigned) */
+  media?: LessonPlanMediaRef[];
 }
 
 interface LessonPlan {
@@ -170,6 +181,14 @@ export async function PUT(
         notes: e.notes || undefined,
         estimatedDurationMins: e.estimatedDurationMins || undefined,
         assertionCount: e.assertionCount || undefined,
+        assertionIds: Array.isArray(e.assertionIds) ? e.assertionIds : undefined,
+        learningOutcomeRefs: Array.isArray(e.learningOutcomeRefs) ? e.learningOutcomeRefs : undefined,
+        phases: Array.isArray(e.phases) ? e.phases : undefined,
+        questionCount: e.questionCount || undefined,
+        vocabularyCount: e.vocabularyCount || undefined,
+        media: Array.isArray(e.media)
+          ? e.media.filter((m: any) => m && typeof m.mediaId === "string").slice(0, 50)
+          : undefined,
       })),
       generatedFrom: "manual",
     };

@@ -70,6 +70,8 @@ const config: WizardConfig = {
           const count = getData<number>("packSourceCount") ?? 0;
           if (count) items.push({ label: "Files", value: `${count} file${count !== 1 ? "s" : ""} uploaded` });
           if (subjects.length) items.push({ label: "Subjects", value: subjects.map(s => s.name).join(", ") });
+          const totals = getData<{ assertions: number; questions: number; vocabulary: number; images: number }>("extractionTotals");
+          if (totals?.images) items.push({ label: "Images", value: `${totals.images} extracted` });
         } else if (mode === "existing-course") {
           items.push({ label: "Content", value: "Linked to existing course" });
         }

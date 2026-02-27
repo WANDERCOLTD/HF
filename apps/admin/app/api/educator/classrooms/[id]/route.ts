@@ -113,6 +113,7 @@ export async function DELETE(
  * @body name? string - New classroom name
  * @body description? string - New description
  * @body isActive? boolean - Active status toggle
+ * @body maxMembers? number - Maximum members allowed (1-500)
  * @response 200 { ok: true, classroom: { id, name, description, domain, memberCount, isActive } }
  * @response 400 { ok: false, error: "No updates provided" }
  * @response 403 { ok: false, error: "Not authorized" }
@@ -147,6 +148,17 @@ export async function PATCH(
 
   if (body.isActive !== undefined) {
     updates.isActive = Boolean(body.isActive);
+  }
+
+  if (body.maxMembers !== undefined) {
+    const max = Number(body.maxMembers);
+    if (!Number.isFinite(max) || max < 1 || max > 500) {
+      return NextResponse.json(
+        { ok: false, error: "maxMembers must be between 1 and 500" },
+        { status: 400 }
+      );
+    }
+    updates.maxMembers = max;
   }
 
   if (Object.keys(updates).length === 0) {

@@ -34,7 +34,8 @@ interface DomainOption {
 export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepProps) {
   const router = useRouter();
   const [courseName, setCourseName] = useState('');
-  const [outcomes, setOutcomes] = useState<string[]>(['', '', '']);
+  const [outcomes, setOutcomes] = useState<string[]>([]);
+  const [outcomeInput, setOutcomeInput] = useState('');
   const [pattern, setPattern] = useState<InteractionPattern | undefined>();
   const [suggestedPattern, setSuggestedPattern] = useState<InteractionPattern | null>(null);
   const [existingCourse, setExistingCourse] = useState<ExistingCourse | null>(null);
@@ -54,7 +55,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
   const [outcomeSuggestions, setOutcomeSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const lastSuggestName = useRef('');
-  const outcomesRef = useRef<string[]>(['', '', '']);
+  const outcomesRef = useRef<string[]>([]);
 
   // Institution (domain) state
   const [domains, setDomains] = useState<DomainOption[]>([]);
@@ -101,8 +102,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
 
     if (saved) setCourseName(saved);
     if (savedOutcomes) {
-      const padded = [...savedOutcomes, '', '', ''].slice(0, 3);
-      setOutcomes(padded);
+      setOutcomes(savedOutcomes.filter((o: string) => o.trim()));
     }
     if (savedPattern) setPattern(savedPattern);
     if (savedGroupId) setGroupId(savedGroupId);
@@ -197,14 +197,12 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
       });
       const data = await res.json();
       if (data.ok && Array.isArray(data.outcomes) && data.outcomes.length > 0) {
-        // Auto-fill outcomes if all slots are still empty
-        const allEmpty = outcomesRef.current.every(o => !o.trim());
+        // Auto-fill outcomes as committed chips if collection is empty
+        const allEmpty = outcomesRef.current.length === 0 || outcomesRef.current.every(o => !o.trim());
         if (allEmpty) {
-          const autoFilled = [...data.outcomes.slice(0, 3), '', '', ''].slice(0, 3);
-          setOutcomes(autoFilled);
-          const remaining = data.outcomes.slice(3);
-          setOutcomeSuggestions(remaining);
-          setData('outcomeSuggestions', remaining);
+          setOutcomes(data.outcomes);
+          setOutcomeSuggestions([]);
+          setData('outcomeSuggestions', []);
         } else {
           setOutcomeSuggestions(data.outcomes);
           setData('outcomeSuggestions', data.outcomes);
@@ -217,22 +215,20 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
     }
   }, [setData]);
 
-  const handleOutcomeChange = (index: number, value: string) => {
-    const updated = [...outcomes];
-    updated[index] = value;
-    setOutcomes(updated);
+  const addOutcome = () => {
+    const trimmed = outcomeInput.trim();
+    if (trimmed && !outcomes.includes(trimmed)) {
+      setOutcomes(prev => [...prev, trimmed]);
+      setOutcomeInput('');
+    }
   };
 
-  // Click a suggestion chip → fill next empty outcome slot
+  const removeOutcome = (index: number) => {
+    setOutcomes(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSuggestionClick = (suggestion: string) => {
-    const emptyIdx = outcomes.findIndex(o => !o.trim());
-    const updated = [...outcomes];
-    if (emptyIdx >= 0) {
-      updated[emptyIdx] = suggestion;
-    } else {
-      updated[updated.length - 1] = suggestion;
-    }
-    setOutcomes(updated);
+    setOutcomes(prev => [...prev, suggestion]);
     setOutcomeSuggestions(prev => prev.filter(s => s !== suggestion));
   };
 
@@ -397,7 +393,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
             )}
 
             <div className="hf-label-row hf-mb-xs">
-              <FieldHint label="What will students learn? (1–3 outcomes)" hint={WIZARD_HINTS["course.outcomes"]} labelClass="hf-label" />
+              <FieldHint label="What will students learn?" hint={WIZARD_HINTS["course.outcomes"]} labelClass="hf-label" />
               {(loadingSuggestions || outcomeSuggestions.length > 0) && (
                 <span className={`hf-field-hint-ai${loadingSuggestions ? ' hf-field-hint-ai--loading' : ''}`} title="AI is generating outcome suggestions">
                   <Sparkles size={14} />
@@ -405,47 +401,55 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
               )}
             </div>
 
-            <div className="hf-outcome-group">
-              {outcomes.map((outcome, i) => (
-                <div key={i} className={`hf-outcome-row${outcome.trim() ? ' hf-outcome-row--filled' : ''}`}>
-                  <span className="hf-outcome-num">{i + 1}</span>
-                  <input
-                    type="text"
-                    value={outcome}
-                    onChange={(e) => handleOutcomeChange(i, e.target.value)}
-                    placeholder={
-                      i === 0 ? 'e.g., Understand key concepts and terminology'
-                        : i === 1 ? 'e.g., Apply knowledge to solve problems'
-                          : 'e.g., Evaluate and analyse real-world scenarios'
-                    }
-                    className="hf-input hf-outcome-input"
-                  />
-                </div>
-              ))}
-            </div>
+            {outcomes.length > 0 && (
+              <div className="hf-outcome-chips">
+                {outcomes.map((outcome, i) => (
+                  <span key={i} className="hf-outcome-chip">
+                    {outcome}
+                    <button type="button" onClick={() => removeOutcome(i)}>&times;</button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <input
+              type="text"
+              value={outcomeInput}
+              onChange={(e) => setOutcomeInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); addOutcome(); }
+              }}
+              placeholder="Type an outcome and press Enter"
+              className="hf-input"
+            />
 
-            {/* AI suggestion chips */}
-            {loadingSuggestions && (
-              <div className="hf-ai-loading-row hf-mt-sm">
-                <Loader2 size={12} className="hf-spinner" />
-                <span className="hf-text-xs hf-text-muted">Generating outcome suggestions…</span>
-              </div>
-            )}
-            {!loadingSuggestions && outcomeSuggestions.length > 0 && (
-              <div className="hf-suggestion-panel">
-                <div className="hf-suggestion-panel-header">
-                  <Sparkles size={12} />
-                  Suggested outcomes
+            {/* AI suggest-slot */}
+            <div className="hf-suggest-slot">
+              {loadingSuggestions ? (
+                <div className="hf-ai-loading-row">
+                  <Loader2 size={12} className="hf-spinner" />
+                  <span className="hf-text-xs hf-text-muted">Suggesting…</span>
                 </div>
-                <div className="hf-suggestion-chips">
-                  {outcomeSuggestions.map((s, i) => (
-                    <button key={i} type="button" className="hf-suggestion-chip" onClick={() => handleSuggestionClick(s)}>
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+              ) : outcomeSuggestions.length > 0 ? (
+                <>
+                  <div className="hf-ai-inline-hint">
+                    <Sparkles size={11} />
+                    Suggestions
+                  </div>
+                  <div className="hf-suggestion-chips">
+                    {outcomeSuggestions.map((s, i) => (
+                      <button key={i} type="button" className="hf-suggestion-chip" onClick={() => handleSuggestionClick(s)}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <span className="hf-suggest-slot__hint">
+                  <Sparkles size={11} />
+                  Ideas will appear as you type
+                </span>
+              )}
+            </div>
           </div>
         )}
 
@@ -457,11 +461,12 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
               hint={WIZARD_HINTS["course.interactionPattern"]}
               labelClass="hf-label"
             />
-            <div className="hf-chip-row">
+            <div className="hf-chip-row" role="radiogroup" aria-label="Interaction pattern">
               {INTERACTION_PATTERN_ORDER.map((p) => {
                 const info = INTERACTION_PATTERN_LABELS[p];
                 const isSelected = pattern === p;
                 const isSuggested = !pattern && suggestedPattern === p;
+                const isFocusable = isSelected || isSuggested;
                 return (
                   <button
                     key={p}
@@ -469,10 +474,13 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
                     onMouseEnter={() => setHoveredPattern(p)}
                     onMouseLeave={() => setHoveredPattern(null)}
                     className={isSelected || isSuggested ? 'hf-chip hf-chip-selected' : 'hf-chip'}
+                    tabIndex={isFocusable ? 0 : -1}
+                    role="radio"
+                    aria-checked={isSelected || isSuggested}
                   >
                     <span>{info.icon}</span>
                     <span>{info.label}</span>
-                    {isSuggested && <span className="hf-chip-badge">AI pick</span>}
+                    {isSuggested && <span className="hf-chip-badge">Suggested</span>}
                   </button>
                 );
               })}

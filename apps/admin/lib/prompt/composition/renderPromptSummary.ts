@@ -252,14 +252,15 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
   const visuals = (llmPrompt as any).visualAids;
   if (visuals?.hasVisualAids && visuals.available?.length) {
     parts.push("[VISUAL AIDS]");
-    parts.push("Teaching materials include these visual aids:");
+    parts.push("Teaching materials include these visual aids. You can share any of them using the share_content tool with the media_id.");
     for (const v of visuals.available.slice(0, 8)) {
       const label = v.captionText || v.figureRef || v.fileName;
       const chapterTag = v.chapter ? ` (${v.chapter})` : "";
-      parts.push(`- ${label}${chapterTag}`);
+      parts.push(`- [${v.mediaId}] ${label}${chapterTag}`);
     }
-    parts.push("In voice calls: describe visuals verbally. Never say 'look at' or 'see the diagram'.");
-    parts.push("In text sim: you can share these using the share_content tool.");
+    parts.push("In voice calls, the content is sent to the caller's phone — tell them to check their messages.");
+    parts.push("In text sessions, the content appears inline in the chat.");
+    parts.push("Always describe the visual verbally too — do not assume the caller has looked at it yet.");
     parts.push("");
   }
 

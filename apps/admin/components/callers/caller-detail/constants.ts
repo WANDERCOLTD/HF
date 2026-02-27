@@ -22,7 +22,7 @@ export const ACTION_TYPE_ICONS: Record<string, React.ReactNode> = {
 
 // Assignee badge colors
 export const ASSIGNEE_COLORS: Record<string, { bg: string; text: string }> = {
-  CALLER: { bg: "color-mix(in srgb, #22c55e 15%, transparent)", text: "#16a34a" },
-  OPERATOR: { bg: "color-mix(in srgb, #f59e0b 15%, transparent)", text: "#d97706" },
-  AGENT: { bg: "color-mix(in srgb, #4338ca 15%, transparent)", text: "#4338ca" },
+  CALLER: { bg: "color-mix(in srgb, var(--status-success-text) 15%, transparent)", text: "var(--status-success-text)" },
+  OPERATOR: { bg: "color-mix(in srgb, var(--status-warning-text) 15%, transparent)", text: "var(--status-warning-text)" },
+  AGENT: { bg: "color-mix(in srgb, var(--badge-indigo-text) 15%, transparent)", text: "var(--badge-indigo-text)" },
 };

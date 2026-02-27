@@ -13,6 +13,8 @@ export type IngestPhase =
   | "source-created"
   | "extracting"
   | "chunk-complete"
+  | "images-extracting"
+  | "images-complete"
   | "file-complete"
   | "file-error"
   | "post-processing"
@@ -42,12 +44,14 @@ export interface IngestEvent {
     assertions?: number;
     questions?: number;
     vocabulary?: number;
+    images?: number;
     // Complete event
     subjects?: Array<{ id: string; name: string }>;
     sourceCount?: number;
     totalAssertions?: number;
     totalQuestions?: number;
     totalVocabulary?: number;
+    totalImages?: number;
     // Error
     error?: string;
   };

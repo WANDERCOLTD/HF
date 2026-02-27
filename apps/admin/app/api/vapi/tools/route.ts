@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyVapiRequest } from "@/lib/vapi/auth";
 import { getActivitiesConfig } from "@/lib/fallback-settings";
+import { resolveChannel } from "@/lib/channels/router";
+import { dispatchMedia } from "@/lib/channels/dispatch";
+import { getPublicMediaUrl } from "@/app/api/media/[id]/public/route";
 
 export const runtime = "nodejs";
 
@@ -96,6 +99,10 @@ export async function POST(request: NextRequest) {
 
         case "request_artifact":
           result = await handleRequestArtifact(args, callerId);
+          break;
+
+        case "share_content":
+          result = await handleShareContent(args, callerId, customerPhone);
           break;
 
         default:
@@ -570,6 +577,164 @@ async function handleRequestArtifact(
 }
 
 /**
+ * Share visual content (image, diagram, PDF) with the caller.
+ *
+ * Two delivery paths:
+ * - Sim: creates a CallMessage with mediaId (rendered inline by SimChat)
+ * - VAPI voice: routes through channel system (WhatsApp MMS, SMS+link)
+ *
+ * The AI's voice prompt lists available visual aids with media IDs.
+ * This tool lets the AI push any of those to the caller mid-conversation.
+ */
+async function handleShareContent(
+  args: { media_id: string; caption?: string; context?: string },
+  callerId: string | null,
+  customerPhone: string | null,
+): Promise<Record<string, unknown>> {
+  if (!callerId) return { error: "Cannot share content — caller not identified" };
+  if (!args.media_id) return { error: "media_id is required" };
+
+  // Load media asset
+  const media = await prisma.mediaAsset.findUnique({
+    where: { id: args.media_id },
+    select: {
+      id: true,
+      fileName: true,
+      mimeType: true,
+      title: true,
+      captionText: true,
+      storageKey: true,
+      storageType: true,
+    },
+  });
+
+  if (!media) {
+    return { error: `Media asset not found: ${args.media_id}` };
+  }
+
+  // Find active call for this caller (most recent non-ended call)
+  const activeCall = await prisma.call.findFirst({
+    where: { callerId, endedAt: null },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, externalId: true },
+  });
+
+  const isVapiCall = !!activeCall?.externalId;
+  const caption = args.caption || media.captionText || media.title || media.fileName;
+
+  // ── SIM PATH ──
+  // Sim calls don't have an externalId (VAPI call ID).
+  // Create a CallMessage with mediaId so SimChat renders it inline.
+  if (!isVapiCall && activeCall) {
+    await prisma.callMessage.create({
+      data: {
+        callId: activeCall.id,
+        role: "assistant",
+        content: caption,
+        mediaId: media.id,
+      },
+    });
+
+    return {
+      shared: true,
+      channel: "sim",
+      rendered: "inline",
+      message: `Shared "${caption}" inline in the chat`,
+    };
+  }
+
+  // ── VAPI VOICE PATH ──
+  // Route through the channel system to the caller's phone.
+  if (!customerPhone) {
+    // No phone number — queue as artifact for post-call delivery
+    if (activeCall) {
+      await prisma.conversationArtifact.create({
+        data: {
+          callId: activeCall.id,
+          callerId,
+          type: "MEDIA",
+          title: caption,
+          content: args.context || `Visual aid: ${caption}`,
+          mediaId: media.id,
+          status: "PENDING",
+          channel: "sim",
+          confidence: 1.0,
+        },
+      });
+    }
+    return {
+      shared: false,
+      queued: true,
+      message: "No phone number available — content queued for post-call delivery",
+    };
+  }
+
+  // Resolve caller's domain for channel config
+  const caller = await prisma.caller.findUnique({
+    where: { id: callerId },
+    select: { domainId: true },
+  });
+
+  const channel = await resolveChannel(caller?.domainId || null, customerPhone);
+
+  // Generate a public URL for the media (external channels need this)
+  const publicUrl = await getPublicMediaUrl(
+    media.id,
+    media.storageKey,
+    media.storageType,
+    86400, // 24-hour expiry
+  );
+
+  const result = await dispatchMedia(
+    channel,
+    {
+      mediaId: media.id,
+      publicUrl,
+      mimeType: media.mimeType,
+      fileName: media.fileName,
+      caption,
+      title: media.title || undefined,
+    },
+    customerPhone,
+  );
+
+  // Record as ConversationArtifact for tracking
+  if (activeCall) {
+    await prisma.conversationArtifact.create({
+      data: {
+        callId: activeCall.id,
+        callerId,
+        type: "MEDIA",
+        title: caption,
+        content: args.context || `Visual aid shared via ${result.channel}: ${caption}`,
+        mediaId: media.id,
+        status: result.sent ? "SENT" : "FAILED",
+        channel: result.channel,
+        externalMessageId: result.externalMessageId || null,
+        deliveredAt: result.sent ? new Date() : null,
+        confidence: 1.0,
+      },
+    });
+  }
+
+  if (result.sent) {
+    const channelLabel = result.channel === "whatsapp" ? "WhatsApp" : "SMS";
+    return {
+      shared: true,
+      channel: result.channel,
+      provider: result.provider,
+      message: `Sent "${caption}" to caller's phone via ${channelLabel}. Tell them to check their messages.`,
+    };
+  }
+
+  return {
+    shared: false,
+    error: result.error,
+    message: `Could not send content via ${result.channel}: ${result.error}. Describe the content verbally instead.`,
+  };
+}
+
+/**
  * Maps tool function name → VoiceCallSettings property key.
  * Used by assistant-request to filter tools based on settings.
  */
@@ -582,6 +747,7 @@ export const TOOL_SETTING_KEYS: Record<string, keyof import("@/lib/system-settin
   log_activity_result: "toolLogActivityResult",
   send_text_to_caller: "toolSendText",
   request_artifact: "toolRequestArtifact",
+  share_content: "toolShareContent",
 };
 
 /**
@@ -768,6 +934,30 @@ export const VAPI_TOOL_DEFINITIONS = [
           },
         },
         required: ["type", "title", "content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "share_content",
+      description:
+        "Share a visual aid (image, diagram, PDF) with the caller. In text sim sessions, the content appears inline in the chat. In voice calls, the content is sent to the caller's phone via their preferred channel (WhatsApp, MMS, or SMS link). Use when discussing a figure, diagram, or document listed in your visual aids that the caller should see. Always describe the content verbally too.",
+      parameters: {
+        type: "object",
+        properties: {
+          media_id: {
+            type: "string",
+            description:
+              "The media ID from the visual aids list in your instructions",
+          },
+          caption: {
+            type: "string",
+            description:
+              "Brief description of what the content shows and why you are sharing it",
+          },
+        },
+        required: ["media_id"],
       },
     },
   },

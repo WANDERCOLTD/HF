@@ -72,34 +72,41 @@ export function WelcomeStep({ getData, setData, onNext, onPrev }: StepRenderProp
             className="hf-input"
           />
 
-          {loadingSuggestions && (
-            <div className="hf-ai-loading-row hf-mt-sm">
-              <Loader2 size={12} className="hf-spinner" />
-              <span className="hf-text-xs hf-text-muted">Generating suggestions…</span>
-            </div>
-          )}
-          {!loadingSuggestions && suggestions.length > 0 && (
-            <div className="hf-mt-sm">
-              <p className="hf-ai-inline-hint hf-mb-xs">
-                <Sparkles size={11} /> Suggestions — click to use:
-              </p>
-              <div className="hf-suggestion-chips">
-                {suggestions.map((s, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    className="hf-suggestion-chip"
-                    onClick={() => {
-                      setWelcomeMessage(s);
-                      setSuggestions((prev) => prev.filter((_, idx) => idx !== i));
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
+          <div className="hf-suggest-slot">
+            {loadingSuggestions ? (
+              <div className="hf-ai-loading-row">
+                <Loader2 size={12} className="hf-spinner" />
+                <span className="hf-text-xs hf-text-muted">Suggesting…</span>
               </div>
-            </div>
-          )}
+            ) : suggestions.length > 0 ? (
+              <>
+                <div className="hf-ai-inline-hint">
+                  <Sparkles size={11} />
+                  Suggestions
+                </div>
+                <div className="hf-suggestion-chips">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className="hf-suggestion-chip"
+                      onClick={() => {
+                        setWelcomeMessage(s);
+                        setSuggestions((prev) => prev.filter((_, idx) => idx !== i));
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <span className="hf-suggest-slot__hint">
+                <Sparkles size={11} />
+                Suggestions will appear shortly
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

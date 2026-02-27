@@ -65,6 +65,11 @@ export default function DomainsPage() {
   const [editingType, setEditingType] = useState(false);
   const [savingType, setSavingType] = useState(false);
 
+  // Description editing
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descDraft, setDescDraft] = useState("");
+  const [savingDescription, setSavingDescription] = useState(false);
+
   // Source processing status (for status dots on content tab)
   const domainSourceIds = (domain?.subjects ?? []).flatMap(
     (sd) => sd.subject.sources.map((ss) => ss.source.id)
@@ -377,7 +382,7 @@ export default function DomainsPage() {
       <AdvancedBanner />
       {/* Header */}
       <div className="hf-card-compact hf-mb-md dom-header">
-        <div className="hf-flex hf-flex-between" style={{ marginBottom: 10 }}>
+        <div className="hf-flex hf-flex-between dom-header-row">
           <h1 className="hf-section-title">{plural("domain")}</h1>
           <div className="hf-flex hf-gap-md hf-items-center">
             {isOperator && (
@@ -455,7 +460,7 @@ export default function DomainsPage() {
             value={sortBy}
             onChange={(v) => setSortBy(v as "name" | "callers" | "playbooks")}
             searchable={false}
-            style={{ minWidth: 120 }}
+            className="dom-sort-select"
             options={[
               { value: "name", label: "Name" },
               { value: "callers", label: plural("caller") },
@@ -519,7 +524,7 @@ export default function DomainsPage() {
             </div>
           ) : filteredAndSortedDomains.length === 0 ? (
             <div className="hf-empty-compact">
-              <div className="hf-mb-md hf-text-center" style={{ fontSize: 40 }}>🌐</div>
+              <div className="hf-mb-md hf-text-center dom-empty-icon">🌐</div>
               <div className="hf-heading-lg hf-text-secondary hf-text-center">
                 {search || selectedStatuses.size > 0 ? `No ${plural("domain").toLowerCase()} match filters` : `No ${plural("domain").toLowerCase()} yet`}
               </div>
@@ -557,14 +562,14 @@ export default function DomainsPage() {
                           });
                         }}
                         onClick={(e) => e.stopPropagation()}
-                        className="cp-selection-checkbox"
+                        className="dom-selection-checkbox"
                       />
                     )}
                     <h3 className="hf-heading-sm hf-mb-0">{d.name}</h3>
                     <SectorBadge typeSlug={d.institution?.type?.slug} typeName={d.institution?.type?.name} />
                     {statusBadge(d)}
                   </div>
-                  <p className="hf-text-xs hf-text-muted" style={{ margin: 0, marginBottom: 10, lineHeight: 1.4 }}>
+                  <p className="hf-text-xs hf-text-muted dom-item-desc">
                     {d.description || <em>No description</em>}
                   </p>
                   <div className="hf-flex hf-gap-md hf-text-xs hf-text-muted hf-items-center">
@@ -573,14 +578,7 @@ export default function DomainsPage() {
                     <ReadinessBadge domainId={d.id} size="compact" />
                   </div>
                   {d.publishedPlaybook && (
-                    <div
-                      className="hf-text-xs hf-mt-sm"
-                      style={{
-                        padding: "6px 10px",
-                        background: "var(--status-success-bg)",
-                        borderRadius: 5,
-                      }}
-                    >
+                    <div className="hf-text-xs hf-mt-sm dom-published-badge">
                       <span className="hf-text-success hf-text-bold">Published:</span>{" "}
                       <span className="hf-text-success">
                         {d.publishedPlaybook.name} v{d.publishedPlaybook.version}
@@ -588,14 +586,7 @@ export default function DomainsPage() {
                     </div>
                   )}
                   {!d.publishedPlaybook && (
-                    <div
-                      className="hf-text-xs hf-text-warning hf-mt-sm"
-                      style={{
-                        padding: "6px 10px",
-                        background: "var(--status-warning-bg)",
-                        borderRadius: 5,
-                      }}
-                    >
+                    <div className="hf-text-xs hf-text-warning hf-mt-sm dom-draft-badge">
                       No published playbook
                     </div>
                   )}
@@ -608,16 +599,16 @@ export default function DomainsPage() {
         {/* Detail Panel */}
         <div className="hf-master-detail-right">
           {!selectedId ? (
-            <div className="hf-flex-center hf-text-placeholder" style={{ height: "100%" }}>
+            <div className="hf-flex-center hf-text-placeholder dom-detail-empty">
               <div className="hf-text-center">
-                <div style={{ fontSize: 48 }} className="hf-mb-md">🌐</div>
+                <div className="hf-mb-md dom-empty-icon-lg">🌐</div>
                 <div className="hf-text-md">Select a domain to view details</div>
               </div>
             </div>
           ) : detailLoading ? (
-            <div className="hf-text-center hf-text-muted" style={{ padding: 40 }}>Loading institution...</div>
+            <div className="hf-text-center hf-text-muted dom-detail-loading">Loading institution...</div>
           ) : detailError || !domain ? (
-            <div className="hf-banner hf-banner-error" style={{ borderRadius: 8 }}>
+            <div className="hf-banner hf-banner-error dom-detail-error">
               {detailError || "Institution not found"}
             </div>
           ) : (
@@ -676,8 +667,100 @@ export default function DomainsPage() {
                     )}
                     <ReadinessBadge domainId={domain.id} onScaffold={fetchDomains} />
                   </div>
-                  {domain.description && (
-                    <p className="hf-text-sm hf-text-muted hf-mt-xs hf-mb-0">{domain.description}</p>
+                  {/* Editable description */}
+                  {editingDescription ? (
+                    <div className="hf-mt-xs">
+                      <textarea
+                        value={descDraft}
+                        onChange={(e) => setDescDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setEditingDescription(false);
+                          }
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            (async () => {
+                              setSavingDescription(true);
+                              try {
+                                const res = await fetch(`/api/domains/${domain.id}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ description: descDraft.trim() || null }),
+                                });
+                                const data = await res.json();
+                                if (data.ok) {
+                                  setDomain((prev) => prev ? { ...prev, description: descDraft.trim() || null } : prev);
+                                  fetchDomains();
+                                  setEditingDescription(false);
+                                }
+                              } catch (err) {
+                                console.error("Failed to update description:", err);
+                              } finally {
+                                setSavingDescription(false);
+                              }
+                            })();
+                          }
+                        }}
+                        rows={2}
+                        className="hf-input hf-mt-xs"
+                        placeholder="Enter a description..."
+                        autoFocus
+                        disabled={savingDescription}
+                      />
+                      <div className="hf-flex hf-gap-sm hf-mt-xs">
+                        <button
+                          onClick={async () => {
+                            setSavingDescription(true);
+                            try {
+                              const res = await fetch(`/api/domains/${domain.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ description: descDraft.trim() || null }),
+                              });
+                              const data = await res.json();
+                              if (data.ok) {
+                                setDomain((prev) => prev ? { ...prev, description: descDraft.trim() || null } : prev);
+                                fetchDomains();
+                                setEditingDescription(false);
+                              }
+                            } catch (err) {
+                              console.error("Failed to update description:", err);
+                            } finally {
+                              setSavingDescription(false);
+                            }
+                          }}
+                          disabled={savingDescription}
+                          className="hf-btn-sm hf-btn-primary"
+                        >
+                          {savingDescription ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          onClick={() => setEditingDescription(false)}
+                          disabled={savingDescription}
+                          className="hf-btn-sm hf-btn-secondary"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p
+                      className={`hf-text-sm hf-text-muted hf-mt-xs hf-mb-0${isOperator ? " dom-editable" : ""}`}
+                      onClick={() => {
+                        if (isOperator) {
+                          setDescDraft(domain.description || "");
+                          setEditingDescription(true);
+                        }
+                      }}
+                      title={isOperator ? "Click to edit description" : undefined}
+                    >
+                      {domain.description || (isOperator ? (
+                        <em className="dom-placeholder">Add description...</em>
+                      ) : null)}
+                      {isOperator && domain.description && (
+                        <Pencil size={12} className="dom-edit-icon" />
+                      )}
+                    </p>
                   )}
                 </div>
                 {!domain.isDefault && isOperator && (
@@ -693,11 +776,7 @@ export default function DomainsPage() {
                       <button
                         onClick={handleReactivateDomain}
                         disabled={deleting}
-                        className="hf-btn-sm hf-btn-primary hf-nowrap"
-                        style={{
-                          opacity: deleting ? 0.7 : 1,
-                          cursor: deleting ? "not-allowed" : "pointer",
-                        }}
+                        className="hf-btn-sm hf-btn-primary hf-nowrap dom-btn-reactivate"
                       >
                         {deleting ? "Reactivating..." : "Reactivate Institution"}
                       </button>
@@ -708,7 +787,7 @@ export default function DomainsPage() {
 
               {/* Inline Type Picker */}
               {editingType && domain.institution && (
-                <div className="hf-card-compact hf-mb-md" style={{ padding: 16 }}>
+                <div className="hf-card-compact hf-mb-md dom-type-picker-card">
                   <div className="hf-text-sm hf-text-bold hf-mb-sm">Change institution type</div>
                   <TypePicker
                     value={domain.institution.type?.slug ?? null}
@@ -751,13 +830,13 @@ export default function DomainsPage() {
 
               {/* Deactivate Confirmation */}
               {showDeleteConfirm && (
-                <div className="hf-banner hf-banner-error hf-mb-md" style={{ border: "1px solid var(--status-error-border)", borderRadius: 8 }}>
+                <div className="hf-banner hf-banner-error hf-mb-md dom-deactivate-banner">
                   <div className="hf-text-bold hf-text-md hf-text-error hf-mb-sm">
                     Deactivate &ldquo;{domain.name}&rdquo;?
                   </div>
                   {domain._count.callers > 0 ? (
                     <div>
-                      <p className="hf-text-sm hf-text-error hf-mb-sm" style={{ margin: 0 }}>
+                      <p className="hf-text-sm hf-text-error hf-mb-sm dom-confirm-text-no-margin">
                         Cannot deactivate this institution — it has {domain._count.callers} caller{domain._count.callers !== 1 ? "s" : ""} assigned.
                         Reassign callers to another institution first.
                       </p>
@@ -770,24 +849,18 @@ export default function DomainsPage() {
                     </div>
                   ) : (
                     <div>
-                      <p className="hf-text-sm hf-text-error" style={{ margin: "0 0 12px 0" }}>
+                      <p className="hf-text-sm hf-text-error dom-confirm-text-bottom">
                         This will deactivate the institution{domain._count.playbooks > 0 ? ` and its ${domain._count.playbooks} course${domain._count.playbooks !== 1 ? "s" : ""} will become inactive` : ""}.
                         You can reactivate it at any time.
                       </p>
                       {deleteError && (
-                        <p className="hf-text-xs hf-text-error hf-mb-sm" style={{ margin: 0 }}>{deleteError}</p>
+                        <p className="hf-text-xs hf-text-error hf-mb-sm dom-confirm-text-no-margin">{deleteError}</p>
                       )}
                       <div className="hf-flex hf-gap-sm">
                         <button
                           onClick={handleDeleteDomain}
                           disabled={deleting}
-                          className="hf-btn-sm hf-text-bold"
-                          style={{
-                            background: "var(--status-error-text)",
-                            color: "white",
-                            opacity: deleting ? 0.7 : 1,
-                            cursor: deleting ? "not-allowed" : "pointer",
-                          }}
+                          className="hf-btn-sm hf-text-bold dom-btn-confirm-destructive"
                         >
                           {deleting ? "Deactivating..." : "Yes, Deactivate"}
                         </button>
@@ -806,21 +879,21 @@ export default function DomainsPage() {
 
               {/* Stats */}
               <div className="hf-flex hf-gap-lg hf-mb-lg">
-                <div className="hf-stat-card" style={{ minWidth: 100, gap: 0 }}>
+                <div className="hf-stat-card dom-stat-card">
                   <div className="hf-stat-value-sm">{domain._count.callers}</div>
                   <div className="hf-text-xs hf-text-muted">Callers</div>
                 </div>
-                <div className="hf-stat-card" style={{ minWidth: 100, gap: 0 }}>
+                <div className="hf-stat-card dom-stat-card">
                   <div className="hf-stat-value-sm">{domain._count.playbooks}</div>
                   <div className="hf-text-xs hf-text-muted">{plural("playbook")}</div>
                 </div>
-                <div className="hf-stat-card" style={{ minWidth: 100, gap: 0 }}>
+                <div className="hf-stat-card dom-stat-card">
                   <div className="hf-stat-value-sm">
                     {domain.playbooks.filter((p) => p.status === "PUBLISHED").length}
                   </div>
                   <div className="hf-text-xs hf-text-muted">Published</div>
                 </div>
-                <div className="hf-stat-card" style={{ minWidth: 100, gap: 0 }}>
+                <div className="hf-stat-card dom-stat-card">
                   <div className="hf-stat-value-sm">{domain._count.subjects ?? 0}</div>
                   <div className="hf-text-xs hf-text-muted">Subjects</div>
                 </div>
@@ -856,7 +929,7 @@ export default function DomainsPage() {
 
                   {/* Stack Order Info */}
                   {publishedPlaybooks.length > 1 && (
-                    <div className="hf-banner hf-banner-info hf-mb-md hf-text-xs" style={{ borderRadius: 6 }}>
+                    <div className="hf-banner hf-banner-info hf-mb-md hf-text-xs dom-stack-banner">
                       <strong>Stack Order:</strong> {publishedPlaybooks.length} published {plural("playbook").toLowerCase()} will be stacked.
                       First {terms.playbook.toLowerCase()} wins on spec conflicts. Use arrows to reorder.
                     </div>
@@ -889,11 +962,7 @@ export default function DomainsPage() {
                           <div className="hf-flex hf-gap-md hf-flex-1 hf-items-center" onClick={(e) => e.stopPropagation()}>
                             {/* Stack position badge */}
                             <div
-                              className="hf-stack-badge"
-                              style={{
-                                background: isPublished ? "var(--status-success-bg)" : "var(--surface-tertiary)",
-                                color: isPublished ? "var(--status-success-text)" : "var(--text-muted)",
-                              }}
+                              className={`hf-stack-badge ${isPublished ? "dom-stack-published" : "dom-stack-unpublished"}`}
                             >
                               {stackPosition ? `#${stackPosition}` : "—"}
                             </div>
@@ -903,7 +972,7 @@ export default function DomainsPage() {
                               href={`/x/playbooks/${playbook.id}`}
                               className="hf-link-plain hf-flex-1"
                             >
-                              <div className="hf-flex hf-gap-sm hf-flex-wrap hf-items-center" style={{ marginBottom: 2 }}>
+                              <div className="hf-flex hf-gap-sm hf-flex-wrap hf-items-center dom-playbook-info-row">
                                 <PlaybookPill label={playbook.name} size="compact" />
                                 {playbookStatusBadge(playbook.status)}
                                 <span className="hf-text-xs hf-text-placeholder">v{playbook.version}</span>
@@ -929,13 +998,7 @@ export default function DomainsPage() {
                                   <button
                                     onClick={(e) => { e.preventDefault(); handleRemovePlaybook(playbook.id); }}
                                     disabled={removingPlaybookId === playbook.id}
-                                    className="hf-btn-xs"
-                                    style={{
-                                      background: "var(--status-error-text)",
-                                      color: "white",
-                                      opacity: removingPlaybookId === playbook.id ? 0.7 : 1,
-                                      cursor: removingPlaybookId === playbook.id ? "not-allowed" : "pointer",
-                                    }}
+                                    className="hf-btn-xs dom-btn-remove-confirm"
                                   >
                                     {removingPlaybookId === playbook.id ? "..." : "Yes"}
                                   </button>
@@ -972,31 +1035,31 @@ export default function DomainsPage() {
                       <p className="hf-text-muted">No callers assigned to this domain yet</p>
                     </div>
                   ) : (
-                    <div style={{ background: "var(--surface-primary)", border: "1px solid var(--border-default)", borderRadius: 8, overflow: "hidden" }}>
+                    <div className="dom-table-wrapper">
                       <table className="hf-table">
                         <thead>
-                          <tr style={{ background: "var(--surface-secondary)", borderBottom: "1px solid var(--border-default)" }}>
-                            <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>Name</th>
-                            <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>Contact</th>
-                            <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>Calls</th>
-                            <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>Created</th>
+                          <tr>
+                            <th>Name</th>
+                            <th>Contact</th>
+                            <th>Calls</th>
+                            <th>Created</th>
                           </tr>
                         </thead>
                         <tbody>
                           {domain.callers.map((caller) => (
-                            <tr key={caller.id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                              <td style={{ padding: "12px 16px" }}>
+                            <tr key={caller.id}>
+                              <td>
                                 <CallerPill
                                   label={caller.name || "No name"}
                                   href={`/x/callers/${caller.id}`}
                                   size="compact"
                                 />
                               </td>
-                              <td className="hf-text-md hf-text-muted" style={{ padding: "12px 16px" }}>
+                              <td className="hf-text-md hf-text-muted">
                                 {caller.email || caller.phone || caller.externalId || "—"}
                               </td>
-                              <td className="hf-text-md" style={{ padding: "12px 16px" }}>{caller._count.calls}</td>
-                              <td className="hf-text-xs hf-text-muted" style={{ padding: "12px 16px" }}>
+                              <td className="hf-text-md">{caller._count.calls}</td>
+                              <td className="hf-text-xs hf-text-muted">
                                 {new Date(caller.createdAt).toLocaleDateString()}
                               </td>
                             </tr>
@@ -1014,7 +1077,7 @@ export default function DomainsPage() {
                   <h3 className="hf-heading-lg hf-mb-md">Subjects & Materials</h3>
                   {(!domain.subjects || domain.subjects.length === 0) ? (
                     <div className="hf-empty-compact">
-                      <div style={{ fontSize: 32 }} className="hf-mb-md">📚</div>
+                      <div className="hf-mb-md dom-empty-icon-md">📚</div>
                       <div className="hf-text-md hf-text-muted hf-mb-md">
                         No subjects linked to this domain yet.
                       </div>
@@ -1035,14 +1098,10 @@ export default function DomainsPage() {
                         return (
                           <div
                             key={subj.id}
-                            style={{
-                              border: "1px solid var(--border-default)",
-                              borderRadius: 8,
-                              overflow: "hidden",
-                            }}
+                            className="dom-subject-card"
                           >
                             {/* Subject header */}
-                            <div className="hf-flex hf-flex-between hf-items-center" style={{ padding: "12px 16px", background: "var(--surface-secondary)" }}>
+                            <div className="hf-flex hf-flex-between hf-items-center dom-subject-header">
                               <div>
                                 <Link
                                   href={`/x/subjects?id=${subj.id}`}
@@ -1060,21 +1119,13 @@ export default function DomainsPage() {
                                 <span>{subj._count.sources} source{subj._count.sources !== 1 ? "s" : ""} / {totalAssertions} assertion{totalAssertions !== 1 ? "s" : ""}</span>
                                 <Link
                                   href={`/x/content-sources`}
-                                  className="hf-micro-action"
-                                  style={{
-                                    color: "var(--accent-primary)",
-                                    background: "color-mix(in srgb, var(--accent-primary) 10%, transparent)",
-                                  }}
+                                  className="hf-micro-action dom-add-content-action"
                                 >
                                   Add Content
                                 </Link>
                                 <Link
                                   href={`/x/domains/${domain.id}/extraction`}
-                                  className="hf-micro-action"
-                                  style={{
-                                    color: "var(--badge-purple-text)",
-                                    background: "var(--badge-purple-bg)",
-                                  }}
+                                  className="hf-micro-action dom-extraction-action"
                                 >
                                   Extraction Config
                                 </Link>
@@ -1082,7 +1133,7 @@ export default function DomainsPage() {
                             </div>
                             {/* Sources list */}
                             {subj.sources.length > 0 ? (
-                              <div style={{ padding: "8px 16px" }}>
+                              <div className="dom-subject-sources">
                                 {subj.sources.map((ss, idx) => {
                                   const srcJob = sourceStatusMap[ss.source.id]?.jobStatus;
                                   const srcActive = srcJob === "extracting" || srcJob === "importing" || srcJob === "pending";
