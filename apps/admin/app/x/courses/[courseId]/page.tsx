@@ -2422,6 +2422,29 @@ export default function CourseDetailPage() {
           )}
         </div>
       )}
+
+      {/* Image Lightbox */}
+      {lightboxImage && (
+        <div className="hf-modal-overlay" onClick={() => setLightboxImage(null)}>
+          <div className="cd-lightbox" onClick={(e) => e.stopPropagation()}>
+            <button className="cd-lightbox-close" onClick={() => setLightboxImage(null)}>✕</button>
+            {lightboxImage.mimeType.startsWith('image/') ? (
+              <img
+                src={`/api/media/${lightboxImage.mediaId}`}
+                alt={lightboxImage.captionText || lightboxImage.figureRef || ''}
+                className="cd-lightbox-img"
+              />
+            ) : (
+              <div className="cd-lightbox-fallback">{lightboxImage.fileName}</div>
+            )}
+            <div className="cd-lightbox-meta">
+              {lightboxImage.figureRef && <span className="hf-chip hf-chip-sm">{lightboxImage.figureRef}</span>}
+              {lightboxImage.captionText && <p className="hf-text-sm">{lightboxImage.captionText}</p>}
+              <p className="hf-text-xs hf-text-muted">{lightboxImage.fileName}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

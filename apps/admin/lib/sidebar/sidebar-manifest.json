@@ -24,6 +24,17 @@
     ]
   },
   {
+    "id": "calls",
+    "title": "Calls",
+    "href": "/x/sim",
+    "defaultHiddenFor": ["TESTER", "STUDENT", "DEMO", "EDUCATOR"],
+    "items": [
+      { "id": "sim", "href": "/x/sim", "label": "Sim", "icon": "MessageCircle" },
+      { "id": "analytics", "href": "/x/analytics", "label": "Analytics", "icon": "TrendingUp", "advancedOnly": true },
+      { "id": "testimony", "href": "/x/testimony", "label": "Testimony", "icon": "BarChart3", "requiredRole": "OPERATOR" }
+    ]
+  },
+  {
     "id": "manage",
     "title": "Manage",
     "defaultHiddenFor": ["STUDENT", "DEMO", "TESTER"],
@@ -73,17 +84,6 @@
       { "id": "stu-progress", "href": "/x/student/progress", "label": "Progress", "icon": "TrendingUp", "visibleFor": ["STUDENT", "OPERATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "stu-calls", "href": "/x/student/calls", "label": "Sessions", "icon": "Phone", "terminologyLabel": "session_short_plural", "visibleFor": ["STUDENT", "OPERATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "stu-teacher", "href": "/x/student/teacher", "label": "Mentor", "icon": "GraduationCap", "terminologyLabel": "mentor", "visibleFor": ["STUDENT", "OPERATOR", "ADMIN", "SUPERADMIN"] }
-    ]
-  },
-  {
-    "id": "calls",
-    "title": "Calls",
-    "href": "/x/sim",
-    "defaultHiddenFor": ["TESTER", "STUDENT", "DEMO", "EDUCATOR"],
-    "items": [
-      { "id": "sim", "href": "/x/sim", "label": "Sim", "icon": "MessageCircle" },
-      { "id": "analytics", "href": "/x/analytics", "label": "Analytics", "icon": "TrendingUp", "advancedOnly": true },
-      { "id": "testimony", "href": "/x/testimony", "label": "Testimony", "icon": "BarChart3", "requiredRole": "OPERATOR" }
     ]
   },
   {

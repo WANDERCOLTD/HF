@@ -25,14 +25,18 @@
   border-color: var(--border-strong) !important;
 }
 
-.dom-sort-select {
-  min-width: 120px;
-}
-
 .dom-layout {
   min-height: 0;
   overflow: hidden;
   align-items: stretch;
+}
+
+/* ── Filter pill dynamic active state ─────────────────── */
+
+.dom-pill-active {
+  border: 1px solid var(--pill-border);
+  background: var(--pill-bg);
+  color: var(--pill-text);
 }
 
 /* ── Filter pill active variants ─────────────────────── */

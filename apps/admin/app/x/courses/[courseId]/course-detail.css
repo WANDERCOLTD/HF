@@ -27,3 +27,80 @@
   color: var(--session-color);
   background: color-mix(in srgb, var(--session-color) 10%, transparent);
 }
+
+/* ── Image Lightbox ── */
+.cd-lightbox {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  background: var(--surface-primary);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+}
+.cd-lightbox-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+.cd-lightbox-close:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+.cd-lightbox-img {
+  max-width: 80vw;
+  max-height: 70vh;
+  object-fit: contain;
+}
+.cd-lightbox-fallback {
+  padding: 40px 60px;
+  font-size: 14px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.cd-lightbox-meta {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Drag & drop states ── */
+.cd-drop-target {
+  min-height: 40px;
+  border: 2px dashed transparent;
+  border-radius: 8px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.cd-drop-hover {
+  border-color: var(--accent-primary) !important;
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+.cd-img-drag-over {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+  border-radius: 6px;
+}
+
+/* Empty image nudge */
+.cd-no-images-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+  font-style: italic;
+}

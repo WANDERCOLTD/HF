@@ -61,26 +61,30 @@ export async function GET(
       phases = domainFlow;
     }
 
-    // Load domain media for editor picker
-    const media = playbook.domain
-      ? await prisma.media.findMany({
-          where: {
-            source: {
-              subject: {
-                domainId: playbook.domain.id,
-              },
-            },
+    // Load domain media for editor picker (SubjectDomain → Subject → SubjectMedia → MediaAsset)
+    let media: Array<{ id: string; title: string | null; fileName: string; mimeType: string }> = [];
+    if (playbook.domain) {
+      const subjectMedia = await prisma.subjectMedia.findMany({
+        where: {
+          subject: {
+            domains: { some: { domainId: playbook.domain.id } },
           },
-          select: {
-            id: true,
-            title: true,
-            fileName: true,
-            mimeType: true,
+        },
+        select: {
+          media: {
+            select: { id: true, title: true, fileName: true, mimeType: true },
           },
-          take: 100,
-          orderBy: { title: "asc" },
-        })
-      : [];
+        },
+        take: 100,
+      });
+      const seen = new Set<string>();
+      for (const sm of subjectMedia) {
+        if (!seen.has(sm.media.id)) {
+          seen.add(sm.media.id);
+          media.push(sm.media);
+        }
+      }
+    }
 
     return NextResponse.json({
       ok: true,
