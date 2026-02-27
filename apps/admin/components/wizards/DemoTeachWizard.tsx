@@ -1806,7 +1806,7 @@ export default function DemoTeachWizard({ config }: { config: DemoTeachConfig })
                     domainName: selectedDomain?.name || undefined,
                   }}
                   onChange={handleTunerChange}
-                  label="Advanced: Fine-tune behavior"
+                  label="AI personality (optional)"
                 />
               </div>
             </div>

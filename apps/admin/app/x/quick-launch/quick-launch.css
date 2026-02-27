@@ -1,7 +1,7 @@
 /* ─── Quick Launch ─────────────────────────────────────── */
 /* Extracted from globals.css — imported by quick-launch/page.tsx */
 
-.ql-page { margin: 0 auto; padding: 0 0 64px; width: 100%; max-width: 880px; }
+.ql-page { margin: 0 auto; padding: 0 0 64px; width: 100%; max-width: 1100px; }
 .ql-hero { margin-bottom: 24px; text-align: center; padding: 16px 24px 14px; border-radius: 16px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 8%, var(--surface-primary)), color-mix(in srgb, var(--accent-primary) 3%, var(--surface-primary))); border: 1px solid color-mix(in srgb, var(--accent-primary) 12%, transparent); }
 .ql-hero-icon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover)); margin-bottom: 8px; box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-primary) 30%, transparent); }
 .ql-hero-icon span { font-size: 18px; color: white; }

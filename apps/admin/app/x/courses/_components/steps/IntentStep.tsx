@@ -41,6 +41,15 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
   const [hoveredPattern, setHoveredPattern] = useState<InteractionPattern | null>(null);
   const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>('direct_instruction');
 
+  // Cascade-resolved lesson plan defaults (System → Domain → Runtime)
+  const [resolvedDefaults, setResolvedDefaults] = useState<{
+    sessionCount: number;
+    durationMins: number;
+    emphasis: string;
+    assessments: string;
+    lessonPlanModel: string;
+  } | null>(null);
+
   // AI outcome suggestions
   const [outcomeSuggestions, setOutcomeSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -117,6 +126,26 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
       }
     })();
   }, [selectedDomainId]);
+
+  // Load cascade-resolved lesson plan defaults when domain is selected
+  useEffect(() => {
+    if (!selectedDomainId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/lesson-plan-defaults?domainId=${selectedDomainId}`);
+        const data = await res.json();
+        if (data.ok && data.defaults) {
+          setResolvedDefaults(data.defaults);
+          // Pre-populate teaching model from resolved defaults (unless user already changed it)
+          if (!getData<LessonPlanModel>('lessonPlanModel')) {
+            setLessonPlanModel(data.defaults.lessonPlanModel as LessonPlanModel);
+          }
+        }
+      } catch {
+        // Non-critical — falls back to LESSON_PLAN_DEFAULTS on server side
+      }
+    })();
+  }, [selectedDomainId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-suggest pattern from course name
   useEffect(() => {
@@ -227,6 +256,12 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
     setData('lessonPlanModel', lessonPlanModel);
     if (groupId) setData('groupId', groupId);
 
+    // Store resolved defaults in data bag for LessonPlanStep
+    const defaults = resolvedDefaults ?? {
+      sessionCount: 12, durationMins: 30, emphasis: 'balanced', assessments: 'light', lessonPlanModel: 'direct_instruction',
+    };
+    setData('resolvedDefaults', defaults);
+
     // Eager plan generation — fires in background, LessonPlanStep polls for result
     try {
       const res = await fetch('/api/courses/generate-plan', {
@@ -237,10 +272,10 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
           learningOutcomes: filteredOutcomes,
           teachingStyle: 'tutor',
           interactionPattern: selectedPattern,
-          sessionCount: 12,
-          durationMins: 30,
-          emphasis: 'balanced',
-          assessments: 'light',
+          sessionCount: defaults.sessionCount,
+          durationMins: defaults.durationMins,
+          emphasis: defaults.emphasis,
+          assessments: defaults.assessments,
           lessonPlanModel,
         }),
       });

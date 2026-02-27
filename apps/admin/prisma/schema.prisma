@@ -377,6 +377,9 @@ model Domain {
   onboardingFlowPhases     Json? // Custom first-call flow phases (optional override of INIT-001 defaults)
   onboardingDefaultTargets Json? // Custom default behavior targets for first call
 
+  // Course creation defaults (cascade: system → domain → wizard)
+  lessonPlanDefaults Json? // { sessionCount?, durationMins?, emphasis?, assessments?, lessonPlanModel? }
+
   // Community configuration (for COMMUNITY kind domains)
   config Json? // Stores communityKind, hubPattern, and other community-specific settings
 

@@ -6,6 +6,7 @@ import { IdentityStep } from "./_components/steps/IdentityStep";
 import { BrandingStep } from "./_components/steps/BrandingStep";
 import { WelcomeStep } from "./_components/steps/WelcomeStep";
 import { TerminologyStep } from "./_components/steps/TerminologyStep";
+import { DefaultsStep } from "./_components/steps/DefaultsStep";
 import { LaunchStep } from "./_components/steps/LaunchStep";
 import type { ComponentType } from "react";
 
@@ -94,6 +95,34 @@ const config: WizardConfig = {
           }
         }
         if (items.length === 0) items.push({ label: "Terminology", value: "Type defaults" });
+        return items;
+      },
+    },
+    {
+      id: "defaults",
+      label: "Defaults",
+      activeLabel: "Course defaults",
+      component: DefaultsStep as S,
+      summaryLabel: "Defaults",
+      summary: (getData) => {
+        const d = getData<Record<string, unknown>>("lessonPlanDefaults");
+        if (!d) return "System defaults";
+        const parts: string[] = [];
+        if (d.sessionCount) parts.push(`${d.sessionCount} sessions`);
+        if (d.durationMins) parts.push(`${d.durationMins} min`);
+        if (d.emphasis) parts.push(d.emphasis as string);
+        return parts.length > 0 ? parts.join(" · ") : "System defaults";
+      },
+      doneContent: (getData) => {
+        const d = getData<Record<string, unknown>>("lessonPlanDefaults");
+        if (!d) return [{ label: "Defaults", value: "System defaults (no overrides)" }];
+        const items: DoneContentItem[] = [];
+        if (d.sessionCount) items.push({ label: "Sessions", value: String(d.sessionCount) });
+        if (d.durationMins) items.push({ label: "Duration", value: `${d.durationMins} min` });
+        if (d.emphasis) items.push({ label: "Emphasis", value: d.emphasis as string });
+        if (d.assessments) items.push({ label: "Assessments", value: d.assessments as string });
+        if (d.lessonPlanModel) items.push({ label: "Model", value: d.lessonPlanModel as string });
+        if (items.length === 0) items.push({ label: "Defaults", value: "System defaults" });
         return items;
       },
     },

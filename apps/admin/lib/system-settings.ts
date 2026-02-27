@@ -15,6 +15,7 @@
  *   voice.*         — Voice call provider, model, tools, RAG
  *   cache.*         — Cache TTL tuning
  *   email.*         — Email template text blocks
+ *   lesson_plan.*   — Lesson plan defaults (session count, duration, model)
  */
 
 import { prisma } from "@/lib/prisma";
@@ -787,6 +788,38 @@ export async function getImageExtractionSettings(): Promise<ImageExtractionSetti
 }
 
 // ═══════════════════════════════════════════════════════
+// 16. LESSON PLAN DEFAULTS
+// ═══════════════════════════════════════════════════════
+
+export interface LessonPlanSettings {
+  sessionCount: number;
+  durationMins: number;
+  emphasis: "breadth" | "balanced" | "depth";
+  assessments: "formal" | "light" | "none";
+  lessonPlanModel: string;
+}
+
+export const LESSON_PLAN_DEFAULTS: LessonPlanSettings = {
+  sessionCount: 12,
+  durationMins: 30,
+  emphasis: "balanced",
+  assessments: "light",
+  lessonPlanModel: "direct_instruction",
+};
+
+const LESSON_PLAN_KEYS: Record<keyof LessonPlanSettings, string> = {
+  sessionCount: "lesson_plan.session_count",
+  durationMins: "lesson_plan.duration_mins",
+  emphasis: "lesson_plan.emphasis",
+  assessments: "lesson_plan.assessments",
+  lessonPlanModel: "lesson_plan.model",
+};
+
+export async function getLessonPlanSettings(): Promise<LessonPlanSettings> {
+  return loadGroup(LESSON_PLAN_KEYS, LESSON_PLAN_DEFAULTS);
+}
+
+// ═══════════════════════════════════════════════════════
 // SETTINGS REGISTRY (for UI rendering)
 // ═══════════════════════════════════════════════════════
 
@@ -1004,9 +1037,15 @@ export const SETTINGS_REGISTRY: SettingGroup[] = [
     id: "defaults",
     label: "Defaults",
     icon: "Target",
-    description: "Default values used when creating new entities (domains, overlays, etc.)",
+    description: "Default values used when creating new entities (domains, overlays, courses)",
     settings: [
       { key: "defaults.archetype", label: "Default archetype", description: "Base archetype slug used when scaffolding new domain overlays (e.g. TUT-001, COACH-001)", type: "text" as const, default: "TUT-001", placeholder: "e.g. TUT-001" },
+      // ── Lesson plan defaults ──
+      { key: "lesson_plan.session_count", label: "Default session count", description: "Number of sessions when creating a new course", type: "int" as const, default: 12, min: 1, max: 50 },
+      { key: "lesson_plan.duration_mins", label: "Default session duration (min)", description: "Minutes per session for new courses", type: "int" as const, default: 30, min: 15, max: 60, step: 5 },
+      { key: "lesson_plan.emphasis", label: "Default emphasis", description: "Teaching emphasis: breadth, balanced, or depth", type: "text" as const, default: "balanced", placeholder: "breadth | balanced | depth" },
+      { key: "lesson_plan.assessments", label: "Default assessments", description: "Assessment level: formal, light, or none", type: "text" as const, default: "light", placeholder: "formal | light | none" },
+      { key: "lesson_plan.model", label: "Default teaching model", description: "Pedagogical model for new courses", type: "text" as const, default: "direct_instruction", placeholder: "direct_instruction | 5e | spiral | mastery | project" },
     ],
   },
   {

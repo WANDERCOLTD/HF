@@ -63,7 +63,7 @@ export default function TestimonyDashboard() {
   const totalScores = specs.reduce((sum, s) => sum + s.totalScores, 0);
 
   return (
-    <div data-tour="welcome" style={{ maxWidth: 960, padding: "0 0 40px" }}>
+    <div data-tour="welcome" className="hf-page-container">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <h1 className="hf-page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           Testimony

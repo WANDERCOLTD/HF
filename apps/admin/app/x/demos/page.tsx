@@ -24,7 +24,7 @@ export default function DemosPage() {
       : allDemos.filter((d) => d.audience.includes(audienceFilter));
 
   return (
-    <div style={{ padding: "24px 32px", maxWidth: 1200 }}>
+    <div className="hf-page-container">
       <SourcePageHeader
         title="Interactive Demos"
         description="Step-by-step walkthroughs of key workflows. Watch, learn, and ask the AI assistant questions at any point."

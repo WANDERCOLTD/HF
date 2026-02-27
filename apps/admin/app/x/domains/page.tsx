@@ -15,7 +15,7 @@ import { BulkDeleteModal } from "@/components/shared/BulkDeleteModal";
 import { useBackgroundTaskQueue } from "@/components/shared/ContentJobQueue";
 import type { BulkDeletePreview, BulkDeleteResult } from "@/lib/admin/bulk-delete";
 import { EditableTitle } from "@/components/shared/EditableTitle";
-import { BookOpen, Users, FileText, Rocket, Pencil } from "lucide-react";
+import { BookOpen, Users, FileText, Rocket, Pencil, Sliders } from "lucide-react";
 import { AdvancedBanner } from "@/components/shared/AdvancedBanner";
 import { SortableList } from "@/components/shared/SortableList";
 import type { DomainListItem, DomainDetail } from "./components/types";
@@ -28,6 +28,7 @@ import { PromptPreviewModal } from "./components/PromptPreviewModal";
 import { SectorBadge } from "./components/SectorBadge";
 import { TypePicker } from "@/components/shared/TypePicker";
 import { OnboardingTabContent } from "./components/OnboardingTab";
+import { DefaultsTabContent } from "./components/DefaultsTab";
 import "./domains.css";
 
 export default function DomainsPage() {
@@ -59,7 +60,7 @@ export default function DomainsPage() {
   const [domain, setDomain] = useState<DomainDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"callers" | "playbooks" | "content" | "onboarding">("playbooks");
+  const [activeTab, setActiveTab] = useState<"callers" | "playbooks" | "content" | "onboarding" | "defaults">("playbooks");
   const [showPlaybookModal, setShowPlaybookModal] = useState(false);
   const [editingType, setEditingType] = useState(false);
   const [savingType, setSavingType] = useState(false);
@@ -833,9 +834,10 @@ export default function DomainsPage() {
                   { id: "callers", label: plural("caller"), icon: <Users size={14} />, count: domain._count.callers },
                   { id: "content", label: "Content", icon: <FileText size={14} />, count: domain._count.subjects ?? 0 },
                   { id: "onboarding", label: "Onboarding", icon: <Rocket size={14} /> },
+                  { id: "defaults", label: "Defaults", icon: <Sliders size={14} /> },
                 ]}
                 activeTab={activeTab}
-                onTabChange={(id) => setActiveTab(id as "callers" | "playbooks" | "content" | "onboarding")}
+                onTabChange={(id) => setActiveTab(id as "callers" | "playbooks" | "content" | "onboarding" | "defaults")}
                 containerStyle={{ marginBottom: 24 }}
               />
 
@@ -1142,6 +1144,18 @@ export default function DomainsPage() {
                       .then((data) => { if (data.ok) setDomain(data.domain); });
                   }}
                   onPreviewPrompt={() => setShowPromptPreview(true)}
+                />
+              )}
+
+              {/* Defaults Tab */}
+              {activeTab === "defaults" && (
+                <DefaultsTabContent
+                  domain={domain}
+                  onDomainRefresh={() => {
+                    fetch(`/api/domains/${domain.id}`)
+                      .then((r) => r.json())
+                      .then((data) => { if (data.ok) setDomain(data.domain); });
+                  }}
                 />
               )}
             </>

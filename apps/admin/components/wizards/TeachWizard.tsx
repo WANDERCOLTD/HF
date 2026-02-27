@@ -808,6 +808,81 @@ export default function TeachWizard() {
     [selectedDomainId, completeSection, startExtractionPoll, loadCategoryGroups]
   );
 
+  // ── Method badge strip state ──────────────────────
+  const [focusedMethod, setFocusedMethod] = useState<TeachMethod | null>(null);
+  const [hoveredMethod, setHoveredMethod] = useState<TeachMethod | null>(null);
+
+  type MethodBadge = {
+    method: TeachMethod;
+    label: string;
+    icon: string;
+    count: number;        // total items across matching groups
+    groupCount: number;   // how many groups use this method
+    active: boolean;      // at least one included group uses this method
+  };
+
+  const methodBadges = useMemo<MethodBadge[]>(() => {
+    if (contentGroups.length === 0) return [];
+    const map = new Map<TeachMethod, { count: number; groupCount: number; active: boolean }>();
+    for (const g of contentGroups) {
+      const cfg = TEACH_METHOD_CONFIG[g.teachMethod];
+      if (!cfg) continue; // skip invalid methods (e.g. direct_instruction)
+      const prev = map.get(g.teachMethod) || { count: 0, groupCount: 0, active: false };
+      map.set(g.teachMethod, {
+        count: prev.count + g.count,
+        groupCount: prev.groupCount + 1,
+        active: prev.active || g.included,
+      });
+    }
+    return Array.from(map.entries())
+      .map(([method, { count, groupCount, active }]) => ({
+        method,
+        label: TEACH_METHOD_CONFIG[method].label,
+        icon: TEACH_METHOD_CONFIG[method].icon,
+        count,
+        groupCount,
+        active,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [contentGroups]);
+
+  type MethodPopover = {
+    method: TeachMethod;
+    label: string;
+    icon: string;
+    totalCount: number;
+    categories: Array<{ label: string; icon: string; count: number }>;
+    preview: string[];    // first 3 items (text) from loaded groups
+  };
+
+  const methodPopoverData = useMemo<MethodPopover | null>(() => {
+    if (!hoveredMethod) return null;
+    const cfg = TEACH_METHOD_CONFIG[hoveredMethod];
+    if (!cfg) return null;
+    const matchingGroups = contentGroups.filter((g) => g.teachMethod === hoveredMethod);
+    const categories = matchingGroups.map((g) => ({
+      label: categoryLabel(g.category),
+      icon: categoryIcon(g.category),
+      count: g.count,
+    }));
+    const totalCount = matchingGroups.reduce((sum, g) => sum + g.count, 0);
+    const preview: string[] = [];
+    for (const g of matchingGroups) {
+      if (preview.length >= 3) break;
+      if (g.items) {
+        for (const item of g.items) {
+          if (preview.length >= 3) break;
+          if (!item.excluded) preview.push(item.text.length > 80 ? item.text.slice(0, 80) + "\u2026" : item.text);
+        }
+      }
+    }
+    return { method: hoveredMethod, label: cfg.label, icon: cfg.icon, totalCount, categories, preview };
+  }, [hoveredMethod, contentGroups]);
+
+  const toggleMethodFocus = useCallback((method: TeachMethod) => {
+    setFocusedMethod((prev) => (prev === method ? null : method));
+  }, []);
+
   const toggleGroup = useCallback((category: string) => {
     setContentGroups((prev) =>
       prev.map((g) =>
@@ -1591,7 +1666,7 @@ export default function TeachWizard() {
                 domainName: selectedDomain?.name,
               }}
               onChange={handleTunerChange}
-              label="Teaching style (optional)"
+              label="AI personality (optional)"
             />
           </div>
 
@@ -1832,11 +1907,99 @@ export default function TeachWizard() {
                 in your lesson plan.
               </p>
 
+              {/* ── Method badge strip ───────────────────── */}
+              {methodBadges.length > 1 && (
+                <div className="tw-method-strip">
+                  <span className="tw-method-strip-label">Filter by method:</span>
+                  {methodBadges.map((b) => {
+                    const isFocused = focusedMethod === b.method;
+                    const isDimmed = focusedMethod !== null && !isFocused;
+                    return (
+                      <div
+                        key={b.method}
+                        className="tw-method-badge-wrap"
+                        onMouseEnter={() => setHoveredMethod(b.method)}
+                        onMouseLeave={() => setHoveredMethod(null)}
+                      >
+                        <button
+                          type="button"
+                          className={[
+                            "tw-method-badge",
+                            b.active ? "tw-method-badge--active" : "tw-method-badge--inactive",
+                            isFocused ? "tw-method-badge--focused" : "",
+                            isDimmed ? "tw-method-badge--dimmed" : "",
+                          ].filter(Boolean).join(" ")}
+                          onClick={() => toggleMethodFocus(b.method)}
+                        >
+                          <span className="tw-method-badge-icon">{b.icon}</span>
+                          <span className="tw-method-badge-label">{b.label}</span>
+                          <span className="tw-method-badge-count">{b.count}</span>
+                        </button>
+
+                        {/* Popover on hover */}
+                        {hoveredMethod === b.method && methodPopoverData && (
+                          <div className="tw-method-popover">
+                            <div className="tw-method-popover-header">
+                              <span>{methodPopoverData.icon}</span>
+                              <strong>{methodPopoverData.label}</strong>
+                              <span className="tw-method-popover-total">{methodPopoverData.totalCount} items</span>
+                            </div>
+                            {methodPopoverData.categories.length > 0 && (
+                              <div className="tw-method-popover-cats">
+                                {methodPopoverData.categories.map((cat) => (
+                                  <div key={cat.label} className="tw-method-popover-cat">
+                                    <span>{cat.icon}</span>
+                                    <span>{cat.label}</span>
+                                    <span className="tw-method-popover-cat-count">{cat.count}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {methodPopoverData.preview.length > 0 && (
+                              <div className="tw-method-popover-preview">
+                                {methodPopoverData.preview.map((text, i) => (
+                                  <div key={i} className="tw-method-popover-preview-item">
+                                    <span className="tw-method-popover-preview-num">{i + 1}</span>
+                                    <span>{text}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {methodPopoverData.preview.length === 0 && (
+                              <div className="tw-method-popover-hint">
+                                Expand a group below to see items
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {focusedMethod && (
+                    <button
+                      type="button"
+                      className="tw-method-badge tw-method-badge--clear"
+                      onClick={() => setFocusedMethod(null)}
+                    >
+                      <XIcon size={12} />
+                      <span className="tw-method-badge-label">Clear</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="tw-group-list">
-                {contentGroups.map((g) => (
+                {contentGroups.map((g) => {
+                  const matchesFocus = focusedMethod === null || g.teachMethod === focusedMethod;
+                  return (
                   <div key={g.category}>
                     <div
-                      className={`tw-group-row ${!g.included ? "tw-group-row-unchecked" : ""}`}
+                      className={[
+                        "tw-group-row",
+                        !g.included ? "tw-group-row-unchecked" : "",
+                        focusedMethod && matchesFocus ? "tw-group-row-focused" : "",
+                        focusedMethod && !matchesFocus ? "tw-group-row-dimmed" : "",
+                      ].filter(Boolean).join(" ")}
                       onClick={() => toggleExpand(g.category)}
                       style={{ cursor: "pointer" }}
                     >
@@ -1918,7 +2081,8 @@ export default function TeachWizard() {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Knowledge Map — appears progressively when structuring completes */}
@@ -1934,47 +2098,6 @@ export default function TeachWizard() {
                   Select at least one group to continue.
                 </div>
               )}
-
-              {/* Overall intent re-selector */}
-              <p className="tw-hint" style={{ marginTop: 12 }}>
-                Overall approach:{" "}
-                {TEACHING_MODE_ORDER.map((mode) => {
-                  const cfg = TEACHING_MODE_LABELS[mode];
-                  return (
-                    <button
-                      key={mode}
-                      style={{
-                        marginRight: 6,
-                        padding: "3px 8px",
-                        borderRadius: 5,
-                        border: "1px solid var(--border-default)",
-                        background:
-                          teachingMode === mode
-                            ? "var(--accent-primary)"
-                            : "transparent",
-                        color: teachingMode === mode ? "#fff" : "var(--text-muted)",
-                        cursor: "pointer",
-                        fontSize: 12,
-                      }}
-                      onClick={() => {
-                        setTeachingMode(mode);
-                        // Re-derive groups with new intent
-                        setContentGroups((prev) =>
-                          prev.map((g) => ({
-                            ...g,
-                            teachMethod: categoryToTeachMethod(g.category, mode),
-                            included:
-                              (intentCategoryWeights[mode][g.category] ?? 1) >= 2,
-                          }))
-                        );
-                      }}
-                      type="button"
-                    >
-                      {cfg.icon} {cfg.label}
-                    </button>
-                  );
-                })}
-              </p>
             </>
           )}
 

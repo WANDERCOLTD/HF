@@ -2,9 +2,7 @@
 /* Extracted from globals.css — imported by metering/page.tsx */
 
 .metering-page {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
+  /* Layout (padding, max-width, margin) provided by hf-page-container */
 }
 .metering-summary-grid {
   display: grid;

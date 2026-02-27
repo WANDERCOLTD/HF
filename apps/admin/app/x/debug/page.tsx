@@ -139,7 +139,7 @@ export default function DebugPage() {
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 1000, margin: "0 auto" }}>
+    <div className="hf-page-container">
       <div style={{ marginBottom: 24 }}>
         <a href="/x/settings" style={{ fontSize: 13, color: "var(--accent-primary)", textDecoration: "none" }}>&larr; Back to Settings</a>
         <h1 className="hf-page-title" style={{ marginTop: 4 }}>Debug Console</h1>

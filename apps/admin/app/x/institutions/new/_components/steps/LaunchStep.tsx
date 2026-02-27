@@ -42,6 +42,7 @@ export function LaunchStep({ getData, setData, onPrev, endFlow }: StepRenderProp
   const secondaryColor = getData<string>("secondaryColor") ?? "";
   const welcomeMessage = getData<string>("welcomeMessage") ?? "";
   const terminologyOverrides = getData<Record<string, string>>("terminologyOverrides") ?? null;
+  const lessonPlanDefaults = getData<Record<string, unknown>>("lessonPlanDefaults") ?? null;
 
   // Resume support: if IDs already set (e.g. page refresh after success), go straight to success
   const savedInstId = getData<string>("createdInstitutionId");
@@ -134,6 +135,7 @@ export function LaunchStep({ getData, setData, onPrev, endFlow }: StepRenderProp
           typeId: typeId || null,
           typeSlug: typeSlug || null,
           terminologyOverrides: terminologyOverrides || null,
+          lessonPlanDefaults: lessonPlanDefaults || null,
         }),
       });
 
@@ -195,7 +197,7 @@ export function LaunchStep({ getData, setData, onPrev, endFlow }: StepRenderProp
       );
       setPhase("error");
     }
-  }, [institutionName, logoUrl, primaryColor, secondaryColor, welcomeMessage, typeId, typeSlug, terminologyOverrides, handleCommitEvent]);
+  }, [institutionName, logoUrl, primaryColor, secondaryColor, welcomeMessage, typeId, typeSlug, terminologyOverrides, lessonPlanDefaults, handleCommitEvent]);
 
   const handleCancelCommit = () => {
     commitAbortRef.current?.abort();

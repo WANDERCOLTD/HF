@@ -122,7 +122,7 @@ export default function CohortsPage() {
   ];
 
   return (
-    <div>
+    <div className="hf-page-container hf-page-scroll">
       {/* Header */}
       <div className="co-header">
         <div>

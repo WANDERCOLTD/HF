@@ -114,7 +114,7 @@ export default function ContentSourcesPage() {
   // Show resume banner if there's an unfinished wizard task and wizard isn't active
   if (!showWizard && !resumeLoading && pendingTask) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="hf-page-container">
         <div style={{ paddingTop: 64 }}>
           <WizardResumeBanner
             task={pendingTask}
@@ -132,7 +132,7 @@ export default function ContentSourcesPage() {
   }
 
   return (
-    <div>
+    <div className="hf-page-container hf-page-scroll">
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>

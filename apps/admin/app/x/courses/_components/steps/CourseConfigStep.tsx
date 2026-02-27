@@ -274,9 +274,9 @@ export function CourseConfigStep({ setData, getData, onNext, onPrev }: StepProps
 
         {/* ── Behavior Tuning ── */}
         <div>
-          <FieldHint label="Behaviour" hint={WIZARD_HINTS["course.behavior"]} labelClass="hf-section-title" />
+          <FieldHint label="AI personality" hint={WIZARD_HINTS["course.behavior"]} labelClass="hf-section-title" />
           <p className="hf-text-xs hf-text-muted hf-mb-sm">
-            Fine-tune how your AI communicates — describe the style you want
+            Fine-tune how your AI communicates — describe the personality you want
           </p>
           <AgentTuner
             bare

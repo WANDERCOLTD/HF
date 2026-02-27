@@ -84,12 +84,15 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [progressStep, setProgressStep] = useState<{ index: number; total: number } | null>(null);
 
-  // Intent inputs
+  // Intent inputs (initialized from cascade-resolved defaults in mount effect)
   const [sessionCount, setSessionCount] = useState<number | null>(null);
   const [durationMins, setDurationMins] = useState<number>(30);
   const [emphasis, setEmphasis] = useState<typeof EMPHASIS_OPTIONS[number]>("balanced");
   const [assessments, setAssessments] = useState<typeof ASSESSMENT_OPTIONS[number]>("light");
   const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>("direct_instruction");
+
+  // Parameter bar state (for inline editing in editing phase)
+  const [showParamEditor, setShowParamEditor] = useState(false);
 
   // Phase expansion (for session cards)
   const [expandedSession, setExpandedSession] = useState<number | null>(null);
@@ -132,7 +135,17 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
   // ── On mount: check for eager generation or saved plan ──
 
   useEffect(() => {
-    // Restore saved intents
+    // Initialize from cascade-resolved defaults (set by IntentStep)
+    const resolved = getData<{ sessionCount: number; durationMins: number; emphasis: string; assessments: string; lessonPlanModel: string }>("resolvedDefaults");
+    if (resolved) {
+      setSessionCount(resolved.sessionCount);
+      setDurationMins(resolved.durationMins);
+      setEmphasis(resolved.emphasis as typeof emphasis);
+      setAssessments(resolved.assessments as typeof assessments);
+      setLessonPlanModel(resolved.lessonPlanModel as LessonPlanModel);
+    }
+
+    // Restore saved intents (overrides resolved defaults if user already tweaked)
     const saved = getData<{ sessionCount: number; durationMins: number; emphasis: string; assessments: string; lessonPlanModel?: string }>("planIntents");
     if (saved) {
       if (saved.sessionCount) setSessionCount(saved.sessionCount);
@@ -224,7 +237,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
     }, [setData]),
   });
 
-  // ── Knowledge Map fetch (once, when editing) ─────────
+  // ── Topics & Content fetch (once, when editing) ──────
 
   useEffect(() => {
     if (phase !== "editing" || kmFetchedRef.current) return;
@@ -568,13 +581,13 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
     <div className="hf-wizard-page">
       <div className={`hf-wizard-step${phase === "skeleton" ? " hf-glow-active" : ""}`}>
         <div className="hf-mb-lg">
-          <h1 className="hf-page-title">Plan your sessions</h1>
+          <h1 className="hf-page-title">Your Lesson Plan</h1>
           <p className="hf-page-subtitle">
             {phase === "editing"
-              ? "Review and customize your lesson plan. Drag to reorder, click to edit."
+              ? "Here\u2019s your generated plan. Drag to reorder, click to edit."
               : phase === "loading" || phase === "skeleton"
-                ? "Your lesson plan is being generated..."
-                : "Set how many sessions, how long, and how deep — then generate a plan."}
+                ? "Building your sessions from your content and learning outcomes..."
+                : "Set how many sessions, how long, and how deep — then we\u2019ll build your plan."}
           </p>
         </div>
 
@@ -596,7 +609,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
             <div className="hf-flex hf-flex-col hf-items-center hf-gap-sm hf-py-lg">
               <div className="hf-spinner hf-icon-lg hf-spinner-thick" />
               <p className="hf-text-sm hf-text-secondary">
-                {progressMessage || "Generating your lesson plan..."}
+                {progressMessage || "Structuring your sessions and mapping content..."}
               </p>
               {progressStep && (
                 <div className="hf-progress-bar-track" style={{ width: "200px" }}>
@@ -619,7 +632,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
               <div className="hf-pulse-dot" />
               <div className="hf-flex-col hf-gap-xs hf-flex-1">
                 <span className="hf-text-sm hf-text-bold">
-                  {progressMessage || "Modules ready — generating detailed session plan..."}
+                  {progressMessage || "Sessions outlined — adding detail and teaching points..."}
                 </span>
                 {progressStep && (
                   <div className="hf-progress-bar-track">
@@ -670,13 +683,130 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
               </div>
             )}
 
+            {/* ── Parameter bar — inline-editable plan settings ── */}
+            <div className="hf-card-compact hf-mb-md">
+              <div className="hf-flex hf-items-center hf-gap-sm hf-flex-wrap">
+                <button
+                  className="hf-chip hf-chip-sm"
+                  onClick={() => setShowParamEditor((p) => !p)}
+                  title="Change session count"
+                >
+                  {sessionCount ?? entries.length} sessions
+                </button>
+                <span className="hf-text-muted">·</span>
+                <button
+                  className="hf-chip hf-chip-sm"
+                  onClick={() => setShowParamEditor((p) => !p)}
+                  title="Change duration"
+                >
+                  {durationMins} min
+                </button>
+                <span className="hf-text-muted">·</span>
+                <button
+                  className="hf-chip hf-chip-sm"
+                  onClick={() => setShowParamEditor((p) => !p)}
+                  title="Change emphasis"
+                >
+                  {emphasis === "breadth" ? "Breadth-first" : emphasis === "depth" ? "Depth-first" : "Balanced"}
+                </button>
+                <span className="hf-text-muted">·</span>
+                <button
+                  className="hf-chip hf-chip-sm"
+                  onClick={() => setShowParamEditor((p) => !p)}
+                  title="Change assessments"
+                >
+                  {assessments === "formal" ? "Formal assessments" : assessments === "none" ? "No assessments" : "Light checks"}
+                </button>
+                <span className="hf-text-muted">·</span>
+                <span className="hf-chip hf-chip-sm" style={{ cursor: "default" }}>
+                  {getLessonPlanModel(lessonPlanModel).label}
+                </span>
+                <div className="hf-flex-1" />
+                <button
+                  onClick={() => setShowParamEditor((p) => !p)}
+                  className="hf-btn hf-btn-ghost hf-btn-sm"
+                >
+                  {showParamEditor ? "Close" : "Edit"}
+                </button>
+              </div>
+
+              {/* Expanded parameter editor */}
+              {showParamEditor && (
+                <div className="hf-flex-col hf-gap-md hf-mt-md hf-pt-md" style={{ borderTop: "1px solid var(--border-default)" }}>
+                  <SessionCountPicker value={sessionCount} onChange={setSessionCount} />
+
+                  <div>
+                    <div className="hf-mb-xs">
+                      <FieldHint label="Session duration" hint={WIZARD_HINTS["course.duration"]} labelClass="hf-label" />
+                    </div>
+                    <div className="hf-chip-row">
+                      {DURATIONS.map((d) => (
+                        <ChipButton key={d} selected={durationMins === d} onClick={() => setDurationMins(d)}>
+                          {d} min
+                        </ChipButton>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="hf-mb-xs">
+                      <FieldHint label="Teaching emphasis" hint={WIZARD_HINTS["course.emphasis"]} labelClass="hf-label" />
+                    </div>
+                    <div className="hf-chip-row">
+                      {EMPHASIS_OPTIONS.map((e) => (
+                        <ChipButton key={e} selected={emphasis === e} onClick={() => setEmphasis(e)}>
+                          {e === "breadth" ? "Breadth-first" : e === "depth" ? "Depth-first" : "Balanced"}
+                        </ChipButton>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="hf-mb-xs">
+                      <FieldHint label="Assessments" hint={WIZARD_HINTS["course.assessments"]} labelClass="hf-label" />
+                    </div>
+                    <div className="hf-chip-row">
+                      <ChipButton selected={assessments === "formal"} onClick={() => setAssessments("formal")}>Yes (formal)</ChipButton>
+                      <ChipButton selected={assessments === "light"} onClick={() => setAssessments("light")}>Light checks</ChipButton>
+                      <ChipButton selected={assessments === "none"} onClick={() => setAssessments("none")}>No assessments</ChipButton>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="hf-mb-xs">
+                      <FieldHint label="Teaching model" hint={WIZARD_HINTS["course.model"]} labelClass="hf-label" />
+                    </div>
+                    <LessonPlanModelPicker value={lessonPlanModel} onChange={setLessonPlanModel} />
+                  </div>
+
+                  <div className="hf-flex hf-gap-sm">
+                    <button
+                      onClick={() => {
+                        setShowParamEditor(false);
+                        setEntries([]);
+                        setSkeletonEntries([]);
+                        setReasoning("");
+                        handleGenerate();
+                      }}
+                      className="hf-btn hf-btn-primary hf-btn-sm"
+                    >
+                      <RefreshCw className="hf-icon-xs" /> Regenerate with these settings
+                    </button>
+                    <button onClick={() => setShowParamEditor(false)} className="hf-btn hf-btn-ghost hf-btn-sm">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {reasoning && (
               <div className="hf-ai-callout hf-mb-md">
                 <strong className="hf-text-primary">AI reasoning:</strong> {reasoning}
               </div>
             )}
 
-            {/* Knowledge Map — appears when structuring completes */}
+            {/* Topics & Content — appears when structuring completes */}
             {kmSources.length > 0 && (
               <div className="hf-card-compact hf-mb-md">
                 <button
@@ -687,7 +817,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
                   <span className={`hf-chevron hf-chevron--sm${kmExpanded ? " hf-chevron--open" : ""}`}>
                     <ChevronRight size={14} />
                   </span>
-                  <span className="hf-section-title">Knowledge Map</span>
+                  <span className="hf-section-title">Topics &amp; Content</span>
                   {kmStats && (
                     <span className="hf-km-badge">
                       {kmStats.totalTopics} topics · {kmStats.totalPoints} points
@@ -703,13 +833,6 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
             )}
 
             <div className="hf-card-compact">
-              <div className="hf-flex hf-items-center hf-gap-sm hf-mb-md">
-                <span className="hf-text-sm hf-text-muted">Teaching model:</span>
-                <span className="hf-chip hf-chip-selected hf-chip-sm" style={{ cursor: "default" }}>
-                  {getLessonPlanModel(lessonPlanModel).label}
-                </span>
-              </div>
-
               <div className="hf-flex hf-items-center hf-gap-md hf-mb-md">
                 <span className="hf-section-title">{entries.length} sessions</span>
                 <span className="hf-text-xs hf-text-muted">
@@ -875,14 +998,14 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
             </>
           )}
 
-          {/* Editing: regenerate or save */}
+          {/* Editing: edit settings or save */}
           {phase === "editing" && (
             <>
               <button
-                onClick={() => { setPhase("intents"); setEntries([]); setSkeletonEntries([]); setReasoning(""); }}
+                onClick={() => setShowParamEditor(true)}
                 className="hf-btn hf-btn-secondary"
               >
-                Regenerate
+                <RefreshCw className="hf-icon-xs" /> Regenerate
               </button>
               <button
                 onClick={handleSave}

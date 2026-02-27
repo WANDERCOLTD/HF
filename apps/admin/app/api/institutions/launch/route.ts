@@ -22,6 +22,7 @@ import { scaffoldDomain } from "@/lib/domain/scaffold";
  * @body typeId string (optional)
  * @body typeSlug string (optional)
  * @body terminologyOverrides object (optional)
+ * @body lessonPlanDefaults object (optional) — domain-level course creation defaults
  *
  * @response 200 text/event-stream — SSE progress events
  *   Phase events: creating-institution, creating-domain, scaffolding, linking-user
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
     typeId,
     typeSlug,
     terminologyOverrides,
+    lessonPlanDefaults,
   } = body;
 
   if (!institutionName?.trim() || !slug?.trim()) {
@@ -107,11 +109,23 @@ export async function POST(request: NextRequest) {
         // ── Step 3: Create domain ──
         send("creating-domain", "Setting up domain…");
 
+        // Sanitise lesson plan defaults — only store valid keys
+        let resolvedLpDefaults: Record<string, unknown> | null = null;
+        if (lessonPlanDefaults && typeof lessonPlanDefaults === "object") {
+          const validKeys = ["sessionCount", "durationMins", "emphasis", "assessments", "lessonPlanModel"];
+          const cleaned: Record<string, unknown> = {};
+          for (const key of validKeys) {
+            if (lessonPlanDefaults[key] != null) cleaned[key] = lessonPlanDefaults[key];
+          }
+          if (Object.keys(cleaned).length > 0) resolvedLpDefaults = cleaned;
+        }
+
         const domain = await prisma.domain.create({
           data: {
             name: institutionName.trim(),
             slug: slug.trim().toLowerCase(),
             institutionId: institution.id,
+            ...(resolvedLpDefaults ? { lessonPlanDefaults: resolvedLpDefaults } : {}),
           },
         });
 

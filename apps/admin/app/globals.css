@@ -2879,7 +2879,7 @@ html.light {
   margin: 0 auto;
   padding: 24px 16px 40px;
   width: 100%;
-  max-width: 880px;
+  max-width: 1100px;
 }
 
 /* Inside accordion: step components fill the card, no 100vh or extra padding */
@@ -3030,6 +3030,8 @@ html.light {
 .hf-session-label {
   font-size: 13px;
   color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
 }
 .hf-session-meta {
   font-size: 11px;

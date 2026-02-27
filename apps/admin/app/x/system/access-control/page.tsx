@@ -126,7 +126,7 @@ export default function AccessControlPage() {
   if (loading) return <div className="p-6">Loading...</div>;
 
   return (
-    <div className="space-y-6 p-6 max-w-7xl">
+    <div className="hf-page-container hf-page-scroll">
       <div>
         <h1 className="hf-page-title">Access Control & Terminology</h1>
         <p className="hf-page-subtitle" style={{ marginTop: 8 }}>

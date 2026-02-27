@@ -4,7 +4,7 @@ import AIEngineSettingsCard from "../../../components/cockpit/AIEngineSettingsCa
 
 export default function AdminPage() {
   return (
-    <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
+    <div className="hf-page-container">
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1 className="hf-page-title">Admin</h1>

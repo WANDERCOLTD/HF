@@ -323,7 +323,7 @@ export default function AnalyticsPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }}>
+      <div className="hf-page-container">
         <div style={{ textAlign: "center", padding: 60 }}>
           <div style={{ fontSize: 32, marginBottom: 16 }}>Loading...</div>
         </div>
@@ -333,7 +333,7 @@ export default function AnalyticsPage() {
 
   if (error) {
     return (
-      <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }}>
+      <div className="hf-page-container">
         <div
           style={{
             background: "var(--status-error-bg)",
@@ -351,7 +351,7 @@ export default function AnalyticsPage() {
 
   if (!data) {
     return (
-      <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }}>
+      <div className="hf-page-container">
         <div style={{ textAlign: "center", padding: 60, color: "var(--text-muted)" }}>
           No analytics data available
         </div>
@@ -365,7 +365,7 @@ export default function AnalyticsPage() {
   const maxGoalStatusCount = Math.max(...goals.byStatus.map((s) => s.count), 1);
 
   return (
-    <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }}>
+    <div className="hf-page-container">
       <AdvancedBanner />
       {/* Header */}
       <div style={{ marginBottom: 24 }}>

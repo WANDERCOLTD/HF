@@ -262,7 +262,7 @@ export default function MeteringPage() {
 
   if (loading) {
     return (
-      <div className="metering-page">
+      <div className="hf-page-container metering-page">
         <div className="hf-text-center hf-p-lg">
           <div className="hf-stat-value hf-mb-md">Loading...</div>
         </div>
@@ -272,7 +272,7 @@ export default function MeteringPage() {
 
   if (error) {
     return (
-      <div className="metering-page">
+      <div className="hf-page-container metering-page">
         <div className="hf-banner hf-banner-error">
           Error: {error}
         </div>
@@ -281,7 +281,7 @@ export default function MeteringPage() {
   }
 
   return (
-    <div className="metering-page">
+    <div className="hf-page-container metering-page">
       <AdvancedBanner />
       {/* Header */}
       <div className="hf-mb-lg">

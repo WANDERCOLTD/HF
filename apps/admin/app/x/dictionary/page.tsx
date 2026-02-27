@@ -254,7 +254,7 @@ export default function DictionaryPage() {
     p._counts.specs + p._counts.playbooks + p._counts.behaviorTargets + p._counts.promptSlugs + p._counts.scoringAnchors;
 
   return (
-    <div>
+    <div className="hf-page-container hf-page-scroll">
       {/* Header */}
       <div className="dict-header">
         <div>

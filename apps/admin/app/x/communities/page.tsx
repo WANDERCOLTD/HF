@@ -73,7 +73,7 @@ export default function CommunitiesPage() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="hf-page-container hf-page-scroll">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

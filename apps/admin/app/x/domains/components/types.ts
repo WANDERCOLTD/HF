@@ -101,6 +101,7 @@ export type DomainDetail = {
   } | null;
   onboardingFlowPhases?: any;
   onboardingDefaultTargets?: any;
+  lessonPlanDefaults?: Record<string, unknown> | null;
   _count: {
     callers: number;
     playbooks: number;
