@@ -5732,6 +5732,50 @@ Returns the hierarchical pyramid structure for a domain's content.
 
 ---
 
+### `GET` /api/domains/:domainId/lesson-plan-defaults
+
+Get resolved lesson plan defaults for a domain with source badges (system vs domain override).
+
+**Auth**: session (VIEWER+) · **Scope**: `domains:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| domainId | path | string | Yes | The domain ID |
+
+**Response** `200`
+```json
+{ ok: true, defaults: Record<string, { value, source }> }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Domain not found" }
+```
+
+---
+
+### `PUT` /api/domains/:domainId/lesson-plan-defaults
+
+Save domain-level lesson plan default overrides. Null values reset to system default.
+
+**Auth**: session (OPERATOR+) · **Scope**: `domains:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| domainId | path | string | Yes | The domain ID |
+
+**Response** `200`
+```json
+{ ok: true, defaults: Record<string, { value, source }> }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Domain not found" }
+```
+
+---
+
 ### `GET` /api/domains/:domainId/onboarding
 
 Get domain onboarding configuration including welcome message, identity spec, flow phases, and default targets
@@ -7129,6 +7173,19 @@ List all overlay identity specs grouped by their base archetype
 ---
 
 ## Lesson Plan
+
+### `GET` /api/lesson-plan-defaults
+
+Get resolved lesson plan defaults (flat values). Cascades: Domain → SystemSettings → hardcoded.
+
+**Auth**: session (VIEWER+) · **Scope**: `courses:read`
+
+**Response** `200`
+```json
+{ ok: true, defaults: LessonPlanSettings }
+```
+
+---
 
 ### `POST` /api/lesson-plan/generate
 
@@ -12564,8 +12621,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 364 |
-| Files with annotations | 363 |
+| Route files found | 366 |
+| Files with annotations | 365 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 
