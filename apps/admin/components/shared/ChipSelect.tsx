@@ -3,7 +3,7 @@
 // ── ChipSelect ────────────────────────────────────────
 //
 // Single-select chip group. Extracted from the duplicated
-// ChipButton in DemoTeachWizard + LessonPlanStep.
+// ChipButton in TeachWizard + LessonPlanStep.
 // Uses hf-chip / hf-chip-selected from globals.css.
 
 export interface ChipSelectOption<T extends string = string> {

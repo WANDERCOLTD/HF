@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ArrowRight, Loader2, ChevronRight, Plus, X } from 'lucide-react';
+import { OnboardingPreview } from '@/components/shared/OnboardingPreview';
 import { AgentTuner } from '@/components/shared/AgentTuner';
 import type { AgentTunerOutput, AgentTunerPill } from '@/lib/agent-tuner/types';
 import { FieldHint } from '@/components/shared/FieldHint';
@@ -124,38 +125,30 @@ export function CourseConfigStep({ setData, getData, onNext, onPrev }: StepProps
           <p className="hf-page-subtitle">Preview how your AI will greet and teach</p>
         </div>
 
-        {/* ── Greeting Preview Card ── */}
-        <div className="hf-greeting-card hf-mb-lg">
+        {/* ── First Call Preview (WhatsApp-style) ── */}
+        <div className="hf-mb-lg">
           <FieldHint label="Greeting" hint={WIZARD_HINTS["course.welcome"]} labelClass="hf-section-title" />
+          <p className="hf-text-xs hf-text-muted hf-mb-sm">
+            The welcome message is the first thing students hear when they call.
+          </p>
 
-          {/* Persona badge */}
-          {personaName && (
-            <div className="hf-greeting-persona">
-              <span className="hf-greeting-persona-icon">
-                {personaSlug === 'tutor' ? '🧑‍🏫' : personaSlug === 'coach' ? '💪' : personaSlug === 'mentor' ? '🤝' : personaSlug === 'socratic' ? '🤔' : '🎭'}
-              </span>
-              <span>{personaName}</span>
-              {courseName && (
-                <>
-                  <span className="hf-text-muted">·</span>
-                  <span className="hf-text-muted hf-text-normal">{courseName}</span>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Welcome text */}
           {loadingWelcome ? (
             <div className="hf-loading-row">
               <Loader2 className="hf-spinner hf-icon-sm" />
               <span className="hf-text-sm">Loading greeting...</span>
             </div>
           ) : (
-            <p className="hf-greeting-text">&ldquo;{displayWelcome}&rdquo;</p>
+            <OnboardingPreview
+              greeting={displayWelcome}
+              personaName={personaName || undefined}
+              phases={flowPhases.map(({ _id, ...rest }) => rest)}
+              hint={flowPhases.length === 0 ? `Your ${personaName || 'AI'} will use its built-in call structure` : undefined}
+              maxHeight={280}
+            />
           )}
 
-          {/* Collapse toggle for custom textarea */}
-          <button className="hf-greeting-toggle" onClick={() => setGreetingOpen(!greetingOpen)}>
+          {/* Collapse toggle for custom greeting */}
+          <button className="hf-greeting-toggle hf-mt-sm" onClick={() => setGreetingOpen(!greetingOpen)}>
             <ChevronRight
               size={14}
               style={{
@@ -263,10 +256,9 @@ export function CourseConfigStep({ setData, getData, onNext, onPrev }: StepProps
               })()}
 
               {flowPhases.length === 0 && (
-                <div className="hf-banner hf-banner-info" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-primary)', flexShrink: 0 }}>(Default)</span>
-                  <span className="hf-text-sm">Your {personaName || 'AI'} will use its built-in call structure — intro, practice, wrap-up. Click <strong>+ Add</strong> to customise phases.</span>
-                </div>
+                <p className="hf-text-xs hf-text-muted">
+                  Default structure shown in preview above. Click <strong>+ Add</strong> to customise phases.
+                </p>
               )}
             </>
           )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ChevronRight, Sparkles } from "lucide-react";
 import "./wizard-section.css";
 
@@ -46,6 +46,14 @@ export default function WizardSection({
   children,
 }: WizardSectionProps) {
   const [expanded, setExpanded] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  // Scroll section to top of viewport when it becomes active
+  useEffect(() => {
+    if (status === "active" && sectionRef.current) {
+      sectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [status]);
 
   // Reset expanded state when section transitions away from "done"
   // (e.g. when cascade re-locks it or it becomes active again)
@@ -54,6 +62,7 @@ export default function WizardSection({
   if (status === "done") {
     return (
       <div
+        ref={sectionRef}
         className={`ws-wrap${isExpanded ? " ws-wrap--expanded" : ""}`}
         data-status="done"
         data-section={id}
@@ -97,7 +106,7 @@ export default function WizardSection({
 
   if (status === "locked") {
     return (
-      <div className="ws-wrap" data-status="locked" data-section={id}>
+      <div ref={sectionRef} className="ws-wrap" data-status="locked" data-section={id}>
         <div className="ws-locked-header">
           <p className="ws-locked-title">{title}</p>
         </div>
@@ -107,7 +116,7 @@ export default function WizardSection({
 
   // active
   return (
-    <div className="ws-wrap" data-status="active" data-section={id}>
+    <div ref={sectionRef} className="ws-wrap" data-status="active" data-section={id}>
       {showHeader && (
         <div className="ws-header">
           <p className="ws-step-number">Step {stepNumber}</p>

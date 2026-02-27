@@ -6,6 +6,7 @@
   background: var(--surface-primary);
   overflow: hidden;
   transition: box-shadow 0.15s ease;
+  scroll-margin-top: 24px;
 }
 
 .ws-wrap[data-status="active"] {

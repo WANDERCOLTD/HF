@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { useStepFlow } from "@/contexts/StepFlowContext";
 import type { StepDefinition } from "@/contexts/StepFlowContext";
 import { ProgressStepper } from "@/components/shared/ProgressStepper";
@@ -28,6 +28,12 @@ export default function ContentSourceWizard() {
   const { state, setStep, nextStep, prevStep, setData, getData, endFlow } = useStepFlow();
 
   const currentStep = state?.currentStep ?? 0;
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top of wizard when step changes
+  useEffect(() => {
+    wrapperRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [currentStep]);
 
   // Warn on browser refresh/close when user has started working
   useUnsavedGuard(!!getData<string>("sourceId") || !!getData<boolean>("hasFile"));
@@ -61,7 +67,7 @@ export default function ContentSourceWizard() {
   const reviewOnPrev = getData<boolean>("hasFile") ? handlePrev : () => handleGoToStep(0);
 
   return (
-    <div>
+    <div ref={wrapperRef} style={{ scrollMarginTop: 24 }}>
       {/* Progress stepper */}
       <div style={{ marginBottom: 32 }}>
         <ProgressStepper steps={progressSteps} />

@@ -1,0 +1,196 @@
+/* ── PackUploadStep CSS ────────────────────────────── */
+/* Extracted from demo-teach-wizard.css during consolidation */
+
+/* ── Dropzone ─────────────────────────────────────── */
+
+.dtw-dropzone {
+  padding: 40px;
+  border-radius: 12px;
+  border: 2px dashed var(--border-default);
+  background: var(--surface-secondary);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dtw-dropzone--active {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+
+.dtw-dropzone-icon { font-size: 32px; margin-bottom: 12px; }
+.dtw-dropzone-filename { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.dtw-dropzone-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.dtw-file-input-hidden { display: none; }
+
+/* ── Source cards ─────────────────────────────────── */
+
+.dtw-source-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  font-family: inherit;
+  width: 100%;
+}
+
+.dtw-source-card:hover {
+  border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--accent-primary) 5%, transparent);
+}
+
+.dtw-source-card--selected {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  box-shadow: 0 0 0 1px var(--accent-primary);
+}
+
+.dtw-source-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dtw-source-card-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Upload actions ──────────────────────────────── */
+
+.dtw-upload-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.dtw-btn-upload {
+  padding: 10px 24px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  background: var(--accent-primary);
+  color: white;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}
+
+.dtw-btn-upload:hover { filter: brightness(1.1); }
+
+.dtw-btn-upload:disabled {
+  background: var(--surface-tertiary);
+  color: var(--text-muted);
+  cursor: default;
+  box-shadow: none;
+  filter: none;
+}
+
+.dtw-btn-skip {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* ── Extraction progress ─────────────────────────── */
+
+.dtw-extract-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.dtw-pulse-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent-primary) 25%, transparent);
+  border-top-color: var(--accent-primary);
+  background: transparent;
+  animation: dtw-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes dtw-spin {
+  to { transform: rotate(360deg); }
+}
+
+.dtw-extract-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dtw-progress-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-tertiary);
+  overflow: hidden;
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.dtw-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent-primary);
+  transition: width 0.5s ease-out;
+}
+
+.dtw-progress-fill--indeterminate {
+  width: 30%;
+  background: linear-gradient(90deg, var(--accent-primary), color-mix(in srgb, var(--accent-primary) 60%, white), var(--accent-primary));
+  background-size: 200% 100%;
+  animation: dtw-indeterminate 1.2s ease-in-out infinite, dtw-shimmer 1.5s linear infinite;
+}
+
+@keyframes dtw-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+@keyframes dtw-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Upload error ────────────────────────────────── */
+
+.dtw-upload-error {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--status-error-bg);
+  border: 1px solid var(--status-error-border);
+  color: var(--status-error-text);
+  font-size: 13px;
+  margin-top: 12px;
+}

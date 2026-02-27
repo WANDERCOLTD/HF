@@ -13,7 +13,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { Upload, FileText, BookOpen, X, Edit3, Check, Plus } from 'lucide-react';
 import type { IngestEvent } from '@/lib/content-trust/ingest-events';
-import './demo-teach-wizard.css';
+import './pack-upload-step.css';
 
 type TimelineStep = {
   id: string;
@@ -92,6 +92,8 @@ interface PackUploadStepProps {
   courseName: string;
   /** Interaction pattern chosen by the teacher (e.g. socratic, directive). Passed to extraction for pattern-specific categories. */
   interactionPattern?: string;
+  /** Teaching mode chosen by the teacher (e.g. recall, comprehension). Used to auto-assign teachMethod to extracted assertions. */
+  teachingMode?: string;
   existingCourses?: ExistingCourse[];
   /** When provided, shows subject picker instead of course picker */
   existingSubjects?: ExistingSubject[];
@@ -146,6 +148,7 @@ export function PackUploadStep({
   domainId,
   courseName,
   interactionPattern,
+  teachingMode,
   existingCourses = [],
   existingSubjects = [],
   onResult,
@@ -371,6 +374,9 @@ export function PackUploadStep({
       if (interactionPattern) {
         formData.append('interactionPattern', interactionPattern);
       }
+      if (teachingMode) {
+        formData.append('teachingMode', teachingMode);
+      }
       for (const file of files) {
         formData.append('files', file);
       }
@@ -432,7 +438,7 @@ export function PackUploadStep({
       setIngestError(isNetworkError ? 'Connection lost — check your network and try again.' : msg);
       setIngesting(false);
     }
-  }, [manifest, domainId, courseName, interactionPattern, files, handleIngestEvent]);
+  }, [manifest, domainId, courseName, interactionPattern, teachingMode, files, handleIngestEvent]);
 
   // ── Select existing course ─────────────────────────
 

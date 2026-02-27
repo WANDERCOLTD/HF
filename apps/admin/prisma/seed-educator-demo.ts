@@ -1726,10 +1726,37 @@ async function createContentAssertions(
   console.log("  Creating content assertions...");
   let totalAssertions = 0;
 
-  const categoryToTeachMethod = (cat: string): string => {
-    if (cat === "definition") return "definition_matching";
-    if (cat === "example" || cat === "process") return "worked_example";
-    return "recall_quiz"; // fact, rule, threshold, concept
+  // Mirrors categoryToTeachMethod from lib/content-trust/resolve-config.ts
+  // Maps category + teaching intent → teach method (same logic as runtime)
+  const TEACH_METHOD_CATEGORIES: Record<string, string[]> = {
+    recall_quiz: ["fact", "concept", "rule", "threshold"],
+    definition_matching: ["vocabulary", "key_term", "definition"],
+    close_reading: ["reading_passage"],
+    true_false: ["comprehension_task"],
+    matching_task: ["comprehension_task"],
+    guided_discussion: ["open_task"],
+    problem_solving: ["activity", "worksheet"],
+    worked_example: ["worked_example", "example", "process"],
+  };
+  const INTENT_WEIGHTS: Record<string, Record<string, number>> = {
+    recall: { fact: 3, concept: 3, key_term: 3, vocabulary: 2, reading_passage: 1, comprehension_task: 1 },
+    comprehension: { fact: 1, concept: 2, key_term: 3, vocabulary: 3, reading_passage: 3, comprehension_task: 3, open_task: 3 },
+    practice: { fact: 1, concept: 2, activity: 3, worksheet: 3, worked_example: 3, comprehension_task: 2 },
+    syllabus: { fact: 2, concept: 2, comprehension_task: 2, activity: 2, worksheet: 2 },
+  };
+  const categoryToTeachMethod = (cat: string, intent: string = "comprehension"): string => {
+    const candidates = Object.entries(TEACH_METHOD_CATEGORIES)
+      .filter(([, cats]) => cats.includes(cat));
+    if (candidates.length === 0) return "recall_quiz";
+    if (candidates.length === 1) return candidates[0][0];
+    const weights = INTENT_WEIGHTS[intent] || INTENT_WEIGHTS.recall;
+    let best = candidates[0][0];
+    let bestW = weights[candidates[0][1][0]] ?? 1;
+    for (const [method, cats] of candidates) {
+      const w = weights[cats[0]] ?? 1;
+      if (w > bestW) { best = method; bestW = w; }
+    }
+    return best;
   };
 
   const assertionBatch: Array<{
@@ -1752,7 +1779,7 @@ async function createContentAssertions(
           assertion: a.assertion,
           category: a.category,
           tags: [...a.tags, a.param],
-          teachMethod: categoryToTeachMethod(a.category),
+          teachMethod: categoryToTeachMethod(a.category, "comprehension"),
           createdBy: "educator-demo",
         });
         totalAssertions++;
@@ -1766,7 +1793,7 @@ async function createContentAssertions(
           assertion: a.assertion,
           category: a.category,
           tags: [...a.tags, a.param],
-          teachMethod: categoryToTeachMethod(a.category),
+          teachMethod: categoryToTeachMethod(a.category, "comprehension"),
           createdBy: "educator-demo",
         });
         totalAssertions++;

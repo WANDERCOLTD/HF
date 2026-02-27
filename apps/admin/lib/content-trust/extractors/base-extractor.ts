@@ -15,7 +15,7 @@
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { logAssistantCall } from "@/lib/ai/assistant-wrapper";
 import { logAI } from "@/lib/logger";
-import type { ExtractionConfig, DocumentType } from "../resolve-config";
+import { categoryToTeachMethod, type ExtractionConfig, type DocumentType } from "../resolve-config";
 import type { ExtractedAssertion, ExtractionOptions, ExtractionResult, ChunkCompleteData } from "../extract-assertions";
 import crypto from "crypto";
 import { jsonrepair } from "jsonrepair";
@@ -315,6 +315,15 @@ export abstract class DocumentExtractor {
     if (dupAssertions > 0) warnings.push(`Removed ${dupAssertions} duplicate assertions`);
     if (dupQuestions > 0) warnings.push(`Removed ${dupQuestions} duplicate questions`);
     if (dupVocab > 0) warnings.push(`Removed ${dupVocab} duplicate vocabulary items`);
+
+    // Assign teachMethod from category + teachingMode (specialist extractors don't set it per-chunk)
+    if (options.teachingMode) {
+      for (const a of dedupAssertions) {
+        if (!a.teachMethod) {
+          a.teachMethod = categoryToTeachMethod(a.category, options.teachingMode);
+        }
+      }
+    }
 
     return {
       ok: true,

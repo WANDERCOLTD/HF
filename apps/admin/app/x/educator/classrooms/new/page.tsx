@@ -72,6 +72,12 @@ export default function NewClassroomPage() {
 
   // Derive 1-indexed step from context (0-indexed) for UI compatibility
   const step = (state?.currentStep ?? 0) + 1;
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top of wizard when step changes
+  useEffect(() => {
+    containerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [step]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [domainId, setDomainId] = useState("");
@@ -392,7 +398,7 @@ export default function NewClassroomPage() {
   }
 
   return (
-    <div className="cwiz-container">
+    <div ref={containerRef} className="cwiz-container" style={{ scrollMarginTop: 24 }}>
       <h1 className="hf-page-title flex items-center gap-2 cwiz-title-gap">
         Create {terms.cohort}
         <span className="hf-gf-badge">GF</span>

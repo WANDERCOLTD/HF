@@ -5,7 +5,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { extractTextFromBuffer } from "@/lib/content-trust/extract-assertions";
 import { getStorageAdapter, computeContentHash } from "@/lib/storage";
 import { config } from "@/lib/config";
-import type { InteractionPattern } from "@/lib/content-trust/resolve-config";
+import type { InteractionPattern, TeachingMode } from "@/lib/content-trust/resolve-config";
 import { checkAutoTriggerCurriculum } from "@/lib/jobs/auto-trigger";
 import type { SendIngestEvent } from "@/lib/content-trust/ingest-events";
 
@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
   const domainId = formData.get("domainId") as string;
   const courseName = (formData.get("courseName") as string) || "";
   const interactionPattern = (formData.get("interactionPattern") as string) || undefined;
+  const teachingMode = (formData.get("teachingMode") as string) as TeachingMode | undefined;
 
   if (!manifestJson) {
     return NextResponse.json({ ok: false, error: "Missing manifest" }, { status: 400 });
@@ -210,7 +211,7 @@ export async function POST(req: NextRequest) {
             const fileTotals = await extractSource(
               source, text, mf.documentType as DocumentType, file.name,
               subject.id, userId, interactionPattern as InteractionPattern | undefined,
-              send, mediaStorageKey,
+              teachingMode, send, mediaStorageKey,
             );
 
             grandTotalAssertions += fileTotals.assertions;
@@ -292,7 +293,7 @@ export async function POST(req: NextRequest) {
             const fileTotals = await extractSource(
               source, text, (mf.documentType || "LESSON_PLAN") as DocumentType, file.name,
               pedSubject.id, userId, interactionPattern as InteractionPattern | undefined,
-              send, pedMediaKey,
+              teachingMode, send, pedMediaKey,
             );
 
             grandTotalAssertions += fileTotals.assertions;
@@ -445,6 +446,7 @@ async function extractSource(
   subjectId: string,
   userId: string,
   interactionPattern: InteractionPattern | undefined,
+  teachingMode: TeachingMode | undefined,
   send: SendIngestEvent,
   mediaStorageKey?: string,
 ): Promise<{ assertions: number; questions: number; vocabulary: number; images: number }> {
@@ -475,6 +477,7 @@ async function extractSource(
       sourceSlug: source.slug,
       sourceId: source.id,
       documentType,
+      teachingMode,
       maxAssertions: extractionConfig.extraction.maxAssertionsPerDocument,
     }, extractionConfig, async (data) => {
       // Per-chunk save: assertions + questions + vocabulary appear in DB progressively

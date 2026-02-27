@@ -6,7 +6,7 @@
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
-  padding: 24px 32px 80px;
+  padding: 24px 40px 80px;
 }
 
 /* ── Hero ─────────────────────────────────────────── */
@@ -28,6 +28,24 @@
   font-weight: 800;
   color: var(--text-primary);
   margin: 0;
+}
+
+.tw-start-over {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tw-start-over:hover {
+  color: var(--status-error-text);
+  border-color: var(--status-error-text);
 }
 
 /* ── Section stack ────────────────────────────────── */

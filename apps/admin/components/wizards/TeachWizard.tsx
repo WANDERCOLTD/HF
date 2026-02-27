@@ -254,10 +254,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
   const isDemo = mode === "demo";
   const sectionOrder = isDemo ? SECTION_ORDER_DEMO : SECTION_ORDER_TEACH;
   const cascade = useMemo(() => buildCascade(sectionOrder), [sectionOrder]);
-  const t = useTerminology();
-
-  // Warn before leaving with unsaved progress
-  useUnsavedGuard(goalText.trim().length > 0 || !!selectedDomainId);
+  const { terms } = useTerminology();
 
   // ── Section status ─────────────────────────────────
 
@@ -566,6 +563,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState(false);
   const [tunerPills, setTunerPills] = useState<AgentTunerPill[]>([]);
+  useUnsavedGuard(goalText.trim().length > 0 || !!selectedDomainId);
   const lastSuggestText = useRef("");
   const suggestFetchId = useRef(0);
   const suggestAbortRef = useRef<AbortController | null>(null);
@@ -627,7 +625,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
   const extractionStartRef = useRef<number>(0);
   const lastPollCountRef = useRef<number>(0);
 
-  // Two-phase extraction (task-based polling, like DemoTeachWizard)
+  // Two-phase extraction (task-based polling, two-phase)
   const [extractionTaskId, setExtractionTaskId] = useState<string | null>(null);
   const [extractProgress, setExtractProgress] = useState({ current: 0, total: 0, extracted: 0 });
   const [extractElapsed, setExtractElapsed] = useState(0);
@@ -811,7 +809,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
     };
   }, []);
 
-  // ── Extraction polling via useTaskPoll (two-phase, like DemoTeachWizard) ──
+  // ── Extraction polling via useTaskPoll (two-phase, two-phase) ──
   useTaskPoll({
     taskId: extractionTaskId,
     intervalMs: 2000,
@@ -1228,7 +1226,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
   const [lessonPlan, setLessonPlan] = useState<LessonPlanItem[]>([]);
   const [lessonPlanLoading, setLessonPlanLoading] = useState(false);
   const [lessonPlanError, setLessonPlanError] = useState<string | null>(null);
-  const lessonPlanLoadingTimer = useRef<ReturnType<typeof setTimeout>>();
+  const lessonPlanLoadingTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [expandedLessons, setExpandedLessons] = useState<Set<string>>(new Set());
 
   const toggleLessonExpand = useCallback((id: string) => {
@@ -1573,6 +1571,47 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
     router.push(`/x/sim/${selectedCallerId}?${params.toString()}`);
   }, [selectedCallerId, selectedDomainId, goalText, router]);
 
+  // ── Start Over ────────────────────────────────────
+  const hasMadeProgress = sectionStatus.institution === "done";
+  const handleStartOver = useCallback(() => {
+    setSectionStatus({
+      institution: "active", course: "locked", goal: "locked",
+      upload: "locked", review: "locked", "lesson-plan": "locked", launch: "locked",
+    });
+    setSelectedDomainId("");
+    setNewDomainName("");
+    setSelectedCallerId("");
+    setCallers([]);
+    setGoalText("");
+    setSelectedPlaybookId(null);
+    setShowNewCourseForm(false);
+    setNewCourseName("");
+    setSubjectIds([]);
+    setContentDone(false);
+    setContentGroups([]);
+    setContentTotal(0);
+    setExtractionInProgress(false);
+    setExtractionTaskId(null);
+    setExtractionTimedOut(false);
+    setQuickPreview([]);
+    setExtractProgress({ current: 0, total: 0, extracted: 0 });
+    setExtractElapsed(0);
+    setContentError(null);
+    setUploadSourceCount(0);
+    setKnowledgeMapSources(null);
+    setAutoWireResult(null);
+    setChecks([]);
+    setReady(false);
+    setReadinessScore(0);
+    setReadinessLevel("incomplete");
+    setLaunchError(null);
+    setLaunching(false);
+    setLaunchPhase("");
+    setLearnerName("");
+    setLearnerEmail("");
+    setPromptPreviewExpanded(false);
+  }, []);
+
   // ── Render ─────────────────────────────────────────
 
   return (
@@ -1581,6 +1620,11 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
       <div className="tw-hero">
         <span className="tw-hero-icon">{isDemo ? "🎬" : "👨‍🏫"}</span>
         <h1 className="tw-hero-title">{isDemo ? "Demonstrate" : "Teach"}</h1>
+        {hasMadeProgress && (
+          <button className="tw-start-over" onClick={handleStartOver} type="button">
+            Start Over
+          </button>
+        )}
       </div>
 
       <div className="tw-sections">
@@ -1603,6 +1647,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
           }
           onEdit={() => editSection("institution")}
         >
+          <FieldHint label={terms.domain} hint={WIZARD_HINTS["teach.institution"]} />
           {loadingDomains ? (
             <div className="tw-loading">
               <span className="tw-spinner" /> Loading institutions...
@@ -1634,7 +1679,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
                     label: d.name,
                     subtitle: d.institution?.type?.name ?? d.slug,
                   }))}
-                  value={selectedDomainId || null}
+                  value={selectedDomainId}
                   onChange={(val) => { if (val) handleSelectDomain(val); }}
                   placeholder="Select an institution..."
                   searchable={domains.length > 5}
@@ -1669,7 +1714,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
                         label: c.name ?? c.email ?? "Unknown",
                         subtitle: c.email ?? undefined,
                       }))}
-                      value={selectedCallerId || null}
+                      value={selectedCallerId}
                       onChange={(val) => { if (val) handleSelectCaller(val); }}
                       placeholder="Select a caller..."
                       searchable={callers.length > 5}
@@ -1885,6 +1930,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
           aiEnhanced
           aiLoading={loadingSuggestions}
         >
+          <FieldHint label="Session Goal" hint={WIZARD_HINTS["teach.goal"]} />
           <textarea
             className="tw-textarea"
             rows={3}
@@ -1976,6 +2022,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
           }
           onEdit={() => editSection("upload")}
         >
+          <FieldHint label="Course Materials" hint={WIZARD_HINTS["teach.content"]} />
           {selectedDomainId && (
             <PackUploadStep
               domainId={selectedDomainId}
@@ -1984,6 +2031,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
                 selectedPlaybook?.name ?? newCourseName ?? goalText ?? "Course"
               }
               interactionPattern={suggestInteractionPattern(selectedPlaybook?.name ?? newCourseName ?? goalText ?? "") ?? undefined}
+              teachingMode={teachingMode}
               existingCourses={existingCourses}
               existingSubjects={existingSubjects}
               onResult={handlePackResult}

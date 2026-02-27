@@ -41,7 +41,7 @@ import {
   completeTask,
   failTask,
 } from "@/lib/ai/task-guidance";
-import type { DocumentType, InteractionPattern } from "@/lib/content-trust/resolve-config";
+import type { DocumentType, InteractionPattern, TeachingMode } from "@/lib/content-trust/resolve-config";
 
 /**
  * @api POST /api/content-sources/:sourceId/extract
@@ -110,30 +110,30 @@ export async function POST(
     const subjectId = body.subjectId || source.subjects[0]?.subjectId || undefined;
     const subjectSlug = source.subjects[0]?.subject?.slug || source.slug;
 
-    // Resolve interactionPattern: explicit from body, or look up from domain playbook
+    // Resolve interactionPattern + teachingMode from body or domain playbook
     let interactionPattern: InteractionPattern | undefined = body.interactionPattern || undefined;
-    if (!interactionPattern && subjectId) {
+    let teachingMode: TeachingMode | undefined;
+    if (subjectId) {
       try {
-        const domainPlaybook = await prisma.subjectDomain.findFirst({
+        const domainLink = await prisma.subjectDomain.findFirst({
           where: { subjectId },
-          select: {
-            domain: {
-              select: {
-                playbooks: {
-                  where: { isActive: true },
-                  select: { config: true },
-                  take: 1,
-                },
-              },
-            },
-          },
+          select: { domainId: true },
         });
-        const pbConfig = domainPlaybook?.domain?.playbooks?.[0]?.config as Record<string, any> | null;
-        if (pbConfig?.interactionPattern) {
-          interactionPattern = pbConfig.interactionPattern as InteractionPattern;
+        if (domainLink) {
+          const playbook = await prisma.playbook.findFirst({
+            where: { domainId: domainLink.domainId, status: "PUBLISHED" },
+            select: { config: true },
+          });
+          const pbConfig = playbook?.config as Record<string, any> | null;
+          if (!interactionPattern && pbConfig?.interactionPattern) {
+            interactionPattern = pbConfig.interactionPattern as InteractionPattern;
+          }
+          if (pbConfig?.teachingMode) {
+            teachingMode = pbConfig.teachingMode as TeachingMode;
+          }
         }
       } catch {
-        // Best-effort — extraction works without pattern, just misses supplementary categories
+        // Best-effort — extraction works without these, just misses teachMethod assignment
       }
     }
     const subjectName = source.subjects[0]?.subject?.name || source.name;
@@ -188,6 +188,7 @@ export async function POST(
         maxAssertions: 500,
         mediaStorageKey,
         interactionPattern,
+        teachingMode,
       },
     ).catch(async (err) => {
       console.error(`[content-sources/:id/extract] Background job ${job.id} error:`, err);
@@ -229,6 +230,7 @@ async function runBackgroundExtraction(
     maxAssertions: number;
     mediaStorageKey?: string;
     interactionPattern?: InteractionPattern;
+    teachingMode?: TeachingMode;
   },
 ) {
   // Track cumulative per-chunk save counts for the final job record
