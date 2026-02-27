@@ -6,6 +6,7 @@
     "items": [
       { "id": "institution", "href": "/x/institutions/new", "label": "Institution", "icon": "Rocket", "highlighted": true, "wizard": true, "terminologyLabel": "domain" },
       { "id": "new-course", "href": "/x/courses/new", "label": "Course", "icon": "Rocket", "wizard": true, "terminologyLabel": "playbook" },
+      { "id": "create-course", "href": "/x/courses/create", "label": "Course v2", "icon": "Rocket", "wizard": true, "visibleFor": ["ADMIN", "SUPERADMIN"] },
       { "id": "new-community", "href": "/x/communities/new", "label": "Community", "icon": "Rocket", "wizard": true, "terminologyLabel": "cohort" },
       { "id": "teach", "href": "/x/teach", "label": "Teach", "icon": "GraduationCap", "wizard": true, "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "demonstrate", "href": "/x/demonstrate", "label": "Demonstrate", "icon": "PlayCircle", "wizard": true, "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] },
