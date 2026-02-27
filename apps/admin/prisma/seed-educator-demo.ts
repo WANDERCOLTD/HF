@@ -838,6 +838,11 @@ async function cleanupExistingData() {
     await prisma.callerIdentity.deleteMany({
       where: { callerId: { in: teacherCallerIds } },
     });
+    // CohortGroup.ownerId → Caller FK: delete any cohort groups owned by teacher callers
+    // (catches groups in domains outside schoolSlugs not cleaned in step 7)
+    await prisma.cohortGroup.deleteMany({
+      where: { ownerId: { in: teacherCallerIds } },
+    });
   }
   await prisma.caller.deleteMany({
     where: { externalId: { startsWith: "edu-teacher-" } },
