@@ -11,6 +11,7 @@
 
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { getIdentityTemplateFallback, type FallbackIdentityTemplate } from "@/lib/fallback-settings";
+import { config } from "@/lib/config";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ function sampleAssertions(
 // ── AI Prompt ──────────────────────────────────────────
 
 const ARCHETYPE_DESCRIPTORS: Record<string, { label: string; capabilities: string }> = {
-  "TUT-001": {
+  [config.specs.defaultArchetype]: {
     label: "tutor",
     capabilities: `- Generic session structure (opening/main/closing phases)
 - Interaction style defaults (warmth, formality, pacing)
@@ -104,7 +105,7 @@ const ARCHETYPE_DESCRIPTORS: Record<string, { label: string; capabilities: strin
 - Assessment principles and methods
 - General teaching pedagogy`,
   },
-  "COMPANION-001": {
+  [config.specs.companionArchetype]: {
     label: "companion",
     capabilities: `- Conversational warmth and genuine engagement
 - Active listening and empathetic responding
@@ -112,7 +113,7 @@ const ARCHETYPE_DESCRIPTORS: Record<string, { label: string; capabilities: strin
 - Emotional awareness and supportive presence
 - Open-ended dialogue techniques`,
   },
-  "COACH-001": {
+  [config.specs.coachArchetype]: {
     label: "coach",
     capabilities: `- Goal-setting and accountability frameworks
 - Motivational interviewing techniques

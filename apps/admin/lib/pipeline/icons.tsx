@@ -180,7 +180,7 @@ export const STATUS_ICONS: Record<string, StatusConfig> = {
   },
   SKIPPED: {
     Icon: RemoveCircle,
-    color: "#9ca3af", // gray-400
+    color: "var(--text-muted)", // gray-400
     bg: "#f3f4f6",
   },
   RUNNING: {
@@ -214,13 +214,13 @@ export function StepIcon({ operation, size = 20 }: StepIconProps) {
           width: size + 16,
           height: size + 16,
           borderRadius: 8,
-          background: "#f3f4f6",
+          background: "var(--surface-secondary)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Settings style={{ fontSize: size, color: "#9ca3af" }} />
+        <Settings style={{ fontSize: size, color: "var(--text-muted)" }} />
       </div>
     );
   }
@@ -264,7 +264,7 @@ interface SectionIconProps {
 export function SectionIcon({ section, size = 16 }: SectionIconProps) {
   const config = SECTION_ICONS[section];
   if (!config) {
-    return <Settings style={{ fontSize: size, color: "#9ca3af" }} />;
+    return <Settings style={{ fontSize: size, color: "var(--text-muted)" }} />;
   }
 
   const { Icon, color } = config;

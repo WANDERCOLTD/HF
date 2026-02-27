@@ -7,6 +7,7 @@
 
 import { registerTransform } from "../TransformRegistry";
 import type { AssembledContext } from "../types";
+import { config } from "@/lib/config";
 
 /**
  * Compute session pedagogy plan (flow, review, new material, principles).
@@ -62,7 +63,7 @@ registerTransform("computeSessionPedagogy", (
     const domainFlow = domain?.onboardingFlowPhases as { phases: any[]; successMetrics?: string[] } | null;
     const initFlow = onboardingSpec?.config?.firstCallFlow;
     const fcFlow = playbookFlow || domainFlow || initFlow;
-    const source = playbookFlow ? `Playbook ${primaryPlaybook?.name}` : domainFlow ? `Domain ${domain?.slug}` : "INIT-001";
+    const source = playbookFlow ? `Playbook ${primaryPlaybook?.name}` : domainFlow ? `Domain ${domain?.slug}` : config.specs.onboarding;
 
     if (fcFlow?.phases) {
       plan.firstCallPhases = fcFlow.phases;

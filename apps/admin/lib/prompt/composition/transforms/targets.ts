@@ -6,6 +6,7 @@
 import { registerTransform } from "../TransformRegistry";
 import { classifyValue } from "../types";
 import type { AssembledContext, BehaviorTargetData, CallerTargetData, CompositionSectionDef } from "../types";
+import { config } from "@/lib/config";
 
 /** Normalized target type that works for both CallerTarget and BehaviorTarget */
 export interface NormalizedTarget {
@@ -55,7 +56,7 @@ registerTransform("mergeAndGroupTargets", (
 
     // Fall back to INIT-001 spec defaults if domain doesn't have custom defaults
     const defaultTargets = domainDefaults || onboardingSpec?.config?.defaultTargets;
-    const source = domainDefaults ? `Domain ${domain?.slug}` : "INIT-001";
+    const source = domainDefaults ? `Domain ${domain?.slug}` : config.specs.onboarding;
 
     if (defaultTargets) {
       for (const [paramId, defaults] of Object.entries(defaultTargets)) {
