@@ -62,6 +62,7 @@ export interface CourseSetupResult {
   domainId: string;
   domainName: string;
   domainSlug: string;
+  institutionId?: string;
   playbookId: string;
   playbookName: string;
   contentSpecId?: string;
@@ -205,6 +206,7 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
     ctx.results.domainId = domain.id;
     ctx.results.domainSlug = domain.slug;
     ctx.results.domainName = domain.name;
+    ctx.results.institutionId = domain.institutionId ?? undefined;
 
     // 2. Create or find Subject (reuse pre-created from Generate & Review path)
     let subject;
@@ -546,7 +548,7 @@ export async function courseSetup(
     await updateTaskProgress(taskId, {
       context: {
         summary: {
-          domain: { id: ctx.results.domainId, name: ctx.results.domainName, slug: ctx.results.domainSlug },
+          domain: { id: ctx.results.domainId, name: ctx.results.domainName, slug: ctx.results.domainSlug, institutionId: ctx.results.institutionId },
           playbook: { id: ctx.results.playbookId, name: ctx.results.playbookName },
           contentSpecId: ctx.results.contentSpecId || null,
           curriculumId: ctx.results.curriculumId || null,
@@ -563,6 +565,7 @@ export async function courseSetup(
       domainId: ctx.results.domainId!,
       domainName: ctx.results.domainName!,
       domainSlug: ctx.results.domainSlug!,
+      institutionId: ctx.results.institutionId,
       playbookId: ctx.results.playbookId!,
       playbookName: ctx.results.playbookName!,
       contentSpecId: ctx.results.contentSpecId,

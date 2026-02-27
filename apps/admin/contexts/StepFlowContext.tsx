@@ -181,14 +181,9 @@ export function StepFlowProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startFlow = useCallback((config: StartFlowConfig) => {
-    // Warn if another flow is active (prevent silent data loss)
+    // Auto-discard stale flow from a different wizard (DB-backed useWizardResume
+    // handles persistent resume — sessionStorage is just a tab-level cache)
     if (flowState?.active && flowState.flowId !== config.flowId) {
-      if (typeof window !== "undefined" && !window.confirm(
-        "You have an in-progress flow. Starting a new one will discard it. Continue?"
-      )) {
-        return;
-      }
-      // Abandon the old task if it had DB sync
       if (flowState.taskId) {
         completeTaskIfNeeded(flowState.taskId);
       }

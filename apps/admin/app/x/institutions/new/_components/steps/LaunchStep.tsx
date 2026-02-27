@@ -287,12 +287,12 @@ export function LaunchStep({ getData, setData, onPrev, endFlow }: StepRenderProp
   if (phase === "creating") {
     return (
       <div className="hf-wizard-page">
-        <div className="hf-wizard-step hf-glow-active">
+        <div className="hf-wizard-step">
           <h1 className="hf-page-title hf-mb-xs">Creating {institutionName}…</h1>
           <p className="hf-page-subtitle hf-mb-lg">Setting up your institution and scaffolding…</p>
 
           {commitTimeline.length > 0 && (
-            <div className="hf-card hf-card-compact hf-mb-lg hf-glow-active">
+            <div className="hf-card hf-card-compact hf-mb-lg">
               {commitTimeline.map((step) => (
                 <div key={step.id} className="hf-flex hf-items-center hf-gap-sm hf-mb-xs">
                   {step.status === "done" && <span style={{ color: "var(--status-success-text)", fontSize: 14 }}>✓</span>}

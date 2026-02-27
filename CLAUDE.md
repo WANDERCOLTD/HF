@@ -275,6 +275,11 @@ No inline `style={{}}` for anything that has a CSS class. No hardcoded hex. No o
 - Banners: `hf-banner` + `hf-banner-info` / `hf-banner-warning` / `hf-banner-success` / `hf-banner-error`
 - Full list: `hf-page-title`, `hf-page-subtitle`, `hf-card`, `hf-card-compact`, `hf-section-title`, `hf-section-desc`, `hf-info-footer`, `hf-icon-box`, `hf-icon-box-lg`, `hf-label`, `hf-input`, `hf-btn`, `hf-spinner`, `hf-empty`, `hf-list-row`, `hf-banner`, `hf-category-label`
 - **FieldHint popovers (MANDATORY)**: Every wizard intent field MUST use `<FieldHint>` with Why/Effect/Examples content. Hint data in `lib/wizard-hints.ts`. CSS: `hf-field-hint-*` classes in `globals.css`. Component: `components/shared/FieldHint.tsx`.
+- **Spinner vs Glow (MANDATORY)**: Two distinct async indicators — never mix them on the same element.
+  - `hf-spinner` = **Blocking** — user must wait, cannot advance. Used for: generation, course setup, institution creation, button loading states.
+  - `hf-glow-active` = **Background** — work is happening but user can continue. Used for: enrichment, extraction, background jobs, active source rows.
+  - **NEVER apply `hf-glow-active` to a blocking state.** If the user can't advance or interact, use `hf-spinner` only.
+  - Gold reference: `CommunityDoneStep.tsx` (blocking = spinner only), `ContentSourcesLibrary.tsx` (background = glow).
 
 ### Auth Pages (`/login/**`) — `login-*` classes
 

@@ -44,56 +44,64 @@ export function WelcomeStep({ getData, setData, onNext, onPrev }: StepRenderProp
   };
 
   return (
-    <div>
-      <div className="hf-label-row hf-mb-xs">
-        <FieldHint label="Welcome Message" hint={WIZARD_HINTS["institution.welcome"]} />
-        {(loadingSuggestions || suggestions.length > 0) && (
-          <span
-            className={`hf-field-hint-ai${loadingSuggestions ? " hf-field-hint-ai--loading" : ""}`}
-            title="AI is generating welcome message suggestions"
-          >
-            <Sparkles size={14} />
-          </span>
-        )}
-      </div>
-
-      <textarea
-        value={welcomeMessage}
-        onChange={(e) => setWelcomeMessage(e.target.value)}
-        placeholder={`Welcome to ${institutionName || "our institution"}! Our AI tutors help every learner build confidence.`}
-        rows={3}
-        className="hf-input iw-welcome-textarea"
-      />
-
-      {/* AI suggestion chips — auto-generated on mount */}
-      {loadingSuggestions && (
-        <div className="hf-ai-loading-row hf-mt-sm">
-          <Loader2 size={12} className="hf-spinner" />
-          <span className="hf-text-xs hf-text-muted">Generating suggestions…</span>
+    <div className="hf-wizard-page">
+      <div className="hf-wizard-step">
+        <div className="hf-mb-lg">
+          <h1 className="hf-page-title hf-mb-xs">Welcome message</h1>
+          <p className="hf-page-subtitle">Set the first words learners see when they join</p>
         </div>
-      )}
-      {!loadingSuggestions && suggestions.length > 0 && (
-        <div className="hf-mt-sm">
-          <p className="hf-ai-inline-hint hf-mb-xs">
-            <Sparkles size={11} /> Suggestions — click to use:
-          </p>
-          <div className="hf-suggestion-chips">
-            {suggestions.map((s, i) => (
-              <button
-                key={i}
-                type="button"
-                className="hf-suggestion-chip"
-                onClick={() => {
-                  setWelcomeMessage(s);
-                  setSuggestions((prev) => prev.filter((_, idx) => idx !== i));
-                }}
+
+        <div className="hf-mb-lg">
+          <div className="hf-label-row hf-mb-xs">
+            <FieldHint label="Welcome Message" hint={WIZARD_HINTS["institution.welcome"]} labelClass="hf-label" />
+            {(loadingSuggestions || suggestions.length > 0) && (
+              <span
+                className={`hf-field-hint-ai${loadingSuggestions ? " hf-field-hint-ai--loading" : ""}`}
+                title="AI is generating welcome message suggestions"
               >
-                {s}
-              </button>
-            ))}
+                <Sparkles size={14} />
+              </span>
+            )}
           </div>
+
+          <textarea
+            value={welcomeMessage}
+            onChange={(e) => setWelcomeMessage(e.target.value)}
+            placeholder={`Welcome to ${institutionName || "our institution"}! Our AI tutors help every learner build confidence.`}
+            rows={3}
+            className="hf-input"
+          />
+
+          {loadingSuggestions && (
+            <div className="hf-ai-loading-row hf-mt-sm">
+              <Loader2 size={12} className="hf-spinner" />
+              <span className="hf-text-xs hf-text-muted">Generating suggestions…</span>
+            </div>
+          )}
+          {!loadingSuggestions && suggestions.length > 0 && (
+            <div className="hf-mt-sm">
+              <p className="hf-ai-inline-hint hf-mb-xs">
+                <Sparkles size={11} /> Suggestions — click to use:
+              </p>
+              <div className="hf-suggestion-chips">
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className="hf-suggestion-chip"
+                    onClick={() => {
+                      setWelcomeMessage(s);
+                      setSuggestions((prev) => prev.filter((_, idx) => idx !== i));
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       <StepFooter
         onBack={onPrev}

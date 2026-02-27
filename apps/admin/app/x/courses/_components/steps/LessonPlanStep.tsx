@@ -566,7 +566,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
 
   return (
     <div className="hf-wizard-page">
-      <div className={`hf-wizard-step${phase === "loading" || phase === "skeleton" ? " hf-glow-active" : ""}`}>
+      <div className={`hf-wizard-step${phase === "skeleton" ? " hf-glow-active" : ""}`}>
         <div className="hf-mb-lg">
           <h1 className="hf-page-title">Plan your sessions</h1>
           <p className="hf-page-subtitle">

@@ -83,60 +83,58 @@ export function TerminologyStep({ getData, setData, onNext, onPrev }: StepRender
   };
 
   return (
-    <div>
-      <FieldHint label="Terminology" hint={WIZARD_HINTS["institution.terminology"]} />
-      <p className="ws-hint" style={{ marginTop: 4 }}>
-        Pre-filled from your institution type. Edit any label or pick from the suggestions.
-      </p>
-
-      {loading ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>
-          <Loader2 size={14} className="hf-spinner" />
-          Loading terminology…
+    <div className="hf-wizard-page">
+      <div className="hf-wizard-step">
+        <div className="hf-mb-lg">
+          <h1 className="hf-page-title hf-mb-xs">Terminology</h1>
+          <p className="hf-page-subtitle">Choose the words your institution uses</p>
         </div>
-      ) : baseTerminology ? (
-        <table className="iw-term-table">
-          <thead>
-            <tr>
-              <th>Concept</th>
-              <th>Your Label</th>
-            </tr>
-          </thead>
-          <tbody>
+
+        <div className="hf-mb-lg">
+          <FieldHint label="Terminology" hint={WIZARD_HINTS["institution.terminology"]} labelClass="hf-label" />
+          <p className="hf-hint hf-mt-xs">
+            Pre-filled from your institution type. Edit any label or pick from the suggestions.
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="hf-ai-loading-row hf-mt-xs">
+            <Loader2 size={14} className="hf-spinner" />
+            <span className="hf-text-sm hf-text-muted">Loading terminology…</span>
+          </div>
+        ) : baseTerminology ? (
+          <div className="hf-flex hf-flex-col hf-gap-md">
             {TERM_PREVIEW_KEYS.map(({ key, label }) => (
-              <tr key={key}>
-                <td className="iw-term-key">{label}</td>
-                <td className="iw-term-edit-cell">
-                  <input
-                    type="text"
-                    className="hf-input iw-term-input"
-                    value={overrides[key] ?? ""}
-                    onChange={(e) => handleChange(key, e.target.value)}
-                    placeholder={baseTerminology[key] ?? label}
-                  />
-                  <div className="iw-term-suggestions">
-                    <span className="iw-term-suggestions-label">Pick:</span>
-                    {TERM_SUGGESTIONS[key]?.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        className={`iw-term-chip${overrides[key] === s ? " iw-term-chip-active" : ""}`}
-                        onClick={() => handleChange(key, s)}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </td>
-              </tr>
+              <div key={key}>
+                <label className="hf-label">{label}</label>
+                <input
+                  type="text"
+                  className="hf-input"
+                  value={overrides[key] ?? ""}
+                  onChange={(e) => handleChange(key, e.target.value)}
+                  placeholder={baseTerminology[key] ?? label}
+                />
+                <div className="hf-suggestion-chips hf-mt-xs">
+                  {TERM_SUGGESTIONS[key]?.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`hf-chip${overrides[key] === s ? " hf-chip-selected" : ""}`}
+                      onClick={() => handleChange(key, s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
-      ) : (
-        <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>
-          No terminology preset found for this type. You can configure labels in Settings after creation.
-        </p>
-      )}
+          </div>
+        ) : (
+          <p className="hf-hint hf-mt-xs">
+            No terminology preset found for this type. You can configure labels in Settings after creation.
+          </p>
+        )}
+      </div>
 
       <StepFooter
         onBack={onPrev}

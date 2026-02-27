@@ -1,14 +1,13 @@
 "use client";
 
 import { WizardShell } from "@/components/wizards/WizardShell";
-import type { WizardConfig, StepRenderProps } from "@/components/wizards/types";
+import type { WizardConfig, StepRenderProps, DoneContentItem } from "@/components/wizards/types";
 import { IdentityStep } from "./_components/steps/IdentityStep";
 import { BrandingStep } from "./_components/steps/BrandingStep";
 import { WelcomeStep } from "./_components/steps/WelcomeStep";
 import { TerminologyStep } from "./_components/steps/TerminologyStep";
 import { LaunchStep } from "./_components/steps/LaunchStep";
 import type { ComponentType } from "react";
-import "./institution-wizard.css";
 
 type S = ComponentType<StepRenderProps>;
 
@@ -29,6 +28,16 @@ const config: WizardConfig = {
         const slug = getData<string>("typeSlug");
         return `${name ?? "Unnamed"}${slug ? ` · ${slug}` : ""}`;
       },
+      doneContent: (getData) => {
+        const items: DoneContentItem[] = [];
+        const name = getData<string>("institutionName");
+        if (name) items.push({ label: "Name", value: name });
+        const slug = getData<string>("typeSlug");
+        if (slug) items.push({ label: "Type", value: slug.charAt(0).toUpperCase() + slug.slice(1) });
+        const url = getData<string>("websiteUrl");
+        if (url) items.push({ label: "Website", value: url });
+        return items;
+      },
     },
     {
       id: "branding",
@@ -37,6 +46,17 @@ const config: WizardConfig = {
       component: BrandingStep as S,
       summaryLabel: "Branding",
       summary: (getData) => (getData<string>("primaryColor") ? "Custom branding" : "Default"),
+      doneContent: (getData) => {
+        const items: DoneContentItem[] = [];
+        const logo = getData<string>("logoUrl");
+        if (logo) items.push({ label: "Logo", value: "Custom logo set" });
+        const primary = getData<string>("primaryColor");
+        if (primary) items.push({ label: "Primary colour", value: primary });
+        const secondary = getData<string>("secondaryColor");
+        if (secondary) items.push({ label: "Secondary colour", value: secondary });
+        if (items.length === 0) items.push({ label: "Branding", value: "Default (no custom branding)" });
+        return items;
+      },
     },
     {
       id: "welcome",
@@ -48,6 +68,11 @@ const config: WizardConfig = {
         const m = getData<string>("welcomeMessage");
         return m ? `${m.slice(0, 40)}${m.length > 40 ? "…" : ""}` : "Default";
       },
+      doneContent: (getData) => {
+        const msg = getData<string>("welcomeMessage");
+        if (msg) return [{ label: "Welcome", value: msg.length > 80 ? msg.slice(0, 80) + "\u2026" : msg }];
+        return [{ label: "Welcome", value: "Default welcome message" }];
+      },
     },
     {
       id: "terminology",
@@ -56,6 +81,21 @@ const config: WizardConfig = {
       component: TerminologyStep as S,
       summaryLabel: "Terminology",
       summary: (getData) => `${getData<string>("typeSlug") ?? "Default"} preset`,
+      doneContent: (getData) => {
+        const items: DoneContentItem[] = [];
+        const overrides = getData<Record<string, string>>("terminologyOverrides");
+        if (overrides) {
+          const labels: Record<string, string> = {
+            domain: "Institution", playbook: "Course", caller: "Learner",
+            instructor: "Instructor", session: "Session",
+          };
+          for (const [key, val] of Object.entries(overrides)) {
+            if (val) items.push({ label: labels[key] || key, value: val });
+          }
+        }
+        if (items.length === 0) items.push({ label: "Terminology", value: "Type defaults" });
+        return items;
+      },
     },
     {
       id: "launch",

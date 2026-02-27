@@ -155,3 +155,39 @@
   justify-content: flex-end;
   margin-top: 20px;
 }
+
+/* ── Done content (expanded key-value summary) ──────── */
+
+.ws-done-content {
+  margin: 0;
+  padding: 12px 20px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ws-done-content-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-default) 60%, transparent);
+}
+.ws-done-content-row:last-child {
+  border-bottom: none;
+}
+
+.ws-done-content-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.ws-done-content-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+  word-break: break-word;
+}

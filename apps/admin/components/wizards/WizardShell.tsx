@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { useStepFlow } from "@/contexts/StepFlowContext";
 import type { StepDefinition } from "@/contexts/StepFlowContext";
 import WizardSection from "@/components/shared/WizardSection";
@@ -9,6 +10,7 @@ import type { SectionStatus } from "@/components/shared/WizardSection";
 import { WizardResumeBanner } from "@/components/shared/WizardResumeBanner";
 import { useWizardResume } from "@/hooks/useWizardResume";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
+import { WizardDoneContent } from "./WizardDoneContent";
 import type { WizardConfig, StepRenderProps } from "./types";
 
 // ── WizardShell ───────────────────────────────────────
@@ -168,11 +170,10 @@ export function WizardShell({ config, onComplete, initialData }: WizardShellProp
     <div className="hf-page-container hf-page-scroll">
       <div className="hf-ws-accordion">
         {config.cancelLabel && currentStep < config.steps.length - 1 && (
-          <nav className="hf-breadcrumb">
-            <button type="button" className="hf-breadcrumb-segment" onClick={handleCancel}>
-              ← {config.cancelLabel}
-            </button>
-          </nav>
+          <button type="button" className="hf-wizard-cancel" onClick={handleCancel}>
+            <ArrowLeft size={16} />
+            {config.cancelLabel}
+          </button>
         )}
         {config.steps.map((stepCfg, i) => {
           const status: SectionStatus =
@@ -204,7 +205,11 @@ export function WizardShell({ config, onComplete, initialData }: WizardShellProp
               onEdit={status === "done" ? () => setStep(i) : undefined}
               showHeader={false}
             >
-              {status === "active" ? <StepComp {...stepProps} /> : null}
+              {status === "active" ? (
+                <StepComp {...stepProps} />
+              ) : status === "done" && stepCfg.doneContent ? (
+                <WizardDoneContent items={stepCfg.doneContent(getData)} />
+              ) : null}
             </WizardSection>
           );
         })}

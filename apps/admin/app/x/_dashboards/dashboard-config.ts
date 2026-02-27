@@ -254,6 +254,7 @@ export const WIZARD_ACTIONS = [
   },
   {
     label: "Course",
+    termKey: "playbook" as TermKey,
     icon: "Rocket",
     href: "/x/courses?action=setup",
     description: "Create a new course",

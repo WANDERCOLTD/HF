@@ -99,7 +99,7 @@ function getResultPath(task: UserTask): string {
       break;
     case 'course_setup':
       if (summary?.playbook?.id) return `/x/courses/${summary.playbook.id}`;
-      if (summary?.domain?.id) return `/x/domains?id=${summary.domain.id}`;
+      if (summary?.domain?.institutionId) return `/x/institutions/${summary.domain.institutionId}`;
       break;
     case 'classroom_setup':
       if (ctx?.created?.id) return `/x/educator/classrooms/${ctx.created.id}`;

@@ -92,7 +92,7 @@ export function TypePicker({ value, onChange, label = "What kind of organisation
 
   return (
     <div>
-      <label className="hf-label" style={{ marginBottom: 8 }}>
+      <label className="hf-label hf-mb-xs">
         {label}
       </label>
       <div className="hf-chip-grid">

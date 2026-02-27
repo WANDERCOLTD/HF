@@ -368,7 +368,7 @@ export function TeachPlanStep({
   // ── Render ──────────────────────────────────────
 
   return (
-    <div className={`hf-card${phase === "generating" || enriching ? " hf-glow-active" : ""}`} style={{ maxWidth: 680 }}>
+    <div className={`hf-card${enriching ? " hf-glow-active" : ""}`} style={{ maxWidth: 680 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
         <BookOpen style={{ width: 22, height: 22, color: "var(--accent-primary)" }} />
         <h2 className="hf-section-title" style={{ margin: 0 }}>
@@ -529,9 +529,7 @@ export function TeachPlanStep({
       {/* ── Phase B: Generating ──────────── */}
       {phase === "generating" && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "40px 0" }}>
-          <Loader2
-            style={{ width: 36, height: 36, color: "var(--accent-primary)", animation: "spin 1s linear infinite" }}
-          />
+          <div className="hf-spinner hf-icon-lg hf-spinner-thick" />
           <div style={{ color: "var(--text-primary)", fontWeight: 500 }}>
             {progressMessage || "Generating curriculum from your content..."}
           </div>

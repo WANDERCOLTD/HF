@@ -16,7 +16,7 @@ import type { StepProps } from '../CourseSetupWizard';
 const LAUNCH_TIMEOUT_MS = 120_000;
 
 interface TaskSummary {
-  domain?: { id: string; name: string; slug: string };
+  domain?: { id: string; name: string; slug: string; institutionId?: string };
   playbook?: { id: string; name: string };
   contentSpecId?: string | null;
   curriculumId?: string | null;
@@ -231,7 +231,9 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
                   icon: <Building2 className="hf-icon-md" />,
                   label: terms.domain,
                   name: domainName,
-                  href: `/x/domains?id=${domainId}`,
+                  href: taskSummary?.domain?.institutionId
+                    ? `/x/institutions/${taskSummary.domain.institutionId}`
+                    : `/x/institutions`,
                 }] : []),
                 ...(taskSummary?.playbook ? [{
                   icon: <BookOpen className="hf-icon-md" />,
@@ -295,7 +297,7 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
     const hasError = !!(error || taskProgress?.error);
     return (
       <div className="hf-wizard-page">
-        <div className={`hf-wizard-step hf-flex hf-flex-col hf-items-center hf-justify-center${!hasError ? " hf-glow-active" : ""}`}>
+        <div className="hf-wizard-step hf-flex hf-flex-col hf-items-center hf-justify-center">
           <div className="hf-text-center">
             {hasError ? (
               <>

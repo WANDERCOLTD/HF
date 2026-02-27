@@ -21,6 +21,14 @@ export interface WizardConfig {
   steps: WizardStepConfig[];
 }
 
+/** A single label-value row shown in the expanded done state */
+export interface DoneContentItem {
+  /** Left-side label (e.g. "Course Name", "Pattern") */
+  label: string;
+  /** Right-side value — string for simple text, ReactNode for badges/swatches */
+  value: React.ReactNode;
+}
+
 /** Step definition with its component */
 export interface WizardStepConfig {
   id: string;
@@ -31,6 +39,8 @@ export interface WizardStepConfig {
   summaryLabel?: string;
   /** Returns the summary text shown in the collapsed done row — reads from the data bag */
   summary?: (getData: <T = unknown>(key: string) => T | undefined) => React.ReactNode;
+  /** Returns structured label-value pairs shown when a completed step is expanded */
+  doneContent?: (getData: <T = unknown>(key: string) => T | undefined) => DoneContentItem[];
 }
 
 /** What every step component receives from WizardShell */

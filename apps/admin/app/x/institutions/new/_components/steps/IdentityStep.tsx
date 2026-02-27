@@ -70,7 +70,7 @@ function nameToUrlSuggestions(name: string, typeSlug?: string | null): string[] 
   return out.slice(0, 3);
 }
 
-export function IdentityStep({ getData, setData, onNext }: StepRenderProps) {
+export function IdentityStep({ getData, setData, onNext, onPrev }: StepRenderProps) {
   const [name, setName] = useState(getData<string>("institutionName") ?? "");
   const [typeSlug, setTypeSlug] = useState<string | null>(getData<string>("typeSlug") ?? null);
   const [typeId, setTypeId] = useState<string | undefined>(getData<string>("typeId") ?? undefined);
@@ -134,77 +134,83 @@ export function IdentityStep({ getData, setData, onNext }: StepRenderProps) {
   };
 
   return (
-    <div className="iw-name-row">
-      <div>
-        <FieldHint label="Institution Type" hint={WIZARD_HINTS["institution.type"]} />
-        <TypePicker
-          value={typeSlug}
-          suggestedValue={suggestedType}
-          onChange={(slug, id) => {
-            setTypeSlug(slug);
-            setTypeId(id);
-          }}
-        />
-      </div>
+    <div className="hf-wizard-page">
+      <div className="hf-wizard-step">
+        <div className="hf-mb-lg">
+          <h1 className="hf-page-title hf-mb-xs">Create your institution</h1>
+          <p className="hf-page-subtitle">Tell us about your organisation and how the AI should behave</p>
+        </div>
 
-      <div>
-        <FieldHint label="Name" hint={WIZARD_HINTS["institution.name"]} />
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Oakwood Primary School"
-          className="hf-input"
-        />
-        {slug && <p className="iw-slug-preview">{slug}</p>}
-      </div>
-
-      <div className="iw-url-row">
-        <FieldHint label="Website (optional)" hint={WIZARD_HINTS["institution.website"]} />
-        <div className="iw-color-row">
-          <Globe size={16} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-          <input
-            type="url"
-            value={websiteUrl}
-            onChange={(e) => setWebsiteUrl(e.target.value)}
-            onBlur={() => {
-              if (websiteUrl.trim()) handleUrlImport(websiteUrl);
+        <div className="hf-mb-lg">
+          <FieldHint label="Institution Type" hint={WIZARD_HINTS["institution.type"]} labelClass="hf-label" />
+          <TypePicker
+            value={typeSlug}
+            suggestedValue={suggestedType}
+            onChange={(slug, id) => {
+              setTypeSlug(slug);
+              setTypeId(id);
             }}
-            placeholder="https://www.school.co.uk"
-            className="hf-input"
-            style={{ flex: 1 }}
           />
         </div>
-        {urlSuggestions.length > 0 && (
-          <div className="hf-mt-xs">
-            <p className="hf-ai-inline-hint hf-mb-xs">
-              <Sparkles size={11} /> Try:
-            </p>
-            <div className="hf-suggestion-chips">
-              {urlSuggestions.map((url) => (
-                <button key={url} type="button" className="hf-suggestion-chip" onClick={() => handleUrlChipClick(url)}>
-                  🔗 {url}
-                </button>
-              ))}
+
+        <div className="hf-mb-lg">
+          <FieldHint label="Name" hint={WIZARD_HINTS["institution.name"]} labelClass="hf-label" />
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Oakwood Primary School"
+            className="hf-input"
+          />
+          {slug && <p className="hf-hint">{slug}</p>}
+        </div>
+
+        <div className="hf-mb-lg">
+          <FieldHint label="Website (optional)" hint={WIZARD_HINTS["institution.website"]} labelClass="hf-label" />
+          <div className="hf-flex hf-items-center hf-gap-sm">
+            <Globe size={16} className="hf-text-muted hf-flex-shrink-0" />
+            <input
+              type="url"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              onBlur={() => {
+                if (websiteUrl.trim()) handleUrlImport(websiteUrl);
+              }}
+              placeholder="https://www.school.co.uk"
+              className="hf-input hf-flex-1"
+            />
+          </div>
+          {urlSuggestions.length > 0 && (
+            <div className="hf-mt-xs">
+              <p className="hf-ai-inline-hint hf-mb-xs">
+                <Sparkles size={11} /> Try:
+              </p>
+              <div className="hf-suggestion-chips">
+                {urlSuggestions.map((url) => (
+                  <button key={url} type="button" className="hf-suggestion-chip" onClick={() => handleUrlChipClick(url)}>
+                    {url}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-        {urlImporting && (
-          <div className="iw-url-importing">
-            <Loader2 size={14} className="hf-spinner" />
-            Importing from website...
-          </div>
-        )}
-        {urlImportResult && !urlImporting && (
-          <div className="iw-url-result">
-            <Check size={14} />
-            Imported{urlImportResult.name ? `: ${urlImportResult.name}` : ""}
-            {urlImportResult.primaryColor ? ` · colours detected` : ""}
-          </div>
-        )}
+          )}
+          {urlImporting && (
+            <div className="hf-ai-loading-row hf-mt-xs">
+              <Loader2 size={14} className="hf-spinner" />
+              <span className="hf-text-sm">Importing from website...</span>
+            </div>
+          )}
+          {urlImportResult && !urlImporting && (
+            <div className="hf-banner hf-banner-success hf-mt-xs">
+              <Check size={14} />
+              Imported{urlImportResult.name ? `: ${urlImportResult.name}` : ""}
+              {urlImportResult.primaryColor ? ` · colours detected` : ""}
+            </div>
+          )}
+        </div>
       </div>
 
-      <StepFooter onNext={handleNext} nextLabel="Continue" nextDisabled={!canContinue} />
+      <StepFooter onBack={onPrev} onNext={handleNext} nextLabel="Continue" nextDisabled={!canContinue} />
     </div>
   );
 }
