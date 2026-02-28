@@ -405,6 +405,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
   const [selectedPlaybookId, setSelectedPlaybookId] = useState<string | null>(null);
   const [showNewCourseForm, setShowNewCourseForm] = useState(false);
   const [newCourseName, setNewCourseName] = useState("");
+  const [subjectDiscipline, setSubjectDiscipline] = useState("");
   const [teachingMode, setTeachingMode] = useState<TeachingMode>("recall");
   const [suggestedMode, setSuggestedMode] = useState<TeachingMode | null>(null);
   const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>("direct_instruction");
@@ -553,7 +554,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
   const courseSummary = selectedPlaybookId
     ? `${selectedPlaybook?.name ?? "Course"} · ${TEACHING_MODE_LABELS[teachingMode].label}`
     : newCourseName
-      ? `New: ${newCourseName} · ${TEACHING_MODE_LABELS[teachingMode].label}`
+      ? `New: ${newCourseName}${subjectDiscipline ? ` · ${subjectDiscipline}` : ""} · ${TEACHING_MODE_LABELS[teachingMode].label}`
       : null;
 
   // ── Section 3 — Goal ──────────────────────────────
@@ -1430,7 +1431,10 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
           body: JSON.stringify({
             name: newCourseName.trim(),
             domainId: selectedDomainId,
-            config: { teachingMode },
+            config: {
+              teachingMode,
+              subjectDiscipline: subjectDiscipline.trim().toLowerCase() || null,
+            },
           }),
         });
         const data = await res.json();
@@ -1831,6 +1835,29 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
                   </div>
 
                   <div>
+                    <p className="tw-label">Subject area <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(optional)</span></p>
+                    <div className="tw-chip-grid" style={{ marginBottom: 8 }}>
+                      {["History", "English", "Maths", "Science", "Geography", "Computing", "Business", "PSHE"].map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          className={`tw-chip${subjectDiscipline === d.toLowerCase() ? " tw-chip-selected" : ""}`}
+                          onClick={() => setSubjectDiscipline(prev => prev === d.toLowerCase() ? "" : d.toLowerCase())}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      className="tw-input"
+                      type="text"
+                      placeholder="Other: e.g. Biology, PE, Art..."
+                      value={subjectDiscipline}
+                      onChange={(e) => setSubjectDiscipline(e.target.value.toLowerCase())}
+                    />
+                  </div>
+
+                  <div>
                     <p className="tw-label">What kind of course is this?</p>
                     <div className="tw-intent-picker">
                       {TEACHING_MODE_ORDER.map((mode) => {
@@ -2032,6 +2059,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
               }
               interactionPattern={suggestInteractionPattern(selectedPlaybook?.name ?? newCourseName ?? goalText ?? "") ?? undefined}
               teachingMode={teachingMode}
+              subjectDiscipline={subjectDiscipline || undefined}
               existingCourses={existingCourses}
               existingSubjects={existingSubjects}
               onResult={handlePackResult}

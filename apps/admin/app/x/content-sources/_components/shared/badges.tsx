@@ -1,22 +1,23 @@
 "use client";
 
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { Pencil, Check } from "lucide-react";
+import { DOC_TYPE_INFO, DOC_TYPE_GROUPS, getDocTypeInfo } from "@/lib/doc-type-icons";
 
-// ── Constants ─────────────────────────────────────
+// ── Constants ──────────────────────────────────────
+// Derived from doc-type-icons.ts — single source of truth.
+// icon field is emojiIcon (string) for backward compat with <option> render sites.
 
-export const DOCUMENT_TYPES = [
-  { value: "TEXTBOOK", label: "Textbook", icon: "\uD83D\uDCD6" },
-  { value: "CURRICULUM", label: "Curriculum", icon: "\uD83C\uDF93" },
-  { value: "WORKSHEET", label: "Worksheet", icon: "\uD83D\uDCDD" },
-  { value: "COMPREHENSION", label: "Comprehension", icon: "\uD83D\uDCDA" },
-  { value: "EXAMPLE", label: "Example", icon: "\uD83D\uDCC4" },
-  { value: "ASSESSMENT", label: "Assessment", icon: "\u2705" },
-  { value: "REFERENCE", label: "Reference", icon: "\uD83D\uDCD1" },
-  { value: "LESSON_PLAN", label: "Lesson Plan", icon: "\uD83D\uDCCB" },
-  { value: "POLICY_DOCUMENT", label: "Policy Document", icon: "\uD83C\uDFDB\uFE0F" },
-  { value: "READING_PASSAGE", label: "Reading Passage", icon: "\uD83D\uDCC3" },
-  { value: "QUESTION_BANK", label: "Question Bank", icon: "\u2753" },
-];
+export const DOCUMENT_TYPES = Object.entries(DOC_TYPE_INFO).map(([value, info]) => ({
+  value,
+  label: info.label,
+  icon: info.emojiIcon,  // string emoji — keeps {d.icon} in <option> working
+  desc: info.description,
+  role: info.role,
+  color: info.color,
+  bg: info.bg,
+}));
 
 export const TRUST_LEVELS = [
   { value: "REGULATORY_STANDARD", label: "L5 Regulatory Standard", color: "var(--trust-l5-text)", bg: "var(--trust-l5-bg)" },
@@ -27,7 +28,7 @@ export const TRUST_LEVELS = [
   { value: "UNVERIFIED", label: "L0 Unverified", color: "var(--trust-l0-text)", bg: "var(--trust-l0-bg)" },
 ];
 
-// ── Types ─────────────────────────────────────────
+// ── Types ──────────────────────────────────────────
 
 export type ContentSource = {
   id: string;
@@ -66,7 +67,169 @@ export type ContentSource = {
   }>;
 };
 
-// ── Badge Components ──────────────────────────────
+// ── DocTypeBadge ───────────────────────────────────
+// Role-coloured badge with optional click-to-change picker.
+// source?: "ai:0.87" format from DB (extracts confidence for signal).
+// confidence?: direct number (wizard use, 0–1).
+// onChange?: if provided, badge is editable — click opens role-grouped picker.
+
+interface DocTypeBadgeProps {
+  type: string;
+  source?: string | null;
+  confidence?: number;
+  onChange?: (newType: string) => void;
+}
+
+export function DocTypeBadge({ type, source, confidence, onChange }: DocTypeBadgeProps) {
+  const info = getDocTypeInfo(type);
+  const Icon = info.icon;
+  const editable = !!onChange;
+
+  // Derive confidence: prefer direct prop, fall back to parsing "ai:0.87"
+  const conf = confidence !== undefined
+    ? confidence
+    : (source?.startsWith("ai:") ? parseFloat(source.slice(3)) : undefined);
+
+  const isUncertain = conf !== undefined && conf < 0.85 && conf >= 0.6;
+  const isWarn      = conf !== undefined && conf < 0.6;
+
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [hoveredType, setHoveredType] = useState<string | null>(null);
+  const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
+  const badgeRef = useRef<HTMLButtonElement>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  const openPicker = useCallback(() => {
+    if (!badgeRef.current) return;
+    const rect = badgeRef.current.getBoundingClientRect();
+    // Position below badge, aligned left; clamp to viewport right edge
+    const left = Math.min(rect.left, window.innerWidth - 320);
+    setPickerPos({ top: rect.bottom + 6, left });
+    setPickerOpen(true);
+    setHoveredType(type); // pre-select current type in hover preview
+  }, [type]);
+
+  const closePicker = useCallback(() => {
+    setPickerOpen(false);
+    setHoveredType(null);
+  }, []);
+
+  const selectType = useCallback((newType: string) => {
+    onChange?.(newType);
+    closePicker();
+  }, [onChange, closePicker]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") closePicker(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [pickerOpen, closePicker]);
+
+  const badgeClasses = [
+    "hf-doc-type-badge",
+    editable ? "hf-doc-type-badge--editable" : "",
+    isWarn ? "hf-doc-type-badge--warn" : (isUncertain ? "hf-doc-type-badge--uncertain" : ""),
+  ].filter(Boolean).join(" ");
+
+  const hoveredInfo = hoveredType ? getDocTypeInfo(hoveredType) : null;
+
+  return (
+    <>
+      {editable ? (
+        <button
+          ref={badgeRef}
+          className={badgeClasses}
+          style={{ "--badge-color": info.color, "--badge-bg": info.bg } as React.CSSProperties}
+          onClick={openPicker}
+          type="button"
+          title={conf !== undefined ? `Confidence: ${Math.round(conf * 100)}%` : undefined}
+        >
+          <Icon size={11} />
+          {info.label}
+          {isUncertain && <span className="hf-doc-type-badge-ai">AI</span>}
+          {isWarn && <span className="hf-doc-type-badge-ai">Check</span>}
+          <Pencil size={10} className="hf-doc-type-badge-edit-icon" />
+        </button>
+      ) : (
+        <span
+          className={badgeClasses}
+          style={{ "--badge-color": info.color, "--badge-bg": info.bg } as React.CSSProperties}
+          title={source ? `Set by: ${source}` : undefined}
+        >
+          <Icon size={11} />
+          {info.label}
+          {isUncertain && <span className="hf-doc-type-badge-ai">AI</span>}
+        </span>
+      )}
+
+      {/* ── Picker popover ── */}
+      {pickerOpen && pickerPos && (
+        <>
+          {/* Backdrop — click outside to close */}
+          <div
+            className="hf-doc-type-picker-backdrop"
+            onClick={closePicker}
+          />
+          <div
+            ref={pickerRef}
+            className="hf-doc-type-picker"
+            style={{ top: pickerPos.top, left: pickerPos.left }}
+          >
+            {DOC_TYPE_GROUPS.map((group) => (
+              <div key={group.role} className="hf-doc-type-picker-group">
+                <div className="hf-doc-type-picker-group-label">{group.label}</div>
+                <div className="hf-doc-type-picker-chips">
+                  {group.types.map((t) => {
+                    const tInfo = getDocTypeInfo(t);
+                    const TIcon = tInfo.icon;
+                    const isSelected = t === type;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        className={`hf-chip${isSelected ? " hf-chip-selected" : ""}`}
+                        style={isSelected
+                          ? { "--chip-color": tInfo.color, "--chip-bg": tInfo.bg } as React.CSSProperties
+                          : undefined}
+                        onClick={() => selectType(t)}
+                        onMouseEnter={() => setHoveredType(t)}
+                        onMouseLeave={() => setHoveredType(type)}
+                      >
+                        <TIcon size={11} />
+                        {tInfo.label}
+                        {isSelected && <Check size={10} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {/* Description preview */}
+            <div className="hf-doc-type-picker-preview">
+              {hoveredInfo ? (
+                <>
+                  <span className="hf-doc-type-picker-preview-label">{hoveredInfo.label}</span>
+                  {" — "}
+                  <span className="hf-doc-type-picker-preview-desc">{hoveredInfo.description}</span>
+                </>
+              ) : (
+                <span className="hf-doc-type-picker-preview-empty">Hover a type to see what it does</span>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// Backward-compat alias — existing call sites (SourceStep, etc.) need no change
+export const DocumentTypeBadge = DocTypeBadge;
+
+// ── Other badge components ─────────────────────────
 
 export function TrustBadge({ level }: { level: string }) {
   const config = TRUST_LEVELS.find((t) => t.value === level) || TRUST_LEVELS[5];
@@ -101,34 +264,6 @@ export function FreshnessIndicator({ validUntil }: { validUntil: string | null }
     return <span style={{ color: "var(--status-warning-text)", fontSize: 12, fontWeight: 600 }}>Expires in {daysUntil}d</span>;
   }
   return <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Valid until {expiry.toLocaleDateString()}</span>;
-}
-
-export function DocumentTypeBadge({ type, source }: { type: string; source?: string | null }) {
-  const dt = DOCUMENT_TYPES.find((d) => d.value === type) || DOCUMENT_TYPES[0];
-  const isAuto = source?.startsWith("ai:");
-  return (
-    <span
-      title={source ? `Set by: ${source}` : "Default (not classified)"}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-        padding: "2px 8px",
-        borderRadius: 4,
-        fontSize: 11,
-        fontWeight: 500,
-        color: "var(--text-secondary)",
-        backgroundColor: "var(--surface-tertiary)",
-        border: "1px solid var(--border-subtle)",
-      }}
-    >
-      <span style={{ fontSize: 12 }}>{dt.icon}</span>
-      {dt.label}
-      {isAuto && (
-        <span style={{ fontSize: 9, color: "var(--text-muted)", fontStyle: "italic" }}>auto</span>
-      )}
-    </span>
-  );
 }
 
 export function ArchivedBadge({ archivedAt }: { archivedAt?: string | null }) {

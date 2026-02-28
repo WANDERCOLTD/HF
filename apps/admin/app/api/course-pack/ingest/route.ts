@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
   const courseName = (formData.get("courseName") as string) || "";
   const interactionPattern = (formData.get("interactionPattern") as string) || undefined;
   const teachingMode = (formData.get("teachingMode") as string) as TeachingMode | undefined;
+  const subjectDiscipline = (formData.get("subjectDiscipline") as string) || undefined;
 
   if (!manifestJson) {
     return NextResponse.json({ ok: false, error: "Missing manifest" }, { status: 400 });
@@ -211,7 +212,7 @@ export async function POST(req: NextRequest) {
             const fileTotals = await extractSource(
               source, text, mf.documentType as DocumentType, file.name,
               subject.id, userId, interactionPattern as InteractionPattern | undefined,
-              teachingMode, send, mediaStorageKey,
+              teachingMode, send, mediaStorageKey, subjectDiscipline, subject.name,
             );
 
             grandTotalAssertions += fileTotals.assertions;
@@ -293,7 +294,7 @@ export async function POST(req: NextRequest) {
             const fileTotals = await extractSource(
               source, text, (mf.documentType || "LESSON_PLAN") as DocumentType, file.name,
               pedSubject.id, userId, interactionPattern as InteractionPattern | undefined,
-              teachingMode, send, pedMediaKey,
+              teachingMode, send, pedMediaKey, subjectDiscipline, pedSubject.name,
             );
 
             grandTotalAssertions += fileTotals.assertions;
@@ -439,7 +440,7 @@ async function createSource(
  * Image extraction runs after text extraction and is awaited for accurate counts.
  */
 async function extractSource(
-  source: { id: string; slug: string },
+  source: { id: string; slug: string; name: string },
   text: string,
   documentType: DocumentType,
   fileName: string,
@@ -449,6 +450,8 @@ async function extractSource(
   teachingMode: TeachingMode | undefined,
   send: SendIngestEvent,
   mediaStorageKey?: string,
+  subjectDiscipline?: string,
+  subjectName?: string,
 ): Promise<{ assertions: number; questions: number; vocabulary: number; images: number }> {
   try {
     const { getExtractor } = await import("@/lib/content-trust/extractors/registry");
@@ -465,7 +468,7 @@ async function extractSource(
     let totalVocabularyCreated = 0;
 
     const extractor = getExtractor(documentType);
-    const extractionConfig = await resolveExtractionConfig(source.id, documentType, interactionPattern);
+    const extractionConfig = await resolveExtractionConfig(source.id, documentType, interactionPattern, subjectDiscipline, subjectName ?? source.name);
 
     send({
       phase: "extracting",

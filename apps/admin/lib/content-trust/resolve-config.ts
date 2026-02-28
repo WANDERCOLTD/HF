@@ -622,6 +622,8 @@ export async function resolveExtractionConfig(
   sourceId?: string,
   documentType?: DocumentType,
   interactionPattern?: InteractionPattern,
+  subjectDiscipline?: string,
+  subjectName?: string,
 ): Promise<ExtractionConfig> {
   // 1. Load system spec
   const systemSpec = await prisma.analysisSpec.findFirst({
@@ -649,7 +651,11 @@ export async function resolveExtractionConfig(
   // 3. Apply document-type-specific overrides
   resolved = applyTypeOverrides(resolved, documentType);
 
-  // 4. Apply interaction pattern overrides (most specific — prepends extraction preamble)
+  // 3.5 Apply subject-discipline preamble (sits below pattern preamble in final prompt)
+  const discipline = inferSubjectDiscipline(subjectDiscipline, subjectName);
+  resolved = applySubjectPreamble(resolved, discipline);
+
+  // 4. Apply interaction pattern overrides (most specific — prepends extraction preamble, outermost)
   resolved = applyPatternOverrides(resolved, interactionPattern);
 
   return resolved;
@@ -1032,7 +1038,7 @@ const PATTERN_KEYWORD_ENTRIES: Array<[string, InteractionPattern]> = [
   ["reflect",              "reflective"],
   ["journal",              "reflective"],
   // open — no keywords (manual fallback choice)
-].sort((a, b) => b[0].length - a[0].length);
+].sort((a, b) => b[0].length - a[0].length) as Array<[string, InteractionPattern]>;
 
 /**
  * Suggest an InteractionPattern from a course name using keyword matching.
@@ -1088,6 +1094,61 @@ export const TEACHING_MODE_ORDER: TeachingMode[] = [
   "practice",
   "syllabus",
 ];
+
+// ── Subject Discipline Preambles ─────────────────────────────────────────────
+
+/**
+ * Per-discipline preamble prepended to the extraction system prompt.
+ * Redirects the LLM's focus away from the finance-flavoured DEFAULT_CONFIG.
+ * Keyed by lowercase discipline name.
+ */
+const SUBJECT_PREAMBLES: Record<string, string> = {
+  history:   "SUBJECT: HISTORY. Prioritise dates, periods, events, key people, causes, consequences, and historiographical significance. 'threshold' means a date-range, NOT a financial limit. Omit tax years and currency values.",
+  english:   "SUBJECT: ENGLISH / LITERACY. Prioritise vocabulary, themes, language techniques, character analysis, textual evidence, and literary devices. Mark examRelevance high for essay-worthy quotations and key passages.",
+  maths:     "SUBJECT: MATHEMATICS. Prioritise formulas, theorems, worked procedures, and problem types. Map steps → 'process', theorems → 'rule', formulas → 'fact'. Omit currency thresholds and financial figures.",
+  science:   "SUBJECT: SCIENCE. Prioritise scientific concepts, terminology, hypotheses, lab procedures, and observations. State units precisely in every assertion that involves measurement.",
+  geography: "SUBJECT: GEOGRAPHY. Prioritise physical and human processes, case studies, location-specific facts, and statistics. Tag named case studies as 'example'.",
+  computing: "SUBJECT: COMPUTING / ICT. Prioritise algorithms, data structures, system concepts, and programming patterns. Mark code fragments or pseudocode as 'process'.",
+  business:  "SUBJECT: BUSINESS STUDIES. Prioritise business concepts, models, financial ratios, strategic frameworks, and case studies.",
+  pshe:      "SUBJECT: PSHE / WELLBEING. Prefer 'discussion_prompt' and 'example' over bare factual assertions. Focus on attitudes, skills, and scenario-based content.",
+  finance:   "SUBJECT: FINANCIAL SERVICES. Focus on regulatory thresholds, product rules, tax years, compliance requirements, and suitability criteria — the default extraction domain.",
+};
+
+/**
+ * Infer the academic discipline from explicit discipline string or subject name.
+ * Returns the SUBJECT_PREAMBLES key (e.g. "history") or null if unrecognised.
+ */
+export function inferSubjectDiscipline(subjectDiscipline?: string, subjectName?: string): string | null {
+  const candidates = [subjectDiscipline, subjectName].filter(Boolean) as string[];
+  for (const s of candidates) {
+    const lower = s.toLowerCase();
+    for (const key of Object.keys(SUBJECT_PREAMBLES)) {
+      if (lower.includes(key)) return key;
+    }
+  }
+  return null;
+}
+
+/**
+ * Prepend a subject-specific preamble to the extraction system prompt.
+ * Applied after type overrides, before pattern overrides — so the pattern preamble
+ * (most urgent instruction) ends up outermost.
+ */
+export function applySubjectPreamble(
+  resolved: ExtractionConfig,
+  discipline: string | null,
+): ExtractionConfig {
+  if (!discipline) return resolved;
+  const preamble = SUBJECT_PREAMBLES[discipline];
+  if (!preamble) return resolved;
+  return {
+    ...resolved,
+    extraction: {
+      ...resolved.extraction,
+      systemPrompt: `${preamble}\n\n${resolved.extraction.systemPrompt}`,
+    },
+  };
+}
 
 // ── Course Type Suggestion ───────────────────────────────────────────────────
 

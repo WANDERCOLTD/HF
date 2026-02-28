@@ -1,10 +1,11 @@
 /**
  * Document Type Icons & Labels
  *
- * Centralized mapping from DocumentType enum to lucide SVG icons,
- * human-readable labels, and short descriptions.
+ * Single source of truth for DocumentType enum metadata.
+ * Maps all 11 DB enum values to Lucide icons, emoji, labels, descriptions,
+ * role groupings, and role colours.
  *
- * Used by: Teach wizard classification card, DocumentTypeBadge, content sources.
+ * Used by: DocTypeBadge, PackUploadStep, Teach wizard, content sources.
  */
 
 import type { LucideIcon } from "lucide-react";
@@ -22,26 +23,128 @@ import {
   HelpCircle,
 } from "lucide-react";
 
+export type DocTypeRole = 'passage' | 'questions' | 'pedagogy' | 'reference';
+
 export interface DocTypeInfo {
-  icon: LucideIcon;
+  icon: LucideIcon;   // Lucide component — for badges, cards, detail views
+  emojiIcon: string;  // Emoji string — for <option> text in <select> dropdowns
   label: string;
   description: string;
+  role: DocTypeRole;
+  color: string;      // CSS var string for text/border
+  bg: string;         // CSS var string for background
 }
 
 export const DOC_TYPE_INFO: Record<string, DocTypeInfo> = {
-  TEXTBOOK:        { icon: BookOpen,      label: "Textbook",         description: "General reference or informational content" },
-  CURRICULUM:      { icon: GraduationCap, label: "Curriculum",       description: "Syllabus, learning outcomes, or accreditation criteria" },
-  WORKSHEET:       { icon: PenLine,       label: "Worksheet",        description: "Exercises, activities, or practice material" },
-  COMPREHENSION:   { icon: BookOpenCheck, label: "Comprehension",    description: "Combined reading passage with questions" },
-  READING_PASSAGE: { icon: ScrollText,    label: "Reading Passage",  description: "Standalone prose — story, article, or chapter" },
-  ASSESSMENT:      { icon: ListChecks,    label: "Assessment",       description: "Formal test, exam, or mark scheme" },
-  REFERENCE:       { icon: Library,       label: "Reference",        description: "Glossary, appendix, or reference guide" },
-  EXAMPLE:         { icon: FileSearch,    label: "Example",          description: "Worked example or case study" },
-  LESSON_PLAN:     { icon: LayoutList,    label: "Lesson Plan",      description: "Teaching guide or session plan" },
-  POLICY_DOCUMENT: { icon: Scale,         label: "Policy Document",  description: "Regulatory or policy document" },
-  QUESTION_BANK:   { icon: HelpCircle,    label: "Question Bank",    description: "Structured tutor questions with guidance" },
+  // ── READING MATERIAL (passage) ─────────────────────────────────────────
+  READING_PASSAGE: {
+    icon: ScrollText,    emojiIcon: '📄',
+    label: "Reading Passage",
+    description: "Standalone prose to be read aloud. No questions included.",
+    role: 'passage',
+    color: 'var(--accent-primary)',
+    bg: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
+  },
+  TEXTBOOK: {
+    icon: BookOpen,      emojiIcon: '📖',
+    label: "Textbook",
+    description: "Dense reference text — extracts key concepts, facts, and definitions.",
+    role: 'passage',
+    color: 'var(--accent-primary)',
+    bg: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
+  },
+  COMPREHENSION: {
+    icon: BookOpenCheck, emojiIcon: '📖',
+    label: "Comprehension",
+    description: "Passage WITH embedded questions in the same document (e.g. a comprehension test paper).",
+    role: 'passage',
+    color: 'var(--accent-primary)',
+    bg: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
+  },
+
+  // ── ASSESSMENTS (questions) ────────────────────────────────────────────
+  ASSESSMENT: {
+    icon: ListChecks,   emojiIcon: '✅',
+    label: "Assessment",
+    description: "Formal test, exam, or mark scheme — extracts questions and answers.",
+    role: 'questions',
+    color: '#d97706',
+    bg: 'color-mix(in srgb, #d97706 12%, transparent)',
+  },
+  WORKSHEET: {
+    icon: PenLine,      emojiIcon: '📝',
+    label: "Worksheet",
+    description: "Exercises, activities, or practice material for learners.",
+    role: 'questions',
+    color: '#d97706',
+    bg: 'color-mix(in srgb, #d97706 12%, transparent)',
+  },
+  QUESTION_BANK: {
+    icon: HelpCircle,   emojiIcon: '❓',
+    label: "Question Bank",
+    description: "Structured tutor questions with guidance — feeds the question pool.",
+    role: 'questions',
+    color: '#d97706',
+    bg: 'color-mix(in srgb, #d97706 12%, transparent)',
+  },
+
+  // ── TEACHING (pedagogy) ────────────────────────────────────────────────
+  LESSON_PLAN: {
+    icon: LayoutList,   emojiIcon: '📋',
+    label: "Lesson Plan",
+    description: "Teaching guide or session plan. Not shown to students.",
+    role: 'pedagogy',
+    color: '#7c3aed',
+    bg: 'color-mix(in srgb, #7c3aed 12%, transparent)',
+  },
+  POLICY_DOCUMENT: {
+    icon: Scale,        emojiIcon: '⚖️',
+    label: "Policy Document",
+    description: "Regulatory or policy document — shapes rules and guardrails.",
+    role: 'pedagogy',
+    color: '#7c3aed',
+    bg: 'color-mix(in srgb, #7c3aed 12%, transparent)',
+  },
+
+  // ── REFERENCE (reference) ──────────────────────────────────────────────
+  REFERENCE: {
+    icon: Library,      emojiIcon: '🔍',
+    label: "Reference",
+    description: "Glossary, appendix, or reference guide — supplementary lookup material.",
+    role: 'reference',
+    color: 'var(--text-muted)',
+    bg: 'var(--surface-tertiary)',
+  },
+  CURRICULUM: {
+    icon: GraduationCap, emojiIcon: '📐',
+    label: "Curriculum",
+    description: "Formal syllabus with learning outcomes or accreditation criteria.",
+    role: 'reference',
+    color: 'var(--text-muted)',
+    bg: 'var(--surface-tertiary)',
+  },
+  EXAMPLE: {
+    icon: FileSearch,   emojiIcon: '📄',
+    label: "Example",
+    description: "Worked example or case study — illustrates concepts in context.",
+    role: 'reference',
+    color: 'var(--text-muted)',
+    bg: 'var(--surface-tertiary)',
+  },
 };
 
 export function getDocTypeInfo(type: string): DocTypeInfo {
   return DOC_TYPE_INFO[type] ?? DOC_TYPE_INFO.TEXTBOOK;
 }
+
+/** Ordered groups for the role-grouped picker UI */
+export const DOC_TYPE_GROUPS: Array<{
+  role: DocTypeRole;
+  label: string;
+  types: string[];
+}> = [
+  { role: 'passage',   label: 'READING MATERIAL', types: ['READING_PASSAGE', 'TEXTBOOK', 'COMPREHENSION'] },
+  { role: 'questions', label: 'ASSESSMENTS',       types: ['ASSESSMENT', 'WORKSHEET', 'QUESTION_BANK'] },
+  { role: 'pedagogy',  label: 'TEACHING',          types: ['LESSON_PLAN', 'POLICY_DOCUMENT'] },
+  { role: 'reference', label: 'REFERENCE',         types: ['REFERENCE', 'CURRICULUM', 'EXAMPLE'] },
+];

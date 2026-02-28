@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTaskPoll, type PollableTask } from "@/hooks/useTaskPoll";
 import { useBackgroundTaskQueue } from "@/components/shared/ContentJobQueue";
-import { DOCUMENT_TYPES } from "../shared/badges";
+import { DocTypeBadge } from "../shared/badges";
 import type { StepProps } from "../types";
 
 export default function ExtractStep({ setData, getData, onNext, onPrev }: StepProps) {
@@ -188,16 +188,7 @@ export default function ExtractStep({ setData, getData, onNext, onPrev }: StepPr
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>Document Type:</span>
-            <select
-              value={documentType}
-              onChange={(e) => handleChangeType(e.target.value)}
-              className="hf-input"
-              style={{ width: "auto" }}
-            >
-              {DOCUMENT_TYPES.map((d) => (
-                <option key={d.value} value={d.value}>{d.icon} {d.label}</option>
-              ))}
-            </select>
+            <DocTypeBadge type={documentType} onChange={handleChangeType} />
           </div>
           <div style={{ display: "flex", gap: 12 }}>
             <button onClick={handleExtract}

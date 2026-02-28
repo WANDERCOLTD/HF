@@ -13,6 +13,8 @@
 import { useState, useRef, useCallback } from 'react';
 import { Upload, FileText, BookOpen, X, Edit3, Check, Plus } from 'lucide-react';
 import type { IngestEvent } from '@/lib/content-trust/ingest-events';
+import { DocTypeBadge } from '@/app/x/content-sources/_components/shared/badges';
+import { getDocTypeInfo } from '@/lib/doc-type-icons';
 import './pack-upload-step.css';
 
 type TimelineStep = {
@@ -94,6 +96,8 @@ interface PackUploadStepProps {
   interactionPattern?: string;
   /** Teaching mode chosen by the teacher (e.g. recall, comprehension). Used to auto-assign teachMethod to extracted assertions. */
   teachingMode?: string;
+  /** Subject discipline declared by teacher (e.g. "history", "english"). Passed to extraction for subject-aware prompt. */
+  subjectDiscipline?: string;
   existingCourses?: ExistingCourse[];
   /** When provided, shows subject picker instead of course picker */
   existingSubjects?: ExistingSubject[];
@@ -106,41 +110,6 @@ interface PackUploadStepProps {
 const VALID_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md', '.markdown', '.json'];
 const ACCEPT_ATTR = VALID_EXTENSIONS.join(',');
 
-const DOC_TYPE_LABELS: Record<string, string> = {
-  COMPREHENSION: 'Reading',
-  ASSESSMENT: 'Questions',
-  TEXTBOOK: 'Textbook',
-  WORKSHEET: 'Worksheet',
-  CURRICULUM: 'Curriculum',
-  LESSON_PLAN: 'Teaching Guide',
-  REFERENCE: 'Reference',
-  EXAMPLE: 'Example',
-  POLICY_DOCUMENT: 'Policy',
-  READING_PASSAGE: 'Reading Passage',
-  QUESTION_BANK: 'Question Bank',
-};
-
-// Auto-derive role from document type
-const TYPE_TO_ROLE: Record<string, PackFile['role']> = {
-  READING_PASSAGE: 'passage',
-  TEXTBOOK: 'passage',
-  COMPREHENSION: 'passage',
-  QUESTION_BANK: 'questions',
-  ASSESSMENT: 'questions',
-  WORKSHEET: 'questions',
-  LESSON_PLAN: 'pedagogy',
-  POLICY_DOCUMENT: 'pedagogy',
-  REFERENCE: 'reference',
-  CURRICULUM: 'reference',
-  EXAMPLE: 'reference',
-};
-
-const ROLE_ICONS: Record<string, string> = {
-  passage: '\u{1F4D6}',    // open book
-  questions: '\u{2753}',    // question mark
-  reference: '\u{1F4DA}',  // books
-  pedagogy: '\u{1F4CB}',   // clipboard
-};
 
 // ── Component ──────────────────────────────────────────
 
@@ -149,6 +118,7 @@ export function PackUploadStep({
   courseName,
   interactionPattern,
   teachingMode,
+  subjectDiscipline,
   existingCourses = [],
   existingSubjects = [],
   onResult,
@@ -377,6 +347,9 @@ export function PackUploadStep({
       if (teachingMode) {
         formData.append('teachingMode', teachingMode);
       }
+      if (subjectDiscipline) {
+        formData.append('subjectDiscipline', subjectDiscipline);
+      }
       for (const file of files) {
         formData.append('files', file);
       }
@@ -491,7 +464,7 @@ export function PackUploadStep({
   ) => {
     if (!manifest) return;
     const updated = { ...manifest };
-    const newRole = TYPE_TO_ROLE[newType] || 'passage';
+    const newRole = getDocTypeInfo(newType).role;
 
     if (source === 'group' && groupIdx !== undefined) {
       updated.groups = updated.groups.map((g, gi) =>
@@ -785,18 +758,15 @@ export function PackUploadStep({
                     onDragStart={(e) => handleFileDragStart(e, f.fileIndex, gIdx)}
                     onDragEnd={handleFileDragEnd}
                   >
-                    <span className="pack-file-role-icon">{ROLE_ICONS[f.role] || '\u{1F4C4}'}</span>
-                    <span className="pack-file-name">{f.fileName}</span>
-                    <select
-                      className="pack-file-type-select"
-                      value={f.documentType}
-                      onChange={(e) => { e.stopPropagation(); handleChangeFileType(f.fileIndex, e.target.value, 'group', gIdx); }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {Object.entries(DOC_TYPE_LABELS).map(([val, label]) => (
-                        <option key={val} value={val}>{label}</option>
-                      ))}
-                    </select>
+                    <div className="pack-file-name-row">
+                      <span className="pack-file-name">{f.fileName}</span>
+                      <span className="pack-file-drag">⠿</span>
+                    </div>
+                    <DocTypeBadge
+                      type={f.documentType}
+                      confidence={f.confidence}
+                      onChange={(newType) => handleChangeFileType(f.fileIndex, newType, 'group', gIdx)}
+                    />
                   </div>
                 ))}
               </div>
@@ -812,17 +782,14 @@ export function PackUploadStep({
               <div className="pack-group-files">
                 {manifest.pedagogyFiles.map((f) => (
                   <div key={f.fileIndex} className="pack-manifest-file">
-                    <span className="pack-file-role-icon">{ROLE_ICONS.pedagogy}</span>
-                    <span className="pack-file-name">{f.fileName}</span>
-                    <select
-                      className="pack-file-type-select"
-                      value={f.documentType}
-                      onChange={(e) => handleChangeFileType(f.fileIndex, e.target.value, 'pedagogy')}
-                    >
-                      {Object.entries(DOC_TYPE_LABELS).map(([val, label]) => (
-                        <option key={val} value={val}>{label}</option>
-                      ))}
-                    </select>
+                    <div className="pack-file-name-row">
+                      <span className="pack-file-name">{f.fileName}</span>
+                    </div>
+                    <DocTypeBadge
+                      type={f.documentType}
+                      confidence={f.confidence}
+                      onChange={(newType) => handleChangeFileType(f.fileIndex, newType, 'pedagogy')}
+                    />
                   </div>
                 ))}
               </div>

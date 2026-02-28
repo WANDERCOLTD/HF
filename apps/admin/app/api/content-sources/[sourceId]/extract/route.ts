@@ -110,9 +110,10 @@ export async function POST(
     const subjectId = body.subjectId || source.subjects[0]?.subjectId || undefined;
     const subjectSlug = source.subjects[0]?.subject?.slug || source.slug;
 
-    // Resolve interactionPattern + teachingMode from body or domain playbook
+    // Resolve interactionPattern + teachingMode + subjectDiscipline from body or domain playbook
     let interactionPattern: InteractionPattern | undefined = body.interactionPattern || undefined;
     let teachingMode: TeachingMode | undefined;
+    let subjectDiscipline: string | undefined;
     if (subjectId) {
       try {
         const domainLink = await prisma.subjectDomain.findFirst({
@@ -130,6 +131,9 @@ export async function POST(
           }
           if (pbConfig?.teachingMode) {
             teachingMode = pbConfig.teachingMode as TeachingMode;
+          }
+          if (pbConfig?.subjectDiscipline) {
+            subjectDiscipline = pbConfig.subjectDiscipline as string;
           }
         }
       } catch {
@@ -189,6 +193,8 @@ export async function POST(
         mediaStorageKey,
         interactionPattern,
         teachingMode,
+        subjectDiscipline,
+        subjectName,
       },
     ).catch(async (err) => {
       console.error(`[content-sources/:id/extract] Background job ${job.id} error:`, err);
@@ -231,6 +237,8 @@ async function runBackgroundExtraction(
     mediaStorageKey?: string;
     interactionPattern?: InteractionPattern;
     teachingMode?: TeachingMode;
+    subjectDiscipline?: string;
+    subjectName?: string;
   },
 ) {
   // Track cumulative per-chunk save counts for the final job record
@@ -297,7 +305,7 @@ async function runBackgroundExtraction(
   if (useSpecialist) {
     // Use specialist extractor (returns assertions + questions + vocabulary)
     const extractor = getExtractor(opts.documentType);
-    const extractionConfig = await resolveExtractionConfig(opts.sourceId, opts.documentType, opts.interactionPattern);
+    const extractionConfig = await resolveExtractionConfig(opts.sourceId, opts.documentType, opts.interactionPattern, opts.subjectDiscipline, opts.subjectName);
 
     const fullResult = await extractor.extract(text, {
       ...opts,

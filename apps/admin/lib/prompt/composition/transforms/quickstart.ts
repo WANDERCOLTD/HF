@@ -42,7 +42,8 @@ registerTransform("computeQuickStart", (
     you_are: (() => {
       let role = getRoleStatement();
       if (callerDomain?.name && (role === "A helpful voice assistant" || role.toLowerCase().includes("generic"))) {
-        role = `A ${callerDomain.name} tutor and voice assistant`;
+        const discipline = (loadedData.playbooks?.[0]?.config as any)?.subjectDiscipline as string | undefined;
+        role = `A ${discipline || callerDomain.name} tutor and voice assistant`;
       }
       if (role.length <= 200) return role;
       const truncated = role.substring(0, 200);

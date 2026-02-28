@@ -16,23 +16,11 @@ import { useSourceStatus } from "@/hooks/useSourceStatus";
 import CurriculumEditor from "./CurriculumEditor";
 import {
   TrustBadge,
-  DocumentTypeBadge as SharedDocumentTypeBadge,
+  DocTypeBadge,
   TRUST_LEVELS,
-  DOCUMENT_TYPES as SHARED_DOCUMENT_TYPES,
+  DOCUMENT_TYPES,
 } from "@/app/x/content-sources/_components/shared/badges";
 
-// ------------------------------------------------------------------
-// Extended document types (add color + desc for subject detail use)
-// ------------------------------------------------------------------
-
-const DOCUMENT_TYPES = [
-  { value: "CURRICULUM", label: "Curriculum", color: "var(--badge-indigo-text)", desc: "Formal syllabus with LOs/ACs" },
-  { value: "TEXTBOOK", label: "Textbook", color: "var(--status-success-text)", desc: "Dense reference material" },
-  { value: "WORKSHEET", label: "Worksheet", color: "var(--badge-yellow-text)", desc: "Learner activity sheet" },
-  { value: "EXAMPLE", label: "Example", color: "var(--badge-purple-text)", desc: "Illustrative document" },
-  { value: "ASSESSMENT", label: "Assessment", color: "var(--status-error-text)", desc: "Test/quiz material" },
-  { value: "REFERENCE", label: "Reference", color: "var(--text-muted)", desc: "Quick reference/glossary" },
-] as const;
 
 const SOURCE_TAGS = [
   { value: "syllabus", label: "Syllabus", color: "var(--accent-primary)", desc: "Defines the curriculum structure / schedule" },
@@ -139,27 +127,6 @@ function SessionTypeBadge({ type }: { type: string }) {
   );
 }
 
-function DetailDocumentTypeBadge({ type, source: typeSource }: { type: string; source?: string | null }) {
-  const cfg = DOCUMENT_TYPES.find((t) => t.value === type) || DOCUMENT_TYPES[1];
-  const isAiSuggested = typeSource?.startsWith("ai:");
-  const confidence = isAiSuggested ? Math.round(parseFloat(typeSource!.split(":")[1]) * 100) : null;
-  return (
-    <span
-      title={`${cfg.desc}${confidence !== null ? ` (AI: ${confidence}%)` : typeSource === "admin:manual" ? " (manually set)" : ""}`}
-      style={{
-        display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600,
-        color: cfg.color,
-        backgroundColor: `color-mix(in srgb, ${cfg.color} 12%, transparent)`,
-        border: `1px solid color-mix(in srgb, ${cfg.color} 25%, transparent)`,
-      }}
-    >
-      {cfg.label}
-      {confidence !== null && (
-        <span style={{ fontSize: 9, marginLeft: 3, opacity: 0.7 }}>{confidence}%</span>
-      )}
-    </span>
-  );
-}
 
 // ------------------------------------------------------------------
 // Main Detail Component
@@ -897,7 +864,7 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
                     <div className="hf-flex-between">
                       <div className="hf-flex hf-gap-sm hf-items-center hf-flex-1">
                         <TagPills tags={ss.tags || []} />
-                        <DetailDocumentTypeBadge type={ss.source.documentType} source={ss.source.documentTypeSource} />
+                        <DocTypeBadge type={ss.source.documentType} source={ss.source.documentTypeSource} onChange={(type) => changeDocumentType(ss.sourceId, type)} />
                         <Link href={courseId ? `/x/courses/${courseId}/subjects/${subjectId}/sources/${ss.sourceId}` : `/x/content-sources/${ss.sourceId}`} className="hf-text-md hf-text-bold" style={{ color: "var(--accent-primary)" }}>
                           {ss.source.name}
                         </Link>
@@ -945,17 +912,6 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
 
                     {awaiting && (
                       <div className="hf-flex hf-gap-sm hf-mt-sm hf-items-center" style={{ paddingTop: 8, borderTop: "1px solid color-mix(in srgb, var(--border-default) 50%, transparent)" }}>
-                        <span className="hf-text-xs hf-text-bold hf-text-muted">Type:</span>
-                        <select
-                          value={ss.source.documentType}
-                          onChange={(e) => changeDocumentType(ss.sourceId, e.target.value)}
-                          className="hf-text-xs"
-                          style={{ padding: "4px 8px", borderRadius: 4, border: "1px solid var(--border-default)" }}
-                        >
-                          {DOCUMENT_TYPES.map((t) => (
-                            <option key={t.value} value={t.value}>{t.label} — {t.desc}</option>
-                          ))}
-                        </select>
                         <button
                           onClick={() => triggerExtraction(ss.sourceId, ss.source.name)}
                           disabled={isExtracting}

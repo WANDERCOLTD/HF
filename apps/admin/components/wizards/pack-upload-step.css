@@ -1,6 +1,264 @@
 /* ── PackUploadStep CSS ────────────────────────────── */
 /* Extracted from demo-teach-wizard.css during consolidation */
 
+/* ── Outer wrappers ──────────────────────────────── */
+
+.pack-upload-step {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pack-upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pack-section-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 4px;
+}
+
+/* ── Pre-analysis file list ──────────────────────── */
+
+.pack-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.pack-file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+}
+
+.pack-file-size {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.pack-file-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.pack-file-remove:hover { color: var(--status-error-text); }
+
+/* ── Existing course / subject picker ────────────── */
+
+.pack-select-courses {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pack-course-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pack-or-divider {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 4px 0;
+  position: relative;
+}
+.pack-or-divider::before,
+.pack-or-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 40%;
+  height: 1px;
+  background: var(--border-default);
+}
+.pack-or-divider::before { left: 0; }
+.pack-or-divider::after  { right: 0; }
+
+/* ── Manifest review ─────────────────────────────── */
+
+.pack-manifest-review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Group cards ─────────────────────────────────── */
+
+.pack-group-card {
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--surface-secondary);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.pack-group-card--drag-over {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 5%, transparent);
+}
+
+.pack-group-card--pedagogy {
+  border-color: color-mix(in srgb, #7c3aed 30%, transparent);
+  background: color-mix(in srgb, #7c3aed 4%, transparent);
+}
+
+.pack-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pack-group-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.pack-group-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.pack-group-edit-input {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--accent-primary);
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+  outline: none;
+}
+
+.pack-group-edit-btn,
+.pack-group-edit-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 3px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.pack-group-edit-btn:hover   { color: var(--status-success-text); }
+.pack-group-edit-trigger:hover { color: var(--text-primary); }
+
+.pack-group-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Individual file cards (manifest) ────────────── */
+
+.pack-manifest-file {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-primary);
+  cursor: grab;
+  transition: opacity 0.15s, box-shadow 0.15s;
+  user-select: none;
+}
+.pack-manifest-file:hover {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.pack-manifest-file--dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.pack-file-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pack-file-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.pack-file-drag {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-size: 13px;
+  cursor: grab;
+  line-height: 1;
+}
+
+/* ── Ingest progress ─────────────────────────────── */
+
+.pack-ingest-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Add more files button ───────────────────────── */
+
+.pack-btn-add-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+.pack-btn-add-more:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
 /* ── Dropzone ─────────────────────────────────────── */
 
 .dtw-dropzone {

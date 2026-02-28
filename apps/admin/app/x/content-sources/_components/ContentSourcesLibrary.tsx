@@ -10,7 +10,7 @@ import {
   TRUST_LEVELS,
   TrustBadge,
   FreshnessIndicator,
-  DocumentTypeBadge,
+  DocTypeBadge,
   UsedByCell,
   ArchivedBadge,
 } from "./shared/badges";
@@ -341,7 +341,7 @@ function SourceRow({
           )}
         </td>
         <td className="cs-td">
-          <DocumentTypeBadge type={s.documentType} source={s.documentTypeSource} />
+          <DocTypeBadge type={s.documentType} source={s.documentTypeSource} onChange={handleChangeType} />
         </td>
         <td className="cs-td">
           <TrustBadge level={s.trustLevel} />
@@ -404,18 +404,6 @@ function SourceRow({
               <span className="hf-text-xs hf-text-bold" style={{ color: "var(--accent-primary)" }}>
                 Classified{confidence !== null ? ` (${confidence}%)` : ""}
               </span>
-              <span className="hf-text-xs hf-text-muted">Type:</span>
-              <select
-                value={s.documentType}
-                onChange={(e) => handleChangeType(e.target.value)}
-                disabled={changingType}
-                className="hf-input-compact"
-                style={{ width: "auto", padding: "4px 8px", background: "var(--surface-primary)" }}
-              >
-                {DOCUMENT_TYPES.map((d) => (
-                  <option key={d.value} value={d.value}>{d.icon} {d.label}</option>
-                ))}
-              </select>
               <button
                 onClick={handleExtract}
                 disabled={extracting}
