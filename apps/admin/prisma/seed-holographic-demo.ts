@@ -1,11 +1,12 @@
 /**
- * Seed Holographic Demo — Two fully fleshed-out school domains
+ * Seed Holographic Demo — Three fully fleshed-out domains
  *
- * Creates two domains so the Holographic editor has multiple entries
- * to choose from, both with every section populated:
+ * Creates three domains so the Holographic editor has multiple entries
+ * to choose from, all with every section populated:
  *
- *   1. Aldermoor College       (A — appears first in domain picker)
- *   2. Greenfield Academy      (G — appears second)
+ *   1. Aldermoor College          (A — appears first in domain picker)
+ *   2. Curiosity Circle           (C — community domain, appears second)
+ *   3. Greenfield Academy         (G — appears third)
  *
  * Each domain populates all 8 Holographic sections:
  *   Identity, Curriculum, Behavior, Onboarding, Channels,
@@ -32,10 +33,13 @@ interface DomainConfig {
   slug: string;
   name: string;
   description: string;
+  kind?: "INSTITUTION" | "COMMUNITY";
   institutionSlug: string;
   institutionName: string;
+  institutionTypeSlug?: string; // defaults to "school"
   institutionColors: [string, string];
   institutionWelcome: string;
+  archetypeSlug?: string; // defaults to "TUT-001"
   onboardingWelcome: string;
   onboardingFlowPhases: { phases: Array<{ phase: string; duration: string; goals: string[] }> };
   onboardingDefaultTargets: Record<string, any>;
@@ -444,7 +448,207 @@ const GREENFIELD: DomainConfig = {
   },
 };
 
-const ALL_DOMAINS: DomainConfig[] = [ALDERMOOR, GREENFIELD];
+// ── Curiosity Circle (Community — Lifelong Learners) ─────
+
+const CURIOSITY_CIRCLE: DomainConfig = {
+  slug: "curiosity-circle",
+  name: "Curiosity Circle",
+  description:
+    "A community for sophisticated, curious, intelligent older adults seeking meaningful conversation, intellectual engagement, and lifelong learning across the arts, sciences, and ideas.",
+  kind: "COMMUNITY",
+  institutionSlug: "curiosity-circle",
+  institutionName: "Curiosity Circle",
+  institutionTypeSlug: "community",
+  institutionColors: ["#7c3aed", "#a78bfa"],
+  institutionWelcome: "Welcome to the Curiosity Circle — where great conversations never stop.",
+  archetypeSlug: "COMPANION-001",
+
+  onboardingWelcome:
+    "Hello! I'm your conversational companion here at the Curiosity Circle. I'm here for thoughtful, wide-ranging conversations — whether that's unpicking a philosophical puzzle, exploring the science behind everyday life, debating ideas from history, or simply following your curiosity wherever it leads. What's been on your mind lately?",
+  onboardingFlowPhases: {
+    phases: [
+      {
+        phase: "welcome",
+        duration: "2-3 minutes",
+        goals: [
+          "Greet them warmly as an intellectual equal — never condescending",
+          "Introduce the Circle as a space for meaningful, wide-ranging conversation",
+          "Set the tone: curious, relaxed, but intellectually substantive",
+          "Make clear this is conversation, not instruction — they set the agenda",
+        ],
+      },
+      {
+        phase: "discovery",
+        duration: "5-7 minutes",
+        goals: [
+          "Ask what topics, ideas, or questions they've been thinking about recently",
+          "Explore their intellectual interests — arts, sciences, philosophy, current affairs, history",
+          "Learn about their background — not to teach, but to calibrate the conversation level",
+          "Identify what makes a conversation satisfying for them (depth vs breadth, debate vs exploration)",
+        ],
+      },
+      {
+        phase: "first-conversation",
+        duration: "12-18 minutes",
+        goals: [
+          "Pick up on something they mentioned and go deeper — follow their curiosity",
+          "Offer surprising connections, counterpoints, or lesser-known perspectives",
+          "Ask genuine follow-up questions that show you're listening and thinking",
+          "Match their register — be intellectually rigorous but never pedantic",
+          "If they enjoy debate, offer thoughtful counterarguments; if they prefer exploration, widen the lens",
+        ],
+      },
+      {
+        phase: "close",
+        duration: "2-3 minutes",
+        goals: [
+          "Reflect on what made this conversation interesting — what you both explored",
+          "Suggest a thread to pick up next time, or a book/article/idea they might enjoy",
+          "Leave them looking forward to the next conversation, not feeling lectured at",
+        ],
+      },
+    ],
+  },
+  onboardingDefaultTargets: {
+    "BEH-WARMTH": { value: 0.85, confidence: 0.6 },
+    "BEH-FORMALITY": { value: 0.6, confidence: 0.6 },
+    "BEH-DIRECTNESS": { value: 0.5, confidence: 0.6 },
+    "BEH-CHALLENGE-LEVEL": { value: 0.7, confidence: 0.6 },
+    _matrixPositions: {
+      "communication-style": { x: 0.85, y: 0.6 },
+      "teaching-approach": { x: 0.5, y: 0.7 },
+    },
+  },
+
+  subjects: [
+    {
+      slug: `${TAG}-big-ideas`,
+      name: "Big Ideas",
+      description:
+        "Philosophy, ethics, and the great questions — free will, consciousness, justice, meaning, the nature of knowledge. Conversational exploration, not lectures.",
+      qualificationBody: "Open",
+      qualificationLevel: "Lifelong Learning",
+    },
+    {
+      slug: `${TAG}-science-everyday`,
+      name: "Science of Everyday Life",
+      description:
+        "The fascinating science behind ordinary things — why the sky is blue, how memory works, what makes bread rise, the physics of music. Accessible, surprising, rigorous.",
+      qualificationBody: "Open",
+      qualificationLevel: "Lifelong Learning",
+    },
+  ],
+
+  sources: [
+    {
+      slug: `${TAG}-philosophy-companion`,
+      name: "The Philosophy Companion",
+      description:
+        "Accessible introductions to major philosophical traditions, thinkers, and thought experiments — from Socrates to contemporary ethics.",
+      trustLevel: "PUBLISHED_REFERENCE",
+      documentType: "TEXTBOOK",
+      publisherOrg: "Oxford University Press",
+      subjectSlug: `${TAG}-big-ideas`,
+    },
+    {
+      slug: `${TAG}-great-questions`,
+      name: "Great Questions: A Reader",
+      description:
+        "Curated excerpts and provocations from philosophy, politics, and literature — designed to spark conversation, not end it.",
+      trustLevel: "EXPERT_CURATED",
+      documentType: "READING_PASSAGE",
+      publisherOrg: "Penguin Classics",
+      subjectSlug: `${TAG}-big-ideas`,
+    },
+    {
+      slug: `${TAG}-science-matters`,
+      name: "Science Matters: Everyday Explanations",
+      description:
+        "Clear, jargon-free explanations of scientific phenomena encountered in daily life — physics, biology, chemistry, psychology.",
+      trustLevel: "PUBLISHED_REFERENCE",
+      documentType: "TEXTBOOK",
+      publisherOrg: "Profile Books",
+      subjectSlug: `${TAG}-science-everyday`,
+    },
+    {
+      slug: `${TAG}-curious-minds`,
+      name: "Curious Minds: Questions Worth Asking",
+      description:
+        "A collection of deceptively simple questions ('Why do we dream?', 'What is time?') with rich, layered answers drawing on multiple disciplines.",
+      trustLevel: "EXPERT_CURATED",
+      documentType: "READING_PASSAGE",
+      publisherOrg: "Guardian Books",
+      subjectSlug: `${TAG}-science-everyday`,
+    },
+  ],
+
+  assertions: {
+    [`${TAG}-philosophy-companion`]: [
+      { assertion: "Socrates' method proceeds by questioning, not lecturing — the goal is to reveal what we think we know but don't", category: "fact", tags: ["philosophy", "socratic-method"] },
+      { assertion: "The trolley problem explores whether moral worth lies in outcomes (consequentialism) or the nature of actions themselves (deontology)", category: "fact", tags: ["ethics", "thought-experiment"] },
+      { assertion: "Stoicism teaches that we cannot control external events, only our responses — distinguishing what is 'up to us' from what is not", category: "fact", tags: ["philosophy", "stoicism"] },
+      { assertion: "Existentialism holds that existence precedes essence — we are not born with a fixed nature but create ourselves through choices", category: "fact", tags: ["philosophy", "existentialism"] },
+      { assertion: "Epistemology asks not just 'what do we know?' but 'how do we know it?' — the justified true belief framework and its limits", category: "definition", tags: ["philosophy", "epistemology"] },
+    ],
+    [`${TAG}-great-questions`]: [
+      { assertion: "The ship of Theseus asks: if every plank is replaced over time, is it still the same ship? This probes identity, continuity, and what makes something 'itself'", category: "fact", tags: ["philosophy", "identity"] },
+      { assertion: "Hannah Arendt's 'banality of evil' suggests the greatest atrocities are committed not by monsters but by ordinary people who stop thinking critically", category: "fact", tags: ["philosophy", "politics"] },
+      { assertion: "The Chinese Room argument (Searle) challenges whether a system that processes symbols can truly 'understand' — directly relevant to modern AI", category: "fact", tags: ["philosophy", "ai", "consciousness"] },
+      { assertion: "Isaiah Berlin's distinction between positive and negative liberty: freedom TO do something vs freedom FROM interference — still shapes political debate", category: "fact", tags: ["philosophy", "politics", "liberty"] },
+      { assertion: "Good philosophical conversation invites genuine disagreement — the goal is not to win but to understand more clearly why reasonable people differ", category: "rule", tags: ["conversation", "method"] },
+    ],
+    [`${TAG}-science-matters`]: [
+      { assertion: "The sky appears blue because shorter (blue) wavelengths of sunlight scatter more in the atmosphere — Rayleigh scattering, not reflection", category: "fact", tags: ["physics", "light"] },
+      { assertion: "Memory is reconstructive, not reproductive — each time we recall an event, we subtly reshape it, which is why eyewitness testimony is unreliable", category: "fact", tags: ["psychology", "memory"] },
+      { assertion: "Bread rises because yeast produces CO₂ through fermentation — the gluten network traps the gas, creating the spongy texture", category: "fact", tags: ["chemistry", "food-science"] },
+      { assertion: "Musical harmony works because consonant intervals (octave, fifth, fourth) have simple frequency ratios — our brains perceive these as 'pleasant'", category: "fact", tags: ["physics", "music"] },
+      { assertion: "The placebo effect is not 'imaginary' — it produces measurable changes in brain chemistry, including endorphin release and dopamine pathway activation", category: "fact", tags: ["medicine", "psychology"] },
+    ],
+    [`${TAG}-curious-minds`]: [
+      { assertion: "We dream during REM sleep, but why remains debated — leading theories include memory consolidation, emotional processing, and threat simulation", category: "fact", tags: ["neuroscience", "sleep"] },
+      { assertion: "Time is not absolute — Einstein showed it dilates with speed and gravity, meaning clocks on GPS satellites tick faster than clocks on Earth", category: "fact", tags: ["physics", "relativity"] },
+      { assertion: "Trees communicate through underground fungal networks (mycorrhiza) — sharing nutrients, sending chemical warnings about pests, even favouring their own offspring", category: "fact", tags: ["biology", "ecology"] },
+      { assertion: "Déjà vu likely occurs when a partial memory match triggers a sense of familiarity without full conscious recall — a misfiring of the recognition system", category: "fact", tags: ["psychology", "memory"] },
+      { assertion: "The Fermi Paradox asks: if the universe is vast and old, where is everyone? The silence itself is the puzzle — dozens of proposed solutions, none conclusive", category: "fact", tags: ["astronomy", "philosophy"] },
+    ],
+  },
+
+  channels: [
+    { channelType: "sim", isEnabled: true, priority: 0 },
+    { channelType: "whatsapp", isEnabled: true, priority: 1 },
+    { channelType: "sms", isEnabled: false, priority: 2 },
+  ],
+
+  teachers: [
+    { firstName: "Eleanor", lastName: "Vane", email: `${TAG}-e.vane@curiositycircle.org`, role: "ADMIN", className: null },
+    { firstName: "Robert", lastName: "Ashworth", email: `${TAG}-r.ashworth@curiositycircle.org`, role: "EDUCATOR", className: "Big Ideas" },
+    { firstName: "Diane", lastName: "Okoro", email: `${TAG}-d.okoro@curiositycircle.org`, role: "EDUCATOR", className: "Science & Wonder" },
+  ],
+
+  cohorts: [
+    { name: "Monday Philosophers", teacherEmail: `${TAG}-r.ashworth@curiositycircle.org`, pupilCount: 8 },
+    { name: "Science Explorers", teacherEmail: `${TAG}-d.okoro@curiositycircle.org`, pupilCount: 8 },
+    { name: "Open Conversation", teacherEmail: `${TAG}-e.vane@curiositycircle.org`, pupilCount: 4 },
+  ],
+
+  pupils: [
+    "Margaret Thornton", "Geoffrey Wells", "Patricia Hargreaves", "Bernard Kingsley",
+    "Joan Whitfield", "Arthur Pemberton", "Sylvia Langdon", "Dennis Rutherford",
+    "Vivienne Blackwood", "Kenneth Marsh", "Dorothy Ainsworth", "Leonard Foyle",
+    "Barbara Ellsworth", "Raymond Holt", "Iris Greenaway", "Walter Davenport",
+    "Marjorie Cavendish", "Harold Sinclair", "Audrey Nightingale", "Clifford Drake",
+  ],
+
+  playbookName: "Curiosity Circle Conversations",
+  playbookDescription:
+    "Meaningful, wide-ranging conversations for curious minds — philosophy, science, arts, and ideas. Companion-led, not instructional.",
+  playbookConfig: {
+    teachingMode: "Socratic",
+    subjectDiscipline: "interdisciplinary",
+  },
+};
+
+const ALL_DOMAINS: DomainConfig[] = [ALDERMOOR, CURIOSITY_CIRCLE, GREENFIELD];
 
 // ══════════════════════════════════════════════════════════
 // CLEANUP
@@ -464,52 +668,45 @@ async function cleanup() {
     const domainId = domain.id;
 
     // FK-safe order (deepest leaves → roots)
-    // Raw SQL avoids Prisma FK-constraint whack-a-mole.
-    const q = (sql: string) =>
-      prisma.$executeRawUnsafe(sql, domainId);
+    // Uses Prisma deleteMany to handle @@map table name remapping.
+    // Complete list from ENTITY_DEPENDENCY_TREE + schema FK analysis.
+    const cw = { where: { caller: { domainId } } } as const;
+    const ccw = { where: { call: { caller: { domainId } } } } as const;
 
-    // Call-level leaves
-    await q(`DELETE FROM "CallScore" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
-    await q(`DELETE FROM "BehaviorMeasurement" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
-    await q(`DELETE FROM "CallMessage" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
-    await q(`DELETE FROM "CallTarget" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
-    await q(`DELETE FROM "CallAction" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
-    await q(`DELETE FROM "RewardScore" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
-    await q(`DELETE FROM "ConversationArtifact" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
-    await q(`DELETE FROM "PromptSlugSelection" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
-    await q(`DELETE FROM "InboundMessage" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
-    await q(`DELETE FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    // 1. Call children
+    await prisma.callScore.deleteMany(cw);
+    await prisma.behaviorMeasurement.deleteMany(ccw);
+    await prisma.callMessage.deleteMany(ccw);
+    await prisma.rewardScore.deleteMany(ccw);
+    await prisma.conversationArtifact.deleteMany(ccw);
+    await prisma.call.deleteMany(cw);
 
-    // Caller-level children
-    await q(`DELETE FROM "ComposedPrompt" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "CallerIdentity" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "CallerMemory" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "CallerMemorySummary" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "CallerPersonalityProfile" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "PersonalityObservation" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "Goal" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "CallerPlaybook" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "CallerCohortMembership" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "CallerAttribute" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "CallerTarget" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "CallerModuleProgress" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "OnboardingSession" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "UsageEvent" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    // 2. Caller children (non-cascading FKs)
+    await prisma.composedPrompt.deleteMany(cw);
+    await prisma.callerIdentity.deleteMany(cw);
+    await prisma.callerMemory.deleteMany(cw);
+    await prisma.callerMemorySummary.deleteMany(cw);
+    await prisma.callerPersonalityProfile.deleteMany(cw);
+    await prisma.personalityObservation.deleteMany(cw);
+    await prisma.goal.deleteMany(cw);
+    await prisma.callerPlaybook.deleteMany(cw);
+    await prisma.callerCohortMembership.deleteMany(cw);
+    await prisma.onboardingSession.deleteMany(cw);
 
-    // CohortGroup.ownerId → Caller, so cohorts before callers
-    await q(`DELETE FROM "CohortPlaybook" WHERE "cohortGroupId" IN (SELECT id FROM "CohortGroup" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "CohortGroup" WHERE "domainId" = $1`);
-    await q(`DELETE FROM "Caller" WHERE "domainId" = $1`);
+    // 3. CohortGroup.ownerId → Caller, so delete cohorts BEFORE callers
+    await prisma.cohortPlaybook.deleteMany({ where: { cohortGroup: { domainId } } });
+    await prisma.cohortGroup.deleteMany({ where: { domainId } });
+    await prisma.caller.deleteMany({ where: { domainId } });
 
-    // Domain-level children
-    await q(`DELETE FROM "ChannelConfig" WHERE "domainId" = $1`);
-    await q(`DELETE FROM "OnboardingSession" WHERE "domainId" = $1`);
-    await q(`DELETE FROM "PlaybookItem" WHERE "playbookId" IN (SELECT id FROM "Playbook" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "PlaybookSubject" WHERE "playbookId" IN (SELECT id FROM "Playbook" WHERE "domainId" = $1)`);
-    await q(`DELETE FROM "Playbook" WHERE "domainId" = $1`);
-    await q(`DELETE FROM "PlaybookGroup" WHERE "domainId" = $1`);
-    await q(`DELETE FROM "SubjectDomain" WHERE "domainId" = $1`);
-    await q(`DELETE FROM "Domain" WHERE id = $1`);
+    // 4. Domain-level children
+    await prisma.channelConfig.deleteMany({ where: { domainId } });
+    await prisma.onboardingSession.deleteMany({ where: { domainId } });
+    await prisma.playbookItem.deleteMany({ where: { playbook: { domainId } } });
+    await prisma.playbookSubject.deleteMany({ where: { playbook: { domainId } } });
+    await prisma.playbook.deleteMany({ where: { domainId } });
+    await prisma.playbookGroup.deleteMany({ where: { domainId } });
+    await prisma.subjectDomain.deleteMany({ where: { domainId } });
+    await prisma.domain.delete({ where: { id: domainId } });
 
     console.log(`    Removed domain: ${cfg.name}`);
   }
@@ -536,34 +733,48 @@ async function cleanup() {
 // ══════════════════════════════════════════════════════════
 
 async function ensureInstitution(cfg: DomainConfig): Promise<string> {
-  // Ensure "School" institution type exists (shared across domains)
+  const typeSlug = cfg.institutionTypeSlug || "school";
+
+  // Ensure institution type exists (seed-institution-types.ts should have created it)
   let instType = await prisma.institutionType.findUnique({
-    where: { slug: "school" },
+    where: { slug: typeSlug },
   });
 
   if (!instType) {
-    instType = await prisma.institutionType.create({
-      data: {
-        slug: "school",
+    // Fallback: create minimal type if seed-institution-types hasn't run
+    const fallbacks: Record<string, { name: string; description: string; terminology: Record<string, string>; defaultArchetypeSlug: string }> = {
+      school: {
         name: "School",
         description: "Primary or secondary school",
         terminology: {
-          domain: "School",
-          playbook: "Subject",
-          spec: "Content",
-          caller: "Student",
-          cohort: "Class",
-          instructor: "Teacher",
-          session: "Lesson",
-          session_short: "Lesson",
-          persona: "Teaching Style",
-          supervisor: "My Teacher",
-          mentor: "Teacher",
-          teach_action: "Teach",
-          learning_noun: "Learning",
-          group: "Department",
+          domain: "School", playbook: "Subject", spec: "Content", caller: "Student",
+          cohort: "Class", instructor: "Teacher", session: "Lesson", session_short: "Lesson",
+          persona: "Teaching Style", supervisor: "My Teacher", mentor: "Teacher",
+          teach_action: "Teach", learning_noun: "Learning", group: "Department",
         },
         defaultArchetypeSlug: "TUT-001",
+      },
+      community: {
+        name: "Community",
+        description: "Purpose-led communities, support groups, and member networks",
+        terminology: {
+          domain: "Hub", playbook: "Programme", spec: "Topic", caller: "Member",
+          cohort: "Community", instructor: "Facilitator", session: "Call", session_short: "Call",
+          persona: "Guide Style", supervisor: "My Guide", mentor: "Guide",
+          teach_action: "Facilitate", learning_noun: "Journey", group: "Circle",
+        },
+        defaultArchetypeSlug: "COMPANION-001",
+      },
+    };
+
+    const fb = fallbacks[typeSlug] || fallbacks.school;
+    instType = await prisma.institutionType.create({
+      data: {
+        slug: typeSlug,
+        name: fb.name,
+        description: fb.description,
+        terminology: fb.terminology,
+        defaultArchetypeSlug: fb.defaultArchetypeSlug,
       },
     });
   }
@@ -693,6 +904,7 @@ async function createDomain(
       slug: cfg.slug,
       name: cfg.name,
       description: cfg.description,
+      kind: cfg.kind || "INSTITUTION",
       isActive: true,
       institutionId,
       onboardingWelcome: cfg.onboardingWelcome,
@@ -740,9 +952,10 @@ async function createPlaybook(
     },
   });
 
-  // Link identity spec to playbook
+  // Link identity spec to playbook — use domain's archetype (COMPANION-001 for community, TUT-001 for schools)
+  const archetypeSlug = cfg.archetypeSlug || "TUT-001";
   const identitySpec = await prisma.analysisSpec.findFirst({
-    where: { slug: { contains: "tut-001", mode: "insensitive" }, isActive: true },
+    where: { slug: { contains: archetypeSlug.toLowerCase(), mode: "insensitive" }, isActive: true },
     select: { id: true },
   });
 
@@ -962,7 +1175,7 @@ export async function main(externalPrisma?: PrismaClient) {
   console.log(`  Time:         ${elapsed}s`);
   console.log("══════════════════════════════════════════════");
   console.log(`\n  Open: /x/holographic`);
-  console.log(`  Domains will appear in picker: Aldermoor College, Greenfield Academy\n`);
+  console.log(`  Domains will appear in picker: Aldermoor College, Curiosity Circle, Greenfield Academy\n`);
 }
 
 if (require.main === module) {
