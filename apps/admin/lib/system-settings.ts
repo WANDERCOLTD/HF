@@ -803,8 +803,8 @@ export interface LessonPlanSettings {
 }
 
 export const LESSON_PLAN_DEFAULTS: LessonPlanSettings = {
-  sessionCount: 12,
-  durationMins: 30,
+  sessionCount: 6,
+  durationMins: 15,
   emphasis: "balanced",
   assessments: "light",
   lessonPlanModel: "direct_instruction",

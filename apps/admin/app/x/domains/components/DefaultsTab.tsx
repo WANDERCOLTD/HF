@@ -48,7 +48,7 @@ export function DefaultsTabContent({
 
   // Form state (mirrors defaults but editable)
   const [sessionCount, setSessionCount] = useState<number | null>(null);
-  const [durationMins, setDurationMins] = useState<number>(30);
+  const [durationMins, setDurationMins] = useState<number>(15);
   const [emphasis, setEmphasis] = useState<string>("balanced");
   const [assessments, setAssessments] = useState<string>("light");
   const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>("direct_instruction");

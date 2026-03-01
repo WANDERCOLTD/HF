@@ -16,6 +16,10 @@ import {
   INTERACTION_PATTERN_LABELS,
   suggestInteractionPattern,
   type InteractionPattern,
+  TEACHING_MODE_ORDER,
+  TEACHING_MODE_LABELS,
+  suggestTeachingMode,
+  type TeachingMode,
 } from "@/lib/content-trust/resolve-config";
 import { LessonPlanModelPicker } from "@/components/shared/LessonPlanModelPicker";
 import { SessionCountPicker } from "@/components/shared/SessionCountPicker";
@@ -103,11 +107,14 @@ export function CourseBuilderStep({
   // ── Teaching Style state ───────────────────────────
   const [pattern, setPattern] = useState<InteractionPattern | undefined>();
   const [suggestedPattern, setSuggestedPattern] = useState<InteractionPattern | null>(null);
+  const [teachingMode, setTeachingMode] = useState<TeachingMode>("recall");
+  const [suggestedTeachingMode, setSuggestedTeachingMode] = useState<TeachingMode | null>(null);
   const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>("direct_instruction");
+  const suggestModeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Plan Settings state ────────────────────────────
-  const [sessionCount, setSessionCount] = useState<number | null>(12);
-  const [durationMins, setDurationMins] = useState(30);
+  const [sessionCount, setSessionCount] = useState<number | null>(6);
+  const [durationMins, setDurationMins] = useState(15);
   const [emphasis, setEmphasis] = useState("balanced");
   const [assessments, setAssessments] = useState("light");
 
@@ -181,6 +188,36 @@ export function CourseBuilderStep({
       setSuggestedPattern(suggestInteractionPattern(courseName));
     }
   }, [courseName, pattern]);
+
+  // ── Auto-suggest teaching mode from course name ───
+  useEffect(() => {
+    if (suggestModeTimerRef.current) clearTimeout(suggestModeTimerRef.current);
+    const name = courseName.trim();
+    if (name.length < 3) { setSuggestedTeachingMode(null); return; }
+    const hit = suggestTeachingMode(name);
+    if (hit) {
+      setSuggestedTeachingMode(hit);
+      setTeachingMode(hit);
+      return;
+    }
+    if (name.length < 10) { setSuggestedTeachingMode(null); return; }
+    suggestModeTimerRef.current = setTimeout(() => {
+      fetch("/api/courses/suggest-type", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseName: name }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.ok && data.mode && data.confidence >= 0.5) {
+            setSuggestedTeachingMode(data.mode);
+            setTeachingMode(data.mode);
+          }
+        })
+        .catch(() => {});
+    }, 600);
+    return () => { if (suggestModeTimerRef.current) clearTimeout(suggestModeTimerRef.current); };
+  }, [courseName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auto-draft welcome message on outcomes arrival ─
   useEffect(() => {
@@ -292,7 +329,7 @@ export function CourseBuilderStep({
           learningOutcomes: outcomes.filter((o) => o.trim()),
           teachingStyle: "tutor",
           interactionPattern: effectivePattern,
-          sessionCount: sessionCount ?? 12,
+          sessionCount: sessionCount ?? 6,
           durationMins,
           emphasis,
           assessments,
@@ -342,8 +379,15 @@ export function CourseBuilderStep({
         setData("packSubjects", result.subjects);
         setData("packSubjectIds", result.subjects.map((s) => s.id));
       }
+      // Auto-regenerate lesson plan now that TPs are available
+      if (result.extractionTotals?.assertions && result.extractionTotals.assertions > 0) {
+        planFired.current = false;
+        setPlanSessions([]);
+        setPlanState("generating");
+        firePlanGeneration();
+      }
     }
-  }, [setData]);
+  }, [setData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAcceptSuggestion = useCallback((suggestion: string) => {
     setOutcomes((prev) => [...prev, suggestion]);
@@ -381,16 +425,17 @@ export function CourseBuilderStep({
           courseName: courseName.trim(),
           learningOutcomes: filteredOutcomes,
           teachingStyle: "tutor",
-          sessionCount: sessionCount ?? 12,
+          sessionCount: sessionCount ?? 6,
           durationMins,
           emphasis,
           domainId: selectedDomainId || undefined,
           interactionPattern: effectivePattern,
+          teachingMode,
           welcomeMessage,
           studentEmails: [],
           subjectId: subjectId || undefined,
           curriculumId: curriculumId || undefined,
-          planIntents: { sessionCount: sessionCount ?? 12, durationMins, emphasis, assessments },
+          planIntents: { sessionCount: sessionCount ?? 6, durationMins, emphasis, assessments },
           lessonPlanMode: planSessions.length > 0 ? "accepted" : "skipped",
           wizardTaskId: wizardTaskId || undefined,
           packSubjectIds: packResult?.subjects?.map((s) => s.id) || undefined,
@@ -671,7 +716,7 @@ export function CourseBuilderStep({
                 domainId={selectedDomainId}
                 courseName={courseName.trim()}
                 interactionPattern={effectivePattern || undefined}
-                teachingMode={lessonPlanModel}
+                teachingMode={teachingMode}
                 initialFiles={seedFiles.length > 0 ? seedFiles : undefined}
                 autoIngest
                 onResult={handlePackResult}
@@ -699,6 +744,8 @@ export function CourseBuilderStep({
             badge={
               <DraftBadge variant="muted">
                 {INTERACTION_PATTERN_LABELS[(effectivePattern || "directive") as InteractionPattern]?.label || "Directive"}
+                {" · "}
+                {TEACHING_MODE_LABELS[teachingMode]?.icon} {TEACHING_MODE_LABELS[teachingMode]?.label || "Recall"}
               </DraftBadge>
             }
           >
@@ -724,6 +771,33 @@ export function CourseBuilderStep({
                     }}
                   >
                     {INTERACTION_PATTERN_LABELS[p].label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <FieldHint
+                label="Content emphasis"
+                hint={WIZARD_HINTS["course.teachingMode"]}
+                labelClass="hf-label"
+              />
+              <div className="hf-chip-row" style={{ marginTop: 8 }}>
+                {TEACHING_MODE_ORDER.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={
+                      "hf-chip" +
+                      (teachingMode === m ? " hf-chip-selected" : "") +
+                      (suggestedTeachingMode === m && teachingMode !== m ? " hf-chip-suggested" : "")
+                    }
+                    onClick={() => {
+                      setTeachingMode(m);
+                      setSuggestedTeachingMode(null);
+                    }}
+                  >
+                    {TEACHING_MODE_LABELS[m].icon} {TEACHING_MODE_LABELS[m].label}
                   </button>
                 ))}
               </div>
@@ -783,7 +857,7 @@ export function CourseBuilderStep({
             defaultOpen={false}
             badge={
               <DraftBadge variant="muted">
-                {sessionCount ?? 12} \u00d7 {durationMins} min \u00b7{" "}
+                {sessionCount ?? 6} \u00d7 {durationMins} min \u00b7{" "}
                 {emphasis.charAt(0).toUpperCase() + emphasis.slice(1)}
               </DraftBadge>
             }

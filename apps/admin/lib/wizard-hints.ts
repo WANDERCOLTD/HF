@@ -102,6 +102,17 @@ export const WIZARD_HINTS: Record<string, FieldHintContent> = {
     examples: ["Tutor (patient, structured)", "Coach (goal-driven)", "Socratic (questioning)"],
   },
 
+  "course.teachingMode": {
+    why: "Tells the AI what kind of content to emphasise and how to quiz the learner.",
+    effect: "Recall = facts and quizzes. Comprehension = reading and discussion. Practice = worked examples. Syllabus = structured coverage.",
+    examples: [
+      "History → Recall (dates, events, key people)",
+      "English Literature → Comprehension (passages, analysis)",
+      "Maths → Practice (worked examples, exercises)",
+      "Food Safety → Syllabus (structured coverage)",
+    ],
+  },
+
   "course.interactionPattern": {
     why: "Sets how the AI communicates — the relationship style, not just the topic.",
     effect: "Directive → explains and checks. Socratic → questions and provokes. Advisory → cites and scopes. Coaching → goal-focused. Companion → listens without agenda. Facilitation → coordinates and organises. Reflective → explores meaning. Open → follows the caller.",
@@ -122,7 +133,7 @@ export const WIZARD_HINTS: Record<string, FieldHintContent> = {
   "course.duration": {
     why: "Session length affects how deep each lesson can go.",
     effect: "Shorter sessions cover less per call; longer sessions allow deeper exploration.",
-    examples: ["15 min (quick check-in)", "30 min (standard)", "60 min (deep dive)"],
+    examples: ["15 min (standard)", "30 min (extended)", "45 min (deep dive)"],
   },
 
   "course.emphasis": {

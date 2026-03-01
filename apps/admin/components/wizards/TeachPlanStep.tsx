@@ -88,7 +88,7 @@ export function TeachPlanStep({
 
   // Intent state
   const [sessionCount, setSessionCount] = useState<number | null>(null);
-  const [durationMins, setDurationMins] = useState(30);
+  const [durationMins, setDurationMins] = useState(15);
   const [emphasis, setEmphasis] = useState<Emphasis>("balanced");
   const [assessments, setAssessments] = useState<Assessment>("light");
   const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>("direct_instruction");

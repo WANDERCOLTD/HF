@@ -1056,9 +1056,10 @@ export function suggestInteractionPattern(courseName: string): InteractionPatter
 // ── Teaching Mode ────────────────────────────────────────────────────────────
 
 /**
- * The teacher's macro intent for a course. Drives extraction weights and
- * lesson plan shape. Stored in Playbook.config.teachingMode.
- * @deprecated Use InteractionPattern instead. Kept for backward compatibility.
+ * Content emphasis for a course. Drives extraction weights (intentCategoryWeights),
+ * teachMethod assignment (categoryToTeachMethod), and pedagogy-mode prompt.
+ * Stored in Playbook.config.teachingMode.
+ * Orthogonal to InteractionPattern (WHAT emphasis vs HOW to interact).
  */
 export type TeachingMode = "recall" | "comprehension" | "practice" | "syllabus";
 

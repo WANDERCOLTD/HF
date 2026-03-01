@@ -254,7 +254,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
 
     // Store resolved defaults in data bag for LessonPlanStep
     const defaults = resolvedDefaults ?? {
-      sessionCount: 12, durationMins: 30, emphasis: 'balanced', assessments: 'light', lessonPlanModel: 'direct_instruction',
+      sessionCount: 6, durationMins: 15, emphasis: 'balanced', assessments: 'light', lessonPlanModel: 'direct_instruction',
     };
     setData('resolvedDefaults', defaults);
 

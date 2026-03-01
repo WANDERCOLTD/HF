@@ -1299,7 +1299,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
       const res = await fetch("/api/lesson-plan/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subjectIds, sessionLength: 30, lessonPlanModel }),
+        body: JSON.stringify({ subjectIds, sessionLength: 15, lessonPlanModel }),
       });
       const data = await res.json();
       if (
@@ -1386,7 +1386,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
         sessionType: "introduce" as const,
         tpCount: 0,
         tpIds: [],
-        durationMins: 30,
+        durationMins: 15,
         objectives: [],
         editing: true,
       },

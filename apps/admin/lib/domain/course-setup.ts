@@ -52,8 +52,9 @@ export interface CourseSetupInput {
   onboardingFlowPhases?: Array<{ phase: string; duration: string; goals: string[]; avoid?: string[] }>;
   // Content step — subjects created by PackUploadStep (with actual ContentSources)
   packSubjectIds?: string[];
-  // Two-axis identity: session structure (stored in Playbook.config)
-  interactionPattern?: string; // "socratic" | "directive" | "advisory" | "coaching" | "companion" | "facilitation" | "reflective" | "open"
+  // Two-axis identity (stored in Playbook.config)
+  interactionPattern?: string; // HOW to interact: "socratic" | "directive" | "advisory" | "coaching" | ...
+  teachingMode?: string; // WHAT to emphasise: "recall" | "comprehension" | "practice" | "syllabus"
   // Wizard task tracking — reuse wizard task for launch progress
   wizardTaskId?: string;
   // Optional department/division/track grouping
@@ -281,8 +282,8 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
       ctx.results.playbookId = scaffoldResult.playbook.id;
       ctx.results.playbookName = scaffoldResult.playbook.name;
 
-      // Store interactionPattern in playbook config if provided
-      if (ctx.input.interactionPattern) {
+      // Store interactionPattern + teachingMode in playbook config if provided
+      if (ctx.input.interactionPattern || ctx.input.teachingMode) {
         const pb = await prisma.playbook.findUnique({
           where: { id: scaffoldResult.playbook.id },
           select: { config: true },
@@ -291,7 +292,11 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
         await prisma.playbook.update({
           where: { id: scaffoldResult.playbook.id },
           data: {
-            config: { ...existingConfig, interactionPattern: ctx.input.interactionPattern },
+            config: {
+              ...existingConfig,
+              ...(ctx.input.interactionPattern && { interactionPattern: ctx.input.interactionPattern }),
+              ...(ctx.input.teachingMode && { teachingMode: ctx.input.teachingMode }),
+            },
           },
         });
       }

@@ -57,8 +57,8 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
   const learningOutcomes = getData<string[]>('learningOutcomes') || [];
   const lessonPlanMode = getData<string>('lessonPlanMode') || 'skipped';
   const planIntents = getData<{ sessionCount: number; durationMins: number; emphasis: string; assessments: string }>('planIntents');
-  const sessionCount = getData<number>('sessionCount') || planIntents?.sessionCount || 12;
-  const durationMins = getData<number>('durationMins') || planIntents?.durationMins || 30;
+  const sessionCount = getData<number>('sessionCount') || planIntents?.sessionCount || 6;
+  const durationMins = getData<number>('durationMins') || planIntents?.durationMins || 15;
   const emphasis = getData<string>('emphasis') || planIntents?.emphasis || 'balanced';
   const studentEmails = getData<string[]>('studentEmails') || [];
   const cohortGroupIds = getData<string[]>('cohortGroupIds') || [];

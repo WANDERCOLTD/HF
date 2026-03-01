@@ -53,7 +53,7 @@ export default function PlanStep({ setData, getData, onNext, onPrev }: StepProps
 
   // Intent inputs
   const [sessionCount, setSessionCount] = useState<number | null>(null);
-  const [durationMins, setDurationMins] = useState<number>(30);
+  const [durationMins, setDurationMins] = useState<number>(15);
   const [emphasis, setEmphasis] = useState<typeof EMPHASIS_OPTIONS[number]>("balanced");
   const [assessments, setAssessments] = useState<typeof ASSESSMENT_OPTIONS[number]>("light");
 

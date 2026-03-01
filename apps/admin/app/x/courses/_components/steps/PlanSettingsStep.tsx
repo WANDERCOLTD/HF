@@ -22,7 +22,7 @@ import type { StepProps } from "../CourseSetupWizard";
 export function PlanSettingsStep({ setData, getData, onNext, onPrev }: StepProps) {
   // ── State ──────────────────────────────────────────
   const [sessionCount, setSessionCount] = useState<number | null>(null);
-  const [durationMins, setDurationMins] = useState<number>(30);
+  const [durationMins, setDurationMins] = useState<number>(15);
   const [emphasis, setEmphasis] = useState<typeof EMPHASIS_OPTIONS[number]>("balanced");
   const [assessments, setAssessments] = useState<typeof ASSESSMENT_OPTIONS[number]>("light");
   const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>("direct_instruction");
@@ -74,7 +74,7 @@ export function PlanSettingsStep({ setData, getData, onNext, onPrev }: StepProps
 
   function savePlanIntents() {
     const intents = {
-      sessionCount: sessionCount || 12,
+      sessionCount: sessionCount || 6,
       durationMins,
       emphasis,
       assessments,
@@ -117,7 +117,7 @@ export function PlanSettingsStep({ setData, getData, onNext, onPrev }: StepProps
           learningOutcomes,
           teachingStyle,
           interactionPattern,
-          sessionCount: sessionCount || 12,
+          sessionCount: sessionCount || 6,
           durationMins,
           emphasis,
           assessments,

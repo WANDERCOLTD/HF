@@ -97,7 +97,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
 
   // Intent inputs (initialized from cascade-resolved defaults in mount effect)
   const [sessionCount, setSessionCount] = useState<number | null>(null);
-  const [durationMins, setDurationMins] = useState<number>(30);
+  const [durationMins, setDurationMins] = useState<number>(15);
   const [emphasis, setEmphasis] = useState<typeof EMPHASIS_OPTIONS[number]>("balanced");
   const [assessments, setAssessments] = useState<typeof ASSESSMENT_OPTIONS[number]>("light");
   const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>("direct_instruction");
@@ -306,13 +306,13 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
 
   function savePlanIntents() {
     setData("planIntents", {
-      sessionCount: sessionCount || 12,
+      sessionCount: sessionCount || 6,
       durationMins,
       emphasis,
       assessments,
       lessonPlanModel,
     });
-    setData("sessionCount", sessionCount || 12);
+    setData("sessionCount", sessionCount || 6);
     setData("durationMins", durationMins);
     setData("emphasis", emphasis);
     setData("lessonPlanModel", lessonPlanModel);
@@ -321,8 +321,8 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
   function handleSkip() {
     setData("stepProcessing_lesson-plan", false);
     setData("lessonPlanMode", "skipped");
-    setData("sessionCount", 12);
-    setData("durationMins", 30);
+    setData("sessionCount", 6);
+    setData("durationMins", 15);
     onNext();
   }
 
@@ -350,7 +350,7 @@ export function LessonPlanStep({ setData, getData, onNext, onPrev }: StepProps) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           courseName, learningOutcomes, teachingStyle, interactionPattern,
-          sessionCount: sessionCount || 12, durationMins, emphasis, assessments,
+          sessionCount: sessionCount || 6, durationMins, emphasis, assessments,
           lessonPlanModel,
         }),
         signal: controller.signal,
