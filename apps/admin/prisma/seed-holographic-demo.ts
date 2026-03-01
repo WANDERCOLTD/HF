@@ -480,11 +480,13 @@ async function cleanup() {
     await prisma.goal.deleteMany({ where: { caller: { domainId } } });
     await prisma.callerPlaybook.deleteMany({ where: { caller: { domainId } } });
     await prisma.callerCohortMembership.deleteMany({ where: { caller: { domainId } } });
+
+    // CohortGroup.ownerId → Caller, so delete cohorts BEFORE callers
+    await prisma.cohortPlaybook.deleteMany({ where: { cohortGroup: { domainId } } });
+    await prisma.cohortGroup.deleteMany({ where: { domainId } });
     await prisma.caller.deleteMany({ where: { domainId } });
 
     // Domain-level children
-    await prisma.cohortPlaybook.deleteMany({ where: { cohortGroup: { domainId } } });
-    await prisma.cohortGroup.deleteMany({ where: { domainId } });
     await prisma.channelConfig.deleteMany({ where: { domainId } });
     await prisma.playbookItem.deleteMany({ where: { playbook: { domainId } } });
     await prisma.playbookSubject.deleteMany({ where: { playbook: { domainId } } });
