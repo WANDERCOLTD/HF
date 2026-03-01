@@ -1,24 +1,29 @@
 "use client";
 
 /**
- * Holographic Institution Page
+ * Holographic Institution Page — Deep-Link Redirect
  *
- * Two-pane surface where every facet of a domain is visible simultaneously,
- * editable inline, and reactive across sections.
- *
- * Route: /x/institutions/[id]/holo
- * Create mode: /x/institutions/new/holo
- *
- * Parallel build — existing institution page at ../page.tsx is untouched.
+ * Redirects /x/institutions/[id]/holo → /x/holographic?domain=[id]
+ * Keeps backward compatibility with old URLs.
  */
 
-import { useParams } from "next/navigation";
-import { HolographicPage } from "@/components/holographic/HolographicPage";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import "./holographic-page.css";
 
 export default function HolographicRoute() {
   const params = useParams<{ id: string }>();
-  const domainId = params.id;
+  const router = useRouter();
 
-  return <HolographicPage domainId={domainId} />;
+  useEffect(() => {
+    router.replace(`/x/holographic?domain=${params.id}`);
+  }, [params.id, router]);
+
+  return (
+    <div className="hp-loading">
+      <Loader2 size={20} className="hf-spinner" />
+      <span>Redirecting…</span>
+    </div>
+  );
 }

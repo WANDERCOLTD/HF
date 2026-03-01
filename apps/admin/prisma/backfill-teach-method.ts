@@ -1,24 +1,18 @@
 /**
  * Backfill teachMethod on existing ContentAssertions where teachMethod is null.
  *
- * Maps assertion category → teachMethod using the same logic as extraction:
- *   definition              → definition_matching
- *   example / process       → worked_example
- *   fact / rule / threshold → recall_quiz  (default)
+ * Uses the canonical categoryToTeachMethod from resolve-config.ts with default
+ * "recall" teaching mode. For teaching-mode-aware backfill, use
+ * scripts/backfill-teach-method.ts instead.
  *
  * Usage:
  *   npx tsx prisma/backfill-teach-method.ts
  */
 
 import { PrismaClient } from "@prisma/client";
+import { categoryToTeachMethod } from "@/lib/content-trust/resolve-config";
 
 const prisma = new PrismaClient();
-
-function categoryToTeachMethod(category: string): string {
-  if (category === "definition") return "definition_matching";
-  if (category === "example" || category === "process") return "worked_example";
-  return "recall_quiz";
-}
 
 async function main() {
   const nullCount = await prisma.contentAssertion.count({
@@ -49,7 +43,7 @@ async function main() {
     // Group by teachMethod to minimise round-trips
     const byMethod = new Map<string, string[]>();
     for (const row of rows) {
-      const method = categoryToTeachMethod(row.category ?? "");
+      const method = categoryToTeachMethod(row.category ?? "", "recall");
       if (!byMethod.has(method)) byMethod.set(method, []);
       byMethod.get(method)!.push(row.id);
     }

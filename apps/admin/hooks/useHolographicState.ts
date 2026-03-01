@@ -39,6 +39,19 @@ export interface HoloState {
   /** Per-section data (loaded lazily when section is activated) */
   sections: Partial<Record<SectionId, unknown>>;
 
+  /** Raw domain detail from /api/domains/:id (for section components) */
+  domainDetail: Record<string, unknown> | null;
+
+  /** Raw readiness checks from /api/domains/:id/readiness (for ReadinessSection) */
+  readinessChecks: Array<{
+    id: string;
+    name: string;
+    passed: boolean;
+    severity: string;
+    message?: string;
+    fixAction?: string;
+  }>;
+
   /** Per-section readiness (always loaded — needed for map dots) */
   readinessMap: Record<SectionId, ReadinessLevel>;
 
@@ -120,6 +133,8 @@ export function createInitialState(
     description: null,
     institution: null,
     sections: {},
+    domainDetail: null,
+    readinessChecks: [],
     readinessMap: { ...DEFAULT_READINESS },
     summaries: { ...DEFAULT_SUMMARIES },
     activeSection,

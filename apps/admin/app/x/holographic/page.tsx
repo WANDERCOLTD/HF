@@ -1,21 +1,23 @@
 "use client";
 
 /**
- * Holographic Page — Domain Resolver
+ * Holographic Page — Main Entry Point
  *
- * Sidebar entry point. Fetches the user's domain(s) and:
- * - If exactly one domain → redirects to /x/institutions/{id}/holo
- * - If multiple → shows a picker
- * - If none → shows empty state with create link
+ * Fetches all domains, renders the two-pane editor with a domain
+ * selector at the top of the HoloMap. No intermediate picker page.
+ *
+ * - Auto-selects first domain (or URL param if provided)
+ * - Domain switching reloads section data in-place
+ * - Deep-link: /x/holographic?domain=<uuid>
  */
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Globe, Plus, Loader2 } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Globe, Loader2 } from "lucide-react";
+import { HolographicPage } from "@/components/holographic/HolographicPage";
 import "../institutions/[id]/holo/holographic-page.css";
 
-interface DomainItem {
+export interface DomainItem {
   id: string;
   name: string;
   slug: string;
@@ -23,8 +25,10 @@ interface DomainItem {
 }
 
 export default function HolographicResolver() {
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [domains, setDomains] = useState<DomainItem[] | null>(null);
+  const [activeDomainId, setActiveDomainId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,13 +38,25 @@ export default function HolographicResolver() {
         const list: DomainItem[] = data.domains || data || [];
         setDomains(list);
 
-        // Auto-redirect if exactly one domain
-        if (list.length === 1) {
-          router.replace(`/x/institutions/${list[0].id}/holo`);
-        }
+        // Pick initial domain: URL param → first domain
+        const paramDomain = searchParams.get("domain");
+        const initial =
+          list.find((d) => d.id === paramDomain) ?? list[0] ?? null;
+        if (initial) setActiveDomainId(initial.id);
       })
       .catch(() => setError("Failed to load domains"));
-  }, [router]);
+  }, [searchParams]);
+
+  const handleDomainChange = useCallback(
+    (domainId: string) => {
+      setActiveDomainId(domainId);
+      // Update URL without navigation
+      const url = new URL(window.location.href);
+      url.searchParams.set("domain", domainId);
+      router.replace(url.pathname + url.search, { scroll: false });
+    },
+    [router],
+  );
 
   // Loading
   if (!domains && !error) {
@@ -65,55 +81,22 @@ export default function HolographicResolver() {
   // No domains
   if (domains && domains.length === 0) {
     return (
-      <div style={{ padding: 40, textAlign: "center" }}>
-        <Globe size={40} style={{ color: "var(--text-placeholder)", marginBottom: 16 }} />
-        <h2 className="hf-page-title" style={{ marginBottom: 8 }}>No domains yet</h2>
-        <p className="hf-text-sm hf-text-muted" style={{ marginBottom: 20 }}>
+      <div className="hp-empty-state">
+        <Globe size={40} className="hp-empty-icon" />
+        <h2 className="hf-page-title">No domains yet</h2>
+        <p className="hp-empty-desc">
           Create a domain to get started with the holographic editor.
         </p>
-        <Link href="/x/institutions/new/holo" className="hf-btn hf-btn-primary">
-          <Plus size={14} />
-          Create Domain
-        </Link>
       </div>
     );
   }
 
-  // Multiple domains — show picker (single domain auto-redirected above)
+  // Two-pane editor with domain selector
   return (
-    <div style={{ padding: 40, maxWidth: 600 }}>
-      <h1 className="hf-page-title" style={{ marginBottom: 4 }}>Holographic Editor</h1>
-      <p className="hf-text-sm hf-text-muted" style={{ marginBottom: 24 }}>
-        Choose a domain to configure.
-      </p>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {domains!.map((d) => (
-          <Link
-            key={d.id}
-            href={`/x/institutions/${d.id}/holo`}
-            className="hf-card"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: 16,
-              textDecoration: "none",
-              cursor: "pointer",
-            }}
-          >
-            <Globe size={18} style={{ color: "var(--accent-primary)", flexShrink: 0 }} />
-            <div>
-              <div style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 14 }}>
-                {d.name}
-              </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                {d.institution?.name || d.slug}
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </div>
+    <HolographicPage
+      domainId={activeDomainId || domains![0].id}
+      domains={domains!}
+      onDomainChange={handleDomainChange}
+    />
   );
 }

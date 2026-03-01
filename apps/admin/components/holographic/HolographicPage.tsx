@@ -14,12 +14,23 @@ import type { SectionId } from "@/lib/holographic/permissions";
 import type { ReadinessLevel } from "@/hooks/useHolographicState";
 import { Map as MapIcon } from "lucide-react";
 
+export interface HoloDomain {
+  id: string;
+  name: string;
+  slug: string;
+  institution?: { name: string } | null;
+}
+
 interface HolographicPageProps {
   /** Domain ID, or "new" for create mode */
   domainId: string;
+  /** All available domains (for domain selector in HoloMap) */
+  domains?: HoloDomain[];
+  /** Called when user switches domain via selector */
+  onDomainChange?: (domainId: string) => void;
 }
 
-export function HolographicPage({ domainId }: HolographicPageProps) {
+export function HolographicPage({ domainId, domains, onDomainChange }: HolographicPageProps) {
   const { data: session } = useSession();
   const role = (session?.user?.role as UserRole) ?? "VIEWER";
   const isCreate = domainId === "new";
@@ -63,7 +74,15 @@ export function HolographicPage({ domainId }: HolographicPageProps) {
         const domainData = await domainRes.json();
         const domain = domainData.domain || domainData;
 
-        // Parse readiness
+        // Parse readiness checks + map
+        let readinessChecks: Array<{
+          id: string;
+          name: string;
+          passed: boolean;
+          severity: string;
+          message?: string;
+          fixAction?: string;
+        }> = [];
         let readinessMap: Record<SectionId, ReadinessLevel> = {
           identity: "none",
           curriculum: "none",
@@ -80,7 +99,7 @@ export function HolographicPage({ domainId }: HolographicPageProps) {
         if (readinessRes.ok) {
           const rd = await readinessRes.json();
           if (rd.checks) {
-            // Map readiness checks to sections
+            readinessChecks = rd.checks;
             readinessMap = mapReadinessToSections(rd.checks);
             const passed = rd.checks.filter((c: any) => c.passed).length;
             readinessSummary = `${passed}/${rd.checks.length} checks passing`;
@@ -99,8 +118,11 @@ export function HolographicPage({ domainId }: HolographicPageProps) {
             slug: domain.slug,
             description: domain.description,
             institution: domain.institution || null,
+            domainDetail: domain,
+            readinessChecks,
             readinessMap,
             summaries,
+            sections: {},
             loading: false,
             role,
           },
@@ -161,7 +183,12 @@ export function HolographicPage({ domainId }: HolographicPageProps) {
           />
         )}
 
-        <HoloMap mobileOpen={mobileMapOpen} />
+        <HoloMap
+          mobileOpen={mobileMapOpen}
+          domains={domains}
+          activeDomainId={domainId}
+          onDomainChange={onDomainChange}
+        />
         <HoloEditor />
 
         {/* Mobile FAB */}
@@ -250,6 +277,15 @@ function buildSummaries(domain: any): Record<SectionId, string> {
   const pbs = domain.playbooks?.length ?? 0;
   const callers = domain._count?.callers ?? domain.callers?.length ?? 0;
 
+  // Behavior: check for matrix positions in onboardingDefaultTargets
+  const targets = domain.onboardingDefaultTargets as Record<string, any> | null;
+  const hasMatrixPositions =
+    targets?._matrixPositions && Object.keys(targets._matrixPositions).length > 0;
+
+  // Channels: count enabled
+  const channels: Array<{ isEnabled: boolean }> = domain.channelConfigs || [];
+  const activeChannels = channels.filter((c) => c.isEnabled).length;
+
   return {
     identity: domain.onboardingIdentitySpec
       ? `${domain.onboardingIdentitySpec.slug}`
@@ -257,11 +293,13 @@ function buildSummaries(domain: any): Record<SectionId, string> {
     curriculum: subs > 0
       ? `${subs} subject${subs !== 1 ? "s" : ""}`
       : "No subjects",
-    behavior: "",
+    behavior: hasMatrixPositions ? "Tuning configured" : "No tuning set",
     onboarding: domain.onboardingWelcome
       ? "Welcome configured"
       : "No welcome message",
-    channels: "",
+    channels: channels.length > 0
+      ? `${activeChannels} of ${channels.length} active`
+      : "No channels",
     readiness: "",
     structure: pbs > 0
       ? `${pbs} course${pbs !== 1 ? "s" : ""} \u00B7 ${callers} caller${callers !== 1 ? "s" : ""}`

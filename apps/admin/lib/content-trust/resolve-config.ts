@@ -1229,42 +1229,90 @@ export const TEACH_METHOD_CONFIG: Record<
   recall_quiz: {
     label: "Recall quiz",
     icon: "🧠",
-    categories: ["fact", "concept", "rule", "threshold"],
+    // Default/TEXTBOOK + CURRICULUM (LOs/ACs to recall) + POLICY (safety/legal facts)
+    // + ASSESSMENT (answers, misconceptions) + generic fact-like categories
+    categories: [
+      "fact", "concept", "rule", "threshold",
+      // CURRICULUM
+      "learning_outcome", "assessment_criterion", "range",
+      // POLICY_DOCUMENT
+      "safety_point", "legal_requirement", "hazard", "record_requirement", "key_fact",
+      // ASSESSMENT
+      "misconception", "mark_scheme", "answer",
+      // WORKSHEET / COMPREHENSION
+      "information", "answer_key_item",
+      // EXAMPLE
+      "observation", "context",
+      // LESSON_PLAN (teacher-facing reference)
+      "objective", "timing", "resource", "assessment_opportunity",
+      // QUESTION_BANK (session-level reference)
+      "session_metadata",
+      // COMPANION pattern
+      "normalising_statement",
+    ],
   },
   definition_matching: {
     label: "Definition matching",
     icon: "🔤",
-    categories: ["vocabulary", "key_term", "definition"],
+    // Default + WORKSHEET + COMPREHENSION + READING_PASSAGE vocabulary categories
+    categories: [
+      "vocabulary", "key_term", "definition",
+      "vocabulary_exercise", "vocabulary_item", "vocabulary_highlight",
+    ],
   },
   close_reading: {
     label: "Close reading",
     icon: "📄",
-    categories: ["reading_passage"],
+    // Default + READING_PASSAGE literary analysis categories
+    categories: [
+      "reading_passage",
+      "key_event", "character", "language_feature", "key_quote", "setting", "theme",
+    ],
   },
   true_false: {
     label: "True / False",
     icon: "✔️",
-    categories: ["comprehension_task"],
+    // Generic + type-specific true_false category (WORKSHEET/ASSESSMENT/COMPREHENSION)
+    categories: ["comprehension_task", "true_false"],
   },
   matching_task: {
     label: "Matching task",
     icon: "🔗",
-    categories: ["comprehension_task"],
+    // Generic + WORKSHEET/COMPREHENSION/ASSESSMENT matching categories
+    categories: ["comprehension_task", "matching_exercise", "matching_item"],
   },
   guided_discussion: {
     label: "Guided discussion",
     icon: "💬",
-    categories: ["open_task"],
+    // Default + discussion/question categories from all document types + pattern supplementary
+    categories: [
+      "open_task",
+      // WORKSHEET / COMPREHENSION
+      "discussion_prompt", "question", "comprehension_question",
+      // EXAMPLE
+      "discussion_point",
+      // QUESTION_BANK
+      "tutor_question", "skill_description", "assessment_guidance",
+      // LESSON_PLAN
+      "differentiation", "plenary", "starter",
+      // Pattern supplementary (socratic, coaching, reflective, advisory, facilitation)
+      "dilemma", "reflection_question", "narrative_prompt", "caveat", "decision_framework",
+    ],
   },
   problem_solving: {
     label: "Problem solving",
     icon: "🔢",
-    categories: ["activity", "worksheet"],
+    // Default + COACHING pattern
+    categories: ["activity", "worksheet", "action_step"],
   },
   worked_example: {
     label: "Worked example",
     icon: "📝",
-    categories: ["worked_example", "example", "process"],
+    // Default + POLICY_DOCUMENT procedural categories
+    categories: [
+      "worked_example", "example", "process",
+      "procedure", "control_measure", "corrective_action",
+    ],
   },
 };
 

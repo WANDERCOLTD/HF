@@ -104,6 +104,15 @@ export async function GET(
             name: true,
           },
         },
+        channelConfigs: {
+          orderBy: { priority: "asc" },
+          select: {
+            id: true,
+            channelType: true,
+            isEnabled: true,
+            priority: true,
+          },
+        },
         _count: {
           select: {
             callers: true,
