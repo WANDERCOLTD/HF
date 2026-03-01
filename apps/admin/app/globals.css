@@ -7794,3 +7794,205 @@ html.light {
   color: var(--button-primary-text);
   cursor: default;
 }
+
+/* ── Course Builder v3: Draft Zone ──────────────────── */
+
+.hf-draft-zone {
+  animation: hf-draft-slide-in 0.35s ease-out;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@keyframes hf-draft-slide-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hf-draft-section {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.hf-draft-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+.hf-draft-section-header:hover {
+  background: var(--surface-secondary);
+}
+
+.hf-draft-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.hf-draft-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.hf-draft-badge-info {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+}
+.hf-draft-badge-success {
+  background: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+  color: var(--status-success-text);
+}
+.hf-draft-badge-muted {
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+}
+
+.hf-draft-section-chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+.hf-draft-section-chevron-open {
+  transform: rotate(90deg);
+}
+
+.hf-draft-section-body {
+  padding: 0 16px 16px;
+}
+
+/* Skeleton shimmer for loading states */
+.hf-draft-skeleton {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--surface-secondary) 25%, var(--surface-tertiary, #e8e8e8) 50%, var(--surface-secondary) 75%);
+  background-size: 200% 100%;
+  animation: hf-draft-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes hf-draft-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Outcome chips */
+.hf-draft-outcome-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  transition: border-color 0.15s ease;
+}
+.hf-draft-outcome-chip-ai {
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+}
+.hf-draft-outcome-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+}
+.hf-draft-outcome-dismiss:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+/* Session plan colour boxes */
+.hf-draft-session-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 52px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border-default);
+  background: var(--surface-primary);
+}
+.hf-draft-session-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: normal;
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* Session type colours — based on existing LessonPlanStep palette */
+.hf-draft-session-OB { color: #6366f1; border-color: color-mix(in srgb, #6366f1 30%, transparent); background: color-mix(in srgb, #6366f1 8%, transparent); }
+.hf-draft-session-IN { color: #3b82f6; border-color: color-mix(in srgb, #3b82f6 30%, transparent); background: color-mix(in srgb, #3b82f6 8%, transparent); }
+.hf-draft-session-DP { color: #8b5cf6; border-color: color-mix(in srgb, #8b5cf6 30%, transparent); background: color-mix(in srgb, #8b5cf6 8%, transparent); }
+.hf-draft-session-PR { color: #f59e0b; border-color: color-mix(in srgb, #f59e0b 30%, transparent); background: color-mix(in srgb, #f59e0b 8%, transparent); }
+.hf-draft-session-RV { color: #10b981; border-color: color-mix(in srgb, #10b981 30%, transparent); background: color-mix(in srgb, #10b981 8%, transparent); }
+.hf-draft-session-AS { color: #ef4444; border-color: color-mix(in srgb, #ef4444 30%, transparent); background: color-mix(in srgb, #ef4444 8%, transparent); }
+.hf-draft-session-EX { color: #ec4899; border-color: color-mix(in srgb, #ec4899 30%, transparent); background: color-mix(in srgb, #ec4899 8%, transparent); }
+.hf-draft-session-WR { color: #14b8a6; border-color: color-mix(in srgb, #14b8a6 30%, transparent); background: color-mix(in srgb, #14b8a6 8%, transparent); }
+
+/* Launch bar */
+.hf-draft-launch-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 0;
+  background: var(--surface-primary);
+  border-top: 1px solid var(--border-default);
+  z-index: 10;
+}
+
+/* Build button special treatment */
+.hf-draft-build-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  background: var(--accent-primary);
+  color: #fff;
+  transition: opacity 0.15s;
+}
+.hf-draft-build-btn:hover { opacity: 0.9; }
+.hf-draft-build-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
