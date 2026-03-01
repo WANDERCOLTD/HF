@@ -423,6 +423,7 @@ export function CourseBuilderStep({
   // ── Derived values ─────────────────────────────────
   const effectivePattern = pattern || suggestedPattern;
   const canBuild = courseName.trim().length >= 3 && !!selectedDomainId;
+  const contentPending = seedFiles.length > 0 && !packResult;
   const canLaunch = outcomes.length > 0 && !launching && !completed;
 
   // ── Completed state — show summary ─────────────────
@@ -627,7 +628,7 @@ export function CourseBuilderStep({
           <DraftSection
             title="Content"
             defaultOpen={contentMode === "done" || showUploader}
-            status={contentMode === "uploading" ? "loading" : "ready"}
+            status={contentPending ? "loading" : "ready"}
             badge={
               contentMode === "done" && packResult ? (
                 <DraftBadge variant="success">
@@ -636,6 +637,8 @@ export function CourseBuilderStep({
                     ? ` \u00b7 ${packResult.extractionTotals.assertions} TPs`
                     : ""}
                 </DraftBadge>
+              ) : contentPending ? (
+                <DraftBadge variant="info">{seedFiles.length} file{seedFiles.length !== 1 ? "s" : ""} processing...</DraftBadge>
               ) : (
                 <DraftBadge variant="muted">no files</DraftBadge>
               )
@@ -670,6 +673,7 @@ export function CourseBuilderStep({
                 interactionPattern={effectivePattern || undefined}
                 teachingMode={lessonPlanModel}
                 initialFiles={seedFiles.length > 0 ? seedFiles : undefined}
+                autoIngest
                 onResult={handlePackResult}
               />
             ) : (
@@ -863,6 +867,12 @@ export function CourseBuilderStep({
               </span>
             )}
 
+            {contentPending && (
+              <span style={{ fontSize: 12, color: "var(--status-warning-text, #d97706)" }}>
+                Files still processing — wait for content upload to finish, or launch without content
+              </span>
+            )}
+
             <button
               className="hf-btn hf-btn-primary"
               disabled={!canLaunch}
@@ -873,6 +883,8 @@ export function CourseBuilderStep({
                   <Loader2 size={14} className="hf-spinner" />
                   Launching...
                 </>
+              ) : contentPending ? (
+                "Launch Without Content"
               ) : (
                 "Launch Course"
               )}

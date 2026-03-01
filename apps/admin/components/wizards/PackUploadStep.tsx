@@ -103,6 +103,8 @@ interface PackUploadStepProps {
   existingSubjects?: ExistingSubject[];
   /** Pre-loaded files (e.g. from seed zone drop). Seeded into internal state on mount. */
   initialFiles?: File[];
+  /** When true, automatically starts ingest after classify completes (skips manifest review). Used by v3 builder. */
+  autoIngest?: boolean;
   onResult: (result: PackUploadResult) => void;
   onBack?: () => void;
 }
@@ -124,6 +126,7 @@ export function PackUploadStep({
   existingCourses = [],
   existingSubjects = [],
   initialFiles,
+  autoIngest = false,
   onResult,
   onBack,
 }: PackUploadStepProps) {
@@ -424,6 +427,15 @@ export function PackUploadStep({
       setIngesting(false);
     }
   }, [manifest, domainId, courseName, interactionPattern, teachingMode, files, handleIngestEvent]);
+
+  // Auto-ingest after classify when autoIngest is enabled (v3 builder — skip manifest review)
+  const didAutoIngest = useRef(false);
+  useEffect(() => {
+    if (autoIngest && !didAutoIngest.current && manifest && !ingesting && !ingestError) {
+      didAutoIngest.current = true;
+      handleIngest();
+    }
+  }, [autoIngest, manifest, ingesting, ingestError, handleIngest]);
 
   // ── Select existing course ─────────────────────────
 
