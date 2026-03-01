@@ -463,36 +463,53 @@ async function cleanup() {
 
     const domainId = domain.id;
 
-    // FK-safe order (leaves → roots)
-    // Call-level children
-    await prisma.callScore.deleteMany({ where: { caller: { domainId } } });
-    await prisma.behaviorMeasurement.deleteMany({ where: { call: { caller: { domainId } } } });
-    await prisma.callMessage.deleteMany({ where: { call: { caller: { domainId } } } });
-    await prisma.call.deleteMany({ where: { caller: { domainId } } });
+    // FK-safe order (deepest leaves → roots)
+    // Raw SQL avoids Prisma FK-constraint whack-a-mole.
+    const q = (sql: string) =>
+      prisma.$executeRawUnsafe(sql, domainId);
 
-    // Caller-level children (non-cascading FKs)
-    await prisma.composedPrompt.deleteMany({ where: { caller: { domainId } } });
-    await prisma.conversationArtifact.deleteMany({ where: { caller: { domainId } } });
-    await prisma.callerIdentity.deleteMany({ where: { caller: { domainId } } });
-    await prisma.callerMemory.deleteMany({ where: { caller: { domainId } } });
-    await prisma.callerMemorySummary.deleteMany({ where: { caller: { domainId } } });
-    await prisma.callerPersonalityProfile.deleteMany({ where: { caller: { domainId } } });
-    await prisma.goal.deleteMany({ where: { caller: { domainId } } });
-    await prisma.callerPlaybook.deleteMany({ where: { caller: { domainId } } });
-    await prisma.callerCohortMembership.deleteMany({ where: { caller: { domainId } } });
+    // Call-level leaves
+    await q(`DELETE FROM "CallScore" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
+    await q(`DELETE FROM "BehaviorMeasurement" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
+    await q(`DELETE FROM "CallMessage" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
+    await q(`DELETE FROM "CallTarget" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
+    await q(`DELETE FROM "CallAction" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
+    await q(`DELETE FROM "RewardScore" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
+    await q(`DELETE FROM "ConversationArtifact" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
+    await q(`DELETE FROM "PromptSlugSelection" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
+    await q(`DELETE FROM "InboundMessage" WHERE "callId" IN (SELECT id FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1))`);
+    await q(`DELETE FROM "Call" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
 
-    // CohortGroup.ownerId → Caller, so delete cohorts BEFORE callers
-    await prisma.cohortPlaybook.deleteMany({ where: { cohortGroup: { domainId } } });
-    await prisma.cohortGroup.deleteMany({ where: { domainId } });
-    await prisma.caller.deleteMany({ where: { domainId } });
+    // Caller-level children
+    await q(`DELETE FROM "ComposedPrompt" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "CallerIdentity" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "CallerMemory" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "CallerMemorySummary" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "CallerPersonalityProfile" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "PersonalityObservation" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "Goal" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "CallerPlaybook" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "CallerCohortMembership" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "CallerAttribute" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "CallerTarget" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "CallerModuleProgress" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "OnboardingSession" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "UsageEvent" WHERE "callerId" IN (SELECT id FROM "Caller" WHERE "domainId" = $1)`);
+
+    // CohortGroup.ownerId → Caller, so cohorts before callers
+    await q(`DELETE FROM "CohortPlaybook" WHERE "cohortGroupId" IN (SELECT id FROM "CohortGroup" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "CohortGroup" WHERE "domainId" = $1`);
+    await q(`DELETE FROM "Caller" WHERE "domainId" = $1`);
 
     // Domain-level children
-    await prisma.channelConfig.deleteMany({ where: { domainId } });
-    await prisma.playbookItem.deleteMany({ where: { playbook: { domainId } } });
-    await prisma.playbookSubject.deleteMany({ where: { playbook: { domainId } } });
-    await prisma.playbook.deleteMany({ where: { domainId } });
-    await prisma.subjectDomain.deleteMany({ where: { domainId } });
-    await prisma.domain.delete({ where: { id: domainId } });
+    await q(`DELETE FROM "ChannelConfig" WHERE "domainId" = $1`);
+    await q(`DELETE FROM "OnboardingSession" WHERE "domainId" = $1`);
+    await q(`DELETE FROM "PlaybookItem" WHERE "playbookId" IN (SELECT id FROM "Playbook" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "PlaybookSubject" WHERE "playbookId" IN (SELECT id FROM "Playbook" WHERE "domainId" = $1)`);
+    await q(`DELETE FROM "Playbook" WHERE "domainId" = $1`);
+    await q(`DELETE FROM "PlaybookGroup" WHERE "domainId" = $1`);
+    await q(`DELETE FROM "SubjectDomain" WHERE "domainId" = $1`);
+    await q(`DELETE FROM "Domain" WHERE id = $1`);
 
     console.log(`    Removed domain: ${cfg.name}`);
   }
