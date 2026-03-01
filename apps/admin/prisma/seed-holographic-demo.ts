@@ -464,13 +464,26 @@ async function cleanup() {
     const domainId = domain.id;
 
     // FK-safe order (leaves → roots)
-    await prisma.callerPlaybook.deleteMany({ where: { caller: { domainId } } });
-    await prisma.cohortPlaybook.deleteMany({ where: { cohortGroup: { domainId } } });
-    await prisma.callerCohortMembership.deleteMany({ where: { caller: { domainId } } });
+    // Call-level children
     await prisma.callScore.deleteMany({ where: { caller: { domainId } } });
-    await prisma.callerMemory.deleteMany({ where: { caller: { domainId } } });
+    await prisma.behaviorMeasurement.deleteMany({ where: { call: { caller: { domainId } } } });
+    await prisma.callMessage.deleteMany({ where: { call: { caller: { domainId } } } });
     await prisma.call.deleteMany({ where: { caller: { domainId } } });
+
+    // Caller-level children (non-cascading FKs)
+    await prisma.composedPrompt.deleteMany({ where: { caller: { domainId } } });
+    await prisma.conversationArtifact.deleteMany({ where: { caller: { domainId } } });
+    await prisma.callerIdentity.deleteMany({ where: { caller: { domainId } } });
+    await prisma.callerMemory.deleteMany({ where: { caller: { domainId } } });
+    await prisma.callerMemorySummary.deleteMany({ where: { caller: { domainId } } });
+    await prisma.callerPersonalityProfile.deleteMany({ where: { caller: { domainId } } });
+    await prisma.goal.deleteMany({ where: { caller: { domainId } } });
+    await prisma.callerPlaybook.deleteMany({ where: { caller: { domainId } } });
+    await prisma.callerCohortMembership.deleteMany({ where: { caller: { domainId } } });
     await prisma.caller.deleteMany({ where: { domainId } });
+
+    // Domain-level children
+    await prisma.cohortPlaybook.deleteMany({ where: { cohortGroup: { domainId } } });
     await prisma.cohortGroup.deleteMany({ where: { domainId } });
     await prisma.channelConfig.deleteMany({ where: { domainId } });
     await prisma.playbookItem.deleteMany({ where: { playbook: { domainId } } });
