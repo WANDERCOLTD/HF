@@ -107,8 +107,10 @@ export function CourseBuilderStep({
   // ── Teaching Style state ───────────────────────────
   const [pattern, setPattern] = useState<InteractionPattern | undefined>();
   const [suggestedPattern, setSuggestedPattern] = useState<InteractionPattern | null>(null);
+  const [hoveredPattern, setHoveredPattern] = useState<InteractionPattern | null>(null);
   const [teachingMode, setTeachingMode] = useState<TeachingMode>("recall");
   const [suggestedTeachingMode, setSuggestedTeachingMode] = useState<TeachingMode | null>(null);
+  const [hoveredMode, setHoveredMode] = useState<TeachingMode | null>(null);
   const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>("direct_instruction");
   const suggestModeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -769,11 +771,29 @@ export function CourseBuilderStep({
                       setPattern(p);
                       setSuggestedPattern(null);
                     }}
+                    onMouseEnter={() => setHoveredPattern(p)}
+                    onMouseLeave={() => setHoveredPattern(null)}
                   >
                     {INTERACTION_PATTERN_LABELS[p].label}
                   </button>
                 ))}
               </div>
+              {(() => {
+                const preview = hoveredPattern || effectivePattern;
+                if (!preview) return (
+                  <div className="hf-chip-preview">
+                    <span className="hf-chip-preview-empty">Hover to preview each style</span>
+                  </div>
+                );
+                const info = INTERACTION_PATTERN_LABELS[preview];
+                return (
+                  <div className="hf-chip-preview">
+                    <span className="hf-chip-preview-label">{info.icon} {info.label}:</span>
+                    <span className="hf-chip-preview-desc">{info.description}</span>
+                    <span className="hf-chip-preview-examples">{info.examples}</span>
+                  </div>
+                );
+              })()}
             </div>
 
             <div style={{ marginBottom: 16 }}>
@@ -796,11 +816,24 @@ export function CourseBuilderStep({
                       setTeachingMode(m);
                       setSuggestedTeachingMode(null);
                     }}
+                    onMouseEnter={() => setHoveredMode(m)}
+                    onMouseLeave={() => setHoveredMode(null)}
                   >
                     {TEACHING_MODE_LABELS[m].icon} {TEACHING_MODE_LABELS[m].label}
                   </button>
                 ))}
               </div>
+              {(() => {
+                const preview = hoveredMode || teachingMode;
+                const info = TEACHING_MODE_LABELS[preview];
+                return (
+                  <div className="hf-chip-preview">
+                    <span className="hf-chip-preview-label">{info.icon} {info.label}:</span>
+                    <span className="hf-chip-preview-desc">{info.description}</span>
+                    <span className="hf-chip-preview-examples">{info.examples}</span>
+                  </div>
+                );
+              })()}
             </div>
 
             <FieldHint
@@ -834,14 +867,14 @@ export function CourseBuilderStep({
               <div className="hf-label" style={{ marginBottom: 6 }}>Welcome message</div>
               <textarea
                 className="hf-input"
-                rows={3}
+                rows={5}
                 value={welcomeMessage}
                 onChange={(e) => {
                   setWelcomeMessage(e.target.value);
                   welcomeDirty.current = true;
                 }}
                 placeholder="Welcome message for the first call..."
-                style={{ resize: "vertical" }}
+                style={{ resize: "vertical", minHeight: 100 }}
               />
               {!welcomeDirty.current && welcomeMessage && (
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>

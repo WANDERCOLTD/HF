@@ -319,6 +319,7 @@ Total modules: ${curriculum.modules.length}${documentExcerpt}`;
       ],
       temperature: 0.4,
       maxTokens: 4000,
+      timeoutMs: 90_000, // Large structured JSON (8+ modules with phases) needs more than default 30s
     });
 
     const content = typeof result === "string" ? result : result?.content || "";

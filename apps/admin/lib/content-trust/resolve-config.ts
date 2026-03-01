@@ -1065,26 +1065,30 @@ export type TeachingMode = "recall" | "comprehension" | "practice" | "syllabus";
 
 export const TEACHING_MODE_LABELS: Record<
   TeachingMode,
-  { label: string; icon: string; examples: string }
+  { label: string; icon: string; description: string; examples: string }
 > = {
   recall: {
     label: "Learn and remember facts",
     icon: "📚",
+    description: "Quizzes, flashcard-style checks, key facts",
     examples: "History · Biology · Geography",
   },
   comprehension: {
     label: "Read, analyse & discuss",
     icon: "📖",
+    description: "Passages, analysis questions, discussion",
     examples: "English · French · Literature",
   },
   practice: {
     label: "Work through problems",
     icon: "✏️",
+    description: "Worked examples, exercises, step-by-step",
     examples: "Maths · Physics · Accounting",
   },
   syllabus: {
     label: "Cover the syllabus",
     icon: "📋",
+    description: "Structured coverage, checklists, milestones",
     examples: "Food Safety · BTEC · Apprenticeships",
   },
 };
