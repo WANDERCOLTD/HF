@@ -8,12 +8,10 @@ import {
   Sparkles, BarChart3, Sliders, Shield, Compass, AlertTriangle,
   Settings as SettingsIcon, ChevronRight, CheckCircle2,
   School, GraduationCap, Users2, Image, Upload,
-  ListOrdered, Zap, RefreshCw, RotateCcw, Target, BookOpen,
-  Layers, CheckCircle, Paperclip,
+  ListOrdered, Zap, RefreshCw, Target, BookOpen,
+  Layers,
 } from 'lucide-react';
-import { SortableList } from '@/components/shared/SortableList';
-import { reorderItems } from '@/lib/sortable/reorder';
-import type { OnboardingPhase } from '@/lib/types/json-fields';
+import { StudentJourneyTab } from './StudentJourneyTab';
 import { useSession } from 'next-auth/react';
 import { useEntityContext } from '@/contexts/EntityContext';
 import { EditableTitle } from '@/components/shared/EditableTitle';
@@ -32,6 +30,8 @@ import {
 } from '@/lib/course/group-specs';
 import { TEACH_METHOD_CONFIG } from '@/lib/content-trust/resolve-config';
 import { SESSION_TYPES, SESSION_TYPE_ICONS, getSessionTypeColor, getSessionTypeLabel } from '@/lib/lesson-plan/session-ui';
+import { getLessonPlanModel } from '@/lib/lesson-plan/models';
+import { PlanSummary, type PlanSession } from '@/app/x/courses/_components/PlanSummary';
 import './course-detail.css';
 
 // ── Types ──────────────────────────────────────────────
@@ -60,23 +60,6 @@ type SubjectSummary = {
   sourceCount: number;
   curriculumCount: number;
   assertionCount: number;
-};
-
-type FlowPhase = {
-  id: string;
-  label: string;
-  duration?: string;
-  goals?: string[];
-  content?: Array<{ mediaId: string; instruction?: string }>;
-};
-
-type OnboardingSource = 'course' | 'domain' | 'none';
-
-type DomainMediaItem = {
-  id: string;
-  title: string | null;
-  fileName: string;
-  mimeType: string;
 };
 
 type MethodBreakdown = {
@@ -188,11 +171,18 @@ type ModuleSummary = {
   learningObjectiveCount: number;
 };
 
+type StudentProgress = {
+  callerId: string;
+  name: string;
+  currentSession: number | null;
+};
+
 type SessionTabData = {
-  plan: { entries: SessionEntry[]; estimatedSessions: number; generatedAt?: string | null } | null;
+  plan: { entries: SessionEntry[]; estimatedSessions: number; generatedAt?: string | null; model?: string | null } | null;
   modules: ModuleSummary[];
   curriculumId: string | null;
   subjectCount: number;
+  studentProgress?: StudentProgress[];
 };
 
 // SESSION_TYPES, SESSION_TYPE_ICONS, getSessionTypeColor, getSessionTypeLabel
@@ -260,19 +250,8 @@ export default function CourseDetailPage() {
   // ── State ──────────────────────────────────────────
   const [detail, setDetail] = useState<PlaybookDetail | null>(null);
   const [subjects, setSubjects] = useState<SubjectSummary[]>([]);
-  const [flowPhases, setFlowPhases] = useState<FlowPhase[]>([]);
-  const [onboardingSource, setOnboardingSource] = useState<OnboardingSource>('none');
-  const [onboardingDomainName, setOnboardingDomainName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Onboarding inline editor
-  const [editingJourney, setEditingJourney] = useState(false);
-  const [structuredPhases, setStructuredPhases] = useState<Array<OnboardingPhase & { _id: string }>>([]);
-  const [savingJourney, setSavingJourney] = useState(false);
-  const [journeySaveError, setJourneySaveError] = useState<string | null>(null);
-  const [journeySaveSuccess, setJourneySaveSuccess] = useState(false);
-  const [domainMedia, setDomainMedia] = useState<DomainMediaItem[]>([]);
 
   // Content breakdown
   const [contentMethods, setContentMethods] = useState<MethodBreakdown[]>([]);
@@ -352,27 +331,6 @@ export default function CourseDetailPage() {
             label: pbData.playbook.name,
             href: `/x/courses/${pbData.playbook.id}`,
           });
-          // Fetch resolved onboarding phases (course override > domain > none)
-          fetch(`/api/courses/${courseId}/onboarding`)
-            .then((r) => r.json())
-            .then((obData) => {
-              if (obData.ok) {
-                setOnboardingSource(obData.source);
-                setOnboardingDomainName(obData.domainName);
-                setDomainMedia(obData.media || []);
-                const phasesArr = obData.phases?.phases;
-                if (Array.isArray(phasesArr)) {
-                  setFlowPhases(phasesArr.map((p: any) => ({
-                    id: p.phase || p.id || '',
-                    label: (p.label || p.phase || '').replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
-                    duration: p.duration,
-                    goals: p.goals,
-                    content: p.content,
-                  })));
-                }
-              }
-            })
-            .catch(() => {});
         } else {
           setError(pbData.error || 'Course not found');
         }
@@ -423,8 +381,9 @@ export default function CourseDetailPage() {
   const tabs: TabDefinition[] = useMemo(() => [
     { id: 'overview', label: 'Overview', icon: <Sparkles size={14} /> },
     { id: 'content', label: 'Content', icon: <BookMarked size={14} />, count: contentTotal || null },
-    { id: 'sessions', label: 'Sessions', icon: <ListOrdered size={14} />, count: sessions?.plan?.estimatedSessions || null },
+    { id: 'lessons', label: 'Lesson Plan', icon: <ListOrdered size={14} />, count: sessions?.plan?.estimatedSessions || null },
     { id: 'media', label: 'Media', icon: <Image size={14} />, count: mediaTotal || null },
+    { id: 'journey', label: 'Journey', icon: <Compass size={14} /> },
     { id: 'classrooms', label: 'Classrooms', icon: <School size={14} /> },
     { id: 'students', label: 'Students', icon: <GraduationCap size={14} /> },
     ...(isOperator ? [{ id: 'settings', label: 'Settings', icon: <SettingsIcon size={14} /> }] : []),
@@ -471,10 +430,10 @@ export default function CourseDetailPage() {
     if (tab === 'media' && mediaAssets === null && !mediaLoading) {
       fetchMedia();
     }
-    if (tab === 'sessions' && sessions === null && !sessionsLoading) {
+    if (tab === 'lessons' && sessions === null && !sessionsLoading) {
       setSessionsLoading(true);
       setSessionsError(null);
-      fetch(`/api/courses/${courseId}/sessions`)
+      fetch(`/api/courses/${courseId}/sessions?includeProgress=true`)
         .then((r) => r.json())
         .then((data) => {
           if (data.ok) {
@@ -1240,346 +1199,19 @@ export default function CourseDetailPage() {
             )}
           </div>
 
-          {/* Student Journey */}
-          <div className="hf-flex hf-flex-between hf-items-center hf-section-divider">
-            <div className="hf-flex hf-gap-sm hf-items-center">
-              <Compass size={18} className="hf-text-muted" />
-              <h2 className="hf-section-title hf-mb-0">Student Journey</h2>
-            </div>
-            {isOperator && !editingJourney && (
-              <div className="hf-flex hf-gap-xs">
-                {onboardingSource === 'course' && (
-                  <button
-                    className="hf-btn-sm hf-btn-secondary"
-                    onClick={async () => {
-                      if (!confirm('Reset to institution default? Your course-level customisations will be removed.')) return;
-                      setSavingJourney(true);
-                      try {
-                        const res = await fetch(`/api/courses/${courseId}/onboarding`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ onboardingFlowPhases: null }),
-                        });
-                        const data = await res.json();
-                        if (data.ok) {
-                          const obRes = await fetch(`/api/courses/${courseId}/onboarding`);
-                          const obData = await obRes.json();
-                          if (obData.ok) {
-                            setOnboardingSource(obData.source);
-                            const phasesArr = obData.phases?.phases;
-                            setFlowPhases(Array.isArray(phasesArr) ? phasesArr.map((p: any) => ({
-                              id: p.phase || '', label: (p.phase || '').replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
-                              duration: p.duration, goals: p.goals, content: p.content,
-                            })) : []);
-                          }
-                          setJourneySaveSuccess(true);
-                          setTimeout(() => setJourneySaveSuccess(false), 3000);
-                        } else {
-                          setJourneySaveError(data.error || 'Failed to reset');
-                        }
-                      } catch { setJourneySaveError('Network error'); }
-                      finally { setSavingJourney(false); }
-                    }}
-                    disabled={savingJourney}
-                  >
-                    <RotateCcw size={13} />
-                    Reset to Default
-                  </button>
-                )}
-                <button
-                  className="hf-btn-sm hf-btn-primary"
-                  onClick={() => {
-                    setStructuredPhases(flowPhases.map((p) => ({
-                      _id: crypto.randomUUID(),
-                      phase: p.id,
-                      duration: p.duration || '',
-                      goals: p.goals || [],
-                      content: p.content,
-                    })));
-                    setEditingJourney(true);
-                    setJourneySaveError(null);
-                    setJourneySaveSuccess(false);
-                  }}
-                >
-                  <Pencil size={13} />
-                  {onboardingSource === 'none' ? 'Set Up' : onboardingSource === 'domain' ? 'Customise' : 'Edit'}
-                </button>
-              </div>
-            )}
-            {editingJourney && (
-              <div className="hf-flex hf-gap-xs">
-                <button
-                  className="hf-btn-sm hf-btn-secondary"
-                  onClick={() => { setEditingJourney(false); setJourneySaveError(null); }}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="hf-btn-sm hf-btn-primary"
-                  disabled={savingJourney}
-                  onClick={async () => {
-                    setSavingJourney(true);
-                    setJourneySaveError(null);
-                    try {
-                      const phasesPayload = structuredPhases.length > 0
-                        ? { phases: structuredPhases.map(({ _id, ...rest }) => rest) }
-                        : null;
-                      const res = await fetch(`/api/courses/${courseId}/onboarding`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ onboardingFlowPhases: phasesPayload }),
-                      });
-                      const data = await res.json();
-                      if (data.ok) {
-                        const obRes = await fetch(`/api/courses/${courseId}/onboarding`);
-                        const obData = await obRes.json();
-                        if (obData.ok) {
-                          setOnboardingSource(obData.source);
-                          const phasesArr = obData.phases?.phases;
-                          setFlowPhases(Array.isArray(phasesArr) ? phasesArr.map((p: any) => ({
-                            id: p.phase || '', label: (p.phase || '').replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
-                            duration: p.duration, goals: p.goals, content: p.content,
-                          })) : []);
-                        }
-                        setEditingJourney(false);
-                        setJourneySaveSuccess(true);
-                        setTimeout(() => setJourneySaveSuccess(false), 3000);
-                      } else {
-                        setJourneySaveError(data.error || 'Failed to save');
-                      }
-                    } catch { setJourneySaveError('Network error'); }
-                    finally { setSavingJourney(false); }
-                  }}
-                >
-                  {savingJourney ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {journeySaveSuccess && (
-            <div className="hf-banner hf-banner-success hf-mb-md">Onboarding flow saved.</div>
-          )}
-          {journeySaveError && (
-            <div className="hf-banner hf-banner-error hf-mb-md">{journeySaveError}</div>
-          )}
-
-          <div className="hf-mb-lg">
-            {editingJourney ? (
-              /* ── Inline Phase Editor ── */
-              <div className="hf-card-compact">
-                {onboardingSource === 'domain' && (
-                  <div className="hf-banner hf-banner-info hf-mb-md">
-                    You are creating a custom onboarding flow for this course. It will override the institution default.
-                  </div>
-                )}
-
-                <SortableList
-                  items={structuredPhases}
-                  getItemId={(p) => p._id}
-                  onReorder={(from, to) => setStructuredPhases(reorderItems(structuredPhases, from, to))}
-                  onAdd={() => setStructuredPhases([...structuredPhases, {
-                    _id: crypto.randomUUID(),
-                    phase: '',
-                    duration: '3min',
-                    goals: [],
-                  }])}
-                  onRemove={(i) => setStructuredPhases(structuredPhases.filter((_, idx) => idx !== i))}
-                  addLabel="Add Phase"
-                  emptyLabel="No phases — add your first onboarding phase"
-                  renderCard={(phase, index) => (
-                    <div className="hf-flex-1">
-                      <div className="hf-flex hf-gap-sm hf-mb-sm">
-                        <div className="hf-flex-1">
-                          <label className="hf-label">Phase Name</label>
-                          <input
-                            type="text"
-                            className="hf-input"
-                            placeholder="e.g. welcome, discover, teach"
-                            value={phase.phase}
-                            onChange={(e) => {
-                              const updated = [...structuredPhases];
-                              updated[index] = { ...updated[index], phase: e.target.value };
-                              setStructuredPhases(updated);
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <label className="hf-label">Duration</label>
-                          <input
-                            type="text"
-                            className="hf-input"
-                            placeholder="e.g. 2min"
-                            value={phase.duration}
-                            onChange={(e) => {
-                              const updated = [...structuredPhases];
-                              updated[index] = { ...updated[index], duration: e.target.value };
-                              setStructuredPhases(updated);
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="hf-mb-sm">
-                        <label className="hf-label">Goals (one per line)</label>
-                        <textarea
-                          className="hf-textarea"
-                          rows={2}
-                          placeholder="Greet learner and establish rapport"
-                          value={(phase.goals || []).join('\n')}
-                          onChange={(e) => {
-                            const updated = [...structuredPhases];
-                            updated[index] = { ...updated[index], goals: e.target.value.split('\n').filter((g) => g.trim()) };
-                            setStructuredPhases(updated);
-                          }}
-                        />
-                      </div>
-                      {/* Media attachment */}
-                      {(phase.content || []).length > 0 && (
-                        <div className="hf-mb-sm">
-                          {(phase.content || []).map((ref, ci) => {
-                            const media = domainMedia.find((m) => m.id === ref.mediaId);
-                            return (
-                              <div key={ci} className="hf-flex hf-gap-sm hf-items-center hf-mb-xs">
-                                <Paperclip size={12} className="hf-text-muted hf-flex-shrink-0" />
-                                <span className="hf-text-xs hf-flex-1 hf-truncate">{media?.title || media?.fileName || ref.mediaId}</span>
-                                <input
-                                  type="text"
-                                  className="hf-input hf-text-xs"
-                                  placeholder="Instruction..."
-                                  value={ref.instruction || ''}
-                                  onChange={(e) => {
-                                    const updated = [...structuredPhases];
-                                    const newContent = [...(updated[index].content || [])];
-                                    newContent[ci] = { ...newContent[ci], instruction: e.target.value };
-                                    updated[index] = { ...updated[index], content: newContent };
-                                    setStructuredPhases(updated);
-                                  }}
-                                />
-                                <button
-                                  className="hf-btn-ghost hf-text-xs hf-text-muted"
-                                  onClick={() => {
-                                    const updated = [...structuredPhases];
-                                    const newContent = (updated[index].content || []).filter((_, j) => j !== ci);
-                                    updated[index] = { ...updated[index], content: newContent.length > 0 ? newContent : undefined };
-                                    setStructuredPhases(updated);
-                                  }}
-                                >
-                                  &times;
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {domainMedia.length > 0 && (
-                        <select
-                          className="hf-select hf-text-xs"
-                          value=""
-                          onChange={(e) => {
-                            if (!e.target.value) return;
-                            const existing = phase.content || [];
-                            if (existing.some((c) => c.mediaId === e.target.value)) return;
-                            const updated = [...structuredPhases];
-                            updated[index] = { ...updated[index], content: [...existing, { mediaId: e.target.value }] };
-                            setStructuredPhases(updated);
-                          }}
-                        >
-                          <option value="">+ Attach media to this phase...</option>
-                          {domainMedia
-                            .filter((m) => !(phase.content || []).some((c) => c.mediaId === m.id))
-                            .map((m) => (
-                              <option key={m.id} value={m.id}>{m.title || m.fileName}</option>
-                            ))}
-                        </select>
-                      )}
-                    </div>
-                  )}
-                />
-              </div>
-            ) : flowPhases.length > 0 ? (
-              /* ── Enhanced Read-Only Flow Cards ── */
-              <div className="hf-flow-card">
-                {flowPhases.map((phase, i) => (
-                  <div key={phase.id || i} className="hf-flow-phase">
-                    <div className="hf-flow-phase-num">{i + 1}</div>
-                    <div className="hf-flow-phase-body">
-                      <div className="hf-flow-phase-header">
-                        <span className="hf-flow-phase-name">{phase.label}</span>
-                        {phase.duration && <span className="hf-flow-phase-dur">{phase.duration}</span>}
-                      </div>
-                      {phase.goals && phase.goals.length > 0 && (
-                        <div className="hf-flow-phase-goals">
-                          {phase.goals.map((g, gi) => (
-                            <div key={gi}>&middot; {g}</div>
-                          ))}
-                        </div>
-                      )}
-                      {phase.content && phase.content.length > 0 && (
-                        <div className="hf-flow-phase-media-badge">
-                          <Paperclip size={11} />
-                          {phase.content.length} media
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                <div className="hf-flow-inherit-footer">
-                  {onboardingSource === 'course' ? (
-                    <span className="hf-badge hf-badge-info">Custom</span>
-                  ) : onboardingSource === 'domain' && onboardingDomainName ? (
-                    <span>Inherited from: {onboardingDomainName}</span>
-                  ) : null}
-                </div>
-              </div>
-            ) : (
-              /* ── Empty State ── */
-              <div className="hf-card-compact hf-text-center">
-                <Compass size={36} className="hf-text-tertiary hf-mb-sm" />
-                <div className="hf-heading-sm hf-text-secondary hf-mb-sm">No student journey configured</div>
-                <p className="hf-text-xs hf-text-muted hf-mb-md">
-                  Set up the onboarding flow on the Institution page, or customise one for this course.
-                </p>
-                {isOperator && (
-                  <div className="hf-flex hf-gap-sm hf-justify-center">
-                    {detail.domain?.id && (
-                      <Link
-                        href={`/x/domains?id=${detail.domain.id}&tab=onboarding`}
-                        className="hf-btn-sm hf-btn-secondary"
-                      >
-                        Set Up on Institution
-                      </Link>
-                    )}
-                    <button
-                      className="hf-btn-sm hf-btn-primary"
-                      onClick={() => {
-                        setStructuredPhases([{
-                          _id: crypto.randomUUID(),
-                          phase: 'welcome',
-                          duration: '2min',
-                          goals: ['Greet learner and establish rapport'],
-                        }, {
-                          _id: crypto.randomUUID(),
-                          phase: 'discover',
-                          duration: '5min',
-                          goals: ['Assess prior knowledge'],
-                        }, {
-                          _id: crypto.randomUUID(),
-                          phase: 'close',
-                          duration: '2min',
-                          goals: ['Summarise and preview next session'],
-                        }]);
-                        setEditingJourney(true);
-                      }}
-                    >
-                      Customise for This Course
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
         </>
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* JOURNEY TAB                                    */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === 'journey' && detail && (
+        <StudentJourneyTab
+          courseId={courseId}
+          domainId={detail.domain.id}
+          domainName={detail.domain.name}
+          isOperator={isOperator}
+        />
       )}
 
       {/* ═══════════════════════════════════════════════ */}
@@ -1893,9 +1525,9 @@ export default function CourseDetailPage() {
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* SESSIONS TAB                                   */}
+      {/* LESSON PLAN TAB                                */}
       {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'sessions' && (
+      {activeTab === 'lessons' && (
         <div className="hf-mt-lg">
           {sessionsLoading ? (
             /* Loading state */
@@ -1914,30 +1546,59 @@ export default function CourseDetailPage() {
               </button>
             </div>
           ) : sessions?.plan && sessions.plan.entries.length > 0 ? (
-            /* Populated: session cards */
+            /* Populated: plan header + session cards */
             <>
-              <div className="hf-flex hf-flex-between hf-items-center hf-mb-md">
-                <div className="hf-flex hf-items-center hf-gap-md">
-                  <span className="hf-section-title hf-mb-0">{sessions.plan.entries.length} sessions</span>
-                  <span className="hf-text-xs hf-text-muted">
-                    {SESSION_TYPES.map((t) => {
-                      const count = sessions.plan!.entries.filter((e) => e.type === t.value).length;
-                      return count > 0 ? `${count} ${t.label.toLowerCase()}` : null;
-                    }).filter(Boolean).join(' \u00b7 ')}
+              {/* ── Plan Header Card ──────────────────── */}
+              <div className="cd-plan-header hf-card hf-mb-lg">
+                <div className="hf-flex hf-flex-between hf-items-center hf-mb-sm">
+                  <div className="hf-flex hf-items-center hf-gap-sm">
+                    <Sparkles size={18} className="hf-text-accent" />
+                    <span className="hf-section-title hf-mb-0">Your Lesson Plan</span>
+                  </div>
+                  {isOperator && sessions.curriculumId && (
+                    <button onClick={handleRegenerate} disabled={regenerating} className="hf-btn hf-btn-secondary hf-btn-sm">
+                      {regenerating ? (
+                        <><div className="hf-spinner hf-spinner-xs" /> Regenerating...</>
+                      ) : (
+                        <><RefreshCw size={13} /> Regenerate Plan</>
+                      )}
+                    </button>
+                  )}
+                </div>
+                <div className="hf-flex hf-items-center hf-gap-md hf-mb-sm">
+                  <span className="hf-text-sm hf-text-primary">
+                    {sessions.plan.entries.length} session{sessions.plan.entries.length !== 1 ? 's' : ''}
                   </span>
+                  {sessions.plan.model && (
+                    <span className="hf-chip hf-chip-sm">{getLessonPlanModel(sessions.plan.model).label}</span>
+                  )}
+                  {totalTPs > 0 && (
+                    <span className="hf-text-xs hf-text-muted">{totalTPs} teaching points</span>
+                  )}
                   {totalSessionDuration > 0 && (
                     <span className="hf-text-xs hf-text-muted">~{totalSessionDuration} min total</span>
                   )}
                 </div>
-                {isOperator && sessions.curriculumId && (
-                  <button onClick={handleRegenerate} disabled={regenerating} className="hf-btn hf-btn-secondary hf-btn-sm">
-                    {regenerating ? (
-                      <><div className="hf-spinner hf-spinner-xs" /> Regenerating...</>
-                    ) : (
-                      <><RefreshCw size={13} /> Regenerate Plan</>
-                    )}
-                  </button>
+                <PlanSummary
+                  state={regenerating ? "generating" : "ready"}
+                  sessions={sessions.plan.entries.map((e) => ({ type: e.type, label: e.label }))}
+                />
+                {sessions.plan.generatedAt && (
+                  <div className="hf-text-xs hf-text-muted hf-mt-sm">
+                    Generated {new Date(sessions.plan.generatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </div>
                 )}
+              </div>
+
+              {/* ── Sessions heading ──────────────────── */}
+              <div className="hf-flex hf-items-center hf-gap-sm hf-mb-md">
+                <span className="hf-section-title hf-mb-0">Sessions</span>
+                <span className="hf-text-xs hf-text-muted">
+                  {SESSION_TYPES.map((t) => {
+                    const count = sessions.plan!.entries.filter((e) => e.type === t.value).length;
+                    return count > 0 ? `${count} ${t.label.toLowerCase()}` : null;
+                  }).filter(Boolean).join(' \u00b7 ')}
+                </span>
               </div>
               <div className="hf-card-compact">
                 {sessions.plan.entries.map((entry, i) => {
@@ -2191,14 +1852,114 @@ export default function CourseDetailPage() {
                   </div>
                 );
               })()}
+
+              {/* ── Class Progress ─────────────────── */}
+              {sessions.studentProgress && sessions.studentProgress.length > 0 && (
+                <div className="hf-mt-xl">
+                  <div className="hf-flex hf-flex-between hf-items-center hf-mb-md">
+                    <div className="hf-flex hf-items-center hf-gap-sm">
+                      <Users2 size={16} className="hf-text-muted" />
+                      <span className="hf-section-title hf-mb-0">Class Progress</span>
+                    </div>
+                    <span className="hf-text-xs hf-text-muted">{sessions.studentProgress.length} enrolled</span>
+                  </div>
+                  <div className="hf-card-compact cd-progress-section">
+                    {sessions.plan!.entries.map((entry) => {
+                      const sp = sessions.studentProgress!;
+                      const total = sp.length;
+                      const completed = sp.filter((s) => s.currentSession !== null && s.currentSession > entry.session);
+                      const active = sp.filter((s) => s.currentSession === entry.session);
+                      const reached = completed.length + active.length;
+                      const pct = total > 0 ? Math.round((reached / total) * 100) : 0;
+                      const allDone = total > 0 && completed.length === total;
+                      const hasActive = active.length > 0;
+                      const typeColor = getSessionTypeColor(entry.type);
+
+                      return (
+                        <div key={entry.session} className="cd-progress-row">
+                          <span className="cd-progress-num hf-text-xs hf-text-muted">{entry.session}</span>
+                          <span
+                            className="cd-session-type hf-text-xs"
+                            style={{ '--session-color': typeColor } as React.CSSProperties}
+                          >
+                            {getSessionTypeLabel(entry.type)}
+                          </span>
+                          <div className="cd-progress-bar">
+                            <div
+                              className="cd-progress-fill"
+                              style={{
+                                width: `${pct}%`,
+                                background: allDone
+                                  ? 'var(--status-success-text)'
+                                  : hasActive
+                                    ? 'var(--status-info-text)'
+                                    : 'var(--border-default)',
+                              }}
+                            />
+                          </div>
+                          <span className="cd-progress-count hf-text-xs">
+                            {allDone ? (
+                              <span style={{ color: 'var(--status-success-text)' }}>&#10003; {total}</span>
+                            ) : hasActive ? (
+                              <span style={{ color: 'var(--status-info-text)' }}>&#9654; {active.length}/{total}</span>
+                            ) : (
+                              <span className="hf-text-muted">{reached}/{total}</span>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Active + not-started summary */}
+                  {(() => {
+                    const sp = sessions.studentProgress!;
+                    const active = sp.filter((s) => s.currentSession !== null && s.currentSession > 0);
+                    const notStarted = sp.filter((s) => s.currentSession === null);
+                    if (active.length === 0 && notStarted.length === 0) return null;
+                    return (
+                      <div className="hf-mt-sm">
+                        {active.length > 0 && (
+                          <div className="hf-text-xs hf-text-muted">
+                            <span className="hf-text-bold">Active: </span>
+                            {active.map((s) => {
+                              const se = sessions.plan!.entries.find((e) => e.session === s.currentSession);
+                              return `${s.name} \u2192 Session ${s.currentSession}${se ? ` (${getSessionTypeLabel(se.type)})` : ''}`;
+                            }).join(' \u00b7 ')}
+                          </div>
+                        )}
+                        {notStarted.length > 0 && (
+                          <div className="hf-text-xs hf-text-muted hf-mt-xs">
+                            <span className="hf-text-bold">Not started: </span>
+                            {notStarted.map((s) => s.name).join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* No students enrolled nudge */}
+              {sessions.studentProgress && sessions.studentProgress.length === 0 && (
+                <div className="hf-mt-xl">
+                  <div className="hf-flex hf-items-center hf-gap-sm hf-mb-sm">
+                    <Users2 size={16} className="hf-text-muted" />
+                    <span className="hf-section-title hf-mb-0">Class Progress</span>
+                  </div>
+                  <p className="hf-text-sm hf-text-muted">
+                    No students enrolled yet. Enrol students in the Students tab.
+                  </p>
+                </div>
+              )}
             </>
           ) : sessions?.modules && sessions.modules.length > 0 ? (
             /* Fallback: modules exist but no plan */
             <div className="hf-empty-compact">
               <ListOrdered size={36} className="hf-text-tertiary hf-mb-sm" />
-              <div className="hf-heading-sm hf-text-secondary hf-mb-sm">No lesson plan generated yet</div>
+              <div className="hf-heading-sm hf-text-secondary hf-mb-sm">Lesson plan not yet generated</div>
               <p className="hf-text-xs hf-text-muted hf-mb-md">
-                Curriculum has {sessions.modules.length} module{sessions.modules.length !== 1 ? 's' : ''}. Generate a lesson plan to sequence them into sessions.
+                Your curriculum has {sessions.modules.length} module{sessions.modules.length !== 1 ? 's' : ''}. Generate a lesson plan to organise them into sessions.
               </p>
               <div className="hf-card-compact hf-w-full hf-mb-md">
                 {sessions.modules.map((mod) => (
@@ -2228,7 +1989,7 @@ export default function CourseDetailPage() {
               <ListOrdered size={36} className="hf-text-tertiary hf-mb-sm" />
               <div className="hf-heading-sm hf-text-secondary hf-mb-sm">No lesson plan yet</div>
               <p className="hf-text-xs hf-text-muted hf-mb-md">
-                Sessions are created when you set up content and generate a curriculum for this course.
+                A lesson plan is created automatically when you set up your course content.
               </p>
               {isOperator && detail && (
                 <Link href={`/x/courses/new?domainId=${detail.domain.id}`} className="hf-btn hf-btn-primary">

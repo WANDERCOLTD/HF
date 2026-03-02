@@ -136,7 +136,7 @@ export function CourseBuilderStep({
 
   // ── Domain reset state ───────────────────────────
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [resetMode, setResetMode] = useState<"courses" | "everything">("courses");
+  const [resetMode, setResetMode] = useState<"delete_courses" | "reset_courses" | "everything">("delete_courses");
   const [resetPreview, setResetPreview] = useState<{
     domainName: string;
     isSeedDomain: boolean;
@@ -200,7 +200,7 @@ export function CourseBuilderStep({
   }, [selectedDomainId]);
 
   // ── Domain reset handlers ─────────────────────────
-  const handleResetClick = useCallback(async (mode: "courses" | "everything") => {
+  const handleResetClick = useCallback(async (mode: "delete_courses" | "reset_courses" | "everything") => {
     if (!selectedDomainId) return;
     setResetMode(mode);
     setResetLoading(true);
@@ -237,7 +237,7 @@ export function CourseBuilderStep({
         if (r.purged.callers > 0) parts.push(`${r.purged.callers} callers`);
         if (r.purged.playbooks > 0) parts.push(`${r.purged.playbooks} courses`);
         const msg = parts.length > 0
-          ? `Purged ${parts.join(", ")}${r.reseeded ? " and re-seeded with demo data" : ""}.`
+          ? `Deleted ${parts.join(", ")}${r.reseeded ? " and re-seeded with demo data" : ""}.`
           : `Domain cleared${r.reseeded ? " and re-seeded with demo data" : ""}.`;
         setResetResult({ ok: true, message: msg });
         setTimeout(() => setResetResult(null), 5000);
@@ -391,7 +391,6 @@ export function CourseBuilderStep({
     setPlanState("generating");
     setPlanError(null);
     try {
-      const effectivePattern = pattern || suggestedPattern || "directive";
       const res = await fetch("/api/courses/generate-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -485,7 +484,6 @@ export function CourseBuilderStep({
     launchAbortRef.current = controller;
     const timeout = setTimeout(() => controller.abort(), LAUNCH_TIMEOUT_MS);
 
-    const effectivePattern = pattern || suggestedPattern || "directive";
     const filteredOutcomes = outcomes.filter((o) => o.trim());
 
     try {
@@ -537,7 +535,7 @@ export function CourseBuilderStep({
   };
 
   // ── Derived values ─────────────────────────────────
-  const effectivePattern = pattern || suggestedPattern;
+  const effectivePattern = pattern || suggestedPattern || "directive";
   const canBuild = courseName.trim().length >= 3 && !!selectedDomainId;
   const contentPending = seedFiles.length > 0 && !packResult;
   const canLaunch = outcomes.length > 0 && !launching && !completed;
@@ -598,32 +596,48 @@ export function CourseBuilderStep({
 
           {/* Reset buttons — shown when domain selected, before Build fires */}
           {selectedDomainId && !buildFired && (
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
               <button
                 className="hf-btn hf-btn-secondary"
-                onClick={() => handleResetClick("courses")}
+                onClick={() => handleResetClick("delete_courses")}
                 disabled={resetLoading || resetting}
                 style={{ fontSize: 12, padding: "4px 10px" }}
+                title="Permanently delete all courses for this institution. Callers, cohorts, and other data are kept. No re-seeding."
               >
-                {resetLoading && resetMode === "courses" ? (
+                {resetLoading && resetMode === "delete_courses" ? (
                   <Loader2 size={12} style={{ animation: "spin 1s linear infinite", marginRight: 4 }} />
                 ) : (
                   <RotateCcw size={12} style={{ marginRight: 4 }} />
                 )}
-                Reset Courses
+                Delete All Courses
+              </button>
+              <button
+                className="hf-btn hf-btn-secondary"
+                onClick={() => handleResetClick("reset_courses")}
+                disabled={resetLoading || resetting}
+                style={{ fontSize: 12, padding: "4px 10px" }}
+                title="Delete all courses then re-create the original demo courses from seed data. Callers and other data are kept. Only works for seed institutions."
+              >
+                {resetLoading && resetMode === "reset_courses" ? (
+                  <Loader2 size={12} style={{ animation: "spin 1s linear infinite", marginRight: 4 }} />
+                ) : (
+                  <RotateCcw size={12} style={{ marginRight: 4 }} />
+                )}
+                Reset to Seed Courses
               </button>
               <button
                 className="hf-btn hf-btn-destructive"
                 onClick={() => handleResetClick("everything")}
                 disabled={resetLoading || resetting}
                 style={{ fontSize: 12, padding: "4px 10px" }}
+                title="Permanently delete everything — all courses, callers, cohorts, invites, and other domain data. For seed institutions, demo data is re-created afterwards."
               >
                 {resetLoading && resetMode === "everything" ? (
                   <Loader2 size={12} style={{ animation: "spin 1s linear infinite", marginRight: 4 }} />
                 ) : (
                   <RotateCcw size={12} style={{ marginRight: 4 }} />
                 )}
-                Reset Everything
+                Delete All
               </button>
             </div>
           )}
@@ -856,7 +870,7 @@ export function CourseBuilderStep({
             defaultOpen={false}
             badge={
               <DraftBadge variant="muted">
-                {INTERACTION_PATTERN_LABELS[(effectivePattern || "directive") as InteractionPattern]?.label || "Directive"}
+                {INTERACTION_PATTERN_LABELS[effectivePattern]?.label || "Directive"}
                 {" · "}
                 {TEACHING_MODE_LABELS[teachingMode]?.icon} {TEACHING_MODE_LABELS[teachingMode]?.label || "Recall"}
               </DraftBadge>
@@ -1120,14 +1134,16 @@ export function CourseBuilderStep({
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <AlertTriangle size={20} style={{ color: resetMode === "everything" ? "var(--status-error-text)" : "var(--status-warning-text, #d97706)" }} />
               <h3 className="hf-section-title" style={{ margin: 0 }}>
-                {resetMode === "courses" ? "Reset Courses" : "Reset Everything"} — {resetPreview.domainName}
+                {resetMode === "delete_courses" ? "Delete All Courses"
+                  : resetMode === "reset_courses" ? "Reset to Seed Courses"
+                  : "Delete All"} — {resetPreview.domainName}
               </h3>
             </div>
 
             <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 12 }}>
-              {resetMode === "courses"
-                ? "This will permanently delete all courses:"
-                : "This will permanently delete all data:"}
+              {resetMode === "everything"
+                ? "This will permanently delete all data:"
+                : "This will permanently delete all courses:"}
             </p>
             <ul style={{ fontSize: 14, color: "var(--text-primary)", margin: "0 0 16px 20px", padding: 0 }}>
               {resetPreview.counts.playbooks > 0 && (
@@ -1139,20 +1155,30 @@ export function CourseBuilderStep({
               {resetMode === "everything" && resetPreview.counts.cohortGroups > 0 && (
                 <li>{resetPreview.counts.cohortGroups} cohort groups</li>
               )}
-              {resetMode === "courses" && resetPreview.counts.playbooks === 0 && (
-                <li style={{ color: "var(--text-muted)" }}>No courses to purge</li>
+              {resetMode !== "everything" && resetPreview.counts.playbooks === 0 && (
+                <li style={{ color: "var(--text-muted)" }}>No courses to delete</li>
               )}
               {resetMode === "everything" && resetPreview.totalRecords === 0 && (
-                <li style={{ color: "var(--text-muted)" }}>No data to purge</li>
+                <li style={{ color: "var(--text-muted)" }}>No data to delete</li>
               )}
             </ul>
 
-            {resetMode === "everything" && resetPreview.isSeedDomain && (
+            {resetMode === "reset_courses" && resetPreview.isSeedDomain && (
               <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-                Demo callers and a playbook will be re-seeded after purge.
+                Seed courses will be re-created after deletion.
               </p>
             )}
-            {resetMode === "courses" && (
+            {resetMode === "reset_courses" && !resetPreview.isSeedDomain && (
+              <p style={{ fontSize: 13, color: "var(--status-warning-text, #d97706)", marginBottom: 16 }}>
+                This institution has no seed data — courses will be deleted but not re-created.
+              </p>
+            )}
+            {resetMode === "everything" && resetPreview.isSeedDomain && (
+              <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+                Demo callers and courses will be re-seeded after deletion.
+              </p>
+            )}
+            {resetMode === "delete_courses" && (
               <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
                 Callers, cohorts, and other domain data will be kept.
               </p>
@@ -1174,14 +1200,16 @@ export function CourseBuilderStep({
                 {resetting ? (
                   <>
                     <Loader2 size={14} style={{ animation: "spin 1s linear infinite", marginRight: 4 }} />
-                    Resetting...
+                    {resetMode === "everything" ? "Deleting..." : "Deleting courses..."}
                   </>
-                ) : resetMode === "courses" ? (
-                  "Reset Courses"
+                ) : resetMode === "delete_courses" ? (
+                  "Delete All Courses"
+                ) : resetMode === "reset_courses" ? (
+                  resetPreview.isSeedDomain ? "Delete & Re-seed" : "Delete All Courses"
                 ) : resetPreview.isSeedDomain ? (
-                  "Reset & Re-seed"
+                  "Delete All & Re-seed"
                 ) : (
-                  "Purge All Data"
+                  "Delete All Data"
                 )}
               </button>
             </div>

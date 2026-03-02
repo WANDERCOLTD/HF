@@ -4863,7 +4863,7 @@ Get resolved onboarding flow for a course (course override > domain > INIT-001 f
 
 **Response** `200`
 ```json
-{ ok: true, source, phases, domainName, domainId, media }
+{ ok: true, source, phases, domainName, domainId, domainWelcome, personaName, media }
 ```
 
 **Response** `404`
@@ -4903,7 +4903,7 @@ Returns the lesson plan sessions for a course. Looks up subjects via
 
 **Response** `200`
 ```json
-{ ok, plan, modules, curriculumId, subjectCount }
+{ ok, plan, modules, curriculumId, subjectCount, studentProgress? }
 ```
 
 **Response** `404`

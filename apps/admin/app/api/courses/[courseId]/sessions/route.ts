@@ -13,11 +13,12 @@ type Params = { params: Promise<{ courseId: string }> };
  * @description Returns the lesson plan sessions for a course. Looks up subjects via
  *   PlaybookSubject (domain fallback), then finds the first curriculum with a persisted
  *   lessonPlan in deliveryConfig. Falls back to raw CurriculumModule list when no plan exists.
- * @response 200 { ok, plan, modules, curriculumId, subjectCount }
+ *   Pass ?includeProgress=true to also return per-student session progress (CallerAttribute).
+ * @response 200 { ok, plan, modules, curriculumId, subjectCount, studentProgress? }
  * @response 404 { ok: false, error: "Course not found" }
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: Params,
 ) {
   try {
@@ -113,6 +114,49 @@ export async function GET(
       })),
     );
 
+    // 6. Optionally include student progress
+    const includeProgress = req.nextUrl.searchParams.get("includeProgress") === "true";
+    let studentProgress: Array<{ callerId: string; name: string; currentSession: number | null }> | undefined;
+
+    if (includeProgress && plan) {
+      // Get enrolled students via CallerPlaybook
+      const callerPlaybooks = await prisma.callerPlaybook.findMany({
+        where: { playbookId: courseId },
+        select: { caller: { select: { id: true, name: true } } },
+      });
+
+      const memberMap = new Map<string, string>();
+      for (const cp of callerPlaybooks) {
+        memberMap.set(cp.caller.id, cp.caller.name ?? "Unknown");
+      }
+      const memberIds = [...memberMap.keys()];
+
+      // Get current_session CallerAttribute for each member
+      const sessionAttrs = memberIds.length > 0
+        ? await prisma.callerAttribute.findMany({
+            where: {
+              callerId: { in: memberIds },
+              key: { contains: ":current_session" },
+              scope: "CURRICULUM",
+            },
+            select: { callerId: true, numberValue: true },
+          })
+        : [];
+
+      const sessionByCallerId = new Map<string, number>();
+      for (const attr of sessionAttrs) {
+        if (attr.numberValue !== null) {
+          sessionByCallerId.set(attr.callerId, Math.round(attr.numberValue));
+        }
+      }
+
+      studentProgress = [...memberMap.entries()].map(([callerId, name]) => ({
+        callerId,
+        name,
+        currentSession: sessionByCallerId.get(callerId) ?? null,
+      }));
+    }
+
     return NextResponse.json({
       ok: true,
       plan: plan
@@ -131,11 +175,13 @@ export async function GET(
             })),
             estimatedSessions: plan.estimatedSessions || plan.entries?.length || 0,
             generatedAt: plan.generatedAt || null,
+            model: plan.model || null,
           }
         : null,
       modules,
       curriculumId,
       subjectCount: subjectIds.length,
+      ...(studentProgress !== undefined && { studentProgress }),
     });
   } catch (error: unknown) {
     console.error("[courses/:id/sessions] GET error:", error);

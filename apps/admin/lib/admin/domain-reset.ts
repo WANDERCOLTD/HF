@@ -22,7 +22,7 @@ const SEED_DOMAIN_SLUGS = [
   "harbour-languages",
 ];
 
-export type ResetMode = "courses" | "everything";
+export type ResetMode = "delete_courses" | "reset_courses" | "everything";
 
 // ── Types ────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ export async function previewDomainReset(domainId: string): Promise<DomainResetP
 
 export async function executeDomainReset(
   domainId: string,
-  mode: ResetMode = "everything",
+  mode: ResetMode = "delete_courses",
 ): Promise<DomainResetResult | null> {
   const domain = await prisma.domain.findUnique({
     where: { id: domainId },
@@ -131,7 +131,7 @@ export async function executeDomainReset(
     playbookGroups: 0,
   };
 
-  // ── Always: delete playbooks ──
+  // ── All modes: delete playbooks ──
   await prisma.playbook.updateMany({
     where: { domainId, status: "PUBLISHED" },
     data: { status: "ARCHIVED" },
@@ -175,9 +175,9 @@ export async function executeDomainReset(
     purged.playbookGroups = playbookGroups.count;
   }
 
-  // ── Re-seed (everything mode only, seed domains only) ──
+  // ── Re-seed (reset_courses or everything, seed domains only) ──
   let reseeded = false;
-  if (mode === "everything" && SEED_DOMAIN_SLUGS.includes(domain.slug)) {
+  if ((mode === "reset_courses" || mode === "everything") && SEED_DOMAIN_SLUGS.includes(domain.slug)) {
     const { seedSingleDomain } = await import("@/prisma/seed-demo-domains");
     reseeded = await seedSingleDomain(domain.slug, prisma);
   }

@@ -10,7 +10,7 @@ import type { PlaybookConfig, OnboardingFlowPhases } from "@/lib/types/json-fiel
  * @tags courses, onboarding
  * @description Get resolved onboarding flow for a course (course override > domain > INIT-001 fallback). Returns phase source ("course" | "domain" | "none") and available domain media for the editor picker.
  * @pathParam courseId string - The playbook ID (course)
- * @response 200 { ok: true, source, phases, domainName, domainId, media }
+ * @response 200 { ok: true, source, phases, domainName, domainId, domainWelcome, personaName, media }
  * @response 404 { ok: false, error: "Course not found" }
  */
 export async function GET(
@@ -34,6 +34,10 @@ export async function GET(
             name: true,
             slug: true,
             onboardingFlowPhases: true,
+            onboardingWelcome: true,
+            onboardingIdentitySpec: {
+              select: { name: true },
+            },
           },
         },
       },
@@ -92,6 +96,8 @@ export async function GET(
       phases,
       domainId: playbook.domain?.id || null,
       domainName: playbook.domain?.name || null,
+      domainWelcome: playbook.domain?.onboardingWelcome || null,
+      personaName: playbook.domain?.onboardingIdentitySpec?.name?.replace(/ Identity$/i, '') || null,
       media,
     });
   } catch (error: unknown) {

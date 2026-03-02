@@ -66,7 +66,8 @@ export async function POST(
 
     const { domainId } = await params;
     const body = await request.json().catch(() => ({}));
-    const mode: ResetMode = body.mode === "courses" ? "courses" : "everything";
+    const validModes: ResetMode[] = ["delete_courses", "reset_courses", "everything"];
+    const mode: ResetMode = validModes.includes(body.mode) ? body.mode : "delete_courses";
     const result = await executeDomainReset(domainId, mode);
 
     if (!result) {
