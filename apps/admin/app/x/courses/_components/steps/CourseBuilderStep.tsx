@@ -73,6 +73,8 @@ export function CourseBuilderStep({
 
   // ── Seed zone state ────────────────────────────────
   const [courseName, setCourseName] = useState("");
+  const courseNameRef = useRef(courseName);
+  courseNameRef.current = courseName;
   const [selectedDomainId, setSelectedDomainId] = useState("");
   const [domains, setDomains] = useState<DomainOption[]>([]);
   const [loadingDomains, setLoadingDomains] = useState(true);
@@ -388,6 +390,12 @@ export function CourseBuilderStep({
   };
 
   const firePlanGeneration = async () => {
+    const name = courseNameRef.current.trim();
+    if (!name) {
+      setPlanError("Course name is required");
+      setPlanState("ready");
+      return;
+    }
     setPlanState("generating");
     setPlanError(null);
     try {
@@ -395,7 +403,7 @@ export function CourseBuilderStep({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          courseName: courseName.trim(),
+          courseName: name,
           learningOutcomes: outcomes.filter((o) => o.trim()),
           teachingStyle: "tutor",
           interactionPattern: effectivePattern,
