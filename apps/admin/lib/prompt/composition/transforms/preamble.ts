@@ -65,13 +65,27 @@ registerTransform("computePreamble", (
       },
     },
 
-    criticalRules: [
-      "If RETURNING_CALLER: ALWAYS review before new material",
-      "If review fails (caller can't recall): Don't proceed. Re-teach foundation first.",
-      "If caller struggles: Back up. Different example. Don't push forward.",
-      "If caller wants to skip review: Only allow if they PROVE they know it.",
-      "End at natural stopping point, never mid-concept.",
-    ],
+    criticalRules: (() => {
+      const modules = context.sharedState.modules;
+      const hasTeachingContent = context.sections.teachingContent?.hasTeachingContent === true;
+      const hasCurriculum = (modules?.length ?? 0) > 0 || hasTeachingContent;
+
+      if (hasCurriculum) {
+        return [
+          "If RETURNING_CALLER: ALWAYS review before new material",
+          "If review fails (caller can't recall): Don't proceed. Re-teach foundation first.",
+          "If caller struggles: Back up. Different example. Don't push forward.",
+          "If caller wants to skip review: Only allow if they PROVE they know it.",
+          "End at natural stopping point, never mid-concept.",
+        ];
+      }
+      return [
+        "Do NOT invent, assume, or fabricate specific academic topics, modules, or curriculum.",
+        "If the caller mentions a topic, explore it naturally - but do not lead with assumed subjects.",
+        "If caller struggles: Back up. Different approach. Don't push forward.",
+        "End at natural stopping point.",
+      ];
+    })(),
 
     voiceRules: (() => {
       if (voiceConfig?.voice_rules?.rules) {

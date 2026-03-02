@@ -37,13 +37,14 @@ export interface TypePickerOption {
   slug: string;
   name: string;
   description?: string | null;
+  defaultDomainKind?: string | null;
 }
 
 interface TypePickerProps {
   /** Currently selected type slug */
   value: string | null;
   /** Called when user selects a type */
-  onChange: (slug: string, typeId?: string) => void;
+  onChange: (slug: string, typeId?: string, defaultDomainKind?: string) => void;
   /** Label above the picker */
   label?: string;
   /** Auto-suggested type slug (shown with badge, not yet confirmed) */
@@ -65,6 +66,7 @@ export function TypePicker({ value, onChange, label = "What kind of organisation
             slug: t.slug,
             name: t.name,
             description: t.description,
+            defaultDomainKind: t.defaultDomainKind || null,
           })));
         }
       })
@@ -72,13 +74,14 @@ export function TypePicker({ value, onChange, label = "What kind of organisation
   }, []);
 
   // Merge: use API data if available (has id), otherwise static config
-  const types: Array<{ slug: string; id?: string; name: string; description: string }> =
+  const types: Array<{ slug: string; id?: string; name: string; description: string; defaultDomainKind?: string | null }> =
     apiTypes
       ? apiTypes.map((t) => ({
           slug: t.slug,
           id: t.id,
           name: t.name,
           description: t.description || SECTOR_CONFIG[t.slug as SectorSlug]?.description || "",
+          defaultDomainKind: t.defaultDomainKind,
         }))
       : SECTOR_SLUGS.map((slug) => ({
           slug,
@@ -106,7 +109,7 @@ export function TypePicker({ value, onChange, label = "What kind of organisation
             <button
               key={t.slug}
               type="button"
-              onClick={() => onChange(t.slug, t.id)}
+              onClick={() => onChange(t.slug, t.id, t.defaultDomainKind || undefined)}
               onMouseEnter={() => setHoveredSlug(t.slug)}
               onMouseLeave={() => setHoveredSlug(null)}
               className={`hf-chip${isSelected || isSuggested ? " hf-chip-selected" : ""}`}

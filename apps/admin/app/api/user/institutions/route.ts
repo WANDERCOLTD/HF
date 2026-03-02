@@ -34,7 +34,7 @@ export async function GET() {
     slug: true,
     logoUrl: true,
     primaryColor: true,
-    type: { select: { slug: true } },
+    type: { select: { slug: true, defaultDomainKind: true } },
     domains: { select: { id: true }, take: 1 },
   } as const;
 
@@ -64,6 +64,7 @@ export async function GET() {
     logoUrl: i.logoUrl,
     primaryColor: i.primaryColor,
     typeSlug: i.type?.slug ?? null,
+    defaultDomainKind: i.type?.defaultDomainKind ?? null,
     domainId: i.domains[0]?.id ?? null,
   }));
 

@@ -246,6 +246,10 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
     if (curr.nextModule) parts.push(`Next module: ${curr.nextModule.name}`);
   }
   if (qs?.curriculum_progress) parts.push(qs.curriculum_progress);
+  // Anti-hallucination guard: if no curriculum data at all, make it explicit
+  if (!curr?.hasData && !qs?.curriculum_progress) {
+    parts.push("IMPORTANT: No curriculum is loaded for this caller. Do NOT invent or assume specific academic topics, modules, or subject matter.");
+  }
   parts.push("");
 
   // --- COURSE RULES ---

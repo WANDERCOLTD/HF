@@ -73,6 +73,7 @@ interface ExistingInstitution {
   id: string;
   name: string;
   typeSlug: string | null;
+  defaultDomainKind: string | null;
   domainId: string | null;
 }
 
@@ -204,6 +205,7 @@ export function ConversationWizard() {
               id: i.id,
               name: i.name,
               typeSlug: i.typeSlug || null,
+              defaultDomainKind: i.defaultDomainKind || null,
               domainId: i.domainId || null,
             })),
           );
@@ -236,7 +238,11 @@ export function ConversationWizard() {
       // Check if this question has been answered
       const ctrl = q.control;
       let value: unknown;
-      if ("dataKey" in ctrl) {
+      // Sliders always require interaction — don't auto-restore from data bag.
+      // The user must see and confirm the slider values on every visit.
+      if (ctrl.type === "sliders") {
+        value = undefined;
+      } else if ("dataKey" in ctrl) {
         value = getData(ctrl.dataKey);
       } else if (ctrl.type === "file-upload") {
         value = getData("contentSkipped") || getData("extractionTotals") ? "done" : undefined;
@@ -426,10 +432,17 @@ export function ConversationWizard() {
 
         setMessages((prev) => [...prev, ...newMsgs]);
         setActiveQIndex(nextIdx);
-        setInputValue("");
+
+        // Pre-populate textarea with defaultValue if provided, otherwise clear
+        const ctrl = nextQ.control;
+        if (ctrl.type === "textarea" && ctrl.defaultValue) {
+          const resolved = typeof ctrl.defaultValue === "function" ? ctrl.defaultValue(getDataNow) : ctrl.defaultValue;
+          setInputValue(resolved);
+        } else {
+          setInputValue("");
+        }
 
         // Focus input if text-based
-        const ctrl = nextQ.control;
         if (ctrl.type === "text" || ctrl.type === "textarea" || ctrl.type === "url") {
           setTimeout(() => inputRef.current?.focus(), 50);
         }
@@ -578,6 +591,7 @@ export function ConversationWizard() {
       setData("existingInstitutionName", inst.name);
       setData("existingDomainId", inst.domainId || "");
       setData("typeSlug", inst.typeSlug);
+      if (inst.defaultDomainKind) setData("defaultDomainKind", inst.defaultDomainKind);
       setData("institutionName", undefined);
 
       if (activeQuestion?.question.id === "inst.name") {
@@ -885,44 +899,66 @@ export function ConversationWizard() {
         ),
       );
 
-      const setupRes = await fetch("/api/courses/setup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          courseName: getData<string>("courseName"),
-          domainId,
-          interactionPattern: getData<string>("interactionPattern"),
-          teachingMode: getData<string>("teachingMode"),
-          subjectDiscipline: getData<string>("subjectDiscipline"),
-          packSubjectIds: getData<string[]>("packSubjectIds"),
-          sourceId: getData<string>("sourceId"),
-          learningOutcomes: [],
-          teachingStyle: getData<string>("interactionPattern") || "socratic",
-          sessionCount: 5,
-          durationMins: 30,
-          emphasis: "balanced",
-          welcomeMessage: "",
-          studentEmails: [],
-        }),
-      });
-
-      const setupData = await setupRes.json();
-      if (!setupData.ok) throw new Error(setupData.error || "Failed to set up course");
-
-      // Poll the course setup task until complete so we get the playbookId
-      const taskId = setupData.taskId;
       let playbookId: string | undefined;
-      if (taskId) {
-        const POLL_MS = 1500;
-        const TIMEOUT_MS = 60_000;
-        const start = Date.now();
-        while (Date.now() - start < TIMEOUT_MS) {
-          await new Promise((r) => setTimeout(r, POLL_MS));
-          try {
-            const taskRes = await fetch(`/api/tasks?taskId=${taskId}`);
-            if (!taskRes.ok) continue;
-            const taskData = await taskRes.json();
-            const task = taskData.task || taskData.tasks?.[0] || taskData.guidance?.task;
+
+      if (getData<string>("defaultDomainKind") === "COMMUNITY") {
+        // Community early launch — simpler path, no task polling needed
+        const communityRes = await fetch("/api/communities", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: getData<string>("courseName") || getData<string>("institutionName") || "My Community",
+            communityKind: "OPEN_CONNECTION",
+            hubPattern: getData<string>("interactionPattern") || "companion",
+            institutionId: getData<string>("existingInstitutionId") || undefined,
+          }),
+        });
+        const communityData = await communityRes.json();
+        if (!communityData.ok) throw new Error(communityData.error || "Failed to create community");
+        domainId = communityData.community.id;
+
+        // Fetch scaffold-created playbook
+        const pbRes = await fetch(`/api/domains/${domainId}/playbooks`);
+        const pbData = await pbRes.json();
+        playbookId = pbData.ok ? pbData.playbooks?.[0]?.id : undefined;
+      } else {
+        const setupRes = await fetch("/api/courses/setup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            courseName: getData<string>("courseName"),
+            domainId,
+            interactionPattern: getData<string>("interactionPattern"),
+            teachingMode: getData<string>("teachingMode"),
+            subjectDiscipline: getData<string>("subjectDiscipline"),
+            packSubjectIds: getData<string[]>("packSubjectIds"),
+            sourceId: getData<string>("sourceId"),
+            learningOutcomes: [],
+            teachingStyle: getData<string>("interactionPattern") || "socratic",
+            sessionCount: 5,
+            durationMins: 30,
+            emphasis: "balanced",
+            welcomeMessage: "",
+            studentEmails: [],
+          }),
+        });
+
+        const setupData = await setupRes.json();
+        if (!setupData.ok) throw new Error(setupData.error || "Failed to set up course");
+
+        // Poll the course setup task until complete so we get the playbookId
+        const taskId = setupData.taskId;
+        if (taskId) {
+          const POLL_MS = 1500;
+          const TIMEOUT_MS = 60_000;
+          const start = Date.now();
+          while (Date.now() - start < TIMEOUT_MS) {
+            await new Promise((r) => setTimeout(r, POLL_MS));
+            try {
+              const taskRes = await fetch(`/api/tasks?taskId=${taskId}`);
+              if (!taskRes.ok) continue;
+              const taskData = await taskRes.json();
+              const task = taskData.task || taskData.tasks?.[0] || taskData.guidance?.task;
             if (task?.status === "completed") {
               playbookId = task.context?.summary?.playbook?.id;
               break;
@@ -931,6 +967,7 @@ export function ConversationWizard() {
           } catch { /* keep polling */ }
         }
       }
+      } // end course setup branch
 
       steps[1] = { ...steps[1], status: "done" };
       steps[2] = { ...steps[2], status: "done" };
@@ -1025,8 +1062,32 @@ export function ConversationWizard() {
         });
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || "Failed to publish");
+      } else if (getData<string>("defaultDomainKind") === "COMMUNITY") {
+        // Community creation — uses companion archetype, no curriculum
+        const communityRes = await fetch("/api/communities", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: getData<string>("courseName") || getData<string>("institutionName") || "My Community",
+            description: getData<string>("welcomeMessage") || "",
+            communityKind: "OPEN_CONNECTION",
+            hubPattern: getData<string>("interactionPattern") || "companion",
+            institutionId: getData<string>("existingInstitutionId") || undefined,
+          }),
+        });
+        const communityData = await communityRes.json();
+        if (!communityData.ok) throw new Error(communityData.error || "Failed to create community");
+
+        setData("draftDomainId", communityData.community.id);
+
+        // Fetch the scaffold-created playbook for sim link
+        const pbRes = await fetch(`/api/domains/${communityData.community.id}/playbooks`);
+        const pbData = await pbRes.json();
+        if (pbData.ok && pbData.playbooks?.[0]?.id) {
+          setData("draftPlaybookId", pbData.playbooks[0].id);
+        }
       } else {
-        // Full creation
+        // Full course creation
         const setupRes = await fetch("/api/courses/setup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1320,9 +1381,10 @@ export function ConversationWizard() {
             value={currentSlug}
             suggestedValue={suggestedType}
             label=""
-            onChange={(slug, id) => {
+            onChange={(slug, id, domainKind) => {
               setData(ctrl.dataKey, slug);
               if (ctrl.typeIdKey) setData(ctrl.typeIdKey, id);
+              if (domainKind) setData("defaultDomainKind", domainKind);
               if (q.autoAdvance) {
                 handleAnswer(q.id, slug, slug);
               }
@@ -1452,6 +1514,27 @@ export function ConversationWizard() {
       return (
         <div className="gs-chat-control">
           {renderReviewCard()}
+        </div>
+      );
+    }
+
+    // Textarea with suggestions: render clickable suggestion chips inline
+    if (ctrl.type === "textarea" && ctrl.suggestions && ctrl.suggestions.length > 0) {
+      return (
+        <div className="gs-chat-control gs-chat-suggestions">
+          {ctrl.suggestions.map((s) => (
+            <button
+              key={s.label}
+              type="button"
+              className="gs-suggestion-chip"
+              onClick={() => {
+                const resolved = typeof s.value === "function" ? s.value(getData) : s.value;
+                setInputValue(resolved);
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
         </div>
       );
     }

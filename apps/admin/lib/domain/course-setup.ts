@@ -55,6 +55,7 @@ export interface CourseSetupInput {
   // Two-axis identity (stored in Playbook.config)
   interactionPattern?: string; // HOW to interact: "socratic" | "directive" | "advisory" | "coaching" | ...
   teachingMode?: string; // WHAT to emphasise: "recall" | "comprehension" | "practice" | "syllabus"
+  subjectDiscipline?: string; // Subject/discipline name for prompt identity (e.g. "GCSE Biology")
   // Wizard task tracking — reuse wizard task for launch progress
   wizardTaskId?: string;
   // Optional department/division/track grouping
@@ -282,8 +283,8 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
       ctx.results.playbookId = scaffoldResult.playbook.id;
       ctx.results.playbookName = scaffoldResult.playbook.name;
 
-      // Store interactionPattern + teachingMode in playbook config if provided
-      if (ctx.input.interactionPattern || ctx.input.teachingMode) {
+      // Store interactionPattern + teachingMode + subjectDiscipline in playbook config if provided
+      if (ctx.input.interactionPattern || ctx.input.teachingMode || ctx.input.subjectDiscipline) {
         const pb = await prisma.playbook.findUnique({
           where: { id: scaffoldResult.playbook.id },
           select: { config: true },
@@ -296,6 +297,7 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
               ...existingConfig,
               ...(ctx.input.interactionPattern && { interactionPattern: ctx.input.interactionPattern }),
               ...(ctx.input.teachingMode && { teachingMode: ctx.input.teachingMode }),
+              ...(ctx.input.subjectDiscipline && { subjectDiscipline: ctx.input.subjectDiscipline }),
             },
           },
         });

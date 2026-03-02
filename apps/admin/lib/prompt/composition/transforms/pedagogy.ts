@@ -25,6 +25,10 @@ registerTransform("computeSessionPedagogy", (
   } = context.sharedState;
   const domain = context.loadedData.caller?.domain;
   const onboardingSpec = context.loadedData.onboardingSpec;
+
+  // Detect whether this caller has any curriculum to work with
+  const hasTeachingContent = context.sections.teachingContent?.hasTeachingContent === true;
+  const hasCurriculum = modules.length > 0 || hasTeachingContent;
   // First playbook's config for course-level onboarding override
   const primaryPlaybook = context.loadedData.playbooks?.[0];
 
@@ -228,8 +232,8 @@ registerTransform("computeSessionPedagogy", (
 
     console.log(`[pedagogy] Lesson plan session ${currentSessionNumber}: ${lessonPlanSessionType} - ${lessonPlanEntry.label}`);
     } // end fallback switch
-  } else {
-    // === GENERIC RETURNING CALLER MODE ===
+  } else if (hasCurriculum) {
+    // === GENERIC RETURNING CALLER MODE (with curriculum) ===
     plan.flow = [
       "1. Reconnect - reference last session specifically",
       `2. Spaced retrieval (${reviewType}) - recall question on ${moduleToReview?.name || "previous concept"}`,
@@ -258,14 +262,34 @@ registerTransform("computeSessionPedagogy", (
         approach: `After confirming ${moduleToReview?.name || "previous"} understanding, introduce ${nextModule.description || "new concepts"}`,
       };
     }
+  } else {
+    // === NO CURRICULUM MODE — open conversation, do NOT invent topics ===
+    plan.sessionType = "OPEN_CONVERSATION";
+    plan.flow = [
+      "1. Reconnect - warmly reference the previous conversation",
+      "2. Ask what they'd like to talk about or work on today",
+      "3. Follow the caller's lead - explore their chosen topic",
+      "4. Use open questions to deepen the conversation",
+      "5. Summarise what was discussed and ask if there's anything else",
+    ];
+    // No reviewFirst — nothing to review
+    // No newMaterial — nothing assigned
+    console.log("[pedagogy] No curriculum loaded — using open conversation flow");
   }
 
-  plan.principles = [
-    "Review BEFORE new material - never skip unless learner explicitly confirms mastery",
-    "One main new concept per session - depth over breadth",
-    "If review reveals gaps, stay on review - don't accumulate confusion",
-    "Connection questions ('How does X relate to Y?') are more valuable than isolated recall",
-  ];
+  plan.principles = hasCurriculum
+    ? [
+        "Review BEFORE new material - never skip unless learner explicitly confirms mastery",
+        "One main new concept per session - depth over breadth",
+        "If review reveals gaps, stay on review - don't accumulate confusion",
+        "Connection questions ('How does X relate to Y?') are more valuable than isolated recall",
+      ]
+    : [
+        "Do NOT invent or assume specific academic topics, modules, or curriculum",
+        "Follow the caller's lead — let them set the agenda",
+        "If the caller mentions a topic from a previous conversation, explore it naturally",
+        "Keep the conversation supportive and exploratory, not lecture-based",
+      ];
 
   return plan;
 });

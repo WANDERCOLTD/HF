@@ -14,6 +14,9 @@ import type { ChipSelectOption } from "@/components/shared/ChipSelect";
 export type DataGetter = <T = unknown>(key: string) => T | undefined;
 export type DataSetter = (key: string, value: unknown) => void;
 
+/** Community-kind types skip course/content wizard steps */
+const isCommunityKind = (g: DataGetter) => g<string>("defaultDomainKind") === "COMMUNITY";
+
 export interface SliderDef {
   key: string;
   label: string;
@@ -29,7 +32,7 @@ export interface ActionDef {
 
 export type QuestionControl =
   | { type: "text"; placeholder: string; dataKey: string }
-  | { type: "textarea"; placeholder: string; dataKey: string; rows?: number }
+  | { type: "textarea"; placeholder: string; dataKey: string; rows?: number; defaultValue?: string | ((getData: DataGetter) => string); suggestions?: { label: string; value: string | ((getData: DataGetter) => string) }[] }
   | { type: "url"; placeholder: string; dataKey: string }
   | {
       type: "chips";
@@ -222,7 +225,10 @@ export const CONVERSATION_SCRIPT: ConversationQuestion[] = [
   {
     id: "course.name",
     stepId: "course",
-    message: "Now let\u2019s set up the course. What will the AI tutor teach?",
+    message: (g) =>
+      isCommunityKind(g)
+        ? "What will conversations in your community be about?"
+        : "Now let\u2019s set up the course. What will the AI tutor teach?",
     control: {
       type: "text",
       placeholder: "e.g. GCSE Biology, Level 2 Food Safety",
@@ -241,7 +247,7 @@ export const CONVERSATION_SCRIPT: ConversationQuestion[] = [
       placeholder: "e.g. Biology, Food Safety, English",
       dataKey: "subjectDiscipline",
     },
-    showWhen: (g) => (g<string>("courseName")?.trim().length ?? 0) >= 3,
+    showWhen: (g) => !isCommunityKind(g) && (g<string>("courseName")?.trim().length ?? 0) >= 3,
     hintKey: "get-started.discipline",
   },
   {
@@ -267,6 +273,7 @@ export const CONVERSATION_SCRIPT: ConversationQuestion[] = [
       dataKey: "teachingMode",
       hints: EMPHASIS_HINTS,
     },
+    showWhen: (g) => !isCommunityKind(g),
     autoAdvance: true,
     hintKey: "get-started.emphasis",
   },
@@ -279,6 +286,7 @@ export const CONVERSATION_SCRIPT: ConversationQuestion[] = [
       "Upload your teaching materials \u2014 PDFs, Word documents, or text files. The AI will classify each file and extract teaching points automatically.",
     subMessage: "You can skip this and add content later.",
     control: { type: "file-upload" },
+    showWhen: (g) => !isCommunityKind(g),
     groupLabel: "Content",
   },
 
@@ -287,13 +295,16 @@ export const CONVERSATION_SCRIPT: ConversationQuestion[] = [
     id: "checkpoint.ready",
     stepId: "checkpoint",
     message: (g) => {
-      const name = g<string>("courseName") || "Your course";
+      const isCommunity = isCommunityKind(g);
+      const name = g<string>("courseName") || (isCommunity ? "Your community" : "Your course");
       const totals = g<{ assertions: number }>("extractionTotals");
-      const tp = totals ? ` with ${totals.assertions} teaching points` : "";
+      const tp = !isCommunity && totals ? ` with ${totals.assertions} teaching points` : "";
       return `${name}${tp} is ready to test! You can create it now and try a sim call, or continue setting up.`;
     },
-    subMessage:
-      "Continuing adds: welcome message, session plan, tutor personality.",
+    subMessage: (g) =>
+      isCommunityKind(g)
+        ? "Continuing adds: welcome message and conversation personality."
+        : "Continuing adds: welcome message, session plan, tutor personality.",
     control: {
       type: "actions",
       primary: { label: "Create & Try a Call", icon: "Rocket", variant: "primary" },
@@ -307,12 +318,32 @@ export const CONVERSATION_SCRIPT: ConversationQuestion[] = [
     id: "welcome.message",
     stepId: "welcome",
     message: "What should the AI say to greet the student on their first call?",
-    subMessage: "Leave blank for the default: \u201cGood to have you. Let\u2019s just ease into this... no rush.\u201d",
+    subMessage: "Here\u2019s a default \u2014 edit it or pick a suggestion below.",
     control: {
       type: "textarea",
       placeholder: "e.g. Welcome! I'm here to help you learn at your own pace...",
       dataKey: "welcomeMessage",
       rows: 3,
+      defaultValue: (getData) => {
+        const course = getData<string>("courseName") || "your course";
+        return `Hi there! Welcome to ${course}. I\u2019m here to help you learn \u2014 no rush, no pressure. Let\u2019s start by getting to know each other a bit.`;
+      },
+      suggestions: [
+        {
+          label: "Casual & warm",
+          value: (getData) => {
+            const course = getData<string>("courseName") || "your course";
+            return `Hey! Great to have you here for ${course}. Think of me as a study buddy who\u2019s always ready to help. Let\u2019s ease into things \u2014 tell me a bit about yourself first.`;
+          },
+        },
+        {
+          label: "Encouraging & structured",
+          value: (getData) => {
+            const course = getData<string>("courseName") || "your course";
+            return `Welcome to ${course}! I\u2019m really glad you\u2019re here. We\u2019ll work through things at your pace, step by step. First, I\u2019d love to learn what you\u2019re hoping to get out of this.`;
+          },
+        },
+      ],
     },
     groupLabel: "Welcome & Sessions",
     hintKey: "get-started.welcome",
@@ -326,6 +357,7 @@ export const CONVERSATION_SCRIPT: ConversationQuestion[] = [
       options: SESSION_COUNT_OPTIONS,
       dataKey: "sessionCount",
     },
+    showWhen: (g) => !isCommunityKind(g),
     autoAdvance: true,
     hintKey: "get-started.sessions",
   },
@@ -351,6 +383,7 @@ export const CONVERSATION_SCRIPT: ConversationQuestion[] = [
       dataKey: "planEmphasis",
       hints: PLAN_EMPHASIS_HINTS,
     },
+    showWhen: (g) => !isCommunityKind(g),
     autoAdvance: true,
     hintKey: "get-started.planEmphasis",
   },
@@ -378,6 +411,7 @@ export const CONVERSATION_SCRIPT: ConversationQuestion[] = [
       dataKey: "lessonPlanModel",
       hints: MODEL_HINTS,
     },
+    showWhen: (g) => !isCommunityKind(g),
     autoAdvance: true,
     hintKey: "get-started.model",
   },

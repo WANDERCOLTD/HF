@@ -175,6 +175,31 @@
   accent-color: var(--accent-primary);
 }
 
+/* Suggestion chips for textarea questions */
+.gs-chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gs-suggestion-chip {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.gs-suggestion-chip:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-primary));
+}
+
 /* Continue button for non-auto-advance controls */
 .gs-chat-control-footer {
   margin-top: 10px;

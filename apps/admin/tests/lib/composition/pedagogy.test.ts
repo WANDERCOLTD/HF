@@ -384,11 +384,71 @@ describe("computeSessionPedagogy transform", () => {
       expect(result.flow.length).toBeGreaterThan(0);
     });
 
-    it("still includes universal pedagogy principles", () => {
+    it("still includes curriculum pedagogy principles", () => {
       const ctx = makeLessonPlanContext("deepen");
       const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
 
       expect(result.principles.some((p: string) => p.includes("Review BEFORE"))).toBe(true);
+    });
+  });
+
+  describe("NO CURRICULUM flow (anti-hallucination)", () => {
+    function makeNoCurriculumContext(overrides: Partial<AssembledContext> = {}): AssembledContext {
+      return makeContext({
+        sharedState: {
+          ...makeContext().sharedState,
+          modules: [],
+          moduleToReview: null,
+          nextModule: null,
+          isFirstCall: false,
+          isFirstCallInDomain: false,
+          lessonPlanSessionType: null,
+          lessonPlanEntry: null,
+        },
+        sections: {},
+        ...overrides,
+      });
+    }
+
+    it("uses OPEN_CONVERSATION session type when no curriculum", () => {
+      const ctx = makeNoCurriculumContext();
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+
+      expect(result.sessionType).toBe("OPEN_CONVERSATION");
+    });
+
+    it("includes anti-hallucination principle instead of review-based principles", () => {
+      const ctx = makeNoCurriculumContext();
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+
+      expect(result.principles.some((p: string) => p.includes("Do NOT invent"))).toBe(true);
+      expect(result.principles.some((p: string) => p.includes("Review BEFORE"))).toBe(false);
+    });
+
+    it("does not include reviewFirst or newMaterial", () => {
+      const ctx = makeNoCurriculumContext();
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+
+      expect(result.reviewFirst).toBeUndefined();
+      expect(result.newMaterial).toBeUndefined();
+    });
+
+    it("uses curriculum flow when modules exist (unchanged)", () => {
+      const ctx = makeContext(); // has modules by default
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+
+      expect(result.sessionType).toBe("RETURNING_CALLER");
+      expect(result.principles.some((p: string) => p.includes("Review BEFORE"))).toBe(true);
+    });
+
+    it("uses curriculum flow when teachingContent is present even without modules", () => {
+      const ctx = makeNoCurriculumContext({
+        sections: { teachingContent: { hasTeachingContent: true } },
+      });
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+
+      // With teaching content but no modules, falls into curriculum branch
+      expect(result.sessionType).toBe("RETURNING_CALLER");
     });
   });
 });

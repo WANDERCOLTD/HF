@@ -114,8 +114,9 @@ export default function SimConversationPage() {
     return (
       <>
         <WhatsAppHeader title="Loading..." />
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <p style={{ color: 'var(--text-muted)' }}>Starting conversation...</p>
+        <div className="wa-chat-bg" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          <div className="hf-spinner" style={{ width: 28, height: 28 }} />
+          <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Initiating call...</p>
         </div>
       </>
     );

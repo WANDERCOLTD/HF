@@ -87,6 +87,7 @@ export function ScaffoldPanel({ getData, currentStepIndex, terms }: ScaffoldPane
   const t = terms ?? DEFAULT_TERMS;
   const draftCreated = !!getData<string>("draftDomainId");
   const launched = !!getData<boolean>("launched");
+  const isCommunity = getData<string>("defaultDomainKind") === "COMMUNITY";
 
   const institutionName = getData<string>("institutionName") || getData<string>("existingInstitutionName");
   const courseName = getData<string>("courseName");
@@ -105,16 +106,17 @@ export function ScaffoldPanel({ getData, currentStepIndex, terms }: ScaffoldPane
     },
     {
       key: "course",
-      label: t.course,
+      label: isCommunity ? "Community" : t.course,
       value: courseName || undefined,
       status: getItemStatus("course", !!courseName, currentStepIndex, draftCreated, launched),
     },
-    {
+    // Content row hidden for communities — they don't upload teaching materials
+    ...(!isCommunity ? [{
       key: "content",
       label: t.content,
       value: hasContent ? "Uploaded" : undefined,
       status: getItemStatus("content", hasContent, currentStepIndex, draftCreated, launched),
-    },
+    }] : []),
   ];
 
   const extraItems: ScaffoldItem[] = [
@@ -124,15 +126,16 @@ export function ScaffoldPanel({ getData, currentStepIndex, terms }: ScaffoldPane
       value: welcomeMsg ? welcomeMsg.slice(0, 30) + (welcomeMsg.length > 30 ? "…" : "") : undefined,
       status: getItemStatus("welcome", !!welcomeMsg, currentStepIndex, draftCreated, launched),
     },
-    {
+    // Lessons row hidden for communities — no structured session plan
+    ...(!isCommunity ? [{
       key: "lessons",
       label: t.lessons,
       value: sessionCount ? `${sessionCount} sessions` : undefined,
       status: getItemStatus("lessons", !!sessionCount, currentStepIndex, draftCreated, launched),
-    },
+    }] : []),
     {
       key: "personality",
-      label: t.personality,
+      label: isCommunity ? "AI Companion" : t.personality,
       value: hasTune ? "Configured" : undefined,
       status: getItemStatus("personality", hasTune, currentStepIndex, draftCreated, launched),
     },
@@ -145,7 +148,8 @@ export function ScaffoldPanel({ getData, currentStepIndex, terms }: ScaffoldPane
 
   const readinessHint = (() => {
     if (launched) return "Ready to go!";
-    if (completedCount >= 3) return "Enough to try a call";
+    if (canTryCall) return "Enough to try a call";
+    if (completedCount >= 3) return "Enough to try a call — hit Create below";
     if (completedCount >= 1) return `Need ${t.content.toLowerCase()} to try a call`;
     return "Getting started...";
   })();
@@ -153,7 +157,7 @@ export function ScaffoldPanel({ getData, currentStepIndex, terms }: ScaffoldPane
   return (
     <div className="gs-panel">
       <div className="gs-scaffold">
-        <div className="gs-scaffold-title">Building Your {t.course}</div>
+        <div className="gs-scaffold-title">Building Your {isCommunity ? "Community" : t.course}</div>
 
         <ul className="gs-scaffold-list">
           {items.map((item) => (
@@ -194,6 +198,10 @@ export function ScaffoldPanel({ getData, currentStepIndex, terms }: ScaffoldPane
             >
               Try a Sim Call
             </a>
+          ) : completedCount >= 3 ? (
+            <span className="gs-sim-btn gs-sim-btn-disabled" title={isCommunity ? "Create your community first" : "Create your course first using the button below"}>
+              {isCommunity ? "Create community to try" : "Create course to try"}
+            </span>
           ) : (
             <span className="gs-sim-btn gs-sim-btn-disabled">
               Try a Sim Call

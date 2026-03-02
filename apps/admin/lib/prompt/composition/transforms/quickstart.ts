@@ -84,7 +84,7 @@ registerTransform("computeQuickStart", (
       }
       if (nextModule) return `Continue with ${nextModule.name}`;
       if (moduleToReview) return `Deepen mastery of ${moduleToReview.name}`;
-      return "Continue conversation";
+      return "Open conversation - follow the caller's interests. Do not assume or invent specific academic topics.";
     })(),
 
     learner_goals: (() => {

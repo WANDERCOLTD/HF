@@ -119,6 +119,7 @@ export function SimChat({
   const [newPromptId, setNewPromptId] = useState<string | null>(null);
   const [showContentPicker, setShowContentPicker] = useState(false);
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -268,10 +269,12 @@ export function SimChat({
               } : null,
             }));
             setMessages(restored);
+            setIsInitializing(false);
             console.log(`[sim] Restored ${restored.length} messages from active call`);
           } else if (!cancelled) {
             // Active call exists but has no messages (e.g. greeting was aborted) — re-send greeting
             console.log('[sim] Active call has no messages, sending greeting');
+            setIsInitializing(false);
             await streamAIResponse(
               sessionGoal
                 ? `The user just opened the chat. The admin has set a session goal: "${sessionGoal}". Greet them warmly as if answering a phone call, and gently orient toward this goal. Be brief and natural.`
@@ -319,6 +322,7 @@ export function SimChat({
 
         // AI sends greeting
         if (!cancelled) {
+          setIsInitializing(false);
           await streamAIResponse(
             sessionGoal
                 ? `The user just opened the chat. The admin has set a session goal: "${sessionGoal}". Greet them warmly as if answering a phone call, and gently orient toward this goal. Be brief and natural.`
@@ -327,7 +331,10 @@ export function SimChat({
           );
         }
       } catch {
-        if (!cancelled) setError('Failed to start conversation');
+        if (!cancelled) {
+          setIsInitializing(false);
+          setError('Failed to start conversation');
+        }
       }
     }
 
@@ -720,7 +727,7 @@ export function SimChat({
           />
         ))}
 
-        {isStreaming && messages[messages.length - 1]?.content === '' && (
+        {(isInitializing || (isStreaming && messages[messages.length - 1]?.content === '')) && (
           <TypingIndicator />
         )}
 

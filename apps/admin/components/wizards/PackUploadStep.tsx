@@ -10,7 +10,7 @@
  * Shared between Teach wizard and Course Setup wizard.
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Upload, FileText, BookOpen, X, Edit3, Check, Plus } from 'lucide-react';
 import type { IngestEvent } from '@/lib/content-trust/ingest-events';
 import { DocTypeBadge } from '@/app/x/content-sources/_components/shared/badges';
@@ -21,6 +21,7 @@ type TimelineStep = {
   id: string;
   label: string;
   status: 'pending' | 'active' | 'done' | 'error';
+  documentType?: string;
 };
 
 // ── Types ──────────────────────────────────────────────
@@ -239,6 +240,19 @@ export function PackUploadStep({
     }
   }, [initialFiles, files, analyzing, manifest, handleAnalyze]);
 
+  // Build fileName → documentType lookup from manifest for timeline badges
+  const docTypeByFile = useMemo(() => {
+    if (!manifest) return new Map<string, string>();
+    const map = new Map<string, string>();
+    for (const g of manifest.groups) {
+      for (const f of g.files) map.set(f.fileName, f.documentType);
+    }
+    for (const f of manifest.pedagogyFiles) {
+      map.set(f.fileName, f.documentType);
+    }
+    return map;
+  }, [manifest]);
+
   // ── SSE event handler ────────────────────────────────
 
   const handleIngestEvent = useCallback((event: IngestEvent) => {
@@ -332,9 +346,10 @@ export function PackUploadStep({
       const updated = prev.map((s) =>
         s.status === 'active' ? { ...s, status: 'done' as const } : s,
       );
-      return [...updated, { id, label: message, status }];
+      const docType = data?.fileName ? docTypeByFile.get(data.fileName) : undefined;
+      return [...updated, { id, label: message, status, documentType: docType }];
     });
-  }, [manifest, onResult]);
+  }, [manifest, onResult, docTypeByFile]);
 
   // ── Ingest (SSE) ──────────────────────────────────────
 
@@ -865,6 +880,14 @@ export function PackUploadStep({
                   <span className={`hf-text-sm${step.status === 'done' ? ' hf-text-muted' : ''}`}>
                     {step.label}
                   </span>
+                  {step.documentType && (
+                    <span
+                      className="hf-doc-type-badge"
+                      style={{ '--badge-color': getDocTypeInfo(step.documentType).color, '--badge-bg': getDocTypeInfo(step.documentType).bg } as React.CSSProperties}
+                    >
+                      {getDocTypeInfo(step.documentType).label}
+                    </span>
+                  )}
                 </div>
               ))}
 
