@@ -47,6 +47,7 @@ vi.mock("@/lib/access-control", () => ({
 }));
 
 vi.mock("@/lib/enrollment", () => ({
+  enrollCaller: vi.fn().mockResolvedValue(undefined),
   enrollCallerInCohortPlaybooks: vi.fn().mockResolvedValue(undefined),
   enrollCallerInDomainPlaybooks: vi.fn().mockResolvedValue(undefined),
 }));
@@ -350,6 +351,57 @@ describe("/api/callers", () => {
       expect(response.status).toBe(500);
       expect(data.ok).toBe(false);
       expect(data.error).toBe("Unique constraint failed");
+    });
+
+    it("should enroll in specific playbook when playbookId is provided", async () => {
+      const { enrollCaller } = await import("@/lib/enrollment");
+
+      mockPrisma.caller.create.mockResolvedValue({
+        id: "new-caller-pb",
+        name: "Grace",
+        email: null,
+        phone: null,
+        domainId: "domain-1",
+        domain: { id: "domain-1", slug: "test", name: "Test" },
+      });
+
+      const { POST } = await import("../../app/api/callers/route");
+      const request = new Request("http://localhost/api/callers", {
+        method: "POST",
+        body: JSON.stringify({ name: "Grace", domainId: "domain-1", playbookId: "pb-123" }),
+        headers: { "Content-Type": "application/json" },
+      });
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(data.ok).toBe(true);
+      expect(enrollCaller).toHaveBeenCalledWith("new-caller-pb", "pb-123", "auto");
+    });
+
+    it("should fall back to domain-wide enrollment when no playbookId", async () => {
+      const { enrollCallerInDomainPlaybooks } = await import("@/lib/enrollment");
+
+      mockPrisma.domain.findFirst.mockResolvedValue({ id: "d-1", slug: "default", name: "Default", isDefault: true });
+      mockPrisma.caller.create.mockResolvedValue({
+        id: "new-caller-fb",
+        name: "Hank",
+        email: null,
+        phone: null,
+        domainId: "d-1",
+        domain: { id: "d-1", slug: "default", name: "Default" },
+      });
+
+      const { POST } = await import("../../app/api/callers/route");
+      const request = new Request("http://localhost/api/callers", {
+        method: "POST",
+        body: JSON.stringify({ name: "Hank" }),
+        headers: { "Content-Type": "application/json" },
+      });
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(data.ok).toBe(true);
+      expect(enrollCallerInDomainPlaybooks).toHaveBeenCalledWith("new-caller-fb", "d-1", "auto");
     });
 
     it("should use provided domainId and skip default domain lookup", async () => {

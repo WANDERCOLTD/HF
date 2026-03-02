@@ -98,6 +98,8 @@ export function CallersPage({ routePrefix = "" }: CallersPageProps) {
   const [newCallerEmail, setNewCallerEmail] = useState("");
   const [newCallerPhone, setNewCallerPhone] = useState("");
   const [newCallerDomainId, setNewCallerDomainId] = useState("");
+  const [newCallerPlaybookId, setNewCallerPlaybookId] = useState("");
+  const [domainPlaybooks, setDomainPlaybooks] = useState<{ id: string; name: string }[]>([]);
   const [creating, setCreating] = useState(false);
 
   // Archive filter
@@ -147,6 +149,27 @@ export function CallersPage({ routePrefix = "" }: CallersPageProps) {
       })
       .catch((e) => console.warn("[Callers] Failed to load domains:", e));
   }, [showArchived]);
+
+  // Fetch playbooks when create-modal domain changes
+  useEffect(() => {
+    if (!newCallerDomainId) {
+      setDomainPlaybooks([]);
+      setNewCallerPlaybookId("");
+      return;
+    }
+    fetch(`/api/playbooks?domainId=${newCallerDomainId}&status=PUBLISHED`)
+      .then((r) => r.json())
+      .then((data) => {
+        const pbs = data.ok ? (data.playbooks || []).map((p: any) => ({ id: p.id, name: p.name })) : [];
+        setDomainPlaybooks(pbs);
+        // Auto-select if only one course
+        setNewCallerPlaybookId(pbs.length === 1 ? pbs[0].id : "");
+      })
+      .catch(() => {
+        setDomainPlaybooks([]);
+        setNewCallerPlaybookId("");
+      });
+  }, [newCallerDomainId]);
 
   // Auto-clear success message
   useEffect(() => {
@@ -372,6 +395,7 @@ export function CallersPage({ routePrefix = "" }: CallersPageProps) {
           email: newCallerEmail.trim() || null,
           phone: newCallerPhone.trim() || null,
           domainId: newCallerDomainId || null,
+          playbookId: newCallerPlaybookId || null,
         }),
       });
       const data = await res.json();
@@ -382,6 +406,7 @@ export function CallersPage({ routePrefix = "" }: CallersPageProps) {
         setNewCallerEmail("");
         setNewCallerPhone("");
         setNewCallerDomainId("");
+        setNewCallerPlaybookId("");
         fetchCallers();
       } else {
         setError(data.error || "Failed to create caller");
@@ -1099,6 +1124,26 @@ export function CallersPage({ routePrefix = "" }: CallersPageProps) {
                   options={domains.map((d) => ({ value: d.id, label: d.name }))}
                 />
               </div>
+
+              {newCallerDomainId && domainPlaybooks.length > 0 && (
+                <div>
+                  <label className="hf-field-label">
+                    Course {domainPlaybooks.length > 1 ? "" : "(auto-selected)"}
+                  </label>
+                  <FancySelect
+                    value={newCallerPlaybookId}
+                    onChange={setNewCallerPlaybookId}
+                    placeholder="Select course..."
+                    clearable
+                    options={domainPlaybooks.map((p) => ({ value: p.id, label: p.name }))}
+                  />
+                  {!newCallerPlaybookId && domainPlaybooks.length > 1 && (
+                    <p className="hf-text-xs hf-text-muted hf-mt-xs">
+                      No course selected — will enroll in all courses
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="hf-modal-actions hf-mt-lg">
@@ -1109,6 +1154,7 @@ export function CallersPage({ routePrefix = "" }: CallersPageProps) {
                   setNewCallerEmail("");
                   setNewCallerPhone("");
                   setNewCallerDomainId("");
+                  setNewCallerPlaybookId("");
                 }}
                 disabled={creating}
                 className="hf-btn hf-btn-secondary"
