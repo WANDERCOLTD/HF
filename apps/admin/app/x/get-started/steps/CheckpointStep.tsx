@@ -141,16 +141,62 @@ export function CheckpointStep({ getData, setData, onNext, onPrev }: StepRenderP
       const setupData = await setupRes.json();
       if (!setupData.ok) throw new Error(setupData.error || "Failed to set up course");
 
+      // Poll the course setup task until complete so we get the playbookId
+      const taskId = setupData.taskId;
+      let playbookId: string | undefined;
+      if (taskId) {
+        const POLL_MS = 1500;
+        const TIMEOUT_MS = 60_000;
+        const start = Date.now();
+        while (Date.now() - start < TIMEOUT_MS) {
+          await new Promise((r) => setTimeout(r, POLL_MS));
+          try {
+            const taskRes = await fetch(`/api/tasks?taskId=${taskId}`);
+            if (!taskRes.ok) continue;
+            const taskData = await taskRes.json();
+            const task = taskData.task || taskData.tasks?.[0] || taskData.guidance?.task;
+            if (task?.status === "completed") {
+              playbookId = task.context?.summary?.playbook?.id;
+              break;
+            }
+            if (task?.status === "abandoned" || task?.context?.error) break;
+          } catch { /* keep polling */ }
+        }
+      }
+
       steps[1] = { ...steps[1], status: "done" };
       steps[2] = { ...steps[2], status: "done" };
       steps[3] = { ...steps[3], status: "done" };
       setTimeline([...steps]);
 
       // Store results in data bag for later steps
-      setData("draftDomainId", setupData.domainId || domainId);
-      setData("draftPlaybookId", setupData.playbookId);
-      setData("draftCallerId", setupData.callerId);
+      setData("draftDomainId", domainId);
+      if (playbookId) setData("draftPlaybookId", playbookId);
       if (institutionId) setData("draftInstitutionId", institutionId);
+
+      // Create a test caller enrolled in the specific course — only if we got the playbookId.
+      // Without it, enrollCallerInDomainPlaybooks would enrol in ALL domain playbooks (wrong course).
+      if (playbookId) {
+        try {
+          const FRIENDLY_NAMES = [
+            "Alex", "Jordan", "Sam", "Taylor", "Morgan",
+            "Riley", "Casey", "Jamie", "Quinn", "Avery",
+            "Charlie", "Reese", "Skyler", "Finley", "Rowan",
+          ];
+          const simName = FRIENDLY_NAMES[Math.floor(Math.random() * FRIENDLY_NAMES.length)];
+          const callerRes = await fetch("/api/callers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ domainId, name: simName, playbookId }),
+          });
+          const callerData = await callerRes.json();
+          if (callerData.ok && callerData.caller?.id) {
+            setData("draftCallerId", callerData.caller.id);
+          }
+        } catch {
+          // Non-fatal — sim link just won't show
+        }
+      }
 
       setPhase("done");
     } catch (err: any) {

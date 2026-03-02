@@ -1513,6 +1513,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
           name: learnerName.trim() || randomFakeName(),
           email: learnerEmail.trim() || undefined,
           domainId: selectedDomainId,
+          ...(playbookId && { playbookId }),
         }),
       });
       const callerData = await callerRes.json();

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { scaffoldDomain } from "@/lib/domain/scaffold";
+import { enrollCallerInCohortPlaybooks } from "@/lib/enrollment";
 import { config } from "@/lib/config";
 import type { InteractionPattern } from "@/lib/content-trust/resolve-config";
 
@@ -274,6 +275,18 @@ export async function POST(request: NextRequest) {
         })),
         skipDuplicates: true,
       });
+    }
+
+    // 4. Enroll founding members in playbooks (must happen after scaffold + cohort linking)
+    if (memberCallerIds.length > 0) {
+      for (const callerId of memberCallerIds) {
+        await enrollCallerInCohortPlaybooks(
+          callerId,
+          cohortGroupId,
+          community.id,
+          "community-founding-member"
+        );
+      }
     }
 
     const memberCount = memberCallerIds.length;

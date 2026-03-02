@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { requireEntityAccess, isEntityAuthError, buildScopeFilter } from "@/lib/access-control";
-import { enrollCallerInCohortPlaybooks, enrollCallerInDomainPlaybooks } from "@/lib/enrollment";
+import { enrollCaller, enrollCallerInCohortPlaybooks, enrollCallerInDomainPlaybooks } from "@/lib/enrollment";
 import { parsePagination } from "@/lib/api-utils";
 
 /**
@@ -173,6 +173,7 @@ export async function GET(req: Request) {
  * @body email string - Caller email (optional)
  * @body phone string - Caller phone number (optional)
  * @body domainId string - Domain ID to assign (optional, defaults to system default domain)
+ * @body playbookId string - Enroll in this specific playbook only (optional, skips domain-wide enrollment)
  * @body role string - Caller role (optional, default LEARNER)
  * @response 200 { ok: true, caller: { id, name, email, phone, role, domain } }
  * @response 400 { ok: false, error: "Name is required" }
@@ -184,7 +185,7 @@ export async function POST(req: Request) {
     if (isEntityAuthError(authResult)) return authResult.error;
 
     const body = await req.json();
-    let { name, email, phone, domainId, role, cohortGroupId, autoName } = body;
+    let { name, email, phone, domainId, role, cohortGroupId, autoName, playbookId } = body;
 
     // Auto-generate sequential name: "Test L0000001", "Test L0000002", etc.
     if (autoName && !name) {
@@ -250,8 +251,10 @@ export async function POST(req: Request) {
       });
     }
 
-    // Auto-enroll in playbooks (cohort-specific if cohort provided, otherwise domain-wide)
-    if (cohortGroupId && caller.domainId) {
+    // Auto-enroll in playbooks: specific playbook > cohort > all domain playbooks
+    if (playbookId) {
+      await enrollCaller(caller.id, playbookId, "auto");
+    } else if (cohortGroupId && caller.domainId) {
       await enrollCallerInCohortPlaybooks(caller.id, cohortGroupId, caller.domainId, "auto");
     } else if (caller.domainId) {
       await enrollCallerInDomainPlaybooks(caller.id, caller.domainId, "auto");

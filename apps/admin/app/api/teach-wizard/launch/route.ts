@@ -143,6 +143,7 @@ async function runLaunchSequence(taskId: string, params: LaunchParams, cookieHea
       body: JSON.stringify({
         name: randomFakeName(),
         domainId: params.domainId,
+        ...(playbookId && { playbookId }),
       }),
     });
     const callerData = await callerRes.json();

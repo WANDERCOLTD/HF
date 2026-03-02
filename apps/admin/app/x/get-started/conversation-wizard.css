@@ -194,7 +194,7 @@
 
 .gs-chat-input-bar {
   border-top: 1px solid var(--border-default);
-  padding: 12px 16px;
+  padding: 12px 8px;
   background: var(--surface-primary);
   flex-shrink: 0;
 }
@@ -203,14 +203,10 @@
   display: none;
 }
 
-.gs-chat-input-row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-}
+/* ── Input zone (full-width typing area) ───────────── */
 
-.gs-chat-textarea {
-  flex: 1;
+.gs-chat-input-zone .gs-chat-textarea {
+  width: 100%;
   padding: 10px 14px;
   border: 1px solid var(--border-default);
   border-radius: 12px;
@@ -223,6 +219,7 @@
   background: var(--surface-primary);
   color: var(--text-primary);
   caret-color: var(--text-primary);
+  box-sizing: border-box;
 }
 
 .gs-chat-textarea:focus {
@@ -230,16 +227,101 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 12%, transparent);
 }
 
+/* Typeahead dropdown within the input zone */
+.gs-chat-typeahead-wrap {
+  position: relative;
+}
+
+/* ── Controls bar ──────────────────────────────────── */
+
+.gs-chat-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding: 0 4px;
+  gap: 8px;
+}
+
+.gs-chat-controls-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.gs-chat-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Generic text-style control button (Skip, etc.) */
+.gs-chat-controls-btn {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.gs-chat-controls-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-secondary);
+}
+
+/* Cmd+K pill button */
+.gs-chat-cmdk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  color: var(--text-muted);
+  background: none;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.gs-chat-cmdk-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 5%, transparent);
+}
+
+/* Step counter */
+.gs-chat-step-counter {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Keyboard hint */
+.gs-chat-kb-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+/* Send button (compact for controls bar) */
 .gs-chat-send-btn {
-  width: 42px;
-  height: 42px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--accent-primary);
   color: var(--surface-primary);
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   cursor: pointer;
   flex-shrink: 0;
   transition: opacity 0.15s;
@@ -256,10 +338,12 @@
   opacity: 1;
 }
 
-/* Typeahead dropdown within the input bar */
-.gs-chat-typeahead-wrap {
-  flex: 1;
-  position: relative;
+/* Separator dot between left-side controls */
+.gs-chat-controls-sep {
+  color: var(--text-muted);
+  opacity: 0.4;
+  font-size: 10px;
+  user-select: none;
 }
 
 /* ── Group separator ────────────────────────────────── */
@@ -418,21 +502,6 @@
   justify-content: center;
 }
 
-/* ── Skip link ──────────────────────────────────────── */
-
-.gs-chat-skip {
-  font-size: 12px;
-  color: var(--text-muted);
-  cursor: pointer;
-  margin-top: 6px;
-  align-self: flex-start;
-}
-
-.gs-chat-skip:hover {
-  color: var(--text-primary);
-  text-decoration: underline;
-}
-
 /* ── Responsive ─────────────────────────────────────── */
 
 @media (max-width: 1023px) {
@@ -445,6 +514,15 @@
   }
 
   .gs-chat-input-bar {
-    padding: 10px 12px;
+    padding: 10px 6px;
+  }
+
+  .gs-chat-kb-hint {
+    display: none;
+  }
+
+  .gs-chat-controls-bar {
+    margin-top: 6px;
+    padding: 0 2px;
   }
 }

@@ -11,10 +11,14 @@
  * Optional `aiEnhanced` prop adds a sparkles icon to indicate the field has
  * AI auto-suggest (e.g. on blur). Pass `aiLoading` to animate it during fetch.
  *
+ * Optional `compact` prop renders only a (?) icon with an upward popover —
+ * designed for controls bars where space is tight.
+ *
  * Usage:
  *   <FieldHint label="Session Goal" hint={WIZARD_HINTS["teach.goal"]} />
  *   <FieldHint label="Session Goal" hint={WIZARD_HINTS["teach.goal"]} aiEnhanced aiLoading={loading} />
  *   <FieldHint label="Join Link" hint={hint} labelClass="wiz-section-label" />
+ *   <FieldHint label="" hint={hintData} compact />
  */
 
 import { useState, useCallback } from "react";
@@ -38,9 +42,11 @@ interface FieldHintProps {
   aiEnhanced?: boolean;
   /** Animate the sparkles icon while AI is fetching suggestions. */
   aiLoading?: boolean;
+  /** Compact mode: renders only (?) icon with upward popover. For controls bars. */
+  compact?: boolean;
 }
 
-export function FieldHint({ label, hint, labelClass = "dtw-section-label", aiEnhanced, aiLoading }: FieldHintProps) {
+export function FieldHint({ label, hint, labelClass = "dtw-section-label", aiEnhanced, aiLoading, compact }: FieldHintProps) {
   const [open, setOpen] = useState(false);
 
   const handleToggle = useCallback((e: React.MouseEvent) => {
@@ -51,6 +57,43 @@ export function FieldHint({ label, hint, labelClass = "dtw-section-label", aiEnh
 
   const examples = Array.isArray(hint.examples) ? hint.examples : [hint.examples];
   const hasExamples = examples.length > 0 && examples[0] !== "";
+
+  // Compact mode: icon-only with upward popover
+  if (compact) {
+    return (
+      <span className="hf-field-hint-compact">
+        <button
+          type="button"
+          className={`hf-field-hint-trigger${open ? " hf-field-hint-trigger--active" : ""}`}
+          onClick={handleToggle}
+          aria-label="Help"
+          aria-expanded={open}
+        >
+          {open ? <ChevronDown size={13} /> : <HelpCircle size={13} />}
+        </button>
+        {open && (
+          <div className="hf-field-hint-compact-panel" role="region" aria-label="Field help">
+            <div className="hf-field-hint-row">
+              <span className="hf-field-hint-key">Why</span>
+              <span className="hf-field-hint-val">{hint.why}</span>
+            </div>
+            <div className="hf-field-hint-row">
+              <span className="hf-field-hint-key">Effect</span>
+              <span className="hf-field-hint-val">{hint.effect}</span>
+            </div>
+            {hasExamples && (
+              <div className="hf-field-hint-row">
+                <span className="hf-field-hint-key">Examples</span>
+                <span className="hf-field-hint-val hf-field-hint-examples">
+                  {examples.join(", ")}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+      </span>
+    );
+  }
 
   return (
     <div className={labelClass}>

@@ -56,7 +56,7 @@ export function SimLaunchModal({
       const res = await fetch("/api/callers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newCallerName.trim(), domainId }),
+        body: JSON.stringify({ name: newCallerName.trim(), domainId, playbookId }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Failed to create caller");

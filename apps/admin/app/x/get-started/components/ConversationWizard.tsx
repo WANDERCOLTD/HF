@@ -22,6 +22,7 @@ import {
   ArrowRight,
   ArrowUp,
   Check,
+  Command,
   Globe,
   Loader2,
   Pencil,
@@ -32,6 +33,8 @@ import {
 import slugify from "slugify";
 import { useStepFlow } from "@/contexts/StepFlowContext";
 import type { StepDefinition } from "@/contexts/StepFlowContext";
+import { useEntityContext } from "@/contexts/EntityContext";
+import { useChatContext } from "@/contexts/ChatContext";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { ChipSelect } from "@/components/shared/ChipSelect";
 import { TypePicker } from "@/components/shared/TypePicker";
@@ -128,6 +131,8 @@ export function ConversationWizard() {
     getData,
     endFlow,
   } = useStepFlow();
+  const { pushEntity, replaceEntity, popEntity } = useEntityContext();
+  const { togglePanel: toggleChatPanel } = useChatContext();
 
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [activeQIndex, setActiveQIndex] = useState(0);
@@ -904,27 +909,60 @@ export function ConversationWizard() {
       const setupData = await setupRes.json();
       if (!setupData.ok) throw new Error(setupData.error || "Failed to set up course");
 
+      // Poll the course setup task until complete so we get the playbookId
+      const taskId = setupData.taskId;
+      let playbookId: string | undefined;
+      if (taskId) {
+        const POLL_MS = 1500;
+        const TIMEOUT_MS = 60_000;
+        const start = Date.now();
+        while (Date.now() - start < TIMEOUT_MS) {
+          await new Promise((r) => setTimeout(r, POLL_MS));
+          try {
+            const taskRes = await fetch(`/api/tasks?taskId=${taskId}`);
+            if (!taskRes.ok) continue;
+            const taskData = await taskRes.json();
+            const task = taskData.task || taskData.tasks?.[0] || taskData.guidance?.task;
+            if (task?.status === "completed") {
+              playbookId = task.context?.summary?.playbook?.id;
+              break;
+            }
+            if (task?.status === "abandoned" || task?.context?.error) break;
+          } catch { /* keep polling */ }
+        }
+      }
+
       steps[1] = { ...steps[1], status: "done" };
       steps[2] = { ...steps[2], status: "done" };
       steps[3] = { ...steps[3], status: "done" };
       setSseTimeline([...steps]);
 
       setData("draftDomainId", domainId);
+      if (playbookId) setData("draftPlaybookId", playbookId);
       if (institutionId) setData("draftInstitutionId", institutionId);
 
-      // Create a test caller so "Try a Sim Call" works
-      try {
-        const callerRes = await fetch("/api/callers", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ domainId, autoName: true }),
-        });
-        const callerData = await callerRes.json();
-        if (callerData.ok && callerData.caller?.id) {
-          setData("draftCallerId", callerData.caller.id);
+      // Create a test caller enrolled in the specific course — only if we got the playbookId.
+      // Without it, enrollCallerInDomainPlaybooks would enrol in ALL domain playbooks (wrong course).
+      if (playbookId) {
+        try {
+          const FRIENDLY_NAMES = [
+            "Alex", "Jordan", "Sam", "Taylor", "Morgan",
+            "Riley", "Casey", "Jamie", "Quinn", "Avery",
+            "Charlie", "Reese", "Skyler", "Finley", "Rowan",
+          ];
+          const simName = FRIENDLY_NAMES[Math.floor(Math.random() * FRIENDLY_NAMES.length)];
+          const callerRes = await fetch("/api/callers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ domainId, name: simName, playbookId }),
+          });
+          const callerData = await callerRes.json();
+          if (callerData.ok && callerData.caller?.id) {
+            setData("draftCallerId", callerData.caller.id);
+          }
+        } catch {
+          // Non-fatal — sim link just won't show
         }
-      } catch {
-        // Non-fatal — sim link just won't show
       }
 
       setSsePhase("done");
@@ -1016,15 +1054,23 @@ export function ConversationWizard() {
         setData("draftDomainId", getData<string>("existingDomainId") || "");
       }
 
-      // Ensure a test caller exists for "Try a Sim Call"
+      // Ensure a test caller exists for "Try a Sim Call" — requires playbookId
+      // to avoid enrolling in ALL domain playbooks (wrong course).
       if (!getData<string>("draftCallerId")) {
         const domainId = getData<string>("draftDomainId") || getData<string>("existingDomainId");
-        if (domainId) {
+        const pbId = getData<string>("draftPlaybookId");
+        if (domainId && pbId) {
           try {
+            const FRIENDLY_NAMES = [
+              "Alex", "Jordan", "Sam", "Taylor", "Morgan",
+              "Riley", "Casey", "Jamie", "Quinn", "Avery",
+              "Charlie", "Reese", "Skyler", "Finley", "Rowan",
+            ];
+            const simName = FRIENDLY_NAMES[Math.floor(Math.random() * FRIENDLY_NAMES.length)];
             const callerRes = await fetch("/api/callers", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ domainId, autoName: true }),
+              body: JSON.stringify({ domainId, name: simName, playbookId: pbId }),
             });
             const callerData = await callerRes.json();
             if (callerData.ok && callerData.caller?.id) {
@@ -1522,6 +1568,106 @@ export function ConversationWizard() {
   const isTextarea = activeQuestion?.question.control.type === "textarea";
   const isTypeahead = activeQuestion?.question.control.type === "typeahead";
 
+  // ── Controls bar computed values ────────────────────────
+
+  const stepCounterText = useMemo(() => {
+    if (!activeQuestion) return null;
+    const visible = CONVERSATION_SCRIPT.filter(
+      (q) => !q.showWhen || q.showWhen(getData),
+    );
+    const idx = visible.findIndex((q) => q.id === activeQuestion.question.id);
+    if (idx < 0) return null;
+    return `${idx + 1} of ${visible.length}`;
+  }, [activeQuestion, getData]);
+
+  const controlsHintData = useMemo(() => {
+    const hintKey = activeQuestion?.question.hintKey;
+    return hintKey ? WIZARD_HINTS[hintKey] : undefined;
+  }, [activeQuestion]);
+
+  const kbHintText = useMemo(() => {
+    if (!activeQuestion) return null;
+    const t = activeQuestion.question.control.type;
+    if (t === "textarea") return "⇧⏎ newline · ⏎ send";
+    return "⏎ send";
+  }, [activeQuestion]);
+
+  const canSkip = useMemo(() => {
+    if (!activeQuestion) return false;
+    const t = activeQuestion.question.control.type;
+    return t === "textarea" || t === "url";
+  }, [activeQuestion]);
+
+  const skipLabel = useMemo(() => {
+    if (!activeQuestion) return "";
+    if (activeQuestion.question.control.type === "url") return "Skip — no website";
+    return "Skip";
+  }, [activeQuestion]);
+
+  // ── Cmd+K context: push entity breadcrumb ───────────────
+
+  const flowEntityPushed = useRef(false);
+
+  useEffect(() => {
+    if (!isActive) return;
+
+    const currentStep = activeQuestion?.question.stepId ?? "institution";
+    const currentQuestionId = activeQuestion?.question.id ?? "";
+
+    // Gather collected wizard data for AI context
+    const collectedData: Record<string, unknown> = {};
+    const dataKeys = [
+      "institutionName", "existingInstitutionId", "existingInstitutionName",
+      "typeSlug", "websiteUrl",
+      "courseName", "subjectDiscipline", "interactionPattern", "teachingMode",
+      "welcomeMessage", "sessionCount", "durationMins", "planEmphasis",
+      "behaviorTargets", "lessonPlanModel",
+      "contentSkipped", "sourceCount", "extractionTotals",
+    ];
+    for (const key of dataKeys) {
+      const val = getData(key);
+      if (val !== undefined && val !== "") collectedData[key] = val;
+    }
+
+    // Count answered vs remaining
+    const visible = CONVERSATION_SCRIPT.filter(
+      (q) => !q.showWhen || q.showWhen(getData),
+    );
+    const answeredIds = messages
+      .filter((m) => m.role === "user" && m.questionId)
+      .map((m) => m.questionId);
+    const remaining = visible
+      .filter((q) => !answeredIds.includes(q.id))
+      .map((q) => q.id);
+
+    const entity = {
+      type: "flow" as const,
+      id: "get-started",
+      label: "Get Started Wizard",
+      data: {
+        currentStep,
+        currentQuestion: currentQuestionId,
+        collectedData,
+        answeredCount: answeredIds.length,
+        totalVisible: visible.length,
+        remainingQuestions: remaining,
+      },
+    };
+
+    // First time: push. Subsequent: replace to update data without dedup skip.
+    if (!flowEntityPushed.current) {
+      pushEntity(entity);
+      flowEntityPushed.current = true;
+    } else {
+      replaceEntity(entity);
+    }
+
+    return () => {
+      popEntity();
+      flowEntityPushed.current = false;
+    };
+  }, [isActive, activeQuestion, messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Loading state ──────────────────────────────────────
 
   if (!isActive) return null;
@@ -1551,10 +1697,11 @@ export function ConversationWizard() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ── Input bar ── */}
+      {/* ── Input bar (two zones: typing + controls) ── */}
       <div className={`gs-chat-input-bar${showInputBar ? "" : " gs-chat-input-bar--hidden"}`}>
-        {isTypeahead ? (
-          <div className="gs-chat-input-row">
+        {/* Zone 1: Full-width typing area */}
+        <div className="gs-chat-input-zone">
+          {isTypeahead ? (
             <div className="gs-chat-typeahead-wrap" ref={typeaheadWrapRef}>
               <div style={{ position: "relative" }}>
                 <input
@@ -1640,25 +1787,13 @@ export function ConversationWizard() {
                 </div>
               )}
             </div>
-
-            <button
-              type="button"
-              className="gs-chat-send-btn"
-              disabled={!typeaheadQuery.trim() && !selectedInst}
-              onClick={handleTextSubmit}
-            >
-              <ArrowUp size={18} />
-            </button>
-          </div>
-        ) : (
-          <div className="gs-chat-input-row">
+          ) : (
             <textarea
               ref={inputRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleInputKeyDown}
               onBlur={() => {
-                // URL import on blur
                 if (activeQuestion?.question.control.type === "url" && inputValue.trim()) {
                   handleUrlImport(inputValue);
                 }
@@ -1667,48 +1802,68 @@ export function ConversationWizard() {
               rows={isTextarea ? 3 : 1}
               className="gs-chat-textarea"
             />
+          )}
+
+          {/* URL import indicator */}
+          {urlImporting && (
+            <div className="hf-ai-loading-row" style={{ marginTop: 4, fontSize: 12 }}>
+              <Loader2 size={12} className="hf-spinner" />
+              <span>Importing from website...</span>
+            </div>
+          )}
+        </div>
+
+        {/* Zone 2: Controls bar */}
+        <div className="gs-chat-controls-bar">
+          <div className="gs-chat-controls-left">
+            {controlsHintData && (
+              <FieldHint label="" hint={controlsHintData} compact />
+            )}
+            {canSkip && (
+              <>
+                {controlsHintData && <span className="gs-chat-controls-sep">&middot;</span>}
+                <button
+                  type="button"
+                  className="gs-chat-controls-btn"
+                  onClick={() => handleAnswer(activeQuestion!.question.id, "", "(Skipped)")}
+                >
+                  {skipLabel}
+                </button>
+              </>
+            )}
+            {(controlsHintData || canSkip) && <span className="gs-chat-controls-sep">&middot;</span>}
+            <button
+              type="button"
+              className="gs-chat-cmdk-btn"
+              onClick={() => toggleChatPanel()}
+              title="Ask AI for help (⌘K)"
+            >
+              <Command size={12} />
+              <span>K</span>
+            </button>
+          </div>
+
+          <div className="gs-chat-controls-right">
+            {stepCounterText && (
+              <span className="gs-chat-step-counter">{stepCounterText}</span>
+            )}
+            {kbHintText && (
+              <span className="gs-chat-kb-hint">{kbHintText}</span>
+            )}
             <button
               type="button"
               className="gs-chat-send-btn"
               disabled={
-                activeQuestion?.question.control.type === "text"
-                  ? !inputValue.trim()
-                  : false
+                isTypeahead
+                  ? (!typeaheadQuery.trim() && !selectedInst)
+                  : (activeQuestion?.question.control.type === "text" ? !inputValue.trim() : false)
               }
               onClick={handleTextSubmit}
             >
-              <ArrowUp size={18} />
+              <ArrowUp size={16} />
             </button>
           </div>
-        )}
-
-        {/* URL import indicator */}
-        {urlImporting && (
-          <div className="hf-ai-loading-row" style={{ marginTop: 4, fontSize: 12 }}>
-            <Loader2 size={12} className="hf-spinner" />
-            <span>Importing from website...</span>
-          </div>
-        )}
-
-        {/* Skip link for optional fields */}
-        {activeQuestion?.question.control.type === "textarea" && (
-          <button
-            type="button"
-            className="gs-chat-skip"
-            onClick={() => handleAnswer(activeQuestion.question.id, "", "(Skipped)")}
-          >
-            Skip this step
-          </button>
-        )}
-        {activeQuestion?.question.control.type === "url" && (
-          <button
-            type="button"
-            className="gs-chat-skip"
-            onClick={() => handleAnswer(activeQuestion.question.id, "", "(Skipped)")}
-          >
-            Skip — no website
-          </button>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -94,6 +94,7 @@ export function ScaffoldPanel({ getData, currentStepIndex, terms }: ScaffoldPane
   const welcomeMsg = getData<string>("welcomeMessage");
   const sessionCount = getData<number>("sessionCount");
   const hasTune = !!getData<Record<string, number>>("behaviorTargets");
+  const canTryCall = draftCreated || launched;
 
   const items: ScaffoldItem[] = [
     {
@@ -164,9 +165,6 @@ export function ScaffoldPanel({ getData, currentStepIndex, terms }: ScaffoldPane
           ))}
         </ul>
 
-        <div className="gs-scaffold-divider-label">minimum for first call</div>
-        <hr className="gs-scaffold-divider" />
-
         <ul className="gs-scaffold-list">
           {extraItems.map((item) => (
             <li key={item.key} className="gs-scaffold-item">
@@ -188,17 +186,20 @@ export function ScaffoldPanel({ getData, currentStepIndex, terms }: ScaffoldPane
           <div className="gs-readiness-hint">{readinessHint}</div>
         </div>
 
-        {(draftCreated || launched) && (
-          <div className="gs-try-call">
+        <div className="gs-try-call">
+          {canTryCall ? (
             <a
               href={`/x/sim/${getData<string>("draftCallerId") || ""}`}
-              className="hf-btn hf-btn-primary"
-              style={{ width: "100%", textAlign: "center" }}
+              className="gs-sim-btn gs-sim-btn-ready"
             >
               Try a Sim Call
             </a>
-          </div>
-        )}
+          ) : (
+            <span className="gs-sim-btn gs-sim-btn-disabled">
+              Try a Sim Call
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

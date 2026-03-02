@@ -2911,6 +2911,28 @@ html.light {
   color: var(--text-muted);
 }
 
+/* Compact FieldHint (controls bars — popover instead of accordion) */
+.hf-field-hint-compact {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.hf-field-hint-compact-panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 260px;
+  max-width: 340px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--text-primary) 10%, transparent);
+  z-index: 200;
+  animation: hf-hint-slide 0.15s ease-out;
+}
+
 /* Wizard step footer (sticky bottom bar) */
 .hf-step-footer {
   padding: 24px;

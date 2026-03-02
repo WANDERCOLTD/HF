@@ -4,7 +4,7 @@
   display: flex;
   gap: 32px;
   padding: 0;
-  min-height: calc(100vh - 64px);
+  min-height: calc(100vh - 180px);
 }
 
 .gs-main {
@@ -172,12 +172,40 @@
   margin-top: 6px;
 }
 
-/* ── Try Call CTA ──────────────────────────────────────── */
+/* ── Sim Call Button ──────────────────────────────────── */
 
 .gs-try-call {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--border-default);
+}
+
+.gs-sim-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s, opacity 0.2s;
+}
+
+.gs-sim-btn-disabled {
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.gs-sim-btn-ready {
+  background: var(--status-success-text);
+  color: white;
+  cursor: pointer;
+}
+
+.gs-sim-btn-ready:hover {
+  opacity: 0.9;
 }
 
 /* ── Pulse animation ──────────────────────────────────── */
@@ -344,8 +372,7 @@
   }
 
   .gs-scaffold-divider,
-  .gs-scaffold-divider-label,
-  .gs-try-call {
+  .gs-scaffold-divider-label {
     display: none;
   }
 

@@ -216,6 +216,68 @@ function buildFlowContext(crumb: EntityBreadcrumb): string | null {
   const data = crumb.data || {};
   const flowId = crumb.id;
 
+  if (flowId === "get-started") {
+    const collected = (data.collectedData as Record<string, unknown>) || {};
+    const remaining = (data.remainingQuestions as string[]) || [];
+    const answered = (data.answeredCount as number) ?? 0;
+    const total = (data.totalVisible as number) ?? 0;
+
+    const parts = [
+      `## Active Get Started Wizard`,
+      `The educator is setting up a new AI tutoring course from scratch.`,
+      `- Current step: **${data.currentStep || "unknown"}** (question: \`${data.currentQuestion || "unknown"}\`)`,
+      `- Progress: ${answered} of ${total} questions answered`,
+    ];
+
+    if (Object.keys(collected).length > 0) {
+      parts.push("", "**Data collected so far:**");
+      const labels: Record<string, string> = {
+        institutionName: "Institution name",
+        existingInstitutionId: "Existing institution (reusing)",
+        existingInstitutionName: "Existing institution name",
+        typeSlug: "Organisation type",
+        websiteUrl: "Website URL",
+        courseName: "Course name",
+        subjectDiscipline: "Subject discipline",
+        interactionPattern: "Teaching approach",
+        teachingMode: "Emphasis",
+        welcomeMessage: "Welcome greeting",
+        sessionCount: "Number of sessions",
+        durationMins: "Session duration (mins)",
+        planEmphasis: "Breadth vs depth",
+        behaviorTargets: "Personality sliders (warmth/directiveness/pace/encouragement)",
+        lessonPlanModel: "Lesson plan model",
+        contentSkipped: "Content upload skipped",
+        sourceCount: "Sources uploaded",
+        extractionTotals: "Extraction results",
+      };
+      for (const [key, val] of Object.entries(collected)) {
+        const label = labels[key] || key;
+        const display = typeof val === "object" ? JSON.stringify(val) : String(val);
+        parts.push(`- ${label}: ${display}`);
+      }
+    }
+
+    if (remaining.length > 0) {
+      parts.push("", `**Remaining questions:** ${remaining.join(", ")}`);
+    }
+
+    parts.push(
+      "",
+      "You can help them:",
+      "- Explain what each field means and how it affects the AI tutor",
+      "- Suggest values based on their institution type and course",
+      "- Explain teaching approaches (Socratic = question-led, Directive = instruction-led, Advisory = guidance-focused, Coaching = skills-building)",
+      "- Explain emphasis options (Recall = memory, Comprehension = understanding, Practice = application, Syllabus = curriculum coverage)",
+      "- Explain lesson plan models (Direct Instruction, 5E Inquiry, Spiral, Mastery, Project-Based)",
+      "- Clarify personality sliders (warmth, directiveness, pace, encouragement — each 0-1)",
+      "- Advise on session count and duration for their course type",
+      "- Explain what happens after the wizard (institution + course + AI tutor are scaffolded, sim call available)",
+    );
+
+    return parts.join("\n");
+  }
+
   if (flowId === "teach") {
     const parts = [`## Active Teach Flow`,
       `The educator is preparing to teach a live session.`,

@@ -2166,6 +2166,7 @@ Create a new caller. Auto-assigns the default domain if none specified. Generate
 | email | body | string | No | Caller email (optional) |
 | phone | body | string | No | Caller phone number (optional) |
 | domainId | body | string | No | Domain ID to assign (optional, defaults to system default domain) |
+| playbookId | body | string | No | Enroll in this specific playbook only (optional, skips domain-wide enrollment) |
 | role | body | string | No | Caller role (optional, default LEARNER) |
 
 **Response** `200`
