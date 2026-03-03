@@ -254,6 +254,8 @@ export interface WizardToolResult {
   tool_use_id: string;
   content: string;
   is_error?: boolean;
+  /** Fields to auto-inject as a client-side update_setup call (e.g. resolved entity IDs). */
+  autoInjectFields?: Record<string, unknown>;
 }
 
 /**
@@ -327,10 +329,19 @@ export async function executeWizardTool(
             (resolved.typeSlug ? `typeSlug: "${resolved.typeSlug}", ` : "") +
             `defaultDomainKind: "${resolved.domainKind}" }`;
 
+          // Auto-inject resolved IDs client-side (don't rely on AI calling update_setup again)
+          const institutionAutoFields: Record<string, unknown> = {
+            existingInstitutionId: resolved.institutionId,
+            existingDomainId: resolved.domainId,
+            defaultDomainKind: resolved.domainKind,
+            ...(resolved.typeSlug ? { typeSlug: resolved.typeSlug } : {}),
+          };
+
           // Smart auto-commit: exact match OR single partial match → auto-commit
           if (resolved.exactMatch) {
             return {
               ...base,
+              autoInjectFields: institutionAutoFields,
               content:
                 `Saved ${keys.length} field(s): ${keys.join(", ")}. ` +
                 `AUTO-COMMIT INSTITUTION: "${resolved.name}" ` +
@@ -346,6 +357,7 @@ export async function executeWizardTool(
           // (resolveInstitutionByName already picks the best single candidate)
           return {
             ...base,
+            autoInjectFields: institutionAutoFields,
             content:
               `Saved ${keys.length} field(s): ${keys.join(", ")}. ` +
               `AUTO-COMMIT INSTITUTION (partial match): "${resolved.name}" ` +
@@ -382,6 +394,10 @@ export async function executeWizardTool(
             const pb = resolved.playbooks[0];
             return {
               ...base,
+              autoInjectFields: {
+                draftPlaybookId: pb.id,
+                ...(pb.interactionPattern ? { interactionPattern: pb.interactionPattern } : {}),
+              },
               content:
                 `Saved ${keys.length} field(s): ${keys.join(", ")}. ` +
                 `AUTO-COMMIT COURSE: "${pb.name}" (playbookId: ${pb.id}` +

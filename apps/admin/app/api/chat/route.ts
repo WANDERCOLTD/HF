@@ -552,9 +552,17 @@ async function handleWizardModeWithTools(
         ...(result.is_error ? { is_error: true } : {}),
       });
 
-      // Auto-inject update_setup for creation tools so client always gets IDs
-      // (don't rely on the AI remembering to call update_setup after creation)
+      // Auto-inject update_setup so the client always gets resolved IDs
+      // (don't rely on the AI remembering to call update_setup after creation/resolution)
       if (!result.is_error) {
+        // 1. Entity resolution: autoInjectFields from update_setup (institution/course/subject resolution)
+        if (result.autoInjectFields && Object.keys(result.autoInjectFields).length > 0) {
+          allToolCalls.push({
+            name: "update_setup",
+            input: { fields: result.autoInjectFields },
+          });
+        }
+        // 2. Creation tools: extract IDs from JSON result
         try {
           const data = JSON.parse(result.content);
           if (data.ok && toolUse.name === "create_institution") {
