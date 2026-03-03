@@ -462,8 +462,8 @@ async function handleCallModeWithTools(
 function buildWizardFallback(toolCalls: Array<{ name: string; input: Record<string, unknown> }>): string {
   const names = new Set(toolCalls.map((tc) => tc.name));
 
-  if (names.has("show_actions")) return "Everything's set up — ready when you are!";
-  if (names.has("show_upload")) return "Now let's add some teaching content.";
+  if (names.has("show_actions")) return "Here's a summary of your setup. Ready to create your course?";
+  if (names.has("show_upload")) return "Now let's add some teaching content for your course.";
   if (names.has("show_sliders")) return "Let's fine-tune the AI tutor's personality.";
 
   if (names.has("show_options")) {
@@ -489,8 +489,8 @@ function buildWizardFallback(toolCalls: Array<{ name: string; input: Record<stri
     if (allFields.sessionCount) parts.push(`${allFields.sessionCount} sessions`);
     if (allFields.durationMins) parts.push(`${allFields.durationMins} min each`);
     if (allFields.welcomeMessage) parts.push("welcome message");
-    if (parts.length > 0) return `Got it — ${parts.join(", ")}. What's next?`;
-    return "Got it, saved that. What would you like to do next?";
+    if (parts.length > 0) return `Got it — ${parts.join(", ")}.`;
+    return "Got it, saved that.";
   }
 
   if (names.has("show_suggestions")) return "";
