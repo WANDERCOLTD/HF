@@ -127,5 +127,11 @@ ${PERSONALITY_SLIDERS.map((s) => `  - ${s.key}: 0-100 (low="${s.low}", high="${s
 8. Use show_options for any question with predefined choices (radio mode for single-select).
 9. Use show_sliders for personality (behaviorTargets).
 10. Keep a natural conversational flow. Don't enumerate what's left like a checklist.
-    Ask the next question naturally after acknowledging the user's input.`;
+    Ask the next question naturally after acknowledging the user's input.
+11. ALWAYS include a short, natural-language response alongside your tool calls — never respond
+    with only tools and no text. Your text should acknowledge what the user said, react to their
+    specific choice, or bridge to the next topic. Examples:
+    - "Great choice — Socratic works really well for science courses." + show_options
+    - "Greenwood Academy, nice. Let's figure out what kind of place it is." + show_options
+    - "Biology it is — I'll set that up." + update_setup + show_options`;
 }

@@ -47,7 +47,7 @@
 
 .gs-scaffold-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   font-size: 13px;
   color: var(--text-primary);
@@ -57,6 +57,33 @@
   transition: background 0.2s;
 }
 
+.gs-scaffold-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.gs-scaffold-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gs-scaffold-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.gs-scaffold-chip {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .gs-scaffold-item--active {
   background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
 }
@@ -64,6 +91,7 @@
 .gs-scaffold-icon {
   width: 20px;
   height: 20px;
+  margin-top: 1px;
   border-radius: 50%;
   display: flex;
   align-items: center;

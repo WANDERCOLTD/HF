@@ -453,6 +453,17 @@ async function handleCallModeWithTools(
   });
 }
 
+/** Contextual fallback when the AI tool loop ends without producing text. */
+function buildWizardFallback(toolCalls: Array<{ name: string; input: Record<string, unknown> }>): string {
+  const names = new Set(toolCalls.map((tc) => tc.name));
+  if (names.has("show_actions")) return "Everything's set up — ready when you are!";
+  if (names.has("show_upload")) return "Go ahead and upload your materials when you're ready.";
+  if (names.has("show_sliders")) return "Adjust the sliders to set the personality.";
+  if (names.has("show_options")) return "Here are your options:";
+  if (names.has("update_setup")) return "Got it, saved that.";
+  return ""; // Client skips empty content — no bubble rendered
+}
+
 /**
  * WIZARD mode with tool calling.
  * Uses non-streaming tool loop (same pattern as DATA mode) with wizard-specific tools.
@@ -526,6 +537,25 @@ async function handleWizardModeWithTools(
         content: result.content,
         ...(result.is_error ? { is_error: true } : {}),
       });
+
+      // Auto-inject update_setup for creation tools so client always gets IDs
+      // (don't rely on the AI remembering to call update_setup after creation)
+      if (!result.is_error) {
+        try {
+          const data = JSON.parse(result.content);
+          if (data.ok && toolUse.name === "create_institution") {
+            allToolCalls.push({
+              name: "update_setup",
+              input: { fields: { draftDomainId: data.domainId, draftInstitutionId: data.institutionId } },
+            });
+          } else if (data.ok && toolUse.name === "create_course") {
+            allToolCalls.push({
+              name: "update_setup",
+              input: { fields: { draftPlaybookId: data.playbookId, draftCallerId: data.callerId } },
+            });
+          }
+        } catch { /* non-JSON result — no injection needed */ }
+      }
     }
 
     loopMessages.push({
@@ -538,7 +568,8 @@ async function handleWizardModeWithTools(
   }
 
   if (!finalContent) {
-    finalContent = "Let me help you continue setting up your AI tutor.";
+    // Contextual fallback based on what tools were called — avoids a static boring string
+    finalContent = buildWizardFallback(allToolCalls);
   }
 
   logChatRequest(mode, message, selectedEngine, conversationHistory, entityContext, toolCallCount);

@@ -15,6 +15,7 @@ interface ScaffoldItem {
   key: string;
   label: string;
   value?: string;
+  chips?: string[];
   status: ScaffoldStatus;
 }
 
@@ -78,6 +79,19 @@ function getItemStatus(
   return hasValue ? "ready" : "waiting";
 }
 
+/** Capitalize first letter */
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const LESSON_MODEL_LABELS: Record<string, string> = {
+  direct: "Direct Instruction",
+  "5e": "5E Model",
+  spiral: "Spiral",
+  mastery: "Mastery",
+  project: "Project-Based",
+};
+
 function StatusIcon({ status }: { status: ScaffoldStatus }) {
   switch (status) {
     case "done":
@@ -109,17 +123,43 @@ export function ScaffoldPanel({ getData, currentStepIndex, currentPhaseId, terms
   const hasTune = !!getData<Record<string, number>>("behaviorTargets");
   const canTryCall = draftCreated || launched;
 
+  // Detail chips for each section
+  const typeSlug = getData<string>("typeSlug");
+  const subjectDiscipline = getData<string>("subjectDiscipline");
+  const interactionPattern = getData<string>("interactionPattern");
+  const teachingMode = getData<string>("teachingMode");
+  const durationMins = getData<string>("durationMins");
+  const planEmphasis = getData<string>("planEmphasis");
+  const lessonPlanModel = getData<string>("lessonPlanModel");
+
+  const institutionChips: string[] = [];
+  if (typeSlug) institutionChips.push(capitalize(typeSlug));
+
+  const courseChips: string[] = [];
+  if (subjectDiscipline) courseChips.push(subjectDiscipline);
+  if (interactionPattern) courseChips.push(capitalize(interactionPattern));
+  if (teachingMode) courseChips.push(capitalize(teachingMode));
+
+  const lessonChips: string[] = [];
+  if (durationMins) lessonChips.push(`${durationMins} min`);
+  if (planEmphasis) lessonChips.push(capitalize(planEmphasis));
+
+  const tuneChips: string[] = [];
+  if (lessonPlanModel) tuneChips.push(LESSON_MODEL_LABELS[lessonPlanModel] || capitalize(lessonPlanModel));
+
   const items: ScaffoldItem[] = [
     {
       key: "institution",
       label: t.institution,
       value: institutionName || undefined,
+      chips: institutionChips.length ? institutionChips : undefined,
       status: getItemStatus("institution", !!institutionName, currentStepIndex, draftCreated, launched),
     },
     {
       key: "course",
       label: isCommunity ? "Community" : t.course,
       value: courseName || undefined,
+      chips: courseChips.length ? courseChips : undefined,
       status: getItemStatus("course", !!courseName, currentStepIndex, draftCreated, launched),
     },
     // Content row hidden for communities — they don't upload teaching materials
@@ -143,12 +183,14 @@ export function ScaffoldPanel({ getData, currentStepIndex, currentPhaseId, terms
       key: "lessons",
       label: t.lessons,
       value: sessionCount ? `${sessionCount} sessions` : undefined,
+      chips: lessonChips.length ? lessonChips : undefined,
       status: getItemStatus("lessons", !!sessionCount, currentStepIndex, draftCreated, launched),
     }] : []),
     {
       key: "personality",
       label: isCommunity ? "AI Companion" : t.personality,
       value: hasTune ? "Configured" : undefined,
+      chips: tuneChips.length ? tuneChips : undefined,
       status: getItemStatus("personality", hasTune, currentStepIndex, draftCreated, launched),
     },
   ];
@@ -175,8 +217,19 @@ export function ScaffoldPanel({ getData, currentStepIndex, currentPhaseId, terms
           {items.map((item) => (
             <li key={item.key} className={`gs-scaffold-item${currentPhaseId && ITEM_TO_PHASE[item.key] === currentPhaseId ? " gs-scaffold-item--active" : ""}`}>
               <StatusIcon status={item.status} />
-              <span className="gs-scaffold-label">{item.label}</span>
-              {item.value && <span className="gs-scaffold-value">{item.value}</span>}
+              <div className="gs-scaffold-item-content">
+                <div className="gs-scaffold-item-row">
+                  <span className="gs-scaffold-label">{item.label}</span>
+                  {item.value && <span className="gs-scaffold-value">{item.value}</span>}
+                </div>
+                {item.chips && item.chips.length > 0 && (
+                  <div className="gs-scaffold-chips">
+                    {item.chips.map((chip) => (
+                      <span key={chip} className="gs-scaffold-chip">{chip}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -185,8 +238,19 @@ export function ScaffoldPanel({ getData, currentStepIndex, currentPhaseId, terms
           {extraItems.map((item) => (
             <li key={item.key} className={`gs-scaffold-item${currentPhaseId && ITEM_TO_PHASE[item.key] === currentPhaseId ? " gs-scaffold-item--active" : ""}`}>
               <StatusIcon status={item.status} />
-              <span className="gs-scaffold-label">{item.label}</span>
-              {item.value && <span className="gs-scaffold-value">{item.value}</span>}
+              <div className="gs-scaffold-item-content">
+                <div className="gs-scaffold-item-row">
+                  <span className="gs-scaffold-label">{item.label}</span>
+                  {item.value && <span className="gs-scaffold-value">{item.value}</span>}
+                </div>
+                {item.chips && item.chips.length > 0 && (
+                  <div className="gs-scaffold-chips">
+                    {item.chips.map((chip) => (
+                      <span key={chip} className="gs-scaffold-chip">{chip}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </li>
           ))}
         </ul>
