@@ -11,6 +11,7 @@ import { config } from "@/lib/config";
 import { getLearnerProfile } from "@/lib/learner/profile";
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { getSubjectsForPlaybook } from "@/lib/knowledge/domain-sources";
+import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 import type { LoadedDataContext } from "./types";
 
 /** Pre-resolved content scope passed to content loaders via config. */
@@ -666,6 +667,7 @@ registerLoader("curriculumAssertions", async (_callerId, loaderConfig) => {
   const assertions = await prisma.contentAssertion.findMany({
     where: {
       sourceId: { in: [...new Set(sourceIds)] },
+      category: { notIn: [...INSTRUCTION_CATEGORIES] },
     },
     orderBy: [
       { depth: "asc" },
@@ -787,25 +789,26 @@ registerLoader("curriculumVocabulary", async (_callerId, loaderConfig) => {
 });
 
 /**
- * Course instructions — tutor rules from COURSE_REFERENCE documents.
+ * Course instructions — tutor rules extracted from any content source.
  * These are instructions for HOW to teach, not WHAT to teach.
- * Filtered to ONLY COURSE_REFERENCE sources (inverse of curriculumAssertions).
+ * Filtered by ASSERTION CATEGORY (instruction categories like teaching_rule,
+ * session_flow, etc.) rather than by source DocumentType — this handles
+ * mixed documents that contain both tutor instructions and student content.
  */
 registerLoader("courseInstructions", async (_callerId, loaderConfig) => {
   const scope: ContentScope = loaderConfig?.contentScope ?? null;
   if (!scope) return [];
 
-  // Filter to ONLY COURSE_REFERENCE sources
-  const courseRefSourceIds = scope.subjects.flatMap((s) =>
-    s.sources
-      .filter((ss) => ss.documentType === "COURSE_REFERENCE")
-      .map((ss) => ss.sourceId)
+  // Get ALL source IDs (not filtered by documentType — filter by category instead)
+  const allSourceIds = scope.subjects.flatMap((s) =>
+    s.sources.map((ss) => ss.sourceId)
   );
-  if (courseRefSourceIds.length === 0) return [];
+  if (allSourceIds.length === 0) return [];
 
   const assertions = await prisma.contentAssertion.findMany({
     where: {
-      sourceId: { in: [...new Set(courseRefSourceIds)] },
+      sourceId: { in: [...new Set(allSourceIds)] },
+      category: { in: [...INSTRUCTION_CATEGORIES] },
     },
     orderBy: [
       { depth: "asc" },

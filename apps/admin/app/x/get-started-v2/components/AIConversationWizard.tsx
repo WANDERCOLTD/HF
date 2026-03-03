@@ -32,6 +32,20 @@ import "../get-started-v2.css";
 
 // ── Types ────────────────────────────────────────────────
 
+/** Pre-resolved institution context passed from the server component. */
+export interface WizardInitialContext {
+  institutionName: string;
+  institutionId: string;
+  domainId: string;
+  domainKind: "INSTITUTION" | "COMMUNITY";
+  typeSlug: string | null;
+  userRole: string;
+}
+
+interface AIConversationWizardProps {
+  initialContext?: WizardInitialContext;
+}
+
 interface Message {
   id: string;
   role: "assistant" | "user" | "system";
@@ -56,6 +70,21 @@ interface UndoState {
   displayText: string;
   timerId: ReturnType<typeof setTimeout>;
 }
+
+// ── Helpers ───────────────────────────────────────────────
+
+/** Map server-provided context to StepFlowContext data keys. */
+function contextToInitialData(ctx: WizardInitialContext): Record<string, unknown> {
+  return {
+    institutionName: ctx.institutionName,
+    existingInstitutionId: ctx.institutionId,
+    existingDomainId: ctx.domainId,
+    defaultDomainKind: ctx.domainKind,
+    ...(ctx.typeSlug ? { typeSlug: ctx.typeSlug } : {}),
+  };
+}
+
+const ESCAPE_HATCH_LABELS = ["Different institution", "New institution"];
 
 // ── Step defs for StepFlowContext ────────────────────────
 
@@ -108,7 +137,7 @@ const REVIEW_MESSAGES: Record<string, string> = {
   personality: "I'd like to fine-tune the AI tutor",
 };
 
-export function AIConversationWizard() {
+export function AIConversationWizard({ initialContext }: AIConversationWizardProps) {
   const { getData, setData, isActive, startFlow } = useStepFlow();
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -125,6 +154,7 @@ export function AIConversationWizard() {
   const initialised = useRef(false);
   const lastPhaseRef = useRef("institution");
   const abortRef = useRef<AbortController | null>(null);
+  const dismissedContextRef = useRef(false);
 
   // ── Scroll to bottom (with slight delay for layout settle) ──
 
@@ -315,6 +345,37 @@ export function AIConversationWizard() {
       const msg = (text || inputValue).trim();
       if (!msg || isLoading) return;
 
+      // ── Escape hatch: switch institution (client-side, no API call) ──
+      if (initialContext && ESCAPE_HATCH_LABELS.includes(msg)) {
+        dismissedContextRef.current = true;
+
+        // Clear pre-seeded institution fields
+        for (const key of ["institutionName", "existingInstitutionId", "existingDomainId", "defaultDomainKind", "typeSlug"]) {
+          setData(key, undefined);
+        }
+
+        // Reset phase tracking to institution
+        setCurrentStep(0);
+        setCurrentPhaseId("institution");
+        lastPhaseRef.current = "institution";
+
+        const userBubble: Message = { id: uid(), role: "user", content: msg };
+        const reply: Message = {
+          id: uid(),
+          role: "assistant",
+          content: "No problem! Type the name of your organisation or school below, " +
+            "and I'll help you set things up.",
+        };
+        const newMessages = [...messages, userBubble, reply];
+        setMessages(newMessages);
+        saveHistory(newMessages);
+        setInputValue("");
+        setSuggestions([]);
+        scrollToBottom();
+        setTimeout(() => inputRef.current?.focus(), 150);
+        return;
+      }
+
       setInputValue("");
       setActivePanel(null);
       setSuggestions([]);
@@ -373,7 +434,9 @@ export function AIConversationWizard() {
       // Focus input
       setTimeout(() => inputRef.current?.focus(), 150);
     },
-    [inputValue, isLoading, messages, sendToAPI, processToolCalls, scrollToBottom, undoState],
+    // initialContext is a stable server prop — won't cause re-renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [inputValue, isLoading, messages, sendToAPI, processToolCalls, scrollToBottom, undoState, setData],
   );
 
   // ── Handle option panel submission (with undo for radio) ──
@@ -450,22 +513,37 @@ export function AIConversationWizard() {
     setInputValue("");
     setIsLoading(false);
     setActivePanel(null);
-    setCurrentStep(0);
-    setCurrentPhaseId("institution");
     setUndoState(null);
     setSuggestions([]);
-    lastPhaseRef.current = "institution";
 
-    // Show welcome greeting directly — the init effect won't re-fire because
+    // Re-apply institution context if user didn't dismiss it
+    const shouldReapplyContext = initialContext && !dismissedContextRef.current;
+    const initialData = shouldReapplyContext ? contextToInitialData(initialContext) : undefined;
+
+    if (shouldReapplyContext) {
+      const isCommunity = initialData!.defaultDomainKind === "COMMUNITY";
+      const { phase, phaseIndex } = computeCurrentPhase(initialData!, !!isCommunity);
+      setCurrentStep(phaseIndex);
+      setCurrentPhaseId(phase.id);
+      lastPhaseRef.current = phase.id;
+    } else {
+      setCurrentStep(0);
+      setCurrentPhaseId("institution");
+      lastPhaseRef.current = "institution";
+    }
+
+    // Show appropriate greeting — the init effect won't re-fire because
     // isActive stays true (its deps don't change), so we handle it here.
     initialised.current = true;
     const greeting: Message = {
       id: uid(),
       role: "assistant",
-      content:
-        "Welcome! I'll help you set up your AI tutor in just a few minutes.\n\n" +
-        "Let's start with the basics — type the name of your organisation or school below, " +
-        "or tell me a bit about what you'd like to set up and I'll guide you through it.",
+      content: shouldReapplyContext
+        ? `Welcome back! Still setting up for **${initialContext!.institutionName}**. ` +
+          "What subject would you like to teach?"
+        : "Welcome! I'll help you set up your AI tutor in just a few minutes.\n\n" +
+          "Let's start with the basics — type the name of your organisation or school below, " +
+          "or tell me a bit about what you'd like to set up and I'll guide you through it.",
     };
     setMessages([greeting]);
     saveHistory([greeting]);
@@ -476,10 +554,18 @@ export function AIConversationWizard() {
       flowId: "get-started-v2",
       steps: WIZARD_STEPS,
       returnPath: "/x/get-started-v2",
+      initialData,
     });
+
+    // ADMIN+ escape hatch on reset
+    if (shouldReapplyContext && ["SUPERADMIN", "ADMIN"].includes(initialContext!.userRole)) {
+      setSuggestions(ESCAPE_HATCH_LABELS);
+    }
 
     // Focus input after render settles
     setTimeout(() => inputRef.current?.focus(), 150);
+    // initialContext is a server prop — stable across renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [undoState, startFlow, scrollToBottom]);
 
   // Esc: close active panel
@@ -525,8 +611,11 @@ export function AIConversationWizard() {
         flowId: "get-started-v2",
         steps: WIZARD_STEPS,
         returnPath: "/x/get-started-v2",
+        initialData: initialContext ? contextToInitialData(initialContext) : undefined,
       });
     }
+    // initialContext is a server prop — stable across renders, not a dep
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, startFlow]);
 
   // ── Initialise: restore history or show welcome ─────────
@@ -542,19 +631,41 @@ export function AIConversationWizard() {
       return;
     }
 
-    // Static welcome — instant, reliable, no API call needed
+    // Context-aware greeting
+    const hasContext = initialContext && !dismissedContextRef.current;
+
     const greeting: Message = {
       id: uid(),
       role: "assistant",
-      content:
-        "Welcome! I'll help you set up your AI tutor in just a few minutes.\n\n" +
-        "Let's start with the basics — type the name of your organisation or school below, " +
-        "or tell me a bit about what you'd like to set up and I'll guide you through it.",
+      content: hasContext
+        ? `Welcome! I can see you're at **${initialContext.institutionName}**. ` +
+          "What subject would you like to set up a course for?"
+        : "Welcome! I'll help you set up your AI tutor in just a few minutes.\n\n" +
+          "Let's start with the basics — type the name of your organisation or school below, " +
+          "or tell me a bit about what you'd like to set up and I'll guide you through it.",
     };
     setMessages([greeting]);
     saveHistory([greeting]);
+
+    // Advance phase indicator past institution when context is pre-seeded
+    if (hasContext) {
+      const data = contextToInitialData(initialContext);
+      const isCommunity = data.defaultDomainKind === "COMMUNITY";
+      const { phase, phaseIndex } = computeCurrentPhase(data, !!isCommunity);
+      setCurrentPhaseId(phase.id);
+      setCurrentStep(phaseIndex);
+      lastPhaseRef.current = phase.id;
+    }
+
+    // ADMIN+ escape hatch: offer to switch institution
+    if (hasContext && ["SUPERADMIN", "ADMIN"].includes(initialContext.userRole)) {
+      setSuggestions(ESCAPE_HATCH_LABELS);
+    }
+
     scrollToBottom();
     setTimeout(() => inputRef.current?.focus(), 150);
+    // initialContext is a server prop — stable across renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, scrollToBottom]);
 
   // ── Render ────────────────────────────────────────────

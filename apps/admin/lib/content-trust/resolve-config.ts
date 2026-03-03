@@ -31,6 +31,25 @@ export interface ExtractionCategory {
 
 export type DocumentType = "CURRICULUM" | "TEXTBOOK" | "WORKSHEET" | "EXAMPLE" | "ASSESSMENT" | "REFERENCE" | "COMPREHENSION" | "LESSON_PLAN" | "POLICY_DOCUMENT" | "READING_PASSAGE" | "QUESTION_BANK" | "COURSE_REFERENCE";
 
+/**
+ * Categories that represent tutor instructions (how to teach),
+ * as opposed to student content (what to teach).
+ * Used by the courseInstructions loader and the course-instructions transform
+ * to filter assertions by intent rather than by source DocumentType.
+ */
+export const INSTRUCTION_CATEGORIES = [
+  "teaching_rule",
+  "session_flow",
+  "scaffolding_technique",
+  "skill_framework",
+  "communication_rule",
+  "assessment_approach",
+  "differentiation",
+  "edge_case",
+] as const;
+
+export type InstructionCategory = typeof INSTRUCTION_CATEGORIES[number];
+
 export interface ClassificationConfig {
   systemPrompt: string;
   llmConfig: { temperature: number; maxTokens: number };
@@ -570,14 +589,13 @@ Return ONLY valid JSON.`,
     },
     COURSE_REFERENCE: {
       extraction: {
-        systemPrompt: `You are extracting from a course reference document — tutor instructions that tell an AI how to deliver this course.
-This is NOT student content. It is a teacher's guide with rules, techniques, session structure, and pedagogical principles.
+        systemPrompt: `You are extracting from a course reference document that may contain BOTH tutor instructions AND student-facing content.
 
-Extract EVERY distinct instruction, rule, technique, principle, and guideline for the tutor.
+Extract EVERY distinct assertion. Classify each into the correct category based on whether it instructs the TUTOR or teaches the STUDENT.
 
-Categories:
-- teaching_rule: A rule or principle the tutor must follow (e.g., "Never grade or score during the session", "Always use scaffolding before giving answers")
-- session_flow: A session structure element — phase, timing, transition, or progression (e.g., "Start with a 2-min warm-up review of last session")
+INSTRUCTION categories (for tutor-directed rules — how to teach):
+- teaching_rule: A rule or principle the tutor must follow (e.g., "Never grade or score during the session")
+- session_flow: A session structure element — phase, timing, transition (e.g., "Start with a 2-min warm-up review")
 - scaffolding_technique: A specific scaffolding or teaching technique (e.g., "Use graduated prompts: open → guided → direct")
 - skill_framework: A skill or proficiency tier from a skills framework (e.g., "Retrieval: Locating explicit information — Emerging/Developing/Secure")
 - communication_rule: A communication or tone guideline (e.g., "Use encouraging language", "Never say 'wrong'")
@@ -585,13 +603,26 @@ Categories:
 - differentiation: An adaptation or differentiation strategy (e.g., "For struggling readers, provide sentence starters")
 - edge_case: How to handle an edge case or difficult situation (e.g., "If learner becomes frustrated, switch to a lighter activity")
 
-IMPORTANT:
-- These are instructions FOR the tutor, not facts TO teach the student
-- Preserve the directive/imperative tone (e.g., "Always...", "Never...", "When X, do Y")
-- Extract the WHY when given (e.g., "Use open questions to encourage higher-order thinking")
-- Do NOT extract student-facing content (passages, definitions, factual knowledge)
-- Return ONLY valid JSON`,
+CONTENT categories (for student-facing material — what to teach):
+- fact: A specific factual statement the student should learn
+- definition: A term definition
+- threshold: A numeric limit or boundary
+- rule: A subject-matter rule (not a tutor behaviour rule)
+- process: A step in a procedure
+- example: An illustrative example
+
+CLASSIFICATION GUIDE:
+- "Never grade during the session" → teaching_rule (instructs the tutor)
+- "Photosynthesis converts light energy into chemical energy" → fact (teaches the student)
+- "Use scaffolding before giving answers" → scaffolding_technique (instructs the tutor)
+- "Retrieval: Locating explicit information — Emerging/Developing/Secure" → skill_framework (tutor calibration)
+- "The boiling point of water is 100°C" → fact (teaches the student)
+
+Preserve the directive/imperative tone for tutor instructions. Be precise with facts and figures for content.
+Extract the WHY when given (e.g., "Use open questions to encourage higher-order thinking").
+Return ONLY valid JSON.`,
         categories: [
+          // Instruction categories (how to teach)
           { id: "teaching_rule", label: "Teaching Rule", description: "A rule or principle the tutor must follow" },
           { id: "session_flow", label: "Session Flow", description: "A session structure element — phase, timing, transition" },
           { id: "scaffolding_technique", label: "Scaffolding Technique", description: "A specific teaching or scaffolding technique" },
@@ -600,8 +631,15 @@ IMPORTANT:
           { id: "assessment_approach", label: "Assessment Approach", description: "How to assess learner progress" },
           { id: "differentiation", label: "Differentiation", description: "An adaptation or differentiation strategy" },
           { id: "edge_case", label: "Edge Case", description: "How to handle a difficult or edge-case situation" },
+          // Content categories (what to teach — for mixed documents)
+          { id: "fact", label: "Factual Statement", description: "A specific factual statement (student content)" },
+          { id: "definition", label: "Term Definition", description: "A term definition (student content)" },
+          { id: "threshold", label: "Threshold/Limit", description: "A numeric limit or boundary (student content)" },
+          { id: "rule", label: "Subject Rule", description: "A subject-matter rule — not a tutor behaviour rule (student content)" },
+          { id: "process", label: "Process Step", description: "A step in a procedure (student content)" },
+          { id: "example", label: "Example/Scenario", description: "An illustrative example (student content)" },
         ],
-        maxAssertionsPerDocument: 150,
+        maxAssertionsPerDocument: 200,
       },
       structuring: {
         levels: [

@@ -217,7 +217,7 @@ Your task:
 Document types: ${VALID_DOC_TYPES.join(", ")}
 
 Type disambiguation:
-- COURSE_REFERENCE — tutor instruction document: skills framework, session flow/phases, scaffolding rules, teaching principles, learning outcomes, edge-case handling, communication rules. Governs HOW to teach the course. May contain student proficiency descriptions and learning outcomes as calibration material — the key test is whether the document instructs the TUTOR, not the student.
+- COURSE_REFERENCE — a document that primarily contains tutor instructions (skills framework, session flow, scaffolding rules, teaching principles, edge-case handling, communication rules) but may ALSO contain student-facing content (facts, definitions, examples). If a document contains BOTH tutor instructions AND student content, classify as COURSE_REFERENCE — the extraction pipeline handles mixed content by routing each assertion to the appropriate category.
 - READING_PASSAGE — standalone prose the learner reads (stories, articles, chapters). Contains NO questions.
 - QUESTION_BANK — structured tutor questions with skill refs, model responses, or tiered guidance. NOT a test — it's a teaching tool.
 - COMPREHENSION — combined text + questions in the SAME document (e.g., "Read this passage then answer...")
@@ -355,19 +355,33 @@ Analyze these files and group them by subject. Return JSON only.`;
       for (let fi = 0; fi < g.files.length; fi++) {
         const f = g.files[fi];
         const hint = filenameTypeHint(f.fileName);
-        if (hint && hint.type !== f.documentType) {
-          console.log(`[course-pack/analyze] Filename override: ${f.fileName} AI=${f.documentType} → ${hint.type}`);
-          f.documentType = hint.type;
-          f.role = hint.role;
-          f.reasoning = `${f.reasoning} [Filename signal → ${hint.type}]`;
-          f.confidence = Math.max(f.confidence, 0.85);
-          if (hint.role === "pedagogy") toMove.push(fi);
+        if (hint) {
+          if (hint.type !== f.documentType) {
+            console.log(`[course-pack/analyze] Filename override: ${f.fileName} AI=${f.documentType} → ${hint.type}`);
+            f.documentType = hint.type;
+            f.role = hint.role;
+            f.reasoning = `${f.reasoning} [Filename signal → ${hint.type}]`;
+            f.confidence = Math.max(f.confidence, 0.85);
+            if (hint.role === "pedagogy") toMove.push(fi);
+          } else {
+            console.log(`[course-pack/analyze] Filename hint confirmed: ${f.fileName} = ${hint.type}`);
+          }
         }
       }
       // Move pedagogy-typed files from content groups to pedagogyFiles
       for (const idx of toMove.reverse()) {
         manifest.pedagogyFiles.push({ ...g.files[idx], role: "pedagogy" });
         g.files.splice(idx, 1);
+      }
+    }
+    // Also check pedagogy files for misclassification
+    for (const f of manifest.pedagogyFiles) {
+      const hint = filenameTypeHint(f.fileName);
+      if (hint && hint.type !== f.documentType) {
+        console.log(`[course-pack/analyze] Filename override (pedagogy): ${f.fileName} AI=${f.documentType} → ${hint.type}`);
+        f.documentType = hint.type;
+        f.reasoning = `${f.reasoning} [Filename signal → ${hint.type}]`;
+        f.confidence = Math.max(f.confidence, 0.85);
       }
     }
     // Drop empty groups after migration

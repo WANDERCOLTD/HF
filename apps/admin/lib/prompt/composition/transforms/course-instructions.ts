@@ -11,6 +11,7 @@
 
 import { registerTransform } from "../TransformRegistry";
 import type { AssembledContext, CourseInstructionData } from "../types";
+import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 
 const CATEGORY_LABELS: Record<string, string> = {
   teaching_rule: "TEACHING RULES",
@@ -23,16 +24,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   edge_case: "EDGE CASES",
 };
 
-const CATEGORY_ORDER = [
-  "teaching_rule",
-  "session_flow",
-  "scaffolding_technique",
-  "skill_framework",
-  "communication_rule",
-  "assessment_approach",
-  "differentiation",
-  "edge_case",
-];
+const CATEGORY_ORDER: readonly string[] = INSTRUCTION_CATEGORIES;
 
 registerTransform("renderCourseInstructions", (
   _rawData: any,

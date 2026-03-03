@@ -8,6 +8,7 @@ import { config } from "@/lib/config";
 import type { InteractionPattern, TeachingMode } from "@/lib/content-trust/resolve-config";
 import { checkAutoTriggerCurriculum } from "@/lib/jobs/auto-trigger";
 import type { SendIngestEvent } from "@/lib/content-trust/ingest-events";
+import pLimit from "p-limit";
 
 /**
  * @api POST /api/course-pack/ingest
@@ -181,44 +182,56 @@ export async function POST(req: NextRequest) {
             data: { subjectId: subject.id, subjectName: subject.name },
           });
 
-          // Create + extract each file in group
+          // Create + extract each file in group (parallel, up to 3 concurrent)
           const groupSources: Array<{ sourceId: string; role: string; fileName: string }> = [];
           const totalFilesInGroup = group.files.length;
+          const limit = pLimit(3);
 
-          for (let fi = 0; fi < group.files.length; fi++) {
-            const mf = group.files[fi];
-            const file = files[mf.fileIndex];
-            if (!file) continue;
+          const fileResults = await Promise.all(
+            group.files.map((mf, fi) => limit(async () => {
+              const file = files[mf.fileIndex];
+              if (!file) return null;
 
-            send({
-              phase: "uploading",
-              message: `Uploading: ${file.name}`,
-              data: { fileName: file.name, fileIndex: fi, totalFiles: totalFilesInGroup },
-            });
+              send({
+                phase: "uploading",
+                message: `Uploading: ${file.name}`,
+                data: { fileName: file.name, fileIndex: fi, totalFiles: totalFilesInGroup },
+              });
 
-            const { sourceId, mediaId, mediaStorageKey, text, source } = await createSource(
-              file, subject.id, domain.slug, mf.documentType, userId,
-            );
-            groupSources.push({ sourceId, role: mf.role, fileName: file.name });
+              const { sourceId, mediaStorageKey, text, source } = await createSource(
+                file, subject.id, domain.slug, mf.documentType, userId,
+              );
+
+              send({
+                phase: "source-created",
+                message: `Uploaded: ${file.name}`,
+                data: { sourceId, fileName: file.name },
+              });
+
+              const fileTotals = await extractSource(
+                source, text, mf.documentType as DocumentType, file.name,
+                subject.id, userId, interactionPattern as InteractionPattern | undefined,
+                teachingMode, send, mediaStorageKey, subjectDiscipline, subject.name,
+              );
+
+              return {
+                sourceId,
+                role: mf.role,
+                fileName: file.name,
+                totals: fileTotals,
+              };
+            }))
+          );
+
+          // Accumulate totals after all files complete
+          for (const result of fileResults) {
+            if (!result) continue;
+            groupSources.push({ sourceId: result.sourceId, role: result.role, fileName: result.fileName });
             sourceCount++;
-
-            send({
-              phase: "source-created",
-              message: `Uploaded: ${file.name}`,
-              data: { sourceId, fileName: file.name },
-            });
-
-            // Await extraction with SSE events per chunk
-            const fileTotals = await extractSource(
-              source, text, mf.documentType as DocumentType, file.name,
-              subject.id, userId, interactionPattern as InteractionPattern | undefined,
-              teachingMode, send, mediaStorageKey, subjectDiscipline, subject.name,
-            );
-
-            grandTotalAssertions += fileTotals.assertions;
-            grandTotalQuestions += fileTotals.questions;
-            grandTotalVocabulary += fileTotals.vocabulary;
-            grandTotalImages += fileTotals.images;
+            grandTotalAssertions += result.totals.assertions;
+            grandTotalQuestions += result.totals.questions;
+            grandTotalVocabulary += result.totals.vocabulary;
+            grandTotalImages += result.totals.images;
           }
 
           // ── Auto-pair passage ↔ question bank within this group ──
@@ -270,37 +283,46 @@ export async function POST(req: NextRequest) {
 
           createdSubjects.push({ id: pedSubject.id, name: pedSubject.name });
 
-          for (const mf of manifest.pedagogyFiles) {
-            const file = files[mf.fileIndex];
-            if (!file) continue;
+          const pedLimit = pLimit(3);
 
-            send({
-              phase: "uploading",
-              message: `Uploading: ${file.name}`,
-              data: { fileName: file.name },
-            });
+          const pedResults = await Promise.all(
+            manifest.pedagogyFiles.map((mf) => pedLimit(async () => {
+              const file = files[mf.fileIndex];
+              if (!file) return null;
 
-            const { sourceId, mediaStorageKey: pedMediaKey, text, source } = await createSource(
-              file, pedSubject.id, domain.slug, mf.documentType || "LESSON_PLAN", userId,
-            );
+              send({
+                phase: "uploading",
+                message: `Uploading: ${file.name}`,
+                data: { fileName: file.name },
+              });
+
+              const { sourceId, mediaStorageKey: pedMediaKey, text, source } = await createSource(
+                file, pedSubject.id, domain.slug, mf.documentType || "LESSON_PLAN", userId,
+              );
+
+              send({
+                phase: "source-created",
+                message: `Uploaded: ${file.name}`,
+                data: { sourceId, fileName: file.name },
+              });
+
+              const fileTotals = await extractSource(
+                source, text, (mf.documentType || "LESSON_PLAN") as DocumentType, file.name,
+                pedSubject.id, userId, interactionPattern as InteractionPattern | undefined,
+                teachingMode, send, pedMediaKey, subjectDiscipline, pedSubject.name,
+              );
+
+              return fileTotals;
+            }))
+          );
+
+          for (const result of pedResults) {
+            if (!result) continue;
             sourceCount++;
-
-            send({
-              phase: "source-created",
-              message: `Uploaded: ${file.name}`,
-              data: { sourceId, fileName: file.name },
-            });
-
-            const fileTotals = await extractSource(
-              source, text, (mf.documentType || "LESSON_PLAN") as DocumentType, file.name,
-              pedSubject.id, userId, interactionPattern as InteractionPattern | undefined,
-              teachingMode, send, pedMediaKey, subjectDiscipline, pedSubject.name,
-            );
-
-            grandTotalAssertions += fileTotals.assertions;
-            grandTotalQuestions += fileTotals.questions;
-            grandTotalVocabulary += fileTotals.vocabulary;
-            grandTotalImages += fileTotals.images;
+            grandTotalAssertions += result.assertions;
+            grandTotalQuestions += result.questions;
+            grandTotalVocabulary += result.vocabulary;
+            grandTotalImages += result.images;
           }
         }
 
