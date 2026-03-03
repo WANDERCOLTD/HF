@@ -7,7 +7,7 @@
  * with status indicators. Labels adapt via terminology when available.
  */
 
-import { Check, Loader2, Circle, Disc } from "lucide-react";
+import { Check, Loader2, Circle, Disc, RotateCcw } from "lucide-react";
 
 type ScaffoldStatus = "waiting" | "collecting" | "ready" | "building" | "draft" | "done";
 
@@ -33,6 +33,8 @@ interface ScaffoldPanelProps {
     lessons: string;
     personality: string;
   };
+  /** Called when user clicks "Start Afresh" — clears all wizard state */
+  onReset?: () => void;
 }
 
 /** Map scaffold item keys to wizard phase IDs */
@@ -109,7 +111,7 @@ function StatusIcon({ status }: { status: ScaffoldStatus }) {
   }
 }
 
-export function ScaffoldPanel({ getData, currentStepIndex, currentPhaseId, terms }: ScaffoldPanelProps) {
+export function ScaffoldPanel({ getData, currentStepIndex, currentPhaseId, terms, onReset }: ScaffoldPanelProps) {
   const t = terms ?? DEFAULT_TERMS;
   const draftCreated = !!getData<string>("draftDomainId");
   const launched = !!getData<boolean>("launched");
@@ -284,6 +286,13 @@ export function ScaffoldPanel({ getData, currentStepIndex, currentPhaseId, terms
             </span>
           )}
         </div>
+
+        {onReset && (
+          <button type="button" className="gs-reset-btn" onClick={onReset}>
+            <RotateCcw size={12} />
+            Start Afresh
+          </button>
+        )}
       </div>
     </div>
   );

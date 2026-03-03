@@ -13,7 +13,7 @@
  * One panel at a time — no tabs. The system enforces one show_* tool per AI turn.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Check, ArrowRight, Rocket, Upload } from "lucide-react";
 import type { SliderDef } from "./wizard-schema";
 
@@ -93,12 +93,18 @@ export function OptionPanel({ panel, onSubmit, onAction, uploadComponent }: Opti
 
 function OptionsContent({ panel, onSubmit }: { panel: OptionsPanel; onSubmit: OptionPanelProps["onSubmit"] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const listRef = useRef<HTMLDivElement>(null);
   const isRadio = panel.mode === "radio";
+
+  // Auto-focus the list when panel appears
+  useEffect(() => {
+    listRef.current?.focus();
+  }, []);
 
   const handleSelect = useCallback(
     (value: string, label: string) => {
       if (isRadio) {
-        // Auto-submit on click for radio
         onSubmit(panel.dataKey, value, label);
       } else {
         setSelected((prev) => {
@@ -121,18 +127,71 @@ function OptionsContent({ panel, onSubmit }: { panel: OptionsPanel; onSubmit: Op
     onSubmit(panel.dataKey, values, labels);
   }, [selected, onSubmit, panel.dataKey, panel.options]);
 
+  // Keyboard navigation: Arrow Up/Down to move, Space to select, Enter to confirm
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const len = panel.options.length;
+      if (!len) return;
+
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          setFocusedIndex((i) => (i + 1) % len);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setFocusedIndex((i) => (i - 1 + len) % len);
+          break;
+        case " ": {
+          e.preventDefault();
+          const opt = panel.options[focusedIndex];
+          if (opt) handleSelect(opt.value, opt.label);
+          break;
+        }
+        case "Enter": {
+          e.preventDefault();
+          if (!isRadio && selected.size > 0) {
+            handleConfirm();
+          } else if (isRadio) {
+            const opt = panel.options[focusedIndex];
+            if (opt) handleSelect(opt.value, opt.label);
+          }
+          break;
+        }
+      }
+    },
+    [panel.options, focusedIndex, isRadio, selected.size, handleSelect, handleConfirm],
+  );
+
   return (
     <div className="gs-option-group">
       <div className="gs-option-header">{panel.question}</div>
-      <div className="gs-option-list">
-        {panel.options.map((opt) => {
+      <div
+        ref={listRef}
+        className="gs-option-list"
+        tabIndex={0}
+        role="listbox"
+        onKeyDown={handleKeyDown}
+      >
+        {panel.options.map((opt, idx) => {
           const isSelected = selected.has(opt.value);
+          const isFocused = idx === focusedIndex;
           return (
             <button
               key={opt.value}
               type="button"
-              className={`gs-option-item${isSelected ? " gs-option-item--selected" : ""}`}
-              onClick={() => handleSelect(opt.value, opt.label)}
+              role="option"
+              aria-selected={isSelected}
+              className={
+                "gs-option-item" +
+                (isSelected ? " gs-option-item--selected" : "") +
+                (isFocused ? " gs-option-item--focused" : "")
+              }
+              onClick={() => {
+                setFocusedIndex(idx);
+                handleSelect(opt.value, opt.label);
+              }}
+              onMouseEnter={() => setFocusedIndex(idx)}
             >
               <div className="gs-option-radio">
                 {isRadio ? (
@@ -159,6 +218,9 @@ function OptionsContent({ panel, onSubmit }: { panel: OptionsPanel; onSubmit: Op
           Confirm ({selected.size})
         </button>
       )}
+      <div className="gs-option-hint">
+        Use <kbd>↑</kbd><kbd>↓</kbd> to navigate, <kbd>space</kbd> to select{!isRadio ? ", enter to confirm" : ""}
+      </div>
     </div>
   );
 }

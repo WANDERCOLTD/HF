@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense, useEffect, useState, useRef, useCallback } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { SessionProvider } from 'next-auth/react';
 import SimpleSidebarNav from '@/src/components/shared/SimpleSidebarNav';
 import { TopBar } from '@/components/shared/TopBar';
@@ -78,6 +78,7 @@ const COLLAPSED_WIDTH = 56;
 function LayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const [sidebarWidth, setSidebarWidth] = useState<number>(DEFAULT_SIDEBAR_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
@@ -144,6 +145,18 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
       window.localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
     }
   }, [sidebarWidth, collapsed]);
+
+  // Global Cmd+G → navigate to Get Started V2
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        router.push('/x/get-started-v2');
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [router]);
 
   // Resize handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {

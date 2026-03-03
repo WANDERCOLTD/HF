@@ -60,15 +60,22 @@
   width: 100%;
 }
 
-.gs-option-item:hover {
+.gs-option-item:hover,
+.gs-option-item--focused {
   background: var(--surface-secondary);
+}
+
+.gs-option-item--focused {
+  outline: 2px solid color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  outline-offset: -2px;
 }
 
 .gs-option-item--selected {
   background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
 }
 
-.gs-option-item--selected:hover {
+.gs-option-item--selected:hover,
+.gs-option-item--selected.gs-option-item--focused {
   background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
 }
 
@@ -147,6 +154,31 @@
   color: var(--text-muted);
   line-height: 1.4;
   margin-top: 2px;
+}
+
+/* ── Keyboard hint ──────────────────────────────────── */
+
+.gs-option-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+  padding-top: 2px;
+}
+
+.gs-option-hint kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-family: inherit;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-secondary);
+  margin: 0 1px;
+}
+
+/* Hide outline on the list container itself */
+.gs-option-list:focus {
+  outline: none;
 }
 
 /* ── Sliders ─────────────────────────────────────────── */

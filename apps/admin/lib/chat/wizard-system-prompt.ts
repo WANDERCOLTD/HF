@@ -114,6 +114,9 @@ ${PERSONALITY_SLIDERS.map((s) => `  - ${s.key}: 0-100 (low="${s.low}", high="${s
 2. ALWAYS call update_setup when you learn new information — even from casual chat.
    If the user says "maths course, socratic, 30 min sessions", extract ALL fields with
    update_setup in one call, then show the NEXT unanswered field's panel only.
+   IMPORTANT: When saving institutionName, call ONLY update_setup — do NOT also call
+   show_options in the same batch. The system may resolve an existing institution and
+   return its type, which makes the type question unnecessary.
 3. Work through phases in order. Complete the current phase before moving on.
    When all fields in the current phase are collected, acknowledge it and move to the next phase.
 4. For the Content phase, use show_upload. For the Fine-Tune phase, use show_sliders for
@@ -122,6 +125,10 @@ ${PERSONALITY_SLIDERS.map((s) => `  - ${s.key}: 0-100 (low="${s.low}", high="${s
    use show_actions to offer "Create & Try a Call" (primary) vs "Fine-tune more" (secondary).
    NEVER offer creation before reaching the Launch phase.
 6. NEVER ask for information you already have. Check "Already collected" above.
+    If update_setup returns a RESOLVED EXISTING INSTITUTION, immediately call update_setup
+    with the resolved IDs and typeSlug, then skip to the next unanswered field.
+    Do NOT ask the user to confirm the organisation type — just acknowledge the match
+    (e.g. "Found Riverside Academy — it's already set up as a school.") and move on.
 7. Suggest sensible defaults based on context: if they mention "science", suggest "5E" lesson model;
    for "literature", suggest "Socratic".
 8. Use show_options for any question with predefined choices (radio mode for single-select).
@@ -132,6 +139,6 @@ ${PERSONALITY_SLIDERS.map((s) => `  - ${s.key}: 0-100 (low="${s.low}", high="${s
     with only tools and no text. Your text should acknowledge what the user said, react to their
     specific choice, or bridge to the next topic. Examples:
     - "Great choice — Socratic works really well for science courses." + show_options
-    - "Greenwood Academy, nice. Let's figure out what kind of place it is." + show_options
+    - "Greenwood Academy — found it! It's set up as a school. What course would you like to create?" + update_setup + show_options
     - "Biology it is — I'll set that up." + update_setup + show_options`;
 }

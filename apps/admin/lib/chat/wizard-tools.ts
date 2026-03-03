@@ -247,6 +247,27 @@ export async function executeWizardTool(
     case "update_setup": {
       const fields = input.fields as Record<string, unknown>;
       const keys = Object.keys(fields);
+
+      // Auto-resolve institution when name is provided — skip redundant type question
+      if (fields.institutionName && typeof fields.institutionName === "string") {
+        const resolved = await resolveInstitutionByName(fields.institutionName);
+        if (resolved) {
+          return {
+            ...base,
+            content:
+              `Saved ${keys.length} field(s): ${keys.join(", ")}. ` +
+              `RESOLVED EXISTING INSTITUTION: "${resolved.name}" ` +
+              `(type: ${resolved.typeSlug || "unknown"}, institutionId: ${resolved.institutionId}, ` +
+              `domainId: ${resolved.domainId}, domainKind: ${resolved.domainKind}). ` +
+              `Call update_setup now with: { existingInstitutionId: "${resolved.institutionId}", ` +
+              `existingDomainId: "${resolved.domainId}", ` +
+              (resolved.typeSlug ? `typeSlug: "${resolved.typeSlug}", ` : "") +
+              `defaultDomainKind: "${resolved.domainKind}" } — ` +
+              `then skip to the next unanswered field (do NOT ask about organisation type).`,
+          };
+        }
+      }
+
       return { ...base, content: `Saved ${keys.length} field(s): ${keys.join(", ")}. Continue the conversation.` };
     }
 
@@ -398,5 +419,46 @@ export async function executeWizardTool(
     default: {
       return { ...base, content: `Unknown tool: ${toolName}`, is_error: true };
     }
+  }
+}
+
+// ── Institution resolution ──────────────────────────────
+
+interface ResolvedInstitution {
+  institutionId: string;
+  name: string;
+  typeSlug: string | null;
+  domainId: string;
+  domainKind: string;
+}
+
+/**
+ * Look up an existing institution by name (case-insensitive).
+ * Returns the first match with its type and primary domain.
+ */
+async function resolveInstitutionByName(name: string): Promise<ResolvedInstitution | null> {
+  try {
+    const { prisma } = await import("@/lib/prisma");
+
+    const institution = await prisma.institution.findFirst({
+      where: { name: { equals: name, mode: "insensitive" } },
+      include: {
+        type: { select: { slug: true } },
+        domains: { take: 1, orderBy: { createdAt: "asc" }, select: { id: true, kind: true } },
+      },
+    });
+
+    if (!institution || institution.domains.length === 0) return null;
+
+    return {
+      institutionId: institution.id,
+      name: institution.name,
+      typeSlug: institution.type?.slug ?? null,
+      domainId: institution.domains[0].id,
+      domainKind: institution.domains[0].kind,
+    };
+  } catch (err) {
+    console.warn("[wizard-tools] Institution resolution failed:", err);
+    return null;
   }
 }

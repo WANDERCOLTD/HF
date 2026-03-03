@@ -393,6 +393,34 @@ export function AIConversationWizard() {
     [setData, handleSend],
   );
 
+  // ── Reset wizard (Start Afresh) ─────────────────────────
+
+  const handleReset = useCallback(() => {
+    // Clear chat history
+    try { sessionStorage.removeItem(HISTORY_KEY); } catch { /* ignore */ }
+
+    // Clear undo timer
+    if (undoState?.timerId) clearTimeout(undoState.timerId);
+
+    // Reset local state
+    setMessages([]);
+    setInputValue("");
+    setIsLoading(false);
+    setActivePanel(null);
+    setCurrentStep(0);
+    setCurrentPhaseId("institution");
+    setUndoState(null);
+    initialised.current = false;
+    lastPhaseRef.current = "institution";
+
+    // Re-start flow with fresh data (overwrites existing StepFlowContext state)
+    startFlow({
+      flowId: "get-started-v2",
+      steps: WIZARD_STEPS,
+      returnPath: "/x/get-started-v2",
+    });
+  }, [undoState, startFlow]);
+
   // ── Keyboard handler ────────────────────────────────────
 
   const handleKeyDown = useCallback(
@@ -594,7 +622,7 @@ export function AIConversationWizard() {
       </div>
 
       {/* Scaffold panel */}
-      <ScaffoldPanel getData={getData} currentStepIndex={currentStep} currentPhaseId={currentPhaseId} />
+      <ScaffoldPanel getData={getData} currentStepIndex={currentStep} currentPhaseId={currentPhaseId} onReset={handleReset} />
     </div>
   );
 }
