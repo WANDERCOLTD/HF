@@ -271,18 +271,38 @@ export async function executeWizardTool(
             subjectContext = "\nNo subjects or courses exist yet — ask for subject and course name as normal.";
           }
 
+          const resolvedFields =
+            `{ existingInstitutionId: "${resolved.institutionId}", ` +
+            `existingDomainId: "${resolved.domainId}", ` +
+            (resolved.typeSlug ? `typeSlug: "${resolved.typeSlug}", ` : "") +
+            `defaultDomainKind: "${resolved.domainKind}" }`;
+
+          if (resolved.exactMatch) {
+            return {
+              ...base,
+              content:
+                `Saved ${keys.length} field(s): ${keys.join(", ")}. ` +
+                `RESOLVED EXISTING INSTITUTION: "${resolved.name}" ` +
+                `(type: ${resolved.typeSlug || "unknown"}, institutionId: ${resolved.institutionId}, ` +
+                `domainId: ${resolved.domainId}, domainKind: ${resolved.domainKind}). ` +
+                `Call update_setup now with: ${resolvedFields} — ` +
+                `then skip to the next unanswered field (do NOT ask about organisation type).` +
+                subjectContext,
+            };
+          }
+
+          // Partial match — ask user to confirm before committing
           return {
             ...base,
             content:
               `Saved ${keys.length} field(s): ${keys.join(", ")}. ` +
-              `RESOLVED EXISTING INSTITUTION: "${resolved.name}" ` +
+              `PARTIAL MATCH FOUND: "${resolved.name}" ` +
               `(type: ${resolved.typeSlug || "unknown"}, institutionId: ${resolved.institutionId}, ` +
               `domainId: ${resolved.domainId}, domainKind: ${resolved.domainKind}). ` +
-              `Call update_setup now with: { existingInstitutionId: "${resolved.institutionId}", ` +
-              `existingDomainId: "${resolved.domainId}", ` +
-              (resolved.typeSlug ? `typeSlug: "${resolved.typeSlug}", ` : "") +
-              `defaultDomainKind: "${resolved.domainKind}" } — ` +
-              `then skip to the next unanswered field (do NOT ask about organisation type).` +
+              `The user typed "${fields.institutionName}" which partially matches "${resolved.name}". ` +
+              `ASK THE USER TO CONFIRM: e.g. "Did you mean ${resolved.name}?" ` +
+              `If they confirm, call update_setup with: ${resolvedFields} and skip organisation type. ` +
+              `If they say no, treat as a new institution.` +
               subjectContext,
           };
         }
@@ -294,9 +314,10 @@ export async function executeWizardTool(
             ...base,
             content:
               `Saved ${keys.length} field(s): ${keys.join(", ")}. ` +
-              `No existing institution found. NAME SUGGESTS TYPE: "${inferredType}" ` +
+              `No existing institution found. TYPE AUTO-SET: "${inferredType}" ` +
               `(inferred from the name "${fields.institutionName}"). ` +
-              `When showing typeSlug options, set recommended=true on "${inferredType}".`,
+              `Call update_setup now with: { typeSlug: "${inferredType}" } — ` +
+              `then skip to the next unanswered field (do NOT ask about organisation type).`,
           };
         }
       }
@@ -476,11 +497,14 @@ interface ResolvedInstitution {
   domainId: string;
   domainKind: string;
   subjects: ResolvedSubject[];
+  /** true = exact name match, false = partial (contains) match needing confirmation */
+  exactMatch: boolean;
 }
 
 /**
- * Look up an existing institution by name (case-insensitive).
- * Returns the first match with its type, primary domain, subjects, and courses.
+ * Look up an existing institution by name.
+ * Strategy: exact match first, then partial (contains) for 3+ char inputs.
+ * Returns the best match with its type, primary domain, subjects, and courses.
  *
  * Uses two direct Domain relations (both naturally domain-scoped):
  *   Domain → subjects (SubjectDomain) — what subjects are taught here
@@ -491,39 +515,55 @@ async function resolveInstitutionByName(name: string): Promise<ResolvedInstituti
   try {
     const { prisma } = await import("@/lib/prisma");
 
-    const institution = await prisma.institution.findFirst({
-      where: { name: { equals: name, mode: "insensitive" } },
-      include: {
-        type: { select: { slug: true } },
-        domains: {
-          take: 1,
-          orderBy: { createdAt: "asc" },
-          select: {
-            id: true,
-            kind: true,
-            // Subjects taught at this institution (may have no courses yet)
-            subjects: {
-              select: {
-                subject: { select: { id: true, name: true } },
-              },
+    const includeClause = {
+      type: { select: { slug: true } },
+      domains: {
+        take: 1,
+        orderBy: { createdAt: "asc" as const },
+        select: {
+          id: true,
+          kind: true,
+          subjects: {
+            select: {
+              subject: { select: { id: true, name: true } },
             },
-            // Courses in this domain (already domain-scoped) + their subject links
-            playbooks: {
-              select: {
-                id: true,
-                name: true,
-                config: true,
-                subjects: {
-                  select: {
-                    subject: { select: { id: true } },
-                  },
+          },
+          playbooks: {
+            select: {
+              id: true,
+              name: true,
+              config: true,
+              subjects: {
+                select: {
+                  subject: { select: { id: true } },
                 },
               },
             },
           },
         },
       },
+    };
+
+    // 1. Try exact match first (fast, unambiguous)
+    let institution = await prisma.institution.findFirst({
+      where: { name: { equals: name, mode: "insensitive" } },
+      include: includeClause,
     });
+    let exactMatch = !!institution;
+
+    // 2. No exact match — try partial match (minimum 3 chars to avoid noise)
+    if (!institution && name.trim().length >= 3) {
+      const candidates = await prisma.institution.findMany({
+        where: { name: { contains: name, mode: "insensitive" } },
+        include: includeClause,
+        take: 5,
+      });
+      if (candidates.length > 0) {
+        // Pick shortest name — best match ratio (e.g. "riverside" → "Riverside Academy" over "Riverside Community Training Centre")
+        institution = candidates.sort((a, b) => a.name.length - b.name.length)[0];
+        exactMatch = false;
+      }
+    }
 
     if (!institution || institution.domains.length === 0) return null;
 
@@ -560,6 +600,7 @@ async function resolveInstitutionByName(name: string): Promise<ResolvedInstituti
       domainId: domain.id,
       domainKind: domain.kind,
       subjects: Array.from(subjectMap.values()),
+      exactMatch,
     };
   } catch (err) {
     console.warn("[wizard-tools] Institution resolution failed:", err);

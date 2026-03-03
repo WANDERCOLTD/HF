@@ -151,7 +151,7 @@ NEVER invent subjects not in this catalog for show_options.
    use show_actions to offer "Create & Try a Call" (primary) vs "Fine-tune more" (secondary).
    NEVER offer creation before reaching the Launch phase.
 6. NEVER ask for information you already have. Check "Already collected" above.
-    If update_setup returns a RESOLVED EXISTING INSTITUTION:
+    If update_setup returns a RESOLVED EXISTING INSTITUTION (exact match):
     a) Immediately call update_setup with the resolved IDs, typeSlug, and defaultDomainKind.
     b) Do NOT ask the user to confirm the organisation type — just acknowledge the match.
     c) If the resolution includes SUBJECTS, present them as show_options for subjectDiscipline
@@ -163,7 +163,15 @@ NEVER invent subjects not in this catalog for show_options.
     e) If the user picks an existing course, save its name AND interactionPattern (from the
        resolution data) via update_setup, then skip to the next uncollected field.
     f) If the user picks "Create new course" or "Add new subject", continue with free-text input.
-    If update_setup returns NAME SUGGESTS TYPE, set recommended=true on that type in show_options.
+    If update_setup returns a PARTIAL MATCH FOUND:
+    a) The user typed a short/incomplete name that partially matches an existing institution.
+    b) ASK the user to confirm: e.g. "Did you mean Riverside Academy?" — do NOT auto-commit.
+    c) If user confirms → call update_setup with the resolved IDs and skip organisation type.
+    d) If user says no → treat as a brand new institution and continue normally.
+    If update_setup returns TYPE AUTO-SET:
+    a) Immediately call update_setup with the inferred typeSlug (e.g. { typeSlug: "school" }).
+    b) Do NOT show organisation type options — skip straight to the next unanswered field.
+    c) Acknowledge the inference naturally, e.g. "Riverside Academy — sounds like a school! What subject will you be teaching?"
 7. Suggest sensible defaults based on context: if they mention "science", suggest "5E" lesson model;
    for "literature", suggest "Socratic".
 8. Use show_options ONLY for questions with predefined choices (radio mode for single-select).
