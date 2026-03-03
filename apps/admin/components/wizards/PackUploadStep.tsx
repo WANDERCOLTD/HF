@@ -136,10 +136,12 @@ export function PackUploadStep({
 }: PackUploadStepProps) {
   const hasExistingItems = existingCourses.length > 0 || existingSubjects.length > 0;
 
-  // Keep domainId in a ref so handleIngest always reads the LATEST value,
+  // Keep domainId and institutionName in refs so handleIngest always reads the LATEST values,
   // even if the useCallback closure captured a stale prop.
   const domainIdRef = useRef(domainId);
   domainIdRef.current = domainId;
+  const institutionNameRef = useRef(institutionName);
+  institutionNameRef.current = institutionName;
 
   // File state — seeded from initialFiles if provided
   const [files, setFiles] = useState<File[]>(() => initialFiles ?? []);
@@ -367,16 +369,22 @@ export function PackUploadStep({
     // Read latest domainId from ref (avoids stale closure from useCallback)
     let effectiveDomainId = domainIdRef.current;
 
-    // Client-side fallback: if domainId is still empty but we have an institution name,
-    // auto-resolve it via API. This handles race conditions where the server-side safety
-    // net in show_upload couldn't see the institutionName in the stale setupData.
-    if (!effectiveDomainId && institutionName) {
-      console.warn('[PackUploadStep] domainId empty at ingest — auto-resolving from institutionName:', institutionName);
+    // Client-side fallback: if domainId is still empty, auto-resolve via API.
+    // Uses ref for institutionName to avoid stale closure issues.
+    // Falls back to resolving the user's active institution if no name is available.
+    if (!effectiveDomainId) {
+      const currentInstitutionName = institutionNameRef.current;
+      console.warn('[PackUploadStep] domainId empty at ingest — auto-resolving.', {
+        institutionName: currentInstitutionName, propDomainId: domainId,
+      });
       try {
         const res = await fetch('/api/wizard/resolve-institution', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ institutionName }),
+          body: JSON.stringify({
+            // Send name if available; endpoint falls back to user's active institution
+            ...(currentInstitutionName ? { institutionName: currentInstitutionName } : {}),
+          }),
         });
         if (res.ok) {
           const data = await res.json();
@@ -481,8 +489,8 @@ export function PackUploadStep({
       setIngestError(isNetworkError ? 'Connection lost — check your network and try again.' : msg);
       setIngesting(false);
     }
-  }, [manifest, domainId, courseName, interactionPattern, teachingMode, files, handleIngestEvent]);
-  // Note: domainId kept in deps for re-creation, but effectiveDomainId reads from ref for freshness
+  }, [manifest, domainId, institutionName, courseName, interactionPattern, teachingMode, subjectDiscipline, files, handleIngestEvent]);
+  // Note: domainId + institutionName kept in deps for re-creation, but refs used for freshness
 
   // Auto-ingest after classify when autoIngest is enabled (v3 builder — skip manifest review)
   const didAutoIngest = useRef(false);
