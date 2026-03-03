@@ -269,11 +269,15 @@ export function computeCurrentPhase(
     const uncollectedRequired = requiredFields.filter((f) => !hasValue(setupData[f]));
     const collectedAny = fields.some((f) => hasValue(setupData[f]));
 
+    // All-optional phases can be explicitly skipped (e.g. user says "Skip for now" for every field)
+    const phaseSkipKey = `${phase.id}Skipped`;
+    const phaseSkipped = !!setupData[phaseSkipKey];
+
     // Phase blocks if:
     // (a) it has uncollected required fields, OR
-    // (b) it has NO required fields and NO fields collected yet (unvisited)
+    // (b) it has NO required fields and NO fields collected yet AND not explicitly skipped
     const shouldBlock = uncollectedRequired.length > 0
-      || (requiredFields.length === 0 && !collectedAny);
+      || (requiredFields.length === 0 && !collectedAny && !phaseSkipped);
 
     if (shouldBlock) {
       const allUncollected = fields.filter((f) => !hasValue(setupData[f]));

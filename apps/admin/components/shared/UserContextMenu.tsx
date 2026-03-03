@@ -18,9 +18,11 @@ import {
   Radio,
   GraduationCap,
   BookOpen,
+  Building2,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useMasquerade } from "@/contexts/MasqueradeContext";
+import { useDomainScope } from "@/contexts/DomainScopeContext";
 import { UserAvatar, ROLE_COLORS } from "./UserAvatar";
 
 interface UserContextMenuProps {
@@ -68,12 +70,15 @@ export function UserContextMenu({
   const [stepInOpen, setStepInOpen] = useState(false);
   const [stepInSearch, setStepInSearch] = useState("");
   const [stepInRoleFilter, setStepInRoleFilter] = useState("");
-  const [stepInUsers, setStepInUsers] = useState<{ id: string; email: string; name: string | null; displayName: string | null; role: string }[]>([]);
+  const [stepInUsers, setStepInUsers] = useState<{ id: string; email: string; name: string | null; displayName: string | null; role: string; assignedDomain?: { id: string; name: string } | null }[]>([]);
   const [stepInLoading, setStepInLoading] = useState(false);
   const [quickPickLoading, setQuickPickLoading] = useState<string>("");
   const stepInSearchRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { isMasquerading, startMasquerade } = useMasquerade();
+  const { setDomainScope } = useDomainScope();
+  const [domains, setDomains] = useState<{ id: string; name: string; callerCount: number; playbookCount: number }[]>([]);
+  const [domainsLoading, setDomainsLoading] = useState(false);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
 
   // ── Quick Toggles ──
@@ -162,9 +167,31 @@ export function UserContextMenu({
     }
   }, [startMasquerade, onClose]);
 
-  // Fetch when step-in expands or search changes
+  // Quick step-in: Domain — fetch domains list
+  const handleDomainPick = useCallback(async () => {
+    setStepInRoleFilter("DOMAIN");
+    setDomainsLoading(true);
+    try {
+      const res = await fetch("/api/domains");
+      if (res.ok) {
+        const data = await res.json();
+        setDomains(
+          (data.domains || []).map((d: Record<string, unknown>) => ({
+            id: d.id as string,
+            name: d.name as string,
+            callerCount: (d.callerCount ?? 0) as number,
+            playbookCount: (d.playbookCount ?? 0) as number,
+          }))
+        );
+      }
+    } finally {
+      setDomainsLoading(false);
+    }
+  }, []);
+
+  // Fetch when step-in expands or search changes (skip in domain mode — domains are client-filtered)
   useEffect(() => {
-    if (!stepInOpen) return;
+    if (!stepInOpen || stepInRoleFilter === "DOMAIN") return;
     const timer = setTimeout(() => fetchStepInUsers(stepInSearch, stepInRoleFilter), 200);
     return () => clearTimeout(timer);
   }, [stepInOpen, stepInSearch, stepInRoleFilter, fetchStepInUsers]);
@@ -182,6 +209,7 @@ export function UserContextMenu({
       setStepInSearch("");
       setStepInRoleFilter("");
       setStepInUsers([]);
+      setDomains([]);
       setQuickPickLoading("");
     }
   }, [isOpen]);
@@ -378,15 +406,16 @@ export function UserContextMenu({
 
               {stepInOpen && (
                 <div className="mx-2 mb-1 p-2 rounded-lg bg-[var(--surface-secondary)]">
-                  {/* Quick-pick: Teacher / Learner */}
+                  {/* Quick-pick: Teacher / Learner / Domain */}
                   <div className="flex gap-1.5 mb-2">
                     {([
                       { role: "EDUCATOR" as const, label: "Teacher", Icon: GraduationCap },
                       { role: "STUDENT" as const, label: "Learner", Icon: BookOpen },
+                      { role: "DOMAIN" as const, label: "Domain", Icon: Building2 },
                     ]).map(({ role, label, Icon }) => (
                       <button
                         key={role}
-                        onClick={() => handleQuickStepIn(role)}
+                        onClick={() => role === "DOMAIN" ? handleDomainPick() : handleQuickStepIn(role)}
                         disabled={!!quickPickLoading}
                         className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[13px] font-medium rounded-lg border transition-colors hover:bg-[var(--hover-bg)]"
                         style={{
@@ -409,7 +438,7 @@ export function UserContextMenu({
                   {stepInRoleFilter && (
                     <div className="flex items-center justify-between mb-2 px-1">
                       <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                        Showing {stepInRoleFilter === "EDUCATOR" ? "teachers" : "learners"}
+                        Showing {stepInRoleFilter === "EDUCATOR" ? "teachers" : stepInRoleFilter === "DOMAIN" ? "domains" : "learners"}
                       </span>
                       <button
                         onClick={() => { setStepInRoleFilter(""); setStepInSearch(""); }}
@@ -429,7 +458,7 @@ export function UserContextMenu({
                       type="text"
                       value={stepInSearch}
                       onChange={(e) => setStepInSearch(e.target.value)}
-                      placeholder={stepInRoleFilter ? `Search ${stepInRoleFilter === "EDUCATOR" ? "teachers" : "learners"}…` : "Search all users…"}
+                      placeholder={stepInRoleFilter ? `Search ${stepInRoleFilter === "EDUCATOR" ? "teachers" : stepInRoleFilter === "DOMAIN" ? "domains" : "learners"}…` : "Search all users…"}
                       className="w-full rounded-md border pl-8 pr-3 py-2 text-[13px] outline-none transition-colors focus:border-[var(--accent-primary)]"
                       style={{
                         borderColor: "var(--border-default)",
@@ -439,40 +468,85 @@ export function UserContextMenu({
                     />
                   </div>
 
-                  {/* User list */}
-                  <div className="max-h-44 overflow-y-auto">
-                    {stepInLoading ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
-                      </div>
-                    ) : stepInUsers.length === 0 ? (
-                      <div className="py-3 text-center text-xs" style={{ color: "var(--text-muted)" }}>
-                        {stepInRoleFilter
-                          ? `No ${stepInRoleFilter === "EDUCATOR" ? "teachers" : "learners"} found`
-                          : "No users found"}
-                      </div>
-                    ) : (
-                      stepInUsers.map((u) => (
-                        <button
-                          key={u.id}
-                          onClick={async () => {
-                            await startMasquerade(u.id);
-                            onClose();
-                          }}
-                          className="w-full text-left flex items-center gap-2.5 px-2.5 py-2 text-[13px] rounded-md transition-colors hover:bg-[var(--hover-bg)]"
-                          style={{ color: "var(--text-primary)", border: "none", background: "transparent", cursor: "pointer" }}
-                        >
-                          <UserAvatar name={u.displayName || u.name || u.email} role={u.role} size={24} />
-                          <div className="flex-1 min-w-0">
-                            <div className="truncate text-[13px]">{u.displayName || u.name || u.email}</div>
-                            <div className="truncate text-[11px]" style={{ color: "var(--text-muted)" }}>
-                              {ROLE_LABELS[u.role] || u.role}
+                  {/* Domain list (when "Domain" filter is active) */}
+                  {stepInRoleFilter === "DOMAIN" ? (
+                    <div className="max-h-44 overflow-y-auto">
+                      {domainsLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
+                        </div>
+                      ) : domains.length === 0 ? (
+                        <div className="py-3 text-center text-xs" style={{ color: "var(--text-muted)" }}>
+                          No domains found
+                        </div>
+                      ) : (
+                        domains
+                          .filter((d) => !stepInSearch || d.name.toLowerCase().includes(stepInSearch.toLowerCase()))
+                          .map((d) => (
+                            <button
+                              key={d.id}
+                              onClick={() => {
+                                setDomainScope(d.id, d.name);
+                                onClose();
+                              }}
+                              className="w-full text-left flex items-center gap-2.5 px-2.5 py-2 text-[13px] rounded-md transition-colors hover:bg-[var(--hover-bg)]"
+                              style={{ color: "var(--text-primary)", border: "none", background: "transparent", cursor: "pointer" }}
+                            >
+                              <div
+                                className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+                                style={{ background: "var(--surface-secondary)" }}
+                              >
+                                <Building2 className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="truncate text-[13px]">{d.name}</div>
+                                <div className="truncate text-[11px]" style={{ color: "var(--text-muted)" }}>
+                                  {d.callerCount} learner{d.callerCount !== 1 ? "s" : ""} · {d.playbookCount} course{d.playbookCount !== 1 ? "s" : ""}
+                                </div>
+                              </div>
+                            </button>
+                          ))
+                      )}
+                    </div>
+                  ) : (
+                    /* User list */
+                    <div className="max-h-44 overflow-y-auto">
+                      {stepInLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
+                        </div>
+                      ) : stepInUsers.length === 0 ? (
+                        <div className="py-3 text-center text-xs" style={{ color: "var(--text-muted)" }}>
+                          {stepInRoleFilter
+                            ? `No ${stepInRoleFilter === "EDUCATOR" ? "teachers" : "learners"} found`
+                            : "No users found"}
+                        </div>
+                      ) : (
+                        stepInUsers.map((u) => (
+                          <button
+                            key={u.id}
+                            onClick={async () => {
+                              await startMasquerade(u.id);
+                              onClose();
+                            }}
+                            className="w-full text-left flex items-center gap-2.5 px-2.5 py-2 text-[13px] rounded-md transition-colors hover:bg-[var(--hover-bg)]"
+                            style={{ color: "var(--text-primary)", border: "none", background: "transparent", cursor: "pointer" }}
+                          >
+                            <UserAvatar name={u.displayName || u.name || u.email} role={u.role} size={24} />
+                            <div className="flex-1 min-w-0">
+                              <div className="truncate text-[13px]">{u.displayName || u.name || u.email}</div>
+                              <div className="truncate text-[11px]" style={{ color: "var(--text-muted)" }}>
+                                {ROLE_LABELS[u.role] || u.role}
+                                {u.assignedDomain?.name && (
+                                  <span> · {u.assignedDomain.name}</span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

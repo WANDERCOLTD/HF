@@ -61,16 +61,17 @@ const DEFAULT_TERMS = {
   personality: "AI Tutor",
 };
 
-/** Map step index to which scaffold items are being "collected" */
+/** Map phase index to which scaffold items are being "collected".
+ *  Must match WIZARD_PHASES order: institution(0), subject(1), course(2),
+ *  content(3), welcome(4), tune(5), launch(6). */
 const STEP_COLLECTING: Record<number, string[]> = {
   0: ["institution"],
   1: ["subject"],
   2: ["course"],
   3: ["content"],
-  4: [], // checkpoint
-  5: ["welcome", "lessons"],
-  6: ["personality"],
-  7: [], // launch
+  4: ["welcome", "lessons"],
+  5: ["personality"],
+  6: [], // launch
 };
 
 /**

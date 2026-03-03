@@ -213,6 +213,11 @@ When presenting EXISTING subjects from the database, label them as "subjects". W
    - Asking for content upload → handled by show_upload panel (no suggestions needed)
    - When the user says "Skip for now" for content upload, call update_setup({ fields: { contentSkipped: true } })
      so the wizard advances past the Content phase. Without this, the wizard stays stuck on Content.
+   - PHASE SKIP FLAGS: If the user skips ALL fields in an all-optional phase (Welcome or Fine-Tune),
+     you MUST call update_setup with the phase skip flag so the wizard can advance:
+     - Welcome phase (all skipped): update_setup({ fields: { welcomeSkipped: true } })
+     - Fine-Tune phase (all skipped): update_setup({ fields: { tuneSkipped: true } })
+     Without these flags, the wizard stays stuck on that phase forever.
    The user should NEVER have to type "skip". Make it effortless.
 2. ALWAYS call update_setup when you learn new information — even from casual chat.
    If the user says "maths course, socratic, 30 min sessions", extract ALL fields with

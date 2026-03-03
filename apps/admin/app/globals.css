@@ -1542,6 +1542,43 @@ html.light {
   background: rgba(255, 255, 255, 0.35);
 }
 
+/* Domain scope chip (blue info accent, distinct from masquerade purple) */
+.hf-topbar-domain-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--status-info-bg);
+  color: var(--status-info-text);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 1px solid var(--status-info-border);
+}
+.hf-topbar-domain-scope-exit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: color-mix(in srgb, var(--status-info-text) 15%, transparent);
+  color: var(--status-info-text);
+  cursor: pointer;
+  padding: 0;
+  margin-left: 1px;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.hf-topbar-domain-scope-exit:hover {
+  background: color-mix(in srgb, var(--status-info-text) 25%, transparent);
+}
+
 /* Compact search for narrow viewports (< 1024px) */
 @media (max-width: 1023px) {
   .hf-topbar-search {
@@ -1556,9 +1593,17 @@ html.light {
   }
 }
 
-/* Hide institution chip on narrow viewports */
+/* Hide institution + domain scope chips on narrow viewports */
 @media (max-width: 879px) {
   .hf-topbar-institution {
+    display: none;
+  }
+  .hf-topbar-domain-scope {
+    max-width: 100px;
+  }
+}
+@media (max-width: 639px) {
+  .hf-topbar-domain-scope {
     display: none;
   }
 }

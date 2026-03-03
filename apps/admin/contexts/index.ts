@@ -23,3 +23,5 @@ export type { CapturedError } from "./ErrorCaptureContext";
 
 export { StepFlowProvider, useStepFlow } from "./StepFlowContext";
 export type { StepFlowState, StepDefinition } from "./StepFlowContext";
+
+export { DomainScopeProvider, useDomainScope } from "./DomainScopeContext";

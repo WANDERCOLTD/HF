@@ -5,7 +5,7 @@ import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { SessionProvider } from 'next-auth/react';
 import SimpleSidebarNav from '@/src/components/shared/SimpleSidebarNav';
 import { TopBar } from '@/components/shared/TopBar';
-import { EntityProvider, ChatProvider, ThemeProvider, PaletteProvider, useChatContext, themeInitScript, MasqueradeProvider, BrandingProvider, useBranding, ViewModeProvider, StepFlowProvider } from '@/contexts';
+import { EntityProvider, ChatProvider, ThemeProvider, PaletteProvider, useChatContext, themeInitScript, MasqueradeProvider, BrandingProvider, useBranding, ViewModeProvider, StepFlowProvider, DomainScopeProvider } from '@/contexts';
 import { TerminologyProvider } from '@/contexts/TerminologyContext';
 import { GuidanceProvider } from '@/contexts/GuidanceContext';
 import { GlobalAssistantProvider } from '@/contexts/AssistantContext';
@@ -368,6 +368,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <BrandingProvider>
               <TerminologyProvider>
               <MasqueradeProvider>
+              <DomainScopeProvider>
               <StepFlowProvider>
               <ViewModeProvider>
               <EntityProvider>
@@ -392,6 +393,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </EntityProvider>
               </ViewModeProvider>
               </StepFlowProvider>
+              </DomainScopeProvider>
               </MasqueradeProvider>
               </TerminologyProvider>
               </BrandingProvider>

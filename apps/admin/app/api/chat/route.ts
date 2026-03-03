@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
 
       const wizardMessages: AIMessage[] = [
         { role: "system", content: wizardPrompt },
-        ...conversationHistory.slice(-20).map((m) => ({
+        ...conversationHistory.slice(-40).map((m) => ({
           role: m.role as "user" | "assistant",
           content: m.content,
         })),

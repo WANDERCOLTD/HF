@@ -27,7 +27,8 @@ export const WIZARD_TOOLS: AITool[] = [
       "NEVER put a broad discipline into courseName or a specific course into subjectDiscipline. " +
       "Valid field keys: institutionName, typeSlug, websiteUrl, courseName, subjectDiscipline, " +
       "interactionPattern, teachingMode, welcomeMessage, sessionCount, durationMins, " +
-      "planEmphasis, behaviorTargets, lessonPlanModel, existingInstitutionId, existingDomainId, defaultDomainKind.",
+      "planEmphasis, behaviorTargets, lessonPlanModel, existingInstitutionId, existingDomainId, defaultDomainKind, " +
+      "contentSkipped, welcomeSkipped, tuneSkipped.",
     input_schema: {
       type: "object",
       properties: {

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useMasquerade } from "@/contexts/MasqueradeContext";
+import { useDomainScope } from "@/contexts/DomainScopeContext";
 import { useChatContext } from "@/contexts/ChatContext";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { HierarchyBreadcrumb } from "./HierarchyBreadcrumb";
@@ -62,6 +63,28 @@ function InstitutionChip() {
   );
 }
 
+// ── Domain Scope Chip ────────────────────────────────────
+
+function DomainScopeChip() {
+  const { scope, clearDomainScope } = useDomainScope();
+  if (!scope) return null;
+
+  return (
+    <span className="hf-topbar-domain-scope" title={`Scoped to ${scope.domainName}`}>
+      <Building2 size={12} />
+      {scope.domainName}
+      <button
+        onClick={(e) => { e.preventDefault(); clearDomainScope(); }}
+        className="hf-topbar-domain-scope-exit"
+        title="Clear domain scope"
+        aria-label="Clear domain scope"
+      >
+        <X size={10} />
+      </button>
+    </span>
+  );
+}
+
 // ── Top Bar ──────────────────────────────────────────────
 
 export function TopBar() {
@@ -99,6 +122,7 @@ export function TopBar() {
       {/* Right: institution + masquerade + avatar */}
       <div className="hf-topbar-right">
         <InstitutionChip />
+        <DomainScopeChip />
 
         {isMasquerading && masquerade && (
           <div
