@@ -110,6 +110,7 @@ interface LLMPrompt {
       target: string;
       meaning?: string;
     }>;
+    teaching_content?: string | null;
   };
   callHistory?: {
     totalCalls?: number;
@@ -137,10 +138,11 @@ function pct(score: number): string {
 /**
  * Render a voice-optimized prompt (~4KB) for VAPI.
  *
- * Structured as: IDENTITY → STYLE → THIS CALLER → SESSION PLAN → RETRIEVAL → RULES
+ * Structured as: IDENTITY → STYLE → THIS CALLER → SESSION PLAN → TEACHING CONTENT → RETRIEVAL → RULES
  *
- * Omits bulk data (teaching assertions, full module lists, all memories)
- * — that content is served via Custom KB retrieval during the call.
+ * Teaching content (session-scoped assertions) is included directly in the prompt
+ * so the AI knows WHAT to teach. Additional content is served via Custom KB
+ * retrieval during the call for follow-up questions.
  */
 export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
   const parts: string[] = [];
@@ -252,6 +254,24 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
   }
   parts.push("");
 
+  // --- TEACHING CONTENT ---
+  // Session-scoped teaching points: already filtered by teaching-content.ts
+  // to the current lesson plan entry's assertionIds/learningOutcomeRefs/module.
+  const teachingContent = llmPrompt.instructions?.teaching_content;
+  if (teachingContent && typeof teachingContent === "string") {
+    parts.push("[TEACHING CONTENT]");
+    parts.push("These are the approved teaching points for THIS session. Deliver them");
+    parts.push("through natural conversation — weave them in, don't lecture. Ensure the");
+    parts.push("key points are covered by the end of the call. Cite sources when quoting facts.");
+    // Strip the leading ## heading if present (the [TEACHING CONTENT] tag replaces it)
+    const body = teachingContent
+      .replace(/^## (?:APPROVED )?TEACHING (?:POINTS|CONTENT)\n[^\n]*\n?/, "")
+      .replace(/^IMPORTANT:[^\n]*\n?/m, "")
+      .trim();
+    if (body) parts.push(body);
+    parts.push("");
+  }
+
   // --- COURSE RULES ---
   const courseInstr = (llmPrompt as any).courseInstructions;
   if (courseInstr?.hasCourseInstructions && courseInstr.courseRules) {
@@ -321,7 +341,11 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
 
   // --- RETRIEVAL ---
   parts.push("[RETRIEVAL]");
-  parts.push("You have access to the caller's knowledge base. When the caller asks about specific topics, teaching content, or curriculum details, the system will automatically provide relevant material.");
+  if (teachingContent) {
+    parts.push("The teaching points above are your primary material. For follow-up questions or topics beyond this session's scope, the system will automatically retrieve additional content from the knowledge base.");
+  } else {
+    parts.push("You have access to the caller's knowledge base. When the caller asks about specific topics, teaching content, or curriculum details, the system will automatically provide relevant material.");
+  }
   if (pedMode?.knowledgeGuidance) {
     parts.push(pedMode.knowledgeGuidance);
   }
