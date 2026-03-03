@@ -1197,6 +1197,15 @@ export function ConversationWizard() {
     }
   }, [getData, setData]);
 
+  // ── Content extraction progress → ScaffoldPanel chips ──
+
+  const handleExtractionProgress = useCallback(
+    (totals: { assertions: number; questions: number; vocabulary: number; images: number }, isIngesting: boolean) => {
+      setData("extractionProgress", isIngesting ? totals : null);
+    },
+    [setData],
+  );
+
   // ── Content upload handler ─────────────────────────────
 
   const handleContentResult = useCallback(
@@ -1505,6 +1514,7 @@ export function ConversationWizard() {
             teachingMode={getData<string>("teachingMode")}
             subjectDiscipline={getData<string>("subjectDiscipline")}
             onResult={handleContentResult}
+            onProgress={handleExtractionProgress}
             onBack={undefined}
           />
         </div>

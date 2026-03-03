@@ -177,6 +177,27 @@ export function ScaffoldPanel({ getData, currentStepIndex, currentPhaseId, terms
   const tuneChips: string[] = [];
   if (lessonPlanModel) tuneChips.push(LESSON_MODEL_LABELS[lessonPlanModel] || capitalize(lessonPlanModel));
 
+  // Extraction progress — live (during extraction) or final (after completion)
+  const extractionProgress = getData<{ assertions: number; questions: number; vocabulary: number; images: number }>("extractionProgress");
+  const extractionTotals = getData<{ assertions: number; questions: number; vocabulary: number; images: number }>("extractionTotals");
+  const isExtracting = !!extractionProgress;
+  const contentTotals = isExtracting ? extractionProgress : extractionTotals;
+
+  const contentChips: string[] = [];
+  if (contentTotals) {
+    if (contentTotals.assertions > 0) contentChips.push(`${contentTotals.assertions} teaching points`);
+    if (contentTotals.questions > 0) contentChips.push(`${contentTotals.questions} questions`);
+    if (contentTotals.vocabulary > 0) contentChips.push(`${contentTotals.vocabulary} vocabulary`);
+    if (contentTotals.images > 0) contentChips.push(`${contentTotals.images} images`);
+  }
+
+  const contentStatus = isExtracting
+    ? "building" as ScaffoldStatus
+    : getItemStatus("content", hasContent, currentStepIndex, resolvedKeys, launched);
+  const contentValue = isExtracting
+    ? "Extracting..."
+    : hasContent ? "Uploaded" : undefined;
+
   const items: ScaffoldItem[] = [
     {
       key: "institution",
@@ -203,8 +224,9 @@ export function ScaffoldPanel({ getData, currentStepIndex, currentPhaseId, terms
     ...(!isCommunity ? [{
       key: "content",
       label: t.content,
-      value: hasContent ? "Uploaded" : undefined,
-      status: getItemStatus("content", hasContent, currentStepIndex, resolvedKeys, launched),
+      value: contentValue,
+      chips: contentChips.length ? contentChips : undefined,
+      status: contentStatus,
     }] : []),
   ];
 

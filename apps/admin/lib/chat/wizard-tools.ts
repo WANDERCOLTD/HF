@@ -752,6 +752,21 @@ export async function executeWizardTool(
             });
             await enrollCaller(caller.id, existingPlaybookId, "wizard-v2");
 
+            // Auto-generate curriculum if existing playbook has none (non-blocking)
+            const { generateInstantCurriculum: genCurriculum } = await import("@/lib/domain/instant-curriculum");
+            genCurriculum({
+              domainId: resolvedDomainId,
+              playbookId: existingPlaybookId,
+              subjectName: subjectDiscipline,
+              persona: interactionPattern,
+              subjectIds: packSubjectIds,
+              intents: {
+                sessionCount: input.sessionCount ? Number(input.sessionCount) : undefined,
+                durationMins: input.durationMins ? Number(input.durationMins) : undefined,
+                emphasis: input.planEmphasis as string | undefined,
+              },
+            }).catch(err => console.error("[wizard] Instant curriculum (existing) failed (non-fatal):", err.message));
+
             return {
               ...base,
               content: JSON.stringify({
@@ -880,6 +895,21 @@ export async function executeWizardTool(
         });
 
         await enrollCaller(caller.id, playbookId, "wizard-v2");
+
+        // 10. Auto-generate curriculum (non-blocking, fire-and-forget)
+        const { generateInstantCurriculum } = await import("@/lib/domain/instant-curriculum");
+        generateInstantCurriculum({
+          domainId,
+          playbookId,
+          subjectName: subjectDiscipline,
+          persona: interactionPattern,
+          subjectIds: packSubjectIds,
+          intents: {
+            sessionCount: input.sessionCount ? Number(input.sessionCount) : undefined,
+            durationMins: input.durationMins ? Number(input.durationMins) : undefined,
+            emphasis: input.planEmphasis as string | undefined,
+          },
+        }).catch(err => console.error("[wizard] Instant curriculum failed (non-fatal):", err.message));
 
         return {
           ...base,

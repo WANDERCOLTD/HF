@@ -111,6 +111,8 @@ interface PackUploadStepProps {
   /** Fallback institution name for auto-resolving domainId when it arrives empty. */
   institutionName?: string;
   onResult: (result: PackUploadResult) => void;
+  /** Called during extraction with live running totals (for progress indicators). */
+  onProgress?: (totals: { assertions: number; questions: number; vocabulary: number; images: number }, ingesting: boolean) => void;
   onBack?: () => void;
 }
 
@@ -134,6 +136,7 @@ export function PackUploadStep({
   autoIngest = false,
   institutionName,
   onResult,
+  onProgress,
   onBack,
 }: PackUploadStepProps) {
   const hasExistingItems = existingCourses.length > 0 || existingSubjects.length > 0;
@@ -165,6 +168,13 @@ export function PackUploadStep({
   const [extractionTotals, setExtractionTotals] = useState({ assertions: 0, questions: 0, vocabulary: 0, images: 0 });
   const [currentFile, setCurrentFile] = useState<{ name: string; chunks: number; completedSet: Set<number> } | null>(null);
   const [retryInfo, setRetryInfo] = useState<{ chunkIndex: number; totalChunks: number; attempt: number; maxAttempts: number } | null>(null);
+
+  // Notify parent of live extraction progress
+  const onProgressRef = useRef(onProgress);
+  onProgressRef.current = onProgress;
+  useEffect(() => {
+    onProgressRef.current?.(extractionTotals, ingesting);
+  }, [extractionTotals, ingesting]);
 
   // Course / subject selection
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);

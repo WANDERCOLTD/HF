@@ -8,7 +8,7 @@
  * institution + domain on mount so the upload area is always available.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Loader2, Check } from "lucide-react";
 import slugify from "slugify";
 import { PackUploadStep } from "@/components/wizards/PackUploadStep";
@@ -165,6 +165,10 @@ export function ContentStep({ getData, setData, onNext, onPrev }: StepRenderProp
     createInstitution();
   }, [domainId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const handleExtractionProgress = useCallback((totals: { assertions: number; questions: number; vocabulary: number; images: number }, isIngesting: boolean) => {
+    setData("extractionProgress", isIngesting ? totals : null);
+  }, [setData]);
+
   const handleResult = (result: PackUploadResult) => {
     if (result.mode === "skip") {
       setData("contentSkipped", true);
@@ -268,6 +272,7 @@ export function ContentStep({ getData, setData, onNext, onPrev }: StepRenderProp
             teachingMode={teachingMode}
             subjectDiscipline={subjectDiscipline}
             onResult={handleResult}
+            onProgress={handleExtractionProgress}
             onBack={onPrev}
           />
         </div>

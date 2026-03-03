@@ -375,9 +375,16 @@ async function handleCallModeWithTools(
     });
   }
 
-  // Inject content catalog into system prompt
+  // Inject content catalog into system prompt.
+  // Strip [VISUAL AIDS] section from the voice prompt first — the content catalog
+  // is a superset (same media + share_content tool instructions). Without this,
+  // the AI sees the same document listed twice and sends it twice.
   const systemMsg = messages[0];
   if (systemMsg?.role === "system" && typeof systemMsg.content === "string") {
+    systemMsg.content = systemMsg.content.replace(
+      /\[VISUAL AIDS\]\n[\s\S]*?(?=\n\[(?:PEDAGOGY MODE|ACTIVITIES|RETRIEVAL|OPENING|RULES)\]|\n*$)/,
+      "",
+    );
     systemMsg.content += catalog;
   }
 

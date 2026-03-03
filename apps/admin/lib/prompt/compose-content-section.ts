@@ -451,7 +451,7 @@ function extractNextContent(
  * Calculate overall progress as average mastery across all modules
  */
 function calculateProgress(modules: CurriculumModule[]): number {
-  if (modules.length === 0) return -1;
+  if (modules.length === 0) return 0;
 
   const totalMastery = modules.reduce((sum, m) => sum + (m.mastery || 0), 0);
   return totalMastery / modules.length;

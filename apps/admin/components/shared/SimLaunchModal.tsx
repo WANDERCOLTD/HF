@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { X, ArrowLeft, Loader2 } from "lucide-react";
 import { CallerPicker } from "@/components/shared/CallerPicker";
 
@@ -21,7 +20,6 @@ export function SimLaunchModal({
   onClose,
   onBeforeNavigate,
 }: SimLaunchModalProps) {
-  const router = useRouter();
   const [view, setView] = useState<"pick" | "create">("pick");
   const [selectedCallerId, setSelectedCallerId] = useState<string | null>(null);
   const [newCallerName, setNewCallerName] = useState("");
@@ -40,7 +38,7 @@ export function SimLaunchModal({
   const navigateToSim = (callerId: string) => {
     onBeforeNavigate?.();
     onClose();
-    router.push(`/x/sim/${callerId}?playbookId=${playbookId}&domainId=${domainId}`);
+    window.open(`/x/sim/${callerId}?playbookId=${playbookId}&domainId=${domainId}`, "_blank");
   };
 
   const handlePickAndLaunch = () => {
