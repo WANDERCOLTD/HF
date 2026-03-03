@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       const selectedEngine = engine || aiConfig.provider;
       return await handleWizardModeWithTools(
         wizardMessages, "wizard.get-started", engine, selectedEngine, mode,
-        message, entityContext, conversationHistory, userId,
+        message, entityContext, conversationHistory, userId, setupData,
       );
     }
 
@@ -484,6 +484,7 @@ async function handleWizardModeWithTools(
   entityContext: EntityBreadcrumb[],
   conversationHistory: { role: string; content: string }[],
   userId: string,
+  setupData?: Record<string, unknown>,
 ): Promise<Response> {
   const loopMessages: AIMessage[] = [...messages];
   let toolCallCount = 0;
@@ -543,7 +544,7 @@ async function handleWizardModeWithTools(
     const toolResultBlocks: ContentBlock[] = [];
     for (const toolUse of response.toolUses) {
       console.log(`[wizard-tools] Executing: ${toolUse.name}`, JSON.stringify(toolUse.input).slice(0, 200));
-      const result = await executeWizardTool(toolUse.name, toolUse.input, userId);
+      const result = await executeWizardTool(toolUse.name, toolUse.input, userId, setupData);
       toolResultBlocks.push({
         type: "tool_result",
         tool_use_id: toolUse.id,
