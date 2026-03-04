@@ -458,6 +458,14 @@ export const CALL_POINTS: CallPointDef[] = [
     defaults: { provider: "claude", model: config.ai.claude.model },
   },
 
+  {
+    id: "prompt-analyzer.analyse",
+    label: "Prompt Analyzer",
+    description: "Analyses prompt diffs and maps changes to admin surfaces and settings",
+    category: "admin-ai",
+    defaults: { provider: "claude", model: config.ai.claude.model, temperature: 0.3, maxTokens: 2000 },
+  },
+
   // ── Advanced ──
   {
     id: "analysis.measure",

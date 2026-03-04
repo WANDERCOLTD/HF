@@ -60,6 +60,7 @@ import {
   Sparkles,
   Scan,
   ScrollText,
+  GitCompareArrows,
   type LucideIcon,
 } from "lucide-react";
 
@@ -125,4 +126,5 @@ export const ICON_MAP: Record<string, LucideIcon> = {
   Sparkles,
   Scan,
   ScrollText,
+  GitCompareArrows,
 };

@@ -1,0 +1,388 @@
+/* Prompt Analyzer — pa-* prefix */
+
+.pa-page {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ── Header ──────────────────────────────────── */
+
+.pa-header {
+  margin-bottom: 24px;
+}
+
+/* ── Caller bar ──────────────────────────────── */
+
+.pa-caller-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.pa-caller-picker {
+  max-width: 400px;
+  flex: 1;
+}
+
+.pa-caller-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pa-caller-domain {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── Prompt selector ─────────────────────────── */
+
+.pa-prompt-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.pa-prompt-select {
+  padding: 6px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  min-width: 260px;
+}
+
+.pa-prompt-select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 12%, transparent);
+}
+
+.pa-prompt-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Split panels ────────────────────────────── */
+
+.pa-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.pa-panel {
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--surface-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pa-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pa-panel-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pa-prompt-display {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-primary);
+  max-height: 600px;
+  overflow-y: auto;
+  padding: 14px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+}
+
+.pa-prompt-textarea {
+  width: 100%;
+  min-height: 400px;
+  max-height: 600px;
+  resize: vertical;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 14px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  tab-size: 2;
+}
+
+.pa-prompt-textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 12%, transparent);
+}
+
+/* ── Analyse bar ─────────────────────────────── */
+
+.pa-analyse-bar {
+  text-align: center;
+  padding: 16px 0;
+}
+
+/* ── Results ─────────────────────────────────── */
+
+.pa-results {
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 20px;
+  background: var(--surface-primary);
+  margin-top: 20px;
+}
+
+.pa-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.pa-results-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pa-summary {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+/* ── Diff ────────────────────────────────────── */
+
+.pa-diff {
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.pa-diff-header {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border-default);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pa-diff-line {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 12px;
+  padding: 2px 14px;
+  line-height: 1.5;
+}
+
+.pa-diff-added {
+  background: color-mix(in srgb, var(--status-success-text) 10%, transparent);
+  color: var(--status-success-text);
+}
+
+.pa-diff-removed {
+  background: color-mix(in srgb, var(--status-error-text) 10%, transparent);
+  color: var(--status-error-text);
+  text-decoration: line-through;
+}
+
+.pa-diff-same {
+  color: var(--text-muted);
+}
+
+/* ── Section cards ───────────────────────────── */
+
+.pa-sections-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.pa-section-card {
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+}
+
+.pa-section-changed {
+  border-left: 3px solid var(--status-warning-text);
+}
+
+.pa-section-unchanged {
+  border-left: 3px solid var(--status-success-text);
+  opacity: 0.5;
+}
+
+.pa-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.pa-section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pa-section-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.pa-section-status-changed {
+  background: color-mix(in srgb, var(--status-warning-text) 12%, transparent);
+  color: var(--status-warning-text);
+}
+
+.pa-section-status-unchanged {
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+}
+
+.pa-section-change {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-left: 16px;
+  line-height: 1.5;
+}
+
+.pa-section-link {
+  font-size: 12px;
+  color: var(--accent-primary);
+  margin-left: 16px;
+  margin-top: 4px;
+}
+
+.pa-section-link a {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
+.pa-section-link a:hover {
+  text-decoration: none;
+}
+
+/* ── Recommendations ─────────────────────────── */
+
+.pa-recs-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 20px;
+  margin-bottom: 8px;
+}
+
+.pa-recommendation {
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  background: var(--surface-secondary);
+  display: flex;
+  gap: 12px;
+}
+
+.pa-rec-priority {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pa-rec-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.pa-rec-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.pa-rec-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.pa-rec-link {
+  font-size: 12px;
+  color: var(--accent-primary);
+}
+
+.pa-rec-link a {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
+.pa-rec-link a:hover {
+  text-decoration: none;
+}
+
+/* ── Empty state ─────────────────────────────── */
+
+.pa-empty {
+  text-align: center;
+  padding: 64px 24px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ── Copied toast ────────────────────────────── */
+
+.pa-copied {
+  font-size: 12px;
+  color: var(--status-success-text);
+  font-weight: 500;
+}

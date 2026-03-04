@@ -72,6 +72,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   extraction: "Extraction",
   identity: "Identity",
   sim: "Sim",
+  admin: "Admin",
 };
 
 // ------------------------------------------------------------------

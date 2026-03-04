@@ -46,7 +46,8 @@
       { "id": "ai-logs", "href": "/x/logs", "label": "AI Logs", "icon": "FileText" },
       { "id": "ai-errors", "href": "/x/ai-errors", "label": "AI Errors", "icon": "AlertTriangle" },
       { "id": "ai-metering", "href": "/x/metering", "label": "AI Metering", "icon": "BarChart3" },
-      { "id": "meta-prompts", "href": "/x/meta-prompts", "label": "Meta Prompts", "icon": "ScrollText" }
+      { "id": "meta-prompts", "href": "/x/meta-prompts", "label": "Meta Prompts", "icon": "ScrollText" },
+      { "id": "prompt-analyzer", "href": "/x/prompt-analyzer", "label": "Prompt Analyzer", "icon": "GitCompareArrows" }
     ]
   },
   {

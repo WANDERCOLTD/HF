@@ -8785,6 +8785,19 @@ Save a prompt template override.
 
 ---
 
+### `POST` /api/prompt-analyzer/analyse
+
+Analyse the diff between a current and desired prompt, returning
+
+**Auth**: ADMIN
+
+**Response** `200`
+```json
+{ ok: true, analysis: { summary, sections, recommendations } }
+```
+
+---
+
 ### `GET` /api/student/artifacts
 
 **Auth**: STUDENT | OPERATOR+ (with callerId param)
@@ -12871,8 +12884,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 376 |
-| Files with annotations | 375 |
+| Route files found | 377 |
+| Files with annotations | 376 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 
