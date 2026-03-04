@@ -35,6 +35,21 @@
     ]
   },
   {
+    "id": "ai",
+    "title": "AI",
+    "href": "/x/ai-config",
+    "requiredRole": "ADMIN",
+    "advancedOnly": true,
+    "items": [
+      { "id": "ai-config", "href": "/x/ai-config", "label": "AI Config", "icon": "Bot" },
+      { "id": "ai-knowledge", "href": "/x/ai-knowledge", "label": "AI Knowledge", "icon": "Brain" },
+      { "id": "ai-logs", "href": "/x/logs", "label": "AI Logs", "icon": "FileText" },
+      { "id": "ai-errors", "href": "/x/ai-errors", "label": "AI Errors", "icon": "AlertTriangle" },
+      { "id": "ai-metering", "href": "/x/metering", "label": "AI Metering", "icon": "BarChart3" },
+      { "id": "meta-prompts", "href": "/x/meta-prompts", "label": "Meta Prompts", "icon": "ScrollText" }
+    ]
+  },
+  {
     "id": "library",
     "title": "Library",
     "href": "/x/courses",
@@ -96,21 +111,6 @@
       { "id": "stu-progress", "href": "/x/student/progress", "label": "Progress", "icon": "TrendingUp", "visibleFor": ["STUDENT", "OPERATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "stu-calls", "href": "/x/student/calls", "label": "Sessions", "icon": "Phone", "terminologyLabel": "session_short_plural", "visibleFor": ["STUDENT", "OPERATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "stu-teacher", "href": "/x/student/teacher", "label": "Mentor", "icon": "GraduationCap", "terminologyLabel": "mentor", "visibleFor": ["STUDENT", "OPERATOR", "ADMIN", "SUPERADMIN"] }
-    ]
-  },
-  {
-    "id": "ai",
-    "title": "AI",
-    "href": "/x/ai-config",
-    "requiredRole": "ADMIN",
-    "advancedOnly": true,
-    "items": [
-      { "id": "ai-config", "href": "/x/ai-config", "label": "AI Config", "icon": "Bot" },
-      { "id": "ai-knowledge", "href": "/x/ai-knowledge", "label": "AI Knowledge", "icon": "Brain" },
-      { "id": "ai-logs", "href": "/x/logs", "label": "AI Logs", "icon": "FileText" },
-      { "id": "ai-errors", "href": "/x/ai-errors", "label": "AI Errors", "icon": "AlertTriangle" },
-      { "id": "ai-metering", "href": "/x/metering", "label": "AI Metering", "icon": "BarChart3" },
-      { "id": "meta-prompts", "href": "/x/meta-prompts", "label": "Meta Prompts", "icon": "ScrollText" }
     ]
   },
   {

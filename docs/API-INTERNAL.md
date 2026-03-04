@@ -8736,6 +8736,55 @@ Accept a classroom join link. Creates User + Caller + sets session.
 
 ---
 
+### `DELETE` /api/meta-prompts
+
+Reset a prompt to its code default.
+
+**Auth**: ADMIN
+
+**Response** `200`
+```json
+{ ok: true }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string }
+```
+
+---
+
+### `GET` /api/meta-prompts
+
+List all registered prompts with current values and override status.
+
+**Auth**: ADMIN
+
+**Response** `200`
+```json
+{ ok: true, prompts: PromptState[] }
+```
+
+---
+
+### `POST` /api/meta-prompts
+
+Save a prompt template override.
+
+**Auth**: ADMIN
+
+**Response** `200`
+```json
+{ ok: true }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `GET` /api/student/artifacts
 
 **Auth**: STUDENT | OPERATOR+ (with callerId param)
@@ -12822,8 +12871,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 375 |
-| Files with annotations | 374 |
+| Route files found | 376 |
+| Files with annotations | 375 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 
