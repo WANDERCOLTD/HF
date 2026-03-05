@@ -86,7 +86,7 @@ export default function CallerDetailPage() {
   // Expanded states
   const [expandedCall, setExpandedCall] = useState<string | null>(null);
   const [expandedMemory, setExpandedMemory] = useState<string | null>(null);
-  const [activePromptExpanded, setActivePromptExpanded] = useState(true); // Prompt Navigator starts expanded
+  const [activePromptExpanded, setActivePromptExpanded] = useState(false);
 
   // Prompts state
   const [composedPrompts, setComposedPrompts] = useState<ComposedPrompt[]>([]);

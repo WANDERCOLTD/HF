@@ -489,6 +489,8 @@
 
 .cdp-active-prompt-content {
   padding: 0 24px 16px 24px;
+  max-height: 40vh;
+  overflow-y: auto;
 }
 
 /* ── Processing banner ── */
