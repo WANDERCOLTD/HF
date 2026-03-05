@@ -178,3 +178,21 @@ Prevents: [class of issue]
 ### GitHub issue
 Created: #[N] — [title]
 ```
+
+## Final step — Record completion
+
+After producing the report, always run:
+
+```bash
+python3 -c "
+import json, datetime, os
+f = os.path.expanduser('~/.claude/projects/-Users-paulwander-projects-HF/memory/agent-state.json')
+try:
+    state = json.load(open(f))
+except:
+    state = {}
+state['root-cause'] = {'last': datetime.date.today().isoformat(), 'fix-chain-cleared': True}
+json.dump(state, open(f, 'w'), indent=2)
+print('✓ root-cause run recorded:', state['root-cause']['last'])
+"
+```

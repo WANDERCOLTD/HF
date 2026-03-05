@@ -165,3 +165,21 @@ If over 200 lines, flag it — content after line 200 is truncated and invisible
 ⚠️ MINOR DRIFT — [N] items to update
 ❌ SIGNIFICANT DRIFT — memory files are misleading, update before next session
 ```
+
+## Final step — Record completion
+
+After producing the report, always run:
+
+```bash
+python3 -c "
+import json, datetime, os
+f = os.path.expanduser('~/.claude/projects/-Users-paulwander-projects-HF/memory/agent-state.json')
+try:
+    state = json.load(open(f))
+except:
+    state = {}
+state['memory-sync'] = datetime.date.today().isoformat()
+json.dump(state, open(f, 'w'), indent=2)
+print('✓ memory-sync run recorded:', state['memory-sync'])
+"
+```

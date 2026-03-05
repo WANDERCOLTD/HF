@@ -192,3 +192,21 @@ Found: N potentially broken imports
 
 Total estimated cleanup time: [S=<1h / M=1-4h / L=4h+]
 ```
+
+## Final step — Record completion
+
+After producing the report, always run:
+
+```bash
+python3 -c "
+import json, datetime, os
+f = os.path.expanduser('~/.claude/projects/-Users-paulwander-projects-HF/memory/agent-state.json')
+try:
+    state = json.load(open(f))
+except:
+    state = {}
+state['broken-windows'] = datetime.date.today().isoformat()
+json.dump(state, open(f, 'w'), indent=2)
+print('✓ broken-windows run recorded:', state['broken-windows'])
+"
+```
