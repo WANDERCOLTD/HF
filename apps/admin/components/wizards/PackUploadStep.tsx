@@ -283,14 +283,16 @@ export function PackUploadStep({
     const { phase, message, data } = event;
 
     if (phase === 'complete') {
-      const classifications = manifest?.groups.flatMap(g =>
-        g.files.map(f => ({
-          fileName: f.fileName,
-          documentType: f.documentType,
-          confidence: f.confidence,
-          reasoning: f.reasoning,
-        }))
-      ) || [];
+      const toClassification = (f: PackFile) => ({
+        fileName: f.fileName,
+        documentType: f.documentType,
+        confidence: f.confidence,
+        reasoning: f.reasoning,
+      });
+      const classifications = [
+        ...(manifest?.groups.flatMap(g => g.files.map(toClassification)) ?? []),
+        ...(manifest?.pedagogyFiles.map(toClassification) ?? []),
+      ];
 
       setIngesting(false);
       setCurrentFile(null);

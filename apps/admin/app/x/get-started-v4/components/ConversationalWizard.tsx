@@ -429,10 +429,13 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
       if (result.extractionTotals) setData("extractionTotals", result.extractionTotals);
       if (result.taskId) setData("uploadTaskId", result.taskId);
 
-      const fileCards: FileCardData[] = (result.classifications || []).map((c) => ({
+      const classifications = result.classifications || [];
+      const fileCards: FileCardData[] = classifications.map((c) => ({
         fileName: c.fileName,
         classification: c.documentType,
         subject: result.subjects?.[0]?.name,
+        confidence: c.confidence,
+        reasoning: c.reasoning,
       }));
 
       setShowUpload(false);
@@ -441,7 +444,7 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
       const uploadMsg: Message = {
         id: uid(),
         role: "system",
-        content: `${result.classifications?.length ?? 1} file(s) uploaded`,
+        content: `${classifications.length ?? 1} file(s) uploaded`,
         systemType: "upload-result",
         fileCards: fileCards.length ? fileCards : undefined,
       };
@@ -451,7 +454,9 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
         return updated;
       });
 
-      handleSend("Teaching materials uploaded");
+      // Pass classification data to the AI so it can narrate each file
+      setData("lastUploadClassifications", classifications);
+      handleSend("Teaching materials uploaded", { lastUploadClassifications: classifications });
     },
     [setData, handleSend],
   );

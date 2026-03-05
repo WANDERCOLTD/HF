@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, CheckCircle2 } from "lucide-react";
+import { FileText, CheckCircle2, AlertCircle } from "lucide-react";
 
 export interface FileCardData {
   fileName: string;
@@ -10,6 +10,10 @@ export interface FileCardData {
   assertionCount?: number;
   /** Subject label */
   subject?: string;
+  /** AI classification confidence 0–1 */
+  confidence?: number;
+  /** AI reasoning for this classification */
+  reasoning?: string;
 }
 
 interface FileCardProps {
@@ -37,7 +41,16 @@ export function FileCard({ file }: FileCardProps) {
               {" "}{file.assertionCount} teaching points
             </span>
           )}
+          {file.confidence !== undefined && file.confidence < 0.7 && (
+            <span className="cv4-file-card-tag cv4-file-card-tag--uncertain">
+              <AlertCircle size={11} />
+              {" "}uncertain
+            </span>
+          )}
         </div>
+        {file.reasoning && (
+          <div className="cv4-file-card-reasoning">{file.reasoning}</div>
+        )}
       </div>
     </div>
   );

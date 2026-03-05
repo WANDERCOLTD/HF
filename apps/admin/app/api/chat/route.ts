@@ -647,9 +647,12 @@ async function handleWizardModeWithTools(
     // Capture thinking from first call only
     if (i === 0 && response.thinkingContent) thinkingContent = response.thinkingContent;
 
-    // If no tool calls, we're done
+    // If no tool calls, we're done.
+    // Only update finalContent if non-empty — preserves Phase 1b playback text
+    // captured in a previous iteration when the final tool-result round produces
+    // no text (e.g. after show_suggestions executes and AI returns empty).
     if (!response.toolUses || response.toolUses.length === 0) {
-      finalContent = response.content;
+      if (response.content) finalContent = response.content;
       break;
     }
 
@@ -796,10 +799,24 @@ async function handleWizardModeWithTools(
 
     // Replace system message with updated phase context
     loopMessages[0] = { role: "system", content: continuationPrompt };
-    // Add a nudge so the AI knows to continue
+    // Phase-aware nudge: V4 needs Phase 1b playback if intake data was just extracted,
+    // not "ask about next field" (which would bypass Phase 1b and cause an infinite loop).
+    const phase2Started = !!(
+      mergedSetupData.interactionPattern ||
+      mergedSetupData.planEmphasis ||
+      mergedSetupData.draftPlaybookId
+    );
+    const hasIntakeData = !!(
+      mergedSetupData.courseName ||
+      mergedSetupData.subjectDiscipline ||
+      mergedSetupData.institutionName
+    );
+    const needsV4Phase1b = wizardVersionCont === "v4" && hasIntakeData && !phase2Started;
     loopMessages.push({
       role: "user",
-      content: "[System: phase advanced — continue the conversation naturally. Ask about the next field.]",
+      content: needsV4Phase1b
+        ? "[System: Intake data has been saved. Write the Phase 1b playback now. Open with 'Let me play back what I've understood.' Cover the course, learners, and goals in 6-10 rich sentences. Do NOT ask about teaching approach or any other field yet.]"
+        : "[System: phase advanced — continue the conversation naturally. Ask about the next field.]",
     });
 
     console.log(`[wizard] Continuation re-prompt: ${logPhase}`);
@@ -833,8 +850,10 @@ async function handleWizardModeWithTools(
   }
 
   if (!finalContent) {
-    // Last-resort fallback — version-aware
-    if (mergedSetupData._wizardVersion === "v3") {
+    // Last-resort fallback — version-aware.
+    // V4 and V3 both use buildGraphFallback (graph-aware, no V2 phase prompts).
+    // V2 uses buildWizardFallback (phase-based with V2 FIELD_PROMPTS).
+    if (mergedSetupData._wizardVersion === "v4" || mergedSetupData._wizardVersion === "v3") {
       const graphEval = evaluateGraph(mergedSetupData);
       finalContent = buildGraphFallback(graphEval, mergedSetupData, allToolCalls);
     } else {

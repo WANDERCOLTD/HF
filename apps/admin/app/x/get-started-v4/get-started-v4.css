@@ -490,6 +490,21 @@
   gap: 3px;
 }
 
+.cv4-file-card-tag--uncertain {
+  background: color-mix(in srgb, var(--status-warning-bg, #fef3c7) 60%, transparent);
+  color: var(--status-warning-text, #92400e);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.cv4-file-card-reasoning {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
 /* ── LessonPlanAccordion ──────────────────────────────── */
 
 .cv4-accordion {
