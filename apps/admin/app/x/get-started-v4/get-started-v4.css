@@ -99,7 +99,38 @@
   font-size: 16px;
   line-height: 1.6;
   word-break: break-word;
+}
+
+/* User bubbles preserve whitespace as typed */
+.cv4-bubble--user {
   white-space: pre-wrap;
+}
+
+/* Markdown content inside assistant bubbles */
+.cv4-bubble--assistant p {
+  margin: 0 0 0.75em;
+}
+
+.cv4-bubble--assistant p:last-child {
+  margin-bottom: 0;
+}
+
+.cv4-bubble--assistant strong {
+  font-weight: 600;
+}
+
+.cv4-bubble--assistant ul,
+.cv4-bubble--assistant ol {
+  margin: 0.5em 0;
+  padding-left: 1.4em;
+}
+
+.cv4-bubble--assistant li {
+  margin-bottom: 0.25em;
+}
+
+.cv4-bubble--assistant li:last-child {
+  margin-bottom: 0;
 }
 
 .cv4-bubble--assistant {

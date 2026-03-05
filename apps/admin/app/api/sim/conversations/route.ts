@@ -11,15 +11,21 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
  * @response 200 { ok: true, conversations: Array<{ callerId, name, domain, lastMessage, lastMessageAt, createdAt }>, needsSetup?: boolean }
  * @response 500 { ok: false, error: "Failed to load conversations" }
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const authResult = await requireAuth("VIEWER");
     if (isAuthError(authResult)) return authResult.error;
     const { session } = authResult;
     const isOperator = session?.user?.role === "OPERATOR";
 
-    // Build where clause: OPERATORs see only their own callers
-    const where = isOperator ? { userId: session.user.id } : {};
+    const { searchParams } = new URL(request.url);
+    const domainId = searchParams.get("domainId");
+
+    // Build where clause: OPERATORs see only their own callers, optional domain filter
+    const where: Record<string, unknown> = {
+      ...(isOperator ? { userId: session.user.id } : {}),
+      ...(domainId ? { domainId } : {}),
+    };
 
     const callers = await prisma.caller.findMany({
       where,

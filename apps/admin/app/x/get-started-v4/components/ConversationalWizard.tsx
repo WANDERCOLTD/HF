@@ -15,6 +15,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ArrowUp, Loader2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { useStepFlow } from "@/contexts/StepFlowContext";
 import type { StepDefinition } from "@/contexts/StepFlowContext";
 import { FileCard } from "./FileCard";
@@ -670,7 +671,11 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
               <div key={msg.id} className={`cv4-row cv4-row--${msg.role}`}>
                 {msg.thinking && <ThinkingBlock content={msg.thinking} />}
                 <div className={`cv4-bubble cv4-bubble--${msg.role}`}>
-                  {msg.content}
+                  {msg.role === "assistant" ? (
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  ) : (
+                    msg.content
+                  )}
                 </div>
               </div>
             );

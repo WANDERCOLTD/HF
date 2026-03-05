@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { MessageCircle } from 'lucide-react';
 import { useResponsive } from '@/hooks/useResponsive';
 import { ConversationList } from '@/components/sim/ConversationList';
@@ -9,12 +9,18 @@ import { ConversationList } from '@/components/sim/ConversationList';
 export default function SimChatListPage() {
   const { isDesktop } = useResponsive();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [checked, setChecked] = useState(false);
+
+  const domainId = searchParams.get('domainId');
 
   // Desktop: auto-redirect to the most recent caller so a call starts immediately
   useEffect(() => {
     if (!isDesktop) return;
-    fetch('/api/sim/conversations')
+    const url = domainId
+      ? `/api/sim/conversations?domainId=${encodeURIComponent(domainId)}`
+      : '/api/sim/conversations';
+    fetch(url)
       .then(res => res.json())
       .then(data => {
         if (data.ok && data.conversations?.length > 0) {
@@ -30,7 +36,7 @@ export default function SimChatListPage() {
         }
       })
       .catch(() => setChecked(true));
-  }, [isDesktop, router]);
+  }, [isDesktop, router, domainId]);
 
   // Desktop: loading while checking for callers to auto-select
   if (isDesktop && !checked) {
