@@ -132,11 +132,14 @@ async function resolveContentScope(callerId: string): Promise<ContentScope> {
     where: { id: callerId },
     select: { domainId: true },
   });
-  if (!caller?.domainId) return null;
+  if (!caller?.domainId) { console.log(`[DEBUG resolveContentScope] caller ${callerId} has no domainId`); return null; }
 
   const playbookId = await resolvePlaybookId(callerId);
+  console.log(`[DEBUG resolveContentScope] callerId=${callerId} domainId=${caller.domainId} playbookId=${playbookId}`);
   if (playbookId) {
     const result = await getSubjectsForPlaybook(playbookId, caller.domainId);
+    const totalSources = result.subjects.reduce((sum, s) => sum + s.sources.length, 0);
+    console.log(`[DEBUG resolveContentScope] playbook-scoped: ${result.subjects.length} subjects, ${totalSources} total sources, scoped=${result.scoped}`);
     return {
       domainId: caller.domainId,
       subjectIds: result.subjects.map((s) => s.id),
@@ -648,13 +651,14 @@ registerLoader("subjectSources", async (callerId, loaderConfig) => {
  */
 registerLoader("curriculumAssertions", async (_callerId, loaderConfig) => {
   const scope: ContentScope = loaderConfig?.contentScope ?? null;
-  if (!scope) return [];
+  if (!scope) { console.log("[DEBUG curriculumAssertions] scope is null"); return []; }
 
   const sourceIds = scope.subjects.flatMap((s) =>
     s.sources
       .filter((ss) => ss.documentType !== "COURSE_REFERENCE")
       .map((ss) => ss.sourceId)
   );
+  console.log(`[DEBUG curriculumAssertions] subjects=${scope.subjects.length} sourceIds=${sourceIds.length} unique=${new Set(sourceIds).size} (first 3: ${sourceIds.slice(0,3).join(',')})`);
   if (sourceIds.length === 0) return [];
 
   // Extract teachingDepth from first subject that has one
