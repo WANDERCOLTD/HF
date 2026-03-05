@@ -1,8 +1,9 @@
 /**
  * Conversational Wizard Tools (V4)
  *
- * Reduced tool set for the conversation-first wizard.
- * Dropped: show_options, show_sliders, show_actions (AI describes in text instead).
+ * Tool set for the conversation-first wizard.
+ * show_options re-added for structured choices (renders inline in chat stream, not above input).
+ * show_sliders / show_actions remain dropped.
  * Added: suggest_welcome_message.
  *
  * Execution reuses executeWizardTool() from wizard-tools.ts — same switch dispatcher.
@@ -62,6 +63,56 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
         },
       },
       required: ["question", "suggestions"],
+    },
+  },
+  {
+    name: "show_options",
+    description:
+      "Show a structured option card inline in the chat stream for questions with predefined choices. " +
+      "Use for: teaching approach, session count/duration, lesson plan model, subject discipline (from catalog), " +
+      "or any question with 2-8 predefined values. " +
+      "Use mode 'radio' for single-choice, 'checklist' for multi-choice. " +
+      "Always set recommended: true on the option you recommend. " +
+      "The user can click 'Something else' to type freely instead, or 'Skip' for optional fields. " +
+      "IMPORTANT: use show_options for CHOICE questions, show_suggestions for CONFIRMATIONS only.",
+    input_schema: {
+      type: "object",
+      properties: {
+        question: {
+          type: "string",
+          description: "The question to display above the options.",
+        },
+        dataKey: {
+          type: "string",
+          description: "The setup field key this answer maps to (e.g. 'interactionPattern', 'sessionCount').",
+        },
+        mode: {
+          type: "string",
+          enum: ["radio", "checklist"],
+          description: "radio = single-choice (auto-submits on selection). checklist = multi-select with Confirm button.",
+        },
+        required: {
+          type: "boolean",
+          description: "If true, Skip button is hidden. Default false.",
+        },
+        options: {
+          type: "array",
+          description: "2-8 options. Include recommended: true on the suggested choice.",
+          items: {
+            type: "object",
+            properties: {
+              value: { type: "string", description: "The data value to save." },
+              label: { type: "string", description: "Short display label." },
+              description: { type: "string", description: "1-sentence explanation shown below the label." },
+              recommended: { type: "boolean", description: "Mark the recommended option." },
+            },
+            required: ["value", "label", "description"],
+          },
+          minItems: 2,
+          maxItems: 8,
+        },
+      },
+      required: ["question", "dataKey", "mode", "options"],
     },
   },
   {
