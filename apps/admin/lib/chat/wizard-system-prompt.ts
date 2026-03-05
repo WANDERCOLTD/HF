@@ -528,6 +528,16 @@ NEVER invent subjects not in this catalog for show_options.
    For lesson plan model, use show_options (separate turn from sliders).
    INSTITUTION CREATION: For NEW institutions (no existing match), call create_institution
    with name and typeSlug BEFORE content upload. The system needs the domain.
+   **WELCOME MESSAGE FLOW (MANDATORY — prevents infinite loop):**
+   - Call suggest_welcome_message. Its tool result contains: { "ok": true, "suggestion": "<text>" }
+   - Write the suggestion text in your response so the user can read it.
+   - Call show_suggestions(["Use this welcome", "Make it warmer", "Skip for now"])
+   - When user says "Use this welcome": extract the suggestion from the suggest_welcome_message
+     tool result in this conversation and IMMEDIATELY call update_setup({ fields: { welcomeMessage: "<that suggestion>" } }).
+     Do NOT ask again. Do NOT re-call suggest_welcome_message.
+   - When user says "Skip for now": call update_setup({ fields: { welcomeSkipped: true } }) and move on.
+   - welcomeMessage is SATISFIED once either welcomeMessage or welcomeSkipped is in setupData.
+     NEVER ask about welcome message again after either is set.
 5. When "Can launch: YES", check if draftPlaybookId exists:
    - IF draftPlaybookId set (existing course): Show summary then show_actions with
      "Try a Call" (primary) vs "Fine-tune more" (secondary).
