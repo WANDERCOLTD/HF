@@ -773,6 +773,13 @@ export async function executeWizardTool(
               },
             }).catch(err => console.error("[wizard] Instant curriculum (existing) failed (non-fatal):", err.message));
 
+            const existingPreviewCount = input.sessionCount ? Number(input.sessionCount) : 6;
+            const existingLessonPlanPreview = Array.from({ length: existingPreviewCount }, (_, i) => ({
+              session: i + 1,
+              label: `Session ${i + 1}`,
+              type: i === 0 ? "introduction" : i === existingPreviewCount - 1 ? "review" : "lesson",
+            }));
+
             return {
               ...base,
               content: JSON.stringify({
@@ -781,6 +788,7 @@ export async function executeWizardTool(
                 callerId: caller.id,
                 callerName,
                 existingCourse: true,
+                lessonPlanPreview: existingLessonPlanPreview,
               }),
             };
           }
@@ -917,6 +925,15 @@ export async function executeWizardTool(
           },
         }).catch(err => console.error("[wizard] Instant curriculum failed (non-fatal):", err.message));
 
+        // Build a preview lesson plan from sessionCount so V4 UI can show it immediately.
+        // The async generateInstantCurriculum will populate real curriculum in the background.
+        const previewCount = input.sessionCount ? Number(input.sessionCount) : 6;
+        const lessonPlanPreview = Array.from({ length: previewCount }, (_, i) => ({
+          session: i + 1,
+          label: `Session ${i + 1}`,
+          type: i === 0 ? "introduction" : i === previewCount - 1 ? "review" : "lesson",
+        }));
+
         return {
           ...base,
           content: JSON.stringify({
@@ -924,6 +941,7 @@ export async function executeWizardTool(
             playbookId,
             callerId: caller.id,
             callerName,
+            lessonPlanPreview,
           }),
         };
       } catch (err) {
@@ -997,6 +1015,34 @@ export async function executeWizardTool(
           is_error: true,
         };
       }
+    }
+
+    case "suggest_welcome_message": {
+      // Generate a template-based welcome message suggestion from course context.
+      // V4 only — called after personality + content are captured.
+      const courseName = (input.courseName as string) || (setupData?.courseName as string) || "this course";
+      const subjectDiscipline = (input.subjectDiscipline as string) || (setupData?.subjectDiscipline as string) || "";
+      const interactionPattern = (input.interactionPattern as string) || (setupData?.interactionPattern as string) || "";
+      const physicalMaterials = (input.physicalMaterials as string) || (setupData?.physicalMaterials as string) || "";
+
+      const patternPhrase: Record<string, string> = {
+        socratic: "guide you with questions to build your own understanding",
+        directive: "walk you through each concept step by step",
+        "coaching-feedback": "coach you through practice and give you honest feedback",
+        "discovery-led": "help you discover the ideas yourself",
+        "exam-prep": "prepare you thoroughly for your exam",
+        "conversational-tutor": "have a genuine conversation about the material",
+      };
+      const stylePhrase = patternPhrase[interactionPattern] || "work through this with you";
+      const subjectClause = subjectDiscipline ? ` in ${subjectDiscipline}` : "";
+      const materialsClause = physicalMaterials ? ` Have your ${physicalMaterials} nearby if you can.` : "";
+
+      const suggestion = `Hi! I'm your tutor for ${courseName}${subjectClause}. I'm here to ${stylePhrase}.${materialsClause} What would you like to start with today?`;
+
+      return {
+        ...base,
+        content: JSON.stringify({ ok: true, suggestion }),
+      };
     }
 
     case "mark_complete": {

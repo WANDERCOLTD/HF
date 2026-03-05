@@ -13,6 +13,8 @@ import { executeAdminTool } from "@/lib/chat/admin-tool-handlers";
 import { CHAT_TOOLS, executeToolCall, buildContentCatalog } from "./tools";
 import { WIZARD_TOOLS, executeWizardTool } from "@/lib/chat/wizard-tools";
 import { buildWizardSystemPrompt, buildGraphSystemPrompt } from "@/lib/chat/wizard-system-prompt";
+import { buildConversationalSystemPrompt } from "@/lib/chat/conversational-system-prompt";
+import { CONVERSATIONAL_TOOLS } from "@/lib/chat/conversational-wizard-tools";
 import { computeCurrentPhase } from "@/app/x/get-started-v2/components/wizard-schema";
 import { evaluateGraph, buildGraphFallback } from "@/lib/wizard/graph-evaluator";
 import { embedText } from "@/lib/embeddings";
@@ -100,11 +102,17 @@ export async function POST(request: NextRequest) {
     // WIZARD mode: handle early (has its own system prompt, no slash commands)
     if (mode === "WIZARD") {
       const userId = authResult.session.user.id;
-      const isV3 = setupData?._wizardVersion === "v3";
+      const wizardVersion = setupData?._wizardVersion;
       const subjectsCatalog = await getSubjectsCatalog();
       let wizardPrompt: string;
+      let wizardTools = WIZARD_TOOLS;
 
-      if (isV3) {
+      if (wizardVersion === "v4") {
+        // V4: Conversational — no show_options/show_sliders/show_actions
+        const graphEval = evaluateGraph(setupData || {});
+        wizardPrompt = buildConversationalSystemPrompt(setupData || {}, graphEval, [], subjectsCatalog);
+        wizardTools = CONVERSATIONAL_TOOLS;
+      } else if (wizardVersion === "v3") {
         // V3: Graph-based non-linear prompt
         const graphEval = evaluateGraph(setupData || {});
         wizardPrompt = buildGraphSystemPrompt(setupData || {}, graphEval, [], subjectsCatalog);
@@ -134,7 +142,7 @@ export async function POST(request: NextRequest) {
       const selectedEngine = engine || aiConfig.provider;
       return await handleWizardModeWithTools(
         wizardMessages, "wizard.get-started", engine, selectedEngine, mode,
-        message, entityContext, conversationHistory, userId, setupData,
+        message, entityContext, conversationHistory, userId, setupData, wizardTools,
       );
     }
 
@@ -584,6 +592,7 @@ async function handleWizardModeWithTools(
   conversationHistory: { role: string; content: string }[],
   userId: string,
   setupData?: Record<string, unknown>,
+  tools: import("@/lib/ai/client").AITool[] = WIZARD_TOOLS,
 ): Promise<Response> {
   const loopMessages: AIMessage[] = [...messages];
   let toolCallCount = 0;
@@ -601,7 +610,7 @@ async function handleWizardModeWithTools(
         callPoint,
         engineOverride: engine,
         messages: loopMessages,
-        tools: WIZARD_TOOLS,
+        tools,
       },
       { sourceOp: `${callPoint}.tools`, userId }
     );
@@ -761,7 +770,7 @@ async function handleWizardModeWithTools(
         callPoint,
         engineOverride: engine,
         messages: loopMessages,
-        tools: WIZARD_TOOLS,
+        tools,
       },
       { sourceOp: `${callPoint}.continuation`, userId }
     );
