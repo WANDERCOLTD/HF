@@ -14,7 +14,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowUp, Loader2, Plus } from "lucide-react";
+import { ArrowUp, Loader2, Plus, X } from "lucide-react";
 import { useStepFlow } from "@/contexts/StepFlowContext";
 import type { StepDefinition } from "@/contexts/StepFlowContext";
 import { PackUploadStep } from "@/components/wizards/PackUploadStep";
@@ -23,6 +23,9 @@ import { FileCard } from "./FileCard";
 import type { FileCardData } from "./FileCard";
 import { LessonPlanAccordion } from "./LessonPlanAccordion";
 import type { LessonEntry } from "./LessonPlanAccordion";
+import { OptionsCard } from "./OptionsCard";
+import type { OptionsPanel } from "./OptionsCard";
+import { ScaffoldPanel } from "../../get-started/components/ScaffoldPanel";
 import "../get-started-v4.css";
 
 // ── Types ────────────────────────────────────────────────
@@ -41,7 +44,7 @@ interface ConversationalWizardProps {
 }
 
 type MessageRole = "assistant" | "user" | "system";
-type SystemType = "timeline" | "success" | "error" | "upload-result" | "lesson-plan";
+type SystemType = "timeline" | "success" | "error" | "upload-result" | "lesson-plan" | "options" | "progress";
 
 interface Message {
   id: string;
@@ -53,7 +56,22 @@ interface Message {
   /** Populated for lesson-plan system messages */
   lessonEntries?: LessonEntry[];
   lessonCourseName?: string;
+  /** Populated for options system messages */
+  optionsPanel?: OptionsPanel;
+  /** True after the user has resolved an options card — hides it from render */
+  resolved?: boolean;
 }
+
+/** Map scaffold item keys to human-readable review phrases */
+const REVIEW_LABELS: Record<string, string> = {
+  institution: "organisation",
+  subject: "subject",
+  course: "course details",
+  content: "teaching materials",
+  welcome: "welcome message",
+  lessons: "session settings",
+  personality: "AI personality",
+};
 
 interface WizardToolCall {
   name: string;
@@ -128,6 +146,7 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const initialised = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+  const progressCardInjected = useRef(false);
 
   // ── Scroll ───────────────────────────────────────────
 
@@ -220,6 +239,21 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
             for (const [k, v] of Object.entries(fields)) {
               setData(k, v);
             }
+            // Inject the progress card once we have a meaningful field
+            if (!progressCardInjected.current) {
+              const hasMeaningful = Object.keys(fields).some((k) =>
+                ["institutionName", "courseName", "subjectDiscipline", "interactionPattern"].includes(k),
+              );
+              if (hasMeaningful) {
+                progressCardInjected.current = true;
+                extras.push({
+                  id: "progress-card",
+                  role: "system",
+                  systemType: "progress",
+                  content: "",
+                });
+              }
+            }
             break;
           }
 
@@ -250,6 +284,17 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
             // Show as a "Use this?" chip the user can accept or ignore
             const suggestion = tc.input.suggestion as string | undefined;
             if (suggestion) setWelcomeSuggestion(suggestion);
+            break;
+          }
+
+          case "show_options": {
+            extras.push({
+              id: uid(),
+              role: "system",
+              systemType: "options",
+              content: tc.input.question as string,
+              optionsPanel: tc.input as unknown as OptionsPanel,
+            });
             break;
           }
 
@@ -340,7 +385,13 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
       const toolExtras = response.toolCalls?.length ? processToolCalls(response.toolCalls) : [];
       const contentExtras = processResponseContent(response.content, response.toolCalls || []);
 
-      let finalMessages = [...newMessages, ...toolExtras];
+      // Upsert progress card (stable id "progress-card" — add once, never duplicate)
+      const hasProgressCard = newMessages.some((m) => m.id === "progress-card");
+      const filteredExtras = hasProgressCard
+        ? toolExtras.filter((m) => m.id !== "progress-card")
+        : toolExtras;
+
+      let finalMessages = [...newMessages, ...filteredExtras];
       if (response.content) {
         finalMessages = [...finalMessages, { id: uid(), role: "assistant", content: response.content }];
       }
@@ -391,15 +442,35 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
 
   // ── Keyboard ──────────────────────────────────────────
 
+  const hasActiveOptions = messages.some((m) => m.systemType === "options" && !m.resolved);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Let the OptionsCard handle keys when it's active
+      if (hasActiveOptions) return;
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend],
+    [handleSend, hasActiveOptions],
   );
+
+  // Global Esc to dismiss active options card
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && hasActiveOptions) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.systemType === "options" && !m.resolved ? { ...m, resolved: true } : m,
+          ),
+        );
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [hasActiveOptions]);
 
   // ── Flow setup ────────────────────────────────────────
 
@@ -460,6 +531,53 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
         <div className="cv4-messages" aria-live="polite">
           <div className="cv4-messages-spacer" />
           {messages.map((msg) => {
+            // Options card — skip if resolved (user already made a selection)
+            if (msg.systemType === "options" && !msg.resolved && msg.optionsPanel) {
+              return (
+                <div key={msg.id} className="cv4-row cv4-row--system">
+                  <OptionsCard
+                    panel={msg.optionsPanel}
+                    onSelect={(_value, displayText) => {
+                      setMessages((prev) =>
+                        prev.map((m) => m.id === msg.id ? { ...m, resolved: true } : m),
+                      );
+                      handleSend(displayText);
+                    }}
+                    onSkip={() => {
+                      setMessages((prev) =>
+                        prev.map((m) => m.id === msg.id ? { ...m, resolved: true } : m),
+                      );
+                      handleSend("Skip");
+                    }}
+                    onSomethingElse={() => {
+                      setMessages((prev) =>
+                        prev.map((m) => m.id === msg.id ? { ...m, resolved: true } : m),
+                      );
+                      setTimeout(() => inputRef.current?.focus(), 50);
+                    }}
+                  />
+                </div>
+              );
+            }
+            if (msg.systemType === "options") return null; // resolved — hide
+
+            // Progress panel — live-reading from context, always up to date
+            if (msg.systemType === "progress") {
+              return (
+                <div key={msg.id} className="cv4-row cv4-row--system">
+                  <div className="cv4-progress-card">
+                    <ScaffoldPanel
+                      getData={getData}
+                      currentStepIndex={99}
+                      onItemClick={(itemKey) => {
+                        handleSend(`I'd like to review my ${REVIEW_LABELS[itemKey] ?? itemKey}`);
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            }
+
             if (msg.systemType === "error") {
               return (
                 <div key={msg.id} className="cv4-row cv4-row--system">
@@ -626,9 +744,9 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
               className={`cv4-attach-btn${showUpload ? " cv4-attach-btn--active" : ""}`}
               onClick={() => setShowUpload((v) => !v)}
               disabled={!resolvedDomainId}
-              title={resolvedDomainId ? "Upload teaching materials" : "Set up your course first"}
+              title={showUpload ? "Close upload panel" : (resolvedDomainId ? "Upload teaching materials" : "Set up your course first")}
             >
-              <Plus size={16} />
+              {showUpload ? <X size={16} /> : <Plus size={16} />}
             </button>
 
             <textarea

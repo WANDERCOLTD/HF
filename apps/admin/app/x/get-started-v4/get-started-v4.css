@@ -3,6 +3,10 @@
  * All colors via CSS vars — no hardcoded hex.
  * ─────────────────────────────────────────────────────── */
 
+/* Import V3 ScaffoldPanel styles (gs-scaffold-icon, gs-scaffold-*, etc.)
+ * ScaffoldPanel component is reused inline in V4 chat stream. */
+@import "../get-started/get-started.css";
+
 /* ── Page layout ─────────────────────────────────────── */
 
 .cv4-layout {
@@ -572,4 +576,286 @@
 
 .cv4-test-lesson-btn:hover {
   background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+}
+
+/* ── Progress card (inline ScaffoldPanel) ─────────────── */
+
+.cv4-progress-card {
+  width: 100%;
+  max-width: 560px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-primary);
+  animation: cv4-fadein 0.25s ease-out;
+}
+
+/* Override V3 panel positioning — inline, not sticky sidebar */
+.cv4-progress-card .gs-panel {
+  width: auto;
+  position: static;
+}
+
+.cv4-progress-card .gs-scaffold {
+  border: none;
+  border-radius: 0;
+  padding: 16px 20px;
+}
+
+/* ── Options card ─────────────────────────────────────── */
+
+.cv4-options-card {
+  width: 100%;
+  max-width: 560px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+  animation: cv4-fadein 0.25s ease-out;
+  outline: none;
+}
+
+.cv4-options-card:focus-visible {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 20%, transparent);
+}
+
+.cv4-options-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.cv4-options-question {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.cv4-options-pagination {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface-secondary);
+  padding: 2px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.cv4-options-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
+
+.cv4-option-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: background 0.12s;
+  user-select: none;
+}
+
+.cv4-option-row:hover,
+.cv4-option-row--focused {
+  background: color-mix(in srgb, var(--accent-primary) 5%, transparent);
+}
+
+.cv4-option-row--selected {
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+
+.cv4-option-number {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.cv4-option-row--focused .cv4-option-number,
+.cv4-option-row:hover .cv4-option-number {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.cv4-option-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 2px solid var(--border-default);
+  flex-shrink: 0;
+  margin-top: 3px;
+  transition: border-color 0.12s, background 0.12s;
+  position: relative;
+}
+
+.cv4-option-checkbox--checked {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary);
+}
+
+.cv4-option-checkbox--checked::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: #fff;
+  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 4l3 3 5-6' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+
+.cv4-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cv4-option-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cv4-option-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.cv4-option-recommended {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.cv4-option-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* Pagination prev/next */
+.cv4-options-pages {
+  display: flex;
+  gap: 8px;
+  padding: 6px 16px;
+  border-top: 1px solid var(--border-default);
+}
+
+.cv4-options-page-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--accent-primary);
+  background: none;
+  border: 1px solid var(--accent-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.cv4-options-page-btn:hover {
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+
+.cv4-options-page-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Footer */
+.cv4-options-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px 10px;
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+}
+
+.cv4-options-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cv4-options-confirm-btn {
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--accent-primary);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+
+.cv4-options-confirm-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cv4-options-escape {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+
+.cv4-options-escape:hover {
+  color: var(--text-primary);
+}
+
+.cv4-options-skip {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+
+.cv4-options-skip:hover {
+  color: var(--text-primary);
+}
+
+.cv4-options-hints {
+  display: flex;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
