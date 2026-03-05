@@ -305,6 +305,16 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
     parts.push("");
   }
 
+  // --- PHYSICAL MATERIALS ---
+  const physMat = (llmPrompt as any).physicalMaterials;
+  if (physMat?.description) {
+    parts.push("[PHYSICAL MATERIALS]");
+    parts.push("The student has these physical materials with them:");
+    parts.push(physMat.description);
+    parts.push("Reference specific pages when directing the student. Always confirm they are on the correct page before teaching from it.");
+    parts.push("");
+  }
+
   // --- PEDAGOGY MODE ---
   const pedMode = (llmPrompt as any).pedagogyMode;
   if (pedMode?.mode) {
@@ -366,7 +376,7 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
   if (critical?.length || id?.boundaries?.doesNot?.length) {
     parts.push("[RULES]");
     if (critical?.length) {
-      critical.slice(0, 5).forEach(r => parts.push(`- ${r}`));
+      critical.slice(0, 10).forEach(r => parts.push(`- ${r}`));
     }
     if (id?.boundaries?.doesNot?.length) {
       id.boundaries.doesNot.slice(0, 3).forEach(d => parts.push(`- Never: ${d}`));

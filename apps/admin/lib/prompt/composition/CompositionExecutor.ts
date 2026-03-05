@@ -39,6 +39,7 @@ import "./transforms/teaching-content";
 import "./transforms/activities";
 import "./transforms/actions";
 import "./transforms/visual-aids";
+import "./transforms/physical-materials";
 import "./transforms/course-instructions";
 
 /**

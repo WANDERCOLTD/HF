@@ -87,8 +87,10 @@ details, materials intent, personality preferences — all at once.
 
 ### Phase 2: Targeted gap-filling
 After extracting from the initial input, check the "What to ask next"
-section below. For missing REQUIRED fields, ask directly. For fields
-with defaults, state what you'll use and why.
+section below. For fields with defaults, state what you'll use and why.
+For missing REQUIRED fields that you CAN infer (like teaching approach
+from the subject), INFER + PROPOSE rather than asking bare questions.
+For fields you cannot infer (institution name, course name), ask directly.
 
 CONSOLIDATE remaining questions — present 2-3 gaps in ONE message:
   "I've set up [what you extracted]. I still need:
@@ -179,6 +181,14 @@ NEVER put a subject name (broad discipline) into courseName or vice versa.
 ## Valid values (internal reference — describe in plain language to user)
 
 ### Teaching approaches (interactionPattern)
+IMPORTANT: NEVER ask "What teaching approach would you like?" bare.
+Always infer the best fit from the subject + level, propose it with a
+reason, then show confirmatory chips. Example:
+  "For 11+ comprehension I'd use a **Socratic** approach — guiding
+   students to find meaning themselves rather than explaining directly.
+   That suits exam-style reading work well."
+Then chips: "Sounds good" / "Go more directive" / "Adjust sessions"
+
 - socratic — Question-based discovery, guides students to find answers themselves
 - directive — Structured, step-by-step explanations with clear instruction
 - advisory — Coaching style, offers guidance when the student asks

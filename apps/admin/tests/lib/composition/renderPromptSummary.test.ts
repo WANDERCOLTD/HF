@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderPromptSummary } from "@/lib/prompt/composition/renderPromptSummary";
+import { renderPromptSummary, renderVoicePrompt } from "@/lib/prompt/composition/renderPromptSummary";
 
 describe("renderPromptSummary", () => {
   it("renders a complete prompt with all sections", () => {
@@ -83,5 +83,83 @@ describe("renderPromptSummary", () => {
 
     // Should still show the memories header with count
     expect(result).not.toContain("FACT");
+  });
+});
+
+describe("renderVoicePrompt — pacing rules", () => {
+  const PACING_RULES = [
+    "Confirm readiness before moving to a new topic",
+    "Do not give answers before the student has attempted",
+    "Do not rush",
+    "Treat each session as standalone",
+  ];
+
+  it("renders all 4 pacing rules when criticalRules has 9 entries (hasCurriculum path)", () => {
+    const result = renderVoicePrompt({
+      _preamble: {
+        criticalRules: [
+          "If RETURNING_CALLER: ALWAYS review before new material",
+          "If review fails (caller can't recall): Don't proceed. Re-teach foundation first.",
+          "If caller struggles: Back up. Different example. Don't push forward.",
+          "If caller wants to skip review: Only allow if they PROVE they know it.",
+          "End at natural stopping point, never mid-concept.",
+          "Confirm readiness before moving to a new topic — ask 'Ready to move on?' and wait for YES before continuing.",
+          "Do not give answers before the student has attempted. Wait, give a hint, wait again.",
+          "Do not rush — if the student is mid-thought, stay silent until they finish.",
+          "Treat each session as standalone. Never say 'as we covered last time' as fact — say 'if you remember from before...' and re-establish if they don't.",
+        ],
+      },
+    } as any);
+
+    expect(result).toContain("[RULES]");
+    for (const rule of PACING_RULES) {
+      expect(result).toContain(rule);
+    }
+  });
+
+  it("renders all 4 pacing rules when criticalRules has 8 entries (no-curriculum path)", () => {
+    const result = renderVoicePrompt({
+      _preamble: {
+        criticalRules: [
+          "Do NOT invent, assume, or fabricate specific academic topics, modules, or curriculum.",
+          "If the caller mentions a topic, explore it naturally - but do not lead with assumed subjects.",
+          "If caller struggles: Back up. Different approach. Don't push forward.",
+          "End at natural stopping point.",
+          "Confirm readiness before moving to a new topic — ask 'Ready to move on?' and wait for YES before continuing.",
+          "Do not give answers before the student has attempted. Wait, give a hint, wait again.",
+          "Do not rush — if the student is mid-thought, stay silent until they finish.",
+          "Treat each session as standalone. Never say 'as we covered last time' as fact — say 'if you remember from before...' and re-establish if they don't.",
+        ],
+      },
+    } as any);
+
+    expect(result).toContain("[RULES]");
+    for (const rule of PACING_RULES) {
+      expect(result).toContain(rule);
+    }
+  });
+});
+
+describe("renderVoicePrompt — physical materials", () => {
+  it("renders [PHYSICAL MATERIALS] section when physicalMaterials is set", () => {
+    const result = renderVoicePrompt({
+      physicalMaterials: { description: "CGP KS2 English, pages 12–45" },
+    } as any);
+
+    expect(result).toContain("[PHYSICAL MATERIALS]");
+    expect(result).toContain("CGP KS2 English, pages 12–45");
+    expect(result).toContain("Reference specific pages");
+  });
+
+  it("omits [PHYSICAL MATERIALS] section when physicalMaterials is absent", () => {
+    const result = renderVoicePrompt({} as any);
+    expect(result).not.toContain("[PHYSICAL MATERIALS]");
+  });
+
+  it("omits [PHYSICAL MATERIALS] section when description is empty string", () => {
+    const result = renderVoicePrompt({
+      physicalMaterials: { description: "" },
+    } as any);
+    expect(result).not.toContain("[PHYSICAL MATERIALS]");
   });
 });

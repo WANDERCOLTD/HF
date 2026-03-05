@@ -11,12 +11,23 @@ Ask the user using AskUserQuestion — **single call, one question, 4 options**:
 **multiSelect:** false
 
 Options:
-1. **Check quality** — Pre-commit gate, branch review, deep audit, or project health
-2. **Deploy** — Pre-flight, quick deploy, full deploy, rollback, or VM workflow
-3. **Explore** — Schema, BDD specs, CLI commands, or screenshots
+1. **Agile** — Standup, sprint planning, new story, or retrospective
+2. **Check quality** — Pre-commit gate, branch review, deep audit, or project health
+3. **Deploy** — Pre-flight, quick deploy, full deploy, rollback, or VM workflow
 4. **Fix an error** — Paste an error message and get a diagnosis + fix
 
 Then based on the user's choice, run a **second AskUserQuestion** to pick the specific action:
+
+### If "Agile":
+**Question:** "Which Agile action?"
+**Header:** "Agile"
+Options:
+1. **/standup** — Daily standup: yesterday's commits, fix chains, today's priority
+2. **/story** — Write a groomed story from a rough idea (BA + Tech Lead review)
+3. **/sprint-plan** — Plan the sprint from backlog + market-test priorities
+4. **/retro** — Sprint retrospective: fix chains, wasted commits, process change
+
+Then execute the chosen command using the Skill tool.
 
 ### If "Check quality":
 **Question:** "Which check?"

@@ -701,7 +701,11 @@ async function handleWizardModeWithTools(
             });
             Object.assign(mergedSetupData, creationFields);
           } else if (data.ok && toolUse.name === "create_course") {
-            const creationFields = { draftPlaybookId: data.playbookId, draftCallerId: data.callerId };
+            const creationFields = {
+              draftPlaybookId: data.playbookId,
+              draftCallerId: data.callerId,
+              ...(data.lessonPlanPreview ? { lessonPlanPreview: data.lessonPlanPreview } : {}),
+            };
             allToolCalls.push({
               name: "update_setup",
               input: { fields: creationFields },

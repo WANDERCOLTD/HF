@@ -102,6 +102,12 @@ export const WIZARD_HINTS: Record<string, FieldHintContent> = {
     examples: ["Tutor (patient, structured)", "Coach (goal-driven)", "Socratic (questioning)"],
   },
 
+  "course.physicalMaterials": {
+    why: "Lets the tutor tell the student which page to open and confirm they're following.",
+    effect: "The AI will reference specific pages during sessions and ask the student to confirm they are on the right page.",
+    examples: ["CGP KS2 English, pages 12–45", "Edexcel GCSE Maths Revision Guide, Chapter 3"],
+  },
+
   "course.teachingMode": {
     why: "Tells the AI what kind of content to emphasise and how to quiz the learner.",
     effect: "Recall = facts and quizzes. Comprehension = reading and discussion. Practice = worked examples. Syllabus = structured coverage.",

@@ -716,6 +716,7 @@ export async function executeWizardTool(
             if (input.durationMins) configUpdate.durationMins = Number(input.durationMins);
             if (input.planEmphasis) configUpdate.planEmphasis = input.planEmphasis;
             if (input.lessonPlanModel) configUpdate.lessonPlanModel = input.lessonPlanModel;
+            if (input.physicalMaterials) configUpdate.physicalMaterials = input.physicalMaterials;
 
             await prisma.playbook.update({
               where: { id: existingPlaybookId },
@@ -847,6 +848,7 @@ export async function executeWizardTool(
         if (input.durationMins) configUpdate.durationMins = Number(input.durationMins);
         if (input.planEmphasis) configUpdate.planEmphasis = input.planEmphasis;
         if (input.lessonPlanModel) configUpdate.lessonPlanModel = input.lessonPlanModel;
+        if (input.physicalMaterials) configUpdate.physicalMaterials = input.physicalMaterials;
 
         await prisma.playbook.update({
           where: { id: playbookId },

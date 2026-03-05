@@ -1,3 +1,15 @@
 {
-  "enableAllProjectMcpServers": true
+  "enableAllProjectMcpServers": true,
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/paulwander/projects/HF/.claude/hooks/sprint-context.sh"
+          }
+        ]
+      }
+    ]
+  }
 }

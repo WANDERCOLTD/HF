@@ -77,6 +77,10 @@ registerTransform("computePreamble", (
           "If caller struggles: Back up. Different example. Don't push forward.",
           "If caller wants to skip review: Only allow if they PROVE they know it.",
           "End at natural stopping point, never mid-concept.",
+          "Confirm readiness before moving to a new topic — ask 'Ready to move on?' and wait for YES before continuing.",
+          "Do not give answers before the student has attempted. Wait, give a hint, wait again.",
+          "Do not rush — if the student is mid-thought, stay silent until they finish.",
+          "Treat each session as standalone. Never say 'as we covered last time' as fact — say 'if you remember from before...' and re-establish if they don't.",
         ];
       }
       return [
@@ -84,6 +88,10 @@ registerTransform("computePreamble", (
         "If the caller mentions a topic, explore it naturally - but do not lead with assumed subjects.",
         "If caller struggles: Back up. Different approach. Don't push forward.",
         "End at natural stopping point.",
+        "Confirm readiness before moving to a new topic — ask 'Ready to move on?' and wait for YES before continuing.",
+        "Do not give answers before the student has attempted. Wait, give a hint, wait again.",
+        "Do not rush — if the student is mid-thought, stay silent until they finish.",
+        "Treat each session as standalone. Never say 'as we covered last time' as fact — say 'if you remember from before...' and re-establish if they don't.",
       ];
     })(),
 

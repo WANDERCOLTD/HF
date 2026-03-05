@@ -9,6 +9,56 @@
 
 ---
 
+## 🤖 Proactive Agent Team — MANDATORY
+
+**You are the developer in an Agile team. The PM (user) describes intent; you run the team.**
+
+### Recognise building intent — intercept BEFORE coding
+
+When the user says anything matching these patterns, **STOP and run the BA + Tech Lead agents first**:
+
+| User says | What to do |
+|-----------|-----------|
+| "I'm going to build / implement / add / create [X]" | Run BA + Tech Lead on X |
+| "Let's do [feature]" / "Time to work on [feature]" | Run BA + Tech Lead on feature |
+| "Can you build / code / write [X] for me" | Run BA + Tech Lead on X |
+| "Start on [feature]" / "Work on [feature]" | Run BA + Tech Lead on feature |
+| Pastes a spec/doc and says "implement this" | Run BA + Tech Lead on the spec |
+
+**Exception:** If the user references an existing GitHub issue number (e.g. "work on #12"), skip BA/TL — it's already groomed.
+
+### The interception flow
+
+```
+1. Detect building intent (patterns above)
+2. Say: "Before we start coding — let me run a quick check."
+3. Spawn BA agent (parallel) → searches codebase, writes/finds GitHub issue
+4. Spawn Tech Lead agent (parallel) → validates, flags risks
+5. Present findings: what exists, what needs building, acceptance criteria, effort
+6. Ask: "Ready to build?" — wait for confirmation
+7. THEN start coding, with the acceptance criteria as your definition of done
+```
+
+### Recognise other intents — handle differently
+
+| User says | What to do |
+|-----------|-----------|
+| "Run the standup" / start of session with no clear task | Run standup-bot agent |
+| "What should I work on?" / "What's next?" | Read sprint backlog + MEMORY.md, recommend top story |
+| "We're done" / "That's working" / story criteria all met | Run QA agent on the story, then guard-checker |
+| "End of sprint" / "Sprint review" | Run retro-bot agent |
+| Fix chain detected (3+ fix: commits on same topic) | Flag it, offer to create a root-cause story |
+
+### Definition of Done (every story)
+
+- [ ] All acceptance criteria checked off
+- [ ] `qa-engineer` agent run (vitest + promptfoo evals if applicable)
+- [ ] `guard-checker` agent run (all 13 guards)
+- [ ] `/check` passes (tsc + lint + tests)
+- [ ] Issue closed on GitHub
+
+---
+
 ## ⚠️ MANDATORY: Use qmd and hf-graph — NOT grep, NOT glob
 
 **This is non-negotiable. Before searching, reading, or navigating any code in this repo:**
@@ -174,149 +224,38 @@ If servers fail:
 
 ## Libraries First (MANDATORY)
 
-**Before writing utility code, search npm for a battle-tested package.** Hand-rolled parsing, retry logic, formatting, and validation are bugs waiting to happen. A maintained library with thousands of dependents is always preferable to 50 lines of custom code.
-
-| Pattern | Use this | NOT hand-rolled |
-|---------|----------|-----------------|
-| JSON repair (LLM output) | `jsonrepair` | Custom regex repair cascades |
-| Retry with backoff | `p-retry` | Manual for-loop + sleep |
-| Concurrency limiting | `p-limit` | Custom queue/semaphore |
-| Slug generation | `slugify` | Custom regex replace chains |
-| Duration formatting | `ms` / `pretty-ms` | Manual ms-to-string |
-| CSV parsing | `papaparse` | Custom split/regex |
-| Fuzzy search | `fuse.js` / `fuzzysort` | Custom Levenshtein |
-| Cron parsing | `croner` | Custom cron regex |
-
-**Workflow:** (1) Identify the pattern, (2) `npm search` or ask for a library, (3) check weekly downloads + maintenance, (4) install and use. If no good library exists, write custom code with a `// No suitable npm package as of YYYY-MM` comment.
+Search npm before hand-rolling. Key packages: `jsonrepair`, `p-retry`, `p-limit`, `slugify`, `papaparse`, `fuse.js`, `croner`. If none fits, add `// No suitable npm package as of YYYY-MM`. Full table in `dev-principles-SKILL.md`.
 
 ---
 
-## Plan Mode: Intent-First Design (MANDATORY)
+## Plans: Intent-First Design (MANDATORY)
 
-**Every plan must think deeply about user-intent across three lifecycle phases.** Do not jump to implementation. First, understand who interacts with this feature and what they need at each phase.
+Every plan must address all three lifecycle phases: **Setup** (first-time config), **Maintenance** (edit/monitor over time), **Runtime** (end-user moment-to-moment). UI-touching plans MUST include ASCII mockups — draw it, don't describe it.
 
-### The 3 Phases
-
-| Phase | Question to answer | What to surface |
-|-------|-------------------|-----------------|
-| **Setup** | How does this get configured the first time? Who does it? What decisions do they face? | First-run experience, defaults, wizard vs manual, what happens if they skip steps |
-| **Maintenance** | How does an admin/educator revisit, edit, monitor, or troubleshoot this over time? | Edit flows, status indicators, error recovery, bulk operations, "what changed?" audit |
-| **Runtime Usage** | What does the end-user (educator, student, caller) actually see and do? What's the moment-to-moment experience? | Live interactions, feedback loops, empty states, success states, edge cases |
-
-### UX Sketching (MANDATORY for UI-touching plans)
-
-**Every plan that adds or changes UI MUST include ASCII mockups.** Sketch all surfaces the user will see:
-
-- Page layout (header, content zones, sidebar interactions)
-- Key states: empty, loading, populated, error, success
-- Interactive elements: what's clickable, what opens, what navigates where
-- Mobile/responsive considerations if applicable
-
-Format:
-```
-┌─────────────────────────────────┐
-│ Page Title              [Action]│
-├─────────────────────────────────┤
-│ ┌───────┐ ┌───────┐ ┌───────┐  │
-│ │ Card  │ │ Card  │ │ Card  │  │
-│ │       │ │       │ │ Empty │  │
-│ └───────┘ └───────┘ └───────┘  │
-│                                 │
-│ [+ Add New]                     │
-└─────────────────────────────────┘
-```
-
-Do not describe UX in paragraphs — **draw it**. A 10-line ASCII sketch communicates more than 100 words of description.
-
-### Intent Checklist (scan before finalising plan)
-
-- [ ] **Who** — identified every user role that touches this feature
-- [ ] **Setup path** — first-time experience is explicit, not assumed
-- [ ] **Maintenance path** — editing/updating is as easy as creating
-- [ ] **Runtime path** — end-user experience is sketched moment-by-moment
-- [ ] **Edges** — empty states, error states, permission boundaries, what happens when data is missing
-- [ ] **Navigation** — how the user gets here (sidebar? link? wizard step?) and where they go next
+Run `plan-reviewer` agent before presenting a plan for approval. It checks phases, mockups, and the intent checklist.
 
 ---
 
-## Plan Guards (MANDATORY — Every Coding Plan)
+## Plan Guards (MANDATORY)
 
-**Before writing any code** (pre-plan) AND **before declaring done** (post-plan), walk through every guard below. Flag violations explicitly. Do not skip guards because "it's a small change."
+Run `guard-checker` agent:
+- **Pre-plan:** guards 1-6, 10-11 (architectural — catch mistakes early)
+- **Post-plan / pre-commit:** all 13 guards
 
-### The 13 Guards
-
-| # | Guard | PRE-PLAN check | POST-PLAN check |
-|---|-------|----------------|-----------------|
-| 1 | **Dead-ends** | Will every computed value surface in UI or API? Trace the data path. | Trace every new value from creation → storage → retrieval → display. If it dead-ends, flag it. |
-| 2 | **Forever spinners** | Does the plan include loading, error, AND empty states for every async op? | Every `useState` loading flag, every `useTaskPoll`, every fetch has: timeout, error fallback, empty state. No unbounded waits. |
-| 3 | **API dead ends** | Every planned API route has at least one caller. Every planned fetch targets an existing route. | Verify: new routes are called somewhere. New fetch calls target routes that exist. No orphan endpoints. |
-| 4 | **Routes good** | Every new `route.ts` has `requireAuth()` or is documented as public/webhook-secret. | Check every new/modified `route.ts` — auth present, correct role level, correct HTTP methods. |
-| 5 | **Escape routes** | Can the user cancel, go back, or dismiss every new modal/wizard/dialog/loading state? | Every modal has close/X. Every wizard has back + cancel. Every loading state has abort or timeout. User is never trapped. |
-| 6 | **Gold UI** | Plan uses `hf-*` CSS classes, not inline styles. Colors reference CSS vars. | No new inline `style={{}}` for anything with a CSS class. No hardcoded hex. `FieldHint` on wizard intent fields. |
-| 7 | **Missing await** | — | Every async call (`ContractRegistry`, `prisma`, `fetch`, DB queries) has `await`. |
-| 8 | **Hardcoded slugs** | — | No string literals for spec slugs — all through `config.specs.*`. |
-| 9 | **TDZ shadows** | — | No `const config = ...` when `config` is imported. Use `specConfig` or another name. |
-| 10 | **Pipeline integrity** | Does the change affect data flow through the adaptive loop? If yes, plan accounts for all stages (EXTRACT → AGGREGATE → REWARD → ADAPT → COMPOSE). | New data flows through the complete loop. No stage skipped. |
-| 11 | **Seed / Migration** | Does the plan need schema changes? Flag `/vm-cpp` requirement early. New enum values, new models, new fields = migration. | Migration created if needed. Seed scripts updated if new reference data. State which deploy command is needed. |
-| 12 | **API docs** | — | If any `route.ts` was created or modified, `@api` JSDoc annotations are updated. Note to run generator. |
-| 13 | **Orphan cleanup** | — | No unused imports, dead components, orphan CSS classes, or leftover code from removed features. |
-
-### How to apply
-
-- **Pre-plan:** After designing the plan but before writing code, scan guards 1-6 and 10-11. These catch architectural mistakes that are expensive to fix later.
-- **Post-plan:** After all code is written, scan ALL 13 guards. Report findings as a checklist with pass/flag status.
-- **Format:** End every completed plan with a guard report:
-  ```
-  ## Plan Guards
-  1. Dead-ends: PASS — all values surface in [component]
-  2. Forever spinners: PASS — loading/error/empty states in [files]
-  ...
-  13. Orphan cleanup: PASS — no dead imports
-  ```
+Guard definitions in `.claude/agents/guard-checker.md`. Always end a completed story with a guard report.
 
 ---
 
 ## UI Design System (Zero Tolerance)
 
-No inline `style={{}}` for anything that has a CSS class. No hardcoded hex. No one-off styling.
+No inline `style={{}}` for static properties. No hardcoded hex. No one-off styling.
 
-### Admin Pages (`/x/**`) — `hf-*` classes
+- **Admin** (`/x/**`): `hf-*` classes — `hf-card`, `hf-btn`, `hf-input`, `hf-banner`, `hf-spinner`, `hf-glow-active`, etc.
+- **Auth** (`/login/**`): `login-*` classes
+- **Spinner vs Glow**: `hf-spinner` = blocking (user must wait). `hf-glow-active` = background (user can continue). Never mix on same element.
+- **FieldHint**: Every wizard intent field MUST have `<FieldHint>`. Data in `lib/wizard-hints.ts`.
 
-- Page titles: `hf-page-title` | Subtitles: `hf-page-subtitle`
-- Cards: `hf-card` (radius 16, padding 24) | `hf-card-compact`
-- Inputs: `hf-input` | Buttons: `hf-btn` + `hf-btn-primary` / `hf-btn-secondary` / `hf-btn-destructive`
-- Banners: `hf-banner` + `hf-banner-info` / `hf-banner-warning` / `hf-banner-success` / `hf-banner-error`
-- Full list: `hf-page-title`, `hf-page-subtitle`, `hf-card`, `hf-card-compact`, `hf-section-title`, `hf-section-desc`, `hf-info-footer`, `hf-icon-box`, `hf-icon-box-lg`, `hf-label`, `hf-input`, `hf-btn`, `hf-spinner`, `hf-empty`, `hf-list-row`, `hf-banner`, `hf-category-label`
-- **FieldHint popovers (MANDATORY)**: Every wizard intent field MUST use `<FieldHint>` with Why/Effect/Examples content. Hint data in `lib/wizard-hints.ts`. CSS: `hf-field-hint-*` classes in `globals.css`. Component: `components/shared/FieldHint.tsx`.
-- **Spinner vs Glow (MANDATORY)**: Two distinct async indicators — never mix them on the same element.
-  - `hf-spinner` = **Blocking** — user must wait, cannot advance. Used for: generation, course setup, institution creation, button loading states.
-  - `hf-glow-active` = **Background** — work is happening but user can continue. Used for: enrichment, extraction, background jobs, active source rows.
-  - **NEVER apply `hf-glow-active` to a blocking state.** If the user can't advance or interact, use `hf-spinner` only.
-  - Gold reference: `CommunityDoneStep.tsx` (blocking = spinner only), `ContentSourcesLibrary.tsx` (background = glow).
-
-### Auth Pages (`/login/**`) — `login-*` classes
-
-Dark navy/gold theme. Classes: `login-bg`, `login-card`, `login-form-card`, `login-input`, `login-label`, `login-btn`, `login-btn-secondary`, `login-error`, `login-text`, `login-icon-circle`, `login-footer`, `login-logo`
-
-### Color Map (hex → CSS var)
-
-| Hex | CSS Variable |
-|-----|-------------|
-| `#6b7280`, `#9ca3af` | `var(--text-muted)` |
-| `#374151`, `#1f2937` | `var(--text-primary)` |
-| `#f3f4f6`, `#f9fafb` | `var(--surface-secondary)` |
-| `#e5e7eb`, `#d1d5db` | `var(--border-default)` |
-| `#fff` | `var(--surface-primary)` |
-| `#2563eb`, `#3b82f6` | `var(--accent-primary)` |
-| `#ef4444`, `#dc2626` | `var(--status-error-text)` |
-| `#10b981`, `#22c55e` | `var(--status-success-text)` |
-| `#F5B856` | `var(--login-gold)` |
-| `#1F1B4A` | `var(--login-navy)` |
-| `#9FB5ED` | `var(--login-blue)` |
-
-**Gold reference files:**
-- Admin: `app/x/settings/settingsclient.tsx` + `app/x/account/page.tsx`
-- Auth: `app/login/page.tsx` + `app/login/layout.tsx`
+Full class list + color map in `hf-nextjs-patterns-SKILL.md`. Run `ui-reviewer` agent after any UI changes.
 
 ---
 

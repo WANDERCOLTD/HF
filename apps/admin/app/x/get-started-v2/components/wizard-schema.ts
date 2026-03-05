@@ -190,6 +190,7 @@ export const WIZARD_FIELDS: WizardFieldDef[] = [
   // Tune
   { key: "behaviorTargets", label: "Personality", required: false, group: "tune" },
   { key: "lessonPlanModel", label: "Lesson plan model", required: false, group: "tune", skipForCommunity: true },
+  { key: "physicalMaterials", label: "Physical materials", required: false, group: "course", skipForCommunity: true },
 ];
 
 // ── Scaffold panel step mapping ─────────────────────────
@@ -214,7 +215,7 @@ export interface WizardPhase {
 export const WIZARD_PHASES: WizardPhase[] = [
   { id: "institution", label: "Organisation", fields: ["institutionName", "typeSlug", "websiteUrl"] },
   { id: "subject", label: "Subject", fields: ["subjectDiscipline"] },
-  { id: "course", label: "Course", fields: ["courseName", "interactionPattern", "teachingMode"] },
+  { id: "course", label: "Course", fields: ["courseName", "interactionPattern", "teachingMode", "physicalMaterials"] },
   { id: "content", label: "Content", fields: [] },
   { id: "welcome", label: "Welcome", fields: ["welcomeMessage", "sessionCount", "durationMins", "planEmphasis"] },
   { id: "tune", label: "Fine-Tune", fields: ["behaviorTargets", "lessonPlanModel"] },

@@ -77,6 +77,7 @@ export interface PlaybookConfig {
   systemSpecToggles?: Record<string, { isEnabled: boolean }>;
   goals?: Array<Record<string, any>>;
   onboardingFlowPhases?: OnboardingFlowPhases;
+  physicalMaterials?: string;
   [key: string]: any;
 }
 

@@ -1,0 +1,235 @@
+description: "Wizard V3 — core behavioural rules eval"
+
+# Run with: npx promptfoo eval -c evals/wizard/v3-core-rules.yaml
+# View:      npx promptfoo view
+
+prompts:
+  - id: v3-wizard
+    label: "V3 buildGraphSystemPrompt"
+    # Representative static snapshot of the V3 prompt.
+    # The real prompt is dynamic (graph status injected) — this tests the
+    # static rules that should hold regardless of graph state.
+    raw: |
+      You are the Human Fluency setup guide — a knowledgeable assistant helping an educator set up their AI tutor.
+
+      ## Your personality
+      - Warm, professional, concise — 1-2 sentences per response, max
+      - You're a colleague helping with setup, not a form
+      - NEVER ask "What's next?" or "What would you like to do?"
+      - NEVER just say "Got it" or "Saved" with nothing about what comes next.
+
+      ## CRITICAL RULES
+      0. OPTION VALUES ARE SACROSANCT. Use ONLY exact values from the valid options list.
+      1. Call EXACTLY ONE show_* tool per response. NEVER call multiple show_* tools.
+         EXCEPTION: show_suggestions can be combined with text.
+      2. ALWAYS call update_setup when you learn new information — extract ALL fields at once.
+      3. Follow graph field order.
+      8. ALWAYS include natural-language text alongside tool calls. NEVER respond with only tools.
+
+      ## Subject vs Course (CRITICAL)
+      Subject = broad discipline (subjectDiscipline): "English Language", "Biology"
+      Course = specific offering (courseName): "GCSE Biology", "11+ Creative Comprehension"
+      NEVER put subject name into courseName. These are different fields.
+
+      ## Valid teaching approaches (interactionPattern)
+      - socratic: Question-based discovery
+      - directive: Structured step-by-step explanations
+      - coaching: Reflective dialogue
+      - advisory: Guidance when asked
+
+      ## Current wizard state
+      Already collected: nothing yet.
+      What to ask next: institutionName (ASK THIS NEXT)
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 600
+      tools:
+        - name: update_setup
+          description: "Save collected setup fields"
+          input_schema:
+            type: object
+            properties:
+              institutionName: { type: string }
+              courseName: { type: string }
+              subjectDiscipline: { type: string }
+              interactionPattern: { type: string }
+              durationMins: { type: number }
+              sessionCount: { type: number }
+              teachingMode: { type: string }
+            additionalProperties: true
+        - name: show_options
+          description: "Render a predefined choice panel"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              options:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    value: { type: string }
+                    label: { type: string }
+                    recommended: { type: boolean }
+        - name: show_suggestions
+          description: "Render quick-reply chips"
+          input_schema:
+            type: object
+            properties:
+              suggestions: { type: array, items: { type: string } }
+        - name: show_sliders
+          description: "Render personality sliders"
+          input_schema:
+            type: object
+        - name: show_actions
+          description: "Render action buttons"
+          input_schema:
+            type: object
+        - name: show_upload
+          description: "Render file upload panel"
+          input_schema:
+            type: object
+        - name: create_institution
+          description: "Create a new institution"
+          input_schema:
+            type: object
+            properties:
+              name: { type: string }
+              typeSlug: { type: string }
+
+tests:
+
+  # ── RULE 1: Exactly one show_* per response ──────────────────────────────
+
+  - description: "R1: Single show_* — multi-field message only triggers one panel"
+    vars:
+      userMessage: "I need a maths course for GCSE students, socratic approach, 30 minute sessions"
+    assert:
+      - type: javascript
+        value: |
+          const showTools = ['show_options','show_sliders','show_upload','show_actions','show_suggestions'];
+          const calls = (output.tool_calls || []).filter(t => showTools.includes(t.name));
+          if (calls.length > 1) {
+            const names = calls.map(t => t.name).join(', ');
+            return { pass: false, reason: `Called ${calls.length} show_* tools: ${names}` };
+          }
+          return true;
+
+  # ── RULE 2: Multi-field extraction ───────────────────────────────────────
+
+  - description: "R2: Extracts all fields from a multi-field message in one update_setup call"
+    vars:
+      userMessage: "maths, socratic, 30 min sessions"
+    assert:
+      - type: javascript
+        value: |
+          const update = (output.tool_calls || []).find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, reason: 'No update_setup call at all' };
+          const args = update.args || {};
+          const missing = [];
+          if (!args.subjectDiscipline && !args.courseName) missing.push('subject/course');
+          if (!args.interactionPattern) missing.push('interactionPattern');
+          if (!args.durationMins) missing.push('durationMins');
+          if (missing.length) return { pass: false, reason: `Missing fields: ${missing.join(', ')}` };
+          return true;
+
+  # ── SUBJECT ≠ COURSE ─────────────────────────────────────────────────────
+
+  - description: "SUBJECT: 'English language course needed' — saves as subjectDiscipline, NOT courseName"
+    vars:
+      userMessage: "English language course needed"
+    assert:
+      - type: javascript
+        value: |
+          const update = (output.tool_calls || []).find(t => t.name === 'update_setup');
+          if (!update) return true; // no update call yet is acceptable
+          const args = update.args || {};
+          if (args.courseName === 'English Language' || args.courseName === 'English language') {
+            return { pass: false, reason: `Put subject discipline into courseName: "${args.courseName}"` };
+          }
+          return true;
+      - type: llm-rubric
+        value: "Recognises 'English Language' as the subject/discipline (subjectDiscipline), NOT the course name. Asks for the specific course name separately."
+
+  - description: "SUBJECT: Never combines subject and course into one question"
+    vars:
+      userMessage: "Biology"
+    assert:
+      - type: llm-rubric
+        value: "Does NOT ask 'What is the course name?' and 'What is the subject?' in the same message. Treats Biology as the subject and asks separately for the specific course offering."
+
+  # ── BANNED PHRASES ───────────────────────────────────────────────────────
+
+  - description: "BAN: Never says 'What's next?'"
+    vars:
+      userMessage: "Riverside Academy"
+    assert:
+      - type: not-icontains
+        value: "what's next"
+      - type: not-icontains
+        value: "what would you like to do"
+      - type: not-icontains
+        value: "what would you like"
+
+  - description: "BAN: Never says bare 'Got it' or 'Saved' with no follow-up"
+    vars:
+      userMessage: "The school is Greenwood Primary"
+    assert:
+      - type: llm-rubric
+        value: "After acknowledging the institution name, the response names the next field explicitly and explains why it matters. Does NOT end with just 'Got it' or 'Saved' with no further context."
+
+  # ── RULE 8: Always includes text alongside tools ──────────────────────────
+
+  - description: "R8: Response always includes natural language text, never tools-only"
+    vars:
+      userMessage: "Greenwood Academy, secondary school, English Literature GCSE"
+    assert:
+      - type: javascript
+        value: |
+          const text = (output.text || '').trim();
+          if (!text || text.length < 15) {
+            return { pass: false, reason: `Response has no/minimal text: "${text}"` };
+          }
+          return true;
+
+  # ── TRANSITIONS ──────────────────────────────────────────────────────────
+
+  - description: "TRANSITION: Names the next field after saving institution"
+    vars:
+      userMessage: "Riverside Academy"
+    assert:
+      - type: llm-rubric
+        value: "After saving the institution name, the response clearly states what will be asked next (e.g., subject, course name, teaching approach) and briefly explains why that field matters. It does not just confirm the save."
+
+  # ── OPTION VALUE INTEGRITY ───────────────────────────────────────────────
+
+  - description: "R0: show_options only uses valid interactionPattern values"
+    vars:
+      userMessage: "What teaching approaches are available?"
+    assert:
+      - type: javascript
+        value: |
+          const opts = (output.tool_calls || []).find(t => t.name === 'show_options');
+          if (!opts) return true; // may answer in text instead
+          const valid = ['socratic','directive','coaching','advisory','companion','facilitation','reflective','open'];
+          const values = (opts.args?.options || []).map(o => o.value);
+          const invalid = values.filter(v => !valid.includes(v));
+          if (invalid.length) return { pass: false, reason: `Invalid option values: ${invalid.join(', ')}` };
+          return true;
+
+  # ── MULTI-TURN: Complete flow ─────────────────────────────────────────────
+
+  - description: "FLOW: Institution → saves ID, moves to next field"
+    vars:
+      userMessage: "It's for Greenwood Academy"
+    assert:
+      - type: javascript
+        value: |
+          const update = (output.tool_calls || []).find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, reason: 'No update_setup call' };
+          if (!update.args?.institutionName) return { pass: false, reason: 'institutionName not saved' };
+          return true;
+      - type: not-icontains
+        value: "what's your institution"
