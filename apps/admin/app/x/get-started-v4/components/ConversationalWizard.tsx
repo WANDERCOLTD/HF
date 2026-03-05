@@ -60,6 +60,8 @@ interface Message {
   optionsPanel?: OptionsPanel;
   /** True after the user has resolved an options card — hides it from render */
   resolved?: boolean;
+  /** Extended thinking text from Claude, shown as collapsible block */
+  thinking?: string;
 }
 
 /** Map scaffold item keys to human-readable review phrases */
@@ -81,6 +83,24 @@ interface WizardToolCall {
 interface WizardResponse {
   content: string;
   toolCalls: WizardToolCall[];
+  thinkingContent?: string;
+}
+
+// ── Thinking ─────────────────────────────────────────────
+
+const WIZARD_THINKING_KEY = "wizard.thinking-enabled";
+
+function ThinkingBlock({ content }: { content: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="cv4-thinking">
+      <button className="cv4-thinking-toggle" onClick={() => setOpen((o) => !o)}>
+        <span className="cv4-thinking-icon">{open ? "▼" : "▶"}</span>
+        Reasoning
+      </button>
+      {open && <div className="cv4-thinking-body">{content}</div>}
+    </div>
+  );
 }
 
 // ── Step definitions ─────────────────────────────────────
@@ -190,10 +210,16 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
           .filter((m) => m.role !== "system")
           .map((m) => ({ role: m.role, content: m.content }));
 
+        const thinkingEnabled =
+          typeof window !== "undefined"
+            ? localStorage.getItem(WIZARD_THINKING_KEY) !== "false"
+            : true;
+
         const setupData = {
           ...getSetupData(),
           ...(overrides || {}),
           _wizardVersion: "v4",
+          _wizardThinkingEnabled: thinkingEnabled,
         };
 
         const res = await fetch("/api/chat", {
@@ -378,7 +404,12 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
 
       let finalMessages = [...newMessages, ...filteredExtras];
       if (response.content) {
-        finalMessages = [...finalMessages, { id: uid(), role: "assistant", content: response.content }];
+        finalMessages = [...finalMessages, {
+          id: uid(),
+          role: "assistant" as const,
+          content: response.content,
+          ...(response.thinkingContent ? { thinking: response.thinkingContent } : {}),
+        }];
       }
       finalMessages = [...finalMessages, ...contentExtras];
 
@@ -593,6 +624,7 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
 
             return (
               <div key={msg.id} className={`cv4-row cv4-row--${msg.role}`}>
+                {msg.thinking && <ThinkingBlock content={msg.thinking} />}
                 <div className={`cv4-bubble cv4-bubble--${msg.role}`}>
                   {msg.content}
                 </div>

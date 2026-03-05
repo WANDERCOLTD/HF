@@ -134,6 +134,51 @@
   max-width: 90%;
 }
 
+/* ── Extended thinking block ──────────────────────────── */
+
+.cv4-thinking {
+  width: 100%;
+  margin-bottom: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 60%, transparent);
+  overflow: hidden;
+  animation: cv4-fadein 0.2s ease;
+}
+
+.cv4-thinking-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.cv4-thinking-toggle:hover {
+  color: var(--text-primary);
+}
+
+.cv4-thinking-icon {
+  font-size: 9px;
+  opacity: 0.6;
+}
+
+.cv4-thinking-body {
+  padding: 10px 14px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  border-top: 1px solid var(--border-subtle);
+}
+
 /* ── Typing dots ──────────────────────────────────────── */
 
 .cv4-typing {

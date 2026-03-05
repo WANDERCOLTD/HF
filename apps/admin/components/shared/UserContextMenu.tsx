@@ -16,6 +16,7 @@ import {
   Loader2,
   Bug,
   Radio,
+  Brain,
   GraduationCap,
   BookOpen,
   Building2,
@@ -57,6 +58,7 @@ const ROLE_LEVEL: Record<string, number> = {
 };
 
 const BUG_REPORTER_KEY = "ui.bugReporter";
+const WIZARD_THINKING_KEY = "wizard.thinking-enabled";
 
 export function UserContextMenu({
   isOpen,
@@ -94,6 +96,13 @@ export function UserContextMenu({
     if (stored !== null) setBugReporterEnabled(stored !== "false");
   }, []);
 
+  // Wizard thinking toggle (localStorage)
+  const [wizardThinkingEnabled, setWizardThinkingEnabled] = useState(true);
+  useEffect(() => {
+    const stored = localStorage.getItem(WIZARD_THINKING_KEY);
+    if (stored !== null) setWizardThinkingEnabled(stored !== "false");
+  }, []);
+
   // Deep logging toggle (server-side, ADMIN+ only — fetch on menu open)
   const [deepLogging, setDeepLogging] = useState(false);
   useEffect(() => {
@@ -112,6 +121,15 @@ export function UserContextMenu({
       new StorageEvent("storage", { key: BUG_REPORTER_KEY, newValue: String(next) })
     );
   }, [bugReporterEnabled]);
+
+  const handleToggleWizardThinking = useCallback(() => {
+    const next = !wizardThinkingEnabled;
+    setWizardThinkingEnabled(next);
+    localStorage.setItem(WIZARD_THINKING_KEY, String(next));
+    window.dispatchEvent(
+      new StorageEvent("storage", { key: WIZARD_THINKING_KEY, newValue: String(next) })
+    );
+  }, [wizardThinkingEnabled]);
 
   const handleToggleDeepLogging = useCallback(async () => {
     const newValue = !deepLogging;
@@ -587,6 +605,30 @@ export function UserContextMenu({
                   className="hf-toggle-mini"
                   onClick={handleToggleBugReporter}
                   title={bugReporterEnabled ? "Bug reporter is ON" : "Bug reporter is OFF"}
+                >
+                  <div className="hf-toggle-mini-knob" />
+                </button>
+              </div>
+
+              {/* Wizard Reasoning */}
+              <div
+                className="flex items-center justify-between px-3 py-2 rounded-lg"
+                style={{ color: "var(--text-primary)" }}
+              >
+                <span className="flex items-center gap-3 text-sm">
+                  <Brain
+                    className="w-[18px] h-[18px] flex-shrink-0"
+                    style={{ color: "var(--text-secondary)" }}
+                  />
+                  Show Reasoning
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={wizardThinkingEnabled}
+                  className="hf-toggle-mini"
+                  onClick={handleToggleWizardThinking}
+                  title={wizardThinkingEnabled ? "Reasoning display ON" : "Reasoning display OFF"}
                 >
                   <div className="hf-toggle-mini-knob" />
                 </button>

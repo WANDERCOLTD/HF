@@ -18,6 +18,7 @@ export type AIEngine = "mock" | "claude" | "openai";
 // Content block types for tool calling (Anthropic SDK format)
 export type ContentBlock =
   | { type: "text"; text: string }
+  | { type: "thinking"; thinking: string }
   | { type: "tool_use"; id: string; name: string; input: Record<string, any> }
   | { type: "tool_result"; tool_use_id: string; content: string };
 
@@ -55,6 +56,8 @@ export interface AICompletionOptions {
   tools?: AITool[];
   /** Optional: timeout in milliseconds (default: 30000) */
   timeoutMs?: number;
+  /** Enable extended thinking. Budget 1024–16000 tokens. Forces temperature=1. */
+  thinkingBudgetTokens?: number;
 }
 
 export interface AICompletionResult {
@@ -71,6 +74,8 @@ export interface AICompletionResult {
   toolUses?: AIToolUse[];
   /** Raw content blocks from the response (for feeding back into tool loop) */
   rawContentBlocks?: ContentBlock[];
+  /** Concatenated thinking text when extended thinking was enabled */
+  thinkingContent?: string;
 }
 
 /** Extract string content from an AIMessage (handles both string and content block formats) */
@@ -113,11 +118,11 @@ function getOpenAIClient(): OpenAI {
  * Get AI completion from the specified engine
  */
 export async function getAICompletion(options: AICompletionOptions): Promise<AICompletionResult> {
-  const { engine, messages, maxTokens = config.ai.defaults.maxTokens, temperature = config.ai.defaults.temperature, model, tools, timeoutMs = 30000 } = options;
+  const { engine, messages, maxTokens = config.ai.defaults.maxTokens, temperature = config.ai.defaults.temperature, model, tools, timeoutMs = 30000, thinkingBudgetTokens } = options;
 
   switch (engine) {
     case "claude":
-      return callClaude(messages, maxTokens, temperature, model, tools, timeoutMs);
+      return callClaude(messages, maxTokens, temperature, model, tools, timeoutMs, thinkingBudgetTokens);
 
     case "openai":
       return callOpenAI(messages, maxTokens, temperature, model, timeoutMs);
@@ -135,6 +140,7 @@ async function callClaude(
   model?: string,
   tools?: AITool[],
   timeoutMs: number = 30000,
+  thinkingBudgetTokens?: number,
 ): Promise<AICompletionResult> {
   const client = getAnthropicClient();
 
@@ -160,6 +166,10 @@ async function callClaude(
   if (tools && tools.length > 0) {
     createParams.tools = tools;
   }
+  if (thinkingBudgetTokens) {
+    createParams.thinking = { type: "enabled", budget_tokens: thinkingBudgetTokens };
+    createParams.temperature = 1; // Required when thinking is enabled
+  }
 
   // Add timeout support with AbortController
   const controller = new AbortController();
@@ -175,6 +185,12 @@ async function callClaude(
     const textBlocks = response.content.filter((c: any) => c.type === "text");
     const textContent = textBlocks.map((c: any) => c.text).join("\n");
 
+    // Extract thinking blocks
+    const thinkingBlocks = response.content.filter((c: any) => c.type === "thinking");
+    const thinkingContent = thinkingBlocks.length > 0
+      ? thinkingBlocks.map((c: any) => c.thinking).join("\n\n")
+      : undefined;
+
     // Extract tool_use blocks
     const toolUseBlocks = response.content.filter((c: any) => c.type === "tool_use");
     const toolUses: AIToolUse[] = toolUseBlocks.map((c: any) => ({
@@ -183,9 +199,11 @@ async function callClaude(
       input: c.input,
     }));
 
-    // Build raw content blocks for feeding back into tool loop
+    // Build raw content blocks for feeding back into tool loop.
+    // Thinking blocks must be preserved so multi-turn tool loops pass them back correctly.
     const rawContentBlocks: ContentBlock[] = response.content.map((c: any) => {
       if (c.type === "text") return { type: "text" as const, text: c.text };
+      if (c.type === "thinking") return { type: "thinking" as const, thinking: c.thinking };
       if (c.type === "tool_use") return { type: "tool_use" as const, id: c.id, name: c.name, input: c.input };
       return { type: "text" as const, text: "" };
     });
@@ -200,7 +218,8 @@ async function callClaude(
       },
       stopReason: response.stop_reason as AICompletionResult["stopReason"],
       toolUses: toolUses.length > 0 ? toolUses : undefined,
-      rawContentBlocks: toolUses.length > 0 ? rawContentBlocks : undefined,
+      rawContentBlocks: rawContentBlocks.length > 0 ? rawContentBlocks : undefined,
+      thinkingContent,
     };
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
@@ -586,6 +605,8 @@ export interface ConfiguredAIOptions {
   tools?: AITool[];
   /** Optional: timeout in milliseconds (default: 30000) */
   timeoutMs?: number;
+  /** Enable extended thinking. Budget 1024–16000 tokens. Forces temperature=1. */
+  thinkingBudgetTokens?: number;
   /** Optional: number of retries for transient errors (default: 2) */
   maxRetries?: number;
 }
@@ -601,7 +622,7 @@ export interface ConfiguredAIOptions {
 export async function getConfiguredAICompletion(
   options: ConfiguredAIOptions
 ): Promise<AICompletionResult> {
-  const { callPoint, messages, maxTokens, temperature, engineOverride, tools, timeoutMs } = options;
+  const { callPoint, messages, maxTokens, temperature, engineOverride, tools, timeoutMs, thinkingBudgetTokens } = options;
 
   // Load config from database
   const aiConfig = await getAIConfig(callPoint);
@@ -624,6 +645,7 @@ export async function getConfiguredAICompletion(
     model,
     tools,
     timeoutMs: finalTimeoutMs,
+    thinkingBudgetTokens,
   });
 }
 

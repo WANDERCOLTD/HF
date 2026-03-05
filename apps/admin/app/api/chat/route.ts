@@ -485,6 +485,27 @@ async function handleCallModeWithTools(
   });
 }
 
+/**
+ * Classify a wizard turn as "complex" — enabling extended thinking on those turns only.
+ * Complex = long message (multi-field), early conversation with multiple missing core fields,
+ * or amendment/correction language.
+ */
+function detectComplexWizardTurn(
+  message: string,
+  setupData: Record<string, unknown>,
+): boolean {
+  const words = message.trim().split(/\s+/);
+  // Long message: likely multi-field or nuanced intent
+  if (words.length > 35) return true;
+  // Amendment/correction language
+  if (/\b(review|change|different|actually|wrong|meant|instead|update)\b/i.test(message)) return true;
+  // Early conversation, multiple core fields still missing, but message has substance
+  const coreFields = ["institutionName", "subjectDiscipline", "courseName"];
+  const missingCore = coreFields.filter((f) => !setupData[f]).length;
+  if (missingCore >= 2 && words.length > 12) return true;
+  return false;
+}
+
 /** Contextual fallback when the AI tool loop ends without producing text.
  *  Phase-aware: includes a continuation prompt about the next field when possible. */
 function buildWizardFallback(
@@ -603,6 +624,12 @@ async function handleWizardModeWithTools(
   const mergedSetupData: Record<string, unknown> = { ...(setupData ?? {}) };
   let hasShowTool = false;
 
+  // Extended thinking: only on complex turns, only first iteration
+  const thinkingAllowed = setupData?._wizardThinkingEnabled !== false;
+  const useThinking = thinkingAllowed && detectComplexWizardTurn(message, mergedSetupData);
+  const thinkingBudget = useThinking ? 8000 : undefined;
+  let thinkingContent: string | undefined;
+
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     // @ai-call wizard.get-started — Non-streaming with wizard tools | config: /x/ai-config
     const response = await getConfiguredMeteredAICompletion(
@@ -611,9 +638,14 @@ async function handleWizardModeWithTools(
         engineOverride: engine,
         messages: loopMessages,
         tools,
+        // Only enable thinking on the first call — subsequent tool-loop iterations don't need it
+        ...(i === 0 && thinkingBudget ? { thinkingBudgetTokens: thinkingBudget } : {}),
       },
       { sourceOp: `${callPoint}.tools`, userId }
     );
+
+    // Capture thinking from first call only
+    if (i === 0 && response.thinkingContent) thinkingContent = response.thinkingContent;
 
     // If no tool calls, we're done
     if (!response.toolUses || response.toolUses.length === 0) {
@@ -817,6 +849,7 @@ async function handleWizardModeWithTools(
     content: finalContent,
     toolCalls: allToolCalls,
     toolCallCount,
+    ...(thinkingContent ? { thinkingContent } : {}),
   };
 
   return NextResponse.json(responsePayload, {
