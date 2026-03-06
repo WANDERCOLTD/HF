@@ -141,11 +141,19 @@ function MessageActions({ message, onSend, onPrefill, onFocusInput }: MessageAct
   const handleOpen = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    const menuHeight = 200;
-    const top = rect.bottom + 4 + menuHeight > window.innerHeight
+    const menuWidth = 200;
+    const menuHeight = 220;
+    // Prefer opening upward from the trigger (menu above the ···)
+    // Fall back to downward only if not enough space above
+    const spaceAbove = rect.top;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceAbove >= menuHeight + 4
       ? rect.top - menuHeight - 4
-      : rect.bottom + 4;
-    setPos({ top, left: Math.min(rect.left, window.innerWidth - 200) });
+      : spaceBelow >= menuHeight + 4
+        ? rect.bottom + 4
+        : Math.max(8, window.innerHeight - menuHeight - 8);
+    const left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8);
+    setPos({ top, left: Math.max(8, left) });
     setOpen(true);
     setFocusedIndex(-1);
   }, []);

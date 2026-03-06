@@ -1421,7 +1421,7 @@
 
 .cv4-msg-actions-trigger {
   position: absolute;
-  top: 6px;
+  bottom: 6px;
   right: 6px;
   display: flex;
   align-items: center;
@@ -1430,18 +1430,19 @@
   height: 28px;
   border: none;
   border-radius: 6px;
-  background: var(--surface-primary);
+  background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s, background 0.12s, color 0.12s;
+  opacity: 0.35;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
   z-index: 1;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .cv4-msg-actions-wrap:hover .cv4-msg-actions-trigger,
 .cv4-msg-actions-trigger[aria-expanded="true"] {
   opacity: 1;
+  background: var(--surface-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .cv4-msg-actions-trigger:hover {
@@ -1451,7 +1452,7 @@
 
 @media (hover: none) {
   .cv4-msg-actions-trigger {
-    opacity: 1;
+    opacity: 0.5;
   }
 }
 
