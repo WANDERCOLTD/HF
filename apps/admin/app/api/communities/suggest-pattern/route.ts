@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
         facilitation:"facilitation — help organise and coordinate",
         reflective:  "reflective — explore experiences, find meaning",
         open:        "open — follow wherever the caller leads",
+        "conversational-guide": "conversational-guide — guided 1:1 topic conversations",
       };
       return `- ${LABELS[p]}`;
     })

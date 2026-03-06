@@ -34,6 +34,7 @@ const COMMUNITY_PATTERN_LABELS: Record<InteractionPattern, string> = {
   reflective:   'Explore and reflect',
   open:         'Follow their lead',
   directive:    'Direct and instruct',
+  "conversational-guide": 'Guided topic conversations',
 };
 
 function PatternChips({

@@ -748,6 +748,20 @@ async function handleWizardModeWithTools(
             Object.assign(mergedSetupData, creationFields);
             // Auto-inject mark_complete so the success card reliably appears
             allToolCalls.push({ name: "mark_complete", input: {} });
+          } else if (data.ok && toolUse.name === "create_community") {
+            const creationFields = {
+              draftDomainId: data.domainId,
+              draftCohortGroupId: data.cohortGroupId,
+              communityJoinToken: data.joinToken,
+              communityHubUrl: data.hubUrl,
+              communityMode: data.communityMode,
+            };
+            allToolCalls.push({
+              name: "update_setup",
+              input: { fields: creationFields },
+            });
+            Object.assign(mergedSetupData, creationFields);
+            allToolCalls.push({ name: "mark_complete", input: {} });
           }
         } catch { /* non-JSON result — no injection needed */ }
       }

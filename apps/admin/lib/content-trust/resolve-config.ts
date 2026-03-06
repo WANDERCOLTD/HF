@@ -948,7 +948,8 @@ export const COMMUNICATION_STYLE_ORDER: CommunicationStyle[] = [
  */
 export type InteractionPattern =
   | "socratic" | "directive" | "advisory" | "coaching"
-  | "companion" | "facilitation" | "reflective" | "open";
+  | "companion" | "facilitation" | "reflective" | "open"
+  | "conversational-guide";
 
 export const INTERACTION_PATTERN_LABELS: Record<InteractionPattern, { label: string; icon: string; description: string; examples: string }> = {
   socratic:    { label: "Socratic",     icon: "🔍", description: "Question → reflect → discover",         examples: "Philosophy, critical thinking, Socratic seminars" },
@@ -959,11 +960,13 @@ export const INTERACTION_PATTERN_LABELS: Record<InteractionPattern, { label: str
   facilitation:{ label: "Facilitation", icon: "🗺️", description: "Coordinate → suggest → organise",      examples: "Groups, projects, decision-making, workshops" },
   reflective:  { label: "Reflective",   icon: "🪞", description: "Share → explore → meaning-making",     examples: "Journaling, supervision, personal development" },
   open:        { label: "Open",         icon: "✨", description: "Follow wherever the caller leads",       examples: "Creative, exploratory, research, open dialogue" },
+  "conversational-guide": { label: "Conversational Guide", icon: "💬", description: "Guided 1:1 topic conversations", examples: "Community hubs, book clubs, discussion groups, topic circles" },
 };
 
 export const INTERACTION_PATTERN_ORDER: InteractionPattern[] = [
   "socratic", "directive", "advisory", "coaching",
   "companion", "facilitation", "reflective", "open",
+  "conversational-guide",
 ];
 
 // ── Intent Pattern Overrides ──────────────────────────────────────────────────
@@ -1069,6 +1072,19 @@ The session follows wherever the caller leads — no fixed agenda. Extract broad
 - Anything that might be relevant to an unpredictable conversation
 Prioritise breadth over depth.`,
   },
+  "conversational-guide": {
+    intentPreamble: `INTERACTION PATTERN: CONVERSATIONAL GUIDE
+The session is a guided 1:1 conversation around topic areas. Prioritise:
+- Topic-relevant talking points and conversation starters
+- Key facts and context to keep conversation grounded
+- Open questions that invite exploration without instruction
+- Connections between topics the caller might find interesting
+No curriculum, no assessment, no homework. Extract content that fuels natural conversation.`,
+    supplementaryCategories: [
+      { id: "talking_point",        label: "Talking point",        description: "A point to bring up in natural conversation" },
+      { id: "conversation_starter", label: "Conversation starter", description: "An opening question or prompt for a topic" },
+    ],
+  },
 };
 
 /**
@@ -1150,6 +1166,12 @@ const PATTERN_KEYWORD_ENTRIES: Array<[string, InteractionPattern]> = [
   ["personal development", "reflective"],
   ["reflect",              "reflective"],
   ["journal",              "reflective"],
+  // conversational-guide (community hubs, topic groups)
+  ["book club",           "conversational-guide"],
+  ["discussion group",    "conversational-guide"],
+  ["community hub",       "conversational-guide"],
+  ["topic circle",        "conversational-guide"],
+  ["conversation group",  "conversational-guide"],
   // open — no keywords (manual fallback choice)
 ].sort((a, b) => b[0].length - a[0].length) as Array<[string, InteractionPattern]>;
 

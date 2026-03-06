@@ -24,7 +24,7 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
       "interactionPattern, teachingMode, welcomeMessage, sessionCount, durationMins, " +
       "planEmphasis, behaviorTargets, lessonPlanModel, existingInstitutionId, existingDomainId, defaultDomainKind, " +
       "physicalMaterials, personalityPreset, personalityDescription, " +
-      "courseContext, " +
+      "courseContext, communityMode, " +
       "contentSkipped, welcomeSkipped, tuneSkipped. " +
       "courseContext = 3-5 sentence synthesis of the teacher's course philosophy, learner profile, " +
       "and teaching rationale. Capture during Phase 1b — distill WHY the course exists, WHO the learners are, " +
@@ -204,6 +204,48 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
         },
       },
       required: ["domainId", "courseName", "interactionPattern"],
+    },
+  },
+  {
+    name: "create_community",
+    description:
+      "Create a community hub with infrastructure (COMMUNITY domain, identity spec, playbook, cohort group). " +
+      "Use this instead of create_course when the user wants a community hub, discussion group, book club, etc. " +
+      "NEVER use create_course for community intent — always use create_community. " +
+      "communityMode: 'attached' = linked to user's institution, 'standalone' = free-floating hub.",
+    input_schema: {
+      type: "object",
+      properties: {
+        hubName: { type: "string", description: "Name for the community hub." },
+        hubDescription: { type: "string", description: "One-sentence description of the hub's purpose." },
+        communityMode: {
+          type: "string",
+          enum: ["attached", "standalone"],
+          description: "attached = linked to user's institution; standalone = free-floating.",
+        },
+        hubPattern: {
+          type: "string",
+          description: "Interaction pattern for the hub AI (default: conversational-guide).",
+        },
+        communityKind: {
+          type: "string",
+          enum: ["TOPIC_BASED", "OPEN_CONNECTION"],
+          description: "TOPIC_BASED if topics are defined, OPEN_CONNECTION otherwise.",
+        },
+        topics: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Topic name." },
+              pattern: { type: "string", description: "Interaction pattern for this topic (optional, defaults to hubPattern)." },
+            },
+            required: ["name"],
+          },
+          description: "Topic areas for the hub (optional).",
+        },
+      },
+      required: ["hubName", "communityMode"],
     },
   },
   {

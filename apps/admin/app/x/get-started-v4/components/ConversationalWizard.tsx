@@ -392,6 +392,7 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
     "draftDomainId", "draftInstitutionId", "draftPlaybookId", "draftCallerId",
     "launched", "sourceId", "packSubjectIds", "extractionTotals", "contentSkipped",
     "uploadSourceIds", "sourceCount",
+    "communityMode", "draftCohortGroupId", "communityJoinToken", "communityHubUrl",
   ];
 
   const handleStartOver = useCallback(() => {
@@ -420,6 +421,7 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
       "behaviorTargets", "lessonPlanModel", "personalityPreset", "physicalMaterials",
       "draftDomainId", "draftInstitutionId", "draftPlaybookId", "draftCallerId",
       "launched", "sourceId", "packSubjectIds", "extractionTotals", "contentSkipped",
+      "communityMode", "draftCohortGroupId", "communityJoinToken", "communityHubUrl",
     ];
     const data: Record<string, unknown> = {};
     for (const k of keys) {
@@ -524,7 +526,8 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
           }
 
           case "create_course":
-          case "create_institution": {
+          case "create_institution":
+          case "create_community": {
             // No UI action needed — server executes, result arrives in next message
             break;
           }

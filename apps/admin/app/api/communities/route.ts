@@ -16,6 +16,7 @@ const PATTERN_ARCHETYPE_MAP: Record<InteractionPattern, string> = {
   reflective: config.specs.mentorArchetype,
   open: config.specs.companionArchetype,
   directive: config.specs.defaultArchetype,
+  "conversational-guide": config.specs.convguideArchetype,
 };
 
 /**

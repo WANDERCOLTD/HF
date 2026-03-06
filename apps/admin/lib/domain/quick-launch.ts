@@ -903,6 +903,7 @@ const INTERACTION_TO_PERSONA: Record<string, string> = {
   coaching: "coach",
   companion: "companion",
   facilitation: "guide",
+  "conversational-guide": "conversational-guide",
 };
 
 export function resolvePersonaKey(interactionPatternOrPersona: string): string {

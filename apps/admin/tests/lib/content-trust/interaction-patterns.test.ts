@@ -5,8 +5,8 @@
  *   - applyPatternOverrides: prepends intentPreamble to systemPrompt, appends unique supplementaryCategories
  *   - suggestInteractionPattern: keyword-based auto-suggest, longest-match-first, case-insensitive
  *   - COMMUNICATION_STYLE_ORDER has exactly 7 entries
- *   - INTERACTION_PATTERN_ORDER has exactly 8 entries
- *   - INTENT_PATTERN_OVERRIDES is defined for all 8 patterns
+ *   - INTERACTION_PATTERN_ORDER has exactly 9 entries
+ *   - INTENT_PATTERN_OVERRIDES is defined for all 9 patterns
  *
  * No DB or external deps — all pure functions.
  */
@@ -174,6 +174,14 @@ describe("applyPatternOverrides", () => {
     expect(ids).toContain("normalising_statement");
   });
 
+  it("adds conversational-guide supplementary categories (talking_point, conversation_starter)", () => {
+    const cfg = makeConfig();
+    const result = applyPatternOverrides(cfg, "conversational-guide");
+    const ids = result.extraction.categories.map(c => c.id);
+    expect(ids).toContain("talking_point");
+    expect(ids).toContain("conversation_starter");
+  });
+
   it("open pattern has no supplementaryCategories — category count unchanged", () => {
     const cfg = makeConfig();
     const before = cfg.extraction.categories.length;
@@ -288,6 +296,19 @@ describe("suggestInteractionPattern", () => {
     expect(suggestInteractionPattern("Clinical Supervision Sessions")).toBe("reflective");
   });
 
+  // Conversational Guide
+  it("matches 'book club' → conversational-guide", () => {
+    expect(suggestInteractionPattern("Monthly Book Club")).toBe("conversational-guide");
+  });
+
+  it("matches 'discussion group' → conversational-guide", () => {
+    expect(suggestInteractionPattern("History Discussion Group")).toBe("conversational-guide");
+  });
+
+  it("matches 'community hub' → conversational-guide", () => {
+    expect(suggestInteractionPattern("My Community Hub")).toBe("conversational-guide");
+  });
+
   // Case insensitivity
   it("is case-insensitive", () => {
     expect(suggestInteractionPattern("LESSON PLAN REVIEW")).toBe("directive");
@@ -327,8 +348,8 @@ describe("COMMUNICATION_STYLE constants", () => {
 });
 
 describe("INTERACTION_PATTERN constants", () => {
-  it("has exactly 8 interaction patterns", () => {
-    expect(INTERACTION_PATTERN_ORDER).toHaveLength(8);
+  it("has exactly 9 interaction patterns", () => {
+    expect(INTERACTION_PATTERN_ORDER).toHaveLength(9);
   });
 
   it("INTERACTION_PATTERN_LABELS has an entry for every pattern in ORDER", () => {
@@ -355,5 +376,6 @@ describe("INTERACTION_PATTERN constants", () => {
     expect(INTERACTION_PATTERN_ORDER).toContain("facilitation");
     expect(INTERACTION_PATTERN_ORDER).toContain("reflective");
     expect(INTERACTION_PATTERN_ORDER).toContain("open");
+    expect(INTERACTION_PATTERN_ORDER).toContain("conversational-guide");
   });
 });
