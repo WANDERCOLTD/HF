@@ -14,7 +14,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowUp, Loader2, MoreHorizontal, AlertCircle, HelpCircle, SkipForward, Copy, Quote } from "lucide-react";
+import { ArrowUp, Loader2, MoreHorizontal, AlertCircle, HelpCircle, ChevronsRight, Copy, Quote, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useStepFlow } from "@/contexts/StepFlowContext";
 import type { StepDefinition } from "@/contexts/StepFlowContext";
@@ -121,6 +121,7 @@ interface MessageActionsProps {
 
 function MessageActions({ message, onSend, onPrefill, onFocusInput }: MessageActionsProps) {
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -129,7 +130,7 @@ function MessageActions({ message, onSend, onPrefill, onFocusInput }: MessageAct
   const actions = [
     { id: "correct", label: "That's not right", icon: AlertCircle },
     { id: "more", label: "Tell me more", icon: HelpCircle },
-    { id: "skip", label: "Skip this", icon: SkipForward },
+    { id: "skip", label: "Move on", icon: ChevronsRight },
     { id: "divider" },
     { id: "copy", label: "Copy", icon: Copy },
     { id: "quote", label: "Quote & reply", icon: Quote },
@@ -140,7 +141,11 @@ function MessageActions({ message, onSend, onPrefill, onFocusInput }: MessageAct
   const handleOpen = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    setPos({ top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 200) });
+    const menuHeight = 200;
+    const top = rect.bottom + 4 + menuHeight > window.innerHeight
+      ? rect.top - menuHeight - 4
+      : rect.bottom + 4;
+    setPos({ top, left: Math.min(rect.left, window.innerWidth - 200) });
     setOpen(true);
     setFocusedIndex(-1);
   }, []);
@@ -162,11 +167,13 @@ function MessageActions({ message, onSend, onPrefill, onFocusInput }: MessageAct
         onSend("Tell me more about that");
         break;
       case "skip":
-        onSend("Skip this");
+        onSend("Move on");
         break;
       case "copy":
-        navigator.clipboard.writeText(message.content).catch(() => {
-          // Fallback for older browsers
+        navigator.clipboard.writeText(message.content).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1800);
+        }).catch(() => {
           const ta = document.createElement("textarea");
           ta.value = message.content;
           ta.style.position = "fixed";
@@ -175,6 +182,8 @@ function MessageActions({ message, onSend, onPrefill, onFocusInput }: MessageAct
           ta.select();
           document.execCommand("copy");
           document.body.removeChild(ta);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1800);
         });
         break;
       case "quote":
@@ -251,11 +260,12 @@ function MessageActions({ message, onSend, onPrefill, onFocusInput }: MessageAct
         type="button"
         className="cv4-msg-actions-trigger"
         onClick={handleOpen}
-        aria-label="Message actions"
+        aria-label={copied ? "Copied" : "Message actions"}
         aria-haspopup="menu"
         aria-expanded={open}
+        title="Actions for this message"
       >
-        <MoreHorizontal size={16} />
+        {copied ? <Check size={16} /> : <MoreHorizontal size={16} />}
       </button>
 
       {open && pos && (
@@ -597,16 +607,19 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
 
       if (!response) {
         if (abortRef.current?.signal.aborted) return;
+        // Restore the user's message so they can retry without retyping
+        setInputValue(msg);
         const errMsg: Message = {
           id: uid(),
           role: "system",
-          content: "Something went wrong. Please try again.",
+          content: "That didn't go through — your message is still in the box. Try again.",
           systemType: "error",
         };
         const withErr = [...newMessages, errMsg];
         setMessages(withErr);
         saveHistory(withErr);
         scrollToBottom();
+        setTimeout(() => inputRef.current?.focus(), 150);
         return;
       }
 
