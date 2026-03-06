@@ -752,10 +752,12 @@ async function handleWizardModeWithTools(
           } else if (data.ok && toolUse.name === "create_community") {
             const creationFields = {
               draftDomainId: data.domainId,
+              draftPlaybookId: data.playbookId,
               draftCohortGroupId: data.cohortGroupId,
               communityJoinToken: data.joinToken,
               communityHubUrl: data.hubUrl,
               communityMode: data.communityMode,
+              ...(data.firstCallPreview ? { firstCallPreview: data.firstCallPreview } : {}),
             };
             allToolCalls.push({
               name: "update_setup",

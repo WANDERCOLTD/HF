@@ -1064,6 +1064,7 @@ export async function executeWizardTool(
       try {
         const { prisma } = await import("@/lib/prisma");
         const { scaffoldDomain } = await import("@/lib/domain/scaffold");
+        const { loadPersonaFlowPhases, loadPersonaWelcomeTemplate } = await import("@/lib/domain/quick-launch");
         const { config } = await import("@/lib/config");
         const crypto = await import("crypto");
 
@@ -1073,6 +1074,7 @@ export async function executeWizardTool(
         const hubPattern = (input.hubPattern as string) || "conversational-guide";
         const communityKind = (input.communityKind as string) || "OPEN_CONNECTION";
         const topics = (input.topics as Array<{ name: string; pattern?: string }>) || [];
+        const welcomeMessage = (input.welcomeMessage as string) || null;
 
         // Resolve institutionId based on mode
         let institutionId: string | null = null;
@@ -1201,12 +1203,29 @@ export async function executeWizardTool(
           return { domain, cohortGroupId: cohortGroup.id };
         });
 
+        // Resolve persona-specific flow phases (same as create_course)
+        const flowPhases = await loadPersonaFlowPhases(hubPattern);
+
         // Scaffold domain — creates identity spec, main playbook
-        await scaffoldDomain(community.id, {
+        const scaffoldResult = await scaffoldDomain(community.id, {
           playbookName: hubName.trim(),
           extendsAgent: archetype,
+          flowPhases: flowPhases || undefined,
           forceNewPlaybook: communityKind === "TOPIC_BASED" && topics.length > 0,
         });
+
+        // Resolve welcome message: explicit → persona template → null
+        const resolvedWelcome = welcomeMessage
+          || await loadPersonaWelcomeTemplate(hubPattern)
+          || null;
+
+        // Persist welcome message to domain
+        if (resolvedWelcome) {
+          await prisma.domain.update({
+            where: { id: community.id },
+            data: { onboardingWelcome: resolvedWelcome },
+          });
+        }
 
         // Link scaffold-created playbooks to CohortGroup
         const allPlaybooks = await prisma.playbook.findMany({
@@ -1223,15 +1242,37 @@ export async function executeWizardTool(
           });
         }
 
+        // Build firstCallPreview — uses scaffold's main playbook ID
+        // (community hubs have no media, so content[] is empty on all phases)
+        const previewDomain = await prisma.domain.findUnique({
+          where: { id: community.id },
+          select: { onboardingWelcome: true, onboardingFlowPhases: true },
+        });
+        const previewPhases = (previewDomain?.onboardingFlowPhases as { phases?: any[] } | null)?.phases || [];
+        const mainPlaybookId = scaffoldResult.playbook?.id || allPlaybooks[0]?.id || "";
+        const firstCallPreview = {
+          domainId: community.id,
+          playbookId: mainPlaybookId,
+          welcomeMessage: previewDomain?.onboardingWelcome || null,
+          phases: previewPhases.map((p: any) => ({
+            phase: p.phase,
+            duration: p.duration,
+            goals: p.goals || [],
+            content: [], // No media for community hubs
+          })),
+        };
+
         return {
           ...base,
           content: JSON.stringify({
             ok: true,
             domainId: community.id,
+            playbookId: mainPlaybookId,
             cohortGroupId,
             joinToken,
             communityMode,
             hubUrl: `/x/communities/${community.id}`,
+            firstCallPreview,
           }),
         };
       } catch (err) {

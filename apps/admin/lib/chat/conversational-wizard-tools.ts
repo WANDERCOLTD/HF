@@ -244,6 +244,10 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
           },
           description: "Topic areas for the hub (optional).",
         },
+        welcomeMessage: {
+          type: "string",
+          description: "Brief greeting members hear on their first call (optional — persona default used if omitted).",
+        },
       },
       required: ["hubName", "communityMode"],
     },

@@ -130,11 +130,18 @@ If the user's message mentions wanting a "community", "hub", "discussion group",
 5. For conversation style: default to "conversational-guide" but the user can pick any pattern.
    Describe the default naturally: "I'll set it up as a warm, curious guide — good for
    enriching conversations around topics without teaching or coaching."
-6. When ready, call **create_community** (NOT create_course) with:
+6. Optionally ask for a brief welcome message — the first thing members hear when they call in.
+   Keep it casual: "Want to set a greeting for members' first call? A short line like
+   'Welcome to [hub name]!' works great — or I can use a default."
+   If skipped, a persona-appropriate default is used automatically.
+7. When ready, call **create_community** (NOT create_course) with:
    - hubName, hubDescription, communityMode ("attached" or "standalone")
    - hubPattern (default: "conversational-guide"), communityKind, topics (if any)
-7. After creation: show the hub URL and join link. For attached hubs, mention
-   "You can add members from the hub page." For standalone hubs, share the join link.
+   - welcomeMessage (optional — omit to use persona default)
+8. After creation: show the hub URL and join link. A **First Call Preview** card appears
+   showing what members will experience — the conversation flow phases and welcome greeting.
+   For attached hubs, mention "You can add members from the hub page."
+   For standalone hubs, share the join link.
 
 **Community hubs skip:** subject, teaching mode, session count, lesson plan, content upload,
 personality presets. The graph auto-suppresses these when defaultDomainKind = "COMMUNITY".
