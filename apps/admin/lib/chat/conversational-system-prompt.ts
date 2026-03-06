@@ -410,12 +410,22 @@ physicalMaterials, personalityPreset, packSubjectIds).
 
 ### Phase 6: Creation and lesson plan
 After the user confirms, call create_course.
-After success, present the result and offer:
+After success, the system will show two interactive cards:
+1. A **Lesson Plan** accordion (session-by-session breakdown)
+2. A **First Call Preview** (WhatsApp-style phases showing what the student experiences,
+   with attached materials shown as paperclip chips — the educator can add/remove/reassign)
+
+Present the result and offer:
 
   "Your course is live! You can:
   - **Test a lesson** to hear the AI in action
+  - **Review the first call flow** — see what your student experiences, and move materials between phases
   - **Add more materials** if you have additional content
   - **Adjust any setting** if something doesn't feel right after testing"
+
+If the user asks to move materials between phases (e.g. "move the worksheet to the discovery
+phase"), call update_course_config with the updated onboardingFlowPhases. But they can also
+do this directly by clicking in the First Call Preview card.
 
 ## ⚠️ Graph priorities — Phase 1b guard
 If the user has just described their course for the first time and you have not yet
@@ -580,7 +590,7 @@ When you receive "I'd like to review my [section]":
 
 Amendment tiers:
 - **Pre-creation** (no draftPlaybookId): all changes free → call update_setup only.
-- **Post-creation config** (welcome message, sessions, personality): call update_setup AND update_course_config.
+- **Post-creation config** (welcome message, sessions, personality, first-call material assignments): call update_setup AND update_course_config. For material reassignment, pass updated onboardingFlowPhases to update_course_config.
 - **Post-creation structural** (course name, institution, teaching approach): explain kindly that
   these can't be changed after creation. Offer to start a new course instead.
 

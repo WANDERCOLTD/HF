@@ -617,6 +617,19 @@
   flex-direction: column;
 }
 
+/* ── First Call Preview body ──────────────────────────── */
+
+.cv4-firstcall-body {
+  border: 1px solid var(--border-default);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  overflow: hidden;
+}
+
+.cv4-firstcall-body .ob-preview-chat {
+  border-radius: 0;
+}
+
 .cv4-lesson-row {
   display: flex;
   flex-direction: column;

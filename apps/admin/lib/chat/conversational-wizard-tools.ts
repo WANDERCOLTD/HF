@@ -269,6 +269,10 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
           additionalProperties: { type: "number" },
         },
         lessonPlanModel: { type: "string" },
+        onboardingFlowPhases: {
+          type: "object",
+          description: "Updated onboarding flow phases with content attachments. Use when the user wants to change which materials are shared in which phase of the first call.",
+        },
       },
       required: ["domainId", "playbookId"],
     },

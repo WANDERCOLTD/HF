@@ -922,6 +922,65 @@ export async function executeWizardTool(
           await prisma.domain.update({ where: { id: domainId }, data: domainUpdate });
         }
 
+        // 8b. Wire student-visible media into onboarding flow phases
+        //     So the AI proactively shares materials during the first call,
+        //     and the educator can see/edit attachments in the First Call Preview.
+        const allSubjectIds = [subject.id, ...(packSubjectIds || [])];
+        const { isStudentVisibleDefault } = await import("@/lib/doc-type-icons");
+        const studentMedia = await prisma.subjectMedia.findMany({
+          where: { subjectId: { in: allSubjectIds } },
+          include: {
+            media: {
+              select: {
+                id: true, fileName: true, title: true, mimeType: true,
+                source: { select: { documentType: true } },
+              },
+            },
+          },
+          orderBy: { sortOrder: "asc" },
+          take: 20,
+        });
+        const visibleMedia = studentMedia.filter(
+          (sm) => sm.media.source?.documentType && isStudentVisibleDefault(sm.media.source.documentType),
+        );
+
+        // Build a lookup for filenames (used later in result)
+        const mediaLookup = new Map<string, { fileName: string; title: string | null }>();
+        for (const sm of visibleMedia) {
+          mediaLookup.set(sm.media.id, { fileName: sm.media.fileName, title: sm.media.title });
+        }
+
+        let finalFlowPhases: any = null;
+        if (visibleMedia.length > 0) {
+          const domainRow = await prisma.domain.findUnique({
+            where: { id: domainId },
+            select: { onboardingFlowPhases: true },
+          });
+          const flowConfig = domainRow?.onboardingFlowPhases as { phases?: Array<{ phase: string; duration: string; goals: string[]; content?: Array<{ mediaId: string; instruction?: string }> }> } | null;
+          if (flowConfig?.phases?.length) {
+            // Find the first content-bearing phase
+            const contentIdx = flowConfig.phases.findIndex(
+              (p) => /topic|teach|content|practice|reading/i.test(p.phase),
+            );
+            const targetIdx = contentIdx >= 0 ? contentIdx : 0;
+            const updatedPhases = flowConfig.phases.map((phase, i) => {
+              if (i !== targetIdx) return phase;
+              return {
+                ...phase,
+                content: visibleMedia.map((sm) => ({
+                  mediaId: sm.media.id,
+                  instruction: "Share this with the learner when introducing the topic",
+                })),
+              };
+            });
+            finalFlowPhases = { phases: updatedPhases };
+            await prisma.domain.update({
+              where: { id: domainId },
+              data: { onboardingFlowPhases: finalFlowPhases },
+            });
+          }
+        }
+
         // 9. Create test caller with proper enrollment
         const callerName = randomFakeName();
 
@@ -953,6 +1012,32 @@ export async function executeWizardTool(
           input.durationMins ? Number(input.durationMins) : undefined,
         );
 
+        // Build first call preview data (phases + resolved media filenames)
+        const previewDomain = await prisma.domain.findUnique({
+          where: { id: domainId },
+          select: { onboardingWelcome: true, onboardingFlowPhases: true },
+        });
+        const previewPhases = (previewDomain?.onboardingFlowPhases as { phases?: any[] } | null)?.phases || [];
+        const firstCallPreview = {
+          domainId,
+          playbookId,
+          welcomeMessage: previewDomain?.onboardingWelcome || resolvedWelcome || null,
+          phases: previewPhases.map((p: any) => ({
+            phase: p.phase,
+            duration: p.duration,
+            goals: p.goals || [],
+            content: (p.content || []).map((c: any) => {
+              const info = mediaLookup.get(c.mediaId);
+              return {
+                mediaId: c.mediaId,
+                fileName: info?.fileName || "Unknown file",
+                title: info?.title || null,
+                instruction: c.instruction,
+              };
+            }),
+          })),
+        };
+
         return {
           ...base,
           content: JSON.stringify({
@@ -961,6 +1046,7 @@ export async function executeWizardTool(
             callerId: caller.id,
             callerName,
             lessonPlanPreview,
+            firstCallPreview,
           }),
         };
       } catch (err) {
@@ -1189,7 +1275,15 @@ export async function executeWizardTool(
           await applyBehaviorTargets(playbookId, behaviorTargets);
         }
 
-        // 3. Merge session settings + lesson plan into playbook config
+        // 3. Persist onboarding flow phases to Domain (attachment changes)
+        if (input.onboardingFlowPhases) {
+          await prisma.domain.update({
+            where: { id: domainId },
+            data: { onboardingFlowPhases: JSON.parse(JSON.stringify(input.onboardingFlowPhases)) },
+          });
+        }
+
+        // 4. Merge session settings + lesson plan into playbook config
         const pb = await prisma.playbook.findUnique({
           where: { id: playbookId },
           select: { config: true },

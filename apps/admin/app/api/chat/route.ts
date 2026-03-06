@@ -740,6 +740,7 @@ async function handleWizardModeWithTools(
               draftPlaybookId: data.playbookId,
               draftCallerId: data.callerId,
               ...(data.lessonPlanPreview ? { lessonPlanPreview: data.lessonPlanPreview } : {}),
+              ...(data.firstCallPreview ? { firstCallPreview: data.firstCallPreview } : {}),
             };
             allToolCalls.push({
               name: "update_setup",

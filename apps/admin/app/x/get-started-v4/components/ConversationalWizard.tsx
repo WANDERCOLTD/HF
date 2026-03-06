@@ -26,6 +26,8 @@ import { OptionsCard } from "./OptionsCard";
 import type { OptionsPanel } from "./OptionsCard";
 import { SourcesPanel } from "./SourcesPanel";
 import type { SourcesReadyData, SourcesPanelHandle } from "./SourcesPanel";
+import { FirstCallPreviewCard } from "./FirstCallPreviewCard";
+import type { FirstCallPreviewData } from "./FirstCallPreviewCard";
 import { ScaffoldPanel } from "../../get-started/components/ScaffoldPanel";
 import "../get-started-v4.css";
 
@@ -45,7 +47,7 @@ interface ConversationalWizardProps {
 }
 
 type MessageRole = "assistant" | "user" | "system";
-type SystemType = "timeline" | "success" | "error" | "upload-result" | "upload-zone" | "lesson-plan" | "options" | "progress";
+type SystemType = "timeline" | "success" | "error" | "upload-result" | "upload-zone" | "lesson-plan" | "first-call-preview" | "options" | "progress";
 
 interface Message {
   id: string;
@@ -58,6 +60,8 @@ interface Message {
   lessonEntries?: LessonEntry[];
   lessonCourseName?: string;
   lessonCourseId?: string;
+  /** Populated for first-call-preview system messages */
+  firstCallPreview?: FirstCallPreviewData;
   /** Populated for options system messages */
   optionsPanel?: OptionsPanel;
   /** True after the user has resolved an options card — hides it from render */
@@ -607,6 +611,19 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
         });
       }
 
+      // Check if create_course just completed — firstCallPreview in setupData
+      const fcPreview = getData<FirstCallPreviewData>("firstCallPreview");
+      if (fcPreview?.phases?.length && !getData<boolean>("firstCallPreviewShown")) {
+        setData("firstCallPreviewShown", true);
+        extra.push({
+          id: uid(),
+          role: "system",
+          content: "",
+          systemType: "first-call-preview",
+          firstCallPreview: fcPreview,
+        });
+      }
+
       return extra;
     },
     [getData, setData],
@@ -965,6 +982,24 @@ export function ConversationalWizard({ initialContext }: ConversationalWizardPro
                       });
                       window.open(`/x/sim/${draftCallerId}?${params.toString()}`, "_blank", "noopener,noreferrer");
                     } : undefined}
+                  />
+                </div>
+              );
+            }
+
+            if (msg.systemType === "first-call-preview" && msg.firstCallPreview) {
+              return (
+                <div key={msg.id} className="cv4-row cv4-row--system">
+                  <FirstCallPreviewCard
+                    preview={msg.firstCallPreview}
+                    onUpdated={(updated) => {
+                      setMessages((prev) =>
+                        prev.map((m) =>
+                          m.id === msg.id ? { ...m, firstCallPreview: updated } : m,
+                        ),
+                      );
+                      setData("firstCallPreview", updated);
+                    }}
                   />
                 </div>
               );
