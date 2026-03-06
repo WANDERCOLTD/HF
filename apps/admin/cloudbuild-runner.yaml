@@ -25,4 +25,4 @@ steps:
 
 options:
   logging: CLOUD_LOGGING_ONLY
-  machineType: E2_HIGHCPU_32
+  machineType: N1_HIGHCPU_8
