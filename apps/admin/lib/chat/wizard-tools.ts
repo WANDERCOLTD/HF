@@ -696,7 +696,8 @@ export async function executeWizardTool(
         const courseName = input.courseName as string;
         const interactionPattern = input.interactionPattern as string;
         const subjectDiscipline = (input.subjectDiscipline as string) || courseName;
-        const packSubjectIds = input.packSubjectIds as string[] | undefined;
+        const packSubjectIds = (input.packSubjectIds as string[] | undefined)
+          || (setupData?.packSubjectIds as string[] | undefined);
 
         // ── Guard: existing course resolved via entity resolution ──
         // If draftPlaybookId is already set, skip scaffolding — just apply config tweaks

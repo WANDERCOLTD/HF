@@ -130,6 +130,7 @@ describe("chat tools", () => {
             title: "Chapter 1 Passage",
             description: null,
             tags: [],
+            source: { documentType: "READING_PASSAGE" },
           },
         },
       ]);
@@ -207,6 +208,7 @@ describe("chat tools", () => {
             title: "Black Death Passage",
             description: null,
             tags: [],
+            source: { documentType: "READING_PASSAGE" },
           },
         },
         {
@@ -217,6 +219,7 @@ describe("chat tools", () => {
             title: "Quiz Image",
             description: null,
             tags: [],
+            source: { documentType: "REFERENCE" },
           },
         },
       ]);
@@ -261,6 +264,7 @@ describe("chat tools", () => {
             title: "Passage",
             description: null,
             tags: [],
+            source: { documentType: "READING_PASSAGE" },
           },
         },
       ]);
@@ -270,6 +274,132 @@ describe("chat tools", () => {
 
       expect(catalog).toContain("Passage");
       expect(catalog).not.toContain("SHARE DURING");
+    });
+
+    it("auto-annotates student-visible media for first calls without explicit phase wiring", async () => {
+      mockPrisma.caller.findUnique.mockResolvedValue({
+        id: "caller-1",
+        domainId: "domain-1",
+        domain: {
+          // Flow phases exist but have NO content[] refs (wizard-created course)
+          onboardingFlowPhases: {
+            phases: [
+              { phase: "welcome", duration: "2min", goals: ["Greet"] },
+              { phase: "first-topic", duration: "8min", goals: ["Introduce topic"] },
+              { phase: "wrap-up", duration: "2min", goals: ["Summarise"] },
+            ],
+          },
+          subjects: [{ subjectId: "sub-1" }],
+        },
+      });
+      // No onboarding session = first call
+      mockPrisma.onboardingSession.findUnique.mockResolvedValue(null);
+
+      mockPrisma.subjectMedia.findMany.mockResolvedValue([
+        {
+          media: {
+            id: "media-passage",
+            fileName: "passage.pdf",
+            mimeType: "application/pdf",
+            title: "Reading Passage",
+            description: null,
+            tags: [],
+            source: { documentType: "READING_PASSAGE" },
+          },
+        },
+        {
+          media: {
+            id: "media-worksheet",
+            fileName: "worksheet.pdf",
+            mimeType: "application/pdf",
+            title: "Practice Worksheet",
+            description: null,
+            tags: [],
+            source: { documentType: "WORKSHEET" },
+          },
+        },
+        {
+          media: {
+            id: "media-lessonplan",
+            fileName: "lesson-plan.pdf",
+            mimeType: "application/pdf",
+            title: "Teacher Lesson Plan",
+            description: null,
+            tags: [],
+            source: { documentType: "LESSON_PLAN" },
+          },
+        },
+      ]);
+
+      const { buildContentCatalog } = await import("@/app/api/chat/tools");
+      const catalog = await buildContentCatalog("caller-1");
+
+      // Student-visible types (READING_PASSAGE, WORKSHEET) should get auto-annotated
+      expect(catalog).toContain('SHARE DURING: "first-topic" phase');
+      expect(catalog).toContain("Reading Passage");
+      expect(catalog).toContain("Practice Worksheet");
+
+      // Teacher-only type (LESSON_PLAN) should NOT get SHARE DURING
+      expect(catalog).toContain("Teacher Lesson Plan");
+      // Count occurrences — lesson plan should not have SHARE DURING
+      const lines = catalog!.split("\n").filter((l) => l.startsWith("- "));
+      const lessonPlanLine = lines.find((l) => l.includes("Teacher Lesson Plan"));
+      expect(lessonPlanLine).not.toContain("SHARE DURING");
+    });
+
+    it("skips auto-annotation when explicit phase wiring exists", async () => {
+      mockPrisma.caller.findUnique.mockResolvedValue({
+        id: "caller-1",
+        domainId: "domain-1",
+        domain: {
+          // Flow phases WITH explicit content[] ref (seeded/manually wired)
+          onboardingFlowPhases: {
+            phases: [
+              { phase: "welcome", duration: "2min", goals: ["Greet"] },
+              { phase: "first-topic", duration: "8min", goals: ["Teach"], content: [
+                { mediaId: "media-passage", instruction: "Share the passage" },
+              ]},
+            ],
+          },
+          subjects: [{ subjectId: "sub-1" }],
+        },
+      });
+      mockPrisma.onboardingSession.findUnique.mockResolvedValue(null);
+
+      mockPrisma.subjectMedia.findMany.mockResolvedValue([
+        {
+          media: {
+            id: "media-passage",
+            fileName: "passage.pdf",
+            mimeType: "application/pdf",
+            title: "Passage",
+            description: null,
+            tags: [],
+            source: { documentType: "READING_PASSAGE" },
+          },
+        },
+        {
+          media: {
+            id: "media-worksheet",
+            fileName: "worksheet.pdf",
+            mimeType: "application/pdf",
+            title: "Worksheet",
+            description: null,
+            tags: [],
+            source: { documentType: "WORKSHEET" },
+          },
+        },
+      ]);
+
+      const { buildContentCatalog } = await import("@/app/api/chat/tools");
+      const catalog = await buildContentCatalog("caller-1");
+
+      // Explicit wiring should be used (not auto-annotation)
+      expect(catalog).toContain("Share the passage");
+      // Worksheet should NOT be auto-annotated (explicit wiring exists, so auto-annotation is skipped)
+      const lines = catalog!.split("\n").filter((l) => l.startsWith("- "));
+      const worksheetLine = lines.find((l) => l.includes("Worksheet"));
+      expect(worksheetLine).not.toContain("SHARE DURING");
     });
   });
 });

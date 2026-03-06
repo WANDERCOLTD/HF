@@ -8,6 +8,7 @@
 import { prisma } from "@/lib/prisma";
 import type { AITool, AIToolUse } from "@/lib/ai/client";
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
+import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
 
 // =====================================================
 // TOOL DEFINITIONS
@@ -155,7 +156,10 @@ export async function buildContentCatalog(callerId: string, callId?: string): Pr
     where: { subjectId: { in: subjectIds } },
     include: {
       media: {
-        select: { id: true, fileName: true, mimeType: true, title: true, description: true, tags: true },
+        select: {
+          id: true, fileName: true, mimeType: true, title: true, description: true, tags: true,
+          source: { select: { documentType: true } },
+        },
       },
     },
     orderBy: { sortOrder: "asc" },
@@ -181,6 +185,29 @@ export async function buildContentCatalog(callerId: string, callId?: string): Pr
     for (const phase of flowConfig.phases || []) {
       for (const ref of phase.content || []) {
         phaseMediaMap.set(ref.mediaId, { phase: phase.phase, instruction: ref.instruction });
+      }
+    }
+  }
+
+  // Auto-annotate: for first calls with no explicit phase wiring, auto-assign
+  // student-visible media (passages, worksheets, etc.) to the first content phase.
+  // This ensures the AI shares materials proactively even when the educator didn't
+  // manually wire mediaIds into flow phases (e.g. wizard-created courses).
+  if (isFirstCallInDomain && phaseMediaMap.size === 0) {
+    // Find the first content-bearing phase name (or fall back to "first-topic")
+    const flowConfig = caller.domain.onboardingFlowPhases as { phases?: Array<{ phase: string }> } | null;
+    const contentPhase = flowConfig?.phases?.find(
+      (p) => /topic|teach|content|practice|reading/i.test(p.phase),
+    );
+    const phaseName = contentPhase?.phase || "first-topic";
+
+    for (const item of items) {
+      const docType = item.media.source?.documentType;
+      if (docType && isStudentVisibleDefault(docType)) {
+        phaseMediaMap.set(item.media.id, {
+          phase: phaseName,
+          instruction: "Share this with the learner when introducing the topic",
+        });
       }
     }
   }
