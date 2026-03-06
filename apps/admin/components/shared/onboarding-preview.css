@@ -417,3 +417,240 @@
 .dark .ob-edit-dropdown-item:hover {
   background: rgba(255,255,255,0.06);
 }
+
+/* ── Onboarding Flows Page ─────────────────────────────── */
+
+/* Header row — title + preview button */
+.ob-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ob-header-row .hf-btn {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+/* Section header with edit context */
+.ob-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ob-domain-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.ob-domain-select {
+  max-width: 220px;
+  font-size: 13px;
+}
+.ob-edit-link {
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+/* Persona tabs */
+.ob-persona-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.ob-persona-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ob-persona-tab:hover {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+
+.ob-persona-tab--active {
+  border-width: 2px;
+  font-weight: 600;
+}
+
+.ob-persona-tab-icon {
+  font-size: 15px;
+}
+
+/* Persona detail */
+.ob-persona-detail {
+  margin-top: 12px;
+}
+
+.ob-persona-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ob-success-metrics {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ob-success-metrics summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.ob-success-metrics ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.ob-success-metrics li {
+  margin-bottom: 4px;
+}
+
+/* Pattern flow grid */
+.ob-pattern-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.ob-pattern-card {
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ob-pattern-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.ob-pattern-header:hover {
+  background: color-mix(in srgb, var(--accent-primary) 5%, var(--bg-surface));
+}
+
+.ob-pattern-name {
+  flex: 1;
+}
+
+.ob-pattern-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.ob-pattern-body {
+  padding: 12px;
+  border-top: 1px solid var(--border-default);
+}
+
+/* Identity spec flows */
+.ob-identity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ob-identity-item {
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ob-identity-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.ob-identity-header:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.ob-identity-header:not(:disabled):hover {
+  background: color-mix(in srgb, var(--accent-primary) 5%, var(--bg-surface));
+}
+
+.ob-identity-name {
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.ob-identity-body {
+  padding: 16px;
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ob-identity-flow-section h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ob-identity-flow-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+  font-style: italic;
+}
+
+/* Dark mode */
+.dark .ob-persona-tab {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.dark .ob-pattern-card,
+.dark .ob-identity-item {
+  border-color: var(--border-default);
+}
+
+.dark .ob-pattern-header,
+.dark .ob-identity-header {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
