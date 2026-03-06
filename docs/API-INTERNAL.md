@@ -2538,6 +2538,7 @@ Compose a personalized next-call prompt for a caller using the declarative compo
 | triggerType | body | string | No | What triggered this composition (default: "manual") |
 | triggerCallId | body | string | No | Optional call ID that triggered this composition |
 | targetOverrides | body | object | No | Preview overrides for behavior targets (not persisted) |
+| forceFirstCall | body | boolean | No | Override to treat as first call regardless of history (preview-only, not persisted) |
 
 **Response** `200`
 ```json
@@ -8063,6 +8064,24 @@ Fetch onboarding spec data for visualization. Returns persona-specific config in
 
 ---
 
+### `GET` /api/onboarding/flows
+
+Returns all flow definitions across all specs — persona first-call flows,
+
+**Auth**: Session
+
+**Response** `200`
+```json
+{ ok: true, personaFlows: Array, patternFlows: Array, identityFlows: Array }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `GET` /api/onboarding/personas
 
 List all persona onboarding configurations from INIT-001 spec. Falls back to SystemSettings if spec not found.
@@ -12922,8 +12941,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 378 |
-| Files with annotations | 377 |
+| Route files found | 379 |
+| Files with annotations | 378 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

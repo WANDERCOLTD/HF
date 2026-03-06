@@ -777,6 +777,7 @@ Compose a personalized next-call prompt for a caller using the declarative compo
 | triggerType | body | string | No | What triggered this composition (default: "manual") |
 | triggerCallId | body | string | No | Optional call ID that triggered this composition |
 | targetOverrides | body | object | No | Preview overrides for behavior targets (not persisted) |
+| forceFirstCall | body | boolean | No | Override to treat as first call regardless of history (preview-only, not persisted) |
 
 **Response** `200`
 ```json
