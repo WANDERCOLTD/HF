@@ -875,6 +875,22 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
     create: { email: "viewer@hff.com", name: "Demo Viewer", role: "VIEWER", passwordHash, isActive: true },
   });
   console.log("  + RBAC: viewer@hff.com (VIEWER)");
+
+  // ── Link SUPERADMIN to Aardvark Academy ────────────────
+  // SUPERADMIN needs institutionId so get-started-v4 loads with full context
+  // (wizard greeting, domain, Reset Demo button). The cleanup step clears this
+  // on every seed run so we always restore it here.
+  const aardvark = await prisma.institution.findUnique({
+    where: { slug: "aardvark-academy" },
+    select: { id: true },
+  });
+  if (aardvark) {
+    await prisma.user.updateMany({
+      where: { role: "SUPERADMIN" },
+      data: { institutionId: aardvark.id },
+    });
+    console.log("  + SUPERADMIN linked to Aardvark Academy (for demo flow)");
+  }
   console.log("");
 
   // ── 4. Enrich learners with lived data ─────────────────
