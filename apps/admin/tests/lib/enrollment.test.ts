@@ -27,6 +27,7 @@ vi.mock("@/lib/prisma", () => ({
 import {
   enrollCaller,
   enrollCallerInDomainPlaybooks,
+  resolveAndEnrollSingle,
   unenrollCaller,
   getActiveEnrollments,
   getAllEnrollments,
@@ -114,6 +115,57 @@ describe("enrollCallerInDomainPlaybooks", () => {
     const results = await enrollCallerInDomainPlaybooks("caller-1", "domain-1", "auto");
 
     expect(results).toHaveLength(0);
+    expect(mockPrisma.callerPlaybook.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveAndEnrollSingle", () => {
+  it("enrolls in explicit playbookId when provided", async () => {
+    const enrollment = { id: "enr-1", callerId: "caller-1", playbookId: "pb-explicit", status: "ACTIVE" };
+    mockPrisma.callerPlaybook.upsert.mockResolvedValue(enrollment);
+    mockPrisma.callerPlaybook.count.mockResolvedValue(1);
+    mockPrisma.callerPlaybook.update.mockResolvedValue({ ...enrollment, isDefault: true });
+
+    const result = await resolveAndEnrollSingle("caller-1", "domain-1", "auto", "pb-explicit");
+
+    expect(result).toBeTruthy();
+    expect(result!.playbookId).toBe("pb-explicit");
+    // Should NOT query playbooks — explicit takes priority
+    expect(mockPrisma.playbook.findMany).not.toHaveBeenCalled();
+  });
+
+  it("auto-selects when domain has exactly 1 published playbook", async () => {
+    mockPrisma.playbook.findMany.mockResolvedValue([{ id: "pb-only" }]);
+    const enrollment = { id: "enr-1", callerId: "caller-1", playbookId: "pb-only", status: "ACTIVE" };
+    mockPrisma.callerPlaybook.upsert.mockResolvedValue(enrollment);
+    mockPrisma.callerPlaybook.count.mockResolvedValue(1);
+    mockPrisma.callerPlaybook.update.mockResolvedValue({ ...enrollment, isDefault: true });
+
+    const result = await resolveAndEnrollSingle("caller-1", "domain-1", "auto");
+
+    expect(result).toBeTruthy();
+    expect(result!.playbookId).toBe("pb-only");
+  });
+
+  it("returns null when domain has multiple published playbooks", async () => {
+    mockPrisma.playbook.findMany.mockResolvedValue([
+      { id: "pb-1" },
+      { id: "pb-2" },
+      { id: "pb-3" },
+    ]);
+
+    const result = await resolveAndEnrollSingle("caller-1", "domain-1", "auto");
+
+    expect(result).toBeNull();
+    expect(mockPrisma.callerPlaybook.upsert).not.toHaveBeenCalled();
+  });
+
+  it("returns null when domain has no published playbooks", async () => {
+    mockPrisma.playbook.findMany.mockResolvedValue([]);
+
+    const result = await resolveAndEnrollSingle("caller-1", "domain-1", "auto");
+
+    expect(result).toBeNull();
     expect(mockPrisma.callerPlaybook.upsert).not.toHaveBeenCalled();
   });
 });

@@ -43,7 +43,7 @@ interface DomainConfig {
   onboardingWelcome: string;
   onboardingFlowPhases: { phases: Array<{ phase: string; duration: string; goals: string[] }> };
   onboardingDefaultTargets: Record<string, any>;
-  subjects: Array<{ slug: string; name: string; description: string; qualificationBody: string; qualificationLevel: string }>;
+  subjects: Array<{ slug: string; name: string; description: string; qualificationBody: string; qualificationLevel: string; teachingProfile?: string }>;
   sources: Array<{ slug: string; name: string; description: string; trustLevel: string; documentType: string; publisherOrg: string; subjectSlug: string }>;
   assertions: Record<string, Array<{ assertion: string; category: string; tags: string[] }>>;
   channels: Array<{ channelType: string; isEnabled: boolean; priority: number }>;
@@ -130,6 +130,7 @@ const ALDERMOOR: DomainConfig = {
         "A-Level Mathematics: Pure maths (algebra, calculus, trigonometry), statistics, and mechanics. Problem-solving and mathematical proof.",
       qualificationBody: "Edexcel / OCR",
       qualificationLevel: "A-Level",
+      teachingProfile: "practice-led",
     },
     {
       slug: `${TAG}-compsci`,
@@ -138,6 +139,7 @@ const ALDERMOOR: DomainConfig = {
         "A-Level Computer Science: Programming fundamentals, data structures, algorithms, databases, and computational thinking.",
       qualificationBody: "OCR",
       qualificationLevel: "A-Level",
+      teachingProfile: "practice-led",
     },
   ],
 
@@ -325,6 +327,7 @@ const GREENFIELD: DomainConfig = {
         "GCSE History: The Tudors, Victorian Britain, and World War II. Source analysis, chronological understanding, and historical interpretation.",
       qualificationBody: "AQA / Edexcel",
       qualificationLevel: "GCSE",
+      teachingProfile: "recall-led",
     },
     {
       slug: `${TAG}-english`,
@@ -333,6 +336,7 @@ const GREENFIELD: DomainConfig = {
         "GCSE English Language: Reading comprehension, creative writing, spoken language, and analytical response.",
       qualificationBody: "AQA",
       qualificationLevel: "GCSE",
+      teachingProfile: "comprehension-led",
     },
   ],
 
@@ -528,6 +532,7 @@ const CURIOSITY_CIRCLE: DomainConfig = {
         "Philosophy, ethics, and the great questions — free will, consciousness, justice, meaning, the nature of knowledge. Conversational exploration, not lectures.",
       qualificationBody: "Open",
       qualificationLevel: "Lifelong Learning",
+      teachingProfile: "discussion-led",
     },
     {
       slug: `${TAG}-science-everyday`,
@@ -536,6 +541,7 @@ const CURIOSITY_CIRCLE: DomainConfig = {
         "The fascinating science behind ordinary things — why the sky is blue, how memory works, what makes bread rise, the physics of music. Accessible, surprising, rigorous.",
       qualificationBody: "Open",
       qualificationLevel: "Lifelong Learning",
+      teachingProfile: "recall-led",
     },
   ],
 
@@ -815,6 +821,7 @@ async function createSubjects(
         qualificationLevel: s.qualificationLevel,
         defaultTrustLevel: "EXPERT_CURATED",
         isActive: true,
+        teachingProfile: s.teachingProfile ?? null,
       },
     });
     map.set(s.slug, subject.id);

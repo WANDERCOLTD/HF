@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { encode } from "next-auth/jwt";
 import { validateBody, inviteAcceptSchema } from "@/lib/validation";
 import { checkRateLimit, getClientIP } from "@/lib/rate-limit";
-import { enrollCaller, enrollCallerInCohortPlaybooks, enrollCallerInDomainPlaybooks } from "@/lib/enrollment";
+import { enrollCaller, enrollCallerInCohortPlaybooks, resolveAndEnrollSingle } from "@/lib/enrollment";
 
 /**
  * @api POST /api/invite/accept
@@ -89,13 +89,13 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Auto-enroll: specific playbook > cohort playbooks > domain-wide fallback
+        // Auto-enroll: specific playbook > cohort playbooks > smart single resolve
         if (invite.playbookId) {
           await enrollCaller(newCaller.id, invite.playbookId, "invite", tx);
         } else if (invite.cohortGroupId && invite.domainId) {
           await enrollCallerInCohortPlaybooks(newCaller.id, invite.cohortGroupId, invite.domainId, "invite", tx);
         } else if (invite.domainId) {
-          await enrollCallerInDomainPlaybooks(newCaller.id, invite.domainId, "invite", tx);
+          await resolveAndEnrollSingle(newCaller.id, invite.domainId, "invite", null, tx);
         }
       }
 

@@ -38,7 +38,7 @@ export const WIZARD_TOOLS: AITool[] = [
       "courseName = specific course within that subject (GCSE Biology, 11+ Comprehension). " +
       "NEVER put a broad discipline into courseName or a specific course into subjectDiscipline. " +
       "Valid field keys: institutionName, typeSlug, websiteUrl, courseName, subjectDiscipline, " +
-      "interactionPattern, teachingMode, welcomeMessage, sessionCount, durationMins, " +
+      "interactionPattern, audience, teachingMode, welcomeMessage, sessionCount, durationMins, " +
       "planEmphasis, behaviorTargets, lessonPlanModel, existingInstitutionId, existingDomainId, defaultDomainKind, " +
       "courseContext, " +
       "contentSkipped, welcomeSkipped, tuneSkipped. " +
@@ -244,6 +244,7 @@ export const WIZARD_TOOLS: AITool[] = [
           description: "Personality slider values (0-100).",
           additionalProperties: { type: "number" },
         },
+        audience: { type: "string", description: "Student audience: primary, secondary, sixth-form, higher-ed, adult-professional, adult-casual." },
         lessonPlanModel: { type: "string" },
         packSubjectIds: {
           type: "array",
@@ -842,6 +843,7 @@ export async function executeWizardTool(
             if (input.sessionCount) configUpdate.sessionCount = Number(input.sessionCount);
             if (input.durationMins) configUpdate.durationMins = Number(input.durationMins);
             if (input.planEmphasis) configUpdate.planEmphasis = input.planEmphasis;
+            if (input.audience) configUpdate.audience = input.audience;
             if (input.lessonPlanModel) configUpdate.lessonPlanModel = input.lessonPlanModel;
             if (input.physicalMaterials) configUpdate.physicalMaterials = input.physicalMaterials;
 
@@ -980,6 +982,7 @@ export async function executeWizardTool(
         if (input.sessionCount) configUpdate.sessionCount = Number(input.sessionCount);
         if (input.durationMins) configUpdate.durationMins = Number(input.durationMins);
         if (input.planEmphasis) configUpdate.planEmphasis = input.planEmphasis;
+        if (input.audience) configUpdate.audience = input.audience;
         if (input.lessonPlanModel) configUpdate.lessonPlanModel = input.lessonPlanModel;
         if (input.physicalMaterials) configUpdate.physicalMaterials = input.physicalMaterials;
         if (input.courseContext) configUpdate.courseContext = input.courseContext;

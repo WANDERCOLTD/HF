@@ -200,7 +200,7 @@ export function AIConversationWizard({ initialContext }: AIConversationWizardPro
     const keys = [
       "institutionName", "existingInstitutionId", "existingDomainId",
       "typeSlug", "defaultDomainKind", "websiteUrl",
-      "courseName", "subjectDiscipline", "interactionPattern", "teachingMode",
+      "courseName", "subjectDiscipline", "interactionPattern", "audience", "teachingMode",
       "welcomeMessage", "sessionCount", "durationMins", "planEmphasis",
       "behaviorTargets", "lessonPlanModel",
       "draftDomainId", "draftInstitutionId", "draftPlaybookId", "draftCallerId",

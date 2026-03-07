@@ -88,24 +88,32 @@ describe("enrollCallerInCohortPlaybooks", () => {
     expect(mockPrisma.playbook.findMany).not.toHaveBeenCalled();
   });
 
-  it("falls back to domain-wide enrollment when cohort has no assignments", async () => {
+  it("falls back to smart single-playbook enrollment when cohort has no assignments", async () => {
     mockPrisma.cohortPlaybook.findMany.mockResolvedValue([]);
+    // Domain has exactly 1 published playbook → auto-selects
+    mockPrisma.playbook.findMany.mockResolvedValue([{ id: "domain-pb-1" }]);
+    mockPrisma.callerPlaybook.upsert.mockResolvedValue({
+      id: "enr-1", callerId: "c-1", playbookId: "domain-pb-1", status: "ACTIVE",
+    });
+
+    const results = await enrollCallerInCohortPlaybooks("c-1", "cohort-1", "domain-1", "join");
+
+    expect(results).toHaveLength(1);
+    expect(results[0].playbookId).toBe("domain-pb-1");
+  });
+
+  it("returns empty when cohort has no assignments and domain has multiple playbooks", async () => {
+    mockPrisma.cohortPlaybook.findMany.mockResolvedValue([]);
+    // Domain has 2 published playbooks → cannot auto-resolve
     mockPrisma.playbook.findMany.mockResolvedValue([
       { id: "domain-pb-1" },
       { id: "domain-pb-2" },
     ]);
-    mockPrisma.callerPlaybook.upsert
-      .mockResolvedValueOnce({ id: "enr-1" })
-      .mockResolvedValueOnce({ id: "enr-2" });
 
     const results = await enrollCallerInCohortPlaybooks("c-1", "cohort-1", "domain-1", "join");
 
-    expect(results).toHaveLength(2);
-    // Should have queried domain playbooks as fallback
-    expect(mockPrisma.playbook.findMany).toHaveBeenCalledWith({
-      where: { domainId: "domain-1", status: "PUBLISHED" },
-      select: { id: true },
-    });
+    expect(results).toHaveLength(0);
+    expect(mockPrisma.callerPlaybook.upsert).not.toHaveBeenCalled();
   });
 });
 

@@ -11,6 +11,7 @@ import { classifyValue } from "../types";
 import type { SpecConfig } from "@/lib/types/json-fields";
 import type { AssembledContext } from "../types";
 import { PARAMS } from "@/lib/registry";
+import { getAudienceOption } from "./audience";
 
 registerTransform("computeQuickStart", (
   _rawData: any,
@@ -43,6 +44,7 @@ registerTransform("computeQuickStart", (
   const subjectDiscipline = (playbook?.config as any)?.subjectDiscipline as string | undefined;
   const courseContext = (playbook?.config as any)?.courseContext as string | undefined;
   const subjectRef = subjectDiscipline || playbook?.name || null;
+  const audienceId = (playbook?.config as any)?.audience as string | undefined;
 
   return {
     you_are: (() => {
@@ -50,6 +52,13 @@ registerTransform("computeQuickStart", (
       if (callerDomain?.name && (role === "A helpful voice assistant" || role.toLowerCase().includes("generic"))) {
         const discipline = (loadedData.playbooks?.[0]?.config as any)?.subjectDiscipline as string | undefined;
         role = `A ${discipline || callerDomain.name} tutor and voice assistant`;
+      }
+      // Append audience context (e.g. "for secondary school students (age 11-16)")
+      if (audienceId && audienceId !== "mixed") {
+        const audienceOpt = getAudienceOption(audienceId);
+        if (audienceOpt?.youAreFragment) {
+          role = `${role} for ${audienceOpt.youAreFragment}`;
+        }
       }
       if (role.length <= 200) return role;
       const truncated = role.substring(0, 200);
@@ -148,8 +157,12 @@ registerTransform("computeQuickStart", (
     })(),
 
     first_line: (() => {
+      // 1. Identity spec instruction (highest priority — persona spec)
       const identityOpening = (identitySpec?.config as SpecConfig)?.sessionStructure?.opening?.instruction;
       if (identityOpening) return identityOpening;
+      // 2. Domain welcome message (educator-configured via Settings page)
+      if (isFirstCall && callerDomain?.onboardingWelcome) return callerDomain.onboardingWelcome;
+      // 3. Generic fallback
       if (isFirstCall) {
         return subjectRef
           ? `Good to have you. We're going to be working on ${subjectRef} together — let's ease into this, no rush.`

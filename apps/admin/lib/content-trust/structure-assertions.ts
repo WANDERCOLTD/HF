@@ -105,9 +105,7 @@ function buildStructuringPrompt(
     `[${a.contentHash}] (${a.category}) ${a.assertion}`
   ).join("\n");
 
-  return `${structuring.systemPrompt}
-
-PYRAMID LEVELS:
+  return `PYRAMID LEVELS:
 ${levelDescriptions}
 
 Target children per node: ~${structuring.targetChildCount}

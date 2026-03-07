@@ -146,12 +146,12 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, [sidebarWidth, collapsed]);
 
-  // Global Cmd+G → navigate to Get Started V2
+  // Global Cmd+G → navigate to Get Started
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') {
         e.preventDefault();
-        router.push('/x/get-started-v2');
+        router.push('/x/get-started-v4');
       }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);

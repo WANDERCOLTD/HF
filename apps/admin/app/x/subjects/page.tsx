@@ -23,6 +23,7 @@ type Subject = {
   qualificationBody: string | null;
   qualificationRef: string | null;
   qualificationLevel: string | null;
+  teachingProfile: string | null;
   isActive: boolean;
   _count: { sources: number; domains: number; curricula: number };
   domains: Array<{ domain: { id: string; name: string; slug: string } }>;
@@ -340,6 +341,15 @@ export default function SubjectsPage() {
                     <h3 className="hf-heading-sm hf-mb-0" style={{ flex: 1 }}>{subject.name}</h3>
                     <TrustBadge level={subject.defaultTrustLevel} />
                   </div>
+                  {subject.teachingProfile ? (
+                    <span className="hf-text-xs hf-badge hf-badge-muted hf-mb-xs" style={{ display: "inline-block" }}>
+                      {subject.teachingProfile}
+                    </span>
+                  ) : (
+                    <span className="hf-text-xs hf-text-placeholder hf-mb-xs" style={{ display: "inline-block" }}>
+                      no profile
+                    </span>
+                  )}
                   {subject.qualificationLevel && (
                     <p className="hf-text-xs hf-text-muted" style={{ margin: '0 0 6px' }}>
                       {subject.qualificationLevel}

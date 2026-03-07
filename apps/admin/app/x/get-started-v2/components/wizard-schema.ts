@@ -150,6 +150,17 @@ export const PERSONALITY_SLIDERS: SliderDef[] = [
   { key: "encouragement", label: "Encouragement", low: "Measured", high: "Highly encouraging" },
 ];
 
+// ── Audience ──────────────────────────────────────────
+
+export const AUDIENCE_OPTIONS: WizardOption[] = [
+  { value: "primary", label: "Primary (KS1-2)", description: "Age 5-11. Simple, warm, encouraging. One idea at a time." },
+  { value: "secondary", label: "Secondary (KS3-4)", description: "Age 11-16. Clear, accessible, relatable. No condescension." },
+  { value: "sixth-form", label: "Sixth Form (KS5)", description: "Age 16-19. Academic vocabulary, intellectual challenge." },
+  { value: "higher-ed", label: "Higher Education", description: "Age 18-25. Full academic register, self-directed." },
+  { value: "adult-professional", label: "Professional / Corporate", description: "Working adults. Professional, efficient, outcome-focused." },
+  { value: "adult-casual", label: "Adult Learner", description: "Age 18+. Conversational, warm, no jargon." },
+];
+
 // ── Institution types ───────────────────────────────────
 
 export const INSTITUTION_TYPE_OPTIONS: WizardOption[] = [
@@ -181,6 +192,7 @@ export const WIZARD_FIELDS: WizardFieldDef[] = [
   { key: "courseName", label: "Course name", required: true, group: "course" },
   { key: "subjectDiscipline", label: "Subject area", required: false, group: "course" },
   { key: "interactionPattern", label: "Teaching approach", required: true, group: "course" },
+  { key: "audience", label: "Student audience", required: false, group: "course" },
   { key: "teachingMode", label: "Teaching emphasis", required: false, group: "course", skipForCommunity: true },
   // Welcome
   { key: "welcomeMessage", label: "Welcome message", required: false, group: "welcome" },
@@ -215,7 +227,7 @@ export interface WizardPhase {
 export const WIZARD_PHASES: WizardPhase[] = [
   { id: "institution", label: "Organisation", fields: ["institutionName", "typeSlug", "websiteUrl"] },
   { id: "subject", label: "Subject", fields: ["subjectDiscipline"] },
-  { id: "course", label: "Course", fields: ["courseName", "interactionPattern", "teachingMode", "physicalMaterials"] },
+  { id: "course", label: "Course", fields: ["courseName", "interactionPattern", "audience", "teachingMode", "physicalMaterials"] },
   { id: "content", label: "Content", fields: [] },
   { id: "welcome", label: "Welcome", fields: ["welcomeMessage", "sessionCount", "durationMins", "planEmphasis"] },
   { id: "tune", label: "Fine-Tune", fields: ["behaviorTargets", "lessonPlanModel"] },

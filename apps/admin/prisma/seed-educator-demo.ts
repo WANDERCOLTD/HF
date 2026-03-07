@@ -93,6 +93,7 @@ const SUBJECTS = [
       "11+ exam preparation covering inference, retrieval, cross-source analysis, literary devices, PEA technique, vocabulary, summarising, and opinion forming across fiction, non-fiction, poetry, and multi-source materials.",
     qualificationBody: "GL Assessment / CEM",
     qualificationLevel: "Key Stage 2 (11+)",
+    teachingProfile: "comprehension-led",
   },
   {
     slug: "spag",
@@ -101,6 +102,7 @@ const SUBJECTS = [
       "Key Stage 2 SPAG covering spelling rules and statutory word lists, punctuation conventions, grammar fundamentals, and sentence structure from simple to complex.",
     qualificationBody: "National Curriculum",
     qualificationLevel: "Key Stage 2",
+    teachingProfile: "recall-led",
   },
 ];
 
@@ -955,6 +957,7 @@ async function createSubjects(): Promise<Map<string, string>> {
         qualificationLevel: s.qualificationLevel,
         defaultTrustLevel: "EXPERT_CURATED",
         isActive: true,
+        teachingProfile: s.teachingProfile ?? null,
       },
     });
     subjectMap.set(s.slug, subject.id);

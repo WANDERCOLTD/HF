@@ -11,8 +11,9 @@
 import { registerTransform } from "../TransformRegistry";
 import { classifyValue, getAttributeValue } from "../types";
 import { computePersonalityAdaptation } from "./personality";
-import type { AssembledContext, CallerAttributeData } from "../types";
+import type { AssembledContext, CallerAttributeData, SubjectSourcesData } from "../types";
 import type { SpecConfig } from "@/lib/types/json-fields";
+import { resolveTeachingProfile } from "@/lib/content-trust/teaching-profiles";
 
 // Structural defaults for common memory keys — used when COMP-001 doesn't provide narrativeTemplates
 const DEFAULT_NARRATIVE_TEMPLATES: Record<string, string> = {
@@ -263,6 +264,21 @@ registerTransform("computeInstructions", (
       const ci = sections.courseInstructions;
       if (!ci?.hasCourseInstructions) return null;
       return ci.courseRules;
+    })(),
+
+    // Subject methodology — delivery hints from the subject's teaching profile
+    subject_methodology: (() => {
+      const subjectSources = loadedData.subjectSources as SubjectSourcesData | null;
+      const firstSubject = subjectSources?.subjects?.[0];
+      if (!firstSubject) return null;
+
+      const resolved = resolveTeachingProfile(firstSubject);
+      if (!resolved || resolved.deliveryHints.length === 0) return null;
+
+      return {
+        profile: resolved.key,
+        rules: resolved.deliveryHints.map((hint) => `- ${hint}`).join("\n"),
+      };
     })(),
 
     // Session pedagogy — delegates to separate transform (already computed)

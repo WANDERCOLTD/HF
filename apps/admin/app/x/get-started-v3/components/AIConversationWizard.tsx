@@ -28,6 +28,7 @@ import { OptionPanel, type PanelConfig, type OptionDef, type SlidersPanel } from
 import { PERSONALITY_SLIDERS } from "./wizard-schema";
 import { evaluateGraph } from "@/lib/wizard/graph-evaluator";
 import { ALL_NODES } from "@/lib/wizard/graph-nodes";
+import { parseOptionsFromText } from "@/lib/chat/parse-options";
 import "../get-started-v3.css";
 
 // ── Types ────────────────────────────────────────────────
@@ -721,11 +722,35 @@ export function AIConversationWizard({ initialContext }: AIConversationWizardPro
                   <div className="gs-chat-bubble gs-chat-bubble--user">
                     <PersonalityCard values={getData<Record<string, number>>("behaviorTargets")!} />
                   </div>
-                ) : (
-                  <div className={`gs-chat-bubble gs-chat-bubble--${msg.role}`}>
-                    {msg.content}
-                  </div>
-                )}
+                ) : (() => {
+                  const isLastAssistant =
+                    msg.role === "assistant" &&
+                    !isLoading &&
+                    !activePanel &&
+                    suggestions.length === 0 &&
+                    msg.id === messages[messages.length - 1]?.id;
+                  const inlineOptions = isLastAssistant ? parseOptionsFromText(msg.content) : [];
+
+                  return (
+                    <div className={`gs-chat-bubble gs-chat-bubble--${msg.role}`}>
+                      {msg.content}
+                      {inlineOptions.length > 0 && (
+                        <div className="gs-inline-options">
+                          {inlineOptions.map((opt, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              className="gs-suggestion-chip"
+                              onClick={() => handleSend(opt.label)}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ))}
 

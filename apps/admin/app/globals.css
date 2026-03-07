@@ -1741,6 +1741,7 @@ html.light {
 .hf-mt-md { margin-top: 16px; }
 .hf-mt-xs { margin-top: 4px; }
 .hf-mb-xs { margin-bottom: 4px; }
+.hf-ml-xs { margin-left: 4px; }
 .hf-ml-auto { margin-left: auto; }
 /* Subtle link (underline, inherits color) */
 .hf-link-subtle { text-decoration: underline; color: inherit; cursor: pointer; }
@@ -1990,6 +1991,38 @@ html.light {
   border-radius: 8px;
   overflow: hidden;
 }
+
+/* ── CollapsibleCard ─────────────────────────────────────
+   Generic expand/collapse component. Two variants:
+   - default (card): wraps in hf-expandable-card
+   - hf-collapsible--embedded: borderless, for inside parent cards
+   ──────────────────────────────────────────────────────── */
+.hf-collapsible-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+.hf-collapsible-header:hover { background: color-mix(in srgb, var(--accent-primary) 4%, transparent); }
+.hf-collapsible-title { font-size: 14px; font-weight: 600; color: var(--text-primary); flex: 1; min-width: 0; }
+.hf-collapsible-hint { font-size: 12px; color: var(--text-muted); line-height: 1.4; padding: 0 16px; }
+.hf-collapsible-body { padding: 12px 16px 16px; }
+
+/* Embedded variant — borderless toggle inside a parent card */
+.hf-collapsible--embedded .hf-collapsible-header { padding: 12px 0 4px; margin-top: 16px; border-top: 1px solid var(--border-subtle); }
+.hf-collapsible--embedded .hf-collapsible-header:hover { background: none; }
+.hf-collapsible--embedded .hf-collapsible-title { color: var(--accent-primary); }
+.hf-collapsible--embedded .hf-collapsible-header:hover .hf-collapsible-title { color: var(--accent-primary-hover); }
+.hf-collapsible--embedded .hf-collapsible-hint { padding: 0; margin-top: 4px; }
+.hf-collapsible--embedded .hf-collapsible-body { margin-top: 16px; padding: 8px 0 0; }
+/* When embedded is first child, no separator needed */
+.hf-collapsible--embedded:first-child .hf-collapsible-header { margin-top: 0; border-top: none; padding-top: 0; }
 
 /* Ghost/unstyled button (no bg, no border) */
 .hf-btn-unstyled {

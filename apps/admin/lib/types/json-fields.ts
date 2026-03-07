@@ -78,6 +78,7 @@ export interface PlaybookConfig {
   goals?: Array<Record<string, any>>;
   onboardingFlowPhases?: OnboardingFlowPhases;
   physicalMaterials?: string;
+  audience?: string;
   [key: string]: any;
 }
 

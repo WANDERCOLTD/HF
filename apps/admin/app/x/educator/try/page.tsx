@@ -17,6 +17,11 @@ interface Classroom {
   domain: { id: string; name: string; slug: string };
 }
 
+interface PlaybookOption {
+  id: string;
+  name: string;
+}
+
 export default function TryItPage() {
   return (
     <Suspense fallback={<div style={{ padding: 32 }}><div style={{ fontSize: 15, color: "var(--text-muted)" }}>Loading...</div></div>}>
@@ -33,6 +38,8 @@ function TryItContent() {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const [playbooks, setPlaybooks] = useState<PlaybookOption[]>([]);
+  const [selectedPlaybookId, setSelectedPlaybookId] = useState<string | null>(null);
 
   useEffect(() => {
     const instQuery = institutionId ? `?institutionId=${institutionId}` : "";
@@ -48,27 +55,48 @@ function TryItContent() {
       .finally(() => setLoading(false));
   }, [institutionId]);
 
+  // Fetch published playbooks when domain is selected
+  useEffect(() => {
+    if (!selected) { setPlaybooks([]); setSelectedPlaybookId(null); return; }
+    fetchApi(`/api/domains/${selected}/playbooks`)
+      .then((res: { ok: boolean; playbooks?: PlaybookOption[] }) => {
+        const pbs = (res?.playbooks || []).filter((p: any) => p.status === "PUBLISHED");
+        setPlaybooks(pbs);
+        // Auto-select if only one course
+        if (pbs.length === 1) {
+          setSelectedPlaybookId(pbs[0].id);
+        } else {
+          setSelectedPlaybookId(null);
+        }
+      });
+  }, [selected]);
+
   const handleStart = async () => {
     setStarting(true);
+
+    const simParams = new URLSearchParams();
+    if (selectedPlaybookId) simParams.set("playbookId", selectedPlaybookId);
+    if (selected) simParams.set("domainId", selected);
+    const qs = simParams.toString() ? `?${simParams.toString()}` : "";
 
     // Check if educator already has a sim caller
     const setupInfo = await fetchApi("/api/sim/setup-info");
 
     if (setupInfo?.caller) {
       // Already has a caller — open sim in new tab
-      window.open(`/x/sim/${setupInfo.caller.id}`, "_blank");
+      window.open(`/x/sim/${setupInfo.caller.id}${qs}`, "_blank");
       setStarting(false);
       return;
     }
 
-    // Create a caller via sim setup
+    // Create a caller via sim setup (pass playbookId for enrollment)
     const res = await fetchApi("/api/sim/setup", {
       method: "POST",
-      body: JSON.stringify({ domainId: selected }),
+      body: JSON.stringify({ domainId: selected, playbookId: selectedPlaybookId }),
     });
 
     if (res?.ok && res.caller) {
-      window.open(`/x/sim/${res.caller.id}`, "_blank");
+      window.open(`/x/sim/${res.caller.id}${qs}`, "_blank");
     } else {
       // Fallback: open sim setup in new tab
       window.open("/x/sim/setup", "_blank");
@@ -161,7 +189,7 @@ function TryItContent() {
                   marginBottom: 8,
                 }}
               >
-                Choose a learning focus
+                Choose a classroom
               </label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {classrooms.map((c) => (
@@ -192,6 +220,56 @@ function TryItContent() {
             </div>
           )}
 
+          {/* Course picker — shown when domain has multiple courses */}
+          {selected && playbooks.length > 1 && (
+            <div style={{ marginBottom: 20 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "var(--text-secondary)",
+                  marginBottom: 8,
+                }}
+              >
+                Choose a course
+              </label>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {playbooks.map((pb) => (
+                  <button
+                    key={pb.id}
+                    onClick={() => setSelectedPlaybookId(pb.id)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "10px 14px",
+                      border: `2px solid ${selectedPlaybookId === pb.id ? "var(--button-primary-bg)" : "var(--border-default)"}`,
+                      borderRadius: 8,
+                      background:
+                        selectedPlaybookId === pb.id
+                          ? "color-mix(in srgb, var(--button-primary-bg) 10%, transparent)"
+                          : "var(--surface-secondary)",
+                      color: "var(--text-primary)",
+                      fontSize: 14,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span style={{
+                      width: 16, height: 16, borderRadius: "50%",
+                      border: `2px solid ${selectedPlaybookId === pb.id ? "var(--button-primary-bg)" : "var(--border-default)"}`,
+                      background: selectedPlaybookId === pb.id ? "var(--button-primary-bg)" : "transparent",
+                      flexShrink: 0,
+                    }} />
+                    {pb.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div
             style={{
               padding: 16,
@@ -209,17 +287,17 @@ function TryItContent() {
           </div>
 
           <button
-            disabled={!selected || starting}
+            disabled={!selected || starting || (playbooks.length > 1 && !selectedPlaybookId)}
             onClick={handleStart}
             style={{
               width: "100%",
               padding: "12px 20px",
               background:
-                !selected || starting
+                !selected || starting || (playbooks.length > 1 && !selectedPlaybookId)
                   ? "var(--border-default)"
                   : "var(--button-primary-bg)",
               color:
-                !selected || starting
+                !selected || starting || (playbooks.length > 1 && !selectedPlaybookId)
                   ? "var(--text-muted)"
                   : "var(--button-primary-text)",
               border: "none",

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import {
+  AGENT_TUNING_DEFAULTS,
+  deriveParametersFromMatrices,
+} from "@/lib/domain/agent-tuning";
 
 /**
  * @api GET /api/domains/:domainId/onboarding
@@ -166,7 +170,38 @@ export async function PUT(
     if (onboardingWelcome !== undefined) updateData.onboardingWelcome = onboardingWelcome;
     if (onboardingIdentitySpecId !== undefined) updateData.onboardingIdentitySpecId = onboardingIdentitySpecId;
     if (onboardingFlowPhases !== undefined) updateData.onboardingFlowPhases = onboardingFlowPhases;
-    if (onboardingDefaultTargets !== undefined) updateData.onboardingDefaultTargets = onboardingDefaultTargets;
+
+    // Convert personality presets to numeric BEH-* targets if present
+    if (onboardingDefaultTargets !== undefined) {
+      const { communicationPreset, teachingPreset, ...rest } = onboardingDefaultTargets || {};
+      if (communicationPreset || teachingPreset) {
+        // Look up preset positions from matrix definitions
+        const positions: Record<string, { x: number; y: number }> = {};
+        for (const matrix of AGENT_TUNING_DEFAULTS.matrices) {
+          const presetId = matrix.id === "communication-style" ? communicationPreset : teachingPreset;
+          if (presetId) {
+            const preset = matrix.presets.find((p) => p.id === presetId);
+            if (preset) positions[matrix.id] = { x: preset.x, y: preset.y };
+          }
+        }
+        // Derive numeric BEH-* values from positions
+        const derived = deriveParametersFromMatrices(AGENT_TUNING_DEFAULTS, positions);
+        const numericTargets: Record<string, { value: number; confidence: number }> = {};
+        for (const [paramId, dp] of Object.entries(derived)) {
+          numericTargets[paramId] = { value: dp.value, confidence: dp.confidence };
+        }
+        // Merge: numeric BEH-* targets + metadata (prefixed with _) + any existing non-preset fields
+        updateData.onboardingDefaultTargets = {
+          ...rest,
+          ...numericTargets,
+          _communicationPreset: communicationPreset,
+          _teachingPreset: teachingPreset,
+          _matrixPositions: positions,
+        };
+      } else {
+        updateData.onboardingDefaultTargets = onboardingDefaultTargets;
+      }
+    }
 
     // Update domain
     const updatedDomain = await prisma.domain.update({

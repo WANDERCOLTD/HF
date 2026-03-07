@@ -10928,17 +10928,18 @@ Returns callers with their last call message preview for the chat list UI. Sessi
 
 ### `POST` /api/sim/setup
 
-Creates a Caller record linked to the authenticated user in the specified domain. Used on first sim access.
+Creates a Caller record linked to the authenticated user in the specified domain. Auto-enrolls in a single playbook if available. Used on first sim access.
 
 **Auth**: Session
 
 | Parameter | In | Type | Required | Description |
 |-----------|-----|------|----------|-------------|
 | domainId | body | string | No | Domain to create caller in (required) |
+| playbookId | body | string | No | Specific playbook to enroll in (optional, auto-resolves if omitted) |
 
 **Response** `200`
 ```json
-{ ok: true, caller: { id, name, domainId } }
+{ ok: true, caller: { id, name, domainId, playbookId? } }
 ```
 
 **Response** `400`

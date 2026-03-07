@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { TEACHING_PROFILE_KEYS, type TeachingProfileKey } from "@/lib/content-trust/teaching-profiles";
 
 type Params = { params: Promise<{ subjectId: string }> };
 
@@ -70,7 +71,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
  * @body qualificationRef string - Qualification reference
  * @body qualificationLevel string - Qualification level
  * @body isActive boolean - Active status
+ * @body teachingProfile string|null - Teaching profile key (e.g. "comprehension-led") or null to clear
+ * @body teachingOverrides object|null - Override individual profile settings (teachingMode, interactionPattern, deliveryHints)
  * @response 200 { subject: {...} }
+ * @response 400 { error: "Invalid teachingProfile: ..." }
  * @response 500 { error: "..." }
  */
 /**
@@ -135,7 +139,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       qualificationRef,
       qualificationLevel,
       isActive,
+      teachingProfile,
+      teachingOverrides,
     } = body;
+
+    // Validate teachingProfile if provided (null is valid — clears the profile)
+    if (teachingProfile !== undefined && teachingProfile !== null) {
+      if (!TEACHING_PROFILE_KEYS.includes(teachingProfile as TeachingProfileKey)) {
+        return NextResponse.json(
+          { error: `Invalid teachingProfile: ${teachingProfile}. Valid values: ${TEACHING_PROFILE_KEYS.join(", ")}` },
+          { status: 400 }
+        );
+      }
+    }
 
     const data: any = {};
     if (name !== undefined) data.name = name;
@@ -145,6 +161,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (qualificationRef !== undefined) data.qualificationRef = qualificationRef;
     if (qualificationLevel !== undefined) data.qualificationLevel = qualificationLevel;
     if (isActive !== undefined) data.isActive = isActive;
+    if (teachingProfile !== undefined) data.teachingProfile = teachingProfile;
+    if (teachingOverrides !== undefined) data.teachingOverrides = teachingOverrides;
 
     const subject = await prisma.subject.update({
       where: { id: subjectId },

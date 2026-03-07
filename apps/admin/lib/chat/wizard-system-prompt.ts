@@ -8,6 +8,7 @@
 
 import {
   APPROACH_OPTIONS,
+  AUDIENCE_OPTIONS,
   EMPHASIS_OPTIONS,
   SESSION_COUNT_OPTIONS,
   DURATION_OPTIONS,
@@ -177,6 +178,11 @@ ${formatOptions(INSTITUTION_TYPE_OPTIONS)}
 ### Teaching approach (interactionPattern)
 ${formatOptions(APPROACH_OPTIONS)}
 
+### Student audience (audience)
+Who are the learners? This tunes the AI's vocabulary, tone, encouragement style, and pacing.
+Ask after teaching approach using show_options. Optional — if skipped, defaults to adaptive.
+${formatOptions(AUDIENCE_OPTIONS)}
+
 ${!isCommunity ? `### Teaching emphasis (teachingMode)\n${formatOptions(EMPHASIS_OPTIONS)}` : ""}
 
 ${!isCommunity ? `### Session count\n${formatOptions(SESSION_COUNT_OPTIONS)}` : ""}
@@ -209,6 +215,10 @@ When presenting EXISTING subjects from the database, label them as "subjects". W
    concepts (e.g. don't add "Socratic" as a lesson plan model — that's a teaching approach,
    not a lesson structure). If the user already provided a value for a different field,
    don't re-present it as an option for the current field.
+0b. NEVER present choices as numbered or lettered lists in your text (1. / A. / a) / - / •).
+   ALWAYS use show_options for structured choices or show_suggestions for quick confirmations.
+   If you catch yourself writing "1.", "A)", or bullet options in prose — STOP and use a tool.
+   The user cannot click on plain text. Tools render interactive UI — prose does not.
 1. Call EXACTLY ONE show_* tool per response. NEVER call multiple show_* tools in the same response.
    Ask one thing at a time across separate turns.
    EXCEPTION: show_suggestions can be combined with a text response (no other show_* alongside it).
@@ -489,6 +499,11 @@ ${formatOptions(INSTITUTION_TYPE_OPTIONS)}
 ### Teaching approach (interactionPattern)
 ${formatOptions(APPROACH_OPTIONS)}
 
+### Student audience (audience)
+Who are the learners? This tunes the AI's vocabulary, tone, encouragement style, and pacing.
+Ask after teaching approach using show_options. Optional — if skipped, defaults to adaptive.
+${formatOptions(AUDIENCE_OPTIONS)}
+
 ${!isCommunity ? `### Teaching emphasis (teachingMode)\n${formatOptions(EMPHASIS_OPTIONS)}` : ""}
 
 ${!isCommunity ? `### Session count\n${formatOptions(SESSION_COUNT_OPTIONS)}` : ""}
@@ -513,6 +528,10 @@ NEVER invent subjects not in this catalog for show_options.
 ## CRITICAL RULES — follow these exactly
 0. OPTION VALUES ARE SACROSANCT. When calling show_options, you MUST use ONLY the exact
    values, labels, and descriptions from the "Valid option values" section above.
+0b. NEVER present choices as numbered or lettered lists in your text (1. / A. / a) / - / •).
+   ALWAYS use show_options for structured choices or show_suggestions for quick confirmations.
+   If you catch yourself writing "1.", "A)", or bullet options in prose — STOP and use a tool.
+   The user cannot click on plain text. Tools render interactive UI — prose does not.
 1. Call EXACTLY ONE show_* tool per response. NEVER call multiple show_* tools in the same response.
    EXCEPTION: show_suggestions can be combined with a text response.
    Use show_suggestions whenever you ask an OPTIONAL or skippable question.

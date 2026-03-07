@@ -100,10 +100,3 @@
 .ql-cancel-btn { margin-top: 16px; padding: 8px 16px; border-radius: 8px; background: transparent; border: 1px solid var(--border-default); font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: color 0.15s; }
 .ql-classroom-btn { padding: 12px 24px; border-radius: 10px; border: none; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; transition: all 0.2s; }
 .ql-classroom-btn-active { background: var(--accent-primary); color: white; cursor: pointer; }
-
-
-/* ─── Accordion ─────────────────────────────────────── */
-.ql-accordion-toggle { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 12px 0 4px; background: none; border: none; border-top: 1px solid var(--border-subtle); width: 100%; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--accent-primary); transition: color 0.15s; font-family: inherit; }
-.ql-accordion-toggle:hover { color: var(--accent-primary-hover); }
-.ql-accordion-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
-.ql-accordion-content { margin-top: 16px; padding-top: 8px; }

@@ -10,12 +10,13 @@ import type { AgentTunerOutput, AgentTunerPill } from "@/lib/agent-tuner/types";
 import { AgentTuningPanel, type AgentTuningPanelOutput } from "@/components/shared/AgentTuningPanel";
 import type { MatrixPosition } from "@/lib/domain/agent-tuning";
 import { WizardSummary } from "@/components/shared/WizardSummary";
+import { CollapsibleCard } from "@/components/shared/CollapsibleCard";
 import { FancySelect } from "@/components/shared/FancySelect";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import {
   Building2, BookOpen, User, PlayCircle, Target,
-  ChevronDown, ChevronRight, Link2, Copy, Check, Sparkles, Loader2,
+  Link2, Copy, Check, Sparkles, Loader2,
 } from "lucide-react";
 import { OnboardingTabContent } from "@/app/x/domains/components/OnboardingTab";
 import type { DomainDetail } from "@/app/x/domains/components/types";
@@ -736,20 +737,14 @@ export default function QuickLaunchPage() {
     }
   }, [result]);
 
-  const handleToggleOnboarding = useCallback(() => {
-    const willExpand = !onboardingExpanded;
-    setOnboardingExpanded(willExpand);
-    if (willExpand && !domainDetail && !domainDetailLoading) {
-      fetchDomainDetail();
-    }
-  }, [onboardingExpanded, domainDetail, domainDetailLoading, fetchDomainDetail]);
+  const handleExpandOnboarding = useCallback((open: boolean) => {
+    setOnboardingExpanded(open);
+    if (open && !domainDetail && !domainDetailLoading) fetchDomainDetail();
+  }, [domainDetail, domainDetailLoading, fetchDomainDetail]);
 
-  const handleToggleTunePersona = useCallback(() => {
-    const willExpand = !tunePersonaExpanded;
-    setTunePersonaExpanded(willExpand);
-    if (willExpand && !domainDetail && !domainDetailLoading) {
-      fetchDomainDetail();
-    }
+  const handleExpandTunePersona = useCallback((open: boolean) => {
+    setTunePersonaExpanded(open);
+    if (open && !domainDetail && !domainDetailLoading) fetchDomainDetail();
   }, [tunePersonaExpanded, domainDetail, domainDetailLoading, fetchDomainDetail]);
 
   // Save persona tuning changes to domain
@@ -1105,7 +1100,7 @@ export default function QuickLaunchPage() {
                       style={{ cursor: check.fixAction?.href ? "pointer" : "default" }}
                       onClick={() => {
                         if (check.id === "onboarding_configured") {
-                          if (!onboardingExpanded) handleToggleOnboarding();
+                          if (!onboardingExpanded) handleExpandOnboarding(true);
                           onboardingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                           return;
                         }
@@ -1163,78 +1158,68 @@ export default function QuickLaunchPage() {
             />
 
             {/* Accordion: Full onboarding flow planner */}
-            <button
-              onClick={handleToggleOnboarding}
-              className="ql-accordion-toggle"
+            <CollapsibleCard
+              variant="embedded"
+              title="Customise Onboarding Flow"
+              open={onboardingExpanded}
+              onToggle={handleExpandOnboarding}
+              status={domainDetailLoading && !domainDetail
+                ? <div className="hf-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                : undefined
+              }
             >
-              {onboardingExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              <span>Customise Onboarding Flow</span>
-              {domainDetailLoading && !domainDetail && (
-                <div className="hf-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-              )}
-            </button>
-
-            {onboardingExpanded && (
-              <div className="ql-accordion-content">
-                {domainDetailLoading && !domainDetail ? (
-                  <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
-                    <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
-                    <span className="hf-text-sm hf-text-muted">Loading onboarding configuration...</span>
-                  </div>
-                ) : domainDetail ? (
-                  <OnboardingTabContent
-                    domain={domainDetail}
-                    onDomainRefresh={fetchDomainDetail}
-                  />
-                ) : null}
-              </div>
-            )}
+              {domainDetailLoading && !domainDetail ? (
+                <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
+                  <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
+                  <span className="hf-text-sm hf-text-muted">Loading onboarding configuration...</span>
+                </div>
+              ) : domainDetail ? (
+                <OnboardingTabContent
+                  domain={domainDetail}
+                  onDomainRefresh={fetchDomainDetail}
+                />
+              ) : null}
+            </CollapsibleCard>
           </div>
 
           {/* ── Tune Persona (Boston Matrix) ── */}
           <div className="ql-result-card">
-            <button
-              onClick={handleToggleTunePersona}
-              className="ql-accordion-toggle"
-              style={{ borderTop: "none", paddingTop: 0, marginTop: 0 }}
+            <CollapsibleCard
+              variant="embedded"
+              title="Tune Persona"
+              hint="Drag the dots to adjust your guide&apos;s voice and personality."
+              open={tunePersonaExpanded}
+              onToggle={handleExpandTunePersona}
+              status={savingPersona
+                ? <span className="ql-saving-indicator">&mdash; saving...</span>
+                : undefined
+              }
             >
-              {tunePersonaExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              <span>Tune Persona</span>
-              {savingPersona && (
-                <span className="ql-saving-indicator">&mdash; saving...</span>
+              {domainDetailLoading && !domainDetail ? (
+                <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
+                  <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
+                  <span className="hf-text-sm hf-text-muted">Loading persona settings...</span>
+                </div>
+              ) : (
+                <AgentTuningPanel
+                  initialPositions={
+                    (domainDetail?.onboardingDefaultTargets as any)?._matrixPositions
+                    || (Object.keys(matrixPositions).length > 0 ? matrixPositions : undefined)
+                  }
+                  existingParams={
+                    domainDetail?.onboardingDefaultTargets
+                      ? Object.fromEntries(
+                          Object.entries(domainDetail.onboardingDefaultTargets as Record<string, any>)
+                            .filter(([k]) => !k.startsWith("_"))
+                            .map(([k, v]) => [k, typeof v === "object" && v !== null ? (v as any).value : v])
+                        )
+                      : undefined
+                  }
+                  onChange={handlePersonaTuningChange}
+                  compact
+                />
               )}
-            </button>
-            <div className="ql-accordion-hint">
-              Drag the dots to adjust your guide&apos;s voice and personality.
-            </div>
-            {tunePersonaExpanded && (
-              <div className="ql-accordion-content">
-                {domainDetailLoading && !domainDetail ? (
-                  <div className="hf-flex hf-gap-sm" style={{ justifyContent: "center", padding: 24 }}>
-                    <div className="hf-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
-                    <span className="hf-text-sm hf-text-muted">Loading persona settings...</span>
-                  </div>
-                ) : (
-                  <AgentTuningPanel
-                    initialPositions={
-                      (domainDetail?.onboardingDefaultTargets as any)?._matrixPositions
-                      || (Object.keys(matrixPositions).length > 0 ? matrixPositions : undefined)
-                    }
-                    existingParams={
-                      domainDetail?.onboardingDefaultTargets
-                        ? Object.fromEntries(
-                            Object.entries(domainDetail.onboardingDefaultTargets as Record<string, any>)
-                              .filter(([k]) => !k.startsWith("_"))
-                              .map(([k, v]) => [k, typeof v === "object" && v !== null ? (v as any).value : v])
-                          )
-                        : undefined
-                    }
-                    onChange={handlePersonaTuningChange}
-                    compact
-                  />
-                )}
-              </div>
-            )}
+            </CollapsibleCard>
           </div>
 
           {/* ── Test Call ── */}

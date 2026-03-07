@@ -20,6 +20,14 @@ import {
   TRUST_LEVELS,
   DOCUMENT_TYPES,
 } from "@/app/x/content-sources/_components/shared/badges";
+import {
+  TEACHING_PROFILE_KEYS,
+  TEACHING_PROFILES,
+  getTeachingProfile,
+  resolveTeachingProfile,
+  type TeachingProfileKey,
+  type TeachingOverrides,
+} from "@/lib/content-trust/teaching-profiles";
 
 
 const SOURCE_TAGS = [
@@ -82,6 +90,8 @@ type Subject = {
   qualificationBody: string | null;
   qualificationRef: string | null;
   qualificationLevel: string | null;
+  teachingProfile: string | null;
+  teachingOverrides: TeachingOverrides | null;
   isActive: boolean;
   sources: SubjectSource[];
   domains: SubjectDomain[];
@@ -190,6 +200,14 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
   const [editingDesc, setEditingDesc] = useState(false);
   const [editDesc, setEditDesc] = useState("");
 
+  // Teaching approach card state
+  const [showCustomise, setShowCustomise] = useState(false);
+  const [overrideMode, setOverrideMode] = useState<string>("");
+  const [overridePattern, setOverridePattern] = useState<string>("");
+  const [overrideHints, setOverrideHints] = useState<string[]>([]);
+  const [newHint, setNewHint] = useState("");
+  const [savingOverrides, setSavingOverrides] = useState(false);
+
   // Media library state
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
   const [mediaLoading, setMediaLoading] = useState(false);
@@ -234,6 +252,11 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
       if (data.error) throw new Error(data.error);
       setSubject(data.subject);
       setEditDesc(data.subject.description || "");
+      // Sync teaching override fields
+      const overrides = data.subject.teachingOverrides as TeachingOverrides | null;
+      setOverrideMode(overrides?.teachingMode || "");
+      setOverridePattern(overrides?.interactionPattern || "");
+      setOverrideHints(overrides?.deliveryHints || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -830,6 +853,218 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
         ]}
       />
 
+      {/* === TEACHING APPROACH CARD === */}
+      <div className="hf-card hf-mb-lg">
+        <h3 className="hf-heading-md hf-mb-md">Teaching Approach</h3>
+
+        {/* Profile picker */}
+        <div className="hf-flex hf-gap-sm hf-items-center hf-mb-sm">
+          <label className="hf-label hf-mb-0">Profile</label>
+          <select
+            value={subject.teachingProfile || ""}
+            onChange={(e) => saveSubjectField("teachingProfile", e.target.value || null)}
+            className="hf-input"
+            style={{ width: 220 }}
+          >
+            <option value="">None</option>
+            {TEACHING_PROFILE_KEYS.map((key) => (
+              <option key={key} value={key}>{key}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Profile description */}
+        {subject.teachingProfile && getTeachingProfile(subject.teachingProfile) && (
+          <p className="hf-text-sm hf-text-muted hf-mb-md">
+            {getTeachingProfile(subject.teachingProfile)!.description}
+          </p>
+        )}
+
+        {/* Effective settings (read-only summary) */}
+        {(() => {
+          const resolved = resolveTeachingProfile(subject.teachingProfile, subject.teachingOverrides);
+          if (!resolved.teachingMode && !resolved.interactionPattern) return null;
+          return (
+            <div className="hf-mb-md" style={{ padding: 12, background: "var(--surface-secondary)", borderRadius: 8 }}>
+              <span className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase hf-mb-sm" style={{ display: "block" }}>
+                Effective Settings
+              </span>
+              <div className="hf-flex hf-gap-lg">
+                {resolved.teachingMode && (
+                  <div className="hf-text-sm">
+                    <span className="hf-text-muted">Teaching mode: </span>
+                    <strong>{resolved.teachingMode}</strong>
+                    <span className="hf-text-xs hf-text-muted">
+                      {" "}
+                      {subject.teachingOverrides?.teachingMode ? "override" : "from profile"}
+                    </span>
+                  </div>
+                )}
+                {resolved.interactionPattern && (
+                  <div className="hf-text-sm">
+                    <span className="hf-text-muted">Interaction pattern: </span>
+                    <strong>{resolved.interactionPattern}</strong>
+                    <span className="hf-text-xs hf-text-muted">
+                      {" "}
+                      {subject.teachingOverrides?.interactionPattern ? "override" : "from profile"}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Customise toggle */}
+        <button
+          onClick={() => setShowCustomise(!showCustomise)}
+          className="hf-btn-unstyled hf-text-sm hf-text-bold"
+          style={{ color: "var(--accent-primary)", marginBottom: showCustomise ? 12 : 0 }}
+        >
+          {showCustomise ? "Hide customise" : "Customise (optional)"}
+        </button>
+
+        {/* Customise section */}
+        {showCustomise && (
+          <div style={{ padding: 16, border: "1px solid var(--border-default)", borderRadius: 8, background: "var(--surface-primary)" }}>
+            <div className="hf-flex hf-gap-md hf-mb-md">
+              <div style={{ flex: 1 }}>
+                <label className="hf-label">Teaching mode</label>
+                <select
+                  value={overrideMode}
+                  onChange={(e) => setOverrideMode(e.target.value)}
+                  className="hf-input"
+                >
+                  <option value="">{subject.teachingProfile ? `(from profile: ${getTeachingProfile(subject.teachingProfile)?.teachingMode || "none"})` : "(none)"}</option>
+                  <option value="comprehension">comprehension</option>
+                  <option value="recall">recall</option>
+                  <option value="practice">practice</option>
+                  <option value="syllabus">syllabus</option>
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="hf-label">Interaction pattern</label>
+                <select
+                  value={overridePattern}
+                  onChange={(e) => setOverridePattern(e.target.value)}
+                  className="hf-input"
+                >
+                  <option value="">{subject.teachingProfile ? `(from profile: ${getTeachingProfile(subject.teachingProfile)?.interactionPattern || "none"})` : "(none)"}</option>
+                  <option value="socratic">socratic</option>
+                  <option value="directive">directive</option>
+                  <option value="reflective">reflective</option>
+                  <option value="coaching">coaching</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Delivery hints */}
+            <div className="hf-mb-md">
+              <label className="hf-label">Extra delivery hints</label>
+              {overrideHints.length > 0 && (
+                <div className="hf-flex-col hf-gap-xs hf-mb-sm">
+                  {overrideHints.map((hint, i) => (
+                    <div key={i} className="hf-flex hf-gap-sm hf-items-center">
+                      <span className="hf-text-sm" style={{ flex: 1 }}>{hint}</span>
+                      <button
+                        onClick={() => setOverrideHints(overrideHints.filter((_, j) => j !== i))}
+                        className="hf-btn-unstyled hf-text-error hf-text-xs"
+                        title="Remove hint"
+                      >
+                        x
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="hf-flex hf-gap-sm">
+                <input
+                  value={newHint}
+                  onChange={(e) => setNewHint(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newHint.trim()) {
+                      setOverrideHints([...overrideHints, newHint.trim()]);
+                      setNewHint("");
+                    }
+                  }}
+                  placeholder="Add a delivery hint..."
+                  className="hf-input hf-text-sm"
+                  style={{ flex: 1 }}
+                />
+                <button
+                  onClick={() => {
+                    if (newHint.trim()) {
+                      setOverrideHints([...overrideHints, newHint.trim()]);
+                      setNewHint("");
+                    }
+                  }}
+                  className="hf-btn hf-btn-secondary hf-text-xs"
+                  disabled={!newHint.trim()}
+                >
+                  + Add hint
+                </button>
+              </div>
+            </div>
+
+            {/* Save overrides */}
+            <button
+              onClick={async () => {
+                setSavingOverrides(true);
+                const overrides: TeachingOverrides = {};
+                if (overrideMode) overrides.teachingMode = overrideMode;
+                if (overridePattern) overrides.interactionPattern = overridePattern;
+                if (overrideHints.length > 0) overrides.deliveryHints = overrideHints;
+                const hasOverrides = Object.keys(overrides).length > 0;
+                await saveSubjectField("teachingOverrides", hasOverrides ? overrides : null);
+                setSavingOverrides(false);
+              }}
+              disabled={savingOverrides}
+              className="hf-btn hf-btn-primary hf-text-sm"
+            >
+              {savingOverrides ? "Saving..." : "Save overrides"}
+            </button>
+          </div>
+        )}
+
+        {/* Course Reference Docs sub-section */}
+        {(() => {
+          const courseRefSources = subject.sources.filter(
+            (s) => s.source.documentType === "COURSE_REFERENCE"
+          );
+          return (
+            <div className="hf-mt-md" style={{ padding: 12, border: "1px solid var(--border-default)", borderRadius: 8 }}>
+              <span className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase hf-mb-sm" style={{ display: "block" }}>
+                Course Reference Docs
+              </span>
+              {courseRefSources.length > 0 ? (
+                courseRefSources.map((ss) => (
+                  <div key={ss.id} className="hf-flex hf-gap-sm hf-items-center hf-mb-xs">
+                    <Link
+                      href={courseId ? `/x/courses/${courseId}/subjects/${subjectId}/sources/${ss.sourceId}` : `/x/content-sources/${ss.sourceId}`}
+                      className="hf-text-sm"
+                      style={{ color: "var(--accent-primary)" }}
+                    >
+                      {ss.source.name}
+                    </Link>
+                    <span className="hf-text-xs hf-text-muted">
+                      COURSE_REFERENCE &middot; {ss.source._count.assertions} tutor rules extracted
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="hf-text-sm hf-text-muted" style={{ margin: 0 }}>
+                  No reference docs yet. Upload a teaching guide in the Materials section below.
+                </p>
+              )}
+            </div>
+          );
+        })()}
+
+        <p className="hf-text-xs hf-text-muted hf-mt-sm" style={{ margin: "8px 0 0" }}>
+          Course-level settings override these if explicitly set.
+        </p>
+      </div>
+
       {/* === SOURCES SECTION === */}
       <section id="section-sources" style={{ marginBottom: 32 }}>
         <h3 className="hf-heading-lg hf-mb-md">Materials</h3>
@@ -1009,6 +1244,52 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
           <p className="hf-text-sm hf-text-muted" style={{ margin: 0 }}>
             PDF, TXT, MD, JSON &mdash; documents will be auto-classified, then extracted after you confirm the type
           </p>
+        </div>
+
+        {/* Skeleton template cards */}
+        <div className="hf-mt-md">
+          <p className="hf-text-sm hf-text-muted hf-mb-sm">Or start from a template:</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+            <div className="hf-card-compact">
+              <div className="hf-heading-sm hf-mb-xs">Reading Passage</div>
+              <p className="hf-text-xs hf-text-muted hf-mb-sm">
+                Fiction, non-fiction, or descriptive text for close reading exercises.
+              </p>
+              <button
+                className="hf-btn hf-btn-secondary hf-text-xs"
+                disabled
+                title="Coming soon"
+              >
+                Generate
+              </button>
+            </div>
+            <div className="hf-card-compact">
+              <div className="hf-heading-sm hf-mb-xs">Question Bank</div>
+              <p className="hf-text-xs hf-text-muted hf-mb-sm">
+                Skill-mapped questions with tiered responses and tutor moves.
+              </p>
+              <button
+                className="hf-btn hf-btn-secondary hf-text-xs"
+                disabled
+                title="Coming soon"
+              >
+                Generate
+              </button>
+            </div>
+            <div className="hf-card-compact">
+              <div className="hf-heading-sm hf-mb-xs">Course Reference</div>
+              <p className="hf-text-xs hf-text-muted hf-mb-sm">
+                Teaching methodology, skills framework, phases, and edge cases.
+              </p>
+              <button
+                className="hf-btn hf-btn-secondary hf-text-xs"
+                disabled
+                title="Coming soon"
+              >
+                Generate
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 

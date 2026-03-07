@@ -12,8 +12,9 @@
  */
 
 import { registerTransform } from "../TransformRegistry";
-import type { AssembledContext } from "../types";
+import type { AssembledContext, SubjectSourcesData } from "../types";
 import type { TeachingMode } from "@/lib/content-trust/resolve-config";
+import { resolveTeachingProfile } from "@/lib/content-trust/teaching-profiles";
 
 interface PedagogyModeOutput {
   mode: TeachingMode;
@@ -97,9 +98,21 @@ registerTransform("computePedagogyMode", (
   const playbooks = context.loadedData.playbooks;
   const pbConfig = playbooks?.[0]?.items?.[0]?.spec?.config;
   const playbookRawConfig = (playbooks?.[0] as any)?.config;
-  const teachingMode: TeachingMode | undefined =
+  let teachingMode: TeachingMode | undefined =
     playbookRawConfig?.teachingMode ||
     pbConfig?.teachingMode;
+
+  // Fall back to subject teaching profile if playbook doesn't set teachingMode
+  if (!teachingMode) {
+    const subjectSources = context.loadedData.subjectSources as SubjectSourcesData | null;
+    const firstSubject = subjectSources?.subjects?.[0];
+    if (firstSubject) {
+      const resolved = resolveTeachingProfile(firstSubject);
+      if (resolved) {
+        teachingMode = resolved.teachingMode;
+      }
+    }
+  }
 
   if (!teachingMode || !PEDAGOGY_MODE_CONFIG[teachingMode]) {
     return null;

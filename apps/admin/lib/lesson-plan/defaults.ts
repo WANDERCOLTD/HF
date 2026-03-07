@@ -46,6 +46,7 @@ export async function getLessonPlanDefaults(
     emphasis: overrides.emphasis ?? system.emphasis,
     assessments: overrides.assessments ?? system.assessments,
     lessonPlanModel: overrides.lessonPlanModel ?? system.lessonPlanModel,
+    audience: overrides.audience ?? system.audience,
   };
 }
 
@@ -71,6 +72,7 @@ export async function getLessonPlanDefaultsWithSource(
     "emphasis",
     "assessments",
     "lessonPlanModel",
+    "audience",
   ];
 
   const result = {} as LessonPlanDefaultsWithSource;

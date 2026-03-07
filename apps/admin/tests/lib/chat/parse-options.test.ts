@@ -1,0 +1,161 @@
+import { describe, it, expect } from "vitest";
+import { parseOptionsFromText, type ParsedOption } from "@/lib/chat/parse-options";
+
+describe("parseOptionsFromText", () => {
+  // ── Numbered options ────────────────────────────────
+
+  it("parses numbered options with period", () => {
+    const text = "Which would you prefer?\n1. Grammar\n2. Vocabulary\n3. Pronunciation";
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(3);
+    expect(result[0]).toMatchObject({ marker: "1", label: "Grammar" });
+    expect(result[1]).toMatchObject({ marker: "2", label: "Vocabulary" });
+    expect(result[2]).toMatchObject({ marker: "3", label: "Pronunciation" });
+  });
+
+  it("parses numbered options with parenthesis", () => {
+    const text = "1) Upload content\n2) Skip for now";
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(2);
+    expect(result[0].label).toBe("Upload content");
+    expect(result[1].label).toBe("Skip for now");
+  });
+
+  it("parses numbered options with dash separator", () => {
+    const text = "1 - Grammar\n2 - Vocabulary";
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(2);
+    expect(result[0].label).toBe("Grammar");
+  });
+
+  it("extracts short labels from descriptions", () => {
+    const text = "1. Grammar — practice sentence structures\n2. Vocabulary — learn new words\n3. Reading — comprehension exercises";
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(3);
+    expect(result[0].label).toBe("Grammar");
+    expect(result[0].fullText).toBe("Grammar — practice sentence structures");
+    expect(result[1].label).toBe("Vocabulary");
+  });
+
+  it("handles colon descriptions", () => {
+    const text = "1. Socratic: ask guiding questions\n2. Direct: explain clearly\n3. Discovery: let them explore";
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(3);
+    expect(result[0].label).toBe("Socratic");
+    expect(result[1].label).toBe("Direct");
+  });
+
+  // ── Lettered options ────────────────────────────────
+
+  it("parses uppercase lettered options", () => {
+    const text = "A. Keep as is\nB. Change something";
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ marker: "A", label: "Keep as is" });
+    expect(result[1]).toMatchObject({ marker: "B", label: "Change something" });
+  });
+
+  it("parses lowercase lettered options with parenthesis", () => {
+    const text = "a) Grammar\nb) Vocabulary\nc) Reading";
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(3);
+    expect(result[0]).toMatchObject({ marker: "a", label: "Grammar" });
+  });
+
+  // ── Prefixed options ────────────────────────────────
+
+  it("parses 'Option N:' pattern", () => {
+    const text = "Option 1: Upload materials\nOption 2: Skip for now";
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(2);
+    expect(result[0].label).toBe("Upload materials");
+  });
+
+  it("parses 'Choice A:' pattern", () => {
+    const text = "Choice A: Socratic approach\nChoice B: Direct instruction";
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(2);
+    expect(result[0].label).toBe("Socratic approach");
+  });
+
+  // ── Bulleted options ────────────────────────────────
+
+  it("parses dash-bulleted options", () => {
+    const text = "Here are your choices:\n- Grammar\n- Vocabulary\n- Pronunciation";
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(3);
+    expect(result[0]).toMatchObject({ marker: "•", label: "Grammar" });
+  });
+
+  it("parses unicode bullet options", () => {
+    const text = "• Upload content\n• Skip for now";
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(2);
+    expect(result[0].label).toBe("Upload content");
+  });
+
+  it("parses asterisk-bulleted options", () => {
+    const text = "* Socratic\n* Direct\n* Discovery";
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(3);
+    expect(result[0].label).toBe("Socratic");
+  });
+
+  // ── Edge cases: should return empty ─────────────────
+
+  it("returns empty for single option (not a choice)", () => {
+    const text = "1. Grammar";
+    expect(parseOptionsFromText(text)).toEqual([]);
+  });
+
+  it("returns empty for plain text with no options", () => {
+    const text = "Let's start with grammar today. I recommend the socratic approach.";
+    expect(parseOptionsFromText(text)).toEqual([]);
+  });
+
+  it("returns empty for non-contiguous numbers", () => {
+    const text = "1. Foo\n\nSome paragraph in between.\n\n2. Bar";
+    expect(parseOptionsFromText(text)).toEqual([]);
+  });
+
+  it("returns empty for non-consecutive numbering", () => {
+    const text = "1. Grammar\n3. Vocabulary\n5. Pronunciation";
+    expect(parseOptionsFromText(text)).toEqual([]);
+  });
+
+  it("returns empty for non-consecutive lettering", () => {
+    const text = "A. Grammar\nC. Vocabulary";
+    expect(parseOptionsFromText(text)).toEqual([]);
+  });
+
+  it("returns empty for more than 10 options", () => {
+    const lines = Array.from({ length: 11 }, (_, i) => `${i + 1}. Option ${i + 1}`);
+    expect(parseOptionsFromText(lines.join("\n"))).toEqual([]);
+  });
+
+  // ── Mixed prose + list ──────────────────────────────
+
+  it("parses options embedded in prose", () => {
+    const text = "Would you like to focus on:\n1. Grammar\n2. Vocabulary\n3. Pronunciation\nLet me know!";
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(3);
+    expect(result[0].label).toBe("Grammar");
+  });
+
+  it("ignores inline mentions that look like options", () => {
+    // "I recommend option 1 or option 2" — no newlines, not a list
+    const text = "I recommend option 1 or option 2 for this lesson.";
+    expect(parseOptionsFromText(text)).toEqual([]);
+  });
+
+  // ── Label truncation ────────────────────────────────
+
+  it("truncates very long labels", () => {
+    const longOption = "A".repeat(80);
+    const text = `1. ${longOption}\n2. Short`;
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(2);
+    expect(result[0].label.length).toBeLessThanOrEqual(60);
+    expect(result[0].label).toContain("\u2026");
+  });
+});

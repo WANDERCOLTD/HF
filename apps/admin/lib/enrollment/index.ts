@@ -51,9 +51,48 @@ export async function enrollCaller(
 }
 
 /**
+ * Smart single-playbook enrollment — resolves ONE playbook for the domain.
+ *
+ * Resolution order:
+ * 1. Explicit playbookId provided → enroll in that one
+ * 2. Domain has exactly 1 PUBLISHED playbook → auto-select
+ * 3. Multiple playbooks → return null (caller must choose)
+ *
+ * Use this instead of enrollCallerInDomainPlaybooks() for all new code.
+ */
+export async function resolveAndEnrollSingle(
+  callerId: string,
+  domainId: string,
+  source: string,
+  explicitPlaybookId?: string | null,
+  tx?: TxClient
+): Promise<CallerPlaybook | null> {
+  // 1. Explicit takes priority
+  if (explicitPlaybookId) {
+    return enrollCaller(callerId, explicitPlaybookId, source, tx);
+  }
+
+  // 2. Count published playbooks in domain
+  const published = await db(tx).playbook.findMany({
+    where: { domainId, status: "PUBLISHED" },
+    select: { id: true },
+    orderBy: { sortOrder: "asc" },
+  });
+
+  // Single playbook → auto-select
+  if (published.length === 1) {
+    return enrollCaller(callerId, published[0].id, source, tx);
+  }
+
+  // 0 or multiple playbooks → cannot auto-resolve
+  return null;
+}
+
+/**
+ * @deprecated Use resolveAndEnrollSingle() instead. This function enrolls in ALL
+ * domain playbooks and should only be used for explicit bulk enrollment scenarios.
+ *
  * Auto-enroll a caller in all PUBLISHED playbooks for a domain.
- * Used for backwards-compat on caller creation paths that don't yet
- * specify individual playbooks.
  */
 export async function enrollCallerInDomainPlaybooks(
   callerId: string,
@@ -239,8 +278,9 @@ export async function enrollCallerInCohortPlaybooks(
     return results;
   }
 
-  // Fallback: no cohort playbooks assigned → enroll in all domain playbooks
-  return enrollCallerInDomainPlaybooks(callerId, domainId, source, tx);
+  // Fallback: no cohort playbooks assigned → try smart single enrollment
+  const single = await resolveAndEnrollSingle(callerId, domainId, source, null, tx);
+  return single ? [single] : [];
 }
 
 /**

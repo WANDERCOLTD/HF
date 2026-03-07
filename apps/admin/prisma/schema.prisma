@@ -3701,6 +3701,11 @@ model Subject {
   // Teaching point pyramid depth override (null = use CONTENT-EXTRACT spec default)
   teachingDepth Int?
 
+  // Subject-level teaching methodology profile (e.g. "comprehension-led", "practice-led")
+  teachingProfile   String?
+  // Override individual profile settings (teachingMode, interactionPattern, deliveryHints)
+  teachingOverrides Json?     @db.JsonB
+
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

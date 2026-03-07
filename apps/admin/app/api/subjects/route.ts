@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { TEACHING_PROFILE_KEYS, type TeachingProfileKey } from "@/lib/content-trust/teaching-profiles";
 
 /**
  * @api GET /api/subjects
@@ -81,8 +82,10 @@ export async function GET(req: NextRequest) {
  * @body qualificationBody string - Awarding body
  * @body qualificationRef string - Qualification reference
  * @body qualificationLevel string - Qualification level
+ * @body teachingProfile string - Teaching profile key (e.g. "comprehension-led")
  * @response 201 { subject: {...} }
  * @response 400 { error: "slug and name are required" }
+ * @response 400 { error: "Invalid teachingProfile: ..." }
  * @response 409 { error: "A subject with this slug already exists" }
  * @response 500 { error: "..." }
  */
@@ -100,11 +103,20 @@ export async function POST(req: NextRequest) {
       qualificationBody,
       qualificationRef,
       qualificationLevel,
+      teachingProfile,
     } = body;
 
     if (!slug || !name) {
       return NextResponse.json(
         { error: "slug and name are required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate teachingProfile if provided
+    if (teachingProfile && !TEACHING_PROFILE_KEYS.includes(teachingProfile as TeachingProfileKey)) {
+      return NextResponse.json(
+        { error: `Invalid teachingProfile: ${teachingProfile}. Valid values: ${TEACHING_PROFILE_KEYS.join(", ")}` },
         { status: 400 }
       );
     }
@@ -118,6 +130,7 @@ export async function POST(req: NextRequest) {
         qualificationBody,
         qualificationRef,
         qualificationLevel,
+        teachingProfile: teachingProfile || undefined,
       },
     });
 

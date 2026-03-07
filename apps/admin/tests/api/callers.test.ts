@@ -50,6 +50,7 @@ vi.mock("@/lib/enrollment", () => ({
   enrollCaller: vi.fn().mockResolvedValue(undefined),
   enrollCallerInCohortPlaybooks: vi.fn().mockResolvedValue(undefined),
   enrollCallerInDomainPlaybooks: vi.fn().mockResolvedValue(undefined),
+  resolveAndEnrollSingle: vi.fn().mockResolvedValue(null),
 }));
 
 // =====================================================
@@ -378,8 +379,8 @@ describe("/api/callers", () => {
       expect(enrollCaller).toHaveBeenCalledWith("new-caller-pb", "pb-123", "auto");
     });
 
-    it("should fall back to domain-wide enrollment when no playbookId", async () => {
-      const { enrollCallerInDomainPlaybooks } = await import("@/lib/enrollment");
+    it("should use smart single-playbook enrollment when no playbookId", async () => {
+      const { resolveAndEnrollSingle } = await import("@/lib/enrollment");
 
       mockPrisma.domain.findFirst.mockResolvedValue({ id: "d-1", slug: "default", name: "Default", isDefault: true });
       mockPrisma.caller.create.mockResolvedValue({
@@ -401,7 +402,7 @@ describe("/api/callers", () => {
       const data = await response.json();
 
       expect(data.ok).toBe(true);
-      expect(enrollCallerInDomainPlaybooks).toHaveBeenCalledWith("new-caller-fb", "d-1", "auto");
+      expect(resolveAndEnrollSingle).toHaveBeenCalledWith("new-caller-fb", "d-1", "auto");
     });
 
     it("should use provided domainId and skip default domain lookup", async () => {

@@ -635,6 +635,8 @@ registerLoader("subjectSources", async (callerId, loaderConfig) => {
       name: subject.name,
       defaultTrustLevel: subject.defaultTrustLevel,
       qualificationRef: subject.qualificationRef,
+      teachingProfile: subject.teachingProfile,
+      teachingOverrides: subject.teachingOverrides as Record<string, unknown> | null,
       sources: subject.sources.map((ss) => ({
         slug: ss.source.slug,
         name: ss.source.name,

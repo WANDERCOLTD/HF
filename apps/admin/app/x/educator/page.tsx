@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useTerminology } from "@/contexts/TerminologyContext";
 import EducatorReadiness from "@/components/educator/EducatorReadiness";
+import { getTeachingProfile } from "@/lib/content-trust/teaching-profiles";
+import type { TeachingProfile } from "@/lib/content-trust/teaching-profiles";
 import "./educator.css";
 
 interface DashboardData {
@@ -51,6 +53,9 @@ export default function EducatorDashboard() {
 
   // Department data
   const [departments, setDepartments] = useState<{ id: string; name: string; courseCount: number; classCount: number }[]>([]);
+
+  // Subject teaching profiles
+  const [subjectProfiles, setSubjectProfiles] = useState<{ name: string; profile: TeachingProfile }[]>([]);
 
   // Invite teacher state
   const [showInviteForm, setShowInviteForm] = useState(false);
@@ -119,7 +124,7 @@ export default function EducatorDashboard() {
     loadDashboard();
   }, [loadDashboard]);
 
-  // Load departments when dashboard data is available
+  // Load departments and subject profiles when dashboard data is available
   useEffect(() => {
     if (!data?.classrooms?.length) return;
     const domainId = data.classrooms[0]?.domain?.id;
@@ -127,18 +132,33 @@ export default function EducatorDashboard() {
 
     (async () => {
       try {
-        const res = await fetch(`/api/playbook-groups?domainId=${domainId}`);
-        const body = await res.json();
-        if (body.ok && body.groups?.length > 0) {
-          setDepartments(body.groups.map((g: any) => ({
+        const [groupsRes, subjectsRes] = await Promise.all([
+          fetch(`/api/playbook-groups?domainId=${domainId}`),
+          fetch(`/api/subjects?domainId=${domainId}`),
+        ]);
+        const groupsBody = await groupsRes.json();
+        if (groupsBody.ok && groupsBody.groups?.length > 0) {
+          setDepartments(groupsBody.groups.map((g: any) => ({
             id: g.id,
             name: g.name,
             courseCount: g._count?.playbooks ?? 0,
             classCount: g._count?.cohortGroups ?? 0,
           })));
         }
+        const subjectsBody = await subjectsRes.json();
+        if (subjectsBody.subjects?.length > 0) {
+          const subjects = subjectsBody.subjects as { name: string; teachingProfile?: string | null }[];
+          const withProfiles = subjects
+            .filter((s) => s.teachingProfile)
+            .map((s) => ({
+              name: s.name,
+              profile: getTeachingProfile(s.teachingProfile)!,
+            }))
+            .filter((sp: { name: string; profile: TeachingProfile | null }) => sp.profile !== null);
+          setSubjectProfiles(withProfiles);
+        }
       } catch {
-        // Non-critical — department cards just won't show
+        // Non-critical — department cards and profiles just won't show
       }
     })();
   }, [data]);
@@ -257,6 +277,24 @@ export default function EducatorDashboard() {
           </div>
         ))}
       </div>
+
+      {/* Teaching Approach */}
+      {subjectProfiles.length > 0 && (
+        <div className="edu-teaching-approach">
+          <h2 className="hf-section-title">Teaching Approach</h2>
+          <div className="hf-card edu-teaching-card">
+            {subjectProfiles.map((sp) => (
+              <div key={sp.name} className="edu-profile-row">
+                <div className="edu-profile-subject">{sp.name}</div>
+                <div className="edu-profile-detail">
+                  <span className="edu-profile-pill">{sp.profile.key}</span>
+                  <span className="hf-text-sm hf-text-muted">{sp.profile.description}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Departments */}
       {departments.length > 0 && (

@@ -177,7 +177,7 @@ export async function PATCH(
 
     const { playbookId } = await params;
     const body = await request.json();
-    const { name, description, items, specs, agentId, toggleSpec, sortOrder, domainId, status, configSettings } = body;
+    const { name, description, items, specs, agentId, toggleSpec, sortOrder, domainId, status, configSettings, audience } = body;
 
     const existing = await prisma.playbook.findUnique({
       where: { id: playbookId },
@@ -387,6 +387,19 @@ export async function PATCH(
         data: {
           config: { ...currentConfig, systemSpecToggles },
         },
+      });
+    }
+
+    // Save audience to playbook.config.audience (top-level config field)
+    if (audience !== undefined) {
+      const current = await prisma.playbook.findUnique({
+        where: { id: playbookId },
+        select: { config: true },
+      });
+      const currentConfig = (current?.config as Record<string, any>) || {};
+      await prisma.playbook.update({
+        where: { id: playbookId },
+        data: { config: { ...currentConfig, audience } },
       });
     }
 

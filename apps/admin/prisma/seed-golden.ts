@@ -49,6 +49,7 @@ interface SubjectDef {
   slug: string;
   name: string;
   description: string;
+  teachingProfile?: string;
 }
 
 interface DomainDef {
@@ -118,8 +119,8 @@ const INSTITUTIONS: InstitutionDef[] = [
       name: "Greenfield Academy",
       description: "Primary school with focus on literacy and numeracy across Key Stage 2.",
       subjects: [
-        { slug: "golden-english-ks2", name: "Year 5 English", description: "Key Stage 2 English — reading comprehension, creative writing, and grammar for Year 5." },
-        { slug: "golden-maths-ks2", name: "Year 5 Mathematics", description: "Key Stage 2 Mathematics — number, fractions, geometry, and problem-solving for Year 5." },
+        { slug: "golden-english-ks2", name: "Year 5 English", description: "Key Stage 2 English — reading comprehension, creative writing, and grammar for Year 5.", teachingProfile: "comprehension-led" },
+        { slug: "golden-maths-ks2", name: "Year 5 Mathematics", description: "Key Stage 2 Mathematics — number, fractions, geometry, and problem-solving for Year 5.", teachingProfile: "practice-led" },
       ],
       groups: [
         {
@@ -170,7 +171,7 @@ const INSTITUTIONS: InstitutionDef[] = [
       name: "Apex Consulting",
       description: "Professional development and leadership coaching for mid-level managers.",
       subjects: [
-        { slug: "golden-leadership-mgmt", name: "Leadership & Management", description: "Professional leadership and management development for senior and mid-level managers." },
+        { slug: "golden-leadership-mgmt", name: "Leadership & Management", description: "Professional leadership and management development for senior and mid-level managers.", teachingProfile: "coaching-led" },
       ],
       playbooks: [
         { slug: "golden-leadership", name: "Leadership Essentials", description: "Core leadership principles, vision setting, and team motivation for aspiring managers." },
@@ -200,7 +201,7 @@ const INSTITUTIONS: InstitutionDef[] = [
       kind: "COMMUNITY" as const,
       description: "A peer-support community for wellbeing and life skills development.",
       subjects: [
-        { slug: "golden-wellbeing", name: "Wellbeing & Life Skills", description: "Peer support for emotional wellbeing, resilience, self-care, and practical life skills." },
+        { slug: "golden-wellbeing", name: "Wellbeing & Life Skills", description: "Peer support for emotional wellbeing, resilience, self-care, and practical life skills.", teachingProfile: "discussion-led" },
       ],
       playbooks: [
         { slug: "golden-wellbeing-circle", name: "Wellbeing Circle", description: "Peer support for emotional wellbeing, resilience, and self-care strategies." },
@@ -230,7 +231,7 @@ const INSTITUTIONS: InstitutionDef[] = [
       name: "Bright Path Training",
       description: "Professional development provider offering 12+ courses across leadership, communication, and management skills.",
       subjects: [
-        { slug: "golden-prof-development", name: "Professional Development", description: "Broad professional development spanning leadership, communication, and workplace management skills." },
+        { slug: "golden-prof-development", name: "Professional Development", description: "Broad professional development spanning leadership, communication, and workplace management skills.", teachingProfile: "coaching-led" },
       ],
       groups: [
         {
@@ -286,7 +287,7 @@ const INSTITUTIONS: InstitutionDef[] = [
       name: "Momentum Coaching Practice",
       description: "Executive and life coaching practice specialising in career transitions, leadership development, and personal growth.",
       subjects: [
-        { slug: "golden-exec-coaching", name: "Executive Coaching", description: "Executive and life coaching for career transitions, leadership development, and personal growth." },
+        { slug: "golden-exec-coaching", name: "Executive Coaching", description: "Executive and life coaching for career transitions, leadership development, and personal growth.", teachingProfile: "coaching-led" },
       ],
       groups: [
         {
@@ -332,7 +333,7 @@ const INSTITUTIONS: InstitutionDef[] = [
       name: "St. Aidan's Community Health",
       description: "Community health programme supporting patients with chronic condition management, medication adherence, and healthy lifestyle coaching.",
       subjects: [
-        { slug: "golden-health-wellbeing", name: "Health & Wellbeing", description: "Community health coaching for chronic condition management, medication adherence, and healthy lifestyle habits." },
+        { slug: "golden-health-wellbeing", name: "Health & Wellbeing", description: "Community health coaching for chronic condition management, medication adherence, and healthy lifestyle habits.", teachingProfile: "coaching-led" },
       ],
       groups: [
         {
@@ -578,13 +579,14 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
       for (const subjectDef of inst.domain.subjects) {
         const subject = await prisma.subject.upsert({
           where: { slug: subjectDef.slug },
-          update: { name: subjectDef.name, description: subjectDef.description, isActive: true },
+          update: { name: subjectDef.name, description: subjectDef.description, isActive: true, teachingProfile: subjectDef.teachingProfile ?? null },
           create: {
             slug: subjectDef.slug,
             name: subjectDef.name,
             description: subjectDef.description,
             defaultTrustLevel: "EXPERT_CURATED",
             isActive: true,
+            teachingProfile: subjectDef.teachingProfile ?? null,
           },
         });
         await prisma.subjectDomain.upsert({

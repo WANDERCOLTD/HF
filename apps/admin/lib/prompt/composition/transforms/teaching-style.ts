@@ -17,8 +17,9 @@
  */
 
 import { registerTransform } from "../TransformRegistry";
-import type { AssembledContext } from "../types";
+import type { AssembledContext, SubjectSourcesData } from "../types";
 import type { InteractionPattern } from "@/lib/content-trust/resolve-config";
+import { resolveTeachingProfile } from "@/lib/content-trust/teaching-profiles";
 
 interface TeachingStyleOutput {
   pattern: string;
@@ -174,7 +175,19 @@ registerTransform("computeTeachingStyle", (
 ) => {
   const playbooks = context.loadedData.playbooks;
   const playbookConfig = (playbooks?.[0] as any)?.config;
-  const interactionPattern: string | undefined = playbookConfig?.interactionPattern;
+  let interactionPattern: string | undefined = playbookConfig?.interactionPattern;
+
+  // Fall back to subject teaching profile if playbook doesn't set interactionPattern
+  if (!interactionPattern) {
+    const subjectSources = context.loadedData.subjectSources as SubjectSourcesData | null;
+    const firstSubject = subjectSources?.subjects?.[0];
+    if (firstSubject) {
+      const resolved = resolveTeachingProfile(firstSubject);
+      if (resolved) {
+        interactionPattern = resolved.interactionPattern;
+      }
+    }
+  }
 
   if (!interactionPattern) return null;
 

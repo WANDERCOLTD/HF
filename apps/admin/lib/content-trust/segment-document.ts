@@ -75,7 +75,7 @@ export interface SegmentationResult {
 const MIN_TEXT_LENGTH = 500;
 
 /** Maximum text to send for segmentation (controls cost) */
-const MAX_SEGMENTATION_SAMPLE = 6000;
+const MAX_SEGMENTATION_SAMPLE = 3000;
 
 const VALID_ROLES: PedagogicalRole[] = [
   "ACTIVATE", "INPUT", "CHECK", "PRODUCE", "REFLECT", "REFERENCE", "META",

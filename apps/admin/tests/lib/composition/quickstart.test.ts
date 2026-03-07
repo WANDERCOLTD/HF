@@ -286,4 +286,57 @@ describe("computeQuickStart transform", () => {
     const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
     expect(result.course_context).toBeNull();
   });
+
+  it("uses domain onboardingWelcome for first_line on first call", () => {
+    const ctx = makeContext({
+      sharedState: { ...makeContext().sharedState, isFirstCall: true },
+      loadedData: {
+        ...makeContext().loadedData,
+        caller: {
+          id: "c1", name: "Paul", email: null, phone: null, externalId: null,
+          domain: { id: "d1", slug: "demo", name: "Demo", description: null, onboardingWelcome: "Welcome to our learning platform! Let's get started." },
+        },
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).toBe("Welcome to our learning platform! Let's get started.");
+  });
+
+  it("ignores onboardingWelcome for returning callers", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        caller: {
+          id: "c1", name: "Paul", email: null, phone: null, externalId: null,
+          domain: { id: "d1", slug: "demo", name: "Demo", description: null, onboardingWelcome: "Welcome!" },
+        },
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).toContain("reconnect");
+  });
+
+  it("identity spec opening overrides onboardingWelcome", () => {
+    const ctx = makeContext({
+      sharedState: { ...makeContext().sharedState, isFirstCall: true },
+      resolvedSpecs: {
+        identitySpec: {
+          name: "Custom",
+          config: { sessionStructure: { opening: { instruction: "Shalom! I'm your Hebrew tutor." } } },
+          description: null,
+        },
+        contentSpec: null,
+        voiceSpec: null,
+      },
+      loadedData: {
+        ...makeContext().loadedData,
+        caller: {
+          id: "c1", name: "Paul", email: null, phone: null, externalId: null,
+          domain: { id: "d1", slug: "demo", name: "Demo", description: null, onboardingWelcome: "This should NOT appear" },
+        },
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).toBe("Shalom! I'm your Hebrew tutor.");
+  });
 });

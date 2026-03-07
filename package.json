@@ -4,12 +4,14 @@
   "devDependencies": {
     "@cucumber/cucumber": "^12.4.0",
     "@types/bcryptjs": "^2.4.6",
+    "prisma": "^6.19.1",
     "ts-node": "^10.9.2"
   },
   "scripts": {
     "bdd": "cucumber-js --require-module ts-node/register --require bdd/steps/**/*.ts bdd/features/**/*.feature"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.1",
     "bcryptjs": "^3.0.3"
   }
 }

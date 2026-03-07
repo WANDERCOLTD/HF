@@ -23,7 +23,13 @@ const mockPrisma = {
 
 vi.mock("@/lib/prisma", () => ({
   prisma: mockPrisma,
-  db: (tx) => tx ?? mockPrisma,
+  db: (tx: unknown) => tx ?? mockPrisma,
+}));
+
+const mockResolveAndEnrollSingle = vi.fn().mockResolvedValue(null);
+
+vi.mock("@/lib/enrollment", () => ({
+  resolveAndEnrollSingle: (...args: unknown[]) => mockResolveAndEnrollSingle(...args),
 }));
 
 // =====================================================
@@ -66,6 +72,8 @@ describe("/api/sim/setup", () => {
       expect(data.caller.id).toBe("caller-new");
       expect(data.caller.name).toBe("Test User");
       expect(data.caller.domainId).toBe("domain-1");
+      // Should have called resolveAndEnrollSingle
+      expect(mockResolveAndEnrollSingle).toHaveBeenCalledWith("caller-new", "domain-1", "sim-setup", undefined);
     });
 
     it("should return existing caller if user already has one", async () => {
@@ -216,11 +224,12 @@ describe("/api/sim/setup", () => {
       const response = await POST(request as any);
       const data = await response.json();
 
-      // Response should only include id, name, domainId
+      // Response should include id, name, domainId, playbookId
       expect(data.caller).toEqual({
         id: "caller-1",
         name: "Test User",
         domainId: "domain-1",
+        playbookId: null,
       });
     });
   });

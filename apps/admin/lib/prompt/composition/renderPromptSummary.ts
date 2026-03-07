@@ -206,6 +206,23 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
   }
   parts.push("");
 
+  // --- AUDIENCE ---
+  const audienceGuide = (llmPrompt as any).audienceGuidance;
+  if (audienceGuide?.instructions) {
+    const ins = audienceGuide.instructions;
+    parts.push("[AUDIENCE]");
+    parts.push(`Your learners are ${audienceGuide.label} (age ${audienceGuide.ages}).`);
+    parts.push(`Register: ${ins.register}`);
+    parts.push(`Encouragement: ${ins.encouragement}`);
+    parts.push(`Corrections: ${ins.errorCorrection}`);
+    parts.push(`Examples: ${ins.examples}`);
+    parts.push(`Pacing: ${ins.paceAndChunking}`);
+    parts.push(`Tone: ${ins.emotionalTone}`);
+    if (ins.fillers?.length) parts.push(`Fillers: ${ins.fillers.join(", ")}`);
+    if (ins.checkIns?.length) parts.push(`Check-ins: ${ins.checkIns.join(", ")}`);
+    parts.push("");
+  }
+
   // --- THIS CALLER ---
   parts.push("[THIS CALLER]");
   if (qs?.this_caller) parts.push(qs.this_caller);

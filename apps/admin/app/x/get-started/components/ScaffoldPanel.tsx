@@ -228,6 +228,7 @@ export function ScaffoldPanel({ getData, currentStepIndex, currentPhaseId, terms
   const subjectDiscipline = getData<string>("subjectDiscipline");
   const interactionPattern = getData<string>("interactionPattern");
   const teachingMode = getData<string>("teachingMode");
+  const teachingProfile = getData<string>("teachingProfile");
   const durationMins = getData<string>("durationMins");
   const planEmphasis = getData<string>("planEmphasis");
   const lessonPlanModel = getData<string>("lessonPlanModel");
@@ -236,6 +237,7 @@ export function ScaffoldPanel({ getData, currentStepIndex, currentPhaseId, terms
   if (typeSlug) institutionChips.push(capitalize(typeSlug));
 
   const courseChips: string[] = [];
+  if (teachingProfile) courseChips.push(teachingProfile);
   if (interactionPattern) courseChips.push(capitalize(interactionPattern));
   if (teachingMode) courseChips.push(capitalize(teachingMode));
 

@@ -28,11 +28,12 @@ import {
   type SpecDetail,
   type SpecGroup,
 } from '@/lib/course/group-specs';
-import { TEACH_METHOD_CONFIG } from '@/lib/content-trust/resolve-config';
+import { TEACH_METHOD_CONFIG, TEACHING_MODE_LABELS, INTERACTION_PATTERN_LABELS, type TeachingMode, type InteractionPattern } from '@/lib/content-trust/resolve-config';
 import { SESSION_TYPES, SESSION_TYPE_ICONS, getSessionTypeColor, getSessionTypeLabel } from '@/lib/lesson-plan/session-ui';
 import { getLessonPlanModel } from '@/lib/lesson-plan/models';
 import { PlanSummary, type PlanSession } from '@/app/x/courses/_components/PlanSummary';
 import { SimLaunchModal } from '@/components/shared/SimLaunchModal';
+import { getTeachingProfile } from '@/lib/content-trust/teaching-profiles';
 import './course-detail.css';
 
 // ── Types ──────────────────────────────────────────────
@@ -58,6 +59,7 @@ type SubjectSummary = {
   name: string;
   description: string | null;
   defaultTrustLevel: string;
+  teachingProfile: string | null;
   sourceCount: number;
   curriculumCount: number;
   assertionCount: number;
@@ -442,7 +444,7 @@ export default function CourseDetailPage() {
             setSessions(data);
             // Fetch session TPs if curriculum exists
             if (data.curriculumId && !tpLoaded) {
-              fetch(`/api/curricula/${data.curriculumId}/session-assertions?courseId=${courseId}`)
+              fetch(`/api/curricula/${data.curriculumId}/session-assertions`)
                 .then((r) => r.json())
                 .then((tpData) => {
                   if (tpData.ok) {
@@ -714,7 +716,7 @@ export default function CourseDetailPage() {
             if (refreshData.ok) setSessions(refreshData);
             // Re-fetch TP assignments (plan changed, old assignments are stale)
             if (sessions.curriculumId) {
-              fetch(`/api/curricula/${sessions.curriculumId}/session-assertions?courseId=${courseId}`)
+              fetch(`/api/curricula/${sessions.curriculumId}/session-assertions`)
                 .then((r) => r.json())
                 .then((tpData) => {
                   if (tpData.ok) {
@@ -1084,6 +1086,46 @@ export default function CourseDetailPage() {
                 Teaching Methods
               </div>
               <TeachMethodStats methods={contentMethods} total={contentTotal} />
+            </div>
+          )}
+
+          {/* Teaching Approach summary — shows subject profiles */}
+          {subjects.some((s) => s.teachingProfile) && (
+            <div className="hf-card-compact hf-mb-lg">
+              <div className="hf-flex hf-gap-sm hf-items-center hf-mb-sm">
+                <Sparkles size={15} className="hf-text-accent" />
+                <span className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase">Teaching Approach</span>
+              </div>
+              {subjects.filter((s) => s.teachingProfile).map((sub) => {
+                const profile = getTeachingProfile(sub.teachingProfile);
+                if (!profile) return null;
+                const modeLabel = TEACHING_MODE_LABELS[profile.teachingMode as TeachingMode]?.label ?? profile.teachingMode;
+                const patternLabel = INTERACTION_PATTERN_LABELS[profile.interactionPattern as InteractionPattern]?.label ?? profile.interactionPattern;
+                return (
+                  <div key={sub.id} className="hf-mb-sm">
+                    <div className="hf-flex hf-gap-sm hf-items-center hf-text-sm">
+                      <strong>{sub.name}</strong>
+                      <span className="hf-badge hf-badge-sm hf-badge-accent">{profile.key}</span>
+                    </div>
+                    <p className="hf-text-xs hf-text-muted hf-mt-xs hf-mb-0">
+                      {profile.description}
+                    </p>
+                    <div className="hf-flex hf-gap-md hf-text-xs hf-text-muted hf-mt-xs">
+                      <span>Teaching mode: {modeLabel}</span>
+                      <span>Interaction: {patternLabel}</span>
+                    </div>
+                    <div className="hf-text-xs hf-text-muted hf-mt-xs">
+                      Best for: {profile.bestFor}
+                    </div>
+                  </div>
+                );
+              })}
+              {/* Show course reference docs if any exist */}
+              {subjects.some((s) => s.sourceCount > 0) && (
+                <div className="hf-text-xs hf-text-muted hf-mt-xs">
+                  Course-level overrides and uploaded reference docs take priority.
+                </div>
+              )}
             </div>
           )}
 

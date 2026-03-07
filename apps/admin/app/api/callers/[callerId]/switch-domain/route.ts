@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import { dropAllActiveEnrollments, enrollCallerInDomainPlaybooks } from "@/lib/enrollment";
+import { dropAllActiveEnrollments, resolveAndEnrollSingle } from "@/lib/enrollment";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 /**
@@ -209,8 +209,8 @@ export async function POST(
         }
       }
 
-      // Enroll in new domain's published playbooks
-      await enrollCallerInDomainPlaybooks(callerId, domainId, "switch-domain", tx);
+      // Enroll in new domain's playbook (auto-selects if single, skips if multiple)
+      await resolveAndEnrollSingle(callerId, domainId, "switch-domain", null, tx);
 
       return {
         caller: updatedCaller,

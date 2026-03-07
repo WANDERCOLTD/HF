@@ -59,6 +59,10 @@ import {
   type TeachMethod,
 } from "@/lib/content-trust/resolve-config";
 import { getDocTypeInfo, DOC_TYPE_INFO } from "@/lib/doc-type-icons";
+import {
+  suggestTeachingProfile,
+  getTeachingProfile,
+} from "@/lib/content-trust/teaching-profiles";
 import KnowledgeMapTree, { type SourceTree, type KnowledgeMapStats } from "@/components/shared/KnowledgeMapTree";
 import { LessonPlanModelPicker } from "@/components/shared/LessonPlanModelPicker";
 import type { LessonPlanModel } from "@/lib/lesson-plan/types";
@@ -1972,6 +1976,26 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
                       })()}
                     </div>
                   </div>
+
+                  {/* Subject Teaching Profile banner */}
+                  {(() => {
+                    const profileKey = suggestTeachingProfile(subjectDiscipline || newCourseName);
+                    const profile = profileKey ? getTeachingProfile(profileKey) : null;
+                    if (!profile) return null;
+                    return (
+                      <div className="hf-banner hf-banner-info hf-mb-sm" style={{ marginTop: 8 }}>
+                        <div className="hf-text-sm hf-text-bold hf-mb-xs">
+                          Subject Teaching Approach: {profile.key}
+                        </div>
+                        <div className="hf-text-sm hf-mb-xs">
+                          {profile.description}
+                        </div>
+                        <div className="hf-text-xs hf-text-muted">
+                          This comes from the subject. You can override it below with the Agent Tuner.
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div>
                     <p className="tw-label">What kind of course is this?</p>

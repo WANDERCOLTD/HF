@@ -130,6 +130,17 @@ export const WIZARD_HINTS: Record<string, FieldHintContent> = {
     ],
   },
 
+  "course.audience": {
+    why: "Tells the AI who the learners are — vocabulary, tone, encouragement, and pacing all adapt.",
+    effect: "Primary = simple words, enthusiastic praise. Secondary = clear and relatable. Corporate = professional and efficient.",
+    examples: [
+      "Year 5 Maths → Primary (KS1-2)",
+      "GCSE Biology → Secondary (KS3-4)",
+      "Compliance training → Professional / Corporate",
+      "Community art class → Adult Learner",
+    ],
+  },
+
   "course.content": {
     why: "Content gives the AI real subject matter to teach from.",
     effect: "Files are processed into teaching points that form the AI's knowledge base.",

@@ -62,3 +62,39 @@ export async function GET() {
     },
   });
 }
+
+/**
+ * @api PATCH /api/institution/branding
+ * @auth ADMIN
+ * @description Update branding for the current user's institution.
+ * @body { logoUrl?: string, primaryColor?: string, secondaryColor?: string }
+ */
+export async function PATCH(req: Request) {
+  const auth = await requireAuth("ADMIN");
+  if (isAuthError(auth)) return auth.error;
+
+  const { session } = auth;
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { activeInstitutionId: true, institutionId: true },
+  });
+
+  const institutionId = user?.activeInstitutionId || user?.institutionId;
+  if (!institutionId) {
+    return NextResponse.json({ ok: false, error: "No institution assigned" }, { status: 404 });
+  }
+
+  const body = await req.json();
+  const data: Record<string, string | null> = {};
+  if ("logoUrl" in body) data.logoUrl = body.logoUrl || null;
+  if ("primaryColor" in body) data.primaryColor = body.primaryColor || null;
+  if ("secondaryColor" in body) data.secondaryColor = body.secondaryColor || null;
+
+  await prisma.institution.update({
+    where: { id: institutionId },
+    data,
+  });
+
+  return NextResponse.json({ ok: true });
+}

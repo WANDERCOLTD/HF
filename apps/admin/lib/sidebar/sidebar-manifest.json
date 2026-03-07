@@ -2,10 +2,7 @@
   {
     "id": "get-started",
     "items": [
-      { "id": "get-started-v2", "href": "/x/get-started-v2", "label": "Get Started", "icon": "Sparkles", "highlighted": true, "wizard": true },
-      { "id": "get-started-v3", "href": "/x/get-started-v3", "label": "Get Started V3", "icon": "Sparkles", "wizard": true, "visibleFor": ["ADMIN", "SUPERADMIN"] },
-      { "id": "get-started-v4", "href": "/x/get-started-v4", "label": "Get Started V4", "icon": "Sparkles", "wizard": true, "visibleFor": ["ADMIN", "SUPERADMIN"] },
-      { "id": "onboarding-flows", "href": "/x/get-started-v4/onboarding", "label": "Onboarding", "icon": "MessageSquare", "visibleFor": ["ADMIN", "SUPERADMIN"] }
+      { "id": "get-started-v4", "href": "/x/get-started-v4", "label": "Get Started", "icon": "Sparkles", "highlighted": true, "wizard": true }
     ]
   },
   {
@@ -21,8 +18,7 @@
       { "id": "teach", "href": "/x/teach", "label": "Teach", "icon": "GraduationCap", "wizard": true, "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "demonstrate", "href": "/x/demonstrate", "label": "Demonstrate", "icon": "PlayCircle", "wizard": true, "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "preview-prompt", "href": "/x/educator/try", "label": "Try It", "icon": "PlayCircle", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"] },
-      { "id": "holographic", "href": "/x/holographic", "label": "Holographic", "icon": "Scan", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"] },
-      { "id": "get-started-old", "href": "/x/get-started", "label": "GS (OLD)", "icon": "Sparkles", "visibleFor": ["ADMIN", "SUPERADMIN"] }
+      { "id": "holographic", "href": "/x/holographic", "label": "Holographic", "icon": "Scan", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"] }
     ]
   },
   {
@@ -100,7 +96,7 @@
       { "id": "edu-departments", "href": "/x/educator/departments", "label": "Departments", "icon": "Building", "terminologyLabel": "group_plural", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "edu-try", "href": "/x/educator/try", "label": "Try It", "icon": "PlayCircle", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "edu-reports", "href": "/x/educator/reports", "label": "Reports", "icon": "TrendingUp", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] },
-      { "id": "edu-settings", "href": "/x/educator/settings", "label": "Settings", "icon": "Settings", "visibleFor": ["ADMIN", "SUPERADMIN"] }
+      { "id": "edu-settings", "href": "/x/educator/settings", "label": "Settings", "icon": "Settings", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] }
     ]
   },
   {

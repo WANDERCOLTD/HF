@@ -289,6 +289,17 @@
   background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
 }
 
+/* ── Inline option chips (parsed from AI prose fallback) ── */
+
+.gs-inline-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--border-default) 50%, transparent);
+}
+
 /* ── Undo toast ─────────────────────────────────────── */
 
 .gs-undo-toast {

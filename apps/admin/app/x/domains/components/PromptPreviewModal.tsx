@@ -150,6 +150,40 @@ export function PromptPreviewContent({
             )}
           </div>
 
+          {/* Section provenance labels */}
+          {data.metadata.sectionsActivated.length > 0 && (
+            <div style={{
+              marginBottom: 16,
+              padding: 12,
+              background: "var(--surface-secondary)",
+              borderRadius: 8,
+              fontSize: 12,
+              color: "var(--text-muted)",
+              lineHeight: 2,
+            }}>
+              <div className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase hf-mb-xs">Sections</div>
+              {data.metadata.sectionsActivated.map((section: string) => {
+                const provenanceMap: Record<string, string> = {
+                  pedagogy_mode: "subject",
+                  teaching_style: "subject",
+                  subject_methodology: "profile",
+                  course_instructions: "uploaded",
+                };
+                const provenance = provenanceMap[section];
+                return (
+                  <div key={section} style={{ display: "inline-block", marginRight: 12 }}>
+                    <span>{section}</span>
+                    {provenance && (
+                      <span className="hf-text-xs hf-text-muted" style={{ marginLeft: 4, fontStyle: "italic" }}>
+                        {provenance}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Tab content */}
           {tab === "summary" && (
             <pre style={{

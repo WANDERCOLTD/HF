@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { requireEntityAccess, isEntityAuthError, buildScopeFilter } from "@/lib/access-control";
-import { enrollCaller, enrollCallerInCohortPlaybooks, enrollCallerInDomainPlaybooks } from "@/lib/enrollment";
+import { enrollCaller, enrollCallerInCohortPlaybooks, resolveAndEnrollSingle } from "@/lib/enrollment";
 import { parsePagination } from "@/lib/api-utils";
 
 /**
@@ -251,13 +251,13 @@ export async function POST(req: Request) {
       });
     }
 
-    // Auto-enroll in playbooks: specific playbook > cohort > all domain playbooks
+    // Auto-enroll in playbooks: specific playbook > cohort > smart single resolve
     if (playbookId) {
       await enrollCaller(caller.id, playbookId, "auto");
     } else if (cohortGroupId && caller.domainId) {
       await enrollCallerInCohortPlaybooks(caller.id, cohortGroupId, caller.domainId, "auto");
     } else if (caller.domainId) {
-      await enrollCallerInDomainPlaybooks(caller.id, caller.domainId, "auto");
+      await resolveAndEnrollSingle(caller.id, caller.domainId, "auto");
     }
 
     return NextResponse.json({

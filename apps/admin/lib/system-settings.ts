@@ -803,6 +803,7 @@ export interface LessonPlanSettings {
   emphasis: "breadth" | "balanced" | "depth";
   assessments: "formal" | "light" | "none";
   lessonPlanModel: string;
+  audience: string;
 }
 
 export const LESSON_PLAN_DEFAULTS: LessonPlanSettings = {
@@ -811,6 +812,7 @@ export const LESSON_PLAN_DEFAULTS: LessonPlanSettings = {
   emphasis: "balanced",
   assessments: "light",
   lessonPlanModel: "direct_instruction",
+  audience: "mixed",
 };
 
 const LESSON_PLAN_KEYS: Record<keyof LessonPlanSettings, string> = {
@@ -819,6 +821,7 @@ const LESSON_PLAN_KEYS: Record<keyof LessonPlanSettings, string> = {
   emphasis: "lesson_plan.emphasis",
   assessments: "lesson_plan.assessments",
   lessonPlanModel: "lesson_plan.model",
+  audience: "lesson_plan.audience",
 };
 
 export async function getLessonPlanSettings(): Promise<LessonPlanSettings> {

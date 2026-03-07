@@ -77,6 +77,25 @@
   font-size: 12px;
 }
 
+/* Teaching Profile Banner */
+.cls-profile-banner {
+  margin-bottom: 20px;
+}
+.cls-profile-banner-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cls-profile-banner-key {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+.cls-profile-banner-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 /* Tabs */
 .cls-tab-bar {
   display: flex;

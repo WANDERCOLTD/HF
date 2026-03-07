@@ -93,6 +93,7 @@ export async function PUT(
       "emphasis",
       "assessments",
       "lessonPlanModel",
+      "audience",
     ];
 
     const overrides: Partial<LessonPlanSettings> = {};

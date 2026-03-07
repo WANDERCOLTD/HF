@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import { TRUST_LEVELS } from "@/app/x/content-sources/_components/shared/badges";
+import {
+  TEACHING_PROFILE_KEYS,
+  TEACHING_PROFILES,
+  suggestTeachingProfile,
+} from "@/lib/content-trust/teaching-profiles";
 
 interface SubjectCreateModalProps {
   isOpen: boolean;
@@ -24,6 +29,7 @@ export default function SubjectCreateModal({ isOpen, onClose, onCreated }: Subje
   const [newQualBody, setNewQualBody] = useState("");
   const [newQualRef, setNewQualRef] = useState("");
   const [newQualLevel, setNewQualLevel] = useState("");
+  const [newTeachingProfile, setNewTeachingProfile] = useState<string>("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +41,7 @@ export default function SubjectCreateModal({ isOpen, onClose, onCreated }: Subje
     setNewQualBody("");
     setNewQualRef("");
     setNewQualLevel("");
+    setNewTeachingProfile("");
     setError(null);
   }
 
@@ -51,6 +58,7 @@ export default function SubjectCreateModal({ isOpen, onClose, onCreated }: Subje
           name: newName.trim(),
           description: newDescription.trim() || null,
           defaultTrustLevel: newTrustLevel,
+          teachingProfile: newTeachingProfile || null,
           qualificationBody: newQualBody.trim() || null,
           qualificationRef: newQualRef.trim() || null,
           qualificationLevel: newQualLevel.trim() || null,
@@ -96,6 +104,8 @@ export default function SubjectCreateModal({ isOpen, onClose, onCreated }: Subje
               onChange={(e) => {
                 setNewName(e.target.value);
                 if (!newSlug || newSlug === autoSlug(newName)) setNewSlug(autoSlug(e.target.value));
+                const suggested = suggestTeachingProfile(e.target.value);
+                if (suggested) setNewTeachingProfile(suggested);
               }}
               placeholder="Food Safety Level 2"
               className="hf-input"
@@ -120,6 +130,25 @@ export default function SubjectCreateModal({ isOpen, onClose, onCreated }: Subje
               className="hf-input"
               style={{ resize: "vertical" }}
             />
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label className="hf-label">Teaching Profile</label>
+            <select
+              value={newTeachingProfile}
+              onChange={(e) => setNewTeachingProfile(e.target.value)}
+              className="hf-input"
+            >
+              <option value="">None</option>
+              {TEACHING_PROFILE_KEYS.map((key) => (
+                <option key={key} value={key}>{key}</option>
+              ))}
+            </select>
+            {newTeachingProfile && TEACHING_PROFILES[newTeachingProfile as keyof typeof TEACHING_PROFILES] && (
+              <p className="hf-text-sm hf-text-muted" style={{ margin: "6px 0 0" }}>
+                {TEACHING_PROFILES[newTeachingProfile as keyof typeof TEACHING_PROFILES].description}
+                {" "}Best for: {TEACHING_PROFILES[newTeachingProfile as keyof typeof TEACHING_PROFILES].bestFor}.
+              </p>
+            )}
           </div>
           <div>
             <label className="hf-label">Default Trust Level</label>

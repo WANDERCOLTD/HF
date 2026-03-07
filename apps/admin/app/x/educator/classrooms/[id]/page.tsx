@@ -8,6 +8,8 @@ import { DifferentiationTab } from "@/components/educator/differentiation/Differ
 import { LessonPlanTab } from "./LessonPlanTab";
 import { useTerminology } from "@/contexts/TerminologyContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { getTeachingProfile } from "@/lib/content-trust/teaching-profiles";
+import type { TeachingProfile } from "@/lib/content-trust/teaching-profiles";
 import "./classroom-detail.css";
 
 async function fetchApi(url: string, options?: RequestInit) {
@@ -73,6 +75,9 @@ export default function ClassroomDetailPage() {
   // Send to class modal
   const [showSendModal, setShowSendModal] = useState(false);
 
+  // Teaching profile for the classroom's subject
+  const [teachingProfile, setTeachingProfile] = useState<{ subjectName: string; profile: TeachingProfile } | null>(null);
+
   const loadClassroom = useCallback(async () => {
     const [classroomRes, callsRes] = await Promise.all([
       fetchApi(`/api/educator/classrooms/${id}`),
@@ -98,6 +103,33 @@ export default function ClassroomDetailPage() {
   useEffect(() => {
     loadClassroom();
   }, [loadClassroom]);
+
+  // Fetch teaching profile for this classroom's domain subjects
+  useEffect(() => {
+    if (!classroom?.domain?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/subjects?domainId=${classroom.domain.id}`);
+        const body = await res.json();
+        if (cancelled) return;
+        if (body.subjects?.length > 0) {
+          // Find first subject with a teaching profile
+          const subjects = body.subjects as { name: string; teachingProfile?: string | null }[];
+          const withProfile = subjects.find((s) => s.teachingProfile);
+          if (withProfile) {
+            const profile = getTeachingProfile(withProfile.teachingProfile);
+            if (profile) {
+              setTeachingProfile({ subjectName: withProfile.name, profile });
+            }
+          }
+        }
+      } catch {
+        // Non-critical — banner just won't show
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [classroom?.domain?.id]);
 
   const { copied, copy: copyText } = useCopyToClipboard();
   const joinUrl = classroom?.joinToken
@@ -245,6 +277,16 @@ export default function ClassroomDetailPage() {
             >
               {regeneratingToken ? "Regenerating..." : "Regenerate"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Teaching Profile Banner */}
+      {teachingProfile && (
+        <div className="hf-banner hf-banner-info cls-profile-banner">
+          <div className="cls-profile-banner-content">
+            <span className="cls-profile-banner-key">{teachingProfile.profile.key}</span>
+            <span className="cls-profile-banner-desc">{teachingProfile.profile.description}</span>
           </div>
         </div>
       )}

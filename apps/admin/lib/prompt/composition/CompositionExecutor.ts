@@ -43,6 +43,7 @@ import "./transforms/visual-aids";
 import "./transforms/physical-materials";
 import "./transforms/session-materials";
 import "./transforms/course-instructions";
+import "./transforms/audience";
 
 /**
  * Execute the full composition pipeline.
@@ -692,6 +693,16 @@ export function getDefaultSections(): CompositionSectionDef[] {
       transform: "computeTeachingStyle",
       outputKey: "teachingStyle",
       dependsOn: ["identity"],
+    },
+    {
+      id: "audience_guidance",
+      name: "Audience Guidance",
+      priority: 12.82,
+      dataSource: "_assembled",
+      activateWhen: { condition: "always" },
+      fallback: { action: "null" },
+      transform: "computeAudienceGuidance",
+      outputKey: "audienceGuidance",
     },
     {
       id: "activity_toolkit",

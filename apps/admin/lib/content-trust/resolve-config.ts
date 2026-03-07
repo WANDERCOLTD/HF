@@ -147,7 +147,7 @@ IMPORTANT:
       { id: "process", label: "Process Step", description: "A step in a procedure" },
       { id: "example", label: "Example/Scenario", description: "An illustrative example" },
     ],
-    llmConfig: { temperature: 0.1, maxTokens: 4000 },
+    llmConfig: { temperature: 0.1, maxTokens: 6000 },
     chunkSize: 8000,
     maxAssertionsPerDocument: 500,
     rules: {
@@ -231,7 +231,7 @@ Return ONLY valid JSON (no markdown code fences).`,
     fewShot: {
       enabled: true,
       maxExamples: 5,
-      exampleSampleSize: 500,
+      exampleSampleSize: 200,
       domainAware: true,
     },
   },

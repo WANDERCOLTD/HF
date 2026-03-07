@@ -464,6 +464,8 @@ export interface SubjectSourcesData {
     name: string;
     defaultTrustLevel: string;
     qualificationRef: string | null;
+    teachingProfile?: string | null;
+    teachingOverrides?: Record<string, unknown> | null;
     sources: Array<{
       slug: string;
       name: string;
