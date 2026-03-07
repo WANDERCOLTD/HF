@@ -882,8 +882,8 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
 
         {/* Effective settings (read-only summary) */}
         {(() => {
-          const resolved = resolveTeachingProfile(subject.teachingProfile, subject.teachingOverrides);
-          if (!resolved.teachingMode && !resolved.interactionPattern) return null;
+          const resolved = resolveTeachingProfile(subject);
+          if (!resolved || (!resolved.teachingMode && !resolved.interactionPattern)) return null;
           return (
             <div className="hf-mb-md" style={{ padding: 12, background: "var(--surface-secondary)", borderRadius: 8 }}>
               <span className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase hf-mb-sm" style={{ display: "block" }}>
