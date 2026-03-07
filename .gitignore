@@ -25,6 +25,7 @@ build/
 
 # local-only
 supabase/
+.claude/worktrees/
 
 .runtime/
 
