@@ -2138,6 +2138,26 @@ async function runSpecDrivenPipeline(ctx: PipelineContext): Promise<{
     log.warn(`Pipeline completed with ${stageErrors.length} stage error(s)`, { stageErrors });
   }
 
+  // Update CallerIdentity: track callCount and lastCallAt after every pipeline run
+  try {
+    const existingIdentity = await prisma.callerIdentity.findFirst({
+      where: { callerId: ctx.callerId },
+      select: { id: true, callCount: true },
+    });
+    if (existingIdentity) {
+      await prisma.callerIdentity.update({
+        where: { id: existingIdentity.id },
+        data: { callCount: existingIdentity.callCount + 1, lastCallAt: new Date() },
+      });
+    } else {
+      await prisma.callerIdentity.create({
+        data: { callerId: ctx.callerId, callCount: 1, lastCallAt: new Date() },
+      });
+    }
+  } catch (err: any) {
+    log.warn(`CallerIdentity update failed (non-blocking): ${err.message}`);
+  }
+
   return {
     summary: ctx.results,
     prompt: ctx.results.prompt,
