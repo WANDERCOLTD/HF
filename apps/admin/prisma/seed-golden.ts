@@ -1279,7 +1279,6 @@ async function cleanup(prisma: PrismaClient): Promise<void> {
 
   const tables = [
     // Enrichment leaf tables (depend on Call or Caller)
-    "composedPrompt",
     "callScore",
     "callTarget",
     "behaviorMeasurement",
@@ -1338,6 +1337,11 @@ async function cleanup(prisma: PrismaClient): Promise<void> {
 
   // Delete all cohort groups
   await prisma.cohortGroup.deleteMany();
+
+  // Clear Call.usedPromptId → ComposedPrompt before deleting composed prompts
+  // (circular: ComposedPrompt.callerId → Caller, Call.usedPromptId → ComposedPrompt)
+  await prisma.call.updateMany({ where: { usedPromptId: { not: null } }, data: { usedPromptId: null } });
+  await prisma.composedPrompt.deleteMany();
 
   // Delete all callers (seed-clean may have missed some)
   await prisma.caller.deleteMany();
