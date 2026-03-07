@@ -302,7 +302,8 @@ export function SimChat({
         });
         if (composeRes.ok) {
           const composeData = await composeRes.json();
-          usedPromptId = composeData.prompt?.id || null;
+          const rawPromptId = composeData.prompt?.id;
+          usedPromptId = (rawPromptId && !rawPromptId.startsWith('preview-')) ? rawPromptId : null;
           firstLine = (composeData.prompt?.llmPrompt as any)?._quickStart?.first_line || null;
         } else {
           console.warn('[sim] compose-prompt failed, continuing with existing prompt');
