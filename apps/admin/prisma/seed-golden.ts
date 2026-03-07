@@ -489,7 +489,7 @@ const GOAL_TEMPLATES: Record<string, Array<{ name: string; description: string }
 // MAIN
 // ══════════════════════════════════════════════════════════
 
-export async function main(externalPrisma?: PrismaClient): Promise<void> {
+export async function main(externalPrisma?: PrismaClient, opts?: { skipCleanup?: boolean }): Promise<void> {
   // PROD guard
   const env = process.env.NEXT_PUBLIC_APP_ENV || process.env.NODE_ENV;
   if (env === "LIVE" || env === "production") {
@@ -503,7 +503,11 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
   console.log("\n  🌟 Seeding Golden Path data...\n");
 
   // ── 1. Cleanup existing golden data (FK-safe order) ────
-  await cleanup(prisma);
+  // Skip when running as part of a larger seed (e.g. full profile) to avoid
+  // wiping data created by earlier steps.
+  if (!opts?.skipCleanup) {
+    await cleanup(prisma);
+  }
 
   // ── 2. Create institutions, domains, playbooks, cohorts ─
   let totalPlaybooks = 0;

@@ -75,8 +75,8 @@ const ALL_STEPS: Step[] = [
   { name: "seed-run-configs", fn: seedRunConfigs, profiles: ["core", "test", "full"] },
   { name: "seed (dedup)", fn: seedDedup, profiles: ["core", "test", "full"] },
 
-  // ── Golden (minimal demo data) ──────────────────────────
-  { name: "seed-golden", fn: seedGolden, profiles: ["golden"] },
+  // ── Golden (minimal demo data — additive when in full, cleanup skipped) ──
+  { name: "seed-golden", fn: seedGolden, profiles: ["golden", "full"] },
 
   // ── Test (core + e2e fixtures) ──────────────────────────
   { name: "seed-e2e", fn: seedE2E, profiles: ["test", "full"] },
@@ -135,6 +135,9 @@ async function main() {
     // seed-clean accepts opts for reset
     if (step.name === "seed-clean") {
       await step.fn(prisma, { reset: shouldReset });
+    // seed-golden skips its own cleanup when embedded in full/test profile
+    } else if (step.name === "seed-golden" && profile !== "golden") {
+      await step.fn(prisma, { skipCleanup: true });
     } else {
       await step.fn(prisma);
     }
