@@ -1279,6 +1279,7 @@ async function cleanup(prisma: PrismaClient): Promise<void> {
 
   const tables = [
     // Enrichment leaf tables (depend on Call or Caller)
+    "composedPrompt",
     "callScore",
     "callTarget",
     "behaviorMeasurement",
