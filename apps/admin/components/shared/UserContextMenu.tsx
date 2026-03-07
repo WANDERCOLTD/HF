@@ -20,6 +20,7 @@ import {
   GraduationCap,
   BookOpen,
   Building2,
+  RotateCcw,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useMasquerade } from "@/contexts/MasqueradeContext";
@@ -109,6 +110,32 @@ export function UserContextMenu({
   useEffect(() => {
     const stored = localStorage.getItem(WIZARD_FIELD_PICKER_KEY);
     if (stored !== null) setWizardFieldPickerEnabled(stored !== "false");
+  }, []);
+
+  // Demo reset (SUPERADMIN only)
+  const isSuperAdmin = sessionRole === "SUPERADMIN";
+  const [demoResetState, setDemoResetState] = useState<"idle" | "confirm" | "running" | "done" | "error">("idle");
+  const [demoResetResult, setDemoResetResult] = useState<{ callers: number; playbooks: number; cohorts: number } | null>(null);
+
+  const handleDemoReset = useCallback(async () => {
+    setDemoResetState("running");
+    try {
+      const res = await fetch("/api/admin/demo-reset-scoped", { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        setDemoResetResult(data.deleted);
+        setDemoResetState("done");
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        setDemoResetState("error");
+        setTimeout(() => setDemoResetState("idle"), 4000);
+      }
+    } catch {
+      setDemoResetState("error");
+      setTimeout(() => setDemoResetState("idle"), 4000);
+    }
   }, []);
 
   // Deep logging toggle (server-side, ADMIN+ only — fetch on menu open)
@@ -246,6 +273,8 @@ export function UserContextMenu({
       setStepInUsers([]);
       setDomains([]);
       setQuickPickLoading("");
+      setDemoResetState("idle");
+      setDemoResetResult(null);
     }
   }, [isOpen]);
 
@@ -706,6 +735,68 @@ export function UserContextMenu({
                   >
                     <div className="hf-toggle-mini-knob" />
                   </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Reset Demo (SUPERADMIN only) */}
+        {isSuperAdmin && (
+          <>
+            <div className="border-t mx-2" style={{ borderColor: "var(--border-subtle)" }} />
+            <div className="px-2 pt-2 pb-1">
+              <div className="px-3 pb-1 text-[11px] font-medium tracking-wide uppercase" style={{ color: "var(--text-muted)" }}>
+                Demo
+              </div>
+              {demoResetState === "idle" && (
+                <button
+                  type="button"
+                  onClick={() => setDemoResetState("confirm")}
+                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors hover:bg-[var(--hover-bg)]"
+                  style={{ color: "var(--text-primary)", border: "none", background: "transparent", cursor: "pointer" }}
+                >
+                  <RotateCcw className="w-[18px] h-[18px] flex-shrink-0" style={{ color: "var(--text-secondary)" }} />
+                  Reset Demo
+                </button>
+              )}
+              {demoResetState === "confirm" && (
+                <div className="px-3 py-2">
+                  <div className="text-[13px] mb-2" style={{ color: "var(--text-secondary)" }}>Remove demo courses + callers?</div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDemoReset}
+                      className="flex-1 px-3 py-1.5 text-[13px] font-medium rounded-md transition-colors"
+                      style={{ background: "var(--status-error-bg)", color: "var(--status-error-text)", border: "none", cursor: "pointer" }}
+                    >
+                      Yes, reset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDemoResetState("idle")}
+                      className="flex-1 px-3 py-1.5 text-[13px] rounded-md transition-colors hover:bg-[var(--hover-bg)]"
+                      style={{ background: "transparent", color: "var(--text-secondary)", border: "1px solid var(--border-default)", cursor: "pointer" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              {demoResetState === "running" && (
+                <div className="flex items-center gap-2 px-3 py-2.5 text-sm" style={{ color: "var(--text-muted)" }}>
+                  <Loader2 className="w-[18px] h-[18px] animate-spin flex-shrink-0" />
+                  Resetting…
+                </div>
+              )}
+              {demoResetState === "done" && demoResetResult && (
+                <div className="px-3 py-2.5 text-[13px]" style={{ color: "var(--status-success-text)" }}>
+                  Reset done — {demoResetResult.playbooks} course{demoResetResult.playbooks !== 1 ? "s" : ""} and {demoResetResult.callers} caller{demoResetResult.callers !== 1 ? "s" : ""} removed
+                </div>
+              )}
+              {demoResetState === "error" && (
+                <div className="px-3 py-2.5 text-[13px]" style={{ color: "var(--status-error-text)" }}>
+                  Reset failed — check console
                 </div>
               )}
             </div>

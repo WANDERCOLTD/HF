@@ -375,8 +375,6 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
   const [fieldPickerPanel, setFieldPickerPanel] = useState<OptionsPanel | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetKey, setResetKey] = useState(0);
-  const [demoResetState, setDemoResetState] = useState<"idle" | "confirm" | "running" | "done" | "error">("idle");
-  const [demoResetResult, setDemoResetResult] = useState<{ callers: number; playbooks: number; cohorts: number } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -820,32 +818,6 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
     return () => window.removeEventListener("keydown", handler);
   }, [hasActiveOptions]);
 
-  // ── Demo reset (SUPERADMIN only) ──────────────────────
-
-  const handleDemoReset = useCallback(async () => {
-    setDemoResetState("running");
-    try {
-      const res = await fetch("/api/admin/demo-reset-scoped", { method: "POST" });
-      const data = await res.json();
-      if (data.ok) {
-        setDemoResetResult(data.deleted);
-        setDemoResetState("done");
-        // Clear wizard conversation so the next demo starts fresh
-        setTimeout(() => {
-          setDemoResetState("idle");
-          setDemoResetResult(null);
-          setConfirmReset(false);
-          setResetKey((k) => k + 1);
-        }, 3000);
-      } else {
-        setDemoResetState("error");
-        setTimeout(() => setDemoResetState("idle"), 4000);
-      }
-    } catch {
-      setDemoResetState("error");
-      setTimeout(() => setDemoResetState("idle"), 4000);
-    }
-  }, []);
 
   // ── Flow setup ────────────────────────────────────────
 
@@ -1284,56 +1256,6 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
 
       {/* Right panel — always visible, shows live course build progress */}
       <div className="cv4-panel-column">
-
-        {/* Demo Reset — SUPERADMIN only */}
-        {(userRole ?? initialContext?.userRole) === "SUPERADMIN" && (
-          <div className="cv4-demo-reset">
-            {demoResetState === "idle" && (
-              <button
-                type="button"
-                className="cv4-demo-reset-btn"
-                onClick={() => setDemoResetState("confirm")}
-              >
-                Reset Demo
-              </button>
-            )}
-            {demoResetState === "confirm" && (
-              <div className="cv4-demo-reset-confirm">
-                <span className="cv4-demo-reset-label">Remove demo courses + callers?</span>
-                <button
-                  type="button"
-                  className="cv4-demo-reset-yes"
-                  onClick={handleDemoReset}
-                >
-                  Yes, reset
-                </button>
-                <button
-                  type="button"
-                  className="cv4-demo-reset-cancel"
-                  onClick={() => setDemoResetState("idle")}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-            {demoResetState === "running" && (
-              <div className="cv4-demo-reset-status">
-                <Loader2 size={12} className="hf-spinner" />
-                Resetting…
-              </div>
-            )}
-            {demoResetState === "done" && demoResetResult && (
-              <div className="cv4-demo-reset-status cv4-demo-reset-status--done">
-                Reset done — {demoResetResult.playbooks} course{demoResetResult.playbooks !== 1 ? "s" : ""} and {demoResetResult.callers} caller{demoResetResult.callers !== 1 ? "s" : ""} removed
-              </div>
-            )}
-            {demoResetState === "error" && (
-              <div className="cv4-demo-reset-status cv4-demo-reset-status--error">
-                Reset failed — check console
-              </div>
-            )}
-          </div>
-        )}
 
         <ScaffoldPanel
           getData={getData}
