@@ -109,7 +109,7 @@ export function SessionDetailClient({ courseId, sessionNum }: SessionDetailClien
 
           // Load TPs if curriculum exists
           if (data.curriculumId) {
-            fetch(`/api/curricula/${data.curriculumId}/session-assertions`)
+            fetch(`/api/curricula/${data.curriculumId}/session-assertions?courseId=${courseId}`)
               .then((r) => r.json())
               .then((tpData) => {
                 if (tpData.ok) {

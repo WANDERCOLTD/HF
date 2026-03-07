@@ -442,7 +442,7 @@ export default function CourseDetailPage() {
             setSessions(data);
             // Fetch session TPs if curriculum exists
             if (data.curriculumId && !tpLoaded) {
-              fetch(`/api/curricula/${data.curriculumId}/session-assertions`)
+              fetch(`/api/curricula/${data.curriculumId}/session-assertions?courseId=${courseId}`)
                 .then((r) => r.json())
                 .then((tpData) => {
                   if (tpData.ok) {
@@ -714,7 +714,7 @@ export default function CourseDetailPage() {
             if (refreshData.ok) setSessions(refreshData);
             // Re-fetch TP assignments (plan changed, old assignments are stale)
             if (sessions.curriculumId) {
-              fetch(`/api/curricula/${sessions.curriculumId}/session-assertions`)
+              fetch(`/api/curricula/${sessions.curriculumId}/session-assertions?courseId=${courseId}`)
                 .then((r) => r.json())
                 .then((tpData) => {
                   if (tpData.ok) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { getSubjectsForPlaybook } from "@/lib/knowledge/domain-sources";
 
 type Params = { params: Promise<{ curriculumId: string }> };
 
@@ -35,11 +36,12 @@ interface SessionGroup {
  *   Uses explicit assertionIds (educator-curated) when available,
  *   falls back to learningOutcomeRefs matching (AI-assigned).
  *   Unassigned assertions are returned separately.
+ * @query courseId string - Optional: playbook ID for robust source resolution via getSubjectsForPlaybook
  * @response 200 { ok, sessions, unassigned, total }
  * @response 404 { ok: false, error: "Curriculum not found" }
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: Params,
 ) {
   try {
@@ -47,6 +49,7 @@ export async function GET(
     if (isAuthError(auth)) return auth.error;
 
     const { curriculumId } = await params;
+    const courseId = new URL(req.url).searchParams.get("courseId");
 
     // Load curriculum with lesson plan and subject link
     const curriculum = await prisma.curriculum.findUnique({
@@ -78,8 +81,12 @@ export async function GET(
       });
     }
 
-    // Load all assertions for this curriculum's subject
-    if (!curriculum.subjectId) {
+    // ── Resolve source IDs ──────────────────────────────
+    // Use getSubjectsForPlaybook (same path as content-breakdown) when courseId is provided.
+    // Falls back to direct SubjectSource query via curriculum.subjectId.
+    const sourceIds = await resolveSourceIds(courseId, curriculum.subjectId);
+
+    if (sourceIds.length === 0) {
       return NextResponse.json({
         ok: true,
         sessions: Object.fromEntries(
@@ -96,11 +103,7 @@ export async function GET(
     }
 
     const assertions = await prisma.contentAssertion.findMany({
-      where: {
-        source: {
-          subjects: { some: { subjectId: curriculum.subjectId } },
-        },
-      },
+      where: { sourceId: { in: sourceIds } },
       select: {
         id: true,
         assertion: true,
@@ -206,4 +209,38 @@ function toSummary(a: {
     topicSlug: a.topicSlug,
     depth: a.depth,
   };
+}
+
+/**
+ * Resolve content source IDs using the same path as content-breakdown:
+ * courseId → getSubjectsForPlaybook (PlaybookSubject → Subject → SubjectSource,
+ * with domain fallback). Falls back to direct SubjectSource query if no courseId.
+ */
+async function resolveSourceIds(
+  courseId: string | null,
+  subjectId: string | null,
+): Promise<string[]> {
+  // Path 1: Course-aware resolution (matches content-breakdown)
+  if (courseId) {
+    const playbook = await prisma.playbook.findUnique({
+      where: { id: courseId },
+      select: { domainId: true },
+    });
+    if (playbook?.domainId) {
+      const { subjects } = await getSubjectsForPlaybook(courseId, playbook.domainId);
+      const ids = [...new Set(subjects.flatMap((s) => s.sources.map((ss) => ss.sourceId)))];
+      if (ids.length > 0) return ids;
+    }
+  }
+
+  // Path 2: Direct SubjectSource query (original behavior)
+  if (subjectId) {
+    const subjectSources = await prisma.subjectSource.findMany({
+      where: { subjectId },
+      select: { sourceId: true },
+    });
+    return subjectSources.map((ss) => ss.sourceId);
+  }
+
+  return [];
 }
