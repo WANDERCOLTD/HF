@@ -34,7 +34,15 @@ export async function apiPost(path: string, body: unknown) {
 }
 
 // Health check before running integration tests
+// Skipped for DB-only tests (journey/) — they manage their own DB connection.
 beforeAll(async () => {
+  // DB-only tests (e.g., journey/) don't need a running server
+  const testPath = expect.getState?.()?.testPath || "";
+  if (testPath.includes("/journey/")) {
+    console.log("✓ DB-only test — skipping server health check");
+    return;
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}/api/health`);
     if (!response.ok) {

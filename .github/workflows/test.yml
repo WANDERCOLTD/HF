@@ -123,6 +123,10 @@ jobs:
         run: npx prisma migrate deploy
         working-directory: apps/admin
 
+      - name: Seed specs (required for journey tests)
+        run: npx tsx prisma/seed-from-specs.ts
+        working-directory: apps/admin
+
       - name: Run integration tests
         run: npm run test:integration
         working-directory: apps/admin

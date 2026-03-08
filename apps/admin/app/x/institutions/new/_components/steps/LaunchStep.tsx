@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BookOpen, Building2, Users } from "lucide-react";
 import { WizardSummary } from "@/components/shared/WizardSummary";
 import { useBranding } from "@/contexts/BrandingContext";
+import { useErrorCapture } from "@/contexts/ErrorCaptureContext";
 import type { StepRenderProps } from "@/components/wizards/types";
 
 function toSlug(name: string): string {
@@ -33,6 +34,7 @@ type CourseCheck = {
 export function LaunchStep({ getData, setData, onPrev, endFlow }: StepRenderProps) {
   const router = useRouter();
   const { refreshBranding } = useBranding();
+  const { reportError } = useErrorCapture();
 
   const institutionName = getData<string>("institutionName") ?? "";
   const typeSlug = getData<string>("typeSlug") ?? null;
@@ -75,7 +77,7 @@ export function LaunchStep({ getData, setData, onPrev, endFlow }: StepRenderProp
         .then((data) => {
           if (data.ok && data.checks?.length > 0) setCourseChecks(data.checks);
         })
-        .catch(() => {});
+        .catch((err: unknown) => { reportError?.(err instanceof Error ? err : String(err), { source: "wizard", step: "launch" }); });
 
       return;
     }

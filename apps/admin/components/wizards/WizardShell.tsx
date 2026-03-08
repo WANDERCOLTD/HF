@@ -9,6 +9,8 @@ import { WizardResumeBanner } from "@/components/shared/WizardResumeBanner";
 import { useWizardResume } from "@/hooks/useWizardResume";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { WizardDoneContent } from "./WizardDoneContent";
+import { StepErrorBoundary } from "./StepErrorBoundary";
+import { useErrorCapture } from "@/contexts/ErrorCaptureContext";
 import type { WizardConfig, StepRenderProps } from "./types";
 
 // ── WizardShell ───────────────────────────────────────
@@ -43,6 +45,7 @@ export function WizardShell({ config, onComplete, initialData }: WizardShellProp
     getData,
     endFlow: rawEndFlow,
   } = useStepFlow();
+  const { reportError } = useErrorCapture();
 
   const { pendingTask, isLoading: resumeLoading } = useWizardResume(
     config.taskType || "",
@@ -191,7 +194,15 @@ export function WizardShell({ config, onComplete, initialData }: WizardShellProp
               showHeader={false}
             >
               {status === "active" ? (
-                <StepComp {...stepProps} />
+                <StepErrorBoundary
+                  stepId={stepCfg.id}
+                  onReportError={(err) =>
+                    reportError(err, { source: "wizard", step: stepCfg.id })
+                  }
+                  onBack={i > 0 ? () => setStep(i - 1) : undefined}
+                >
+                  <StepComp {...stepProps} />
+                </StepErrorBoundary>
               ) : status === "done" && stepCfg.doneContent ? (
                 <WizardDoneContent items={stepCfg.doneContent(getData)} />
               ) : null}

@@ -20,7 +20,7 @@ import {
   WIZARD_PHASES,
   type WizardOption,
   type WizardPhase,
-} from "@/app/x/get-started-v2/components/wizard-schema";
+} from "@/lib/chat/wizard-schema";
 import type { SubjectEntry } from "@/lib/system-settings";
 import type { GraphEvaluation } from "@/lib/wizard/graph-schema";
 import { buildGraphPromptSection } from "@/lib/wizard/graph-evaluator";

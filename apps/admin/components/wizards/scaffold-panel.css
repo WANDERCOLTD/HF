@@ -1,16 +1,4 @@
-/* ── Get Started Wizard — Two-column layout ──────────── */
-
-.gs-layout {
-  display: flex;
-  gap: 32px;
-  padding: 0;
-  min-height: calc(100vh - 180px);
-}
-
-.gs-main {
-  flex: 1;
-  min-width: 0;
-}
+/* ── Scaffold Panel — progress donut + checklist ─────── */
 
 .gs-panel {
   width: 340px;
@@ -19,8 +7,6 @@
   top: 24px;
   align-self: flex-start;
 }
-
-/* ── Scaffold Panel ────────────────────────────────────── */
 
 .gs-scaffold {
   background: var(--surface-primary);
@@ -162,7 +148,7 @@
   opacity: 1;
 }
 
-/* ── Status dot (replaces 20px circle icons) ─────────── */
+/* ── Status dot ──────────────────────────────────────── */
 
 .gs-dot {
   width: 8px;
@@ -349,174 +335,4 @@
 @keyframes gs-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
-}
-
-/* ── Typeahead (InstitutionStep) ──────────────────────── */
-
-.gs-typeahead-wrap {
-  position: relative;
-}
-
-.gs-typeahead-locked {
-  background: var(--surface-secondary);
-  padding-right: 40px;
-  cursor: default;
-}
-
-.gs-typeahead-clear {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  color: var(--text-muted);
-  font-size: 16px;
-  line-height: 1;
-}
-
-.gs-typeahead-clear:hover {
-  color: var(--text-primary);
-}
-
-.gs-typeahead-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  margin-top: 4px;
-  background: var(--surface-primary);
-  border: 1px solid var(--border-default);
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  max-height: 260px;
-  overflow-y: auto;
-  z-index: 100;
-}
-
-.gs-typeahead-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  cursor: pointer;
-  border-bottom: 1px solid var(--border-subtle, var(--border-default));
-}
-
-.gs-typeahead-row:last-child {
-  border-bottom: none;
-}
-
-.gs-typeahead-row:hover,
-.gs-typeahead-row[data-highlighted="true"] {
-  background: var(--surface-secondary);
-}
-
-.gs-typeahead-row-name {
-  font-weight: 500;
-  font-size: 14px;
-  color: var(--text-primary);
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.gs-typeahead-row-meta {
-  font-size: 12px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.gs-typeahead-create {
-  border-top: 1px dashed var(--border-default);
-  color: var(--accent-primary);
-  font-size: 13px;
-}
-
-.gs-typeahead-create:hover,
-.gs-typeahead-create[data-highlighted="true"] {
-  background: color-mix(in srgb, var(--accent-primary) 5%, transparent);
-}
-
-.gs-locked-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 6px;
-}
-
-.gs-locked-badge-sep {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  flex-shrink: 0;
-}
-
-/* ── Timeline (ContentStep eager creation) ───────────── */
-
-.gs-timeline-pending {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid var(--border-default);
-  flex-shrink: 0;
-}
-
-.gs-timeline-error {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--status-error-text);
-  flex-shrink: 0;
-}
-
-/* ── Responsive: collapse panel to bottom bar ─────────── */
-
-@media (max-width: 1023px) {
-  .gs-layout {
-    flex-direction: column;
-    gap: 0;
-    padding: 16px;
-  }
-
-  .gs-panel {
-    width: 100%;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    top: auto;
-    z-index: 50;
-    padding: 0;
-  }
-
-  .gs-scaffold {
-    border-radius: 16px 16px 0 0;
-    padding: 12px 16px;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
-  }
-
-  .gs-scaffold-list {
-    display: none;
-  }
-
-  .gs-scaffold-divider,
-  .gs-scaffold-divider-label {
-    display: none;
-  }
-
-  .gs-scaffold-title {
-    display: none;
-  }
-
-  .gs-main {
-    padding-bottom: 80px;
-  }
 }

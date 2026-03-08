@@ -11,10 +11,17 @@ export interface CapturedError {
   status?: number;
 }
 
+interface ReportErrorContext {
+  source?: string;
+  step?: string;
+}
+
 interface ErrorCaptureContextValue {
   getRecentErrors: () => CapturedError[];
   clearErrors: () => void;
   errorCount: number;
+  /** Manually report a caught error so it appears in BugReportButton + status bar badge */
+  reportError: (err: Error | string, context?: ReportErrorContext) => void;
 }
 
 const ErrorCaptureContext = createContext<ErrorCaptureContextValue | null>(null);
@@ -130,8 +137,20 @@ export function ErrorCaptureProvider({ children }: { children: React.ReactNode }
     setErrorCount(0);
   }, []);
 
+  const reportError = useCallback(
+    (err: Error | string, context?: ReportErrorContext) => {
+      const message = err instanceof Error ? err.message : err;
+      const stack = err instanceof Error ? err.stack?.slice(0, 500) : undefined;
+      const source = [context?.source, context?.step]
+        .filter(Boolean)
+        .join("/") || undefined;
+      pushError({ timestamp: Date.now(), message, stack, source });
+    },
+    [pushError],
+  );
+
   return (
-    <ErrorCaptureContext.Provider value={{ getRecentErrors, clearErrors, errorCount }}>
+    <ErrorCaptureContext.Provider value={{ getRecentErrors, clearErrors, errorCount, reportError }}>
       {children}
     </ErrorCaptureContext.Provider>
   );

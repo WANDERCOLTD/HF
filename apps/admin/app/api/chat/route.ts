@@ -15,7 +15,7 @@ import { WIZARD_TOOLS, executeWizardTool } from "@/lib/chat/wizard-tools";
 import { buildWizardSystemPrompt, buildGraphSystemPrompt } from "@/lib/chat/wizard-system-prompt";
 import { buildConversationalSystemPrompt } from "@/lib/chat/conversational-system-prompt";
 import { CONVERSATIONAL_TOOLS } from "@/lib/chat/conversational-wizard-tools";
-import { computeCurrentPhase } from "@/app/x/get-started-v2/components/wizard-schema";
+import { computeCurrentPhase } from "@/lib/chat/wizard-schema";
 import { evaluateGraph, buildGraphFallback } from "@/lib/wizard/graph-evaluator";
 import { embedText } from "@/lib/embeddings";
 import { retrieveKnowledgeForPrompt } from "@/lib/knowledge/retriever";

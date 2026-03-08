@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { useErrorCapture } from "@/contexts/ErrorCaptureContext";
 import type { StepProps } from "../types";
 
 type Assertion = {
@@ -23,6 +24,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function ReviewStep({ setData, getData, onNext, onPrev }: StepProps) {
+  const { reportError } = useErrorCapture();
   const sourceId = getData<string>("sourceId");
   const sourceName = getData<string>("sourceName");
 
@@ -74,7 +76,7 @@ export default function ReviewStep({ setData, getData, onNext, onPrev }: StepPro
     ]).then(([qData, vData]) => {
       setQuestionCount(qData.total || 0);
       setVocabCount(vData.total || 0);
-    }).catch(() => {});
+    }).catch((err: unknown) => { reportError(err instanceof Error ? err : String(err), { source: "wizard", step: "review" }); });
   }, [sourceId]);
 
   async function handleMarkReviewed(id: string) {

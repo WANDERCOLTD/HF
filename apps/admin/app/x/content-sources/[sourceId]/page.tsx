@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Pencil, Plus, Check } from "lucide-react";
+import { DocTypeBadge } from "../_components/shared/badges";
 import { DraggableTabs, type TabDefinition } from "@/components/shared/DraggableTabs";
 import { EditableTitle } from "@/components/shared/EditableTitle";
 import { ReviewTabBadge } from "./_components/ReviewTabBadge";
@@ -117,17 +118,7 @@ const CATEGORIES = [
   { value: "context", label: "Context", color: "var(--text-muted)", icon: "\uD83D\uDCC4" },
 ];
 
-const DOCUMENT_TYPES: Record<string, { label: string; icon: string }> = {
-  TEXTBOOK: { label: "Textbook", icon: "\uD83D\uDCD6" },
-  CURRICULUM: { label: "Curriculum", icon: "\uD83C\uDF93" },
-  WORKSHEET: { label: "Worksheet", icon: "\uD83D\uDCDD" },
-  COMPREHENSION: { label: "Comprehension", icon: "\uD83D\uDCDA" },
-  EXAMPLE: { label: "Example", icon: "\uD83D\uDCC4" },
-  ASSESSMENT: { label: "Assessment", icon: "\u2705" },
-  REFERENCE: { label: "Reference", icon: "\uD83D\uDCD1" },
-  LESSON_PLAN: { label: "Lesson Plan", icon: "\uD83D\uDCCB" },
-  POLICY_DOCUMENT: { label: "Policy Document", icon: "\uD83C\uDFDB\uFE0F" },
-};
+// Document types now sourced from shared DocTypeBadge (badges.tsx / doc-type-icons.ts)
 
 const PAGE_SIZE = 50;
 
@@ -392,74 +383,7 @@ function EditableTrustBadge({
   );
 }
 
-/** Clickable doc type badge with dropdown */
-function EditableDocTypeBadge({
-  documentType,
-  documentTypeSource,
-  onSave,
-}: {
-  documentType: string;
-  documentTypeSource: string | null;
-  onSave: (v: string) => Promise<boolean>;
-}) {
-  const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  const handleSelect = async (value: string) => {
-    if (value === documentType || saving) return;
-    setSaving(true);
-    const ok = await onSave(value);
-    setSaving(false);
-    if (ok) setOpen(false);
-  };
-
-  const dtCfg = DOCUMENT_TYPES[documentType];
-  if (!dtCfg) return null;
-
-  return (
-    <div className="csd-dropdown-wrap" ref={dropdownRef}>
-      <button
-        className="csd-doc-type-badge csd-badge-clickable"
-        onClick={() => setOpen(!open)}
-        title="Click to change document type"
-        disabled={saving}
-      >
-        <span className="csd-doc-type-icon">{dtCfg.icon}</span>
-        {dtCfg.label}
-        {documentTypeSource?.startsWith("ai:") && (
-          <span className="csd-doc-type-auto">auto</span>
-        )}
-      </button>
-      {open && (
-        <div className="csd-dropdown-menu">
-          {Object.entries(DOCUMENT_TYPES).map(([key, val]) => (
-            <button
-              key={key}
-              className={`csd-dropdown-item ${key === documentType ? "csd-dropdown-item--active" : ""}`}
-              onClick={() => handleSelect(key)}
-              disabled={saving}
-            >
-              <span className="csd-dropdown-item-icon">{val.icon}</span>
-              {val.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+// EditableDocTypeBadge removed — uses shared DocTypeBadge with onChange prop
 
 /** Inline editable metadata field (publisherOrg, edition, publicationYear) */
 function EditableMetaField({
@@ -843,11 +767,11 @@ export default function SourceDetailPage() {
             level={source.trustLevel}
             onSave={(v) => patchSource({ trustLevel: v })}
           />
-          {source.documentType && DOCUMENT_TYPES[source.documentType] && (
-            <EditableDocTypeBadge
-              documentType={source.documentType}
-              documentTypeSource={source.documentTypeSource}
-              onSave={(v) => patchSource({ documentType: v })}
+          {source.documentType && (
+            <DocTypeBadge
+              type={source.documentType}
+              source={source.documentTypeSource}
+              onChange={(v) => { patchSource({ documentType: v }); }}
             />
           )}
           {source.archivedAt ? (

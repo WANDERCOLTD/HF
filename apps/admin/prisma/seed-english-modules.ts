@@ -62,7 +62,6 @@ const MODULES = [
 
 export async function main(externalPrisma?: PrismaClient): Promise<void> {
   const prisma = externalPrisma ?? new PrismaClient();
-  const isStandalone = !externalPrisma;
 
   console.log("=== Seed English Curriculum Modules ===\n");
 
@@ -71,9 +70,7 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
   });
 
   if (!curriculum) {
-    console.log(`  [skip] Curriculum "${CURRICULUM_SLUG}" not found — skipping english modules`);
-    if (isStandalone) await prisma.$disconnect();
-    return;
+    throw new Error(`Curriculum "${CURRICULUM_SLUG}" not found — run seed-golden first.`);
   }
 
   console.log(`Found curriculum: ${curriculum.name} (${curriculum.id})\n`);
@@ -154,7 +151,6 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
   console.log(`  Modules: ${Object.keys(createdModules).length}`);
   console.log(`  IDs: ${JSON.stringify(createdModules, null, 2)}`);
 
-  if (isStandalone) await prisma.$disconnect();
 }
 
 // Standalone entry point

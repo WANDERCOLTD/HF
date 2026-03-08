@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { FileText, Building2, GraduationCap, BookOpen } from "lucide-react";
 import { WizardSummary } from "@/components/shared/WizardSummary";
+import { useErrorCapture } from "@/contexts/ErrorCaptureContext";
 import type { StepProps } from "../types";
 
 type ReadinessCheck = {
@@ -24,6 +25,7 @@ type ReadinessResult = {
 };
 
 export default function DoneStep({ getData, onPrev, endFlow }: StepProps) {
+  const { reportError } = useErrorCapture();
   const sourceId = getData<string>("sourceId");
   const sourceName = getData<string>("sourceName");
   const subjectName = getData<string>("subjectName");
@@ -59,7 +61,7 @@ export default function DoneStep({ getData, onPrev, endFlow }: StepProps) {
           });
         }
       })
-      .catch(() => {})
+      .catch((err: unknown) => { reportError(err instanceof Error ? err : String(err), { source: "wizard", step: "done" }); })
       .finally(() => setLoadingReadiness(false));
   }, [domainId, sourceId]);
 

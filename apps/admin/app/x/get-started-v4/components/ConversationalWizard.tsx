@@ -14,7 +14,9 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowUp, Loader2, MoreHorizontal, AlertCircle, HelpCircle, ChevronsRight, Copy, Quote, Check, Upload } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowUp, Loader2, MoreHorizontal, AlertCircle, HelpCircle, ChevronsRight, Copy, Quote, Check, Upload, ExternalLink, Headphones, BookMarked, Link2, Plus } from "lucide-react";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import ReactMarkdown from "react-markdown";
 import { useStepFlow } from "@/contexts/StepFlowContext";
 import type { StepDefinition } from "@/contexts/StepFlowContext";
@@ -28,7 +30,7 @@ import { SourcesPanel } from "./SourcesPanel";
 import type { SourcesReadyData, SourcesPanelHandle } from "./SourcesPanel";
 import { FirstCallPreviewCard } from "./FirstCallPreviewCard";
 import type { FirstCallPreviewData } from "./FirstCallPreviewCard";
-import { ScaffoldPanel } from "../../get-started/components/ScaffoldPanel";
+import { ScaffoldPanel } from "@/components/wizards/ScaffoldPanel";
 import { parseOptionsFromText } from "@/lib/chat/parse-options";
 import "../get-started-v4.css";
 
@@ -365,7 +367,8 @@ function contextToInitialData(ctx: WizardInitialContext): Record<string, unknown
 // ── Component ────────────────────────────────────────────
 
 export function ConversationalWizard({ initialContext, userRole }: ConversationalWizardProps) {
-  const { getData, setData, isActive, startFlow } = useStepFlow();
+  const router = useRouter();
+  const { getData, setData, isActive, startFlow, endFlow } = useStepFlow();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -457,7 +460,7 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
   // ── API call ──────────────────────────────────────────
 
   const sendToAPI = useCallback(
-    async (userMessage: string, history: Message[], overrides?: Record<string, unknown>): Promise<WizardResponse | null> => {
+    async (userMessage: string, history: Message[], overrides?: Record<string, unknown>): Promise<{ data: WizardResponse } | { error: string } | null> => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -493,15 +496,16 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
         });
 
         if (!res.ok) {
+          if (res.status === 401) return { error: "Your session has expired. Please refresh the page and log in again." };
           const err = await res.json().catch(() => ({ error: "Request failed" }));
-          throw new Error(err.error || `HTTP ${res.status}`);
+          return { error: err.error || `Server error (${res.status}). Try again in a moment.` };
         }
 
-        return await res.json();
+        return { data: await res.json() };
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return null;
         console.error("[wizard-v4] API error:", err);
-        return null;
+        return { error: "Network issue — check your connection and try again." };
       }
     },
     [getSetupData],
@@ -669,17 +673,21 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
       scrollToBottom();
 
       setIsLoading(true);
-      const response = await sendToAPI(msg, newMessages, overrides);
+      const result = await sendToAPI(msg, newMessages, overrides);
       setIsLoading(false);
 
-      if (!response) {
-        if (abortRef.current?.signal.aborted) return;
+      if (!result) {
+        // Aborted — no error to show
+        return;
+      }
+
+      if ("error" in result) {
         // Restore the user's message so they can retry without retyping
         setInputValue(msg);
         const errMsg: Message = {
           id: uid(),
           role: "system",
-          content: "That didn't go through — your message is still in the box. Try again.",
+          content: result.error,
           systemType: "error",
         };
         const withErr = [...newMessages, errMsg];
@@ -690,6 +698,7 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
         return;
       }
 
+      const response = result.data;
       const toolExtras = response.toolCalls?.length ? processToolCalls(response.toolCalls) : [];
       const contentExtras = processResponseContent(response.content, response.toolCalls || []);
 
@@ -749,9 +758,13 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
         fileCards: fileCards.length ? fileCards : undefined,
       };
       setMessages((prev) => {
-        const updated = [...prev, uploadMsg];
-        saveHistory(updated);
-        return updated;
+        // Collapse any inline upload-zone messages now that files are uploaded
+        const updated = prev.map((m) =>
+          m.systemType === "upload-zone" ? { ...m, resolved: true } : m,
+        );
+        const withUpload = [...updated, uploadMsg];
+        saveHistory(withUpload);
+        return withUpload;
       });
 
       // Tell the AI about the uploaded files so it can continue the conversation
@@ -886,6 +899,8 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
   const draftDomainId = getData<string>("draftDomainId") || getData<string>("existingDomainId");
   const resolvedDomainId = draftDomainId || "";
   const launched = getData<boolean>("launched");
+  const communityJoinToken = getData<string>("communityJoinToken");
+  const { copied: linkCopied, copy: copyLink } = useCopyToClipboard();
 
   return (
     <div
@@ -968,6 +983,7 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
               );
             }
 
+            if (msg.systemType === "upload-zone" && msg.resolved) return null;
             if (msg.systemType === "upload-zone") {
               return (
                 <div key={msg.id} className="cv4-row cv4-row--system">
@@ -1099,25 +1115,99 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
             </div>
           )}
 
-          {/* Course ready card */}
-          {launched && draftCallerId && (
+          {/* Course ready card — demo-optimized CTAs */}
+          {launched && (
             <div className="cv4-row cv4-row--system">
               <div className="cv4-success-card">
                 <div className="cv4-success-title">Your AI tutor is ready</div>
-                <div className="cv4-success-sub">Try a sim call to hear it in action.</div>
+                <div className="cv4-success-sub">
+                  {draftCallerId
+                    ? "Hear it teach your content, explore what it learned, or share it with someone."
+                    : "Explore what it learned, or head to your dashboard."}
+                </div>
                 <div className="cv4-success-actions">
-                  <a
-                    href={`/x/sim/${draftCallerId}?${new URLSearchParams({
-                      forceFirstCall: "true",
-                      ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
-                      ...(draftDomainId ? { domainId: draftDomainId } : {}),
-                    }).toString()}`}
-                    className="hf-btn hf-btn-primary"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  {/* Primary — the demo money shot */}
+                  {draftCallerId && (
+                    <a
+                      href={`/x/sim/${draftCallerId}?${new URLSearchParams({
+                        forceFirstCall: "true",
+                        ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
+                        ...(draftDomainId ? { domainId: draftDomainId } : {}),
+                      }).toString()}`}
+                      className="hf-btn hf-btn-primary cv4-success-primary"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Headphones size={16} /> Hear Your AI Tutor Teach
+                    </a>
+                  )}
+
+                  {/* Secondary row — proof + sharing */}
+                  <div className="cv4-success-row">
+                    {draftPlaybookId && (
+                      <a
+                        href={`/x/courses/${draftPlaybookId}?tab=content`}
+                        className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                      >
+                        <BookMarked size={14} /> See What It Learned
+                      </a>
+                    )}
+                    {(communityJoinToken || draftCallerId) && (
+                      <button
+                        type="button"
+                        className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                        onClick={() => {
+                          const url = communityJoinToken
+                            ? `${window.location.origin}/join/${communityJoinToken}`
+                            : `${window.location.origin}/x/sim/${draftCallerId}?${new URLSearchParams({
+                                forceFirstCall: "true",
+                                ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
+                                ...(draftDomainId ? { domainId: draftDomainId } : {}),
+                              }).toString()}`;
+                          copyLink(url, "tryit");
+                        }}
+                      >
+                        {linkCopied ? <><Check size={14} /> Copied!</> : <><Link2 size={14} /> Copy Try-It Link</>}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Tertiary row — course + create another */}
+                  <div className="cv4-success-row">
+                    {draftPlaybookId && (
+                      <a
+                        href={`/x/courses/${draftPlaybookId}`}
+                        className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                      >
+                        View Course <ExternalLink size={12} />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                      onClick={() => {
+                        if (!confirmReset) { setConfirmReset(true); return; }
+                        handleStartOver();
+                      }}
+                    >
+                      {confirmReset
+                        ? "Confirm — Start Fresh"
+                        : <><Plus size={14} /> Create Another Course</>}
+                    </button>
+                  </div>
+
+                  {/* Dashboard — demoted to text link */}
+                  <button
+                    type="button"
+                    className="cv4-success-link"
+                    onClick={() => {
+                      endFlow();
+                      sessionStorage.removeItem(HISTORY_KEY);
+                      router.push(draftDomainId ? `/x/educator` : "/x");
+                    }}
                   >
-                    Try a Sim Call
-                  </a>
+                    Go to Dashboard &rarr;
+                  </button>
                 </div>
               </div>
             </div>
@@ -1159,8 +1249,7 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
               <div className="cv4-welcome-suggestion-actions">
                 <button
                   type="button"
-                  className="hf-btn hf-btn-primary"
-                  style={{ fontSize: "12px", padding: "6px 14px" }}
+                  className="hf-btn hf-btn-primary hf-btn-sm"
                   onClick={() => {
                     setData("welcomeMessage", welcomeSuggestion);
                     setWelcomeSuggestion(null);
@@ -1171,8 +1260,7 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
                 </button>
                 <button
                   type="button"
-                  className="hf-btn hf-btn-secondary"
-                  style={{ fontSize: "12px", padding: "6px 14px" }}
+                  className="hf-btn hf-btn-secondary hf-btn-sm"
                   onClick={() => {
                     setWelcomeSuggestion(null);
                     handleSend("I'll write my own welcome message");
@@ -1233,8 +1321,8 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
             )}
           </div>
 
-          {/* Start over */}
-          {messages.length > 1 && (
+          {/* Start over — hidden when launched (moved into success card) */}
+          {messages.length > 1 && !launched && (
             <div className="cv4-start-over-row">
               {confirmReset ? (
                 <>
@@ -1274,7 +1362,7 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
 
         <ScaffoldPanel
           getData={getData}
-          currentStepIndex={99}
+          currentStepIndex={-1}
           onItemClick={(itemKey) => {
             handleSend(`I'd like to review my ${REVIEW_LABELS[itemKey] ?? itemKey}`);
           }}

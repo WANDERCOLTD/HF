@@ -8,6 +8,7 @@
  */
 
 import { Loader2, RotateCcw, ChevronRight, ExternalLink } from "lucide-react";
+import "./scaffold-panel.css";
 
 type ScaffoldStatus = "waiting" | "collecting" | "ready" | "resolved" | "building" | "done";
 
@@ -92,7 +93,7 @@ interface ScaffoldItem {
 
 interface ScaffoldPanelProps {
   getData: <T = unknown>(key: string) => T | undefined;
-  currentStepIndex: number;
+  currentStepIndex?: number;
   /** Current wizard phase ID for highlighting (e.g. "institution", "course") */
   currentPhaseId?: string;
   /** Terminology-resolved labels (or generic defaults) */
@@ -193,7 +194,7 @@ function StatusDot({ status, color }: { status: ScaffoldStatus; color?: string }
   );
 }
 
-export function ScaffoldPanel({ getData, currentStepIndex, currentPhaseId, terms, onReset, onItemClick }: ScaffoldPanelProps) {
+export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, terms, onReset, onItemClick }: ScaffoldPanelProps) {
   const t = terms ?? DEFAULT_TERMS;
   const launched = !!getData<boolean>("launched");
   const isCommunity = getData<string>("defaultDomainKind") === "COMMUNITY";

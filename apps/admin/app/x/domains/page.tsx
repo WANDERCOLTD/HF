@@ -1151,7 +1151,7 @@ export default function DomainsPage() {
                                         {ss.tags[0]}
                                       </span>
                                     )}
-                                    <DocTypeBadge type={ss.source.documentType} />
+                                    {ss.source.documentType && <DocTypeBadge type={ss.source.documentType} />}
                                     <Link
                                       href={`/x/content-sources?highlight=${ss.source.id}`}
                                       className="hf-link-plain hf-text-sm hf-text-bold hf-flex-1 hf-text-primary"

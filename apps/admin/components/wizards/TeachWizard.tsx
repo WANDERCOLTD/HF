@@ -47,6 +47,7 @@ import { PromptPreviewContent } from "@/app/x/domains/components/PromptPreviewMo
 import { FieldHint } from "@/components/shared/FieldHint";
 import { WIZARD_HINTS } from "@/lib/wizard-hints";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
+import { useErrorCapture } from "@/contexts/ErrorCaptureContext";
 import { useTerminology } from "@/contexts/TerminologyContext";
 import {
   TEACHING_MODE_LABELS,
@@ -251,6 +252,7 @@ function estimateDuration(tpCount: number): number {
 export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo" }) {
   const router = useRouter();
   const { data: sessionData } = useSession();
+  const { reportError } = useErrorCapture();
   const canCreateInstitution = ["OPERATOR", "ADMIN", "SUPERADMIN"].includes(
     (sessionData?.user as { role?: string })?.role || ""
   );
@@ -331,7 +333,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
       .then((data) => {
         if (data.ok && data.domains) setDomains(data.domains);
       })
-      .catch(() => {})
+      .catch((err: unknown) => { reportError(err instanceof Error ? err : String(err), { source: "teach-wizard", step: "institution" }); })
       .finally(() => setLoadingDomains(false));
   }, []);
 
@@ -522,7 +524,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
           setShowNewCourseForm(true);
         }
       })
-      .catch(() => {})
+      .catch((err: unknown) => { reportError(err instanceof Error ? err : String(err), { source: "teach-wizard", step: "course" }); })
       .finally(() => setLoadingPlaybooks(false));
   }, [selectedDomainId, sectionStatus.course]);
 

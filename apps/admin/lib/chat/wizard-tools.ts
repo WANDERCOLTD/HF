@@ -881,6 +881,27 @@ export async function executeWizardTool(
               };
             }
 
+            // Ensure the wizard user has a TEACHER Caller (needed for educator dashboard)
+            const existingTeacher = await prisma.caller.findFirst({
+              where: { userId, domainId: resolvedDomainId, role: "TEACHER" },
+              select: { id: true },
+            });
+            if (!existingTeacher) {
+              const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { name: true, email: true },
+              });
+              await prisma.caller.create({
+                data: {
+                  name: user?.name || "Educator",
+                  email: user?.email || undefined,
+                  role: "TEACHER",
+                  userId,
+                  domainId: resolvedDomainId,
+                },
+              });
+            }
+
             // Create test caller enrolled in existing course
             const callerName = randomFakeName();
             const caller = await prisma.caller.create({
@@ -1106,7 +1127,28 @@ export async function executeWizardTool(
           }
         }
 
-        // 9. Create test caller with proper enrollment
+        // 9a. Ensure the wizard user has a TEACHER Caller (needed for educator dashboard)
+        const existingTeacher = await prisma.caller.findFirst({
+          where: { userId, domainId, role: "TEACHER" },
+          select: { id: true },
+        });
+        if (!existingTeacher) {
+          const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true, email: true },
+          });
+          await prisma.caller.create({
+            data: {
+              name: user?.name || "Educator",
+              email: user?.email || undefined,
+              role: "TEACHER",
+              userId,
+              domainId,
+            },
+          });
+        }
+
+        // 9b. Create test caller with proper enrollment
         const callerName = randomFakeName();
 
         const caller = await prisma.caller.create({

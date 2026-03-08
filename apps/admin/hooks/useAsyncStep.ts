@@ -41,6 +41,8 @@ export interface UseAsyncStepOptions<TResult = unknown> {
   setData: (key: string, value: unknown) => void;
   /** Override poll timeout (default 3min) */
   timeoutMs?: number;
+  /** Optional: report caught errors to ErrorCaptureContext (status bar + bug reporter) */
+  reportError?: (err: Error | string, context?: { source?: string; step?: string }) => void;
 }
 
 export interface UseAsyncStepReturn<TResult = unknown> {
@@ -71,6 +73,7 @@ export function useAsyncStep<TResult = unknown>({
   getData,
   setData,
   timeoutMs,
+  reportError,
 }: UseAsyncStepOptions<TResult>): UseAsyncStepReturn<TResult> {
   // Restore taskId from data bag (refresh survival)
   const restoredTaskId = getData<string>(taskIdKey) || null;
@@ -87,9 +90,11 @@ export function useAsyncStep<TResult = unknown>({
   const onCompleteRef = useRef(onComplete);
   const onProgressRef = useRef(onProgress);
   const onSkeletonRef = useRef(onSkeleton);
+  const reportErrorRef = useRef(reportError);
   onCompleteRef.current = onComplete;
   onProgressRef.current = onProgress;
   onSkeletonRef.current = onSkeleton;
+  reportErrorRef.current = reportError;
 
   // Phase ref so useTaskPoll callbacks can read current phase
   const phaseRef = useRef(phase);
@@ -121,10 +126,10 @@ export function useAsyncStep<TResult = unknown>({
         setResult(r);
         setPhase("done");
       } catch (err: unknown) {
-        setError(
-          err instanceof Error ? err.message : "Failed to process result",
-        );
+        const msg = err instanceof Error ? err.message : "Failed to process result";
+        setError(msg);
         setPhase("error");
+        reportErrorRef.current?.(err instanceof Error ? err : msg, { source: "useAsyncStep:complete", step: taskIdKey });
       }
       setTaskId(null);
       setData(taskIdKey, null);
@@ -142,6 +147,7 @@ export function useAsyncStep<TResult = unknown>({
         setPhase("error");
         setTaskId(null);
         setData(taskIdKey, null);
+        reportErrorRef.current?.(msg, { source: "useAsyncStep", step: taskIdKey });
       },
       [setData, taskIdKey],
     ),
@@ -158,10 +164,10 @@ export function useAsyncStep<TResult = unknown>({
       setData(taskIdKey, id); // Persist for refresh survival
       setPhase("polling");
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "Failed to start",
-      );
+      const msg = err instanceof Error ? err.message : "Failed to start";
+      setError(msg);
       setPhase("error");
+      reportErrorRef.current?.(err instanceof Error ? err : msg, { source: "useAsyncStep:start", step: taskIdKey });
     }
   }, [start, setData, taskIdKey]);
 

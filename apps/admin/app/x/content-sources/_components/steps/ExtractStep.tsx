@@ -3,11 +3,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTaskPoll, type PollableTask } from "@/hooks/useTaskPoll";
 import { useBackgroundTaskQueue } from "@/components/shared/ContentJobQueue";
+import { useErrorCapture } from "@/contexts/ErrorCaptureContext";
 import { DocTypeBadge } from "../shared/badges";
 import type { StepProps } from "../types";
 
 export default function ExtractStep({ setData, getData, onNext, onPrev }: StepProps) {
   const { addExtractionJob } = useBackgroundTaskQueue();
+  const { reportError } = useErrorCapture();
   const sourceId = getData<string>("sourceId");
   const sourceName = getData<string>("sourceName");
   const hasFile = getData<boolean>("hasFile");
@@ -54,7 +56,7 @@ export default function ExtractStep({ setData, getData, onNext, onPrev }: StepPr
     if (!sourceId) return;
     fetch(`/api/content-sources/${sourceId}`).then((r) => r.json()).then((data) => {
       if (data.source?.documentType) setDocumentType(data.source.documentType);
-    }).catch(() => {});
+    }).catch((err: unknown) => { reportError(err instanceof Error ? err : String(err), { source: "wizard", step: "extract" }); });
   }, [sourceId]);
 
   // Cleanup timer on unmount

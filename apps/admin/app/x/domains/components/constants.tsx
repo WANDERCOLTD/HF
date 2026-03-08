@@ -42,29 +42,5 @@ export function TrustBadge({ level }: { level: string }) {
   );
 }
 
-export const DOC_TYPES: Record<string, { label: string; color: string }> = {
-  CURRICULUM: { label: "Curriculum", color: "var(--badge-indigo-text)" },
-  TEXTBOOK: { label: "Textbook", color: "var(--status-success-text)" },
-  WORKSHEET: { label: "Worksheet", color: "var(--badge-yellow-text)" },
-  EXAMPLE: { label: "Example", color: "var(--badge-purple-text)" },
-  ASSESSMENT: { label: "Assessment", color: "var(--status-error-text)" },
-  REFERENCE: { label: "Reference", color: "var(--text-muted)" },
-};
-
-export function DocTypeBadge({ type }: { type?: string }) {
-  if (!type) return null;
-  const cfg = DOC_TYPES[type] || { label: type, color: "var(--text-muted)" };
-  return (
-    <span style={{
-      display: "inline-block",
-      padding: "1px 6px",
-      borderRadius: 3,
-      fontSize: 10,
-      fontWeight: 600,
-      color: cfg.color,
-      backgroundColor: `color-mix(in srgb, ${cfg.color} 12%, transparent)`,
-    }}>
-      {cfg.label}
-    </span>
-  );
-}
+// Re-export from shared badges — single source of truth for doc type display
+export { DocTypeBadge } from "@/app/x/content-sources/_components/shared/badges";

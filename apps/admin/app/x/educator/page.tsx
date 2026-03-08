@@ -96,15 +96,21 @@ export default function EducatorDashboard() {
       const res = await fetch(url);
 
       if (res.status === 403 && !institutionId) {
-        // ADMIN user without educator profile — show institution picker
+        // Check if user has ADMIN+ access — try institutions endpoint
         const instRes = await fetch("/api/institutions");
-        const instData = await instRes.json();
-        if (instData?.institutions) {
-          setInstitutions(instData.institutions.map((i: { id: string; name: string; slug: string }) => ({
-            id: i.id, name: i.name, slug: i.slug,
-          })));
+        if (instRes.ok) {
+          // ADMIN user without educator profile — show institution picker
+          const instData = await instRes.json();
+          if (instData?.institutions) {
+            setInstitutions(instData.institutions.map((i: { id: string; name: string; slug: string }) => ({
+              id: i.id, name: i.name, slug: i.slug,
+            })));
+          }
+          setNeedsSchoolPicker(true);
+        } else {
+          // EDUCATOR without a TEACHER profile — redirect to setup wizard
+          window.location.href = "/x/get-started-v4";
         }
-        setNeedsSchoolPicker(true);
         return;
       }
 

@@ -13,7 +13,8 @@ Ask the user using AskUserQuestion:
 Options:
 1. **Pre-commit (Recommended)** — tsc, lint, unit tests, auth coverage, spot-check staged files
 2. **Branch review** — Hardcoding, auth, test coverage, code smells across full branch diff
-3. **Both** — Run everything: pre-commit gate + full branch review
+3. **Journey check** — Integration tests: course → extraction → lesson plan → prompt composition → prompt diff
+4. **All** — Run everything: pre-commit gate + branch review + journey check
 
 If the user selects "Both" (or nothing specific), run all checks.
 
@@ -52,6 +53,24 @@ Search staged/modified files for:
 - ContractRegistry calls without `await`
 
 Report: PASS or list of findings.
+
+## Journey Check
+
+Run the educator journey integration tests against the real database.
+Requires: database running and seeded (specs must exist). No server needed.
+
+```bash
+cd apps/admin && npm run test:integration -- tests/integration/journey/
+```
+
+Report: PASS (5 steps validated) or list of failures with step details.
+
+Steps validated:
+1. Course structure — domain + playbook + subject + content source linked
+2. Assertions extracted — correct shape, categories, tags, LO refs
+3. TP assignment — teaching points mapped to lesson plan sessions via learningOutcomeRefs
+4. Prompt composition — Call 1 produces valid llmPrompt with activated sections
+5. Prompt diff — Call 2 shows changes (memories, call history, section activation)
 
 ## Branch Review
 

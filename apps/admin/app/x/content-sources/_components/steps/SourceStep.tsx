@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useErrorCapture } from "@/contexts/ErrorCaptureContext";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { FancySelect } from "@/components/shared/FancySelect";
 import type { FancySelectOption } from "@/components/shared/FancySelect";
@@ -679,6 +680,7 @@ export default function SourceStep({
   onNext,
   setStep,
 }: StepProps) {
+  const { reportError } = useErrorCapture();
   // Library state
   const [sources, setSources] = useState<ContentSource[]>([]);
   const [loadingSources, setLoadingSources] = useState(true);
@@ -715,7 +717,7 @@ export default function SourceStep({
           if (found) setSelectedSource(found);
         }
       })
-      .catch(() => {})
+      .catch((err: unknown) => { reportError(err instanceof Error ? err : String(err), { source: "wizard", step: "source" }); })
       .finally(() => setLoadingSources(false));
   }, []);
 
@@ -734,7 +736,7 @@ export default function SourceStep({
           );
         }
       })
-      .catch(() => {});
+      .catch((err: unknown) => { reportError(err instanceof Error ? err : String(err), { source: "wizard", step: "source" }); });
   }, []);
 
   // Client-side filtering

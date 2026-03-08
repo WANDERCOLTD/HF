@@ -4,50 +4,62 @@ description: Start hf-dev VM dev server with SSH tunnel on localhost:3000
 
 Start the Next.js dev server on the hf-dev GCP VM with an SSH tunnel forwarding port 3000 to localhost.
 
-The dev server runs via **nohup** so it survives SSH disconnects (laptop sleep, network blips). Logs go to `/tmp/hf-dev.log` on the VM. The tunnel is a separate connection that can be re-opened with `/vm-tunnel`.
+**Uses a single SSH connection** — kill, start, wait for ready, then keep alive as the tunnel. No second IAP handshake.
 
-## Step 1: Kill + clean + start (single SSH call)
+## Step 1: Kill stale local tunnels
+
+Kill any existing local SSH tunnels holding port 3000:
+
+```bash
+lsof -ti:3000 | xargs kill 2>/dev/null || true
+sleep 1
+```
+
+## Step 2: Kill + start + tunnel (single SSH call)
 
 **IMPORTANT:** Do NOT use `pkill` over SSH — any pattern can match the SSH session's own command string and kill the connection (exit 255). Use `killall` + `fuser` instead.
 
+Run this in the background — it stays alive as the tunnel:
+
 ```bash
-gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c '
+gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- -L 3000:localhost:3000 bash -c '
   echo "==> Killing existing processes..."
   killall -9 node 2>/dev/null || true
   fuser -k 3000/tcp 2>/dev/null || true
   fuser -k 3001/tcp 2>/dev/null || true
-  fuser -k 3002/tcp 2>/dev/null || true
-  fuser -k 3003/tcp 2>/dev/null || true
-  fuser -k 3004/tcp 2>/dev/null || true
   sleep 1
   rm -rf ~/HF/apps/admin/.next/dev/lock
 
   echo "==> Starting dev server..."
-  nohup bash -c "cd ~/HF/apps/admin && npx next dev --port 3000" > /tmp/hf-dev.log 2>&1 &
-  sleep 2
-  echo "==> STARTED"
+  nohup bash -c "cd ~/HF/apps/admin && ./node_modules/.bin/next dev --port 3000" > /tmp/hf-dev.log 2>&1 &
+
+  echo "==> Waiting for server..."
+  for i in $(seq 1 45); do
+    if curl -sf http://localhost:3000/api/health > /dev/null 2>&1; then
+      echo "==> Server ready! (${i}s)"
+      break
+    fi
+    sleep 1
+  done
+
+  echo "==> Tunnel active on localhost:3000 — Ctrl+C to disconnect"
+  tail -f /tmp/hf-dev.log
 '
 ```
 
-Using `--port 3000` ensures it fails loudly instead of silently falling back to 3001+.
+This single connection does three things:
+1. `-L 3000:localhost:3000` — port forwarding (tunnel)
+2. `bash -c '...'` — kill old processes, start dev server, wait for health check
+3. `tail -f /tmp/hf-dev.log` — keeps the SSH session alive (and shows server logs)
+
+Using `./node_modules/.bin/next` instead of `npx next` skips npx resolution overhead.
 
 If the SSH command fails with exit code 255, wait 3 seconds and retry once.
 
-## Step 2: Kill stale tunnels and open new tunnel
-
-**Always** kill any existing SSH tunnels before opening a new one — stale tunnels hold port 3000 and cause "address already in use" errors:
-
-```bash
-lsof -ti:3000 | xargs kill 2>/dev/null; sleep 1
-gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- -L 3000:localhost:3000 -N
-```
-
-Run the tunnel in the background.
-
 Tell the user:
 - Server running at `http://localhost:3000`
+- Live logs streaming in the background task
 - Dev server persists across SSH disconnects — use `/vm-tunnel` to reconnect
-- To see server output: `gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- "tail -50 /tmp/hf-dev.log"`
 - To stop everything: `/vm-kill`
 
 ## IAP troubleshooting

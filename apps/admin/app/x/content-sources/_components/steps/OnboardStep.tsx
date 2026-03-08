@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useErrorCapture } from "@/contexts/ErrorCaptureContext";
 import { FancySelect } from "@/components/shared/FancySelect";
 import type { FancySelectOption } from "@/components/shared/FancySelect";
 import { SortableList } from "@/components/shared/SortableList";
@@ -19,6 +20,7 @@ type FlowPhase = {
 };
 
 export default function OnboardStep({ setData, getData, onNext, onPrev }: StepProps) {
+  const { reportError } = useErrorCapture();
   const subjectId = getData<string>("subjectId");
   const subjectName = getData<string>("subjectName");
 
@@ -65,7 +67,7 @@ export default function OnboardStep({ setData, getData, onNext, onPrev }: StepPr
           }
         }
       })
-      .catch(() => {})
+      .catch((err: unknown) => { reportError(err instanceof Error ? err : String(err), { source: "wizard", step: "onboard" }); })
       .finally(() => setLoadingDomains(false));
   }, [subjectId]);
 
@@ -76,7 +78,7 @@ export default function OnboardStep({ setData, getData, onNext, onPrev }: StepPr
       .then((data) => {
         if (data.ok) setAvailableSpecs(data.specs || []);
       })
-      .catch(() => {});
+      .catch((err: unknown) => { reportError(err instanceof Error ? err : String(err), { source: "wizard", step: "onboard" }); });
   }, []);
 
   // ── Load onboarding config when domain is selected ───
@@ -101,7 +103,7 @@ export default function OnboardStep({ setData, getData, onNext, onPrev }: StepPr
         }
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch((err: unknown) => { reportError(err instanceof Error ? err : String(err), { source: "wizard", step: "onboard" }); setLoaded(true); });
   }, [domainId]);
 
   // ── Handle domain selection ──────────────────────────
