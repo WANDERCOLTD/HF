@@ -1575,3 +1575,127 @@
   color: var(--text-muted);
   text-align: center;
 }
+
+/* ── Lesson Arc Card ─────────────────────────────── */
+
+.tw-arc-card {
+  margin-top: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-secondary);
+  overflow: hidden;
+}
+
+.tw-arc-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tw-arc-heading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tw-arc-summary {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tw-arc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+}
+
+.tw-arc-num {
+  width: 20px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.tw-arc-docs {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.tw-arc-doc-icon {
+  display: inline-flex;
+  cursor: help;
+  opacity: 0.85;
+}
+.tw-arc-doc-icon:hover {
+  opacity: 1;
+}
+
+.tw-arc-title {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tw-arc-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Mastery gate bar between sessions */
+.tw-arc-gate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px 4px 42px; /* align with content after number column */
+}
+
+.tw-arc-gate-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-tertiary);
+  overflow: hidden;
+}
+
+.tw-arc-gate-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent-primary) 35%, transparent);
+}
+
+.tw-arc-gate-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tw-arc-footer {
+  border-top: 1px solid var(--border-default);
+  margin: 8px 14px 0;
+  padding: 8px 0 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tw-arc-link {
+  font-size: 12px;
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+.tw-arc-link:hover {
+  text-decoration: underline;
+}

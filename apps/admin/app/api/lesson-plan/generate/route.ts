@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import { generateLessonPlan, consolidateSessions, type LessonPlan, type LessonSession } from "@/lib/content-trust/lesson-planner";
+import { generateLessonPlan, consolidateSessions, type LessonPlan, type LessonSession, type SessionSource } from "@/lib/content-trust/lesson-planner";
 import { getLessonPlanModel } from "@/lib/lesson-plan/models";
 
 /**
@@ -58,16 +58,33 @@ export async function POST(req: NextRequest) {
     const maxTpsPerSession = modelConfig.defaults.maxTpsPerSession ?? 10;
     const effectiveSessionLength = Math.min(sessionLength, maxTpsPerSession * 3);
 
+    // Look up source metadata for timeline display (doc icons + names)
+    const sourceMetaRows = await prisma.contentSource.findMany({
+      where: { id: { in: sourceIds } },
+      select: { id: true, name: true, documentType: true },
+    });
+    const sourceMeta = new Map<string, SessionSource>(
+      sourceMetaRows.map((s) => [s.id, { id: s.id, name: s.name, documentType: s.documentType ?? "TEXTBOOK" }]),
+    );
+
     // Generate per-source plans in parallel — catch per-source so partial results merge
     const warnings: string[] = [];
     const perSourcePlans = await Promise.all(
       sourceIds.map(async (sourceId) => {
         try {
-          return await generateLessonPlan(sourceId, {
+          const plan = await generateLessonPlan(sourceId, {
             sessionLength: effectiveSessionLength,
             includeAssessment: false,
             includeReview: false,
           });
+          // Stamp source info onto each session for timeline display
+          const src = sourceMeta.get(sourceId);
+          if (src) {
+            for (const session of plan.sessions) {
+              session.sources = [src];
+            }
+          }
+          return plan;
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : "Unknown error";
           warnings.push(`Source ${sourceId}: ${msg}`);

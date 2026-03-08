@@ -15,7 +15,7 @@
  * - Review shows two-phase extraction progress (quick preview + enrichment)
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
 import { randomFakeName } from "@/lib/fake-names";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -161,6 +161,7 @@ type LessonPlanItem = {
   durationMins: number;
   objectives: string[];
   editing: boolean;
+  sources: Array<{ id: string; name: string; documentType: string }>;
 };
 
 type ExistingCourseInfo = {
@@ -1317,6 +1318,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
           durationMins: estimateDuration(tpCount),
           objectives: [],
           editing: false,
+          sources: [],
         };
       }
     );
@@ -1346,7 +1348,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
       ) {
         setLessonPlan(
           data.plan.sessions.map(
-            (s: { sessionNumber: number; title: string; sessionType: string; assertionIds?: string[]; questionIds?: string[]; vocabularyIds?: string[]; estimatedMinutes: number; objectives?: string[] }, i: number) => {
+            (s: { sessionNumber: number; title: string; sessionType: string; assertionIds?: string[]; questionIds?: string[]; vocabularyIds?: string[]; estimatedMinutes: number; objectives?: string[]; sources?: Array<{ id: string; name: string; documentType: string }> }, i: number) => {
               const ids = [
                 ...(s.assertionIds ?? []),
                 ...(s.questionIds ?? []),
@@ -1365,6 +1367,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
                 durationMins: s.estimatedMinutes,
                 objectives: s.objectives ?? [],
                 editing: false,
+                sources: s.sources ?? [],
               };
             }
           )
@@ -1427,6 +1430,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
         durationMins: 15,
         objectives: [],
         editing: true,
+        sources: [],
       },
     ]);
   }, []);
@@ -2926,6 +2930,11 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
                 </div>
               </div>
 
+              {/* Lesson Arc — visual timeline with doc icons + mastery gates */}
+              {lessonPlan.length > 0 && (
+                <LessonArcCard lessonPlan={lessonPlan} playbookId={selectedPlaybookId} />
+              )}
+
               {/* Learner details (optional) */}
               <div className="tw-learner-row">
                 <div className="tw-learner-field">
@@ -3016,6 +3025,91 @@ function KnowledgeMapAccordion({
             initialExpandDepth={1}
           />
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Lesson Arc — collapsible timeline of sessions with doc icons and mastery gates. */
+function LessonArcCard({
+  lessonPlan,
+  playbookId,
+}: {
+  lessonPlan: LessonPlanItem[];
+  playbookId?: string | null;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const totalTPs = lessonPlan.reduce((s, l) => s + l.tpCount, 0);
+  const totalMins = lessonPlan.reduce((s, l) => s + l.durationMins, 0);
+  const summary = `${lessonPlan.length} lesson${lessonPlan.length !== 1 ? "s" : ""} · ${totalTPs} TP${totalTPs !== 1 ? "s" : ""} · ~${totalMins} min`;
+
+  return (
+    <div className="tw-arc-card">
+      <div
+        className="tw-arc-header"
+        onClick={() => setExpanded((p) => !p)}
+      >
+        <span className="tw-arc-heading">Lesson Arc</span>
+        <span className="tw-arc-summary">{summary}</span>
+        <div className={`hf-chevron--sm${expanded ? " hf-chevron--open" : ""}`}>
+          <ChevronRight size={14} />
+        </div>
+      </div>
+      {expanded && (
+        <>
+          {lessonPlan.map((lesson, i) => {
+            const badge = SESSION_TYPE_STYLES[lesson.sessionType];
+            return (
+              <Fragment key={lesson.id}>
+                <div className="tw-arc-row">
+                  <span className="tw-arc-num">{i + 1}</span>
+                  {lesson.sources.length > 0 && (
+                    <span className="tw-arc-docs">
+                      {lesson.sources.map((src) => {
+                        const info = getDocTypeInfo(src.documentType);
+                        const Icon = info.icon;
+                        return (
+                          <span
+                            key={src.id}
+                            className="tw-arc-doc-icon"
+                            title={src.name}
+                            style={{ color: info.color }}
+                          >
+                            <Icon size={14} />
+                          </span>
+                        );
+                      })}
+                    </span>
+                  )}
+                  {badge && (
+                    <span className={`tw-session-badge ${badge.className}`}>
+                      {badge.label}
+                    </span>
+                  )}
+                  <span className="tw-arc-title">{lesson.title}</span>
+                  <span className="tw-arc-meta">
+                    {lesson.tpCount} TP{lesson.tpCount !== 1 ? "s" : ""} · {lesson.durationMins}m
+                  </span>
+                </div>
+                {i < lessonPlan.length - 1 && (
+                  <div className="tw-arc-gate">
+                    <div className="tw-arc-gate-bar">
+                      <div className="tw-arc-gate-fill" style={{ width: "70%" }} />
+                    </div>
+                    <span className="tw-arc-gate-label">70% mastery</span>
+                  </div>
+                )}
+              </Fragment>
+            );
+          })}
+          {playbookId && (
+            <div className="tw-arc-footer">
+              <a href={`/x/courses/${playbookId}`} className="tw-arc-link">
+                View course details →
+              </a>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -24,6 +24,12 @@ export interface SessionMediaRef {
   mimeType?: string;
 }
 
+export interface SessionSource {
+  id: string;
+  name: string;
+  documentType: string;
+}
+
 export interface LessonSession {
   sessionNumber: number;
   title: string;
@@ -35,6 +41,8 @@ export interface LessonSession {
   sessionType: "introduce" | "practice" | "assess" | "review";
   /** Images auto-resolved from assertion → AssertionMedia → MediaAsset links */
   media?: SessionMediaRef[];
+  /** Content sources feeding this session (for timeline display) */
+  sources?: SessionSource[];
 }
 
 export interface PrerequisiteLink {
@@ -416,6 +424,16 @@ export function consolidateSessions(
 
 /** Merge session B into session A, combining all content arrays and picking the best title. */
 function mergeTwoSessions(a: LessonSession, b: LessonSession): LessonSession {
+  // Deduplicate sources by id
+  const seenSourceIds = new Set<string>();
+  const mergedSources: SessionSource[] = [];
+  for (const src of [...(a.sources || []), ...(b.sources || [])]) {
+    if (!seenSourceIds.has(src.id)) {
+      seenSourceIds.add(src.id);
+      mergedSources.push(src);
+    }
+  }
+
   return {
     sessionNumber: a.sessionNumber, // re-numbered later
     title: a.title, // AI refinement fixes titles afterward
@@ -426,6 +444,7 @@ function mergeTwoSessions(a: LessonSession, b: LessonSession): LessonSession {
     estimatedMinutes: a.estimatedMinutes + b.estimatedMinutes,
     sessionType: a.sessionType === "practice" || b.sessionType === "practice" ? "practice" : "introduce",
     media: [...(a.media || []), ...(b.media || [])],
+    sources: mergedSources.length > 0 ? mergedSources : undefined,
   };
 }
 

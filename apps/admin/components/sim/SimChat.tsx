@@ -441,11 +441,13 @@ export function SimChat({
         );
       }
 
-      // Relay assistant message to server for observers (fire-and-forget)
-      // Include mediaId so the persisted message has the attachment for call resumption
+      // Relay assistant message to server for observers.
+      // MUST await when media was shared — buildContentCatalog checks callMessage.mediaId
+      // to mark items "ALREADY SHARED". Fire-and-forget caused a race where the next turn's
+      // catalog query ran before the relay persisted, so the AI shared the same doc twice.
       const currentCallId = callIdRef.current;
       if (currentCallId && fullContent) {
-        fetch(`/api/calls/${currentCallId}/messages`, {
+        const relayPromise = fetch(`/api/calls/${currentCallId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -454,6 +456,8 @@ export function SimChat({
             ...(sharedMediaInfo ? { mediaId: sharedMediaInfo.id } : {}),
           }),
         }).catch((err) => console.warn("[sim] Observer relay failed:", err));
+        // Await when media was shared so the DB has the mediaId before the next turn
+        if (sharedMediaInfo) await relayPromise;
       }
 
       // Auto-play TTS when voice mode is active

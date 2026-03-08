@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, isAuthError } from "@/lib/permissions";
+import { requireAuth, isAuthError, ROLE_LEVEL } from "@/lib/permissions";
 import { requireEducator, isEducatorAuthError } from "@/lib/educator-access";
 
 /**
@@ -23,9 +23,15 @@ export async function GET(request: NextRequest) {
     return buildDashboardForInstitution(institutionId);
   }
 
-  // Educator path: scoped to own cohorts
+  // Educator path: scoped to own cohorts (or institution for ADMIN+)
   const auth = await requireEducator();
   if (isEducatorAuthError(auth)) return auth.error;
+
+  // ADMIN+ with educator profile: show all cohorts in their institution
+  const role = auth.session.user.role;
+  if (ROLE_LEVEL[role] >= ROLE_LEVEL.ADMIN && auth.institutionId) {
+    return buildDashboardForInstitution(auth.institutionId);
+  }
 
   return buildDashboardForEducator(auth.callerId);
 }
