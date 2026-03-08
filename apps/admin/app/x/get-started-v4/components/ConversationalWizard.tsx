@@ -887,8 +887,10 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
     scrollToBottom();
     setTimeout(() => inputRef.current?.focus(), 150);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, scrollToBottom, resetKey]);
+
+  // ── Clipboard (must be above early return to respect Rules of Hooks) ──
+  const { copied: linkCopied, copy: copyLink } = useCopyToClipboard();
 
   // ── Render ────────────────────────────────────────────
 
@@ -900,7 +902,6 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
   const resolvedDomainId = draftDomainId || "";
   const launched = getData<boolean>("launched");
   const communityJoinToken = getData<string>("communityJoinToken");
-  const { copied: linkCopied, copy: copyLink } = useCopyToClipboard();
 
   return (
     <div
