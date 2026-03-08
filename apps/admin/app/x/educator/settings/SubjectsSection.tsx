@@ -5,6 +5,7 @@ import { X, Plus, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import {
   getTeachingProfile,
+  resolveTeachingProfile,
   TEACHING_PROFILE_KEYS,
   TEACHING_PROFILES,
 } from "@/lib/content-trust/teaching-profiles";
@@ -14,6 +15,7 @@ interface SubjectItem {
   name: string;
   slug: string;
   teachingProfile?: string | null;
+  teachingOverrides?: Record<string, unknown> | null;
   _count?: { sources: number; domains: number };
 }
 
@@ -174,6 +176,15 @@ export function SubjectsSection({ domainId, canEdit }: Props) {
                     {profile.description}
                   </p>
                 )}
+                {(() => {
+                  const resolved = resolveTeachingProfile(s);
+                  if (!resolved?.teachingFocus) return null;
+                  return (
+                    <p className="hf-text-xs hf-text-muted hf-mt-xs hf-mb-0" style={{ fontStyle: "italic" }}>
+                      Focus: {resolved.teachingFocus}
+                    </p>
+                  );
+                })()}
 
                 {/* Profile picker dropdown */}
                 {isPicking && (

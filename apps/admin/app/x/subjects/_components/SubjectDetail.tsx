@@ -205,6 +205,7 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
   const [overrideMode, setOverrideMode] = useState<string>("");
   const [overridePattern, setOverridePattern] = useState<string>("");
   const [overrideHints, setOverrideHints] = useState<string[]>([]);
+  const [overrideFocus, setOverrideFocus] = useState("");
   const [newHint, setNewHint] = useState("");
   const [savingOverrides, setSavingOverrides] = useState(false);
 
@@ -256,6 +257,7 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
       const overrides = data.subject.teachingOverrides as TeachingOverrides | null;
       setOverrideMode(overrides?.teachingMode || "");
       setOverridePattern(overrides?.interactionPattern || "");
+      setOverrideFocus(overrides?.teachingFocus || "");
       setOverrideHints(overrides?.deliveryHints || []);
     } catch (err: any) {
       setError(err.message);
@@ -889,7 +891,7 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
               <span className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase hf-mb-sm" style={{ display: "block" }}>
                 Effective Settings
               </span>
-              <div className="hf-flex hf-gap-lg">
+              <div className="hf-flex hf-gap-lg hf-mb-sm">
                 {resolved.teachingMode && (
                   <div className="hf-text-sm">
                     <span className="hf-text-muted">Teaching mode: </span>
@@ -911,6 +913,16 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
                   </div>
                 )}
               </div>
+              {resolved.teachingFocus && (
+                <div className="hf-text-sm">
+                  <span className="hf-text-muted">Teaching focus: </span>
+                  <span style={{ fontStyle: "italic" }}>{resolved.teachingFocus}</span>
+                  <span className="hf-text-xs hf-text-muted">
+                    {" "}
+                    {subject.teachingOverrides?.teachingFocus ? "override" : "from profile"}
+                  </span>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -956,6 +968,22 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
                   <option value="coaching">coaching</option>
                 </select>
               </div>
+            </div>
+
+            {/* Teaching focus */}
+            <div className="hf-mb-md">
+              <label className="hf-label">Teaching focus</label>
+              <textarea
+                value={overrideFocus}
+                onChange={(e) => setOverrideFocus(e.target.value)}
+                placeholder={getTeachingProfile(subject.teachingProfile)?.teachingFocus || "Describe the main goal students should achieve..."}
+                className="hf-input hf-text-sm"
+                rows={3}
+                style={{ width: "100%", resize: "vertical" }}
+              />
+              <p className="hf-text-xs hf-text-muted" style={{ marginTop: 4 }}>
+                Describe what students should take away. Leave blank to use the profile default.
+              </p>
             </div>
 
             {/* Delivery hints */}
@@ -1013,6 +1041,7 @@ export default function SubjectDetail({ subjectId, onSubjectUpdated, isOperator,
                 const overrides: TeachingOverrides = {};
                 if (overrideMode) overrides.teachingMode = overrideMode;
                 if (overridePattern) overrides.interactionPattern = overridePattern;
+                if (overrideFocus.trim()) overrides.teachingFocus = overrideFocus.trim();
                 if (overrideHints.length > 0) overrides.deliveryHints = overrideHints;
                 const hasOverrides = Object.keys(overrides).length > 0;
                 await saveSubjectField("teachingOverrides", hasOverrides ? overrides : null);

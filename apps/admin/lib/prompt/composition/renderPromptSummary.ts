@@ -393,6 +393,18 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
     parts.push("[PEDAGOGY MODE]");
     parts.push(`Mode: ${pedMode.label} (${pedMode.mode})`);
     parts.push(pedMode.instructions);
+    if (pedMode.teachingFocus) {
+      parts.push("");
+      parts.push("TEACHING FOCUS: " + pedMode.teachingFocus);
+    }
+    parts.push("");
+  }
+
+  // --- TEACHING METHOD (subject profile delivery hints) ---
+  const subjectMethod = (llmPrompt as any).instructions?.subject_methodology;
+  if (subjectMethod?.rules) {
+    parts.push("[TEACHING METHOD]");
+    parts.push(subjectMethod.rules);
     parts.push("");
   }
 

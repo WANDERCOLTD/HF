@@ -29,6 +29,7 @@ export interface TeachingProfile {
   teachingMode: TeachingMode;
   interactionPattern: InteractionPattern;
   description: string;
+  teachingFocus: string;
   bestFor: string;
   deliveryHints: string[];
 }
@@ -36,6 +37,7 @@ export interface TeachingProfile {
 export interface TeachingOverrides {
   teachingMode?: TeachingMode;
   interactionPattern?: InteractionPattern;
+  teachingFocus?: string;
   deliveryHints?: string[];
 }
 
@@ -44,6 +46,7 @@ export interface ResolvedTeachingProfile {
   teachingMode: TeachingMode;
   interactionPattern: InteractionPattern;
   description: string;
+  teachingFocus: string;
   bestFor: string;
   deliveryHints: string[];
   hasOverrides: boolean;
@@ -57,6 +60,7 @@ export const TEACHING_PROFILES: Record<TeachingProfileKey, TeachingProfile> = {
     teachingMode: "comprehension",
     interactionPattern: "socratic",
     description: "Read, analyse & discuss. Socratic questioning, close reading, vocabulary in context.",
+    teachingFocus: "Teach transferable comprehension techniques — skimming, scanning, inference, PEE paragraphs, question-type recognition. The text is practice material, not the goal. Students should leave with a reusable framework for attacking any comprehension question.",
     bestFor: "English, Literature, Languages",
     deliveryHints: [
       "Teach through questioning, not explanation — your job is to draw out understanding, not deliver it.",
@@ -72,6 +76,7 @@ export const TEACHING_PROFILES: Record<TeachingProfileKey, TeachingProfile> = {
     teachingMode: "recall",
     interactionPattern: "directive",
     description: "Learn and remember facts. Structured quizzing, spaced retrieval, key terminology.",
+    teachingFocus: "Build reliable long-term recall through structured retrieval practice, self-testing, and spaced repetition. Facts should stick, not just be heard.",
     bestFor: "History, Biology, Geography",
     deliveryHints: [
       "Quiz before you teach — test what they already know to identify gaps before explaining.",
@@ -87,6 +92,7 @@ export const TEACHING_PROFILES: Record<TeachingProfileKey, TeachingProfile> = {
     teachingMode: "practice",
     interactionPattern: "directive",
     description: "Work through problems. Worked examples, guided practice, step-by-step methods.",
+    teachingFocus: "Build confident, independent problem-solving through worked examples and method mastery. Focus on the method, not just the answer.",
     bestFor: "Maths, Physics, Accounting",
     deliveryHints: [
       "Demonstrate the method first with a worked example — narrate each step and your reasoning.",
@@ -102,6 +108,7 @@ export const TEACHING_PROFILES: Record<TeachingProfileKey, TeachingProfile> = {
     teachingMode: "syllabus",
     interactionPattern: "directive",
     description: "Cover the syllabus systematically. Structured progress, checklists, compliance milestones.",
+    teachingFocus: "Systematically cover all syllabus requirements, verifying understanding at each checkpoint before progressing. Assessment-relevant content is flagged explicitly.",
     bestFor: "Food Safety, BTEC, Apprenticeships",
     deliveryHints: [
       "Follow the syllabus order — teach each topic, verify understanding, then move on.",
@@ -117,6 +124,7 @@ export const TEACHING_PROFILES: Record<TeachingProfileKey, TeachingProfile> = {
     teachingMode: "comprehension",
     interactionPattern: "reflective",
     description: "Explore ideas through dialogue. Open questions, multiple perspectives, meaning-making.",
+    teachingFocus: "Develop critical thinking and personal viewpoints through open-ended dialogue, multiple perspectives, and reflective questioning.",
     bestFor: "Philosophy, Ethics, PSHE",
     deliveryHints: [
       "Ask open questions that have no single right answer — 'What do you think about...?' or 'Is it ever OK to...?'",
@@ -132,6 +140,7 @@ export const TEACHING_PROFILES: Record<TeachingProfileKey, TeachingProfile> = {
     teachingMode: "practice",
     interactionPattern: "coaching",
     description: "Goal-focused development. Reflective practice, action planning, accountability.",
+    teachingFocus: "Support goal-directed development through reflective questioning, action planning, and accountability.",
     bestFor: "Career, Leadership, Performance",
     deliveryHints: [
       "Start from their goals, not your agenda — 'What would you like to focus on today?'",
@@ -184,6 +193,7 @@ export function resolveTeachingProfile(
     teachingMode: overrides?.teachingMode || profile.teachingMode,
     interactionPattern: overrides?.interactionPattern || profile.interactionPattern,
     description: profile.description,
+    teachingFocus: overrides?.teachingFocus || profile.teachingFocus,
     bestFor: profile.bestFor,
     deliveryHints: [
       ...profile.deliveryHints,

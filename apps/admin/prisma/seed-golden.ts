@@ -50,6 +50,7 @@ interface SubjectDef {
   name: string;
   description: string;
   teachingProfile?: string;
+  teachingOverrides?: Record<string, unknown>;
 }
 
 interface DomainDef {
@@ -119,7 +120,7 @@ const INSTITUTIONS: InstitutionDef[] = [
       name: "Aardvark Academy",
       description: "Primary school with focus on literacy and numeracy across Key Stage 2.",
       subjects: [
-        { slug: "golden-english-ks2", name: "Year 5 English", description: "Key Stage 2 English — reading comprehension, creative writing, and grammar for Year 5.", teachingProfile: "comprehension-led" },
+        { slug: "golden-english-ks2", name: "Year 5 English", description: "Key Stage 2 English — reading comprehension, creative writing, and grammar for Year 5.", teachingProfile: "comprehension-led", teachingOverrides: { teachingFocus: "Teach transferable comprehension techniques — skimming, scanning, inference, PEE paragraphs, question-type recognition. Use the class texts as practice material, not as the goal. Students should leave with a reusable framework for attacking any comprehension question." } },
         { slug: "golden-maths-ks2", name: "Year 5 Mathematics", description: "Key Stage 2 Mathematics — number, fractions, geometry, and problem-solving for Year 5.", teachingProfile: "practice-led" },
       ],
       groups: [
@@ -577,7 +578,7 @@ export async function main(externalPrisma?: PrismaClient, opts?: { skipCleanup?:
       for (const subjectDef of inst.domain.subjects) {
         const subject = await prisma.subject.upsert({
           where: { slug: subjectDef.slug },
-          update: { name: subjectDef.name, description: subjectDef.description, isActive: true, teachingProfile: subjectDef.teachingProfile ?? null },
+          update: { name: subjectDef.name, description: subjectDef.description, isActive: true, teachingProfile: subjectDef.teachingProfile ?? null, ...(subjectDef.teachingOverrides ? { teachingOverrides: subjectDef.teachingOverrides as any } : {}) },
           create: {
             slug: subjectDef.slug,
             name: subjectDef.name,
@@ -585,6 +586,7 @@ export async function main(externalPrisma?: PrismaClient, opts?: { skipCleanup?:
             defaultTrustLevel: "EXPERT_CURATED",
             isActive: true,
             teachingProfile: subjectDef.teachingProfile ?? null,
+            ...(subjectDef.teachingOverrides ? { teachingOverrides: subjectDef.teachingOverrides as any } : {}),
           },
         });
         await prisma.subjectDomain.upsert({

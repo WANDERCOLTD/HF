@@ -33,7 +33,7 @@ import { SESSION_TYPES, SESSION_TYPE_ICONS, getSessionTypeColor, getSessionTypeL
 import { getLessonPlanModel } from '@/lib/lesson-plan/models';
 import { PlanSummary, type PlanSession } from '@/app/x/courses/_components/PlanSummary';
 import { SimLaunchModal } from '@/components/shared/SimLaunchModal';
-import { getTeachingProfile } from '@/lib/content-trust/teaching-profiles';
+import { getTeachingProfile, resolveTeachingProfile } from '@/lib/content-trust/teaching-profiles';
 import './course-detail.css';
 
 // ── Types ──────────────────────────────────────────────
@@ -47,6 +47,7 @@ type PlaybookDetail = {
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  config?: Record<string, unknown> | null;
   domain: { id: string; name: string; slug: string };
   items: PlaybookItem[];
   systemSpecs: SystemSpec[];
@@ -263,6 +264,11 @@ export default function CourseDetailPage() {
   const [contentTotal, setContentTotal] = useState(0);
   const [contentReviewed, setContentReviewed] = useState(0);
 
+  // Teaching focus
+  const [teachingFocusDraft, setTeachingFocusDraft] = useState("");
+  const [teachingFocusSaving, setTeachingFocusSaving] = useState(false);
+  const [teachingFocusSaved, setTeachingFocusSaved] = useState(false);
+
   // Tabs
   const [activeTab, setActiveTab] = useState<string>('overview');
 
@@ -329,6 +335,7 @@ export default function CourseDetailPage() {
       .then(([pbData, subData, breakdownData, mediaData]) => {
         if (pbData.ok) {
           setDetail(pbData.playbook);
+          setTeachingFocusDraft((pbData.playbook.config as any)?.teachingFocus || "");
           pushEntity({
             type: 'playbook',
             id: pbData.playbook.id,
@@ -1125,6 +1132,55 @@ export default function CourseDetailPage() {
                   </div>
                 );
               })}
+              {/* Editable teaching focus (course-level override) */}
+              {isOperator && (
+                <div className="hf-mt-md" style={{ padding: 12, border: '1px solid var(--border-default)', borderRadius: 8 }}>
+                  <label className="hf-label hf-text-xs">Teaching Focus (course-level)</label>
+                  <textarea
+                    value={teachingFocusDraft}
+                    onChange={(e) => { setTeachingFocusDraft(e.target.value); setTeachingFocusSaved(false); }}
+                    placeholder={(() => {
+                      const sub = subjects.find((s) => s.teachingProfile);
+                      if (!sub) return 'Describe what students should take away...';
+                      const resolved = resolveTeachingProfile(sub);
+                      return resolved?.teachingFocus || 'Describe what students should take away...';
+                    })()}
+                    className="hf-input hf-text-sm"
+                    rows={3}
+                    style={{ width: '100%', resize: 'vertical' }}
+                  />
+                  <div className="hf-flex hf-gap-sm hf-items-center hf-mt-xs">
+                    <button
+                      onClick={async () => {
+                        if (!detail) return;
+                        setTeachingFocusSaving(true);
+                        try {
+                          await fetch(`/api/playbooks/${detail.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ config: { ...(detail.config || {}), teachingFocus: teachingFocusDraft.trim() || null } }),
+                          });
+                          setTeachingFocusSaved(true);
+                          setDetail((prev) => prev ? { ...prev, config: { ...(prev.config || {}), teachingFocus: teachingFocusDraft.trim() || null } } : prev);
+                        } finally {
+                          setTeachingFocusSaving(false);
+                        }
+                      }}
+                      disabled={teachingFocusSaving}
+                      className="hf-btn hf-btn-primary hf-btn-xs"
+                    >
+                      {teachingFocusSaving ? 'Saving...' : 'Save'}
+                    </button>
+                    {teachingFocusSaved && <span className="hf-text-xs hf-text-success">Saved</span>}
+                    {!teachingFocusDraft && subjects.some((s) => s.teachingProfile) && (
+                      <span className="hf-text-xs hf-text-muted">
+                        Inherited from subject profile
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Show course reference docs if any exist */}
               {subjects.some((s) => s.sourceCount > 0) && (
                 <div className="hf-text-xs hf-text-muted hf-mt-xs">

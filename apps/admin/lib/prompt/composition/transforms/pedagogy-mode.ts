@@ -21,6 +21,7 @@ interface PedagogyModeOutput {
   label: string;
   instructions: string;
   knowledgeGuidance: string;
+  teachingFocus?: string;
 }
 
 const PEDAGOGY_MODE_CONFIG: Record<TeachingMode, Omit<PedagogyModeOutput, "mode">> = {
@@ -94,7 +95,7 @@ registerTransform("computePedagogyMode", (
   _rawData: any,
   context: AssembledContext,
 ) => {
-  // Read teachingMode from the first playbook's config
+  // Read teachingMode + teachingFocus from the first playbook's config
   const playbooks = context.loadedData.playbooks;
   const pbConfig = playbooks?.[0]?.items?.[0]?.spec?.config;
   const playbookRawConfig = (playbooks?.[0] as any)?.config;
@@ -102,16 +103,22 @@ registerTransform("computePedagogyMode", (
     playbookRawConfig?.teachingMode ||
     pbConfig?.teachingMode;
 
+  // Resolve teachingFocus: playbook config → subject profile → profile default
+  let teachingFocus: string | undefined = playbookRawConfig?.teachingFocus as string | undefined;
+
   // Fall back to subject teaching profile if playbook doesn't set teachingMode
+  const subjectSources = context.loadedData.subjectSources as SubjectSourcesData | null;
+  const firstSubject = subjectSources?.subjects?.[0];
+  const resolvedProfile = firstSubject ? resolveTeachingProfile(firstSubject) : null;
+
   if (!teachingMode) {
-    const subjectSources = context.loadedData.subjectSources as SubjectSourcesData | null;
-    const firstSubject = subjectSources?.subjects?.[0];
-    if (firstSubject) {
-      const resolved = resolveTeachingProfile(firstSubject);
-      if (resolved) {
-        teachingMode = resolved.teachingMode;
-      }
+    if (resolvedProfile) {
+      teachingMode = resolvedProfile.teachingMode;
     }
+  }
+
+  if (!teachingFocus && resolvedProfile) {
+    teachingFocus = resolvedProfile.teachingFocus;
   }
 
   if (!teachingMode || !PEDAGOGY_MODE_CONFIG[teachingMode]) {
@@ -124,5 +131,6 @@ registerTransform("computePedagogyMode", (
     label: modeConfig.label,
     instructions: modeConfig.instructions,
     knowledgeGuidance: modeConfig.knowledgeGuidance,
+    teachingFocus: teachingFocus || undefined,
   } satisfies PedagogyModeOutput;
 });

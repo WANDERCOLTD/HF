@@ -129,6 +129,7 @@ type PlaybookInfo = {
   id: string;
   name: string;
   teachingMode?: TeachingMode;
+  teachingFocus?: string;
 };
 
 type ContentItem = {
@@ -420,6 +421,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
   const subjectsFetched = useRef(false);
   const subjectDropdownRef = useRef<HTMLDivElement>(null);
   const [teachingMode, setTeachingMode] = useState<TeachingMode>("recall");
+  const [teachingFocus, setTeachingFocus] = useState("");
   const [suggestedMode, setSuggestedMode] = useState<TeachingMode | null>(null);
   const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>("direct_instruction");
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -466,10 +468,11 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
       .then(([pbData, subjects]) => {
         if (pbData.ok && pbData.playbooks) {
           const pbs: PlaybookInfo[] = pbData.playbooks.map(
-            (pb: { id: string; name: string; config?: { teachingMode?: TeachingMode } }) => ({
+            (pb: { id: string; name: string; config?: { teachingMode?: TeachingMode; teachingFocus?: string } }) => ({
               id: pb.id,
               name: pb.name,
               teachingMode: pb.config?.teachingMode,
+              teachingFocus: pb.config?.teachingFocus,
             })
           );
           setPlaybooks(pbs);
@@ -566,12 +569,22 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
     if (suggestedMode) setTeachingMode(suggestedMode);
   }, [suggestedMode]);
 
+  // Pre-populate teachingFocus from subject profile when subject changes
+  useEffect(() => {
+    const profileKey = suggestTeachingProfile(subjectDiscipline || newCourseName);
+    const profile = profileKey ? getTeachingProfile(profileKey) : null;
+    if (profile?.teachingFocus) {
+      setTeachingFocus(profile.teachingFocus);
+    }
+  }, [subjectDiscipline]);
+
   const selectedDomain = domains.find((d) => d.id === selectedDomainId);
 
   const handleSelectPlaybook = useCallback(
     (pb: PlaybookInfo) => {
       setSelectedPlaybookId(pb.id);
       if (pb.teachingMode) setTeachingMode(pb.teachingMode);
+      if (pb.teachingFocus) setTeachingFocus(pb.teachingFocus);
       setShowNewCourseForm(false);
     },
     []
@@ -1476,6 +1489,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
             config: {
               teachingMode,
               subjectDiscipline: subjectDiscipline.trim().toLowerCase() || null,
+              teachingFocus: teachingFocus.trim() || null,
             },
           }),
         });
@@ -1488,7 +1502,7 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
         await fetch(`/api/playbooks/${selectedPlaybookId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ config: { teachingMode } }),
+          body: JSON.stringify({ config: { teachingMode, teachingFocus: teachingFocus.trim() || null } }),
         }).catch(() => {}); // non-critical
       }
 
@@ -1983,11 +1997,12 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
                     </div>
                   </div>
 
-                  {/* Subject Teaching Profile banner */}
+                  {/* Subject Teaching Profile banner + editable teaching focus */}
                   {(() => {
                     const profileKey = suggestTeachingProfile(subjectDiscipline || newCourseName);
                     const profile = profileKey ? getTeachingProfile(profileKey) : null;
                     if (!profile) return null;
+                    // Pre-populate teaching focus from profile when it first appears
                     return (
                       <div className="hf-banner hf-banner-info hf-mb-sm" style={{ marginTop: 8 }}>
                         <div className="hf-text-sm hf-text-bold hf-mb-xs">
@@ -1996,8 +2011,19 @@ export default function TeachWizard({ mode = "teach" }: { mode?: "teach" | "demo
                         <div className="hf-text-sm hf-mb-xs">
                           {profile.description}
                         </div>
-                        <div className="hf-text-xs hf-text-muted">
-                          This comes from the subject. You can override it below with the Agent Tuner.
+                        <div className="hf-mb-xs">
+                          <label className="hf-label hf-text-xs">Teaching Focus</label>
+                          <textarea
+                            value={teachingFocus}
+                            onChange={(e) => setTeachingFocus(e.target.value)}
+                            placeholder={profile.teachingFocus}
+                            className="hf-input hf-text-sm"
+                            rows={3}
+                            style={{ width: "100%", resize: "vertical" }}
+                          />
+                          <p className="hf-text-xs hf-text-muted" style={{ marginTop: 4 }}>
+                            Describe what students should take away. Adjust to match your course goals.
+                          </p>
                         </div>
                       </div>
                     );
