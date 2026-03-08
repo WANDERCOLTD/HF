@@ -103,7 +103,10 @@ providers:
             interactionPattern, teachingMode, welcomeMessage, sessionCount, durationMins,
             planEmphasis, behaviorTargets, lessonPlanModel, physicalMaterials,
             personalityPreset, personalityDescription, courseContext,
+            assessmentTargets, constraints,
             contentSkipped, welcomeSkipped, tuneSkipped.
+            assessmentTargets = array of specific measurable outcomes (exams, certifications). Only extract when explicitly stated.
+            constraints = array of things the AI must NEVER do. Only extract when explicitly stated.
             Use EXACTLY these key names — other names will be silently dropped.
           input_schema:
             type: object
@@ -225,3 +228,53 @@ tests:
           return true;
       - type: llm-rubric
         value: "Despite brief input, expands into a rich playback that INFERS the likely learner profile (10-11 year olds, selective school prep), teaching goals (inference, vocabulary, timed comprehension), and what sessions might cover. Does NOT just echo the input back."
+
+  # ── Assessment targets + constraints extraction ──────────────────────
+
+  - description: "INTAKE: Rich description with assessment target → extracts assessmentTargets"
+    vars:
+      userMessage: "I'm teaching Hebrew to adult converts preparing for the Beit Din exam. They need to read from the Siddur fluently. I never drill vocabulary in isolation — every letter must connect to cultural and religious context."
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup call' };
+          const fields = update.args?.fields || update.args || {};
+          if (!fields.assessmentTargets && !fields.courseName) return { pass: false, score: 0, reason: 'No fields extracted at all' };
+          // Should extract assessment target (Beit Din)
+          const hasAssessment = fields.assessmentTargets && Array.isArray(fields.assessmentTargets) && fields.assessmentTargets.some(t => t.toLowerCase().includes('beit din'));
+          if (!hasAssessment) return { pass: false, score: 0.5, reason: `assessmentTargets missing or does not mention Beit Din: ${JSON.stringify(fields.assessmentTargets)}` };
+          return true;
+
+  - description: "INTAKE: Rich description with constraints → extracts constraints"
+    vars:
+      userMessage: "I'm teaching Hebrew to adult converts preparing for the Beit Din exam. They need to read from the Siddur fluently. I never drill vocabulary in isolation — every letter must connect to cultural and religious context."
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup call' };
+          const fields = update.args?.fields || update.args || {};
+          const hasConstraints = fields.constraints && Array.isArray(fields.constraints) && fields.constraints.some(c => c.toLowerCase().includes('isolation') || c.toLowerCase().includes('drill'));
+          if (!hasConstraints) return { pass: false, score: 0.5, reason: `constraints missing or does not capture "never drill vocabulary in isolation": ${JSON.stringify(fields.constraints)}` };
+          return true;
+
+  - description: "INTAKE: Minimal input without assessment language → does NOT invent assessmentTargets"
+    vars:
+      userMessage: "I teach conversational French to adults, 6 sessions of 20 minutes"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup call' };
+          const fields = update.args?.fields || update.args || {};
+          if (fields.assessmentTargets && fields.assessmentTargets.length > 0) {
+            return { pass: false, score: 0, reason: `Invented assessmentTargets when teacher never mentioned any: ${JSON.stringify(fields.assessmentTargets)}` };
+          }
+          return true;

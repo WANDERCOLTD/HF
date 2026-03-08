@@ -177,6 +177,10 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
   if (llmPrompt.domain?.description) {
     parts.push(`Context: ${llmPrompt.domain.description}`);
   }
+  // Teacher constraints — pedagogical anti-patterns with NEVER: prefix for maximum salience
+  if (qs?.constraints) {
+    parts.push(qs.constraints);
+  }
   parts.push("");
 
   // --- STYLE ---
@@ -248,6 +252,10 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
       return `${g.name}${prog}`;
     });
     parts.push(`Goals: ${goalList.join(", ")}`);
+  }
+  // Assessment targets (distinct from learning goals — what the learner is working toward)
+  if (qs?.working_toward) {
+    parts.push(`Working toward:\n${qs.working_toward}`);
   }
 
   // Behavior targets summary (concise)

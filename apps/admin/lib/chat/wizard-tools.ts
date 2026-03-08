@@ -40,10 +40,16 @@ export const WIZARD_TOOLS: AITool[] = [
       "Valid field keys: institutionName, typeSlug, websiteUrl, courseName, subjectDiscipline, " +
       "interactionPattern, audience, teachingMode, welcomeMessage, sessionCount, durationMins, " +
       "planEmphasis, behaviorTargets, lessonPlanModel, existingInstitutionId, existingDomainId, defaultDomainKind, " +
-      "courseContext, " +
+      "courseContext, assessmentTargets, constraints, " +
       "contentSkipped, welcomeSkipped, tuneSkipped. " +
       "courseContext = 3-5 sentence synthesis of the teacher's course philosophy, learner profile, " +
-      "and teaching rationale.",
+      "and teaching rationale. " +
+      "assessmentTargets = specific measurable outcomes the learner is working toward (exams, certifications, practical skills). " +
+      "Save as array of strings, e.g. [\"Pass the Beit Din\", \"Read from the siddur fluently\"]. " +
+      "Only extract when teacher explicitly states them. " +
+      "constraints = things the AI must NEVER do — pedagogical anti-patterns the teacher wants to avoid. " +
+      "Save as array of strings, e.g. [\"Never drill letters in isolation\", \"Avoid competitive language\"]. " +
+      "Only extract when teacher explicitly states them.",
     input_schema: {
       type: "object",
       properties: {
@@ -1007,6 +1013,22 @@ export async function executeWizardTool(
         if (input.lessonPlanModel) configUpdate.lessonPlanModel = input.lessonPlanModel;
         if (input.physicalMaterials) configUpdate.physicalMaterials = input.physicalMaterials;
         if (input.courseContext) configUpdate.courseContext = input.courseContext;
+        if (input.constraints) configUpdate.constraints = input.constraints;
+        // Map assessment targets into goal templates
+        if (input.assessmentTargets) {
+          const existingGoals = (configUpdate.goals as any[]) || [];
+          const newAssessmentGoals = (input.assessmentTargets as string[]).map((t: string) => ({
+            type: "ACHIEVE",
+            name: t,
+            isAssessmentTarget: true,
+            isDefault: true,
+            priority: 8,
+          }));
+          configUpdate.goals = [
+            ...existingGoals.filter((g: any) => !g.isAssessmentTarget),
+            ...newAssessmentGoals,
+          ];
+        }
 
         await prisma.playbook.update({
           where: { id: playbookId },

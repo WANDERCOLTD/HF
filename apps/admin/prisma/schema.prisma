@@ -1120,6 +1120,10 @@ model Goal {
   contentSpecId String? // For LEARN goals -> links to CONTENT spec
   contentSpec   AnalysisSpec? @relation(fields: [contentSpecId], references: [id])
 
+  // Assessment target (e.g., "Pass the Beit Din", "IELTS Band 7")
+  isAssessmentTarget Boolean @default(false)
+  assessmentConfig   Json? // { threshold?: number, readinessSpecSlug?: string }
+
   // Progress tracking
   progress        Float @default(0) // 0.0 - 1.0 overall progress
   progressMetrics Json? // Type-specific progress data (modules completed, milestones reached, etc.)
@@ -1136,6 +1140,7 @@ model Goal {
   updatedAt DateTime @updatedAt
 
   @@index([callerId, status])
+  @@index([callerId, isAssessmentTarget, status])
   @@index([type])
   @@index([status])
   @@index([playbookId])
@@ -1820,6 +1825,9 @@ model RewardScore {
 
   // Outcome signals that inform reward calculation
   outcomeSignals Json? // { resolved, sentiment_delta, duration, csat, ... }
+
+  // Goal progress reward (assessment target goals)
+  goalProgressScore Float? // 0-1 reward based on progress toward assessment targets
 
   // What target updates were applied as a result of this reward
   targetUpdatesApplied Json? // [{ parameterId, oldTarget, newTarget, reason }]

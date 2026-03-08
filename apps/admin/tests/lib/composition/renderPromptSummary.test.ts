@@ -163,3 +163,53 @@ describe("renderVoicePrompt — physical materials", () => {
     expect(result).not.toContain("[PHYSICAL MATERIALS]");
   });
 });
+
+describe("renderVoicePrompt — constraints", () => {
+  it("renders constraints in IDENTITY section", () => {
+    const result = renderVoicePrompt({
+      _quickStart: {
+        you_are: "A Hebrew tutor",
+        constraints: "NEVER: drill vocabulary in isolation\nNEVER: skip cultural context",
+      },
+    } as any);
+
+    expect(result).toContain("[IDENTITY]");
+    expect(result).toContain("NEVER: drill vocabulary in isolation");
+    expect(result).toContain("NEVER: skip cultural context");
+  });
+
+  it("omits constraints when not set", () => {
+    const result = renderVoicePrompt({
+      _quickStart: {
+        you_are: "A maths tutor",
+      },
+    } as any);
+
+    expect(result).not.toContain("NEVER:");
+  });
+});
+
+describe("renderVoicePrompt — working_toward", () => {
+  it("renders working_toward after goals section", () => {
+    const result = renderVoicePrompt({
+      _quickStart: {
+        this_caller: "Sarah (call #4)",
+        working_toward: "• Pass the Beit Din (60% ready, target: 80%)",
+      },
+    } as any);
+
+    expect(result).toContain("Working toward:");
+    expect(result).toContain("Pass the Beit Din");
+    expect(result).toContain("60% ready");
+  });
+
+  it("omits working_toward when null", () => {
+    const result = renderVoicePrompt({
+      _quickStart: {
+        this_caller: "Bob (call #2)",
+      },
+    } as any);
+
+    expect(result).not.toContain("Working toward:");
+  });
+});

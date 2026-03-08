@@ -199,6 +199,8 @@ export async function POST(
               name: goalConfig.name,
               description: goalConfig.description || null,
               contentSpecId,
+              isAssessmentTarget: goalConfig.isAssessmentTarget || false,
+              assessmentConfig: goalConfig.assessmentConfig || undefined,
               status: "ACTIVE",
               priority: goalConfig.priority || 5,
               startedAt: new Date(),

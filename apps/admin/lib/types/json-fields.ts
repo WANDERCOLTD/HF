@@ -73,12 +73,27 @@ export interface OnboardingFlowPhases {
 // Playbook.config
 // ---------------------------------------------------------------------------
 
+export interface GoalTemplate {
+  type: string; // GoalType: LEARN, ACHIEVE, CHANGE, CONNECT, SUPPORT, CREATE
+  name: string;
+  description?: string;
+  contentSpecSlug?: string;
+  isDefault?: boolean;
+  priority?: number;
+  isAssessmentTarget?: boolean;
+  assessmentConfig?: {
+    threshold?: number; // readiness threshold for "passed" (0-1, default 0.8)
+    readinessSpecSlug?: string; // CONTENT spec slug for mastery tracking
+  };
+}
+
 export interface PlaybookConfig {
   systemSpecToggles?: Record<string, { isEnabled: boolean }>;
-  goals?: Array<Record<string, any>>;
+  goals?: GoalTemplate[];
   onboardingFlowPhases?: OnboardingFlowPhases;
   physicalMaterials?: string;
   audience?: string;
+  constraints?: string[]; // teacher-level "NEVER do this" pedagogical anti-patterns
   [key: string]: any;
 }
 

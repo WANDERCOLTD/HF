@@ -316,6 +316,100 @@ describe("computeQuickStart transform", () => {
     expect(result.first_line).toContain("reconnect");
   });
 
+  // ── Assessment targets + constraints ──────────────────────────────
+
+  it("splits assessment target goals into working_toward, not learner_goals", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        goals: [
+          { id: "g1", type: "LEARN", name: "Master Hebrew letters", description: null, status: "ACTIVE", priority: 5, progress: 0.4, playbookId: null, contentSpec: null, playbook: null, startedAt: null, isAssessmentTarget: false },
+          { id: "g2", type: "ACHIEVE", name: "Pass the Beit Din", description: null, status: "ACTIVE", priority: 8, progress: 0.6, playbookId: null, contentSpec: null, playbook: null, startedAt: null, isAssessmentTarget: true, assessmentConfig: { threshold: 0.8 } },
+        ],
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+
+    // Regular goal in learner_goals
+    expect(result.learner_goals).toContain("Master Hebrew letters");
+    expect(result.learner_goals).not.toContain("Beit Din");
+
+    // Assessment target in working_toward
+    expect(result.working_toward).toContain("Pass the Beit Din");
+    expect(result.working_toward).toContain("60% ready");
+    expect(result.working_toward).toContain("target: 80%");
+  });
+
+  it("returns null working_toward when no assessment targets", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        goals: [
+          { id: "g1", type: "LEARN", name: "Intro to Biology", description: null, status: "ACTIVE", priority: 5, progress: 0.3, playbookId: null, contentSpec: null, playbook: null, startedAt: null, isAssessmentTarget: false },
+        ],
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.working_toward).toBeNull();
+    expect(result.learner_goals).toContain("Intro to Biology");
+  });
+
+  it("renders constraints with NEVER: prefix", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: [{
+          id: "pb-1",
+          name: "Hebrew",
+          status: "PUBLISHED",
+          domain: null,
+          items: [],
+          config: {
+            constraints: [
+              "drill vocabulary in isolation",
+              "skip the cultural context of a letter",
+            ],
+          },
+        }],
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.constraints).toContain("NEVER: drill vocabulary in isolation");
+    expect(result.constraints).toContain("NEVER: skip the cultural context of a letter");
+  });
+
+  it("returns null constraints when none set", () => {
+    const ctx = makeContext();
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.constraints).toBeNull();
+  });
+
+  it("appends assessment focus to this_session when target near threshold", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        goals: [
+          { id: "g1", type: "ACHIEVE", name: "IELTS Band 7", description: null, status: "ACTIVE", priority: 8, progress: 0.75, playbookId: null, contentSpec: null, playbook: null, startedAt: null, isAssessmentTarget: true, assessmentConfig: { threshold: 0.8 } },
+        ],
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.this_session).toContain("Assessment focus: IELTS Band 7");
+  });
+
+  it("does not append assessment focus when target is far from threshold", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        goals: [
+          { id: "g1", type: "ACHIEVE", name: "Pass exam", description: null, status: "ACTIVE", priority: 8, progress: 0.3, playbookId: null, contentSpec: null, playbook: null, startedAt: null, isAssessmentTarget: true },
+        ],
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.this_session).not.toContain("Assessment focus");
+  });
+
   it("identity spec opening overrides onboardingWelcome", () => {
     const ctx = makeContext({
       sharedState: { ...makeContext().sharedState, isFirstCall: true },

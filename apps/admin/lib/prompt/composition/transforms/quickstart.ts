@@ -45,6 +45,7 @@ registerTransform("computeQuickStart", (
   const courseContext = (playbook?.config as any)?.courseContext as string | undefined;
   const subjectRef = subjectDiscipline || playbook?.name || null;
   const audienceId = (playbook?.config as any)?.audience as string | undefined;
+  const constraints = (playbook?.config as any)?.constraints as string[] | undefined;
 
   return {
     you_are: (() => {
@@ -93,27 +94,54 @@ registerTransform("computeQuickStart", (
     })(),
 
     this_session: (() => {
+      let session: string;
       if (isFirstCall && modules[0]) {
-        return `First session - introduce ${modules[0].name}`;
+        session = `First session - introduce ${modules[0].name}`;
+      } else if (moduleToReview && nextModule && moduleToReview.slug !== nextModule.slug) {
+        session = `Review ${moduleToReview.name} → Introduce ${nextModule.name}`;
+      } else if (nextModule) {
+        session = `Continue with ${nextModule.name}`;
+      } else if (moduleToReview) {
+        session = `Deepen mastery of ${moduleToReview.name}`;
+      } else if (subjectRef) {
+        session = `${isFirstCall ? "First session" : "Continue"} — explore ${subjectRef} based on the caller's interests`;
+      } else {
+        session = "Open conversation - follow the caller's interests. Do not assume or invent specific academic topics.";
       }
-      if (moduleToReview && nextModule && moduleToReview.slug !== nextModule.slug) {
-        return `Review ${moduleToReview.name} → Introduce ${nextModule.name}`;
+      // Assessment target awareness — when near readiness, focus the session
+      const nearTargets = learnerGoals.filter((g: any) => g.isAssessmentTarget && g.progress >= 0.7);
+      if (nearTargets.length > 0) {
+        session += ` | Assessment focus: ${nearTargets[0].name}`;
       }
-      if (nextModule) return `Continue with ${nextModule.name}`;
-      if (moduleToReview) return `Deepen mastery of ${moduleToReview.name}`;
-      if (subjectRef) return `${isFirstCall ? "First session" : "Continue"} — explore ${subjectRef} based on the caller's interests`;
-      return "Open conversation - follow the caller's interests. Do not assume or invent specific academic topics.";
+      return session;
     })(),
 
     learner_goals: (() => {
-      if (learnerGoals.length === 0) {
+      const regular = learnerGoals.filter((g: any) => !g.isAssessmentTarget);
+      if (regular.length === 0) {
         return "No specific goals yet - discover what they want to learn in this session";
       }
-      return learnerGoals.slice(0, 3).map(g => {
+      return regular.slice(0, 3).map((g: any) => {
         const progressStr = g.progress > 0 ? ` (${Math.round(g.progress * 100)}% complete)` : "";
         return `${g.name}${progressStr}`;
       }).join("; ");
     })(),
+
+    working_toward: (() => {
+      const targets = learnerGoals.filter((g: any) => g.isAssessmentTarget);
+      if (targets.length === 0) return null;
+      return targets.map((g: any) => {
+        const threshold = (g.assessmentConfig as any)?.threshold;
+        const progressStr = g.progress > 0
+          ? ` (${Math.round(g.progress * 100)}% ready${threshold ? `, target: ${Math.round(threshold * 100)}%` : ""})`
+          : "";
+        return `• ${g.name}${progressStr}`;
+      }).join("\n");
+    })(),
+
+    constraints: constraints?.length
+      ? constraints.map(c => `NEVER: ${c}`).join("\n")
+      : null,
 
     curriculum_progress: modules.length > 0 ? (() => {
       const completed = completedModules.size;
