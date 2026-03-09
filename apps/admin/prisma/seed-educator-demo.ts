@@ -931,7 +931,17 @@ async function cleanupExistingData() {
     where: { slug: { in: schoolSlugs } },
   });
 
-  // 14. Parameters
+  // 14. Parameters (must delete referencing CallScores first)
+  const demoParams = await prisma.parameter.findMany({
+    where: { computedBy: "educator-demo" },
+    select: { id: true },
+  });
+  const demoParamIds = demoParams.map((p) => p.id);
+  if (demoParamIds.length > 0) {
+    await prisma.callScore.deleteMany({
+      where: { parameterId: { in: demoParamIds } },
+    });
+  }
   await prisma.parameter.deleteMany({
     where: { computedBy: "educator-demo" },
   });
