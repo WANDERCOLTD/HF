@@ -57,12 +57,16 @@ const EMPHASIS_LABELS: Record<string, string> = {
 
 /* ── Readiness dots ─────────────────────────────────── */
 
-interface ReadinessDot { filled: boolean; active: boolean }
+interface ReadinessDot { filled: boolean; active: boolean; label: string }
 
 function ReadinessBar({ dots, hint }: { dots: ReadinessDot[]; hint: string }) {
   const filledCount = dots.filter(d => d.filled).length;
+  const missing = dots.filter(d => !d.filled).map(d => d.label);
+  const tooltipText = missing.length > 0
+    ? `Needs: ${missing.join(", ")}`
+    : "All sections complete";
   return (
-    <div className="gs-readiness">
+    <div className="gs-readiness" title={tooltipText}>
       <div className="gs-readiness-dots">
         {dots.map((d, i) => (
           <span
@@ -72,6 +76,7 @@ function ReadinessBar({ dots, hint }: { dots: ReadinessDot[]; hint: string }) {
               (d.filled ? " gs-readiness-dot--filled" : "") +
               (d.active ? " gs-readiness-dot--active" : "")
             }
+            title={`${d.label}: ${d.filled ? "✓" : "needed"}`}
           />
         ))}
       </div>
@@ -267,9 +272,20 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
     personality: hasTune,
   };
 
+  const SECTION_LABELS: Record<string, string> = {
+    institution: t.institution,
+    subject: t.subject,
+    course: t.course,
+    content: t.content,
+    welcome: t.welcome,
+    lessons: t.lessons,
+    personality: t.personality,
+  };
+
   const dots = sections.map(s => ({
     filled: getItemStatus(s, sectionHasValue[s], currentStepIndex, resolvedKeys, launched) !== "waiting",
     active: isPhaseActive(s),
+    label: SECTION_LABELS[s] || capitalize(s),
   }));
 
   const completedCount = dots.filter(d => d.filled).length;
