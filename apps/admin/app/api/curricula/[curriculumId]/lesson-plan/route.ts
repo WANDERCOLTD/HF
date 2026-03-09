@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { Prisma } from "@prisma/client";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
+import { getSubjectsForPlaybook } from "@/lib/knowledge/domain-sources";
 import {
   startTaskTracking,
   updateTaskProgress,
@@ -41,6 +42,7 @@ interface LessonPlanEntry {
   estimatedDurationMins?: number;
   assertionCount?: number;
   assertionIds?: string[];
+  learningOutcomeRefs?: string[];
   vocabularyIds?: string[];
   questionIds?: string[];
   /** Images linked to this session (auto-resolved or manually assigned) */
@@ -310,7 +312,13 @@ async function runBackgroundLessonPlanGeneration(
     }).join("\n");
 
     const targetHint = totalSessionTarget
-      ? `The educator has requested approximately ${totalSessionTarget} sessions total.`
+      ? `The educator has requested EXACTLY ${totalSessionTarget} sessions total. You MUST return exactly ${totalSessionTarget} entries.${
+          totalSessionTarget <= 4
+            ? " With this few sessions, skip onboarding/consolidate/review — use only introduce and deepen types. Combine multiple modules into single sessions if needed."
+            : totalSessionTarget <= 6
+              ? " With few sessions, skip separate onboarding — fold the welcome into the first introduce session. Skip consolidate unless there are enough sessions."
+              : ""
+        }`
       : "Propose a reasonable number of sessions based on the content depth.";
 
     const durationHint = durationMins
@@ -333,11 +341,10 @@ async function runBackgroundLessonPlanGeneration(
 
 Rules:
 - Each session has a type: onboarding (first session), introduce (first exposure to module), deepen (revisit module for mastery), review (consolidate multiple modules), assess (test knowledge), consolidate (final synthesis)
-- First session should always be onboarding
-- Each module should have at least an "introduce" session, and larger modules (more assertions) should also have "deepen" sessions
-- Include periodic "review" sessions every 3-4 modules
-- End with a "consolidate" session
 - ${targetHint}
+- The session count target is the MOST IMPORTANT constraint. All other rules below are secondary and should be relaxed if they conflict with the target count.
+- When sessions allow: first session should be onboarding, end with consolidate, include periodic review sessions every 3-4 modules
+- Each module should have at least an "introduce" session, and larger modules (more assertions) should also have "deepen" sessions. If there are fewer sessions than modules, combine related modules into single sessions.
 - ${durationHint}
 - ${emphasisHint}
 - ${assessmentHint}
@@ -386,6 +393,14 @@ Total modules: ${modules.length}`;
       return;
     }
 
+    // Build moduleId → learningOutcomes lookup from source modules
+    const moduleLOMap: Record<string, string[]> = {};
+    for (const m of modules) {
+      if (m.id && Array.isArray(m.learningOutcomes)) {
+        moduleLOMap[m.id] = m.learningOutcomes;
+      }
+    }
+
     const entries: LessonPlanEntry[] = (parsed.entries || []).map((e: any, i: number) => ({
       session: i + 1,
       type: VALID_SESSION_TYPES.includes(e.type) ? e.type : "introduce",
@@ -396,22 +411,25 @@ Total modules: ${modules.length}`;
       estimatedDurationMins: e.estimatedDurationMins || undefined,
       assertionCount: e.assertionCount || undefined,
       assertionIds: [] as string[],
+      // Set learningOutcomeRefs from module data so session-assertions can match via LO path
+      learningOutcomeRefs: e.moduleId && moduleLOMap[e.moduleId]
+        ? moduleLOMap[e.moduleId]
+        : undefined,
     }));
 
     // Distribute content assertions across sessions (round-robin)
-    if (curriculum.subjectId) {
-      const sourceIds = (await prisma.subjectSource.findMany({
-        where: { subjectId: curriculum.subjectId },
-        select: { sourceId: true },
-      })).map((ss) => ss.sourceId);
+    // Use course-aware resolution (PlaybookSubject → Subject → SubjectSource),
+    // falling back to direct SubjectSource via curriculum.subjectId
+    const sourceIds = await resolveSourceIdsForGeneration(curriculumId, curriculum.subjectId);
 
-      if (sourceIds.length > 0) {
-        const assertions = await prisma.contentAssertion.findMany({
-          where: { sourceId: { in: sourceIds } },
-          select: { id: true },
-          orderBy: [{ depth: "asc" }, { orderIndex: "asc" }],
-        });
+    if (sourceIds.length > 0) {
+      const assertions = await prisma.contentAssertion.findMany({
+        where: { sourceId: { in: sourceIds } },
+        select: { id: true },
+        orderBy: [{ depth: "asc" }, { orderIndex: "asc" }],
+      });
 
+      if (assertions.length > 0) {
         const teachingSessions = entries.filter((e) => !["onboarding"].includes(e.type));
         const target = teachingSessions.length > 0 ? teachingSessions : entries;
         for (let i = 0; i < assertions.length; i++) {
@@ -434,6 +452,41 @@ Total modules: ${modules.length}`;
     console.error("[lesson-plan background] Error:", error);
     await failTask(taskId, error.message);
   }
+}
+
+/**
+ * Resolve content source IDs for lesson plan generation.
+ * Tier 1: Course-aware (PlaybookSubject → Subject → SubjectSource)
+ * Tier 2: Direct SubjectSource via curriculum.subjectId
+ */
+async function resolveSourceIdsForGeneration(
+  curriculumId: string,
+  subjectId: string | null,
+): Promise<string[]> {
+  // Tier 1: Find playbook via curriculum → subject → playbookSubject
+  const playbookSubject = await prisma.playbookSubject.findFirst({
+    where: { subject: { curricula: { some: { id: curriculumId } } } },
+    select: { playbookId: true, playbook: { select: { domainId: true } } },
+  });
+  if (playbookSubject?.playbook?.domainId) {
+    const { subjects } = await getSubjectsForPlaybook(
+      playbookSubject.playbookId,
+      playbookSubject.playbook.domainId,
+    );
+    const ids = [...new Set(subjects.flatMap((s) => s.sources.map((ss) => ss.sourceId)))];
+    if (ids.length > 0) return ids;
+  }
+
+  // Tier 2: Direct SubjectSource
+  if (subjectId) {
+    const subjectSources = await prisma.subjectSource.findMany({
+      where: { subjectId },
+      select: { sourceId: true },
+    });
+    return subjectSources.map((ss) => ss.sourceId);
+  }
+
+  return [];
 }
 
 // ── POST — AI-generate lesson plan (async) ─────────────
