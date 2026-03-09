@@ -345,61 +345,79 @@ async function seedDomainData(
     console.log(`    Caller: ${caller.name} (${callerDef.email})`);
   }
 
-  // ── Create playbook ──
-  // Archive any existing published playbooks for this domain
-  await client.playbook.updateMany({
-    where: { domainId: domain.id, status: "PUBLISHED" },
-    data: { status: "ARCHIVED" },
+  // ── Create or reuse playbook (idempotent) ──
+  let playbook = await client.playbook.findFirst({
+    where: { domainId: domain.id, name: domainData.playbookName },
   });
 
-  const playbook = await client.playbook.create({
-    data: {
-      name: domainData.playbookName,
-      description: domainData.playbookDescription,
-      domainId: domain.id,
-      status: "PUBLISHED",
-      publishedAt: new Date(),
-    },
-  });
+  if (playbook) {
+    // Ensure it's published
+    if (playbook.status !== "PUBLISHED") {
+      playbook = await client.playbook.update({
+        where: { id: playbook.id },
+        data: { status: "PUBLISHED", publishedAt: new Date() },
+      });
+    }
+  } else {
+    // Archive any existing published playbooks for this domain
+    await client.playbook.updateMany({
+      where: { domainId: domain.id, status: "PUBLISHED" },
+      data: { status: "ARCHIVED" },
+    });
 
-  // Add specs: identity first, then extract, then synthesise
-  let sortOrder = 0;
-
-  await client.playbookItem.create({
-    data: {
-      playbookId: playbook.id,
-      itemType: "SPEC",
-      specId: identitySpec.id,
-      sortOrder: sortOrder++,
-      groupLabel: "Identity",
-    },
-  });
-
-  for (const spec of extractSpecs) {
-    await client.playbookItem.create({
+    playbook = await client.playbook.create({
       data: {
-        playbookId: playbook.id,
-        itemType: "SPEC",
-        specId: spec.id,
-        sortOrder: sortOrder++,
-        groupLabel: "Measurement",
+        name: domainData.playbookName,
+        description: domainData.playbookDescription,
+        domainId: domain.id,
+        status: "PUBLISHED",
+        publishedAt: new Date(),
       },
     });
   }
 
-  for (const spec of synthesiseSpecs) {
+  // Add specs (skip if playbook already has items — idempotent)
+  const existingItems = await client.playbookItem.count({ where: { playbookId: playbook.id } });
+  if (existingItems === 0) {
+    let sortOrder = 0;
+
     await client.playbookItem.create({
       data: {
         playbookId: playbook.id,
         itemType: "SPEC",
-        specId: spec.id,
+        specId: identitySpec.id,
         sortOrder: sortOrder++,
-        groupLabel: "Synthesis",
+        groupLabel: "Identity",
       },
     });
+
+    for (const spec of extractSpecs) {
+      await client.playbookItem.create({
+        data: {
+          playbookId: playbook.id,
+          itemType: "SPEC",
+          specId: spec.id,
+          sortOrder: sortOrder++,
+          groupLabel: "Measurement",
+        },
+      });
+    }
+
+    for (const spec of synthesiseSpecs) {
+      await client.playbookItem.create({
+        data: {
+          playbookId: playbook.id,
+          itemType: "SPEC",
+          specId: spec.id,
+          sortOrder: sortOrder++,
+          groupLabel: "Synthesis",
+        },
+      });
+    }
   }
 
-  console.log(`    Playbook: ${playbook.name} (PUBLISHED, ${sortOrder} specs)`);
+  const itemCount = await client.playbookItem.count({ where: { playbookId: playbook.id } });
+  console.log(`    Playbook: ${playbook.name} (PUBLISHED, ${itemCount} specs)`);
   console.log("");
 }
 

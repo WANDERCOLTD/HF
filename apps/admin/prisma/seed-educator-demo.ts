@@ -1591,37 +1591,49 @@ async function createPlaybooks(
 
   for (const school of SCHOOLS) {
     const domainId = schoolMap.get(school.slug)!;
+    const playbookName = `${school.name} Programme`;
 
-    const playbook = await prisma.playbook.create({
-      data: {
-        name: `${school.name} Programme`,
-        description: `Learning programme for ${school.name} — Creative Comprehension and SPAG`,
-        domainId,
-        status: "PUBLISHED",
-        version: "1.0",
-        publishedAt: new Date(),
-        publishedBy: "educator-demo",
-        config: { systemSpecToggles, teachingMode: "comprehension" },
-        measureSpecCount: 2,
-        learnSpecCount: 1,
-        adaptSpecCount: 1,
-        parameterCount: 12,
-      },
+    let playbook = await prisma.playbook.findFirst({
+      where: { domainId, name: playbookName },
     });
+
+    if (!playbook) {
+      playbook = await prisma.playbook.create({
+        data: {
+          name: playbookName,
+          description: `Learning programme for ${school.name} — Creative Comprehension and SPAG`,
+          domainId,
+          status: "PUBLISHED",
+          version: "1.0",
+          publishedAt: new Date(),
+          publishedBy: "educator-demo",
+          config: { systemSpecToggles, teachingMode: "comprehension" },
+          measureSpecCount: 2,
+          learnSpecCount: 1,
+          adaptSpecCount: 1,
+          parameterCount: 12,
+        },
+      });
+    }
 
     playbookMap.set(school.slug, playbook.id);
 
-    // Add identity spec to playbook
+    // Add identity spec to playbook (idempotent)
     if (identitySpec) {
-      await prisma.playbookItem.create({
-        data: {
-          playbookId: playbook.id,
-          itemType: "SPEC",
-          specId: identitySpec.id,
-          isEnabled: true,
-          sortOrder: 0,
-        },
+      const existingItem = await prisma.playbookItem.findFirst({
+        where: { playbookId: playbook.id, specId: identitySpec.id },
       });
+      if (!existingItem) {
+        await prisma.playbookItem.create({
+          data: {
+            playbookId: playbook.id,
+            itemType: "SPEC",
+            specId: identitySpec.id,
+            isEnabled: true,
+            sortOrder: 0,
+          },
+        });
+      }
     }
 
     console.log(`    Playbook: ${school.name} Programme (${playbook.id})`);

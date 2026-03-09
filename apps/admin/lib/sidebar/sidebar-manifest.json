@@ -5,7 +5,8 @@
       { "id": "demo-gs", "href": "/x/get-started-v4", "label": "Get Started", "icon": "Sparkles", "highlighted": true, "wizard": true, "shortcutHint": "⌘G" },
       { "id": "demo-dash", "href": "/x/educator", "label": "Dashboard", "icon": "GraduationCap", "shortcutHint": "⌘D" },
       { "id": "demo-sim", "href": "/x/sim", "label": "Sim", "icon": "MessageCircle", "shortcutHint": "⌘S" },
-      { "id": "demo-callers", "href": "/x/callers", "label": "Callers", "icon": "User", "shortcutHint": "⌘L" }
+      { "id": "demo-callers", "href": "/x/callers", "label": "Callers", "icon": "User", "shortcutHint": "⌘L" },
+      { "id": "demo-courses", "href": "/x/courses", "label": "Courses", "icon": "BookOpen", "terminologyLabel": "playbook_plural" }
     ]
   },
   {

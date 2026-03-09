@@ -939,25 +939,31 @@ async function createPlaybook(
     systemSpecToggles[ss.id] = { isEnabled: true };
   }
 
-  const playbook = await prisma.playbook.create({
-    data: {
-      name: cfg.playbookName,
-      description: cfg.playbookDescription,
-      domainId,
-      status: "PUBLISHED",
-      version: "1.0",
-      publishedAt: new Date(),
-      publishedBy: TAG,
-      config: {
-        systemSpecToggles,
-        ...cfg.playbookConfig,
-      },
-      measureSpecCount: 2,
-      learnSpecCount: 1,
-      adaptSpecCount: 1,
-      parameterCount: 8,
-    },
+  let playbook = await prisma.playbook.findFirst({
+    where: { domainId, name: cfg.playbookName },
   });
+
+  if (!playbook) {
+    playbook = await prisma.playbook.create({
+      data: {
+        name: cfg.playbookName,
+        description: cfg.playbookDescription,
+        domainId,
+        status: "PUBLISHED",
+        version: "1.0",
+        publishedAt: new Date(),
+        publishedBy: TAG,
+        config: {
+          systemSpecToggles,
+          ...cfg.playbookConfig,
+        },
+        measureSpecCount: 2,
+        learnSpecCount: 1,
+        adaptSpecCount: 1,
+        parameterCount: 8,
+      },
+    });
+  }
 
   // Link identity spec to playbook — use domain's archetype (COMPANION-001 for community, TUT-001 for schools)
   const archetypeSlug = cfg.archetypeSlug || "TUT-001";
@@ -966,7 +972,9 @@ async function createPlaybook(
     select: { id: true },
   });
 
-  if (identitySpec) {
+  // Link specs and subjects (idempotent — skip if already present)
+  const existingItemCount = await prisma.playbookItem.count({ where: { playbookId: playbook.id } });
+  if (identitySpec && existingItemCount === 0) {
     await prisma.playbookItem.create({
       data: {
         playbookId: playbook.id,
@@ -976,18 +984,25 @@ async function createPlaybook(
         sortOrder: 0,
       },
     });
+  }
 
+  if (identitySpec) {
     await prisma.domain.update({
       where: { id: domainId },
       data: { onboardingIdentitySpecId: identitySpec.id },
     });
   }
 
-  // Link subjects to playbook
+  // Link subjects to playbook (skip if already linked)
   for (const [, subjectId] of subjectMap) {
-    await prisma.playbookSubject.create({
-      data: { playbookId: playbook.id, subjectId },
+    const existingLink = await prisma.playbookSubject.findFirst({
+      where: { playbookId: playbook.id, subjectId },
     });
+    if (!existingLink) {
+      await prisma.playbookSubject.create({
+        data: { playbookId: playbook.id, subjectId },
+      });
+    }
   }
 
   console.log(`    Playbook: ${playbook.name}`);

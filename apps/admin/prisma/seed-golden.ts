@@ -700,43 +700,52 @@ export async function main(externalPrisma?: PrismaClient, opts?: { skipCleanup?:
       systemSpecToggles[ss.id] = { isEnabled: true };
     }
 
-    // Create playbooks
+    // Create playbooks (idempotent — reuse existing by name+domain)
     const playbooks: Array<{ id: string; name: string }> = [];
 
     for (let i = 0; i < inst.domain.playbooks.length; i++) {
       const pbDef = inst.domain.playbooks[i];
 
-      const playbook = await prisma.playbook.create({
-        data: {
-          name: pbDef.name,
-          description: pbDef.description,
-          domainId: domain.id,
-          groupId: playbookSlugToGroupId.get(pbDef.slug) || undefined,
-          status: "PUBLISHED",
-          version: "1.0",
-          publishedAt: new Date(),
-          validationPassed: true,
-          measureSpecCount: 0,
-          learnSpecCount: 0,
-          adaptSpecCount: 0,
-          parameterCount: 0,
-          config: { systemSpecToggles },
-        },
+      let playbook = await prisma.playbook.findFirst({
+        where: { domainId: domain.id, name: pbDef.name },
       });
 
-      // Link identity spec to playbook
-      await prisma.playbookItem.create({
-        data: {
-          playbookId: playbook.id,
-          itemType: "SPEC",
-          specId: identitySpec.id,
-          sortOrder: 0,
-          isEnabled: true,
-        },
-      });
+      if (!playbook) {
+        playbook = await prisma.playbook.create({
+          data: {
+            name: pbDef.name,
+            description: pbDef.description,
+            domainId: domain.id,
+            groupId: playbookSlugToGroupId.get(pbDef.slug) || undefined,
+            status: "PUBLISHED",
+            version: "1.0",
+            publishedAt: new Date(),
+            validationPassed: true,
+            measureSpecCount: 0,
+            learnSpecCount: 0,
+            adaptSpecCount: 0,
+            parameterCount: 0,
+            config: { systemSpecToggles },
+          },
+        });
+
+        // Link identity spec to playbook (only for new playbooks)
+        await prisma.playbookItem.create({
+          data: {
+            playbookId: playbook.id,
+            itemType: "SPEC",
+            specId: identitySpec.id,
+            sortOrder: 0,
+            isEnabled: true,
+          },
+        });
+
+        console.log(`    + Playbook: ${playbook.name} (created)`);
+      } else {
+        console.log(`    = Playbook: ${playbook.name} (exists)`);
+      }
 
       playbooks.push({ id: playbook.id, name: playbook.name });
-      console.log(`    + Playbook: ${playbook.name}`);
     }
     totalPlaybooks += playbooks.length;
 

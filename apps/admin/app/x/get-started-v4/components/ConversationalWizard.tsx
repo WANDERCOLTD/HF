@@ -21,14 +21,14 @@ import { useStepFlow } from "@/contexts/StepFlowContext";
 import type { StepDefinition } from "@/contexts/StepFlowContext";
 import { FileCard } from "./FileCard";
 import type { FileCardData } from "./FileCard";
-import { LessonPlanAccordion } from "./LessonPlanAccordion";
 import type { LessonEntry } from "./LessonPlanAccordion";
 import { OptionsCard } from "./OptionsCard";
 import type { OptionsPanel } from "./OptionsCard";
 import { SourcesPanel } from "./SourcesPanel";
 import type { SourcesReadyData, SourcesPanelHandle } from "./SourcesPanel";
-import { FirstCallPreviewCard } from "./FirstCallPreviewCard";
 import type { FirstCallPreviewData } from "./FirstCallPreviewCard";
+import { SessionPlanViewer } from "@/components/shared/SessionPlanViewer";
+import type { SessionEntry } from "@/lib/lesson-plan/types";
 import { ScaffoldPanel } from "@/components/wizards/ScaffoldPanel";
 import { parseOptionsFromText } from "@/lib/chat/parse-options";
 import "../get-started-v4.css";
@@ -361,6 +361,52 @@ function contextToInitialData(ctx: WizardInitialContext): Record<string, unknown
     defaultDomainKind: ctx.domainKind,
     ...(ctx.typeSlug ? { typeSlug: ctx.typeSlug } : {}),
   };
+}
+
+// ── Adapter: LessonEntry → SessionEntry for wizard snapshot ──
+
+function toSessionEntries(entries: LessonEntry[]): SessionEntry[] {
+  return entries.map((e) => ({
+    session: e.session,
+    type: e.type,
+    moduleId: null,
+    moduleLabel: "",
+    label: e.label,
+    notes: e.notes || null,
+    estimatedDurationMins: e.estimatedDurationMins || null,
+    assertionCount: e.teachingPointCount || null,
+    phases: null,
+    learningOutcomeRefs: null,
+    assertionIds: null,
+    media: null,
+  }));
+}
+
+// ── Adapter: FirstCallPreviewData → SessionEntry[] for wizard snapshot ──
+
+function previewToSessionEntries(preview: FirstCallPreviewData): SessionEntry[] {
+  return [{
+    session: 1,
+    type: "onboarding",
+    moduleId: null,
+    moduleLabel: "",
+    label: "First Call",
+    notes: null,
+    estimatedDurationMins: null,
+    assertionCount: null,
+    phases: preview.phases.map((p) => ({
+      id: p.phase,
+      label: p.phase.charAt(0).toUpperCase() + p.phase.slice(1),
+      durationMins: parseInt(p.duration) || undefined,
+      media: p.content.map((c) => ({
+        mediaId: c.mediaId,
+        fileName: c.fileName,
+      })),
+    })),
+    learningOutcomeRefs: null,
+    assertionIds: null,
+    media: null,
+  }];
 }
 
 // ── Component ────────────────────────────────────────────
@@ -1144,18 +1190,11 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
             if (msg.systemType === "lesson-plan" && msg.lessonEntries) {
               return (
                 <div key={msg.id} className="cv4-row cv4-row--system">
-                  <LessonPlanAccordion
-                    entries={msg.lessonEntries}
-                    courseName={msg.lessonCourseName}
+                  <SessionPlanViewer
+                    variant="timeline"
+                    entries={toSessionEntries(msg.lessonEntries)}
                     courseId={msg.lessonCourseId}
-                    onTestLesson={draftCallerId ? (session) => {
-                      const params = new URLSearchParams({
-                        ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
-                        ...(draftDomainId ? { domainId: draftDomainId } : {}),
-                        session: String(session),
-                      });
-                      window.open(`/x/sim/${draftCallerId}?${params.toString()}`, "_blank", "noopener,noreferrer");
-                    } : undefined}
+                    readonly
                   />
                 </div>
               );
@@ -1164,16 +1203,10 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
             if (msg.systemType === "first-call-preview" && msg.firstCallPreview) {
               return (
                 <div key={msg.id} className="cv4-row cv4-row--system">
-                  <FirstCallPreviewCard
-                    preview={msg.firstCallPreview}
-                    onUpdated={(updated) => {
-                      setMessages((prev) =>
-                        prev.map((m) =>
-                          m.id === msg.id ? { ...m, firstCallPreview: updated } : m,
-                        ),
-                      );
-                      setData("firstCallPreview", updated);
-                    }}
+                  <SessionPlanViewer
+                    variant="timeline"
+                    entries={previewToSessionEntries(msg.firstCallPreview)}
+                    readonly
                   />
                 </div>
               );
