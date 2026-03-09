@@ -932,26 +932,24 @@ async function cleanupExistingData() {
   });
 
   // 14. Parameters (must delete ALL referencing records first via raw SQL subquery)
-  await prisma.$executeRaw`
-    DELETE FROM "CallScore" WHERE "parameterId" IN (
-      SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo'
-    )`;
-  await prisma.$executeRaw`
-    DELETE FROM "ParameterScoringAnchor" WHERE "parameterId" IN (
-      SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo'
-    )`;
-  await prisma.$executeRaw`
-    DELETE FROM "BehaviorMeasurement" WHERE "parameterId" IN (
-      SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo'
-    )`;
-  await prisma.$executeRaw`
-    DELETE FROM "ParameterTag" WHERE "parameterId" IN (
-      SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo'
-    )`;
-  await prisma.$executeRaw`
-    DELETE FROM "AnalysisProfileItem" WHERE "parameterId" IN (
-      SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo'
-    )`;
+  // Delete from every table that has a FK to Parameter.parameterId
+  const paramRefTables = [
+    "CallScore",
+    "ParameterScoringAnchor",
+    "BehaviorMeasurement",
+    "ParameterTag",
+    "ParameterSetParameter",  // @@map of AnalysisProfileParameter
+    "BehaviorTarget",
+  ];
+  for (const table of paramRefTables) {
+    try {
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM "${table}" WHERE "parameterId" IN (SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo')`
+      );
+    } catch {
+      // Table may not exist or no matching rows — safe to skip
+    }
+  }
   await prisma.parameter.deleteMany({
     where: { computedBy: "educator-demo" },
   });
