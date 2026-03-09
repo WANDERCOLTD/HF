@@ -931,17 +931,20 @@ async function cleanupExistingData() {
     where: { slug: { in: schoolSlugs } },
   });
 
-  // 14. Parameters (must delete referencing CallScores first)
-  const demoParams = await prisma.parameter.findMany({
-    where: { computedBy: "educator-demo" },
-    select: { id: true },
-  });
-  const demoParamIds = demoParams.map((p) => p.id);
-  if (demoParamIds.length > 0) {
-    await prisma.callScore.deleteMany({
-      where: { parameterId: { in: demoParamIds } },
-    });
-  }
+  // 14. Parameters (must delete ALL referencing records first)
+  // Use raw SQL to avoid issues with large IN clauses
+  await prisma.$executeRaw`
+    DELETE FROM "CallScore" WHERE "parameterId" IN (
+      SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo'
+    )`;
+  await prisma.$executeRaw`
+    DELETE FROM "ScoringAnchor" WHERE "parameterId" IN (
+      SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo'
+    )`;
+  await prisma.$executeRaw`
+    DELETE FROM "BehaviorMeasurement" WHERE "parameterId" IN (
+      SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo'
+    )`;
   await prisma.parameter.deleteMany({
     where: { computedBy: "educator-demo" },
   });
