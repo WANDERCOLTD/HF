@@ -933,13 +933,18 @@ async function cleanupExistingData() {
 
   // 14. Parameters (must delete ALL referencing records first via raw SQL subquery)
   // Delete from every table that has a FK to Parameter.parameterId
+  // Every table with a FK to Parameter.parameterId (check schema if adding new ones)
   const paramRefTables = [
     "CallScore",
     "ParameterScoringAnchor",
     "BehaviorMeasurement",
+    "BehaviorTarget",
+    "CallTarget",
+    "CallerTarget",
     "ParameterTag",
     "ParameterSetParameter",  // @@map of AnalysisProfileParameter
-    "BehaviorTarget",
+    "ParameterKnowledgeLink",
+    "PromptSlugParameter",
   ];
   for (const table of paramRefTables) {
     try {
