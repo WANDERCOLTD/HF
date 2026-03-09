@@ -915,6 +915,25 @@ export async function executeWizardTool(
             });
             await enrollCaller(caller.id, existingPlaybookId, "wizard-v2");
 
+            // Instantiate Goal records for the test caller from config.goals
+            const existingGoals = (existingConfig.goals as Array<{ type: string; name: string; description?: string; isAssessmentTarget?: boolean; assessmentConfig?: any; priority?: number }>) || [];
+            for (const g of existingGoals) {
+              await prisma.goal.create({
+                data: {
+                  callerId: caller.id,
+                  playbookId: existingPlaybookId,
+                  type: g.type || "LEARN",
+                  name: g.name,
+                  description: g.description || null,
+                  isAssessmentTarget: g.isAssessmentTarget || false,
+                  assessmentConfig: g.assessmentConfig || undefined,
+                  status: "ACTIVE",
+                  priority: g.priority || 5,
+                  startedAt: new Date(),
+                },
+              });
+            }
+
             // Auto-generate curriculum if existing playbook has none (non-blocking)
             const { generateInstantCurriculum: genCurriculum } = await import("@/lib/domain/instant-curriculum");
             genCurriculum({
@@ -1028,6 +1047,24 @@ export async function executeWizardTool(
             ...existingGoals.filter((g: any) => !g.isAssessmentTarget),
             ...newAssessmentGoals,
           ];
+        }
+        // Map learning outcomes into LEARN goals (from wizard or setupData)
+        const learningOutcomes = (input.learningOutcomes as string[])
+          || (setupData?.learningOutcomes as string[]);
+        if (learningOutcomes && learningOutcomes.length > 0) {
+          const existingGoals = (configUpdate.goals as any[]) || [];
+          const existingNames = new Set(existingGoals.map((g: any) => g.name?.toLowerCase().trim()));
+          const newLOGoals = learningOutcomes
+            .filter((lo: string) => !existingNames.has(lo.toLowerCase().trim()))
+            .map((lo: string) => ({
+              type: "LEARN",
+              name: lo,
+              isDefault: true,
+              priority: 5,
+            }));
+          if (newLOGoals.length > 0) {
+            configUpdate.goals = [...existingGoals, ...newLOGoals];
+          }
         }
 
         await prisma.playbook.update({
@@ -1178,6 +1215,25 @@ export async function executeWizardTool(
         });
 
         await enrollCaller(caller.id, playbookId, "wizard-v2");
+
+        // 9c. Instantiate Goal records for the test caller from config.goals
+        const callerGoals = (configUpdate.goals as Array<{ type: string; name: string; description?: string; isAssessmentTarget?: boolean; assessmentConfig?: any; priority?: number }>) || [];
+        for (const g of callerGoals) {
+          await prisma.goal.create({
+            data: {
+              callerId: caller.id,
+              playbookId,
+              type: g.type || "LEARN",
+              name: g.name,
+              description: g.description || null,
+              isAssessmentTarget: g.isAssessmentTarget || false,
+              assessmentConfig: g.assessmentConfig || undefined,
+              status: "ACTIVE",
+              priority: g.priority || 5,
+              startedAt: new Date(),
+            },
+          });
+        }
 
         // 10. Auto-generate curriculum (non-blocking, fire-and-forget)
         const { generateInstantCurriculum } = await import("@/lib/domain/instant-curriculum");
@@ -1954,16 +2010,38 @@ async function generateLessonPlanPreview(
 
     const sourceIds = subjectSources.map((ss: any) => ss.sourceId);
 
-    // Check that at least one source has assertions (extraction must be complete)
-    const assertionCount = await prisma.contentAssertion.count({
+    // Quick check: are assertions ready? The SourcesPanel waits for extraction
+    // to complete before signalling Phase 4a, so normally assertions exist by now.
+    // If not (fast user, slow extraction), try twice with a short wait, then fall back.
+    // The fallback plan is still useful — the course page's "Regenerate" button
+    // will work (we always populate notableInfo.modules), and the session-assertions
+    // API will pick up assertions whenever extraction finishes.
+    let assertionCount = await prisma.contentAssertion.count({
       where: { sourceId: { in: sourceIds } },
     });
+    if (assertionCount === 0) {
+      // One brief retry — 3s is enough for the tail end of extraction
+      await new Promise((r) => setTimeout(r, 3000));
+      assertionCount = await prisma.contentAssertion.count({
+        where: { sourceId: { in: sourceIds } },
+      });
+    }
 
     if (assertionCount === 0) return fallback;
 
-    // Generate lesson plan from the first source with content
+    // Generate lesson plan from all content sources (not just the first)
     const { generateLessonPlan } = await import("@/lib/content-trust/lesson-planner");
-    const plan = await generateLessonPlan(sourceIds[0], {
+
+    // Find the source with the most assertions for primary plan generation
+    const sourceCounts = await prisma.contentAssertion.groupBy({
+      by: ["sourceId"],
+      where: { sourceId: { in: sourceIds } },
+      _count: true,
+      orderBy: { _count: { sourceId: "desc" } },
+    });
+    const primarySourceId = sourceCounts[0]?.sourceId || sourceIds[0];
+
+    const plan = await generateLessonPlan(primarySourceId, {
       targetSessionCount: sessionCount,
       sessionLength: durationMins || 30,
       skipAIRefinement: true,
@@ -1979,11 +2057,30 @@ async function generateLessonPlanPreview(
       moduleLabel: "",
       label: s.title,
       estimatedDurationMins: s.estimatedMinutes,
-      assertionIds: s.assertionIds,
-      vocabularyIds: s.vocabularyIds,
-      questionIds: s.questionIds,
+      assertionIds: [...(s.assertionIds || [])],
+      vocabularyIds: [...(s.vocabularyIds || [])],
+      questionIds: [...(s.questionIds || [])],
       ...(s.media?.length ? { media: s.media } : {}),
     }));
+
+    // Distribute assertions from secondary sources across sessions (round-robin).
+    // The primary source's assertions are already assigned; this adds content from
+    // any additional uploaded files so they don't all land in "unassigned".
+    const secondarySourceIds = sourceIds.filter((id: string) => id !== primarySourceId);
+    if (secondarySourceIds.length > 0) {
+      const secondaryAssertions = await prisma.contentAssertion.findMany({
+        where: { sourceId: { in: secondarySourceIds } },
+        select: { id: true },
+        orderBy: [{ depth: "asc" }, { orderIndex: "asc" }],
+      });
+      // Distribute round-robin across non-onboarding sessions
+      const teachingSessions = entries.filter((e) => !["onboarding", "introduction"].includes(e.type));
+      const target = teachingSessions.length > 0 ? teachingSessions : entries;
+      for (let i = 0; i < secondaryAssertions.length; i++) {
+        const session = target[i % target.length];
+        session.assertionIds.push(secondaryAssertions[i].id);
+      }
+    }
 
     // Create or find Curriculum record for the primary subject and persist the plan
     const resolvedSubjectId = primarySubjectId || subjectIds[0];
@@ -1996,7 +2093,7 @@ async function generateLessonPlanPreview(
       const curriculumSlug = `${subject.slug}-curriculum`;
       const existingCurriculum = await prisma.curriculum.findFirst({
         where: { subjectId: subject.id },
-        select: { id: true, deliveryConfig: true },
+        select: { id: true, deliveryConfig: true, notableInfo: true },
       });
 
       const lessonPlanData = {
@@ -2006,26 +2103,52 @@ async function generateLessonPlanPreview(
         generatedFrom: "auto-wizard",
       };
 
+      // Build module summaries from plan entries so regenerate endpoint has data.
+      // Groups sessions by topic and creates one module per unique label prefix.
+      const modulesFromPlan = entries.map((e, i) => ({
+        id: `MOD-${i + 1}`,
+        title: e.label,
+        description: `${e.type} session`,
+        sortOrder: i,
+        learningOutcomes: (e.assertionIds || []).slice(0, 3).map((_: string, j: number) => `LO${j + 1}`),
+      }));
+
       if (existingCurriculum) {
-        // Update existing curriculum with lesson plan
+        // Update existing curriculum with lesson plan + modules
         const dc = (existingCurriculum.deliveryConfig as Record<string, any>) || {};
+        const ni = (existingCurriculum as any).notableInfo as Record<string, any> || {};
         await prisma.curriculum.update({
           where: { id: existingCurriculum.id },
           data: {
             deliveryConfig: { ...dc, lessonPlan: lessonPlanData },
+            notableInfo: { ...ni, modules: modulesFromPlan },
           },
         });
       } else {
-        // Create new curriculum with the lesson plan
+        // Create new curriculum with the lesson plan + modules
         await prisma.curriculum.create({
           data: {
             slug: curriculumSlug,
             name: `${subject.name} Curriculum`,
             subjectId: subject.id,
             deliveryConfig: { lessonPlan: lessonPlanData },
+            notableInfo: { modules: modulesFromPlan },
             constraints: [],
           },
         });
+      }
+
+      // Sync modules to first-class DB records (CurriculumModule + LearningObjective)
+      // so the regenerate endpoint has both JSON and DB fallback paths available.
+      const curriculumId = existingCurriculum?.id
+        || (await prisma.curriculum.findFirst({ where: { subjectId: subject.id }, select: { id: true } }))?.id;
+      if (curriculumId && modulesFromPlan.length > 0) {
+        try {
+          const { syncModulesToDB } = await import("@/lib/curriculum/sync-modules");
+          await syncModulesToDB(curriculumId, modulesFromPlan);
+        } catch (syncErr: any) {
+          console.warn("[wizard-tools] Module sync failed (non-fatal):", syncErr.message);
+        }
       }
     }
 

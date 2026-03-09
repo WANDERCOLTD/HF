@@ -969,6 +969,20 @@ async function extractSource(
       });
     }
 
+    // Sync goals + constraints from COURSE_REFERENCE sources (non-blocking)
+    if (documentType === "COURSE_REFERENCE" && totalCreated > 0) {
+      import("@/lib/goals/sync-goals-from-reference").then(({ syncGoalsFromReference }) => {
+        syncGoalsFromReference(source.id).catch((err: unknown) => {
+          console.error(`[course-pack/ingest] Goal sync failed for ${fileName}:`, err instanceof Error ? err.message : err);
+        });
+      });
+      import("@/lib/goals/sync-constraints-from-reference").then(({ syncConstraintsFromReference }) => {
+        syncConstraintsFromReference(source.id).catch((err: unknown) => {
+          console.error(`[course-pack/ingest] Constraint sync failed for ${fileName}:`, err instanceof Error ? err.message : err);
+        });
+      });
+    }
+
     // Auto-trigger curriculum generation
     checkAutoTriggerCurriculum(subjectId, userId).catch((err: unknown) => {
       console.error(`[course-pack/ingest] Auto-trigger error for ${fileName}:`, err instanceof Error ? err.message : err);

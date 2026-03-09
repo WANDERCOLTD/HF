@@ -421,6 +421,16 @@ educator you understood their teaching methodology — don't dump data.
 
   Does that capture how you want me to teach?"
 
+**IMPORTANT — extract constraints and goals from the digest:**
+After reflecting, call update_setup to persist what you found:
+- If the digest contains edge_case or teaching_rule assertions that describe things the AI
+  should NEVER do (e.g. "never grade during sessions", "avoid competitive language"),
+  extract them and call: update_setup({ constraints: ["Never grade during sessions", ...] })
+- If the digest contains assessment_approach assertions that describe success criteria
+  or learning goals, extract them and call:
+  update_setup({ assessmentTargets: ["Pass the 11+ exam", ...] })
+Do this BEFORE calling show_suggestions. The educator can adjust after.
+
 After confirmation, call show_suggestions(["That's right", "I'd adjust something"]).
 Then continue to Phase 4b (lesson plan preview) — the reflection should inform the preview.
 

@@ -44,6 +44,7 @@ import {
 } from "@/lib/ai/task-guidance";
 import type { DocumentType, InteractionPattern, TeachingMode } from "@/lib/content-trust/resolve-config";
 import { syncGoalsFromReference } from "@/lib/goals/sync-goals-from-reference";
+import { syncConstraintsFromReference } from "@/lib/goals/sync-constraints-from-reference";
 
 /**
  * @api POST /api/content-sources/:sourceId/extract
@@ -446,6 +447,11 @@ async function runBackgroundExtraction(
     // Sync assessment_approach → playbook config.goals (non-blocking)
     syncGoalsFromReference(sourceId).catch((err) =>
       console.error(`[extract] Goal sync failed for source ${sourceId}:`, err)
+    );
+
+    // Sync edge_case/teaching_rule → playbook config.constraints (non-blocking)
+    syncConstraintsFromReference(sourceId).catch((err) =>
+      console.error(`[extract] Constraint sync failed for source ${sourceId}:`, err)
     );
   }
 

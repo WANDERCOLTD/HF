@@ -529,18 +529,51 @@ export function CourseHowTab({
           </>
         ) : (
           <div className="hf-card-compact">
-            <div className="hf-text-sm hf-text-muted hf-mb-sm">
-              No teaching reference uploaded yet. Upload a course reference doc and the AI will extract
-              your teaching rules, session flow, and scaffolding techniques automatically.
-            </div>
-            {isOperator && subjects.length > 0 && (
-              <Link
-                href={`/x/courses/${courseId}/subjects/${subjects[0].id}`}
-                className="hf-btn hf-btn-sm hf-btn-primary"
-              >
-                <Upload size={13} />
-                Upload Reference Doc
-              </Link>
+            {subjects.some((s) => s.sourceCount > 0) ? (
+              <>
+                <div className="hf-text-sm hf-text-muted hf-mb-sm">
+                  No instructions extracted yet. Your sources may still be processing,
+                  or no teaching reference doc was uploaded.
+                </div>
+                <div className="hf-flex hf-gap-sm">
+                  {isOperator && (
+                    <button
+                      className="hf-btn hf-btn-sm hf-btn-secondary"
+                      onClick={handleReExtract}
+                      disabled={reExtracting}
+                      type="button"
+                    >
+                      <RefreshCw size={13} className={reExtracting ? 'hf-spin' : ''} />
+                      {reExtracting ? 'Extracting...' : 'Re-extract'}
+                    </button>
+                  )}
+                  {isOperator && subjects.length > 0 && (
+                    <Link
+                      href={`/x/courses/${courseId}/subjects/${subjects[0].id}`}
+                      className="hf-btn hf-btn-sm hf-btn-outline"
+                    >
+                      <Upload size={13} />
+                      Upload Reference Doc
+                    </Link>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="hf-text-sm hf-text-muted hf-mb-sm">
+                  No teaching reference uploaded yet. Upload a course reference doc and the AI will extract
+                  your teaching rules, session flow, and scaffolding techniques automatically.
+                </div>
+                {isOperator && subjects.length > 0 && (
+                  <Link
+                    href={`/x/courses/${courseId}/subjects/${subjects[0].id}`}
+                    className="hf-btn hf-btn-sm hf-btn-primary"
+                  >
+                    <Upload size={13} />
+                    Upload Reference Doc
+                  </Link>
+                )}
+              </>
             )}
           </div>
         )}

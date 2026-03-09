@@ -57,9 +57,19 @@ registerTransform("computeQuickStart", (
   return {
     you_are: (() => {
       let role = getRoleStatement();
-      if (callerDomain?.name && (role === "A helpful voice assistant" || role.toLowerCase().includes("generic"))) {
-        const discipline = pbConfig.subjectDiscipline;
-        role = `A ${discipline || callerDomain.name} tutor and voice assistant`;
+      const discipline = pbConfig.subjectDiscipline || subjectRef;
+      if (role === "A helpful voice assistant" || role.toLowerCase().includes("generic")) {
+        // Fully replace generic roles with subject-specific identity
+        role = `A ${discipline || callerDomain?.name || ""} tutor and voice assistant`.replace(/\s+/g, " ").trim();
+      } else if (discipline && !role.toLowerCase().includes(discipline.toLowerCase())) {
+        // Inject subject discipline into existing role (e.g. "a friendly tutor" → "a friendly English Language tutor")
+        // Insert before "tutor" if present, otherwise prepend as context
+        const tutorMatch = role.match(/\b(tutor|instructor|teacher|mentor|coach)\b/i);
+        if (tutorMatch) {
+          role = role.replace(tutorMatch[0], `${discipline} ${tutorMatch[0]}`);
+        } else {
+          role = `${role} — specialising in ${discipline}`;
+        }
       }
       // Append audience context (e.g. "for secondary school students (age 11-16)")
       if (audienceId && audienceId !== "mixed") {
@@ -218,12 +228,34 @@ registerTransform("computeQuickStart", (
     })(),
 
     first_line: (() => {
+      // Helper: if a welcome message asks "what topic/subject" but we already know the subject,
+      // replace the generic question with subject-specific context
+      const injectSubject = (msg: string): string => {
+        if (!subjectRef) return msg;
+        // Detect generic subject-asking patterns at the end of the welcome
+        const genericPatterns = [
+          /what topic or subject brought you here today\??$/i,
+          /what subject are we drilling today\??$/i,
+          /what are you preparing for\??$/i,
+          /what world shall we explore today\??$/i,
+          /what are we working on today\??$/i,
+          /what situation would you like to practice\??$/i,
+          /what process or journey are we tackling together\??$/i,
+        ];
+        for (const pattern of genericPatterns) {
+          if (pattern.test(msg.trim())) {
+            return msg.trim().replace(pattern, `We're going to be working on ${subjectRef} together.`);
+          }
+        }
+        return msg;
+      };
+
       // 1. Identity spec instruction (highest priority — persona spec)
       const identityOpening = (identitySpec?.config as SpecConfig)?.sessionStructure?.opening?.instruction;
-      if (identityOpening) return identityOpening;
+      if (identityOpening) return injectSubject(identityOpening);
       // 2. Course-scoped welcome (playbook.config) > Domain welcome (institution default)
-      if (isFirstCall && pbConfig.welcomeMessage) return pbConfig.welcomeMessage;
-      if (isFirstCall && callerDomain?.onboardingWelcome) return callerDomain.onboardingWelcome;
+      if (isFirstCall && pbConfig.welcomeMessage) return injectSubject(pbConfig.welcomeMessage);
+      if (isFirstCall && callerDomain?.onboardingWelcome) return injectSubject(callerDomain.onboardingWelcome);
       // 3. Generic fallback
       if (isFirstCall) {
         return subjectRef

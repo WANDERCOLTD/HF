@@ -37,7 +37,7 @@
 
 /* Right panel column — always visible, sticky top */
 .cv4-panel-column {
-  width: 260px;
+  width: 300px;
   flex-shrink: 0;
   padding: 16px 16px 16px 0;
   overflow-y: auto;

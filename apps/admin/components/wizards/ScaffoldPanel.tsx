@@ -59,7 +59,7 @@ const EMPHASIS_LABELS: Record<string, string> = {
 
 interface ReadinessDot { filled: boolean; active: boolean; label: string }
 
-function ReadinessBar({ dots, hint }: { dots: ReadinessDot[]; hint: string }) {
+function ReadinessBar({ dots }: { dots: ReadinessDot[] }) {
   const filledCount = dots.filter(d => d.filled).length;
   const missing = dots.filter(d => !d.filled).map(d => d.label);
   const tooltipText = missing.length > 0
@@ -80,10 +80,7 @@ function ReadinessBar({ dots, hint }: { dots: ReadinessDot[]; hint: string }) {
           />
         ))}
       </div>
-      <div className="gs-readiness-label">
-        <span className="gs-readiness-count">{filledCount}/{dots.length}</span>
-        <span className="gs-readiness-hint">{hint}</span>
-      </div>
+      <span className="gs-readiness-count">{filledCount}/{dots.length}</span>
     </div>
   );
 }
@@ -289,14 +286,6 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
   }));
 
   const completedCount = dots.filter(d => d.filled).length;
-
-  const readinessHint = (() => {
-    if (launched) return "Course is live";
-    if (canTryCall) return "Ready to try a call";
-    if (completedCount >= 3) return "Almost there";
-    if (completedCount >= 1) return "Keep going...";
-    return "Let's begin";
-  })();
 
   // Has anything at all been filled?
   const hasAnyData = !!institutionName || !!courseName;
@@ -517,7 +506,7 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
         </div>
 
         {/* ── Readiness + actions ─────────────────────── */}
-        <ReadinessBar dots={dots} hint={readinessHint} />
+        <ReadinessBar dots={dots} />
 
         <div className="gs-try-call">
           {canTryCall ? (
