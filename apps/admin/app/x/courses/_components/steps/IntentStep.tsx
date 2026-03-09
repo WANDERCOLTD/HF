@@ -305,7 +305,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
   const hasOutcome = outcomes.some(o => o.trim());
   const effectivePattern = pattern || suggestedPattern;
   const showPattern = showOutcomes && (hasOutcome || !!suggestedPattern);
-  const showModel = !!pattern; // only when explicitly selected
+  const showModel = !!effectivePattern; // show when pattern is selected or suggested
   const showAdvanced = showModel; // teaching mode + subject discipline appear with model
 
   const isValid = courseName.trim().length > 0 && !!effectivePattern && !!selectedDomainId;
