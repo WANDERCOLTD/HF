@@ -931,18 +931,25 @@ async function cleanupExistingData() {
     where: { slug: { in: schoolSlugs } },
   });
 
-  // 14. Parameters (must delete ALL referencing records first)
-  // Use raw SQL to avoid issues with large IN clauses
+  // 14. Parameters (must delete ALL referencing records first via raw SQL subquery)
   await prisma.$executeRaw`
     DELETE FROM "CallScore" WHERE "parameterId" IN (
       SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo'
     )`;
   await prisma.$executeRaw`
-    DELETE FROM "ScoringAnchor" WHERE "parameterId" IN (
+    DELETE FROM "ParameterScoringAnchor" WHERE "parameterId" IN (
       SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo'
     )`;
   await prisma.$executeRaw`
     DELETE FROM "BehaviorMeasurement" WHERE "parameterId" IN (
+      SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo'
+    )`;
+  await prisma.$executeRaw`
+    DELETE FROM "ParameterTag" WHERE "parameterId" IN (
+      SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo'
+    )`;
+  await prisma.$executeRaw`
+    DELETE FROM "AnalysisProfileItem" WHERE "parameterId" IN (
       SELECT "parameterId" FROM "Parameter" WHERE "computedBy" = 'educator-demo'
     )`;
   await prisma.parameter.deleteMany({
