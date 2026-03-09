@@ -165,14 +165,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       );
     }
 
-    const subjectSource = await prisma.subjectSource.update({
+    const subjectSource = await prisma.subjectSource.upsert({
       where: {
         subjectId_sourceId: {
           subjectId,
           sourceId: body.sourceId,
         },
       },
-      data: { tags: body.tags },
+      update: { tags: body.tags },
+      create: {
+        subjectId,
+        sourceId: body.sourceId,
+        tags: body.tags,
+      },
       include: {
         source: {
           include: { _count: { select: { assertions: true } } },

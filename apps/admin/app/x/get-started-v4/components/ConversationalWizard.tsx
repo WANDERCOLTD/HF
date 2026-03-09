@@ -580,13 +580,15 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
           }
 
           case "mark_complete": {
-            setData("launched", true);
-            extras.push({
-              id: "success-card",
-              role: "system",
-              systemType: "success-card",
-              content: "Course launched",
-            });
+            if (!getData<boolean>("launched")) {
+              setData("launched", true);
+              extras.push({
+                id: "success-card",
+                role: "system",
+                systemType: "success-card",
+                content: "Course launched",
+              });
+            }
             break;
           }
         }
@@ -594,7 +596,7 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
 
       return extras;
     },
-    [setData, setFieldPickerPanel],
+    [getData, setData, setFieldPickerPanel],
   );
 
   // ── Post-process AI response for tool results ─────────
@@ -711,9 +713,14 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
 
       // Deduplicate stable-id cards (progress-card, success-card) — add once, never duplicate
       const stableIds = new Set(newMessages.filter((m) => m.id === "progress-card" || m.id === "success-card").map((m) => m.id));
-      const filteredExtras = stableIds.size > 0
-        ? toolExtras.filter((m) => !stableIds.has(m.id))
-        : toolExtras;
+      const filteredExtras: Message[] = [];
+      for (const m of toolExtras) {
+        if (m.id === "progress-card" || m.id === "success-card") {
+          if (stableIds.has(m.id)) continue;
+          stableIds.add(m.id);
+        }
+        filteredExtras.push(m);
+      }
 
       let finalMessages = [...newMessages, ...filteredExtras];
       if (response.content) {
@@ -725,6 +732,17 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
         }];
       }
       finalMessages = [...finalMessages, ...contentExtras];
+
+      // Deduplicate stable-id cards (progress-card, success-card) — keep last occurrence
+      const stableCardIds = ["progress-card", "success-card"];
+      const seen = new Set<string>();
+      finalMessages = finalMessages.reverse().filter((m) => {
+        if (stableCardIds.includes(m.id)) {
+          if (seen.has(m.id)) return false;
+          seen.add(m.id);
+        }
+        return true;
+      }).reverse();
 
       setMessages(finalMessages);
       saveHistory(finalMessages);
