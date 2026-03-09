@@ -6980,6 +6980,29 @@ html.light {
   color: inherit;
 }
 
+/* Row-level link (list items that navigate on click) */
+.hf-link-row {
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--radius-sm, 4px);
+  padding: 4px 6px;
+  margin: -4px -6px;
+  transition: background-color 0.15s;
+}
+.hf-link-row:hover {
+  background-color: var(--bg-hover);
+  color: inherit;
+}
+
+/* Inline text link (accent-colored) */
+.hf-link {
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+.hf-link:hover {
+  text-decoration: underline;
+}
+
 /* Section divider with icon + title (top border separator) */
 .hf-section-divider {
   padding-top: 28px;

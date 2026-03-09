@@ -53,11 +53,12 @@ export async function GET(
       });
     }
 
-    // 2. Fetch all instruction-category assertions
+    // 2. Fetch all instruction-category assertions (exclude blank text)
     const assertions = await prisma.contentAssertion.findMany({
       where: {
         sourceId: { in: allSourceIds },
         category: { in: [...INSTRUCTION_CATEGORIES] },
+        assertion: { not: "" },
       },
       orderBy: [
         { depth: "asc" },

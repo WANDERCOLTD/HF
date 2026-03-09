@@ -50,6 +50,15 @@ type PlaybookDetail = {
   _count: { items: number };
 };
 
+type SubjectSourceDetail = {
+  id: string;
+  name: string;
+  documentType: string;
+  assertionCount: number;
+  linkedSourceId: string | null;
+  linkedSourceName: string | null;
+};
+
 type SubjectSummary = {
   id: string;
   slug: string;
@@ -60,6 +69,7 @@ type SubjectSummary = {
   sourceCount: number;
   curriculumCount: number;
   assertionCount: number;
+  sources?: SubjectSourceDetail[];
 };
 
 type MethodBreakdown = {

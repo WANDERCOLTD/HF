@@ -275,7 +275,7 @@ export function CourseWhoTab({
           <>
             <div className="hf-flex hf-flex-col hf-gap-sm">
               {visibleCallers.map((caller) => (
-                <div key={caller.id} className="hf-flex hf-items-center hf-gap-sm">
+                <Link key={caller.id} href={`/x/callers/${caller.id}`} className="hf-flex hf-items-center hf-gap-sm hf-link-row">
                   <GraduationCap size={14} className="hf-text-muted hf-flex-shrink-0" />
                   <div className="hf-flex-1 hf-text-sm">
                     {caller.name || caller.phone || 'Unknown'}
@@ -295,12 +295,12 @@ export function CourseWhoTab({
                       {caller.callCount > 0 ? 'Active' : 'New'}
                     </span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
             {callersTotal > 5 && (
               <div className="hf-mt-sm">
-                <Link href="/x/callers" className="hf-text-xs hf-text-accent hf-link">
+                <Link href={`/x/callers?courseId=${courseId}`} className="hf-text-xs hf-text-accent hf-link">
                   +{callersTotal - 5} more &mdash; View all &rarr;
                 </Link>
               </div>

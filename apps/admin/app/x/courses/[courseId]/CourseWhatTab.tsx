@@ -1,16 +1,27 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  BookMarked, FileText, Plus, Pencil,
-  AlertTriangle, ChevronRight, Upload, Target, ListOrdered,
+  BookMarked, FileText, Plus,
+  AlertTriangle, Upload, Target, ListOrdered, Link2, Zap,
+  CheckCircle2, XCircle, TrendingUp,
 } from 'lucide-react';
 import { TeachMethodStats } from '@/components/shared/TeachMethodStats';
 import { TrustBadge } from '@/app/x/content-sources/_components/shared/badges';
+import { getDocTypeInfo } from '@/lib/doc-type-icons';
 import type { GoalTemplate, PlaybookConfig } from '@/lib/types/json-fields';
 
 // ── Types ──────────────────────────────────────────────
+
+type SourceDetail = {
+  id: string;
+  name: string;
+  documentType: string;
+  assertionCount: number;
+  linkedSourceId: string | null;
+  linkedSourceName: string | null;
+};
 
 type SubjectSummary = {
   id: string;
@@ -22,9 +33,18 @@ type SubjectSummary = {
   sourceCount: number;
   curriculumCount: number;
   assertionCount: number;
+  sources?: SourceDetail[];
 };
 
 type MethodBreakdown = { teachMethod: string; count: number; reviewed: number };
+
+type SuccessCriterion = {
+  id: string;
+  assertion: string;
+  chapter: string | null;
+  section: string | null;
+  tags: string[];
+};
 
 type SessionPlanInfo = {
   estimatedSessions: number;
@@ -60,6 +80,16 @@ const GOAL_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
   CREATE: { label: 'Create', color: 'var(--badge-cyan-text)' },
 };
 
+// ── Success criteria tier display ────────────────────────
+
+function getTierConfig(tier: string): { icon: typeof CheckCircle2; color: string } {
+  const lower = tier.toLowerCase();
+  if (lower.includes('fail')) return { icon: XCircle, color: 'var(--status-error-text)' };
+  if (lower.includes('strong') || lower.includes('confidence')) return { icon: TrendingUp, color: 'var(--accent-primary)' };
+  if (lower.includes('minimum') || lower.includes('pass')) return { icon: CheckCircle2, color: 'var(--status-success-text)' };
+  return { icon: Target, color: 'var(--text-muted)' };
+}
+
 // ── Section Header ─────────────────────────────────────
 
 function SectionHeader({ title, icon: Icon }: { title: string; icon: React.ComponentType<{ size?: number; className?: string }> }) {
@@ -67,6 +97,70 @@ function SectionHeader({ title, icon: Icon }: { title: string; icon: React.Compo
     <div className="hf-flex hf-gap-sm hf-items-center hf-mb-md hf-section-divider">
       <Icon size={18} className="hf-text-muted" />
       <h2 className="hf-section-title hf-mb-0">{title}</h2>
+    </div>
+  );
+}
+
+// ── Linked Source Tree ──────────────────────────────────
+// Renders sources grouped: passages with their linked QBs nested below,
+// standalone sources (no link) shown flat.
+
+function SourceTree({ sources, courseId, subjectId }: { sources: SourceDetail[]; courseId: string; subjectId: string }) {
+  // Build a set of IDs that are linked TO a parent (i.e. they are children)
+  const linkedChildIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const s of sources) {
+      if (s.linkedSourceId) ids.add(s.id);
+    }
+    return ids;
+  }, [sources]);
+
+  // Find children for a given parent source
+  const childrenOf = useCallback((parentId: string) =>
+    sources.filter((s) => s.linkedSourceId === parentId),
+  [sources]);
+
+  // Root sources: not a child of another source in this list
+  const roots = useMemo(() =>
+    sources.filter((s) => !linkedChildIds.has(s.id)),
+  [sources, linkedChildIds]);
+
+  if (sources.length === 0) return null;
+
+  return (
+    <div className="hf-flex hf-flex-col hf-gap-xs hf-mt-sm">
+      {roots.map((src) => {
+        const children = childrenOf(src.id);
+        const info = getDocTypeInfo(src.documentType);
+        const Icon = info.icon;
+        return (
+          <div key={src.id}>
+            <Link href={`/x/content-sources/${src.id}`} className="hf-flex hf-items-center hf-gap-sm hf-text-xs hf-link-row">
+              <Icon size={13} style={{ color: info.color, flexShrink: 0 }} />
+              <span className="hf-flex-1 hf-text-secondary hf-truncate" title={src.name}>{src.name}</span>
+              <span className="hf-badge hf-badge-xs" style={{ color: info.color, borderColor: info.color }}>
+                {info.label}
+              </span>
+              <span className="hf-text-placeholder">{src.assertionCount} pts</span>
+            </Link>
+            {children.map((child) => {
+              const cInfo = getDocTypeInfo(child.documentType);
+              const CIcon = cInfo.icon;
+              return (
+                <Link key={child.id} href={`/x/content-sources/${child.id}`} className="hf-flex hf-items-center hf-gap-sm hf-text-xs hf-pl-lg hf-link-row">
+                  <Link2 size={10} className="hf-text-placeholder hf-flex-shrink-0" />
+                  <CIcon size={13} style={{ color: cInfo.color, flexShrink: 0 }} />
+                  <span className="hf-flex-1 hf-text-secondary hf-truncate" title={child.name}>{child.name}</span>
+                  <span className="hf-badge hf-badge-xs" style={{ color: cInfo.color, borderColor: cInfo.color }}>
+                    {cInfo.label}
+                  </span>
+                  <span className="hf-text-placeholder">{child.assertionCount} pts</span>
+                </Link>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -93,6 +187,48 @@ export function CourseWhatTab({
   // ── Inline edit states ────────────────────────────────
   const [saving, setSaving] = useState(false);
 
+  // ── Collect COURSE_REFERENCE sources across all subjects ──
+  const courseGuideSources = useMemo(() => {
+    const guides: SourceDetail[] = [];
+    for (const sub of subjects) {
+      for (const src of sub.sources || []) {
+        if (src.documentType === 'COURSE_REFERENCE') guides.push(src);
+      }
+    }
+    return guides;
+  }, [subjects]);
+
+  // ── Success criteria from course reference ─────────────
+  const [successCriteria, setSuccessCriteria] = useState<SuccessCriterion[]>([]);
+  const [criteriaLoading, setCriteriaLoading] = useState(false);
+
+  useEffect(() => {
+    if (courseGuideSources.length === 0) return;
+    setCriteriaLoading(true);
+    fetch(`/api/courses/${courseId}/course-instructions`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok && data.categories?.assessment_approach) {
+          setSuccessCriteria(data.categories.assessment_approach);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setCriteriaLoading(false));
+  }, [courseId, courseGuideSources.length]);
+
+  // Group criteria by section or chapter (tier names like "Minimum", "Strong", "Fail conditions")
+  const criteriaByTier = useMemo(() => {
+    const groups = new Map<string, SuccessCriterion[]>();
+    for (const c of successCriteria) {
+      // Prefer section (sub-heading) over chapter (top-level heading)
+      const tier = c.section || c.chapter || 'General';
+      const list = groups.get(tier) ?? [];
+      list.push(c);
+      groups.set(tier, list);
+    }
+    return groups;
+  }, [successCriteria]);
+
   // ── Config save helper ────────────────────────────────
   const saveConfig = useCallback(async (patch: Record<string, unknown>) => {
     setSaving(true);
@@ -117,15 +253,12 @@ export function CourseWhatTab({
 
   return (
     <>
-      {/* ── Goals ─────────────────────────────────────── */}
+      {/* ── Goals / Success Criteria ─────────────────── */}
       <SectionHeader title="Goals" icon={Target} />
       <div className="hf-card-compact hf-mb-lg">
-        {goals.length === 0 ? (
-          <div className="hf-text-sm hf-text-muted">
-            No goals configured. Set goals in the Course Setup wizard to track learner progress.
-          </div>
-        ) : (
-          <div className="hf-flex hf-flex-col hf-gap-sm">
+        {/* Wizard-defined goals */}
+        {goals.length > 0 && (
+          <div className="hf-flex hf-flex-col hf-gap-sm hf-mb-md">
             {goals.map((g, i) => {
               const typeConfig = GOAL_TYPE_CONFIG[g.type] || { label: g.type, color: 'var(--text-muted)' };
               return (
@@ -155,7 +288,74 @@ export function CourseWhatTab({
             })}
           </div>
         )}
+
+        {/* Success criteria from course reference */}
+        {criteriaLoading ? (
+          <div className="hf-text-sm hf-text-muted">Loading success criteria...</div>
+        ) : successCriteria.length > 0 ? (
+          <div className="hf-flex hf-flex-col hf-gap-md">
+            {goals.length > 0 && (
+              <div className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase">
+                From Course Reference
+              </div>
+            )}
+            {[...criteriaByTier.entries()].map(([tier, items]) => {
+              const tierConfig = getTierConfig(tier);
+              const TierIcon = tierConfig.icon;
+              return (
+                <div key={tier}>
+                  <div className="hf-flex hf-items-center hf-gap-xs hf-mb-xs">
+                    <TierIcon size={13} style={{ color: tierConfig.color }} />
+                    <span className="hf-text-xs hf-text-bold" style={{ color: tierConfig.color }}>
+                      {tier}
+                    </span>
+                  </div>
+                  <div className="hf-flex hf-flex-col hf-gap-xs">
+                    {items.map((c) => (
+                      <div key={c.id} className="hf-flex hf-gap-sm hf-items-start hf-text-sm">
+                        <span className="hf-text-placeholder hf-mt-xs" style={{ flexShrink: 0 }}>&#8226;</span>
+                        <span className="hf-text-secondary">{c.assertion}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : goals.length === 0 ? (
+          <div className="hf-text-sm hf-text-muted">
+            No goals configured. Set goals in the Course Setup wizard to track learner progress.
+          </div>
+        ) : null}
       </div>
+
+      {/* ── Course Guide ──────────────────────────────── */}
+      {courseGuideSources.length > 0 && (
+        <>
+          <SectionHeader title="Course Guide" icon={getDocTypeInfo('COURSE_REFERENCE').icon} />
+          <div className="hf-card-compact hf-mb-lg" style={{ borderLeft: '3px solid #7c3aed' }}>
+            {courseGuideSources.map((src) => {
+              const info = getDocTypeInfo(src.documentType);
+              const Icon = info.icon;
+              return (
+                <Link key={src.id} href={`/x/content-sources/${src.id}`} className="hf-flex hf-items-center hf-gap-sm hf-link-row">
+                  <Icon size={16} style={{ color: info.color, flexShrink: 0 }} />
+                  <div className="hf-flex-1">
+                    <div className="hf-text-sm hf-text-secondary">{src.name}</div>
+                    <div className="hf-text-xs hf-text-muted">
+                      Defines your teaching approach, skills framework, and session flow
+                    </div>
+                  </div>
+                  <span className="hf-badge hf-badge-sm" style={{ color: info.color, borderColor: info.color }}>
+                    {info.label}
+                  </span>
+                  <span className="hf-text-xs hf-text-placeholder">{src.assertionCount} rules</span>
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* ── What You're Teaching ──────────────────────── */}
       <div className="hf-flex hf-flex-between hf-items-center hf-mb-md hf-section-divider">
@@ -188,79 +388,107 @@ export function CourseWhatTab({
         </div>
       ) : (
         <div className="hf-card-grid-md hf-mb-lg">
-          {subjects.map((sub) => (
-            <div key={sub.id} className="hf-card-compact">
-              <Link
-                href={`/x/courses/${courseId}/subjects/${sub.id}`}
-                className="hf-card-link-inner"
-              >
-                <div className="hf-flex hf-gap-sm hf-items-center hf-mb-sm">
-                  <BookMarked size={16} className="hf-text-accent hf-flex-shrink-0" />
-                  <h3 className="hf-heading-sm hf-mb-0 hf-flex-1">{sub.name}</h3>
-                  <TrustBadge level={sub.defaultTrustLevel} />
-                </div>
-                {sub.description && (
-                  <p className="hf-text-xs hf-text-muted hf-mb-sm hf-line-clamp-2">{sub.description}</p>
-                )}
-                <div className="hf-flex hf-gap-md hf-text-xs hf-text-muted">
-                  {sub.sourceCount === 0 ? (
-                    <span className="hf-text-warning hf-flex hf-items-center hf-gap-xs">
-                      <AlertTriangle size={12} />No content yet
-                    </span>
-                  ) : (
-                    <span><FileText size={12} className="hf-icon-inline" />{sub.sourceCount} sources</span>
-                  )}
-                  <span>{sub.assertionCount} teaching points</span>
-                  {sub.curriculumCount > 0 && <span>{sub.curriculumCount} curricula</span>}
-                </div>
-              </Link>
-              {isOperator && sub.sourceCount === 0 && (
+          {subjects.map((sub) => {
+            // Filter out COURSE_REFERENCE sources — they're shown in the Course Guide card
+            const contentSources = (sub.sources || []).filter((s) => s.documentType !== 'COURSE_REFERENCE');
+            return (
+              <div key={sub.id} className="hf-card-compact">
                 <Link
                   href={`/x/courses/${courseId}/subjects/${sub.id}`}
-                  className="hf-btn-sm hf-btn-primary hf-mt-sm"
+                  className="hf-card-link-inner"
                 >
-                  <Upload size={13} />
-                  Upload Content
+                  <div className="hf-flex hf-gap-sm hf-items-center hf-mb-sm">
+                    <BookMarked size={16} className="hf-text-accent hf-flex-shrink-0" />
+                    <h3 className="hf-heading-sm hf-mb-0 hf-flex-1">{sub.name}</h3>
+                    <TrustBadge level={sub.defaultTrustLevel} />
+                  </div>
+                  {sub.description && (
+                    <p className="hf-text-xs hf-text-muted hf-mb-sm hf-line-clamp-2">{sub.description}</p>
+                  )}
+                  <div className="hf-flex hf-gap-md hf-text-xs hf-text-muted">
+                    {sub.sourceCount === 0 ? (
+                      <span className="hf-text-warning hf-flex hf-items-center hf-gap-xs">
+                        <AlertTriangle size={12} />No content yet
+                      </span>
+                    ) : (
+                      <span><FileText size={12} className="hf-icon-inline" />{sub.sourceCount} sources</span>
+                    )}
+                    <span>{sub.assertionCount} teaching points</span>
+                    {sub.curriculumCount > 0 && <span>{sub.curriculumCount} curricula</span>}
+                  </div>
                 </Link>
-              )}
-            </div>
-          ))}
+                {/* ── Source tree with linked pairing ── */}
+                {contentSources.length > 0 && (
+                  <SourceTree sources={contentSources} courseId={courseId} subjectId={sub.id} />
+                )}
+                {isOperator && sub.sourceCount === 0 && (
+                  <Link
+                    href={`/x/courses/${courseId}/subjects/${sub.id}`}
+                    className="hf-btn-sm hf-btn-primary hf-mt-sm"
+                  >
+                    <Upload size={13} />
+                    Upload Content
+                  </Link>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
       {/* ── Teaching Methods ──────────────────────────── */}
-      {contentMethods.length > 0 && (
-        <div className="hf-mb-lg">
-          <div className="hf-flex hf-items-center hf-gap-sm hf-mb-sm">
-            <div className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase">
+      {contentMethods.length > 0 && (() => {
+        const unassigned = contentMethods.find((m) => m.teachMethod === 'unassigned');
+        const unassignedCount = unassigned?.count ?? 0;
+        const allUnassigned = unassignedCount === contentTotal;
+
+        return (
+          <div className="hf-mb-lg">
+            <div className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase hf-mb-sm">
               Teaching Methods
             </div>
-            {isOperator && contentMethods.some((m) => m.teachMethod === 'unassigned') && (
-              <button
-                className="hf-btn hf-btn-xs hf-btn-outline"
-                disabled={backfilling}
-                onClick={async () => {
-                  setBackfilling(true);
-                  try {
-                    const res = await fetch(`/api/courses/${courseId}/backfill-teach-methods`, { method: 'POST' });
-                    const data = await res.json();
-                    if (data.ok && data.updated > 0 && onContentRefresh) {
-                      const bd = await fetch(`/api/courses/${courseId}/content-breakdown?bySubject=true`).then(r => r.json());
-                      if (bd.ok) {
-                        onContentRefresh(bd.methods || [], bd.total || 0);
-                      }
+
+            {/* Alert banner when TPs need assignment */}
+            {isOperator && unassignedCount > 0 && (
+              <div className={`hf-banner ${allUnassigned ? 'hf-banner-warning' : 'hf-banner-info'} hf-mb-sm`}>
+                <div className="hf-flex hf-items-center hf-gap-sm hf-flex-1">
+                  <AlertTriangle size={14} className="hf-flex-shrink-0" />
+                  <span className="hf-text-sm">
+                    {allUnassigned
+                      ? `All ${unassignedCount} teaching points need a method assigned`
+                      : `${unassignedCount} teaching point${unassignedCount === 1 ? '' : 's'} not yet assigned a method`
                     }
-                  } catch { /* ignore */ }
-                  setBackfilling(false);
-                }}
-              >
-                {backfilling ? 'Assigning\u2026' : `Assign ${contentMethods.find((m) => m.teachMethod === 'unassigned')?.count ?? 0} unassigned`}
-              </button>
+                  </span>
+                </div>
+                <button
+                  className="hf-btn hf-btn-xs hf-btn-primary hf-flex hf-items-center hf-gap-xs"
+                  disabled={backfilling}
+                  title="Auto-assign teaching methods based on content categories"
+                  onClick={async () => {
+                    setBackfilling(true);
+                    try {
+                      const res = await fetch(`/api/courses/${courseId}/backfill-teach-methods`, { method: 'POST' });
+                      const data = await res.json();
+                      if (data.ok && data.updated > 0 && onContentRefresh) {
+                        const bd = await fetch(`/api/courses/${courseId}/content-breakdown?bySubject=true`).then(r => r.json());
+                        if (bd.ok) {
+                          onContentRefresh(bd.methods || [], bd.total || 0);
+                        }
+                      }
+                    } catch { /* ignore */ }
+                    setBackfilling(false);
+                  }}
+                >
+                  <Zap size={12} />
+                  {backfilling ? 'Assigning\u2026' : 'Auto-assign'}
+                </button>
+              </div>
             )}
+
+            <TeachMethodStats methods={contentMethods} total={contentTotal} />
           </div>
-          <TeachMethodStats methods={contentMethods} total={contentTotal} />
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Session Plan Summary ──────────────────────── */}
       {sessionPlan && sessionPlan.estimatedSessions > 0 && (

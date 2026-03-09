@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import type { PlaybookConfig, OnboardingFlowPhases } from "@/lib/types/json-fields";
+import type { PlaybookConfig, OnboardingFlowPhases, OnboardingPhase } from "@/lib/types/json-fields";
+import { getFlowPhasesFallback } from "@/lib/fallback-settings";
 
 /**
  * @api GET /api/courses/:courseId/onboarding
  * @visibility internal
  * @auth session
  * @tags courses, onboarding
- * @description Get resolved onboarding flow for a course (course override > domain > INIT-001 fallback). Returns phase source ("course" | "domain" | "none") and available domain media for the editor picker.
+ * @description Get resolved onboarding flow for a course (course override > domain > system fallback). Returns phase source ("course" | "domain" | "fallback" | "none") and available domain media for the editor picker.
  * @pathParam courseId string - The playbook ID (course)
  * @response 200 { ok: true, source, phases, domainName, domainId, domainWelcome, personaName, media }
  * @response 404 { ok: false, error: "Course not found" }
@@ -54,15 +55,22 @@ export async function GET(
     const courseFlow = pbConfig.onboardingFlowPhases as OnboardingFlowPhases | undefined;
     const domainFlow = playbook.domain?.onboardingFlowPhases as OnboardingFlowPhases | null;
 
-    let source: "course" | "domain" | "none" = "none";
-    let phases: OnboardingFlowPhases | null = null;
+    let source: "course" | "domain" | "fallback" | "none" = "none";
+    let resolvedPhases: OnboardingPhase[] = [];
 
     if (courseFlow?.phases?.length) {
       source = "course";
-      phases = courseFlow;
+      resolvedPhases = courseFlow.phases;
     } else if (domainFlow?.phases?.length) {
       source = "domain";
-      phases = domainFlow;
+      resolvedPhases = domainFlow.phases;
+    } else {
+      // INIT-001 fallback — system default onboarding phases
+      const fallback = await getFlowPhasesFallback();
+      if (fallback?.phases?.length) {
+        source = "fallback";
+        resolvedPhases = fallback.phases as OnboardingPhase[];
+      }
     }
 
     // Load domain media for editor picker (SubjectDomain → Subject → SubjectMedia → MediaAsset)
@@ -93,7 +101,7 @@ export async function GET(
     return NextResponse.json({
       ok: true,
       source,
-      phases,
+      phases: resolvedPhases,
       domainId: playbook.domain?.id || null,
       domainName: playbook.domain?.name || null,
       domainWelcome: playbook.domain?.onboardingWelcome || null,

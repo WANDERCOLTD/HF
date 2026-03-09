@@ -726,11 +726,13 @@ export default function SimpleSidebarNav({
                       ? `sidebar-highlight-${highlight.type} `
                       : "";
 
+                    const shortcutHint = (rawItem as any).shortcutHint as string | undefined;
+
                     return collapsed ? (
                       <Link
                         key={item.id}
                         href={item.href}
-                        title={item.label}
+                        title={shortcutHint ? `${item.label} (${shortcutHint})` : item.label}
                         data-nav-item
                         tabIndex={0}
                         onClick={(e) => handleNavClick(e, item.href)}
@@ -766,6 +768,7 @@ export default function SimpleSidebarNav({
                       <Link
                         key={item.id}
                         href={item.href}
+                        title={shortcutHint ? `${item.label} (${shortcutHint})` : undefined}
                         data-nav-item
                         tabIndex={0}
                         draggable

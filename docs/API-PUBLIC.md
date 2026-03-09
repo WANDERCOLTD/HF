@@ -2393,6 +2393,28 @@ Mark multiple vocabulary entries as reviewed in a single transaction.
 
 ---
 
+### `POST` /api/v1/courses/:courseId/re-extract-instructions
+
+Find all COURSE_REFERENCE sources for a course and trigger
+
+**Auth**: OPERATOR · **Scope**: `courses:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| courseId | path | string | Yes | Playbook UUID |
+
+**Response** `202`
+```json
+{ ok, sources: [{ sourceId, subjectId, jobId }] }
+```
+
+**Response** `404`
+```json
+{ ok: false, error }
+```
+
+---
+
 ## Curricula
 
 ### `GET` /api/v1/curricula/:curriculumId/lesson-plan

@@ -705,7 +705,7 @@ function ActivityTab({ cohortId }: { cohortId: string }) {
         {activity.map((item) => (
           <Link
             key={item.id}
-            href={`/x/callers/${item.callerId}?tab=calls`}
+            href={`/x/callers/${item.callerId}?tab=journey`}
             className="hf-link-unstyled"
           >
             <div className="hf-activity-row">

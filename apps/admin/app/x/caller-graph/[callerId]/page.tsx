@@ -246,10 +246,10 @@ export default function CallerGraphPage() {
         router.push(`/x/domains?id=${id}`);
         break;
       case "call":
-        router.push(`/x/callers/${callerId}?tab=calls`);
+        router.push(`/x/callers/${callerId}?tab=journey`);
         break;
       case "goal":
-        router.push(`/x/callers/${callerId}?tab=goals`);
+        router.push(`/x/callers/${callerId}?tab=what`);
         break;
       case "param":
         router.push(`/x/dictionary?search=${encodeURIComponent(node.slug || node.label)}`);

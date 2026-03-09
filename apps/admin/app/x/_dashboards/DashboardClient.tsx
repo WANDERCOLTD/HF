@@ -497,7 +497,7 @@ function RecentActivitySection({
         {calls.map((call) => (
           <Link
             key={call.id}
-            href={call.callerId ? `/x/callers/${call.callerId}?tab=calls` : "#"}
+            href={call.callerId ? `/x/callers/${call.callerId}?tab=journey` : "#"}
             className="dash-activity-row"
           >
             <div className="dash-activity-left">

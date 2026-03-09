@@ -43,6 +43,7 @@ import {
   failTask,
 } from "@/lib/ai/task-guidance";
 import type { DocumentType, InteractionPattern, TeachingMode } from "@/lib/content-trust/resolve-config";
+import { syncGoalsFromReference } from "@/lib/goals/sync-goals-from-reference";
 
 /**
  * @api POST /api/content-sources/:sourceId/extract
@@ -440,6 +441,11 @@ async function runBackgroundExtraction(
     // Auto-structure into pedagogical pyramid (non-blocking)
     structureSourceIfEligible(sourceId).catch((err) =>
       console.error(`[extract] Auto-structure failed for source ${sourceId}:`, err)
+    );
+
+    // Sync assessment_approach → playbook config.goals (non-blocking)
+    syncGoalsFromReference(sourceId).catch((err) =>
+      console.error(`[extract] Goal sync failed for source ${sourceId}:`, err)
     );
   }
 

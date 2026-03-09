@@ -257,15 +257,33 @@ async function extractFromChunk(
     ? options.documentType.replace(/_/g, " ").toLowerCase()
     : "training";
 
+  const isCourseRef = options.documentType === "COURSE_REFERENCE";
+
   // For non-COURSE_REFERENCE documents, hint that tutor instructions may be present
-  const instructionHint = options.documentType !== "COURSE_REFERENCE"
+  const instructionHint = !isCourseRef
     ? `\nIf any content instructs the TUTOR (how to teach) rather than teaching the STUDENT, classify it using: ${INSTRUCTION_CATEGORIES.join(", ")}.`
     : "";
 
+  // For COURSE_REFERENCE, emphasise instruction extraction with category guidance
+  const courseRefHint = isCourseRef
+    ? [
+        `\nThis is a TEACHER GUIDE / COURSE REFERENCE document. Your primary job is to extract TUTOR INSTRUCTIONS — rules, techniques, session flow, scaffolding, assessment approaches, communication guidelines, and differentiation strategies.`,
+        `\nInstruction categories (PRIORITISE these): ${INSTRUCTION_CATEGORIES.join(", ")}`,
+        `Content categories (use ONLY for student-facing facts/definitions mixed in): fact, definition, threshold, rule, process, example`,
+        `\nBe thorough — extract EVERY distinct instruction, technique, and guideline. A single paragraph may contain multiple separate instructions. Do not summarise or merge — one assertion per distinct rule/technique.`,
+      ].join("\n")
+    : "";
+
+  const qualRef = options.qualificationRef ? `${options.qualificationRef} ` : "";
+  const openingLine = isCourseRef
+    ? `Extract all tutor instructions, teaching rules, and pedagogical techniques from this ${qualRef}teacher guide.`
+    : `Extract all teaching points from this ${qualRef}${docTypeLabel} material.`;
+
   const userPrompt = [
-    `Extract all teaching points from this ${options.qualificationRef ? `${options.qualificationRef} ` : ""}${docTypeLabel} material.`,
+    openingLine,
     `\nValid categories: ${extraction.categories.map((c) => c.id).join(", ")}`,
     instructionHint,
+    courseRefHint,
     options.focusChapters?.length
       ? `Focus on: ${options.focusChapters.join(", ")}`
       : "",
@@ -312,10 +330,12 @@ async function extractFromChunk(
 
       if (!Array.isArray(raw)) return [];
 
-      return raw.map((item: any) => {
+      return raw
+        .filter((item: any) => item.assertion && String(item.assertion).trim())
+        .map((item: any) => {
         const category = validCategoryIds.has(item.category) ? item.category : "fact";
         return {
-          assertion: String(item.assertion || ""),
+          assertion: String(item.assertion).trim(),
           category,
           chapter: item.chapter || undefined,
           section: item.section || undefined,
@@ -439,16 +459,16 @@ export async function extractAssertions(
     warnings.push(`Removed ${allAssertions.length - deduplicated.length} duplicate assertions`);
   }
 
-  // Warn if a COURSE_REFERENCE doc contains student-facing content that will be orphaned.
-  // These assertions pass extraction but fall through both composition loaders:
-  // curriculumAssertions excludes COURSE_REFERENCE sources, courseInstructions excludes content categories.
+  // Info: note if a COURSE_REFERENCE doc contains student-facing content.
+  // These now flow through to curriculum loaders (no longer orphaned),
+  // but we still surface the count as an informational note.
   if (options.documentType === "COURSE_REFERENCE") {
     const instructionCatSet = new Set<string>(INSTRUCTION_CATEGORIES);
     const contentAssertions = deduplicated.filter((a) => !instructionCatSet.has(a.category));
     if (contentAssertions.length > 0) {
       warnings.push(
-        `This teacher guide contains ${contentAssertions.length} student-facing teaching point${contentAssertions.length > 1 ? "s" : ""} (${[...new Set(contentAssertions.map((a) => a.category))].join(", ")}). ` +
-        `These won't reach students during calls — upload student content as a separate document (Textbook, Reading Passage, etc.).`
+        `This teacher guide also contains ${contentAssertions.length} student-facing teaching point${contentAssertions.length > 1 ? "s" : ""} (${[...new Set(contentAssertions.map((a) => a.category))].join(", ")}). ` +
+        `These will be included in curriculum content alongside any dedicated content sources.`
       );
     }
   }

@@ -4845,6 +4845,28 @@ Batch status for multiple content sources. Returns per-source
 
 ---
 
+### `POST` /api/courses/:courseId/re-extract-instructions
+
+Find all COURSE_REFERENCE sources for a course and trigger
+
+**Auth**: OPERATOR · **Scope**: `courses:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| courseId | path | string | Yes | Playbook UUID |
+
+**Response** `202`
+```json
+{ ok, sources: [{ sourceId, subjectId, jobId }] }
+```
+
+**Response** `404`
+```json
+{ ok: false, error }
+```
+
+---
+
 ## Course Pack
 
 ### `POST` /api/course-pack/analyze
@@ -4933,7 +4955,7 @@ Returns teaching point counts grouped by teachMethod for a course (playbook).
 
 ### `GET` /api/courses/:courseId/onboarding
 
-Get resolved onboarding flow for a course (course override > domain > INIT-001 fallback). Returns phase source ("course" | "domain" | "none") and available domain media for the editor picker.
+Get resolved onboarding flow for a course (course override > domain > system fallback). Returns phase source ("course" | "domain" | "fallback" | "none") and available domain media for the editor picker.
 
 **Auth**: Session
 
@@ -13102,8 +13124,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 387 |
-| Files with annotations | 386 |
+| Route files found | 388 |
+| Files with annotations | 387 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

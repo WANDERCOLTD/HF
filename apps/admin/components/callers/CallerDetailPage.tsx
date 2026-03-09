@@ -47,12 +47,15 @@ export default function CallerDetailPage() {
   // Get initial tab from URL param (e.g., ?tab=ai-call)
   // Backwards compat: map old tab IDs to new consolidated tabs
   const tabRedirects: Record<string, SectionId> = {
-    memories: "profile", traits: "profile", personality: "profile", slugs: "profile",
-    scores: "progress", "agent-behavior": "progress", learning: "progress", "exam-readiness": "progress",
-    transcripts: "calls", prompt: "calls",
+    // Old consolidated tab IDs → new WHAT/HOW/WHO IDs
+    calls: "journey", profile: "how", progress: "what",
+    // Legacy sub-section IDs → new tabs
+    memories: "how", traits: "how", personality: "how", slugs: "how",
+    scores: "what", "agent-behavior": "what", learning: "what", "exam-readiness": "what", goals: "what",
+    transcripts: "journey", prompt: "journey",
   };
   const rawTab = searchParams.get("tab");
-  const validTabs: SectionId[] = ["calls", "profile", "progress", "artifacts", "ai-call"];
+  const validTabs: SectionId[] = ["journey", "how", "what", "artifacts", "ai-call"];
   const mappedTab = rawTab ? (tabRedirects[rawTab] || rawTab) as SectionId : null;
   const initialTab = mappedTab && validTabs.includes(mappedTab) ? mappedTab : null;
 
@@ -502,16 +505,16 @@ export default function CallerDetailPage() {
     );
   }
 
-  // Sections organized into logical groups:
-  // Consolidated tabs: Calls | Profile | Assess | Artifacts | Call (action)
+  // Sections organized to mirror Course WHAT | HOW | WHO from learner's perspective:
+  // Journey (call history) | How (profile/traits) | What (scores/goals) | Artifacts | Call
   // Tabs affected by pipeline processing (will show pulsing indicator)
-  const processingTabs = new Set<SectionId>(["calls", "profile", "progress", "artifacts"]);
+  const processingTabs = new Set<SectionId>(["journey", "how", "what", "artifacts"]);
 
   const sections: { id: SectionId; label: string; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
-    { id: "calls", label: "Calls", icon: <Smartphone size={13} />, count: data.counts.calls, group: "history" },
-    { id: "profile", label: "Profile", icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
-    { id: "progress", label: "Assess", icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
-    { id: "artifacts", label: "Artifacts & Actions", icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
+    { id: "journey", label: "Journey", icon: <Smartphone size={13} />, count: data.counts.calls, group: "history" },
+    { id: "how", label: "How", icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
+    { id: "what", label: "What", icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
+    { id: "artifacts", label: "Artifacts", icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
     { id: "ai-call", label: "Call", icon: <PlayCircle size={13} />, special: true, group: "action" },
   ];
 
@@ -872,12 +875,12 @@ export default function CallerDetailPage() {
             paramConfig={paramConfig}
             onNavigateToCall={(callId) => {
               setActiveLens("explore");
-              setActiveSection("calls");
+              setActiveSection("journey");
               setExpandedCall(callId);
             }}
             onNavigateToTab={(tab) => {
               setActiveLens("explore");
-              setActiveSection(tab as SectionId);
+              setActiveSection(tab);
             }}
             onStartSim={() => {
               setActiveLens("explore");
@@ -953,7 +956,7 @@ export default function CallerDetailPage() {
         </>
       )}
 
-      {activeSection === "calls" && (
+      {activeSection === "journey" && (
         <CallsSection
           calls={data.calls}
           expandedCall={expandedCall}
@@ -979,7 +982,7 @@ export default function CallerDetailPage() {
         />
       )}
 
-      {activeSection === "profile" && (
+      {activeSection === "how" && (
         <>
           {isProcessing && !data.counts.memories && !data.counts.observations && (
             <ProcessingNotice message="Memories and personality traits will appear here once analysis completes." />
@@ -1040,7 +1043,7 @@ export default function CallerDetailPage() {
         </>
       )}
 
-      {activeSection === "progress" && (
+      {activeSection === "what" && (
         <>
           {isProcessing && !data.scores?.length && !data.counts.measurements && (
             <ProcessingNotice message="Scores and behaviour data will appear here once analysis completes." />

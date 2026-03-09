@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Sparkles, MessageCircle, Ban, ChevronDown, ChevronRight,
-  Plus, Pencil, X as XIcon, Upload, ArrowRight,
+  Plus, Pencil, X as XIcon, Upload, ArrowRight, RefreshCw,
 } from 'lucide-react';
 import { PlanSummary, type PlanSession } from '@/app/x/courses/_components/PlanSummary';
 import { getLessonPlanModel } from '@/lib/lesson-plan/models';
@@ -87,8 +87,6 @@ type InstructionsData = {
   sourceCount: number;
 };
 
-const INITIAL_SHOW = 4;
-
 // ── Section Header ─────────────────────────────────────
 
 function SectionHeader({ title, icon: Icon, subtitle }: {
@@ -144,8 +142,8 @@ function InstructionCategory({
   onToggle: () => void;
 }) {
   const config = CATEGORY_LABELS[categoryKey] || { label: categoryKey, icon: '\u{1F4CB}' };
-  const visibleItems = expanded ? items : items.slice(0, INITIAL_SHOW);
-  const remaining = items.length - INITIAL_SHOW;
+  // Filter out blank assertions that may have been stored
+  const validItems = items.filter((item) => item.assertion?.trim());
 
   return (
     <div className="cd-instruction-card hf-card-compact hf-mb-sm">
@@ -156,27 +154,21 @@ function InstructionCategory({
       >
         <span className="cd-category-icon">{config.icon}</span>
         <span className="hf-text-sm hf-text-bold hf-flex-1">{config.label}</span>
-        <span className="hf-badge hf-badge-sm hf-badge-muted">{items.length}</span>
+        <span className="hf-badge hf-badge-sm hf-badge-muted">{validItems.length}</span>
         {expanded ? <ChevronDown size={14} className="hf-text-muted" /> : <ChevronRight size={14} className="hf-text-muted" />}
       </button>
 
-      <div className="hf-flex hf-flex-col hf-gap-xs hf-mt-sm">
-        {visibleItems.map((item) => (
-          <div key={item.id} className="cd-instruction-item">
-            <span className="cd-instruction-bullet" />
-            <span className="hf-text-sm">{item.assertion}</span>
-          </div>
-        ))}
-      </div>
-
-      {!expanded && remaining > 0 && (
-        <button
-          className="hf-btn hf-btn-xs hf-btn-ghost hf-mt-sm"
-          onClick={onToggle}
-          type="button"
-        >
-          +{remaining} more
-        </button>
+      {expanded && (
+        <div className="hf-flex hf-flex-col hf-gap-xs hf-mt-sm">
+          {validItems.length === 0 ? (
+            <span className="hf-text-sm hf-text-muted">No instructions extracted — try re-extracting the reference document.</span>
+          ) : validItems.map((item) => (
+            <div key={item.id} className="cd-instruction-item">
+              <span className="cd-instruction-bullet" />
+              <span className="hf-text-sm">{item.assertion}</span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -200,9 +192,11 @@ export function CourseHowTab({
   // ── State ────────────────────────────────────────────
   const [instructions, setInstructions] = useState<InstructionsData | null>(null);
   const [instructionsLoading, setInstructionsLoading] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(CATEGORY_ORDER));
   const [onboarding, setOnboarding] = useState<{ phases: OBPhase[]; personaName?: string; domainWelcome?: string } | null>(null);
   const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const [reExtracting, setReExtracting] = useState(false);
+  const [reExtractResult, setReExtractResult] = useState<{ triggered: number; total: number } | null>(null);
 
   // ── Constraint editing state ─────────────────────────
   const [editingConstraints, setEditingConstraints] = useState(false);
@@ -282,6 +276,48 @@ export function CourseHowTab({
       return next;
     });
   };
+
+  const handleReExtract = useCallback(async () => {
+    setReExtracting(true);
+    setReExtractResult(null);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/re-extract-instructions`, { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        setReExtractResult({ triggered: data.triggered, total: data.total });
+        // Re-fetch instructions after a delay to let extraction complete
+        if (data.triggered > 0) {
+          setTimeout(() => {
+            setInstructionsLoading(true);
+            fetch(`/api/courses/${courseId}/course-instructions`)
+              .then((r) => r.json())
+              .then((d) => {
+                if (d.ok) {
+                  setInstructions({
+                    categories: d.categories || {},
+                    totals: d.totals || {},
+                    grandTotal: d.grandTotal || 0,
+                    sourceCount: d.sourceCount || 0,
+                  });
+                }
+              })
+              .catch(() => {})
+              .finally(() => {
+                setInstructionsLoading(false);
+                setReExtracting(false);
+                setTimeout(() => setReExtractResult(null), 5000);
+              });
+          }, 8000); // Give extraction time to complete
+        } else {
+          setReExtracting(false);
+        }
+      } else {
+        setReExtracting(false);
+      }
+    } catch {
+      setReExtracting(false);
+    }
+  }, [courseId]);
 
   const sessionFlowItems = instructions?.categories?.session_flow || [];
   const planModel = sessionPlan?.model ? getLessonPlanModel(sessionPlan.model) : null;
@@ -379,7 +415,7 @@ export function CourseHowTab({
               return (
                 <div key={sub.id} className="hf-mb-sm">
                   <div className="hf-flex hf-gap-sm hf-items-center hf-text-sm">
-                    <strong>{sub.name}</strong>
+                    <Link href={`/x/courses/${courseId}/subjects/${sub.id}`} className="hf-link"><strong>{sub.name}</strong></Link>
                     <span className="hf-badge hf-badge-sm hf-badge-accent">{profile.key}</span>
                   </div>
                   <p className="hf-text-xs hf-text-muted hf-mt-xs hf-mb-0">
@@ -451,10 +487,27 @@ export function CourseHowTab({
           </div>
         ) : instructions && instructions.grandTotal > 0 ? (
           <>
-            {/* Summary line */}
-            <div className="cd-instruction-summary hf-text-xs hf-text-muted hf-mb-sm">
-              {instructions.grandTotal} teaching instruction{instructions.grandTotal !== 1 ? 's' : ''}
-              {' '}&middot; {instructions.sourceCount} reference doc{instructions.sourceCount !== 1 ? 's' : ''}
+            {/* Summary line + re-extract button */}
+            <div className="cd-instruction-summary hf-flex hf-flex-between hf-items-center hf-mb-sm">
+              <span className="hf-text-xs hf-text-muted">
+                {instructions.grandTotal} teaching instruction{instructions.grandTotal !== 1 ? 's' : ''}
+                {' '}&middot; {instructions.sourceCount} reference doc{instructions.sourceCount !== 1 ? 's' : ''}
+                {reExtractResult && (
+                  <span className="hf-text-success"> &mdash; Re-extracted {reExtractResult.triggered} source{reExtractResult.triggered !== 1 ? 's' : ''}</span>
+                )}
+              </span>
+              {isOperator && (
+                <button
+                  className="hf-btn hf-btn-xs hf-btn-ghost"
+                  onClick={handleReExtract}
+                  disabled={reExtracting}
+                  title="Re-extract teaching instructions from all reference docs"
+                  type="button"
+                >
+                  <RefreshCw size={12} className={reExtracting ? 'hf-spin' : ''} />
+                  {reExtracting ? 'Re-extracting...' : 'Re-extract'}
+                </button>
+              )}
             </div>
 
             {/* Category cards — skip session_flow (rendered above as pipeline) */}

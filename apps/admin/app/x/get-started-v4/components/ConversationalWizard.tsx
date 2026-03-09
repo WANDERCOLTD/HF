@@ -388,6 +388,7 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
   const [sourcesGlow, setSourcesGlow] = useState(false);
   const [pageDragOver, setPageDragOver] = useState(false);
   const dragCounterRef = useRef(0);
+  const dropCooldownRef = useRef(false);
   // Pending upload notification — queued when upload completes while AI is loading
   const pendingUploadRef = useRef<{ text: string; overrides: Record<string, unknown> } | null>(null);
   const inputHistoryRef = useRef<string[]>([]);
@@ -855,13 +856,14 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
 
   const handlePageDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    if (dropCooldownRef.current) return;
     dragCounterRef.current++;
     if (dragCounterRef.current === 1) setPageDragOver(true);
   }, []);
 
   const handlePageDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    dragCounterRef.current--;
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
     if (dragCounterRef.current === 0) setPageDragOver(false);
   }, []);
 
@@ -873,6 +875,9 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
     e.preventDefault();
     dragCounterRef.current = 0;
     setPageDragOver(false);
+    // Brief cooldown — browsers (especially Safari) fire stray dragenter after drop
+    dropCooldownRef.current = true;
+    setTimeout(() => { dropCooldownRef.current = false; }, 200);
     if (e.dataTransfer.files.length > 0) {
       sourcesPanelRef.current?.addFiles(e.dataTransfer.files);
       // Peek + glow to show where the files went

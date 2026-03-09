@@ -2,7 +2,7 @@
  * Document Type Icons & Labels
  *
  * Single source of truth for DocumentType enum metadata.
- * Maps all 11 DB enum values to Lucide icons, emoji, labels, descriptions,
+ * Maps all 12 DB enum values to Lucide icons, emoji, labels, descriptions,
  * role groupings, and role colours.
  *
  * Used by: DocTypeBadge, PackUploadStep, Teach wizard, content sources.
@@ -21,6 +21,7 @@ import {
   LayoutList,
   Scale,
   HelpCircle,
+  Compass,
 } from "lucide-react";
 
 export type DocTypeRole = 'passage' | 'questions' | 'pedagogy' | 'reference';
@@ -105,6 +106,14 @@ export const DOC_TYPE_INFO: Record<string, DocTypeInfo> = {
     color: '#7c3aed',
     bg: 'color-mix(in srgb, #7c3aed 12%, transparent)',
   },
+  COURSE_REFERENCE: {
+    icon: Compass,      emojiIcon: '🧭',
+    label: "Course Guide",
+    description: "Teaching methodology — skills framework, session flow, scaffolding rules. Not shown to students.",
+    role: 'pedagogy',
+    color: '#7c3aed',
+    bg: 'color-mix(in srgb, #7c3aed 12%, transparent)',
+  },
 
   // ── REFERENCE (reference) ──────────────────────────────────────────────
   REFERENCE: {
@@ -162,6 +171,6 @@ export const DOC_TYPE_GROUPS: Array<{
 }> = [
   { role: 'passage',   label: 'READING MATERIAL', types: ['READING_PASSAGE', 'TEXTBOOK', 'COMPREHENSION'] },
   { role: 'questions', label: 'ASSESSMENTS',       types: ['ASSESSMENT', 'WORKSHEET', 'QUESTION_BANK'] },
-  { role: 'pedagogy',  label: 'TEACHING',          types: ['LESSON_PLAN', 'POLICY_DOCUMENT'] },
+  { role: 'pedagogy',  label: 'TEACHING',          types: ['LESSON_PLAN', 'POLICY_DOCUMENT', 'COURSE_REFERENCE'] },
   { role: 'reference', label: 'REFERENCE',         types: ['REFERENCE', 'CURRICULUM', 'EXAMPLE'] },
 ];

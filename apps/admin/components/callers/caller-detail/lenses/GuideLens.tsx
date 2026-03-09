@@ -1,7 +1,7 @@
 "use client";
 
 import type { CallerInsights } from "../hooks/useCallerInsights";
-import type { CallerData, ParamConfig } from "../types";
+import type { CallerData, ParamConfig, SectionId } from "../types";
 import { AtAGlanceCard } from "../cards/AtAGlanceCard";
 import { ProgressStackCard } from "../cards/ProgressStackCard";
 import { FocusCard } from "../cards/FocusCard";
@@ -14,7 +14,7 @@ type GuideLensProps = {
   insights: CallerInsights;
   paramConfig: ParamConfig;
   onNavigateToCall?: (callId: string) => void;
-  onNavigateToTab?: (tab: string) => void;
+  onNavigateToTab?: (tab: SectionId) => void;
   onStartSim?: () => void;
 };
 
@@ -64,7 +64,7 @@ export function GuideLens({
       <RecentCallsCard
         calls={data.calls}
         onCallClick={onNavigateToCall}
-        onViewAll={() => onNavigateToTab?.("calls")}
+        onViewAll={() => onNavigateToTab?.("journey")}
       />
 
       {/* Achievements */}
@@ -76,7 +76,7 @@ export function GuideLens({
           <button className="hf-btn hf-btn-primary" onClick={onStartSim}>
             📞 Start Lesson
           </button>
-          <button className="hf-btn hf-btn-secondary" onClick={() => onNavigateToTab?.("progress")}>
+          <button className="hf-btn hf-btn-secondary" onClick={() => onNavigateToTab?.("what")}>
             📋 View Details
           </button>
         </div>

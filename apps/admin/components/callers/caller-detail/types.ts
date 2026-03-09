@@ -197,7 +197,7 @@ export type CallerData = {
   };
 };
 
-export type SectionId = "calls" | "profile" | "progress" | "artifacts" | "ai-call";
+export type SectionId = "journey" | "how" | "what" | "artifacts" | "ai-call";
 
 export type ComposedPrompt = {
   id: string;

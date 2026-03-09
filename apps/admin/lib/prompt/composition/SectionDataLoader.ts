@@ -663,9 +663,11 @@ registerLoader("curriculumAssertions", async (_callerId, loaderConfig) => {
   if (!scope) return [];
 
   // Build ordered source list respecting teacher-set sortOrder
+  // Note: COURSE_REFERENCE sources are included — their instruction-category
+  // assertions are excluded by the notIn filter below, but any student-facing
+  // content (facts, definitions, questions) from mixed docs flows through.
   const orderedSources = scope.subjects
     .flatMap((s) => s.sources)
-    .filter((ss) => ss.documentType !== "COURSE_REFERENCE")
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   const sourceIds = [...new Set(orderedSources.map((ss) => ss.sourceId))];
@@ -769,9 +771,7 @@ registerLoader("curriculumQuestions", async (_callerId, loaderConfig) => {
   if (!scope) return [];
 
   const sourceIds = scope.subjects.flatMap((s) =>
-    s.sources
-      .filter((ss) => ss.documentType !== "COURSE_REFERENCE")
-      .map((ss) => ss.sourceId)
+    s.sources.map((ss) => ss.sourceId)
   );
   if (sourceIds.length === 0) return [];
 
@@ -801,9 +801,7 @@ registerLoader("curriculumVocabulary", async (_callerId, loaderConfig) => {
   if (!scope) return [];
 
   const sourceIds = scope.subjects.flatMap((s) =>
-    s.sources
-      .filter((ss) => ss.documentType !== "COURSE_REFERENCE")
-      .map((ss) => ss.sourceId)
+    s.sources.map((ss) => ss.sourceId)
   );
   if (sourceIds.length === 0) return [];
 

@@ -45,6 +45,9 @@ export async function GET(
                   select: {
                     id: true,
                     name: true,
+                    documentType: true,
+                    linkedSourceId: true,
+                    linkedSource: { select: { id: true, name: true } },
                     _count: { select: { assertions: true } },
                   },
                 },
@@ -72,6 +75,14 @@ export async function GET(
           (sum, ss) => sum + (ss.source._count?.assertions || 0),
           0
         ),
+        sources: s.sources.map((ss) => ({
+          id: ss.source.id,
+          name: ss.source.name,
+          documentType: ss.source.documentType,
+          assertionCount: ss.source._count?.assertions || 0,
+          linkedSourceId: ss.source.linkedSourceId,
+          linkedSourceName: ss.source.linkedSource?.name || null,
+        })),
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
       }));

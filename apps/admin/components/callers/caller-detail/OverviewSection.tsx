@@ -18,14 +18,14 @@ export function OverviewSection({
       <div style={{ background: "var(--surface-primary)", border: "1px solid var(--border-default)", borderRadius: 12, padding: 20 }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 16 }}>Quick Stats</h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <StatCard label="Total Calls" value={data.counts.calls} icon="📞" onClick={() => onNavigate("calls")} />
-          <StatCard label="Memories" value={data.counts.memories} icon="💭" onClick={() => onNavigate("profile")} />
-          <StatCard label="Observations" value={data.counts.observations} icon="👁️" onClick={() => onNavigate("profile")} />
+          <StatCard label="Total Calls" value={data.counts.calls} icon="📞" onClick={() => onNavigate("journey")} />
+          <StatCard label="Memories" value={data.counts.memories} icon="💭" onClick={() => onNavigate("how")} />
+          <StatCard label="Observations" value={data.counts.observations} icon="👁️" onClick={() => onNavigate("how")} />
           <StatCard
             label="Parameters"
             value={data.personality?.parameterValues ? Object.keys(data.personality.parameterValues).length : 0}
             icon="📊"
-            onClick={() => onNavigate("profile")}
+            onClick={() => onNavigate("how")}
           />
         </div>
       </div>
@@ -34,7 +34,7 @@ export function OverviewSection({
       {data.personality && data.personality.parameterValues && paramConfig && (
         <div
           style={{ background: "var(--surface-primary)", border: "1px solid var(--border-default)", borderRadius: 12, padding: 20, cursor: "pointer" }}
-          onClick={() => onNavigate("profile")}
+          onClick={() => onNavigate("how")}
         >
           <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 16 }}>Personality Profile</h3>
 
@@ -83,7 +83,7 @@ export function OverviewSection({
       {data.memorySummary && data.memorySummary.keyFacts.length > 0 && (
         <div
           style={{ background: "var(--surface-primary)", border: "1px solid var(--border-default)", borderRadius: 12, padding: 20, cursor: "pointer" }}
-          onClick={() => onNavigate("profile")}
+          onClick={() => onNavigate("how")}
         >
           <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 16 }}>Key Facts</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -101,7 +101,7 @@ export function OverviewSection({
       {data.memorySummary && Object.keys(data.memorySummary.preferences).length > 0 && (
         <div
           style={{ background: "var(--surface-primary)", border: "1px solid var(--border-default)", borderRadius: 12, padding: 20, cursor: "pointer" }}
-          onClick={() => onNavigate("profile")}
+          onClick={() => onNavigate("how")}
         >
           <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 16 }}>Preferences</h3>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -126,7 +126,7 @@ export function OverviewSection({
       {/* Recent Calls */}
       <div
         style={{ background: "var(--surface-primary)", border: "1px solid var(--border-default)", borderRadius: 12, padding: 20, cursor: "pointer" }}
-        onClick={() => onNavigate("calls")}
+        onClick={() => onNavigate("journey")}
       >
         <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 16 }}>Recent Calls</h3>
         {data.calls.length === 0 ? (

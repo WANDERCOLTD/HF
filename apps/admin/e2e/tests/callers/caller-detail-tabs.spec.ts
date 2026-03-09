@@ -2,7 +2,7 @@ import { test, expect } from '../../fixtures';
 
 /**
  * Caller Detail Tabs E2E Tests
- * Tests the consolidated 4-tab layout (Calls, Profile, Assess, Artifacts)
+ * Tests the WHAT | HOW | WHO tab layout (Journey, How, What, Artifacts)
  * and SectionSelector toggle chips
  */
 test.describe('Caller Detail Tab Structure', () => {
@@ -27,33 +27,28 @@ test.describe('Caller Detail Tab Structure', () => {
     const navigated = await navigateToCallerDetail(page);
     if (!navigated) return;
 
-    // Should show tabs: Calls, Profile, Assess, Artifacts (or AI Call)
+    // Should show tabs: Journey, How, What, Artifacts (or Call)
     const tabContainer = page.locator('[role="tablist"], [class*="tab"]').first();
 
     // Check for the expected tab names
-    const callsTab = page.getByText(/^Calls$/i);
-    const profileTab = page.getByText(/^Profile$/i);
-    const assessTab = page.getByText(/^Assess$/i);
+    const journeyTab = page.getByText(/^Journey$/i);
+    const howTab = page.getByText(/^How$/i);
+    const whatTab = page.getByText(/^What$/i);
 
     // At least the core tabs should be present
-    if (await callsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await expect(callsTab).toBeVisible();
+    if (await journeyTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await expect(journeyTab).toBeVisible();
     }
   });
 
-  test('should show Assess tab (renamed from Progress)', async ({ page }) => {
+  test('should show What tab (learner progress)', async ({ page }) => {
     const navigated = await navigateToCallerDetail(page);
     if (!navigated) return;
 
-    // Verify "Assess" tab exists (not "Progress")
-    const assessTab = page.getByText(/^Assess$/i).first();
-    if (await assessTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await expect(assessTab).toBeVisible();
-
-      // "Progress" should NOT be a tab name
-      const progressTab = page.locator('[role="tab"]:has-text("Progress")');
-      const progressCount = await progressTab.count();
-      // If Assess is visible, Progress should not be a separate tab
+    // Verify "What" tab exists (mirrors Course WHAT | HOW | WHO from learner perspective)
+    const whatTab = page.getByText(/^What$/i).first();
+    if (await whatTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await expect(whatTab).toBeVisible();
     }
   });
 
@@ -82,14 +77,14 @@ test.describe('Caller Detail Tab Structure', () => {
     }
   });
 
-  test('should show Assess tab with Gauge icon', async ({ page }) => {
+  test('should show What tab with Gauge icon', async ({ page }) => {
     const navigated = await navigateToCallerDetail(page);
     if (!navigated) return;
 
-    // Click Assess tab
-    const assessTab = page.getByText(/^Assess$/i).first();
-    if (await assessTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await assessTab.click();
+    // Click What tab
+    const whatTab = page.getByText(/^What$/i).first();
+    if (await whatTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await whatTab.click();
       await page.waitForTimeout(500);
 
       // Should show measurement data or empty state
@@ -117,12 +112,12 @@ test.describe('SectionSelector Toggle Chips', () => {
     return false;
   }
 
-  test('should display section toggle chips on profile tab', async ({ page }) => {
+  test('should display section toggle chips on How tab', async ({ page }) => {
     const navigated = await navigateToCallerDetail(page);
     if (!navigated) return;
 
-    // Click Profile tab
-    const profileTab = page.getByText(/^Profile$/i).first();
+    // Click How tab
+    const profileTab = page.getByText(/^How$/i).first();
     if (await profileTab.isVisible({ timeout: 3000 }).catch(() => false)) {
       await profileTab.click();
       await page.waitForTimeout(500);
@@ -139,9 +134,9 @@ test.describe('SectionSelector Toggle Chips', () => {
     const navigated = await navigateToCallerDetail(page);
     if (!navigated) return;
 
-    const profileTab = page.getByText(/^Profile$/i).first();
-    if (await profileTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await profileTab.click();
+    const howTab = page.getByText(/^How$/i).first();
+    if (await howTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await howTab.click();
       await page.waitForTimeout(500);
 
       // Find a toggle chip and click it
@@ -174,8 +169,8 @@ test.describe('Call-Level Tabs', () => {
     await callerLink.click();
     await page.waitForLoadState('domcontentloaded');
 
-    // Click Calls tab first
-    const callsTab = page.getByText(/^Calls$/i).first();
+    // Click Journey tab first
+    const callsTab = page.getByText(/^Journey$/i).first();
     if (await callsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
       await callsTab.click();
       await page.waitForTimeout(500);

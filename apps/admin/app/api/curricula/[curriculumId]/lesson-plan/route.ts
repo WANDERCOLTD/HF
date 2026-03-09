@@ -425,7 +425,7 @@ export async function POST(
     let durationMins: number | null = body.durationMins || null;
     if ((!totalSessionTarget || !durationMins) && curriculum.subjectId) {
       const playbookSubject = await prisma.playbookSubject.findFirst({
-        where: { subject: { curriculums: { some: { id: curriculumId } } } },
+        where: { subject: { curricula: { some: { id: curriculumId } } } },
         select: { playbook: { select: { config: true } } },
       });
       const config = (playbookSubject?.playbook?.config as Record<string, any>) || {};

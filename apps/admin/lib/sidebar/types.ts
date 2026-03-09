@@ -19,6 +19,8 @@ export type NavItem = {
   tag?: string;
   /** If true, shows a sparkles indicator — item leads into a wizard/guided flow */
   wizard?: boolean;
+  /** Keyboard shortcut hint shown on hover (e.g. "⌘G") */
+  shortcutHint?: string;
 };
 
 export type NavSection = {
