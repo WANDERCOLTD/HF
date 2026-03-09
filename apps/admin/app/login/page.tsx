@@ -155,9 +155,9 @@ export default function LoginPage() {
       {/* Demo Accounts Panel — non-prod only */}
       {isNonProd && (
         <DemoAccountsPanel
-          onLogin={(demoEmail) => {
+          onLogin={(demoEmail, demoPassword) => {
             setEmail(demoEmail);
-            setPassword("hff2026");
+            setPassword(demoPassword);
           }}
         />
       )}
@@ -168,12 +168,12 @@ export default function LoginPage() {
 // ── Demo Accounts Panel ─────────────────────────────────
 
 const DEMO_ACCOUNTS = [
-  { email: "school@hff.com", label: "School", role: "Educator" },
-  { email: "corporate@hff.com", label: "Corporate", role: "Educator" },
-  { email: "training@hff.com", label: "Training", role: "Educator" },
+  { email: "teach@abacus.com", label: "School", role: "Educator", password: "hff" },
+  { email: "corporate@hff.com", label: "Corporate", role: "Educator", password: "hff2026" },
+  { email: "training@hff.com", label: "Training", role: "Educator", password: "hff2026" },
 ];
 
-function DemoAccountsPanel({ onLogin }: { onLogin: (email: string) => void }) {
+function DemoAccountsPanel({ onLogin }: { onLogin: (email: string, password: string) => void }) {
   const { copiedKey: copied, copy: copyToClipboard } = useCopyToClipboard(1500);
 
   return (
@@ -224,7 +224,7 @@ function DemoAccountsPanel({ onLogin }: { onLogin: (email: string) => void }) {
               </button>
               <button
                 type="button"
-                onClick={() => onLogin(account.email)}
+                onClick={() => onLogin(account.email, account.password)}
                 title="Quick login"
                 className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors"
                 style={{

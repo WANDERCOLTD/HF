@@ -243,3 +243,126 @@
   border: 1px solid var(--border-default);
   border-radius: 8px;
 }
+.cov-teaching-focus-textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+/* ── Course How Tab ── cd-instruction / cd-flow prefix ── */
+
+/* Instruction summary line */
+.cd-instruction-summary {
+  padding: 0 2px;
+}
+
+/* Instruction category card */
+.cd-instruction-card {
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  transition: border-color 0.15s;
+}
+.cd-instruction-card:hover {
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--border-default));
+}
+
+/* Clickable category header */
+.cd-category-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+.cd-category-header:hover {
+  opacity: 0.85;
+}
+.cd-category-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* Individual instruction item */
+.cd-instruction-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 3px 0;
+}
+.cd-instruction-bullet {
+  width: 5px;
+  height: 5px;
+  min-width: 5px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  margin-top: 7px;
+  flex-shrink: 0;
+}
+
+/* Session flow pipeline */
+.cd-flow-pipeline {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex-wrap: wrap;
+}
+.cd-flow-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  position: relative;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  flex: 1;
+  min-width: 120px;
+}
+.cd-flow-step:first-child {
+  border-radius: 8px 0 0 8px;
+}
+.cd-flow-step:last-child {
+  border-radius: 0 8px 8px 0;
+}
+.cd-flow-step:only-child {
+  border-radius: 8px;
+}
+.cd-flow-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  width: 12px;
+  height: 12px;
+  background: var(--surface-secondary);
+  border-right: 1px solid var(--border-default);
+  border-top: 1px solid var(--border-default);
+  z-index: 1;
+}
+.cd-flow-step + .cd-flow-step {
+  padding-left: 20px;
+}
+.cd-flow-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  color: var(--text-on-accent, white);
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.cd-flow-step-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.3;
+}

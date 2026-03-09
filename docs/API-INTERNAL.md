@@ -304,6 +304,39 @@ Selective or full runtime data deletion. Optionally re-seeds metering data.
 
 ---
 
+### `POST` /api/admin/demo-reset-content
+
+Delete all ContentSources (and cascading assertions, questions, vocabulary)
+
+**Auth**: session (SUPERADMIN) · **Scope**: `admin:write`
+
+**Response** `200`
+```json
+{ ok: true, deleted: { sources: number, subjects_unlinked: number }, domainName: string }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "domainId is required" }
+```
+
+**Response** `403`
+```json
+{ ok: false, error: "SUPERADMIN required" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Domain not found" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: "..." }
+```
+
+---
+
 ### `POST` /api/admin/demo-reset-scoped
 
 Scoped demo reset for Aardvark Academy. Removes demo-created courses,
@@ -8599,6 +8632,14 @@ Toggle deep logging on/off
 
 ---
 
+### `GET` /api/courses/:courseId/course-instructions
+
+Returns COURSE_REFERENCE assertions grouped by instruction category.
+
+**Auth**: Session · **Scope**: `courses:read`
+
+---
+
 ### `GET` /api/courses/[courseId]/classrooms
 
 List all classrooms (cohort groups) assigned to a course (playbook).
@@ -13061,8 +13102,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 385 |
-| Files with annotations | 384 |
+| Route files found | 387 |
+| Files with annotations | 386 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

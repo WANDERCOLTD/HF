@@ -60,6 +60,8 @@ export interface IngestEvent {
     totalImages?: number;
     // Per-category breakdown (e.g. { fact: 12, definition: 8, rule: 3 })
     categoryCounts?: Record<string, number>;
+    // Dedup
+    reused?: boolean;
     // Error
     error?: string;
   };

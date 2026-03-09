@@ -5,19 +5,18 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   BookMarked, FileText, ExternalLink, Plus, Pencil, Trash2,
-  Sparkles, Compass, AlertTriangle,
-  Settings as SettingsIcon, ChevronRight, CheckCircle2,
-  School, GraduationCap, Users2, Image, Upload,
+  Sparkles, AlertTriangle,
+  Settings as SettingsIcon, Users2, Image,
   ListOrdered, Zap, RefreshCw, BookOpen,
   PlayCircle,
 } from 'lucide-react';
-import { StudentJourneyTab } from './StudentJourneyTab';
-import { CourseOverviewTab } from './CourseOverviewTab';
+import { CourseWhatTab } from './CourseWhatTab';
+import { CourseHowTab } from './CourseHowTab';
+import { CourseWhoTab } from './CourseWhoTab';
 import { useSession } from 'next-auth/react';
 import { useEntityContext } from '@/contexts/EntityContext';
 import { EditableTitle } from '@/components/shared/EditableTitle';
 import { StatusBadge, DomainPill } from '@/src/components/shared/EntityPill';
-import { TrustBadge } from '@/app/x/content-sources/_components/shared/badges';
 import { DraggableTabs, type TabDefinition } from '@/components/shared/DraggableTabs';
 import { SessionTPList, UnassignedTPList, type TPItem, type SessionOption } from '@/components/shared/SessionTPList';
 import {
@@ -27,7 +26,6 @@ import {
   type SpecDetail,
   type SpecGroup,
 } from '@/lib/course/group-specs';
-import { TEACH_METHOD_CONFIG } from '@/lib/content-trust/resolve-config';
 import { SESSION_TYPES, SESSION_TYPE_ICONS, getSessionTypeColor, getSessionTypeLabel } from '@/lib/lesson-plan/session-ui';
 import { getLessonPlanModel } from '@/lib/lesson-plan/models';
 import { PlanSummary, type PlanSession } from '@/app/x/courses/_components/PlanSummary';
@@ -70,64 +68,6 @@ type MethodBreakdown = {
   reviewed: number;
 };
 
-type BreakdownBySubject = {
-  subjectId: string;
-  subjectName: string;
-  methods: Array<{ teachMethod: string; count: number }>;
-};
-
-type DrillItem = {
-  id: string;
-  assertion: string;
-  category: string;
-  teachMethod: string;
-  chapter: string | null;
-  section: string | null;
-  reviewed: boolean;
-  sourceName: string | null;
-  subjectName: string | null;
-};
-
-type DrillState = {
-  items: DrillItem[];
-  total: number;
-  loading: boolean;
-  error: string | null;
-};
-
-type ClassroomItem = {
-  id: string;
-  name: string;
-  memberCount: number;
-  maxMembers: number | null;
-  fillRate: number;
-  institutionName: string | null;
-  institutionId: string | null;
-};
-
-type StudentItem = {
-  id: string;
-  name: string | null;
-  email: string;
-  lastCallAt: string | null;
-  callCount: number;
-  joinedAt: string;
-};
-
-type MediaItem = {
-  id: string;
-  fileName: string;
-  title: string | null;
-  fileSize: number;
-  mimeType: string;
-  trustLevel: string;
-  captionText: string | null;
-  figureRef: string | null;
-  pageNumber: number | null;
-  extractedFrom: string | null;
-  sourceName: string | null;
-  subjectName: string | null;
-};
 
 // ── Sessions Tab Types ────────────────────────────────
 
@@ -225,24 +165,10 @@ export default function CourseDetailPage() {
 
   // Content breakdown
   const [contentMethods, setContentMethods] = useState<MethodBreakdown[]>([]);
-  const [contentBySubject, setContentBySubject] = useState<BreakdownBySubject[]>([]);
   const [contentTotal, setContentTotal] = useState(0);
-  const [contentReviewed, setContentReviewed] = useState(0);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<string>('overview');
-
-  // Lazy tab data
-  const [classrooms, setClassrooms] = useState<ClassroomItem[] | null>(null);
-  const [classroomsLoading, setClassroomsLoading] = useState(false);
-  const [students, setStudents] = useState<StudentItem[] | null>(null);
-  const [studentsLoading, setStudentsLoading] = useState(false);
-
-  // Media tab
-  const [mediaAssets, setMediaAssets] = useState<MediaItem[] | null>(null);
-  const [mediaTotal, setMediaTotal] = useState(0);
-  const [mediaLoading, setMediaLoading] = useState(false);
-  const [mediaTypeFilter, setMediaTypeFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState<string>('what');
 
   // Sessions tab
   const [sessions, setSessions] = useState<SessionTabData | null>(null);
@@ -266,10 +192,6 @@ export default function CourseDetailPage() {
   const [unassignedSearch, setUnassignedSearch] = useState('');
   const [dragMediaId, setDragMediaId] = useState<string | null>(null);
 
-  // Content tab drill-down
-  const [expandedMethod, setExpandedMethod] = useState<string | null>(null);
-  const [drillStates, setDrillStates] = useState<Record<string, DrillState>>({});
-
   // Settings actions
   const [publishing, setPublishing] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -290,9 +212,8 @@ export default function CourseDetailPage() {
       fetch(`/api/playbooks/${courseId}`).then((r) => r.json()),
       fetch(`/api/courses/${courseId}/subjects`).then((r) => r.json()),
       fetch(`/api/courses/${courseId}/content-breakdown?bySubject=true`).then((r) => r.json()),
-      fetch(`/api/courses/${courseId}/media?limit=0`).then((r) => r.json()).catch(() => ({ ok: false })),
     ])
-      .then(([pbData, subData, breakdownData, mediaData]) => {
+      .then(([pbData, subData, breakdownData]) => {
         if (pbData.ok) {
           setDetail(pbData.playbook);
           pushEntity({
@@ -309,12 +230,7 @@ export default function CourseDetailPage() {
         }
         if (breakdownData.ok) {
           setContentMethods(breakdownData.methods || []);
-          setContentBySubject(breakdownData.bySubject || []);
           setContentTotal(breakdownData.total || 0);
-          setContentReviewed(breakdownData.reviewedCount || 0);
-        }
-        if (mediaData?.ok) {
-          setMediaTotal(mediaData.total || 0);
         }
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
@@ -349,57 +265,16 @@ export default function CourseDetailPage() {
   }, [sessions]);
 
   const tabs: TabDefinition[] = useMemo(() => [
-    { id: 'overview', label: 'Overview', icon: <Sparkles size={14} /> },
-    { id: 'content', label: 'Content', icon: <BookMarked size={14} />, count: contentTotal || null },
+    { id: 'what', label: 'What', icon: <BookMarked size={14} />, count: contentTotal || null },
+    { id: 'how', label: 'How', icon: <Sparkles size={14} /> },
+    { id: 'who', label: 'Who', icon: <Users2 size={14} /> },
     { id: 'lessons', label: 'Lesson Plan', icon: <ListOrdered size={14} />, count: sessions?.plan?.estimatedSessions || null },
-    { id: 'media', label: 'Media', icon: <Image size={14} />, count: mediaTotal || null },
-    { id: 'journey', label: 'Journey', icon: <Compass size={14} /> },
-    { id: 'classrooms', label: 'Classrooms', icon: <School size={14} /> },
-    { id: 'students', label: 'Students', icon: <GraduationCap size={14} /> },
     ...(isOperator ? [{ id: 'settings', label: 'Settings', icon: <SettingsIcon size={14} /> }] : []),
-  ], [contentTotal, mediaTotal, isOperator, sessions]);
+  ], [contentTotal, isOperator, sessions]);
 
-  // ── Media fetch helper (supports type filter) ────────
-  const fetchMedia = useCallback((typeFilter?: string) => {
-    if (!courseId) return;
-    setMediaLoading(true);
-    const qs = typeFilter && typeFilter !== 'all' ? `?type=${typeFilter}` : '';
-    fetch(`/api/courses/${courseId}/media${qs}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.ok) {
-          setMediaAssets(data.media || []);
-          setMediaTotal(data.total || 0);
-        } else {
-          setMediaAssets([]);
-        }
-      })
-      .catch(() => setMediaAssets([]))
-      .finally(() => setMediaLoading(false));
-  }, [courseId]);
-
-  // ── Tab change: lazy load classrooms / students / media ──
+  // ── Tab change: lazy load lesson plan data ──
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
-    if (tab === 'classrooms' && classrooms === null && !classroomsLoading) {
-      setClassroomsLoading(true);
-      fetch(`/api/courses/${courseId}/classrooms`)
-        .then((r) => r.json())
-        .then((data) => { if (data.ok) setClassrooms(data.classrooms || []); else setClassrooms([]); })
-        .catch(() => setClassrooms([]))
-        .finally(() => setClassroomsLoading(false));
-    }
-    if (tab === 'students' && students === null && !studentsLoading) {
-      setStudentsLoading(true);
-      fetch(`/api/courses/${courseId}/students`)
-        .then((r) => r.json())
-        .then((data) => { if (data.ok) setStudents(data.students || []); else setStudents([]); })
-        .catch(() => setStudents([]))
-        .finally(() => setStudentsLoading(false));
-    }
-    if (tab === 'media' && mediaAssets === null && !mediaLoading) {
-      fetchMedia();
-    }
     if (tab === 'lessons' && sessions === null && !sessionsLoading) {
       setSessionsLoading(true);
       setSessionsError(null);
@@ -441,101 +316,7 @@ export default function CourseDetailPage() {
         .catch((e) => setSessionsError(e instanceof Error ? e.message : 'Network error'))
         .finally(() => setSessionsLoading(false));
     }
-  }, [courseId, classrooms, classroomsLoading, students, studentsLoading, mediaAssets, mediaLoading, fetchMedia, sessions, sessionsLoading]);
-
-  // Re-fetch media when type filter changes
-  useEffect(() => {
-    if (activeTab === 'media') {
-      fetchMedia(mediaTypeFilter);
-    }
-  }, [mediaTypeFilter]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Drill-down: load assertions for a teachMethod ───
-  const loadDrillDown = useCallback(async (method: string) => {
-    if (!courseId) return;
-    if (drillStates[method]?.items?.length) return; // already loaded
-
-    setDrillStates(prev => ({
-      ...prev,
-      [method]: { items: [], total: 0, loading: true, error: null },
-    }));
-
-    try {
-      const res = await fetch(
-        `/api/courses/${courseId}/content-breakdown?teachMethod=${encodeURIComponent(method)}&limit=50`,
-      );
-      const data = await res.json();
-      if (data.ok) {
-        setDrillStates(prev => ({
-          ...prev,
-          [method]: { items: data.assertions || [], total: data.total || 0, loading: false, error: null },
-        }));
-      } else {
-        setDrillStates(prev => ({
-          ...prev,
-          [method]: { items: [], total: 0, loading: false, error: data.error || 'Failed to load' },
-        }));
-      }
-    } catch (e) {
-      setDrillStates(prev => ({
-        ...prev,
-        [method]: { items: [], total: 0, loading: false, error: e instanceof Error ? e.message : 'Network error' },
-      }));
-    }
-  }, [courseId, drillStates]);
-
-  const loadMoreDrill = useCallback(async (method: string) => {
-    if (!courseId) return;
-    const existing = drillStates[method];
-    if (!existing) return;
-
-    setDrillStates(prev => ({
-      ...prev,
-      [method]: { ...prev[method], loading: true },
-    }));
-
-    try {
-      const res = await fetch(
-        `/api/courses/${courseId}/content-breakdown?teachMethod=${encodeURIComponent(method)}&limit=50&offset=${existing.items.length}`,
-      );
-      const data = await res.json();
-      if (data.ok) {
-        setDrillStates(prev => {
-          const combined = [...prev[method].items, ...(data.assertions || [])];
-          const seen = new Set<string>();
-          const deduped = combined.filter(item => !seen.has(item.id) && !!seen.add(item.id));
-          return {
-            ...prev,
-            [method]: {
-              items: deduped,
-              total: data.total || prev[method].total,
-              loading: false,
-              error: null,
-            },
-          };
-        });
-      } else {
-        setDrillStates(prev => ({
-          ...prev,
-          [method]: { ...prev[method], loading: false, error: data.error || "Failed to load more" },
-        }));
-      }
-    } catch {
-      setDrillStates(prev => ({
-        ...prev,
-        [method]: { ...prev[method], loading: false },
-      }));
-    }
-  }, [courseId, drillStates]);
-
-  const handleToggleMethod = useCallback((method: string) => {
-    if (expandedMethod === method) {
-      setExpandedMethod(null);
-    } else {
-      setExpandedMethod(method);
-      loadDrillDown(method);
-    }
-  }, [expandedMethod, loadDrillDown]);
+  }, [courseId, sessions, sessionsLoading]);
 
   // ── Action Handlers ──────────────────────────────────
   const handlePublish = async () => {
@@ -1046,18 +827,16 @@ export default function CourseDetailPage() {
       />
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* OVERVIEW TAB                                   */}
+      {/* WHAT TAB                                       */}
       {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'overview' && (
-        <CourseOverviewTab
+      {activeTab === 'what' && (
+        <CourseWhatTab
           courseId={courseId!}
           detail={detail}
           subjects={subjects}
           contentMethods={contentMethods}
           contentTotal={contentTotal}
           isOperator={isOperator}
-          persona={persona}
-          specGroups={specGroups}
           sessionPlan={sessions?.plan ? {
             estimatedSessions: sessions.plan.estimatedSessions,
             totalDurationMins: totalSessionDuration,
@@ -1072,326 +851,46 @@ export default function CourseDetailPage() {
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* JOURNEY TAB                                    */}
+      {/* HOW TAB                                        */}
       {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'journey' && detail && (
-        <StudentJourneyTab
-          courseId={courseId}
-          domainId={detail.domain.id}
-          domainName={detail.domain.name}
+      {activeTab === 'how' && (
+        <CourseHowTab
+          courseId={courseId!}
+          detail={detail}
+          subjects={subjects}
           isOperator={isOperator}
+          persona={persona}
+          sessionPlan={sessions?.plan ? {
+            entries: sessions.plan.entries.map((e) => ({
+              session: e.session,
+              type: e.type,
+              label: e.label,
+            })),
+            estimatedSessions: sessions.plan.estimatedSessions,
+            totalDurationMins: totalSessionDuration,
+            model: sessions.plan.model,
+            generatedAt: sessions.plan.generatedAt,
+          } : null}
+          onTabChange={handleTabChange}
+          onDetailUpdate={setDetail}
         />
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* CONTENT TAB — drill-down by teachMethod        */}
+      {/* WHO TAB                                        */}
       {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'content' && (
-        <div className="hf-mt-lg">
-          {contentMethods.length === 0 ? (
-            <div className="hf-empty-compact">
-              <BookMarked size={36} className="hf-text-tertiary hf-mb-sm" />
-              <div className="hf-heading-sm hf-text-secondary hf-mb-sm">No teaching points yet</div>
-              <p className="hf-text-xs hf-text-muted hf-mb-md">
-                Teaching points will appear here once you upload content and run extraction.
-              </p>
-              {isOperator && subjects.length > 0 && (
-                <div className="hf-flex hf-gap-sm hf-flex-wrap">
-                  {subjects.map((sub) => (
-                    <Link
-                      key={sub.id}
-                      href={`/x/courses/${courseId}/subjects/${sub.id}`}
-                      className="hf-btn-sm hf-btn-primary"
-                    >
-                      <Upload size={13} />
-                      Upload to {sub.name}
-                    </Link>
-                  ))}
-                </div>
-              )}
-              {isOperator && subjects.length === 0 && (
-                <Link href={`/x/courses/new?domainId=${detail.domain.id}`} className="hf-btn hf-btn-primary">
-                  <Plus size={14} />
-                  Set Up Subjects First
-                </Link>
-              )}
-            </div>
-          ) : (
-            <>
-              <div className="hf-flex hf-flex-between hf-items-center hf-mb-md">
-                <div className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase">
-                  Teaching Points by Method
-                </div>
-                <div className="hf-text-xs hf-text-muted">
-                  {contentReviewed}/{contentTotal} reviewed
-                </div>
-              </div>
-
-              <div>
-                {contentMethods.filter(m => m.count > 0).map((m) => {
-                  const cfg = TEACH_METHOD_CONFIG[m.teachMethod as keyof typeof TEACH_METHOD_CONFIG];
-                  const icon = cfg?.icon || '?';
-                  const label = cfg?.label || m.teachMethod;
-                  const isExpanded = expandedMethod === m.teachMethod;
-                  const drill = drillStates[m.teachMethod];
-
-                  // Per-subject subtitle
-                  const subjectParts = contentBySubject
-                    .map(s => {
-                      const match = s.methods.find(sm => sm.teachMethod === m.teachMethod);
-                      return match ? `${s.subjectName}: ${match.count}` : null;
-                    })
-                    .filter(Boolean);
-
-                  const progressPct = m.count > 0 ? Math.round((m.reviewed / m.count) * 100) : 0;
-
-                  return (
-                    <div key={m.teachMethod} className="hf-method-group">
-                      <div
-                        className="hf-method-group-header"
-                        onClick={() => handleToggleMethod(m.teachMethod)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            handleToggleMethod(m.teachMethod);
-                          }
-                        }}
-                      >
-                        <span className="hf-method-group-icon">{icon}</span>
-                        <div className="hf-flex-1 hf-min-w-0">
-                          <div className="hf-method-group-label">{label}</div>
-                          {subjectParts.length > 1 && (
-                            <div className="hf-method-group-subtitle">
-                              {subjectParts.join('  ·  ')}
-                            </div>
-                          )}
-                        </div>
-                        <div className="hf-method-group-progress" title={`${m.reviewed}/${m.count} reviewed`}>
-                          <div
-                            className="hf-method-group-progress-fill"
-                            style={{ width: `${progressPct}%` }}
-                          />
-                        </div>
-                        <span className="hf-method-group-count">{m.count}</span>
-                        <ChevronRight
-                          size={14}
-                          className={`hf-context-banner-chevron ${isExpanded ? 'hf-context-banner-chevron-open' : ''}`}
-                        />
-                      </div>
-
-                      {/* Expanded drill-down items */}
-                      {isExpanded && (
-                        <div className="hf-method-group-items">
-                          {drill?.loading && !drill.items.length && (
-                            <div className="hf-method-group-item">
-                              <div className="hf-spinner hf-spinner-sm" />
-                              <span className="hf-text-xs hf-text-muted">Loading...</span>
-                            </div>
-                          )}
-
-                          {drill?.error && (
-                            <div className="hf-method-group-item">
-                              <span className="hf-text-xs hf-text-error">{drill.error}</span>
-                            </div>
-                          )}
-
-                          {drill?.items?.map((item) => (
-                            <div key={item.id} className="hf-method-group-item">
-                              {item.reviewed && (
-                                <CheckCircle2 size={13} className="hf-method-group-item-reviewed" />
-                              )}
-                              <span className="hf-method-group-item-text">{item.assertion}</span>
-                              <span className="hf-tag-pill hf-text-xs">{item.category}</span>
-                              {item.sourceName && (
-                                <span className="hf-method-group-item-meta">{item.sourceName}</span>
-                              )}
-                            </div>
-                          ))}
-
-                          {drill && !drill.loading && drill.items.length < drill.total && (
-                            <button
-                              className="hf-method-group-load-more"
-                              onClick={() => loadMoreDrill(m.teachMethod)}
-                              type="button"
-                            >
-                              Load more ({drill.total - drill.items.length} remaining)
-                            </button>
-                          )}
-
-                          {drill?.loading && drill.items.length > 0 && (
-                            <div className="hf-method-group-item">
-                              <div className="hf-spinner hf-spinner-sm" />
-                              <span className="hf-text-xs hf-text-muted">Loading more...</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Upload content CTA */}
-              {isOperator && subjects.length > 0 && (
-                <div className="hf-card-compact hf-mt-lg">
-                  <div className="hf-flex hf-gap-sm hf-items-center hf-mb-sm">
-                    <Upload size={15} className="hf-text-muted" />
-                    <span className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase">
-                      Upload more content
-                    </span>
-                  </div>
-                  <p className="hf-text-xs hf-text-muted hf-mb-sm">
-                    Add files to your subjects to generate more teaching points.
-                  </p>
-                  <div className="hf-flex hf-gap-sm hf-flex-wrap">
-                    {subjects.map((sub) => (
-                      <Link
-                        key={sub.id}
-                        href={`/x/courses/${courseId}/subjects/${sub.id}`}
-                        className="hf-btn-sm hf-btn-secondary"
-                      >
-                        <Upload size={13} />
-                        {sub.name}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+      {activeTab === 'who' && (
+        <CourseWhoTab
+          courseId={courseId!}
+          detail={detail}
+          isOperator={isOperator}
+          persona={persona}
+          specGroups={specGroups}
+          onDetailUpdate={setDetail}
+        />
       )}
 
-      {/* ═══════════════════════════════════════════════ */}
-      {/* CLASSROOMS TAB                                 */}
-      {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'classrooms' && (
-        <div className="hf-mt-lg">
-          {classroomsLoading ? (
-            <div className="hf-empty-compact">
-              <div className="hf-spinner" />
-            </div>
-          ) : classrooms === null ? null : classrooms.length === 0 ? (
-            <div className="hf-empty-compact">
-              <School size={36} className="hf-text-tertiary hf-mb-sm" />
-              <div className="hf-heading-sm hf-text-secondary hf-mb-sm">No classrooms yet</div>
-              <p className="hf-text-xs hf-text-muted hf-mb-md">
-                Classrooms using this course will appear here once cohorts are assigned.
-              </p>
-              {isOperator && (
-                <Link href="/x/educator/classrooms/new" className="hf-btn hf-btn-primary">
-                  <Plus size={14} />
-                  Create Classroom
-                </Link>
-              )}
-            </div>
-          ) : (
-            <>
-              <div className="hf-flex hf-flex-between hf-items-center hf-mb-md">
-                <span className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase">
-                  {classrooms.length} classroom{classrooms.length !== 1 ? 's' : ''}
-                </span>
-                {isOperator && (
-                  <Link href="/x/educator/classrooms/new" className="hf-btn-sm hf-btn-secondary">
-                    <Plus size={13} />
-                    Create Classroom
-                  </Link>
-                )}
-              </div>
-              <div className="hf-flex hf-flex-col hf-gap-xs">
-                {classrooms.map((cl) => {
-                  const fillPct = cl.maxMembers ? Math.min(100, Math.round((cl.memberCount / cl.maxMembers) * 100)) : 0;
-                  return (
-                    <Link key={cl.id} href={`/x/cohorts/${cl.id}`} className="hf-list-row hf-list-row-link">
-                      <div className="hf-icon-box hf-flex-shrink-0">
-                        <School size={16} className="hf-text-muted" />
-                      </div>
-                      <div className="hf-flex-1 hf-min-w-0">
-                        <div className="hf-text-sm hf-text-bold hf-text-ellipsis">{cl.name}</div>
-                        {cl.institutionName && (
-                          <div className="hf-text-xs hf-text-muted">{cl.institutionName}</div>
-                        )}
-                      </div>
-                      <div className="hf-flex hf-gap-sm hf-items-center hf-flex-shrink-0">
-                        {cl.maxMembers ? (
-                          <>
-                            <div className="cd-fill-bar">
-                              <div className="cd-fill-bar-fill" style={{ width: `${fillPct}%` }} />
-                            </div>
-                            <span className="hf-text-xs hf-text-muted">{cl.memberCount}/{cl.maxMembers}</span>
-                          </>
-                        ) : (
-                          <span className="hf-text-xs hf-text-muted">
-                            <Users2 size={12} className="hf-icon-inline" /> {cl.memberCount}
-                          </span>
-                        )}
-                        <ChevronRight size={14} className="hf-text-placeholder" />
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════ */}
-      {/* STUDENTS TAB                                   */}
-      {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'students' && (
-        <div className="hf-mt-lg">
-          {studentsLoading ? (
-            <div className="hf-empty-compact">
-              <div className="hf-spinner" />
-            </div>
-          ) : students === null ? null : students.length === 0 ? (
-            <div className="hf-empty-compact">
-              <GraduationCap size={36} className="hf-text-tertiary hf-mb-sm" />
-              <div className="hf-heading-sm hf-text-secondary hf-mb-sm">No students enrolled</div>
-              <p className="hf-text-xs hf-text-muted">
-                Students enrolled in classrooms using this course will appear here.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="hf-flex hf-flex-between hf-items-center hf-mb-md">
-                <span className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase">
-                  {students.length} student{students.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-              <div className="hf-flex hf-flex-col hf-gap-xs">
-                {students.map((st) => (
-                  <Link key={st.id} href={`/x/callers/${st.id}`} className="hf-list-row hf-list-row-link">
-                    <div className="hf-icon-box hf-flex-shrink-0">
-                      <GraduationCap size={16} className="hf-text-muted" />
-                    </div>
-                    <div className="hf-flex-1 hf-min-w-0">
-                      <div className="hf-text-sm hf-text-bold hf-text-ellipsis">
-                        {st.name || st.email}
-                      </div>
-                      {st.name && (
-                        <div className="hf-text-xs hf-text-muted">{st.email}</div>
-                      )}
-                    </div>
-                    <div className="hf-flex hf-gap-sm hf-items-center hf-flex-shrink-0 hf-text-xs hf-text-muted">
-                      {st.callCount > 0 && (
-                        <span>{st.callCount} call{st.callCount !== 1 ? 's' : ''}</span>
-                      )}
-                      {st.lastCallAt && (
-                        <span>Last: {new Date(st.lastCallAt).toLocaleDateString()}</span>
-                      )}
-                      <ChevronRight size={14} className="hf-text-placeholder" />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
+      {/* Content, Classrooms, Students tabs folded into WHAT/HOW/WHO */}
 
       {/* ═══════════════════════════════════════════════ */}
       {/* LESSON PLAN TAB                                */}
@@ -1817,7 +1316,7 @@ export default function CourseDetailPage() {
                     <span className="hf-section-title hf-mb-0">Class Progress</span>
                   </div>
                   <p className="hf-text-sm hf-text-muted">
-                    No students enrolled yet. Enrol students in the Students tab.
+                    No students enrolled yet. Enrol students from the <button className="hf-link hf-text-accent" onClick={() => setActiveTab('who')}>Who</button> tab.
                   </p>
                 </div>
               )}
@@ -1866,111 +1365,6 @@ export default function CourseDetailPage() {
                   Set Up Course
                 </Link>
               )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════ */}
-      {/* MEDIA TAB                                      */}
-      {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'media' && (
-        <div className="hf-mt-lg">
-          {/* Type filter chips */}
-          <div className="hf-flex hf-flex-between hf-items-center hf-mb-md">
-            <div className="hf-flex hf-gap-sm hf-items-center">
-              {['all', 'image', 'pdf', 'audio'].map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setMediaTypeFilter(f)}
-                  className={mediaTypeFilter === f ? 'hf-chip hf-chip-selected' : 'hf-chip'}
-                >
-                  {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
-                </button>
-              ))}
-            </div>
-            {mediaTotal > 0 && (
-              <span className="hf-text-xs hf-text-muted">
-                {mediaTotal} file{mediaTotal !== 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-
-          {mediaLoading && !mediaAssets?.length ? (
-            <div className="hf-empty-compact">
-              <div className="hf-spinner" />
-            </div>
-          ) : !mediaAssets?.length ? (
-            <div className="hf-empty-compact">
-              <Image size={36} className="hf-text-tertiary hf-mb-sm" />
-              <div className="hf-heading-sm hf-text-secondary hf-mb-sm">No media yet</div>
-              <p className="hf-text-xs hf-text-muted">
-                Images and figures are automatically extracted when you upload PDFs or DOCX files.
-              </p>
-            </div>
-          ) : (
-            <div className="hf-media-grid">
-              {mediaAssets.map((m) => {
-                const isImage = m.mimeType.startsWith('image/');
-                const isPdf = m.mimeType === 'application/pdf';
-                const isAudio = m.mimeType.startsWith('audio/');
-                const sizeKB = Math.round(m.fileSize / 1024);
-                const sizeLabel = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
-
-                return (
-                  <div key={m.id} className="hf-media-card">
-                    <div className="hf-media-card-preview">
-                      {isImage ? (
-                        <img
-                          src={`/api/media/${m.id}`}
-                          alt={m.title || m.fileName}
-                          className="hf-media-card-img"
-                          loading="lazy"
-                        />
-                      ) : isPdf ? (
-                        <div className="hf-text-center hf-text-muted">
-                          <FileText size={32} />
-                          <div className="hf-text-xs hf-mt-xs">{sizeLabel}</div>
-                        </div>
-                      ) : isAudio ? (
-                        <div className="hf-text-center hf-text-muted">
-                          <div className="hf-text-xl">AUD</div>
-                          <div className="hf-text-xs">{sizeLabel}</div>
-                        </div>
-                      ) : (
-                        <div className="hf-text-center hf-text-muted">
-                          <FileText size={32} />
-                          <div className="hf-text-xs hf-mt-xs">{sizeLabel}</div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="hf-media-card-info">
-                      <div className="hf-text-xs hf-text-bold hf-truncate" title={m.title || m.fileName}>
-                        {m.title || m.fileName}
-                      </div>
-                      {m.captionText && (
-                        <div className="hf-text-xs hf-text-muted hf-line-clamp-2 hf-mt-xs" title={m.captionText}>
-                          {m.captionText}
-                        </div>
-                      )}
-                      <div className="hf-flex hf-gap-xs hf-items-center hf-mt-xs hf-flex-wrap">
-                        <TrustBadge level={m.trustLevel} />
-                        {m.pageNumber != null && (
-                          <span className="hf-tag-pill hf-text-xs">p.{m.pageNumber}</span>
-                        )}
-                        {m.figureRef && (
-                          <span className="hf-tag-pill hf-text-xs">{m.figureRef}</span>
-                        )}
-                      </div>
-                      {(m.sourceName || m.subjectName) && (
-                        <div className="hf-text-xs hf-text-placeholder hf-mt-xs hf-truncate">
-                          {[m.subjectName, m.sourceName].filter(Boolean).join(' · ')}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           )}
         </div>

@@ -146,13 +146,15 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, [sidebarWidth, collapsed]);
 
-  // Global Cmd+G → navigate to Get Started
+  // Global keyboard shortcuts for top-nav items
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') {
-        e.preventDefault();
-        router.push('/x/get-started-v4');
-      }
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      if (key === 'g') { e.preventDefault(); router.push('/x/get-started-v4'); }
+      else if (key === 'd') { e.preventDefault(); router.push('/x/educator'); }
+      else if (key === 's') { e.preventDefault(); router.push('/x/sim'); }
+      else if (key === 'l') { e.preventDefault(); router.push('/x/callers'); }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);

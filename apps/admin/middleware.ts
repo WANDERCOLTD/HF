@@ -32,6 +32,12 @@ function withCors(response: NextResponse, origin: string | null): NextResponse {
   return response;
 }
 
+/** Prevent Cloudflare/CDN from caching dynamic pages (all non-static responses) */
+function noCache(response: NextResponse): NextResponse {
+  response.headers.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
+  return response;
+}
+
 /** Session cookie names in priority order */
 const SESSION_COOKIE_NAMES = [
   "authjs.session-token",
@@ -82,12 +88,12 @@ export async function middleware(request: NextRequest) {
     return new NextResponse(null, { status: 204, headers });
   }
 
-  // Allow public routes
+  // Allow public routes (login pages — still no-cache, they're dynamic)
   if (publicRoutes.some((route) => pathname.startsWith(route))) {
-    return withCors(NextResponse.next(), origin);
+    return noCache(withCors(NextResponse.next(), origin));
   }
 
-  // Allow API routes with their own auth
+  // Allow API routes with their own auth (APIs set their own cache headers)
   if (apiTokenRoutes.some((route) => pathname.startsWith(route))) {
     return withCors(NextResponse.next(), origin);
   }
@@ -124,7 +130,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Session cookie exists - allow (full validation in server components)
-  return withCors(NextResponse.next(), origin);
+  return noCache(withCors(NextResponse.next(), origin));
 }
 
 export const config = {

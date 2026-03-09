@@ -1,5 +1,14 @@
 [
   {
+    "id": "demo-top",
+    "items": [
+      { "id": "demo-gs", "href": "/x/get-started-v4", "label": "Get Started", "icon": "Sparkles", "highlighted": true, "wizard": true, "tag": "⌘G" },
+      { "id": "demo-dash", "href": "/x/educator", "label": "Dashboard", "icon": "GraduationCap", "tag": "⌘D" },
+      { "id": "demo-sim", "href": "/x/sim", "label": "Sim", "icon": "MessageCircle", "tag": "⌘S" },
+      { "id": "demo-callers", "href": "/x/callers", "label": "Callers", "icon": "User", "tag": "⌘L" }
+    ]
+  },
+  {
     "id": "edu-setup",
     "title": "Setup",
     "href": "/x/get-started-v4",

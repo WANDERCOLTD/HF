@@ -45,6 +45,7 @@ interface StepFlowContextValue {
   prevStep: () => void;
   setData: (key: string, value: unknown) => void;
   getData: <T = unknown>(key: string) => T | undefined;
+  clearData: () => void;
   endFlow: () => void;
 }
 
@@ -243,6 +244,15 @@ export function StepFlowProvider({ children }: { children: React.ReactNode }) {
     return flowState?.data[key] as T | undefined;
   }, [flowState]);
 
+  const clearData = useCallback(() => {
+    setFlowState((prev) => {
+      if (!prev || !prev.active) return prev;
+      const next = { ...prev, data: {} };
+      scheduleImmediateSync(next);
+      return next;
+    });
+  }, [scheduleImmediateSync]);
+
   const endFlow = useCallback(() => {
     // Complete the linked UserTask if present
     const taskId = flowState?.taskId;
@@ -272,6 +282,7 @@ export function StepFlowProvider({ children }: { children: React.ReactNode }) {
     prevStep,
     setData,
     getData,
+    clearData,
     endFlow,
   };
 

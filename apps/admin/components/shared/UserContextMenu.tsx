@@ -21,6 +21,7 @@ import {
   BookOpen,
   Building2,
   RotateCcw,
+  FileX,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useMasquerade } from "@/contexts/MasqueradeContext";
@@ -137,6 +138,57 @@ export function UserContextMenu({
       setTimeout(() => setDemoResetState("idle"), 4000);
     }
   }, []);
+
+  // Content reset (SUPERADMIN only) — forces re-extraction on next upload
+  const [contentResetState, setContentResetState] = useState<"idle" | "picking" | "confirm" | "running" | "done" | "error">("idle");
+  const [contentResetCount, setContentResetCount] = useState(0);
+  const [contentResetDomains, setContentResetDomains] = useState<{ id: string; name: string; sourceCount: number }[]>([]);
+  const [contentResetDomain, setContentResetDomain] = useState<{ id: string; name: string } | null>(null);
+  const [contentDomainsLoading, setContentDomainsLoading] = useState(false);
+
+  const handleContentResetPick = useCallback(async () => {
+    setContentResetState("picking");
+    setContentDomainsLoading(true);
+    try {
+      const res = await fetch("/api/domains");
+      if (res.ok) {
+        const data = await res.json();
+        setContentResetDomains(
+          (data.domains || []).map((d: Record<string, unknown>) => ({
+            id: d.id as string,
+            name: d.name as string,
+            sourceCount: (d.sourceCount ?? 0) as number,
+          }))
+        );
+      }
+    } finally {
+      setContentDomainsLoading(false);
+    }
+  }, []);
+
+  const handleContentReset = useCallback(async () => {
+    if (!contentResetDomain) return;
+    setContentResetState("running");
+    try {
+      const res = await fetch("/api/admin/demo-reset-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domainId: contentResetDomain.id }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setContentResetCount(data.deleted.sources);
+        setContentResetState("done");
+        setTimeout(() => setContentResetState("idle"), 4000);
+      } else {
+        setContentResetState("error");
+        setTimeout(() => setContentResetState("idle"), 4000);
+      }
+    } catch {
+      setContentResetState("error");
+      setTimeout(() => setContentResetState("idle"), 4000);
+    }
+  }, [contentResetDomain]);
 
   // Deep logging toggle (server-side, ADMIN+ only — fetch on menu open)
   const [deepLogging, setDeepLogging] = useState(false);
@@ -275,6 +327,10 @@ export function UserContextMenu({
       setQuickPickLoading("");
       setDemoResetState("idle");
       setDemoResetResult(null);
+      setContentResetState("idle");
+      setContentResetCount(0);
+      setContentResetDomains([]);
+      setContentResetDomain(null);
     }
   }, [isOpen]);
 
@@ -797,6 +853,99 @@ export function UserContextMenu({
               {demoResetState === "error" && (
                 <div className="px-3 py-2.5 text-[13px]" style={{ color: "var(--status-error-text)" }}>
                   Reset failed — check console
+                </div>
+              )}
+
+              {/* Reset Content — domain picker → confirm → delete */}
+              {contentResetState === "idle" && (
+                <button
+                  type="button"
+                  onClick={handleContentResetPick}
+                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors hover:bg-[var(--hover-bg)]"
+                  style={{ color: "var(--text-primary)", border: "none", background: "transparent", cursor: "pointer" }}
+                >
+                  <FileX className="w-[18px] h-[18px] flex-shrink-0" style={{ color: "var(--text-secondary)" }} />
+                  Reset Content…
+                </button>
+              )}
+              {contentResetState === "picking" && (
+                <div className="mx-2 mb-1 p-2 rounded-lg bg-[var(--surface-secondary)]">
+                  <div className="text-[11px] font-medium tracking-wide uppercase mb-1.5 px-1" style={{ color: "var(--text-muted)" }}>
+                    Choose domain
+                  </div>
+                  {contentDomainsLoading ? (
+                    <div className="flex items-center justify-center py-3">
+                      <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-muted)" }} />
+                    </div>
+                  ) : contentResetDomains.length === 0 ? (
+                    <div className="py-2 text-center text-xs" style={{ color: "var(--text-muted)" }}>No domains</div>
+                  ) : (
+                    <div className="max-h-36 overflow-y-auto">
+                      {contentResetDomains.map((d) => (
+                        <button
+                          key={d.id}
+                          onClick={() => {
+                            setContentResetDomain({ id: d.id, name: d.name });
+                            setContentResetState("confirm");
+                          }}
+                          className="w-full text-left flex items-center gap-2.5 px-2.5 py-2 text-[13px] rounded-md transition-colors hover:bg-[var(--hover-bg)]"
+                          style={{ color: "var(--text-primary)", border: "none", background: "transparent", cursor: "pointer" }}
+                        >
+                          <Building2 className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+                          <span className="truncate">{d.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setContentResetState("idle")}
+                    className="w-full mt-1 px-2.5 py-1.5 text-[11px] rounded-md transition-colors hover:bg-[var(--hover-bg)]"
+                    style={{ color: "var(--text-muted)", background: "transparent", border: "none", cursor: "pointer" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+              {contentResetState === "confirm" && contentResetDomain && (
+                <div className="px-3 py-2">
+                  <div className="text-[13px] mb-2" style={{ color: "var(--text-secondary)" }}>
+                    Delete all content for <strong>{contentResetDomain.name}</strong>? Next upload will re-extract.
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleContentReset}
+                      className="flex-1 px-3 py-1.5 text-[13px] font-medium rounded-md transition-colors"
+                      style={{ background: "var(--status-warning-bg)", color: "var(--status-warning-text)", border: "none", cursor: "pointer" }}
+                    >
+                      Yes, reset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setContentResetState("idle")}
+                      className="flex-1 px-3 py-1.5 text-[13px] rounded-md transition-colors hover:bg-[var(--hover-bg)]"
+                      style={{ background: "transparent", color: "var(--text-secondary)", border: "1px solid var(--border-default)", cursor: "pointer" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              {contentResetState === "running" && (
+                <div className="flex items-center gap-2 px-3 py-2.5 text-sm" style={{ color: "var(--text-muted)" }}>
+                  <Loader2 className="w-[18px] h-[18px] animate-spin flex-shrink-0" />
+                  Clearing content…
+                </div>
+              )}
+              {contentResetState === "done" && (
+                <div className="px-3 py-2.5 text-[13px]" style={{ color: "var(--status-success-text)" }}>
+                  Cleared {contentResetCount} source{contentResetCount !== 1 ? "s" : ""} from {contentResetDomain?.name} — next upload will re-extract
+                </div>
+              )}
+              {contentResetState === "error" && (
+                <div className="px-3 py-2.5 text-[13px]" style={{ color: "var(--status-error-text)" }}>
+                  Content reset failed — check console
                 </div>
               )}
             </div>

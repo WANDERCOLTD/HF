@@ -221,11 +221,35 @@ export async function POST(req: NextRequest) {
                 data: { sourceId, fileName: file.name },
               });
 
-              const fileTotals = await extractSource(
-                source, text, mf.documentType as DocumentType, file.name,
-                subject.id, userId, interactionPattern as InteractionPattern | undefined,
-                teachingMode, send, mediaStorageKey, subjectDiscipline, subject.name,
-              );
+              let fileTotals: { assertions: number; questions: number; vocabulary: number; images: number };
+
+              if (deduplicated) {
+                // Reuse existing extraction — count what's already in the DB
+                const counts = await prisma.contentSource.findUnique({
+                  where: { id: sourceId },
+                  select: {
+                    _count: { select: { assertions: true, questions: true, vocabulary: true, mediaAssets: true } },
+                  },
+                });
+                fileTotals = {
+                  assertions: counts?._count.assertions ?? 0,
+                  questions: counts?._count.questions ?? 0,
+                  vocabulary: counts?._count.vocabulary ?? 0,
+                  images: counts?._count.mediaAssets ?? 0,
+                };
+
+                send({
+                  phase: "file-complete",
+                  message: `${file.name}: reused ${fileTotals.assertions} points, ${fileTotals.questions} questions, ${fileTotals.vocabulary} vocab`,
+                  data: { fileName: file.name, sourceId, ...fileTotals, reused: true },
+                });
+              } else {
+                fileTotals = await extractSource(
+                  source, text, mf.documentType as DocumentType, file.name,
+                  subject.id, userId, interactionPattern as InteractionPattern | undefined,
+                  teachingMode, send, mediaStorageKey, subjectDiscipline, subject.name,
+                );
+              }
 
               return {
                 sourceId,
@@ -320,11 +344,34 @@ export async function POST(req: NextRequest) {
                 data: { sourceId, fileName: file.name },
               });
 
-              const fileTotals = await extractSource(
-                source, text, (mf.documentType || "LESSON_PLAN") as DocumentType, file.name,
-                pedSubject.id, userId, interactionPattern as InteractionPattern | undefined,
-                teachingMode, send, pedMediaKey, subjectDiscipline, pedSubject.name,
-              );
+              let fileTotals: { assertions: number; questions: number; vocabulary: number; images: number };
+
+              if (pedDeduped) {
+                const counts = await prisma.contentSource.findUnique({
+                  where: { id: sourceId },
+                  select: {
+                    _count: { select: { assertions: true, questions: true, vocabulary: true, mediaAssets: true } },
+                  },
+                });
+                fileTotals = {
+                  assertions: counts?._count.assertions ?? 0,
+                  questions: counts?._count.questions ?? 0,
+                  vocabulary: counts?._count.vocabulary ?? 0,
+                  images: counts?._count.mediaAssets ?? 0,
+                };
+
+                send({
+                  phase: "file-complete",
+                  message: `${file.name}: reused ${fileTotals.assertions} points, ${fileTotals.questions} questions, ${fileTotals.vocabulary} vocab`,
+                  data: { fileName: file.name, sourceId, ...fileTotals, reused: true },
+                });
+              } else {
+                fileTotals = await extractSource(
+                  source, text, (mf.documentType || "LESSON_PLAN") as DocumentType, file.name,
+                  pedSubject.id, userId, interactionPattern as InteractionPattern | undefined,
+                  teachingMode, send, pedMediaKey, subjectDiscipline, pedSubject.name,
+                );
+              }
 
               return { sourceId, ...fileTotals };
             }))

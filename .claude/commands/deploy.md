@@ -48,7 +48,7 @@ Based on the user's choice, walk them through the exact commands step by step. A
 
 **Note:** If the user picks "Quick deploy" or "Full deploy", automatically run smoke tests after. "Check status" is still available via "Other".
 
-## IMPORTANT: No local Docker
+## IMPORTANT: No local Docker — builds run on VM
 
 Docker is NOT available locally or on the VM. ALL image builds MUST use **Cloud Build** with the permanent configs in `apps/admin/`:
 
@@ -57,6 +57,23 @@ Docker is NOT available locally or on the VM. ALL image builds MUST use **Cloud 
 - `cloudbuild-migrate.yaml` — migrate (schema migration) image
 
 All configs use **Kaniko layer caching** — the `deps` layer (npm ci) is cached for 30 days. Code-only changes skip npm ci entirely (~5 min saved per build).
+
+## PERFORMANCE: Run Cloud Build from VM (not local)
+
+**Always run `gcloud builds submit` via SSH on hf-dev**, not locally. The VM is already on GCP so Cloud Build gets the source instantly (no ~30MB upload over the internet).
+
+Pattern for all image builds:
+```bash
+gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c '
+  cd ~/HF/apps/admin && gcloud builds submit --config <CONFIG>.yaml \
+    --project hf-admin-prod --region europe-west2 \
+    --substitutions=<SUBS> .
+'
+```
+
+**Before building, ensure the VM has the latest code** — run `git pull` on the VM first (or use `/vm-pull`). The VM must be in sync with what you're deploying.
+
+The remaining `gcloud run deploy`, `gcloud run jobs execute`, smoke tests, and Cloudflare purge can still run locally — they don't upload source.
 
 ## Pre-flight Check Steps (option 1)
 
@@ -102,13 +119,16 @@ cd apps/admin && npx tsx scripts/bump-version.ts
 ```
 Stage and commit the version bump, then push.
 
-### 2. Build runner image via Cloud Build
+### 2. Build runner image via Cloud Build (on VM)
 
+First ensure VM has latest code, then build:
 ```bash
-cd apps/admin
-gcloud builds submit --config cloudbuild-runner.yaml \
-  --project hf-admin-prod --region europe-west2 \
-  --substitutions=_TAG=latest,_APP_ENV=$APP_ENV .
+gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c '
+  cd ~/HF && git pull --rebase &&
+  cd apps/admin && gcloud builds submit --config cloudbuild-runner.yaml \
+    --project hf-admin-prod --region europe-west2 \
+    --substitutions=_TAG=latest,_APP_ENV=$APP_ENV .
+'
 ```
 
 Set `$APP_ENV` from the `_APP_ENV` column in the Environment Map (DEV→`DEV`, TEST→`TEST`, PROD→`LIVE`).
@@ -125,11 +145,12 @@ gcloud run deploy $SERVICE \
 For DEV quick deploys, always rebuild the seed image and run the seed job to ensure demo login accounts exist. Skip this step for TEST/PROD.
 
 ```bash
-# Build seed image
-cd apps/admin
-gcloud builds submit --config cloudbuild-seed.yaml \
-  --project hf-admin-prod --region europe-west2 \
-  --substitutions=_TAG=latest .
+# Build seed image (on VM — fast, no upload)
+gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c '
+  cd ~/HF/apps/admin && gcloud builds submit --config cloudbuild-seed.yaml \
+    --project hf-admin-prod --region europe-west2 \
+    --substitutions=_TAG=latest .
+'
 
 # Execute seed job (SEED_PROFILE=full includes demo logins)
 gcloud run jobs update hf-seed-dev \
@@ -142,12 +163,14 @@ gcloud run jobs execute hf-seed-dev --region=europe-west2 --project=hf-admin-pro
 
 ### With Migrations
 
-Build + push migrate image via Cloud Build:
+Build + push migrate image via Cloud Build (on VM):
 ```bash
-cd apps/admin
-gcloud builds submit --config cloudbuild-migrate.yaml \
-  --project hf-admin-prod --region europe-west2 \
-  --substitutions=_TAG=latest .
+gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c '
+  cd ~/HF && git pull --rebase &&
+  cd apps/admin && gcloud builds submit --config cloudbuild-migrate.yaml \
+    --project hf-admin-prod --region europe-west2 \
+    --substitutions=_TAG=latest .
+'
 ```
 
 Run the environment-specific migrate job:
@@ -157,12 +180,13 @@ gcloud run jobs execute $MIGRATE_JOB --region=europe-west2 --project=hf-admin-pr
 
 ### With New Specs (seed)
 
-Build + push seed image via Cloud Build:
+Build + push seed image via Cloud Build (on VM):
 ```bash
-cd apps/admin
-gcloud builds submit --config cloudbuild-seed.yaml \
-  --project hf-admin-prod --region europe-west2 \
-  --substitutions=_TAG=latest .
+gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c '
+  cd ~/HF/apps/admin && gcloud builds submit --config cloudbuild-seed.yaml \
+    --project hf-admin-prod --region europe-west2 \
+    --substitutions=_TAG=latest .
+'
 ```
 
 Run the environment-specific seed job (set SEED_PROFILE from the Environment Map above):

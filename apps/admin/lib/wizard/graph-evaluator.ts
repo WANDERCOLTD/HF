@@ -336,6 +336,38 @@ export function buildGraphPromptSection(
     lines.push("");
   }
 
+  // Course reference digest (extracted assertions from COURSE_REFERENCE uploads)
+  const digest = blackboard.courseRefDigest as {
+    categoryBreakdown?: Record<string, number>;
+    sampleAssertions?: Array<{ assertion: string; category: string; chapter?: string }>;
+    totalCount?: number;
+  } | undefined;
+  if (digest?.categoryBreakdown && Object.keys(digest.categoryBreakdown).length > 0) {
+    const LABELS: Record<string, string> = {
+      teaching_rule: "Teaching rules",
+      session_flow: "Session flow",
+      scaffolding_technique: "Scaffolding techniques",
+      skill_framework: "Skills framework",
+      communication_rule: "Communication rules",
+      assessment_approach: "Assessment approach",
+      differentiation: "Differentiation",
+      edge_case: "Edge cases",
+    };
+    lines.push("### Course reference digest (from extracted assertions)");
+    lines.push(`Total assertions extracted: ${digest.totalCount || 0}`);
+    lines.push("**Categories found:**");
+    for (const [cat, count] of Object.entries(digest.categoryBreakdown)) {
+      lines.push(`  - ${LABELS[cat] || cat}: ${count} assertions`);
+    }
+    if (digest.sampleAssertions?.length) {
+      lines.push("**Sample assertions (representative examples):**");
+      for (const s of digest.sampleAssertions) {
+        lines.push(`  - [${LABELS[s.category] || s.category}] ${s.assertion}`);
+      }
+    }
+    lines.push("");
+  }
+
   // Missing required
   if (evaluation.missingRequired.length > 0) {
     lines.push("### Still required for launch");

@@ -1351,22 +1351,27 @@
 
 .cv4-sources-visibility {
   all: unset;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 2px 7px;
+  border-radius: 10px;
   cursor: pointer;
   color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 8%, transparent);
   flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
 }
 .cv4-sources-visibility--on {
   color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
 }
 .cv4-sources-visibility:hover {
-  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  background: color-mix(in srgb, var(--accent-primary) 16%, transparent);
+  color: var(--accent-primary);
 }
 
 .cv4-sources-remove {

@@ -3068,6 +3068,14 @@ Create a new memory manually for a caller. Handles deduplication: if a memory wi
 
 ## Other
 
+### `GET` /api/v1/courses/:courseId/course-instructions
+
+Returns COURSE_REFERENCE assertions grouped by instruction category.
+
+**Auth**: Session · **Scope**: `courses:read`
+
+---
+
 ### `GET` /api/v1/join/[token]
 
 Verify a classroom/community join token. Returns group info if valid.

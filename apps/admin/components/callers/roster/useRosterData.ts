@@ -51,8 +51,17 @@ export function useRosterData(institutionId?: string | null) {
     const activeCallsQuery = institutionId ? `?institutionId=${institutionId}` : "";
 
     Promise.all([
-      fetch(`/api/callers/roster${instQuery}`).then((r) => r.json()),
-      fetch(`/api/educator/active-calls${activeCallsQuery}`).then((r) => r.json()).catch(() => ({ ok: false })),
+      fetch(`/api/callers/roster${instQuery}`).then(async (r) => {
+        if (!r.ok) {
+          try { return await r.json(); } catch { /* non-JSON error body */ }
+          return { ok: false, error: `Server error (${r.status})` };
+        }
+        return r.json();
+      }),
+      fetch(`/api/educator/active-calls${activeCallsQuery}`).then((r) => {
+        if (!r.ok) return { ok: false };
+        return r.json();
+      }).catch(() => ({ ok: false })),
     ])
       .then(([rosterRes, callsRes]) => {
         if (rosterRes?.ok) {
@@ -184,7 +193,10 @@ export function useRosterData(institutionId?: string | null) {
     setLoading(true);
     const instQuery = institutionId ? `?institutionId=${institutionId}` : "";
     fetch(`/api/callers/roster${instQuery}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) return { ok: false };
+        return r.json();
+      })
       .then((res) => {
         if (res?.ok) setRoster(res.roster);
       })

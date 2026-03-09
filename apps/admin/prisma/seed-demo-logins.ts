@@ -5,7 +5,7 @@
  * Non-PROD only — refuses to run when NEXT_PUBLIC_APP_ENV=LIVE.
  *
  * Accounts:
- *   school@hff.com     / hff2026  → School educator
+ *   teach@abacus.com   / hff       → School educator
  *   corporate@hff.com  / hff2026  → Corporate educator
  *   training@hff.com   / hff2026  → Training educator
  *   community@hff.com  / hff2026  → Community facilitator
@@ -19,16 +19,18 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const DEMO_PASSWORD = "hff2026";
+const ABACUS_PASSWORD = "hff";
 
 interface DemoAccount {
   email: string;
   name: string;
   typeSlug: string;
   institutionName: string;
+  password?: string;
 }
 
 const DEMO_ACCOUNTS: DemoAccount[] = [
-  { email: "school@hff.com", name: "Demo Teacher", typeSlug: "school", institutionName: "Demo School" },
+  { email: "teach@abacus.com", name: "Abacus Teacher", typeSlug: "school", institutionName: "Abacus Academy", password: ABACUS_PASSWORD },
   { email: "corporate@hff.com", name: "Demo Trainer", typeSlug: "corporate", institutionName: "Demo Organization" },
   { email: "training@hff.com", name: "Demo Instructor", typeSlug: "training", institutionName: "Demo Training Co" },
   { email: "community@hff.com", name: "Demo Facilitator", typeSlug: "community", institutionName: "Demo Community Hub" },
@@ -45,11 +47,14 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
   }
 
   const prisma = externalPrisma || new PrismaClient();
-  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+  const defaultHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
   console.log("  Seeding demo login accounts...");
 
   for (const account of DEMO_ACCOUNTS) {
+    const passwordHash = account.password
+      ? await bcrypt.hash(account.password, 10)
+      : defaultHash;
     // Find institution type
     const instType = await prisma.institutionType.findUnique({
       where: { slug: account.typeSlug },

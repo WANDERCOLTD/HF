@@ -390,9 +390,12 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
                 <button
                   className={`cv4-sources-visibility${isVisible ? " cv4-sources-visibility--on" : ""}`}
                   onClick={() => toggleStudentVisible(idx)}
-                  title={isVisible ? "Students can see this — click to hide" : "Hidden from students — click to share"}
+                  title={isVisible
+                    ? "Students can access this file. Click to make teacher-only. (Content still feeds the AI tutor either way.)"
+                    : "Teacher-only reference — students can't access this file, but the AI tutor still learns from it. Click to share with students."
+                  }
                 >
-                  {isVisible ? <Eye size={12} /> : <EyeOff size={12} />}
+                  {isVisible ? <><Eye size={11} /> Student</> : <><EyeOff size={11} /> Teacher</>}
                 </button>
                 <button
                   className="cv4-sources-remove"

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, isAuthError, ROLE_LEVEL } from "@/lib/permissions";
+import { requireAuth, isAuthError } from "@/lib/permissions";
 import { requireEducator, isEducatorAuthError } from "@/lib/educator-access";
 import {
   computeMomentum,
@@ -50,11 +50,9 @@ export async function GET(request: NextRequest) {
 
   // Determine auth scope
   let where: Record<string, unknown> = { role: "LEARNER", archivedAt: null };
-  let isAdmin = false;
 
   const adminAuth = await requireAuth("ADMIN");
   if (!isAuthError(adminAuth)) {
-    isAdmin = true;
     if (institutionId) {
       where.OR = [
         { cohortMemberships: { some: { cohortGroup: { institutionId, isActive: true } } } },
@@ -74,6 +72,7 @@ export async function GET(request: NextRequest) {
     };
   }
 
+  try {
   // ── 1. Fetch callers with recent call dates ──────────────────
   const callers = await prisma.caller.findMany({
     where,
@@ -218,4 +217,11 @@ export async function GET(request: NextRequest) {
   });
 
   return NextResponse.json({ ok: true, roster });
+  } catch (err) {
+    console.error("[roster] Failed to load roster:", (err as Error).message);
+    return NextResponse.json(
+      { ok: false, error: "Failed to load roster" },
+      { status: 500 },
+    );
+  }
 }

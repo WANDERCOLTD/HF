@@ -14,8 +14,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowUp, Loader2, MoreHorizontal, AlertCircle, HelpCircle, ChevronsRight, Copy, Quote, Check, Upload, ExternalLink, Headphones, BookMarked, Link2, Plus } from "lucide-react";
+import { ArrowUp, Loader2, MoreHorizontal, AlertCircle, HelpCircle, ChevronsRight, Copy, Quote, Check, Upload, Headphones, BookMarked, Link2, Plus } from "lucide-react";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import ReactMarkdown from "react-markdown";
 import { useStepFlow } from "@/contexts/StepFlowContext";
@@ -52,7 +51,7 @@ interface ConversationalWizardProps {
 }
 
 type MessageRole = "assistant" | "user" | "system";
-type SystemType = "timeline" | "success" | "error" | "upload-result" | "upload-zone" | "lesson-plan" | "first-call-preview" | "options" | "progress";
+type SystemType = "timeline" | "success" | "success-card" | "error" | "upload-result" | "upload-zone" | "lesson-plan" | "first-call-preview" | "options" | "progress";
 
 interface Message {
   id: string;
@@ -367,8 +366,7 @@ function contextToInitialData(ctx: WizardInitialContext): Record<string, unknown
 // ── Component ────────────────────────────────────────────
 
 export function ConversationalWizard({ initialContext, userRole }: ConversationalWizardProps) {
-  const router = useRouter();
-  const { getData, setData, isActive, startFlow, endFlow } = useStepFlow();
+  const { getData, setData, clearData, isActive, startFlow } = useStepFlow();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -407,23 +405,10 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
 
   // ── Start over ───────────────────────────────────────
 
-  const SETUP_KEYS = [
-    "institutionName", "existingInstitutionId", "existingDomainId",
-    "typeSlug", "defaultDomainKind", "websiteUrl",
-    "courseName", "subjectDiscipline", "interactionPattern", "teachingMode",
-    "teachingProfile",
-    "welcomeMessage", "sessionCount", "durationMins", "planEmphasis",
-    "behaviorTargets", "lessonPlanModel", "personalityPreset", "physicalMaterials",
-    "draftDomainId", "draftInstitutionId", "draftPlaybookId", "draftCallerId",
-    "launched", "sourceId", "packSubjectIds", "extractionTotals", "contentSkipped",
-    "uploadSourceIds", "sourceCount",
-    "communityMode", "draftCohortGroupId", "communityJoinToken", "communityHubUrl",
-  ];
-
   const handleStartOver = useCallback(() => {
     abortRef.current?.abort();
     sessionStorage.removeItem(HISTORY_KEY);
-    for (const k of SETUP_KEYS) setData(k, undefined);
+    clearData();
     setMessages([]);
     setInputValue("");
     setIsLoading(false);
@@ -433,8 +418,7 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
     setConfirmReset(false);
     initialised.current = false;
     setResetKey((n) => n + 1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setData]);
+  }, [clearData]);
 
   // ── Setup data ────────────────────────────────────────
 
@@ -592,6 +576,12 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
 
           case "mark_complete": {
             setData("launched", true);
+            extras.push({
+              id: uid(),
+              role: "system",
+              systemType: "success-card",
+              content: "Course launched",
+            });
             break;
           }
         }
@@ -795,10 +785,70 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
   // ── Extraction done (from SourcesPanel) ─────────────
 
   const handleExtractionDone = useCallback(
-    (totals: { assertions: number; questions: number; vocabulary: number }) => {
+    async (totals: { assertions: number; questions: number; vocabulary: number }) => {
       setData("extractionTotals", { ...totals, images: 0 });
+
+      // Check if any uploaded files were COURSE_REFERENCE — if so, fetch their
+      // assertions and build a digest for the wizard AI to reflect back.
+      const classifications = getData<Array<{ fileName: string; documentType: string }>>("lastUploadClassifications");
+      const sourceIds = getData<string[]>("uploadSourceIds");
+      if (!classifications || !sourceIds) return;
+
+      const courseRefIndices = classifications
+        .map((c, i) => c.documentType === "COURSE_REFERENCE" ? i : -1)
+        .filter((i) => i >= 0);
+      if (courseRefIndices.length === 0) return;
+
+      // Fetch assertions for COURSE_REFERENCE sources and build a digest
+      try {
+        const allAssertions: Array<{ assertion: string; category: string; chapter?: string }> = [];
+        for (const idx of courseRefIndices) {
+          const sid = sourceIds[idx];
+          if (!sid) continue;
+          const res = await fetch(`/api/content-sources/${sid}/assertions?limit=500`);
+          if (!res.ok) continue;
+          const data = await res.json();
+          if (data.assertions) {
+            for (const a of data.assertions) {
+              allAssertions.push({
+                assertion: a.assertion,
+                category: a.category,
+                chapter: a.chapter || undefined,
+              });
+            }
+          }
+        }
+        if (allAssertions.length === 0) return;
+
+        // Build digest: category counts + 2 samples per top category (max 10 samples)
+        const catCounts: Record<string, number> = {};
+        for (const a of allAssertions) {
+          catCounts[a.category] = (catCounts[a.category] || 0) + 1;
+        }
+        const topCats = Object.entries(catCounts)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 5)
+          .map(([cat]) => cat);
+        const samples: typeof allAssertions = [];
+        for (const cat of topCats) {
+          const matching = allAssertions.filter((a) => a.category === cat);
+          for (const m of matching.slice(0, 2)) {
+            if (samples.length >= 10) break;
+            samples.push(m);
+          }
+        }
+
+        const digest = { categoryBreakdown: catCounts, sampleAssertions: samples, totalCount: allAssertions.length };
+        setData("courseRefDigest", digest);
+
+        // Send a follow-up message so the AI reflects back what it found
+        const digestOverrides = { courseRefDigest: digest };
+        handleSend("Teaching guide analyzed — here's what I found in your course reference", digestOverrides);
+      } catch {
+        // Non-critical — fall back to classification-only narration
+      }
     },
-    [setData],
+    [setData, getData, handleSend],
   );
 
   // ── Page-level drag (full-page drop overlay) ─────────
@@ -1061,8 +1111,6 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
             }
 
             if (msg.systemType === "lesson-plan" && msg.lessonEntries) {
-              // When launched, these are pinned above the success card instead
-              if (launched) return null;
               return (
                 <div key={msg.id} className="cv4-row cv4-row--system">
                   <LessonPlanAccordion
@@ -1083,8 +1131,6 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
             }
 
             if (msg.systemType === "first-call-preview" && msg.firstCallPreview) {
-              // When launched, these are pinned above the success card instead
-              if (launched) return null;
               return (
                 <div key={msg.id} className="cv4-row cv4-row--system">
                   <FirstCallPreviewCard
@@ -1098,6 +1144,96 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
                       setData("firstCallPreview", updated);
                     }}
                   />
+                </div>
+              );
+            }
+
+            if (msg.systemType === "success-card") {
+              return (
+                <div key={msg.id} className="cv4-row cv4-row--system">
+                  <div className="cv4-success-card">
+                    <div className="cv4-success-title">Your AI tutor is ready</div>
+                    <div className="cv4-success-sub">
+                      {draftCallerId
+                        ? "Try it out, view your course, or share it with someone."
+                        : "View your course or head to your dashboard."}
+                    </div>
+                    <div className="cv4-success-actions">
+                      {/* Primary — sim call */}
+                      {draftCallerId && (
+                        <a
+                          href={`/x/sim/${draftCallerId}?${new URLSearchParams({
+                            forceFirstCall: "true",
+                            ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
+                            ...(draftDomainId ? { domainId: draftDomainId } : {}),
+                          }).toString()}`}
+                          className="hf-btn hf-btn-primary cv4-success-primary"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Headphones size={16} /> Try a Sim Call
+                        </a>
+                      )}
+
+                      {/* Secondary row — course + sharing */}
+                      <div className="cv4-success-row">
+                        {draftPlaybookId && (
+                          <a
+                            href={`/x/courses/${draftPlaybookId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                          >
+                            <BookMarked size={14} /> View Your Course
+                          </a>
+                        )}
+                        {(communityJoinToken || draftCallerId) && (
+                          <button
+                            type="button"
+                            className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                            onClick={() => {
+                              const url = communityJoinToken
+                                ? `${window.location.origin}/join/${communityJoinToken}`
+                                : `${window.location.origin}/x/sim/${draftCallerId}?${new URLSearchParams({
+                                    forceFirstCall: "true",
+                                    ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
+                                    ...(draftDomainId ? { domainId: draftDomainId } : {}),
+                                  }).toString()}`;
+                              copyLink(url, "tryit");
+                            }}
+                          >
+                            {linkCopied ? <><Check size={14} /> Copied!</> : <><Link2 size={14} /> Copy Try-It Link</>}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Tertiary — create another */}
+                      <div className="cv4-success-row">
+                        <button
+                          type="button"
+                          className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                          onClick={() => {
+                            if (!confirmReset) { setConfirmReset(true); return; }
+                            handleStartOver();
+                          }}
+                        >
+                          {confirmReset
+                            ? "Confirm — Start Fresh"
+                            : <><Plus size={14} /> Create Another Course</>}
+                        </button>
+                      </div>
+
+                      {/* Dashboard — text link, opens new tab */}
+                      <a
+                        href={draftDomainId ? `/x/educator` : "/x"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cv4-success-link"
+                      >
+                        Go to Dashboard &rarr;
+                      </a>
+                    </div>
+                  </div>
                 </div>
               );
             }
@@ -1160,135 +1296,6 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
                 <div className="cv4-typing-dot" />
                 <div className="cv4-typing-dot" />
                 <div className="cv4-typing-dot" />
-              </div>
-            </div>
-          )}
-
-          {/* Lesson Plan + First Call Preview — pinned above success card */}
-          {launched && getData<LessonEntry[]>("lessonPlanPreview")?.length && (
-            <div className="cv4-row cv4-row--system">
-              <LessonPlanAccordion
-                entries={getData<LessonEntry[]>("lessonPlanPreview")!}
-                courseName={getData<string>("courseName") || undefined}
-                courseId={draftPlaybookId || undefined}
-                onTestLesson={draftCallerId ? (session) => {
-                  const params = new URLSearchParams({
-                    ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
-                    ...(draftDomainId ? { domainId: draftDomainId } : {}),
-                    session: String(session),
-                  });
-                  window.open(`/x/sim/${draftCallerId}?${params.toString()}`, "_blank", "noopener,noreferrer");
-                } : undefined}
-              />
-            </div>
-          )}
-          {launched && getData<FirstCallPreviewData>("firstCallPreview")?.phases?.length && (
-            <div className="cv4-row cv4-row--system">
-              <FirstCallPreviewCard
-                preview={getData<FirstCallPreviewData>("firstCallPreview")!}
-                onUpdated={(updated) => {
-                  setData("firstCallPreview", updated);
-                }}
-              />
-            </div>
-          )}
-
-          {/* Course ready card — demo-optimized CTAs */}
-          {launched && (
-            <div className="cv4-row cv4-row--system">
-              <div className="cv4-success-card">
-                <div className="cv4-success-title">Your AI tutor is ready</div>
-                <div className="cv4-success-sub">
-                  {draftCallerId
-                    ? "Hear it teach your content, explore what it learned, or share it with someone."
-                    : "Explore what it learned, or head to your dashboard."}
-                </div>
-                <div className="cv4-success-actions">
-                  {/* Primary — the demo money shot */}
-                  {draftCallerId && (
-                    <a
-                      href={`/x/sim/${draftCallerId}?${new URLSearchParams({
-                        forceFirstCall: "true",
-                        ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
-                        ...(draftDomainId ? { domainId: draftDomainId } : {}),
-                      }).toString()}`}
-                      className="hf-btn hf-btn-primary cv4-success-primary"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Headphones size={16} /> Hear Your AI Tutor Teach
-                    </a>
-                  )}
-
-                  {/* Secondary row — proof + sharing */}
-                  <div className="cv4-success-row">
-                    {draftPlaybookId && (
-                      <a
-                        href={`/x/courses/${draftPlaybookId}?tab=content`}
-                        className="hf-btn hf-btn-secondary cv4-success-btn-half"
-                      >
-                        <BookMarked size={14} /> See What It Learned
-                      </a>
-                    )}
-                    {(communityJoinToken || draftCallerId) && (
-                      <button
-                        type="button"
-                        className="hf-btn hf-btn-secondary cv4-success-btn-half"
-                        onClick={() => {
-                          const url = communityJoinToken
-                            ? `${window.location.origin}/join/${communityJoinToken}`
-                            : `${window.location.origin}/x/sim/${draftCallerId}?${new URLSearchParams({
-                                forceFirstCall: "true",
-                                ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
-                                ...(draftDomainId ? { domainId: draftDomainId } : {}),
-                              }).toString()}`;
-                          copyLink(url, "tryit");
-                        }}
-                      >
-                        {linkCopied ? <><Check size={14} /> Copied!</> : <><Link2 size={14} /> Copy Try-It Link</>}
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Tertiary row — course + create another */}
-                  <div className="cv4-success-row">
-                    {draftPlaybookId && (
-                      <a
-                        href={`/x/courses/${draftPlaybookId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hf-btn hf-btn-secondary cv4-success-btn-half"
-                      >
-                        View Course <ExternalLink size={12} />
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      className="hf-btn hf-btn-secondary cv4-success-btn-half"
-                      onClick={() => {
-                        if (!confirmReset) { setConfirmReset(true); return; }
-                        handleStartOver();
-                      }}
-                    >
-                      {confirmReset
-                        ? "Confirm — Start Fresh"
-                        : <><Plus size={14} /> Create Another Course</>}
-                    </button>
-                  </div>
-
-                  {/* Dashboard — demoted to text link */}
-                  <button
-                    type="button"
-                    className="cv4-success-link"
-                    onClick={() => {
-                      endFlow();
-                      sessionStorage.removeItem(HISTORY_KEY);
-                      router.push(draftDomainId ? `/x/educator` : "/x");
-                    }}
-                  >
-                    Go to Dashboard &rarr;
-                  </button>
-                </div>
               </div>
             </div>
           )}
