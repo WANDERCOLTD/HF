@@ -48,11 +48,14 @@ export async function GET(request: NextRequest) {
   const institutionId = request.nextUrl.searchParams.get("institutionId");
   const domainId = request.nextUrl.searchParams.get("domainId");
 
+  try {
   // Determine auth scope
   let where: Record<string, unknown> = { role: "LEARNER", archivedAt: null };
 
+  console.log("[roster] Step 0: Auth...");
   const adminAuth = await requireAuth("ADMIN");
   if (!isAuthError(adminAuth)) {
+    console.log("[roster] Step 0: Admin auth OK");
     if (institutionId) {
       where.OR = [
         { cohortMemberships: { some: { cohortGroup: { institutionId, isActive: true } } } },
@@ -64,6 +67,7 @@ export async function GET(request: NextRequest) {
     }
   } else {
     // Educator path — own cohort members only
+    console.log("[roster] Step 0: Trying educator auth...");
     const auth = await requireEducator();
     if (isEducatorAuthError(auth)) return auth.error;
 
@@ -72,7 +76,6 @@ export async function GET(request: NextRequest) {
     };
   }
 
-  try {
   console.log("[roster] Step 1: Fetching callers...");
   // ── 1. Fetch callers with recent call dates ──────────────────
   const callers = await prisma.caller.findMany({
