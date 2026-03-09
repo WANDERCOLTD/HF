@@ -424,6 +424,8 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
   const [resetKey, setResetKey] = useState(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<Message[]>([]);
+  messagesRef.current = messages; // always fresh for async callbacks
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const initialised = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -843,17 +845,27 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
       });
 
       // Tell the AI about the uploaded files so it can continue the conversation.
-      // Queue behind any user-typed text to avoid overwriting their input.
+      // ALWAYS queue (never call handleSend synchronously) — the setMessages above
+      // marks upload-zone as resolved, but handleSend's closure captures stale
+      // `messages` and would overwrite the resolved flag. Queuing lets the state
+      // settle first; the pending drain runs after the next render cycle.
       setData("lastUploadClassifications", data.classifications);
       const uploadOverrides = { lastUploadClassifications: data.classifications };
-      if (isLoading || inputValue.trim()) {
-        pendingUploadRef.current = { text: "Teaching materials uploaded", overrides: uploadOverrides };
-      } else {
-        handleSend("Teaching materials uploaded", uploadOverrides);
-      }
+      pendingUploadRef.current = { text: "Teaching materials uploaded", overrides: uploadOverrides };
     },
-    [setData, handleSend, isLoading, inputValue],
+    [setData],
   );
+
+  // ── Drain pending upload notification after state settles ──
+  // handleSourcesReady always queues (never calls handleSend synchronously)
+  // so we need this effect to drain once isLoading is false.
+  useEffect(() => {
+    if (!isLoading && pendingUploadRef.current) {
+      const pending = pendingUploadRef.current;
+      pendingUploadRef.current = null;
+      handleSend(pending.text, pending.overrides);
+    }
+  }, [isLoading, messages, handleSend]); // messages dep ensures we run after setMessages settles
 
   // ── Extraction done (from SourcesPanel) ─────────────
 
@@ -914,14 +926,25 @@ export function ConversationalWizard({ initialContext, userRole }: Conversationa
         const digest = { categoryBreakdown: catCounts, sampleAssertions: samples, totalCount: allAssertions.length };
         setData("courseRefDigest", digest);
 
-        // Send a follow-up message so the AI reflects back what it found
+        // Send silently — no visible user bubble, just let the AI narrate what it found
         const digestOverrides = { courseRefDigest: digest };
-        handleSend("Teaching guide analyzed — here's what I found in your course reference", digestOverrides);
+        const hiddenMsg = "Teaching guide analyzed — here's what I found in your course reference";
+        const currentMessages = messagesRef.current;
+        setIsLoading(true);
+        const result = await sendToAPI(hiddenMsg, [...currentMessages, { id: uid(), role: "user" as const, content: hiddenMsg }], digestOverrides);
+        setIsLoading(false);
+        if (result && "data" in result && result.data.content) {
+          const assistantMsg: Message = { id: uid(), role: "assistant", content: result.data.content };
+          const updated = [...messagesRef.current, assistantMsg];
+          setMessages(updated);
+          saveHistory(updated);
+          scrollToBottom();
+        }
       } catch {
         // Non-critical — fall back to classification-only narration
       }
     },
-    [setData, getData, handleSend],
+    [setData, getData, sendToAPI, setIsLoading, scrollToBottom],
   );
 
   // ── Page-level drag (full-page drop overlay) ─────────
