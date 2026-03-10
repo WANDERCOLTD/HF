@@ -687,29 +687,31 @@ export async function executeWizardTool(
           if (instType?.defaultDomainKind === "COMMUNITY") domainKind = "COMMUNITY";
         }
 
-        // Create institution
-        const institution = await prisma.institution.create({
-          data: {
-            name,
-            slug: slugify(name, { lower: true, strict: true }),
-            ...(typeId ? { typeId } : {}),
-          },
-        });
+        // Create institution + domain + link user atomically
+        const [institution, domain] = await prisma.$transaction(async (tx) => {
+          const inst = await tx.institution.create({
+            data: {
+              name,
+              slug: slugify(name, { lower: true, strict: true }),
+              ...(typeId ? { typeId } : {}),
+            },
+          });
 
-        // Create domain
-        const domain = await prisma.domain.create({
-          data: {
-            name,
-            slug: slugify(name, { lower: true, strict: true }),
-            institutionId: institution.id,
-            kind: domainKind,
-          },
-        });
+          const dom = await tx.domain.create({
+            data: {
+              name,
+              slug: slugify(name, { lower: true, strict: true }),
+              institutionId: inst.id,
+              kind: domainKind,
+            },
+          });
 
-        // Link user to institution (set as active institution)
-        await prisma.user.update({
-          where: { id: userId },
-          data: { activeInstitutionId: institution.id },
+          await tx.user.update({
+            where: { id: userId },
+            data: { activeInstitutionId: inst.id },
+          });
+
+          return [inst, dom] as const;
         });
 
         return {

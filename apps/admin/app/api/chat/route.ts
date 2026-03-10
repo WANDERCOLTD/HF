@@ -767,7 +767,12 @@ async function handleWizardModeWithTools(
         try {
           const data = JSON.parse(result.content);
           if (data.ok && toolUse.name === "create_institution") {
-            const creationFields = { draftDomainId: data.domainId, draftInstitutionId: data.institutionId };
+            const creationFields: Record<string, unknown> = {
+              draftDomainId: data.domainId,
+              draftInstitutionId: data.institutionId,
+              // Inject domainKind so graph skip conditions evaluate correctly
+              ...(data.domainKind ? { defaultDomainKind: data.domainKind } : {}),
+            };
             allToolCalls.push({
               name: "update_setup",
               input: { fields: creationFields },
