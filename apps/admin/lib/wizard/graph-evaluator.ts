@@ -89,7 +89,7 @@ const EFFORT_SCORES: Record<string, number> = {
  * Scoring:
  * 1. Priority tier (tier 1 = 400, tier 4 = 100)
  * 2. Unlock potential — nodes that unblock the most other nodes
- * 3. Conversational affinity — same group as the most recently satisfied node
+ * 3. Conversational affinity — shared tags with the last user-answered node
  * 4. Effort ease — easy input types first within same priority
  */
 function prioritize(
@@ -97,8 +97,12 @@ function prioritize(
   satisfied: WizardGraphNode[],
   allNodes: WizardGraphNode[],
 ): WizardGraphNode[] {
-  // What group was the last satisfied node in?
-  const lastGroup = satisfied.length > 0 ? satisfied[satisfied.length - 1].group : null;
+  // Last USER-ANSWERED node (ignore auto-resolved/derived — they shift
+  // affinity away from the conversation thread the user is actually in)
+  const userSatisfied = satisfied.filter(
+    (n) => n.inputType !== "auto-resolved" && n.inputType !== "derived",
+  );
+  const lastAnswered = userSatisfied.at(-1) ?? null;
 
   // Count how many blocked nodes each available node would unblock
   const unlockScores = new Map<string, number>();
@@ -118,7 +122,10 @@ function prioritize(
     let score = 0;
     score += (5 - node.priority) * WEIGHT_PRIORITY_TIER;
     score += (unlockScores.get(node.key) || 0) * WEIGHT_UNLOCK;
-    if (lastGroup && node.group === lastGroup) score += WEIGHT_AFFINITY;
+    // Affinity: use tags (not group) — nodes sharing more tags bond tighter
+    const lastTags = lastAnswered?.affinityTags ?? [];
+    const tagOverlap = node.affinityTags.filter((t) => lastTags.includes(t)).length;
+    score += tagOverlap * WEIGHT_AFFINITY;
     score += (EFFORT_SCORES[node.inputType] || 0) * WEIGHT_EFFORT;
     return { node, score };
   });

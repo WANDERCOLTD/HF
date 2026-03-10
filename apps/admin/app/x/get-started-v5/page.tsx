@@ -1,12 +1,13 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ConversationalWizard } from "../get-started-v4/components/ConversationalWizard";
-import type { WizardInitialContext } from "../get-started-v4/components/ConversationalWizard";
+import { V5WizardWithSelector } from "./V5WizardWithSelector";
 
 /**
  * Get Started V5 — Graph-driven wizard.
  *
  * Differences from V4:
+ * - Institution selector for SUPERADMIN (switch between orgs for demos)
  * - Institution pre-filled from user record (changeable in wizard)
  * - System prompt lets the graph evaluator drive conversation order (no linear phases)
  * - Content upload available right after institution/domain exists
@@ -18,7 +19,10 @@ export default async function GetStartedV5Page() {
   const { user } = session;
   const institutionId = user.institutionId;
 
-  if (!institutionId) return <ConversationalWizard userRole={user.role} wizardVersion="v5" />;
+  // No assigned institution — SUPERADMIN still gets the selector (fetches all from API)
+  if (!institutionId) {
+    return <V5WizardWithSelector defaultInstitution={null} userRole={user.role} />;
+  }
 
   const institution = await prisma.institution.findUnique({
     where: { id: institutionId, isActive: true },
@@ -36,7 +40,7 @@ export default async function GetStartedV5Page() {
   });
 
   if (!institution || institution.domains.length === 0) {
-    return <ConversationalWizard userRole={user.role} wizardVersion="v5" />;
+    return <V5WizardWithSelector defaultInstitution={null} userRole={user.role} />;
   }
 
   let domainId = institution.domains[0].id;
@@ -50,14 +54,13 @@ export default async function GetStartedV5Page() {
     }
   }
 
-  const initialContext: WizardInitialContext = {
-    institutionName: institution.name,
-    institutionId: institution.id,
+  const defaultInstitution = {
+    id: institution.id,
+    name: institution.name,
     domainId,
     domainKind,
     typeSlug: institution.type?.slug ?? null,
-    userRole: user.role,
   };
 
-  return <ConversationalWizard initialContext={initialContext} wizardVersion="v5" />;
+  return <V5WizardWithSelector defaultInstitution={defaultInstitution} userRole={user.role} />;
 }

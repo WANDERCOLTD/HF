@@ -29,7 +29,9 @@ import {
 } from '@/lib/course/group-specs';
 import { SimLaunchModal } from '@/components/shared/SimLaunchModal';
 import { CourseSetupTracker } from '@/components/shared/CourseSetupTracker';
-import { SessionPlanViewer } from '@/components/shared/SessionPlanViewer';
+// SessionPlanViewer retained — handlers below will wire back for admin editing in follow-up
+// import { SessionPlanViewer } from '@/components/shared/SessionPlanViewer';
+import { JourneyRail } from '@/components/shared/JourneyRail';
 import { reorderItems } from '@/lib/sortable/reorder';
 import type { SessionEntry, SessionMediaRef as SessionMediaRefType, SessionMediaMap, StudentProgress } from '@/lib/lesson-plan/types';
 import './course-detail.css';
@@ -714,7 +716,7 @@ export default function CourseDetailPage() {
 
   // ── Render ───────────────────────────────────────────
   return (
-    <div className="hf-page-container hf-page-scroll">
+    <div className="hf-page-container hf-page-scroll hf-page-left">
       {/* ── Hero (always visible above tabs) ───────────── */}
       <div className="hf-flex hf-flex-between hf-items-start hf-mb-lg">
         <div>
@@ -914,55 +916,13 @@ export default function CourseDetailPage() {
       {/* LESSON PLAN TAB                                */}
       {/* ═══════════════════════════════════════════════ */}
       {activeTab === 'lessons' && (
-        <SessionPlanViewer
-          variant="full"
-          entries={sessions?.plan?.entries ?? []}
-          model={sessions?.plan?.model}
-          generatedAt={sessions?.plan?.generatedAt}
-          estimatedSessions={sessions?.plan?.estimatedSessions}
-          sessionTPs={sessionTPs}
-          unassignedTPs={unassignedTPs}
-          mediaMap={sessionMediaMap}
-          studentProgress={sessions?.studentProgress}
-          onReorder={(from, to) => {
-            if (!sessions?.plan?.entries || !sessions?.curriculumId) return;
-            const reordered = reorderItems(sessions.plan.entries, from, to)
-              .map((e, i) => ({ ...e, session: i + 1 }));
-            setSessions((prev) => prev?.plan ? { ...prev, plan: { ...prev.plan, entries: reordered } } : prev);
-            fetch(`/api/curricula/${sessions.curriculumId}/lesson-plan`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ entries: reordered }),
-            }).catch(() => {});
-          }}
-          onRemove={(index) => {
-            if (!sessions?.plan?.entries || !sessions?.curriculumId) return;
-            const updated = sessions.plan.entries.filter((_, i) => i !== index)
-              .map((e, i) => ({ ...e, session: i + 1 }));
-            setSessions((prev) => prev?.plan ? { ...prev, plan: { ...prev.plan, entries: updated } } : prev);
-            fetch(`/api/curricula/${sessions.curriculumId}/lesson-plan`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ entries: updated }),
-            }).catch(() => {});
-          }}
-          onTPMove={handleTPMove}
-          onSessionMediaAssign={handleAssignImageToSession}
-          onSessionMediaRemove={handleRemoveSessionImage}
-          onMediaReorder={handleReorderSessionImages}
-          onRegenerate={handleRegenerate}
-          regenerating={regenerating}
-          regenSessionCount={regenSessionCount}
-          onRegenSessionCountChange={setRegenSessionCount}
+        <JourneyRail
+          sessions={sessions?.plan?.entries ?? []}
+          callers={sessions?.studentProgress}
           courseId={courseId!}
-          readonly={!isOperator}
           loading={sessionsLoading}
           error={sessionsError}
           onRetry={handleRetrySessionsLoad}
-          modules={sessions?.modules}
-          curriculumId={sessions?.curriculumId}
-          isOperator={isOperator}
-          domainId={detail?.domain?.id}
         />
       )}
 

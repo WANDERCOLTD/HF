@@ -257,6 +257,40 @@ describe("evaluateGraph — priority ordering", () => {
     expect(behaviorIdx).toBeGreaterThan(courseIdx);
   });
 
+  it("affinity tags bond related fields (timing: sessionCount → durationMins)", () => {
+    // After answering sessionCount, durationMins (same timing tag) should rank
+    // higher than welcomeMessage (same group but no shared tag)
+    const board = boardWith({
+      institutionName: "PAW",
+      existingDomainId: "d",
+      courseName: "GCSE",
+      interactionPattern: "socratic",
+      sessionCount: "5", // timing + structure tags
+    });
+    const result = evaluateGraph(board);
+    const durationIdx = result.suggested.findIndex((n) => n.key === "durationMins");
+    const welcomeIdx = result.suggested.findIndex((n) => n.key === "welcomeMessage");
+    // Both are priority 3, but durationMins shares "timing" tag with sessionCount
+    expect(durationIdx).toBeLessThan(welcomeIdx);
+  });
+
+  it("affinity ignores auto-resolved nodes (uses last user answer)", () => {
+    // User answers institutionName → resolver auto-fills domainId, domainKind
+    // Affinity should anchor on institutionName (institution tags), not domainKind
+    const board = boardWith({
+      institutionName: "PAW",
+      existingDomainId: "d",       // auto-resolved
+      defaultDomainKind: "STANDARD", // auto-resolved
+      existingInstitutionId: "i1",   // auto-resolved
+    });
+    const result = evaluateGraph(board);
+    // typeSlug shares ["identity", "institution"] with institutionName
+    // It should get affinity bonus over nodes with no shared tags
+    const typeIdx = result.suggested.findIndex((n) => n.key === "typeSlug");
+    const behaviorIdx = result.suggested.findIndex((n) => n.key === "behaviorTargets");
+    expect(typeIdx).toBeLessThan(behaviorIdx);
+  });
+
   it("auto-resolved nodes are not in suggestions", () => {
     const result = evaluateGraph(emptyBoard());
     const suggestedKeys = result.suggested.map((n) => n.key);
@@ -323,7 +357,7 @@ describe("buildGraphPromptSection", () => {
   it("shows suggestion with ASK THIS NEXT marker", () => {
     const eval1 = evaluateGraph(emptyBoard());
     const section = buildGraphPromptSection(eval1, emptyBoard());
-    expect(section).toContain("ASK THIS NEXT");
+    expect(section).toContain("HANDLE THIS NEXT");
   });
 
   it("shows resolver context when provided", () => {
@@ -362,10 +396,11 @@ describe("buildGraphPromptSection", () => {
 // ── buildGraphFallback ───────────────────────────────────
 
 describe("buildGraphFallback", () => {
-  it("includes acknowledgment of collected fields", () => {
+  it("acknowledges fields from update_setup tool calls", () => {
     const board = boardWith({ institutionName: "PAW Campus" });
     const eval1 = evaluateGraph(board);
-    const fallback = buildGraphFallback(eval1, board);
+    const toolCalls = [{ name: "update_setup", input: { fields: { institutionName: "PAW Campus" } } }];
+    const fallback = buildGraphFallback(eval1, board, toolCalls);
     expect(fallback).toContain("PAW Campus");
   });
 
@@ -381,12 +416,26 @@ describe("buildGraphFallback", () => {
     expect(fallback.length).toBeGreaterThan(10);
   });
 
-  it("offers launch when ready", () => {
+  it("offers launch when all fields collected", () => {
     const board = boardWith({
       institutionName: "PAW",
       existingDomainId: "d",
       courseName: "C",
       interactionPattern: "socratic",
+      // Fill all optional fields so suggested is empty
+      typeSlug: "school",
+      websiteUrl: "http://paw.edu",
+      teachingMode: "comprehension",
+      welcomeMessage: "Hi",
+      sessionCount: "5",
+      durationMins: "30",
+      planEmphasis: "balanced",
+      behaviorTargets: { warmth: 70 },
+      lessonPlanModel: "direct",
+      subjectDiscipline: "English",
+      audience: "secondary",
+      learningOutcomes: ["outcome1"],
+      assessments: "formal",
     });
     const eval1 = evaluateGraph(board);
     const fallback = buildGraphFallback(eval1, board);

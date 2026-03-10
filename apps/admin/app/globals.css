@@ -3331,6 +3331,9 @@ html.light {
 .hf-page-container.hf-page-wide {
   max-width: none;
 }
+.hf-page-container.hf-page-left {
+  margin-left: 0;
+}
 .hf-page-scroll {
   flex: 1;
   min-height: 0;

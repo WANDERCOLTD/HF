@@ -29,6 +29,7 @@ import type { SourcesReadyData, SourcesPanelHandle } from "./SourcesPanel";
 import type { FirstCallPreviewData } from "./FirstCallPreviewCard";
 import { SessionPlanViewer } from "@/components/shared/SessionPlanViewer";
 import type { SessionEntry } from "@/lib/lesson-plan/types";
+import { MiniJourneyRail } from "@/components/shared/MiniJourneyRail";
 import { ScaffoldPanel } from "@/components/wizards/ScaffoldPanel";
 import { parseOptionsFromText } from "@/lib/chat/parse-options";
 import "../get-started-v4.css";
@@ -361,25 +362,6 @@ function contextToInitialData(ctx: WizardInitialContext): Record<string, unknown
     defaultDomainKind: ctx.domainKind,
     ...(ctx.typeSlug ? { typeSlug: ctx.typeSlug } : {}),
   };
-}
-
-// ── Adapter: LessonEntry → SessionEntry for wizard snapshot ──
-
-function toSessionEntries(entries: LessonEntry[]): SessionEntry[] {
-  return entries.map((e) => ({
-    session: e.session,
-    type: e.type,
-    moduleId: null,
-    moduleLabel: "",
-    label: e.label,
-    notes: e.notes || null,
-    estimatedDurationMins: e.estimatedDurationMins || null,
-    assertionCount: e.teachingPointCount || null,
-    phases: null,
-    learningOutcomeRefs: null,
-    assertionIds: null,
-    media: null,
-  }));
 }
 
 // ── Adapter: FirstCallPreviewData → SessionEntry[] for wizard snapshot ──
@@ -1213,11 +1195,10 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             if (msg.systemType === "lesson-plan" && msg.lessonEntries) {
               return (
                 <div key={msg.id} className="cv4-row cv4-row--system">
-                  <SessionPlanViewer
-                    variant="timeline"
-                    entries={toSessionEntries(msg.lessonEntries)}
+                  <MiniJourneyRail
+                    entries={msg.lessonEntries}
                     courseId={msg.lessonCourseId}
-                    readonly
+                    courseName={msg.lessonCourseName}
                   />
                 </div>
               );
