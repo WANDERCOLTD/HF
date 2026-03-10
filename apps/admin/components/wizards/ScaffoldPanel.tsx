@@ -513,9 +513,18 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
         <ReadinessBar dots={dots} />
 
         <div className="gs-try-call">
-          <span className="gs-sim-btn gs-sim-btn-disabled" title="Practice calls are available on the Course page after setup completes">
-            Practice call available on Course page
-          </span>
+          {launched ? (
+            <a
+              href={hasPlaybookId ? `/x/courses/${getData<string>("draftPlaybookId")}` : "/x/courses"}
+              className="gs-sim-btn gs-sim-btn-ready"
+            >
+              View your course <ExternalLink size={11} />
+            </a>
+          ) : (
+            <span className="gs-sim-btn gs-sim-btn-disabled" title="Practice calls are available on the Course page after setup completes">
+              Practice call available on Course page
+            </span>
+          )}
         </div>
 
         {onReset && (
