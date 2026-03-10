@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, CheckCircle2, AlertCircle } from "lucide-react";
+import { FileText, CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { getDocTypeInfo } from "@/lib/doc-type-icons";
 
 export interface FileCardData {
@@ -15,6 +15,8 @@ export interface FileCardData {
   confidence?: number;
   /** AI reasoning for this classification */
   reasoning?: string;
+  /** Whether students can see this document (derived from doc type defaults) */
+  isStudentVisible?: boolean;
 }
 
 interface FileCardProps {
@@ -48,6 +50,17 @@ export function FileCard({ file }: FileCardProps) {
             style={{ "--badge-color": docInfo.color, "--badge-bg": docInfo.bg } as React.CSSProperties}
           >
             {docInfo.label}
+          </span>
+        )}
+        {file.isStudentVisible !== undefined && (
+          <span
+            className={`cv4-file-card-visibility${file.isStudentVisible ? " cv4-file-card-visibility--student" : ""}`}
+            title={file.isStudentVisible
+              ? "Shared with students during calls"
+              : "Teacher-only — AI still learns from it"
+            }
+          >
+            {file.isStudentVisible ? <><Eye size={10} /> Student</> : <><EyeOff size={10} /> Teacher</>}
           </span>
         )}
         {file.subject && (

@@ -612,6 +612,21 @@
   gap: 3px;
   font-weight: 500;
 }
+.cv4-file-card-visibility {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--surface-tertiary);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 500;
+}
+.cv4-file-card-visibility--student {
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+}
 
 .cv4-file-card-reasoning {
   font-size: 11px;

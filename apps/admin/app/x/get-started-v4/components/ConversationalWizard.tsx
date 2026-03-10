@@ -32,6 +32,7 @@ import type { SessionEntry } from "@/lib/lesson-plan/types";
 import { MiniJourneyRail } from "@/components/shared/MiniJourneyRail";
 import { ScaffoldPanel } from "@/components/wizards/ScaffoldPanel";
 import { parseOptionsFromText } from "@/lib/chat/parse-options";
+import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
 import "../get-started-v4.css";
 
 
@@ -815,6 +816,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         subject: data.subjects?.[0]?.name,
         confidence: c.confidence,
         reasoning: c.reasoning,
+        isStudentVisible: isStudentVisibleDefault(c.documentType),
       }));
 
       // Add a compact hint in chat (not the full upload UI)

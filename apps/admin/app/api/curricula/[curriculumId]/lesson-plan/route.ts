@@ -313,11 +313,13 @@ async function runBackgroundLessonPlanGeneration(
 
     const targetHint = totalSessionTarget
       ? `The educator has requested EXACTLY ${totalSessionTarget} sessions total. You MUST return exactly ${totalSessionTarget} entries.${
-          totalSessionTarget <= 4
-            ? " With this few sessions, skip onboarding/consolidate/review — use only introduce and deepen types. Combine multiple modules into single sessions if needed."
-            : totalSessionTarget <= 6
-              ? " With few sessions, skip separate onboarding — fold the welcome into the first introduce session. Skip consolidate unless there are enough sessions."
-              : ""
+          totalSessionTarget <= 2
+            ? " With only 1-2 sessions, skip onboarding/consolidate/review — use only introduce and deepen types. Combine multiple modules into single sessions if needed."
+            : totalSessionTarget <= 4
+              ? " Session 1 must be onboarding. Skip consolidate/review — use the remaining sessions for introduce and deepen. Combine related modules if needed."
+              : totalSessionTarget <= 6
+                ? " Session 1 must be onboarding. Skip consolidate unless there are enough sessions."
+                : ""
         }`
       : "Propose a reasonable number of sessions based on the content depth.";
 
