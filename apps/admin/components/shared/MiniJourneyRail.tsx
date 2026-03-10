@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * MiniJourneyRail — compact lesson plan snapshot for wizard conversations.
+ * MiniJourneyRail — compact journey snapshot for wizard conversations.
  *
  * Shows a dot rail (color-coded by session type, all "upcoming"),
+ * with optional onboarding "First Call" as session 0,
  * summary stats, and a "View your course" link.
  */
 
@@ -13,19 +14,34 @@ import { getSessionTypeLabel } from "@/lib/lesson-plan/session-ui";
 import type { LessonEntry } from "@/app/x/get-started-v4/components/LessonPlanAccordion";
 import "./journey-rail.css";
 
+export interface OnboardingPhaseCompact {
+  phase: string;
+  duration?: string;
+}
+
 export interface MiniJourneyRailProps {
   entries: LessonEntry[];
   courseId?: string;
   courseName?: string;
+  /** Onboarding phases — renders as a "First Call" session 0 before the lesson plan */
+  onboardingPhases?: OnboardingPhaseCompact[];
 }
 
 const upcomingState = (): DotState => "upcoming";
 
-export function MiniJourneyRail({ entries, courseId, courseName }: MiniJourneyRailProps) {
-  const steps: DotRailStep[] = useMemo(
-    () => entries.map((e) => ({ session: e.session, type: e.type, label: e.label })),
-    [entries],
-  );
+export function MiniJourneyRail({ entries, courseId, courseName, onboardingPhases }: MiniJourneyRailProps) {
+  const hasOnboarding = onboardingPhases && onboardingPhases.length > 0;
+
+  const steps: DotRailStep[] = useMemo(() => {
+    const result: DotRailStep[] = [];
+    if (hasOnboarding) {
+      result.push({ session: 0, type: "onboarding", label: "First Call" });
+    }
+    for (const e of entries) {
+      result.push({ session: e.session, type: e.type, label: e.label });
+    }
+    return result;
+  }, [entries, hasOnboarding]);
 
   const totalMins = useMemo(
     () => entries.reduce((sum, e) => sum + (e.estimatedDurationMins || 0), 0),
@@ -35,6 +51,10 @@ export function MiniJourneyRail({ entries, courseId, courseName }: MiniJourneyRa
   const typeBreakdown = useMemo(() => {
     const seen = new Set<string>();
     const labels: string[] = [];
+    if (hasOnboarding) {
+      seen.add("onboarding");
+      labels.push(getSessionTypeLabel("onboarding"));
+    }
     for (const e of entries) {
       if (!seen.has(e.type)) {
         seen.add(e.type);
@@ -42,21 +62,37 @@ export function MiniJourneyRail({ entries, courseId, courseName }: MiniJourneyRa
       }
     }
     return labels.join(", ");
-  }, [entries]);
+  }, [entries, hasOnboarding]);
 
-  if (entries.length === 0) return null;
+  // Onboarding phase trail: "Welcome → Orient → Discover"
+  const phaseTrail = useMemo(() => {
+    if (!hasOnboarding) return null;
+    return onboardingPhases
+      .map((p) => p.phase.charAt(0).toUpperCase() + p.phase.slice(1))
+      .join(" → ");
+  }, [onboardingPhases, hasOnboarding]);
+
+  if (entries.length === 0 && !hasOnboarding) return null;
+
+  const sessionCount = entries.length + (hasOnboarding ? 1 : 0);
 
   return (
     <div className="jrl-mini">
       <div className="jrl-mini-title">
-        {courseName ? `${courseName} — Lesson Plan` : "Your lesson plan"}
+        {courseName ? `${courseName} — Your Journey` : "Your learning journey"}
       </div>
 
       <DotRail steps={steps} getState={upcomingState} />
 
+      {phaseTrail && (
+        <div className="jrl-mini-phases">
+          First Call: {phaseTrail}
+        </div>
+      )}
+
       <div className="jrl-mini-summary">
         <span>
-          {entries.length} session{entries.length !== 1 ? "s" : ""}
+          {sessionCount} session{sessionCount !== 1 ? "s" : ""}
         </span>
         {totalMins > 0 && (
           <>

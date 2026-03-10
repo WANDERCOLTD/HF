@@ -13,7 +13,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Paperclip, Users2, ArrowLeft, ListOrdered, RefreshCw } from "lucide-react";
+import { Paperclip, Users2, ArrowLeft, ListOrdered, RefreshCw, ExternalLink } from "lucide-react";
 import { DotRail, type DotRailStep, type DotState } from "./DotRail";
 import { getSessionTypeColor, getSessionTypeLabel } from "@/lib/lesson-plan/session-ui";
 import type { SessionEntry, StudentProgress } from "@/lib/lesson-plan/types";
@@ -37,6 +37,9 @@ export interface JourneyRailProps {
   regenerating?: boolean;
   regenSessionCount?: number | null;
   onRegenSessionCountChange?: (n: number | null) => void;
+
+  /** Custom render for expanded session detail. Overrides default phase-bar detail. */
+  renderSessionDetail?: (entry: SessionEntry) => React.ReactNode;
 }
 
 // ── Helpers ─────────────────────────────────────────
@@ -98,6 +101,133 @@ function materialCount(entry: SessionEntry): number {
   return count;
 }
 
+// ── Default expanded detail (extracted for render-prop override) ──
+
+function DefaultSessionDetail({
+  entry,
+  mats,
+  onThisSession,
+  courseId,
+  color,
+}: {
+  entry: SessionEntry;
+  mats: number;
+  onThisSession: StudentProgress[];
+  courseId: string;
+  color: string;
+}) {
+  const router = useRouter();
+
+  return (
+    <div
+      className="jrl-active-detail"
+      style={{ "--station-color": color } as React.CSSProperties}
+    >
+      {entry.notes && (
+        <div className="jrl-detail-notes">{entry.notes}</div>
+      )}
+
+      {entry.moduleLabel && (
+        <div className="jrl-detail-module">
+          <span className="hf-text-xs hf-text-muted">Module:</span>{" "}
+          <span className="hf-text-xs hf-text-secondary">{entry.moduleLabel}</span>
+        </div>
+      )}
+
+      {entry.phases && entry.phases.length > 0 && (
+        <div className="jrl-phase-bar">
+          {entry.phases.map((phase, pi) => {
+            const totalPhaseDur = entry.phases!.reduce(
+              (s, p) => s + (p.durationMins || 0),
+              0,
+            );
+            const fraction = totalPhaseDur > 0 && phase.durationMins
+              ? phase.durationMins / totalPhaseDur
+              : 1 / entry.phases!.length;
+
+            return (
+              <div
+                key={phase.id + pi}
+                className="jrl-phase-segment"
+                style={{ flex: fraction }}
+              >
+                <span className="jrl-phase-segment-label">
+                  {phase.label.split(" — ")[0]}
+                </span>
+                {phase.durationMins && (
+                  <span className="jrl-phase-segment-dur">
+                    {phase.durationMins}m
+                  </span>
+                )}
+                {phase.teachMethods && phase.teachMethods.length > 0 && (
+                  <div className="jrl-phase-segment-methods">
+                    {phase.teachMethods.slice(0, 2).map((m) => (
+                      <span key={m} className="hf-chip hf-chip-sm">{m}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {mats > 0 && (
+        <div className="jrl-active-materials">
+          {entry.media?.map((m) => (
+            <span key={m.mediaId} className="jrl-material-chip">
+              {m.mimeType?.startsWith("image/") ? (
+                <img
+                  src={`/api/media/${m.mediaId}`}
+                  alt={m.captionText || m.fileName || ""}
+                  className="jrl-material-thumb"
+                />
+              ) : (
+                <Paperclip size={9} />
+              )}
+              {m.fileName || m.figureRef || "File"}
+            </span>
+          ))}
+          {entry.phases?.flatMap((p) =>
+            (p.media || []).map((m) => (
+              <span key={m.mediaId} className="jrl-material-chip">
+                {m.mimeType?.startsWith("image/") ? (
+                  <img
+                    src={`/api/media/${m.mediaId}`}
+                    alt={m.captionText || m.fileName || ""}
+                    className="jrl-material-thumb"
+                  />
+                ) : (
+                  <Paperclip size={9} />
+                )}
+                {m.fileName || m.figureRef || "File"}
+              </span>
+            )),
+          )}
+        </div>
+      )}
+
+      {onThisSession.length > 0 && (
+        <div className="jrl-active-students">
+          <span className="jrl-student-dot" />
+          {onThisSession.map((c) => c.name).join(", ")}
+        </div>
+      )}
+
+      <button
+        className="jrl-detail-link"
+        onClick={(e) => {
+          e.stopPropagation();
+          router.push(`/x/courses/${courseId}/sessions/${entry.session}`);
+        }}
+        type="button"
+      >
+        <ExternalLink size={11} /> Edit session details
+      </button>
+    </div>
+  );
+}
+
 // ── Component ───────────────────────────────────────
 
 export function JourneyRail({
@@ -112,6 +242,7 @@ export function JourneyRail({
   regenerating = false,
   regenSessionCount,
   onRegenSessionCountChange,
+  renderSessionDetail,
 }: JourneyRailProps) {
   const router = useRouter();
   const [focusCallerId, setFocusCallerId] = useState<string | null>(initialFocusCallerId);
@@ -301,81 +432,24 @@ export function JourneyRail({
           </div>
         )}
 
-        {/* Expanded: phase bar + materials + students */}
-        {isExpanded && entry.phases && entry.phases.length > 0 && (
-          <div
-            className="jrl-active-detail"
-            style={{ "--station-color": color } as React.CSSProperties}
-          >
-            {/* Phase bar */}
-            <div className="jrl-phase-bar">
-              {entry.phases.map((phase, pi) => {
-                const totalPhaseDur = entry.phases!.reduce(
-                  (s, p) => s + (p.durationMins || 0),
-                  0,
-                );
-                const fraction = totalPhaseDur > 0 && phase.durationMins
-                  ? phase.durationMins / totalPhaseDur
-                  : 1 / entry.phases!.length;
-
-                return (
-                  <div
-                    key={phase.id + pi}
-                    className="jrl-phase-segment"
-                    style={{ flex: fraction }}
-                  >
-                    <span className="jrl-phase-segment-label">
-                      {phase.label.split(" — ")[0]}
-                    </span>
-                    {phase.durationMins && (
-                      <span className="jrl-phase-segment-dur">
-                        {phase.durationMins}m
-                      </span>
-                    )}
-                    {phase.teachMethods && phase.teachMethods.length > 0 && (
-                      <div className="jrl-phase-segment-methods">
-                        {phase.teachMethods.slice(0, 2).map((m) => (
-                          <span key={m} className="hf-chip hf-chip-sm">{m}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+        {/* Expanded: detail panel */}
+        {isExpanded && (
+          renderSessionDetail ? (
+            <div
+              className="jrl-active-detail jrl-active-detail--full"
+              style={{ "--station-color": color } as React.CSSProperties}
+            >
+              {renderSessionDetail(entry)}
             </div>
-
-            {/* Footer: materials + students on this session */}
-            {(mats > 0 || onThisSession.length > 0) && (
-              <div className="jrl-active-footer">
-                {mats > 0 && (
-                  <div className="jrl-active-materials">
-                    {/* Session-level media */}
-                    {entry.media?.map((m) => (
-                      <span key={m.mediaId} className="jrl-material-chip">
-                        <Paperclip size={9} />
-                        {m.fileName || m.figureRef || "File"}
-                      </span>
-                    ))}
-                    {/* Phase-level media */}
-                    {entry.phases?.flatMap((p) =>
-                      (p.media || []).map((m) => (
-                        <span key={m.mediaId} className="jrl-material-chip">
-                          <Paperclip size={9} />
-                          {m.fileName || m.figureRef || "File"}
-                        </span>
-                      )),
-                    )}
-                  </div>
-                )}
-                {onThisSession.length > 0 && (
-                  <div className="jrl-active-students">
-                    <span className="jrl-student-dot" />
-                    {onThisSession.map((c) => c.name).join(", ")}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          ) : (
+            <DefaultSessionDetail
+              entry={entry}
+              mats={mats}
+              onThisSession={onThisSession}
+              courseId={courseId}
+              color={color}
+            />
+          )
         )}
       </div>
     );

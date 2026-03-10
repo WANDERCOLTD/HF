@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   BookMarked, FileText, ExternalLink, Plus, Pencil, Trash2,
-  Sparkles, AlertTriangle, Compass,
+  Sparkles, AlertTriangle,
   Settings as SettingsIcon, Users2,
   ListOrdered, Zap,
   PlayCircle,
@@ -13,7 +13,8 @@ import {
 import { CourseWhatTab } from './CourseWhatTab';
 import { CourseHowTab } from './CourseHowTab';
 import { CourseWhoTab } from './CourseWhoTab';
-import { StudentJourneyTab } from './StudentJourneyTab';
+import { OnboardingEditor } from '@/components/shared/OnboardingEditor';
+import { SessionDetailPanel } from '@/components/shared/SessionDetailPanel';
 import { useSession } from 'next-auth/react';
 import { useEntityContext } from '@/contexts/EntityContext';
 import { EditableTitle } from '@/components/shared/EditableTitle';
@@ -868,18 +869,6 @@ export default function CourseDetailPage() {
           subjects={subjects}
           isOperator={isOperator}
           persona={persona}
-          sessionPlan={sessions?.plan ? {
-            entries: sessions.plan.entries.map((e) => ({
-              session: e.session,
-              type: e.type,
-              label: e.label,
-            })),
-            estimatedSessions: sessions.plan.estimatedSessions,
-            totalDurationMins: totalSessionDuration,
-            model: sessions.plan.model,
-            generatedAt: sessions.plan.generatedAt,
-          } : null}
-          onTabChange={handleTabChange}
           onDetailUpdate={setDetail}
         />
       )}
@@ -901,34 +890,42 @@ export default function CourseDetailPage() {
       {/* Content, Classrooms, Students tabs folded into WHAT/HOW/WHO */}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* SESSIONS TAB (First Call + Lesson Plan)        */}
+      {/* SESSIONS TAB — Rail-first: click stop to expand */}
       {/* ═══════════════════════════════════════════════ */}
       {activeTab === 'sessions' && (
-        <>
-          <SectionHeader title="First Call" icon={Compass} />
-          <StudentJourneyTab
-            courseId={courseId!}
-            domainId={detail.domain.id}
-            domainName={detail.domain.name}
-            isOperator={isOperator}
-          />
-
-          <div className="hf-mt-xl">
-            <SectionHeader title="Lesson Plan" icon={ListOrdered} />
-            <JourneyRail
-              sessions={sessions?.plan?.entries ?? []}
-              callers={sessions?.studentProgress}
-              courseId={courseId!}
-              loading={sessionsLoading}
-              error={sessionsError}
-              onRetry={handleRetrySessionsLoad}
-              onRegenerate={isOperator ? handleRegenerate : undefined}
-              regenerating={regenerating}
-              regenSessionCount={regenSessionCount}
-              onRegenSessionCountChange={setRegenSessionCount}
-            />
-          </div>
-        </>
+        <JourneyRail
+          sessions={sessions?.plan?.entries ?? []}
+          callers={sessions?.studentProgress}
+          courseId={courseId!}
+          loading={sessionsLoading}
+          error={sessionsError}
+          onRetry={handleRetrySessionsLoad}
+          onRegenerate={isOperator ? handleRegenerate : undefined}
+          regenerating={regenerating}
+          regenSessionCount={regenSessionCount}
+          onRegenSessionCountChange={setRegenSessionCount}
+          renderSessionDetail={(entry) => {
+            if (entry.type === 'onboarding') {
+              return (
+                <OnboardingEditor
+                  courseId={courseId!}
+                  domainId={detail.domain.id}
+                  domainName={detail.domain.name}
+                  isOperator={isOperator}
+                  compact
+                />
+              );
+            }
+            return (
+              <SessionDetailPanel
+                entry={entry}
+                courseId={courseId!}
+                tps={sessionTPs[entry.session]}
+                showEditLink={isOperator}
+              />
+            );
+          }}
+        />
       )}
 
 

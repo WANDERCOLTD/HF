@@ -67,7 +67,9 @@ interface Message {
   lessonEntries?: LessonEntry[];
   lessonCourseName?: string;
   lessonCourseId?: string;
-  /** Populated for first-call-preview system messages */
+  /** Onboarding phases folded into lesson-plan message for unified rail */
+  lessonOnboardingPhases?: Array<{ phase: string; duration?: string }>;
+  /** Populated for first-call-preview system messages (standalone fallback) */
   firstCallPreview?: FirstCallPreviewData;
   /** Populated for options system messages */
   optionsPanel?: OptionsPanel;
@@ -644,12 +646,19 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         }
       }
 
-      // Check if create_course just completed — lessonPlanPreview in setupData
+      // Check if create_course just completed — lessonPlanPreview + firstCallPreview
       const preview = getData<LessonEntry[]>("lessonPlanPreview");
       const courseName = getData<string>("courseName");
       const playbookId = getData<string>("draftPlaybookId");
+      const fcPreview = getData<FirstCallPreviewData>("firstCallPreview");
+
       if (preview?.length && !getData<boolean>("lessonPlanShown")) {
         setData("lessonPlanShown", true);
+        // Fold onboarding phases into lesson-plan message for unified MiniJourneyRail
+        const onboardingPhases = fcPreview?.phases?.length
+          ? fcPreview.phases.map((p) => ({ phase: p.phase, duration: p.duration }))
+          : undefined;
+        if (onboardingPhases) setData("firstCallPreviewShown", true);
         extra.push({
           id: uid(),
           role: "system",
@@ -658,11 +667,11 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           lessonEntries: preview,
           lessonCourseName: courseName || undefined,
           lessonCourseId: playbookId || undefined,
+          lessonOnboardingPhases: onboardingPhases,
         });
       }
 
-      // Check if create_course just completed — firstCallPreview in setupData
-      const fcPreview = getData<FirstCallPreviewData>("firstCallPreview");
+      // Standalone first-call-preview — only if no lesson plan was shown
       if (fcPreview?.phases?.length && !getData<boolean>("firstCallPreviewShown")) {
         setData("firstCallPreviewShown", true);
         extra.push({
@@ -1206,6 +1215,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
                     entries={msg.lessonEntries}
                     courseId={msg.lessonCourseId}
                     courseName={msg.lessonCourseName}
+                    onboardingPhases={msg.lessonOnboardingPhases}
                   />
                 </div>
               );

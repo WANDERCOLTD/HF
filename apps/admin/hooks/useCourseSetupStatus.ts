@@ -65,6 +65,7 @@ export interface SetupStatusInput {
 
   /** Readiness data from /api/courses/:id/setup-status or inline */
   readiness: {
+    lessonPlanBuilt?: boolean;
     onboardingConfigured: boolean;
     promptComposable: boolean;
     allCriticalPass: boolean;
@@ -80,6 +81,7 @@ export function useCourseSetupStatus(input: SetupStatusInput): CourseSetupStatus
     input.subjects.length,
     JSON.stringify(Object.keys(input.sourceStatusMap)),
     input.sessions?.plan?.estimatedSessions,
+    input.readiness?.lessonPlanBuilt,
     input.readiness?.allCriticalPass,
   ]);
 }
@@ -168,7 +170,10 @@ export function deriveStages(input: SetupStatusInput): CourseSetupStatus {
   });
 
   // ── Stage 4: Lesson Plan Built ──────────────────────
-  const hasPlan = !!(sessions?.plan && sessions.plan.entries.length > 0);
+  // sessions?.plan is only loaded when the Sessions tab is opened,
+  // so fall back to the readiness endpoint which checks DB directly
+  const hasPlan = !!(sessions?.plan && sessions.plan.entries.length > 0)
+    || (readiness?.lessonPlanBuilt ?? false);
   const planSessions = sessions?.plan?.estimatedSessions ?? 0;
   const suggestedCount = (detail?.config as Record<string, unknown> | undefined)?.suggestedSessionCount as number | undefined;
   const confirmedCount = (detail?.config as Record<string, unknown> | undefined)?.sessionCount as number | undefined;

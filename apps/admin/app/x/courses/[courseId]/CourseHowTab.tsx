@@ -3,12 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
-  Sparkles, MessageCircle, Ban, ChevronDown, ChevronRight,
-  Plus, Pencil, X as XIcon, Upload, ArrowRight, RefreshCw,
+  Sparkles, Ban, ChevronDown, ChevronRight,
+  Plus, Pencil, X as XIcon, Upload, RefreshCw,
 } from 'lucide-react';
-import { PlanSummary, type PlanSession } from '@/app/x/courses/_components/PlanSummary';
-import { getLessonPlanModel } from '@/lib/lesson-plan/models';
-import { OnboardingPreview, type OnboardingPhase as OBPhase } from '@/components/shared/OnboardingPreview';
 import { getTeachingProfile, resolveTeachingProfile } from '@/lib/content-trust/teaching-profiles';
 import { TEACHING_MODE_LABELS, INTERACTION_PATTERN_LABELS, type TeachingMode, type InteractionPattern } from '@/lib/content-trust/resolve-config';
 import type { PlaybookConfig } from '@/lib/types/json-fields';
@@ -35,14 +32,6 @@ export type CourseHowTabProps = {
     roleStatement: string | null;
     primaryGoal: string | null;
   } | null;
-  sessionPlan: {
-    entries: Array<{ session: number; type: string; label: string }>;
-    estimatedSessions: number;
-    totalDurationMins: number;
-    model?: string | null;
-    generatedAt?: string | null;
-  } | null;
-  onTabChange?: (tab: string) => void;
   onDetailUpdate?: (updater: (prev: any) => any) => void;
 };
 
@@ -182,8 +171,6 @@ export function CourseHowTab({
   subjects,
   isOperator,
   persona,
-  sessionPlan,
-  onTabChange,
   onDetailUpdate,
 }: CourseHowTabProps) {
   const config = (detail.config || {}) as PlaybookConfig;
@@ -193,8 +180,6 @@ export function CourseHowTab({
   const [instructions, setInstructions] = useState<InstructionsData | null>(null);
   const [instructionsLoading, setInstructionsLoading] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(CATEGORY_ORDER));
-  const [onboarding, setOnboarding] = useState<{ phases: OBPhase[]; personaName?: string; domainWelcome?: string } | null>(null);
-  const [onboardingLoading, setOnboardingLoading] = useState(false);
   const [reExtracting, setReExtracting] = useState(false);
   const [reExtractResult, setReExtractResult] = useState<{ triggered: number; total: number } | null>(null);
 
@@ -229,24 +214,6 @@ export function CourseHowTab({
       setSaving(false);
     }
   }, [detail.id, onDetailUpdate]);
-
-  // ── Lazy-load onboarding ─────────────────────────────
-  useEffect(() => {
-    setOnboardingLoading(true);
-    fetch(`/api/courses/${courseId}/onboarding`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.ok) {
-          setOnboarding({
-            phases: data.phases || [],
-            personaName: data.personaName,
-            domainWelcome: data.domainWelcome,
-          });
-        }
-      })
-      .catch(() => {})
-      .finally(() => setOnboardingLoading(false));
-  }, [courseId]);
 
   // ── Lazy-load instructions ───────────────────────────
   useEffect(() => {
@@ -320,8 +287,6 @@ export function CourseHowTab({
   }, [courseId]);
 
   const sessionFlowItems = instructions?.categories?.session_flow || [];
-  const planModel = sessionPlan?.model ? getLessonPlanModel(sessionPlan.model) : null;
-  const planModelLabel = planModel?.label || sessionPlan?.model || 'Custom';
 
   // Auto-extract boundary items from teaching_rule + edge_case assertions
   const PROHIBITION_RE = /\b(never|do not|don'?t|avoid|must not|should not|shouldn'?t|forbidden|prohibited|not allowed)\b/i;
@@ -356,77 +321,7 @@ export function CourseHowTab({
 
   return (
     <>
-      {/* ── 1. Lesson Plan Summary ──────────────────────── */}
-      {sessionPlan && sessionPlan.entries.length > 0 && (
-        <>
-          <SectionHeader title="Your Lesson Plan" icon={Sparkles} />
-          <div className="hf-card-compact hf-mb-lg">
-            <PlanSummary
-              state="ready"
-              sessions={sessionPlan.entries.map((e) => ({
-                type: e.type,
-                label: e.label,
-              }))}
-            />
-            <div className="hf-flex hf-flex-between hf-items-center hf-mt-md">
-              <div className="hf-text-xs hf-text-muted">
-                {sessionPlan.estimatedSessions} sessions
-                {sessionPlan.totalDurationMins > 0 && (
-                  <> &middot; ~{sessionPlan.totalDurationMins >= 60
-                    ? `${Math.round(sessionPlan.totalDurationMins / 60 * 10) / 10}h`
-                    : `${sessionPlan.totalDurationMins}m`
-                  }</>
-                )}
-                {' '}&middot; {planModelLabel}
-              </div>
-              <button
-                className="hf-btn hf-btn-xs hf-btn-ghost"
-                onClick={() => onTabChange?.('sessions')}
-                type="button"
-              >
-                View full plan <ArrowRight size={12} />
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ── 2. First Call Flow ───────────────────────────── */}
-      <SectionHeader
-        title="First Call"
-        icon={MessageCircle}
-        subtitle="How session 1 works — the onboarding experience"
-      />
-      <div className="hf-card-compact hf-mb-lg">
-        {onboardingLoading ? (
-          <div className="hf-text-sm hf-text-muted hf-glow-active">Loading first call structure...</div>
-        ) : onboarding && onboarding.phases.length > 0 ? (
-          <>
-            <OnboardingPreview
-              phases={onboarding.phases}
-              personaName={onboarding.personaName}
-              greeting={onboarding.domainWelcome}
-              maxHeight={280}
-            />
-            <button
-              className="hf-btn hf-btn-xs hf-btn-ghost hf-mt-sm"
-              onClick={() => onTabChange?.('sessions')}
-              type="button"
-            >
-              Edit in Sessions →
-            </button>
-          </>
-        ) : (
-          <div className="hf-flex hf-flex-col hf-items-center hf-gap-sm hf-py-md">
-            <div className="hf-text-sm hf-text-muted">No first call flow configured.</div>
-            <button className="hf-btn hf-btn-xs hf-btn-outline" onClick={() => onTabChange?.('sessions')}>
-              Configure in Sessions
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* ── 3. Every Session Flow ───────────────────────── */}
+      {/* ── 1. Every Session Flow ───────────────────────── */}
       {!instructionsLoading && sessionFlowItems.length > 0 && (
         <>
           <SectionHeader
@@ -440,7 +335,7 @@ export function CourseHowTab({
         </>
       )}
 
-      {/* ── 4. Teaching Approach ─────────────────────────── */}
+      {/* ── 2. Teaching Approach ─────────────────────────── */}
       {subjects.some((s) => s.teachingProfile) && (
         <>
           <SectionHeader title="Teaching Approach" icon={Sparkles} />
@@ -516,7 +411,7 @@ export function CourseHowTab({
         </>
       )}
 
-      {/* ── 5. Extracted Teaching Instructions ───────────── */}
+      {/* ── 3. Extracted Teaching Instructions ───────────── */}
       <SectionHeader title="Teaching Instructions" icon={Sparkles} />
       <div className="hf-mb-lg">
         {instructionsLoading || reExtracting ? (
@@ -620,7 +515,7 @@ export function CourseHowTab({
         )}
       </div>
 
-      {/* ── 6. Boundaries ───────────────────────────────── */}
+      {/* ── 4. Boundaries ───────────────────────────────── */}
       <SectionHeader title="Boundaries" icon={Ban} />
       <div className="hf-card-compact hf-mb-lg">
         {allBoundaries.length === 0 && !editingConstraints ? (

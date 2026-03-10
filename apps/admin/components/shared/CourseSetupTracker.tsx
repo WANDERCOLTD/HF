@@ -61,6 +61,7 @@ export function CourseSetupTracker({
       const data = await res.json();
       if (data.ok) {
         setReadiness({
+          lessonPlanBuilt: data.lessonPlanBuilt,
           onboardingConfigured: data.onboardingConfigured,
           promptComposable: data.promptComposable,
           allCriticalPass: data.allCriticalPass,
