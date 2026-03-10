@@ -414,6 +414,51 @@ export function consolidateSessions(
     }
   }
 
+  // Split to reach target: if fewer sessions than requested, split the largest ones
+  if (opts.targetSessionCount && consolidated.length < opts.targetSessionCount) {
+    while (consolidated.length < opts.targetSessionCount) {
+      // Find the session with the most assertions (best candidate to split)
+      let bestIdx = 0;
+      let bestCount = 0;
+      for (let i = 0; i < consolidated.length; i++) {
+        const count = consolidated[i].assertionIds.length;
+        if (count > bestCount) {
+          bestCount = count;
+          bestIdx = i;
+        }
+      }
+      // Need at least 2 assertions to split
+      if (bestCount < 2) break;
+
+      const session = consolidated[bestIdx];
+      const midpoint = Math.ceil(session.assertionIds.length / 2);
+
+      const firstHalf: LessonSession = {
+        ...session,
+        title: session.title,
+        assertionIds: session.assertionIds.slice(0, midpoint),
+        questionIds: [], // questions go to the second half
+        vocabularyIds: session.vocabularyIds, // vocab stays with intro
+        estimatedMinutes: Math.round(session.estimatedMinutes / 2),
+        objectives: session.objectives.slice(0, Math.ceil(session.objectives.length / 2)),
+        sessionType: "introduce",
+      };
+
+      const secondHalf: LessonSession = {
+        ...session,
+        title: `${session.title} (continued)`,
+        assertionIds: session.assertionIds.slice(midpoint),
+        questionIds: session.questionIds,
+        vocabularyIds: [],
+        estimatedMinutes: Math.round(session.estimatedMinutes / 2),
+        objectives: session.objectives.slice(Math.ceil(session.objectives.length / 2)),
+        sessionType: session.questionIds.length > 0 ? "practice" : "introduce",
+      };
+
+      consolidated.splice(bestIdx, 1, firstHalf, secondHalf);
+    }
+  }
+
   // Re-number
   for (let i = 0; i < consolidated.length; i++) {
     consolidated[i].sessionNumber = i + 1;

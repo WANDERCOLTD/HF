@@ -13,7 +13,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Paperclip, Users2, ArrowLeft, ListOrdered } from "lucide-react";
+import { Paperclip, Users2, ArrowLeft, ListOrdered, RefreshCw } from "lucide-react";
 import { DotRail, type DotRailStep, type DotState } from "./DotRail";
 import { getSessionTypeColor, getSessionTypeLabel } from "@/lib/lesson-plan/session-ui";
 import type { SessionEntry, StudentProgress } from "@/lib/lesson-plan/types";
@@ -31,6 +31,12 @@ export interface JourneyRailProps {
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+
+  /** Regenerate controls */
+  onRegenerate?: () => void;
+  regenerating?: boolean;
+  regenSessionCount?: number | null;
+  onRegenSessionCountChange?: (n: number | null) => void;
 }
 
 // ── Helpers ─────────────────────────────────────────
@@ -102,6 +108,10 @@ export function JourneyRail({
   loading = false,
   error,
   onRetry,
+  onRegenerate,
+  regenerating = false,
+  regenSessionCount,
+  onRegenSessionCountChange,
 }: JourneyRailProps) {
   const router = useRouter();
   const [focusCallerId, setFocusCallerId] = useState<string | null>(initialFocusCallerId);
@@ -460,6 +470,32 @@ export function JourneyRail({
             </span>
           )}
         </div>
+        {onRegenerate && (
+          <div className="hf-flex hf-items-center hf-gap-sm">
+            <label className="hf-flex hf-items-center hf-gap-xs hf-text-xs hf-text-muted">
+              Sessions
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={regenSessionCount ?? ""}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value);
+                  onRegenSessionCountChange?.(v > 0 && v <= 100 ? v : null);
+                }}
+                className="hf-input hf-input-sm"
+                style={{ width: 56 }}
+              />
+            </label>
+            <button onClick={onRegenerate} disabled={regenerating} className="hf-btn hf-btn-secondary hf-btn-sm">
+              {regenerating ? (
+                <><div className="hf-spinner hf-spinner-xs" /> Regenerating...</>
+              ) : (
+                <><RefreshCw size={13} /> Regenerate Plan</>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Dot Rail */}

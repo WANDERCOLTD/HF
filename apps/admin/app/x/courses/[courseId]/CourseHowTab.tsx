@@ -381,7 +381,7 @@ export function CourseHowTab({
               </div>
               <button
                 className="hf-btn hf-btn-xs hf-btn-ghost"
-                onClick={() => onTabChange?.('lessons')}
+                onClick={() => onTabChange?.('sessions')}
                 type="button"
               >
                 View full plan <ArrowRight size={12} />
@@ -410,17 +410,17 @@ export function CourseHowTab({
             />
             <button
               className="hf-btn hf-btn-xs hf-btn-ghost hf-mt-sm"
-              onClick={() => onTabChange?.('onboarding')}
+              onClick={() => onTabChange?.('sessions')}
               type="button"
             >
-              Edit on Onboarding tab →
+              Edit in Sessions →
             </button>
           </>
         ) : (
           <div className="hf-flex hf-flex-col hf-items-center hf-gap-sm hf-py-md">
             <div className="hf-text-sm hf-text-muted">No first call flow configured.</div>
-            <button className="hf-btn hf-btn-xs hf-btn-outline" onClick={() => onTabChange?.('onboarding')}>
-              Configure on Onboarding tab
+            <button className="hf-btn hf-btn-xs hf-btn-outline" onClick={() => onTabChange?.('sessions')}>
+              Configure in Sessions
             </button>
           </div>
         )}

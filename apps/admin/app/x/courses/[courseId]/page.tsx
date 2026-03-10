@@ -33,6 +33,7 @@ import { CourseSetupTracker } from '@/components/shared/CourseSetupTracker';
 // import { SessionPlanViewer } from '@/components/shared/SessionPlanViewer';
 import { JourneyRail } from '@/components/shared/JourneyRail';
 import { reorderItems } from '@/lib/sortable/reorder';
+import { INTERACTION_PATTERN_LABELS, TEACHING_MODE_LABELS } from '@/lib/content-trust/resolve-config';
 import type { SessionEntry, SessionMediaRef as SessionMediaRefType, SessionMediaMap, StudentProgress } from '@/lib/lesson-plan/types';
 import './course-detail.css';
 
@@ -247,16 +248,15 @@ export default function CourseDetailPage() {
   const tabs: TabDefinition[] = useMemo(() => [
     { id: 'what', label: 'What', icon: <BookMarked size={14} />, count: contentTotal || null },
     { id: 'how', label: 'How', icon: <Sparkles size={14} /> },
-    { id: 'onboarding', label: 'Onboarding', icon: <Compass size={14} /> },
     { id: 'who', label: 'Who', icon: <Users2 size={14} /> },
-    { id: 'lessons', label: 'Lesson Plan', icon: <ListOrdered size={14} />, count: sessions?.plan?.estimatedSessions || null },
+    { id: 'sessions', label: 'Sessions', icon: <ListOrdered size={14} />, count: sessions?.plan?.estimatedSessions || null },
     ...(isOperator ? [{ id: 'settings', label: 'Settings', icon: <SettingsIcon size={14} /> }] : []),
   ], [contentTotal, isOperator, sessions]);
 
   // ── Tab change: lazy load lesson plan data ──
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
-    if (tab === 'lessons' && sessions === null && !sessionsLoading) {
+    if (tab === 'sessions' && sessions === null && !sessionsLoading) {
       setSessionsLoading(true);
       setSessionsError(null);
       fetch(`/api/courses/${courseId}/sessions?includeProgress=true`)
@@ -885,18 +885,6 @@ export default function CourseDetailPage() {
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* ONBOARDING TAB                                 */}
-      {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'onboarding' && (
-        <StudentJourneyTab
-          courseId={courseId!}
-          domainId={detail.domain.id}
-          domainName={detail.domain.name}
-          isOperator={isOperator}
-        />
-      )}
-
-      {/* ═══════════════════════════════════════════════ */}
       {/* WHO TAB                                        */}
       {/* ═══════════════════════════════════════════════ */}
       {activeTab === 'who' && (
@@ -913,17 +901,34 @@ export default function CourseDetailPage() {
       {/* Content, Classrooms, Students tabs folded into WHAT/HOW/WHO */}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* LESSON PLAN TAB                                */}
+      {/* SESSIONS TAB (First Call + Lesson Plan)        */}
       {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'lessons' && (
-        <JourneyRail
-          sessions={sessions?.plan?.entries ?? []}
-          callers={sessions?.studentProgress}
-          courseId={courseId!}
-          loading={sessionsLoading}
-          error={sessionsError}
-          onRetry={handleRetrySessionsLoad}
-        />
+      {activeTab === 'sessions' && (
+        <>
+          <SectionHeader title="First Call" icon={Compass} />
+          <StudentJourneyTab
+            courseId={courseId!}
+            domainId={detail.domain.id}
+            domainName={detail.domain.name}
+            isOperator={isOperator}
+          />
+
+          <div className="hf-mt-xl">
+            <SectionHeader title="Lesson Plan" icon={ListOrdered} />
+            <JourneyRail
+              sessions={sessions?.plan?.entries ?? []}
+              callers={sessions?.studentProgress}
+              courseId={courseId!}
+              loading={sessionsLoading}
+              error={sessionsError}
+              onRetry={handleRetrySessionsLoad}
+              onRegenerate={isOperator ? handleRegenerate : undefined}
+              regenerating={regenerating}
+              regenSessionCount={regenSessionCount}
+              onRegenSessionCountChange={setRegenSessionCount}
+            />
+          </div>
+        </>
       )}
 
 
@@ -999,6 +1004,45 @@ export default function CourseDetailPage() {
                 ) : (
                   <p className="hf-text-xs hf-text-muted">Configuration not available</p>
                 )}
+              </div>
+
+              {/* ── Teaching Identity ────────────────── */}
+              <SectionHeader title="Teaching Identity" icon={Sparkles} />
+              <div className="hf-card hf-mb-lg">
+                <div className="hf-grid-2col hf-gap-sm">
+                  {([
+                    { key: 'interactionPattern', label: 'Interaction Style', labels: INTERACTION_PATTERN_LABELS },
+                    { key: 'teachingMode', label: 'Teaching Mode', labels: TEACHING_MODE_LABELS },
+                  ] as const).map(({ key, label, labels }) => {
+                    const val = (detail.config as any)?.[key];
+                    const displayVal = val ? (labels as any)[val]?.label || val.replace(/_/g, ' ') : 'Not configured';
+                    return (
+                      <div key={key} className="hf-flex hf-flex-between hf-items-center hf-py-xs">
+                        <span className="hf-text-xs hf-text-muted">{label}</span>
+                        <div className="hf-flex hf-items-center hf-gap-xs">
+                          <span className="hf-text-sm hf-text-primary">{displayVal}</span>
+                          <span className={val ? 'hf-chip hf-chip-xs hf-chip-success' : 'hf-chip hf-chip-xs'}>
+                            {val ? 'Course' : 'System default'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {(() => {
+                    const subj = (detail.config as any)?.subjectDiscipline;
+                    return (
+                      <div className="hf-flex hf-flex-between hf-items-center hf-py-xs">
+                        <span className="hf-text-xs hf-text-muted">Subject</span>
+                        <div className="hf-flex hf-items-center hf-gap-xs">
+                          <span className="hf-text-sm hf-text-primary">{subj || 'Not configured'}</span>
+                          <span className={subj ? 'hf-chip hf-chip-xs hf-chip-success' : 'hf-chip hf-chip-xs'}>
+                            {subj ? 'Course' : 'System default'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
 
               {detail.status === 'DRAFT' && (
