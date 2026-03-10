@@ -866,6 +866,10 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         .filter((i) => i >= 0);
       if (courseRefIndices.length === 0) return;
 
+      // Show typing dots immediately — the assertion fetch + AI call can take a while
+      setIsLoading(true);
+      scrollToBottom();
+
       // Fetch assertions for COURSE_REFERENCE sources and build a digest
       try {
         const allAssertions: Array<{ assertion: string; category: string; chapter?: string }> = [];
@@ -885,7 +889,10 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             }
           }
         }
-        if (allAssertions.length === 0) return;
+        if (allAssertions.length === 0) {
+          setIsLoading(false);
+          return;
+        }
 
         // Build digest: category counts + 2 samples per top category (max 10 samples)
         const catCounts: Record<string, number> = {};
@@ -912,7 +919,6 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         const digestOverrides = { courseRefDigest: digest };
         const hiddenMsg = "Teaching guide analyzed — here's what I found in your course reference";
         const currentMessages = messagesRef.current;
-        setIsLoading(true);
         const result = await sendToAPI(hiddenMsg, [...currentMessages, { id: uid(), role: "user" as const, content: hiddenMsg }], digestOverrides);
         setIsLoading(false);
         if (result && "data" in result && result.data.content) {
@@ -923,6 +929,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           scrollToBottom();
         }
       } catch {
+        setIsLoading(false);
         // Non-critical — fall back to classification-only narration
       }
     },
