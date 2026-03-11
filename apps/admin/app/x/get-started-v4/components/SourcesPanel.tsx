@@ -118,12 +118,22 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
     });
     if (valid.length === 0) return;
 
+    // If we already processed a batch, set files to ONLY the new ones
+    // (previous batch is already represented in classifications/sourceIds).
+    // Reset to idle so auto-process picks them up.
     setFiles((prev) => {
+      if (phase === "tracking" || phase === "done") {
+        const alreadyClassified = new Set(classifications.map((c) => c.fileName));
+        return valid.filter((f) => !alreadyClassified.has(f.name));
+      }
       const existingNames = new Set(prev.map((f) => f.name));
       return [...prev, ...valid.filter((f) => !existingNames.has(f.name))];
     });
+    if (phase === "tracking" || phase === "done") {
+      setPhase("idle");
+    }
     setError(null);
-  }, []);
+  }, [phase, classifications]);
 
   // Expose addFiles for external callers (page-level drop, inline zone)
   useImperativeHandle(ref, () => ({
@@ -180,8 +190,6 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
           reasoning: f.reasoning,
         })) || []),
       ];
-      setClassifications(classificationsList);
-
       // Step 2: Ingest (nonBlocking — creates sources, fires off extraction)
       setPhase("uploading");
 
@@ -202,24 +210,43 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
       const ingestData = await ingestRes.json();
       if (!ingestData.ok) throw new Error(ingestData.error || "Upload failed");
 
-      setSourceIds(ingestData.sourceIds || []);
-      setSubjects(ingestData.subjects || []);
+      // Merge with existing results from previous batches (using functional setState)
+      let mergedClassifications = classificationsList;
+      setClassifications((prev) => {
+        mergedClassifications = [...prev, ...classificationsList];
+        return mergedClassifications;
+      });
+
+      let mergedSourceIds = ingestData.sourceIds || [];
+      setSourceIds((prev) => {
+        mergedSourceIds = [...prev, ...(ingestData.sourceIds || [])];
+        return mergedSourceIds;
+      });
+
+      setSubjects((prev) => {
+        const existing = new Set(prev.map((s) => s.id));
+        const newSubjects = (ingestData.subjects || []).filter((s: { id: string }) => !existing.has(s.id));
+        return [...prev, ...newSubjects];
+      });
       setPhase("tracking");
       notifiedDone.current = false;
 
-      // Initialize student visibility from document type defaults
-      const visMap: Record<number, boolean> = {};
-      classificationsList.forEach((c, i) => {
-        visMap[i] = isStudentVisibleDefault(c.documentType);
+      // Initialize student visibility for new files (offset by previous batch size)
+      setStudentVisible((prev) => {
+        const offset = Object.keys(prev).length;
+        const visMap = { ...prev };
+        classificationsList.forEach((c, i) => {
+          visMap[offset + i] = isStudentVisibleDefault(c.documentType);
+        });
+        return visMap;
       });
-      setStudentVisible(visMap);
 
-      // Notify parent — sources ready, extraction running in background
+      // Notify parent with full merged data
       onSourcesReady?.({
         subjects: ingestData.subjects || [],
-        sourceIds: ingestData.sourceIds || [],
-        sourceCount: ingestData.sourceCount || 0,
-        classifications: classificationsList,
+        sourceIds: mergedSourceIds,
+        sourceCount: mergedSourceIds.length,
+        classifications: mergedClassifications,
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Upload failed");
