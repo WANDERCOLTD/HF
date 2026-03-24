@@ -3246,6 +3246,50 @@ model AuditLog {
 }
 
 // =========================
+// APPLICATION LOGS
+// =========================
+
+// Append-only log entries — replaces file-based logs/app.jsonl
+// Written fire-and-forget by lib/logger.ts, read by /api/logs/ai-calls
+model AppLog {
+  id String @id @default(uuid())
+
+  // Classification
+  type  String // "ai" | "api" | "system" | "user"
+  stage String // e.g., "pipeline:extract", "chat", "content-trust.classify"
+  level String? // "info" | "warn" | "error"
+
+  // Content
+  message         String?
+  promptPreview   String? @db.Text // Capped at 1000 chars in logger
+  promptLength    Int?
+  responsePreview String? @db.Text // Capped at 500 chars in logger
+  responseLength  Int?
+
+  // Metrics
+  durationMs   Int?
+  inputTokens  Int?
+  outputTokens Int?
+
+  // Attribution (populated when available)
+  callId   String?
+  callerId String?
+  userId   String?
+
+  // Everything else
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([type])
+  @@index([type, createdAt])
+  @@index([callId])
+  @@index([callerId])
+  @@index([stage])
+}
+
+// =========================
 // MESSAGING SYSTEM
 // =========================
 

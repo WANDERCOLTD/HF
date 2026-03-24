@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFileSync, existsSync, unlinkSync } from "fs";
-import { join } from "path";
+import { prisma } from "@/lib/prisma";
 import {
   isLoggingEnabled,
   setLoggingEnabled,
@@ -9,8 +8,7 @@ import {
   LogType,
 } from "@/lib/logger";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-
-const LOG_FILE = join(process.cwd(), "logs", "app.jsonl");
+import type { LogEntry } from "@/lib/log-types";
 
 /**
  * @api GET /api/logs/ai-calls
@@ -18,7 +16,7 @@ const LOG_FILE = join(process.cwd(), "logs", "app.jsonl");
  * @scope logs:read
  * @auth session
  * @tags logs
- * @description Returns parsed log entries from the JSONL log file, newest first (max 100). Includes current logging status and enabled log types. Supports filtering by log type.
+ * @description Returns parsed log entries from the AppLog table, newest first (max 100). Includes current logging status and enabled log types. Supports filtering by log type.
  * @query type string - Filter by log type(s), comma-separated: "ai", "api", "system", "user" (optional)
  * @response 200 { logs: [...], loggingEnabled: boolean, enabledTypes: [...] }
  */
@@ -31,42 +29,41 @@ export async function GET(request: NextRequest) {
     const enabledTypes = getEnabledTypes();
 
     const typeFilter = request.nextUrl.searchParams.get("type");
-    const filterTypes = typeFilter ? typeFilter.split(",") as LogType[] : null;
+    const filterTypes = typeFilter ? typeFilter.split(",") : null;
 
-    if (!existsSync(LOG_FILE)) {
-      return NextResponse.json({ logs: [], loggingEnabled, enabledTypes });
-    }
+    const rows = await prisma.appLog.findMany({
+      where: filterTypes ? { type: { in: filterTypes } } : undefined,
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
 
-    const content = readFileSync(LOG_FILE, "utf-8");
-    const lines = content.trim().split("\n").filter(Boolean);
-
-    // Parse each line as JSON, newest first
-    let logs = lines
-      .map((line) => {
-        try {
-          return JSON.parse(line);
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean)
-      .reverse();
-
-    // Apply type filter if specified
-    if (filterTypes) {
-      logs = logs.filter((log) => filterTypes.includes(log.type));
-    }
-
-    // Limit to last 100
-    logs = logs.slice(0, 100);
+    // Map DB rows to the LogEntry shape the LogViewer expects
+    const logs: LogEntry[] = rows.map((row) => ({
+      timestamp: row.createdAt.toISOString(),
+      type: row.type as LogEntry["type"],
+      stage: row.stage,
+      ...(row.level ? { level: row.level as LogEntry["level"] } : {}),
+      message: row.message ?? undefined,
+      promptLength: row.promptLength ?? undefined,
+      promptPreview: row.promptPreview ?? undefined,
+      responseLength: row.responseLength ?? undefined,
+      responsePreview: row.responsePreview ?? undefined,
+      usage:
+        row.inputTokens != null || row.outputTokens != null
+          ? { inputTokens: row.inputTokens ?? undefined, outputTokens: row.outputTokens ?? undefined }
+          : undefined,
+      durationMs: row.durationMs ?? undefined,
+      metadata: (row.metadata as Record<string, unknown>) ?? undefined,
+    }));
 
     return NextResponse.json({ logs, loggingEnabled, enabledTypes });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({
       logs: [],
       loggingEnabled: true,
       enabledTypes: ["ai", "api", "system", "user"],
-      error: error.message,
+      error: message,
     });
   }
 }
@@ -77,7 +74,7 @@ export async function GET(request: NextRequest) {
  * @scope logs:write
  * @auth session
  * @tags logs
- * @description Toggle logging on/off and/or set which log types are enabled. Both fields are optional and can be set independently.
+ * @description Toggle logging on/off and/or set which log types are enabled. Both fields are optional and can be set independently. Config is DB-backed via SystemSetting.
  * @body enabled boolean - Enable or disable logging (optional)
  * @body enabledTypes string[] - Array of log types to enable: "ai", "api", "system", "user" (optional)
  * @response 200 { ok: true, loggingEnabled: boolean, enabledTypes: [...] }
@@ -91,11 +88,11 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
 
     if (typeof body.enabled === "boolean") {
-      setLoggingEnabled(body.enabled);
+      await setLoggingEnabled(body.enabled);
     }
 
     if (Array.isArray(body.enabledTypes)) {
-      setEnabledTypes(body.enabledTypes as LogType[]);
+      await setEnabledTypes(body.enabledTypes as LogType[]);
     }
 
     return NextResponse.json({
@@ -103,8 +100,9 @@ export async function PATCH(request: NextRequest) {
       loggingEnabled: isLoggingEnabled(),
       enabledTypes: getEnabledTypes(),
     });
-  } catch (error: any) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ ok: false, error: message }, { status: 400 });
   }
 }
 
@@ -114,19 +112,18 @@ export async function PATCH(request: NextRequest) {
  * @scope logs:write
  * @auth session
  * @tags logs
- * @description Clears the entire log file by deleting it from disk.
- * @response 200 { ok: true }
+ * @description Clears all log entries from the AppLog table.
+ * @response 200 { ok: true, deleted: number }
  */
 export async function DELETE() {
   try {
     const authResult = await requireAuth("ADMIN");
     if (isAuthError(authResult)) return authResult.error;
 
-    if (existsSync(LOG_FILE)) {
-      unlinkSync(LOG_FILE);
-    }
-    return NextResponse.json({ ok: true });
-  } catch (error: any) {
-    return NextResponse.json({ ok: false, error: error.message });
+    const result = await prisma.appLog.deleteMany();
+    return NextResponse.json({ ok: true, deleted: result.count });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ ok: false, error: message });
   }
 }

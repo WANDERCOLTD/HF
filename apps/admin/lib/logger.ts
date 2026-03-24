@@ -1,10 +1,10 @@
 /**
- * General Logger - Unified logging system for the application
+ * General Logger — DB-backed logging system
  *
- * In production (Cloud Run): Logs are written to stdout as structured JSON
- * so Cloud Logging captures them automatically.
+ * All environments: Logs are written to the AppLog table (fire-and-forget).
+ * Additionally in production: Structured JSON is written to stdout for Cloud Logging.
  *
- * In development: Logs are written to: logs/app.jsonl (one JSON object per line)
+ * Config toggles (enabled, enabledTypes) are stored in SystemSetting with 30s TTL cache.
  *
  * Log types:
  *   - ai: AI/LLM calls and responses
@@ -18,22 +18,14 @@
  *   logAI("pipeline:extract", prompt, response, { callId, tokens: 500 });
  */
 
-import { appendFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import { prisma } from "@/lib/prisma";
+import { getSystemSetting, clearSystemSettingsCache } from "@/lib/system-settings";
 
-const LOG_DIR = join(process.cwd(), "logs");
-const LOG_FILE = join(LOG_DIR, "app.jsonl");
-const CONFIG_FILE = join(LOG_DIR, "logging-config.json");
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
-// Ensure log directory exists (dev only)
-if (!IS_PRODUCTION && !existsSync(LOG_DIR)) {
-  try {
-    mkdirSync(LOG_DIR, { recursive: true });
-  } catch {
-    // Ignore - might fail in edge runtime
-  }
-}
+// Preview caps — enforced on DB writes. Full content goes to console only.
+const PROMPT_PREVIEW_CAP = 1000;
+const RESPONSE_PREVIEW_CAP = 500;
 
 // =====================================================
 // TYPES — canonical definitions in lib/log-types.ts
@@ -43,68 +35,85 @@ if (!IS_PRODUCTION && !existsSync(LOG_DIR)) {
 export type { LogType, LogLevel, LogEntry } from "./log-types";
 import type { LogType, LogLevel, LogEntry } from "./log-types";
 
-interface LoggingConfig {
-  enabled: boolean;
-  enabledTypes?: LogType[];
-}
-
 // =====================================================
-// CONFIG
+// CONFIG — DB-backed via SystemSetting (30s TTL cache)
 // =====================================================
 
-function getConfig(): LoggingConfig {
-  try {
-    if (existsSync(CONFIG_FILE)) {
-      return JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
-    }
-  } catch {
-    // Ignore - use defaults
-  }
-  return { enabled: true };
-}
+const LOGGING_ENABLED_KEY = "logging_enabled";
+const LOGGING_TYPES_KEY = "logging_enabled_types";
 
-function saveConfig(config: LoggingConfig): void {
-  try {
-    if (!existsSync(LOG_DIR)) {
-      mkdirSync(LOG_DIR, { recursive: true });
-    }
-    writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
-  } catch (error) {
-    console.error("[Logger] Failed to save config:", error);
-  }
+// In-memory cache for synchronous reads (refreshed async in background)
+let _cachedEnabled = true;
+let _cachedTypes: LogType[] = ["ai", "api", "system", "user"];
+let _cacheExpiry = 0;
+
+function refreshConfigCache(): void {
+  const now = Date.now();
+  if (now < _cacheExpiry) return;
+  // Mark cache as fresh to prevent concurrent refreshes
+  _cacheExpiry = now + 30_000;
+
+  // Fire-and-forget async refresh
+  Promise.all([
+    getSystemSetting<boolean>(LOGGING_ENABLED_KEY, true),
+    getSystemSetting<LogType[]>(LOGGING_TYPES_KEY, ["ai", "api", "system", "user"]),
+  ])
+    .then(([enabled, types]) => {
+      _cachedEnabled = enabled;
+      _cachedTypes = types;
+    })
+    .catch(() => {
+      // On failure, keep stale cache but allow retry sooner
+      _cacheExpiry = now + 5_000;
+    });
 }
 
 /**
- * Check if logging is enabled (default: true)
+ * Check if logging is enabled (default: true).
+ * Synchronous — reads from in-memory cache, refreshes async.
  */
 export function isLoggingEnabled(): boolean {
-  return getConfig().enabled !== false;
+  refreshConfigCache();
+  return _cachedEnabled;
 }
 
 /**
- * Set logging enabled/disabled
+ * Set logging enabled/disabled.
+ * Writes to SystemSetting DB table.
  */
-export function setLoggingEnabled(enabled: boolean): void {
-  const config = getConfig();
-  config.enabled = enabled;
-  saveConfig(config);
+export async function setLoggingEnabled(enabled: boolean): Promise<void> {
+  await prisma.systemSetting.upsert({
+    where: { key: LOGGING_ENABLED_KEY },
+    update: { value: JSON.stringify(enabled) },
+    create: { key: LOGGING_ENABLED_KEY, value: JSON.stringify(enabled) },
+  });
+  _cachedEnabled = enabled;
+  _cacheExpiry = 0;
+  clearSystemSettingsCache();
 }
 
 /**
- * Get enabled log types (default: all)
+ * Get enabled log types (default: all).
+ * Synchronous — reads from in-memory cache.
  */
 export function getEnabledTypes(): LogType[] {
-  const config = getConfig();
-  return config.enabledTypes || ["ai", "api", "system", "user"];
+  refreshConfigCache();
+  return _cachedTypes;
 }
 
 /**
- * Set enabled log types
+ * Set enabled log types.
+ * Writes to SystemSetting DB table.
  */
-export function setEnabledTypes(types: LogType[]): void {
-  const config = getConfig();
-  config.enabledTypes = types;
-  saveConfig(config);
+export async function setEnabledTypes(types: LogType[]): Promise<void> {
+  await prisma.systemSetting.upsert({
+    where: { key: LOGGING_TYPES_KEY },
+    update: { value: JSON.stringify(types) },
+    create: { key: LOGGING_TYPES_KEY, value: JSON.stringify(types) },
+  });
+  _cachedTypes = types;
+  _cacheExpiry = 0;
+  clearSystemSettingsCache();
 }
 
 // =====================================================
@@ -112,7 +121,7 @@ export function setEnabledTypes(types: LogType[]): void {
 // =====================================================
 
 /**
- * Write a log entry
+ * Write a log entry — fire-and-forget DB write.
  */
 export function log(
   type: LogType,
@@ -124,36 +133,33 @@ export function log(
   }
 ): void {
   if (!isLoggingEnabled()) return;
+  if (!getEnabledTypes().includes(type)) return;
 
-  const enabledTypes = getEnabledTypes();
-  if (!enabledTypes.includes(type)) return;
+  const level = (data as Record<string, unknown>)?.level as LogLevel | undefined;
 
-  try {
-    const level = (data as any)?.level as LogLevel | undefined;
-    const entry: LogEntry = {
-      timestamp: new Date().toISOString(),
-      type,
-      stage,
-      ...(level ? { level } : {}),
-      message: data?.message,
-      durationMs: data?.durationMs,
-      metadata: data,
-    };
-
-    if (IS_PRODUCTION) {
-      // In production, write to stdout for Cloud Logging
-      console.log(JSON.stringify(entry));
-    } else {
-      // In development, write to file
-      appendFileSync(LOG_FILE, JSON.stringify(entry) + "\n");
-    }
-  } catch (error) {
-    console.error("[Logger] Failed to write log:", error);
+  // Always write to stdout in production for Cloud Logging
+  if (IS_PRODUCTION) {
+    console.log(JSON.stringify({ timestamp: new Date().toISOString(), type, stage, level, ...data }));
   }
+
+  // Write to DB — fire-and-forget
+  prisma.appLog
+    .create({
+      data: {
+        type,
+        stage,
+        level: level ?? null,
+        message: data?.message ?? null,
+        durationMs: typeof data?.durationMs === "number" ? data.durationMs : null,
+        metadata: data ? (JSON.parse(JSON.stringify(data)) as object) : undefined,
+      },
+    })
+    .catch((err) => console.error("[Logger] DB write failed:", err));
 }
 
 /**
- * Log an AI call (convenience wrapper)
+ * Log an AI call — fire-and-forget DB write.
+ * Previews are capped in DB; full content goes to console in production.
  */
 export function logAI(
   stage: string,
@@ -168,37 +174,46 @@ export function logAI(
   }
 ): void {
   if (!isLoggingEnabled()) return;
+  if (!getEnabledTypes().includes("ai")) return;
 
-  const enabledTypes = getEnabledTypes();
-  if (!enabledTypes.includes("ai")) return;
+  const isDeep = options?.deep === true;
 
-  try {
-    const isDeep = options?.deep === true;
-
+  // Console output — full content for deep, preview for normal
+  if (IS_PRODUCTION) {
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       type: "ai",
       stage,
       promptLength: prompt.length,
-      promptPreview: isDeep ? prompt : prompt.slice(0, 1000),
+      promptPreview: isDeep ? prompt : prompt.slice(0, PROMPT_PREVIEW_CAP),
       responseLength: response.length,
-      responsePreview: isDeep ? response : response.slice(0, 500),
+      responsePreview: isDeep ? response : response.slice(0, RESPONSE_PREVIEW_CAP),
       usage: options?.usage,
       durationMs: options?.durationMs,
       metadata: options,
     };
-
-    if (IS_PRODUCTION) {
-      // In production, write to stdout for Cloud Logging
-      console.log(JSON.stringify(entry));
-    } else {
-      // In development, write to file
-      appendFileSync(LOG_FILE, JSON.stringify(entry) + "\n");
-      console.log(`[Logger:ai] ${stage} logged (${prompt.length} chars prompt, ${response.length} chars response)`);
-    }
-  } catch (error) {
-    console.error("[Logger] Failed to write AI log:", error);
+    console.log(JSON.stringify(entry));
   }
+
+  // DB write — always capped previews (PII safety)
+  prisma.appLog
+    .create({
+      data: {
+        type: "ai",
+        stage,
+        promptLength: prompt.length,
+        promptPreview: prompt.slice(0, PROMPT_PREVIEW_CAP),
+        responseLength: response.length,
+        responsePreview: response.slice(0, RESPONSE_PREVIEW_CAP),
+        inputTokens: options?.usage?.inputTokens ?? null,
+        outputTokens: options?.usage?.outputTokens ?? null,
+        durationMs: options?.durationMs ?? null,
+        callId: options?.callId ?? null,
+        callerId: options?.callerId ?? null,
+        metadata: options ? (JSON.parse(JSON.stringify(options)) as object) : undefined,
+      },
+    })
+    .catch((err) => console.error("[Logger] DB write failed:", err));
 }
 
 /**
@@ -244,19 +259,7 @@ export function logUser(
 }
 
 // =====================================================
-// UTILITIES
-// =====================================================
-
-/**
- * Get path to the log file
- */
-export function getLogFilePath(): string {
-  return LOG_FILE;
-}
-
-// =====================================================
 // BACKWARDS COMPATIBILITY
-// Re-export for existing imports from ai-call-logger
 // =====================================================
 
 /** @deprecated Use logAI instead */
@@ -266,22 +269,25 @@ export const logAICall = logAI;
 export function logFullPrompt(stage: string, prompt: string): void {
   if (!isLoggingEnabled()) return;
 
-  try {
-    const entry = {
+  if (IS_PRODUCTION) {
+    console.log(JSON.stringify({
       timestamp: new Date().toISOString(),
-      type: "ai" as LogType,
+      type: "ai",
       stage,
       promptPreview: prompt,
       promptLength: prompt.length,
-      metadata: { fullPrompt: true },
-    };
-
-    if (IS_PRODUCTION) {
-      console.log(JSON.stringify(entry));
-    } else {
-      appendFileSync(LOG_FILE, JSON.stringify(entry) + "\n");
-    }
-  } catch {
-    // Ignore
+    }));
   }
+
+  prisma.appLog
+    .create({
+      data: {
+        type: "ai",
+        stage,
+        promptPreview: prompt.slice(0, PROMPT_PREVIEW_CAP),
+        promptLength: prompt.length,
+        metadata: { fullPrompt: true },
+      },
+    })
+    .catch((err) => console.error("[Logger] DB write failed:", err));
 }
