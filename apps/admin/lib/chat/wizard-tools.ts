@@ -997,6 +997,14 @@ export async function executeWizardTool(
               select: { subjectId: true },
             });
 
+            // Backfill teachMethod on assertions extracted before teachingMode was set
+            const resolvedTeachingMode = (input.teachingMode as string) || (setupData?.teachingMode as string);
+            if (resolvedTeachingMode) {
+              const { backfillTeachMethods } = await import("@/lib/content-trust/backfill-teach-methods");
+              backfillTeachMethods(existingPlaybookId).catch(err =>
+                console.error("[wizard] teachMethod backfill failed (non-fatal):", err.message));
+            }
+
             // Generate real lesson plan from content sources (if available)
             const existingLessonPlanPreview = await generateLessonPlanPreview(
               prisma, packSubjectIds, existingPbSubject?.subjectId,
@@ -1292,7 +1300,15 @@ export async function executeWizardTool(
           });
         }
 
-        // 10. Auto-generate curriculum (non-blocking, fire-and-forget)
+        // 10. Backfill teachMethod on assertions extracted before teachingMode was set
+        const resolvedTeachingModeNew = (input.teachingMode as string) || (setupData?.teachingMode as string);
+        if (resolvedTeachingModeNew) {
+          const { backfillTeachMethods } = await import("@/lib/content-trust/backfill-teach-methods");
+          backfillTeachMethods(playbookId).catch(err =>
+            console.error("[wizard] teachMethod backfill failed (non-fatal):", err.message));
+        }
+
+        // 11. Auto-generate curriculum (non-blocking, fire-and-forget)
         const { generateInstantCurriculum } = await import("@/lib/domain/instant-curriculum");
         generateInstantCurriculum({
           domainId,
