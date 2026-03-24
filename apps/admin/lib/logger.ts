@@ -143,18 +143,20 @@ export function log(
   }
 
   // Write to DB — fire-and-forget
-  prisma.appLog
-    .create({
-      data: {
-        type,
-        stage,
-        level: level ?? null,
-        message: data?.message ?? null,
-        durationMs: typeof data?.durationMs === "number" ? data.durationMs : null,
-        metadata: data ? (JSON.parse(JSON.stringify(data)) as object) : undefined,
-      },
-    })
-    .catch((err) => console.error("[Logger] DB write failed:", err));
+  try {
+    prisma.appLog
+      .create({
+        data: {
+          type,
+          stage,
+          level: level ?? null,
+          message: data?.message ?? null,
+          durationMs: typeof data?.durationMs === "number" ? data.durationMs : null,
+          metadata: data ? (JSON.parse(JSON.stringify(data)) as object) : undefined,
+        },
+      })
+      .catch((err) => console.error("[Logger] DB write failed:", err));
+  } catch { /* prisma.appLog may not exist if client not regenerated */ }
 }
 
 /**
@@ -196,24 +198,26 @@ export function logAI(
   }
 
   // DB write — always capped previews (PII safety)
-  prisma.appLog
-    .create({
-      data: {
-        type: "ai",
-        stage,
-        promptLength: prompt.length,
-        promptPreview: prompt.slice(0, PROMPT_PREVIEW_CAP),
-        responseLength: response.length,
-        responsePreview: response.slice(0, RESPONSE_PREVIEW_CAP),
-        inputTokens: options?.usage?.inputTokens ?? null,
-        outputTokens: options?.usage?.outputTokens ?? null,
-        durationMs: options?.durationMs ?? null,
-        callId: options?.callId ?? null,
-        callerId: options?.callerId ?? null,
-        metadata: options ? (JSON.parse(JSON.stringify(options)) as object) : undefined,
-      },
-    })
-    .catch((err) => console.error("[Logger] DB write failed:", err));
+  try {
+    prisma.appLog
+      .create({
+        data: {
+          type: "ai",
+          stage,
+          promptLength: prompt.length,
+          promptPreview: prompt.slice(0, PROMPT_PREVIEW_CAP),
+          responseLength: response.length,
+          responsePreview: response.slice(0, RESPONSE_PREVIEW_CAP),
+          inputTokens: options?.usage?.inputTokens ?? null,
+          outputTokens: options?.usage?.outputTokens ?? null,
+          durationMs: options?.durationMs ?? null,
+          callId: options?.callId ?? null,
+          callerId: options?.callerId ?? null,
+          metadata: options ? (JSON.parse(JSON.stringify(options)) as object) : undefined,
+        },
+      })
+      .catch((err) => console.error("[Logger] DB write failed:", err));
+  } catch { /* prisma.appLog may not exist if client not regenerated */ }
 }
 
 /**
@@ -279,15 +283,17 @@ export function logFullPrompt(stage: string, prompt: string): void {
     }));
   }
 
-  prisma.appLog
-    .create({
-      data: {
-        type: "ai",
-        stage,
-        promptPreview: prompt.slice(0, PROMPT_PREVIEW_CAP),
-        promptLength: prompt.length,
-        metadata: { fullPrompt: true },
-      },
-    })
-    .catch((err) => console.error("[Logger] DB write failed:", err));
+  try {
+    prisma.appLog
+      .create({
+        data: {
+          type: "ai",
+          stage,
+          promptPreview: prompt.slice(0, PROMPT_PREVIEW_CAP),
+          promptLength: prompt.length,
+          metadata: { fullPrompt: true },
+        },
+      })
+      .catch((err) => console.error("[Logger] DB write failed:", err));
+  } catch { /* prisma.appLog may not exist if client not regenerated */ }
 }
