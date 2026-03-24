@@ -11,9 +11,13 @@ Harden the end-to-end flow for our first real course. This serves two purposes:
 
 | # | Scenario | Owner | Status |
 |---|----------|-------|--------|
-| 1 | | | |
-| 2 | | | |
-| 3 | | | |
+| 1 | Institution & Course Setup | Boaz / Paul | Not started |
+| 2 | Content Upload & Ingestion | Boaz / Paul | Not started |
+| 3 | Student Enrollment | Boaz / Paul | Not started |
+| 4 | Sim Session — Text-Based Tutoring | Boaz / Paul | Not started |
+| 5 | Post-Session Pipeline | Boaz / Paul | Not started |
+| 6 | Results Visible in UI | Boaz / Paul | Not started |
+| 7 | End-to-End Chain (Full Walkthrough) | Boaz / Paul | Not started |
 
 ## How to contribute
 
