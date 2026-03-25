@@ -6,13 +6,13 @@
 
 ---
 
-## Open Questions — All Resolved
+## Open Questions — All Resolved ✅
 
 | # | Question | Status | Resolution |
 |---|----------|--------|------------|
 | Q1 | systemSpecToggles wiring | **DONE** | Commit `a00ffca` — composition filters by `Playbook.config.systemSpecToggles`. Tests in `system-spec-toggles-test.ts`. |
 | Q2 | Composition resilience | **DONE** | All 15 empty data loaders handle null gracefully via `activateWhen` conditions + fallback rules. |
-| Q3 | Teaching point filtering | **DONE** | `create_course` populates `assertionIds` on lesson plan entries via `generateLessonPlan()`. Priority 0 filtering works. **Caveat:** 226 instruction assertions mixed with 190 content — Epic 2 fixes this. |
+| Q3 | Teaching point filtering | **DONE** | `create_course` populates `assertionIds` on lesson plan entries via `generateLessonPlan()`. Priority 0 filtering works. Instruction assertions now split out — see Epic 2. |
 | Q4 | Pipeline selectivity | **ACCEPTABLE** | All 7 stages run in `prompt` mode. Inactive stages produce nothing against empty data. Wastes tokens, doesn't break. |
 | Q5 | Pipeline failure handling | **DONE** | Transcript persists BEFORE pipeline fires. Sessions never disappear. |
 | Q6 | Fresh vs existing instance | **USE EXISTING** | Faster. PIPELINE-001 must be seeded (`npm run db:seed`). |
@@ -20,34 +20,38 @@
 
 ---
 
-## Recent Fixes (last 36 hours)
+## Build Log
 
-| Commit | What | Impact |
-|--------|------|--------|
-| `a00ffca` | Wire systemSpecToggles into prompt composition | Q1 — selective spec loading works |
-| `c8e9443` | Auto-link domain content subjects when AI omits packSubjectIds | Course creation reliability |
-| `324faf5` | Auto-backfill teachMethod on assertions in create_course | Assertion completeness |
-| `a7037d6` | Respect user's explicit course name (no silent merge) | Wizard correctness |
-| `08d2fc2` | DB-backed logging (AppLog table) | Observability on Cloud Run |
+| Commit | What | Epic |
+|--------|------|------|
+| `a00ffca` | Wire systemSpecToggles into prompt composition | Q1 |
+| `c8e9443` | Auto-link domain content subjects when AI omits packSubjectIds | Reliability |
+| `324faf5` | Auto-backfill teachMethod on assertions in create_course | Reliability |
+| `a7037d6` | Respect user's explicit course name (no silent merge) | Reliability |
+| `08d2fc2` | DB-backed logging (AppLog table) | Observability |
 | `2794a8a` | Guard prisma.appLog calls | Stability |
+| `88b2404` | Split teacher instructions vs student content in UI counts | Epic 2 (G2.1 + G2.2) |
+| `df31b8a` | Per-course identity spec overlay with instruction sync | Epic 2 (G2.3 + G2.4) |
+| `fc1c391` | Recursive identity spec resolution | Epic 2 fix |
+| `7606436` | Guard against undefined panel.options in OptionsCard | Stability |
 
 ---
 
 ## Risk Assessment
 
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| 226 instruction assertions in teaching content | **HIGH** | Epic 2 — instruction/content split (swift-wibbling-lampson) |
-| Pipeline failure invisible to operator | **MEDIUM** | Document manual nav for demo; optionally add completion link (Epic 4) |
+| Risk | Severity | Status |
+|------|----------|--------|
+| 226 instruction assertions in teaching content | ~~HIGH~~ | **RESOLVED** — Epic 2 complete (`88b2404`, `df31b8a`) |
+| Pipeline failure invisible to operator | **MEDIUM** | Document manual nav for demo; optionally add completion link (P4.2) |
 | PIPELINE-001 spec not seeded on target env | **HIGH** | Verify in Epic 1, `npm run db:seed` fixes |
 | compose-prompt init failure = silent no-session | **MEDIUM** | Edge case, dev-reproducible only |
 | Redundant compose-prompt POST after pipeline end | **LOW** | Wasted AI spend, not breaking |
 
 ---
 
-## Epic 1 — Chain Verification
+## Epic 1 — Chain Verification (PENDING — run on DEV)
 
-> **No code changes.** Run in sequence on DEV. Prove every link works before writing code.
+> **No code changes.** Run in sequence on DEV. Prove every link works. All underlying code is complete — this is a manual verification pass.
 
 ### V1.1 — Course creation + content ingestion
 
@@ -55,12 +59,9 @@ Create a course via the wizard with test content (PDF upload).
 
 - [ ] Wizard completes without errors
 - [ ] ContentSource records created, linked to playbook
-- [ ] ContentAssertions extracted (note count: expect ~190 content + ~226 instruction)
-- [ ] Lesson plan entries exist with populated `assertionIds`
+- [ ] ContentAssertions extracted (expect ~190 content + ~226 instruction, now split in UI)
+- [ ] Lesson plan entries exist with populated `assertionIds` (content-only after Epic 2)
 - [ ] Curriculum record has `deliveryConfig.lessonPlan` with session entries
-
-**Files:** `lib/chat/wizard-tools.ts` (create_course), `lib/content-trust/lesson-planner.ts`
-**Effort:** S (30 min)
 
 ### V1.2 — Playbook configuration
 
@@ -71,9 +72,6 @@ Verify the playbook has correct spec toggles.
 - [ ] All other system specs disabled
 - [ ] If not auto-configured: set manually via Prisma Studio
 
-**Files:** `lib/prompt/composition/SectionDataLoader.ts` (filterSpecsByToggles)
-**Effort:** S (30 min)
-
 ### V1.3 — Sim session + prompt composition
 
 Run a text chat session via Sim.
@@ -83,11 +81,7 @@ Run a text chat session via Sim.
 - [ ] Composed prompt has 8 active sections (preamble, quick_start, identity, content, teaching_content, course_instructions, instructions_voice, instructions)
 - [ ] 15 empty sections return defaults gracefully (no loader crashes)
 - [ ] Tutor references actual course content, not generic filler
-- [ ] Note: prompt will include instruction assertions in teaching content — expected, fixed in Epic 2
-
-**Files:** `app/x/sim/`, `lib/prompt/composition/`
-**Effort:** S (1h)
-**Dependencies:** V1.1, V1.2
+- [ ] Instruction assertions in identity spec (not teaching content) — verify Epic 2 split
 
 ### V1.4 — Post-session pipeline
 
@@ -100,100 +94,48 @@ End the Sim session and check results.
 - [ ] Artifacts tab: ARTIFACTS output displayed (summaries)
 - [ ] All 4 Slice 1 done-condition items visible
 
-**Files:** `app/api/calls/[callId]/pipeline/route.ts`, `components/callers/caller-detail/`
-**Effort:** S (1h)
-**Dependencies:** V1.3
-
 ### V1.5 — Full walkthrough dry run
 
 Walk the complete investor demo sequence from boaz-investor.md.
 
-- [ ] All 6 scenarios completable from browser UI
+- [ ] All 7 scenarios completable from browser UI
 - [ ] No step requires SSH, DB queries, or code changes
 - [ ] Time the walkthrough (target: under 10 minutes)
-- [ ] Note friction points for Epic 4
-
-**Dependencies:** V1.4
+- [ ] Note friction points for remaining polish
 
 ---
 
-## Epic 2 — Instruction/Content Split (swift-wibbling-lampson)
+## Epic 2 — Instruction/Content Split ✅ COMPLETE
 
-> **Prerequisite for a clean demo.** Without this, 226 teacher instructions are dumped into the teaching content section of the prompt alongside 190 student-facing content assertions. The tutor's teaching rules belong in the identity spec, not in per-session teaching content.
+> Commits: `88b2404` (G2.1 + G2.2), `df31b8a` (G2.3 + G2.4), `fc1c391` (identity resolution fix)
 
-### G2.1 — Exclude instruction categories from lesson planner (S)
+### G2.1 — Exclude instruction categories from lesson planner ✅
 
-The lesson planner currently includes instruction-category assertions (`teaching_rule`, `session_flow`, `scaffolding_technique`, `skill_framework`, `communication_rule`, `assessment_approach`, `differentiation`, `edge_case`) in session `assertionIds`. These are teacher rules, not student content.
+- [x] `lesson-planner.ts`: filters out `INSTRUCTION_CATEGORIES` from assertion queries
+- [x] Session `assertionIds` contain only student-facing content assertions
 
-- [ ] `lesson-planner.ts`: filter out `INSTRUCTION_CATEGORIES` from assertion queries
-- [ ] Session `assertionIds` contain only student-facing content assertions
-- [ ] Regenerate lesson plan for test course, verify assertion count drops
+### G2.2 — Split content/instruction counts in UI ✅
 
-**File:** `apps/admin/lib/content-trust/lesson-planner.ts` (~line 103)
-**Reuse:** `INSTRUCTION_CATEGORIES` from `lib/content-trust/resolve-config.ts`
-**Effort:** S (30 min)
+- [x] `content-breakdown` API: returns `contentCount` + `instructionCount`
+- [x] `subjects` API: returns `instructionCount` per subject
+- [x] Course page stat cards: `[Content: 190] [Rules: 226]`
+- [x] Tab badges: What tab = content count, How tab = instruction count
+- [x] Setup tracker: "190 teaching points + 226 rules found"
+- [x] SourcesPanel: "items extracted" instead of "teaching points"
 
-### G2.2 — Split content/instruction counts in UI (M)
+### G2.3 — Merge instruction assertions into identity spec overlay ✅
 
-UI currently shows "416 teaching points" — really 190 content + 226 rules. Split the display.
+- [x] `syncInstructionsToIdentitySpec(playbookId)` in `lib/content-trust/sync-instructions-to-spec.ts`
+- [x] Maps categories to identity spec config fields (styleGuidelines, constraints, sessionStructure, assessment)
+- [x] Append-only merge with dedup by assertion text
+- [x] Called from `wizard-tools.ts` create_course (after backfillTeachMethods)
+- [x] Per-course identity spec overlay created (extendsAgent → domain overlay)
 
-- [ ] `content-breakdown` API: return `contentCount` + `instructionCount`
-- [ ] `subjects` API: return `instructionCount` per subject
-- [ ] Course page stat cards: `[Content: 190] [Rules: 226]`
-- [ ] Tab badges: What tab = content count, How tab = instruction count
-- [ ] Setup tracker: "190 teaching points + 226 rules found"
+### G2.4 — Dedup guard in course-instructions transform ✅
 
-**Files:**
-- `apps/admin/app/api/courses/[courseId]/content-breakdown/route.ts`
-- `apps/admin/app/api/courses/[courseId]/subjects/route.ts`
-- `apps/admin/app/x/courses/[courseId]/page.tsx`
-- `apps/admin/hooks/useCourseSetupStatus.ts`
-- `apps/admin/app/x/get-started-v4/components/SourcesPanel.tsx`
-
-**Effort:** M (2 hours)
-
-### G2.3 — Merge instruction assertions into identity spec overlay (M)
-
-Cross-cutting teaching rules belong in the tutor's identity, not in per-session teaching content.
-
-| Instruction Category | Identity Spec Field |
-|---------------------|---------------------|
-| `communication_rule`, `scaffolding_technique`, `differentiation` | `styleGuidelines[]` |
-| `teaching_rule`, `edge_case` | `boundaries.doesNot[]` |
-| `session_flow` | `sessionStructure[]` |
-| `skill_framework`, `assessment_approach` | `assessmentApproach` |
-
-- [ ] New function: `syncInstructionsToIdentitySpec(playbookId)` in `lib/content-trust/sync-instructions-to-spec.ts`
-- [ ] Loads instruction-category assertions for playbook's content scope
-- [ ] Maps categories to identity spec config fields (table above)
-- [ ] Append-only merge with dedup by assertion text
-- [ ] Called from `wizard-tools.ts` create_course (after backfillTeachMethods)
-- [ ] Called from `course-pack/ingest/route.ts` (after extraction complete)
-- [ ] After sync: identity spec overlay contains merged rules
-
-**Files:**
-- **NEW:** `apps/admin/lib/content-trust/sync-instructions-to-spec.ts`
-- `apps/admin/lib/chat/wizard-tools.ts` (~line 1170)
-- `apps/admin/app/api/course-pack/ingest/route.ts`
-
-**Reuse:**
-- `INSTRUCTION_CATEGORIES` from `resolve-config.ts`
-- `getSubjectsForPlaybook()` from `lib/knowledge/domain-sources.ts`
-- `courseInstructions` loader query pattern from `SectionDataLoader.ts`
-
-**Effort:** M (2-3 hours)
-
-### G2.4 — Dedup guard in course-instructions transform (S)
-
-Once rules are in the identity spec, `renderCourseInstructions` would duplicate them. Add a guard.
-
-- [ ] Check if identity spec overlay already contains the instruction rules (synced flag or content comparison)
-- [ ] If synced: skip rendering `## COURSE RULES` section
-- [ ] If not synced (legacy courses): render as before (safety net)
-
-**File:** `apps/admin/lib/prompt/composition/transforms/course-instructions.ts`
-**Effort:** S (30 min)
-**Dependencies:** G2.3 must be done first
+- [x] Checks for `_syncedFromAssertions` flag on identity spec
+- [x] If synced: skips rendering `## COURSE RULES` section
+- [x] Legacy courses (not synced): renders as before (safety net)
 
 ---
 
@@ -218,17 +160,11 @@ Split the "intents" phase from LessonPlanStep into a dedicated PlanSettingsStep 
 
 ## Epic 4 — Demo Polish
 
-### P4.1 — Rename "Sim" to "Practice Session" (S)
+### P4.1 — Rename "Sim" to "Practice Session" — N/A (SUPERSEDED)
 
-- [ ] Sidebar label updated
-- [ ] Page heading updated
-- [ ] Dashboard config label updated
-- [ ] URL stays `/x/sim`
+"Sim" is the internal operator tool at `/x/sim`. The investor-facing entry point is **Demonstrate** (`/x/demonstrate`) — already in sidebar with PlayCircle icon, visible for OPERATOR/ADMIN/SUPERADMIN. No rename needed.
 
-**Files:** sidebar config, `app/x/sim/page.tsx`, `app/x/_dashboards/dashboard-config.ts`
-**Effort:** S (30 min)
-
-### P4.2 — Pipeline completion indicator (S)
+### P4.2 — Pipeline completion indicator (S) — PENDING
 
 After Sim session ends, operator needs to know results are ready.
 
