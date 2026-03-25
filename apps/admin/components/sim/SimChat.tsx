@@ -130,6 +130,7 @@ export function SimChat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const callIdRef = useRef<string | null>(null);
+  const startingRef = useRef(false);
   const msgCounter = useRef(0);
 
   // Voice mode — wired so transcribed speech sends as user message
@@ -312,6 +313,10 @@ export function SimChat({
 
   // Start a new call — triggered by lobby phone button
   async function startNewCall() {
+    // Guard: prevent double invocation (React strict mode / rapid clicks)
+    if (startingRef.current) return;
+    startingRef.current = true;
+
     setCallPhase('active');
     setIsGreeting(true);
     setError(null);
@@ -366,6 +371,8 @@ export function SimChat({
       setError('Failed to start conversation');
       setCallPhase('lobby');
       setIsGreeting(false);
+    } finally {
+      startingRef.current = false;
     }
   }
 
@@ -459,12 +466,12 @@ export function SimChat({
       }
 
       // Relay assistant message to server for observers.
-      // MUST await when media was shared — buildContentCatalog checks callMessage.mediaId
-      // to mark items "ALREADY SHARED". Fire-and-forget caused a race where the next turn's
-      // catalog query ran before the relay persisted, so the AI shared the same doc twice.
+      // Always await — fire-and-forget caused two bugs:
+      // 1. buildContentCatalog race: next turn ran before relay persisted, AI re-shared docs
+      // 2. Double-intro: page navigation before relay completed → resume found 0 messages → re-greeted
       const currentCallId = callIdRef.current;
       if (currentCallId && fullContent) {
-        const relayPromise = fetch(`/api/calls/${currentCallId}/messages`, {
+        await fetch(`/api/calls/${currentCallId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -473,8 +480,6 @@ export function SimChat({
             ...(sharedMediaInfo ? { mediaId: sharedMediaInfo.id } : {}),
           }),
         }).catch((err) => console.warn("[sim] Observer relay failed:", err));
-        // Await when media was shared so the DB has the mediaId before the next turn
-        if (sharedMediaInfo) await relayPromise;
       }
 
       // Auto-play TTS when voice mode is active
