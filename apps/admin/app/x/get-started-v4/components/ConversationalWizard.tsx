@@ -31,7 +31,7 @@ import { SessionPlanViewer } from "@/components/shared/SessionPlanViewer";
 import type { SessionEntry } from "@/lib/lesson-plan/types";
 import { MiniJourneyRail } from "@/components/shared/MiniJourneyRail";
 import { ScaffoldPanel } from "@/components/wizards/ScaffoldPanel";
-import { parseOptionsFromText } from "@/lib/chat/parse-options";
+import { parseOptionsFromText, stripParameterTags } from "@/lib/chat/parse-options";
 import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
 import "../get-started-v4.css";
 
@@ -896,10 +896,6 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         .filter((i) => i >= 0);
       if (courseRefIndices.length === 0) return;
 
-      // Show typing dots immediately — the assertion fetch + AI call can take a while
-      setIsLoading(true);
-      scrollToBottom();
-
       // Fetch assertions for COURSE_REFERENCE sources and build a digest
       try {
         const allAssertions: Array<{ assertion: string; category: string; chapter?: string }> = [];
@@ -919,10 +915,11 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             }
           }
         }
-        if (allAssertions.length === 0) {
-          setIsLoading(false);
-          return;
-        }
+        if (allAssertions.length === 0) return;
+
+        // Only show typing dots once we know there's a digest to send to the AI
+        setIsLoading(true);
+        scrollToBottom();
 
         // Build digest: category counts + 2 samples per top category (max 10 samples)
         const catCounts: Record<string, number> = {};
@@ -1367,12 +1364,13 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             if (msg.role === "assistant") {
               const isLast = !isLoading && !uploadPending && suggestions.items.length === 0 && !welcomeSuggestion && msg.id === lastAssistantId;
               const inlineOptions = isLast ? parseOptionsFromText(msg.content) : [];
+              const displayContent = stripParameterTags(msg.content);
               return (
                 <div key={msg.id} className="cv4-row cv4-row--assistant">
                   {msg.thinking && <ThinkingBlock content={msg.thinking} />}
                   <div className="cv4-msg-actions-wrap">
                     <div className="cv4-bubble cv4-bubble--assistant">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown>{displayContent}</ReactMarkdown>
                       {inlineOptions.length > 0 && (
                         <ul className="cv4-inline-options" role="listbox">
                           {inlineOptions.map((opt, i) => (

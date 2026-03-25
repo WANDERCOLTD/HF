@@ -209,10 +209,43 @@ function parseBoldPrefixedOptions(text: string): ParsedOption[] | null {
 }
 
 /**
+ * Try to parse XML-style <parameter name="options"> tags that the AI sometimes hallucinates.
+ * Strips the tag from the text and extracts structured options.
+ */
+function parseParameterTagOptions(text: string): ParsedOption[] | null {
+  const regex = /<parameter\s+name="options">\s*([\s\S]*?)\s*<\/parameter>/;
+  const match = text.match(regex);
+  if (!match) return null;
+
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (!Array.isArray(parsed) || parsed.length < MIN_OPTIONS || parsed.length > MAX_OPTIONS) return null;
+
+    return parsed.map((item: { value?: string; label?: string; description?: string }, i: number) => ({
+      marker: String(i + 1),
+      label: (item.label ?? item.value ?? `Option ${i + 1}`).slice(0, MAX_LABEL_LENGTH),
+      description: item.description,
+      fullText: item.label ?? item.value ?? `Option ${i + 1}`,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Strip <parameter> XML tags from AI response text so they don't render as raw markup.
+ * Returns the cleaned text (safe for ReactMarkdown).
+ */
+export function stripParameterTags(text: string): string {
+  return text.replace(/<parameter\s+name="[^"]*">\s*[\s\S]*?\s*<\/parameter>/g, "").trim();
+}
+
+/**
  * Parse options from AI response text.
  * Returns empty array if no valid option list is detected.
  *
  * Tries patterns in priority order (first match wins):
+ * 0. XML parameter tags: <parameter name="options">[...]</parameter>
  * 1. Numbered: "1. X", "1) X"
  * 2. Lettered: "A. X", "a) X"
  * 3. Prefixed: "Option 1: X", "Choice A: X"
@@ -221,6 +254,7 @@ function parseBoldPrefixedOptions(text: string): ParsedOption[] | null {
  */
 export function parseOptionsFromText(text: string): ParsedOption[] {
   return (
+    parseParameterTagOptions(text) ??
     parseNumberedOptions(text) ??
     parseLetteredOptions(text) ??
     parsePrefixedOptions(text) ??

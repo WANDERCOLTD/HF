@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseOptionsFromText, type ParsedOption } from "@/lib/chat/parse-options";
+import { parseOptionsFromText, stripParameterTags, type ParsedOption } from "@/lib/chat/parse-options";
 
 describe("parseOptionsFromText", () => {
   // ── Numbered options ────────────────────────────────
@@ -146,6 +146,33 @@ describe("parseOptionsFromText", () => {
     // "I recommend option 1 or option 2" — no newlines, not a list
     const text = "I recommend option 1 or option 2 for this lesson.";
     expect(parseOptionsFromText(text)).toEqual([]);
+  });
+
+  // ── XML parameter tags ──────────────────────────────
+
+  it("parses <parameter name='options'> XML tags", () => {
+    const text = `Teaching materials uploaded\n<parameter name="options">[ {"value": "PAW10", "label": "Create new PAW10 course", "description": "Set up PAW10 as a fresh course.", "recommended": true}, {"value": "PAW8", "label": "Update existing PAW8", "description": "Modify PAW8 with new materials."} ]</parameter>`;
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ marker: "1", label: "Create new PAW10 course" });
+    expect(result[0].description).toBe("Set up PAW10 as a fresh course.");
+    expect(result[1]).toMatchObject({ marker: "2", label: "Update existing PAW8" });
+  });
+
+  it("ignores malformed parameter tags", () => {
+    const text = `<parameter name="options">not valid json</parameter>`;
+    expect(parseOptionsFromText(text)).toEqual([]);
+  });
+
+  // ── stripParameterTags ─────────────────────────────
+
+  it("strips parameter tags from text", () => {
+    const text = `Here are your options:\n<parameter name="options">[{"value":"a","label":"A"}]</parameter>`;
+    expect(stripParameterTags(text)).toBe("Here are your options:");
+  });
+
+  it("preserves text without parameter tags", () => {
+    expect(stripParameterTags("Hello world")).toBe("Hello world");
   });
 
   // ── Label truncation ────────────────────────────────
