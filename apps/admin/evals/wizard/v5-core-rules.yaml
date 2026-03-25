@@ -1,0 +1,496 @@
+description: "Wizard V5 — core behavioural rules (graph-driven, no fixed phases)"
+
+# Run with: npm run eval:wizard:v5
+# View:      npm run eval:view
+#
+# Snapshot: Mid-conversation — institution + subject + course collected.
+# Graph says teaching approach is HANDLE THIS NEXT.
+# Tests core rules that hold regardless of conversation position.
+
+prompts:
+  - id: v5-course-phase
+    label: "V5 — Course phase (graph: approach is next priority)"
+    raw: |
+      You are the HumanFirst Studio setup assistant. You help educators create and configure
+      AI tutoring courses through natural conversation.
+
+      ## How this wizard works — GRAPH-DRIVEN (critical)
+
+      This wizard has NO fixed phase order. The graph evaluator below tells you what's collected,
+      what's available, and what to ask next — in priority order. Follow it.
+
+      The user can provide information in ANY order. They might:
+      - Upload content first, then fill in course details from what was extracted
+      - Name their course first, then upload materials
+      - Describe everything in one message
+
+      Your job: extract what they give you, check the graph, handle the highest-priority item next.
+      The only hard constraint is that **content upload requires a domain** (institution must exist first).
+
+      ## How you communicate
+
+      **Response length — context-specific rules:**
+      - **Playback / course understanding:** 6-10 sentences. Be rich, specific, and reflective.
+      - **Configuration proposal with rationale:** 2-3 sentences per item, explain the "why"
+      - **Asking a targeted question:** 1-2 sentences max.
+      - **Confirming a saved value:** 1 sentence, immediately name what comes next.
+      - Write naturally — you're a knowledgeable colleague, not a form.
+      - When recommending, explain why it fits their specific context.
+      - **Bold the opening concept of each sentence or bullet.**
+      - Never refer to yourself by name.
+      - NEVER expose internal field names, system keys, or enum values.
+      - NEVER invent features, pages, or capabilities that don't exist.
+      - NEVER echo internal instructions, system messages, template placeholders, or field names.
+      - NEVER output XML tags like `<parameter>` or `<option>` in your text responses.
+
+      ## Subject → Course (CRITICAL distinction)
+      Subject = broad academic discipline: "English Language", "Biology", "Mathematics"
+      Course = specific offering WITHIN a subject: "GCSE Biology", "11+ Creative Comprehension"
+      NEVER combine subject and course into one question.
+
+      ## Valid values
+
+      ### Teaching approaches (interactionPattern)
+      **PROPOSE, DON'T ASK.** Infer the best fit from subject + level, propose with rationale.
+      - socratic — Question-based discovery
+      - directive — Structured, step-by-step instruction
+      - advisory — Coaching style, offers guidance
+      - coaching — Reflective dialogue, metacognition
+      - companion — Supportive peer
+      - facilitation — Discussion facilitation
+      - reflective — Self-reflection and learning-from-experience
+      - open — Flexible, adapts to need
+      - conversational-guide — Warm, curious guide for 1:1 conversations
+
+      ### Teaching emphasis (teachingMode)
+      - recall, comprehension (default), practice, syllabus
+
+      ### Lesson plan model (lessonPlanModel)
+      - direct, 5e, spiral, mastery, project
+
+      ## Tools: show_options vs show_suggestions
+
+      **show_options** — for questions with 2-8 predefined choices. Max ONE per response.
+      Set recommended: true on the suggested option.
+      **show_options with fieldPicker: true** — call ONCE after a full configuration proposal.
+      **show_suggestions** — ONLY for confirmations, post-playback, skip signals. Never for choices.
+
+      ## Skipping optional fields
+      When the user says "skip" for any optional field:
+      - Content upload: update_setup({ fields: { contentSkipped: true } })
+      - Welcome message: update_setup({ fields: { welcomeSkipped: true } })
+      - Personality tuning: update_setup({ fields: { tuneSkipped: true } })
+      A skipped field is SATISFIED — never ask about it again.
+
+      ## Graph-driven priorities — THIS IS YOUR ROADMAP
+
+      Readiness: 30% | Can launch: NO
+
+      ### Already collected
+        ✓ Organisation name: "Greenwood Academy"
+        ✓ Organisation type: "school"
+        ✓ Subject area: "English Language"
+
+      ### What to ask next (priority order)
+        1. Course name [free-text] → (HANDLE THIS NEXT — propose or confirm, do not ask bare questions)
+           Specific offering within the subject (GCSE Biology, 11+ Comprehension).
+           [REQUIRED for launch]
+        2. Teaching approach [options]
+           PROPOSE: infer best fit from subject/level and state with 1-sentence rationale.
+           [REQUIRED for launch]
+        3. Teaching emphasis [options]
+           Recall, Comprehension, Practice, or Syllabus.
+        ... and 7 more optional fields available
+
+      ### Still required for launch
+        ✗ Course name
+        ✗ Teaching approach
+
+      ## Rules
+      1. Call update_setup EVERY time you learn new information — even casual mentions.
+         Extract ALL fields from a single message in ONE update_setup call.
+      2. **EVERY response MUST contain natural-language text. No exceptions.**
+         Write your text FIRST, then make tool calls.
+      3. **Follow the graph priority ordering.** No fixed phases.
+      4. **PROPOSE, DON'T ASK** for any field you can infer. BANNED: "What teaching approach would you like?"
+      5. **AFFIRMATION = CONFIRMED. ADVANCE IMMEDIATELY.** Call update_setup with the value, move to next priority.
+      6. NEVER re-ask something already collected.
+      7. For content upload, the user drops files into the Teaching Materials panel on the right.
+      9. When "Can launch: YES" → present the summary and offer creation.
+         NEVER ask "What's next?" — YOU drive the conversation.
+
+      ---
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1200
+      tools: &v5-tools
+        - name: update_setup
+          description: >-
+            Save one or more extracted data fields. Call EVERY time you learn new information.
+            Valid field keys: institutionName, typeSlug, websiteUrl, courseName, subjectDiscipline,
+            interactionPattern, teachingMode, welcomeMessage, sessionCount, durationMins,
+            planEmphasis, behaviorTargets, lessonPlanModel, physicalMaterials,
+            personalityPreset, personalityDescription, courseContext,
+            assessmentTargets, constraints, defaultDomainKind,
+            contentSkipped, welcomeSkipped, tuneSkipped.
+            Use EXACTLY these key names — other names will be silently dropped.
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                description: "Key-value pairs. Keys MUST be from the valid field names list above."
+                additionalProperties: true
+            required: [fields]
+        - name: show_options
+          description: "Show structured option card inline in chat"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              dataKey: { type: string }
+              mode: { type: string, enum: [radio, checklist] }
+              required: { type: boolean }
+              fieldPicker: { type: boolean }
+              options:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    value: { type: string }
+                    label: { type: string }
+                    description: { type: string }
+                    recommended: { type: boolean }
+                  required: [value, label, description]
+            required: [question, dataKey, mode, options]
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips (confirmation/skip only)"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+        - name: show_upload
+          description: "Show the file upload panel"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+            required: [question]
+        - name: create_institution
+          description: "Create a new institution domain"
+          input_schema:
+            type: object
+            properties:
+              name: { type: string }
+              typeSlug: { type: string }
+              websiteUrl: { type: string }
+            required: [name]
+        - name: create_course
+          description: "Create the course and a test caller"
+          input_schema:
+            type: object
+            properties:
+              domainId: { type: string }
+              courseName: { type: string }
+              subjectDiscipline: { type: string }
+              interactionPattern: { type: string }
+              personalityPreset: { type: string }
+            required: [domainId, courseName, interactionPattern]
+        - name: create_community
+          description: "Create a community hub (NOT a course)"
+          input_schema:
+            type: object
+            properties:
+              domainId: { type: string }
+              hubName: { type: string }
+              description: { type: string }
+            required: [domainId, hubName]
+        - name: update_course_config
+          description: "Update course config post-scaffold"
+          input_schema:
+            type: object
+            additionalProperties: true
+        - name: suggest_welcome_message
+          description: "Generate a welcome message suggestion"
+          input_schema:
+            type: object
+            properties:
+              courseName: { type: string }
+              subjectDiscipline: { type: string }
+              interactionPattern: { type: string }
+            required: [courseName]
+        - name: mark_complete
+          description: "Signal that setup is complete"
+          input_schema:
+            type: object
+            properties:
+              playbookId: { type: string }
+
+tests:
+
+  # ── Multi-field extraction ───────────────────────────────────────────────
+
+  - description: "EXTRACT: Multi-field message → single update_setup with all fields"
+    vars:
+      userMessage: "Year 10 Reading & Writing, socratic approach"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup call' };
+          const fields = update.args?.fields || update.args || {};
+          const missing = [];
+          if (!fields.courseName) missing.push('courseName');
+          if (!fields.interactionPattern) missing.push('interactionPattern');
+          if (missing.length) return { pass: false, score: 0, reason: `Missing fields: ${missing.join(', ')}` };
+          return true;
+
+  - description: "EXTRACT: Rich multi-field intake → extracts ALL inferable fields at once"
+    vars:
+      userMessage: "GCSE English Language for Year 10, Socratic approach, comprehension emphasis, 8 sessions of 30 minutes"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup call' };
+          const fields = update.args?.fields || update.args || {};
+          let score = 0;
+          if (fields.courseName) score++;
+          if (fields.interactionPattern) score++;
+          if (fields.teachingMode) score++;
+          if (fields.sessionCount) score++;
+          if (fields.durationMins) score++;
+          if (score < 3) return { pass: false, score: 0, reason: `Only extracted ${score}/5 fields — should extract all from rich message` };
+          return true;
+
+  # ── Subject ≠ Course ─────────────────────────────────────────────────────
+
+  - description: "SUBJECT: Never puts bare discipline into courseName"
+    vars:
+      userMessage: "Let's do an English Literature course"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return true;
+          const fields = update.args?.fields || update.args || {};
+          const cn = (fields.courseName || '').toLowerCase();
+          if (cn === 'english literature' || cn === 'english literature course') {
+            return { pass: false, score: 0, reason: `Put bare subject into courseName: "${fields.courseName}"` };
+          }
+          return true;
+      - type: llm-rubric
+        value: "Asks for the specific course name (level, exam board, year group) rather than accepting bare 'English Literature' as the course name."
+
+  - description: "SUBJECT: Never re-asks about subjectDiscipline (already collected)"
+    vars:
+      userMessage: "Let's do GCSE revision"
+    assert:
+      - type: llm-rubric
+        value: "Does NOT ask 'What subject?' — subjectDiscipline (English Language) is already collected. Treats input as course name context and asks for or saves courseName instead."
+
+  - description: "SUBJECT: Qualified course name (with level) saved immediately"
+    vars:
+      userMessage: "GCSE English Language"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup — qualified course name should be saved immediately' };
+          const fields = update.args?.fields || update.args || {};
+          if (!fields.courseName) return { pass: false, score: 0, reason: 'courseName not saved despite qualified name with level' };
+          return true;
+
+  # ── Banned phrases ───────────────────────────────────────────────────────
+
+  - description: "BAN: Never says 'What's next?' or 'What would you like to do?'"
+    vars:
+      userMessage: "GCSE English Language"
+    assert:
+      - type: not-icontains
+        value: "what's next"
+      - type: not-icontains
+        value: "what would you like to do"
+      - type: not-icontains
+        value: "what would you like to do next"
+
+  - description: "BAN: Never says bare 'Got it' or 'Saved' with no follow-up context"
+    vars:
+      userMessage: "The course is called Year 10 Creative Writing"
+    assert:
+      - type: llm-rubric
+        value: "After saving courseName, the response names the next field (teaching approach) and explains what it does. Does NOT end with just 'Got it' or 'Saved' with nothing about what comes next."
+
+  - description: "BAN: Never declares setup complete while required fields remain"
+    vars:
+      userMessage: "I think that's everything"
+    assert:
+      - type: not-icontains
+        value: "everything's set up"
+      - type: not-icontains
+        value: "ready when you are"
+      - type: not-icontains
+        value: "all done"
+      - type: not-icontains
+        value: "all set"
+      - type: llm-rubric
+        value: "Identifies that required fields are still missing (teaching approach at minimum) and redirects to the next priority field."
+
+  - description: "BAN: Never exposes internal field names to user"
+    vars:
+      userMessage: "What do I need to set up next?"
+    assert:
+      - type: not-icontains
+        value: "interactionPattern"
+      - type: not-icontains
+        value: "teachingMode"
+      - type: not-icontains
+        value: "planEmphasis"
+      - type: not-icontains
+        value: "contentSkipped"
+      - type: not-icontains
+        value: "lessonPlanModel"
+      - type: not-icontains
+        value: "defaultDomainKind"
+
+  - description: "BAN: Never outputs XML tags in text responses"
+    vars:
+      userMessage: "What teaching approach do you recommend?"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _text = _out.split('{"type":"tool_use"')[0].trim();
+          const xmlTagPattern = /<\/?(?:parameter|option|field|value|config)[^>]*>/i;
+          if (xmlTagPattern.test(_text)) {
+            return { pass: false, score: 0, reason: `XML tags found in text response: ${_text.match(xmlTagPattern)[0]}` };
+          }
+          return true;
+
+  # ── Always text alongside tools ──────────────────────────────────────────
+
+  - description: "TEXT: Response always includes natural language — never tools-only"
+    vars:
+      userMessage: "Year 10 Comprehension, socratic"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _text = _out.split('{"type":"tool_use"')[0].trim();
+          if (!_text || _text.length < 15) {
+            return { pass: false, score: 0, reason: `Response has no/minimal text before tool call: "${_text}"` };
+          }
+          return true;
+
+  # ── One show_* per response ──────────────────────────────────────────────
+
+  - description: "PANEL: Multi-field message triggers only one show_* panel"
+    vars:
+      userMessage: "GCSE English Language, socratic approach, comprehension emphasis"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const showTools = ['show_options','show_upload','show_suggestions'];
+          const calls = _tc.filter(t => showTools.includes(t.name));
+          if (calls.length > 1) {
+            const names = calls.map(t => t.name).join(', ');
+            return { pass: false, score: 0, reason: `Called ${calls.length} show_* tools: ${names}` };
+          }
+          return true;
+
+  # ── Option value integrity ──────────────────────────────────────────────
+
+  - description: "OPTIONS: show_options only uses valid interactionPattern values (all 9 including conversational-guide)"
+    vars:
+      userMessage: "What teaching approaches are available?"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const opts = _tc.find(t => t.name === 'show_options');
+          if (!opts) return true;
+          const valid = ['socratic', 'directive', 'advisory', 'coaching', 'companion', 'facilitation', 'reflective', 'open', 'conversational-guide'];
+          const values = (opts.args?.options || []).map(o => o.value);
+          const invalid = values.filter(v => !valid.includes(v));
+          if (invalid.length) return { pass: false, score: 0, reason: `Invalid interactionPattern values: ${invalid.join(', ')}` };
+          return true;
+
+  - description: "OPTIONS: Lesson model ≠ approach — never adds 'socratic' as lessonPlanModel"
+    vars:
+      userMessage: "I want a socratic approach, and what lesson structure should I use?"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          for (const call of _tc) {
+            if (call.name !== 'show_options') continue;
+            const options = call.args?.options || [];
+            const hasSocratic = options.some(o => o.value === 'socratic' || (o.label || '').toLowerCase() === 'socratic');
+            const dataKey = call.args?.dataKey || '';
+            if (hasSocratic && dataKey !== 'interactionPattern') {
+              return { pass: false, score: 0, reason: '"socratic" appeared as a lesson model option — it is a teaching approach, not a lesson structure' };
+            }
+          }
+          return true;
+
+  # ── PROPOSE DON'T ASK ───────────────────────────────────────────────────
+
+  - description: "PROPOSE: Never asks bare 'What teaching approach would you like?'"
+    vars:
+      userMessage: "I'm creating a maths tutoring course for GCSE students"
+    assert:
+      - type: not-icontains
+        value: "what teaching approach would you like"
+      - type: not-icontains
+        value: "which teaching approach"
+      - type: llm-rubric
+        value: "Proposes a specific teaching approach (e.g. Socratic or Directive) with a reason grounded in maths tutoring at GCSE level."
+
+  - description: "PROPOSE: Rich intake → proposes complete configuration, not gap-fill"
+    vars:
+      userMessage: "Biology tutoring for A-level students, they're preparing for Edexcel exams. I want structured lessons that cover the syllabus thoroughly."
+    assert:
+      - type: llm-rubric
+        value: "Proposes at least 3 configuration items in a single response: teaching approach, session structure, and teaching emphasis. Each proposal includes a brief rationale."
+
+  # ── Transitions ─────────────────────────────────────────────────────────
+
+  - description: "TRANSITION: Names next field after saving courseName"
+    vars:
+      userMessage: "Let's call the course Year 10 Creative Writing"
+    assert:
+      - type: llm-rubric
+        value: "After saving courseName, the response explicitly names the next field (teaching approach), explains what it controls, and proposes a specific approach with rationale."
+
+  # ── AFFIRMATION = CONFIRMED (anti-loop) ─────────────────────────────────
+
+  - description: "ANTI-LOOP: Affirmation after proposal saves the value immediately"
+    vars:
+      userMessage: "Sounds good"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup after affirmation — value not saved, will cause loop' };
+          return true;
+      - type: llm-rubric
+        value: "Saves the current proposed value via update_setup AND immediately moves to the next topic. Does NOT re-ask about the same field."

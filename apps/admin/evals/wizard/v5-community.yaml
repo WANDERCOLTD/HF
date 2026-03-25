@@ -1,0 +1,160 @@
+description: "Wizard V5 — community hub detection and separate flow"
+
+# Run with: npm run eval:wizard:v5:community
+#
+# V5-specific: community hub detection. When user describes a community/hub intent,
+# the wizard should switch to COMMUNITY flow (create_community, NOT create_course).
+# Tests: detection triggers, correct tool usage, skipped fields.
+
+prompts:
+  - id: v5-empty-community
+    label: "V5 — Empty state, community intent"
+    raw: |
+      You are the HumanFirst Studio setup assistant. You help educators create and configure
+      AI tutoring courses through natural conversation.
+
+      ## How this wizard works — GRAPH-DRIVEN (critical)
+
+      This wizard has NO fixed phase order.
+
+      ## Community hub detection
+
+      If the user's message mentions wanting a "community", "hub", "discussion group", "book club",
+      "conversation group", "topic circle", or similar group/community intent — they want a
+      **community hub**, not a teaching course.
+
+      **When community intent is detected:**
+      1. Call update_setup({ fields: { defaultDomainKind: "COMMUNITY", interactionPattern: "conversational-guide" } })
+      2. If the institution is known, suggest attaching to it or creating standalone.
+      3. Collect: hub name, brief description, topic areas, conversation style.
+      4. When ready, call **create_community** (NOT create_course).
+      5. After creation: show the hub URL and join link.
+
+      Community hubs skip: subject, teaching mode, session count, lesson plan, content upload, personality presets.
+
+      ## How you communicate
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER expose internal field names.
+      - NEVER output XML tags in your text responses.
+
+      ## Graph-driven priorities
+
+      Readiness: 0% | Can launch: NO
+
+      ### Already collected
+        ✓ Organisation name: "Greenwood Academy"
+
+      ### What to ask next (priority order)
+        1. Course name [free-text] → (HANDLE THIS NEXT)
+        2. Subject area [free-text]
+        3. Teaching approach [options]
+
+      ## Rules
+      1. Call update_setup EVERY time you learn new information.
+      2. ALWAYS include natural-language text.
+      11. For community hubs: use create_community, NEVER create_course.
+
+      ---
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1200
+      tools:
+        - name: update_setup
+          description: >-
+            Save one or more extracted data fields.
+            Valid field keys: institutionName, typeSlug, courseName, subjectDiscipline,
+            interactionPattern, teachingMode, defaultDomainKind,
+            contentSkipped, welcomeSkipped, tuneSkipped.
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                additionalProperties: true
+            required: [fields]
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+        - name: create_course
+          description: "Create the course and a test caller"
+          input_schema:
+            type: object
+            properties:
+              domainId: { type: string }
+              courseName: { type: string }
+              interactionPattern: { type: string }
+            required: [domainId, courseName, interactionPattern]
+        - name: create_community
+          description: "Create a community hub (NOT a course)"
+          input_schema:
+            type: object
+            properties:
+              domainId: { type: string }
+              hubName: { type: string }
+              description: { type: string }
+            required: [domainId, hubName]
+
+tests:
+
+  # ── Community intent detection ──────────────────────────────────────────
+
+  - description: "COMMUNITY: 'I want to create a book club' → sets defaultDomainKind: COMMUNITY"
+    vars:
+      userMessage: "I want to create a book club for our staff"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup — should detect community intent' };
+          const fields = update.args?.fields || update.args || {};
+          if (fields.defaultDomainKind !== 'COMMUNITY') return { pass: false, score: 0, reason: `defaultDomainKind should be "COMMUNITY", got "${fields.defaultDomainKind}"` };
+          return true;
+
+  - description: "COMMUNITY: 'discussion group' → sets conversational-guide pattern"
+    vars:
+      userMessage: "I'd like to set up a discussion group for our department"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup' };
+          const fields = update.args?.fields || update.args || {};
+          if (fields.interactionPattern !== 'conversational-guide') {
+            return { pass: false, score: 0, reason: `interactionPattern should be "conversational-guide", got "${fields.interactionPattern}"` };
+          }
+          return true;
+
+  - description: "COMMUNITY: Hub intent → does NOT ask about subject, sessions, lesson plans"
+    vars:
+      userMessage: "Can we set up a community hub for philosophy conversations?"
+    assert:
+      - type: llm-rubric
+        value: "Collects hub-specific info (name, description, topics). Does NOT ask about subject discipline, teaching mode, session count, lesson plan model, or content upload — these are skipped for community hubs."
+
+  - description: "COMMUNITY: Regular course intent → does NOT trigger community flow"
+    vars:
+      userMessage: "I want to create a GCSE Biology tutoring course"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return true;
+          const fields = update.args?.fields || update.args || {};
+          if (fields.defaultDomainKind === 'COMMUNITY') {
+            return { pass: false, score: 0, reason: 'Set COMMUNITY for a regular course — should be a teaching course' };
+          }
+          return true;

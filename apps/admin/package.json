@@ -72,7 +72,14 @@
     "eval:wizard:v4:launch": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v4-launch.yaml --no-cache",
     "eval:wizard:v4:jumping": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v4-jumping.yaml --no-cache",
     "eval:wizard:v4:all": "npm run eval:wizard:v4 && npm run eval:wizard:v4:intake && npm run eval:wizard:v4:playback && npm run eval:wizard:v4:proposal && npm run eval:wizard:v4:content && npm run eval:wizard:v4:welcome && npm run eval:wizard:v4:personality && npm run eval:wizard:v4:launch && npm run eval:wizard:v4:jumping",
-    "eval:all": "npm run eval:wizard && npm run eval:wizard:v4:all",
+    "eval:wizard:v5": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-core-rules.yaml --no-cache",
+    "eval:wizard:v5:intake": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-intake.yaml --no-cache",
+    "eval:wizard:v5:proposal": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-proposal.yaml --no-cache",
+    "eval:wizard:v5:content": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-content.yaml --no-cache",
+    "eval:wizard:v5:community": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-community.yaml --no-cache",
+    "eval:wizard:v5:amendment": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-amendment.yaml --no-cache",
+    "eval:wizard:v5:all": "npm run eval:wizard:v5 && npm run eval:wizard:v5:intake && npm run eval:wizard:v5:proposal && npm run eval:wizard:v5:content && npm run eval:wizard:v5:community && npm run eval:wizard:v5:amendment",
+    "eval:all": "npm run eval:wizard && npm run eval:wizard:v4:all && npm run eval:wizard:v5:all",
     "eval:view": "promptfoo view"
   },
   "prisma": {

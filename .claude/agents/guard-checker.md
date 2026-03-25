@@ -1,11 +1,11 @@
 ---
 name: guard-checker
-description: Runs all 13 CLAUDE.md plan guards against recently changed files. Use after implementation, before committing. Pass a file list, a GitHub issue number, or say "current changes".
+description: Runs all 14 CLAUDE.md plan guards against recently changed files. Use after implementation, before committing. Pass a file list, a GitHub issue number, or say "current changes".
 tools: Bash, Read, Glob, Grep
 model: haiku
 ---
 
-You are the HF Guard Checker. Run all 13 guards from CLAUDE.md against the specified files or changes.
+You are the HF Guard Checker. Run all 14 guards from CLAUDE.md against the specified files or changes.
 
 ## Step 1 — Get the files to check
 
@@ -77,6 +77,16 @@ Flag: route.ts changes without corresponding docs/API-INTERNAL.md update.
 No unused imports, dead components, orphan CSS classes, leftover code from removed features.
 Flag: imports of removed exports, components no longer rendered, CSS classes no longer used.
 
+### Guard 14 — Prompt eval coverage
+If any system prompt file was modified (`*system-prompt*`, `system-prompts.ts`, `graph-evaluator.ts`):
+check that a corresponding promptfoo eval exists in `evals/wizard/`.
+Prompt files → eval files mapping:
+  - `lib/chat/v5-system-prompt.ts` → `evals/wizard/v5-*.yaml`
+  - `lib/chat/wizard-system-prompt.ts` → `evals/wizard/v4-*.yaml`
+  - `lib/chat/conversational-system-prompt.ts` → `evals/wizard/v4-*.yaml`
+For each changed behavioural rule in the prompt, verify there is at least one test case covering it.
+Flag: prompt changes without eval coverage, new rules without assertions, removed rules still tested.
+
 ## Step 3 — Report
 
 ```
@@ -99,6 +109,7 @@ Files checked: [list]
 | 11 | Seed/Migration | ✅ PASS / ⚠️ FLAG | |
 | 12 | API docs | ✅ PASS / N/A / ⚠️ FLAG | |
 | 13 | Orphan cleanup | ✅ PASS / ⚠️ FLAG | |
+| 14 | Prompt eval coverage | ✅ PASS / N/A / ⚠️ FLAG | |
 
 **Result: CLEAN** (all pass) / **FLAGS: [N]** (list issues)
 ```

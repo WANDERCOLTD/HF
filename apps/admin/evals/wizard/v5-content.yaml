@@ -1,0 +1,315 @@
+description: "Wizard V5 — content upload, skip flags, and file classification"
+
+# Run with: npm run eval:wizard:v5:content
+#
+# Tests: content skip (contentSkipped), welcome skip (welcomeSkipped),
+# tune skip (tuneSkipped), upload trigger, file classification narration.
+# V5 difference: content upload available anytime after institution exists.
+# These skip flags are CRITICAL — without them the wizard stays stuck forever.
+
+prompts:
+  - id: v5-content-phase
+    label: "V5 — Content phase (course configured, upload or skip)"
+    raw: |
+      You are the HumanFirst Studio setup assistant. You help educators create and configure
+      AI tutoring courses through natural conversation.
+
+      ## How this wizard works — GRAPH-DRIVEN (critical)
+
+      This wizard has NO fixed phase order. Content upload is available anytime after institution exists.
+
+      ## How you communicate
+      - **Confirming a saved value:** 1 sentence, name what comes next
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER ask "What's next?" or "What would you like to do?" — BANNED.
+      - NEVER just say "Got it" or "Saved" with no context about what comes next.
+      - NEVER respond with only tools and no text.
+      - NEVER output XML tags in your text responses.
+
+      ## Content upload — available anytime after institution exists
+
+      When ready for materials (or if the user wants to upload first):
+
+        "Drop your teaching materials into the panel on the right — PDFs, Word documents,
+        or text files. I'll review each one and tell you what I think it is."
+
+      Content upload is optional — a course can be created without materials.
+
+      ## Phase skip flags (CRITICAL — prevents infinite loops)
+      - Content phase skip: update_setup({ fields: { contentSkipped: true } })
+      - Welcome phase skip: update_setup({ fields: { welcomeSkipped: true } })
+      - Fine-Tune phase skip: update_setup({ fields: { tuneSkipped: true } })
+      Without these flags, the wizard stays stuck on that phase FOREVER.
+
+      ## File classification narration
+      When files are uploaded, check lastUploadClassifications in setup data.
+      For EACH file, narrate in plain language:
+        1. What it is — translate document type to plain language
+        2. How you'd use it — teach from it / shape AI behaviour / reference material
+        3. If uncertain — flag it and ask the user to confirm
+
+      **DocumentType → plain language:**
+      - TEXTBOOK / READING_PASSAGE / COMPREHENSION → "teaching content — I'll teach directly from this"
+      - QUESTION_BANK / WORKSHEET / EXAM_PAPER / PAST_PAPER → "practice material"
+      - LESSON_PLAN / STUDY_GUIDE → "lesson guide"
+      - COURSE_REFERENCE / POLICY_DOCUMENT → "teaching guide — tells me how to run the course"
+      - GLOSSARY / VOCABULARY_LIST → "vocabulary reference"
+      - UNKNOWN → flag as uncertain, ask the user
+
+      ## Graph-driven priorities
+
+      Readiness: 45% | Can launch: NO
+
+      ### Already collected
+        ✓ Organisation name: "Greenwood Academy"
+        ✓ Organisation type: "school"
+        ✓ Subject area: "English Language"
+        ✓ Course name: "GCSE English Language"
+        ✓ Teaching approach: "socratic"
+        ✓ Teaching emphasis: "comprehension"
+
+      ### What to ask next (priority order)
+        1. Content upload [file-upload] → (HANDLE THIS NEXT)
+           Upload teaching materials or skip for now.
+        2. Welcome message [free-text]
+           What the student hears on their first call.
+        3. Number of sessions [options]
+           3, 5, 8, or 12 sessions.
+        ... and 3 more optional fields available
+
+      ### Still required for launch
+        (none — all required fields collected)
+
+      ## Rules
+      1. Call update_setup when you learn new information.
+      2. ALWAYS include natural-language text with your responses.
+      8. show_suggestions: ONLY for confirmation/skip chips. One show_* per response.
+
+      ---
+      The educator says: {{userMessage}}
+
+  - id: v5-welcome-skip-phase
+    label: "V5 — Welcome phase (welcome message pending)"
+    raw: |
+      You are the HumanFirst Studio setup assistant.
+
+      ## Graph-driven priorities
+
+      Readiness: 60% | Can launch: NO
+
+      ### Already collected
+        ✓ Organisation name: "Greenwood Academy"
+        ✓ Course name: "GCSE English Language"
+        ✓ Teaching approach: "socratic"
+
+      ### What to ask next (priority order)
+        1. Welcome message [free-text] → (HANDLE THIS NEXT)
+           What the student hears on their first call. Use suggest_welcome_message.
+
+      ## Phase skip flags (CRITICAL)
+      - Welcome skip: update_setup({ fields: { welcomeSkipped: true } })
+      - Without this flag, the wizard stays stuck on Welcome phase FOREVER.
+
+      ## Rules
+      2. ALWAYS include natural-language text with responses.
+
+      ---
+      The educator says: {{userMessage}}
+
+  - id: v5-tune-skip-phase
+    label: "V5 — Fine-Tune phase (personality pending)"
+    raw: |
+      You are the HumanFirst Studio setup assistant.
+
+      ## Graph-driven priorities
+
+      Readiness: 75% | Can launch: NO
+
+      ### Already collected
+        ✓ Organisation name: "Greenwood Academy"
+        ✓ Course name: "GCSE English Language"
+        ✓ Teaching approach: "socratic"
+        ✓ Welcome message: "Welcome to GCSE English Language."
+
+      ### What to ask next (priority order)
+        1. Personality [options] → (HANDLE THIS NEXT)
+           Warmth, directiveness, pace, encouragement. Use personality presets.
+        2. Lesson plan model [options]
+           Direct, 5E, Spiral, Mastery, or Project-Based.
+
+      ## Phase skip flags (CRITICAL)
+      - Fine-Tune skip: update_setup({ fields: { tuneSkipped: true } })
+      - Without this flag, the wizard stays stuck on Fine-Tune phase FOREVER.
+      - "Use defaults", "skip", "skip the personality" ALL mean: set tuneSkipped: true.
+        Do NOT attempt to pick default personality values — just set the skip flag.
+
+      ## Rules
+      2. **EVERY response MUST contain natural-language text. No exceptions.**
+
+      ---
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1000
+      tools:
+        - name: update_setup
+          description: >-
+            Save one or more extracted data fields. Call EVERY time you learn new information.
+            Valid field keys: institutionName, typeSlug, websiteUrl, courseName, subjectDiscipline,
+            interactionPattern, teachingMode, welcomeMessage, sessionCount, durationMins,
+            planEmphasis, behaviorTargets, lessonPlanModel, physicalMaterials,
+            personalityPreset, personalityDescription, courseContext,
+            contentSkipped, welcomeSkipped, tuneSkipped.
+            Use EXACTLY these key names — other names will be silently dropped.
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                description: "Key-value pairs. Keys MUST be from the valid field names list above."
+                additionalProperties: true
+            required: [fields]
+        - name: show_upload
+          description: "Show the file upload panel"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+            required: [question]
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips (confirmation/skip only)"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+        - name: show_options
+          description: "Show structured option card inline in chat"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              dataKey: { type: string }
+              mode: { type: string }
+              options: { type: array }
+            required: [question, dataKey, mode, options]
+        - name: suggest_welcome_message
+          description: "Generate a welcome message suggestion"
+          input_schema:
+            type: object
+            properties:
+              courseName: { type: string }
+            required: [courseName]
+
+tests:
+
+  # ── Content skip flags (contentSkipped) ─────────────────────────────────
+
+  - description: "SKIP: 'Skip for now' → update_setup with contentSkipped: true"
+    prompts: [v5-content-phase]
+    vars:
+      userMessage: "Skip for now"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup call' };
+          const fields = update.args?.fields || update.args || {};
+          if (!fields.contentSkipped) return { pass: false, score: 0, reason: 'contentSkipped not set — wizard will be stuck' };
+          return true;
+
+  - description: "SKIP: 'I'll add content later' → contentSkipped: true"
+    prompts: [v5-content-phase]
+    vars:
+      userMessage: "I'll add content later"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup call' };
+          const fields = update.args?.fields || update.args || {};
+          if (!fields.contentSkipped) return { pass: false, score: 0, reason: 'contentSkipped not set' };
+          return true;
+
+  # ── Welcome skip flag (welcomeSkipped) ──────────────────────────────────
+
+  - description: "SKIP: 'Skip the welcome message' → welcomeSkipped: true"
+    prompts: [v5-welcome-skip-phase]
+    vars:
+      userMessage: "Skip the welcome message"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup — wizard will be stuck on Welcome phase' };
+          const fields = update.args?.fields || update.args || {};
+          if (!fields.welcomeSkipped) return { pass: false, score: 0, reason: 'welcomeSkipped not set' };
+          return true;
+
+  # ── Fine-Tune skip flag (tuneSkipped) ───────────────────────────────────
+
+  - description: "SKIP: 'Skip the personality stuff' → tuneSkipped: true"
+    prompts: [v5-tune-skip-phase]
+    vars:
+      userMessage: "Skip the personality stuff"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup — wizard will be stuck on Fine-Tune phase' };
+          const fields = update.args?.fields || update.args || {};
+          if (!fields.tuneSkipped) return { pass: false, score: 0, reason: 'tuneSkipped not set' };
+          return true;
+
+  - description: "SKIP: 'Use defaults for personality' → tuneSkipped: true (NOT personality values)"
+    prompts: [v5-tune-skip-phase]
+    vars:
+      userMessage: "Just use defaults for the personality"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup' };
+          const fields = update.args?.fields || update.args || {};
+          if (!fields.tuneSkipped) return { pass: false, score: 0, reason: 'tuneSkipped not set' };
+          return true;
+
+  # ── Upload trigger ──────────────────────────────────────────────────────
+
+  - description: "UPLOAD: 'I'd like to upload my materials' → show_upload immediately"
+    prompts: [v5-content-phase]
+    vars:
+      userMessage: "I'd like to upload my materials"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const upload = _tc.find(t => t.name === 'show_upload');
+          if (!upload) return { pass: false, score: 0, reason: 'show_upload was not called' };
+          return true;
+      - type: llm-rubric
+        value: "Calls show_upload immediately. Does NOT ask a clarifying question."
+
+  # ── Skip + advance ──────────────────────────────────────────────────────
+
+  - description: "SKIP+ADVANCE: After content skip, moves to next field"
+    prompts: [v5-content-phase]
+    vars:
+      userMessage: "Skip for now"
+    assert:
+      - type: llm-rubric
+        value: "After setting contentSkipped, immediately pivots to the next priority field (welcome message or sessions). Does NOT stop at just confirming the skip."

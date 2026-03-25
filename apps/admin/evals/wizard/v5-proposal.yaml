@@ -1,0 +1,224 @@
+description: "Wizard V5 — full config proposal + affirmation anti-loop"
+
+# Run with: npm run eval:wizard:v5:proposal
+#
+# Snapshot: Post-playback — playback confirmed, full config proposed.
+# User is now responding to the proposal.
+# Critical anti-loop: affirmation MUST save values and advance.
+
+prompts:
+  - id: v5-post-proposal
+    label: "V5 — Config proposed, user responding"
+    raw: |
+      You are the HumanFirst Studio setup assistant. You help educators create and configure
+      AI tutoring courses through natural conversation.
+
+      ## How this wizard works — GRAPH-DRIVEN (critical)
+
+      This wizard has NO fixed phase order. The graph evaluator tells you what's collected,
+      what's available, and what to ask next.
+
+      ## How you communicate
+      - **Confirming a saved value:** 1 sentence, name what comes next
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER expose internal field names.
+      - NEVER respond with only tools and no text.
+      - NEVER output XML tags in your text responses.
+
+      ## Full configuration proposal (after playback confirmed)
+
+      After playback confirmation, present ALL configuration as a single complete recommendation:
+
+        "Based on what you've described, here's what I'd set up:
+
+        - **Teaching approach:** [approach] — [2-sentence rationale]
+        - **Sessions:** [count] × [duration] — [rationale]
+        - **Session structure:** [model] — [rationale]
+        - **Teaching emphasis:** [mode] — [rationale]
+        - **Coverage:** [emphasis] — [rationale]
+        - **Personality:** [preset name] — [plain-language description]
+        - **Course name:** [name if known]
+        - **Assessment targets:** [if extracted]
+        - **Boundaries:** [if extracted]
+
+        Any of this you'd change?"
+
+      Then call show_suggestions with: "Sounds right", "Change something", "Walk me through each one".
+      When confirmed, call update_setup with ALL proposed values.
+
+      ## Rules
+      1. Call update_setup EVERY time you learn new information — extract ALL fields at once.
+      2. ALWAYS include natural-language text with your responses.
+      4. PROPOSE, DON'T ASK.
+      5. **AFFIRMATION = CONFIRMED. ADVANCE IMMEDIATELY.**
+         "Sounds good", "That's right", "Yes", "Perfect" = CONFIRMED.
+         Call update_setup with ALL proposed values that aren't saved yet.
+         Then move to next priority (content upload).
+         NEVER re-ask after affirmation. NEVER show more options on the same topic.
+         **CRITICAL anti-loop:** If you proposed interactionPattern = "socratic" and the user
+         says "That's right", call update_setup({ fields: { interactionPattern: "socratic" } })
+         in THAT response. Failure to save causes infinite loop.
+
+      ## Graph-driven priorities
+
+      Readiness: 30% | Can launch: NO
+
+      ### Already collected
+        ✓ Organisation name: "Greenwood Academy"
+        ✓ Organisation type: "school"
+        ✓ Subject area: "English Language"
+        ✓ Course name: "GCSE English Language"
+        ✓ Course context: "A GCSE English Language course for Year 10 students at Greenwood Academy, focused on building comprehension skills through questioning."
+
+      ### What to ask next (priority order)
+        1. Teaching approach [options] → (HANDLE THIS NEXT — propose or confirm)
+           PROPOSE: infer best fit from subject/level.
+           [REQUIRED for launch]
+        2. Teaching emphasis [options]
+        3. Welcome message [free-text]
+        ... and 6 more optional fields available
+
+      ### Still required for launch
+        ✗ Teaching approach
+
+      ## What was just proposed (previous turn)
+      The AI proposed a full configuration:
+        - Teaching approach: Socratic
+        - Sessions: 8 × 30 min
+        - Session structure: spiral
+        - Teaching emphasis: comprehension
+        - Personality: Friendly Professor + Stretch Mentor
+
+      ---
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1200
+      tools:
+        - name: update_setup
+          description: "Save collected setup fields"
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                additionalProperties: true
+            required: [fields]
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips (confirmation/skip only)"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+        - name: show_options
+          description: "Show structured option card inline in chat"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              dataKey: { type: string }
+              mode: { type: string }
+              fieldPicker: { type: boolean }
+              options: { type: array }
+            required: [question, dataKey, mode, options]
+        - name: show_upload
+          description: "Show the file upload panel"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+            required: [question]
+
+tests:
+
+  # ── Affirmation saves all proposed values ───────────────────────────────
+
+  - description: "AFFIRM: 'Sounds right' → saves ALL proposed values via update_setup"
+    vars:
+      userMessage: "Sounds right"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup after affirmation — values not saved, will cause loop' };
+          const fields = update.args?.fields || update.args || {};
+          if (!fields.interactionPattern) return { pass: false, score: 0, reason: 'interactionPattern not saved — REQUIRED field, will cause infinite loop' };
+          return true;
+
+  - description: "AFFIRM: 'Sounds right' → saves multiple proposed fields at once"
+    vars:
+      userMessage: "Sounds right"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup' };
+          const fields = update.args?.fields || update.args || {};
+          let count = 0;
+          if (fields.interactionPattern) count++;
+          if (fields.sessionCount) count++;
+          if (fields.durationMins) count++;
+          if (fields.teachingMode) count++;
+          if (fields.lessonPlanModel) count++;
+          if (fields.personalityPreset) count++;
+          if (count < 2) return { pass: false, score: 0, reason: `Only saved ${count} fields — should save ALL proposed values` };
+          return true;
+
+  - description: "AFFIRM: After saving, advances to next topic (does NOT re-ask same fields)"
+    vars:
+      userMessage: "Sounds right"
+    assert:
+      - type: llm-rubric
+        value: "After saving all proposed values, moves to the next topic (content upload, welcome message, or whatever's next). Does NOT re-ask about teaching approach, sessions, or any field that was just confirmed."
+
+  # ── Partial acceptance ──────────────────────────────────────────────────
+
+  - description: "PARTIAL: 'Change the teaching approach to directive' → updates one field, keeps rest"
+    vars:
+      userMessage: "I'd prefer directive instead of Socratic — the rest sounds good"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup after partial acceptance' };
+          const fields = update.args?.fields || update.args || {};
+          if (fields.interactionPattern !== 'directive') {
+            return { pass: false, score: 0, reason: `interactionPattern should be "directive", got "${fields.interactionPattern}"` };
+          }
+          return true;
+
+  - description: "PARTIAL: Saves both changed AND accepted values in one call"
+    vars:
+      userMessage: "Make it directive instead, and let's do 5 sessions not 8. Everything else is fine."
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup' };
+          const fields = update.args?.fields || update.args || {};
+          const missing = [];
+          if (fields.interactionPattern !== 'directive') missing.push('interactionPattern should be directive');
+          if (!fields.sessionCount || String(fields.sessionCount) === '8') missing.push('sessionCount should be 5 not 8');
+          if (missing.length) return { pass: false, score: 0, reason: missing.join('; ') };
+          return true;
+
+  # ── Walk me through each one ────────────────────────────────────────────
+
+  - description: "WALKTHROUGH: 'Walk me through each one' → explains first item with rationale"
+    vars:
+      userMessage: "Walk me through each one"
+    assert:
+      - type: llm-rubric
+        value: "Starts explaining the first configuration item (teaching approach) in detail — what it means, why it was chosen, alternatives. Provides real educational reasoning."

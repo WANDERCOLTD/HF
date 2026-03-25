@@ -48,7 +48,7 @@ When the user says anything matching these patterns, **STOP and run the BA + Tec
 | "End of sprint" / "Sprint review" | Run retro-bot + velocity-tracker agents |
 | Fix chain detected (3+ fix: commits on same topic) | Flag it, run `root-cause` agent, create a story |
 | About to commit | Run `scope-enforcer` — one concern per commit |
-| Prompt file changed (`*system-prompt*`, `chat/route.ts`, `lib/prompt/**`) | Run `prompt-diff` — flag risk, identify evals needed |
+| Prompt file changed (`*system-prompt*`, `chat/route.ts`, `lib/prompt/**`) | Run `prompt-diff` — flag risk, identify evals needed. **Enforce:** update/create promptfoo eval covering the change (`evals/wizard/v5-*.yaml`) |
 | `prisma/schema.prisma` changed | Run `migration-checker` before any `migrate dev` |
 | "Something broke in prod" / production incident | Run `post-mortem` agent |
 | "Is memory up to date?" / after major refactor | Run `memory-sync` agent |
@@ -59,7 +59,7 @@ When the user says anything matching these patterns, **STOP and run the BA + Tec
 
 - [ ] All acceptance criteria checked off
 - [ ] `qa-engineer` agent run (vitest + promptfoo evals if applicable)
-- [ ] `guard-checker` agent run (all 13 guards)
+- [ ] `guard-checker` agent run (all 14 guards)
 - [ ] `standards-checker` agent run — READY TO MERGE verdict
 - [ ] `/check` passes (tsc + lint + tests)
 - [ ] Issue closed on GitHub
@@ -226,7 +226,7 @@ Run `plan-reviewer` agent before presenting a plan for approval. It checks phase
 
 Run `guard-checker` agent:
 - **Pre-plan:** guards 1-6, 10-11 (architectural — catch mistakes early)
-- **Post-plan / pre-commit:** all 13 guards
+- **Post-plan / pre-commit:** all 14 guards
 
 Guard definitions in `.claude/agents/guard-checker.md`. Always end a completed story with a guard report.
 

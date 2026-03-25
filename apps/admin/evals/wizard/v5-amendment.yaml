@@ -1,0 +1,198 @@
+description: "Wizard V5 — amendment handling (pre/post creation tiers)"
+
+# Run with: npm run eval:wizard:v5:amendment
+#
+# V5-specific: amendment tiers. Pre-creation = all changes free.
+# Post-creation config = update_setup AND update_course_config.
+# Post-creation structural = explain can't change, offer new course.
+
+prompts:
+  - id: v5-pre-creation
+    label: "V5 — Pre-creation (all changes free)"
+    raw: |
+      You are the HumanFirst Studio setup assistant. You help educators create and configure
+      AI tutoring courses through natural conversation.
+
+      ## How you communicate
+      - **Confirming a saved value:** 1 sentence, name what comes next.
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER expose internal field names.
+      - NEVER output XML tags in your text responses.
+
+      ## Amendment handling
+
+      Users can click items on the "Building Your Course" panel to review settings.
+      When you receive "I'd like to review my [section]":
+      1. Recap current values in natural language
+      2. Call show_suggestions(["Keep as is", "Change something"])
+      3. Handle changes via update_setup
+
+      Amendment tier: PRE-SCAFFOLD (all changes free).
+
+      ## Graph-driven priorities
+
+      Readiness: 80% | Can launch: YES
+
+      ### Already collected
+        ✓ Organisation name: "Greenwood Academy"
+        ✓ Subject area: "English Language"
+        ✓ Course name: "GCSE English Language"
+        ✓ Teaching approach: "socratic"
+        ✓ Teaching emphasis: "comprehension"
+        ✓ Sessions: 8 × 30 min
+        ✓ Lesson plan model: "spiral"
+
+      ### Can launch: YES
+
+      ## Rules
+      1. Call update_setup when you learn new information.
+      2. ALWAYS include natural-language text.
+
+      ---
+      The educator says: {{userMessage}}
+
+  - id: v5-post-creation
+    label: "V5 — Post-creation (tiered amendments)"
+    raw: |
+      You are the HumanFirst Studio setup assistant. You help educators create and configure
+      AI tutoring courses through natural conversation.
+
+      ## How you communicate
+      - **Confirming a saved value:** 1 sentence, name what comes next.
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER expose internal field names.
+      - NEVER output XML tags in your text responses.
+
+      ## Amendment handling
+
+      Amendment tiers:
+      - **Pre-creation**: all changes free → update_setup only.
+      - **Post-creation config**: welcome, sessions, personality → update_setup AND update_course_config.
+      - **Post-creation structural**: course name, institution, approach → explain can't change, offer new course.
+
+      ⚠️ Session count/duration changes (post-creation): Tell user to click **Regenerate Plan**.
+
+      Amendment tier: POST-SCAFFOLD (playbookId: plb_abc123).
+
+      ## Graph-driven priorities
+
+      Readiness: 100% | Can launch: YES (already created)
+
+      ### Already collected
+        ✓ Organisation name: "Greenwood Academy"
+        ✓ Subject area: "English Language"
+        ✓ Course name: "GCSE English Language"
+        ✓ Teaching approach: "socratic"
+        ✓ Teaching emphasis: "comprehension"
+        ✓ Sessions: 8 × 30 min
+        ✓ Playbook created: plb_abc123
+
+      ## Rules
+      1. Call update_setup AND update_course_config for config changes post-creation.
+      2. ALWAYS include natural-language text.
+      10. After create_course succeeds, config changes use update_course_config.
+
+      ---
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1000
+      tools:
+        - name: update_setup
+          description: "Save collected setup fields"
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                additionalProperties: true
+            required: [fields]
+        - name: update_course_config
+          description: "Update course config post-scaffold"
+          input_schema:
+            type: object
+            additionalProperties: true
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+
+tests:
+
+  # ── Pre-creation amendments (all free) ──────────────────────────────────
+
+  - description: "PRE-AMEND: 'Change approach to directive' → update_setup only (no update_course_config)"
+    prompts: [v5-pre-creation]
+    vars:
+      userMessage: "Actually, let's change the teaching approach to directive"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup' };
+          const fields = update.args?.fields || update.args || {};
+          if (fields.interactionPattern !== 'directive') return { pass: false, score: 0, reason: `Expected directive, got ${fields.interactionPattern}` };
+          const courseConfig = _tc.find(t => t.name === 'update_course_config');
+          if (courseConfig) return { pass: false, score: 0, reason: 'update_course_config called pre-creation — should only use update_setup' };
+          return true;
+
+  # ── Post-creation config changes ────────────────────────────────────────
+
+  - description: "POST-AMEND-CONFIG: Session change → update_setup + update_course_config + Regenerate Plan hint"
+    prompts: [v5-post-creation]
+    vars:
+      userMessage: "Let's change to 5 sessions of 45 minutes"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          const courseConfig = _tc.find(t => t.name === 'update_course_config');
+          if (!update && !courseConfig) return { pass: false, score: 0, reason: 'Neither update_setup nor update_course_config called' };
+          return true;
+      - type: llm-rubric
+        value: "Mentions that the user should click 'Regenerate Plan' after session count/duration changes post-creation."
+
+  # ── Post-creation structural changes (can't change) ─────────────────────
+
+  - description: "POST-AMEND-STRUCTURAL: 'Change course name' → explains limitation, offers new course"
+    prompts: [v5-post-creation]
+    vars:
+      userMessage: "I want to rename the course to A-Level English Literature"
+    assert:
+      - type: llm-rubric
+        value: "Explains that course name cannot be changed after creation. Offers to create a new course instead. Does NOT call update_setup with courseName."
+
+  - description: "POST-AMEND-STRUCTURAL: 'Change teaching approach' → explains limitation"
+    prompts: [v5-post-creation]
+    vars:
+      userMessage: "Switch the teaching approach from socratic to directive"
+    assert:
+      - type: llm-rubric
+        value: "Explains that teaching approach is a structural change that cannot be modified after course creation. Offers to create a new course instead."
+
+  # ── Review request → recap + suggestions ────────────────────────────────
+
+  - description: "REVIEW: 'I'd like to review my sessions' → recaps values, offers Keep/Change"
+    prompts: [v5-post-creation]
+    vars:
+      userMessage: "I'd like to review my sessions"
+    assert:
+      - type: llm-rubric
+        value: "Recaps the current session configuration (8 × 30 min) in natural language. Does NOT immediately change values."
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const sugg = _tc.find(t => t.name === 'show_suggestions');
+          if (!sugg) return { pass: false, score: 0, reason: 'No show_suggestions — should offer Keep/Change chips' };
+          return true;
