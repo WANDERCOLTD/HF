@@ -180,16 +180,13 @@ After Sim session ends, operator needs to know results are ready.
 ## Execution Order
 
 ```
-Epic 1: Verify (V1.1 → V1.2 → V1.3 → V1.4 → V1.5)
-  ↓ findings inform scope
-Epic 2: Instruction split (G2.1 → G2.3 → G2.4 | G2.2 in parallel)
-  ↓ re-verify chain
-Epic 4: Polish (P4.1, P4.2 — parallel, any time)
-  ↓ only if needed
-Epic 3: Wizard step split (P3.1 — conditional)
+Epic 2: Instruction split ✅ COMPLETE (88b2404, df31b8a, fc1c391)
+Epic 1: Verify on DEV (V1.1 → V1.2 → V1.3 → V1.4 → V1.5) ← NEXT
+Epic 4: Polish (P4.2 only — P4.1 superseded) ← decide after V1.5
+Epic 3: Wizard step split (P3.1 — conditional, deferred)
 ```
 
-**Slice 1 done when:** Session completes via Sim, transcript + observations visible in UI, teaching content is student-facing only (not bloated with 226 instruction rules).
+**Slice 1 done when:** Session completes via Sim, transcript + observations visible in UI, teaching content is student-facing only (not bloated with 226 instruction rules). **Code is done — verification pass remains.**
 
 ---
 

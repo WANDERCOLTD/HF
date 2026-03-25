@@ -183,14 +183,16 @@
 
 ---
 
-## Open Questions (Blocking Slice 1)
+## Open Questions — All Resolved ✅
 
-These need answers from Paul before development starts. Listed in priority order.
+See [paul-technical.md](paul-technical.md#open-questions) for full resolutions.
 
-1. **Spec toggle wiring:** Do `systemSpecToggles` in `Playbook.config` actually control what the composition loads? Or is it cosmetic only?
-2. **Composition resilience:** If a data loader returns empty/null, does the composition handle it gracefully or error?
-3. **Teaching point filtering:** Does `renderTeachingContent` filter by session/module, or dump the full assertion set into the prompt?
-4. **Pipeline selectivity:** Can the post-call pipeline run specific stages only, or is it all-or-nothing?
-5. **Pipeline failure handling:** If a stage fails, what ensures the session record and transcript are never lost?
-6. **Infrastructure status:** Is the DB capacity / Google account issue fully resolved?
-7. **Fresh vs existing instance:** Build on current deployment (faster) or clean install (cleaner)?
+| # | Question | Resolution |
+|---|----------|------------|
+| 1 | Spec toggle wiring | **DONE** — `a00ffca`. `systemSpecToggles` controls composition filtering. |
+| 2 | Composition resilience | **DONE** — All 15 empty loaders handle null via `activateWhen` + fallbacks. |
+| 3 | Teaching point filtering | **DONE** — `assertionIds` populated by `generateLessonPlan()`. Instruction assertions split to identity spec (Epic 2). |
+| 4 | Pipeline selectivity | **ACCEPTABLE** — All 7 stages run; inactive ones produce nothing. Wastes tokens, doesn't break. |
+| 5 | Pipeline failure handling | **DONE** — Transcript persists BEFORE pipeline fires. Sessions never disappear. |
+| 6 | Infrastructure status | **RESOLVED** — Using existing deployment. |
+| 7 | Fresh vs existing instance | **USE EXISTING** — Faster. PIPELINE-001 seeded via `npm run db:seed`. |
