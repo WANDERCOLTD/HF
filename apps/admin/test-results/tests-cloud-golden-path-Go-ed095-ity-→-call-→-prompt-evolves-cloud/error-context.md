@@ -1,0 +1,1589 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - link "Chat" [ref=e5] [cursor=pointer]:
+        - /url: /x/sim
+        - img [ref=e6]
+        - text: Chat
+      - link "Callers" [ref=e8] [cursor=pointer]:
+        - /url: /x/callers
+        - img [ref=e9]
+        - text: Callers
+      - link "Analytics" [ref=e14] [cursor=pointer]:
+        - /url: /x/analytics
+        - img [ref=e15]
+        - text: Analytics
+      - link "Admin" [ref=e16] [cursor=pointer]:
+        - /url: /x
+        - img [ref=e17]
+        - text: Admin
+      - link "Exit" [ref=e22] [cursor=pointer]:
+        - /url: /x
+        - img [ref=e23]
+        - text: Exit
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - button [ref=e29] [cursor=pointer]:
+            - img [ref=e30]
+          - generic [ref=e32]: HF Simulator
+        - generic [ref=e33]:
+          - button [ref=e34] [cursor=pointer]:
+            - img [ref=e35]
+          - button "ADM" [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]: ADM
+      - generic [ref=e44]:
+        - button "All" [ref=e46] [cursor=pointer]:
+          - text: All
+          - img [ref=e47]
+        - generic [ref=e49]:
+          - img [ref=e50]
+          - textbox "Search" [ref=e53]
+        - button "Recent" [ref=e55] [cursor=pointer]:
+          - text: Recent
+          - img [ref=e56]
+      - generic [ref=e58]:
+        - generic [ref=e59] [cursor=pointer]:
+          - generic [ref=e60]: ET
+          - generic [ref=e61]:
+            - generic [ref=e62]:
+              - text: E2E Test Caller
+              - generic [ref=e63]: E2E Test Domain
+            - generic [ref=e64]: Tap to start a conversation
+          - generic [ref=e65]: 10:54 AM
+        - generic [ref=e66] [cursor=pointer]:
+          - generic [ref=e67]: TC
+          - generic [ref=e68]:
+            - generic [ref=e69]:
+              - text: Test Caller — E2E Golden 1773053463264
+              - generic [ref=e70]: E2E Golden 1773053463264
+            - generic [ref=e71]: Now, I totally get that you learn
+          - generic [ref=e72]: 10:51 AM
+        - generic [ref=e73] [cursor=pointer]:
+          - generic [ref=e74]: TC
+          - generic [ref=e75]:
+            - generic [ref=e76]:
+              - text: Test Caller — E2E Golden 1773053379717
+              - generic [ref=e77]: E2E Golden 1773053379717
+            - generic [ref=e78]: "Assistant: Right"
+          - generic [ref=e79]: 10:49 AM
+        - generic [ref=e80] [cursor=pointer]:
+          - generic [ref=e81]: TC
+          - generic [ref=e82]:
+            - generic [ref=e83]:
+              - text: Test Caller — E2E Golden 1773053336680
+              - generic [ref=e84]: E2E Golden 1773053336680
+            - generic [ref=e85]: "Assistant: I hear you on visual learning — that's really helpful to"
+          - generic [ref=e86]: 10:49 AM
+        - generic [ref=e87] [cursor=pointer]:
+          - generic [ref=e88]: TC
+          - generic [ref=e89]:
+            - generic [ref=e90]:
+              - text: Test Caller — E2E Golden 1773053277506
+              - generic [ref=e91]: E2E Golden 1773053277506
+            - generic [ref=e92]: "Assistant: Right, so the Calvin cycle is the second major stage - it's also call..."
+          - generic [ref=e93]: 10:48 AM
+        - generic [ref=e94] [cursor=pointer]:
+          - generic [ref=e95]: TC
+          - generic [ref=e96]:
+            - generic [ref=e97]:
+              - text: Test Caller — E2E Golden 1773053207217
+              - generic [ref=e98]: E2E Golden 1773053207217
+            - generic [ref=e99]: "Assistant: Right, so the Calvin cycle is the second major part of photosynthesis..."
+          - generic [ref=e100]: 10:47 AM
+        - generic [ref=e101] [cursor=pointer]:
+          - generic [ref=e102]: OY
+          - generic [ref=e103]:
+            - generic [ref=e104]:
+              - text: Olive Yilmaz
+              - generic [ref=e105]: Aardvark Academy
+            - generic [ref=e106]: Tap to start a conversation
+          - generic [ref=e107]: 10:23 AM
+        - generic [ref=e108] [cursor=pointer]:
+          - generic [ref=e109]: W
+          - generic [ref=e110]:
+            - generic [ref=e111]:
+              - text: WNF_STUDENT
+              - generic [ref=e112]: Aardvark Academy
+            - generic [ref=e113]: 3:03:09 PM(+09:43.73)
+          - generic [ref=e114]: Mar 8
+        - generic [ref=e115] [cursor=pointer]:
+          - generic [ref=e116]: W
+          - generic [ref=e117]:
+            - generic [ref=e118]:
+              - text: WNF_STUDENT
+              - generic [ref=e119]: Aardvark Academy
+            - generic [ref=e120]: Certainly, the development of the USA is often attributed to its increased
+          - generic [ref=e121]: Mar 8
+        - generic [ref=e122] [cursor=pointer]:
+          - generic [ref=e123]: SK
+          - generic [ref=e124]:
+            - generic [ref=e125]:
+              - text: Sienna Kim
+              - generic [ref=e126]: Aardvark Academy
+            - generic [ref=e127]: What strikes me is how Mary reacts to this devastating news. Most children would...
+          - generic [ref=e128]: Mar 8
+        - generic [ref=e129] [cursor=pointer]:
+          - generic [ref=e130]: W
+          - generic [ref=e131]:
+            - generic [ref=e132]:
+              - text: WNF_STUDENT
+              - generic [ref=e133]: Aardvark Academy
+            - generic [ref=e134]: 3:03:09 PM(+09:43.73)
+          - generic [ref=e135]: Mar 8
+        - generic [ref=e136] [cursor=pointer]:
+          - generic [ref=e137]: W
+          - generic [ref=e138]:
+            - generic [ref=e139]:
+              - text: WNF_STUDENT
+              - generic [ref=e140]: Aardvark Academy
+            - generic [ref=e141]: Certainly, the development of the USA is often attributed to its increased
+          - generic [ref=e142]: Mar 8
+        - generic [ref=e143] [cursor=pointer]:
+          - generic [ref=e144]: P
+          - generic [ref=e145]:
+            - generic [ref=e146]:
+              - text: Paul
+              - generic [ref=e147]: Quantum Mechanics Tutor
+            - generic [ref=e148]: "AI: That's a remarkably insightful answer. You're connecting wave mechanics to t..."
+          - generic [ref=e149]: Mar 8
+        - generic [ref=e150] [cursor=pointer]:
+          - generic [ref=e151]: W
+          - generic [ref=e152]:
+            - generic [ref=e153]:
+              - text: WNF_STUDENT
+              - generic [ref=e154]: Aardvark Academy
+            - generic [ref=e155]: 3:03:09 PM(+09:43.73)
+          - generic [ref=e156]: Mar 8
+        - generic [ref=e157] [cursor=pointer]:
+          - generic [ref=e158]: W
+          - generic [ref=e159]:
+            - generic [ref=e160]:
+              - text: WNF_STUDENT
+              - generic [ref=e161]: Aardvark Academy
+            - generic [ref=e162]: Certainly, the development of the USA is often attributed to its increased
+          - generic [ref=e163]: Mar 8
+        - generic [ref=e164] [cursor=pointer]:
+          - generic [ref=e165]: SL
+          - generic [ref=e166]:
+            - generic [ref=e167]:
+              - text: Soren Lombardi
+              - generic [ref=e168]: Aardvark Academy
+            - generic [ref=e169]: Have a good rest of your day, and we can pick up where we left off next time!
+          - generic [ref=e170]: Mar 7
+        - generic [ref=e171] [cursor=pointer]:
+          - generic [ref=e172]: IT
+          - generic [ref=e173]:
+            - generic [ref=e174]:
+              - text: Imani Tanaka
+              - generic [ref=e175]: Aardvark Academy
+            - generic [ref=e176]: "Assistant: Hi! I'm your tutor for English Language Comprehension 11+ course in E..."
+          - generic [ref=e177]: Mar 7
+        - generic [ref=e178] [cursor=pointer]:
+          - generic [ref=e179]: AN
+          - generic [ref=e180]:
+            - generic [ref=e181]:
+              - text: Asha Nkosi
+              - generic [ref=e182]: Aardvark Academy
+            - generic [ref=e183]: Tap to start a conversation
+          - generic [ref=e184]: Mar 7
+        - generic [ref=e185] [cursor=pointer]:
+          - generic [ref=e186]: RF
+          - generic [ref=e187]:
+            - generic [ref=e188]:
+              - text: Rita Fernandez
+              - generic [ref=e189]: St. Aidan's Community Health
+            - generic [ref=e190]: "AI: Perfect plan. And how's your energy been? Sometimes people notice they sleep..."
+          - generic [ref=e191]: Feb 24
+        - generic [ref=e192] [cursor=pointer]:
+          - generic [ref=e193]: SP
+          - generic [ref=e194]:
+            - generic [ref=e195]:
+              - text: Simon Park
+              - generic [ref=e196]: Momentum Coaching Practice
+            - generic [ref=e197]: "User: Maybe I could lead our new sustainability initiative. Nobody's picked it u..."
+          - generic [ref=e198]: Feb 24
+        - generic [ref=e199] [cursor=pointer]:
+          - generic [ref=e200]: CP
+          - generic [ref=e201]:
+            - generic [ref=e202]:
+              - text: Chris Palmer
+              - generic [ref=e203]: Bright Path Training
+            - generic [ref=e204]: "AI: Perfect. That question invites explanation without judgement. You'd be a nat..."
+          - generic [ref=e205]: Feb 24
+        - generic [ref=e206] [cursor=pointer]:
+          - generic [ref=e207]: FG
+          - generic [ref=e208]:
+            - generic [ref=e209]:
+              - text: Finn Gallagher
+              - generic [ref=e210]: Companion Hub
+            - generic [ref=e211]: "AI: Ha! Well, let's find out. No assumptions — just data. We'll review it next t..."
+          - generic [ref=e212]: Feb 24
+        - generic [ref=e213] [cursor=pointer]:
+          - generic [ref=e214]: MR
+          - generic [ref=e215]:
+            - generic [ref=e216]:
+              - text: Marcus Reid
+              - generic [ref=e217]: Apex Consulting
+            - generic [ref=e218]: "AI: Perfect. Now you have a clear, non-judgmental framework. Would you like to r..."
+          - generic [ref=e219]: Feb 24
+        - generic [ref=e220] [cursor=pointer]:
+          - generic [ref=e221]: AA
+          - generic [ref=e222]:
+            - generic [ref=e223]:
+              - text: Aanya Ali
+              - generic [ref=e224]: Aardvark Academy
+            - generic [ref=e225]: "User: Actually quite good! It makes more sense when you explain it step by step."
+          - generic [ref=e226]: Feb 24
+        - generic [ref=e227] [cursor=pointer]:
+          - generic [ref=e228]: SK
+          - generic [ref=e229]:
+            - generic [ref=e230]:
+              - text: Sandra Kowalski
+              - generic [ref=e231]: St. Aidan's Community Health
+            - generic [ref=e232]: "AI: Perfect. And no pressure if you forget a day — just pick it up again. How ha..."
+          - generic [ref=e233]: Feb 22
+        - generic [ref=e234] [cursor=pointer]:
+          - generic [ref=e235]: DT
+          - generic [ref=e236]:
+            - generic [ref=e237]:
+              - text: Daniel Torres
+              - generic [ref=e238]: Momentum Coaching Practice
+            - generic [ref=e239]: "User: I could suggest it at tomorrow's planning meeting."
+          - generic [ref=e240]: Feb 22
+        - generic [ref=e241] [cursor=pointer]:
+          - generic [ref=e242]: BC
+          - generic [ref=e243]:
+            - generic [ref=e244]:
+              - text: Ben Crawford
+              - generic [ref=e245]: Bright Path Training
+            - generic [ref=e246]: "AI: Did you feel the difference? That pause added weight to what came next."
+          - generic [ref=e247]: Feb 22
+        - generic [ref=e248] [cursor=pointer]:
+          - generic [ref=e249]: TE
+          - generic [ref=e250]:
+            - generic [ref=e251]:
+              - text: Tom Eriksson
+              - generic [ref=e252]: Bright Path Training
+            - generic [ref=e253]: "AI: Did you feel the difference? That pause added weight to what came next."
+          - generic [ref=e254]: Feb 22
+        - generic [ref=e255] [cursor=pointer]:
+          - generic [ref=e256]: JL
+          - generic [ref=e257]:
+            - generic [ref=e258]:
+              - text: Jordan Lee
+              - generic [ref=e259]: Companion Hub
+            - generic [ref=e260]: "User: That actually sounds doable."
+          - generic [ref=e261]: Feb 22
+        - generic [ref=e262] [cursor=pointer]:
+          - generic [ref=e263]: SM
+          - generic [ref=e264]:
+            - generic [ref=e265]:
+              - text: Sarah Mitchell
+              - generic [ref=e266]: Apex Consulting
+            - generic [ref=e267]: "AI: Excellent. Clear expectations plus trust — that's the delegation sweet spot...."
+          - generic [ref=e268]: Feb 22
+        - generic [ref=e269] [cursor=pointer]:
+          - generic [ref=e270]: PW
+          - generic [ref=e271]:
+            - generic [ref=e272]:
+              - text: Patricia Walsh
+              - generic [ref=e273]: St. Aidan's Community Health
+            - generic [ref=e274]: "AI: That's a great option — low sugar, high fibre. Would you be willing to try r..."
+          - generic [ref=e275]: Feb 19
+        - generic [ref=e276] [cursor=pointer]:
+          - generic [ref=e277]: JF
+          - generic [ref=e278]:
+            - generic [ref=e279]:
+              - text: James Fletcher
+              - generic [ref=e280]: Momentum Coaching Practice
+            - generic [ref=e281]: "AI: \"Less perfect, more useful.\" Can we make that your mantra for the presentati..."
+          - generic [ref=e282]: Feb 19
+        - generic [ref=e283] [cursor=pointer]:
+          - generic [ref=e284]: DA
+          - generic [ref=e285]:
+            - generic [ref=e286]:
+              - text: Daniel Armstrong
+              - generic [ref=e287]: Bright Path Training
+            - generic [ref=e288]: "User: I'd actually feel like I accomplished something meaningful."
+          - generic [ref=e289]: Feb 19
+        - generic [ref=e290] [cursor=pointer]:
+          - generic [ref=e291]: TB
+          - generic [ref=e292]:
+            - generic [ref=e293]:
+              - text: Tyler Brooks
+              - generic [ref=e294]: Companion Hub
+            - generic [ref=e295]: "AI: That's a really wise observation. Being present and open is its own kind of ..."
+          - generic [ref=e296]: Feb 19
+        - generic [ref=e297] [cursor=pointer]:
+          - generic [ref=e298]: JO
+          - generic [ref=e299]:
+            - generic [ref=e300]:
+              - text: James Okonkwo
+              - generic [ref=e301]: Apex Consulting
+            - generic [ref=e302]: "AI: Exactly. And what's one thing you could do this week to build that relations..."
+          - generic [ref=e303]: Feb 19
+        - generic [ref=e304] [cursor=pointer]:
+          - generic [ref=e305]: AB
+          - generic [ref=e306]:
+            - generic [ref=e307]:
+              - text: Aaron Brown
+              - generic [ref=e308]: Aardvark Academy
+            - generic [ref=e309]: "AI: What a brilliant opening sentence! You've created tension immediately. The r..."
+          - generic [ref=e310]: Feb 19
+        - generic [ref=e311] [cursor=pointer]:
+          - generic [ref=e312]: AM
+          - generic [ref=e313]:
+            - generic [ref=e314]:
+              - text: Aaliyah Martinez
+              - generic [ref=e315]: Aardvark Academy
+            - generic [ref=e316]: Tap to start a conversation
+        - generic [ref=e317] [cursor=pointer]:
+          - generic [ref=e318]: AO
+          - generic [ref=e319]:
+            - generic [ref=e320]:
+              - text: Aarav O'Connor
+              - generic [ref=e321]: Aardvark Academy
+            - generic [ref=e322]: Tap to start a conversation
+        - generic [ref=e323] [cursor=pointer]:
+          - generic [ref=e324]: A
+          - generic [ref=e325]:
+            - generic [ref=e326]:
+              - text: Admin
+              - generic [ref=e327]: Aardvark Academy
+            - generic [ref=e328]: Tap to start a conversation
+        - generic [ref=e329] [cursor=pointer]:
+          - generic [ref=e330]: AP
+          - generic [ref=e331]:
+            - generic [ref=e332]:
+              - text: Aisha Patel
+              - generic [ref=e333]: Meridian Academy
+            - generic [ref=e334]: Tap to start a conversation
+        - generic [ref=e335] [cursor=pointer]:
+          - generic [ref=e336]: AR
+          - generic [ref=e337]:
+            - generic [ref=e338]:
+              - text: Aisha Rahman
+              - generic [ref=e339]: Aldermoor College
+            - generic [ref=e340]: Tap to start a conversation
+        - generic [ref=e341] [cursor=pointer]:
+          - generic [ref=e342]: AB
+          - generic [ref=e343]:
+            - generic [ref=e344]:
+              - text: Alex Brennan
+              - generic [ref=e345]: Momentum Coaching Practice
+            - generic [ref=e346]: Tap to start a conversation
+        - generic [ref=e347] [cursor=pointer]:
+          - generic [ref=e348]: AO
+          - generic [ref=e349]:
+            - generic [ref=e350]:
+              - text: Amara Osei
+              - generic [ref=e351]: Companion Hub
+            - generic [ref=e352]: Tap to start a conversation
+        - generic [ref=e353] [cursor=pointer]:
+          - generic [ref=e354]: AS
+          - generic [ref=e355]:
+            - generic [ref=e356]:
+              - text: Amber Singh
+              - generic [ref=e357]: Greenfield Academy
+            - generic [ref=e358]: Tap to start a conversation
+        - generic [ref=e359] [cursor=pointer]:
+          - generic [ref=e360]: AH
+          - generic [ref=e361]:
+            - generic [ref=e362]:
+              - text: Amira Hussain
+              - generic [ref=e363]: Greenfield Academy
+            - generic [ref=e364]: Tap to start a conversation
+        - generic [ref=e365] [cursor=pointer]:
+          - generic [ref=e366]: AW
+          - generic [ref=e367]:
+            - generic [ref=e368]:
+              - text: Archie West
+              - generic [ref=e369]: Greenfield Academy
+            - generic [ref=e370]: Tap to start a conversation
+        - generic [ref=e371] [cursor=pointer]:
+          - generic [ref=e372]: AP
+          - generic [ref=e373]:
+            - generic [ref=e374]:
+              - text: Arthur Pemberton
+              - generic [ref=e375]: Curiosity Circle
+            - generic [ref=e376]: Tap to start a conversation
+        - generic [ref=e377] [cursor=pointer]:
+          - generic [ref=e378]: AN
+          - generic [ref=e379]:
+            - generic [ref=e380]:
+              - text: Audrey Nightingale
+              - generic [ref=e381]: Curiosity Circle
+            - generic [ref=e382]: Tap to start a conversation
+        - generic [ref=e383] [cursor=pointer]:
+          - generic [ref=e384]: BE
+          - generic [ref=e385]:
+            - generic [ref=e386]:
+              - text: Barbara Ellsworth
+              - generic [ref=e387]: Curiosity Circle
+            - generic [ref=e388]: Tap to start a conversation
+        - generic [ref=e389] [cursor=pointer]:
+          - generic [ref=e390]: BC
+          - generic [ref=e391]:
+            - generic [ref=e392]:
+              - text: Ben Carter
+              - generic [ref=e393]: Aldermoor College
+            - generic [ref=e394]: Tap to start a conversation
+        - generic [ref=e395] [cursor=pointer]:
+          - generic [ref=e396]: BK
+          - generic [ref=e397]:
+            - generic [ref=e398]:
+              - text: Bernard Kingsley
+              - generic [ref=e399]: Curiosity Circle
+            - generic [ref=e400]: Tap to start a conversation
+        - generic [ref=e401] [cursor=pointer]:
+          - generic [ref=e402]: BS
+          - generic [ref=e403]:
+            - generic [ref=e404]:
+              - text: Bethany Stone
+              - generic [ref=e405]: Greenfield Academy
+            - generic [ref=e406]: Tap to start a conversation
+        - generic [ref=e407] [cursor=pointer]:
+          - generic [ref=e408]: CW
+          - generic [ref=e409]:
+            - generic [ref=e410]:
+              - text: Callum Wright
+              - generic [ref=e411]: Greenfield Academy
+            - generic [ref=e412]: Tap to start a conversation
+        - generic [ref=e413] [cursor=pointer]:
+          - generic [ref=e414]: CL
+          - generic [ref=e415]:
+            - generic [ref=e416]:
+              - text: Charlotte Liu
+              - generic [ref=e417]: Aldermoor College
+            - generic [ref=e418]: Tap to start a conversation
+        - generic [ref=e419] [cursor=pointer]:
+          - generic [ref=e420]: CD
+          - generic [ref=e421]:
+            - generic [ref=e422]:
+              - text: Chloe Davies
+              - generic [ref=e423]: Greenfield Academy
+            - generic [ref=e424]: Tap to start a conversation
+        - generic [ref=e425] [cursor=pointer]:
+          - generic [ref=e426]: CD
+          - generic [ref=e427]:
+            - generic [ref=e428]:
+              - text: Clifford Drake
+              - generic [ref=e429]: Curiosity Circle
+            - generic [ref=e430]: Tap to start a conversation
+        - generic [ref=e431] [cursor=pointer]:
+          - generic [ref=e432]: CB
+          - generic [ref=e433]:
+            - generic [ref=e434]:
+              - text: Colin Burrows
+              - generic [ref=e435]: St. Aidan's Community Health
+            - generic [ref=e436]: Tap to start a conversation
+        - generic [ref=e437] [cursor=pointer]:
+          - generic [ref=e438]: CF
+          - generic [ref=e439]:
+            - generic [ref=e440]:
+              - text: Community Facilitator
+              - generic [ref=e441]: E2E Golden 1773053090648
+            - generic [ref=e442]: Tap to start a conversation
+        - generic [ref=e443] [cursor=pointer]:
+          - generic [ref=e444]: CF
+          - generic [ref=e445]:
+            - generic [ref=e446]:
+              - text: Community Facilitator
+              - generic [ref=e447]: E2E Golden 1773052888984
+            - generic [ref=e448]: Tap to start a conversation
+        - generic [ref=e449] [cursor=pointer]:
+          - generic [ref=e450]: CF
+          - generic [ref=e451]:
+            - generic [ref=e452]:
+              - text: Community Facilitator
+              - generic [ref=e453]: E2E Golden 1773053277506
+            - generic [ref=e454]: Tap to start a conversation
+        - generic [ref=e455] [cursor=pointer]:
+          - generic [ref=e456]: CF
+          - generic [ref=e457]:
+            - generic [ref=e458]:
+              - text: Community Facilitator
+              - generic [ref=e459]: E2E Golden 1773053787325
+            - generic [ref=e460]: Tap to start a conversation
+        - generic [ref=e461] [cursor=pointer]:
+          - generic [ref=e462]: CF
+          - generic [ref=e463]:
+            - generic [ref=e464]:
+              - text: Community Facilitator
+              - generic [ref=e465]: E2E Full Community 1773053288688
+            - generic [ref=e466]: Tap to start a conversation
+        - generic [ref=e467] [cursor=pointer]:
+          - generic [ref=e468]: CF
+          - generic [ref=e469]:
+            - generic [ref=e470]:
+              - text: Community Facilitator
+              - generic [ref=e471]: E2E Full Community 1773053270077
+            - generic [ref=e472]: Tap to start a conversation
+        - generic [ref=e473] [cursor=pointer]:
+          - generic [ref=e474]: CF
+          - generic [ref=e475]:
+            - generic [ref=e476]:
+              - text: Community Facilitator
+              - generic [ref=e477]: Basic Algebra Concepts
+            - generic [ref=e478]: Tap to start a conversation
+        - generic [ref=e479] [cursor=pointer]:
+          - generic [ref=e480]: CF
+          - generic [ref=e481]:
+            - generic [ref=e482]:
+              - text: Community Facilitator
+              - generic [ref=e483]: E2E Full Community 1773053253141
+            - generic [ref=e484]: Tap to start a conversation
+        - generic [ref=e485] [cursor=pointer]:
+          - generic [ref=e486]: CF
+          - generic [ref=e487]:
+            - generic [ref=e488]:
+              - text: Community Facilitator
+              - generic [ref=e489]: E2E Golden 1773053379717
+            - generic [ref=e490]: Tap to start a conversation
+        - generic [ref=e491] [cursor=pointer]:
+          - generic [ref=e492]: CF
+          - generic [ref=e493]:
+            - generic [ref=e494]:
+              - text: Community Facilitator
+              - generic [ref=e495]: E2E Full Community 1773052472951
+            - generic [ref=e496]: Tap to start a conversation
+        - generic [ref=e497] [cursor=pointer]:
+          - generic [ref=e498]: CF
+          - generic [ref=e499]:
+            - generic [ref=e500]:
+              - text: Community Facilitator
+              - generic [ref=e501]: E2E Test Community 1773052473398
+            - generic [ref=e502]: Tap to start a conversation
+        - generic [ref=e503] [cursor=pointer]:
+          - generic [ref=e504]: CF
+          - generic [ref=e505]:
+            - generic [ref=e506]:
+              - text: Community Facilitator
+              - generic [ref=e507]: E2E Golden 1773053103542
+            - generic [ref=e508]: Tap to start a conversation
+        - generic [ref=e509] [cursor=pointer]:
+          - generic [ref=e510]: CF
+          - generic [ref=e511]:
+            - generic [ref=e512]:
+              - text: Community Facilitator
+              - generic [ref=e513]: E2E Golden 1773053207217
+            - generic [ref=e514]: Tap to start a conversation
+        - generic [ref=e515] [cursor=pointer]:
+          - generic [ref=e516]: CF
+          - generic [ref=e517]:
+            - generic [ref=e518]:
+              - text: Community Facilitator
+              - generic [ref=e519]: E2E Full Community 1773052577271
+            - generic [ref=e520]: Tap to start a conversation
+        - generic [ref=e521] [cursor=pointer]:
+          - generic [ref=e522]: CF
+          - generic [ref=e523]:
+            - generic [ref=e524]:
+              - text: Community Facilitator
+              - generic [ref=e525]: E2E Test Community 1773052276819
+            - generic [ref=e526]: Tap to start a conversation
+        - generic [ref=e527] [cursor=pointer]:
+          - generic [ref=e528]: CF
+          - generic [ref=e529]:
+            - generic [ref=e530]:
+              - text: Community Facilitator
+              - generic [ref=e531]: E2E Golden 1773053463264
+            - generic [ref=e532]: Tap to start a conversation
+        - generic [ref=e533] [cursor=pointer]:
+          - generic [ref=e534]: CF
+          - generic [ref=e535]:
+            - generic [ref=e536]:
+              - text: Community Facilitator
+              - generic [ref=e537]: E2E Full Community 1773053501661
+            - generic [ref=e538]: Tap to start a conversation
+        - generic [ref=e539] [cursor=pointer]:
+          - generic [ref=e540]: CF
+          - generic [ref=e541]:
+            - generic [ref=e542]:
+              - text: Community Facilitator
+              - generic [ref=e543]: E2E Full Community 1773053676359
+            - generic [ref=e544]: Tap to start a conversation
+        - generic [ref=e545] [cursor=pointer]:
+          - generic [ref=e546]: CF
+          - generic [ref=e547]:
+            - generic [ref=e548]:
+              - text: Community Facilitator
+              - generic [ref=e549]: E2E Full Community 1773052374194
+            - generic [ref=e550]: Tap to start a conversation
+        - generic [ref=e551] [cursor=pointer]:
+          - generic [ref=e552]: CF
+          - generic [ref=e553]:
+            - generic [ref=e554]:
+              - text: Community Facilitator
+              - generic [ref=e555]: E2E Full Community 1773053769124
+            - generic [ref=e556]: Tap to start a conversation
+        - generic [ref=e557] [cursor=pointer]:
+          - generic [ref=e558]: CF
+          - generic [ref=e559]:
+            - generic [ref=e560]:
+              - text: Community Facilitator
+              - generic [ref=e561]: E2E Golden 1773053336680
+            - generic [ref=e562]: Tap to start a conversation
+        - generic [ref=e563] [cursor=pointer]:
+          - generic [ref=e564]: CF
+          - generic [ref=e565]:
+            - generic [ref=e566]:
+              - text: Community Facilitator
+              - generic [ref=e567]: E2E Golden 1773053116735
+            - generic [ref=e568]: Tap to start a conversation
+        - generic [ref=e569] [cursor=pointer]:
+          - generic [ref=e570]: CF
+          - generic [ref=e571]:
+            - generic [ref=e572]:
+              - text: Community Facilitator
+              - generic [ref=e573]: E2E Test Community 1773052374532
+            - generic [ref=e574]: Tap to start a conversation
+        - generic [ref=e575] [cursor=pointer]:
+          - generic [ref=e576]: CF
+          - generic [ref=e577]:
+            - generic [ref=e578]:
+              - text: Community Facilitator
+              - generic [ref=e579]: E2E Golden 1773052909414
+            - generic [ref=e580]: Tap to start a conversation
+        - generic [ref=e581] [cursor=pointer]:
+          - generic [ref=e582]: CF
+          - generic [ref=e583]:
+            - generic [ref=e584]:
+              - text: Community Facilitator
+              - generic [ref=e585]: E2E Full Community 1773053234882
+            - generic [ref=e586]: Tap to start a conversation
+        - generic [ref=e587] [cursor=pointer]:
+          - generic [ref=e588]: CF
+          - generic [ref=e589]:
+            - generic [ref=e590]:
+              - text: Community Facilitator
+              - generic [ref=e591]: E2E Golden 1773052898963
+            - generic [ref=e592]: Tap to start a conversation
+        - generic [ref=e593] [cursor=pointer]:
+          - generic [ref=e594]: CF
+          - generic [ref=e595]:
+            - generic [ref=e596]:
+              - text: Community Facilitator
+              - generic [ref=e597]: E2E Full Community 1773052276810
+            - generic [ref=e598]: Tap to start a conversation
+        - generic [ref=e599] [cursor=pointer]:
+          - generic [ref=e600]: CF
+          - generic [ref=e601]:
+            - generic [ref=e602]:
+              - text: Community Facilitator
+              - generic [ref=e603]: E2E Golden 1773053127944
+            - generic [ref=e604]: Tap to start a conversation
+        - generic [ref=e605] [cursor=pointer]:
+          - generic [ref=e606]: DG
+          - generic [ref=e607]:
+            - generic [ref=e608]:
+              - text: Daisy Grant
+              - generic [ref=e609]: Greenfield Academy
+            - generic [ref=e610]: Tap to start a conversation
+        - generic [ref=e611] [cursor=pointer]:
+          - generic [ref=e612]: DO
+          - generic [ref=e613]:
+            - generic [ref=e614]:
+              - text: Daniel Okonkwo
+              - generic [ref=e615]: Greenfield Academy
+            - generic [ref=e616]: Tap to start a conversation
+        - generic [ref=e617] [cursor=pointer]:
+          - generic [ref=e618]: DA
+          - generic [ref=e619]:
+            - generic [ref=e620]:
+              - text: David Armstrong
+              - generic [ref=e621]: Northbridge Business School
+            - generic [ref=e622]: Tap to start a conversation
+        - generic [ref=e623] [cursor=pointer]:
+          - generic [ref=e624]: DK
+          - generic [ref=e625]:
+            - generic [ref=e626]:
+              - text: David Kim
+              - generic [ref=e627]: Apex Consulting
+            - generic [ref=e628]: Tap to start a conversation
+        - generic [ref=e629] [cursor=pointer]:
+          - generic [ref=e630]: DO
+          - generic [ref=e631]:
+            - generic [ref=e632]:
+              - text: David Okonkwo
+              - generic [ref=e633]: Aldermoor College
+            - generic [ref=e634]: Tap to start a conversation
+        - generic [ref=e635] [cursor=pointer]:
+          - generic [ref=e636]: DR
+          - generic [ref=e637]:
+            - generic [ref=e638]:
+              - text: Dennis Rutherford
+              - generic [ref=e639]: Curiosity Circle
+            - generic [ref=e640]: Tap to start a conversation
+        - generic [ref=e641] [cursor=pointer]:
+          - generic [ref=e642]: DO
+          - generic [ref=e643]:
+            - generic [ref=e644]:
+              - text: Diane Okoro
+              - generic [ref=e645]: Curiosity Circle
+            - generic [ref=e646]: Tap to start a conversation
+        - generic [ref=e647] [cursor=pointer]:
+          - generic [ref=e648]: DA
+          - generic [ref=e649]:
+            - generic [ref=e650]:
+              - text: Dorothy Ainsworth
+              - generic [ref=e651]: Curiosity Circle
+            - generic [ref=e652]: Tap to start a conversation
+        - generic [ref=e653] [cursor=pointer]:
+          - generic [ref=e654]: DF
+          - generic [ref=e655]:
+            - generic [ref=e656]:
+              - text: Dr. Fatima Malik
+              - generic [ref=e657]: St. Aidan's Community Health
+            - generic [ref=e658]: Tap to start a conversation
+        - generic [ref=e659] [cursor=pointer]:
+          - generic [ref=e660]: EV
+          - generic [ref=e661]:
+            - generic [ref=e662]:
+              - text: Eleanor Vane
+              - generic [ref=e663]: Curiosity Circle
+            - generic [ref=e664]: Tap to start a conversation
+        - generic [ref=e665] [cursor=pointer]:
+          - generic [ref=e666]: EP
+          - generic [ref=e667]:
+            - generic [ref=e668]:
+              - text: Elena Petrova
+              - generic [ref=e669]: Aldermoor College
+            - generic [ref=e670]: Tap to start a conversation
+        - generic [ref=e671] [cursor=pointer]:
+          - generic [ref=e672]: ER
+          - generic [ref=e673]:
+            - generic [ref=e674]:
+              - text: Emma Richardson
+              - generic [ref=e675]: Wellspring Institute
+            - generic [ref=e676]: Tap to start a conversation
+        - generic [ref=e677] [cursor=pointer]:
+          - generic [ref=e678]: EN
+          - generic [ref=e679]:
+            - generic [ref=e680]:
+              - text: Ethan Nakamura
+              - generic [ref=e681]: Greenfield Academy
+            - generic [ref=e682]: Tap to start a conversation
+        - generic [ref=e683] [cursor=pointer]:
+          - generic [ref=e684]: EF
+          - generic [ref=e685]:
+            - generic [ref=e686]:
+              - text: Eva Fernandez
+              - generic [ref=e687]: Greenfield Academy
+            - generic [ref=e688]: Tap to start a conversation
+        - generic [ref=e689] [cursor=pointer]:
+          - generic [ref=e690]: FN
+          - generic [ref=e691]:
+            - generic [ref=e692]:
+              - text: Fatima Noor
+              - generic [ref=e693]: Bright Path Training
+            - generic [ref=e694]: Tap to start a conversation
+        - generic [ref=e695] [cursor=pointer]:
+          - generic [ref=e696]: FA
+          - generic [ref=e697]:
+            - generic [ref=e698]:
+              - text: Felix Andersson
+              - generic [ref=e699]: Aldermoor College
+            - generic [ref=e700]: Tap to start a conversation
+        - generic [ref=e701] [cursor=pointer]:
+          - generic [ref=e702]: FM
+          - generic [ref=e703]:
+            - generic [ref=e704]:
+              - text: Finn McCarthy
+              - generic [ref=e705]: Greenfield Academy
+            - generic [ref=e706]: Tap to start a conversation
+        - generic [ref=e707] [cursor=pointer]:
+          - generic [ref=e708]: FL
+          - generic [ref=e709]:
+            - generic [ref=e710]:
+              - text: Freya Lindström
+              - generic [ref=e711]: Greenfield Academy
+            - generic [ref=e712]: Tap to start a conversation
+        - generic [ref=e713] [cursor=pointer]:
+          - generic [ref=e714]: GW
+          - generic [ref=e715]:
+            - generic [ref=e716]:
+              - text: Geoffrey Wells
+              - generic [ref=e717]: Curiosity Circle
+            - generic [ref=e718]: Tap to start a conversation
+        - generic [ref=e719] [cursor=pointer]:
+          - generic [ref=e720]: GM
+          - generic [ref=e721]:
+            - generic [ref=e722]:
+              - text: George Mitchell
+              - generic [ref=e723]: Greenfield Academy
+            - generic [ref=e724]: Tap to start a conversation
+        - generic [ref=e725] [cursor=pointer]:
+          - generic [ref=e726]: GO
+          - generic [ref=e727]:
+            - generic [ref=e728]:
+              - text: George Osei
+              - generic [ref=e729]: St. Aidan's Community Health
+            - generic [ref=e730]: Tap to start a conversation
+        - generic [ref=e731] [cursor=pointer]:
+          - generic [ref=e732]: GK
+          - generic [ref=e733]:
+            - generic [ref=e734]:
+              - text: Grace Kim
+              - generic [ref=e735]: Aldermoor College
+            - generic [ref=e736]: Tap to start a conversation
+        - generic [ref=e737] [cursor=pointer]:
+          - generic [ref=e738]: HB
+          - generic [ref=e739]:
+            - generic [ref=e740]:
+              - text: Hannah Blake
+              - generic [ref=e741]: Bright Path Training
+            - generic [ref=e742]: Tap to start a conversation
+        - generic [ref=e743] [cursor=pointer]:
+          - generic [ref=e744]: HK
+          - generic [ref=e745]:
+            - generic [ref=e746]:
+              - text: Hannah Kowalski
+              - generic [ref=e747]: Greenfield Academy
+            - generic [ref=e748]: Tap to start a conversation
+        - generic [ref=e749] [cursor=pointer]:
+          - generic [ref=e750]: HS
+          - generic [ref=e751]:
+            - generic [ref=e752]:
+              - text: Harold Sinclair
+              - generic [ref=e753]: Curiosity Circle
+            - generic [ref=e754]: Tap to start a conversation
+        - generic [ref=e755] [cursor=pointer]:
+          - generic [ref=e756]: HS
+          - generic [ref=e757]:
+            - generic [ref=e758]:
+              - text: Harry Singh
+              - generic [ref=e759]: Aldermoor College
+            - generic [ref=e760]: Tap to start a conversation
+        - generic [ref=e761] [cursor=pointer]:
+          - generic [ref=e762]: HW
+          - generic [ref=e763]:
+            - generic [ref=e764]:
+              - text: Helen Whitmore
+              - generic [ref=e765]: Greenfield Academy
+            - generic [ref=e766]: Tap to start a conversation
+        - generic [ref=e767] [cursor=pointer]:
+          - generic [ref=e768]: IL
+          - generic [ref=e769]:
+            - generic [ref=e770]:
+              - text: Ingrid Larsen
+              - generic [ref=e771]: Momentum Coaching Practice
+            - generic [ref=e772]: Tap to start a conversation
+        - generic [ref=e773] [cursor=pointer]:
+          - generic [ref=e774]: IG
+          - generic [ref=e775]:
+            - generic [ref=e776]:
+              - text: Iris Greenaway
+              - generic [ref=e777]: Curiosity Circle
+            - generic [ref=e778]: Tap to start a conversation
+        - generic [ref=e779] [cursor=pointer]:
+          - generic [ref=e780]: IM
+          - generic [ref=e781]:
+            - generic [ref=e782]:
+              - text: Isabelle Martin
+              - generic [ref=e783]: Aldermoor College
+            - generic [ref=e784]: Tap to start a conversation
+        - generic [ref=e785] [cursor=pointer]:
+          - generic [ref=e786]: IC
+          - generic [ref=e787]:
+            - generic [ref=e788]:
+              - text: Isla Campbell
+              - generic [ref=e789]: Greenfield Academy
+            - generic [ref=e790]: Tap to start a conversation
+        - generic [ref=e791] [cursor=pointer]:
+          - generic [ref=e792]: IW
+          - generic [ref=e793]:
+            - generic [ref=e794]:
+              - text: Isla Winters
+              - generic [ref=e795]: Aardvark Academy
+            - generic [ref=e796]: Tap to start a conversation
+        - generic [ref=e797] [cursor=pointer]:
+          - generic [ref=e798]: JT
+          - generic [ref=e799]:
+            - generic [ref=e800]:
+              - text: Jack Thompson
+              - generic [ref=e801]: Aldermoor College
+            - generic [ref=e802]: Tap to start a conversation
+        - generic [ref=e803] [cursor=pointer]:
+          - generic [ref=e804]: JF
+          - generic [ref=e805]:
+            - generic [ref=e806]:
+              - text: Jake Fletcher
+              - generic [ref=e807]: Greenfield Academy
+            - generic [ref=e808]: Tap to start a conversation
+        - generic [ref=e809] [cursor=pointer]:
+          - generic [ref=e810]: JH
+          - generic [ref=e811]:
+            - generic [ref=e812]:
+              - text: James Hartley
+              - generic [ref=e813]: Aldermoor College
+            - generic [ref=e814]: Tap to start a conversation
+        - generic [ref=e815] [cursor=pointer]:
+          - generic [ref=e816]: JO
+          - generic [ref=e817]:
+            - generic [ref=e818]:
+              - text: James Okafor
+              - generic [ref=e819]: Meridian Academy
+            - generic [ref=e820]: Tap to start a conversation
+        - generic [ref=e821] [cursor=pointer]:
+          - generic [ref=e822]: JW
+          - generic [ref=e823]:
+            - generic [ref=e824]:
+              - text: Joan Whitfield
+              - generic [ref=e825]: Curiosity Circle
+            - generic [ref=e826]: Tap to start a conversation
+        - generic [ref=e827] [cursor=pointer]:
+          - generic [ref=e828]: KZ
+          - generic [ref=e829]:
+            - generic [ref=e830]:
+              - text: Kai Zhang
+              - generic [ref=e831]: Greenfield Academy
+            - generic [ref=e832]: Tap to start a conversation
+        - generic [ref=e833] [cursor=pointer]:
+          - generic [ref=e834]: KM
+          - generic [ref=e835]:
+            - generic [ref=e836]:
+              - text: Kenneth Marsh
+              - generic [ref=e837]: Curiosity Circle
+            - generic [ref=e838]: Tap to start a conversation
+        - generic [ref=e839] [cursor=pointer]:
+          - generic [ref=e840]: KW
+          - generic [ref=e841]:
+            - generic [ref=e842]:
+              - text: Kira Watanabe
+              - generic [ref=e843]: Aldermoor College
+            - generic [ref=e844]: Tap to start a conversation
+        - generic [ref=e845] [cursor=pointer]:
+          - generic [ref=e846]: LB
+          - generic [ref=e847]:
+            - generic [ref=e848]:
+              - text: Laura Brennan
+              - generic [ref=e849]: Greenfield Academy
+            - generic [ref=e850]: Tap to start a conversation
+        - generic [ref=e851] [cursor=pointer]:
+          - generic [ref=e852]: LN
+          - generic [ref=e853]:
+            - generic [ref=e854]:
+              - text: Layla Noor
+              - generic [ref=e855]: Greenfield Academy
+            - generic [ref=e856]: Tap to start a conversation
+        - generic [ref=e857] [cursor=pointer]:
+          - generic [ref=e858]: LC
+          - generic [ref=e859]:
+            - generic [ref=e860]:
+              - text: Leo Chen
+              - generic [ref=e861]: Greenfield Academy
+            - generic [ref=e862]: Tap to start a conversation
+        - generic [ref=e863] [cursor=pointer]:
+          - generic [ref=e864]: LF
+          - generic [ref=e865]:
+            - generic [ref=e866]:
+              - text: Leonard Foyle
+              - generic [ref=e867]: Curiosity Circle
+            - generic [ref=e868]: Tap to start a conversation
+        - generic [ref=e869] [cursor=pointer]:
+          - generic [ref=e870]: LO
+          - generic [ref=e871]:
+            - generic [ref=e872]:
+              - text: Liam O'Sullivan
+              - generic [ref=e873]: Aldermoor College
+            - generic [ref=e874]: Tap to start a conversation
+        - generic [ref=e875] [cursor=pointer]:
+          - generic [ref=e876]: LC
+          - generic [ref=e877]:
+            - generic [ref=e878]:
+              - text: Lisa Chen
+              - generic [ref=e879]: Apex Consulting
+            - generic [ref=e880]: Tap to start a conversation
+        - generic [ref=e881] [cursor=pointer]:
+          - generic [ref=e882]: LG
+          - generic [ref=e883]:
+            - generic [ref=e884]:
+              - text: Lucas Green
+              - generic [ref=e885]: Greenfield Academy
+            - generic [ref=e886]: Tap to start a conversation
+        - generic [ref=e887] [cursor=pointer]:
+          - generic [ref=e888]: LV
+          - generic [ref=e889]:
+            - generic [ref=e890]:
+              - text: Lucia Vega
+              - generic [ref=e891]: Companion Hub
+            - generic [ref=e892]: Tap to start a conversation
+        - generic [ref=e893] [cursor=pointer]:
+          - generic [ref=e894]: MO
+          - generic [ref=e895]:
+            - generic [ref=e896]:
+              - text: Maisie O'Brien
+              - generic [ref=e897]: Greenfield Academy
+            - generic [ref=e898]: Tap to start a conversation
+        - generic [ref=e899] [cursor=pointer]:
+          - generic [ref=e900]: MO
+          - generic [ref=e901]:
+            - generic [ref=e902]:
+              - text: Marcus Osei
+              - generic [ref=e903]: Greenfield Academy
+            - generic [ref=e904]: Tap to start a conversation
+        - generic [ref=e905] [cursor=pointer]:
+          - generic [ref=e906]: MT
+          - generic [ref=e907]:
+            - generic [ref=e908]:
+              - text: Margaret Thornton
+              - generic [ref=e909]: Curiosity Circle
+            - generic [ref=e910]: Tap to start a conversation
+        - generic [ref=e911] [cursor=pointer]:
+          - generic [ref=e912]: MS
+          - generic [ref=e913]:
+            - generic [ref=e914]:
+              - text: Maria Santos
+              - generic [ref=e915]: Northbridge Business School
+            - generic [ref=e916]: Tap to start a conversation
+        - generic [ref=e917] [cursor=pointer]:
+          - generic [ref=e918]: MC
+          - generic [ref=e919]:
+            - generic [ref=e920]:
+              - text: Marjorie Cavendish
+              - generic [ref=e921]: Curiosity Circle
+            - generic [ref=e922]: Tap to start a conversation
+        - generic [ref=e923] [cursor=pointer]:
+          - generic [ref=e924]: MR
+          - generic [ref=e925]:
+            - generic [ref=e926]:
+              - text: Maya Rodriguez
+              - generic [ref=e927]: Companion Hub
+            - generic [ref=e928]: Tap to start a conversation
+        - generic [ref=e929] [cursor=pointer]:
+          - generic [ref=e930]: MJ
+          - generic [ref=e931]:
+            - generic [ref=e932]:
+              - text: Mia Jensen
+              - generic [ref=e933]: Aldermoor College
+            - generic [ref=e934]: Tap to start a conversation
+        - generic [ref=e935] [cursor=pointer]:
+          - generic [ref=e936]: MT
+          - generic [ref=e937]:
+            - generic [ref=e938]:
+              - text: Michael Torres
+              - generic [ref=e939]: Wellspring Institute
+            - generic [ref=e940]: Tap to start a conversation
+        - generic [ref=e941] [cursor=pointer]:
+          - generic [ref=e942]: MA
+          - generic [ref=e943]:
+            - generic [ref=e944]:
+              - text: Mohammed Akhtar
+              - generic [ref=e945]: St. Aidan's Community Health
+            - generic [ref=e946]: Tap to start a conversation
+        - generic [ref=e947] [cursor=pointer]:
+          - generic [ref=e948]: MD
+          - generic [ref=e949]:
+            - generic [ref=e950]:
+              - text: Mr. David Clarke
+              - generic [ref=e951]: Aardvark Academy
+            - generic [ref=e952]: Tap to start a conversation
+        - generic [ref=e953] [cursor=pointer]:
+          - generic [ref=e954]: "NO"
+          - generic [ref=e955]:
+            - generic [ref=e956]:
+              - text: Nadia Okonkwo
+              - generic [ref=e957]: Momentum Coaching Practice
+            - generic [ref=e958]: Tap to start a conversation
+        - generic [ref=e959] [cursor=pointer]:
+          - generic [ref=e960]: NC
+          - generic [ref=e961]:
+            - generic [ref=e962]:
+              - text: Nathan Cross
+              - generic [ref=e963]: Aldermoor College
+            - generic [ref=e964]: Tap to start a conversation
+        - generic [ref=e965] [cursor=pointer]:
+          - generic [ref=e966]: NW
+          - generic [ref=e967]:
+            - generic [ref=e968]:
+              - text: Noah Williams
+              - generic [ref=e969]: Greenfield Academy
+            - generic [ref=e970]: Tap to start a conversation
+        - generic [ref=e971] [cursor=pointer]:
+          - generic [ref=e972]: OP
+          - generic [ref=e973]:
+            - generic [ref=e974]:
+              - text: Olive Petrov
+              - generic [ref=e975]: Aardvark Academy
+            - generic [ref=e976]: Tap to start a conversation
+        - generic [ref=e977] [cursor=pointer]:
+          - generic [ref=e978]: OD
+          - generic [ref=e979]:
+            - generic [ref=e980]:
+              - text: Oliver Dubois
+              - generic [ref=e981]: Harbour Languages
+            - generic [ref=e982]: Tap to start a conversation
+        - generic [ref=e983] [cursor=pointer]:
+          - generic [ref=e984]: OB
+          - generic [ref=e985]:
+            - generic [ref=e986]:
+              - text: Olivia Barnes
+              - generic [ref=e987]: Aldermoor College
+            - generic [ref=e988]: Tap to start a conversation
+        - generic [ref=e989] [cursor=pointer]:
+          - generic [ref=e990]: OH
+          - generic [ref=e991]:
+            - generic [ref=e992]:
+              - text: Olivia Hayes
+              - generic [ref=e993]: Bright Path Training
+            - generic [ref=e994]: Tap to start a conversation
+        - generic [ref=e995] [cursor=pointer]:
+          - generic [ref=e996]: OB
+          - generic [ref=e997]:
+            - generic [ref=e998]:
+              - text: Omar Bensalem
+              - generic [ref=e999]: Greenfield Academy
+            - generic [ref=e1000]: Tap to start a conversation
+        - generic [ref=e1001] [cursor=pointer]:
+          - generic [ref=e1002]: PH
+          - generic [ref=e1003]:
+            - generic [ref=e1004]:
+              - text: Patricia Hargreaves
+              - generic [ref=e1005]: Curiosity Circle
+            - generic [ref=e1006]: Tap to start a conversation
+        - generic [ref=e1007] [cursor=pointer]:
+          - generic [ref=e1008]: PZ
+          - generic [ref=e1009]:
+            - generic [ref=e1010]:
+              - text: Patrick Zhao
+              - generic [ref=e1011]: Aldermoor College
+            - generic [ref=e1012]: Tap to start a conversation
+        - generic [ref=e1013] [cursor=pointer]:
+          - generic [ref=e1014]: PK
+          - generic [ref=e1015]:
+            - generic [ref=e1016]:
+              - text: Priya Kapoor
+              - generic [ref=e1017]: Greenfield Academy
+            - generic [ref=e1018]: Tap to start a conversation
+        - generic [ref=e1019] [cursor=pointer]:
+          - generic [ref=e1020]: PN
+          - generic [ref=e1021]:
+            - generic [ref=e1022]:
+              - text: Priya Nair
+              - generic [ref=e1023]: Aldermoor College
+            - generic [ref=e1024]: Tap to start a conversation
+        - generic [ref=e1025] [cursor=pointer]:
+          - generic [ref=e1026]: PS
+          - generic [ref=e1027]:
+            - generic [ref=e1028]:
+              - text: Priya Sharma
+              - generic [ref=e1029]: Bright Path Training
+            - generic [ref=e1030]: Tap to start a conversation
+        - generic [ref=e1031] [cursor=pointer]:
+          - generic [ref=e1032]: PS
+          - generic [ref=e1033]:
+            - generic [ref=e1034]:
+              - text: Priya Sharma
+              - generic [ref=e1035]: Companion Hub
+            - generic [ref=e1036]: Tap to start a conversation
+        - generic [ref=e1037] [cursor=pointer]:
+          - generic [ref=e1038]: PS
+          - generic [ref=e1039]:
+            - generic [ref=e1040]:
+              - text: Priya Sharma
+              - generic [ref=e1041]: Wellspring Institute
+            - generic [ref=e1042]: Tap to start a conversation
+        - generic [ref=e1043] [cursor=pointer]:
+          - generic [ref=e1044]: QR
+          - generic [ref=e1045]:
+            - generic [ref=e1046]:
+              - text: Quinn Reeves
+              - generic [ref=e1047]: Aldermoor College
+            - generic [ref=e1048]: Tap to start a conversation
+        - generic [ref=e1049] [cursor=pointer]:
+          - generic [ref=e1050]: RF
+          - generic [ref=e1051]:
+            - generic [ref=e1052]:
+              - text: Rachel Foster
+              - generic [ref=e1053]: Apex Consulting
+            - generic [ref=e1054]: Tap to start a conversation
+        - generic [ref=e1055] [cursor=pointer]:
+          - generic [ref=e1056]: RM
+          - generic [ref=e1057]:
+            - generic [ref=e1058]:
+              - text: Rachel Moore
+              - generic [ref=e1059]: Momentum Coaching Practice
+            - generic [ref=e1060]: Tap to start a conversation
+        - generic [ref=e1061] [cursor=pointer]:
+          - generic [ref=e1062]: RP
+          - generic [ref=e1063]:
+            - generic [ref=e1064]:
+              - text: Ravi Patel
+              - generic [ref=e1065]: Greenfield Academy
+            - generic [ref=e1066]: Tap to start a conversation
+        - generic [ref=e1067] [cursor=pointer]:
+          - generic [ref=e1068]: RH
+          - generic [ref=e1069]:
+            - generic [ref=e1070]:
+              - text: Raymond Holt
+              - generic [ref=e1071]: Curiosity Circle
+            - generic [ref=e1072]: Tap to start a conversation
+        - generic [ref=e1073] [cursor=pointer]:
+          - generic [ref=e1074]: RA
+          - generic [ref=e1075]:
+            - generic [ref=e1076]:
+              - text: Robert Ashworth
+              - generic [ref=e1077]: Curiosity Circle
+            - generic [ref=e1078]: Tap to start a conversation
+        - generic [ref=e1079] [cursor=pointer]:
+          - generic [ref=e1080]: RA
+          - generic [ref=e1081]:
+            - generic [ref=e1082]:
+              - text: Rosa Alvarez
+              - generic [ref=e1083]: Aldermoor College
+            - generic [ref=e1084]: Tap to start a conversation
+        - generic [ref=e1085] [cursor=pointer]:
+          - generic [ref=e1086]: RC
+          - generic [ref=e1087]:
+            - generic [ref=e1088]:
+              - text: Ruby Clarke
+              - generic [ref=e1089]: Greenfield Academy
+            - generic [ref=e1090]: Tap to start a conversation
+        - generic [ref=e1091] [cursor=pointer]:
+          - generic [ref=e1092]: RM
+          - generic [ref=e1093]:
+            - generic [ref=e1094]:
+              - text: Ryan Murphy
+              - generic [ref=e1095]: Greenfield Academy
+            - generic [ref=e1096]: Tap to start a conversation
+        - generic [ref=e1097] [cursor=pointer]:
+          - generic [ref=e1098]: SH
+          - generic [ref=e1099]:
+            - generic [ref=e1100]:
+              - text: Sam Holloway
+              - generic [ref=e1101]: Aldermoor College
+            - generic [ref=e1102]: Tap to start a conversation
+        - generic [ref=e1103] [cursor=pointer]:
+          - generic [ref=e1104]: SW
+          - generic [ref=e1105]:
+            - generic [ref=e1106]:
+              - text: Sarah Williams
+              - generic [ref=e1107]: Harbour Languages
+            - generic [ref=e1108]: Tap to start a conversation
+        - generic [ref=e1109] [cursor=pointer]:
+          - generic [ref=e1110]: SM
+          - generic [ref=e1111]:
+            - generic [ref=e1112]:
+              - text: Scarlett Murray
+              - generic [ref=e1113]: Greenfield Academy
+            - generic [ref=e1114]: Tap to start a conversation
+        - generic [ref=e1115] [cursor=pointer]:
+          - generic [ref=e1116]: SR
+          - generic [ref=e1117]:
+            - generic [ref=e1118]:
+              - text: Sofia Rodriguez
+              - generic [ref=e1119]: Greenfield Academy
+            - generic [ref=e1120]: Tap to start a conversation
+        - generic [ref=e1121] [cursor=pointer]:
+          - generic [ref=e1122]: SC
+          - generic [ref=e1123]:
+            - generic [ref=e1124]:
+              - text: Sophie Chen
+              - generic [ref=e1125]: Meridian Academy
+            - generic [ref=e1126]: Tap to start a conversation
+        - generic [ref=e1127] [cursor=pointer]:
+          - generic [ref=e1128]: SL
+          - generic [ref=e1129]:
+            - generic [ref=e1130]:
+              - text: Sylvia Langdon
+              - generic [ref=e1131]: Curiosity Circle
+            - generic [ref=e1132]: Tap to start a conversation
+        - generic [ref=e1133] [cursor=pointer]:
+          - generic [ref=e1134]: TB
+          - generic [ref=e1135]:
+            - generic [ref=e1136]:
+              - text: Tara Begum
+              - generic [ref=e1137]: Aldermoor College
+            - generic [ref=e1138]: Tap to start a conversation
+        - generic [ref=e1139] [cursor=pointer]:
+          - generic [ref=e1140]: TC
+          - generic [ref=e1141]:
+            - generic [ref=e1142]:
+              - text: Test Caller — Basic Algebra Concepts
+              - generic [ref=e1143]: Basic Algebra Concepts
+            - generic [ref=e1144]: Tap to start a conversation
+        - generic [ref=e1145] [cursor=pointer]:
+          - generic [ref=e1146]: TC
+          - generic [ref=e1147]:
+            - generic [ref=e1148]:
+              - text: Test Caller — E2E Full Community 1773052276810
+              - generic [ref=e1149]: E2E Full Community 1773052276810
+            - generic [ref=e1150]: Tap to start a conversation
+        - generic [ref=e1151] [cursor=pointer]:
+          - generic [ref=e1152]: TC
+          - generic [ref=e1153]:
+            - generic [ref=e1154]:
+              - text: Test Caller — E2E Full Community 1773052374194
+              - generic [ref=e1155]: E2E Full Community 1773052374194
+            - generic [ref=e1156]: Tap to start a conversation
+        - generic [ref=e1157] [cursor=pointer]:
+          - generic [ref=e1158]: TC
+          - generic [ref=e1159]:
+            - generic [ref=e1160]:
+              - text: Test Caller — E2E Full Community 1773052472951
+              - generic [ref=e1161]: E2E Full Community 1773052472951
+            - generic [ref=e1162]: Tap to start a conversation
+        - generic [ref=e1163] [cursor=pointer]:
+          - generic [ref=e1164]: TC
+          - generic [ref=e1165]:
+            - generic [ref=e1166]:
+              - text: Test Caller — E2E Full Community 1773052577271
+              - generic [ref=e1167]: E2E Full Community 1773052577271
+            - generic [ref=e1168]: Tap to start a conversation
+        - generic [ref=e1169] [cursor=pointer]:
+          - generic [ref=e1170]: TC
+          - generic [ref=e1171]:
+            - generic [ref=e1172]:
+              - text: Test Caller — E2E Full Community 1773053234882
+              - generic [ref=e1173]: E2E Full Community 1773053234882
+            - generic [ref=e1174]: Tap to start a conversation
+        - generic [ref=e1175] [cursor=pointer]:
+          - generic [ref=e1176]: TC
+          - generic [ref=e1177]:
+            - generic [ref=e1178]:
+              - text: Test Caller — E2E Full Community 1773053253141
+              - generic [ref=e1179]: E2E Full Community 1773053253141
+            - generic [ref=e1180]: Tap to start a conversation
+        - generic [ref=e1181] [cursor=pointer]:
+          - generic [ref=e1182]: TC
+          - generic [ref=e1183]:
+            - generic [ref=e1184]:
+              - text: Test Caller — E2E Full Community 1773053270077
+              - generic [ref=e1185]: E2E Full Community 1773053270077
+            - generic [ref=e1186]: Tap to start a conversation
+        - generic [ref=e1187] [cursor=pointer]:
+          - generic [ref=e1188]: TC
+          - generic [ref=e1189]:
+            - generic [ref=e1190]:
+              - text: Test Caller — E2E Full Community 1773053288688
+              - generic [ref=e1191]: E2E Full Community 1773053288688
+            - generic [ref=e1192]: Tap to start a conversation
+        - generic [ref=e1193] [cursor=pointer]:
+          - generic [ref=e1194]: TC
+          - generic [ref=e1195]:
+            - generic [ref=e1196]:
+              - text: Test Caller — E2E Full Community 1773053501661
+              - generic [ref=e1197]: E2E Full Community 1773053501661
+            - generic [ref=e1198]: Tap to start a conversation
+        - generic [ref=e1199] [cursor=pointer]:
+          - generic [ref=e1200]: TC
+          - generic [ref=e1201]:
+            - generic [ref=e1202]:
+              - text: Test Caller — E2E Full Community 1773053676359
+              - generic [ref=e1203]: E2E Full Community 1773053676359
+            - generic [ref=e1204]: Tap to start a conversation
+        - generic [ref=e1205] [cursor=pointer]:
+          - generic [ref=e1206]: TC
+          - generic [ref=e1207]:
+            - generic [ref=e1208]:
+              - text: Test Caller — E2E Full Community 1773053769124
+              - generic [ref=e1209]: E2E Full Community 1773053769124
+            - generic [ref=e1210]: Tap to start a conversation
+        - generic [ref=e1211] [cursor=pointer]:
+          - generic [ref=e1212]: TC
+          - generic [ref=e1213]:
+            - generic [ref=e1214]:
+              - text: Test Caller — E2E Golden 1773052888984
+              - generic [ref=e1215]: E2E Golden 1773052888984
+            - generic [ref=e1216]: Tap to start a conversation
+        - generic [ref=e1217] [cursor=pointer]:
+          - generic [ref=e1218]: TC
+          - generic [ref=e1219]:
+            - generic [ref=e1220]:
+              - text: Test Caller — E2E Golden 1773052898963
+              - generic [ref=e1221]: E2E Golden 1773052898963
+            - generic [ref=e1222]: Tap to start a conversation
+        - generic [ref=e1223] [cursor=pointer]:
+          - generic [ref=e1224]: TC
+          - generic [ref=e1225]:
+            - generic [ref=e1226]:
+              - text: Test Caller — E2E Golden 1773052909414
+              - generic [ref=e1227]: E2E Golden 1773052909414
+            - generic [ref=e1228]: Tap to start a conversation
+        - generic [ref=e1229] [cursor=pointer]:
+          - generic [ref=e1230]: TC
+          - generic [ref=e1231]:
+            - generic [ref=e1232]:
+              - text: Test Caller — E2E Golden 1773053090648
+              - generic [ref=e1233]: E2E Golden 1773053090648
+            - generic [ref=e1234]: Tap to start a conversation
+        - generic [ref=e1235] [cursor=pointer]:
+          - generic [ref=e1236]: TC
+          - generic [ref=e1237]:
+            - generic [ref=e1238]:
+              - text: Test Caller — E2E Golden 1773053103542
+              - generic [ref=e1239]: E2E Golden 1773053103542
+            - generic [ref=e1240]: Tap to start a conversation
+        - generic [ref=e1241] [cursor=pointer]:
+          - generic [ref=e1242]: TC
+          - generic [ref=e1243]:
+            - generic [ref=e1244]:
+              - text: Test Caller — E2E Golden 1773053116735
+              - generic [ref=e1245]: E2E Golden 1773053116735
+            - generic [ref=e1246]: Tap to start a conversation
+        - generic [ref=e1247] [cursor=pointer]:
+          - generic [ref=e1248]: TC
+          - generic [ref=e1249]:
+            - generic [ref=e1250]:
+              - text: Test Caller — E2E Golden 1773053127944
+              - generic [ref=e1251]: E2E Golden 1773053127944
+            - generic [ref=e1252]: Tap to start a conversation
+        - generic [ref=e1253] [cursor=pointer]:
+          - generic [ref=e1254]: TC
+          - generic [ref=e1255]:
+            - generic [ref=e1256]:
+              - text: Test Caller — E2E Golden 1773053787325
+              - generic [ref=e1257]: E2E Golden 1773053787325
+            - generic [ref=e1258]: Tap to start a conversation
+        - generic [ref=e1259] [cursor=pointer]:
+          - generic [ref=e1260]: TC
+          - generic [ref=e1261]:
+            - generic [ref=e1262]:
+              - text: Test Caller — E2E Test Community 1773052276819
+              - generic [ref=e1263]: E2E Test Community 1773052276819
+            - generic [ref=e1264]: Tap to start a conversation
+        - generic [ref=e1265] [cursor=pointer]:
+          - generic [ref=e1266]: TC
+          - generic [ref=e1267]:
+            - generic [ref=e1268]:
+              - text: Test Caller — E2E Test Community 1773052374532
+              - generic [ref=e1269]: E2E Test Community 1773052374532
+            - generic [ref=e1270]: Tap to start a conversation
+        - generic [ref=e1271] [cursor=pointer]:
+          - generic [ref=e1272]: TC
+          - generic [ref=e1273]:
+            - generic [ref=e1274]:
+              - text: Test Caller — E2E Test Community 1773052473398
+              - generic [ref=e1275]: E2E Test Community 1773052473398
+            - generic [ref=e1276]: Tap to start a conversation
+        - generic [ref=e1277] [cursor=pointer]:
+          - generic [ref=e1278]: TI
+          - generic [ref=e1279]:
+            - generic [ref=e1280]:
+              - text: Thalia Ito
+              - generic [ref=e1281]: Aardvark Academy
+            - generic [ref=e1282]: Tap to start a conversation
+        - generic [ref=e1283] [cursor=pointer]:
+          - generic [ref=e1284]: TB
+          - generic [ref=e1285]:
+            - generic [ref=e1286]:
+              - text: Tom Beckett
+              - generic [ref=e1287]: Aldermoor College
+            - generic [ref=e1288]: Tap to start a conversation
+        - generic [ref=e1289] [cursor=pointer]:
+          - generic [ref=e1290]: TE
+          - generic [ref=e1291]:
+            - generic [ref=e1292]:
+              - text: Tom Eriksson
+              - generic [ref=e1293]: Apex Consulting
+            - generic [ref=e1294]: Tap to start a conversation
+        - generic [ref=e1295] [cursor=pointer]:
+          - generic [ref=e1296]: TE
+          - generic [ref=e1297]:
+            - generic [ref=e1298]:
+              - text: Tom Eriksson
+              - generic [ref=e1299]: Northbridge Business School
+            - generic [ref=e1300]: Tap to start a conversation
+        - generic [ref=e1301] [cursor=pointer]:
+          - generic [ref=e1302]: TB
+          - generic [ref=e1303]:
+            - generic [ref=e1304]:
+              - text: Tyler Brooks
+              - generic [ref=e1305]: Greenfield Academy
+            - generic [ref=e1306]: Tap to start a conversation
+        - generic [ref=e1307] [cursor=pointer]:
+          - generic [ref=e1308]: UD
+          - generic [ref=e1309]:
+            - generic [ref=e1310]:
+              - text: Uma Desai
+              - generic [ref=e1311]: Aldermoor College
+            - generic [ref=e1312]: Tap to start a conversation
+        - generic [ref=e1313] [cursor=pointer]:
+          - generic [ref=e1314]: VR
+          - generic [ref=e1315]:
+            - generic [ref=e1316]:
+              - text: Victor Ruiz
+              - generic [ref=e1317]: Aldermoor College
+            - generic [ref=e1318]: Tap to start a conversation
+        - generic [ref=e1319] [cursor=pointer]:
+          - generic [ref=e1320]: VB
+          - generic [ref=e1321]:
+            - generic [ref=e1322]:
+              - text: Vivienne Blackwood
+              - generic [ref=e1323]: Curiosity Circle
+            - generic [ref=e1324]: Tap to start a conversation
+        - generic [ref=e1325] [cursor=pointer]:
+          - generic [ref=e1326]: WD
+          - generic [ref=e1327]:
+            - generic [ref=e1328]:
+              - text: Walter Davenport
+              - generic [ref=e1329]: Curiosity Circle
+            - generic [ref=e1330]: Tap to start a conversation
+        - generic [ref=e1331] [cursor=pointer]:
+          - generic [ref=e1332]: WT
+          - generic [ref=e1333]:
+            - generic [ref=e1334]:
+              - text: Wren Taylor
+              - generic [ref=e1335]: Aldermoor College
+            - generic [ref=e1336]: Tap to start a conversation
+        - generic [ref=e1337] [cursor=pointer]:
+          - generic [ref=e1338]: XF
+          - generic [ref=e1339]:
+            - generic [ref=e1340]:
+              - text: Xander Frost
+              - generic [ref=e1341]: Aldermoor College
+            - generic [ref=e1342]: Tap to start a conversation
+        - generic [ref=e1343] [cursor=pointer]:
+          - generic [ref=e1344]: YT
+          - generic [ref=e1345]:
+            - generic [ref=e1346]:
+              - text: Yuki Tanaka
+              - generic [ref=e1347]: Aldermoor College
+            - generic [ref=e1348]: Tap to start a conversation
+        - generic [ref=e1349] [cursor=pointer]:
+          - generic [ref=e1350]: YT
+          - generic [ref=e1351]:
+            - generic [ref=e1352]:
+              - text: Yuki Tanaka
+              - generic [ref=e1353]: Harbour Languages
+            - generic [ref=e1354]: Tap to start a conversation
+        - generic [ref=e1355] [cursor=pointer]:
+          - generic [ref=e1356]: YT
+          - generic [ref=e1357]:
+            - generic [ref=e1358]:
+              - text: Yuki Tanaka
+              - generic [ref=e1359]: Bright Path Training
+            - generic [ref=e1360]: Tap to start a conversation
+    - separator [ref=e1361]
+    - generic [ref=e1362]:
+      - generic [ref=e1363]:
+        - button "View Test Caller — E2E Golden 1773053787325 details" [ref=e1364] [cursor=pointer]: TC
+        - generic [ref=e1365] [cursor=pointer]:
+          - generic [ref=e1366]: Test Caller — E2E Golden 1773053787325
+          - generic [ref=e1367]: E2E Golden 1773053787325
+        - button "Shared files" [ref=e1368] [cursor=pointer]:
+          - img [ref=e1369]
+      - generic [ref=e1371]:
+        - generic [ref=e1372]: Today
+        - generic [ref=e1373]:
+          - text: Good to have you. We're going to be working on E2E Golden 1773053787325 Playbook together — let's ease into this, no rush. So, this is your first time here with us. What brought you to connect today?
+          - generic [ref=e1374]: 10:56 AM
+        - generic [ref=e1375]:
+          - text: Can you explain how the light-dependent reactions work in photosynthesis?
+          - generic [ref=e1376]: 10:56 AM
+        - generic [ref=e1377]:
+          - text: Ah, jumping right into photosynthesis - I like that curiosity! So, the light-dependent reactions are where plants capture sunlight and convert it into chemical energy. This all happens in the chloroplasts, specifically in structures called thylakoids. Here's the thing - when sunlight hits chlorophyll, it energizes electrons and starts a whole chain reaction that produces ATP and NADPH, which are like the plant's energy currency. Does that make sense so far, or would you like me to break down any part of that?
+          - generic [ref=e1378]: 10:56 AM
+        - generic [ref=e1379]:
+          - text: That makes sense. I prefer visual explanations — diagrams really help me learn. What about the Calvin cycle?
+          - generic [ref=e1380]: 10:56 AM
+        - generic [ref=e1381]:
+          - text: Right, so I totally get that visual learning preference - diagrams really do make these processes click! Now, the Calvin cycle is the second part of photosynthesis, and it's where the plant actually makes sugar using that ATP and NADPH we just talked about. Picture it happening in the stroma - that's the fluid space inside the chloroplast. The cycle takes in CO2 from the air and, through a series of steps, builds it into glucose using the energy from those light reactions. What do you think happens to that glucose once it's made? Does that track with how you're visualizing this process?
+          - generic [ref=e1382]: 10:56 AM
+```

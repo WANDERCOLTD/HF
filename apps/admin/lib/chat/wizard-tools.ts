@@ -1028,7 +1028,6 @@ export async function executeWizardTool(
         }
 
         // 1. Create or find Subject
-        console.log(`[wizard-tools] create_course: NEW COURSE PATH — domainId=${domainId}, courseName=${courseName}`);
         const subjectSlug = slugify(subjectDiscipline, { lower: true, strict: true });
         let subject = await prisma.subject.findFirst({ where: { slug: subjectSlug } });
         if (!subject) {

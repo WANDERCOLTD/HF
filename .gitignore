@@ -26,6 +26,8 @@ build/
 # local-only
 supabase/
 .claude/worktrees/
+CLAUDE.local.md
+.claude/settings.local.json
 
 .runtime/
 

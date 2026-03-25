@@ -42,19 +42,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Check if caller already exists for this user
+  // Check if caller already exists for this user in this domain
   const existingCaller = await prisma.caller.findFirst({
-    where: { userId: session.user.id },
+    where: { userId: session.user.id, domainId },
   });
 
   if (existingCaller) {
-    // Already set up — return existing caller
+    // Ensure enrollment exists (may be missing if course was created after caller)
+    const enrollment = await resolveAndEnrollSingle(existingCaller.id, domainId, "sim-setup", playbookId);
+
     return NextResponse.json({
       ok: true,
       caller: {
         id: existingCaller.id,
         name: existingCaller.name,
         domainId: existingCaller.domainId,
+        playbookId: enrollment?.playbookId || null,
       },
     });
   }

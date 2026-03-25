@@ -402,6 +402,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadPending, setUploadPending] = useState(false);
   const [suggestions, setSuggestions] = useState<{ question?: string; items: string[] }>({ items: [] });
   const [welcomeSuggestion, setWelcomeSuggestion] = useState<string | null>(null);
   const [fieldPickerPanel, setFieldPickerPanel] = useState<OptionsPanel | null>(null);
@@ -446,6 +447,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
     setMessages([]);
     setInputValue("");
     setIsLoading(false);
+    setUploadPending(false);
     setSuggestions({ items: [] });
     setWelcomeSuggestion(null);
     setFieldPickerPanel(null);
@@ -461,12 +463,15 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       "institutionName", "existingInstitutionId", "existingDomainId",
       "typeSlug", "defaultDomainKind", "websiteUrl",
       "courseName", "subjectDiscipline", "interactionPattern", "teachingMode",
-      "teachingProfile",
+      "teachingProfile", "audience", "learningOutcomes",
       "welcomeMessage", "sessionCount", "durationMins", "planEmphasis",
-      "behaviorTargets", "lessonPlanModel", "personalityPreset", "physicalMaterials",
+      "assessments", "assessmentTargets", "constraints",
+      "behaviorTargets", "lessonPlanModel", "personalityPreset", "personalityDescription",
+      "physicalMaterials",
       "draftDomainId", "draftInstitutionId", "draftPlaybookId", "draftCallerId",
       "launched", "sourceId", "packSubjectIds", "extractionTotals", "contentSkipped",
-      "lastUploadClassifications",
+      "lastUploadClassifications", "courseContext",
+      "welcomeSkipped", "tuneSkipped",
       "communityMode", "draftCohortGroupId", "communityJoinToken", "communityHubUrl",
     ];
     const data: Record<string, unknown> = {};
@@ -722,6 +727,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       scrollToBottom();
 
       setIsLoading(true);
+      setUploadPending(false);
       const result = await sendToAPI(msg, newMessages, overrides);
       setIsLoading(false);
 
@@ -845,8 +851,14 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       setData("lastUploadClassifications", data.classifications);
       const uploadOverrides = { lastUploadClassifications: data.classifications };
       pendingUploadRef.current = { text: "Teaching materials uploaded", overrides: uploadOverrides };
+
+      // Show typing dots immediately so the user knows AI is about to respond.
+      // We set uploadPending (not isLoading) to avoid blocking the drain effect's
+      // handleSend call, which checks isLoading before sending.
+      setUploadPending(true);
+      scrollToBottom();
     },
-    [setData],
+    [setData, scrollToBottom],
   );
 
   // ── Drain pending upload notification after state settles ──
@@ -988,10 +1000,10 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // Let the OptionsCard handle keys when it's active
-      if (hasActiveOptions) return;
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
+        // When an OptionsCard is active, block the newline but don't send
+        if (hasActiveOptions) return;
         handleSend();
         return;
       }
@@ -1054,6 +1066,17 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, startFlow]);
+
+  // ── Sync initialContext into active flow (covers remount after institution fetch + reset) ──
+
+  useEffect(() => {
+    if (initialContext && isActive && !getData("institutionName")) {
+      for (const [k, v] of Object.entries(contextToInitialData(initialContext))) {
+        setData(k, v);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialContext, isActive, resetKey]);
 
   // ── Init ──────────────────────────────────────────────
 
@@ -1190,6 +1213,9 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
                       e.preventDefault();
                       e.stopPropagation();
                       e.currentTarget.classList.remove("cv4-inline-upload-zone--active");
+                      // Reset page-level drag overlay (stopPropagation blocks parent onDrop)
+                      dragCounterRef.current = 0;
+                      setPageDragOver(false);
                       if (e.dataTransfer.files.length > 0) {
                         sourcesPanelRef.current?.addFiles(e.dataTransfer.files);
                         sourcesPanelElRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -1326,7 +1352,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             }
 
             if (msg.role === "assistant") {
-              const isLast = !isLoading && suggestions.items.length === 0 && !welcomeSuggestion && msg.id === lastAssistantId;
+              const isLast = !isLoading && !uploadPending && suggestions.items.length === 0 && !welcomeSuggestion && msg.id === lastAssistantId;
               const inlineOptions = isLast ? parseOptionsFromText(msg.content) : [];
               return (
                 <div key={msg.id} className="cv4-row cv4-row--assistant">
@@ -1376,8 +1402,9 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           });
           })()}
 
-          {/* Typing indicator */}
-          {isLoading && (
+          {/* Typing indicator — shows during API calls (isLoading) and
+              immediately after upload while waiting for drain to fire (uploadPending) */}
+          {(isLoading || uploadPending) && (
             <div className="cv4-row cv4-row--assistant">
               <div className="cv4-typing">
                 <div className="cv4-typing-dot" />
@@ -1388,7 +1415,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           )}
 
           {/* Suggestion chips — inline after last message, not buried at page bottom */}
-          {suggestions.items.length > 0 && !welcomeSuggestion && !isLoading && (
+          {suggestions.items.length > 0 && !welcomeSuggestion && !isLoading && !uploadPending && (
             <div className="cv4-row cv4-row--assistant">
               <div className="cv4-suggestions">
                 {suggestions.question && (
@@ -1447,7 +1474,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           )}
 
           {/* Field picker panel — shown above input when AI calls show_options with fieldPicker: true */}
-          {fieldPickerPanel && !isLoading && (
+          {fieldPickerPanel && !isLoading && !uploadPending && (
             <div className="cv4-field-picker-panel">
               <OptionsCard
                 panel={fieldPickerPanel}
@@ -1479,7 +1506,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
               className="cv4-textarea"
             />
 
-            {isLoading ? (
+            {(isLoading || uploadPending) ? (
               <div className="cv4-send-btn cv4-send-btn--loading">
                 <Loader2 size={16} className="hf-spinner" />
               </div>

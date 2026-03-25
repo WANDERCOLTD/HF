@@ -27,6 +27,7 @@ import {
   loadComposeConfig,
   type CompositionResult,
 } from "@/lib/prompt/composition";
+import { resolveAndEnrollSingle } from "@/lib/enrollment";
 
 const prisma = new PrismaClient();
 let fixtures: JourneyFixtures;
@@ -359,5 +360,59 @@ describe("Step 5: Call 2 prompt shows expected changes", () => {
 
     // The prompts should not be identical — something must change between calls
     expect(changes.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── Step 6: Sim-Setup Enrollment (Happy Path Gate) ─────────────
+
+describe("Step 6: Sim-setup enrolls caller in course", () => {
+  it("caller without enrollment gets enrolled via resolveAndEnrollSingle", async () => {
+    // The sim-setup caller has a userId but NO CallerPlaybook row
+    const before = await prisma.callerPlaybook.findMany({
+      where: { callerId: fixtures.simSetupCallerId },
+    });
+    expect(before.length).toBe(0);
+
+    // Simulate what /api/sim/setup does for existing callers (the fixed path)
+    const enrollment = await resolveAndEnrollSingle(
+      fixtures.simSetupCallerId,
+      fixtures.domainId,
+      "journey-test-sim-setup"
+    );
+
+    expect(enrollment).toBeTruthy();
+    expect(enrollment!.playbookId).toBe(fixtures.playbook.id);
+    expect(enrollment!.status).toBe("ACTIVE");
+  });
+
+  it("enrolled caller can compose a prompt", async () => {
+    // After enrollment, prompt composition should work for this caller too
+    const composeConfig = await loadComposeConfig({ forceFirstCall: true });
+    const result = await executeComposition(
+      fixtures.simSetupCallerId,
+      composeConfig.sections,
+      { ...composeConfig.fullSpecConfig, forceFirstCall: true }
+    );
+
+    expect(result).toBeTruthy();
+    expect(result.llmPrompt).toBeTruthy();
+    expect(result.loadedData.caller).toBeTruthy();
+    expect(result.loadedData.caller!.id).toBe(fixtures.simSetupCallerId);
+  });
+
+  it("re-enrollment is idempotent (upsert, not duplicate)", async () => {
+    // Call resolveAndEnrollSingle again — should not create a second row
+    const enrollment = await resolveAndEnrollSingle(
+      fixtures.simSetupCallerId,
+      fixtures.domainId,
+      "journey-test-sim-setup-retry"
+    );
+
+    expect(enrollment).toBeTruthy();
+
+    const all = await prisma.callerPlaybook.findMany({
+      where: { callerId: fixtures.simSetupCallerId, status: "ACTIVE" },
+    });
+    expect(all.length).toBe(1);
   });
 });

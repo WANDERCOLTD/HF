@@ -1,18 +1,1235 @@
-<testsuites id="" name="" tests="7" failures="0" skipped="0" errors="0" time="24.71056">
-<testsuite name="tests/system/system-health.spec.ts" timestamp="2026-02-16T13:22:03.213Z" hostname="authenticated" tests="7" failures="0" skipped="0" time="14.876" errors="0">
-<testcase name="System Health › page loads with heading" classname="tests/system/system-health.spec.ts" time="3.276">
+<testsuites id="" name="" tests="20" failures="7" skipped="0" errors="0" time="208.50621">
+<testsuite name="tests/cloud/golden-path.spec.ts" timestamp="2026-03-09T10:20:42.304Z" hostname="cloud" tests="1" failures="1" skipped="0" time="133.739" errors="0">
+<testcase name="Golden Path — Upload → Call → Prompt Evolution › upload content → call → prompt evolves" classname="tests/cloud/golden-path.spec.ts" time="133.739">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+<failure message="golden-path.spec.ts:27:7 upload content → call → prompt evolves" type="FAILURE">
+<![CDATA[  [cloud] › tests/cloud/golden-path.spec.ts:27:7 › Golden Path — Upload → Call → Prompt Evolution › upload content → call → prompt evolves › Quick Launch: upload content and create domain 
+
+    TimeoutError: locator.click: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByText('Upload Materials')
+
+
+       at page-objects/quick-launch.page.ts:79
+
+      77 |
+      78 |   async selectUploadMode(): Promise<void> {
+    > 79 |     await this.uploadModeButton.click();
+         |                                 ^
+      80 |   }
+      81 |
+      82 |   async clickBuild(): Promise<void> {
+        at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.click: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByText('Upload Materials')
+
+
+       at page-objects/quick-launch.page.ts:79
+
+      77 |
+      78 |   async selectUploadMode(): Promise<void> {
+    > 79 |     await this.uploadModeButton.click();
+         |                                 ^
+      80 |   }
+      81 |
+      82 |   async clickBuild(): Promise<void> {
+        at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.click: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByText('Upload Materials')
+
+
+       at page-objects/quick-launch.page.ts:79
+
+      77 |
+      78 |   async selectUploadMode(): Promise<void> {
+    > 79 |     await this.uploadModeButton.click();
+         |                                 ^
+      80 |   }
+      81 |
+      82 |   async clickBuild(): Promise<void> {
+        at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry2/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry2/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry2/error-context.md
+
+    Retry #3 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.click: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByText('Upload Materials')
+
+
+       at page-objects/quick-launch.page.ts:79
+
+      77 |
+      78 |   async selectUploadMode(): Promise<void> {
+    > 79 |     await this.uploadModeButton.click();
+         |                                 ^
+      80 |   }
+      81 |
+      82 |   async clickBuild(): Promise<void> {
+        at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry3/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry3/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry3/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry1/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry1/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry1/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry1/trace.zip]]
+
+[[ATTACHMENT|../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry2/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry2/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry2/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry3/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry3/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry3/error-context.md]]
+]]>
+</system-out>
 </testcase>
-<testcase name="System Health › health panel is visible with System Health title" classname="tests/system/system-health.spec.ts" time="2.188">
+</testsuite>
+<testsuite name="tests/cloud/quick-launch.spec.ts" timestamp="2026-03-09T10:20:42.304Z" hostname="cloud" tests="5" failures="3" skipped="0" time="354.589" errors="0">
+<testcase name="Quick Launch — Generate Mode › should load Quick Launch page with form" classname="tests/cloud/quick-launch.spec.ts" time="11.464">
 </testcase>
-<testcase name="System Health › health panel resolves to RAG status or error" classname="tests/system/system-health.spec.ts" time="2.364">
+<testcase name="Quick Launch — Generate Mode › should show summary card with community info" classname="tests/cloud/quick-launch.spec.ts" time="31.317">
+<failure message="quick-launch.spec.ts:27:7 should show summary card with community info" type="FAILURE">
+<![CDATA[  [cloud] › tests/cloud/quick-launch.spec.ts:27:7 › Quick Launch — Generate Mode › should show summary card with community info 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('What you\'re building')
+    Expected: visible
+    Error: strict mode violation: getByText('What you\'re building') resolved to 3 elements:
+        1) <div class="ql-no-brief-hint">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\'re building above and we\'ll suggest a name')
+        2) <span class="hf-suggest-slot__hint">…</span> aka getByText('Describe what you\'re building and we\'ll suggest goals')
+        3) <div class="ql-scaffold-title">What you're building</div> aka getByText('What you\'re building', { exact: true })
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('What you\'re building')
+
+
+      30 |
+      31 |     // Summary card should be visible with "What you're building"
+    > 32 |     await expect(page.getByText("What you're building")).toBeVisible();
+         |                                                          ^
+      33 |   });
+      34 |
+      35 |   test('should enable Build button when form is filled', async ({ page }) => {
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:32:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('What you\'re building')
+    Expected: visible
+    Error: strict mode violation: getByText('What you\'re building') resolved to 3 elements:
+        1) <div class="ql-no-brief-hint">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\'re building above and we\'ll suggest a name')
+        2) <span class="hf-suggest-slot__hint">…</span> aka getByText('Describe what you\'re building and we\'ll suggest goals')
+        3) <div class="ql-scaffold-title">What you're building</div> aka getByText('What you\'re building', { exact: true })
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('What you\'re building')
+
+
+      30 |
+      31 |     // Summary card should be visible with "What you're building"
+    > 32 |     await expect(page.getByText("What you're building")).toBeVisible();
+         |                                                          ^
+      33 |   });
+      34 |
+      35 |   test('should enable Build button when form is filled', async ({ page }) => {
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:32:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('What you\'re building')
+    Expected: visible
+    Error: strict mode violation: getByText('What you\'re building') resolved to 3 elements:
+        1) <div class="ql-no-brief-hint">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\'re building above and we\'ll suggest a name')
+        2) <span class="hf-suggest-slot__hint">…</span> aka getByText('Describe what you\'re building and we\'ll suggest goals')
+        3) <div class="ql-scaffold-title">What you're building</div> aka getByText('What you\'re building', { exact: true })
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('What you\'re building')
+
+
+      30 |
+      31 |     // Summary card should be visible with "What you're building"
+    > 32 |     await expect(page.getByText("What you're building")).toBeVisible();
+         |                                                          ^
+      33 |   });
+      34 |
+      35 |   test('should enable Build button when form is filled', async ({ page }) => {
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:32:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry2/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry2/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry2/error-context.md
+
+    Retry #3 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('What you\'re building')
+    Expected: visible
+    Error: strict mode violation: getByText('What you\'re building') resolved to 3 elements:
+        1) <div class="ql-no-brief-hint">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\'re building above and we\'ll suggest a name')
+        2) <span class="hf-suggest-slot__hint">…</span> aka getByText('Describe what you\'re building and we\'ll suggest goals')
+        3) <div class="ql-scaffold-title">What you're building</div> aka getByText('What you\'re building', { exact: true })
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('What you\'re building')
+
+
+      30 |
+      31 |     // Summary card should be visible with "What you're building"
+    > 32 |     await expect(page.getByText("What you're building")).toBeVisible();
+         |                                                          ^
+      33 |   });
+      34 |
+      35 |   test('should enable Build button when form is filled', async ({ page }) => {
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:32:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry3/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry3/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry3/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry1/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry1/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry1/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry1/trace.zip]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry2/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry2/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry2/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry3/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry3/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry3/error-context.md]]
+]]>
+</system-out>
 </testcase>
-<testcase name="System Health › health panel shows data-status or error when loaded" classname="tests/system/system-health.spec.ts" time="1.747">
+<testcase name="Quick Launch — Generate Mode › should enable Build button when form is filled" classname="tests/cloud/quick-launch.spec.ts" time="13.255">
 </testcase>
-<testcase name="System Health › severity groups and check items render when SUPERADMIN" classname="tests/system/system-health.spec.ts" time="1.815">
+<testcase name="Quick Launch — Generate Mode › should complete form and reach review phase" classname="tests/cloud/quick-launch.spec.ts" time="146.26">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+<failure message="quick-launch.spec.ts:52:7 should complete form and reach review phase" type="FAILURE">
+<![CDATA[  [cloud] › tests/cloud/quick-launch.spec.ts:52:7 › Quick Launch — Generate Mode › should complete form and reach review phase 
+
+    TimeoutError: locator.click: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByText('Generate with AI')
+
+
+       at page-objects/quick-launch.page.ts:75
+
+      73 |
+      74 |   async selectGenerateMode(): Promise<void> {
+    > 75 |     await this.generateModeButton.click();
+         |                                   ^
+      76 |   }
+      77 |
+      78 |   async selectUploadMode(): Promise<void> {
+        at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:63:14
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.click: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByText('Generate with AI')
+
+
+       at page-objects/quick-launch.page.ts:75
+
+      73 |
+      74 |   async selectGenerateMode(): Promise<void> {
+    > 75 |     await this.generateModeButton.click();
+         |                                   ^
+      76 |   }
+      77 |
+      78 |   async selectUploadMode(): Promise<void> {
+        at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:63:14
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.click: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByText('Generate with AI')
+
+
+       at page-objects/quick-launch.page.ts:75
+
+      73 |
+      74 |   async selectGenerateMode(): Promise<void> {
+    > 75 |     await this.generateModeButton.click();
+         |                                   ^
+      76 |   }
+      77 |
+      78 |   async selectUploadMode(): Promise<void> {
+        at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:63:14
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry2/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry2/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry2/error-context.md
+
+    Retry #3 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.click: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByText('Generate with AI')
+
+
+       at page-objects/quick-launch.page.ts:75
+
+      73 |
+      74 |   async selectGenerateMode(): Promise<void> {
+    > 75 |     await this.generateModeButton.click();
+         |                                   ^
+      76 |   }
+      77 |
+      78 |   async selectUploadMode(): Promise<void> {
+        at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:63:14
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry3/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry3/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry3/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry1/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry1/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry1/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry1/trace.zip]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry2/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry2/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry2/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry3/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry3/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry3/error-context.md]]
+]]>
+</system-out>
 </testcase>
-<testcase name="System Health › stat cards show key metrics" classname="tests/system/system-health.spec.ts" time="1.849">
+<testcase name="Quick Launch — Generate Mode › should complete full Quick Launch flow end-to-end" classname="tests/cloud/quick-launch.spec.ts" time="152.293">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+<failure message="quick-launch.spec.ts:79:7 should complete full Quick Launch flow end-to-end" type="FAILURE">
+<![CDATA[  [cloud] › tests/cloud/quick-launch.spec.ts:79:7 › Quick Launch — Generate Mode › should complete full Quick Launch flow end-to-end 
+
+    TimeoutError: locator.click: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByText('Generate with AI')
+
+
+       at page-objects/quick-launch.page.ts:75
+
+      73 |
+      74 |   async selectGenerateMode(): Promise<void> {
+    > 75 |     await this.generateModeButton.click();
+         |                                   ^
+      76 |   }
+      77 |
+      78 |   async selectUploadMode(): Promise<void> {
+        at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:90:14
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.click: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByText('Generate with AI')
+
+
+       at page-objects/quick-launch.page.ts:75
+
+      73 |
+      74 |   async selectGenerateMode(): Promise<void> {
+    > 75 |     await this.generateModeButton.click();
+         |                                   ^
+      76 |   }
+      77 |
+      78 |   async selectUploadMode(): Promise<void> {
+        at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:90:14
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.click: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByText('Generate with AI')
+
+
+       at page-objects/quick-launch.page.ts:75
+
+      73 |
+      74 |   async selectGenerateMode(): Promise<void> {
+    > 75 |     await this.generateModeButton.click();
+         |                                   ^
+      76 |   }
+      77 |
+      78 |   async selectUploadMode(): Promise<void> {
+        at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:90:14
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry2/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry2/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry2/error-context.md
+
+    Retry #3 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.click: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByText('Generate with AI')
+
+
+       at page-objects/quick-launch.page.ts:75
+
+      73 |
+      74 |   async selectGenerateMode(): Promise<void> {
+    > 75 |     await this.generateModeButton.click();
+         |                                   ^
+      76 |   }
+      77 |
+      78 |   async selectUploadMode(): Promise<void> {
+        at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:90:14
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry3/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry3/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry3/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry1/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry1/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry1/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry1/trace.zip]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry2/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry2/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry2/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry3/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry3/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry3/error-context.md]]
+]]>
+</system-out>
 </testcase>
-<testcase name="System Health › quick link cards are present" classname="tests/system/system-health.spec.ts" time="1.637">
+</testsuite>
+<testsuite name="tests/cloud/sim-flow.spec.ts" timestamp="2026-03-09T10:20:42.304Z" hostname="cloud" tests="4" failures="2" skipped="0" time="87.248" errors="0">
+<testcase name="Call Simulation › should load sim page for caller" classname="tests/cloud/sim-flow.spec.ts" time="23.337">
+<failure message="sim-flow.spec.ts:48:7 should load sim page for caller" type="FAILURE">
+<![CDATA[  [cloud] › tests/cloud/sim-flow.spec.ts:48:7 › Call Simulation › should load sim page for caller ──
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.wa-header-title')
+    Expected substring: "E2E Test Caller"
+    Error: strict mode violation: locator('.wa-header-title') resolved to 2 elements:
+        1) <div class="wa-header-title">HF Simulator</div> aka getByText('HF Simulator')
+        2) <div class="wa-header-title">Loading...</div> aka getByText('Loading...')
+
+    Call log:
+      - Expect "toContainText" with timeout 30000ms
+      - waiting for locator('.wa-header-title')
+
+
+      51 |
+      52 |     // Wait for call initialization to complete (header shows caller name once loaded)
+    > 53 |     await expect(sim.headerTitle).toContainText(callerName, { timeout: 30_000 });
+         |                                   ^
+      54 |   });
+      55 |
+      56 |   test('should receive AI greeting on page load', async ({ page }) => {
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:53:35
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.wa-header-title')
+    Expected substring: "E2E Test Caller"
+    Error: strict mode violation: locator('.wa-header-title') resolved to 2 elements:
+        1) <div class="wa-header-title">HF Simulator</div> aka getByText('HF Simulator')
+        2) <div class="wa-header-title">Loading...</div> aka getByText('Loading...')
+
+    Call log:
+      - Expect "toContainText" with timeout 30000ms
+      - waiting for locator('.wa-header-title')
+
+
+      51 |
+      52 |     // Wait for call initialization to complete (header shows caller name once loaded)
+    > 53 |     await expect(sim.headerTitle).toContainText(callerName, { timeout: 30_000 });
+         |                                   ^
+      54 |   });
+      55 |
+      56 |   test('should receive AI greeting on page load', async ({ page }) => {
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:53:35
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.wa-header-title')
+    Expected substring: "E2E Test Caller"
+    Error: strict mode violation: locator('.wa-header-title') resolved to 2 elements:
+        1) <div class="wa-header-title">HF Simulator</div> aka getByText('HF Simulator')
+        2) <div class="wa-header-title">Loading...</div> aka getByText('Loading...')
+
+    Call log:
+      - Expect "toContainText" with timeout 30000ms
+      - waiting for locator('.wa-header-title')
+
+
+      51 |
+      52 |     // Wait for call initialization to complete (header shows caller name once loaded)
+    > 53 |     await expect(sim.headerTitle).toContainText(callerName, { timeout: 30_000 });
+         |                                   ^
+      54 |   });
+      55 |
+      56 |   test('should receive AI greeting on page load', async ({ page }) => {
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:53:35
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry2/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry2/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry2/error-context.md
+
+    Retry #3 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.wa-header-title')
+    Expected substring: "E2E Test Caller"
+    Error: strict mode violation: locator('.wa-header-title') resolved to 2 elements:
+        1) <div class="wa-header-title">HF Simulator</div> aka getByText('HF Simulator')
+        2) <div class="wa-header-title">Loading...</div> aka getByText('Loading...')
+
+    Call log:
+      - Expect "toContainText" with timeout 30000ms
+      - waiting for locator('.wa-header-title')
+
+
+      51 |
+      52 |     // Wait for call initialization to complete (header shows caller name once loaded)
+    > 53 |     await expect(sim.headerTitle).toContainText(callerName, { timeout: 30_000 });
+         |                                   ^
+      54 |   });
+      55 |
+      56 |   test('should receive AI greeting on page load', async ({ page }) => {
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:53:35
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry3/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry3/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry3/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry1/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry1/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry1/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry1/trace.zip]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry2/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry2/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry2/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry3/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry3/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry3/error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Call Simulation › should receive AI greeting on page load" classname="tests/cloud/sim-flow.spec.ts" time="7.534">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+</testcase>
+<testcase name="Call Simulation › should send message and receive AI response" classname="tests/cloud/sim-flow.spec.ts" time="10.346">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+</testcase>
+<testcase name="Call Simulation › should end call and save transcript" classname="tests/cloud/sim-flow.spec.ts" time="46.031">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+<failure message="sim-flow.spec.ts:91:7 should end call and save transcript" type="FAILURE">
+<![CDATA[  [cloud] › tests/cloud/sim-flow.spec.ts:91:7 › Call Simulation › should end call and save transcript 
+
+    Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:
+        1) <button class="wa-back-btn" aria-label="End call">…</button> aka getByRole('button', { name: 'End call', exact: true })
+        2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })
+
+    Call log:
+      - waiting for getByRole('button', { name: 'End Call' })
+
+
+       at page-objects/sim.page.ts:117
+
+      115 |     }
+      116 |
+    > 117 |     await this.confirmEndButton.click();
+          |                                 ^
+      118 |   }
+      119 |
+      120 |   /** Wait for the toast notification */
+        at SimPage.endCall (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts:117:33)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:105:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:
+        1) <button class="wa-back-btn" aria-label="End call">…</button> aka getByRole('button', { name: 'End call', exact: true })
+        2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })
+
+    Call log:
+      - waiting for getByRole('button', { name: 'End Call' })
+
+
+       at page-objects/sim.page.ts:117
+
+      115 |     }
+      116 |
+    > 117 |     await this.confirmEndButton.click();
+          |                                 ^
+      118 |   }
+      119 |
+      120 |   /** Wait for the toast notification */
+        at SimPage.endCall (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts:117:33)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:105:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:
+        1) <button class="wa-back-btn" aria-label="End call">…</button> aka getByRole('button', { name: 'End call', exact: true })
+        2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })
+
+    Call log:
+      - waiting for getByRole('button', { name: 'End Call' })
+
+
+       at page-objects/sim.page.ts:117
+
+      115 |     }
+      116 |
+    > 117 |     await this.confirmEndButton.click();
+          |                                 ^
+      118 |   }
+      119 |
+      120 |   /** Wait for the toast notification */
+        at SimPage.endCall (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts:117:33)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:105:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry2/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry2/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry2/error-context.md
+
+    Retry #3 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:
+        1) <button class="wa-back-btn" aria-label="End call">…</button> aka getByRole('button', { name: 'End call', exact: true })
+        2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })
+
+    Call log:
+      - waiting for getByRole('button', { name: 'End Call' })
+
+
+       at page-objects/sim.page.ts:117
+
+      115 |     }
+      116 |
+    > 117 |     await this.confirmEndButton.click();
+          |                                 ^
+      118 |   }
+      119 |
+      120 |   /** Wait for the toast notification */
+        at SimPage.endCall (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts:117:33)
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:105:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry3/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry3/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry3/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry1/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry1/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry1/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry1/trace.zip]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry2/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry2/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry2/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry3/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry3/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry3/error-context.md]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="tests/cloud/smoke.spec.ts" timestamp="2026-03-09T10:20:42.304Z" hostname="cloud" tests="10" failures="1" skipped="0" time="97.868" errors="0">
+<testcase name="Cloud Smoke › should load dashboard after login" classname="tests/cloud/smoke.spec.ts" time="6.532">
+</testcase>
+<testcase name="Cloud Smoke › should display sidebar with navigation" classname="tests/cloud/smoke.spec.ts" time="6.156">
+</testcase>
+<testcase name="Cloud Smoke › should load Callers page" classname="tests/cloud/smoke.spec.ts" time="5.958">
+</testcase>
+<testcase name="Cloud Smoke › should load Domains page" classname="tests/cloud/smoke.spec.ts" time="5.586">
+</testcase>
+<testcase name="Cloud Smoke › should load Pipeline page" classname="tests/cloud/smoke.spec.ts" time="5.301">
+</testcase>
+<testcase name="Cloud Smoke › should load Specs page" classname="tests/cloud/smoke.spec.ts" time="6.006">
+</testcase>
+<testcase name="Cloud Smoke › should load Quick Launch page" classname="tests/cloud/smoke.spec.ts" time="43.118">
+<failure message="smoke.spec.ts:52:7 should load Quick Launch page" type="FAILURE">
+<![CDATA[  [cloud] › tests/cloud/smoke.spec.ts:52:7 › Cloud Smoke › should load Quick Launch page ───────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: 'Quick Launch' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: 'Quick Launch' })
+
+
+      54 |     await page.waitForLoadState('domcontentloaded');
+      55 |     await expect(page).toHaveURL(/\/x\/quick-launch/);
+    > 56 |     await expect(page.getByRole('heading', { name: 'Quick Launch' })).toBeVisible();
+         |                                                                       ^
+      57 |   });
+      58 |
+      59 |   test('should load Settings page', async ({ page }) => {
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts:56:71
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: 'Quick Launch' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: 'Quick Launch' })
+
+
+      54 |     await page.waitForLoadState('domcontentloaded');
+      55 |     await expect(page).toHaveURL(/\/x\/quick-launch/);
+    > 56 |     await expect(page.getByRole('heading', { name: 'Quick Launch' })).toBeVisible();
+         |                                                                       ^
+      57 |   });
+      58 |
+      59 |   test('should load Settings page', async ({ page }) => {
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts:56:71
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: 'Quick Launch' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: 'Quick Launch' })
+
+
+      54 |     await page.waitForLoadState('domcontentloaded');
+      55 |     await expect(page).toHaveURL(/\/x\/quick-launch/);
+    > 56 |     await expect(page.getByRole('heading', { name: 'Quick Launch' })).toBeVisible();
+         |                                                                       ^
+      57 |   });
+      58 |
+      59 |   test('should load Settings page', async ({ page }) => {
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts:56:71
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry2/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry2/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry2/error-context.md
+
+    Retry #3 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: 'Quick Launch' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: 'Quick Launch' })
+
+
+      54 |     await page.waitForLoadState('domcontentloaded');
+      55 |     await expect(page).toHaveURL(/\/x\/quick-launch/);
+    > 56 |     await expect(page.getByRole('heading', { name: 'Quick Launch' })).toBeVisible();
+         |                                                                       ^
+      57 |   });
+      58 |
+      59 |   test('should load Settings page', async ({ page }) => {
+        at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts:56:71
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry3/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry3/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry3/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry1/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry1/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry1/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry1/trace.zip]]
+
+[[ATTACHMENT|../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry2/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry2/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry2/error-context.md]]
+
+[[ATTACHMENT|../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry3/test-failed-1.png]]
+
+[[ATTACHMENT|../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry3/video.webm]]
+
+[[ATTACHMENT|../test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry3/error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Cloud Smoke › should load Settings page" classname="tests/cloud/smoke.spec.ts" time="5.388">
+</testcase>
+<testcase name="Cloud Smoke › health API should return ok" classname="tests/cloud/smoke.spec.ts" time="6.111">
+</testcase>
+<testcase name="Cloud Smoke › ready API should confirm specs loaded" classname="tests/cloud/smoke.spec.ts" time="7.712">
 </testcase>
 </testsuite>
 </testsuites>

@@ -7,6 +7,7 @@
 
 export type AIErrorCode =
   | "RATE_LIMIT"
+  | "OVERLOADED"
   | "TIMEOUT"
   | "AUTH"
   | "BILLING"
@@ -28,9 +29,23 @@ export function classifyAIError(error: unknown): AIErrorCode {
   const message = error.message.toLowerCase();
   const name = error.name.toLowerCase();
 
+  // Anthropic SDK APIError — check HTTP status code directly
+  const status = (error as any).status as number | undefined;
+  if (typeof status === "number") {
+    if (status === 529 || status === 503) return "OVERLOADED";
+    if (status === 429) return "RATE_LIMIT";
+    if (status === 401 || status === 403) return "AUTH";
+    if (status === 500 || status === 502) return "OVERLOADED"; // Transient server errors
+  }
+
   // Timeout detection
   if (name === "aborterror" || message.includes("timeout") || message.includes("timed out") || message.includes("was aborted")) {
     return "TIMEOUT";
+  }
+
+  // Overloaded / transient server errors (Anthropic 529, OpenAI 503)
+  if (message.includes("overloaded") || message.includes("529") || message.includes("503")) {
+    return "OVERLOADED";
   }
 
   // Billing
@@ -95,6 +110,8 @@ export function userMessageForError(code: AIErrorCode): string {
   switch (code) {
     case "RATE_LIMIT":
       return "The AI service is busy right now. Please wait a moment and try again.";
+    case "OVERLOADED":
+      return "The AI service is temporarily overloaded. Retrying automatically...";
     case "TIMEOUT":
       return "The AI service took too long to respond. Please check your connection and try again.";
     case "AUTH":
@@ -122,6 +139,7 @@ export function userMessageForError(code: AIErrorCode): string {
 export function isRetryable(code: AIErrorCode): boolean {
   switch (code) {
     case "RATE_LIMIT":
+    case "OVERLOADED":
     case "TIMEOUT":
     case "NETWORK":
       return true;

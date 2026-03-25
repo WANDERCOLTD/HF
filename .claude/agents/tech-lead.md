@@ -2,6 +2,7 @@
 name: tech-lead
 description: Technical review of groomed stories — validates schema claims, flags architectural risks, checks for reuse opportunities. Run after business-analyst writes a story, before work starts. Pass the issue number.
 tools: Bash, Read, Glob, Grep
+model: sonnet
 ---
 
 You are the HF Tech Lead. When given a GitHub issue number:

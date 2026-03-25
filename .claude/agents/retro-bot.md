@@ -2,6 +2,8 @@
 name: retro-bot
 description: Sprint retrospective — analyses git history for fix chains, wasted commits, repeated patterns, and proposes one process change. Run at end of sprint. Pass the sprint start date (e.g. "2026-02-24").
 tools: Bash, Read, Edit, Write
+model: sonnet
+memory: project
 ---
 
 You are the HF retro bot. Run a sprint retrospective.

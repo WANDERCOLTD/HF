@@ -1105,6 +1105,7 @@ function getErrorCode(error: unknown): string {
   // Map AIErrorCode to backwards-compatible codes for existing frontend
   const codeMap: Record<string, string> = {
     RATE_LIMIT: "RATE_LIMIT",
+    OVERLOADED: "RATE_LIMIT",
     TIMEOUT: "NETWORK",
     AUTH: "AUTH",
     BILLING: "BILLING",

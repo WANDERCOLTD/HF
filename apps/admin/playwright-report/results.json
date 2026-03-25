@@ -11,16 +11,16 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "actualWorkers": 1
+      "actualWorkers": 4
     },
     "preserveOutput": "always",
     "projects": [
       {
         "outputDir": "/Users/paulwander/projects/HF/apps/admin/test-results",
         "repeatEach": 1,
-        "retries": 0,
+        "retries": 3,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 4
         },
         "id": "authenticated",
         "name": "authenticated",
@@ -29,14 +29,14 @@
         "testMatch": [
           "/tests\\/(?!cloud\\/).+\\.spec\\.ts/"
         ],
-        "timeout": 30000
+        "timeout": 120000
       },
       {
         "outputDir": "/Users/paulwander/projects/HF/apps/admin/test-results",
         "repeatEach": 1,
-        "retries": 0,
+        "retries": 3,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 4
         },
         "id": "unauthenticated",
         "name": "unauthenticated",
@@ -45,14 +45,14 @@
         "testMatch": [
           "/tests\\/auth\\/.+\\.spec\\.ts/"
         ],
-        "timeout": 30000
+        "timeout": 120000
       },
       {
         "outputDir": "/Users/paulwander/projects/HF/apps/admin/test-results",
         "repeatEach": 1,
-        "retries": 0,
+        "retries": 3,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 4
         },
         "id": "mobile",
         "name": "mobile",
@@ -61,14 +61,14 @@
         "testMatch": [
           "/tests\\/(?!cloud\\/).+\\.spec\\.ts/"
         ],
-        "timeout": 30000
+        "timeout": 120000
       },
       {
         "outputDir": "/Users/paulwander/projects/HF/apps/admin/test-results",
         "repeatEach": 1,
-        "retries": 0,
+        "retries": 3,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 4
         },
         "id": "cloud",
         "name": "cloud",
@@ -77,14 +77,14 @@
         "testMatch": [
           "/tests\\/cloud\\/.+\\.spec\\.ts/"
         ],
-        "timeout": 30000
+        "timeout": 120000
       },
       {
         "outputDir": "/Users/paulwander/projects/HF/apps/admin/test-results",
         "repeatEach": 1,
-        "retries": 0,
+        "retries": 3,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 4
         },
         "id": "legacy",
         "name": "legacy",
@@ -93,7 +93,7 @@
         "testMatch": [
           "/\\d+-.*\\.spec\\.ts/"
         ],
-        "timeout": 30000
+        "timeout": 120000
       }
     ],
     "quiet": false,
@@ -129,50 +129,409 @@
     "updateSnapshots": "missing",
     "updateSourceMethod": "patch",
     "version": "1.58.1",
-    "workers": 1,
-    "webServer": {
-      "command": "npm run dev",
-      "url": "http://localhost:3000",
-      "reuseExistingServer": true,
-      "timeout": 120000
-    }
+    "workers": 4,
+    "webServer": null
   },
   "suites": [
     {
-      "title": "tests/system/system-health.spec.ts",
-      "file": "tests/system/system-health.spec.ts",
+      "title": "tests/cloud/golden-path.spec.ts",
+      "file": "tests/cloud/golden-path.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "System Health",
-          "file": "tests/system/system-health.spec.ts",
-          "line": 12,
+          "title": "Golden Path — Upload → Call → Prompt Evolution",
+          "file": "tests/cloud/golden-path.spec.ts",
+          "line": 16,
           "column": 6,
           "specs": [
             {
-              "title": "page loads with heading",
-              "ok": true,
+              "title": "upload content → call → prompt evolves",
+              "ok": false,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 30000,
-                  "annotations": [],
+                  "timeout": 360000,
+                  "annotations": [
+                    {
+                      "type": "slow",
+                      "location": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts",
+                        "line": 28,
+                        "column": 10
+                      }
+                    }
+                  ],
                   "expectedStatus": "passed",
-                  "projectId": "authenticated",
-                  "projectName": "authenticated",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
                   "results": [
                     {
                       "workerIndex": 0,
                       "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 36603,
+                      "error": {
+                        "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n",
+                        "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n\n    at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                          "column": 33,
+                          "line": 79
+                        },
+                        "snippet": "   at page-objects/quick-launch.page.ts:79\n\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n> 79 |     await this.uploadModeButton.click();\n     |                                 ^\n  80 |   }\n  81 |\n  82 |   async clickBuild(): Promise<void> {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                            "column": 33,
+                            "line": 79
+                          },
+                          "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n\n\n   at page-objects/quick-launch.page.ts:79\n\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n> 79 |     await this.uploadModeButton.click();\n     |                                 ^\n  80 |   }\n  81 |\n  82 |   async clickBuild(): Promise<void> {\n    at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "Quick Launch: upload content and create domain",
+                          "duration": 36217,
+                          "error": {
+                            "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n",
+                            "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n\n    at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5",
+                            "location": {
+                              "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                              "column": 33,
+                              "line": 79
+                            },
+                            "snippet": "   at page-objects/quick-launch.page.ts:79\n\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n> 79 |     await this.uploadModeButton.click();\n     |                                 ^\n  80 |   }\n  81 |\n  82 |   async clickBuild(): Promise<void> {"
+                          }
+                        }
+                      ],
+                      "startTime": "2026-03-09T10:20:43.020Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts",
+                            "line": 28,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                        "column": 33,
+                        "line": 79
+                      }
+                    },
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 32598,
+                      "error": {
+                        "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n",
+                        "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n\n    at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                          "column": 33,
+                          "line": 79
+                        },
+                        "snippet": "   at page-objects/quick-launch.page.ts:79\n\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n> 79 |     await this.uploadModeButton.click();\n     |                                 ^\n  80 |   }\n  81 |\n  82 |   async clickBuild(): Promise<void> {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                            "column": 33,
+                            "line": 79
+                          },
+                          "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n\n\n   at page-objects/quick-launch.page.ts:79\n\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n> 79 |     await this.uploadModeButton.click();\n     |                                 ^\n  80 |   }\n  81 |\n  82 |   async clickBuild(): Promise<void> {\n    at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "steps": [
+                        {
+                          "title": "Quick Launch: upload content and create domain",
+                          "duration": 31725,
+                          "error": {
+                            "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n",
+                            "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n\n    at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5",
+                            "location": {
+                              "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                              "column": 33,
+                              "line": 79
+                            },
+                            "snippet": "   at page-objects/quick-launch.page.ts:79\n\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n> 79 |     await this.uploadModeButton.click();\n     |                                 ^\n  80 |   }\n  81 |\n  82 |   async clickBuild(): Promise<void> {"
+                          }
+                        }
+                      ],
+                      "startTime": "2026-03-09T10:21:20.985Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts",
+                            "line": 28,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry1/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry1/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry1/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                        "column": 33,
+                        "line": 79
+                      }
+                    },
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 31663,
+                      "error": {
+                        "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n",
+                        "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n\n    at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                          "column": 33,
+                          "line": 79
+                        },
+                        "snippet": "   at page-objects/quick-launch.page.ts:79\n\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n> 79 |     await this.uploadModeButton.click();\n     |                                 ^\n  80 |   }\n  81 |\n  82 |   async clickBuild(): Promise<void> {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                            "column": 33,
+                            "line": 79
+                          },
+                          "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n\n\n   at page-objects/quick-launch.page.ts:79\n\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n> 79 |     await this.uploadModeButton.click();\n     |                                 ^\n  80 |   }\n  81 |\n  82 |   async clickBuild(): Promise<void> {\n    at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 2,
+                      "steps": [
+                        {
+                          "title": "Quick Launch: upload content and create domain",
+                          "duration": 31349,
+                          "error": {
+                            "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n",
+                            "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n\n    at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5",
+                            "location": {
+                              "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                              "column": 33,
+                              "line": 79
+                            },
+                            "snippet": "   at page-objects/quick-launch.page.ts:79\n\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n> 79 |     await this.uploadModeButton.click();\n     |                                 ^\n  80 |   }\n  81 |\n  82 |   async clickBuild(): Promise<void> {"
+                          }
+                        }
+                      ],
+                      "startTime": "2026-03-09T10:21:54.965Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts",
+                            "line": 28,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry2/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry2/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry2/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                        "column": 33,
+                        "line": 79
+                      }
+                    },
+                    {
+                      "workerIndex": 19,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 32875,
+                      "error": {
+                        "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n",
+                        "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n\n    at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                          "column": 33,
+                          "line": 79
+                        },
+                        "snippet": "   at page-objects/quick-launch.page.ts:79\n\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n> 79 |     await this.uploadModeButton.click();\n     |                                 ^\n  80 |   }\n  81 |\n  82 |   async clickBuild(): Promise<void> {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                            "column": 33,
+                            "line": 79
+                          },
+                          "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n\n\n   at page-objects/quick-launch.page.ts:79\n\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n> 79 |     await this.uploadModeButton.click();\n     |                                 ^\n  80 |   }\n  81 |\n  82 |   async clickBuild(): Promise<void> {\n    at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 3,
+                      "steps": [
+                        {
+                          "title": "Quick Launch: upload content and create domain",
+                          "duration": 32025,
+                          "error": {
+                            "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n",
+                            "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Upload Materials')\u001b[22m\n\n    at QuickLaunchPage.selectUploadMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:79:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:45:16\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts:31:5",
+                            "location": {
+                              "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                              "column": 33,
+                              "line": 79
+                            },
+                            "snippet": "   at page-objects/quick-launch.page.ts:79\n\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n> 79 |     await this.uploadModeButton.click();\n     |                                 ^\n  80 |   }\n  81 |\n  82 |   async clickBuild(): Promise<void> {"
+                          }
+                        }
+                      ],
+                      "startTime": "2026-03-09T10:22:27.740Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/golden-path.spec.ts",
+                            "line": 28,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry3/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry3/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-golden-path-Go-60dae-ent-→-call-→-prompt-evolves-cloud-retry3/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                        "column": 33,
+                        "line": 79
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "0b323e8656f5a0feaf29-56903faae847520d77b5",
+              "file": "tests/cloud/golden-path.spec.ts",
+              "line": 27,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "tests/cloud/quick-launch.spec.ts",
+      "file": "tests/cloud/quick-launch.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Quick Launch — Generate Mode",
+          "file": "tests/cloud/quick-launch.spec.ts",
+          "line": 13,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should load Quick Launch page with form",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
                       "status": "passed",
-                      "duration": 3276,
+                      "duration": 11464,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-02-16T13:22:04.207Z",
+                      "startTime": "2026-03-09T10:20:43.039Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -180,67 +539,271 @@
                   "status": "expected"
                 }
               ],
-              "id": "a73d7e6762dc1291bf72-cfff6f9aec3734d0e390",
-              "file": "tests/system/system-health.spec.ts",
-              "line": 17,
+              "id": "e91424ca6826505449db-3df485546a7094c5bcda",
+              "file": "tests/cloud/quick-launch.spec.ts",
+              "line": 18,
               "column": 7
             },
             {
-              "title": "health panel is visible with System Health title",
-              "ok": true,
+              "title": "should show summary card with community info",
+              "ok": false,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 30000,
+                  "timeout": 120000,
                   "annotations": [],
                   "expectedStatus": "passed",
-                  "projectId": "authenticated",
-                  "projectName": "authenticated",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 2188,
-                      "errors": [],
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 11874,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('What you\\'re building')\nExpected: visible\nError: strict mode violation: getByText('What you\\'re building') resolved to 3 elements:\n    1) <div class=\"ql-no-brief-hint\">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\\'re building above and we\\'ll suggest a name')\n    2) <span class=\"hf-suggest-slot__hint\">…</span> aka getByText('Describe what you\\'re building and we\\'ll suggest goals')\n    3) <div class=\"ql-scaffold-title\">What you're building</div> aka getByText('What you\\'re building', { exact: true })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('What you\\'re building')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('What you\\'re building')\nExpected: visible\nError: strict mode violation: getByText('What you\\'re building') resolved to 3 elements:\n    1) <div class=\"ql-no-brief-hint\">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\\'re building above and we\\'ll suggest a name')\n    2) <span class=\"hf-suggest-slot__hint\">…</span> aka getByText('Describe what you\\'re building and we\\'ll suggest goals')\n    3) <div class=\"ql-scaffold-title\">What you're building</div> aka getByText('What you\\'re building', { exact: true })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('What you\\'re building')\u001b[22m\n\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:32:58",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                          "column": 58,
+                          "line": 32
+                        },
+                        "snippet": "  30 |\n  31 |     // Summary card should be visible with \"What you're building\"\n> 32 |     await expect(page.getByText(\"What you're building\")).toBeVisible();\n     |                                                          ^\n  33 |   });\n  34 |\n  35 |   test('should enable Build button when form is filled', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                            "column": 58,
+                            "line": 32
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('What you\\'re building')\nExpected: visible\nError: strict mode violation: getByText('What you\\'re building') resolved to 3 elements:\n    1) <div class=\"ql-no-brief-hint\">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\\'re building above and we\\'ll suggest a name')\n    2) <span class=\"hf-suggest-slot__hint\">…</span> aka getByText('Describe what you\\'re building and we\\'ll suggest goals')\n    3) <div class=\"ql-scaffold-title\">What you're building</div> aka getByText('What you\\'re building', { exact: true })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('What you\\'re building')\u001b[22m\n\n\n  30 |\n  31 |     // Summary card should be visible with \"What you're building\"\n> 32 |     await expect(page.getByText(\"What you're building\")).toBeVisible();\n     |                                                          ^\n  33 |   });\n  34 |\n  35 |   test('should enable Build button when form is filled', async ({ page }) => {\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:32:58"
+                        }
+                      ],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-02-16T13:22:07.686Z",
+                      "startTime": "2026-03-09T10:20:43.016Z",
                       "annotations": [],
-                      "attachments": []
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                        "column": 58,
+                        "line": 32
+                      }
+                    },
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 9001,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('What you\\'re building')\nExpected: visible\nError: strict mode violation: getByText('What you\\'re building') resolved to 3 elements:\n    1) <div class=\"ql-no-brief-hint\">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\\'re building above and we\\'ll suggest a name')\n    2) <span class=\"hf-suggest-slot__hint\">…</span> aka getByText('Describe what you\\'re building and we\\'ll suggest goals')\n    3) <div class=\"ql-scaffold-title\">What you're building</div> aka getByText('What you\\'re building', { exact: true })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('What you\\'re building')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('What you\\'re building')\nExpected: visible\nError: strict mode violation: getByText('What you\\'re building') resolved to 3 elements:\n    1) <div class=\"ql-no-brief-hint\">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\\'re building above and we\\'ll suggest a name')\n    2) <span class=\"hf-suggest-slot__hint\">…</span> aka getByText('Describe what you\\'re building and we\\'ll suggest goals')\n    3) <div class=\"ql-scaffold-title\">What you're building</div> aka getByText('What you\\'re building', { exact: true })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('What you\\'re building')\u001b[22m\n\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:32:58",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                          "column": 58,
+                          "line": 32
+                        },
+                        "snippet": "  30 |\n  31 |     // Summary card should be visible with \"What you're building\"\n> 32 |     await expect(page.getByText(\"What you're building\")).toBeVisible();\n     |                                                          ^\n  33 |   });\n  34 |\n  35 |   test('should enable Build button when form is filled', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                            "column": 58,
+                            "line": 32
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('What you\\'re building')\nExpected: visible\nError: strict mode violation: getByText('What you\\'re building') resolved to 3 elements:\n    1) <div class=\"ql-no-brief-hint\">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\\'re building above and we\\'ll suggest a name')\n    2) <span class=\"hf-suggest-slot__hint\">…</span> aka getByText('Describe what you\\'re building and we\\'ll suggest goals')\n    3) <div class=\"ql-scaffold-title\">What you're building</div> aka getByText('What you\\'re building', { exact: true })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('What you\\'re building')\u001b[22m\n\n\n  30 |\n  31 |     // Summary card should be visible with \"What you're building\"\n> 32 |     await expect(page.getByText(\"What you're building\")).toBeVisible();\n     |                                                          ^\n  33 |   });\n  34 |\n  35 |   test('should enable Build button when form is filled', async ({ page }) => {\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:32:58"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-03-09T10:20:56.474Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry1/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry1/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry1/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                        "column": 58,
+                        "line": 32
+                      }
+                    },
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 6254,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('What you\\'re building')\nExpected: visible\nError: strict mode violation: getByText('What you\\'re building') resolved to 3 elements:\n    1) <div class=\"ql-no-brief-hint\">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\\'re building above and we\\'ll suggest a name')\n    2) <span class=\"hf-suggest-slot__hint\">…</span> aka getByText('Describe what you\\'re building and we\\'ll suggest goals')\n    3) <div class=\"ql-scaffold-title\">What you're building</div> aka getByText('What you\\'re building', { exact: true })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('What you\\'re building')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('What you\\'re building')\nExpected: visible\nError: strict mode violation: getByText('What you\\'re building') resolved to 3 elements:\n    1) <div class=\"ql-no-brief-hint\">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\\'re building above and we\\'ll suggest a name')\n    2) <span class=\"hf-suggest-slot__hint\">…</span> aka getByText('Describe what you\\'re building and we\\'ll suggest goals')\n    3) <div class=\"ql-scaffold-title\">What you're building</div> aka getByText('What you\\'re building', { exact: true })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('What you\\'re building')\u001b[22m\n\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:32:58",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                          "column": 58,
+                          "line": 32
+                        },
+                        "snippet": "  30 |\n  31 |     // Summary card should be visible with \"What you're building\"\n> 32 |     await expect(page.getByText(\"What you're building\")).toBeVisible();\n     |                                                          ^\n  33 |   });\n  34 |\n  35 |   test('should enable Build button when form is filled', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                            "column": 58,
+                            "line": 32
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('What you\\'re building')\nExpected: visible\nError: strict mode violation: getByText('What you\\'re building') resolved to 3 elements:\n    1) <div class=\"ql-no-brief-hint\">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\\'re building above and we\\'ll suggest a name')\n    2) <span class=\"hf-suggest-slot__hint\">…</span> aka getByText('Describe what you\\'re building and we\\'ll suggest goals')\n    3) <div class=\"ql-scaffold-title\">What you're building</div> aka getByText('What you\\'re building', { exact: true })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('What you\\'re building')\u001b[22m\n\n\n  30 |\n  31 |     // Summary card should be visible with \"What you're building\"\n> 32 |     await expect(page.getByText(\"What you're building\")).toBeVisible();\n     |                                                          ^\n  33 |   });\n  34 |\n  35 |   test('should enable Build button when form is filled', async ({ page }) => {\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:32:58"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 2,
+                      "startTime": "2026-03-09T10:21:06.757Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry2/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry2/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry2/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                        "column": 58,
+                        "line": 32
+                      }
+                    },
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 4188,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('What you\\'re building')\nExpected: visible\nError: strict mode violation: getByText('What you\\'re building') resolved to 3 elements:\n    1) <div class=\"ql-no-brief-hint\">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\\'re building above and we\\'ll suggest a name')\n    2) <span class=\"hf-suggest-slot__hint\">…</span> aka getByText('Describe what you\\'re building and we\\'ll suggest goals')\n    3) <div class=\"ql-scaffold-title\">What you're building</div> aka getByText('What you\\'re building', { exact: true })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('What you\\'re building')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('What you\\'re building')\nExpected: visible\nError: strict mode violation: getByText('What you\\'re building') resolved to 3 elements:\n    1) <div class=\"ql-no-brief-hint\">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\\'re building above and we\\'ll suggest a name')\n    2) <span class=\"hf-suggest-slot__hint\">…</span> aka getByText('Describe what you\\'re building and we\\'ll suggest goals')\n    3) <div class=\"ql-scaffold-title\">What you're building</div> aka getByText('What you\\'re building', { exact: true })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('What you\\'re building')\u001b[22m\n\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:32:58",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                          "column": 58,
+                          "line": 32
+                        },
+                        "snippet": "  30 |\n  31 |     // Summary card should be visible with \"What you're building\"\n> 32 |     await expect(page.getByText(\"What you're building\")).toBeVisible();\n     |                                                          ^\n  33 |   });\n  34 |\n  35 |   test('should enable Build button when form is filled', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                            "column": 58,
+                            "line": 32
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('What you\\'re building')\nExpected: visible\nError: strict mode violation: getByText('What you\\'re building') resolved to 3 elements:\n    1) <div class=\"ql-no-brief-hint\">Describe what you're building above and we'll sug…</div> aka getByText('Describe what you\\'re building above and we\\'ll suggest a name')\n    2) <span class=\"hf-suggest-slot__hint\">…</span> aka getByText('Describe what you\\'re building and we\\'ll suggest goals')\n    3) <div class=\"ql-scaffold-title\">What you're building</div> aka getByText('What you\\'re building', { exact: true })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('What you\\'re building')\u001b[22m\n\n\n  30 |\n  31 |     // Summary card should be visible with \"What you're building\"\n> 32 |     await expect(page.getByText(\"What you're building\")).toBeVisible();\n     |                                                          ^\n  33 |   });\n  34 |\n  35 |   test('should enable Build button when form is filled', async ({ page }) => {\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:32:58"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 3,
+                      "startTime": "2026-03-09T10:21:14.010Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry3/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry3/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-b5314-ry-card-with-community-info-cloud-retry3/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                        "column": 58,
+                        "line": 32
+                      }
                     }
                   ],
-                  "status": "expected"
+                  "status": "unexpected"
                 }
               ],
-              "id": "a73d7e6762dc1291bf72-ada2f535324ba27fc5a6",
-              "file": "tests/system/system-health.spec.ts",
-              "line": 24,
+              "id": "e91424ca6826505449db-1577798f5771d414031d",
+              "file": "tests/cloud/quick-launch.spec.ts",
+              "line": 27,
               "column": 7
             },
             {
-              "title": "health panel resolves to RAG status or error",
+              "title": "should enable Build button when form is filled",
               "ok": true,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 30000,
+                  "timeout": 120000,
                   "annotations": [],
                   "expectedStatus": "passed",
-                  "projectId": "authenticated",
-                  "projectName": "authenticated",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
                       "status": "passed",
-                      "duration": 2364,
+                      "duration": 13255,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-02-16T13:22:09.913Z",
+                      "startTime": "2026-03-09T10:20:43.010Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -248,67 +811,1258 @@
                   "status": "expected"
                 }
               ],
-              "id": "a73d7e6762dc1291bf72-f6bf52078f1dbe7ddaad",
-              "file": "tests/system/system-health.spec.ts",
-              "line": 34,
+              "id": "e91424ca6826505449db-f282b44b9603f9e1620b",
+              "file": "tests/cloud/quick-launch.spec.ts",
+              "line": 35,
               "column": 7
             },
             {
-              "title": "health panel shows data-status or error when loaded",
+              "title": "should complete form and reach review phase",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 360000,
+                  "annotations": [
+                    {
+                      "type": "slow",
+                      "location": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                        "line": 53,
+                        "column": 10
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 38028,
+                      "error": {
+                        "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n",
+                        "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:63:14",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                          "column": 35,
+                          "line": 75
+                        },
+                        "snippet": "   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                            "column": 35,
+                            "line": 75
+                          },
+                          "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n\n   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:63:14"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:20:54.711Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                            "line": 53,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                        "column": 35,
+                        "line": 75
+                      }
+                    },
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 36008,
+                      "error": {
+                        "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n",
+                        "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:63:14",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                          "column": 35,
+                          "line": 75
+                        },
+                        "snippet": "   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                            "column": 35,
+                            "line": 75
+                          },
+                          "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n\n   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:63:14"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-03-09T10:21:33.640Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                            "line": 53,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry1/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry1/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry1/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                        "column": 35,
+                        "line": 75
+                      }
+                    },
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 36348,
+                      "error": {
+                        "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n",
+                        "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:63:14",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                          "column": 35,
+                          "line": 75
+                        },
+                        "snippet": "   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                            "column": 35,
+                            "line": 75
+                          },
+                          "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n\n   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:63:14"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 2,
+                      "startTime": "2026-03-09T10:22:11.337Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                            "line": 53,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry2/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry2/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry2/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                        "column": 35,
+                        "line": 75
+                      }
+                    },
+                    {
+                      "workerIndex": 22,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 35876,
+                      "error": {
+                        "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n",
+                        "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:63:14",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                          "column": 35,
+                          "line": 75
+                        },
+                        "snippet": "   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                            "column": 35,
+                            "line": 75
+                          },
+                          "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n\n   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:63:14"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 3,
+                      "startTime": "2026-03-09T10:22:48.954Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                            "line": 53,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry3/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry3/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-67251-form-and-reach-review-phase-cloud-retry3/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                        "column": 35,
+                        "line": 75
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "e91424ca6826505449db-a4049d17d4e1735dfeed",
+              "file": "tests/cloud/quick-launch.spec.ts",
+              "line": 52,
+              "column": 7
+            },
+            {
+              "title": "should complete full Quick Launch flow end-to-end",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 360000,
+                  "annotations": [
+                    {
+                      "type": "slow",
+                      "location": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                        "line": 80,
+                        "column": 10
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 39227,
+                      "error": {
+                        "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n",
+                        "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:90:14",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                          "column": 35,
+                          "line": 75
+                        },
+                        "snippet": "   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                            "column": 35,
+                            "line": 75
+                          },
+                          "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n\n   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:90:14"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:20:56.496Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                            "line": 80,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                        "column": 35,
+                        "line": 75
+                      }
+                    },
+                    {
+                      "workerIndex": 12,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 37410,
+                      "error": {
+                        "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n",
+                        "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:90:14",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                          "column": 35,
+                          "line": 75
+                        },
+                        "snippet": "   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                            "column": 35,
+                            "line": 75
+                          },
+                          "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n\n   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:90:14"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-03-09T10:21:37.177Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                            "line": 80,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry1/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry1/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry1/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                        "column": 35,
+                        "line": 75
+                      }
+                    },
+                    {
+                      "workerIndex": 17,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 38794,
+                      "error": {
+                        "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n",
+                        "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:90:14",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                          "column": 35,
+                          "line": 75
+                        },
+                        "snippet": "   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                            "column": 35,
+                            "line": 75
+                          },
+                          "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n\n   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:90:14"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 2,
+                      "startTime": "2026-03-09T10:22:16.575Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                            "line": 80,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry2/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry2/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry2/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                        "column": 35,
+                        "line": 75
+                      }
+                    },
+                    {
+                      "workerIndex": 23,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 36862,
+                      "error": {
+                        "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n",
+                        "stack": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:90:14",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                          "column": 35,
+                          "line": 75
+                        },
+                        "snippet": "   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                            "column": 35,
+                            "line": 75
+                          },
+                          "message": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Generate with AI')\u001b[22m\n\n\n   at page-objects/quick-launch.page.ts:75\n\n  73 |\n  74 |   async selectGenerateMode(): Promise<void> {\n> 75 |     await this.generateModeButton.click();\n     |                                   ^\n  76 |   }\n  77 |\n  78 |   async selectUploadMode(): Promise<void> {\n    at QuickLaunchPage.selectGenerateMode (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts:75:35)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts:90:14"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 3,
+                      "startTime": "2026-03-09T10:22:56.555Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/quick-launch.spec.ts",
+                            "line": 80,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry3/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry3/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-quick-launch-Q-c6c0b-uick-Launch-flow-end-to-end-cloud-retry3/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/quick-launch.page.ts",
+                        "column": 35,
+                        "line": 75
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "e91424ca6826505449db-25715a34bd4697125e2f",
+              "file": "tests/cloud/quick-launch.spec.ts",
+              "line": 79,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "tests/cloud/sim-flow.spec.ts",
+      "file": "tests/cloud/sim-flow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Call Simulation",
+          "file": "tests/cloud/sim-flow.spec.ts",
+          "line": 15,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should load sim page for caller",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 5793,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.wa-header-title')\nExpected substring: \u001b[32m\"E2E Test Caller\"\u001b[39m\nError: strict mode violation: locator('.wa-header-title') resolved to 2 elements:\n    1) <div class=\"wa-header-title\">HF Simulator</div> aka getByText('HF Simulator')\n    2) <div class=\"wa-header-title\">Loading...</div> aka getByText('Loading...')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for locator('.wa-header-title')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.wa-header-title')\nExpected substring: \u001b[32m\"E2E Test Caller\"\u001b[39m\nError: strict mode violation: locator('.wa-header-title') resolved to 2 elements:\n    1) <div class=\"wa-header-title\">HF Simulator</div> aka getByText('HF Simulator')\n    2) <div class=\"wa-header-title\">Loading...</div> aka getByText('Loading...')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for locator('.wa-header-title')\u001b[22m\n\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:53:35",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                          "column": 35,
+                          "line": 53
+                        },
+                        "snippet": "  51 |\n  52 |     // Wait for call initialization to complete (header shows caller name once loaded)\n> 53 |     await expect(sim.headerTitle).toContainText(callerName, { timeout: 30_000 });\n     |                                   ^\n  54 |   });\n  55 |\n  56 |   test('should receive AI greeting on page load', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                            "column": 35,
+                            "line": 53
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.wa-header-title')\nExpected substring: \u001b[32m\"E2E Test Caller\"\u001b[39m\nError: strict mode violation: locator('.wa-header-title') resolved to 2 elements:\n    1) <div class=\"wa-header-title\">HF Simulator</div> aka getByText('HF Simulator')\n    2) <div class=\"wa-header-title\">Loading...</div> aka getByText('Loading...')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for locator('.wa-header-title')\u001b[22m\n\n\n  51 |\n  52 |     // Wait for call initialization to complete (header shows caller name once loaded)\n> 53 |     await expect(sim.headerTitle).toContainText(callerName, { timeout: 30_000 });\n     |                                   ^\n  54 |   });\n  55 |\n  56 |   test('should receive AI greeting on page load', async ({ page }) => {\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:53:35"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:21:19.235Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                        "column": 35,
+                        "line": 53
+                      }
+                    },
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 5441,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.wa-header-title')\nExpected substring: \u001b[32m\"E2E Test Caller\"\u001b[39m\nError: strict mode violation: locator('.wa-header-title') resolved to 2 elements:\n    1) <div class=\"wa-header-title\">HF Simulator</div> aka getByText('HF Simulator')\n    2) <div class=\"wa-header-title\">Loading...</div> aka getByText('Loading...')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for locator('.wa-header-title')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.wa-header-title')\nExpected substring: \u001b[32m\"E2E Test Caller\"\u001b[39m\nError: strict mode violation: locator('.wa-header-title') resolved to 2 elements:\n    1) <div class=\"wa-header-title\">HF Simulator</div> aka getByText('HF Simulator')\n    2) <div class=\"wa-header-title\">Loading...</div> aka getByText('Loading...')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for locator('.wa-header-title')\u001b[22m\n\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:53:35",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                          "column": 35,
+                          "line": 53
+                        },
+                        "snippet": "  51 |\n  52 |     // Wait for call initialization to complete (header shows caller name once loaded)\n> 53 |     await expect(sim.headerTitle).toContainText(callerName, { timeout: 30_000 });\n     |                                   ^\n  54 |   });\n  55 |\n  56 |   test('should receive AI greeting on page load', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                            "column": 35,
+                            "line": 53
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.wa-header-title')\nExpected substring: \u001b[32m\"E2E Test Caller\"\u001b[39m\nError: strict mode violation: locator('.wa-header-title') resolved to 2 elements:\n    1) <div class=\"wa-header-title\">HF Simulator</div> aka getByText('HF Simulator')\n    2) <div class=\"wa-header-title\">Loading...</div> aka getByText('Loading...')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for locator('.wa-header-title')\u001b[22m\n\n\n  51 |\n  52 |     // Wait for call initialization to complete (header shows caller name once loaded)\n> 53 |     await expect(sim.headerTitle).toContainText(callerName, { timeout: 30_000 });\n     |                                   ^\n  54 |   });\n  55 |\n  56 |   test('should receive AI greeting on page load', async ({ page }) => {\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:53:35"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-03-09T10:21:27.374Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry1/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry1/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry1/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                        "column": 35,
+                        "line": 53
+                      }
+                    },
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 5950,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.wa-header-title')\nExpected substring: \u001b[32m\"E2E Test Caller\"\u001b[39m\nError: strict mode violation: locator('.wa-header-title') resolved to 2 elements:\n    1) <div class=\"wa-header-title\">HF Simulator</div> aka getByText('HF Simulator')\n    2) <div class=\"wa-header-title\">Loading...</div> aka getByText('Loading...')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for locator('.wa-header-title')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.wa-header-title')\nExpected substring: \u001b[32m\"E2E Test Caller\"\u001b[39m\nError: strict mode violation: locator('.wa-header-title') resolved to 2 elements:\n    1) <div class=\"wa-header-title\">HF Simulator</div> aka getByText('HF Simulator')\n    2) <div class=\"wa-header-title\">Loading...</div> aka getByText('Loading...')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for locator('.wa-header-title')\u001b[22m\n\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:53:35",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                          "column": 35,
+                          "line": 53
+                        },
+                        "snippet": "  51 |\n  52 |     // Wait for call initialization to complete (header shows caller name once loaded)\n> 53 |     await expect(sim.headerTitle).toContainText(callerName, { timeout: 30_000 });\n     |                                   ^\n  54 |   });\n  55 |\n  56 |   test('should receive AI greeting on page load', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                            "column": 35,
+                            "line": 53
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.wa-header-title')\nExpected substring: \u001b[32m\"E2E Test Caller\"\u001b[39m\nError: strict mode violation: locator('.wa-header-title') resolved to 2 elements:\n    1) <div class=\"wa-header-title\">HF Simulator</div> aka getByText('HF Simulator')\n    2) <div class=\"wa-header-title\">Loading...</div> aka getByText('Loading...')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for locator('.wa-header-title')\u001b[22m\n\n\n  51 |\n  52 |     // Wait for call initialization to complete (header shows caller name once loaded)\n> 53 |     await expect(sim.headerTitle).toContainText(callerName, { timeout: 30_000 });\n     |                                   ^\n  54 |   });\n  55 |\n  56 |   test('should receive AI greeting on page load', async ({ page }) => {\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:53:35"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 2,
+                      "startTime": "2026-03-09T10:21:34.047Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry2/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry2/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry2/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                        "column": 35,
+                        "line": 53
+                      }
+                    },
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 6153,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.wa-header-title')\nExpected substring: \u001b[32m\"E2E Test Caller\"\u001b[39m\nError: strict mode violation: locator('.wa-header-title') resolved to 2 elements:\n    1) <div class=\"wa-header-title\">HF Simulator</div> aka getByText('HF Simulator')\n    2) <div class=\"wa-header-title\">Loading...</div> aka getByText('Loading...')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for locator('.wa-header-title')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.wa-header-title')\nExpected substring: \u001b[32m\"E2E Test Caller\"\u001b[39m\nError: strict mode violation: locator('.wa-header-title') resolved to 2 elements:\n    1) <div class=\"wa-header-title\">HF Simulator</div> aka getByText('HF Simulator')\n    2) <div class=\"wa-header-title\">Loading...</div> aka getByText('Loading...')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for locator('.wa-header-title')\u001b[22m\n\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:53:35",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                          "column": 35,
+                          "line": 53
+                        },
+                        "snippet": "  51 |\n  52 |     // Wait for call initialization to complete (header shows caller name once loaded)\n> 53 |     await expect(sim.headerTitle).toContainText(callerName, { timeout: 30_000 });\n     |                                   ^\n  54 |   });\n  55 |\n  56 |   test('should receive AI greeting on page load', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                            "column": 35,
+                            "line": 53
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.wa-header-title')\nExpected substring: \u001b[32m\"E2E Test Caller\"\u001b[39m\nError: strict mode violation: locator('.wa-header-title') resolved to 2 elements:\n    1) <div class=\"wa-header-title\">HF Simulator</div> aka getByText('HF Simulator')\n    2) <div class=\"wa-header-title\">Loading...</div> aka getByText('Loading...')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for locator('.wa-header-title')\u001b[22m\n\n\n  51 |\n  52 |     // Wait for call initialization to complete (header shows caller name once loaded)\n> 53 |     await expect(sim.headerTitle).toContainText(callerName, { timeout: 30_000 });\n     |                                   ^\n  54 |   });\n  55 |\n  56 |   test('should receive AI greeting on page load', async ({ page }) => {\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:53:35"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 3,
+                      "startTime": "2026-03-09T10:21:41.267Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry3/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry3/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--6777a-ld-load-sim-page-for-caller-cloud-retry3/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                        "column": 35,
+                        "line": 53
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65ff15d916156cbff15d-a7b035f6864522f058ed",
+              "file": "tests/cloud/sim-flow.spec.ts",
+              "line": 48,
+              "column": 7
+            },
+            {
+              "title": "should receive AI greeting on page load",
               "ok": true,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 30000,
-                  "annotations": [],
+                  "timeout": 360000,
+                  "annotations": [
+                    {
+                      "type": "slow",
+                      "location": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                        "line": 57,
+                        "column": 10
+                      }
+                    }
+                  ],
                   "expectedStatus": "passed",
-                  "projectId": "authenticated",
-                  "projectName": "authenticated",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": 14,
+                      "parallelIndex": 2,
                       "status": "passed",
-                      "duration": 1747,
+                      "duration": 7534,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-02-16T13:22:12.289Z",
-                      "annotations": [],
+                      "startTime": "2026-03-09T10:21:48.363Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                            "line": 57,
+                            "column": 10
+                          }
+                        }
+                      ],
                       "attachments": []
                     }
                   ],
                   "status": "expected"
                 }
               ],
-              "id": "a73d7e6762dc1291bf72-eb683489fe3c140398a6",
-              "file": "tests/system/system-health.spec.ts",
+              "id": "65ff15d916156cbff15d-d096183f20bc910632c6",
+              "file": "tests/cloud/sim-flow.spec.ts",
               "line": 56,
               "column": 7
             },
             {
-              "title": "severity groups and check items render when SUPERADMIN",
+              "title": "should send message and receive AI response",
               "ok": true,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 30000,
-                  "annotations": [],
+                  "timeout": 360000,
+                  "annotations": [
+                    {
+                      "type": "slow",
+                      "location": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                        "line": 71,
+                        "column": 10
+                      }
+                    }
+                  ],
                   "expectedStatus": "passed",
-                  "projectId": "authenticated",
-                  "projectName": "authenticated",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": 14,
+                      "parallelIndex": 2,
                       "status": "passed",
-                      "duration": 1815,
+                      "duration": 10346,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-02-16T13:22:14.045Z",
+                      "startTime": "2026-03-09T10:21:56.065Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                            "line": 71,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65ff15d916156cbff15d-7fd8209ddc62792b4c86",
+              "file": "tests/cloud/sim-flow.spec.ts",
+              "line": 70,
+              "column": 7
+            },
+            {
+              "title": "should end call and save transcript",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 360000,
+                  "annotations": [
+                    {
+                      "type": "slow",
+                      "location": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                        "line": 92,
+                        "column": 10
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 14,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 10166,
+                      "error": {
+                        "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:\n    1) <button class=\"wa-back-btn\" aria-label=\"End call\">…</button> aka getByRole('button', { name: 'End call', exact: true })\n    2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'End Call' })\u001b[22m\n",
+                        "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:\n    1) <button class=\"wa-back-btn\" aria-label=\"End call\">…</button> aka getByRole('button', { name: 'End call', exact: true })\n    2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'End Call' })\u001b[22m\n\n    at SimPage.endCall (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts:117:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:105:5",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts",
+                          "column": 33,
+                          "line": 117
+                        },
+                        "snippet": "   at page-objects/sim.page.ts:117\n\n  115 |     }\n  116 |\n> 117 |     await this.confirmEndButton.click();\n      |                                 ^\n  118 |   }\n  119 |\n  120 |   /** Wait for the toast notification */"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts",
+                            "column": 33,
+                            "line": 117
+                          },
+                          "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:\n    1) <button class=\"wa-back-btn\" aria-label=\"End call\">…</button> aka getByRole('button', { name: 'End call', exact: true })\n    2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'End Call' })\u001b[22m\n\n\n   at page-objects/sim.page.ts:117\n\n  115 |     }\n  116 |\n> 117 |     await this.confirmEndButton.click();\n      |                                 ^\n  118 |   }\n  119 |\n  120 |   /** Wait for the toast notification */\n    at SimPage.endCall (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts:117:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:105:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:22:06.425Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                            "line": 92,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts",
+                        "column": 33,
+                        "line": 117
+                      }
+                    },
+                    {
+                      "workerIndex": 18,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 13904,
+                      "error": {
+                        "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:\n    1) <button class=\"wa-back-btn\" aria-label=\"End call\">…</button> aka getByRole('button', { name: 'End call', exact: true })\n    2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'End Call' })\u001b[22m\n",
+                        "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:\n    1) <button class=\"wa-back-btn\" aria-label=\"End call\">…</button> aka getByRole('button', { name: 'End call', exact: true })\n    2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'End Call' })\u001b[22m\n\n    at SimPage.endCall (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts:117:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:105:5",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts",
+                          "column": 33,
+                          "line": 117
+                        },
+                        "snippet": "   at page-objects/sim.page.ts:117\n\n  115 |     }\n  116 |\n> 117 |     await this.confirmEndButton.click();\n      |                                 ^\n  118 |   }\n  119 |\n  120 |   /** Wait for the toast notification */"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts",
+                            "column": 33,
+                            "line": 117
+                          },
+                          "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:\n    1) <button class=\"wa-back-btn\" aria-label=\"End call\">…</button> aka getByRole('button', { name: 'End call', exact: true })\n    2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'End Call' })\u001b[22m\n\n\n   at page-objects/sim.page.ts:117\n\n  115 |     }\n  116 |\n> 117 |     await this.confirmEndButton.click();\n      |                                 ^\n  118 |   }\n  119 |\n  120 |   /** Wait for the toast notification */\n    at SimPage.endCall (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts:117:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:105:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-03-09T10:22:17.708Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                            "line": 92,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry1/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry1/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry1/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts",
+                        "column": 33,
+                        "line": 117
+                      }
+                    },
+                    {
+                      "workerIndex": 20,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 9621,
+                      "error": {
+                        "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:\n    1) <button class=\"wa-back-btn\" aria-label=\"End call\">…</button> aka getByRole('button', { name: 'End call', exact: true })\n    2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'End Call' })\u001b[22m\n",
+                        "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:\n    1) <button class=\"wa-back-btn\" aria-label=\"End call\">…</button> aka getByRole('button', { name: 'End call', exact: true })\n    2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'End Call' })\u001b[22m\n\n    at SimPage.endCall (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts:117:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:105:5",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts",
+                          "column": 33,
+                          "line": 117
+                        },
+                        "snippet": "   at page-objects/sim.page.ts:117\n\n  115 |     }\n  116 |\n> 117 |     await this.confirmEndButton.click();\n      |                                 ^\n  118 |   }\n  119 |\n  120 |   /** Wait for the toast notification */"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts",
+                            "column": 33,
+                            "line": 117
+                          },
+                          "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:\n    1) <button class=\"wa-back-btn\" aria-label=\"End call\">…</button> aka getByRole('button', { name: 'End call', exact: true })\n    2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'End Call' })\u001b[22m\n\n\n   at page-objects/sim.page.ts:117\n\n  115 |     }\n  116 |\n> 117 |     await this.confirmEndButton.click();\n      |                                 ^\n  118 |   }\n  119 |\n  120 |   /** Wait for the toast notification */\n    at SimPage.endCall (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts:117:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:105:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 2,
+                      "startTime": "2026-03-09T10:22:33.383Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                            "line": 92,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry2/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry2/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry2/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts",
+                        "column": 33,
+                        "line": 117
+                      }
+                    },
+                    {
+                      "workerIndex": 21,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 12340,
+                      "error": {
+                        "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:\n    1) <button class=\"wa-back-btn\" aria-label=\"End call\">…</button> aka getByRole('button', { name: 'End call', exact: true })\n    2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'End Call' })\u001b[22m\n",
+                        "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:\n    1) <button class=\"wa-back-btn\" aria-label=\"End call\">…</button> aka getByRole('button', { name: 'End call', exact: true })\n    2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'End Call' })\u001b[22m\n\n    at SimPage.endCall (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts:117:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:105:5",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts",
+                          "column": 33,
+                          "line": 117
+                        },
+                        "snippet": "   at page-objects/sim.page.ts:117\n\n  115 |     }\n  116 |\n> 117 |     await this.confirmEndButton.click();\n      |                                 ^\n  118 |   }\n  119 |\n  120 |   /** Wait for the toast notification */"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts",
+                            "column": 33,
+                            "line": 117
+                          },
+                          "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'End Call' }) resolved to 2 elements:\n    1) <button class=\"wa-back-btn\" aria-label=\"End call\">…</button> aka getByRole('button', { name: 'End call', exact: true })\n    2) <button>End Call</button> aka getByRole('button', { name: 'End Call', exact: true })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'End Call' })\u001b[22m\n\n\n   at page-objects/sim.page.ts:117\n\n  115 |     }\n  116 |\n> 117 |     await this.confirmEndButton.click();\n      |                                 ^\n  118 |   }\n  119 |\n  120 |   /** Wait for the toast notification */\n    at SimPage.endCall (/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts:117:33)\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts:105:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 3,
+                      "startTime": "2026-03-09T10:22:44.065Z",
+                      "annotations": [
+                        {
+                          "type": "slow",
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/sim-flow.spec.ts",
+                            "line": 92,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry3/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry3/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-sim-flow-Call--e918c-nd-call-and-save-transcript-cloud-retry3/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/page-objects/sim.page.ts",
+                        "column": 33,
+                        "line": 117
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65ff15d916156cbff15d-d3e39f9be69b3b2ed5ad",
+              "file": "tests/cloud/sim-flow.spec.ts",
+              "line": 91,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "tests/cloud/smoke.spec.ts",
+      "file": "tests/cloud/smoke.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Cloud Smoke",
+          "file": "tests/cloud/smoke.spec.ts",
+          "line": 11,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should load dashboard after login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 24,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 6532,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:22:57.888Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -316,77 +2070,519 @@
                   "status": "expected"
                 }
               ],
-              "id": "a73d7e6762dc1291bf72-01f5dc9dd6895aba05b0",
-              "file": "tests/system/system-health.spec.ts",
+              "id": "84007cd7c2c163c7a226-84db0280b499dcc0a888",
+              "file": "tests/cloud/smoke.spec.ts",
+              "line": 16,
+              "column": 7
+            },
+            {
+              "title": "should display sidebar with navigation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 25,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6156,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:23:04.087Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "84007cd7c2c163c7a226-338ba2228060eb845b76",
+              "file": "tests/cloud/smoke.spec.ts",
+              "line": 22,
+              "column": 7
+            },
+            {
+              "title": "should load Callers page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 24,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 5958,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:23:04.854Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "84007cd7c2c163c7a226-1c03e1f94bdce545bf5f",
+              "file": "tests/cloud/smoke.spec.ts",
+              "line": 28,
+              "column": 7
+            },
+            {
+              "title": "should load Domains page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 25,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5586,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:23:10.552Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "84007cd7c2c163c7a226-1602ea0a9d06f27a482f",
+              "file": "tests/cloud/smoke.spec.ts",
+              "line": 34,
+              "column": 7
+            },
+            {
+              "title": "should load Pipeline page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 24,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 5301,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:23:10.821Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "84007cd7c2c163c7a226-096ab572e9eee35f34bb",
+              "file": "tests/cloud/smoke.spec.ts",
+              "line": 40,
+              "column": 7
+            },
+            {
+              "title": "should load Specs page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 24,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 6006,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:23:16.133Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "84007cd7c2c163c7a226-e60c912420d672f5d4f7",
+              "file": "tests/cloud/smoke.spec.ts",
+              "line": 46,
+              "column": 7
+            },
+            {
+              "title": "should load Quick Launch page",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 25,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 11014,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Quick Launch' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Quick Launch' })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Quick Launch' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Quick Launch' })\u001b[22m\n\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts:56:71",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts",
+                          "column": 71,
+                          "line": 56
+                        },
+                        "snippet": "  54 |     await page.waitForLoadState('domcontentloaded');\n  55 |     await expect(page).toHaveURL(/\\/x\\/quick-launch/);\n> 56 |     await expect(page.getByRole('heading', { name: 'Quick Launch' })).toBeVisible();\n     |                                                                       ^\n  57 |   });\n  58 |\n  59 |   test('should load Settings page', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts",
+                            "column": 71,
+                            "line": 56
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Quick Launch' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Quick Launch' })\u001b[22m\n\n\n  54 |     await page.waitForLoadState('domcontentloaded');\n  55 |     await expect(page).toHaveURL(/\\/x\\/quick-launch/);\n> 56 |     await expect(page.getByRole('heading', { name: 'Quick Launch' })).toBeVisible();\n     |                                                                       ^\n  57 |   });\n  58 |\n  59 |   test('should load Settings page', async ({ page }) => {\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts:56:71"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:23:16.151Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts",
+                        "column": 71,
+                        "line": 56
+                      }
+                    },
+                    {
+                      "workerIndex": 27,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 12605,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Quick Launch' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Quick Launch' })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Quick Launch' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Quick Launch' })\u001b[22m\n\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts:56:71",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts",
+                          "column": 71,
+                          "line": 56
+                        },
+                        "snippet": "  54 |     await page.waitForLoadState('domcontentloaded');\n  55 |     await expect(page).toHaveURL(/\\/x\\/quick-launch/);\n> 56 |     await expect(page.getByRole('heading', { name: 'Quick Launch' })).toBeVisible();\n     |                                                                       ^\n  57 |   });\n  58 |\n  59 |   test('should load Settings page', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts",
+                            "column": 71,
+                            "line": 56
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Quick Launch' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Quick Launch' })\u001b[22m\n\n\n  54 |     await page.waitForLoadState('domcontentloaded');\n  55 |     await expect(page).toHaveURL(/\\/x\\/quick-launch/);\n> 56 |     await expect(page.getByRole('heading', { name: 'Quick Launch' })).toBeVisible();\n     |                                                                       ^\n  57 |   });\n  58 |\n  59 |   test('should load Settings page', async ({ page }) => {\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts:56:71"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-03-09T10:23:30.584Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry1/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry1/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry1/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts",
+                        "column": 71,
+                        "line": 56
+                      }
+                    },
+                    {
+                      "workerIndex": 28,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 9823,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Quick Launch' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Quick Launch' })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Quick Launch' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Quick Launch' })\u001b[22m\n\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts:56:71",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts",
+                          "column": 71,
+                          "line": 56
+                        },
+                        "snippet": "  54 |     await page.waitForLoadState('domcontentloaded');\n  55 |     await expect(page).toHaveURL(/\\/x\\/quick-launch/);\n> 56 |     await expect(page.getByRole('heading', { name: 'Quick Launch' })).toBeVisible();\n     |                                                                       ^\n  57 |   });\n  58 |\n  59 |   test('should load Settings page', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts",
+                            "column": 71,
+                            "line": 56
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Quick Launch' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Quick Launch' })\u001b[22m\n\n\n  54 |     await page.waitForLoadState('domcontentloaded');\n  55 |     await expect(page).toHaveURL(/\\/x\\/quick-launch/);\n> 56 |     await expect(page.getByRole('heading', { name: 'Quick Launch' })).toBeVisible();\n     |                                                                       ^\n  57 |   });\n  58 |\n  59 |   test('should load Settings page', async ({ page }) => {\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts:56:71"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 2,
+                      "startTime": "2026-03-09T10:23:44.215Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry2/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry2/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry2/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts",
+                        "column": 71,
+                        "line": 56
+                      }
+                    },
+                    {
+                      "workerIndex": 29,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 9676,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Quick Launch' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Quick Launch' })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Quick Launch' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Quick Launch' })\u001b[22m\n\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts:56:71",
+                        "location": {
+                          "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts",
+                          "column": 71,
+                          "line": 56
+                        },
+                        "snippet": "  54 |     await page.waitForLoadState('domcontentloaded');\n  55 |     await expect(page).toHaveURL(/\\/x\\/quick-launch/);\n> 56 |     await expect(page.getByRole('heading', { name: 'Quick Launch' })).toBeVisible();\n     |                                                                       ^\n  57 |   });\n  58 |\n  59 |   test('should load Settings page', async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts",
+                            "column": 71,
+                            "line": 56
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: 'Quick Launch' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: 'Quick Launch' })\u001b[22m\n\n\n  54 |     await page.waitForLoadState('domcontentloaded');\n  55 |     await expect(page).toHaveURL(/\\/x\\/quick-launch/);\n> 56 |     await expect(page.getByRole('heading', { name: 'Quick Launch' })).toBeVisible();\n     |                                                                       ^\n  57 |   });\n  58 |\n  59 |   test('should load Settings page', async ({ page }) => {\n    at /Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts:56:71"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 3,
+                      "startTime": "2026-03-09T10:23:54.762Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry3/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry3/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/paulwander/projects/HF/apps/admin/test-results/tests-cloud-smoke-Cloud-Smoke-should-load-Quick-Launch-page-cloud-retry3/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/paulwander/projects/HF/apps/admin/e2e/tests/cloud/smoke.spec.ts",
+                        "column": 71,
+                        "line": 56
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "84007cd7c2c163c7a226-13f4998d9e2d3a078f38",
+              "file": "tests/cloud/smoke.spec.ts",
+              "line": 52,
+              "column": 7
+            },
+            {
+              "title": "should load Settings page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 24,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 5388,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:23:22.148Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "84007cd7c2c163c7a226-db4b5daf7cfc24fdca20",
+              "file": "tests/cloud/smoke.spec.ts",
+              "line": 59,
+              "column": 7
+            },
+            {
+              "title": "health API should return ok",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 26,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 6111,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:23:26.419Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "84007cd7c2c163c7a226-a767f2f7668a1dc3cbbc",
+              "file": "tests/cloud/smoke.spec.ts",
+              "line": 65,
+              "column": 7
+            },
+            {
+              "title": "ready API should confirm specs loaded",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "cloud",
+                  "projectName": "cloud",
+                  "results": [
+                    {
+                      "workerIndex": 24,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 7712,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-09T10:23:27.546Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "84007cd7c2c163c7a226-66099593ba951b8f9fe1",
+              "file": "tests/cloud/smoke.spec.ts",
               "line": 72,
-              "column": 7
-            },
-            {
-              "title": "stat cards show key metrics",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "authenticated",
-                  "projectName": "authenticated",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1849,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-02-16T13:22:15.871Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a73d7e6762dc1291bf72-7ee12930d9056281fc71",
-              "file": "tests/system/system-health.spec.ts",
-              "line": 97,
-              "column": 7
-            },
-            {
-              "title": "quick link cards are present",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "authenticated",
-                  "projectName": "authenticated",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1637,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-02-16T13:22:17.731Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a73d7e6762dc1291bf72-ea56eb9a4d574a0efe41",
-              "file": "tests/system/system-health.spec.ts",
-              "line": 112,
               "column": 7
             }
           ]
@@ -396,11 +2592,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-02-16T13:21:54.765Z",
-    "duration": 24710.56,
-    "expected": 7,
+    "startTime": "2026-03-09T10:20:36.086Z",
+    "duration": 208506.21000000002,
+    "expected": 13,
     "skipped": 0,
-    "unexpected": 0,
+    "unexpected": 7,
     "flaky": 0
   }
 }

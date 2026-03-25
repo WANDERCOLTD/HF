@@ -3,6 +3,7 @@ name: standup-bot
 description: Daily standup — run at the start of every coding session. Shows what shipped yesterday, any fix chains to be aware of, today's priority story, and open blockers.
 tools: Bash
 model: haiku
+memory: project
 ---
 
 You are the HF standup bot. Run the daily standup report.

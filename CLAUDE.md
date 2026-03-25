@@ -4,8 +4,7 @@
 >
 > **Plan creatively. No hardcodes. qmd + graph. Gold UI. Wizards must flow.**
 
-@/Users/paulwander/projects/skills/dev-principles-SKILL.md
-@/Users/paulwander/projects/skills/hf-nextjs-patterns-SKILL.md
+Skills auto-loaded from `.claude/skills/`. Path-scoped rules in `.claude/rules/`.
 
 ---
 
@@ -134,32 +133,11 @@ Every feature must respect this loop. Pipeline stages are spec-driven from `PIPE
 
 ### Intent-Led UX: Teacher's View
 
-Teachers never see Playbooks, Specs, or Roles. All UI is organized by educator intent.
+Teachers never see Playbooks, Specs, or Roles. All UI is organized by educator intent. System auto-scaffolds when readiness checks fail.
 
-```
-Teacher's View                  Internal Composition
-─────────────────              ─────────────────────
-Institution (Domain)           • Domain (1 per school/org)
-└─ Course (Playbook)           • Playbook + auto-created CourseReady overlay
-   ├─ Lessons                   • Composited CONTENT specs (auto-linked)
-   ├─ Content Upload            • EXTRACT-CONTENT specs
-   ├─ Teaching Points
-   ├─ Onboarding Setup          • IDENTITY specs + INIT-001 phases + ADAPT targets
-   └─ First Call Preview        • Prompt composition from merged specs
-```
+### SpecRole Taxonomy & Pipeline Details
 
-No manual wiring. System auto-scaffolds when readiness checks fail.
-
-### SpecRole Taxonomy
-
-- `ORCHESTRATE` — Flow/sequence control (PIPELINE-001, INIT-001)
-- `EXTRACT` — Measurement and learning (PERS-001, VARK-001, MEM-001)
-- `SYNTHESISE` — Combine/transform data (COMP-001, REW-001, ADAPT-*)
-- `CONSTRAIN` — Bounds and guards (GUARD-001)
-- `OBSERVE` — System health/metrics (AIKNOW-001, ERRMON-001, METER-001)
-- `IDENTITY` — Agent personas (TUT-001, COACH-001)
-- `CONTENT` — Curriculum material (WNF-CONTENT-001)
-- `VOICE` — Voice guidance (VOICE-001)
+See `.claude/rules/pipeline-and-prompt.md` (auto-loaded for pipeline/prompt files).
 
 ---
 
@@ -232,7 +210,7 @@ If servers fail:
 
 ## Libraries First (MANDATORY)
 
-Search npm before hand-rolling. Key packages: `jsonrepair`, `p-retry`, `p-limit`, `slugify`, `papaparse`, `fuse.js`, `croner`. If none fits, add `// No suitable npm package as of YYYY-MM`. Full table in `dev-principles-SKILL.md`.
+Search npm before hand-rolling. Key packages: `jsonrepair`, `p-retry`, `p-limit`, `slugify`, `papaparse`, `fuse.js`, `croner`. Full table in `.claude/skills/dev-principles/SKILL.md`.
 
 ---
 
@@ -256,32 +234,13 @@ Guard definitions in `.claude/agents/guard-checker.md`. Always end a completed s
 
 ## UI Design System (Zero Tolerance)
 
-No inline `style={{}}` for static properties. No hardcoded hex. No one-off styling.
-
-- **Admin** (`/x/**`): `hf-*` classes — `hf-card`, `hf-btn`, `hf-input`, `hf-banner`, `hf-spinner`, `hf-glow-active`, etc.
-- **Auth** (`/login/**`): `login-*` classes
-- **Spinner vs Glow**: `hf-spinner` = blocking (user must wait). `hf-glow-active` = background (user can continue). Never mix on same element.
-- **FieldHint**: Every wizard intent field MUST have `<FieldHint>`. Data in `lib/wizard-hints.ts`.
-
-Full class list + color map in `hf-nextjs-patterns-SKILL.md`. After any UI changes, run both:
-- `ui-reviewer` — mechanical compliance (classes, colors, FieldHint, spinner-vs-glow)
-- `ux-reviewer` — design quality (empty states, errors, microcopy, educator language, feedback loops)
+See `.claude/rules/ui-design-system.md` (auto-loaded for UI files). After any UI changes, run `ui-reviewer` + `ux-reviewer` agents.
 
 ---
 
 ## RBAC
 
-**SUPERADMIN (5) > ADMIN (4) > OPERATOR/EDUCATOR (3) > SUPER_TESTER (2) > TESTER/STUDENT/VIEWER (1) > DEMO (0)**
-
-- `EDUCATOR` (level 3) — educator portal, scoped to own cohorts + students
-- `STUDENT` (level 1) — student portal, own data only
-- `VIEWER` — deprecated alias for TESTER
-
-Public routes (no auth): `/api/auth/*`, `/api/health`, `/api/ready`, `/api/system/readiness`, `/api/invite/*`, `/api/join/*`
-
-Webhook-secret routes (no session auth, validated via `lib/vapi/auth.ts`): `/api/vapi/*`, `/api/webhook/*`
-
-Sim access: all sim routes use `requireAuth("VIEWER")`.
+See `.claude/rules/rbac.md` + `.claude/rules/api-conventions.md` (auto-loaded for API files).
 
 ---
 

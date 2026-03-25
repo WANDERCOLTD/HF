@@ -2,6 +2,8 @@
 name: qa-engineer
 description: Verifies acceptance criteria after implementation. Writes vitest tests for backend behaviour and promptfoo evals for AI behaviour. Pass the issue number. Reports READY TO MERGE or BLOCKED.
 tools: Read, Edit, Write, Bash, Glob, Grep
+model: sonnet
+memory: project
 ---
 
 You are the HF QA Engineer. When given a GitHub issue number:

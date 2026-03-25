@@ -28,6 +28,9 @@ export interface JourneyFixtures {
   assertionIds: string[];
   callerId: string;
   callId: string;
+  /** Caller with userId but no enrollment — for sim-setup tests */
+  simSetupCallerId: string;
+  simSetupUserId: string;
 }
 
 /** Sample assertions representing extracted teaching points */
@@ -309,6 +312,38 @@ export async function seedJourneyFixtures(prisma: PrismaClient): Promise<Journey
     update: { domainId: domain.id },
   });
 
+  // 7b. Enroll caller in playbook (CallerPlaybook)
+  await prisma.callerPlaybook.upsert({
+    where: {
+      callerId_playbookId: { callerId: caller.id, playbookId: playbook.id },
+    },
+    create: {
+      callerId: caller.id,
+      playbookId: playbook.id,
+      status: "ACTIVE",
+      enrolledBy: `${JOURNEY_PREFIX}`,
+      isDefault: true,
+    },
+    update: {
+      status: "ACTIVE",
+      enrolledBy: `${JOURNEY_PREFIX}`,
+      isDefault: true,
+    },
+  });
+
+  // 7c. Sim-setup caller — has userId, no enrollment (tests the fix for TODO #39)
+  const simSetupUser = await prisma.caller.upsert({
+    where: { externalId: `${JOURNEY_PREFIX}-sim-setup` },
+    create: {
+      externalId: `${JOURNEY_PREFIX}-sim-setup`,
+      name: "Journey Sim Setup Tester",
+      phone: "+1-555-JRN-002",
+      domainId: domain.id,
+      userId: `${JOURNEY_PREFIX}-user-id`,
+    },
+    update: { domainId: domain.id, userId: `${JOURNEY_PREFIX}-user-id` },
+  });
+
   // 8. A completed call (so Call 2 composition has history)
   await prisma.call.deleteMany({
     where: { callerId: caller.id, source: `${JOURNEY_PREFIX}` },
@@ -390,6 +425,8 @@ export async function seedJourneyFixtures(prisma: PrismaClient): Promise<Journey
     assertionIds,
     callerId: caller.id,
     callId: call.id,
+    simSetupCallerId: simSetupUser.id,
+    simSetupUserId: `${JOURNEY_PREFIX}-user-id`,
   };
 }
 
@@ -403,11 +440,22 @@ export async function cleanupJourneyFixtures(prisma: PrismaClient): Promise<void
   });
 
   if (caller) {
+    await prisma.callerPlaybook.deleteMany({ where: { callerId: caller.id } });
     await prisma.composedPrompt.deleteMany({ where: { callerId: caller.id } });
     await prisma.callerMemory.deleteMany({ where: { callerId: caller.id } });
     await prisma.callerMemorySummary.deleteMany({ where: { callerId: caller.id } });
     await prisma.call.deleteMany({ where: { callerId: caller.id } });
     await prisma.caller.delete({ where: { id: caller.id } });
+  }
+
+  // Clean up sim-setup caller
+  const simSetupCaller = await prisma.caller.findUnique({
+    where: { externalId: `${JOURNEY_PREFIX}-sim-setup` },
+  });
+  if (simSetupCaller) {
+    await prisma.callerPlaybook.deleteMany({ where: { callerId: simSetupCaller.id } });
+    await prisma.composedPrompt.deleteMany({ where: { callerId: simSetupCaller.id } });
+    await prisma.caller.delete({ where: { id: simSetupCaller.id } });
   }
 
   const source = await prisma.contentSource.findUnique({
