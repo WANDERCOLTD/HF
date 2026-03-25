@@ -117,37 +117,49 @@ export async function resolveVoiceSpecFallback(
  */
 export async function mergeIdentitySpec(
   overlay: ResolvedSpec,
+  depth = 0,
 ): Promise<ResolvedSpec> {
-  if (!overlay.extendsAgent) return overlay;
+  if (!overlay.extendsAgent || depth > 3) return overlay;
 
-  // Convert extendsAgent ID (e.g. "TUT-001") to DB slug (e.g. "spec-tut-001")
-  const baseSlug = `spec-${overlay.extendsAgent.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-
+  // Resolve base spec — try normalized slug (TUT-001 → spec-tut-001) then raw slug
+  const normalizedSlug = `spec-${overlay.extendsAgent.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   const baseSpec = await prisma.analysisSpec.findFirst({
     where: {
-      slug: baseSlug,
-      isActive: true,
+      OR: [
+        { slug: normalizedSlug, isActive: true },
+        { slug: overlay.extendsAgent, isActive: true },
+      ],
     },
     select: {
       name: true,
       slug: true,
       config: true,
       description: true,
+      extendsAgent: true,
     },
   });
 
   if (!baseSpec) {
     console.warn(
-      `[mergeIdentitySpec] Base spec "${overlay.extendsAgent}" (slug: ${baseSlug}) not found or inactive. Using overlay as-is.`
+      `[mergeIdentitySpec] Base spec "${overlay.extendsAgent}" (tried: ${normalizedSlug}, ${overlay.extendsAgent}) not found or inactive. Using overlay as-is.`
     );
     return overlay;
   }
 
-  const baseConfig = (baseSpec.config as Record<string, any>) || {};
+  // Recurse if base also extends something (e.g., domain overlay → archetype)
+  let resolvedBaseConfig = (baseSpec.config as Record<string, any>) || {};
+  if (baseSpec.extendsAgent) {
+    const resolvedBase = await mergeIdentitySpec(
+      { name: baseSpec.name, slug: baseSpec.slug, config: baseSpec.config, description: baseSpec.description, extendsAgent: baseSpec.extendsAgent },
+      depth + 1,
+    );
+    resolvedBaseConfig = (resolvedBase.config as Record<string, any>) || {};
+  }
+
   const overlayConfig = (overlay.config as Record<string, any>) || {};
 
   // Get parameters arrays from both specs
-  const baseParams: any[] = baseConfig.parameters || [];
+  const baseParams: any[] = resolvedBaseConfig.parameters || [];
   const overlayParams: any[] = overlayConfig.parameters || [];
 
   // Parameter-level merge: overlay replaces base by param id
@@ -179,9 +191,9 @@ export async function mergeIdentitySpec(
   }
 
   // Also copy any top-level keys from both configs (non-parameters, non-constraints)
-  for (const key of Object.keys(baseConfig)) {
+  for (const key of Object.keys(resolvedBaseConfig)) {
     if (key !== "parameters" && key !== "constraints") {
-      mergedConfig[key] = baseConfig[key];
+      mergedConfig[key] = resolvedBaseConfig[key];
     }
   }
   for (const key of Object.keys(overlayConfig)) {
@@ -194,14 +206,14 @@ export async function mergeIdentitySpec(
   mergedConfig.parameters = Array.from(mergedParamsMap.values());
 
   // Constraints stack (base + overlay, never remove base constraints)
-  const baseConstraints = baseConfig.constraints || [];
+  const baseConstraints = resolvedBaseConfig.constraints || [];
   const overlayConstraints = overlayConfig.constraints || [];
   if (baseConstraints.length > 0 || overlayConstraints.length > 0) {
     mergedConfig.constraints = [...baseConstraints, ...overlayConstraints];
   }
 
   console.log(
-    `[mergeIdentitySpec] Merged "${overlay.extendsAgent}" (${baseParams.length} params) + overlay (${overlayParams.length} params) → ${mergedParamsMap.size} merged params`
+    `[mergeIdentitySpec] Merged "${overlay.extendsAgent}" (${baseParams.length} params) + overlay (${overlayParams.length} params) → ${mergedParamsMap.size} merged params (depth ${depth})`
   );
 
   return {
