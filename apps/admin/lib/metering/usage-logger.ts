@@ -162,6 +162,11 @@ export async function logAIUsage(params: {
   sourceOp?: string;
   metadata?: Record<string, unknown>;
 }): Promise<void> {
+  // Resolve model tier for per-model cost rates.
+  // E.g. "claude-haiku" for haiku models, "claude-sonnet" for sonnet, "claude-opus" for opus.
+  // Falls back to engine name (e.g. "claude") when tier is unknown.
+  const operationPrefix = resolveModelTier(params.engine, params.model);
+
   const baseInput = {
     category: "AI" as UsageCategory,
     userId: params.userId,
@@ -178,9 +183,8 @@ export async function logAIUsage(params: {
   if (params.inputTokens > 0) {
     await logUsageEvent({
       ...baseInput,
-      operation: `${params.engine}:input`,
+      operation: `${operationPrefix}:input`,
       quantity: params.inputTokens,
-      // Don't override unitType - let cost rate's "1k_tokens" be used
       metadata: { ...params.metadata, tokenType: "input" },
     });
   }
@@ -189,12 +193,29 @@ export async function logAIUsage(params: {
   if (params.outputTokens > 0) {
     await logUsageEvent({
       ...baseInput,
-      operation: `${params.engine}:output`,
+      operation: `${operationPrefix}:output`,
       quantity: params.outputTokens,
-      // Don't override unitType - let cost rate's "1k_tokens" be used
       metadata: { ...params.metadata, tokenType: "output" },
     });
   }
+}
+
+/**
+ * Resolve a model ID to a cost tier prefix.
+ * Maps model strings like "claude-haiku-4-5-20251001" → "claude-haiku",
+ * "claude-sonnet-4-20250514" → "claude-sonnet", etc.
+ * Falls back to the engine name when the tier can't be determined.
+ */
+function resolveModelTier(engine: string, model: string): string {
+  if (engine !== "claude") return engine;
+
+  const m = model.toLowerCase();
+  if (m.includes("haiku")) return "claude-haiku";
+  if (m.includes("sonnet")) return "claude-sonnet";
+  if (m.includes("opus")) return "claude-opus";
+
+  // Unknown Claude model — fall back to generic "claude" rate
+  return "claude";
 }
 
 /**

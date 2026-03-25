@@ -67,6 +67,10 @@ export interface AICompletionResult {
   usage?: {
     inputTokens: number;
     outputTokens: number;
+    /** Tokens read from Anthropic prompt cache (charged at 0.1x) */
+    cacheReadTokens?: number;
+    /** Tokens written to Anthropic prompt cache (charged at 1.25x, one-time) */
+    cacheCreationTokens?: number;
   };
   /** Why the model stopped generating */
   stopReason?: "end_turn" | "tool_use" | "max_tokens" | "stop_sequence";
@@ -133,6 +137,40 @@ export async function getAICompletion(options: AICompletionOptions): Promise<AIC
   }
 }
 
+/**
+ * Build a cacheable system prompt for the Anthropic API.
+ * Wraps system text in a content block with cache_control: ephemeral,
+ * enabling Anthropic's prompt caching (90% input cost savings on cache hits).
+ * Cache lives for 5 minutes — ideal for pipeline bursts after each call.
+ *
+ * Returns undefined if no system message provided.
+ */
+function buildCacheableSystem(
+  systemMessage: AIMessage | undefined
+): undefined | string | Array<{ type: "text"; text: string; cache_control?: { type: "ephemeral" } }> {
+  if (!systemMessage) return undefined;
+
+  const text = typeof systemMessage.content === "string"
+    ? systemMessage.content
+    : getTextContent(systemMessage);
+
+  if (!text) return undefined;
+
+  // Anthropic requires at least 1024 tokens (~4096 chars) for caching to activate.
+  // Below that threshold, just send as plain string (no overhead).
+  if (text.length < 4096) {
+    return text;
+  }
+
+  return [
+    {
+      type: "text" as const,
+      text,
+      cache_control: { type: "ephemeral" as const },
+    },
+  ];
+}
+
 async function callClaude(
   messages: AIMessage[],
   maxTokens: number,
@@ -156,11 +194,16 @@ async function callClaude(
   // Use provided model or default from config
   const modelId = model || config.ai.claude.model;
 
+  // Build system param with prompt caching.
+  // Wraps the system prompt in a content block with cache_control so
+  // Anthropic caches it across calls (90% input cost savings on cache hits).
+  const systemParam = buildCacheableSystem(systemMessage);
+
   const createParams: any = {
     model: modelId,
     max_tokens: maxTokens,
     temperature,
-    system: typeof systemMessage?.content === "string" ? systemMessage.content : undefined,
+    system: systemParam,
     messages: chatMessages,
   };
   if (tools && tools.length > 0) {
@@ -220,6 +263,8 @@ async function callClaude(
       usage: {
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,
+        cacheReadTokens: (response.usage as any).cache_read_input_tokens || 0,
+        cacheCreationTokens: (response.usage as any).cache_creation_input_tokens || 0,
       },
       stopReason: response.stop_reason as AICompletionResult["stopReason"],
       toolUses: toolUses.length > 0 ? toolUses : undefined,
@@ -446,11 +491,14 @@ async function streamClaude(
   // Use provided model or default from config
   const modelId = model || config.ai.claude.model;
 
+  // Build system param with prompt caching (same as non-streaming)
+  const systemParam = buildCacheableSystem(systemMessage);
+
   const stream = client.messages.stream({
     model: modelId,
     max_tokens: maxTokens,
     temperature,
-    system: systemMessage ? getTextContent(systemMessage) : undefined,
+    system: systemParam,
     messages: chatMessages,
   });
 

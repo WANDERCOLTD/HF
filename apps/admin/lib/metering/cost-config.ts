@@ -11,7 +11,7 @@ import { UsageCategory } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 // Default cost rates (cents per unit)
-// Based on provider pricing as of 2025
+// Based on Anthropic/OpenAI pricing as of March 2026
 export const DEFAULT_COST_RATES: Record<
   string,
   { costPerUnit: number; unitType: string; description: string }
@@ -19,17 +19,55 @@ export const DEFAULT_COST_RATES: Record<
   // =========================
   // AI COSTS (per 1000 tokens)
   // =========================
-  // Claude Sonnet: ~$3/M input, ~$15/M output
+
+  // ── Claude per-model rates (matched first) ──
+  // Haiku 4.5: $1/M input, $5/M output
+  "AI:claude-haiku:input": {
+    costPerUnit: 0.1,
+    unitType: "1k_tokens",
+    description: "Claude Haiku input tokens (~$1/M)",
+  },
+  "AI:claude-haiku:output": {
+    costPerUnit: 0.5,
+    unitType: "1k_tokens",
+    description: "Claude Haiku output tokens (~$5/M)",
+  },
+  // Sonnet 4.6: $3/M input, $15/M output
+  "AI:claude-sonnet:input": {
+    costPerUnit: 0.3,
+    unitType: "1k_tokens",
+    description: "Claude Sonnet input tokens (~$3/M)",
+  },
+  "AI:claude-sonnet:output": {
+    costPerUnit: 1.5,
+    unitType: "1k_tokens",
+    description: "Claude Sonnet output tokens (~$15/M)",
+  },
+  // Opus 4.6: $5/M input, $25/M output
+  "AI:claude-opus:input": {
+    costPerUnit: 0.5,
+    unitType: "1k_tokens",
+    description: "Claude Opus input tokens (~$5/M)",
+  },
+  "AI:claude-opus:output": {
+    costPerUnit: 2.5,
+    unitType: "1k_tokens",
+    description: "Claude Opus output tokens (~$25/M)",
+  },
+
+  // ── Claude fallback (used when model tier is unknown) ──
+  // Defaults to Sonnet pricing as the most common tier
   "AI:claude:input": {
     costPerUnit: 0.3,
     unitType: "1k_tokens",
-    description: "Claude input tokens (~$3/M)",
+    description: "Claude input tokens — fallback (~$3/M, Sonnet pricing)",
   },
   "AI:claude:output": {
     costPerUnit: 1.5,
     unitType: "1k_tokens",
-    description: "Claude output tokens (~$15/M)",
+    description: "Claude output tokens — fallback (~$15/M, Sonnet pricing)",
   },
+
   // OpenAI GPT-4o: ~$2.5/M input, ~$10/M output
   "AI:openai:input": {
     costPerUnit: 0.25,

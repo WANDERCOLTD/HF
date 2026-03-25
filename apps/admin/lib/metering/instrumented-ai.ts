@@ -58,6 +58,12 @@ export async function getMeteredAICompletion(
       callerId: context?.callerId,
       callId: context?.callId,
       sourceOp: context?.sourceOp,
+      metadata: result.usage.cacheReadTokens || result.usage.cacheCreationTokens
+        ? {
+            cacheReadTokens: result.usage.cacheReadTokens,
+            cacheCreationTokens: result.usage.cacheCreationTokens,
+          }
+        : undefined,
     }).catch((error) => {
       console.error("[metering] Failed to log AI usage:", error);
     });
@@ -301,6 +307,12 @@ export async function getConfiguredMeteredAICompletion(
           callerId: context?.callerId,
           callId: context?.callId,
           sourceOp: context?.sourceOp || options.callPoint,
+          metadata: result.usage.cacheReadTokens || result.usage.cacheCreationTokens
+            ? {
+                cacheReadTokens: result.usage.cacheReadTokens,
+                cacheCreationTokens: result.usage.cacheCreationTokens,
+              }
+            : undefined,
         }).catch((error) => {
           console.error("[metering] Failed to log AI usage:", error);
         });
