@@ -47,8 +47,9 @@ export function OptionsCard({ panel, onSelect, onSkip, onSomethingElse }: Option
   const [page, setPage] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const totalPages = Math.ceil(panel.options.length / PAGE_SIZE);
-  const pageOptions = panel.options.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const options = panel.options || [];
+  const totalPages = Math.ceil(options.length / PAGE_SIZE);
+  const pageOptions = options.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const pageCount = pageOptions.length;
 
   // Auto-focus the card on mount
@@ -69,10 +70,10 @@ export function OptionsCard({ panel, onSelect, onSkip, onSomethingElse }: Option
     if (selected.size === 0) return;
     const values = Array.from(selected);
     const labels = values
-      .map((v) => panel.options.find((o) => o.value === v)?.label ?? v)
+      .map((v) => options.find((o) => o.value === v)?.label ?? v)
       .join(", ");
     onSelect(values, labels);
-  }, [selected, panel.options, onSelect]);
+  }, [selected, options, onSelect]);
 
   const toggleSelected = useCallback((value: string) => {
     setSelected((prev) => {
