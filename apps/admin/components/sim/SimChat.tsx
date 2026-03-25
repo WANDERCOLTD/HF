@@ -120,11 +120,12 @@ export function SimChat({
   const [error, setError] = useState<string | null>(null);
   const [artifacts, setArtifacts] = useState<any[]>([]);
   const [actions, setActions] = useState<any[]>([]);
-  const [callEnded, setCallEnded] = useState(false);
+  const [callPhase, setCallPhase] = useState<'loading' | 'lobby' | 'active' | 'ended'>('loading');
+  const [callEndedAt, setCallEndedAt] = useState<Date | null>(null);
   const [newPromptId, setNewPromptId] = useState<string | null>(null);
   const [showContentPicker, setShowContentPicker] = useState(false);
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [isGreeting, setIsGreeting] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -226,12 +227,18 @@ export function SimChat({
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  // Initialize: resume active call if one exists, otherwise compose prompt + create call + AI greets
+  // On mount: check for an active call to resume, otherwise show lobby
   useEffect(() => {
     let cancelled = false;
 
-    async function init() {
+    async function checkForActiveCall() {
       try {
+        // If forceFirstCall, skip active-call check and auto-start
+        if (forceFirstCall) {
+          if (!cancelled) startNewCall();
+          return;
+        }
+
         // Check for an existing active sim call (non-ended, within last 2 hours)
         let activeCall: { id: string } | null = null;
         try {
@@ -273,84 +280,94 @@ export function SimChat({
               } : null,
             }));
             setMessages(restored);
-            setIsInitializing(false);
+            setCallPhase('active');
             console.log(`[sim] Restored ${restored.length} messages from active call`);
           } else if (!cancelled) {
-            // Active call exists but has no messages (e.g. greeting was aborted) — re-send greeting
+            // Active call exists but has no messages — re-send greeting
             console.log('[sim] Active call has no messages, sending greeting');
-            setIsInitializing(false);
+            setCallPhase('active');
+            setIsGreeting(true);
             await streamAIResponse(
               sessionGoal
                 ? `The user just opened the chat. The admin has set a session goal: "${sessionGoal}". Greet them warmly as if answering a phone call, and gently orient toward this goal. Be brief and natural.`
                 : 'The user just opened the chat. Greet them warmly as if answering a phone call. Be brief and natural.',
               []
             );
+            setIsGreeting(false);
           }
-          return; // Don't create a new call
-        }
-
-        // No active call — compose a fresh prompt and start new conversation
-        // Bail early if cancelled (prevents ghost calls from React strict mode double-mount)
-        if (cancelled) return;
-
-        let usedPromptId: string | null = null;
-        let firstLine: string | null = null;
-        const composeRes = await fetch(`/api/callers/${callerId}/compose-prompt`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ triggerType: 'sim', ...(playbookId ? { playbookIds: [playbookId] } : {}), ...(targetOverrides ? { targetOverrides } : {}), ...(forceFirstCall ? { forceFirstCall: true } : {}) }),
-        });
-        if (composeRes.ok) {
-          const composeData = await composeRes.json();
-          const rawPromptId = composeData.prompt?.id;
-          usedPromptId = (rawPromptId && !rawPromptId.startsWith('preview-')) ? rawPromptId : null;
-          firstLine = (composeData.prompt?.llmPrompt as any)?._quickStart?.first_line || null;
-        } else {
-          console.warn('[sim] compose-prompt failed, continuing with existing prompt');
-        }
-
-        // Create a new call record, linked to the composed prompt
-        if (cancelled) return;
-        const callRes = await fetch(`/api/callers/${callerId}/calls`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source: 'sim', usedPromptId, ...(playbookId ? { playbookId } : {}) }),
-        });
-        const callData = await callRes.json();
-        if (!cancelled && callData.ok) {
-          console.log('[sim] Call created:', callData.call.id);
-          callIdRef.current = callData.call.id;
-          setCallId(callData.call.id);
-        } else if (!cancelled) {
-          console.error('[sim] Failed to create call:', callData.error || callRes.status);
-          setError('Failed to create call record');
           return;
         }
 
-        // AI sends greeting — mirror VAPI's firstMessage behaviour
-        if (!cancelled) {
-          setIsInitializing(false);
-          await streamAIResponse(
-            sessionGoal
-              ? `The user just opened the chat. The admin has set a session goal: "${sessionGoal}". Greet them warmly as if answering a phone call, and gently orient toward this goal. Be brief and natural.${firstLine ? ` Open with: "${firstLine}"` : ''}`
-              : firstLine
-                ? `The user just opened the chat. Open with exactly: "${firstLine}"`
-                : 'The user just opened the chat. Greet them warmly as if answering a phone call. Be brief and natural.',
-            []
-          );
-        }
+        // No active call — show lobby
+        if (!cancelled) setCallPhase('lobby');
       } catch {
-        if (!cancelled) {
-          setIsInitializing(false);
-          setError('Failed to start conversation');
-        }
+        if (!cancelled) setCallPhase('lobby'); // Fail open
       }
     }
 
-    init();
+    checkForActiveCall();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callerId]);
+
+  // Start a new call — triggered by lobby phone button
+  async function startNewCall() {
+    setCallPhase('active');
+    setIsGreeting(true);
+    setError(null);
+
+    try {
+      let usedPromptId: string | null = null;
+      let firstLine: string | null = null;
+      const composeRes = await fetch(`/api/callers/${callerId}/compose-prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ triggerType: 'sim', ...(playbookId ? { playbookIds: [playbookId] } : {}), ...(targetOverrides ? { targetOverrides } : {}), ...(forceFirstCall ? { forceFirstCall: true } : {}) }),
+      });
+      if (composeRes.ok) {
+        const composeData = await composeRes.json();
+        const rawPromptId = composeData.prompt?.id;
+        usedPromptId = (rawPromptId && !rawPromptId.startsWith('preview-')) ? rawPromptId : null;
+        firstLine = (composeData.prompt?.llmPrompt as any)?._quickStart?.first_line || null;
+      } else {
+        console.warn('[sim] compose-prompt failed, continuing with existing prompt');
+      }
+
+      // Create a new call record, linked to the composed prompt
+      const callRes = await fetch(`/api/callers/${callerId}/calls`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'sim', usedPromptId, ...(playbookId ? { playbookId } : {}) }),
+      });
+      const callData = await callRes.json();
+      if (callData.ok) {
+        console.log('[sim] Call created:', callData.call.id);
+        callIdRef.current = callData.call.id;
+        setCallId(callData.call.id);
+      } else {
+        console.error('[sim] Failed to create call:', callData.error || callRes.status);
+        setError('Failed to create call record');
+        setCallPhase('lobby');
+        setIsGreeting(false);
+        return;
+      }
+
+      // AI sends greeting — mirror VAPI's firstMessage behaviour
+      await streamAIResponse(
+        sessionGoal
+          ? `The user just opened the chat. The admin has set a session goal: "${sessionGoal}". Greet them warmly as if answering a phone call, and gently orient toward this goal. Be brief and natural.${firstLine ? ` Open with: "${firstLine}"` : ''}`
+          : firstLine
+            ? `The user just opened the chat. Open with exactly: "${firstLine}"`
+            : 'The user just opened the chat. Greet them warmly as if answering a phone call. Be brief and natural.',
+        []
+      );
+      setIsGreeting(false);
+    } catch {
+      setError('Failed to start conversation');
+      setCallPhase('lobby');
+      setIsGreeting(false);
+    }
+  }
 
   // Stream AI response
   async function streamAIResponse(
@@ -642,7 +659,8 @@ export function SimChat({
       // Transition to post-call state
       setShowEndSheet(false);
       setIsEnding(false);
-      setCallEnded(true);
+      setCallPhase('ended');
+      setCallEndedAt(new Date());
 
       // Notify parent (refresh data, etc.)
       onCallEnd?.();
@@ -677,11 +695,11 @@ export function SimChat({
           setShowMediaLibrary(prev => !prev);
           setShowContentPicker(false);
         }}
-        onVoiceToggle={!callEnded ? voiceMode.toggle : undefined}
+        onVoiceToggle={callPhase === 'active' ? voiceMode.toggle : undefined}
         onAvatarClick={() => router.push(`/x/callers/${callerId}`)}
         mediaLibraryActive={showMediaLibrary}
         voiceActive={voiceMode.state !== 'off'}
-        callActive={messages.length > 0 && !callEnded}
+        callActive={callPhase === 'active' && messages.length > 0}
         avatarColor={hashColor(callerId)}
       />
 
@@ -700,87 +718,104 @@ export function SimChat({
         {/* History — past calls, one group per session */}
         {historyGroups.map((group, gi) => (
           <div key={`hg-${gi}`}>
-            <div style={{
-              alignSelf: 'center',
-              background: 'rgba(255,255,255,0.9)',
-              padding: '4px 12px',
-              borderRadius: 8,
-              fontSize: 12,
-              color: 'var(--text-muted)',
-              margin: '8px 0',
-              boxShadow: '0 1px 0.5px rgba(0,0,0,0.1)',
-              textAlign: 'center',
-              width: 'fit-content',
-              marginLeft: 'auto',
-              marginRight: 'auto',
-            }}>
+            <div className="wa-date-chip">
               {group.sessionLabel || group.dateLabel}
             </div>
-            {group.messages.map((msg) => (
-              <MessageBubble
-                key={msg.id}
-                role={msg.role}
-                content={msg.content}
-                timestamp={msg.timestamp}
-              />
-            ))}
+            {group.messages.map((msg, mi) => {
+              const prev = group.messages[mi - 1];
+              const next = group.messages[mi + 1];
+              const sameAsPrev = prev && prev.role === msg.role;
+              const sameAsNext = next && next.role === msg.role;
+              return (
+                <MessageBubble
+                  key={msg.id}
+                  role={msg.role}
+                  content={msg.content}
+                  timestamp={msg.timestamp}
+                  isRunContinuation={sameAsPrev}
+                  isLastInRun={!sameAsNext}
+                />
+              );
+            })}
           </div>
         ))}
 
-        {/* Separator between history and live session */}
-        {hasHistory && (
+        {/* Lobby: green phone CTA to start a practice session */}
+        {callPhase === 'lobby' && (
           <div style={{
-            alignSelf: 'center',
-            background: 'rgba(255,255,255,0.9)',
-            padding: '4px 12px',
-            borderRadius: 8,
-            fontSize: 12,
-            color: 'var(--text-muted)',
-            margin: '12px 0 8px',
-            boxShadow: '0 1px 0.5px rgba(0,0,0,0.1)',
-            textAlign: 'center',
-            width: 'fit-content',
-            marginLeft: 'auto',
-            marginRight: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 16,
+            margin: '32px auto 8px',
+            padding: '24px',
           }}>
-            New conversation
+            <p style={{
+              fontSize: 14,
+              color: 'var(--wa-text-secondary)',
+              textAlign: 'center',
+              margin: 0,
+            }}>
+              Start your practice session
+            </p>
+            <button
+              className="wa-lobby-start-btn"
+              onClick={startNewCall}
+              aria-label="Start practice call"
+            >
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </button>
           </div>
         )}
 
-        {/* Live session date chip */}
-        {!hasHistory && (
-          <div style={{
-            alignSelf: 'center',
-            background: 'rgba(255,255,255,0.9)',
-            padding: '4px 12px',
-            borderRadius: 8,
-            fontSize: 12,
-            color: 'var(--text-muted)',
-            margin: '8px 0',
-            boxShadow: '0 1px 0.5px rgba(0,0,0,0.1)',
-            textAlign: 'center',
-            width: 'fit-content',
-            marginLeft: 'auto',
-            marginRight: 'auto',
-          }}>
-            Today
+        {/* Loading spinner while checking for active call */}
+        {callPhase === 'loading' && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+            <div className="hf-spinner" style={{ width: 28, height: 28 }} />
           </div>
         )}
 
-        {/* Live session messages */}
-        {messages.map((msg) => (
-          <MessageBubble
-            key={msg.id}
-            role={msg.role}
-            content={msg.content}
-            timestamp={msg.timestamp}
-            senderName={msg.senderName}
-            media={msg.media}
-          />
-        ))}
+        {/* Active/ended: session separator + live messages */}
+        {(callPhase === 'active' || callPhase === 'ended') && (
+          <>
+            {/* Separator between history and live session */}
+            {hasHistory && (
+              <div className="wa-date-chip" style={{ margin: '12px auto 8px' }}>
+                New conversation
+              </div>
+            )}
 
-        {(isInitializing || (isStreaming && messages[messages.length - 1]?.content === '')) && (
-          <TypingIndicator />
+            {/* Live session date chip */}
+            {!hasHistory && (
+              <div className="wa-date-chip">Today</div>
+            )}
+
+            {/* Live session messages */}
+            {messages.map((msg, mi) => {
+              const prev = messages[mi - 1];
+              const next = messages[mi + 1];
+              const sameAsPrev = prev && prev.role === msg.role && msg.role !== 'teacher';
+              const sameAsNext = next && next.role === msg.role && msg.role !== 'teacher';
+              return (
+                <MessageBubble
+                  key={msg.id}
+                  role={msg.role}
+                  content={msg.content}
+                  timestamp={msg.timestamp}
+                  senderName={msg.senderName}
+                  media={msg.media}
+                  isRunContinuation={sameAsPrev}
+                  isLastInRun={!sameAsNext}
+                />
+              );
+            })}
+
+            {(isGreeting || (isStreaming && messages[messages.length - 1]?.content === '')) && (
+              <TypingIndicator />
+            )}
+          </>
         )}
 
         {/* Post-call: new prompt notification */}
@@ -806,19 +841,34 @@ export function SimChat({
           </div>
         )}
 
+        {/* Call ended marker — WhatsApp-style voice call card */}
+        {callPhase === 'ended' && (
+          <div className="wa-call-marker">
+            <div className="wa-call-marker-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--wa-green-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontWeight: 500, color: 'var(--wa-text-primary)' }}>Call ended</div>
+              <div style={{ fontSize: 12 }}>
+                {(() => {
+                  if (!callEndedAt || messages.length === 0) return '';
+                  const firstMsg = messages[0]?.timestamp;
+                  if (!firstMsg) return '';
+                  const mins = Math.round((callEndedAt.getTime() - firstMsg.getTime()) / 60000);
+                  if (mins < 1) return 'Less than a minute';
+                  return `${mins} min${mins !== 1 ? 's' : ''}`;
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Post-call content — artifacts & actions from pipeline */}
         {(artifacts.length > 0 || actions.length > 0) && (
           <>
-            <div style={{
-              alignSelf: 'center',
-              background: 'rgba(255,255,255,0.9)',
-              padding: '4px 12px',
-              borderRadius: 8,
-              fontSize: 12,
-              color: 'var(--text-muted)',
-              margin: '12px 0 4px',
-              boxShadow: '0 1px 0.5px rgba(0,0,0,0.1)',
-            }}>
+            <div className="wa-date-chip" style={{ margin: '12px auto 4px' }}>
               Shared after call
             </div>
             {artifacts.map((a) => (
@@ -865,7 +915,7 @@ export function SimChat({
       )}
 
       {/* Input — text mode or voice mode */}
-      {!callEnded && (
+      {callPhase === 'active' && (
         voiceMode.state !== 'off' ? (
           <VoicePanel
             voiceMode={voiceMode}
@@ -905,8 +955,8 @@ export function SimChat({
         )
       )}
 
-      {/* Post-call: start new call (embedded mode only) */}
-      {callEnded && onNewCall && (
+      {/* Post-call: start new call — works in both standalone and embedded mode */}
+      {callPhase === 'ended' && (
         <div style={{
           padding: '16px 20px',
           borderTop: '1px solid var(--border-default)',
@@ -916,12 +966,26 @@ export function SimChat({
           background: 'var(--surface-primary)',
         }}>
           <button
-            onClick={onNewCall}
+            onClick={() => {
+              // Reset state for a fresh call
+              setMessages([]);
+              setArtifacts([]);
+              setActions([]);
+              setNewPromptId(null);
+              setCallEndedAt(null);
+              setCallId(null);
+              callIdRef.current = null;
+              if (onNewCall) {
+                onNewCall(); // Embedded mode: parent handles remount
+              } else {
+                startNewCall(); // Standalone mode: start directly
+              }
+            }}
             style={{
               padding: '10px 24px',
               borderRadius: 8,
               border: 'none',
-              background: 'var(--status-success-text)',
+              background: 'var(--wa-green-primary)',
               color: 'white',
               fontSize: 14,
               fontWeight: 600,

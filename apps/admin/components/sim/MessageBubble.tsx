@@ -16,6 +16,10 @@ interface MessageBubbleProps {
   timestamp?: Date;
   senderName?: string;
   media?: MediaInfo | null;
+  /** True when this is NOT the first message in a consecutive same-speaker run */
+  isRunContinuation?: boolean;
+  /** True when this is the last message in a consecutive same-speaker run (shows timestamp) */
+  isLastInRun?: boolean;
 }
 
 function MediaRenderer({ media }: { media: MediaInfo }) {
@@ -113,9 +117,10 @@ function MediaRenderer({ media }: { media: MediaInfo }) {
   );
 }
 
-export function MessageBubble({ role, content, timestamp, senderName, media }: MessageBubbleProps) {
+export function MessageBubble({ role, content, timestamp, senderName, media, isRunContinuation, isLastInRun = true }: MessageBubbleProps) {
   const isUser = role === 'user';
   const isTeacher = role === 'teacher';
+  const showTime = isLastInRun && timestamp;
   const timeStr = timestamp
     ? timestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
     : '';
@@ -133,11 +138,14 @@ export function MessageBubble({ role, content, timestamp, senderName, media }: M
     );
   }
 
+  const dirClass = isUser ? 'wa-bubble-out' : 'wa-bubble-in';
+  const runClass = isRunContinuation ? 'wa-run-cont' : '';
+
   return (
-    <div className={`wa-bubble ${isUser ? 'wa-bubble-out' : 'wa-bubble-in'}`}>
+    <div className={`wa-bubble ${dirClass} ${runClass}`}>
       {media && <MediaRenderer media={media} />}
       <span>{content}</span>
-      {timeStr && <span className="wa-bubble-time">{timeStr}</span>}
+      {showTime && <span className="wa-bubble-time">{timeStr}</span>}
     </div>
   );
 }

@@ -66,6 +66,77 @@
   --wa-pattern-opacity: 0.3;
 }
 
+/* Date / session chip — centered pill separator */
+.wa-date-chip {
+  align-self: center;
+  background: var(--wa-chip-bg, rgba(255,255,255,0.9));
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--wa-text-secondary);
+  margin: 8px auto;
+  box-shadow: 0 1px 0.5px var(--wa-shadow);
+  text-align: center;
+  width: fit-content;
+}
+
+.dark .wa-date-chip {
+  --wa-chip-bg: color-mix(in srgb, var(--wa-surface-secondary) 90%, transparent);
+}
+
+/* Call ended marker — inline card like WhatsApp voice call entries */
+.wa-call-marker {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--wa-bubble-in);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--wa-text-secondary);
+  margin: 8px auto;
+  box-shadow: 0 1px 0.5px var(--wa-shadow);
+  width: fit-content;
+}
+
+.wa-call-marker-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--wa-green-primary) 15%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Lobby: green phone circle — primary CTA to start a practice session */
+.wa-lobby-start-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--wa-green-primary);
+  border: none;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--wa-green-primary) 40%, transparent);
+  transition: background 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wa-lobby-start-btn:hover {
+  background: var(--wa-green-dark);
+}
+
+.wa-lobby-start-btn:active {
+  transform: scale(0.93);
+  background: var(--wa-green-darker);
+}
+
 /* Chat background with subtle pattern */
 .wa-chat-bg {
   background-color: var(--wa-bg);
@@ -101,12 +172,23 @@
   margin-left: 48px;
 }
 
+/* Consecutive same-speaker: tighter gap, round the adjacent corners */
+.wa-bubble-out.wa-run-cont {
+  border-top-right-radius: 8px;
+  margin-top: -2px;
+}
+
 .wa-bubble-in {
   background: var(--wa-bubble-in);
   align-self: flex-start;
   border-top-left-radius: 2px;
   margin-right: 48px;
   box-shadow: 0 1px 0.5px var(--wa-shadow);
+}
+
+.wa-bubble-in.wa-run-cont {
+  border-top-left-radius: 8px;
+  margin-top: -2px;
 }
 
 .wa-bubble-teacher {
