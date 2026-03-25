@@ -1005,6 +1005,11 @@ export async function executeWizardTool(
                 console.error("[wizard] teachMethod backfill failed (non-fatal):", err.message));
             }
 
+            // Sync instruction assertions into course identity spec overlay
+            const { syncInstructionsToIdentitySpec } = await import("@/lib/content-trust/sync-instructions-to-spec");
+            syncInstructionsToIdentitySpec(existingPlaybookId).catch(err =>
+              console.error("[wizard] instruction spec sync failed (non-fatal):", err.message));
+
             // Generate real lesson plan from content sources (if available)
             const existingLessonPlanPreview = await generateLessonPlanPreview(
               prisma, packSubjectIds, existingPbSubject?.subjectId,
@@ -1129,6 +1134,57 @@ export async function executeWizardTool(
           create: { playbookId, subjectId: subject.id },
         });
 
+        // 6b. Create per-course identity spec overlay
+        //     Extends the domain identity spec so course-specific teaching rules
+        //     are scoped to this course and don't bleed into other courses.
+        const domainForSpec = await prisma.domain.findUnique({
+          where: { id: domainId },
+          select: { onboardingIdentitySpecId: true },
+        });
+        if (domainForSpec?.onboardingIdentitySpecId) {
+          const domainSpec = await prisma.analysisSpec.findUnique({
+            where: { id: domainForSpec.onboardingIdentitySpecId },
+            select: { slug: true },
+          });
+          if (domainSpec) {
+            const courseIdentitySlug = `${slugify(courseName, { lower: true, strict: true })}-identity`;
+            const courseIdentity = await prisma.analysisSpec.upsert({
+              where: { slug: courseIdentitySlug },
+              update: {},
+              create: {
+                slug: courseIdentitySlug,
+                name: `${courseName} Identity`,
+                description: `Course overlay for ${courseName} — extends domain identity with course-specific teaching rules.`,
+                outputType: "COMPOSE",
+                specRole: "IDENTITY",
+                specType: "DOMAIN",
+                scope: "DOMAIN",
+                domain: "identity",
+                isActive: true,
+                isDirty: false,
+                isDeletable: true,
+                extendsAgent: domainSpec.slug,
+                config: { parameters: [] },
+              },
+            });
+            // Link at sortOrder -1 so resolveSpecs picks it before domain overlay (sortOrder 0)
+            const existingLink = await prisma.playbookItem.findFirst({
+              where: { playbookId, specId: courseIdentity.id },
+            });
+            if (!existingLink) {
+              await prisma.playbookItem.create({
+                data: {
+                  playbookId,
+                  itemType: "SPEC",
+                  specId: courseIdentity.id,
+                  sortOrder: -1,
+                  isEnabled: true,
+                },
+              });
+            }
+          }
+        }
+
         // 7. Link content-upload subjects from PackUploadStep (if any)
         //    Fallback: if AI didn't pass packSubjectIds, auto-discover content
         //    subjects already on this domain and link them to the new playbook.
@@ -1147,7 +1203,6 @@ export async function executeWizardTool(
             .map(ss => ss.subjectId)
             .filter(id => id !== subject.id);
         }
-        console.log(`[wizard-tools] auto-link: packSubjectIds=${JSON.stringify(packSubjectIds?.length ?? 'undefined')}, resolved=${subjectIdsToLink.length} subjects to link for playbook ${playbookId}`);
         for (const packSubId of subjectIdsToLink) {
           await prisma.playbookSubject.upsert({
             where: { playbookId_subjectId: { playbookId, subjectId: packSubId } },
@@ -1308,6 +1363,11 @@ export async function executeWizardTool(
           backfillTeachMethods(playbookId).catch(err =>
             console.error("[wizard] teachMethod backfill failed (non-fatal):", err.message));
         }
+
+        // 10b. Sync instruction assertions into course identity spec overlay
+        const { syncInstructionsToIdentitySpec } = await import("@/lib/content-trust/sync-instructions-to-spec");
+        syncInstructionsToIdentitySpec(playbookId).catch(err =>
+          console.error("[wizard] instruction spec sync failed (non-fatal):", err.message));
 
         // 11. Auto-generate curriculum (non-blocking, fire-and-forget)
         const { generateInstantCurriculum } = await import("@/lib/domain/instant-curriculum");

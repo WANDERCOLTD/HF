@@ -32,6 +32,18 @@ registerTransform("renderCourseInstructions", (
 ) => {
   const instructions = context.loadedData.courseInstructions || [];
 
+  // If instructions are already synced into the course identity spec overlay,
+  // skip standalone rendering to avoid duplication in the prompt
+  const identityConfig = context.resolvedSpecs.identitySpec?.config as Record<string, unknown> | null;
+  if (identityConfig?._syncedFromAssertions) {
+    return {
+      hasCourseInstructions: false,
+      totalInstructions: 0,
+      courseRules: null,
+      categories: {},
+    };
+  }
+
   if (instructions.length === 0) {
     return {
       hasCourseInstructions: false,
