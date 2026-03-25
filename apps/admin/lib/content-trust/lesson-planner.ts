@@ -11,6 +11,7 @@
 import { prisma } from "@/lib/prisma";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { logAssistantCall } from "@/lib/ai/assistant-wrapper";
+import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 
 // ------------------------------------------------------------------
 // Types
@@ -101,7 +102,7 @@ export async function generateLessonPlan(
   // Load content
   const [assertions, questions, vocabulary] = await Promise.all([
     prisma.contentAssertion.findMany({
-      where: { sourceId },
+      where: { sourceId, category: { notIn: [...INSTRUCTION_CATEGORIES] } },
       select: {
         id: true,
         assertion: true,

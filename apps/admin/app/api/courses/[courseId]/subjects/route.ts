@@ -1,6 +1,7 @@
 import { requireAuth, isAuthError } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
+import { INSTRUCTION_CATEGORIES } from '@/lib/content-trust/resolve-config';
 
 /**
  * @api GET /api/courses/:courseId/subjects
@@ -61,31 +62,58 @@ export async function GET(
 
     const subjectRecords = playbookSubjects.map((ps) => ps.subject);
 
+    // Count instruction-category assertions per source (single query for all)
+    const allSourceIds = subjectRecords.flatMap((s) =>
+      s.sources.map((ss) => ss.sourceId)
+    );
+    const instructionBySource = allSourceIds.length > 0
+      ? await prisma.contentAssertion.groupBy({
+          by: ["sourceId"],
+          where: {
+            sourceId: { in: allSourceIds },
+            category: { in: [...INSTRUCTION_CATEGORIES] },
+          },
+          _count: { id: true },
+        })
+      : [];
+    const instrMap = new Map(
+      instructionBySource.map((g) => [g.sourceId, g._count.id])
+    );
+
     const subjects = subjectRecords
       .filter((s) => s.isActive)
-      .map((s) => ({
-        id: s.id,
-        slug: s.slug,
-        name: s.name,
-        description: s.description,
-        defaultTrustLevel: s.defaultTrustLevel,
-        sourceCount: s._count.sources,
-        curriculumCount: s._count.curricula,
-        assertionCount: s.sources.reduce(
+      .map((s) => {
+        const assertionCount = s.sources.reduce(
           (sum, ss) => sum + (ss.source._count?.assertions || 0),
           0
-        ),
-        sources: s.sources.map((ss) => ({
-          id: ss.source.id,
-          name: ss.source.name,
-          documentType: ss.source.documentType,
-          assertionCount: ss.source._count?.assertions || 0,
-          linkedSourceId: ss.source.linkedSourceId,
-          linkedSourceName: ss.source.linkedSource?.name || null,
-        })),
-        createdAt: s.createdAt,
-        updatedAt: s.updatedAt,
-      }));
+        );
+        const instructionCount = s.sources.reduce(
+          (sum, ss) => sum + (instrMap.get(ss.sourceId) || 0),
+          0
+        );
+        return {
+          id: s.id,
+          slug: s.slug,
+          name: s.name,
+          description: s.description,
+          defaultTrustLevel: s.defaultTrustLevel,
+          sourceCount: s._count.sources,
+          curriculumCount: s._count.curricula,
+          assertionCount,
+          instructionCount,
+          contentAssertionCount: assertionCount - instructionCount,
+          sources: s.sources.map((ss) => ({
+            id: ss.source.id,
+            name: ss.source.name,
+            documentType: ss.source.documentType,
+            assertionCount: ss.source._count?.assertions || 0,
+            linkedSourceId: ss.source.linkedSourceId,
+            linkedSourceName: ss.source.linkedSource?.name || null,
+          })),
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+        };
+      });
 
     return NextResponse.json({
       ok: true,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { getSubjectsForPlaybook } from "@/lib/knowledge/domain-sources";
+import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 
 /**
  * @api GET /api/courses/:courseId/content-breakdown
@@ -190,7 +191,7 @@ export async function GET(
     }
 
     // ── Summary mode: counts by teachMethod ───────────
-    const [methodGroups, totalCount, reviewedCount] = await Promise.all([
+    const [methodGroups, totalCount, reviewedCount, instructionCount] = await Promise.all([
       prisma.contentAssertion.groupBy({
         by: ["teachMethod"],
         where: { sourceId: { in: sourceIds } },
@@ -202,6 +203,9 @@ export async function GET(
       }),
       prisma.contentAssertion.count({
         where: { sourceId: { in: sourceIds }, reviewedAt: { not: null } },
+      }),
+      prisma.contentAssertion.count({
+        where: { sourceId: { in: sourceIds }, category: { in: [...INSTRUCTION_CATEGORIES] } },
       }),
     ]);
 
@@ -285,6 +289,8 @@ export async function GET(
       teachingMode,
       methods: methodsWithReview,
       total: totalCount,
+      contentCount: totalCount - instructionCount,
+      instructionCount,
       reviewedCount,
       ...(bySubjectData ? { bySubject: bySubjectData } : {}),
     });

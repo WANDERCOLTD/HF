@@ -442,11 +442,11 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
         <div className="cv4-sources-extraction">
           <div className="cv4-sources-extraction-row">
             <span className="cv4-sources-pulse" />
-            <span>Extracting teaching points...</span>
+            <span>Extracting content...</span>
           </div>
           {totalAssertions > 0 && (
             <div className="cv4-sources-count">
-              {totalAssertions} teaching point{totalAssertions !== 1 ? "s" : ""} found
+              {totalAssertions} item{totalAssertions !== 1 ? "s" : ""} extracted
             </div>
           )}
         </div>
@@ -456,7 +456,7 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
       {phase === "done" && (
         <div className="cv4-sources-done">
           <Check size={14} />
-          <span>{totalAssertions} teaching point{totalAssertions !== 1 ? "s" : ""} ready</span>
+          <span>{totalAssertions} item{totalAssertions !== 1 ? "s" : ""} ready</span>
         </div>
       )}
 

@@ -65,7 +65,7 @@ export type CourseWhatTabProps = {
   contentTotal: number;
   isOperator: boolean;
   sessionPlan: SessionPlanInfo;
-  onContentRefresh?: (methods: MethodBreakdown[], total: number) => void;
+  onContentRefresh?: (methods: MethodBreakdown[], total: number, instructionCount?: number) => void;
   onDetailUpdate?: (updater: (prev: any) => any) => void;
 };
 
@@ -526,7 +526,7 @@ export function CourseWhatTab({
                       if (data.ok && data.updated > 0 && onContentRefresh) {
                         const bd = await fetch(`/api/courses/${courseId}/content-breakdown?bySubject=true`).then(r => r.json());
                         if (bd.ok) {
-                          onContentRefresh(bd.methods || [], bd.total || 0);
+                          onContentRefresh(bd.methods || [], bd.total || 0, bd.instructionCount || 0);
                         }
                       }
                     } catch { /* ignore */ }

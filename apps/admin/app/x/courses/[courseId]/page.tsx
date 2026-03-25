@@ -143,6 +143,7 @@ export default function CourseDetailPage() {
   // Content breakdown
   const [contentMethods, setContentMethods] = useState<MethodBreakdown[]>([]);
   const [contentTotal, setContentTotal] = useState(0);
+  const [instructionTotal, setInstructionTotal] = useState(0);
 
   // Tabs
   const [activeTab, setActiveTab] = useState<string>('what');
@@ -213,6 +214,7 @@ export default function CourseDetailPage() {
         if (breakdownData.ok) {
           setContentMethods(breakdownData.methods || []);
           setContentTotal(breakdownData.total || 0);
+          setInstructionTotal(breakdownData.instructionCount || 0);
         }
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
@@ -240,6 +242,7 @@ export default function CourseDetailPage() {
 
   const totalTPs = useMemo(() => subjects.reduce((sum, s) => sum + s.assertionCount, 0), [subjects]);
   const totalSources = useMemo(() => subjects.reduce((sum, s) => sum + s.sourceCount, 0), [subjects]);
+  const contentOnlyCount = contentTotal - instructionTotal;
 
   const totalSessionDuration = useMemo(() => {
     if (!sessions?.plan?.entries) return 0;
@@ -247,12 +250,12 @@ export default function CourseDetailPage() {
   }, [sessions]);
 
   const tabs: TabDefinition[] = useMemo(() => [
-    { id: 'what', label: 'What', icon: <BookMarked size={14} />, count: contentTotal || null },
-    { id: 'how', label: 'How', icon: <Sparkles size={14} /> },
+    { id: 'what', label: 'What', icon: <BookMarked size={14} />, count: contentOnlyCount || null },
+    { id: 'how', label: 'How', icon: <Sparkles size={14} />, count: instructionTotal || null },
     { id: 'who', label: 'Who', icon: <Users2 size={14} /> },
     { id: 'sessions', label: 'Sessions', icon: <ListOrdered size={14} />, count: sessions?.plan?.estimatedSessions || null },
     ...(isOperator ? [{ id: 'settings', label: 'Settings', icon: <SettingsIcon size={14} /> }] : []),
-  ], [contentTotal, isOperator, sessions]);
+  ], [contentOnlyCount, instructionTotal, isOperator, sessions]);
 
   // ── Tab change: lazy load lesson plan data ──
   const handleTabChange = useCallback((tab: string) => {
@@ -802,9 +805,15 @@ export default function CourseDetailPage() {
           <div className="hf-text-xs hf-text-muted">Subjects</div>
         </div>
         <div className="hf-stat-card hf-stat-card-compact">
-          <div className="hf-stat-value-sm">{totalTPs}</div>
-          <div className="hf-text-xs hf-text-muted">Teaching Points</div>
+          <div className="hf-stat-value-sm">{contentOnlyCount}</div>
+          <div className="hf-text-xs hf-text-muted">Content</div>
         </div>
+        {instructionTotal > 0 && (
+          <div className="hf-stat-card hf-stat-card-compact">
+            <div className="hf-stat-value-sm">{instructionTotal}</div>
+            <div className="hf-text-xs hf-text-muted">Rules</div>
+          </div>
+        )}
         <div className="hf-stat-card hf-stat-card-compact">
           <div className="hf-stat-value-sm">{totalSources}</div>
           <div className="hf-text-xs hf-text-muted">Sources</div>
@@ -851,9 +860,10 @@ export default function CourseDetailPage() {
             totalDurationMins: totalSessionDuration,
             generatedAt: sessions.plan.generatedAt,
           } : null}
-          onContentRefresh={(methods, total) => {
+          onContentRefresh={(methods, total, instrCount) => {
             setContentMethods(methods);
             setContentTotal(total);
+            if (instrCount !== undefined) setInstructionTotal(instrCount);
           }}
           onDetailUpdate={setDetail}
         />

@@ -48,6 +48,7 @@ export interface SetupStatusInput {
     name: string;
     sourceCount: number;
     assertionCount: number;
+    instructionCount?: number;
     sources?: Array<{ id: string; name: string; documentType: string; assertionCount: number }>;
   }>;
 
@@ -124,6 +125,7 @@ export function deriveStages(input: SetupStatusInput): CourseSetupStatus {
   // Aggregate extraction status from all sources
   const sourceStatuses = Object.values(sourceStatusMap);
   const totalAssertions = sourceStatuses.reduce((acc, s) => acc + s.assertionCount, 0);
+  const totalInstructions = subjects.reduce((acc, s) => acc + (s.instructionCount || 0), 0);
   const anyExtracting = sourceStatuses.some(
     (s) => s.jobStatus === 'extracting' || s.jobStatus === 'importing' || s.jobStatus === 'pending'
   );
@@ -139,7 +141,10 @@ export function deriveStages(input: SetupStatusInput): CourseSetupStatus {
     stage3Detail = 'Extraction failed — try re-extracting';
   } else if (allDone && totalAssertions > 0) {
     stage3Status = 'done';
-    stage3Detail = `${totalAssertions} teaching point${totalAssertions !== 1 ? 's' : ''} found`;
+    const contentCount = totalAssertions - totalInstructions;
+    stage3Detail = totalInstructions > 0
+      ? `${contentCount} teaching point${contentCount !== 1 ? 's' : ''} + ${totalInstructions} rule${totalInstructions !== 1 ? 's' : ''} found`
+      : `${totalAssertions} teaching point${totalAssertions !== 1 ? 's' : ''} found`;
   } else if (anyExtracting) {
     stage3Status = 'active';
     stage3Detail = totalAssertions > 0
@@ -152,14 +157,21 @@ export function deriveStages(input: SetupStatusInput): CourseSetupStatus {
   } else if (totalAssertions > 0) {
     // Has assertions from subjects even without source status data
     stage3Status = 'done';
-    stage3Detail = `${totalAssertions} teaching point${totalAssertions !== 1 ? 's' : ''} found`;
+    const contentCount = totalAssertions - totalInstructions;
+    stage3Detail = totalInstructions > 0
+      ? `${contentCount} teaching point${contentCount !== 1 ? 's' : ''} + ${totalInstructions} rule${totalInstructions !== 1 ? 's' : ''} found`
+      : `${totalAssertions} teaching point${totalAssertions !== 1 ? 's' : ''} found`;
   }
 
   // Also check assertion counts from subjects directly (fallback when no source status)
   if (stage3Status === 'pending' && subjects.some((s) => s.assertionCount > 0)) {
     const subjectTotal = subjects.reduce((acc, s) => acc + s.assertionCount, 0);
+    const subjectInstr = subjects.reduce((acc, s) => acc + (s.instructionCount || 0), 0);
+    const subjectContent = subjectTotal - subjectInstr;
     stage3Status = 'done';
-    stage3Detail = `${subjectTotal} teaching point${subjectTotal !== 1 ? 's' : ''} found`;
+    stage3Detail = subjectInstr > 0
+      ? `${subjectContent} teaching point${subjectContent !== 1 ? 's' : ''} + ${subjectInstr} rule${subjectInstr !== 1 ? 's' : ''} found`
+      : `${subjectTotal} teaching point${subjectTotal !== 1 ? 's' : ''} found`;
   }
 
   stages.push({
