@@ -112,7 +112,6 @@ function makeContext(overrides: {
     sections: {},
     resolvedSpecs: {
       identitySpec: null,
-      contentSpec: null,
       voiceSpec: null,
     },
     sharedState,

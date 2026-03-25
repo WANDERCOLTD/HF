@@ -27,7 +27,7 @@ function makeContext(overrides: Partial<AssembledContext> = {}): AssembledContex
       subjectSources: null,
     },
     sections: {},
-    resolvedSpecs: { identitySpec: null, contentSpec: null, voiceSpec: null },
+    resolvedSpecs: { identitySpec: null, voiceSpec: null },
     sharedState: {
       modules: [
         { slug: "m1", name: "Introduction", description: "First module" },

@@ -4897,6 +4897,24 @@ text/event-stream — SSE progress events, final "complete" event includes
 
 ## Courses
 
+### `GET` /api/courses/:courseId/assertions
+
+Returns teaching point assertions for a course, with source name and optional session assignment.
+
+**Auth**: VIEWER · **Scope**: `courses:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| courseId | path | string | Yes | Playbook UUID |
+| limit | query | number | No | Max assertions to return (default 500, max 1000) |
+
+**Response** `200`
+```json
+{ ok, assertions: Array<{ id, assertion, category, teachMethod, learningOutcomeRef, sourceName, session }>, total }
+```
+
+---
+
 ### `POST` /api/courses/:courseId/backfill-teach-methods
 
 Backfill teachMethod on ContentAssertions that have teachMethod=null.
@@ -13147,8 +13165,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 390 |
-| Files with annotations | 389 |
+| Route files found | 391 |
+| Files with annotations | 390 |
 | Files missing annotations | 1 |
 | Coverage | 99.7% |
 

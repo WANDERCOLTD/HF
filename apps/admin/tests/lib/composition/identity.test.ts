@@ -44,7 +44,7 @@ function makeContext(overrides: Partial<AssembledContext> = {}): AssembledContex
       onboardingSpec: null,
     },
     sections: {},
-    resolvedSpecs: { identitySpec: null, contentSpec: null, voiceSpec: null },
+    resolvedSpecs: { identitySpec: null, voiceSpec: null },
     sharedState: {
       modules: [],
       isFirstCall: false,
@@ -106,7 +106,6 @@ describe("resolveSpecs", () => {
   it("returns null specs when no playbooks or system specs", () => {
     const result = resolveSpecs([], []);
     expect(result.identitySpec).toBeNull();
-    expect(result.contentSpec).toBeNull();
     expect(result.voiceSpec).toBeNull();
   });
 
@@ -118,11 +117,11 @@ describe("resolveSpecs", () => {
     expect(result.identitySpec!.config).toEqual({ role: "teacher" });
   });
 
-  it("picks CONTENT spec from playbook", () => {
+  it("ignores CONTENT spec from playbook (removed in ADR-002)", () => {
     const pb = makePlaybook([{ specRole: "CONTENT", name: "Curriculum", config: { modules: [] } }]);
     const result = resolveSpecs([pb], []);
-    expect(result.contentSpec).not.toBeNull();
-    expect(result.contentSpec!.name).toBe("Curriculum");
+    // Content spec no longer resolved — curriculum data comes from DB
+    expect(result.identitySpec).toBeNull();
   });
 
   it("picks VOICE spec from playbook (specRole=VOICE)", () => {
@@ -180,7 +179,7 @@ describe("resolveSpecs", () => {
     expect(result.identitySpec!.name).toBe("Playbook Tutor");
   });
 
-  it("resolves all three spec types from one playbook", () => {
+  it("resolves identity and voice from one playbook (content removed ADR-002)", () => {
     const pb = makePlaybook([
       { specRole: "IDENTITY", name: "Tutor", domain: null },
       { specRole: "CONTENT", name: "Curriculum" },
@@ -188,7 +187,6 @@ describe("resolveSpecs", () => {
     ]);
     const result = resolveSpecs([pb], []);
     expect(result.identitySpec!.name).toBe("Tutor");
-    expect(result.contentSpec!.name).toBe("Curriculum");
     expect(result.voiceSpec!.name).toBe("Voice");
   });
 });
@@ -205,7 +203,6 @@ describe("resolveVoiceSpecFallback", () => {
   it("returns unchanged specs when voiceSpec already resolved", async () => {
     const specs: ResolvedSpecs = {
       identitySpec: null,
-      contentSpec: null,
       voiceSpec: { name: "Existing Voice", config: {}, description: null },
     };
     const result = await resolveVoiceSpecFallback(specs);
@@ -219,7 +216,7 @@ describe("resolveVoiceSpecFallback", () => {
       description: "From database",
     });
 
-    const specs: ResolvedSpecs = { identitySpec: null, contentSpec: null, voiceSpec: null };
+    const specs: ResolvedSpecs = { identitySpec: null, voiceSpec: null };
     const result = await resolveVoiceSpecFallback(specs);
 
     expect(result.voiceSpec).not.toBeNull();
@@ -238,7 +235,7 @@ describe("resolveVoiceSpecFallback", () => {
   it("returns null voiceSpec when DB has no match", async () => {
     mockPrisma.analysisSpec.findFirst.mockResolvedValue(null);
 
-    const specs: ResolvedSpecs = { identitySpec: null, contentSpec: null, voiceSpec: null };
+    const specs: ResolvedSpecs = { identitySpec: null, voiceSpec: null };
     const result = await resolveVoiceSpecFallback(specs);
     expect(result.voiceSpec).toBeNull();
   });
@@ -273,7 +270,6 @@ describe("extractIdentitySpec transform", () => {
           },
           description: "Quality Management tutor",
         },
-        contentSpec: null,
         voiceSpec: null,
       },
     });
@@ -300,7 +296,6 @@ describe("extractIdentitySpec transform", () => {
       },
       resolvedSpecs: {
         identitySpec: { name: "Generic Tutor", config: {}, description: null },
-        contentSpec: null,
         voiceSpec: null,
       },
     });
@@ -321,7 +316,6 @@ describe("extractIdentitySpec transform", () => {
           },
           description: null,
         },
-        contentSpec: null,
         voiceSpec: null,
       },
     });
@@ -552,65 +546,4 @@ describe("mergeIdentitySpec", () => {
 // extractContentSpec transform
 // =====================================================
 
-describe("extractContentSpec transform", () => {
-  it("is registered", () => {
-    expect(getTransform("extractContentSpec")).toBeDefined();
-  });
-
-  it("returns null when no content spec", () => {
-    const ctx = makeContext();
-    const result = getTransform("extractContentSpec")!(null, ctx, makeSectionDef());
-    expect(result).toBeNull();
-  });
-
-  it("extracts modules from content spec", () => {
-    const ctx = makeContext({
-      resolvedSpecs: {
-        identitySpec: null,
-        contentSpec: {
-          name: "WNF Content",
-          config: {
-            modules: [
-              { id: "m1", slug: "intro", name: "Introduction", description: "First module", sortOrder: 1 },
-              { id: "m2", slug: "advanced", name: "Advanced", description: "Second module", sortOrder: 2 },
-            ],
-            learningObjectives: ["Learn basics"],
-          },
-          description: "Wealth and Finance",
-        },
-        voiceSpec: null,
-      },
-    });
-
-    const result = getTransform("extractContentSpec")!(null, ctx, makeSectionDef());
-
-    expect(result.specName).toBe("WNF Content");
-    expect(result.totalModules).toBe(2);
-    expect(result.modules[0].name).toBe("Introduction");
-    expect(result.modules[1].slug).toBe("advanced");
-    expect(result.learningObjectives).toEqual(["Learn basics"]);
-  });
-
-  it("finds modules under curriculum.modules path", () => {
-    const ctx = makeContext({
-      resolvedSpecs: {
-        identitySpec: null,
-        contentSpec: {
-          name: "Nested Content",
-          config: {
-            curriculum: {
-              name: "My Curriculum",
-              modules: [{ id: "m1", slug: "first", name: "First" }],
-            },
-          },
-          description: null,
-        },
-        voiceSpec: null,
-      },
-    });
-
-    const result = getTransform("extractContentSpec")!(null, ctx, makeSectionDef());
-    expect(result.totalModules).toBe(1);
-    expect(result.curriculumName).toBe("My Curriculum");
-  });
-});
+// extractContentSpec transform removed — Content Spec consolidated (ADR-002)

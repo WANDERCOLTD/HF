@@ -298,78 +298,34 @@ const checkExecutors: Record<string, CheckExecutor> = {
       : { passed: false, detail: "No learners have been added yet" };
   },
 
-  // CONTENT spec has valid curriculum metadata for pipeline progress tracking
+  // Curriculum has modules with learning objectives (ADR-002: uses DB, not Content Spec)
   content_spec_curriculum: async (domainId) => {
-    const playbook = await prisma.playbook.findFirst({
-      where: { domainId, status: "PUBLISHED" },
-      select: {
-        items: {
-          where: {
-            itemType: "SPEC",
-            isEnabled: true,
-          },
-          select: {
-            spec: {
-              select: { slug: true, name: true, config: true, specRole: true, isActive: true },
-            },
-          },
+    // Find curriculum modules via domain → subject → curriculum → modules
+    const modules = await prisma.curriculumModule.findMany({
+      where: {
+        curriculum: {
+          subject: { domains: { some: { domainId } } },
         },
       },
+      select: { id: true, learningObjectives: { select: { id: true } } },
     });
 
-    const contentSpecItem = playbook?.items.find(
-      (i) => i.spec?.specRole === "CONTENT" && i.spec?.isActive,
-    );
-    const contentSpec = contentSpecItem?.spec;
-
-    if (!contentSpec) {
-      // No CONTENT spec is fine — domain may not have a curriculum
+    if (modules.length === 0) {
+      // No curriculum is fine — domain may not have structured content
       return { passed: true, detail: "No curriculum structure required for this programme" };
     }
 
-    const config = contentSpec.config as Record<string, any> | null;
-    const meta = config?.metadata?.curriculum;
-    if (!meta) {
-      return {
-        passed: false,
-        detail: `"${contentSpec.name}" needs curriculum topics and objectives configured`,
-      };
-    }
-
-    const missing = CURRICULUM_REQUIRED_FIELDS.filter((f) => meta[f] === undefined);
-    if (missing.length > 0) {
-      return {
-        passed: false,
-        detail: `Curriculum setup incomplete — missing: ${missing.join(", ")}`,
-      };
-    }
-
-    // Check that at least one parameter matches moduleSelector
-    const params = config?.parameters || [];
-    const [selectorKey, selectorValue] = (meta.moduleSelector as string).split("=");
-    const matchingModules = params.filter((p: any) => p[selectorKey] === selectorValue);
-    if (matchingModules.length === 0) {
-      return {
-        passed: false,
-        detail: `No curriculum topics found — check the programme's content configuration`,
-      };
-    }
-
-    // Check if any modules have learningOutcomes
-    const withLOs = matchingModules.filter(
-      (p: any) => p.learningOutcomes?.length > 0 || p.config?.learningOutcomes?.length > 0,
-    );
-
+    const withLOs = modules.filter((m) => m.learningObjectives.length > 0);
     if (withLOs.length === 0) {
       return {
         passed: true,
-        detail: `${matchingModules.length} topic(s) linked (add learning outcomes for mastery tracking)`,
+        detail: `${modules.length} topic(s) linked (add learning outcomes for mastery tracking)`,
       };
     }
 
     return {
       passed: true,
-      detail: `${matchingModules.length} topic(s), ${withLOs.length} with learning outcomes`,
+      detail: `${modules.length} topic(s), ${withLOs.length} with learning outcomes`,
     };
   },
 };

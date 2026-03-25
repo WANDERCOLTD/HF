@@ -19,7 +19,6 @@ export function resolveSpecs(
   systemSpecs: SystemSpecData[],
 ): ResolvedSpecs {
   let identitySpec: ResolvedSpec | null = null;
-  let contentSpec: ResolvedSpec | null = null;
   let voiceSpec: ResolvedSpec | null = null;
 
   // 1. Check PlaybookItems from ALL playbooks (first playbook wins on conflicts)
@@ -35,14 +34,6 @@ export function resolveSpecs(
             extendsAgent: item.spec.extendsAgent || null,
           };
         }
-        if (!contentSpec && item.spec.specRole === "CONTENT") {
-          contentSpec = {
-            name: item.spec.name,
-            slug: item.spec.slug,
-            config: item.spec.config,
-            description: item.spec.description,
-          };
-        }
         if (!voiceSpec && (item.spec.specRole === "VOICE" || (item.spec.specRole === "IDENTITY" && item.spec.domain === "voice"))) {
           voiceSpec = {
             name: item.spec.name,
@@ -56,15 +47,12 @@ export function resolveSpecs(
   }
 
   // 2. Check System Specs as fallback
-  if (!identitySpec || !contentSpec || !voiceSpec) {
+  if (!identitySpec || !voiceSpec) {
     for (const spec of systemSpecs) {
       const role = spec.specRole as string;
 
       if (!identitySpec && role === "IDENTITY" && spec.domain !== "voice") {
         identitySpec = { name: spec.name, slug: spec.slug, config: spec.config, description: spec.description, extendsAgent: spec.extendsAgent || null };
-      }
-      if (!contentSpec && role === "CONTENT") {
-        contentSpec = { name: spec.name, slug: spec.slug, config: spec.config, description: spec.description };
       }
       if (!voiceSpec && (role === "VOICE" || (role === "IDENTITY" && spec.domain === "voice"))) {
         voiceSpec = { name: spec.name, slug: spec.slug, config: spec.config, description: spec.description };
@@ -72,7 +60,7 @@ export function resolveSpecs(
     }
   }
 
-  return { identitySpec, contentSpec, voiceSpec };
+  return { identitySpec, voiceSpec };
 }
 
 /**
@@ -347,51 +335,5 @@ registerTransform("extractIdentitySpec", (
   };
 });
 
-/**
- * Extract content spec into llmPrompt output.
- * Extracted from route.ts lines 2376-2414.
- */
-registerTransform("extractContentSpec", (
-  _rawData: any,
-  context: AssembledContext,
-) => {
-  const contentSpec = context.resolvedSpecs.contentSpec;
-  if (!contentSpec) return null;
-
-  const specConfig = contentSpec.config as SpecConfig;
-  const modulesSource = specConfig?.modules || specConfig?.curriculum?.modules || [];
-
-  return {
-    specName: contentSpec.name,
-    description: contentSpec.description,
-    curriculumName: specConfig?.curriculum?.name || specConfig?.name || null,
-    curriculumDescription: specConfig?.description || null,
-    targetAudience: specConfig?.targetAudience || null,
-    learningObjectives: specConfig?.learningObjectives || [],
-    modules: modulesSource.map((m: any) => ({
-      id: m.id,
-      slug: m.slug || m.id,
-      name: m.name,
-      description: m.description,
-      prerequisites: m.prerequisites || [],
-      concepts: m.concepts || [],
-      learningOutcomes: m.learningOutcomes || [],
-      sortOrder: m.sortOrder,
-      masteryThreshold: m.masteryThreshold,
-    })),
-    totalModules: modulesSource.length,
-    conceptLibrary: specConfig?.concepts || null,
-    deliveryRules: {
-      pacing: specConfig?.pacing || null,
-      sequencing: specConfig?.sequencing || null,
-      personalization: specConfig?.personalization || null,
-      practiceRatio: specConfig?.practiceRatio || null,
-    },
-    activityTypes: specConfig?.activityTypes || [],
-    assessmentCriteria: {
-      comprehension: specConfig?.comprehensionIndicators || [],
-      application: specConfig?.applicationIndicators || [],
-      mastery: specConfig?.masteryIndicators || [],
-    },
-  };
-});
+// extractContentSpec transform removed — Content Spec consolidated into
+// Curriculum + CurriculumModule + ContentAssertion DB models (ADR-002).

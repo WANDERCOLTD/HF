@@ -167,6 +167,127 @@ function SourceTree({ sources, courseId, subjectId }: { sources: SourceDetail[];
 
 // ── Main Component ─────────────────────────────────────
 
+// ── Teaching Points Inventory ─────────────────────────
+// Fetches all assertions for the course, grouped by module/LO.
+// Read-only — editing happens in session detail pages.
+
+const CATEGORY_COLORS: Record<string, string> = {
+  fact: 'var(--accent-primary)',
+  definition: 'var(--badge-purple-text)',
+  rule: 'var(--status-warning-text)',
+  process: 'var(--badge-cyan-text)',
+  example: 'var(--status-success-text)',
+  threshold: 'var(--status-error-text)',
+};
+
+type TPData = {
+  id: string;
+  assertion: string;
+  category: string;
+  teachMethod: string | null;
+  learningOutcomeRef: string | null;
+  sourceName: string;
+  session?: number | null;
+};
+
+function TeachingPointsInventory({ courseId, subjects }: { courseId: string; subjects: SubjectSummary[] }) {
+  const [tps, setTps] = useState<TPData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  // Only fetch when expanded
+  useEffect(() => {
+    if (!expanded || tps.length > 0) return;
+    setLoading(true);
+    fetch(`/api/courses/${courseId}/assertions?limit=500`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.ok && Array.isArray(res.assertions)) {
+          setTps(res.assertions);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [expanded, courseId, tps.length]);
+
+  const totalCount = subjects.reduce((sum, s) => sum + s.assertionCount, 0);
+  if (totalCount === 0) return null;
+
+  // Group by learningOutcomeRef
+  const grouped = useMemo(() => {
+    const groups = new Map<string, TPData[]>();
+    for (const tp of tps) {
+      const key = tp.learningOutcomeRef || 'Unassigned';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(tp);
+    }
+    return groups;
+  }, [tps]);
+
+  return (
+    <div className="hf-mb-lg">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="hf-btn-reset hf-flex hf-items-center hf-gap-sm hf-w-full hf-section-divider hf-mb-sm"
+        style={{ cursor: 'pointer' }}
+      >
+        <BookMarked size={16} className="hf-text-muted" />
+        <span className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase hf-flex-1" style={{ textAlign: 'left' }}>
+          Teaching Points ({totalCount})
+        </span>
+        <span className="hf-text-xs hf-text-placeholder">{expanded ? '▼' : '▶'}</span>
+      </button>
+
+      {expanded && (
+        loading ? (
+          <div className="hf-text-xs hf-text-muted hf-p-sm">Loading teaching points...</div>
+        ) : tps.length === 0 ? (
+          <div className="hf-text-xs hf-text-muted hf-p-sm">No assertions loaded</div>
+        ) : (
+          <div className="hf-flex-col hf-gap-sm" style={{ maxHeight: 400, overflowY: 'auto' }}>
+            {Array.from(grouped.entries()).map(([loRef, items]) => (
+              <div key={loRef}>
+                <div className="hf-text-xs hf-text-bold hf-text-muted hf-mb-xs" style={{ paddingLeft: 4 }}>
+                  {loRef}
+                  <span className="hf-text-placeholder hf-ml-sm">({items.length})</span>
+                </div>
+                {items.map((tp) => (
+                  <div
+                    key={tp.id}
+                    className="hf-flex hf-items-start hf-gap-xs hf-text-xs"
+                    style={{ padding: '3px 4px', lineHeight: 1.5 }}
+                  >
+                    <span
+                      className="hf-micro-badge-sm hf-flex-shrink-0"
+                      style={{
+                        background: CATEGORY_COLORS[tp.category] || 'var(--text-muted)',
+                        color: 'white',
+                        fontSize: 9,
+                        padding: '1px 4px',
+                        borderRadius: 3,
+                        marginTop: 2,
+                      }}
+                    >
+                      {tp.category}
+                    </span>
+                    <span className="hf-flex-1 hf-text-secondary">{tp.assertion}</span>
+                    <span className="hf-text-placeholder hf-flex-shrink-0">[{tp.sourceName}]</span>
+                    {tp.session != null && (
+                      <span className="hf-micro-badge-sm hf-flex-shrink-0" style={{ background: 'var(--surface-secondary)', fontSize: 9 }}>
+                        S{tp.session}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 export function CourseWhatTab({
   courseId,
   detail,
@@ -489,6 +610,9 @@ export function CourseWhatTab({
           })}
         </div>
       )}
+
+      {/* ── Teaching Points Inventory ─────────────────── */}
+      <TeachingPointsInventory courseId={courseId} subjects={subjects} />
 
       {/* ── Teaching Methods ──────────────────────────── */}
       {contentMethods.length > 0 && (() => {

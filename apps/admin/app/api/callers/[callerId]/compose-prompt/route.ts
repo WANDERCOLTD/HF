@@ -100,7 +100,7 @@ export async function POST(
           behaviorTargetsCount: metadata.mergedTargetCount,
           playbooksUsed: loadedData.playbooks.map((p: any) => p.name),
           identitySpec: resolvedSpecs.identitySpec?.name || null,
-          contentSpec: resolvedSpecs.contentSpec?.name || null,
+          contentSpec: null,
         },
         composition: {
           sectionsActivated: metadata.sectionsActivated,

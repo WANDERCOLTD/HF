@@ -50,7 +50,6 @@ function makeLoadedData(overrides: Partial<LoadedDataContext> = {}): LoadedDataC
 function makeResolvedSpecs(overrides: Partial<ResolvedSpecs> = {}): ResolvedSpecs {
   return {
     identitySpec: null,
-    contentSpec: null,
     voiceSpec: null,
     ...overrides,
   };
@@ -227,77 +226,8 @@ describe("computeSharedState", () => {
     });
   });
 
-  describe("CONTENT spec modules (contract-driven)", () => {
-    const contentSpec = {
-      name: "Food Safety L2",
-      slug: "CURR-FS-L2-001",
-      config: {
-        metadata: {
-          curriculum: {
-            type: "sequential",
-            trackingMode: "module-based",
-            moduleSelector: "section=content",
-            moduleOrder: "sortBySequence",
-            progressKey: "current_module",
-            masteryThreshold: 0.7,
-          },
-        },
-        parameters: [
-          { id: "MOD-A", name: "Module A", section: "content", sequence: 0, config: { description: "First" } },
-          { id: "MOD-B", name: "Module B", section: "content", sequence: 1, config: { description: "Second" } },
-          { id: "PARAM-X", name: "Other Param", section: "scoring", sequence: 0 }, // Not a module
-        ],
-      },
-    };
-
-    it("extracts modules using metadata.moduleSelector", async () => {
-      const data = makeLoadedData();
-      const specs = makeResolvedSpecs({ contentSpec });
-      const result = await computeSharedState(data, specs, {});
-
-      expect(result.modules).toHaveLength(2);
-      expect(result.modules[0].id).toBe("MOD-A");
-      expect(result.modules[1].id).toBe("MOD-B");
-    });
-
-    it("does not include parameters from other sections", async () => {
-      const data = makeLoadedData();
-      const specs = makeResolvedSpecs({ contentSpec });
-      const result = await computeSharedState(data, specs, {});
-
-      const moduleIds = result.modules.map(m => m.id);
-      expect(moduleIds).not.toContain("PARAM-X");
-    });
-
-    it("reads masteryThreshold from spec metadata", async () => {
-      const data = makeLoadedData();
-      const specs = makeResolvedSpecs({ contentSpec });
-      const result = await computeSharedState(data, specs, {});
-
-      expect(result.curriculumMetadata!.masteryThreshold).toBe(0.7);
-    });
-
-    it("prefers content spec over Subject curriculum", async () => {
-      const subjectSources = {
-        subjects: [{
-          id: "s-1", slug: "s", name: "S", defaultTrustLevel: "L3", qualificationRef: null, sources: [],
-          curriculum: {
-            id: "c-1", slug: "c-1", name: "C", description: null, notableInfo: {
-              modules: [{ id: "SUBJ-MOD-1", title: "Subject Module", sortOrder: 0 }],
-            },
-            deliveryConfig: null, trustLevel: "L3", qualificationBody: null,
-            qualificationNumber: null, qualificationLevel: null,
-          },
-        }],
-      };
-      const data = makeLoadedData({ subjectSources });
-      const specs = makeResolvedSpecs({ contentSpec });
-      const result = await computeSharedState(data, specs, {});
-
-      // Should use content spec, not subject
-      expect(result.modules[0].id).toBe("MOD-A");
-    });
-  });
+  // CONTENT spec modules tests removed — content spec fallback removed (ADR-002)
+  // Modules now come exclusively from CurriculumModule DB records or subject fallback.
 
   describe("progress tracking from CallerAttributes", () => {
     const subjectSources = {

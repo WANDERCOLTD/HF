@@ -40,7 +40,7 @@ function makeContext(overrides: Partial<AssembledContext> = {}): AssembledContex
       onboardingSpec: null,
     },
     sections: {},
-    resolvedSpecs: { identitySpec: null, contentSpec: null, voiceSpec: null },
+    resolvedSpecs: { identitySpec: null, voiceSpec: null },
     sharedState: {
       modules: [],
       isFirstCall: false,
@@ -106,7 +106,6 @@ describe("computeVoiceGuidance transform", () => {
     const ctx = makeContext({
       resolvedSpecs: {
         identitySpec: null,
-        contentSpec: null,
         voiceSpec: {
           name: "Custom Voice",
           config: {

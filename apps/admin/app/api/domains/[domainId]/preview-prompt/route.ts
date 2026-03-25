@@ -109,7 +109,7 @@ export async function POST(
         loadTimeMs: metadata.loadTimeMs,
         transformTimeMs: metadata.transformTimeMs,
         identitySpec: resolvedSpecs.identitySpec?.name || null,
-        contentSpec: resolvedSpecs.contentSpec?.name || null,
+        contentSpec: null,
         playbooksUsed: loadedData.playbooks.map((p: any) => p.name),
         memoriesCount: loadedData.memories.length,
         behaviorTargetsCount: metadata.mergedTargetCount,

@@ -221,7 +221,7 @@ function makeContext(overrides: Partial<AssembledContext> = {}): AssembledContex
   return {
     loadedData: { goals: [] } as any,
     sections: {},
-    resolvedSpecs: { identitySpec: null, contentSpec: null, voiceSpec: null },
+    resolvedSpecs: { identitySpec: null, voiceSpec: null },
     sharedState: {
       modules: [],
       isFirstCall: false,

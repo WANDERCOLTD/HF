@@ -73,7 +73,8 @@ export interface QuickLaunchResult {
   callerId: string;
   callerName: string;
   identitySpecId?: string;
-  contentSpecId?: string;
+  contentSpecId?: string; // Deprecated (ADR-002) — use curriculumId
+  curriculumId?: string;
   playbookId?: string;
   assertionCount: number;
   moduleCount: number;
@@ -151,17 +152,16 @@ async function autoGenerateGoals(ctx: LaunchContext): Promise<string[]> {
   const { subjectName, persona, brief } = ctx.input;
 
   // Strategy 1: Derive from curriculum modules (instant, no AI call)
-  if (ctx.results.contentSpecId) {
+  if (ctx.results.curriculumId) {
     try {
-      const spec = await prisma.analysisSpec.findUnique({
-        where: { id: ctx.results.contentSpecId },
-        select: { config: true },
+      const modules = await prisma.curriculumModule.findMany({
+        where: { curriculumId: ctx.results.curriculumId },
+        select: { title: true },
+        orderBy: { sortOrder: "asc" },
+        take: 4,
       });
-      const modules = ((spec?.config as any)?.modules || []) as Array<{ title: string }>;
       if (modules.length >= 2) {
-        return modules
-          .slice(0, 4)
-          .map((m) => m.title);
+        return modules.map((m) => m.title);
       }
     } catch {
       // Fall through to AI
@@ -573,10 +573,14 @@ const stepExecutors: Record<string, StepExecutor> = {
     // Try assertion-based generation first (upload mode)
     const result = await generateContentSpec(domainId, undefined, ctx.tx);
 
-    if (result.contentSpec) {
-      ctx.results.contentSpecId = result.contentSpec.id;
-      ctx.results.moduleCount = result.moduleCount;
-      await patchContentSpecForContract(result.contentSpec.id, ctx.tx);
+    ctx.results.moduleCount = result.moduleCount;
+    if (result.moduleCount > 0) {
+      // Curriculum was created by generateContentSpec — find its ID
+      const cur = await p.curriculum.findFirst({
+        where: { subject: { domains: { some: { domainId } } } },
+        select: { id: true },
+      });
+      if (cur) ctx.results.curriculumId = cur.id;
       return;
     }
 
@@ -617,109 +621,66 @@ const stepExecutors: Record<string, StepExecutor> = {
       };
     }
 
-    // Create CONTENT spec from skeleton
+    // Create Curriculum + CurriculumModule records from skeleton (ADR-002)
+    // No longer creates AnalysisSpec — curriculum data lives in DB models.
+    const subjectId = ctx.results.subjectId;
+    if (!subjectId) {
+      ctx.results.warnings!.push("No subject — cannot create curriculum");
+      return;
+    }
+
+    // Check idempotency — does a curriculum already exist for this subject?
+    const existingCurriculum = await p.curriculum.findFirst({
+      where: { subjectId },
+      select: { id: true },
+    });
+
+    if (existingCurriculum) {
+      ctx.results.curriculumId = existingCurriculum.id;
+      ctx.results.moduleCount = 0;
+      ctx.results.warnings!.push("Curriculum already exists");
+      return;
+    }
+
     const domain = await p.domain.findUnique({
       where: { id: domainId },
       select: { slug: true, name: true },
     });
 
-    const contentSlug = `${domain!.slug}-content`;
-
-    // Check idempotency
-    const existing = await p.analysisSpec.findFirst({
-      where: { slug: contentSlug },
-      select: { id: true, slug: true, name: true },
-    });
-
-    if (existing) {
-      ctx.results.contentSpecId = existing.id;
-      ctx.results.moduleCount = 0;
-      ctx.results.warnings!.push("Content spec already exists");
-      return;
-    }
-
-    const contentSpec = await p.analysisSpec.create({
+    const curriculum = await p.curriculum.create({
       data: {
-        slug: contentSlug,
-        name: `${domain!.name} Curriculum`,
+        slug: `${domain!.slug}-curriculum`,
+        name: skeleton.name || `${domain!.name} Curriculum`,
         description: skeleton.description || `AI-generated curriculum for ${domain!.name}`,
-        outputType: "COMPOSE",
-        specRole: "CONTENT",
-        specType: "DOMAIN",
-        domain: "content",
-        scope: "DOMAIN",
-        isActive: true,
-        isDirty: false,
-        isDeletable: true,
-        config: JSON.parse(JSON.stringify({
-          modules: skeleton.modules,
-          deliveryConfig: {},
-          sourceCount: 0,
-          assertionCount: 0,
-          generatedFrom: "goals-skeleton",
-          generatedAt: new Date().toISOString(),
-        })),
-        triggers: {
-          create: [{
-            given: `A ${domain!.name} teaching session with curriculum content`,
-            when: "The system needs to deliver structured teaching material",
-            then: "Content is presented following the curriculum module sequence",
-            name: "Curriculum delivery",
-            sortOrder: 0,
-          }],
-        },
+        subjectId,
+        deliveryConfig: {},
       },
-      select: { id: true, slug: true, name: true },
     });
 
-    // Add to published playbook
-    const playbook = await p.playbook.findFirst({
-      where: { domainId, status: "PUBLISHED" },
-      select: { id: true },
-    });
-
-    if (playbook) {
-      const existingItem = await p.playbookItem.findFirst({
-        where: { playbookId: playbook.id, specId: contentSpec.id },
-      });
-
-      if (!existingItem) {
-        const maxItem = await p.playbookItem.findFirst({
-          where: { playbookId: playbook.id },
-          orderBy: { sortOrder: "desc" },
-          select: { sortOrder: true },
-        });
-
-        await p.playbookItem.create({
-          data: {
-            playbookId: playbook.id,
-            itemType: "SPEC",
-            specId: contentSpec.id,
-            sortOrder: (maxItem?.sortOrder ?? 0) + 1,
-            isEnabled: true,
+    // Create modules
+    for (let i = 0; i < skeleton.modules.length; i++) {
+      const mod = skeleton.modules[i];
+      await p.curriculumModule.create({
+        data: {
+          curriculumId: curriculum.id,
+          slug: mod.slug || mod.id || `module-${i + 1}`,
+          title: mod.title || mod.name || `Module ${i + 1}`,
+          description: mod.description || null,
+          sortOrder: mod.sortOrder ?? i,
+          estimatedDurationMinutes: mod.estimatedDurationMinutes ?? null,
+          learningObjectives: {
+            create: (mod.learningOutcomes || []).map((lo: any, j: number) => ({
+              ref: typeof lo === "string" ? `LO${j + 1}` : lo.ref || `LO${j + 1}`,
+              description: typeof lo === "string" ? lo : lo.description || lo,
+              sortOrder: j,
+            })),
           },
-        });
-
-        await p.playbook.update({
-          where: { id: playbook.id },
-          data: { publishedAt: new Date() },
-        });
-      }
+        },
+      });
     }
 
-    ctx.results.contentSpecId = contentSpec.id;
+    ctx.results.curriculumId = curriculum.id;
     ctx.results.moduleCount = skeleton.modules.length;
-
-    await patchContentSpecForContract(contentSpec.id, ctx.tx);
-
-    // Phase 2: Deferred async enrichment with Sonnet
-    // Collected here but executed AFTER the transaction commits (see quickLaunchCommit)
-    if (skeleton.modules[0]?.learningOutcomes?.length === 0) {
-      ctx.results._deferredEnrichment = {
-        specId: contentSpec.id,
-        opts: { subjectName, persona, learningGoals, qualificationRef, domainId },
-      };
-    }
   },
 
   /**
@@ -750,14 +711,12 @@ const stepExecutors: Record<string, StepExecutor> = {
     }
 
     // Create Goal records for each learning goal
-    const contentSpecId = ctx.results.contentSpecId || undefined;
     for (const goalName of learningGoals) {
       await p.goal.create({
         data: {
           callerId: caller.id,
           type: "LEARN",
           name: goalName,
-          ...(contentSpecId ? { contentSpecId } : {}),
           priority: 5,
         },
       });
@@ -1110,7 +1069,7 @@ export async function quickLaunch(
     callerId: ctx.results.callerId!,
     callerName: ctx.results.callerName!,
     identitySpecId: ctx.results.identitySpecId,
-    contentSpecId: ctx.results.contentSpecId,
+    contentSpecId: undefined, // Deprecated (ADR-002)
     playbookId: ctx.results.playbookId,
     assertionCount: ctx.results.assertionCount || 0,
     moduleCount: ctx.results.moduleCount || 0,
@@ -1490,7 +1449,7 @@ export async function quickLaunchCommit(
       callerId: ctx.results.callerId!,
       callerName: ctx.results.callerName || effectiveCallerName,
       identitySpecId: ctx.results.identitySpecId,
-      contentSpecId: ctx.results.contentSpecId,
+      contentSpecId: undefined, // Deprecated (ADR-002)
       playbookId: ctx.results.playbookId,
       assertionCount: preview.assertionCount,
       moduleCount: ctx.results.moduleCount || 0,

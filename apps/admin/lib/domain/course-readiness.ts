@@ -214,39 +214,20 @@ const checkExecutors: Record<string, CheckExecutor> = {
       return { passed: true, detail: `${subjectAssertionCount} content item(s) extracted` };
     }
 
-    // Fallback: check for CONTENT spec in any playbook (published or draft)
-    const contentSpec = await prisma.analysisSpec.findFirst({
+    // Fallback: check for CurriculumModule records (ADR-002)
+    const moduleCount = await prisma.curriculumModule.count({
       where: {
-        specRole: "CONTENT",
-        isActive: true,
-        playbookItems: {
-          some: {
-            playbook: { domainId: ctx.domainId },
-            isEnabled: true,
-          },
+        curriculum: {
+          subject: { domains: { some: { domainId: ctx.domainId } } },
         },
       },
-      select: { config: true },
     });
 
-    if (!contentSpec) {
-      return { passed: false, detail: "No curriculum content configured" };
+    if (moduleCount > 0) {
+      return { passed: true, detail: `${moduleCount} module(s) configured` };
     }
 
-    const specConfig = contentSpec.config as Record<string, any> | null;
-    const deliveryConfig = specConfig?.deliveryConfig;
-    const lessonPlan = deliveryConfig?.lessonPlan;
-
-    if (Array.isArray(lessonPlan) && lessonPlan.length > 0) {
-      return { passed: true, detail: `${lessonPlan.length} lesson(s) planned` };
-    }
-
-    const modules = specConfig?.modules;
-    if (Array.isArray(modules) && modules.length > 0) {
-      return { passed: true, detail: `${modules.length} module(s) configured` };
-    }
-
-    return { passed: false, detail: "Curriculum not yet generated" };
+    return { passed: false, detail: "No curriculum content configured" };
   },
 
   /**

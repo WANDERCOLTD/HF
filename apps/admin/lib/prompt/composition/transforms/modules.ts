@@ -56,14 +56,16 @@ async function loadModulesFromDB(curriculumId: string): Promise<ModuleData[] | n
 }
 
 /**
- * Try to find a curriculum ID from the loaded data context.
+ * Try to find curriculum info from the loaded data context.
  * Looks in subjectSources → subjects → curriculum.
  */
-function findCurriculumId(data: LoadedDataContext): string | null {
+function findCurriculumInfo(data: LoadedDataContext): { id: string; name: string | null } | null {
   const subjects = data.subjectSources?.subjects;
   if (!subjects?.length) return null;
   for (const subject of subjects) {
-    if (subject.curriculum?.id) return subject.curriculum.id;
+    if (subject.curriculum?.id) {
+      return { id: subject.curriculum.id, name: (subject.curriculum as any).name || null };
+    }
   }
   return null;
 }
@@ -275,10 +277,11 @@ export async function computeSharedState(
   specConfig: Record<string, any>,
 ): Promise<SharedComputedState> {
   // DB-first: try CurriculumModule records before JSON paths
-  const curriculumId = findCurriculumId(data);
+  const curriculumInfo = findCurriculumInfo(data);
+  const curriculumId = curriculumInfo?.id || null;
   let modules: ModuleData[] = [];
   let metadata: CurriculumMetadata | null = null;
-  let specSlug = resolvedSpecs.contentSpec?.slug || '';
+  let specSlug = '';
 
   if (curriculumId) {
     const dbModules = await loadModulesFromDB(curriculumId);
@@ -288,14 +291,7 @@ export async function computeSharedState(
     }
   }
 
-  // Fallback 1: Contract-driven extraction from CONTENT spec
-  if (modules.length === 0) {
-    const extracted = extractModules(resolvedSpecs.contentSpec);
-    modules = extracted.modules;
-    metadata = extracted.metadata;
-  }
-
-  // Fallback 2: Subject-based curriculum (JSON in notableInfo)
+  // Fallback: Subject-based curriculum (JSON in notableInfo)
   if (modules.length === 0) {
     const subjectResult = extractSubjectCurriculumModules(data);
     if (subjectResult && subjectResult.modules.length > 0) {
@@ -481,6 +477,7 @@ export async function computeSharedState(
     thresholds,
     // Include metadata for downstream transforms
     curriculumMetadata: metadata,
+    curriculumName: curriculumInfo?.name || null,
     curriculumSpecSlug: specSlug || undefined,
     // Lesson plan session tracking
     currentSessionNumber,
@@ -502,8 +499,6 @@ registerTransform("computeModuleProgress", (
 ) => {
   const { sharedState, loadedData, resolvedSpecs } = context;
   const { modules, completedModules, estimatedProgress, lastCompletedIndex, nextModule } = sharedState;
-  const contentSpec = resolvedSpecs.contentSpec;
-  const contentCfg = contentSpec?.config as Record<string, any> | null;
   const callerAttributes = loadedData.callerAttributes;
   const totalCallCount = loadedData.callCount;
   const masteryThreshold = (sharedState as Record<string, any>).curriculumMetadata?.masteryThreshold ?? 0.7;
@@ -537,7 +532,7 @@ registerTransform("computeModuleProgress", (
   };
 
   return {
-    name: contentCfg?.metadata?.curriculum?.name || contentCfg?.curriculum?.name || contentSpec?.name || null,
+    name: (sharedState as Record<string, any>).curriculumName || null,
     hasData: curriculumAttrs.length > 0 || modules.length > 0,
     totalModules: modules.length,
     completedModules: completedModulesList,

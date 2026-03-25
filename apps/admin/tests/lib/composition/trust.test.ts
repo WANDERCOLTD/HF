@@ -25,7 +25,7 @@ function makeContext(overrides: Partial<AssembledContext> = {}): AssembledContex
       onboardingSpec: null,
     },
     sections: {},
-    resolvedSpecs: { identitySpec: null, contentSpec: null, voiceSpec: null },
+    resolvedSpecs: { identitySpec: null, voiceSpec: null },
     sharedState: {
       modules: [],
       isFirstCall: false,
@@ -50,7 +50,7 @@ function makeSectionDef(): CompositionSectionDef {
     name: "Content Trust",
     priority: 6,
     dataSource: "_assembled",
-    activateWhen: { condition: "contentSpecExists" },
+    activateWhen: { condition: "curriculumDataExists" },
     fallback: { action: "null" },
     transform: "computeTrustContext",
     outputKey: "contentTrust",
@@ -79,9 +79,6 @@ describe("computeTrustContext transform", () => {
     const ctx = makeContext({
       resolvedSpecs: {
         identitySpec: null,
-        contentSpec: { name: "Content", config: {}, description: null },
-        voiceSpec: null,
-      },
     });
 
     const result = getTransform("computeTrustContext")!(null, ctx, makeSectionDef());
@@ -92,17 +89,6 @@ describe("computeTrustContext transform", () => {
     const ctx = makeContext({
       resolvedSpecs: {
         identitySpec: null,
-        contentSpec: {
-          name: "WNF Content",
-          config: {
-            sourceAuthority: {
-              primarySource: {
-                slug: "wn-syllabus",
-                name: "Wealth & Finance Syllabus",
-                trustLevel: "ACCREDITED_MATERIAL",
-                publisherOrg: "LIBF",
-                qualificationRef: "WNF-001",
-              },
               secondarySources: [],
             },
           },
@@ -126,11 +112,6 @@ describe("computeTrustContext transform", () => {
     const ctx = makeContext({
       resolvedSpecs: {
         identitySpec: null,
-        contentSpec: {
-          name: "Content",
-          config: {
-            sourceAuthority: {
-              primarySource: { slug: "main", name: "Main", trustLevel: "PUBLISHED_REFERENCE" },
               secondarySources: [
                 { slug: "ref-1", name: "Reference Book", trustLevel: "EXPERT_CURATED", authors: ["Author A"], edition: "3rd Ed." },
               ],
@@ -156,16 +137,6 @@ describe("computeTrustContext transform", () => {
     const ctx = makeContext({
       resolvedSpecs: {
         identitySpec: null,
-        contentSpec: {
-          name: "Content",
-          config: {
-            sourceAuthority: {
-              primarySource: {
-                slug: "old",
-                name: "Old Source",
-                trustLevel: "PUBLISHED_REFERENCE",
-                _validUntil: pastDate.toISOString(),
-              },
               secondarySources: [],
             },
           },
@@ -187,16 +158,6 @@ describe("computeTrustContext transform", () => {
     const ctx = makeContext({
       resolvedSpecs: {
         identitySpec: null,
-        contentSpec: {
-          name: "Content",
-          config: {
-            sourceAuthority: {
-              primarySource: {
-                slug: "expiring",
-                name: "Expiring Source",
-                trustLevel: "PUBLISHED_REFERENCE",
-                _validUntil: soonDate.toISOString(),
-              },
               secondarySources: [],
             },
           },
@@ -215,11 +176,6 @@ describe("computeTrustContext transform", () => {
     const ctx = makeContext({
       resolvedSpecs: {
         identitySpec: null,
-        contentSpec: {
-          name: "Content",
-          config: {
-            sourceAuthority: {
-              primarySource: { slug: "main", name: "Main Source", trustLevel: "ACCREDITED_MATERIAL" },
               secondarySources: [],
             },
           },
@@ -252,9 +208,6 @@ describe("computeTrustContext transform", () => {
       const ctx = makeContext({
         resolvedSpecs: {
           identitySpec: null,
-          contentSpec: { name: "Content", config: {}, description: null },
-          voiceSpec: null,
-        },
         loadedData: {
           ...makeContext().loadedData,
           subjectSources: {

@@ -89,7 +89,7 @@ export async function persistComposedPrompt(
         playbooksUsed: loadedData.playbooks.map((p: any) => p.name),
         playbooksCount: loadedData.playbooks.length,
         identitySpec: resolvedSpecs.identitySpec?.name || null,
-        contentSpec: resolvedSpecs.contentSpec?.name || null,
+        contentSpec: null, // Removed in ADR-002
         specUsed: composeSpecSlug || "(defaults)",
         specConfig: specConfig || {},
         composition: {

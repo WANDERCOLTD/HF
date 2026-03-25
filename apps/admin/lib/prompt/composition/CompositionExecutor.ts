@@ -94,7 +94,6 @@ export async function executeComposition(
 
   console.log(`[CompositionExecutor] Playbooks stacked: ${loadedData.playbooks.length} (${loadedData.playbooks.map(p => p.name).join(", ") || "none"})`);
   console.log(`[CompositionExecutor] Identity: ${resolvedSpecs.identitySpec?.name || "NONE"}${resolvedSpecs.identitySpec?.extendsAgent ? ` (extends ${resolvedSpecs.identitySpec.extendsAgent})` : ""}`);
-  console.log(`[CompositionExecutor] Content: ${resolvedSpecs.contentSpec?.name || "NONE"}`);
   console.log(`[CompositionExecutor] Voice: ${resolvedSpecs.voiceSpec?.name || "NONE"}`);
 
   // 3. Compute shared state (modules, session flow, etc.)
@@ -247,11 +246,11 @@ function checkActivationWithReason(
       return { activated: false, reason: `No data for: ${missing.join(", ")}` };
     }
 
-    case "contentSpecExists":
-      if (context.resolvedSpecs.contentSpec) {
-        return { activated: true, reason: `Content spec resolved: ${context.resolvedSpecs.contentSpec.name}` };
+    case "curriculumDataExists":
+      if (context.sharedState?.modules?.length > 0) {
+        return { activated: true, reason: `Curriculum has ${context.sharedState.modules.length} modules` };
       }
-      return { activated: false, reason: "No content spec in playbook" };
+      return { activated: false, reason: "No curriculum modules found" };
 
     case "callerHasDomain":
       if (context.loadedData.caller?.domain) {
@@ -310,8 +309,6 @@ function resolveDataSource(
     for (const source of dataSource) {
       if (source === "callerDomain") {
         result.callerDomain = context.loadedData.caller?.domain || null;
-      } else if (source === "contentSpec") {
-        result.contentSpec = context.resolvedSpecs.contentSpec;
       } else {
         result[source] = (context.loadedData as any)[source];
       }
@@ -465,21 +462,14 @@ function buildCallerContext(context: AssembledContext): string {
 // HELPER
 // =============================================================
 
-function buildAgentIdentitySummary(resolvedSpecs: { identitySpec: any; contentSpec: any }): string {
-  if (!resolvedSpecs.identitySpec && !resolvedSpecs.contentSpec) {
-    return "No identity or content specs - using default conversational style.";
+function buildAgentIdentitySummary(resolvedSpecs: { identitySpec: any }): string {
+  if (!resolvedSpecs.identitySpec) {
+    return "No identity spec - using default conversational style.";
   }
   const parts: string[] = [];
-  if (resolvedSpecs.identitySpec) {
-    parts.push(`WHO: ${resolvedSpecs.identitySpec.name}`);
-    const role = resolvedSpecs.identitySpec.config?.roleStatement;
-    if (role) parts.push(`Role: ${role.substring(0, 100)}...`);
-  }
-  if (resolvedSpecs.contentSpec) {
-    parts.push(`WHAT: ${resolvedSpecs.contentSpec.name}`);
-    const curriculum = resolvedSpecs.contentSpec.config?.name;
-    if (curriculum) parts.push(`Curriculum: ${curriculum}`);
-  }
+  parts.push(`WHO: ${resolvedSpecs.identitySpec.name}`);
+  const role = resolvedSpecs.identitySpec.config?.roleStatement;
+  if (role) parts.push(`Role: ${role.substring(0, 100)}...`);
   return parts.join(". ");
 }
 
@@ -555,7 +545,7 @@ export function getDefaultSections(): CompositionSectionDef[] {
       name: "Curriculum Progress",
       priority: 7,
       dataSource: "_assembled",
-      activateWhen: { condition: "contentSpecExists" },
+      activateWhen: { condition: "curriculumDataExists" },
       fallback: { action: "null" },
       transform: "computeModuleProgress",
       outputKey: "curriculum",
@@ -600,22 +590,13 @@ export function getDefaultSections(): CompositionSectionDef[] {
       transform: "extractIdentitySpec",
       outputKey: "identity",
     },
-    {
-      id: "content",
-      name: "Content Spec",
-      priority: 12,
-      dataSource: "_assembled",
-      activateWhen: { condition: "contentSpecExists" },
-      fallback: { action: "null" },
-      transform: "extractContentSpec",
-      outputKey: "content",
-    },
+    // "content" section removed — Content Spec consolidated (ADR-002)
     {
       id: "content_trust",
       name: "Content Trust & Source Authority",
       priority: 12.5,
-      dataSource: "_assembled",
-      activateWhen: { condition: "contentSpecExists" },
+      dataSource: "subjectSources",
+      activateWhen: { condition: "dataExists" },
       fallback: { action: "null" },
       transform: "computeTrustContext",
       outputKey: "contentTrust",
@@ -746,7 +727,7 @@ export function getDefaultSections(): CompositionSectionDef[] {
       fallback: { action: "emptyObject" },
       transform: "computeInstructions",
       outputKey: "instructions",
-      dependsOn: ["memories", "personality", "behavior_targets", "curriculum", "learner_goals", "identity", "content", "content_trust", "teaching_content", "course_instructions", "instructions_pedagogy", "instructions_voice"],
+      dependsOn: ["memories", "personality", "behavior_targets", "curriculum", "learner_goals", "identity", "content_trust", "teaching_content", "course_instructions", "instructions_pedagogy", "instructions_voice"],
     },
     {
       id: "quick_start",

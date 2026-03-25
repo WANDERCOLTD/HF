@@ -107,35 +107,19 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
   // 1. Load domain + assertions via shared loader (optionally scoped to specific subjects)
   const { domain, assertions, subjectName, qualificationRef, sourceCount } = await loadDomainAssertions(domainId, tx, options?.subjectIds);
 
-  // 2. Check if content spec already exists
-  const contentSlug = `${domain.slug}-content`;
-  const existing = await p.analysisSpec.findFirst({
-    where: { slug: contentSlug },
-    select: { id: true, slug: true, name: true, config: true },
+  // 2. Check if curriculum already exists for this domain's subjects
+  const existingCurriculum = await p.curriculum.findFirst({
+    where: { subject: { domains: { some: { domainId } } } },
+    select: { id: true },
   });
 
-  if (existing && !options?.regenerate) {
-    // Check if new assertions have arrived since last generation → mark dirty
-    if (assertions.length > 0) {
-      const cfg = existing.config as Record<string, any> | null;
-      const generatedCount = cfg?.assertionCount ?? 0;
-      if (assertions.length > generatedCount) {
-        await p.analysisSpec.update({
-          where: { id: existing.id },
-          data: {
-            isDirty: true,
-            dirtyReason: `New teaching points: ${assertions.length} now vs ${generatedCount} at generation`,
-          },
-        });
-      }
-    }
-
+  if (existingCurriculum && !options?.regenerate) {
     return {
-      contentSpec: existing,
+      contentSpec: null,
       moduleCount: 0,
       assertionCount: 0,
       addedToPlaybook: false,
-      skipped: ["Content spec already exists"],
+      skipped: ["Curriculum already exists"],
     };
   }
 
@@ -178,110 +162,16 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
     };
   }
 
-  // 6. Create or update Content spec
-  const specData = {
-    slug: contentSlug,
-    name: `${domain.name} Curriculum`,
-    description: curriculum.description || `Structured curriculum for ${domain.name}, auto-generated from ${assertions.length} teaching points across ${sourceCount} source(s).`,
-    outputType: "COMPOSE" as const,
-    specRole: "CONTENT" as const,
-    specType: "DOMAIN" as const,
-    domain: "content",
-    scope: "DOMAIN" as const,
-    isActive: true,
-    isDirty: false,
-    isDeletable: true,
-    config: JSON.parse(JSON.stringify({
-      modules: curriculum.modules,
-      deliveryConfig: curriculum.deliveryConfig,
-      sourceCount: sourceCount,
-      assertionCount: assertions.length,
-      generatedAt: new Date().toISOString(),
-    })),
-  };
-
-  const wasRegenerated = !!existing;
-  let contentSpec: { id: string; slug: string; name: string };
-
-  if (existing) {
-    // Regenerate: update existing spec with new curriculum
-    contentSpec = await p.analysisSpec.update({
-      where: { id: existing.id },
-      data: {
-        name: specData.name,
-        description: specData.description,
-        config: specData.config,
-        isDirty: false,
-        dirtyReason: null,
-      },
-      select: { id: true, slug: true, name: true },
-    });
-  } else {
-    contentSpec = await p.analysisSpec.create({
-      data: {
-        ...specData,
-        triggers: {
-          create: [
-            {
-              given: `A ${domain.name} teaching session with curriculum content`,
-              when: "The system needs to deliver structured teaching material",
-              then: "Content is presented following the curriculum module sequence with appropriate learning outcomes",
-              name: "Curriculum delivery",
-              sortOrder: 0,
-            },
-          ],
-        },
-      },
-      select: { id: true, slug: true, name: true },
-    });
-  }
-
-  // 7. Add to published playbook
-  let addedToPlaybook = false;
-  const playbook = await p.playbook.findFirst({
-    where: { domainId, status: "PUBLISHED" },
-    select: { id: true },
-  });
-
-  if (playbook) {
-    const existingItem = await p.playbookItem.findFirst({
-      where: { playbookId: playbook.id, specId: contentSpec.id },
-    });
-
-    if (!existingItem) {
-      // Find max sort order to append at end
-      const maxItem = await p.playbookItem.findFirst({
-        where: { playbookId: playbook.id },
-        orderBy: { sortOrder: "desc" },
-        select: { sortOrder: true },
-      });
-
-      await p.playbookItem.create({
-        data: {
-          playbookId: playbook.id,
-          itemType: "SPEC",
-          specId: contentSpec.id,
-          sortOrder: (maxItem?.sortOrder ?? 0) + 1,
-          isEnabled: true,
-        },
-      });
-
-      // Re-publish to update stats
-      await p.playbook.update({
-        where: { id: playbook.id },
-        data: { publishedAt: new Date() },
-      });
-
-      addedToPlaybook = true;
-    }
-  }
+  // 6. Content Spec as AnalysisSpec removed (ADR-002).
+  //    Curriculum data now lives in Curriculum + CurriculumModule + LearningObjective tables,
+  //    populated by extractCurriculumFromAssertions → Curriculum model pipeline.
+  //    The AnalysisSpec is no longer created or linked to playbooks.
 
   return {
-    contentSpec,
+    contentSpec: null,
     moduleCount: curriculum.modules.length,
     assertionCount: assertions.length,
-    addedToPlaybook,
-    wasRegenerated,
+    addedToPlaybook: false,
     skipped,
   };
 }

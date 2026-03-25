@@ -80,8 +80,7 @@ registerTransform("computeInstructions", (
   const personality = loadedData.personality;
   const callerAttributes = loadedData.callerAttributes;
   const learnerGoals = loadedData.goals;
-  const contentSpec = resolvedSpecs.contentSpec;
-  const contentCfg = contentSpec?.config as Record<string, any> | null;
+  const curriculumName = (sharedState as Record<string, any>).curriculumName as string | null;
 
   // Get memory groups from the memories section output
   const memoryGroups = sections.memories?.byCategory || {};
@@ -206,7 +205,7 @@ registerTransform("computeInstructions", (
       const parts: string[] = [];
 
       if (modules.length > 0) {
-        parts.push(`Curriculum: ${contentCfg?.curriculum?.name || contentSpec?.name || "Learning"} (${modules.length} modules)`);
+        parts.push(`Curriculum: ${curriculumName || "Learning"} (${modules.length} modules)`);
         parts.push(`Progress: ${completedModules.size}/${modules.length} completed`);
 
         if (isFirstCall && modules[0]) {

@@ -25,7 +25,7 @@ function makeContext(overrides: Partial<AssembledContext> = {}): AssembledContex
       onboardingSpec: null,
     },
     sections: {},
-    resolvedSpecs: { identitySpec: null, contentSpec: null, voiceSpec: null },
+    resolvedSpecs: { identitySpec: null, voiceSpec: null },
     sharedState: {
       modules: [],
       isFirstCall: false,
@@ -174,8 +174,8 @@ describe("mapGoals transform", () => {
 
   it("maps goals with progress and playbook flag", () => {
     const goals: GoalData[] = [
-      { id: "g1", type: "LEARN", name: "Master QM", description: "Learn quality management", status: "ACTIVE", priority: 8, progress: 0.5, playbookId: "pb-1", contentSpec: null, playbook: { id: "pb-1", name: "QM Playbook" }, startedAt: new Date() },
-      { id: "g2", type: "ACHIEVE", name: "Pass exam", description: null, status: "ACTIVE", priority: 5, progress: 0, playbookId: null, contentSpec: null, playbook: null, startedAt: null },
+      { id: "g1", type: "LEARN", name: "Master QM", description: "Learn quality management", status: "ACTIVE", priority: 8, progress: 0.5, playbookId: "pb-1", playbook: { id: "pb-1", name: "QM Playbook" }, startedAt: new Date() },
+      { id: "g2", type: "ACHIEVE", name: "Pass exam", description: null, status: "ACTIVE", priority: 5, progress: 0, playbookId: null, playbook: null, startedAt: null },
     ];
 
     const ctx = makeContext();

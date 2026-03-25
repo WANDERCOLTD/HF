@@ -133,131 +133,20 @@ registerTransform("computeTrustContext", (
   _rawData: any,
   context: AssembledContext,
 ) => {
-  const contentSpec = context.resolvedSpecs.contentSpec;
-  const config = contentSpec?.config as Record<string, any> | null;
-  const sourceAuthority = config?.sourceAuthority;
-
-  // No source authority in spec — try subject-based sources as fallback
-  if (!sourceAuthority) {
-    const subjectData = context.loadedData.subjectSources;
-    if (subjectData?.subjects?.length) {
-      return buildSubjectTrustContext(subjectData);
-    }
-    return {
-      hasTrustData: false,
-      trustLevel: null,
-      primarySource: null,
-      secondarySources: [],
-      contentAuthority: null,
-      trustRules: null,
-      referenceCard: null,
-      freshnessWarnings: [],
-    };
+  // Build trust context from subject-based sources (primary path after ADR-002)
+  const subjectData = context.loadedData.subjectSources;
+  if (subjectData?.subjects?.length) {
+    return buildSubjectTrustContext(subjectData);
   }
-
-  // Extract primary and secondary sources
-  const primarySource: SourceDeclaration | null = sourceAuthority.primarySource || null;
-  const secondarySources: SourceDeclaration[] = sourceAuthority.secondarySources || [];
-
-  // Build CONTENT AUTHORITY header
-  const authorityLines: string[] = [];
-  authorityLines.push("## CONTENT AUTHORITY\n");
-
-  if (contentSpec?.name) {
-    authorityLines.push(`You are teaching CERTIFIED MATERIALS for ${contentSpec.name}.\n`);
-  }
-
-  if (primarySource) {
-    const trustInfo = TRUST_LEVELS[primarySource.trustLevel];
-    const label = trustInfo ? trustInfo.label.toUpperCase() : primarySource.trustLevel;
-    authorityLines.push(`PRIMARY SOURCE: ${primarySource.name || primarySource.slug} [${label}]`);
-    if (primarySource.publisherOrg) {
-      authorityLines.push(`  Publisher: ${primarySource.publisherOrg}`);
-    }
-    // Enriched DB metadata
-    const ps = primarySource as Record<string, any>;
-    if (ps._accreditingBody) {
-      authorityLines.push(`  Accrediting Body: ${ps._accreditingBody}${ps._accreditationRef ? ` (${ps._accreditationRef})` : ""}`);
-    }
-    if (primarySource.qualificationRef) {
-      authorityLines.push(`  Qualification: ${primarySource.qualificationRef}`);
-    }
-  }
-
-  for (const src of secondarySources) {
-    const trustInfo = TRUST_LEVELS[src.trustLevel];
-    const label = trustInfo ? trustInfo.label.toUpperCase() : src.trustLevel;
-    const authorLine = src.authors?.length ? ` (${src.authors.join(", ")})` : "";
-    const editionLine = src.edition ? `, ${src.edition}` : "";
-    authorityLines.push(`SECONDARY: ${src.name || src.slug}${authorLine}${editionLine} [${label}]`);
-  }
-
-  // Build trust rules
-  const trustRules = buildTrustRules(primarySource);
-
-  // Build reference card for current module
-  const currentModule = context.sharedState?.nextModule || context.sharedState?.moduleToReview;
-  const refCard = buildReferenceCard(currentModule, sourceAuthority);
-
-  // Check freshness
-  const freshnessWarnings: FreshnessWarning[] = [];
-
-  // Check freshness from enriched DB metadata (_validUntil) or spec-level validUntil
-  if (primarySource) {
-    const validUntil = (primarySource as Record<string, any>)._validUntil || (primarySource as Record<string, any>).validUntil;
-    const warning = checkFreshness(validUntil);
-    if (warning) {
-      freshnessWarnings.push({ ...warning, message: `Primary source "${primarySource.name || primarySource.slug}": ${warning.message}` });
-    }
-  }
-
-  for (const src of secondarySources) {
-    const validUntil = (src as Record<string, any>)._validUntil || (src as Record<string, any>).validUntil;
-    const warning = checkFreshness(validUntil);
-    if (warning) {
-      freshnessWarnings.push({ ...warning, message: `Secondary source "${src.name || src.slug}": ${warning.message}` });
-    }
-  }
-
-  // Check module-level content for expired facts
-  if (currentModule) {
-    const moduleContent = currentModule.content || currentModule;
-    const points = moduleContent.points || moduleContent.content || [];
-    for (const point of Array.isArray(points) ? points : []) {
-      if (typeof point === "object" && point.validUntil) {
-        const warning = checkFreshness(point.validUntil);
-        if (warning) {
-          const text = point.text || point.title || "(content point)";
-          freshnessWarnings.push({
-            ...warning,
-            message: `"${text.substring(0, 60)}..." — ${warning.message}`,
-          });
-        }
-      }
-    }
-  }
-
-  // Add freshness warnings to prompt
-  if (freshnessWarnings.length > 0) {
-    authorityLines.push("\nVALIDITY WARNINGS:");
-    for (const w of freshnessWarnings) {
-      const icon = w.severity === "expired" ? "EXPIRED" : "EXPIRING";
-      authorityLines.push(`  [${icon}] ${w.message}`);
-    }
-  }
-
-  const contentAuthority = authorityLines.join("\n");
-
   return {
-    hasTrustData: true,
-    trustLevel: primarySource?.trustLevel || null,
-    primarySource,
-    secondarySources,
-    contentAuthority,
-    trustRules,
-    referenceCard: refCard?.card || null,
-    referenceSourceRefs: refCard?.sourceRefs || [],
-    freshnessWarnings,
+    hasTrustData: false,
+    trustLevel: null,
+    primarySource: null,
+    secondarySources: [],
+    contentAuthority: null,
+    trustRules: null,
+    referenceCard: null,
+    freshnessWarnings: [],
   };
 });
 

@@ -31,7 +31,7 @@ export interface ActivationCondition {
   condition:
     | "always"
     | "dataExists"
-    | "contentSpecExists"
+    | "curriculumDataExists"
     | "callerHasDomain"
     | "callCount == 0"
     | string;
@@ -55,7 +55,6 @@ export interface ResolvedSpec {
 
 export interface ResolvedSpecs {
   identitySpec: ResolvedSpec | null;
-  contentSpec: ResolvedSpec | null;
   voiceSpec: ResolvedSpec | null;
 }
 
@@ -245,8 +244,10 @@ export interface SharedComputedState {
   reviewType: string;
   reviewReason: string;
   thresholds: { high: number; low: number };
-  /** Curriculum metadata from CONTENT spec (if contract-compliant) */
+  /** Curriculum metadata (from CurriculumModule records or legacy spec) */
   curriculumMetadata?: CurriculumMetadata | null;
+  /** Curriculum display name (from Curriculum model) */
+  curriculumName?: string | null;
   /** Spec slug or curriculum slug used as progress storage key prefix */
   curriculumSpecSlug?: string;
   /** Whether first call in current domain (for domain-switch re-onboarding) */
