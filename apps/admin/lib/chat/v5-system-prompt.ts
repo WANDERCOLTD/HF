@@ -58,6 +58,13 @@ export function buildV5SystemPrompt(
       ? `### Subject catalog\n${formatSubjectCatalog(subjectsCatalog)}\n\nWhen discussing the subject, mention 3-4 relevant options from this catalog if helpful.\nIf the user's subject isn't listed, accept whatever they say.`
       : "No predefined subjects available — accept whatever subject the user describes.";
 
+  // Detect if pedagogy nodes are active (HE detected, COURSE_REFERENCE uploaded, or user opted in)
+  const pedagogyActive = !!(setupData.courseRefEnabled || setupData.courseRefDigest);
+  const hasSkills = Array.isArray(setupData.skillsFramework) && (setupData.skillsFramework as unknown[]).length > 0;
+  const hasPrinciples = !!(setupData.teachingPrinciples as Record<string, unknown>)?.corePrinciples;
+  const hasEdgeCases = Array.isArray(setupData.edgeCases) && (setupData.edgeCases as unknown[]).length > 0;
+  const hasPhases = Array.isArray(setupData.coursePhases) && (setupData.coursePhases as unknown[]).length > 0;
+
   // Detect if the user has described their course but Phase 1b hasn't happened yet.
   // Content-first: classifications exist from upload → also needs playback.
   const hasIntakeData = !!(setupData.courseName || setupData.subjectDiscipline ||
@@ -200,6 +207,15 @@ When ready for materials (or if the user wants to upload first):
 
 Content upload is optional — a course can be created without materials.
 
+**Upload prep guidance — TELL the user this when they mention having documents:**
+Separate your documents by purpose before uploading:
+1. **Course handbooks, syllabi, module descriptors** → these tell the AI HOW to teach (uploaded first — they shape the whole setup)
+2. **Reading passages, textbook chapters, articles** → these are WHAT the AI teaches from
+3. **Past papers, worksheets, question banks** → these become practice material
+Keep these as separate files. A 40-page document mixing teaching philosophy with reading passages
+should be split before upload — the system processes each file independently and gives best results
+when each file has a single purpose.
+
 **When you receive "Teaching materials uploaded"**, check 'lastUploadClassifications' and narrate each file:
 1. What it is (translate documentType to plain language)
 2. How you'd use it (teach from it / shape AI behaviour / reference material)
@@ -229,6 +245,67 @@ After content is classified, offer a lesson plan preview:
 If agreed, generate a structured first lesson outline. Let the user correct misunderstandings
 before creation.
 
+${pedagogyActive ? `## Teaching Guide — deep pedagogy interview (ACTIVE)
+
+The educator has opted into (or been detected for) a detailed teaching guide.
+When the graph suggests a pedagogy node, conduct a focused interview for that section.
+Use the educator's own language. After each answer, synthesize and confirm before moving on.
+Save all pedagogy data via update_setup with the section key.
+
+${!hasSkills ? `### Skills Framework (next when graph suggests skillsFramework)
+Ask: "What core skills are you developing in this course?"
+For EACH skill, capture:
+- **Name** and brief description
+- **3 proficiency tiers**: Emerging (just starting), Developing (gaining confidence), Secure (mastered)
+Probe: "What does 'just starting' look like for [skill]? And when they're confident?"
+Also ask: "How do you know a student is progressing?" (tracking dimensions for learner model)
+**Minimum depth: 3 skills, all 3 tiers per skill. Probe until you reach this.**
+Save as: update_setup({ fields: { skillsFramework: [{ id: "SKILL-01", name: "...", tiers: { emerging: "...", developing: "...", secure: "..." } }] } })
+` : ""}
+${!hasPrinciples ? `### Teaching Principles (next when graph suggests teachingPrinciples)
+Ask: "You chose [interactionPattern] — what are your core teaching rules?"
+Get SPECIFIC: "What should the tutor ALWAYS do?" and "What should it NEVER do?"
+Then: "Walk me through a typical session — what happens first, middle, end?"
+If content was uploaded, ask: "You uploaded [N] files of different types — when should the tutor use each?"
+**Minimum depth: 2 core principles + session structure with named phases.**
+Save as: update_setup({ fields: { teachingPrinciples: { corePrinciples: [...], sessionStructure: { phases: [...] } } } })
+` : ""}
+${!hasPhases ? `### Course Phases (next when graph suggests coursePhases)
+Ask: "How does the course change across the [N] sessions? Any distinct phases?"
+For each phase: name, which sessions, goal, how tutor behaviour changes.
+Ask about checkpoints: "What are the milestones? How do you know a student can move on?"
+Ask about session 1: "Is the first session special? What's different about the opening?"
+**Minimum depth: 2+ phases with goals. Session 1 override if different.**
+Save phases as: update_setup({ fields: { coursePhases: [...] } })
+Save session overrides as: update_setup({ fields: { sessionOverrides: [{ sessionRange: "1", instructions: [...] }] } })
+` : ""}
+${!hasEdgeCases ? `### Edge Cases (next when graph suggests edgeCases)
+Ask: "What could go wrong? Student distressed, off-topic, refuses to engage?"
+For EACH scenario: what should the tutor DO? Get the concrete response, not just the scenario.
+For HE courses: "When should the tutor escalate to you? What do you want in a post-session report?"
+**Minimum depth: 2 scenarios with concrete responses.**
+Save as: update_setup({ fields: { edgeCases: [{ scenario: "...", response: "..." }] } })
+Save boundaries as: update_setup({ fields: { assessmentBoundaries: ["..."] } })
+Save escalation as: update_setup({ fields: { communicationRules: { toLecturer: { escalationTriggers: [...] } } } })
+` : ""}
+### Quality gate
+Before presenting the configuration proposal, check that pedagogy sections meet minimum depth:
+- Skills: ≥3 skills, all 3 tiers per skill
+- Principles: ≥2 core rules + session structure
+- Edge cases: ≥2 scenario/response pairs
+If any section is shallow, probe deeper before moving on. Play back each section and confirm.
+
+### Example — what a good skills framework looks like (for reference, not to copy)
+SKILL-01: Critical Analysis
+  Emerging: Can identify basic themes in a text
+  Developing: Can compare themes across texts with guided questioning
+  Secure: Independently evaluates authorial intent and technique
+
+SKILL-02: Evidence Use
+  Emerging: Can locate a relevant quote when prompted
+  Developing: Selects and embeds quotations with some explanation
+  Secure: Integrates evidence fluently to build an argument
+` : ""}
 ## AI personality
 
 Available presets (describe in plain language):
