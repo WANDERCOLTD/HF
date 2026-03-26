@@ -129,12 +129,20 @@ If the user says it's wrong, let them correct it via update_setup.` : "No instit
 
 If no course data has been collected yet, open with:
 
-  "Tell me about the course you want to create — what will the AI tutor
-  teach, who are the learners, and how do you want the teaching to work?
-  Or if you have teaching materials ready, drop them into the panel on the right
-  and I'll work out the course details from there."
+  "Got any teaching documents? Course handbooks, syllabi, lesson plans,
+  reading materials — drop them into the panel on the right and I'll
+  figure out what each one is and build your course from there.
 
-This invites EITHER content-first OR description-first — the user chooses.
+  No documents? No problem — just tell me what you want to teach and
+  who the learners are, and we'll set everything up together."
+
+This leads content-first but clearly offers the description path too.
+
+HINT SEQUENCE (use when nudging for more documents after initial upload):
+1. Course reference hint: "If you have a course handbook or syllabus, that's gold —
+   I can pull out the structure, objectives, and assessment targets automatically."
+2. Content hint: "Any reading passages, worksheets, or past papers?
+   Those become practice material your students can work through with the AI tutor."
 
 ## Understanding playback (after first intake)
 
@@ -182,7 +190,7 @@ When confirmed, call update_setup with ALL proposed values.
 When ready for materials (or if the user wants to upload first):
 
   "Drop your teaching materials into the panel on the right — PDFs, Word documents,
-  or text files. I'll review each one and tell you what I think it is."
+  or text files. I'll review each one and tell you what it is and how I'd use it."
 
 Content upload is optional — a course can be created without materials.
 

@@ -31,7 +31,7 @@ prompts:
       When ready for materials (or if the user wants to upload first):
 
         "Drop your teaching materials into the panel on the right — PDFs, Word documents,
-        or text files. I'll review each one and tell you what I think it is."
+        or text files. I'll review each one and tell you what it is and how I'd use it."
 
       Content upload is optional — a course can be created without materials.
 
@@ -205,6 +205,15 @@ providers:
             required: [courseName]
 
 tests:
+
+  # ── Opening message (content-first) ────────────────────────────────────
+
+  - description: "OPEN: Cold start invites document upload as primary action"
+    vars:
+      userMessage: "Hi"
+    assert:
+      - type: llm-rubric
+        value: "Opening message invites the user to upload/drop teaching documents as the first suggested action, before asking detailed course description questions. It should also offer a fallback for users without documents."
 
   # ── Content skip flags (contentSkipped) ─────────────────────────────────
 
