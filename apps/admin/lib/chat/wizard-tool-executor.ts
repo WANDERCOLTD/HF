@@ -733,6 +733,49 @@ export async function executeWizardTool(
                 console.error("[wizard] teachMethod backfill failed (non-fatal):", err.message));
             }
 
+            // Create assertions from pedagogy data (if user filled any pedagogy nodes)
+            const hasPedagogyExisting = setupData?.skillsFramework || setupData?.teachingPrinciples
+              || setupData?.coursePhases || setupData?.edgeCases || setupData?.assessmentBoundaries;
+            if (hasPedagogyExisting && existingPbSubject?.subjectId) {
+              try {
+                const { convertCourseRefToAssertions } = await import("@/lib/content-trust/course-ref-to-assertions");
+                const { renderCourseRefMarkdown } = await import("@/lib/content-trust/course-ref-to-markdown");
+                const refData = {
+                  skillsFramework: setupData?.skillsFramework as any,
+                  teachingApproach: setupData?.teachingPrinciples as any,
+                  coursePhases: setupData?.coursePhases as any,
+                  edgeCases: setupData?.edgeCases as any,
+                  assessmentBoundaries: setupData?.assessmentBoundaries as string[],
+                  learnerModel: setupData?.learnerModel as any,
+                  sessionOverrides: setupData?.sessionOverrides as any,
+                  contentStrategy: setupData?.contentStrategy as any,
+                  communicationRules: setupData?.communicationRules as any,
+                };
+                const assertionRows = convertCourseRefToAssertions(refData);
+                if (assertionRows.length > 0) {
+                  const refSource = await prisma.contentSource.create({
+                    data: {
+                      name: `${courseName || "Course"} — Course Reference`,
+                      documentType: "COURSE_REFERENCE",
+                      textSample: renderCourseRefMarkdown(refData),
+                      status: "COMPLETED",
+                    },
+                  });
+                  await prisma.subjectSource.create({
+                    data: { subjectId: existingPbSubject.subjectId, sourceId: refSource.id },
+                  });
+                  for (const row of assertionRows) {
+                    await prisma.contentAssertion.create({
+                      data: { ...row, sourceId: refSource.id, confidence: 1.0, depth: 0, isActive: true },
+                    });
+                  }
+                  console.log(`[wizard] Created ${assertionRows.length} pedagogy assertions for existing course`);
+                }
+              } catch (err) {
+                console.error("[wizard] Pedagogy assertion creation (existing) failed (non-fatal):", (err as Error).message);
+              }
+            }
+
             // Sync instruction assertions into course identity spec overlay
             const { syncInstructionsToIdentitySpec } = await import("@/lib/content-trust/sync-instructions-to-spec");
             syncInstructionsToIdentitySpec(existingPlaybookId).catch(err =>
@@ -1106,6 +1149,66 @@ export async function executeWizardTool(
 
         // 10b. Sync instruction assertions into course identity spec overlay
         const { syncInstructionsToIdentitySpec } = await import("@/lib/content-trust/sync-instructions-to-spec");
+
+        // 10c. Create assertions from pedagogy data (if user filled any pedagogy nodes)
+        const hasPedagogy = setupData?.skillsFramework || setupData?.teachingPrinciples
+          || setupData?.coursePhases || setupData?.edgeCases || setupData?.assessmentBoundaries;
+        if (hasPedagogy) {
+          try {
+            const { convertCourseRefToAssertions } = await import("@/lib/content-trust/course-ref-to-assertions");
+            const { renderCourseRefMarkdown } = await import("@/lib/content-trust/course-ref-to-markdown");
+            const refData = {
+              courseOverview: {
+                subject: subjectDiscipline,
+                studentAge: (setupData?.audience as string) || undefined,
+              },
+              skillsFramework: setupData?.skillsFramework as any,
+              teachingApproach: setupData?.teachingPrinciples as any,
+              coursePhases: setupData?.coursePhases as any,
+              edgeCases: setupData?.edgeCases as any,
+              assessmentBoundaries: setupData?.assessmentBoundaries as string[],
+              learnerModel: setupData?.learnerModel as any,
+              sessionOverrides: setupData?.sessionOverrides as any,
+              contentStrategy: setupData?.contentStrategy as any,
+              communicationRules: setupData?.communicationRules as any,
+            };
+
+            const assertionRows = convertCourseRefToAssertions(refData);
+            if (assertionRows.length > 0) {
+              // Create a ContentSource to hold the pedagogy assertions
+              const refSource = await prisma.contentSource.create({
+                data: {
+                  name: `${courseName} — Course Reference`,
+                  documentType: "COURSE_REFERENCE",
+                  textSample: renderCourseRefMarkdown(refData),
+                  status: "COMPLETED",
+                },
+              });
+
+              // Link source to primary subject
+              await prisma.subjectSource.create({
+                data: { subjectId: subject.id, sourceId: refSource.id },
+              });
+
+              // Create assertion rows
+              for (const row of assertionRows) {
+                await prisma.contentAssertion.create({
+                  data: {
+                    ...row,
+                    sourceId: refSource.id,
+                    confidence: 1.0,
+                    depth: 0,
+                    isActive: true,
+                  },
+                });
+              }
+              console.log(`[wizard] Created ${assertionRows.length} pedagogy assertions from course reference data`);
+            }
+          } catch (err) {
+            console.error("[wizard] Pedagogy assertion creation failed (non-fatal):", (err as Error).message);
+          }
+        }
+
         syncInstructionsToIdentitySpec(playbookId).catch(err =>
           console.error("[wizard] instruction spec sync failed (non-fatal):", err.message));
 

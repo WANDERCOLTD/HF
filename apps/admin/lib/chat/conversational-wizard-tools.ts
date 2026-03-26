@@ -22,7 +22,15 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
       "existingInstitutionId, existingDomainId, defaultDomainKind, " +
       "physicalMaterials, personalityPreset, personalityDescription, " +
       "courseContext, assessmentTargets, constraints, communityMode, " +
-      "contentSkipped, welcomeSkipped, tuneSkipped. " +
+      "contentSkipped, welcomeSkipped, tuneSkipped, " +
+      "courseRefEnabled, skillsFramework, teachingPrinciples, coursePhases, " +
+      "edgeCases, assessmentBoundaries. " +
+      "courseRefEnabled = set to true when user wants detailed teaching guide. " +
+      "skillsFramework = array of { id, name, description?, tiers: { emerging, developing, secure } }. " +
+      "teachingPrinciples = { corePrinciples: string[], sessionStructure?: { phases: [] }, techniquesBySkill?: [] }. " +
+      "coursePhases = array of { name, sessions?, goal?, tutorBehaviour?: [], exitCriteria?: [], checkpoints?: [] }. " +
+      "edgeCases = array of { scenario, response }. " +
+      "assessmentBoundaries = array of strings (what this course is NOT). " +
       "audience = learner age group (primary, secondary, sixth-form, higher-ed, adult-professional, adult-casual). " +
       "learningOutcomes = array of strings, what students should achieve by course end. " +
       "assessments = assessment style (formal, light, none). " +
