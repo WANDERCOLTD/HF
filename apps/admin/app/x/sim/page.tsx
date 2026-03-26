@@ -58,7 +58,7 @@ export default function SimChatListPage() {
           <MessageCircle size={72} strokeWidth={1} />
         </div>
         <h2 style={{ fontSize: 28, fontWeight: 300, color: 'var(--wa-text-secondary)', margin: '24px 0 12px' }}>
-          HF Simulator
+          HumanFirst
         </h2>
         <p style={{ fontSize: 14, color: 'var(--wa-text-muted)', maxWidth: 460, lineHeight: 1.5 }}>
           No callers yet. Create one from Get Started or Quick Launch.

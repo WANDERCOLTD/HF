@@ -5,16 +5,14 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   BookMarked, FileText, ExternalLink, Plus, Pencil, Trash2,
-  Sparkles, AlertTriangle, ClipboardList,
+  Sparkles, AlertTriangle, Info,
   Settings as SettingsIcon, Users2,
   ListOrdered, Zap,
   PlayCircle,
 } from 'lucide-react';
-import { CourseWhatTab } from './CourseWhatTab';
-import { CourseHowTab } from './CourseHowTab';
-import { CourseRefTab } from './CourseRefTab';
+import { CourseOverviewTab } from './CourseOverviewTab';
+import { CourseContentTab } from './CourseContentTab';
 import { CourseWhoTab } from './CourseWhoTab';
-import { OnboardingEditor } from '@/components/shared/OnboardingEditor';
 import { SessionDetailPanel } from '@/components/shared/SessionDetailPanel';
 import { useSession } from 'next-auth/react';
 import { useEntityContext } from '@/contexts/EntityContext';
@@ -30,7 +28,6 @@ import {
   type SpecGroup,
 } from '@/lib/course/group-specs';
 import { SimLaunchModal } from '@/components/shared/SimLaunchModal';
-import { CourseSetupTracker } from '@/components/shared/CourseSetupTracker';
 import { SessionPlanViewer } from '@/components/shared/SessionPlanViewer';
 import { JourneyRail } from '@/components/shared/JourneyRail';
 import { reorderItems } from '@/lib/sortable/reorder';
@@ -146,7 +143,7 @@ export default function CourseDetailPage() {
   const [instructionTotal, setInstructionTotal] = useState(0);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<string>('what');
+  const [activeTab, setActiveTab] = useState<string>('overview');
 
   // Sessions tab
   const [sessions, setSessions] = useState<SessionTabData | null>(null);
@@ -250,13 +247,12 @@ export default function CourseDetailPage() {
   }, [sessions]);
 
   const tabs: TabDefinition[] = useMemo(() => [
-    { id: 'what', label: 'What', icon: <BookMarked size={14} />, count: contentOnlyCount || null },
-    { id: 'how', label: 'How', icon: <Sparkles size={14} />, count: instructionTotal || null },
-    { id: 'who', label: 'Who', icon: <Users2 size={14} /> },
-    { id: 'reference', label: 'Reference', icon: <ClipboardList size={14} /> },
+    { id: 'overview', label: 'Overview', icon: <Sparkles size={14} /> },
+    { id: 'content', label: 'Content', icon: <BookMarked size={14} />, count: contentOnlyCount || null },
     { id: 'sessions', label: 'Sessions', icon: <ListOrdered size={14} />, count: sessions?.plan?.estimatedSessions || null },
+    { id: 'students', label: 'Students', icon: <Users2 size={14} /> },
     ...(isOperator ? [{ id: 'settings', label: 'Settings', icon: <SettingsIcon size={14} /> }] : []),
-  ], [contentOnlyCount, instructionTotal, isOperator, sessions]);
+  ], [contentOnlyCount, isOperator, sessions]);
 
   // ── Tab change: lazy load lesson plan data ──
   const handleTabChange = useCallback((tab: string) => {
@@ -805,12 +801,12 @@ export default function CourseDetailPage() {
           <div className="hf-stat-value-sm">{subjects.length}</div>
           <div className="hf-text-xs hf-text-muted">Subjects</div>
         </Link>
-        <button type="button" onClick={() => handleTabChange('what')} className="hf-stat-card hf-stat-card-compact hf-stat-card-clickable">
+        <button type="button" onClick={() => handleTabChange('content')} className="hf-stat-card hf-stat-card-compact hf-stat-card-clickable">
           <div className="hf-stat-value-sm">{contentOnlyCount}</div>
           <div className="hf-text-xs hf-text-muted">Content</div>
         </button>
         {instructionTotal > 0 && (
-          <button type="button" onClick={() => handleTabChange('how')} className="hf-stat-card hf-stat-card-compact hf-stat-card-clickable">
+          <button type="button" onClick={() => handleTabChange('overview')} className="hf-stat-card hf-stat-card-compact hf-stat-card-clickable">
             <div className="hf-stat-value-sm">{instructionTotal}</div>
             <div className="hf-text-xs hf-text-muted">Rules</div>
           </button>
@@ -827,18 +823,9 @@ export default function CourseDetailPage() {
         )}
       </div>
 
-      {/* ── Setup Tracker ──────────────────────────────── */}
-      <CourseSetupTracker
-        courseId={courseId!}
-        detail={detail}
-        subjects={subjects}
-        sessions={sessions}
-        onSimCall={() => setShowSimModal(true)}
-      />
-
       {/* ── Tabs ──────────────────────────────────────── */}
       <DraggableTabs
-        storageKey="course-detail-tabs"
+        storageKey="course-detail-tabs-v2"
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -846,10 +833,38 @@ export default function CourseDetailPage() {
       />
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* WHAT TAB                                       */}
+      {/* OVERVIEW TAB                                   */}
       {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'what' && (
-        <CourseWhatTab
+      {activeTab === 'overview' && (
+        <CourseOverviewTab
+          courseId={courseId!}
+          detail={detail}
+          subjects={subjects}
+          contentMethods={contentMethods}
+          contentTotal={contentTotal}
+          isOperator={isOperator}
+          persona={persona}
+          specGroups={specGroups}
+          sessionPlan={sessions?.plan ? {
+            estimatedSessions: sessions.plan.estimatedSessions,
+            totalDurationMins: totalSessionDuration,
+            generatedAt: sessions.plan.generatedAt,
+          } : null}
+          sessions={sessions}
+          onSimCall={() => setShowSimModal(true)}
+          onContentRefresh={(methods, total) => {
+            setContentMethods(methods);
+            setContentTotal(total);
+          }}
+          onDetailUpdate={setDetail}
+        />
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* CONTENT TAB                                    */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === 'content' && (
+        <CourseContentTab
           courseId={courseId!}
           detail={detail}
           subjects={subjects}
@@ -871,23 +886,9 @@ export default function CourseDetailPage() {
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* HOW TAB                                        */}
+      {/* STUDENTS TAB                                   */}
       {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'how' && (
-        <CourseHowTab
-          courseId={courseId!}
-          detail={detail}
-          subjects={subjects}
-          isOperator={isOperator}
-          persona={persona}
-          onDetailUpdate={setDetail}
-        />
-      )}
-
-      {/* ═══════════════════════════════════════════════ */}
-      {/* WHO TAB                                        */}
-      {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'who' && (
+      {activeTab === 'students' && (
         <CourseWhoTab
           courseId={courseId!}
           detail={detail}
@@ -896,13 +897,6 @@ export default function CourseDetailPage() {
           specGroups={specGroups}
           onDetailUpdate={setDetail}
         />
-      )}
-
-      {/* ═══════════════════════════════════════════════ */}
-      {/* REFERENCE TAB                                  */}
-      {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'reference' && (
-        <CourseRefTab courseId={courseId!} isOperator={isOperator} />
       )}
 
       {/* ═══════════════════════════════════════════════ */}
@@ -924,13 +918,23 @@ export default function CourseDetailPage() {
             renderSessionDetail={(entry) => {
               if (entry.type === 'onboarding') {
                 return (
-                  <OnboardingEditor
-                    courseId={courseId!}
-                    domainId={detail.domain.id}
-                    domainName={detail.domain.name}
-                    isOperator={isOperator}
-                    compact
-                  />
+                  <div className="hf-card-compact">
+                    <div className="hf-flex hf-gap-sm hf-items-center hf-mb-sm">
+                      <Sparkles size={15} className="hf-text-accent" />
+                      <span className="hf-text-sm hf-text-bold">First Call</span>
+                    </div>
+                    <p className="hf-text-xs hf-text-muted hf-mb-sm">
+                      The onboarding flow introduces the learner to their AI tutor and sets expectations for the course.
+                    </p>
+                    <button
+                      type="button"
+                      className="hf-btn hf-btn-xs hf-btn-outline hf-flex hf-items-center hf-gap-xs"
+                      onClick={() => handleTabChange('overview')}
+                    >
+                      <Info size={12} />
+                      Edit onboarding on the Overview tab
+                    </button>
+                  </div>
                 );
               }
               return (

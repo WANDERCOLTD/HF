@@ -261,7 +261,7 @@ export function MembersTab({ community, onRefresh }: MembersTabProps) {
                       opacity: 0.8,
                       padding: 4,
                     }}
-                    title="Start sim"
+                    title="Start session"
                   >
                     <MessageSquare size={14} />
                   </Link>

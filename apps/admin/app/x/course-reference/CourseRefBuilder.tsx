@@ -5,13 +5,16 @@
  *
  * Left panel: Chat (sends mode: "COURSE_REF" to /api/chat)
  * Right panel: Live preview of the document being built, section-by-section
+ *
+ * Uses the cv4-* CSS system from wizard.css for visual parity with GS V5.
  */
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { ArrowUp, Loader2, ClipboardList, Check, Download, ExternalLink } from "lucide-react";
+import { ArrowUp, Loader2, Check, Download, ExternalLink, Upload, BookMarked } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { CourseRefData } from "@/lib/content-trust/course-ref-to-assertions";
 import { RefPreviewPanel } from "./RefPreviewPanel";
+import "../wizard/wizard.css";
 
 // ── Types ────────────────────────────────────────────────
 
@@ -215,16 +218,7 @@ export function CourseRefBuilder({ courseId }: CourseRefBuilderProps) {
     [sendMessage],
   );
 
-  // Handle form submit
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      sendMessage(input);
-    },
-    [input, sendMessage],
-  );
-
-  // Handle Enter key
+  // Handle Enter key (submit on Enter, newline on Shift+Enter)
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -246,41 +240,45 @@ export function CourseRefBuilder({ courseId }: CourseRefBuilderProps) {
   // ── Finalized state ────────────────────────────────────
   if (finalized) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-hf-bg">
-        <div className="hf-card max-w-lg w-full p-8 text-center space-y-6">
-          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 mx-auto">
-            <Check className="w-8 h-8 text-emerald-600" />
-          </div>
-          <h2 className="text-xl font-semibold text-hf-text">Course Created</h2>
-          <div className="space-y-2 text-sm text-hf-text-muted">
-            {courseName && <p className="font-medium text-hf-text">{courseName}</p>}
-            <p>{finalized.assertionCount} teaching assertions in prompt pipeline</p>
-          </div>
-          <div className="flex flex-col gap-3">
-            <a
-              href={`/x/get-started-v5?courseId=${finalized.playbookId}`}
-              className="hf-btn hf-btn-primary flex items-center justify-center gap-2"
-            >
-              <Upload className="w-4 h-4" />
-              Upload Content & Configure
-            </a>
-            <div className="flex gap-3">
-              <a
-                href={`/x/courses/${finalized.playbookId}`}
-                className="hf-btn hf-btn-secondary flex-1 flex items-center justify-center gap-2"
-              >
-                <ExternalLink className="w-4 h-4" />
-                View Course
-              </a>
-              <button
-                className="hf-btn hf-btn-secondary flex-1 flex items-center justify-center gap-2"
-                onClick={() => {
-                  // TODO: Download markdown
-                }}
-              >
-                <Download className="w-4 h-4" />
-                Download Reference
-              </button>
+      <div className="cv4-layout" style={{ justifyContent: "center", alignItems: "center" }}>
+        <div className="cv4-chat-column" style={{ maxWidth: 480 }}>
+          <div className="cv4-container" style={{ justifyContent: "center", alignItems: "center", padding: "40px 0" }}>
+            <div className="cv4-success-card">
+              <div className="cv4-success-title">Course Reference Created</div>
+              <div className="cv4-success-sub">
+                {courseName && <strong>{courseName}</strong>}
+                {courseName && <br />}
+                {finalized.assertionCount} teaching assertions in prompt pipeline
+              </div>
+              <div className="cv4-success-actions">
+                <a
+                  href={`/x/get-started-v5?courseId=${finalized.playbookId}`}
+                  className="hf-btn hf-btn-primary cv4-success-primary"
+                >
+                  <Upload size={16} /> Upload Content &amp; Configure
+                </a>
+                <div className="cv4-success-row">
+                  <a
+                    href={`/x/courses/${finalized.playbookId}`}
+                    className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink size={14} /> View Course
+                  </a>
+                  <button
+                    className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                    onClick={() => {
+                      // TODO: Download markdown
+                    }}
+                  >
+                    <Download size={14} /> Download Reference
+                  </button>
+                </div>
+                <a href="/x" className="cv4-success-link">
+                  Go to Dashboard &rarr;
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -290,95 +288,110 @@ export function CourseRefBuilder({ courseId }: CourseRefBuilderProps) {
 
   // ── Main layout ────────────────────────────────────────
   return (
-    <div className="flex h-screen bg-hf-bg">
-      {/* Left: Chat */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-hf-border">
-          <ClipboardList className="w-5 h-5 text-hf-primary" />
-          <h1 className="text-lg font-semibold text-hf-text">Course Reference Builder</h1>
-        </div>
+    <div className="cv4-layout">
+      {/* Chat column */}
+      <div className="cv4-chat-column">
+        <div className="cv4-container">
+          {/* Messages */}
+          <div className="cv4-messages" aria-live="polite">
+            <div className="cv4-messages-spacer" />
+            {messages.map((msg) => {
+              if (msg.role === "system") {
+                return (
+                  <div key={msg.id} className="cv4-row cv4-row--system">
+                    <div className="cv4-bubble cv4-bubble--error">{msg.content}</div>
+                  </div>
+                );
+              }
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${
-                  msg.role === "user"
-                    ? "bg-hf-primary text-white"
-                    : msg.role === "system"
-                      ? "bg-red-50 text-red-700 border border-red-200"
-                      : "bg-hf-surface text-hf-text border border-hf-border"
-                }`}
-              >
-                {msg.role === "assistant" ? (
-                  <ReactMarkdown
-                    className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0"
-                  >
-                    {msg.content}
-                  </ReactMarkdown>
-                ) : (
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                )}
+              if (msg.role === "assistant") {
+                return (
+                  <div key={msg.id} className="cv4-row cv4-row--assistant">
+                    <div className="cv4-bubble cv4-bubble--assistant">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={msg.id} className="cv4-row cv4-row--user">
+                  <div className="cv4-bubble cv4-bubble--user">{msg.content}</div>
+                </div>
+              );
+            })}
+
+            {/* Suggestion chips */}
+            {messages.length > 0 && messages[messages.length - 1]?.suggestions && !isLoading && (
+              <div className="cv4-row cv4-row--assistant">
+                <div className="cv4-suggestions">
+                  {messages[messages.length - 1].suggestions!.question && (
+                    <div className="cv4-suggestions-label">
+                      {messages[messages.length - 1].suggestions!.question}
+                    </div>
+                  )}
+                  <div className="cv4-suggestions-chips">
+                    {messages[messages.length - 1].suggestions!.suggestions.map((s, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        className="cv4-suggestion-chip"
+                        onClick={() => handleSuggestion(s)}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            )}
 
-          {/* Suggestion chips */}
-          {messages.length > 0 && messages[messages.length - 1]?.suggestions && (
-            <div className="flex flex-wrap gap-2">
-              {messages[messages.length - 1].suggestions!.suggestions.map((s, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleSuggestion(s)}
-                  className="px-3 py-1.5 text-sm rounded-full border border-hf-border bg-hf-surface text-hf-text hover:bg-hf-surface-hover transition-colors"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-hf-surface border border-hf-border rounded-2xl px-4 py-3">
-                <Loader2 className="w-4 h-4 animate-spin text-hf-text-muted" />
+            {/* Typing indicator */}
+            {isLoading && (
+              <div className="cv4-row cv4-row--assistant">
+                <div className="cv4-typing">
+                  <div className="cv4-typing-dot" />
+                  <div className="cv4-typing-dot" />
+                  <div className="cv4-typing-dot" />
+                </div>
               </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input */}
-        <form onSubmit={handleSubmit} className="px-6 py-4 border-t border-hf-border">
-          <div className="flex items-end gap-2 bg-hf-surface border border-hf-border rounded-xl px-4 py-2">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Describe your course..."
-              rows={1}
-              className="flex-1 bg-transparent text-sm text-hf-text placeholder:text-hf-text-muted resize-none outline-none max-h-32"
-              style={{ minHeight: "1.5rem" }}
-            />
-            <button
-              type="submit"
-              disabled={!input.trim() || isLoading}
-              className="p-1.5 rounded-lg bg-hf-primary text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-hf-primary-hover transition-colors"
-            >
-              <ArrowUp className="w-4 h-4" />
-            </button>
+            )}
+            <div ref={messagesEndRef} />
           </div>
-        </form>
+
+          {/* Input area */}
+          <div className="cv4-input-area">
+            <div className="cv4-input-row">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Describe your course..."
+                rows={1}
+                className="cv4-textarea"
+              />
+              {isLoading ? (
+                <div className="cv4-send-btn cv4-send-btn--loading">
+                  <Loader2 size={16} className="hf-spinner" />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="cv4-send-btn"
+                  disabled={!input.trim()}
+                  onClick={() => sendMessage(input)}
+                >
+                  <ArrowUp size={16} />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Right: Preview Panel */}
-      <div className="w-80 border-l border-hf-border bg-hf-surface overflow-y-auto">
+      {/* Right panel — preview */}
+      <div className="cv4-panel-column">
         <RefPreviewPanel refData={refData} />
       </div>
     </div>

@@ -194,16 +194,19 @@ export function CourseSetupTracker({
 // ── Sub-components ────────────────────────────────────
 
 /** Phase-aware horizontal dot bar: Foundation ①②③ · Configure ④ ⑤ · Launch ⑥ */
-function StepDots({ stages }: { stages: { number: number; status: StageStatus }[] }) {
+function StepDots({ stages }: { stages: { number: number; status: StageStatus; label: string }[] }) {
   const foundation = stages.filter((s) => s.number <= 3);
   const configure = stages.filter((s) => s.number === 4 || s.number === 5);
   const launch = stages.filter((s) => s.number === 6);
 
-  const renderDot = (stage: { number: number; status: StageStatus }) => (
+  const statusLabel = (s: StageStatus): string =>
+    s === 'done' ? '✓' : s === 'active' ? 'in progress' : s === 'error' ? 'error' : 'pending';
+
+  const renderDot = (stage: { number: number; status: StageStatus; label: string }) => (
     <span
       key={stage.number}
       className={`cst-dot cst-dot--${stage.status}`}
-      title={`Step ${stage.number}`}
+      title={`${stage.label}: ${statusLabel(stage.status)}`}
     >
       {stage.status === 'done' ? <Check size={11} /> : stage.number}
     </span>

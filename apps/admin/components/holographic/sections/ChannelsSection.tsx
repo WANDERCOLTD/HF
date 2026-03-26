@@ -19,8 +19,8 @@ interface ChannelRow {
 const CHANNEL_META: Record<string, { icon: React.ReactNode; label: string; description: string }> = {
   sim: {
     icon: <Monitor size={16} />,
-    label: "Simulator",
-    description: "Browser-based testing",
+    label: "Learn",
+    description: "Browser-based learning",
   },
   whatsapp: {
     icon: <Smartphone size={16} />,

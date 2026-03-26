@@ -77,7 +77,7 @@ export const ROUTE_LABELS: Record<string, string | { termKey: TermKey; plural?: 
   "/x/import": "Import",
 
   // Calls
-  "/x/sim": "Sim",
+  "/x/sim": "Learn",
   "/x/analytics": "Analytics",
   "/x/testimony": "Testimony",
 

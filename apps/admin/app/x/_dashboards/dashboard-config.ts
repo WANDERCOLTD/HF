@@ -167,7 +167,7 @@ export const DASHBOARD_CONFIGS: Record<string, DashboardRoleConfig> = {
     entityKeys: ["callers", "domains"],
     recentCallsLimit: 5,
     quickLinks: [
-      { label: "Simulator", icon: "MessageCircle", href: "/x/sim", description: "Start a conversation" },
+      { label: "Learn", icon: "MessageCircle", href: "/x/sim", description: "Start a session" },
       { label: "Analytics", icon: "TrendingUp", href: "/x/analytics", description: "Test results" },
     ],
   },
@@ -181,7 +181,7 @@ export const DASHBOARD_CONFIGS: Record<string, DashboardRoleConfig> = {
     entityKeys: ["callers"],
     recentCallsLimit: 5,
     quickLinks: [
-      { label: "Simulator", icon: "MessageCircle", href: "/x/sim", description: "Start a conversation" },
+      { label: "Learn", icon: "MessageCircle", href: "/x/sim", description: "Start a session" },
     ],
   },
   VIEWER: {
@@ -194,7 +194,7 @@ export const DASHBOARD_CONFIGS: Record<string, DashboardRoleConfig> = {
     entityKeys: ["callers"],
     recentCallsLimit: 5,
     quickLinks: [
-      { label: "Simulator", icon: "MessageCircle", href: "/x/sim", description: "Start a conversation" },
+      { label: "Learn", icon: "MessageCircle", href: "/x/sim", description: "Start a session" },
     ],
   },
   DEMO: {

@@ -5,6 +5,8 @@
  *
  * Shows section checklist with progress indicators and
  * expanding detail for completed/in-progress sections.
+ *
+ * Styled to match the ScaffoldPanel from GS V5 (CSS vars, no Tailwind).
  */
 
 import { useMemo } from "react";
@@ -90,11 +92,11 @@ function evaluatePreviewSections(data: CourseRefData): SectionInfo[] {
 function StatusIcon({ status }: { status: SectionInfo["status"] }) {
   switch (status) {
     case "complete":
-      return <Check className="w-4 h-4 text-emerald-500" />;
+      return <Check size={16} style={{ color: "var(--status-success-text)" }} />;
     case "partial":
-      return <Loader2 className="w-4 h-4 text-amber-500" />;
+      return <Loader2 size={16} style={{ color: "var(--status-warning-text)" }} />;
     case "empty":
-      return <Circle className="w-4 h-4 text-hf-text-muted/30" />;
+      return <Circle size={16} style={{ color: "var(--text-muted)", opacity: 0.35 }} />;
   }
 }
 
@@ -104,54 +106,85 @@ export function RefPreviewPanel({ refData }: RefPreviewPanelProps) {
   const total = sections.length;
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="gs-scaffold" style={{ margin: 0, borderRadius: 0, border: "none", borderLeft: "1px solid var(--border-default)" }}>
       {/* Header + Progress */}
-      <div>
-        <h2 className="text-sm font-semibold text-hf-text mb-2">Course Reference</h2>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 rounded-full bg-hf-border overflow-hidden">
-            <div
-              className="h-full rounded-full bg-hf-primary transition-all duration-300"
-              style={{ width: `${(complete / total) * 100}%` }}
-            />
+      <div style={{ marginBottom: 16 }}>
+        <div className="gs-bp-title" style={{ fontSize: 14 }}>Course Reference</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <div style={{
+            flex: 1,
+            height: 6,
+            borderRadius: 3,
+            background: "var(--border-default)",
+            overflow: "hidden",
+          }}>
+            <div style={{
+              height: "100%",
+              borderRadius: 3,
+              background: "var(--accent-primary)",
+              transition: "width 0.3s ease",
+              width: `${(complete / total) * 100}%`,
+            }} />
           </div>
-          <span className="text-xs text-hf-text-muted">{complete}/{total}</span>
+          <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
+            {complete}/{total}
+          </span>
         </div>
       </div>
 
       {/* Section Checklist */}
-      <div className="space-y-1">
+      <div className="gs-bp-body">
         {sections.map((s) => (
           <div
             key={s.key}
-            className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm ${
-              s.status !== "empty" ? "bg-hf-surface-hover" : ""
-            }`}
+            className="gs-bp-section"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+              background: s.status !== "empty"
+                ? "color-mix(in srgb, var(--accent-primary) 4%, transparent)"
+                : "transparent",
+            }}
           >
             <StatusIcon status={s.status} />
-            <span className={s.status === "empty" ? "text-hf-text-muted" : "text-hf-text"}>
+            <span style={{
+              fontSize: 13,
+              color: s.status === "empty" ? "var(--text-muted)" : "var(--text-primary)",
+              fontWeight: s.status !== "empty" ? 500 : 400,
+              flex: 1,
+            }}>
               {s.label}
             </span>
             {s.mandatory && s.status !== "complete" && (
-              <span className="text-[10px] text-amber-600 font-medium ml-auto">required</span>
+              <span style={{
+                fontSize: 10,
+                color: "var(--status-warning-text)",
+                fontWeight: 600,
+              }}>
+                required
+              </span>
             )}
           </div>
         ))}
       </div>
 
       {/* Section Details */}
-      <div className="space-y-4">
+      <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
         {/* Skills Framework */}
         {refData.skillsFramework?.length ? (
           <SectionDetail title="Skills Framework">
             {refData.skillsFramework.map((skill) => (
-              <div key={skill.id} className="space-y-1">
-                <p className="text-xs font-medium text-hf-text">{skill.id}: {skill.name}</p>
+              <div key={skill.id} style={{ marginBottom: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)" }}>
+                  {skill.id}: {skill.name}
+                </div>
                 {skill.tiers && (
-                  <div className="text-[11px] text-hf-text-muted space-y-0.5 pl-2">
-                    {skill.tiers.emerging && <p>E: {skill.tiers.emerging}</p>}
-                    {skill.tiers.developing && <p>D: {skill.tiers.developing}</p>}
-                    {skill.tiers.secure && <p>S: {skill.tiers.secure}</p>}
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", paddingLeft: 8, marginTop: 2 }}>
+                    {skill.tiers.emerging && <div>E: {skill.tiers.emerging}</div>}
+                    {skill.tiers.developing && <div>D: {skill.tiers.developing}</div>}
+                    {skill.tiers.secure && <div>S: {skill.tiers.secure}</div>}
                   </div>
                 )}
               </div>
@@ -163,7 +196,7 @@ export function RefPreviewPanel({ refData }: RefPreviewPanelProps) {
         {refData.teachingApproach?.corePrinciples?.length ? (
           <SectionDetail title="Teaching Rules">
             {refData.teachingApproach.corePrinciples.map((p, i) => (
-              <p key={i} className="text-[11px] text-hf-text-muted">• {p}</p>
+              <div key={i} style={{ fontSize: 11, color: "var(--text-muted)" }}>• {p}</div>
             ))}
           </SectionDetail>
         ) : null}
@@ -172,9 +205,9 @@ export function RefPreviewPanel({ refData }: RefPreviewPanelProps) {
         {refData.teachingApproach?.sessionStructure?.phases?.length ? (
           <SectionDetail title="Session Structure">
             {refData.teachingApproach.sessionStructure.phases.map((p, i) => (
-              <p key={i} className="text-[11px] text-hf-text-muted">
+              <div key={i} style={{ fontSize: 11, color: "var(--text-muted)" }}>
                 {p.name}{p.duration ? ` (${p.duration})` : ""}
-              </p>
+              </div>
             ))}
           </SectionDetail>
         ) : null}
@@ -183,9 +216,9 @@ export function RefPreviewPanel({ refData }: RefPreviewPanelProps) {
         {refData.edgeCases?.length ? (
           <SectionDetail title="Edge Cases">
             {refData.edgeCases.map((ec, i) => (
-              <p key={i} className="text-[11px] text-hf-text-muted">
+              <div key={i} style={{ fontSize: 11, color: "var(--text-muted)" }}>
                 <strong>{ec.scenario}:</strong> {ec.response}
-              </p>
+              </div>
             ))}
           </SectionDetail>
         ) : null}
@@ -195,8 +228,8 @@ export function RefPreviewPanel({ refData }: RefPreviewPanelProps) {
           <SectionDetail title="Course Phases">
             {refData.coursePhases.map((p, i) => (
               <div key={i}>
-                <p className="text-xs font-medium text-hf-text">{p.name}</p>
-                {p.goal && <p className="text-[11px] text-hf-text-muted">{p.goal}</p>}
+                <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)" }}>{p.name}</div>
+                {p.goal && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{p.goal}</div>}
               </div>
             ))}
           </SectionDetail>
@@ -208,9 +241,21 @@ export function RefPreviewPanel({ refData }: RefPreviewPanelProps) {
 
 function SectionDetail({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="border-t border-hf-border pt-3">
-      <h3 className="text-xs font-semibold text-hf-text mb-2">{title}</h3>
-      <div className="space-y-2">{children}</div>
+    <div style={{
+      borderTop: "1px solid var(--border-default)",
+      paddingTop: 10,
+    }}>
+      <div style={{
+        fontSize: 11,
+        fontWeight: 600,
+        textTransform: "uppercase" as const,
+        letterSpacing: "0.05em",
+        color: "var(--text-muted)",
+        marginBottom: 6,
+      }}>
+        {title}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>{children}</div>
     </div>
   );
 }

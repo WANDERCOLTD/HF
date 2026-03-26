@@ -11,6 +11,9 @@ import {
 import { TeachMethodStats } from '@/components/shared/TeachMethodStats';
 import { TrustBadge } from '@/app/x/content-sources/_components/shared/badges';
 import { OnboardingPreview, type OnboardingPhase as OBPhase } from '@/components/shared/OnboardingPreview';
+import { OnboardingEditor } from '@/components/shared/OnboardingEditor';
+import { CourseSetupTracker } from '@/components/shared/CourseSetupTracker';
+import { CourseHowTab } from './CourseHowTab';
 import {
   archetypeLabel,
   type PlaybookItem,
@@ -22,6 +25,7 @@ import { TEACHING_MODE_LABELS, INTERACTION_PATTERN_LABELS, type TeachingMode, ty
 import { getTeachingProfile, resolveTeachingProfile } from '@/lib/content-trust/teaching-profiles';
 import { getAudienceOption, AUDIENCE_OPTIONS } from '@/lib/prompt/composition/transforms/audience';
 import type { GoalTemplate, PlaybookConfig, OnboardingFlowPhases } from '@/lib/types/json-fields';
+import type { SetupStatusInput } from '@/hooks/useCourseSetupStatus';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -67,6 +71,9 @@ export type CourseOverviewTabProps = {
   persona: PersonaInfo;
   specGroups: { measure: SpecGroup; adapt: SpecGroup; guard: SpecGroup };
   sessionPlan: SessionPlanInfo;
+  // CourseSetupTracker props
+  sessions: SetupStatusInput['sessions'];
+  onSimCall?: () => void;
   // Callbacks for state updates that live in parent
   onContentRefresh?: (methods: MethodBreakdown[], total: number) => void;
   onDetailUpdate?: (updater: (prev: any) => any) => void;
@@ -139,6 +146,8 @@ export function CourseOverviewTab({
   persona,
   specGroups,
   sessionPlan,
+  sessions,
+  onSimCall,
   onContentRefresh,
   onDetailUpdate,
 }: CourseOverviewTabProps) {
@@ -213,6 +222,15 @@ export function CourseOverviewTab({
 
   return (
     <>
+      {/* ── Setup Tracker ──────────────────────────────── */}
+      <CourseSetupTracker
+        courseId={courseId}
+        detail={detail}
+        subjects={subjects}
+        sessions={sessions}
+        onSimCall={onSimCall}
+      />
+
       {/* ── Goals ─────────────────────────────────────── */}
       <SectionHeader title="Goals" icon={Target} />
       <div className="hf-card-compact hf-mb-lg">
@@ -404,6 +422,19 @@ export function CourseOverviewTab({
           </div>
         )}
       </div>
+
+      {/* ── Onboarding Editor (operators only) ──────── */}
+      {isOperator && (
+        <div className="hf-mb-lg">
+          <OnboardingEditor
+            courseId={courseId}
+            domainId={detail.domain.id}
+            domainName={detail.domain.name}
+            isOperator={isOperator}
+            compact
+          />
+        </div>
+      )}
 
       {/* ── Teaching Methods ──────────────────────────── */}
       {contentMethods.length > 0 && (
@@ -642,6 +673,16 @@ export function CourseOverviewTab({
           </div>
         )}
       </div>
+
+      {/* ── Teaching Instructions (from CourseHowTab) ── */}
+      <CourseHowTab
+        courseId={courseId}
+        detail={detail}
+        subjects={subjects}
+        isOperator={isOperator}
+        persona={persona}
+        onDetailUpdate={onDetailUpdate}
+      />
 
       {/* ── Session Plan Summary ──────────────────────── */}
       {sessionPlan && sessionPlan.estimatedSessions > 0 && (

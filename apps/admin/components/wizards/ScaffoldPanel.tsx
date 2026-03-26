@@ -73,6 +73,7 @@ function ReadinessBar({ phases }: { phases: ReadinessPhase[] }) {
       : "All sections complete";
   return (
     <div className="gs-readiness" title={tooltipText}>
+      <span className="gs-readiness-label">Progress</span>
       <div className="gs-readiness-dots">
         {phases.map((phase, pi) => (
           <span key={phase.label} className={`gs-phase-group${phase.sequential === false ? " gs-phase-group--parallel" : ""}`}>

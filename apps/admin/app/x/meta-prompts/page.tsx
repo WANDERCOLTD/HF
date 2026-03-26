@@ -71,7 +71,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   voice: "Voice",
   extraction: "Extraction",
   identity: "Identity",
-  sim: "Sim",
+  sim: "Learn",
   admin: "Admin",
 };
 

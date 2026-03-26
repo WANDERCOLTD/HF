@@ -5,7 +5,7 @@
       { "id": "demo-course-ref", "href": "/x/course-reference", "label": "Course Ref", "icon": "ClipboardList", "highlighted": true, "wizard": true },
       { "id": "demo-gs-v5", "href": "/x/get-started-v5", "label": "Build Course", "icon": "Sparkles", "highlighted": true, "wizard": true },
       { "id": "demo-dash", "href": "/x/educator", "label": "Dashboard", "icon": "GraduationCap", "shortcutHint": "⌘D" },
-      { "id": "demo-sim", "href": "/x/sim", "label": "Sim", "icon": "MessageCircle", "shortcutHint": "⌘S" },
+      { "id": "demo-sim", "href": "/x/sim", "label": "Learn", "icon": "MessageCircle", "shortcutHint": "⌘S" },
       { "id": "demo-callers", "href": "/x/callers", "label": "Callers", "icon": "User", "shortcutHint": "⌘L" },
       { "id": "demo-courses", "href": "/x/courses", "label": "Courses", "icon": "BookOpen", "terminologyLabel": "playbook_plural" }
     ]
@@ -59,7 +59,7 @@
     "href": "/x/sim",
     "defaultHiddenFor": ["TESTER", "STUDENT", "DEMO", "EDUCATOR"],
     "items": [
-      { "id": "sim", "href": "/x/sim", "label": "Sim", "icon": "MessageCircle" },
+      { "id": "sim", "href": "/x/sim", "label": "Learn", "icon": "MessageCircle" },
       { "id": "analytics", "href": "/x/analytics", "label": "Analytics", "icon": "TrendingUp", "advancedOnly": true },
       { "id": "testimony", "href": "/x/testimony", "label": "Testimony", "icon": "BarChart3", "requiredRole": "OPERATOR" }
     ]

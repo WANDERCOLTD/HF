@@ -230,8 +230,8 @@ export const TOUR_DEFINITIONS: TourDefinition[] = [
       },
       {
         id: "test-sim",
-        title: "Simulator",
-        description: "Launch the simulator to test a conversation. You'll chat with the AI exactly as a real caller would.",
+        title: "Learn",
+        description: "Start a learning session. You'll chat with the AI exactly as a real caller would.",
         manifestItem: "sim",
       },
       {
@@ -256,7 +256,7 @@ export const TOUR_DEFINITIONS: TourDefinition[] = [
       },
     ],
     actions: [
-      { label: "Start a test call", description: "Launch the simulator", icon: "MessageCircle", href: "/x/sim" },
+      { label: "Start a session", description: "Start learning", icon: "MessageCircle", href: "/x/sim" },
       { label: "View test callers", description: "See caller profiles", icon: "User", href: "/x/callers" },
       { label: "Check analytics", description: "Review test results", icon: "TrendingUp", href: "/x/analytics" },
     ],

@@ -141,7 +141,7 @@ export function ConversationList() {
           <button className="wa-back-btn" onClick={() => router.push('/x')}>
             <ArrowLeft size={20} />
           </button>
-          <div className="wa-header-title" style={{ fontSize: 20 }}>HF Simulator</div>
+          <div className="wa-header-title" style={{ fontSize: 20 }}>HumanFirst</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <button
