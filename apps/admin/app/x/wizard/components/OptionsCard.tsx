@@ -132,15 +132,17 @@ export function OptionsCard({ panel, onSelect, onSkip, onSomethingElse }: Option
       role="group"
       aria-label={panel.question}
     >
-      {/* Header */}
-      <div className="cv4-options-header">
-        <span className="cv4-options-question">{panel.question}</span>
-        {totalPages > 1 && (
-          <span className="cv4-options-pagination">
-            {page + 1} of {totalPages}
-          </span>
-        )}
-      </div>
+      {/* Header — hidden when question is empty (e.g. inline-parsed options) */}
+      {(panel.question || totalPages > 1) && (
+        <div className="cv4-options-header">
+          <span className="cv4-options-question">{panel.question}</span>
+          {totalPages > 1 && (
+            <span className="cv4-options-pagination">
+              {page + 1} of {totalPages}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Options list */}
       <ul className="cv4-options-list" role="listbox" aria-multiselectable={panel.mode === "checklist"}>

@@ -88,6 +88,24 @@ interface Message {
   thinking?: string;
 }
 
+/**
+ * Why the wizard is busy — one state, two tiers:
+ *
+ * FOREGROUND (blocks input — AI response imminent):
+ *   "sending"         — API call in flight
+ *   "upload-draining" — file uploaded, waiting for drain to fire handleSend
+ *
+ * BACKGROUND (user can keep chatting — work happening in sidebar):
+ *   "course-ref-analysing" — COURSE_REFERENCE extraction → digest → AI narration
+ */
+type BusyReason =
+  | null                     // idle
+  | "sending"                // foreground — API call in flight
+  | "upload-draining"        // foreground — file uploaded, waiting for drain
+  | "course-ref-analysing";  // background — extraction + digest in progress
+
+const FOREGROUND_REASONS: BusyReason[] = ["sending", "upload-draining"];
+
 /** Map scaffold item keys to human-readable review phrases */
 const REVIEW_LABELS: Record<string, string> = {
   institution: "organisation",
@@ -417,8 +435,10 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [uploadPending, setUploadPending] = useState(false);
+  const [busyReason, setBusyReason] = useState<BusyReason>(null);
+  const isForeground = busyReason !== null && FOREGROUND_REASONS.includes(busyReason);
+  const isBackground = busyReason !== null && !FOREGROUND_REASONS.includes(busyReason);
+  const isSending = busyReason === "sending";
   const [suggestions, setSuggestions] = useState<{ question?: string; items: string[] }>({ items: [] });
   const [welcomeSuggestion, setWelcomeSuggestion] = useState<string | null>(null);
   const [fieldPickerPanel, setFieldPickerPanel] = useState<OptionsPanel | null>(null);
@@ -431,6 +451,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const initialised = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+  const apiInFlightRef = useRef(false);
 
   // Upload discoverability — peek+glow + page-level drag
   const sourcesPanelRef = useRef<SourcesPanelHandle>(null);
@@ -462,8 +483,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
     clearData();
     setMessages([]);
     setInputValue("");
-    setIsLoading(false);
-    setUploadPending(false);
+    setBusyReason(null);
     setSuggestions({ items: [] });
     setWelcomeSuggestion(null);
     setFieldPickerPanel(null);
@@ -505,6 +525,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      apiInFlightRef.current = true;
 
       try {
         const conversationHistory = history
@@ -542,8 +563,11 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           return { error: err.error || `Server error (${res.status}). Try again in a moment.` };
         }
 
-        return { data: await res.json() };
+        const data = await res.json();
+        apiInFlightRef.current = false;
+        return { data };
       } catch (err) {
+        apiInFlightRef.current = false;
         if (err instanceof DOMException && err.name === "AbortError") return null;
         console.error(`[wizard-${wizardVersion}] API error:`, err);
         return { error: "Network issue — check your connection and try again." };
@@ -724,8 +748,10 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
     async (text?: string, overrides?: Record<string, unknown>) => {
       const msg = (text || inputValue).trim();
       if (!msg) return;
-      // If AI is mid-response, queue the message to send once it finishes
-      if (isLoading) {
+      // If any API call is in flight, queue. Checks both state-based flag
+      // (isSending) and the ref (apiInFlightRef — covers background calls
+      // from handleExtractionDone that bypass handleSend).
+      if (isSending || apiInFlightRef.current) {
         pendingUploadRef.current = { text: msg, overrides: overrides || {} };
         return;
       }
@@ -750,10 +776,11 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       saveHistory(newMessages, wizardVersion);
       scrollToBottom();
 
-      setIsLoading(true);
-      setUploadPending(false);
+      // Promote to "sending" but don't downgrade "course-ref-analysing"
+      // (the course-ref flow outlives the initial upload-notification API call).
+      setBusyReason((prev) => prev === "course-ref-analysing" ? prev : "sending");
       const result = await sendToAPI(msg, newMessages, overrides);
-      setIsLoading(false);
+      setBusyReason((prev) => prev === "sending" ? null : prev);
 
       if (!result) {
         // Aborted — no error to show
@@ -830,13 +857,13 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         handleSend(pending.text, pending.overrides);
       }
     },
-    [inputValue, isLoading, messages, sendToAPI, processToolCalls, processResponseContent, scrollToBottom],
+    [inputValue, isSending, messages, sendToAPI, processToolCalls, processResponseContent, scrollToBottom],
   );
 
   // ── File processing started (from SourcesPanel) — show typing dots immediately ──
 
   const handleProcessingStart = useCallback(() => {
-    setUploadPending(true);
+    setBusyReason("upload-draining");
     scrollToBottom();
   }, [scrollToBottom]);
 
@@ -883,25 +910,30 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       const uploadOverrides = { lastUploadClassifications: data.classifications };
       pendingUploadRef.current = { text: "Teaching materials uploaded", overrides: uploadOverrides };
 
-      // Show typing dots immediately so the user knows AI is about to respond.
-      // We set uploadPending (not isLoading) to avoid blocking the drain effect's
-      // handleSend call, which checks isLoading before sending.
-      setUploadPending(true);
+      // Show typing dots immediately. If any file is COURSE_REFERENCE, use
+      // "course-ref-analysing" which persists through extraction → digest → AI
+      // narration. Otherwise "upload-draining" clears once the drain fires.
+      const hasCourseRef = data.classifications.some(
+        (c: { documentType: string }) => c.documentType === "COURSE_REFERENCE",
+      );
+      setBusyReason(hasCourseRef ? "course-ref-analysing" : "upload-draining");
       scrollToBottom();
     },
     [setData, scrollToBottom],
   );
 
-  // ── Drain pending upload notification after state settles ──
-  // handleSourcesReady always queues (never calls handleSend synchronously)
-  // so we need this effect to drain once isLoading is false.
+  // ── Drain pending messages after state settles ──
+  // Fires when no API call is actively in flight. This covers:
+  //  - Upload notifications from handleSourcesReady (drains during "course-ref-analysing")
+  //  - User messages queued during background work (drains after setBusyReason(null))
+  // Safe because handleSend's queue guard prevents concurrent sendToAPI calls.
   useEffect(() => {
-    if (!isLoading && pendingUploadRef.current) {
+    if (!isSending && pendingUploadRef.current) {
       const pending = pendingUploadRef.current;
       pendingUploadRef.current = null;
       handleSend(pending.text, pending.overrides);
     }
-  }, [isLoading, messages, handleSend]); // messages dep ensures we run after setMessages settles
+  }, [isSending, messages, handleSend]);
 
   // ── Extraction done (from SourcesPanel) ─────────────
 
@@ -913,12 +945,36 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       // assertions and build a digest for the wizard AI to reflect back.
       const classifications = getData<Array<{ fileName: string; documentType: string }>>("lastUploadClassifications");
       const sourceIds = getData<string[]>("uploadSourceIds");
-      if (!classifications || !sourceIds) return;
+      if (!classifications || !sourceIds) { setBusyReason(null); return; }
 
       const courseRefIndices = classifications
         .map((c, i) => c.documentType === "COURSE_REFERENCE" ? i : -1)
         .filter((i) => i >= 0);
-      if (courseRefIndices.length === 0) return;
+      if (courseRefIndices.length === 0) {
+        // Non-COURSE_REFERENCE extraction done — show a quiet status in chat
+        // so the user knows their content is ready (no AI round-trip needed).
+        if (totals.assertions > 0) {
+          const doneMsg: Message = {
+            id: uid(),
+            role: "system",
+            content: `${totals.assertions} teaching point${totals.assertions !== 1 ? "s" : ""} extracted — ready for your course`,
+            systemType: "timeline",
+          };
+          setMessages((prev) => {
+            const updated = [...prev, doneMsg];
+            saveHistory(updated, wizardVersion);
+            return updated;
+          });
+          scrollToBottom();
+        }
+        setBusyReason(null);
+        return;
+      }
+
+      // busyReason is already "course-ref-analysing" (set in handleSourcesReady).
+      // Ensure it's set in case extraction was triggered without an upload flow.
+      setBusyReason("course-ref-analysing");
+      scrollToBottom();
 
       // Fetch assertions for COURSE_REFERENCE sources and build a digest
       try {
@@ -939,11 +995,27 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             }
           }
         }
-        if (allAssertions.length === 0) return;
-
-        // Only show typing dots once we know there's a digest to send to the AI
-        setIsLoading(true);
-        scrollToBottom();
+        if (allAssertions.length === 0) {
+          // No assertions extracted — tell the AI so it can prompt the user
+          // rather than leaving the chat stuck after "Give me a moment...".
+          const fallbackMsg = "Course reference processed but no structured content was extracted — please continue with the conversation";
+          const currentMsgs = messagesRef.current;
+          const fallbackResult = await sendToAPI(fallbackMsg, [...currentMsgs, { id: uid(), role: "user" as const, content: fallbackMsg }]);
+          setBusyReason(null);
+          if (fallbackResult && "data" in fallbackResult && fallbackResult.data.content) {
+            const assistantMsg: Message = { id: uid(), role: "assistant", content: fallbackResult.data.content };
+            const updated = [...messagesRef.current, assistantMsg];
+            setMessages(updated);
+            saveHistory(updated, wizardVersion);
+            scrollToBottom();
+          } else {
+            // Safety net — show timeline message so chat isn't stuck
+            const safetyMsg: Message = { id: uid(), role: "system", content: "Course reference processed — let's continue setting up your course", systemType: "timeline" };
+            setMessages((prev) => { const u = [...prev, safetyMsg]; saveHistory(u, wizardVersion); return u; });
+            scrollToBottom();
+          }
+          return;
+        }
 
         // Build digest: category counts + 2 samples per top category (max 10 samples)
         const catCounts: Record<string, number> = {};
@@ -1029,20 +1101,47 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         const hiddenMsg = "Teaching guide analyzed — here's what I found in your course reference";
         const currentMessages = messagesRef.current;
         const result = await sendToAPI(hiddenMsg, [...currentMessages, { id: uid(), role: "user" as const, content: hiddenMsg }], digestOverrides);
-        setIsLoading(false);
+        setBusyReason(null);
         if (result && "data" in result && result.data.content) {
           const assistantMsg: Message = { id: uid(), role: "assistant", content: result.data.content };
           const updated = [...messagesRef.current, assistantMsg];
           setMessages(updated);
           saveHistory(updated, wizardVersion);
           scrollToBottom();
+        } else {
+          // API returned no content — show a timeline message so chat isn't stuck
+          const fallbackMsg: Message = {
+            id: uid(),
+            role: "system",
+            content: `${digest.totalCount} teaching point${digest.totalCount !== 1 ? "s" : ""} extracted from your course reference`,
+            systemType: "timeline",
+          };
+          setMessages((prev) => {
+            const updated = [...prev, fallbackMsg];
+            saveHistory(updated, wizardVersion);
+            return updated;
+          });
+          scrollToBottom();
         }
       } catch {
-        setIsLoading(false);
-        // Non-critical — fall back to classification-only narration
+        setBusyReason(null);
+        // Non-critical — show a status message so the chat isn't stuck after
+        // "Give me a moment..." with no follow-up.
+        const fallbackDone: Message = {
+          id: uid(),
+          role: "system",
+          content: "Course reference processed — I'll use it to shape your course",
+          systemType: "timeline",
+        };
+        setMessages((prev) => {
+          const updated = [...prev, fallbackDone];
+          saveHistory(updated, wizardVersion);
+          return updated;
+        });
+        scrollToBottom();
       }
     },
-    [setData, getData, sendToAPI, setIsLoading, scrollToBottom],
+    [setData, getData, sendToAPI, scrollToBottom],
   );
 
   // ── Page-level drag (full-page drop overlay) ─────────
@@ -1444,7 +1543,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             }
 
             if (msg.role === "assistant") {
-              const isLast = !isLoading && !uploadPending && suggestions.items.length === 0 && !welcomeSuggestion && msg.id === lastAssistantId;
+              const isLast = !isForeground && suggestions.items.length === 0 && !welcomeSuggestion && msg.id === lastAssistantId;
               const inlineOptions = isLast ? parseOptionsFromText(msg.content) : [];
               const displayContent = stripParameterTags(msg.content);
               return (
@@ -1453,26 +1552,6 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
                   <div className="cv4-msg-actions-wrap">
                     <div className="cv4-bubble cv4-bubble--assistant">
                       <ReactMarkdown>{displayContent}</ReactMarkdown>
-                      {inlineOptions.length > 0 && (
-                        <ul className="cv4-inline-options" role="listbox">
-                          {inlineOptions.map((opt, i) => (
-                            <li
-                              key={i}
-                              className="cv4-option-row"
-                              role="option"
-                              onClick={() => handleSend(opt.label)}
-                            >
-                              <span className="cv4-option-number">{i + 1}</span>
-                              <div className="cv4-option-body">
-                                <span className="cv4-option-label">{opt.label}</span>
-                                {opt.description && (
-                                  <span className="cv4-option-desc">{opt.description}</span>
-                                )}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
                     </div>
                     <MessageActions
                       message={msg}
@@ -1481,6 +1560,27 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
                       onFocusInput={() => setTimeout(() => inputRef.current?.focus(), 50)}
                     />
                   </div>
+                  {/* Inline options — rendered as an OptionsCard below the bubble
+                      for visual consistency with tool-call options */}
+                  {inlineOptions.length > 0 && (
+                    <OptionsCard
+                      panel={{
+                        question: "",
+                        dataKey: "_inline",
+                        mode: "radio",
+                        options: inlineOptions.map((opt) => ({
+                          value: opt.label,
+                          label: opt.label,
+                          description: opt.description || "",
+                        })),
+                      }}
+                      onSelect={(_value, displayText) => handleSend(displayText)}
+                      onSkip={() => handleSend("Skip")}
+                      onSomethingElse={() => {
+                        setTimeout(() => inputRef.current?.focus(), 50);
+                      }}
+                    />
+                  )}
                 </div>
               );
             }
@@ -1495,9 +1595,8 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           });
           })()}
 
-          {/* Typing indicator — shows during API calls (isLoading) and
-              immediately after upload while waiting for drain to fire (uploadPending) */}
-          {(isLoading || uploadPending) && (
+          {/* Foreground typing indicator — AI response imminent */}
+          {isForeground && (
             <div className="cv4-row cv4-row--assistant">
               <div className="cv4-typing">
                 <div className="cv4-typing-dot" />
@@ -1508,7 +1607,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           )}
 
           {/* Suggestion chips — inline after last message, not buried at page bottom */}
-          {suggestions.items.length > 0 && !welcomeSuggestion && !isLoading && !uploadPending && (
+          {suggestions.items.length > 0 && !welcomeSuggestion && !isForeground && (
             <div className="cv4-row cv4-row--assistant">
               <div className="cv4-suggestions">
                 {suggestions.question && (
@@ -1535,6 +1634,14 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
 
         {/* Input area */}
         <div className="cv4-input-area">
+          {/* Background activity — pinned above input so it persists on scroll */}
+          {isBackground && (
+            <div className="cv4-background-activity">
+              <span className="cv4-sources-pulse" />
+              <span>Analysing your teaching materials...</span>
+            </div>
+          )}
+
           {/* Welcome suggestion accept chip */}
           {welcomeSuggestion && (
             <div className="cv4-welcome-suggestion">
@@ -1567,7 +1674,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           )}
 
           {/* Field picker panel — shown above input when AI calls show_options with fieldPicker: true */}
-          {fieldPickerPanel && !isLoading && !uploadPending && (
+          {fieldPickerPanel && !isForeground && (
             <div className="cv4-field-picker-panel">
               <OptionsCard
                 panel={fieldPickerPanel}
@@ -1599,7 +1706,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
               className="cv4-textarea"
             />
 
-            {(isLoading || uploadPending) ? (
+            {isForeground ? (
               <div className="cv4-send-btn cv4-send-btn--loading">
                 <Loader2 size={16} className="hf-spinner" />
               </div>

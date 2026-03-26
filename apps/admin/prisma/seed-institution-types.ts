@@ -183,6 +183,30 @@ const TYPES: InstitutionTypeSeed[] = [
     defaultDomainKind: "INSTITUTION",
     defaultArchetypeSlug: "COACH-001",
   },
+  {
+    slug: "university",
+    name: "University",
+    description: "Universities and higher education institutions",
+    terminology: {
+      domain: "University",
+      playbook: "Module",
+      spec: "Content",
+      caller: "Student",
+      cohort: "Seminar Group",
+      instructor: "Lecturer",
+      session: "Tutorial",
+      session_short: "Tutorial",
+      persona: "Teaching Style",
+      supervisor: "My Lecturer",
+      mentor: "Lecturer",
+      teach_action: "Teach",
+      learning_noun: "Learning",
+      group: "Department",
+    },
+    setupSpecSlug: "COURSE-SETUP-001",
+    defaultDomainKind: "INSTITUTION",
+    defaultArchetypeSlug: "TUT-001",
+  },
 ];
 
 export async function main(externalPrisma?: PrismaClient) {

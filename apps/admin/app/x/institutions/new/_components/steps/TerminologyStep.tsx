@@ -32,6 +32,7 @@ const STATIC_TERMINOLOGY: Record<string, Record<string, string>> = {
   coaching:   { domain: "Practice",      playbook: "Coaching Plan",  caller: "Client",      instructor: "Coach",       session: "Coaching Session" },
   healthcare: { domain: "Facility",      playbook: "Care Plan",      caller: "Patient",     instructor: "Provider",    session: "Patient Session" },
   training:   { domain: "Academy",       playbook: "Course",         caller: "Participant", instructor: "Trainer",     session: "Training Session" },
+  university: { domain: "University",    playbook: "Module",         caller: "Student",     instructor: "Lecturer",    session: "Tutorial" },
 };
 
 export function TerminologyStep({ getData, setData, onNext, onPrev }: StepRenderProps) {
