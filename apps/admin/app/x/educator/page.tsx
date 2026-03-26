@@ -122,7 +122,7 @@ export default function EducatorDashboard() {
           setNeedsSchoolPicker(true);
         } else {
           // EDUCATOR without a TEACHER profile — redirect to setup wizard
-          window.location.href = "/x/get-started-v4";
+          window.location.href = "/x/get-started-v5";
         }
         return;
       }

@@ -1,55 +1,5 @@
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { ConversationalWizard } from "../wizard/components/ConversationalWizard";
-import type { WizardInitialContext } from "../wizard/components/ConversationalWizard";
+import { redirect } from "next/navigation";
 
-export default async function GetStartedV4Page() {
-  const session = await auth();
-  if (!session?.user) return <ConversationalWizard />;
-
-  const { user } = session;
-  const institutionId = user.institutionId;
-
-  if (!institutionId) return <ConversationalWizard userRole={user.role} />;
-
-  const institution = await prisma.institution.findUnique({
-    where: { id: institutionId, isActive: true },
-    select: {
-      id: true,
-      name: true,
-      type: { select: { slug: true } },
-      domains: {
-        where: { isActive: true },
-        select: { id: true, kind: true },
-        orderBy: { createdAt: "asc" },
-        take: 5,
-      },
-    },
-  });
-
-  if (!institution || institution.domains.length === 0) {
-    return <ConversationalWizard userRole={user.role} />;
-  }
-
-  let domainId = institution.domains[0].id;
-  let domainKind = institution.domains[0].kind as "INSTITUTION" | "COMMUNITY";
-
-  if (user.assignedDomainId) {
-    const match = institution.domains.find((d) => d.id === user.assignedDomainId);
-    if (match) {
-      domainId = match.id;
-      domainKind = match.kind as "INSTITUTION" | "COMMUNITY";
-    }
-  }
-
-  const initialContext: WizardInitialContext = {
-    institutionName: institution.name,
-    institutionId: institution.id,
-    domainId,
-    domainKind,
-    typeSlug: institution.type?.slug ?? null,
-    userRole: user.role,
-  };
-
-  return <ConversationalWizard initialContext={initialContext} />;
+export default function GetStartedV4Page() {
+  redirect("/x/get-started-v5");
 }

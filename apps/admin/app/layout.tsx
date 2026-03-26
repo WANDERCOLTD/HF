@@ -151,7 +151,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
       const key = e.key.toLowerCase();
-      if (key === 'g') { e.preventDefault(); router.push('/x/get-started-v4'); }
+      if (key === 'g') { e.preventDefault(); router.push('/x/get-started-v5'); }
       else if (key === 'd') { e.preventDefault(); router.push('/x/educator'); }
       else if (key === 's') { e.preventDefault(); router.push('/x/sim'); }
       else if (key === 'l') { e.preventDefault(); router.push('/x/callers'); }

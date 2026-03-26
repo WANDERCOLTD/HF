@@ -141,8 +141,7 @@ export const ROUTE_LABELS: Record<string, string | { termKey: TermKey; plural?: 
   "/x/wizard-lab": "Wizard Lab",
 
   // Launch wizards
-  "/x/get-started-v4": "Get Started",
-  "/x/get-started-v5": "Get Started V5",
+  "/x/get-started-v5": "Build Course",
   "/x/onboarding": "Onboarding Flows",
   "/x/teach": "Teach",
   "/x/demonstrate": "Demonstrate",
@@ -153,7 +152,6 @@ export const ROUTE_LABELS: Record<string, string | { termKey: TermKey; plural?: 
  * e.g. /x/get-started → "Dashboard > Get Started"
  */
 export const PARENT_ROUTES: Record<string, { label: string; href: string }> = {
-  "/x/get-started-v4": { label: "Dashboard", href: "/x" },
   "/x/get-started-v5": { label: "Dashboard", href: "/x" },
 };
 

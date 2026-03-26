@@ -14,7 +14,7 @@ export default async function XDashboardPage() {
       where: { userId: session!.user.id, role: "TEACHER" },
       select: { id: true },
     });
-    redirect(hasProfile ? "/x/educator" : "/x/get-started-v4");
+    redirect(hasProfile ? "/x/educator" : "/x/get-started-v5");
   }
 
   if (role === "STUDENT") redirect("/x/student/progress");
