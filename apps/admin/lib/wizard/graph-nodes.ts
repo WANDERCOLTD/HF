@@ -1,7 +1,7 @@
 /**
  * Wizard Graph Nodes — static definitions for all wizard fields.
  *
- * 16 user-facing nodes + 4 auto-resolved nodes.
+ * 21 user-facing nodes + 4 auto-resolved nodes.
  * These are the DAG vertices; dependsOn arrays are the edges.
  *
  * Pure data — no React, no side effects, no DB calls.
@@ -15,7 +15,7 @@ import type { WizardGraphNode } from "./graph-schema";
 // the dependency for subject/course lookup.
 const DOMAIN_DEP = "existingDomainId|draftDomainId";
 
-// ── User-facing nodes (13) ────────────────────────────────
+// ── User-facing nodes (18) ────────────────────────────────
 
 export const WIZARD_GRAPH_NODES: WizardGraphNode[] = [
   // ── INSTITUTION GROUP ──────────────────────────────────
@@ -143,6 +143,74 @@ export const WIZARD_GRAPH_NODES: WizardGraphNode[] = [
     promptHint: "What students should be able to do by the end. Save as array of strings. Extract from casual mentions. E.g. 'So the main goals are: understand photosynthesis, identify plant structures, and describe nutrient cycles.'",
     mutablePostScaffold: true,
     affinityTags: ["course", "goals"],
+  },
+
+  // ── PEDAGOGY GROUP (optional, activated by courseRefEnabled/courseRefDigest) ──
+
+  {
+    key: "skillsFramework",
+    label: "Skills framework",
+    group: "pedagogy",
+    inputType: "free-text",
+    required: false,
+    priority: 2,
+    dependsOn: ["courseName"],
+    skipWhen: { type: "all-falsy", keys: ["courseRefEnabled", "courseRefDigest"] },
+    promptHint: "Ask: 'What core skills are you developing?' For each skill: name, description, then proficiency tiers (emerging / developing / secure). Minimum 3 skills with all 3 tiers. Also ask: 'How do you know when a student is progressing?' (for learner model dimensions).",
+    mutablePostScaffold: true,
+    affinityTags: ["pedagogy", "reference", "skills"],
+  },
+  {
+    key: "teachingPrinciples",
+    label: "Teaching principles",
+    group: "pedagogy",
+    inputType: "free-text",
+    required: false,
+    priority: 2,
+    dependsOn: ["interactionPattern"],
+    skipWhen: { type: "all-falsy", keys: ["courseRefEnabled", "courseRefDigest"] },
+    promptHint: "Deepen the teaching approach: 'You chose Socratic — what are your core teaching rules?' Get minimum 2 principles. Then: 'Walk me through a typical session — what happens first, middle, end?' If content was uploaded, ask about content strategy: 'When should the tutor use each type of material?'",
+    mutablePostScaffold: true,
+    affinityTags: ["pedagogy", "reference", "teaching"],
+  },
+  {
+    key: "coursePhases",
+    label: "Course phases",
+    group: "pedagogy",
+    inputType: "free-text",
+    required: false,
+    priority: 3,
+    dependsOn: ["sessionCount"],
+    skipWhen: { type: "all-falsy", keys: ["courseRefEnabled", "courseRefDigest"] },
+    promptHint: "Structure the sessions into phases: 'How does the course change across the N sessions? Any distinct phases?' For each phase: name, goal, sessions, tutor behaviour. Ask about checkpoints: 'What are the milestones? How do you know a student can move on?' Also: 'Is Session 1 special? How does the opening session differ?'",
+    mutablePostScaffold: true,
+    affinityTags: ["pedagogy", "reference", "structure"],
+  },
+  {
+    key: "edgeCases",
+    label: "Edge cases",
+    group: "pedagogy",
+    inputType: "free-text",
+    required: false,
+    priority: 3,
+    dependsOn: ["teachingPrinciples"],
+    skipWhen: { type: "all-falsy", keys: ["courseRefEnabled", "courseRefDigest"] },
+    promptHint: "Ask: 'What situations might go wrong? Student distressed, off-topic, uncommunicative?' For each scenario: what should the tutor DO? Minimum 2 scenarios with concrete responses. For HE: also ask 'When should the tutor escalate to you? What do you want in a post-session report?'",
+    mutablePostScaffold: true,
+    affinityTags: ["pedagogy", "reference", "safety"],
+  },
+  {
+    key: "assessmentBoundaries",
+    label: "Assessment boundaries",
+    group: "pedagogy",
+    inputType: "free-text",
+    required: false,
+    priority: 3,
+    dependsOn: ["teachingPrinciples"],
+    skipWhen: { type: "all-falsy", keys: ["courseRefEnabled", "courseRefDigest"] },
+    promptHint: "Ask: 'What is this course NOT? What should the tutor refuse to do?' Capture scope constraints — things the AI must never offer to teach or assess.",
+    mutablePostScaffold: true,
+    affinityTags: ["pedagogy", "reference", "safety"],
   },
 
   // ── WELCOME GROUP ──────────────────────────────────────

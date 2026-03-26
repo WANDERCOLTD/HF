@@ -29,7 +29,7 @@ export type NodeStatus =
   | "locked";         // Post-scaffold: structural field, cannot change
 
 /** Display group for ScaffoldPanel sections */
-export type NodeGroup = "institution" | "course" | "content" | "welcome" | "tune";
+export type NodeGroup = "institution" | "course" | "pedagogy" | "content" | "welcome" | "tune";
 
 /** Priority tier — lower number = ask sooner */
 export type PriorityTier = 1 | 2 | 3 | 4;
@@ -41,7 +41,8 @@ export type SkipCondition =
   | { type: "not-equals"; key: string; value: unknown }
   | { type: "truthy"; key: string }
   | { type: "falsy"; key: string }
-  | { type: "community" }; // shorthand for defaultDomainKind === "COMMUNITY"
+  | { type: "community" }  // shorthand for defaultDomainKind === "COMMUNITY"
+  | { type: "all-falsy"; keys: string[] }; // skip when NONE of the listed keys are truthy
 
 // ── Resolver keys ─────────────────────────────────────────
 

@@ -43,6 +43,8 @@ export function evaluateSkipCondition(
       return !!blackboard[cond.key];
     case "falsy":
       return !blackboard[cond.key];
+    case "all-falsy":
+      return cond.keys.every((k) => !blackboard[k]);
   }
 }
 
@@ -486,7 +488,7 @@ export function buildGraphFallback(
 export function getGroupStatuses(
   evaluation: GraphEvaluation,
 ): Map<NodeGroup, "complete" | "active" | "waiting"> {
-  const groups: NodeGroup[] = ["institution", "course", "content", "welcome", "tune"];
+  const groups: NodeGroup[] = ["institution", "course", "pedagogy", "content", "welcome", "tune"];
   const result = new Map<NodeGroup, "complete" | "active" | "waiting">();
 
   for (const group of groups) {
