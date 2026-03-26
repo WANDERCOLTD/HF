@@ -83,9 +83,43 @@ export interface CourseRefData {
   communicationRules?: {
     toStudent?: { tone?: string; frequency?: string };
     toParent?: { tone?: string; frequency?: string; contentFormula?: string };
+    /** HE: post-session reports and escalation triggers for the lecturer */
+    toLecturer?: {
+      tone?: string;
+      frequency?: string;
+      reportFormat?: string;
+      escalationTriggers?: string[];
+    };
   };
   assessmentBoundaries?: string[];
   metrics?: string[];
+  /** Learner model: what to track per session and readiness signals */
+  learnerModel?: {
+    trackingDimensions?: Array<{
+      dimension: string;
+      description?: string;
+      updateFrequency?: string;
+    }>;
+    readinessFlags?: Array<{
+      flag: string;
+      criteria?: string;
+    }>;
+  };
+  /** Per-session instruction overrides (e.g., Session 1 special opening) */
+  sessionOverrides?: Array<{
+    sessionRange: string;
+    instructions: string[];
+    tutorBehaviour?: string[];
+  }>;
+  /** Content selection strategy — which materials to use when */
+  contentStrategy?: {
+    contentTypes?: Array<{
+      type: string;
+      purpose: string;
+      selectionCriteria?: string;
+    }>;
+    selectionRules?: string[];
+  };
   /** Bologna-style module descriptors (optional, academic courses only) */
   moduleDescriptors?: Array<{
     id: string;
@@ -120,6 +154,9 @@ const SECTION_TO_CATEGORY: Record<string, InstructionCategory> = {
   communicationRules: "communication_rule",
   assessmentBoundaries: "assessment_approach",
   metrics: "assessment_approach",
+  learnerModel: "learner_model",
+  sessionOverrides: "session_override",
+  contentStrategy: "content_strategy",
 };
 
 // ── Converter ────────────────────────────────────────────────────────────────
@@ -322,6 +359,146 @@ export function convertCourseRefToAssertions(data: CourseRefData): AssertionCrea
         tags: ["metric", "quality"],
         orderIndex: order++,
       });
+    }
+  }
+
+  // Learner Model — tracking dimensions + readiness flags
+  if (data.learnerModel?.trackingDimensions?.length) {
+    for (const dim of data.learnerModel.trackingDimensions) {
+      const desc = dim.description ? ` — ${dim.description}` : "";
+      const freq = dim.updateFrequency ? ` (${dim.updateFrequency})` : "";
+      assertions.push({
+        assertion: `Track: ${dim.dimension}${desc}${freq}`,
+        category: "learner_model",
+        chapter: "Learner Model",
+        section: "Tracking Dimensions",
+        tags: ["learner-model", "tracking"],
+        orderIndex: order++,
+      });
+    }
+  }
+  if (data.learnerModel?.readinessFlags?.length) {
+    for (const flag of data.learnerModel.readinessFlags) {
+      const criteria = flag.criteria ? ` — ${flag.criteria}` : "";
+      assertions.push({
+        assertion: `Readiness flag: ${flag.flag}${criteria}`,
+        category: "learner_model",
+        chapter: "Learner Model",
+        section: "Readiness Flags",
+        tags: ["learner-model", "readiness"],
+        orderIndex: order++,
+      });
+    }
+  }
+
+  // Session Overrides — per-session instruction variations
+  if (data.sessionOverrides?.length) {
+    for (const override of data.sessionOverrides) {
+      const parts: string[] = [];
+      for (const inst of override.instructions) parts.push(inst);
+      if (override.tutorBehaviour?.length) {
+        parts.push(`Tutor behaviour: ${override.tutorBehaviour.join("; ")}`);
+      }
+      assertions.push({
+        assertion: parts.join(". "),
+        category: "session_override",
+        chapter: "Session Overrides",
+        section: override.sessionRange,
+        tags: ["session-override", `range:${override.sessionRange}`],
+        orderIndex: order++,
+      });
+    }
+  }
+
+  // Content Strategy — content types + selection rules
+  if (data.contentStrategy?.contentTypes?.length) {
+    for (const ct of data.contentStrategy.contentTypes) {
+      const criteria = ct.selectionCriteria ? ` — ${ct.selectionCriteria}` : "";
+      assertions.push({
+        assertion: `${ct.type}: ${ct.purpose}${criteria}`,
+        category: "content_strategy",
+        chapter: "Content Strategy",
+        section: "Content Types",
+        tags: ["content-strategy", "content-type"],
+        orderIndex: order++,
+      });
+    }
+  }
+  if (data.contentStrategy?.selectionRules?.length) {
+    for (const rule of data.contentStrategy.selectionRules) {
+      assertions.push({
+        assertion: rule,
+        category: "content_strategy",
+        chapter: "Content Strategy",
+        section: "Selection Rules",
+        tags: ["content-strategy", "selection-rule"],
+        orderIndex: order++,
+      });
+    }
+  }
+
+  // toLecturer communication (HE)
+  if (data.communicationRules?.toLecturer) {
+    const lec = data.communicationRules.toLecturer;
+    if (lec.tone) {
+      assertions.push({
+        assertion: `Lecturer communication tone: ${lec.tone}`,
+        category: "communication_rule",
+        chapter: "Communication Rules",
+        section: "To Lecturer",
+        tags: ["communication", "lecturer"],
+        orderIndex: order++,
+      });
+    }
+    if (lec.frequency) {
+      assertions.push({
+        assertion: `Lecturer report frequency: ${lec.frequency}`,
+        category: "communication_rule",
+        chapter: "Communication Rules",
+        section: "To Lecturer",
+        tags: ["communication", "lecturer"],
+        orderIndex: order++,
+      });
+    }
+    if (lec.reportFormat) {
+      assertions.push({
+        assertion: `Lecturer report format: ${lec.reportFormat}`,
+        category: "communication_rule",
+        chapter: "Communication Rules",
+        section: "To Lecturer",
+        tags: ["communication", "lecturer", "report"],
+        orderIndex: order++,
+      });
+    }
+    if (lec.escalationTriggers?.length) {
+      for (const trigger of lec.escalationTriggers) {
+        assertions.push({
+          assertion: `Escalate to lecturer: ${trigger}`,
+          category: "communication_rule",
+          chapter: "Communication Rules",
+          section: "To Lecturer",
+          tags: ["communication", "lecturer", "escalation"],
+          orderIndex: order++,
+        });
+      }
+    }
+  }
+
+  // Checkpoints within course phases
+  if (data.coursePhases?.length) {
+    for (const phase of data.coursePhases) {
+      if (!phase.checkpoints?.length) continue;
+      for (const cp of phase.checkpoints) {
+        const consequence = cp.consequence ? ` → ${cp.consequence}` : "";
+        assertions.push({
+          assertion: `${cp.label}: ${cp.criteria}${consequence}`,
+          category: "session_flow",
+          chapter: "Course Phases",
+          section: phase.name,
+          tags: ["checkpoint", "course-phase"],
+          orderIndex: order++,
+        });
+      }
     }
   }
 

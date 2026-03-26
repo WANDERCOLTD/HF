@@ -13,6 +13,23 @@ import { registerTransform } from "../TransformRegistry";
 import type { AssembledContext, CourseInstructionData } from "../types";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 
+/** Match a session range string (e.g., "1", "1-3", "final") against a call number. */
+function matchesSessionRange(range: string, callNumber: number, totalSessions?: number): boolean {
+  const trimmed = range.trim().toLowerCase();
+  if (trimmed === "final" || trimmed === "last") {
+    return totalSessions ? callNumber >= totalSessions : false;
+  }
+  if (trimmed.includes("-")) {
+    const [startStr, endStr] = trimmed.split("-");
+    const start = parseInt(startStr, 10);
+    const end = parseInt(endStr, 10);
+    if (!isNaN(start) && !isNaN(end)) return callNumber >= start && callNumber <= end;
+  }
+  const exact = parseInt(trimmed, 10);
+  if (!isNaN(exact)) return callNumber === exact;
+  return true; // unparseable → include
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   teaching_rule: "TEACHING RULES",
   session_flow: "SESSION FLOW",
@@ -22,6 +39,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   assessment_approach: "ASSESSMENT APPROACH",
   differentiation: "DIFFERENTIATION",
   edge_case: "EDGE CASES",
+  learner_model: "LEARNER MODEL",
+  session_override: "SESSION-SPECIFIC INSTRUCTIONS",
+  content_strategy: "CONTENT STRATEGY",
 };
 
 const CATEGORY_ORDER: readonly string[] = INSTRUCTION_CATEGORIES;
@@ -52,9 +72,19 @@ registerTransform("renderCourseInstructions", (
     };
   }
 
+  // Session-aware filtering for session_override assertions.
+  // Only include overrides whose sessionRange matches the current call number.
+  const callNumber = (context.sharedState as Record<string, unknown>)?.currentSessionNumber as number | undefined;
+  const totalSessions = (context.sharedState as Record<string, unknown>)?.totalSessions as number | undefined;
+  const filtered = instructions.filter((inst) => {
+    if (inst.category !== "session_override") return true;
+    if (!callNumber || !inst.section) return true; // no session context → include all
+    return matchesSessionRange(inst.section, callNumber, totalSessions);
+  });
+
   // Group by category
   const grouped = new Map<string, CourseInstructionData[]>();
-  for (const inst of instructions) {
+  for (const inst of filtered) {
     const cat = inst.category || "teaching_rule";
     if (!grouped.has(cat)) grouped.set(cat, []);
     grouped.get(cat)!.push(inst);

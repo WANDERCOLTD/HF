@@ -47,6 +47,9 @@ export const INSTRUCTION_CATEGORIES = [
   "assessment_approach",
   "differentiation",
   "edge_case",
+  "learner_model",
+  "session_override",
+  "content_strategy",
 ] as const;
 
 export type InstructionCategory = typeof INSTRUCTION_CATEGORIES[number];
