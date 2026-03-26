@@ -725,6 +725,28 @@ export async function executeWizardTool(
               select: { subjectId: true },
             });
 
+            // Bridge COURSE_REFERENCE sources to the primary subject (existing course path)
+            if (existingPbSubject && packSubjectIds?.length) {
+              for (const packSubId of packSubjectIds) {
+                const packSources = await prisma.subjectSource.findMany({
+                  where: { subjectId: packSubId },
+                  select: { sourceId: true, source: { select: { documentType: true } } },
+                });
+                for (const ps of packSources) {
+                  if (ps.source.documentType === "COURSE_REFERENCE" || ps.source.documentType === "POLICY_DOCUMENT") {
+                    const existingLink = await prisma.subjectSource.findFirst({
+                      where: { subjectId: existingPbSubject.subjectId, sourceId: ps.sourceId },
+                    });
+                    if (!existingLink) {
+                      await prisma.subjectSource.create({
+                        data: { subjectId: existingPbSubject.subjectId, sourceId: ps.sourceId },
+                      });
+                    }
+                  }
+                }
+              }
+            }
+
             // Backfill teachMethod on assertions extracted before teachingMode was set
             const resolvedTeachingMode = (input.teachingMode as string) || (setupData?.teachingMode as string);
             if (resolvedTeachingMode) {
@@ -999,6 +1021,30 @@ export async function executeWizardTool(
             await prisma.subjectDomain.create({
               data: { subjectId: packSubId, domainId },
             });
+          }
+        }
+
+        // 7b. Bridge COURSE_REFERENCE sources to the primary subject.
+        //     Content uploaded via SourcesPanel creates SubjectSource rows under
+        //     packSubjectIds, but COURSE_REFERENCE sources may be on a different
+        //     subject. Ensure they're also linked to the primary subject (step 1)
+        //     so the courseInstructions loader can find them via PlaybookSubject → SubjectSource.
+        for (const packSubId of subjectIdsToLink) {
+          const packSources = await prisma.subjectSource.findMany({
+            where: { subjectId: packSubId },
+            select: { sourceId: true, source: { select: { documentType: true } } },
+          });
+          for (const ps of packSources) {
+            if (ps.source.documentType === "COURSE_REFERENCE" || ps.source.documentType === "POLICY_DOCUMENT") {
+              const existingLink = await prisma.subjectSource.findFirst({
+                where: { subjectId: subject.id, sourceId: ps.sourceId },
+              });
+              if (!existingLink) {
+                await prisma.subjectSource.create({
+                  data: { subjectId: subject.id, sourceId: ps.sourceId },
+                });
+              }
+            }
           }
         }
 
@@ -1997,7 +2043,7 @@ async function generateLessonPlanPreview(
     });
 
     const lessonPlanData = {
-      estimatedSessions: planEntries.length,
+      estimatedSessions: sessionCount || planEntries.length,
       entries: planEntries,
       generatedAt: new Date().toISOString(),
       generatedFrom,
