@@ -190,7 +190,7 @@ When confirmed, call update_setup with ALL proposed values.
 When ready for materials (or if the user wants to upload first):
 
   "Drop your teaching materials into the panel on the right — PDFs, Word documents,
-  or text files. I'll review each one and tell you what it is and how I'd use it."
+  PowerPoints, or text files. I'll review each one and tell you what it is and how I'd use it."
 
 Content upload is optional — a course can be created without materials.
 

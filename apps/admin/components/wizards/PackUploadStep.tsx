@@ -118,7 +118,7 @@ interface PackUploadStepProps {
 
 // ── Constants ──────────────────────────────────────────
 
-const VALID_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md', '.markdown', '.json'];
+const VALID_EXTENSIONS = ['.pdf', '.docx', '.doc', '.pptx', '.txt', '.md', '.markdown', '.json'];
 const ACCEPT_ATTR = VALID_EXTENSIONS.join(',');
 
 
@@ -808,7 +808,7 @@ export function PackUploadStep({
           {/* Rejected file warning */}
           {rejectedFiles.length > 0 && (
             <div className="pack-upload-warning">
-              Skipped: {rejectedFiles.join(', ')} — Supported: PDF, DOCX, TXT, MD, JSON
+              Skipped: {rejectedFiles.join(', ')} — Supported: PDF, Word, PowerPoint, TXT, MD, JSON
             </div>
           )}
 

@@ -56,7 +56,7 @@ interface SourcesPanelProps {
 
 type Phase = "idle" | "analyzing" | "uploading" | "tracking" | "done" | "error";
 
-const VALID_EXTENSIONS = [".pdf", ".docx", ".txt", ".md", ".markdown", ".json"];
+const VALID_EXTENSIONS = [".pdf", ".docx", ".doc", ".pptx", ".txt", ".md", ".markdown", ".json"];
 const ACCEPT_ATTR = VALID_EXTENSIONS.join(",");
 
 // ── Component ────────────────────────────────────────────
@@ -386,7 +386,7 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
       {/* Rejected file warning */}
       {rejectedFiles.length > 0 && (
         <div className="cv4-sources-warning">
-          Skipped: {rejectedFiles.join(", ")} — Supported: PDF, DOCX, TXT, MD, JSON
+          Skipped: {rejectedFiles.join(", ")} — Supported: PDF, Word, PowerPoint, TXT, MD, JSON
         </div>
       )}
 

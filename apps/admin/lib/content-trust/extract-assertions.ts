@@ -1,7 +1,7 @@
 /**
  * Content Assertion Extraction
  *
- * Parses documents (PDF, text, markdown) into atomic ContentAssertions
+ * Parses documents (PDF, DOCX, DOC, PPTX, text, markdown) into atomic ContentAssertions
  * using AI to identify teaching points, facts, thresholds, and definitions.
  *
  * Extraction config is spec-driven:
@@ -20,6 +20,9 @@ import { parseJsonResponse } from "./extractors/base-extractor";
 import type { DocumentSection } from "./segment-document";
 import { filterSections, detectFigureRefs } from "./filter-sections";
 import crypto from "crypto";
+import { tmpdir } from "os";
+import { join } from "path";
+import { writeFile, unlink } from "fs/promises";
 
 // ------------------------------------------------------------------
 // Types
@@ -102,6 +105,36 @@ export async function extractTextFromDocx(buffer: Buffer): Promise<{ text: strin
 }
 
 /**
+ * Extract text from a PPTX buffer using node-pptx-parser.
+ * Writes to a temp file because the parser only accepts file paths.
+ */
+export async function extractTextFromPptx(buffer: Buffer): Promise<{ text: string }> {
+  const tmpPath = join(tmpdir(), `hf-pptx-${crypto.randomUUID()}.pptx`);
+  try {
+    await writeFile(tmpPath, buffer);
+    // Dynamic import to avoid bundling issues
+    const PptxParser = (await import("node-pptx-parser")).default;
+    const parser = new PptxParser(tmpPath);
+    const slides = await parser.extractText();
+    const text = slides.map((s: { text: string[] }) => s.text.join("\n")).join("\n\n");
+    return { text };
+  } finally {
+    await unlink(tmpPath).catch(() => {});
+  }
+}
+
+/**
+ * Extract text from a DOC buffer using word-extractor.
+ */
+export async function extractTextFromDoc(buffer: Buffer): Promise<{ text: string }> {
+  // Dynamic import to avoid bundling issues
+  const WordExtractor = (await import("word-extractor")).default;
+  const extractor = new WordExtractor();
+  const doc = await extractor.extract(buffer);
+  return { text: doc.getBody() };
+}
+
+/**
  * Extract text from various file types.
  */
 export async function extractText(
@@ -119,6 +152,22 @@ export async function extractText(
     const buffer = Buffer.from(await file.arrayBuffer());
     const { text } = await extractTextFromDocx(buffer);
     return { text, fileType: "docx" };
+  }
+
+  if (name.endsWith(".doc")) {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const { text } = await extractTextFromDoc(buffer);
+    return { text, fileType: "doc" };
+  }
+
+  if (name.endsWith(".pptx")) {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const { text } = await extractTextFromPptx(buffer);
+    return { text, fileType: "pptx" };
+  }
+
+  if (name.endsWith(".ppt")) {
+    return { text: "", fileType: "ppt" };
   }
 
   // Text-based formats
@@ -149,6 +198,20 @@ export async function extractTextFromBuffer(
   if (name.endsWith(".docx")) {
     const { text } = await extractTextFromDocx(buffer);
     return { text, fileType: "docx" };
+  }
+
+  if (name.endsWith(".doc")) {
+    const { text } = await extractTextFromDoc(buffer);
+    return { text, fileType: "doc" };
+  }
+
+  if (name.endsWith(".pptx")) {
+    const { text } = await extractTextFromPptx(buffer);
+    return { text, fileType: "pptx" };
+  }
+
+  if (name.endsWith(".ppt")) {
+    return { text: "", fileType: "ppt" };
   }
 
   const text = buffer.toString("utf-8");
