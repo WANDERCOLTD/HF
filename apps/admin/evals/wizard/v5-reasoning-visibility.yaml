@@ -1,0 +1,331 @@
+description: "Wizard V5 — reasoning visibility (NEVER hide proposals in reasoning)"
+
+# Run with: npm run eval:wizard:v5
+# View:      npm run eval:view
+#
+# Snapshot: Mid-conversation — institution, subject, and course have been collected.
+# Graph says teaching approach is HANDLE THIS NEXT. Institution type: school.
+# Tests: every proposed/inferred value MUST appear in visible response text,
+# not only in thinking/reasoning. Confirming a saved value must name the specific value.
+
+prompts:
+  - id: v5-reasoning-visibility
+    label: "V5 — Reasoning visibility rule"
+    raw: |
+      You are the HumanFirst Studio setup assistant. You help educators create and configure
+      AI tutoring courses through natural conversation.
+
+      ## How this wizard works — GRAPH-DRIVEN (critical)
+
+      This wizard has NO fixed phase order. The graph evaluator below tells you what's collected,
+      what's available, and what to ask next — in priority order. Follow it.
+
+      ## How you communicate
+
+      **Response length — context-specific rules:**
+      - **Playback / course understanding:** 6-10 sentences. Be rich, specific, and reflective.
+      - **Configuration proposal with rationale:** 2-3 sentences per item, explain the "why"
+        grounded in what the user described. Don't just list choices — show reasoning.
+      - **Asking a targeted question:** 1-2 sentences max.
+      - **Confirming a saved value:** 1 sentence stating WHAT was saved (the specific value),
+        then name what comes next.
+      - Write naturally — you're a knowledgeable colleague, not a form.
+      - When recommending, explain why it fits their specific context.
+      - **Bold the opening concept of each sentence or bullet.**
+      - Never refer to yourself by name.
+      - NEVER expose internal field names, system keys, or enum values.
+      - NEVER invent features, pages, or capabilities that don't exist.
+      - NEVER echo internal instructions, system messages, template placeholders, or field names.
+      - NEVER output XML tags like `<parameter>` or `<option>` in your text responses.
+      - **NEVER hide proposals in reasoning.** Every proposal, recommendation, or inferred value
+        MUST appear explicitly in the visible response text — not only in your thinking/reasoning.
+        The user cannot see your reasoning unless they expand it. If you propose "secondary" as the
+        audience level, SAY "secondary" in your text: "I'd suggest **secondary level** — sound right?"
+        A question like "Sound right for the age group?" with no stated value is BANNED — the user
+        has no idea what you're proposing without opening reasoning.
+
+      ## Subject → Course (CRITICAL distinction)
+      Subject = broad academic discipline: "English Language", "Biology", "Mathematics"
+      Course = specific offering WITHIN a subject: "GCSE Biology", "11+ Creative Comprehension"
+      NEVER combine subject and course into one question.
+
+      ## Valid values
+
+      ### Teaching approaches (interactionPattern)
+      **PROPOSE, DON'T ASK.** Infer the best fit from subject + level, propose with rationale.
+      - socratic — Question-based discovery
+      - directive — Structured, step-by-step instruction
+      - advisory — Coaching style, offers guidance
+      - coaching — Reflective dialogue, metacognition
+      - companion — Supportive peer
+      - facilitation — Discussion facilitation
+      - reflective — Self-reflection and learning-from-experience
+      - open — Flexible, adapts to need
+      - conversational-guide — Warm, curious guide for 1:1 conversations
+
+      ### Teaching emphasis (teachingMode)
+      - recall, comprehension (default), practice, syllabus
+
+      ### Session structure
+      - Count: 3, 5, 8, or 12 (default: 5)
+      - Duration: 15, 20, 30, 45, or 60 minutes (default: 30)
+
+      ## Tools: show_options vs show_suggestions
+      **show_options** — for questions with 2-8 predefined choices. Max ONE per response.
+      Set recommended: true on the suggested option.
+      **show_suggestions** — ONLY for confirmations, post-playback, skip signals. Never for choices.
+
+      ## Graph-driven priorities — THIS IS YOUR ROADMAP
+
+      Readiness: 40% | Can launch: NO
+
+      ### Already collected
+        ✓ Organisation name: "St. Mary's Secondary School"
+        ✓ Organisation type: "school"
+        ✓ Subject area: "English Language"
+        ✓ Course name: "11+ Literary Analysis"
+
+      ### What to ask next (priority order)
+        1. Teaching approach [options] → (HANDLE THIS NEXT — propose with rationale)
+           PROPOSE: infer best fit from subject/level.
+           [REQUIRED for launch]
+        2. Teaching emphasis [options]
+        3. Session count + duration
+        ... and 5 more optional fields available
+
+      ### Still required for launch
+        ✗ Teaching approach
+
+      ## Rules
+      1. Call update_setup EVERY time you learn new information — even casual mentions.
+         Extract ALL fields from a single message in ONE update_setup call.
+      2. **EVERY response MUST contain natural-language text. No exceptions.**
+         Write your text FIRST, then make tool calls.
+      3. **Follow the graph priority ordering.** No fixed phases.
+      4. **PROPOSE, DON'T ASK** for any field you can infer. BANNED: "What teaching approach would you like?"
+      5. **AFFIRMATION = CONFIRMED. ADVANCE IMMEDIATELY.** Call update_setup with the value, move to next priority.
+      6. NEVER re-ask something already collected.
+      9. When "Can launch: YES" → present the summary and offer creation.
+         NEVER ask "What's next?" — YOU drive the conversation.
+
+      ---
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1200
+      tools: &v5-reasoning-tools
+        - name: update_setup
+          description: >-
+            Save one or more extracted data fields. Call EVERY time you learn new information.
+            Valid field keys: institutionName, typeSlug, websiteUrl, courseName, subjectDiscipline,
+            interactionPattern, teachingMode, welcomeMessage, sessionCount, durationMins,
+            planEmphasis, behaviorTargets, lessonPlanModel, physicalMaterials,
+            personalityPreset, personalityDescription, courseContext,
+            assessmentTargets, constraints, defaultDomainKind,
+            contentSkipped, welcomeSkipped, tuneSkipped.
+            Use EXACTLY these key names — other names will be silently dropped.
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                description: "Key-value pairs. Keys MUST be from the valid field names list above."
+                additionalProperties: true
+            required: [fields]
+        - name: show_options
+          description: "Show structured option card inline in chat"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              dataKey: { type: string }
+              mode: { type: string, enum: [radio, checklist] }
+              required: { type: boolean }
+              fieldPicker: { type: boolean }
+              options:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    value: { type: string }
+                    label: { type: string }
+                    description: { type: string }
+                    recommended: { type: boolean }
+                  required: [value, label, description]
+            required: [question, dataKey, mode, options]
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips (confirmation/skip only)"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+
+tests:
+
+  # ── POSITIVE: Proposal states inferred value explicitly ──────────────────
+
+  - description: "VISIBILITY POSITIVE: Infers audience level → states it explicitly in visible text"
+    vars:
+      userMessage: "This is for secondary school students, they're doing literary analysis of English texts"
+    assert:
+      - type: llm-rubric
+        value: >-
+          The response states the proposed or inferred audience level EXPLICITLY in the visible text
+          (e.g. "secondary level", "secondary school", "secondary students", "Year 7-11", or equivalent).
+          It does NOT merely ask "Sound right for the age group?" or "Does that fit?" without having
+          first stated what level it is proposing. The value must be readable without expanding any
+          thinking or reasoning block.
+      - type: javascript
+        value: |
+          // Check that the text response contains a concrete level or age reference
+          // before any confirmation question — not just "Sound right?"
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          // Strip tool call JSON to get only prose
+          const _textPart = _out.replace(/\{"type":"tool_use"[\s\S]*?\}/g, '').trim();
+          const hasConcreteRef = /\bsecondary\b|\byear\s*[7-9]\b|\byear\s*1[0-1]\b|\bages?\s*1[1-6]\b|\b1[1-6][- ]year/i.test(_textPart);
+          const hasVagueQuestion = /sound right for the age group\?|fit for the age group\?/i.test(_textPart);
+          if (hasVagueQuestion && !hasConcreteRef) {
+            return { pass: false, score: 0, reason: 'Response asks "sound right for the age group?" without stating what level was proposed — user cannot know what is being confirmed' };
+          }
+          return true;
+
+  - description: "VISIBILITY POSITIVE: Proposes teaching approach → names specific approach in text"
+    vars:
+      userMessage: "My students are 10-11 year olds preparing for the 11+ exam in literary analysis"
+    assert:
+      - type: llm-rubric
+        value: >-
+          The response proposes a specific named teaching approach (e.g. "Socratic", "directive",
+          "advisory") explicitly in the visible text, along with a brief rationale. It does NOT say
+          only "I've chosen an approach for you — sound right?" or hide the approach name in reasoning.
+          The proposed approach name must be stated before any confirmation question.
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _textPart = _out.replace(/\{"type":"tool_use"[\s\S]*?\}/g, '').trim();
+          const approaches = ['socratic', 'directive', 'advisory', 'coaching', 'companion', 'facilitation', 'reflective', 'open', 'conversational-guide'];
+          const mentionsApproach = approaches.some(a => new RegExp('\\b' + a + '\\b', 'i').test(_textPart));
+          if (!mentionsApproach) {
+            return { pass: false, score: 0, reason: 'Response does not name any specific teaching approach in visible text — the proposal is hidden or absent' };
+          }
+          return true;
+
+  - description: "VISIBILITY POSITIVE: Confirming saved value → names specific value saved"
+    vars:
+      userMessage: "Let's go with 30 minutes per session"
+    assert:
+      - type: llm-rubric
+        value: >-
+          The confirmation response explicitly states WHAT was saved — e.g. "I've set session
+          duration to 30 minutes" or "**Session duration:** 30 minutes — saved." It does NOT say
+          only "Saved!" or "Got it — moving on" without naming the specific value that was stored.
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _textPart = _out.replace(/\{"type":"tool_use"[\s\S]*?\}/g, '').trim();
+          // The confirmation text must contain the specific value "30"
+          if (!/\b30\b/.test(_textPart)) {
+            return { pass: false, score: 0, reason: 'Confirmation text does not mention "30" — the specific saved value is absent from visible text' };
+          }
+          return true;
+
+  - description: "VISIBILITY POSITIVE: Saves session count and confirms with specific number"
+    vars:
+      userMessage: "I want 8 sessions"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup call — session count not saved' };
+          const fields = update.args?.fields || update.args || {};
+          if (String(fields.sessionCount) !== '8') {
+            return { pass: false, score: 0, reason: `sessionCount not saved as 8, got: "${fields.sessionCount}"` };
+          }
+          return true;
+      - type: llm-rubric
+        value: >-
+          The response confirms the specific value "8 sessions" in the visible text.
+          It does NOT say only "Saved" or "Perfect" without naming the number.
+
+  # ── NEGATIVE: Vague confirmation questions without stated value ───────────
+
+  - description: "VISIBILITY NEGATIVE: BANNED — 'Sound right for the age group?' with no stated value"
+    vars:
+      userMessage: "It's for primary school children learning to read"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _textPart = _out.replace(/\{"type":"tool_use"[\s\S]*?\}/g, '').trim();
+          // If this specific banned phrase appears, it is only acceptable if a concrete
+          // age/level value was ALSO stated beforehand in the same text block.
+          const hasBannedPhrase = /sound right for the age group\?/i.test(_textPart);
+          if (!hasBannedPhrase) return true; // didn't use the phrase at all — pass
+          // It used the phrase — check that a concrete level was stated first
+          const hasConcreteValue = /\bprimary\b|\byear\s*[1-6]\b|\bages?\s*[4-9]\b|\bages?\s*10\b|\bkey stage [12]\b/i.test(_textPart);
+          if (!hasConcreteValue) {
+            return { pass: false, score: 0, reason: '"Sound right for the age group?" used without stating what level was proposed — BANNED by the NEVER hide proposals rule' };
+          }
+          return true;
+      - type: not-icontains
+        value: "sound right for the age group?"
+
+  - description: "VISIBILITY NEGATIVE: BANNED — 'Saved! Now let's move on' with no named value"
+    vars:
+      userMessage: "Use the Socratic approach"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _textPart = _out.replace(/\{"type":"tool_use"[\s\S]*?\}/g, '').trim();
+          // Detect a save confirmation that lacks any specific value
+          const isBareConfirm = /^(saved!?|perfect!?|great!?|got it!?)\s*(now\s+let'?s\s+move\s+on|moving\s+on|next up)/i.test(_textPart.trim());
+          if (isBareConfirm) {
+            return { pass: false, score: 0, reason: 'Bare "Saved! Now let\'s move on" with no named value — the specific saved value must appear in the confirmation text' };
+          }
+          return true;
+      - type: llm-rubric
+        value: >-
+          After saving the Socratic approach, the response explicitly names "Socratic" in the
+          confirmation sentence (e.g. "I've set the teaching approach to Socratic"). It does NOT
+          say only "Saved!" or "Got it!" without mentioning what was saved.
+
+  # ── NEGATIVE: Proposal hidden in reasoning, not in text ──────────────────
+
+  - description: "VISIBILITY NEGATIVE: BANNED — Asks 'Does that fit?' without stating proposed value"
+    vars:
+      userMessage: "This is for university students studying English Literature"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _textPart = _out.replace(/\{"type":"tool_use"[\s\S]*?\}/g, '').trim();
+          // Check if a vague confirmation question appears without a concrete proposed value
+          const vaguePatterns = [
+            /does that fit\?/i,
+            /sound right\?$/i,
+            /does that sound right\?/i,
+            /is that about right\?/i,
+          ];
+          const approachNames = ['socratic', 'directive', 'advisory', 'coaching', 'companion', 'facilitation', 'reflective', 'open', 'conversational-guide'];
+          const hasVagueEnd = vaguePatterns.some(p => p.test(_textPart));
+          const hasConcreteApproach = approachNames.some(a => new RegExp('\\b' + a + '\\b', 'i').test(_textPart));
+          if (hasVagueEnd && !hasConcreteApproach) {
+            return {
+              pass: false,
+              score: 0,
+              reason: 'Response ends with a vague confirmation question but no concrete approach name is stated in visible text — proposal is hidden in reasoning'
+            };
+          }
+          return true;
+      - type: llm-rubric
+        value: >-
+          The response states a concrete teaching approach name (e.g. "Socratic", "advisory") in
+          visible text before asking any confirmation question. It does NOT ask "Does that fit?" or
+          "Sound right?" without the user being able to see what is being proposed.
