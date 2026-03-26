@@ -2,7 +2,6 @@
   {
     "id": "demo-top",
     "items": [
-      { "id": "demo-course-ref", "href": "/x/course-reference", "label": "Course Ref", "icon": "ClipboardList", "highlighted": true, "wizard": true },
       { "id": "demo-gs-v5", "href": "/x/get-started-v5", "label": "Build Course", "icon": "Sparkles", "highlighted": true, "wizard": true },
       { "id": "demo-dash", "href": "/x/educator", "label": "Dashboard", "icon": "GraduationCap", "shortcutHint": "⌘D" },
       { "id": "demo-sim", "href": "/x/sim", "label": "Learn", "icon": "MessageCircle", "shortcutHint": "⌘S" },
@@ -13,10 +12,9 @@
   {
     "id": "edu-setup",
     "title": "Setup",
-    "href": "/x/course-reference",
+    "href": "/x/get-started-v5",
     "defaultHiddenFor": ["OPERATOR", "ADMIN", "SUPERADMIN", "SUPER_TESTER", "TESTER", "DEMO", "STUDENT"],
     "items": [
-      { "id": "edu-course-ref", "href": "/x/course-reference", "label": "Course Ref", "icon": "ClipboardList", "highlighted": true, "wizard": true, "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "edu-gs-v5", "href": "/x/get-started-v5", "label": "Build Course", "icon": "Sparkles", "highlighted": true, "wizard": true, "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "edu-onboarding", "href": "/x/onboarding", "label": "Onboarding Flows", "icon": "Route", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "edu-home", "href": "/x/educator", "label": "Dashboard", "icon": "GraduationCap", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] }
