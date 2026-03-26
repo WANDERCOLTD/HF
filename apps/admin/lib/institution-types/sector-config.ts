@@ -16,7 +16,7 @@ const ARCHETYPE_TUTOR = "TUT-001";
 const ARCHETYPE_COACH = "COACH-001";
 const ARCHETYPE_COMPANION = "COMPANION-001";
 
-export type SectorSlug = "school" | "corporate" | "community" | "coaching" | "healthcare" | "training";
+export type SectorSlug = "school" | "corporate" | "community" | "coaching" | "healthcare" | "training" | "university";
 
 export interface SectorDef {
   /** Lucide icon name (imported separately in components) */
@@ -93,6 +93,15 @@ export const SECTOR_CONFIG: Record<SectorSlug, SectorDef> = {
     tooltip: "AI agent acts as a skills coach — structured, practical, focused on competency and certification",
     archetype: ARCHETYPE_COACH,
     teachingStyle: "coach",
+  },
+  university: {
+    icon: "Library",
+    colorKey: "blue",
+    label: "University",
+    description: "Universities and higher education institutions",
+    tooltip: "AI agent acts as a Socratic tutor — challenges thinking, encourages critical evaluation, links theory to practice",
+    archetype: ARCHETYPE_TUTOR,
+    teachingStyle: "tutor",
   },
 };
 

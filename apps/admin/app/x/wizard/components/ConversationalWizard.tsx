@@ -89,14 +89,18 @@ interface Message {
 }
 
 /**
- * Why the wizard is busy — one state, two tiers:
+ * Why the wizard is busy — one state, two visual tiers:
  *
- * FOREGROUND (blocks input — AI response imminent):
+ * FOREGROUND (blocks input, bouncing dots — AI response imminent):
  *   "sending"         — API call in flight
  *   "upload-draining" — file uploaded, waiting for drain to fire handleSend
  *
- * BACKGROUND (user can keep chatting — work happening in sidebar):
+ * BACKGROUND (blocks input, persistent pill — longer work in progress):
  *   "course-ref-analysing" — COURSE_REFERENCE extraction → digest → AI narration
+ *
+ * Both tiers disable the send button to prevent concurrent sendToAPI calls.
+ * The visual indicator differs so the user knows whether to expect a quick
+ * response (dots) or a longer wait (pill with explanation).
  */
 type BusyReason =
   | null                     // idle
@@ -436,8 +440,9 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [busyReason, setBusyReason] = useState<BusyReason>(null);
-  const isForeground = busyReason !== null && FOREGROUND_REASONS.includes(busyReason);
-  const isBackground = busyReason !== null && !FOREGROUND_REASONS.includes(busyReason);
+  const isBusy = busyReason !== null;
+  const isForeground = isBusy && FOREGROUND_REASONS.includes(busyReason);
+  const isBackground = isBusy && !FOREGROUND_REASONS.includes(busyReason);
   const isSending = busyReason === "sending";
   const [suggestions, setSuggestions] = useState<{ question?: string; items: string[] }>({ items: [] });
   const [welcomeSuggestion, setWelcomeSuggestion] = useState<string | null>(null);
@@ -1187,6 +1192,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
+        if (isBusy) return; // Don't send while busy — matches disabled send button
         // If user typed text, auto-resolve any active options card and send
         if (hasActiveOptions && inputValue.trim()) {
           setMessages((prev) =>
@@ -1224,7 +1230,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         }
       }
     },
-    [handleSend, hasActiveOptions, inputValue],
+    [handleSend, hasActiveOptions, inputValue, isBusy],
   );
 
   // Global Esc to dismiss active options card
@@ -1543,7 +1549,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             }
 
             if (msg.role === "assistant") {
-              const isLast = !isForeground && suggestions.items.length === 0 && !welcomeSuggestion && msg.id === lastAssistantId;
+              const isLast = !isBusy && suggestions.items.length === 0 && !welcomeSuggestion && msg.id === lastAssistantId;
               const inlineOptions = isLast ? parseOptionsFromText(msg.content) : [];
               const displayContent = stripParameterTags(msg.content);
               return (
@@ -1607,7 +1613,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           )}
 
           {/* Suggestion chips — inline after last message, not buried at page bottom */}
-          {suggestions.items.length > 0 && !welcomeSuggestion && !isForeground && (
+          {suggestions.items.length > 0 && !welcomeSuggestion && !isBusy && (
             <div className="cv4-row cv4-row--assistant">
               <div className="cv4-suggestions">
                 {suggestions.question && (
@@ -1674,7 +1680,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           )}
 
           {/* Field picker panel — shown above input when AI calls show_options with fieldPicker: true */}
-          {fieldPickerPanel && !isForeground && (
+          {fieldPickerPanel && !isBusy && (
             <div className="cv4-field-picker-panel">
               <OptionsCard
                 panel={fieldPickerPanel}
@@ -1706,7 +1712,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
               className="cv4-textarea"
             />
 
-            {isForeground ? (
+            {isBusy ? (
               <div className="cv4-send-btn cv4-send-btn--loading">
                 <Loader2 size={16} className="hf-spinner" />
               </div>

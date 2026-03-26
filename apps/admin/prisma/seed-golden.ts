@@ -8,6 +8,7 @@
  *   4. Bright Path Training (training) — 12 courses, 1 cohort, 8 participants
  *   5. Momentum Coaching (coaching) — 2 coaching plans, 1 group, 6 clients
  *   6. St. Aidan's Community Health (healthcare) — 2 care plans, 1 team, 6 patients
+ *   7. City, St George's, University of London (university) — 1 module, 1 seminar group, 6 students
  *
  * ENRICHMENT: ~50% of learners get "lived data" (calls, scores, memories,
  * personality profiles, goals, targets, onboarding). The rest are "new"
@@ -103,6 +104,7 @@ const PERSONA_LABELS: Record<string, string> = {
   coaching: "executive coach",
   healthcare: "care companion",
   training: "trainer",
+  university: "tutor",
 };
 
 const INSTITUTIONS: InstitutionDef[] = [
@@ -359,6 +361,44 @@ const INSTITUTIONS: InstitutionDef[] = [
       ],
     },
   },
+
+  // ── 7. University ────────────────────────────────────────
+  {
+    slug: "city-university",
+    name: "City, St George's, University of London",
+    typeSlug: "university",
+    primaryColor: "#c8102e",
+    secondaryColor: "#1d1d1b",
+    welcomeMessage: "Welcome to City, St George's — where academic excellence meets AI-powered learning.",
+    login: { email: "city@hff.com", name: "Dr. Elena Vasquez" },
+    domain: {
+      slug: "city-university",
+      name: "City, St George's, University of London",
+      description: "Psychology department — undergraduate and postgraduate teaching in clinical, cognitive, and developmental psychology.",
+      subjects: [
+        { slug: "golden-psychology", name: "Psychology", description: "Undergraduate and postgraduate psychology — clinical, cognitive, developmental, and social psychology.", teachingProfile: "comprehension-led" },
+      ],
+      groups: [
+        {
+          slug: "psychology-dept",
+          name: "Psychology",
+          groupType: "DEPARTMENT",
+          styleNotes: "Evidence-based, Socratic questioning, encourage critical evaluation of research. Link theory to real-world application.",
+          playbookSlugs: ["golden-conflict-psychology"],
+        },
+      ],
+      playbooks: [
+        { slug: "golden-conflict-psychology", name: "Conflict Psychology", description: "Theories of interpersonal and intergroup conflict — cognitive biases, escalation dynamics, mediation frameworks, and applied resolution strategies." },
+      ],
+      cohorts: [
+        {
+          name: "BSc Psychology Year 2",
+          teacher: { name: "Dr. Elena Vasquez", email: "e.vasquez@city.ac.uk" },
+          members: ["Amira Hassan", "Jake Morrison", "Chloe Ng", "Ravi Patel", "Sophie Laurent", "Kwame Asante"],
+        },
+      ],
+    },
+  },
 ];
 
 // ── Default onboarding flow phases (inlined from fallback-settings.ts) ──
@@ -404,6 +444,11 @@ const TRANSCRIPTS: Record<string, string[]> = {
     `AI: Hello {{name}}, how are you feeling today? Let's check in on how things have been going with your blood pressure management.\nUser: Not great, to be honest. I keep forgetting to take my tablets in the morning.\nAI: That's really common — you're not alone in that. What's your morning routine like?\nUser: I get up, make tea, read the news, then rush out to work.\nAI: What if we linked the tablet to something you already do? Like right next to the kettle?\nUser: I never thought of that. Put the tablets by the tea bags?\nAI: Exactly — it's called habit stacking. You attach the new habit to one you already have. Would you be willing to try that this week?\nUser: Yeah, that sounds simple enough.\nAI: Perfect. And no pressure if you forget a day — just pick it up again. How has the low-salt diet been going?`,
     `AI: {{name}}, welcome back. Today I'd like to talk about physical activity. Last time you mentioned wanting to be more active. How has that been?\nUser: I've been walking the dog more, but nothing beyond that.\nAI: Walking the dog counts! How far do you usually go?\nUser: About twenty minutes around the park.\nAI: That's great — the NHS recommends 150 minutes of moderate activity per week. Twenty minutes five times a week gets you to 100. You're two-thirds of the way there already.\nUser: Really? I thought it had to be the gym or running.\nAI: Not at all. Brisk walking is one of the best things you can do. Would you be open to making one of those walks a little longer — say thirty minutes?\nUser: I could do that on weekends when I'm not rushing.\nAI: Perfect plan. And how's your energy been? Sometimes people notice they sleep better once they're more active.`,
     `AI: Hi {{name}}. How has your week been with the diabetes management plan we discussed?\nUser: Mixed. I've been good with checking my blood sugar but the diet part is hard.\nAI: Let's focus on what's going well first — regular monitoring is a huge achievement. What made that easier?\nUser: The alarm on my phone. I just do it when it goes off.\nAI: Brilliant. Now, what's the hardest part of the dietary changes?\nUser: Evenings. After dinner I always want something sweet.\nAI: That craving is really normal, especially while your body adjusts. What sweet things do you currently reach for?\nUser: Biscuits, mostly. Or chocolate.\nAI: What if we found a swap rather than cutting it out entirely? Some people find berries with a spoon of yoghurt hits the spot.\nUser: I do like raspberries actually.\nAI: That's a great option — low sugar, high fibre. Would you be willing to try raspberries and yoghurt for three evenings this week and see how it feels?`,
+  ],
+  university: [
+    `AI: Hi {{name}}, welcome to your tutorial. Today we're looking at cognitive biases in conflict situations. Have you done the reading on Kahneman and Tversky?\nUser: Yeah, the prospect theory paper. I found it quite dense though.\nAI: It is dense — that's normal. Let's break it down. What's the core insight about how people evaluate losses versus gains?\nUser: That losses feel about twice as bad as equivalent gains feel good?\nAI: Exactly — loss aversion. Now, how might that play out in a conflict between two people negotiating?\nUser: If one side frames something as a loss, the other side would fight harder to avoid it than they'd fight to get an equivalent gain?\nAI: That's a really sharp application. Can you think of a real-world example?\nUser: Maybe in divorce mediation? If you frame keeping the house as avoiding a loss rather than making a gain...\nAI: Brilliant. You've just identified one of the key tools in conflict resolution — reframing. That's exactly how mediators use this research.`,
+    `AI: {{name}}, let's pick up where we left off on intergroup conflict. Last week we covered Sherif's Robbers Cave experiment. What was the key finding?\nUser: That competition for resources creates hostility between groups, even when the groups are basically identical.\nAI: Good. And how did they reduce the hostility?\nUser: Superordinate goals — tasks that needed both groups to cooperate.\nAI: Right. Now here's the critical thinking question: what are the limitations of that study?\nUser: It was all boys, same age, same background. And it was the 1950s.\nAI: Those are valid methodological critiques. What about ecological validity?\nUser: I suppose real conflicts aren't created in a week at a summer camp. There's history, power imbalances, identity...\nAI: Excellent. You're moving from description to evaluation — that's the jump from a 2:1 to a first-class answer. What theory addresses those deeper structural factors?\nUser: Social identity theory? Tajfel?\nAI: Exactly. Let's connect those two frameworks.`,
+    `AI: Welcome back, {{name}}. Today's topic is de-escalation strategies. Before we get into the theory, tell me about a conflict you've observed recently.\nUser: My flatmates had a massive argument about cleaning. It escalated really quickly.\nAI: Perfect example. Walk me through the escalation — what happened step by step?\nUser: One person made a passive-aggressive comment about dishes. The other got defensive. Then it became about who does more around the flat.\nAI: You've just described the classic escalation spiral from Pruitt and Rubin. Notice how it shifted from a specific issue to a broader grievance?\nUser: Yeah, suddenly it wasn't about dishes anymore.\nAI: That's called "issue expansion" — one of the key escalation mechanisms. What could have interrupted the spiral early on?\nUser: If the first person had stated the issue directly instead of being passive-aggressive?\nAI: That maps to what Deutsch calls "constructive confrontation." Direct, specific, and focused on behaviour rather than character. How would you phrase it?\nUser: Something like "the dishes from last night are still there — could you do them today?"\nAI: Perfect. Specific, present-tense, actionable. That's de-escalation in practice.`,
   ],
 };
 
@@ -456,6 +501,13 @@ const MEMORY_TEMPLATES: Record<string, Array<{ category: "FACT" | "PREFERENCE" |
     { category: "PREFERENCE", key: "motivation", valueFn: (n) => `${n} is motivated by family — wants to stay active for grandchildren` },
     { category: "TOPIC", key: "focus", valueFn: () => "Blood sugar management and dietary changes" },
   ],
+  university: [
+    { category: "FACT", key: "programme", valueFn: () => "BSc Psychology, Year 2" },
+    { category: "FACT", key: "background", valueFn: () => "Strong A-level results, first-generation university student" },
+    { category: "PREFERENCE", key: "learning_style", valueFn: () => "Prefers connecting theory to real-world examples" },
+    { category: "PREFERENCE", key: "assessment", valueFn: (n) => `${n} finds essay structure challenging but excels at critical evaluation` },
+    { category: "TOPIC", key: "focus", valueFn: () => "Conflict psychology and cognitive biases" },
+  ],
 };
 
 /** Goal templates per institution type */
@@ -483,6 +535,10 @@ const GOAL_TEMPLATES: Record<string, Array<{ name: string; description: string }
   healthcare: [
     { name: "Medication Adherence", description: "Take prescribed medication consistently using habit-stacking strategies." },
     { name: "Active Lifestyle", description: "Achieve 150 minutes of moderate physical activity per week through enjoyable activities." },
+  ],
+  university: [
+    { name: "Critical Evaluation", description: "Consistently evaluate research methodology and theoretical claims at first-class level." },
+    { name: "Essay Argumentation", description: "Structure coherent, evidence-based arguments linking theory to applied examples." },
   ],
 };
 
@@ -921,20 +977,20 @@ export async function main(externalPrisma?: PrismaClient, opts?: { skipCleanup?:
   });
   console.log("  + RBAC: viewer@hff.com (VIEWER)");
 
-  // ── Link SUPERADMIN to Aardvark Academy ────────────────
+  // ── Link SUPERADMIN to City University ──────────────────
   // SUPERADMIN needs institutionId so get-started-v5 loads with full context
   // (wizard greeting, domain, Reset Demo button). The cleanup step clears this
   // on every seed run so we always restore it here.
-  const aardvark = await prisma.institution.findUnique({
-    where: { slug: "aardvark-academy" },
+  const cityUni = await prisma.institution.findUnique({
+    where: { slug: "city-university" },
     select: { id: true },
   });
-  if (aardvark) {
+  if (cityUni) {
     await prisma.user.updateMany({
       where: { role: "SUPERADMIN" },
-      data: { institutionId: aardvark.id },
+      data: { institutionId: cityUni.id },
     });
-    console.log("  + SUPERADMIN linked to Aardvark Academy (for demo flow)");
+    console.log("  + SUPERADMIN linked to City University (for demo flow)");
   }
   console.log("");
 
