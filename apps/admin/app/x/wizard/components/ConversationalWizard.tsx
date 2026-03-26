@@ -966,6 +966,64 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         const digest = { categoryBreakdown: catCounts, sampleAssertions: samples, totalCount: allAssertions.length };
         setData("courseRefDigest", digest);
 
+        // Pre-populate pedagogy blackboard keys from extracted assertions.
+        // This lets the AI confirm what was found rather than re-interviewing.
+        const skillAssertions = allAssertions.filter((a) => a.category === "skill_framework");
+        if (skillAssertions.length > 0) {
+          const skills = skillAssertions.map((a, i) => {
+            // Parse "SKILL-01: Name — Description\nEmerging: ...\nDeveloping: ...\nSecure: ..."
+            const lines = a.assertion.split("\n");
+            const header = lines[0] || "";
+            const idMatch = header.match(/^(SKILL-\d+):\s*/);
+            const rest = idMatch ? header.slice(idMatch[0].length) : header;
+            const [name, desc] = rest.split(" — ");
+            const tiers: Record<string, string> = {};
+            for (const line of lines.slice(1)) {
+              const m = line.match(/^(Emerging|Developing|Secure):\s*(.+)/i);
+              if (m) tiers[m[1].toLowerCase()] = m[2];
+            }
+            return { id: idMatch?.[1] || `SKILL-${String(i + 1).padStart(2, "0")}`, name: name?.trim() || "", description: desc?.trim(), tiers: Object.keys(tiers).length > 0 ? tiers : undefined };
+          });
+          setData("skillsFramework", skills);
+        }
+
+        const ruleAssertions = allAssertions.filter((a) => a.category === "teaching_rule");
+        const flowAssertions = allAssertions.filter((a) => a.category === "session_flow" && a.chapter === "Teaching Approach");
+        if (ruleAssertions.length > 0 || flowAssertions.length > 0) {
+          setData("teachingPrinciples", {
+            corePrinciples: ruleAssertions.map((a) => a.assertion),
+            sessionStructure: flowAssertions.length > 0 ? { phases: flowAssertions.map((a) => ({ name: a.assertion })) } : undefined,
+          });
+        }
+
+        const edgeAssertions = allAssertions.filter((a) => a.category === "edge_case");
+        if (edgeAssertions.length > 0) {
+          setData("edgeCases", edgeAssertions.map((a) => {
+            const [scenario, response] = a.assertion.split(": ");
+            return { scenario: scenario || a.assertion, response: response || "" };
+          }));
+        }
+
+        const phaseAssertions = allAssertions.filter((a) => a.category === "session_flow" && a.chapter === "Course Phases");
+        if (phaseAssertions.length > 0) {
+          setData("coursePhases", phaseAssertions.map((a) => {
+            const parts: Record<string, string> = {};
+            for (const segment of a.assertion.split(". ")) {
+              const [key, ...val] = segment.split(": ");
+              if (key && val.length) parts[key.toLowerCase().trim()] = val.join(": ");
+            }
+            return { name: parts.phase || a.assertion, goal: parts.goal, sessions: parts.sessions };
+          }));
+        }
+
+        const boundaryAssertions = allAssertions.filter((a) => a.category === "assessment_approach" && a.chapter === "Assessment Boundaries");
+        if (boundaryAssertions.length > 0) {
+          setData("assessmentBoundaries", boundaryAssertions.map((a) => a.assertion));
+        }
+
+        // Activate pedagogy nodes
+        setData("courseRefEnabled", true);
+
         // Send silently — no visible user bubble, just let the AI narrate what it found
         const digestOverrides = { courseRefDigest: digest };
         const hiddenMsg = "Teaching guide analyzed — here's what I found in your course reference";
