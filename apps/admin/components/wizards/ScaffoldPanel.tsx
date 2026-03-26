@@ -409,6 +409,48 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
             )}
           </BlueprintSection>
 
+          {/* Teaching Guide — pedagogy nodes (only when courseRefEnabled) */}
+          {!!(getData<boolean>("courseRefEnabled") || getData("courseRefDigest")) && (
+            <BlueprintSection
+              visible
+              active={false}
+              clickable={clickable}
+              onClick={() => click("skillsFramework")}
+              sectionKey="pedagogy"
+            >
+              <div className="gs-bp-content">
+                <span className="gs-bp-content-label">Teaching Guide</span>
+                <div className="gs-bp-meta" style={{ marginTop: 4 }}>
+                  {getData("skillsFramework") && (
+                    <span className="gs-bp-meta-item">
+                      {(getData<unknown[]>("skillsFramework") ?? []).length} skills
+                    </span>
+                  )}
+                  {(getData<Record<string, unknown>>("teachingPrinciples") as Record<string, unknown>)?.corePrinciples && (
+                    <span className="gs-bp-meta-item">
+                      {((getData<Record<string, unknown>>("teachingPrinciples") as Record<string, unknown>)?.corePrinciples as unknown[] ?? []).length} principles
+                    </span>
+                  )}
+                  {getData("edgeCases") && (
+                    <span className="gs-bp-meta-item">
+                      {(getData<unknown[]>("edgeCases") ?? []).length} edge cases
+                    </span>
+                  )}
+                  {getData("coursePhases") && (
+                    <span className="gs-bp-meta-item">
+                      {(getData<unknown[]>("coursePhases") ?? []).length} phases
+                    </span>
+                  )}
+                  {!getData("skillsFramework") && !getData("edgeCases") && !getData("coursePhases") && (
+                    <span className="gs-bp-meta-item" style={{ color: "var(--text-muted)" }}>
+                      Not started
+                    </span>
+                  )}
+                </div>
+              </div>
+            </BlueprintSection>
+          )}
+
           {/* Content upload */}
           {!isCommunity && (hasContent || isExtracting) && (
             <BlueprintSection
