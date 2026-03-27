@@ -795,6 +795,13 @@ async function extractSource(
     const extractor = getExtractor(documentType);
     const extractionConfig = await resolveExtractionConfig(source.id, documentType, interactionPattern, subjectDiscipline, subjectName ?? source.name);
 
+    console.log(`[course-pack/ingest] extractSource: ${fileName} (${documentType}), text=${text.length} chars, source=${source.id}`);
+
+    if (!text || text.length < 10) {
+      console.error(`[course-pack/ingest] Text too short for extraction: ${fileName} (${text.length} chars)`);
+      return { assertions: 0, questions: 0, vocabulary: 0, images: 0 };
+    }
+
     send({
       phase: "extracting",
       message: `Extracting: ${fileName}`,
@@ -861,6 +868,8 @@ async function extractSource(
         },
       });
     });
+
+    console.log(`[course-pack/ingest] Extraction result for ${fileName}: ok=${result.ok}, assertions=${result.assertions?.length ?? 0}, questions=${result.questions?.length ?? 0}`);
 
     if (!result.ok) {
       console.error(`[course-pack/ingest] Extraction failed for ${fileName} (source=${source.id}):`, result.error);
