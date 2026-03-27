@@ -137,7 +137,8 @@ Set `$APP_ENV` from the `_APP_ENV` column in the Environment Map (DEV→`DEV`, T
 ```bash
 gcloud run deploy $SERVICE \
   --image=europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker/hf-admin:latest \
-  --region=europe-west2 --project=hf-admin-prod
+  --region=europe-west2 --project=hf-admin-prod \
+  --no-cpu-throttling
 ```
 
 ### 4. (DEV only) Seed demo accounts

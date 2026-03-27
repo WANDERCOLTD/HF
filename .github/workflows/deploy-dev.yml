@@ -71,7 +71,8 @@ jobs:
         run: |
           gcloud run deploy ${{ env.SERVICE }} \
             --image=${{ env.REGISTRY }}/hf-admin:dev \
-            --region=${{ env.REGION }}
+            --region=${{ env.REGION }} \
+            --no-cpu-throttling
 
       - name: Smoke test
         run: |

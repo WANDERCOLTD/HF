@@ -81,7 +81,8 @@ jobs:
         run: |
           gcloud run deploy ${{ env.SERVICE }} \
             --image=${{ env.REGISTRY }}/hf-admin:latest \
-            --region=${{ env.REGION }}
+            --region=${{ env.REGION }} \
+            --no-cpu-throttling
 
       - name: Re-seed specs
         if: ${{ inputs.run_seed }}
