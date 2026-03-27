@@ -114,7 +114,7 @@ export function UserContextMenu({
   }, []);
 
   // Demo reset (SUPERADMIN only)
-  const isSuperAdmin = sessionRole === "SUPERADMIN";
+  const isSuperAdmin = effectiveRole === "SUPERADMIN";
   const [demoResetState, setDemoResetState] = useState<"idle" | "confirm" | "running" | "done" | "error">("idle");
   const [demoResetResult, setDemoResetResult] = useState<{ callers: number; playbooks: number; cohorts: number } | null>(null);
 
