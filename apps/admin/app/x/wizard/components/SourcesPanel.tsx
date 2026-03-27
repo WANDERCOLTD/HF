@@ -117,6 +117,8 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const allFiles = Array.from(newFiles);
+    console.log(`[SourcesPanel] addFiles called — ${allFiles.length} file(s):`, allFiles.map(f => f.name));
+    console.log(`[SourcesPanel] current state — phase=${phase}, domainId=${domainId}, classifications=${classifications.length}`);
     const valid = allFiles.filter((f) => {
       const name = f.name.toLowerCase();
       return VALID_EXTENSIONS.some((ext) => name.endsWith(ext));
@@ -128,7 +130,11 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
       .map((f) => f.name);
     setRejectedFiles(rejected);
 
-    if (valid.length === 0) return;
+    if (valid.length === 0) {
+      console.warn(`[SourcesPanel] ALL files rejected — valid extensions: ${VALID_EXTENSIONS.join(", ")}`);
+      return;
+    }
+    console.log(`[SourcesPanel] ${valid.length} valid, ${rejected.length} rejected`);
 
     // If we already processed a batch, set files to ONLY the new ones
     // (previous batch is already represented in classifications/sourceIds).
@@ -271,9 +277,14 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
   // Only fires when domainId is available — if not, files stay queued until it arrives.
   const processTimer = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    if (files.length > 0 && phase === "idle" && domainId) {
-      if (processTimer.current) clearTimeout(processTimer.current);
-      processTimer.current = setTimeout(() => handleProcess(), 800);
+    if (files.length > 0 && phase === "idle") {
+      if (!domainId) {
+        console.warn(`[SourcesPanel] ${files.length} file(s) queued but domainId is EMPTY — waiting for domain creation`);
+      } else {
+        console.log(`[SourcesPanel] Auto-processing ${files.length} file(s) in 800ms (domainId=${domainId})`);
+        if (processTimer.current) clearTimeout(processTimer.current);
+        processTimer.current = setTimeout(() => handleProcess(), 800);
+      }
     }
     return () => {
       if (processTimer.current) clearTimeout(processTimer.current);

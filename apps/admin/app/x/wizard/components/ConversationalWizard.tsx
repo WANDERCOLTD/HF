@@ -1181,6 +1181,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
     // Brief cooldown — browsers (especially Safari) fire stray dragenter after drop
     dropCooldownRef.current = true;
     setTimeout(() => { dropCooldownRef.current = false; }, 200);
+    console.log(`[Wizard] handlePageDrop — ${e.dataTransfer.files.length} file(s), sourcesPanelRef=${!!sourcesPanelRef.current}`);
     if (e.dataTransfer.files.length > 0) {
       sourcesPanelRef.current?.addFiles(e.dataTransfer.files);
       // Peek + glow to show where the files went
@@ -1322,6 +1323,11 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
   const resolvedDomainId = draftDomainId || "";
   const launched = getData<boolean>("launched");
   const communityJoinToken = getData<string>("communityJoinToken");
+
+  // DEBUG: log domain resolution on every render
+  if (!resolvedDomainId) {
+    console.warn(`[Wizard] resolvedDomainId is EMPTY — draftDomainId=${getData<string>("draftDomainId")}, existingDomainId=${getData<string>("existingDomainId")}`);
+  }
 
   return (
     <div
