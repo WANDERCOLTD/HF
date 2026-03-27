@@ -1796,6 +1796,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         {!launched && (
           <div ref={sourcesPanelElRef}>
             <SourcesPanel
+              key={resetKey}
               ref={sourcesPanelRef}
               domainId={resolvedDomainId}
               courseName={getData<string>("courseName") || "Course"}
