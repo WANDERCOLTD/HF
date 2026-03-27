@@ -231,14 +231,27 @@ async function calculateConnectProgress(
 }
 
 /**
- * Generic engagement-based progress for other goal types
+ * Extract keywords (> 3 chars) from a goal's name for relevance matching.
+ * Exported for testing.
+ */
+export function extractGoalKeywords(goalName: string | undefined | null): string[] {
+  if (!goalName) return [];
+  return goalName
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(w => w.length > 3);
+}
+
+/**
+ * Generic engagement-based progress for other goal types.
+ * Uses transcript length as base signal + keyword relevance bonus
+ * when the goal's name terms appear in the transcript.
  */
 async function calculateEngagementProgress(
   goal: any,
   callerId: string,
   callId: string
 ): Promise<GoalProgressUpdate | null> {
-  // Check if caller was engaged in this call
   const call = await prisma.call.findUnique({
     where: { id: callId },
     select: { transcript: true },
@@ -246,26 +259,35 @@ async function calculateEngagementProgress(
 
   if (!call?.transcript) return null;
 
-  // Simple heuristic: longer transcripts = more engagement
   const transcriptLength = call.transcript.length;
+  const transcriptLower = call.transcript.toLowerCase();
 
+  // Base progress from transcript length
+  let baseDelta = 0;
   if (transcriptLength > 1000) {
-    // Long, engaged conversation
-    return {
-      goalId: goal.id,
-      progressDelta: 0.05, // 5% progress
-      evidence: `Engaged conversation (${transcriptLength} chars)`,
-    };
+    baseDelta = 0.05;
   } else if (transcriptLength > 500) {
-    // Moderate conversation
-    return {
-      goalId: goal.id,
-      progressDelta: 0.02, // 2% progress
-      evidence: `Moderate conversation (${transcriptLength} chars)`,
-    };
+    baseDelta = 0.02;
   }
 
-  return null;
+  // Keyword relevance bonus: +3% if goal name terms appear in transcript
+  const keywords = extractGoalKeywords(goal.name);
+  const hasRelevantMention = keywords.length > 0 &&
+    keywords.some(kw => transcriptLower.includes(kw));
+  const relevanceBonus = hasRelevantMention ? 0.03 : 0;
+
+  const totalDelta = baseDelta + relevanceBonus;
+  if (totalDelta === 0) return null;
+
+  const parts: string[] = [];
+  if (baseDelta > 0) parts.push(`${baseDelta === 0.05 ? "engaged" : "moderate"} conversation (${transcriptLength} chars)`);
+  if (relevanceBonus > 0) parts.push("goal-relevant content discussed");
+
+  return {
+    goalId: goal.id,
+    progressDelta: totalDelta,
+    evidence: parts.join(", ") || `Conversation (${transcriptLength} chars)`,
+  };
 }
 
 /**

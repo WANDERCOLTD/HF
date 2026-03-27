@@ -546,6 +546,81 @@ describe("lib/goals/track-progress.ts", () => {
         });
       }
     });
+
+    it("gives +3% keyword relevance bonus when goal name terms appear in transcript", async () => {
+      const goal = makeGoal({
+        id: "keyword-match",
+        type: "ACHIEVE",
+        progress: 0.2,
+      });
+      // Override default goal name to something searchable
+      (goal as any).name = "Master fractions";
+      mockPrisma.goal.findMany.mockResolvedValue([goal]);
+
+      // Long transcript that mentions "fractions"
+      mockPrisma.call.findUnique.mockResolvedValue({
+        transcript: "Today we talked about fractions and how to simplify them. " + "X".repeat(1000),
+      });
+
+      const result = await trackGoalProgress("caller-1", "call-1");
+
+      expect(result.updated).toBe(1);
+      expect(mockPrisma.goal.update).toHaveBeenCalledWith({
+        where: { id: "keyword-match" },
+        data: expect.objectContaining({
+          progress: 0.28, // 0.2 + 0.05 (engagement) + 0.03 (keyword bonus)
+        }),
+      });
+    });
+
+    it("gives keyword bonus even for short transcripts if goal terms match", async () => {
+      const goal = makeGoal({
+        id: "short-relevant",
+        type: "ACHIEVE",
+        progress: 0.5,
+      });
+      (goal as any).name = "Learn fractions";
+      mockPrisma.goal.findMany.mockResolvedValue([goal]);
+
+      // Short transcript (< 500 chars) but mentions "fractions"
+      mockPrisma.call.findUnique.mockResolvedValue({
+        transcript: "We discussed fractions briefly today.",
+      });
+
+      const result = await trackGoalProgress("caller-1", "call-1");
+
+      expect(result.updated).toBe(1);
+      expect(mockPrisma.goal.update).toHaveBeenCalledWith({
+        where: { id: "short-relevant" },
+        data: expect.objectContaining({
+          progress: 0.53, // 0.5 + 0.00 (short transcript) + 0.03 (keyword bonus)
+        }),
+      });
+    });
+
+    it("no keyword bonus when goal name has only short words", async () => {
+      const goal = makeGoal({
+        id: "short-words",
+        type: "ACHIEVE",
+        progress: 0.4,
+      });
+      (goal as any).name = "Do it";
+      mockPrisma.goal.findMany.mockResolvedValue([goal]);
+
+      mockPrisma.call.findUnique.mockResolvedValue({
+        transcript: "Do it now! " + "X".repeat(1000),
+      });
+
+      const result = await trackGoalProgress("caller-1", "call-1");
+
+      // Only base engagement, no keyword bonus (words <= 3 chars filtered out)
+      expect(mockPrisma.goal.update).toHaveBeenCalledWith({
+        where: { id: "short-words" },
+        data: expect.objectContaining({
+          progress: 0.45, // 0.4 + 0.05 (engagement only)
+        }),
+      });
+    });
   });
 
   // -------------------------------------------------

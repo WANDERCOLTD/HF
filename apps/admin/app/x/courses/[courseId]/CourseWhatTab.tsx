@@ -311,10 +311,14 @@ export function CourseWhatTab({
 
   // ── Collect COURSE_REFERENCE sources across all subjects ──
   const courseGuideSources = useMemo(() => {
+    const seen = new Set<string>();
     const guides: SourceDetail[] = [];
     for (const sub of subjects) {
       for (const src of sub.sources || []) {
-        if (src.documentType === 'COURSE_REFERENCE') guides.push(src);
+        if (src.documentType === 'COURSE_REFERENCE' && !seen.has(src.id)) {
+          seen.add(src.id);
+          guides.push(src);
+        }
       }
     }
     return guides;

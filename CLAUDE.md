@@ -101,6 +101,15 @@ These memory files are kept in sync with the codebase. Consult them first.
 | [memory/async-patterns.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/async-patterns.md) | useTaskPoll / useAsyncStep / WizardShell / spinner-vs-glow | New hook, polling pattern, wizard framework change |
 | [memory/extraction.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/extraction.md) | DocumentTypes, resolution chain, ContentAssertion shape, trust levels | New DocumentType, extraction category, new resolveExtractionConfig caller |
 
+### Flow Maps (call chains — consult before tracing logic)
+
+| Doc | Contents | Update when |
+|-----|----------|-------------|
+| [memory/flow-prompt-composition.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/flow-prompt-composition.md) | CompositionExecutor → loaders → transforms → assembly → persistence | New transform, loader, or section definition change |
+| [memory/flow-pipeline.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/flow-pipeline.md) | 7-stage pipeline: EXTRACT → ... → COMPOSE, data flow between stages | Pipeline stage added/changed, new spec runner |
+| [memory/flow-call-lifecycle.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/flow-call-lifecycle.md) | Call start → VAPI → transcript → pipeline → recomposition | VAPI webhook change, new call source, sim runner change |
+| [memory/flow-goal-tracking.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/flow-goal-tracking.md) | Goal measurement → reward → adaptation → guidance generation | New goal type, progress calc change, adaptation rule change |
+
 ---
 
 ## Architecture

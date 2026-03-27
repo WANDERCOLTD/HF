@@ -80,7 +80,7 @@ export function StatusBar() {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const { branding, loading: brandingLoading } = useBranding();
-  const { isMasquerading, masquerade, stopMasquerade } = useMasquerade();
+  const { isMasquerading, masquerade, stopMasquerade, effectiveRole } = useMasquerade();
   const { errorCount } = useErrorCapture();
 
   const router = useRouter();
@@ -112,8 +112,7 @@ export function StatusBar() {
   const [activityData, setActivityData] = useState<ActivityData | null>(null);
   const [spendData, setSpendData] = useState<SpendData | null>(null);
 
-  const userRole = (session?.user?.role as string) || '';
-  const roleLevel = ROLE_LEVEL[userRole] ?? 0;
+  const roleLevel = ROLE_LEVEL[effectiveRole] ?? 0;
   const isAdmin = roleLevel >= 4;
   const isOperator = roleLevel >= 3;
 

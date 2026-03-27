@@ -354,6 +354,12 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
             ) : !hasAnyData ? (
               <div className="gs-bp-subtitle">Start chatting to build your course</div>
             ) : null}
+            {isExtracting && (
+              <div className="gs-bp-status-pill">
+                <Loader2 size={11} className="hf-spinner" />
+                Processing materials...
+              </div>
+            )}
           </div>
         )}
 

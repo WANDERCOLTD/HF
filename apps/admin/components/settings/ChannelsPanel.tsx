@@ -13,7 +13,7 @@ interface ChannelConfig {
 }
 
 const CHANNEL_TYPES = [
-  { type: 'sim', label: 'Sim Chat', description: 'Built-in text chat simulation', icon: '\u{1F4AC}' },
+  { type: 'sim', label: 'Practice Chat', description: 'Built-in text chat practice', icon: '\u{1F4AC}' },
   { type: 'whatsapp', label: 'WhatsApp', description: 'WhatsApp Business Cloud API', icon: '\u{1F4F1}' },
   { type: 'sms', label: 'SMS/MMS', description: 'Twilio SMS/MMS delivery', icon: '\u{1F4E8}' },
 ];

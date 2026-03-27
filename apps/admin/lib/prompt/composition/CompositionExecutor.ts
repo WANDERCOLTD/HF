@@ -413,8 +413,12 @@ function buildCallerContext(context: AssembledContext): string {
   if (sections.learnerGoals?.hasData) {
     parts.push("\n## Learner Goals");
     for (const g of sections.learnerGoals.goals) {
-      const progressStr = g.progress > 0 ? ` [${Math.round(g.progress * 100)}% complete]` : "";
-      parts.push(`- ${g.name}${progressStr}`);
+      const pct = Math.round(g.progress * 100);
+      const assessmentTag = g.isAssessmentTarget
+        ? `, assessment target${g.assessmentConfig?.threshold ? `, target: ${Math.round(g.assessmentConfig.threshold * 100)}%` : ""}`
+        : "";
+      const progressStr = g.progress > 0 ? ` [${pct}%${g.isAssessmentTarget ? " ready" : " complete"}]` : "";
+      parts.push(`- ${g.name} (${g.type}${assessmentTag})${progressStr}`);
     }
   }
 

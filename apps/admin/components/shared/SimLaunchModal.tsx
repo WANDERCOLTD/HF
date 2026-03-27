@@ -174,7 +174,7 @@ export function SimLaunchModal({
               onClick={handlePickAndLaunch}
               disabled={!selectedCallerId}
             >
-              Start Sim
+              Start Practice
             </button>
           ) : (
             <button
@@ -188,7 +188,7 @@ export function SimLaunchModal({
                   Creating...
                 </>
               ) : (
-                "Create & Start Sim"
+                "Create & Start Practice"
               )}
             </button>
           )}

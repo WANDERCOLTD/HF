@@ -44,6 +44,20 @@
   font-weight: 500;
 }
 
+.gs-bp-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--warning, #f59e0b);
+  background: color-mix(in srgb, var(--warning, #f59e0b) 10%, transparent);
+  animation: gs-pulse 1.5s ease-in-out infinite;
+}
+
 .gs-bp-link {
   display: inline-flex;
   align-items: center;

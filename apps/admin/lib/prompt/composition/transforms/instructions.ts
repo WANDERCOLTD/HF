@@ -11,9 +11,41 @@
 import { registerTransform } from "../TransformRegistry";
 import { classifyValue, getAttributeValue } from "../types";
 import { computePersonalityAdaptation } from "./personality";
-import type { AssembledContext, CallerAttributeData, SubjectSourcesData } from "../types";
+import type { AssembledContext, CallerAttributeData, GoalData, SubjectSourcesData } from "../types";
 import type { SpecConfig } from "@/lib/types/json-fields";
 import { resolveTeachingProfile } from "@/lib/content-trust/teaching-profiles";
+
+// Goal-type × progress-bracket adaptation guidance.
+// Tells the AI HOW to adapt teaching based on goal type and progress level.
+const GOAL_ADAPTATION: Record<string, [low: string, mid: string, high: string]> = {
+  LEARN:   ["Introduce concepts gently, check understanding frequently", "Build on prior foundations, connect to what they already know", "Challenge with application, prepare for mastery"],
+  ACHIEVE: ["Clarify what success looks like, break into steps", "Track milestones, celebrate progress", "Focus on final steps, anticipate obstacles"],
+  CHANGE:  ["Explore motivation, validate feelings", "Practice new behaviours, reflect on changes", "Reinforce new habits, plan sustainability"],
+  CONNECT: ["Build trust, find common ground", "Deepen relationship, share openly", "Maintain connection, mutual exchange"],
+  SUPPORT: ["Listen actively, understand needs", "Provide targeted support, check coping", "Evaluate effectiveness, plan independence"],
+  CREATE:  ["Brainstorm freely, no judgment", "Iterate and refine, give constructive feedback", "Polish and finish, celebrate creation"],
+};
+
+/** Build a compact, type-aware adaptation instruction string for the AI. */
+export function goalAdaptationGuidance(goals: GoalData[]): string {
+  const top = goals.slice(0, 3);
+  if (top.length === 0) {
+    return "No specific session goals set — explore learner interests and set goals collaboratively.";
+  }
+
+  const lines = top.map((g, i) => {
+    const bracket = g.progress < 0.3 ? 0 : g.progress < 0.7 ? 1 : 2;
+    const guidance = (GOAL_ADAPTATION[g.type] || GOAL_ADAPTATION.LEARN)[bracket];
+    const pct = Math.round(g.progress * 100);
+    const assessmentTag = g.isAssessmentTarget ? ", assessment target" : "";
+    const threshold = g.isAssessmentTarget && g.assessmentConfig?.threshold
+      ? `, target: ${Math.round(g.assessmentConfig.threshold * 100)}%`
+      : "";
+    return `${i + 1}. "${g.name}" (${g.type}, ${pct}%${assessmentTag}${threshold}) — ${guidance}.`;
+  });
+
+  return `Session goals:\n${lines.join("\n")}`;
+}
 
 // Structural defaults for common memory keys — used when COMP-001 doesn't provide narrativeTemplates
 const DEFAULT_NARRATIVE_TEMPLATES: Record<string, string> = {
@@ -242,14 +274,8 @@ registerTransform("computeInstructions", (
       return parts.join(". ");
     })(),
 
-    // Session guidance (route.ts lines 2148-2154)
-    session_guidance: (() => {
-      const goals = learnerGoals.slice(0, 3);
-      if (goals.length === 0) {
-        return "No specific session goals set - explore learner interests and set goals collaboratively.";
-      }
-      return `Session goals: ${goals.map(g => g.name).join("; ")}`;
-    })(),
+    // Session guidance — goal-type-aware adaptation instructions
+    session_guidance: goalAdaptationGuidance(learnerGoals),
 
     // Teaching content — approved teaching points from verified sources
     teaching_content: (() => {

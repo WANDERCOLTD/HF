@@ -80,15 +80,15 @@ export function UserContextMenu({
   const [quickPickLoading, setQuickPickLoading] = useState<string>("");
   const stepInSearchRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { isMasquerading, startMasquerade } = useMasquerade();
+  const { isMasquerading, startMasquerade, effectiveRole } = useMasquerade();
   const { setDomainScope } = useDomainScope();
   const [domains, setDomains] = useState<{ id: string; name: string; callerCount: number; playbookCount: number }[]>([]);
   const [domainsLoading, setDomainsLoading] = useState(false);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
 
   // ── Quick Toggles ──
-  const sessionRole = (session?.user?.role as string) || "";
-  const roleLevel = ROLE_LEVEL[sessionRole] ?? 0;
+  // Use effectiveRole so masquerade respects the target user's permissions
+  const roleLevel = ROLE_LEVEL[effectiveRole] ?? 0;
   const isOperator = roleLevel >= 3;
   const isAdmin = roleLevel >= 4;
 

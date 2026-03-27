@@ -152,7 +152,7 @@ export default function OnboardingFlowsPage() {
             disabled={previewLoading}
           >
             {previewLoading ? <span className="hf-spinner" style={{ width: 16, height: 16 }} /> : <Play size={16} />}
-            Preview in Sim
+            Preview Practice Call
           </button>
         </div>
       </div>

@@ -78,9 +78,12 @@ registerTransform("mapGoals", (
       type: g.type,
       name: g.name,
       description: g.description,
+      status: g.status,
       progress: g.progress,
       priority: g.priority,
       isPlaybookGoal: g.playbookId !== null,
+      isAssessmentTarget: g.isAssessmentTarget,
+      assessmentConfig: g.assessmentConfig,
     })),
   };
 });

@@ -1499,7 +1499,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            <Headphones size={14} /> Try a Sim Call
+                            <Headphones size={14} /> Try a Practice Call
                           </a>
                         )}
                         {(communityJoinToken || draftCallerId) && (

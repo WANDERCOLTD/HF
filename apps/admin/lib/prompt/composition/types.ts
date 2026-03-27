@@ -437,6 +437,8 @@ export interface GoalData {
   priority: number;
   progress: number;
   playbookId: string | null;
+  isAssessmentTarget: boolean;
+  assessmentConfig: { threshold?: number; readinessSpecSlug?: string } | null;
   contentSpec: {
     id: string;
     name: string;

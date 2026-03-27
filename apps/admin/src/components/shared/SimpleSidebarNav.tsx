@@ -14,6 +14,7 @@ import { useSidebarLayout } from "@/hooks/useSidebarLayout";
 import { ICON_MAP } from "@/lib/sidebar/icons";
 import type { NavSection } from "@/lib/sidebar/types";
 import { pluralize, type TermMap } from "@/lib/terminology/types";
+import { ROLE_LEVEL } from "@/lib/roles";
 import sidebarManifest from "@/lib/sidebar/sidebar-manifest.json";
 import {
   MoreVertical,
@@ -175,6 +176,7 @@ export default function SimpleSidebarNav({
   const { isMasquerading, effectiveRole } = useMasquerade();
   const userRole = isMasquerading ? effectiveRole : realRole;
   const isAdmin = realIsAdmin; // Keep admin features (layout save, masquerade trigger) based on real role
+  const effectiveIsAdmin = (ROLE_LEVEL[effectiveRole] ?? 0) >= 4; // For API calls that go through requireAuth
   const { isAdvanced } = useViewMode();
 
   // ── DB-backed visibility rules (overrides manifest requiredRole/defaultHiddenFor) ──
@@ -185,7 +187,7 @@ export default function SimpleSidebarNav({
 
   useEffect(() => {
     // Only admins have access to this endpoint; for others, manifest defaults are fine
-    if (!isAdmin) return;
+    if (!effectiveIsAdmin) return;
     fetch("/api/admin/access-control/sidebar-visibility")
       .then((r) => r.json())
       .then((data) => {
@@ -194,7 +196,7 @@ export default function SimpleSidebarNav({
         }
       })
       .catch((e) => console.warn("[Sidebar] Failed to load visibility rules, using manifest defaults:", e));
-  }, [isAdmin]);
+  }, [effectiveIsAdmin]);
 
   const BASE_SECTIONS = useMemo(() => {
     if (!visibilityRules) return MANIFEST_SECTIONS;
