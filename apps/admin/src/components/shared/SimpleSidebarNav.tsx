@@ -526,7 +526,18 @@ export default function SimpleSidebarNav({
         <div className="mb-3 flex items-center justify-between gap-2">
           {branding.logoUrl ? (
             <Link href="/x" className="flex items-center">
-              <img src={branding.logoUrl} alt={branding.name} style={{ height: 22 }} />
+              <img
+                src={branding.logoUrl}
+                alt={branding.name}
+                style={{ height: 22 }}
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; if (e.currentTarget.nextElementSibling) (e.currentTarget.nextElementSibling as HTMLElement).style.display = ''; }}
+              />
+              <span
+                className="text-[13px] font-bold tracking-tight"
+                style={{ display: 'none' }}
+              >
+                {branding.name}
+              </span>
             </Link>
           ) : (
             <Link

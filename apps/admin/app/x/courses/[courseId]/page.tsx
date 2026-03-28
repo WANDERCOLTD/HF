@@ -113,16 +113,7 @@ const statusMap: Record<string, 'draft' | 'active' | 'archived'> = {
   archived: 'archived',
 };
 
-// ── Section Header ─────────────────────────────────────
-
-function SectionHeader({ title, icon: Icon }: { title: string; icon: React.ComponentType<{ size?: number; className?: string }> }) {
-  return (
-    <div className="hf-flex hf-gap-sm hf-items-center hf-mb-md hf-section-divider">
-      <Icon size={18} className="hf-text-muted" />
-      <h2 className="hf-section-title hf-mb-0">{title}</h2>
-    </div>
-  );
-}
+import { SectionHeader } from './SectionHeader';
 
 // ── Main Component ─────────────────────────────────────
 
@@ -803,10 +794,10 @@ export default function CourseDetailPage() {
 
       {/* ── Stats Row ─────────────────────────────────── */}
       <div className="hf-flex hf-gap-lg hf-mb-lg">
-        <Link href={`/x/subjects?courseId=${courseId}`} className="hf-stat-card hf-stat-card-compact hf-stat-card-clickable">
+        <button type="button" onClick={() => handleTabChange('overview')} className="hf-stat-card hf-stat-card-compact hf-stat-card-clickable">
           <div className="hf-stat-value-sm">{subjects.length}</div>
           <div className="hf-text-xs hf-text-muted">{plural('knowledge_area')}</div>
-        </Link>
+        </button>
         <button type="button" onClick={() => handleTabChange('content')} className="hf-stat-card hf-stat-card-compact hf-stat-card-clickable">
           <div className="hf-stat-value-sm">{contentOnlyCount}</div>
           <div className="hf-text-xs hf-text-muted">Content</div>
@@ -817,10 +808,10 @@ export default function CourseDetailPage() {
             <div className="hf-text-xs hf-text-muted">Rules</div>
           </button>
         )}
-        <Link href={`/x/content-sources?courseId=${courseId}`} className="hf-stat-card hf-stat-card-compact hf-stat-card-clickable">
+        <button type="button" onClick={() => handleTabChange('content')} className="hf-stat-card hf-stat-card-compact hf-stat-card-clickable">
           <div className="hf-stat-value-sm">{totalSources}</div>
           <div className="hf-text-xs hf-text-muted">Sources</div>
-        </Link>
+        </button>
         {detail.publishedAt && (
           <div className="hf-stat-card hf-stat-card-compact">
             <div className="hf-text-sm hf-text-bold">{new Date(detail.publishedAt).toLocaleDateString()}</div>
@@ -846,8 +837,6 @@ export default function CourseDetailPage() {
           courseId={courseId!}
           detail={detail}
           subjects={subjects}
-          contentMethods={contentMethods}
-          contentTotal={contentTotal}
           isOperator={isOperator}
           persona={persona}
           specGroups={specGroups}
@@ -858,10 +847,6 @@ export default function CourseDetailPage() {
           } : null}
           sessions={sessions}
           onSimCall={() => setShowSimModal(true)}
-          onContentRefresh={(methods, total) => {
-            setContentMethods(methods);
-            setContentTotal(total);
-          }}
           onDetailUpdate={setDetail}
         />
       )}

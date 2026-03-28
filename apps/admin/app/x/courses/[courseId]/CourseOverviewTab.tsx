@@ -1,29 +1,24 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   BookMarked, FileText, Plus, Pencil,
   Sparkles, BarChart3, Sliders, Shield, AlertTriangle,
-  ChevronRight, Upload, Target, Users2, MessageCircle,
-  ListOrdered, Clock, Check,
+  ChevronRight, Upload, Target, Users2,
+  ListOrdered,
 } from 'lucide-react';
-import { TeachMethodStats } from '@/components/shared/TeachMethodStats';
 import { TrustBadge } from '@/app/x/content-sources/_components/shared/badges';
-import { OnboardingPreview, type OnboardingPhase as OBPhase } from '@/components/shared/OnboardingPreview';
 import { CourseSetupTracker } from '@/components/shared/CourseSetupTracker';
 import { CourseHowTab } from './CourseHowTab';
 import {
   archetypeLabel,
-  type PlaybookItem,
-  type SystemSpec,
-  type SpecDetail,
   type SpecGroup,
 } from '@/lib/course/group-specs';
 import { TEACHING_MODE_LABELS, INTERACTION_PATTERN_LABELS, type TeachingMode, type InteractionPattern } from '@/lib/content-trust/resolve-config';
 import { getTeachingProfile, resolveTeachingProfile } from '@/lib/content-trust/teaching-profiles';
 import { getAudienceOption, AUDIENCE_OPTIONS } from '@/lib/prompt/composition/transforms/audience';
-import type { GoalTemplate, PlaybookConfig, OnboardingFlowPhases } from '@/lib/types/json-fields';
+import type { PlaybookConfig } from '@/lib/types/json-fields';
 import type { SetupStatusInput } from '@/hooks/useCourseSetupStatus';
 
 // ── Types ──────────────────────────────────────────────
@@ -39,8 +34,6 @@ type SubjectSummary = {
   curriculumCount: number;
   assertionCount: number;
 };
-
-type MethodBreakdown = { teachMethod: string; count: number; reviewed: number };
 
 type PersonaInfo = {
   name: string;
@@ -64,8 +57,6 @@ export type CourseOverviewTabProps = {
     domain: { id: string; name: string; slug: string };
   };
   subjects: SubjectSummary[];
-  contentMethods: MethodBreakdown[];
-  contentTotal: number;
   isOperator: boolean;
   persona: PersonaInfo;
   specGroups: { measure: SpecGroup; adapt: SpecGroup; guard: SpecGroup };
@@ -74,22 +65,12 @@ export type CourseOverviewTabProps = {
   sessions: SetupStatusInput['sessions'];
   onSimCall?: () => void;
   // Callbacks for state updates that live in parent
-  onContentRefresh?: (methods: MethodBreakdown[], total: number) => void;
   onDetailUpdate?: (updater: (prev: any) => any) => void;
 };
 
 import { GOAL_TYPE_CONFIG } from '@/lib/goals/goal-constants';
 
-// ── Section Header ─────────────────────────────────────
-
-function SectionHeader({ title, icon: Icon }: { title: string; icon: React.ComponentType<{ size?: number; className?: string }> }) {
-  return (
-    <div className="hf-flex hf-gap-sm hf-items-center hf-mb-md hf-section-divider">
-      <Icon size={18} className="hf-text-muted" />
-      <h2 className="hf-section-title hf-mb-0">{title}</h2>
-    </div>
-  );
-}
+import { SectionHeader } from './SectionHeader';
 
 // ── Spec Chip List ─────────────────────────────────────
 
@@ -130,30 +111,23 @@ export function CourseOverviewTab({
   courseId,
   detail,
   subjects,
-  contentMethods,
-  contentTotal,
   isOperator,
   persona,
   specGroups,
   sessionPlan,
   sessions,
   onSimCall,
-  onContentRefresh,
   onDetailUpdate,
 }: CourseOverviewTabProps) {
   const config = (detail.config || {}) as PlaybookConfig;
   const goals = config.goals || [];
   const audienceId = config.audience || '';
   const audienceOption = audienceId ? getAudienceOption(audienceId) : null;
-  const onboardingPhases = config.onboardingFlowPhases?.phases || [];
 
   // ── Teaching focus state ──────────────────────────────
   const [teachingFocusDraft, setTeachingFocusDraft] = useState((config as any).teachingFocus || '');
   const [teachingFocusSaving, setTeachingFocusSaving] = useState(false);
   const [teachingFocusSaved, setTeachingFocusSaved] = useState(false);
-
-  // ── Backfill state ────────────────────────────────────
-  const [backfilling, setBackfilling] = useState(false);
 
   // ── Inline edit states ────────────────────────────────
   const [editingAudience, setEditingAudience] = useState(false);
@@ -180,31 +154,6 @@ export function CourseOverviewTab({
       setSaving(false);
     }
   }, [detail.id, onDetailUpdate]);
-
-  // ── Onboarding data (lazy-loaded) ────────────────────
-  const [onboarding, setOnboarding] = useState<{
-    phases: OBPhase[];
-    personaName?: string;
-    domainWelcome?: string;
-  } | null>(null);
-  const [onboardingLoading, setOnboardingLoading] = useState(false);
-
-  useEffect(() => {
-    setOnboardingLoading(true);
-    fetch(`/api/courses/${courseId}/onboarding`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.ok) {
-          setOnboarding({
-            phases: data.phases || [],
-            personaName: data.personaName,
-            domainWelcome: data.domainWelcome,
-          });
-        }
-      })
-      .catch(() => {})
-      .finally(() => setOnboardingLoading(false));
-  }, [courseId]);
 
   return (
     <>
@@ -308,60 +257,6 @@ export function CourseOverviewTab({
           </div>
         )}
       </div>
-
-      {/* ── First Call Preview ──────────────────────────── */}
-      <SectionHeader title="First Call Preview" icon={MessageCircle} />
-      <div className="hf-card-compact hf-mb-lg">
-        {onboardingLoading ? (
-          <div className="hf-text-sm hf-text-muted hf-glow-active">Loading first call structure...</div>
-        ) : onboarding && onboarding.phases.length > 0 ? (
-          <OnboardingPreview
-            phases={onboarding.phases}
-            personaName={onboarding.personaName}
-            greeting={onboarding.domainWelcome}
-            maxHeight={280}
-            hint="Edit in Onboarding tab"
-          />
-        ) : (
-          <div className="hf-text-sm hf-text-muted">
-            No first call flow configured. The onboarding wizard generates this automatically.
-          </div>
-        )}
-      </div>
-
-      {/* ── Teaching Methods ──────────────────────────── */}
-      {contentMethods.length > 0 && (
-        <div className="hf-mb-lg">
-          <div className="hf-flex hf-items-center hf-gap-sm hf-mb-sm">
-            <div className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase">
-              Teaching Methods
-            </div>
-            {isOperator && contentMethods.some((m) => m.teachMethod === 'unassigned') && (
-              <button
-                className="hf-btn hf-btn-xs hf-btn-outline"
-                disabled={backfilling}
-                onClick={async () => {
-                  setBackfilling(true);
-                  try {
-                    const res = await fetch(`/api/courses/${courseId}/backfill-teach-methods`, { method: 'POST' });
-                    const data = await res.json();
-                    if (data.ok && data.updated > 0 && onContentRefresh) {
-                      const bd = await fetch(`/api/courses/${courseId}/content-breakdown?bySubject=true`).then(r => r.json());
-                      if (bd.ok) {
-                        onContentRefresh(bd.methods || [], bd.total || 0);
-                      }
-                    }
-                  } catch { /* ignore */ }
-                  setBackfilling(false);
-                }}
-              >
-                {backfilling ? 'Assigning\u2026' : `Assign ${contentMethods.find((m) => m.teachMethod === 'unassigned')?.count ?? 0} unassigned`}
-              </button>
-            )}
-          </div>
-          <TeachMethodStats methods={contentMethods} total={contentTotal} />
-        </div>
-      )}
 
       {/* ── Teaching Approach (subject profiles) ──────── */}
       {subjects.some((s) => s.teachingProfile) && (

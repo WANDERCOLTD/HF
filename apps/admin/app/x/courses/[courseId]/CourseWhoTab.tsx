@@ -41,16 +41,7 @@ type CallerSummary = {
   createdAt: string;
 };
 
-// -- Section Header -------------------------------------------------
-
-function SectionHeader({ title, icon: Icon }: { title: string; icon: React.ComponentType<{ size?: number; className?: string }> }) {
-  return (
-    <div className="hf-flex hf-gap-sm hf-items-center hf-mb-md hf-section-divider">
-      <Icon size={18} className="hf-text-muted" />
-      <h2 className="hf-section-title hf-mb-0">{title}</h2>
-    </div>
-  );
-}
+import { SectionHeader } from './SectionHeader';
 
 // -- Spec Chip List -------------------------------------------------
 

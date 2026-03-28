@@ -49,16 +49,7 @@ export type CourseWhatTabProps = {
   onContentRefresh?: (methods: MethodBreakdown[], total: number, instructionCount?: number) => void;
 };
 
-// ── Section Header ─────────────────────────────────────
-
-function SectionHeader({ title, icon: Icon }: { title: string; icon: React.ComponentType<{ size?: number; className?: string }> }) {
-  return (
-    <div className="hf-flex hf-gap-sm hf-items-center hf-mb-md hf-section-divider">
-      <Icon size={18} className="hf-text-muted" />
-      <h2 className="hf-section-title hf-mb-0">{title}</h2>
-    </div>
-  );
-}
+import { SectionHeader } from './SectionHeader';
 
 // ── Main Component ─────────────────────────────────────
 
@@ -195,19 +186,23 @@ export function CourseWhatTab({
   // ── Backfill state ────────────────────────────────────
   const [backfilling, setBackfilling] = useState(false);
 
-  // ── Collect COURSE_REFERENCE sources across all subjects ──
-  const courseGuideSources = useMemo(() => {
+  // ── Collect sources across all subjects ──
+  const { courseGuideSources, otherSources } = useMemo(() => {
     const seen = new Set<string>();
     const guides: SourceDetail[] = [];
+    const others: SourceDetail[] = [];
     for (const sub of subjects) {
       for (const src of sub.sources || []) {
-        if (src.documentType === 'COURSE_REFERENCE' && !seen.has(src.id)) {
-          seen.add(src.id);
+        if (seen.has(src.id)) continue;
+        seen.add(src.id);
+        if (src.documentType === 'COURSE_REFERENCE') {
           guides.push(src);
+        } else {
+          others.push(src);
         }
       }
     }
-    return guides;
+    return { courseGuideSources: guides, otherSources: others };
   }, [subjects]);
 
   return (
@@ -216,7 +211,7 @@ export function CourseWhatTab({
       {courseGuideSources.length > 0 && (
         <>
           <SectionHeader title="Course Guide" icon={getDocTypeInfo('COURSE_REFERENCE').icon} />
-          <div className="hf-card-compact hf-mb-lg" style={{ borderLeft: '3px solid #7c3aed' }}>
+          <div className="hf-card-compact hf-mb-lg" style={{ borderLeft: '3px solid var(--badge-purple-text)' }}>
             {courseGuideSources.map((src) => {
               const info = getDocTypeInfo(src.documentType);
               const Icon = info.icon;
@@ -233,6 +228,33 @@ export function CourseWhatTab({
                     {info.label}
                   </span>
                   <span className="hf-text-xs hf-text-placeholder">{src.assertionCount} rules</span>
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* ── Other Sources ────────────────────────────── */}
+      {otherSources.length > 0 && (
+        <>
+          <SectionHeader title="Sources" icon={BookMarked} />
+          <div className="hf-card-compact hf-mb-lg">
+            {otherSources.map((src) => {
+              const info = getDocTypeInfo(src.documentType);
+              const Icon = info.icon;
+              return (
+                <Link key={src.id} href={`/x/content-sources/${src.id}`} className="hf-flex hf-items-center hf-gap-sm hf-link-row">
+                  <Icon size={16} style={{ color: info.color, flexShrink: 0 }} />
+                  <div className="hf-flex-1">
+                    <div className="hf-text-sm hf-text-secondary">{src.name}</div>
+                  </div>
+                  <span className="hf-badge hf-badge-sm" style={{ color: info.color, borderColor: info.color }}>
+                    {info.label}
+                  </span>
+                  {src.assertionCount > 0 && (
+                    <span className="hf-text-xs hf-text-placeholder">{src.assertionCount} rules</span>
+                  )}
                 </Link>
               );
             })}
