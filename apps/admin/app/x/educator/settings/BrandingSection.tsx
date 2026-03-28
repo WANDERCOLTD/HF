@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, X } from "lucide-react";
 
 interface InstitutionBranding {
   id: string;
@@ -9,6 +9,7 @@ interface InstitutionBranding {
   logoUrl: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
+  welcomeMessage: string | null;
 }
 
 interface Props {
@@ -18,9 +19,16 @@ interface Props {
 }
 
 export function BrandingSection({ institution, canEdit, onSaved }: Props) {
+  // Logo uses confirm/cancel flow (not auto-save) to prevent broken URLs
   const [logoUrl, setLogoUrl] = useState(institution.logoUrl || "");
+  const [logoUrlDraft, setLogoUrlDraft] = useState(institution.logoUrl || "");
+  const [logoPreviewValid, setLogoPreviewValid] = useState<boolean | null>(null);
+  const [logoEditing, setLogoEditing] = useState(false);
+
   const [primaryColor, setPrimaryColor] = useState(institution.primaryColor || "");
   const [secondaryColor, setSecondaryColor] = useState(institution.secondaryColor || "");
+  const [welcomeMessage, setWelcomeMessage] = useState(institution.welcomeMessage || "");
+
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -47,14 +55,37 @@ export function BrandingSection({ institution, canEdit, onSaved }: Props) {
     }
   };
 
-  const handleChange = (field: string, value: string) => {
-    const body = {
-      logoUrl: field === "logoUrl" ? value : logoUrl,
+  /** Debounced save for text/colour fields (not logo) */
+  const handleFieldChange = (field: string, value: string) => {
+    const body: Record<string, string | null> = {
+      logoUrl,
       primaryColor: field === "primaryColor" ? value : primaryColor,
       secondaryColor: field === "secondaryColor" ? value : secondaryColor,
+      welcomeMessage: field === "welcomeMessage" ? value : welcomeMessage,
     };
     clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => save(body), 800);
+  };
+
+  const handleLogoConfirm = () => {
+    setLogoUrl(logoUrlDraft);
+    setLogoEditing(false);
+    setLogoPreviewValid(null);
+    save({ logoUrl: logoUrlDraft || null, primaryColor, secondaryColor, welcomeMessage });
+  };
+
+  const handleLogoCancel = () => {
+    setLogoUrlDraft(logoUrl);
+    setLogoEditing(false);
+    setLogoPreviewValid(null);
+  };
+
+  const handleLogoClear = () => {
+    setLogoUrl("");
+    setLogoUrlDraft("");
+    setLogoEditing(false);
+    setLogoPreviewValid(null);
+    save({ logoUrl: null, primaryColor, secondaryColor, welcomeMessage });
   };
 
   return (
@@ -81,32 +112,84 @@ export function BrandingSection({ institution, canEdit, onSaved }: Props) {
       </div>
 
       <div className="hf-settings-form hf-settings-form--narrow">
-        {/* Logo URL */}
+        {/* ── Logo — confirm/cancel flow ──────────────── */}
         <div>
-          <span className="hf-label hf-label-block hf-mb-xs">Logo URL</span>
-          <input
-            type="text"
-            className="hf-input"
-            placeholder="https://example.com/logo.png"
-            value={logoUrl}
-            onChange={(e) => { setLogoUrl(e.target.value); handleChange("logoUrl", e.target.value); }}
-            disabled={!canEdit}
-          />
-          {logoUrl && (
-            <div className="hf-mt-sm">
+          <span className="hf-label hf-label-block hf-mb-xs">Logo</span>
+
+          {/* Current logo display */}
+          {logoUrl && !logoEditing && (
+            <div className="hf-flex hf-items-center hf-gap-sm hf-mb-sm">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={logoUrl}
-                alt="Logo preview"
-                className="hf-logo-preview"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                onLoad={(e) => { (e.target as HTMLImageElement).style.display = "block"; }}
+                alt="Current logo"
+                style={{ height: 28, maxWidth: 160, objectFit: "contain" }}
+                onError={(e) => { (e.currentTarget).style.display = "none"; }}
+                onLoad={(e) => { (e.currentTarget).style.display = "block"; }}
               />
+              {canEdit && (
+                <div className="hf-flex hf-gap-xs">
+                  <button type="button" className="hf-btn hf-btn-xs hf-btn-outline" onClick={() => { setLogoUrlDraft(logoUrl); setLogoEditing(true); }}>
+                    Change
+                  </button>
+                  <button type="button" className="hf-btn hf-btn-xs hf-btn-secondary" onClick={handleLogoClear} title="Remove logo">
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* No logo — show add button */}
+          {!logoUrl && !logoEditing && canEdit && (
+            <button type="button" className="hf-btn hf-btn-xs hf-btn-outline" onClick={() => { setLogoUrlDraft(""); setLogoEditing(true); }}>
+              Add logo URL
+            </button>
+          )}
+
+          {/* Editing mode — input + preview + OK/Cancel */}
+          {logoEditing && (
+            <div>
+              <input
+                type="text"
+                className="hf-input hf-mb-sm"
+                placeholder="https://example.com/logo.png"
+                value={logoUrlDraft}
+                onChange={(e) => { setLogoUrlDraft(e.target.value); setLogoPreviewValid(null); }}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && logoPreviewValid) handleLogoConfirm();
+                  if (e.key === "Escape") handleLogoCancel();
+                }}
+              />
+              {logoUrlDraft && (
+                <div className="hf-mb-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logoUrlDraft}
+                    alt="Logo preview"
+                    style={{ height: 32, maxWidth: 200, objectFit: "contain" }}
+                    onError={() => setLogoPreviewValid(false)}
+                    onLoad={() => setLogoPreviewValid(true)}
+                  />
+                  {logoPreviewValid === false && (
+                    <div className="hf-text-xs hf-text-error hf-mt-xs">Image failed to load — check the URL</div>
+                  )}
+                </div>
+              )}
+              <div className="hf-flex hf-gap-xs">
+                <button type="button" className="hf-btn hf-btn-xs hf-btn-primary" disabled={!logoUrlDraft || logoPreviewValid === false} onClick={handleLogoConfirm}>
+                  OK
+                </button>
+                <button type="button" className="hf-btn hf-btn-xs hf-btn-secondary" onClick={handleLogoCancel}>
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Primary colour */}
+        {/* ── Primary colour ─────────────────────────── */}
         <div>
           <span className="hf-label hf-label-block hf-mb-xs">Primary colour</span>
           <div className="hf-flex hf-items-center hf-gap-sm">
@@ -118,13 +201,13 @@ export function BrandingSection({ institution, canEdit, onSaved }: Props) {
               className="hf-input hf-flex-1"
               placeholder="#3B82F6"
               value={primaryColor}
-              onChange={(e) => { setPrimaryColor(e.target.value); handleChange("primaryColor", e.target.value); }}
+              onChange={(e) => { setPrimaryColor(e.target.value); handleFieldChange("primaryColor", e.target.value); }}
               disabled={!canEdit}
             />
           </div>
         </div>
 
-        {/* Secondary colour */}
+        {/* ── Secondary colour ───────────────────────── */}
         <div>
           <span className="hf-label hf-label-block hf-mb-xs">Secondary colour</span>
           <div className="hf-flex hf-items-center hf-gap-sm">
@@ -136,9 +219,26 @@ export function BrandingSection({ institution, canEdit, onSaved }: Props) {
               className="hf-input hf-flex-1"
               placeholder="#60A5FA"
               value={secondaryColor}
-              onChange={(e) => { setSecondaryColor(e.target.value); handleChange("secondaryColor", e.target.value); }}
+              onChange={(e) => { setSecondaryColor(e.target.value); handleFieldChange("secondaryColor", e.target.value); }}
               disabled={!canEdit}
             />
+          </div>
+        </div>
+
+        {/* ── Welcome message ────────────────────────── */}
+        <div>
+          <span className="hf-label hf-label-block hf-mb-xs">Welcome message</span>
+          <textarea
+            className="hf-input"
+            rows={2}
+            placeholder="Welcome to our learning platform..."
+            value={welcomeMessage}
+            onChange={(e) => { setWelcomeMessage(e.target.value); handleFieldChange("welcomeMessage", e.target.value); }}
+            disabled={!canEdit}
+            style={{ width: "100%", resize: "vertical" }}
+          />
+          <div className="hf-text-xs hf-text-muted hf-mt-xs">
+            Shown to learners when they first join.
           </div>
         </div>
       </div>

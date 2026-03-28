@@ -67,7 +67,7 @@ export async function GET() {
  * @api PATCH /api/institution/branding
  * @auth ADMIN
  * @description Update branding for the current user's institution.
- * @body { logoUrl?: string, primaryColor?: string, secondaryColor?: string }
+ * @body { logoUrl?: string, primaryColor?: string, secondaryColor?: string, welcomeMessage?: string }
  */
 export async function PATCH(req: Request) {
   const auth = await requireAuth("ADMIN");
@@ -90,6 +90,7 @@ export async function PATCH(req: Request) {
   if ("logoUrl" in body) data.logoUrl = body.logoUrl || null;
   if ("primaryColor" in body) data.primaryColor = body.primaryColor || null;
   if ("secondaryColor" in body) data.secondaryColor = body.secondaryColor || null;
+  if ("welcomeMessage" in body) data.welcomeMessage = body.welcomeMessage || null;
 
   await prisma.institution.update({
     where: { id: institutionId },
