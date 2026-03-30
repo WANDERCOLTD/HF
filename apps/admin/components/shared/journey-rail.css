@@ -268,6 +268,23 @@
   padding: 1rem;
 }
 
+/* Special session panels (onboarding / offboarding) */
+.jrl-special-session {
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.jrl-special-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-weight: 600;
+  font-size: var(--text-sm, 0.875rem);
+  color: var(--station-color, var(--accent-primary));
+}
+
 /* ── Phase bar (proportional segments) ─────────────── */
 
 .jrl-phase-bar {

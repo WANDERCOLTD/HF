@@ -13,7 +13,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Paperclip, Users2, ArrowLeft, ListOrdered, RefreshCw, ExternalLink } from "lucide-react";
+import { Paperclip, Users2, ArrowLeft, ListOrdered, RefreshCw, ExternalLink, Sparkles, Flag } from "lucide-react";
 import { DotRail, type DotRailStep, type DotState } from "./DotRail";
 import { getSessionTypeColor, getSessionTypeLabel } from "@/lib/lesson-plan/session-ui";
 import type { SessionEntry, StudentProgress } from "@/lib/lesson-plan/types";
@@ -40,6 +40,9 @@ export interface JourneyRailProps {
 
   /** Custom render for expanded session detail. Overrides default phase-bar detail. */
   renderSessionDetail?: (entry: SessionEntry) => React.ReactNode;
+
+  /** Switch to a tab on the course page (for onboarding/offboarding links) */
+  onSwitchTab?: (tab: string) => void;
 }
 
 // ── Helpers ─────────────────────────────────────────
@@ -99,6 +102,88 @@ function materialCount(entry: SessionEntry): number {
     }
   }
   return count;
+}
+
+// ── Special session detail (onboarding / offboarding) ──
+
+function OnboardingSessionDetail({
+  courseId,
+  color,
+  onSwitchTab,
+}: {
+  courseId: string;
+  color: string;
+  onSwitchTab?: (tab: string) => void;
+}) {
+  const router = useRouter();
+
+  return (
+    <div
+      className="jrl-active-detail jrl-special-session"
+      style={{ "--station-color": color } as React.CSSProperties}
+    >
+      <div className="jrl-special-heading">
+        <Sparkles size={14} /> First Call
+      </div>
+      <p className="hf-text-xs hf-text-muted">
+        The onboarding session introduces the learner, sets expectations, and begins the learning journey.
+      </p>
+      <button
+        className="jrl-detail-link"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSwitchTab) {
+            onSwitchTab("onboarding");
+          } else {
+            router.push(`/x/courses/${courseId}?tab=onboarding`);
+          }
+        }}
+        type="button"
+      >
+        <ExternalLink size={11} /> Edit onboarding on the Onboarding tab
+      </button>
+    </div>
+  );
+}
+
+function OffboardingSessionDetail({
+  courseId,
+  color,
+  onSwitchTab,
+}: {
+  courseId: string;
+  color: string;
+  onSwitchTab?: (tab: string) => void;
+}) {
+  const router = useRouter();
+
+  return (
+    <div
+      className="jrl-active-detail jrl-special-session"
+      style={{ "--station-color": color } as React.CSSProperties}
+    >
+      <div className="jrl-special-heading">
+        <Flag size={14} /> Course Wrap-Up
+      </div>
+      <p className="hf-text-xs hf-text-muted">
+        The offboarding session collects learner feedback and celebrates their progress.
+      </p>
+      <button
+        className="jrl-detail-link"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSwitchTab) {
+            onSwitchTab("onboarding");
+          } else {
+            router.push(`/x/courses/${courseId}?tab=onboarding`);
+          }
+        }}
+        type="button"
+      >
+        <ExternalLink size={11} /> Edit offboarding on the Onboarding tab
+      </button>
+    </div>
+  );
 }
 
 // ── Default expanded detail (extracted for render-prop override) ──
@@ -243,6 +328,7 @@ export function JourneyRail({
   regenSessionCount,
   onRegenSessionCountChange,
   renderSessionDetail,
+  onSwitchTab,
 }: JourneyRailProps) {
   const router = useRouter();
   const [focusCallerId, setFocusCallerId] = useState<string | null>(initialFocusCallerId);
@@ -434,7 +520,11 @@ export function JourneyRail({
 
         {/* Expanded: detail panel */}
         {isExpanded && (
-          renderSessionDetail ? (
+          entry.type === "onboarding" ? (
+            <OnboardingSessionDetail courseId={courseId} color={color} onSwitchTab={onSwitchTab} />
+          ) : entry.type === "offboarding" ? (
+            <OffboardingSessionDetail courseId={courseId} color={color} onSwitchTab={onSwitchTab} />
+          ) : renderSessionDetail ? (
             <div
               className="jrl-active-detail jrl-active-detail--full"
               style={{ "--station-color": color } as React.CSSProperties}

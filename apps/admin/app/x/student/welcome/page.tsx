@@ -4,50 +4,35 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChatSurvey, type SurveyStep } from "@/components/student/ChatSurvey";
 import { SURVEY_SCOPES, PRE_SURVEY_KEYS } from "@/lib/learner/survey-keys";
+import type { SurveyStepConfig } from "@/lib/types/json-fields";
+import {
+  DEFAULT_ONBOARDING_SURVEY,
+} from "@/lib/learner/survey-config";
 import "./welcome.css";
 
-function buildSteps(subject: string, teacherName: string): SurveyStep[] {
+/** Convert SurveyStepConfig[] to SurveyStep[] with greeting + ready bookends */
+function buildSteps(
+  configs: SurveyStepConfig[],
+  subject: string,
+  teacherName: string,
+): SurveyStep[] {
+  // Replace {subject} placeholder in prompts
+  const steps: SurveyStep[] = configs.map((c) => ({
+    ...c,
+    prompt: c.prompt.replace(/\{subject\}/g, subject),
+  }));
+
   return [
     {
       id: '_greeting',
       type: 'message',
       prompt: `Hey! I'm your AI study partner for ${subject}. ${teacherName ? `${teacherName} set this up for you.` : ''} Before we dive in, I'd love to learn a bit about you.`,
     },
-    {
-      id: PRE_SURVEY_KEYS.CONFIDENCE,
-      type: 'stars',
-      prompt: `How confident are you in ${subject} right now?`,
-    },
-    {
-      id: PRE_SURVEY_KEYS.PRIOR_KNOWLEDGE,
-      type: 'options',
-      prompt: 'And how much do you already know about it?',
-      options: [
-        { value: 'never', label: "Never studied it" },
-        { value: 'little', label: "Know a little" },
-        { value: 'basics', label: "Know the basics" },
-        { value: 'well', label: "Know it well" },
-      ],
-    },
-    {
-      id: PRE_SURVEY_KEYS.GOAL_TEXT,
-      type: 'text',
-      prompt: "What's your main goal for this course? Pass an exam, understand the fundamentals, something else?",
-      placeholder: "e.g. Pass my GCSE, understand budgeting...",
-      maxLength: 200,
-    },
-    {
-      id: PRE_SURVEY_KEYS.CONCERN_TEXT,
-      type: 'text',
-      prompt: "Is there anything that worries you about learning this? No pressure — you can skip this one.",
-      placeholder: "e.g. I struggle with the maths side...",
-      maxLength: 200,
-      optional: true,
-    },
+    ...steps,
     {
       id: '_ready',
       type: 'message',
-      prompt: "Brilliant! I've got everything I need. Let's start your first practice session — you're going to do great. 💪",
+      prompt: "Brilliant! I've got everything I need. Let's start your first practice session — you're going to do great.",
     },
   ];
 }
@@ -58,21 +43,31 @@ export default function WelcomeSurveyPage(): React.ReactElement {
   const [submitting, setSubmitting] = useState(false);
   const [subject, setSubject] = useState('this subject');
   const [teacherName, setTeacherName] = useState('');
+  const [surveyConfigs, setSurveyConfigs] = useState<SurveyStepConfig[]>(DEFAULT_ONBOARDING_SURVEY);
 
-  // Check if already submitted + load context
+  // Check if already submitted + load context + survey config
   useEffect(() => {
     async function init(): Promise<void> {
       try {
-        const [surveyRes, teacherRes] = await Promise.all([
+        const [surveyRes, teacherRes, configRes] = await Promise.all([
           fetch(`/api/student/survey?scope=${SURVEY_SCOPES.PRE}`),
           fetch("/api/student/teacher"),
+          fetch("/api/student/survey-config"),
         ]);
         const surveyData = await surveyRes.json();
         const teacherData = await teacherRes.json();
+        const configData = await configRes.json();
 
         if (teacherData.ok) {
           setSubject(teacherData.domain || 'this subject');
           setTeacherName(teacherData.teacher?.name || '');
+        }
+
+        if (configData.ok) {
+          if (configData.subject) setSubject(configData.subject);
+          if (configData.onboarding?.surveySteps?.length > 0) {
+            setSurveyConfigs(configData.onboarding.surveySteps);
+          }
         }
 
         if (surveyData.ok && surveyData.answers?.[PRE_SURVEY_KEYS.SUBMITTED_AT]) {
@@ -118,7 +113,7 @@ export default function WelcomeSurveyPage(): React.ReactElement {
   return (
     <div className="welcome-page">
       <ChatSurvey
-        steps={buildSteps(subject, teacherName)}
+        steps={buildSteps(surveyConfigs, subject, teacherName)}
         tutorName="AI Tutor"
         onComplete={handleComplete}
         submitting={submitting}

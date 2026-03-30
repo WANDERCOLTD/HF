@@ -6,50 +6,26 @@ import Link from "next/link";
 import { ChatSurvey, type SurveyStep } from "@/components/student/ChatSurvey";
 import { SURVEY_SCOPES, POST_SURVEY_KEYS } from "@/lib/learner/survey-keys";
 import { useStudentCallerId } from "@/hooks/useStudentCallerId";
+import type { SurveyStepConfig } from "@/lib/types/json-fields";
+import { DEFAULT_OFFBOARDING_SURVEY } from "@/lib/learner/survey-config";
 import "./post-survey.css";
 
-const POST_STEPS: SurveyStep[] = [
-  {
-    id: '_greeting',
-    type: 'message',
-    prompt: "Hey! Thanks for putting in the practice sessions. I'd love to hear how it went — just a few quick questions.",
-  },
-  {
-    id: POST_SURVEY_KEYS.CONFIDENCE_LIFT,
-    type: 'options',
-    prompt: 'Compared to when you started, how much more confident do you feel?',
-    options: [
-      { value: '1', label: 'About the same' },
-      { value: '2', label: 'A little more' },
-      { value: '3', label: 'Somewhat more' },
-      { value: '4', label: 'Much more' },
-      { value: '5', label: 'Completely different!' },
-    ],
-  },
-  {
-    id: POST_SURVEY_KEYS.SATISFACTION,
-    type: 'stars',
-    prompt: 'How would you rate your experience practising with me?',
-  },
-  {
-    id: POST_SURVEY_KEYS.NPS,
-    type: 'nps',
-    prompt: 'Would you recommend this to a friend? 0 means definitely not, 10 means absolutely.',
-  },
-  {
-    id: POST_SURVEY_KEYS.FEEDBACK_TEXT,
-    type: 'text',
-    prompt: "Anything else you'd like to share? Compliments, complaints, ideas — all welcome. Or skip if you're done!",
-    placeholder: "Your thoughts...",
-    maxLength: 500,
-    optional: true,
-  },
-  {
-    id: '_thanks',
-    type: 'message',
-    prompt: "That's really helpful — thank you! Your feedback makes the experience better for everyone. Keep practising whenever you want. 🎉",
-  },
-];
+/** Convert SurveyStepConfig[] to SurveyStep[] with greeting + thanks bookends */
+function buildPostSteps(configs: SurveyStepConfig[]): SurveyStep[] {
+  return [
+    {
+      id: '_greeting',
+      type: 'message',
+      prompt: "Hey! Thanks for putting in the practice sessions. I'd love to hear how it went — just a few quick questions.",
+    },
+    ...configs,
+    {
+      id: '_thanks',
+      type: 'message',
+      prompt: "That's really helpful — thank you! Your feedback makes the experience better for everyone. Keep practising whenever you want.",
+    },
+  ];
+}
 
 export default function PostSurveyPage(): React.ReactElement {
   const router = useRouter();
@@ -58,13 +34,19 @@ export default function PostSurveyPage(): React.ReactElement {
   const [alreadyDone, setAlreadyDone] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [postConfigs, setPostConfigs] = useState<SurveyStepConfig[]>(DEFAULT_OFFBOARDING_SURVEY);
 
   useEffect(() => {
-    fetch(buildUrl(`/api/student/survey?scope=${SURVEY_SCOPES.POST}`))
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.ok && d.answers?.[POST_SURVEY_KEYS.SUBMITTED_AT]) {
+    Promise.all([
+      fetch(buildUrl(`/api/student/survey?scope=${SURVEY_SCOPES.POST}`)).then((r) => r.json()),
+      fetch(buildUrl("/api/student/survey-config")).then((r) => r.json()).catch(() => null),
+    ])
+      .then(([surveyData, configData]) => {
+        if (surveyData?.ok && surveyData.answers?.[POST_SURVEY_KEYS.SUBMITTED_AT]) {
           setAlreadyDone(true);
+        }
+        if (configData?.ok && configData.offboarding?.surveySteps?.length > 0) {
+          setPostConfigs(configData.offboarding.surveySteps);
         }
       })
       .catch(() => {})
@@ -122,7 +104,7 @@ export default function PostSurveyPage(): React.ReactElement {
   return (
     <div className="post-survey-wrap">
       <ChatSurvey
-        steps={POST_STEPS}
+        steps={buildPostSteps(postConfigs)}
         tutorName="AI Tutor"
         onComplete={handleComplete}
         submitting={submitting}

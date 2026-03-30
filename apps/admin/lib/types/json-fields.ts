@@ -57,16 +57,33 @@ export interface TargetUpdate {
 // Onboarding flow phases — shared shape used by Domain + Playbook config
 // ---------------------------------------------------------------------------
 
+/** A single survey question config — used in onboarding/offboarding survey phases */
+export interface SurveyStepConfig {
+  id: string;
+  type: 'stars' | 'options' | 'nps' | 'text';
+  prompt: string;
+  options?: { value: string; label: string }[];
+  placeholder?: string;
+  maxLength?: number;
+  optional?: boolean;
+}
+
 export interface OnboardingPhase {
   phase: string;
   duration: string;
   goals: string[];
   content?: Array<{ mediaId: string; instruction?: string }>;
+  surveySteps?: SurveyStepConfig[];
 }
 
 export interface OnboardingFlowPhases {
   phases: OnboardingPhase[];
   successMetrics?: string[];
+}
+
+export interface OffboardingConfig {
+  triggerAfterCalls: number; // default 5
+  phases: OnboardingPhase[];
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +127,7 @@ export interface PlaybookConfig {
   // Course-scoped welcome (overrides Domain.onboardingWelcome)
   welcomeMessage?: string;
   courseContext?: string;
+  offboarding?: OffboardingConfig;
   [key: string]: any;
 }
 

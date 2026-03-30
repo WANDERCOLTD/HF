@@ -25,12 +25,15 @@ export interface MiniJourneyRailProps {
   courseName?: string;
   /** Onboarding phases — renders as a "First Call" session 0 before the lesson plan */
   onboardingPhases?: OnboardingPhaseCompact[];
+  /** Offboarding phases — renders as a "Course Wrap-Up" session at the end */
+  offboardingPhases?: OnboardingPhaseCompact[];
 }
 
 const upcomingState = (): DotState => "upcoming";
 
-export function MiniJourneyRail({ entries, courseId, courseName, onboardingPhases }: MiniJourneyRailProps) {
+export function MiniJourneyRail({ entries, courseId, courseName, onboardingPhases, offboardingPhases }: MiniJourneyRailProps) {
   const hasOnboarding = onboardingPhases && onboardingPhases.length > 0;
+  const hasOffboarding = offboardingPhases && offboardingPhases.length > 0;
 
   const steps: DotRailStep[] = useMemo(() => {
     const result: DotRailStep[] = [];
@@ -40,8 +43,12 @@ export function MiniJourneyRail({ entries, courseId, courseName, onboardingPhase
     for (const e of entries) {
       result.push({ session: e.session, type: e.type, label: e.label });
     }
+    if (hasOffboarding) {
+      const lastSession = entries.length > 0 ? entries[entries.length - 1].session + 1 : 1;
+      result.push({ session: lastSession, type: "offboarding", label: "Course Wrap-Up" });
+    }
     return result;
-  }, [entries, hasOnboarding]);
+  }, [entries, hasOnboarding, hasOffboarding]);
 
   const totalMins = useMemo(
     () => entries.reduce((sum, e) => sum + (e.estimatedDurationMins || 0), 0),
@@ -61,8 +68,11 @@ export function MiniJourneyRail({ entries, courseId, courseName, onboardingPhase
         labels.push(getSessionTypeLabel(e.type));
       }
     }
+    if (hasOffboarding && !seen.has("offboarding")) {
+      labels.push(getSessionTypeLabel("offboarding"));
+    }
     return labels.join(", ");
-  }, [entries, hasOnboarding]);
+  }, [entries, hasOnboarding, hasOffboarding]);
 
   // Onboarding phase trail: "Welcome → Orient → Discover"
   const phaseTrail = useMemo(() => {
@@ -72,9 +82,17 @@ export function MiniJourneyRail({ entries, courseId, courseName, onboardingPhase
       .join(" → ");
   }, [onboardingPhases, hasOnboarding]);
 
-  if (entries.length === 0 && !hasOnboarding) return null;
+  // Offboarding phase trail: "Reflect → Celebrate → Farewell"
+  const offboardingTrail = useMemo(() => {
+    if (!hasOffboarding) return null;
+    return offboardingPhases
+      .map((p) => p.phase.charAt(0).toUpperCase() + p.phase.slice(1))
+      .join(" → ");
+  }, [offboardingPhases, hasOffboarding]);
 
-  const sessionCount = entries.length + (hasOnboarding ? 1 : 0);
+  if (entries.length === 0 && !hasOnboarding && !hasOffboarding) return null;
+
+  const sessionCount = entries.length + (hasOnboarding ? 1 : 0) + (hasOffboarding ? 1 : 0);
 
   return (
     <div className="jrl-mini">
@@ -87,6 +105,12 @@ export function MiniJourneyRail({ entries, courseId, courseName, onboardingPhase
       {phaseTrail && (
         <div className="jrl-mini-phases">
           First Call: {phaseTrail}
+        </div>
+      )}
+
+      {offboardingTrail && (
+        <div className="jrl-mini-phases">
+          Course Wrap-Up: {offboardingTrail}
         </div>
       )}
 

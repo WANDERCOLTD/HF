@@ -1,0 +1,90 @@
+/* =============================================================
+   SurveySection — companion styles (ss-* prefix)
+   All colors use CSS variables. No hardcoded hex.
+   ============================================================= */
+
+.ss-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .ss-wrap {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ss-panel {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.ss-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ss-panel-date {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ss-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.ss-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  min-width: 110px;
+  flex-shrink: 0;
+}
+
+.ss-value {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.ss-value-quote {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-style: italic;
+}
+
+.ss-stars {
+  letter-spacing: 1px;
+  font-size: 14px;
+}
+
+.ss-star-filled {
+  color: var(--login-gold);
+}
+
+.ss-star-empty {
+  color: var(--border-default);
+}
+
+.ss-suffix {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.ss-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 12px 0;
+}

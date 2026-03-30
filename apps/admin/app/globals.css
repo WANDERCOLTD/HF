@@ -8309,6 +8309,121 @@ html.light {
   }
 }
 
+/* ── Survey Phase Editor (ob-survey-*) ────────────── */
+
+.ob-survey-editor {
+  margin-bottom: 8px;
+}
+
+.ob-survey-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+
+.ob-survey-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  background: var(--surface-primary);
+}
+
+.ob-survey-grip {
+  padding-top: 8px;
+  color: var(--text-muted);
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.ob-survey-fields {
+  flex: 1;
+  min-width: 0;
+}
+
+.ob-survey-prompt-input {
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.ob-survey-meta-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ob-survey-type-select {
+  width: 130px;
+  font-size: 12px;
+}
+
+.ob-survey-optional-label {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ob-survey-delete-btn {
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.ob-survey-delete-btn:hover {
+  color: var(--status-error-text);
+}
+
+.ob-survey-options-list {
+  margin-top: 6px;
+  padding-left: 4px;
+}
+
+.ob-survey-option-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.ob-survey-option-row .hf-input {
+  flex: 1;
+}
+
+.ob-survey-add-option-btn {
+  font-size: 12px;
+  color: var(--accent-primary);
+  padding: 2px 0;
+}
+
+.ob-survey-add-btn {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--accent-primary);
+  margin-top: 4px;
+}
+
+/* ── Offboarding Section (ob-offboarding-*) ──────── */
+
+.ob-offboarding-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-default);
+}
+
+.ob-offboarding-header {
+  margin-bottom: 16px;
+}
+
+.ob-offboarding-trigger-input {
+  width: 72px;
+  text-align: center;
+}
+
 /* ── Bug Reporter Panel ────────────────────────────── */
 .hf-bug-anchor {
   position: fixed;

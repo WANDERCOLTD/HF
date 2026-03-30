@@ -11,12 +11,17 @@
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Compass, Paperclip, RotateCcw, ChevronDown } from 'lucide-react';
+import { Compass, Paperclip, RotateCcw, ChevronDown, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { SortableList } from '@/components/shared/SortableList';
 import { reorderItems } from '@/lib/sortable/reorder';
 import { OnboardingChatPreview, type ChatPhase } from '@/components/shared/OnboardingChatPreview';
-import type { OnboardingPhase } from '@/lib/types/json-fields';
+import { SurveyPhaseEditor } from '@/components/shared/SurveyPhaseEditor';
+import type { OnboardingPhase, SurveyStepConfig, OffboardingConfig } from '@/lib/types/json-fields';
+import {
+  DEFAULT_OFFBOARDING_SURVEY,
+  DEFAULT_OFFBOARDING_TRIGGER,
+} from '@/lib/learner/survey-config';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -60,6 +65,14 @@ export function OnboardingEditor({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Offboarding state
+  const [offboardingPhases, setOffboardingPhases] = useState<PhaseWithId[]>([]);
+  const [offboardingTrigger, setOffboardingTrigger] = useState<number>(DEFAULT_OFFBOARDING_TRIGGER);
+  const savedOffboardingRef = useRef<string>('{"phases":[],"trigger":' + DEFAULT_OFFBOARDING_TRIGGER + '}');
+  const [offboardingSaving, setOffboardingSaving] = useState(false);
+  const [offboardingSaveError, setOffboardingSaveError] = useState<string | null>(null);
+  const [offboardingSaveSuccess, setOffboardingSaveSuccess] = useState(false);
+
   // Compact: preview disclosure
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -67,6 +80,11 @@ export function OnboardingEditor({
   const isDirty = useMemo(() => {
     return JSON.stringify(structuredPhases) !== savedPhasesRef.current;
   }, [structuredPhases]);
+
+  const isOffboardingDirty = useMemo(() => {
+    const current = JSON.stringify({ phases: offboardingPhases, trigger: offboardingTrigger });
+    return current !== savedOffboardingRef.current;
+  }, [offboardingPhases, offboardingTrigger]);
 
   // ── Fetch on mount ──────────────────────────────────
 
@@ -91,6 +109,22 @@ export function OnboardingEditor({
         } else {
           setStructuredPhases([]);
           savedPhasesRef.current = '[]';
+        }
+      }
+
+      // Fetch offboarding config
+      const obRes = await fetch(`/api/courses/${courseId}/survey-config`);
+      if (obRes.ok) {
+        const obData = await obRes.json();
+        if (obData.ok && obData.offboarding) {
+          const ob = obData.offboarding as OffboardingConfig;
+          const obWithIds = ob.phases.map((p: OnboardingPhase) => ({
+            ...p,
+            _id: crypto.randomUUID(),
+          }));
+          setOffboardingPhases(obWithIds);
+          setOffboardingTrigger(ob.triggerAfterCalls ?? DEFAULT_OFFBOARDING_TRIGGER);
+          savedOffboardingRef.current = JSON.stringify({ phases: obWithIds, trigger: ob.triggerAfterCalls ?? DEFAULT_OFFBOARDING_TRIGGER });
         }
       }
     } catch (err) {
@@ -190,9 +224,75 @@ export function OnboardingEditor({
     setStructuredPhases(defaults);
   }, []);
 
-  // ── Phase editor card (shared between compact & full) ──
+  // ── Offboarding: seed defaults ─────────────────────
 
-  const renderPhaseCard = (phase: PhaseWithId, index: number) => (
+  const seedOffboardingDefaults = useCallback(() => {
+    const defaults: PhaseWithId[] = [
+      { _id: crypto.randomUUID(), phase: 'reflect', duration: '3min', goals: ['Celebrate progress and key moments'] },
+      {
+        _id: crypto.randomUUID(),
+        phase: 'survey',
+        duration: '3min',
+        goals: [],
+        surveySteps: DEFAULT_OFFBOARDING_SURVEY.map((s) => ({ ...s })),
+      },
+      { _id: crypto.randomUUID(), phase: 'farewell', duration: '2min', goals: ['Thank the learner and close the relationship'] },
+    ];
+    setOffboardingPhases(defaults);
+    setOffboardingTrigger(DEFAULT_OFFBOARDING_TRIGGER);
+  }, []);
+
+  // ── Offboarding: save handler ──────────────────────
+
+  const handleOffboardingSave = useCallback(async () => {
+    setOffboardingSaving(true);
+    setOffboardingSaveError(null);
+    setOffboardingSaveSuccess(false);
+    try {
+      const payload: OffboardingConfig = {
+        triggerAfterCalls: offboardingTrigger,
+        phases: offboardingPhases.map(({ _id, ...rest }) => rest),
+      };
+      const res = await fetch(`/api/courses/${courseId}/survey-config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ offboarding: payload }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        savedOffboardingRef.current = JSON.stringify({ phases: offboardingPhases, trigger: offboardingTrigger });
+        setOffboardingSaveSuccess(true);
+        setTimeout(() => setOffboardingSaveSuccess(false), 3000);
+      } else {
+        setOffboardingSaveError(data.error || 'Failed to save offboarding');
+      }
+    } catch {
+      setOffboardingSaveError('Network error');
+    } finally {
+      setOffboardingSaving(false);
+    }
+  }, [courseId, offboardingPhases, offboardingTrigger]);
+
+  // ── Offboarding: cancel ────────────────────────────
+
+  const handleOffboardingCancel = useCallback(() => {
+    const saved = JSON.parse(savedOffboardingRef.current);
+    setOffboardingPhases(saved.phases);
+    setOffboardingTrigger(saved.trigger);
+    setOffboardingSaveError(null);
+  }, []);
+
+  // ── Helper: is this a survey phase? ────────────────
+
+  const isSurveyPhase = (phase: PhaseWithId): boolean =>
+    phase.phase === 'survey' || (Array.isArray(phase.surveySteps) && phase.surveySteps.length > 0);
+
+  // ── Phase editor card factory (works for onboarding + offboarding) ──
+
+  const makeRenderPhaseCard = (
+    phases: PhaseWithId[],
+    setPhases: React.Dispatch<React.SetStateAction<PhaseWithId[]>>,
+  ) => (phase: PhaseWithId, index: number) => (
     <div className="hf-flex-1">
       <div className="hf-flex hf-gap-sm hf-mb-sm">
         <div className="hf-flex-1">
@@ -204,9 +304,9 @@ export function OnboardingEditor({
             value={phase.phase}
             disabled={!isOperator}
             onChange={(e) => {
-              const updated = [...structuredPhases];
+              const updated = [...phases];
               updated[index] = { ...updated[index], phase: e.target.value };
-              setStructuredPhases(updated);
+              setPhases(updated);
             }}
           />
         </div>
@@ -219,28 +319,42 @@ export function OnboardingEditor({
             value={phase.duration}
             disabled={!isOperator}
             onChange={(e) => {
-              const updated = [...structuredPhases];
+              const updated = [...phases];
               updated[index] = { ...updated[index], duration: e.target.value };
-              setStructuredPhases(updated);
+              setPhases(updated);
             }}
           />
         </div>
       </div>
-      <div className="hf-mb-sm">
-        <label className="hf-label">Goals (one per line)</label>
-        <textarea
-          className="hf-textarea"
-          rows={2}
-          placeholder="Greet learner and establish rapport"
-          value={(phase.goals || []).join('\n')}
+
+      {/* Survey phase: show question editor instead of goals */}
+      {isSurveyPhase(phase) ? (
+        <SurveyPhaseEditor
+          steps={phase.surveySteps || []}
           disabled={!isOperator}
-          onChange={(e) => {
-            const updated = [...structuredPhases];
-            updated[index] = { ...updated[index], goals: e.target.value.split('\n').filter((g) => g.trim()) };
-            setStructuredPhases(updated);
+          onChange={(steps: SurveyStepConfig[]) => {
+            const updated = [...phases];
+            updated[index] = { ...updated[index], surveySteps: steps };
+            setPhases(updated);
           }}
         />
-      </div>
+      ) : (
+        <div className="hf-mb-sm">
+          <label className="hf-label">Goals (one per line)</label>
+          <textarea
+            className="hf-textarea"
+            rows={2}
+            placeholder="Greet learner and establish rapport"
+            value={(phase.goals || []).join('\n')}
+            disabled={!isOperator}
+            onChange={(e) => {
+              const updated = [...phases];
+              updated[index] = { ...updated[index], goals: e.target.value.split('\n').filter((g) => g.trim()) };
+              setPhases(updated);
+            }}
+          />
+        </div>
+      )}
 
       {/* Media attachments */}
       {(phase.content || []).length > 0 && (
@@ -258,21 +372,21 @@ export function OnboardingEditor({
                   value={ref.instruction || ''}
                   disabled={!isOperator}
                   onChange={(e) => {
-                    const updated = [...structuredPhases];
+                    const updated = [...phases];
                     const newContent = [...(updated[index].content || [])];
                     newContent[ci] = { ...newContent[ci], instruction: e.target.value };
                     updated[index] = { ...updated[index], content: newContent };
-                    setStructuredPhases(updated);
+                    setPhases(updated);
                   }}
                 />
                 {isOperator && (
                   <button
                     className="hf-btn-ghost hf-text-xs hf-text-muted"
                     onClick={() => {
-                      const updated = [...structuredPhases];
+                      const updated = [...phases];
                       const newContent = (updated[index].content || []).filter((_, j) => j !== ci);
                       updated[index] = { ...updated[index], content: newContent.length > 0 ? newContent : undefined };
-                      setStructuredPhases(updated);
+                      setPhases(updated);
                     }}
                   >
                     &times;
@@ -291,9 +405,9 @@ export function OnboardingEditor({
             if (!e.target.value) return;
             const existing = phase.content || [];
             if (existing.some((c) => c.mediaId === e.target.value)) return;
-            const updated = [...structuredPhases];
+            const updated = [...phases];
             updated[index] = { ...updated[index], content: [...existing, { mediaId: e.target.value }] };
-            setStructuredPhases(updated);
+            setPhases(updated);
           }}
         >
           <option value="">+ Attach media to this phase...</option>
@@ -306,6 +420,9 @@ export function OnboardingEditor({
       )}
     </div>
   );
+
+  const renderPhaseCard = makeRenderPhaseCard(structuredPhases, setStructuredPhases);
+  const renderOffboardingPhaseCard = makeRenderPhaseCard(offboardingPhases, setOffboardingPhases);
 
   // ── Render ──────────────────────────────────────────
 
@@ -415,6 +532,77 @@ export function OnboardingEditor({
     </div>
   );
 
+  // ── Offboarding section ──
+
+  const offboardingSection = (
+    <div className="ob-offboarding-section">
+      <div className="ob-offboarding-header">
+        <h3 className="hf-section-title">Offboarding — End of Course</h3>
+      </div>
+
+      {offboardingPhases.length === 0 ? (
+        <div className="hf-empty-compact">
+          <Sparkles size={24} className="hf-text-tertiary hf-mb-sm" />
+          <div className="hf-text-sm hf-text-secondary hf-mb-sm">No offboarding flow configured</div>
+          {isOperator && (
+            <button className="hf-btn-sm hf-btn-primary" onClick={seedOffboardingDefaults}>
+              Set up defaults
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="hf-flex hf-gap-sm hf-items-center hf-mb-md">
+            <label className="hf-label hf-mb-none">Trigger after</label>
+            <input
+              type="number"
+              className="hf-input ob-offboarding-trigger-input"
+              min={1}
+              max={100}
+              value={offboardingTrigger}
+              disabled={!isOperator}
+              onChange={(e) => setOffboardingTrigger(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            />
+            <span className="hf-text-sm hf-text-muted">sessions</span>
+          </div>
+
+          <SortableList
+            items={offboardingPhases}
+            getItemId={(p) => p._id}
+            onReorder={(from, to) => setOffboardingPhases(reorderItems(offboardingPhases, from, to))}
+            disabled={!isOperator}
+            onAdd={isOperator ? () => setOffboardingPhases([...offboardingPhases, {
+              _id: crypto.randomUUID(),
+              phase: '',
+              duration: '3min',
+              goals: [],
+            }]) : undefined}
+            onRemove={(i) => setOffboardingPhases(offboardingPhases.filter((_, idx) => idx !== i))}
+            addLabel="Add Phase"
+            emptyLabel="No phases"
+            renderCard={renderOffboardingPhaseCard}
+          />
+
+          {offboardingSaveSuccess && <div className="hf-banner hf-banner-success hf-mb-sm hf-mt-sm">Offboarding config saved.</div>}
+          {offboardingSaveError && <div className="hf-banner hf-banner-error hf-mb-sm hf-mt-sm">{offboardingSaveError}</div>}
+
+          {isOffboardingDirty && isOperator && (
+            <div className={compact ? "hf-flex hf-gap-sm hf-justify-end hf-mt-md" : "cd-save-bar"}>
+              {compact && <span className="hf-text-xs hf-text-muted hf-flex-1">Unsaved offboarding changes</span>}
+              {!compact && <span className="cd-save-bar-msg">Unsaved offboarding changes</span>}
+              <button className="hf-btn-sm hf-btn-secondary" onClick={handleOffboardingCancel}>
+                Cancel
+              </button>
+              <button className="hf-btn-sm hf-btn-primary" onClick={handleOffboardingSave} disabled={offboardingSaving}>
+                {offboardingSaving ? 'Saving...' : 'Save Offboarding'}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
   // ── Compact mode: single column ──
 
   if (compact) {
@@ -447,6 +635,7 @@ export function OnboardingEditor({
         )}
 
         {saveBar}
+        {offboardingSection}
       </div>
     );
   }
@@ -475,6 +664,7 @@ export function OnboardingEditor({
       </div>
 
       {saveBar}
+      {offboardingSection}
     </div>
   );
 }

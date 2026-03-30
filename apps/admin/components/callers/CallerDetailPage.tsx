@@ -19,6 +19,7 @@ import { useAssistant, useAssistantKeyboardShortcut } from "@/hooks/useAssistant
 import { OverviewSection } from "./caller-detail/OverviewSection";
 import { CallsSection, ProcessingNotice } from "./caller-detail/CallsTab";
 import { MemoriesSection, PersonalitySection, CallerSlugsSection, CallerEnrollmentsSection } from "./caller-detail/ProfileTab";
+import { SurveySection } from "./caller-detail/SurveySection";
 import { ScoresSection, LearningSection, AssessmentTargetsCard, TopicsCoveredSection, ExamReadinessSection, TopLevelAgentBehaviorSection, PlanProgressSection, ModuleProgressView } from "./caller-detail/ProgressTab";
 import { ArtifactsSection } from "./caller-detail/ArtifactsTab";
 import { UnifiedPromptSection } from "./caller-detail/PromptsSection";
@@ -1041,6 +1042,7 @@ export default function CallerDetailPage() {
           {profileVis.enrollments !== false && (
             <CallerEnrollmentsSection callerId={callerId} domainId={data.caller?.domainId} onCountChange={setEnrollmentCount} />
           )}
+          <SurveySection callerId={callerId} />
         </>
       )}
 

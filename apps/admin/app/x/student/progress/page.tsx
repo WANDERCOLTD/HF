@@ -65,14 +65,19 @@ function StudentProgressContent() {
             if (d.totalCalls === 0 && !onboardingSeen) {
               setShowOnboarding(true);
             }
-            // Check if post-survey banner should show (5+ calls, not yet submitted)
-            if (d.totalCalls >= 5) {
-              fetch(buildUrl("/api/student/survey?scope=POST_SURVEY"))
-                .then((r) => r.json())
-                .then((s) => {
-                  if (!s.submitted_at) setShowSurveyBanner(true);
-                })
-                .catch(() => {});
+            // Check if post-survey banner should show (triggerAfterCalls+ calls, not yet submitted)
+            if (d.totalCalls > 0) {
+              Promise.all([
+                fetch(buildUrl("/api/student/survey?scope=POST_SURVEY")).then((r) => r.json()),
+                fetch(buildUrl("/api/student/survey-config")).then((r) => r.json()).catch(() => null),
+              ]).then(([surveyData, configData]) => {
+                const threshold = configData?.ok
+                  ? configData.offboarding?.triggerAfterCalls ?? 5
+                  : 5;
+                if (d.totalCalls >= threshold && !surveyData?.submitted_at) {
+                  setShowSurveyBanner(true);
+                }
+              }).catch(() => {});
             }
           }
         }

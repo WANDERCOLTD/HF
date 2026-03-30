@@ -22,6 +22,7 @@ const VALID_SESSION_TYPES = [
   "review",
   "assess",
   "consolidate",
+  "offboarding",
 ] as const;
 
 interface LessonPlanMediaRef {
@@ -329,12 +330,12 @@ async function runBackgroundLessonPlanGeneration(
     const targetHint = totalSessionTarget
       ? `The educator has requested EXACTLY ${totalSessionTarget} sessions total. You MUST return exactly ${totalSessionTarget} entries.${
           totalSessionTarget <= 2
-            ? " With only 1-2 sessions, skip onboarding/consolidate/review — use only introduce and deepen types. Combine multiple modules into single sessions if needed."
+            ? " With only 1-2 sessions, skip onboarding/offboarding/consolidate/review — use only introduce and deepen types. Combine multiple modules into single sessions if needed."
             : totalSessionTarget <= 4
-              ? " Session 1 must be onboarding. Skip consolidate/review — use the remaining sessions for introduce and deepen. Combine related modules if needed."
+              ? " Session 1 must be onboarding. Skip offboarding/consolidate/review — use the remaining sessions for introduce and deepen. Combine related modules if needed."
               : totalSessionTarget <= 6
-                ? " Session 1 must be onboarding. Skip consolidate unless there are enough sessions."
-                : ""
+                ? " Session 1 must be onboarding. Last session must be offboarding. Skip consolidate unless there are enough sessions."
+                : ` Session 1 must be onboarding. Session ${totalSessionTarget} must be offboarding.`
         }`
       : "Propose a reasonable number of sessions based on the content depth.";
 
@@ -357,10 +358,11 @@ async function runBackgroundLessonPlanGeneration(
     const systemPrompt = `You are a curriculum planning assistant. Given a set of teaching modules, propose a structured lesson plan — an ordered sequence of call sessions that covers all modules effectively.
 
 Rules:
-- Each session has a type: onboarding (first session), introduce (first exposure to module), deepen (revisit module for mastery), review (consolidate multiple modules), assess (test knowledge), consolidate (final synthesis)
+- Each session has a type: onboarding (first session), introduce (first exposure to module), deepen (revisit module for mastery), review (consolidate multiple modules), assess (test knowledge), consolidate (final synthesis), offboarding (last session — course wrap-up, feedback, celebration)
 - ${targetHint}
 - The session count target is the MOST IMPORTANT constraint. All other rules below are secondary and should be relaxed if they conflict with the target count.
-- When sessions allow: first session should be onboarding, end with consolidate, include periodic review sessions every 3-4 modules
+- When sessions allow (n > 4): first session should be onboarding, LAST session should be offboarding (not consolidate), include periodic review sessions every 3-4 modules. Use consolidate for pre-final synthesis, not the final session.
+- When n <= 4: first session should be onboarding, skip offboarding.
 - Each module should have at least an "introduce" session, and larger modules (more assertions) should also have "deepen" sessions. If there are fewer sessions than modules, combine related modules into single sessions.
 - ${durationHint}
 - ${emphasisHint}
@@ -447,7 +449,7 @@ Total modules: ${modules.length}`;
       });
 
       if (assertions.length > 0) {
-        const teachingSessions = entries.filter((e) => !["onboarding"].includes(e.type));
+        const teachingSessions = entries.filter((e) => !["onboarding", "offboarding"].includes(e.type));
         const target = teachingSessions.length > 0 ? teachingSessions : entries;
         for (let i = 0; i < assertions.length; i++) {
           target[i % target.length].assertionIds!.push(assertions[i].id);

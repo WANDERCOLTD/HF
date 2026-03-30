@@ -4,7 +4,7 @@
  */
 
 import {
-  Sparkles, BookOpen, Layers, RotateCcw, Target, CheckCircle,
+  Sparkles, BookOpen, Layers, RotateCcw, Target, CheckCircle, Flag,
 } from 'lucide-react';
 
 export const SESSION_TYPES = [
@@ -14,6 +14,7 @@ export const SESSION_TYPES = [
   { value: 'review', label: 'Review', color: 'var(--status-warning-text)' },
   { value: 'assess', label: 'Assess', color: 'var(--status-error-text)' },
   { value: 'consolidate', label: 'Consolidate', color: 'var(--status-success-text)' },
+  { value: 'offboarding', label: 'Offboarding', color: 'var(--login-gold)' },
 ] as const;
 
 export const SESSION_TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; style?: React.CSSProperties; className?: string }>> = {
@@ -23,6 +24,7 @@ export const SESSION_TYPE_ICONS: Record<string, React.ComponentType<{ size?: num
   review: RotateCcw,
   assess: Target,
   consolidate: CheckCircle,
+  offboarding: Flag,
 };
 
 export function getSessionTypeColor(type: string): string {
@@ -48,5 +50,5 @@ export function isTeachingSession(type: string): boolean {
 export function estimateTeachingSessions(sessionCount: number): number {
   if (sessionCount <= 2) return sessionCount; // all teaching, no structural sessions
   if (sessionCount <= 4) return sessionCount - 1; // 1 onboarding, no consolidate
-  return sessionCount - 2; // 1 onboarding + 1 consolidate
+  return sessionCount - 2; // 1 onboarding + 1 offboarding
 }

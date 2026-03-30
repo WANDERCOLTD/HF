@@ -74,6 +74,7 @@
   - [Snapshots](#snapshots)
   - [Specs](#specs)
   - [Status](#status)
+  - [Student](#student)
   - [Subjects](#subjects)
   - [System](#system)
   - [Tasks](#tasks)
@@ -5173,6 +5174,62 @@ Returns aggregated setup status for stages 4-6 of the Course Setup Tracker.
 ### `GET` /api/courses/:courseId/subjects
 
 **Auth**: VIEWER+
+
+---
+
+### `GET` /api/courses/:courseId/survey-config
+
+Load survey config for a course — onboarding + offboarding steps, with defaults.
+
+**Auth**: Session · **Scope**: `survey:read`
+
+**Response** `200`
+```json
+{ ok: true, onboarding: {...}, offboarding: {...}, subject: string }
+```
+
+**Response** `401`
+```json
+Unauthorized
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: "..." }
+```
+
+---
+
+### `PATCH` /api/courses/:courseId/survey-config
+
+Update survey config for a course — onboarding and/or offboarding steps.
+
+**Auth**: Session · **Scope**: `survey:write`
+
+**Response** `200`
+```json
+{ ok: true }
+```
+
+**Response** `401`
+```json
+Unauthorized
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: "..." }
+```
 
 ---
 
@@ -11857,6 +11914,24 @@ Lightweight status bar data — call activity (OPERATOR+) and AI spend (ADMIN+).
 
 ---
 
+## Student
+
+### `GET` /api/student/survey-config
+
+**Auth**: STUDENT | OPERATOR+ (with callerId param)
+
+**Response** `200`
+```json
+{ ok, subject, onboarding: { surveySteps }, offboarding: { triggerAfterCalls, surveySteps } }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "..." }
+```
+
+---
+
 ## Subjects
 
 ### `GET` /api/subjects
@@ -13413,8 +13488,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 402 |
-| Files with annotations | 401 |
+| Route files found | 404 |
+| Files with annotations | 403 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 
