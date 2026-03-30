@@ -8,7 +8,8 @@ import { executeCommand, parseCommand } from "@/lib/chat/commands";
 import { logAI } from "@/lib/logger";
 import { logAIInteraction } from "@/lib/ai/knowledge-accumulation";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import { validateBody, chatRequestSchema } from "@/lib/validation";
+import { validateBody } from "@/lib/validation";
+import { z } from "zod";
 import { ADMIN_TOOLS } from "@/lib/chat/admin-tools";
 import { executeAdminTool } from "@/lib/chat/admin-tool-handlers";
 import { CHAT_TOOLS, executeToolCall, buildContentCatalog } from "./tools";
@@ -74,8 +75,19 @@ export async function POST(request: NextRequest) {
     if (isAuthError(authResult)) return authResult.error;
     const userRole = authResult.session.user.role;
 
-    // Now validate the full body with zod (after auth — gives modules time to resolve)
-    const v = validateBody(chatRequestSchema, rawBody);
+    // Inline schema — avoids Turbopack barrel re-export cold-start race
+    const chatSchema = z.object({
+      message: z.string().min(1).max(50_000),
+      mode: z.enum(["DATA", "CALL", "BUG", "WIZARD", "COURSE_REF"]),
+      entityContext: z.array(z.object({ type: z.string(), id: z.string(), label: z.string(), data: z.record(z.unknown()).optional() })).default([]),
+      conversationHistory: z.array(z.object({ role: z.string(), content: z.string() })).default([]),
+      isCommand: z.boolean().optional(),
+      engine: z.string().optional(),
+      callId: z.string().optional(),
+      bugContext: z.object({ url: z.string(), errors: z.array(z.object({ message: z.string(), source: z.string().optional(), timestamp: z.number(), status: z.number().optional(), stack: z.string().optional(), url: z.string().optional() })), browser: z.string(), viewport: z.string(), timestamp: z.number() }).optional(),
+      setupData: z.record(z.unknown()).optional(),
+    });
+    const v = validateBody(chatSchema, rawBody);
     if (!v.ok) return v.error;
     const { message, entityContext, conversationHistory, engine, callId: requestCallId, bugContext, setupData } = v.data;
 
