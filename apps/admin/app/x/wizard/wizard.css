@@ -162,8 +162,8 @@
 }
 
 .cv4-bubble--user {
-  background: #3b82f6;
-  color: #fff;
+  background: var(--accent-primary);
+  color: var(--surface-primary);
   border-radius: 16px 16px 4px 16px;
 }
 
@@ -437,7 +437,7 @@
   border: none;
   border-radius: 8px;
   background: var(--accent-primary);
-  color: #fff;
+  color: var(--surface-primary);
   cursor: pointer;
   flex-shrink: 0;
   transition: opacity 0.15s;
@@ -482,16 +482,16 @@
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 500;
-  border: 1.5px solid #3b82f6;
+  border: 1.5px solid var(--accent-primary);
   border-radius: 20px;
-  background: color-mix(in srgb, #3b82f6 6%, var(--surface-primary));
-  color: #3b82f6;
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-primary));
+  color: var(--accent-primary);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
 
 .cv4-suggestion-chip:hover {
-  background: color-mix(in srgb, #3b82f6 15%, var(--surface-primary));
+  background: color-mix(in srgb, var(--accent-primary) 15%, var(--surface-primary));
 }
 
 .cv4-suggestion-chip--subtle {
@@ -755,6 +755,13 @@
 
 .cv4-firstcall-body .ob-preview-chat {
   border-radius: 0;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.cv4-phase-add-wrap {
+  position: relative;
+  display: inline-flex;
 }
 
 .cv4-lesson-row {
@@ -1059,7 +1066,7 @@
 .cv4-option-row--focused .cv4-option-number,
 .cv4-option-row:hover .cv4-option-number {
   background: var(--accent-primary);
-  color: #fff;
+  color: var(--surface-primary);
 }
 
 .cv4-option-checkbox {
@@ -1082,7 +1089,7 @@
   content: "";
   position: absolute;
   inset: 2px;
-  background: #fff;
+  background: var(--surface-primary);
   mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 4l3 3 5-6' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   mask-repeat: no-repeat;
   mask-position: center;
@@ -1179,7 +1186,7 @@
   font-size: 12px;
   font-weight: 600;
   background: var(--accent-primary);
-  color: #fff;
+  color: var(--surface-primary);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -1669,84 +1676,3 @@
   background: var(--border-default);
 }
 
-/* ── Demo Reset (SUPERADMIN only) ─────────────────────── */
-
-.cv4-demo-reset {
-  padding: 8px 12px;
-  margin-bottom: 8px;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: var(--surface-secondary);
-}
-
-.cv4-demo-reset-btn {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border-default);
-  background: var(--surface-primary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  width: 100%;
-  text-align: center;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.cv4-demo-reset-btn:hover {
-  border-color: var(--status-warning);
-  color: var(--status-warning);
-}
-
-.cv4-demo-reset-confirm {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.cv4-demo-reset-label {
-  font-size: 11px;
-  color: var(--text-secondary);
-  flex: 1;
-  min-width: 0;
-}
-
-.cv4-demo-reset-yes {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 5px;
-  border: 1px solid var(--status-warning);
-  background: color-mix(in srgb, var(--status-warning) 10%, var(--surface-primary));
-  color: var(--status-warning);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.cv4-demo-reset-cancel {
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 5px;
-  border: 1px solid var(--border-default);
-  background: var(--surface-primary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.cv4-demo-reset-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-
-.cv4-demo-reset-status--done {
-  color: var(--status-success);
-}
-
-.cv4-demo-reset-status--error {
-  color: var(--status-error);
-}

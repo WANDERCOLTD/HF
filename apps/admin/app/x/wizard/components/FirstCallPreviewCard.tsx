@@ -179,7 +179,7 @@ export function FirstCallPreviewCard({ preview, onUpdated }: FirstCallPreviewCar
 
       {open && (
         <div className="cv4-firstcall-body">
-          <div className="ob-preview-chat" style={{ maxHeight: 500 }}>
+          <div className="ob-preview-chat">
             {/* Welcome phase */}
             {phases[0] && (
               <>
@@ -330,7 +330,7 @@ function PhaseAttachments({
         </span>
       ))}
 
-      <div style={{ position: "relative", display: "inline-flex" }}>
+      <div className="cv4-phase-add-wrap">
         <button
           type="button"
           className="ob-edit-add-btn"

@@ -44,7 +44,13 @@ registerTransform("computeQuickStart", (
   const pbConfig = (playbook?.config || {}) as PlaybookConfig;
   const subjectDiscipline = pbConfig.subjectDiscipline;
   const courseContext = pbConfig.courseContext;
-  const subjectRef = subjectDiscipline || playbook?.name || null;
+  // Derive subject name from PlaybookSubject data when subjectDiscipline isn't explicitly set
+  const subjectNames = (loadedData.subjectSources as any)?.subjects
+    ?.map((s: any) => s.name)
+    ?.filter(Boolean) as string[] | undefined;
+  const subjectRef = subjectDiscipline
+    || (subjectNames?.length ? subjectNames.join(" & ") : null)
+    || null;
   const audienceId = pbConfig.audience;
   const constraints = pbConfig.constraints;
   const sessionCount = pbConfig.sessionCount;

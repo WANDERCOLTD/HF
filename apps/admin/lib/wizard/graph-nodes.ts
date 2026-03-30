@@ -9,6 +9,14 @@
 
 import type { WizardGraphNode } from "./graph-schema";
 
+/**
+ * Institution types and audience values that auto-activate the deep
+ * pedagogy interview (courseRefEnabled). If a user's typeSlug or
+ * audience matches any of these, the wizard offers skills framework,
+ * teaching principles, course phases, and edge case sections.
+ */
+export const PEDAGOGY_TRIGGER_SLUGS = new Set(["higher-ed"]);
+
 // ── Domain dependency shorthand ───────────────────────────
 // Institution resolution produces EITHER existingDomainId (found in DB)
 // OR the wizard tracks a draftDomainId (new institution). Either satisfies

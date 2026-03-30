@@ -8,6 +8,7 @@ import { executeCommand, parseCommand } from "@/lib/chat/commands";
 import { logAI } from "@/lib/logger";
 import { logAIInteraction } from "@/lib/ai/knowledge-accumulation";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { validateBody, chatRequestSchema } from "@/lib/validation";
 import { ADMIN_TOOLS } from "@/lib/chat/admin-tools";
 import { executeAdminTool } from "@/lib/chat/admin-tool-handlers";
 import { CHAT_TOOLS, executeToolCall, buildContentCatalog } from "./tools";
@@ -42,33 +43,6 @@ interface EntityBreadcrumb {
   data?: Record<string, unknown>;
 }
 
-interface BugContextPayload {
-  url: string;
-  errors: Array<{
-    message: string;
-    source?: string;
-    timestamp: number;
-    status?: number;
-    stack?: string;
-    url?: string;
-  }>;
-  browser: string;
-  viewport: string;
-  timestamp: number;
-}
-
-interface ChatRequest {
-  message: string;
-  mode: ChatMode;
-  entityContext: EntityBreadcrumb[];
-  conversationHistory?: { role: string; content: string }[];
-  isCommand?: boolean;
-  engine?: AIEngine;
-  callId?: string; // Active call ID for media message creation in CALL mode
-  bugContext?: BugContextPayload; // Bug report context for BUG mode
-  setupData?: Record<string, unknown>; // Current wizard state for WIZARD mode
-}
-
 const MAX_TOOL_ITERATIONS = 5;
 
 /**
@@ -94,12 +68,10 @@ export async function POST(request: NextRequest) {
     if (isAuthError(authResult)) return authResult.error;
     const userRole = authResult.session.user.role;
 
-    const body: ChatRequest = await request.json();
-    const { message, mode, entityContext, conversationHistory = [], engine, callId: requestCallId, bugContext, setupData } = body;
-
-    if (!message?.trim()) {
-      return NextResponse.json({ ok: false, error: "Message is required" }, { status: 400 });
-    }
+    const rawBody = await request.json();
+    const v = validateBody(chatRequestSchema, rawBody);
+    if (!v.ok) return v.error;
+    const { message, mode, entityContext, conversationHistory, engine, callId: requestCallId, bugContext, setupData } = v.data;
 
     // WIZARD mode: handle early (has its own system prompt, no slash commands)
     if (mode === "WIZARD") {
