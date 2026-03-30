@@ -87,6 +87,9 @@ export async function POST(request: NextRequest) {
       bugContext: z.object({ url: z.string(), errors: z.array(z.object({ message: z.string(), source: z.string().optional(), timestamp: z.number(), status: z.number().optional(), stack: z.string().optional(), url: z.string().optional() })), browser: z.string(), viewport: z.string(), timestamp: z.number() }).optional(),
       setupData: z.record(z.unknown()).optional(),
     });
+    // Debug: log if schema or validateBody are undefined
+    if (!chatSchema) console.error("CHAT DEBUG: chatSchema is undefined, z is:", typeof z);
+    if (!validateBody) console.error("CHAT DEBUG: validateBody is undefined");
     const v = validateBody(chatSchema, rawBody);
     if (!v.ok) return v.error;
     const { message, entityContext, conversationHistory, engine, callId: requestCallId, bugContext, setupData } = v.data;
