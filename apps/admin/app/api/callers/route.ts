@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { requireEntityAccess, isEntityAuthError, buildScopeFilter } from "@/lib/access-control";
 import { enrollCaller, enrollCallerInCohortPlaybooks, resolveAndEnrollSingle } from "@/lib/enrollment";
+import { instantiatePlaybookGoals } from "@/lib/enrollment/instantiate-goals";
+import { autoComposeForCaller } from "@/lib/enrollment/auto-compose";
 import { parsePagination } from "@/lib/api-utils";
 
 /**
@@ -258,6 +260,17 @@ export async function POST(req: Request) {
       await enrollCallerInCohortPlaybooks(caller.id, cohortGroupId, caller.domainId, "auto");
     } else if (caller.domainId) {
       await resolveAndEnrollSingle(caller.id, caller.domainId, "auto");
+    }
+
+    // Instantiate goals from playbook config (if any)
+    // Auto-compose first prompt so VAPI calls don't hit the generic fallback
+    if (caller.domainId) {
+      await instantiatePlaybookGoals(caller.id, caller.domainId).catch((err) => {
+        console.error(`[callers] Goal instantiation failed for ${caller.id}:`, err.message);
+      });
+      autoComposeForCaller(caller.id).catch((err) => {
+        console.error(`[callers] Auto-compose failed for ${caller.id}:`, err.message);
+      });
     }
 
     return NextResponse.json({
