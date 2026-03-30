@@ -9,7 +9,6 @@ import { logAI } from "@/lib/logger";
 import { logAIInteraction } from "@/lib/ai/knowledge-accumulation";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { validateBody } from "@/lib/validation";
-import { chatRequestSchema } from "@/lib/validation/schemas";
 import { ADMIN_TOOLS } from "@/lib/chat/admin-tools";
 import { executeAdminTool } from "@/lib/chat/admin-tool-handlers";
 import { CHAT_TOOLS, executeToolCall, buildContentCatalog } from "./tools";
@@ -67,6 +66,8 @@ export async function POST(request: NextRequest) {
   try {
     // Parse body first so we can branch auth by mode
     const rawBody = await request.json();
+    // Dynamic import avoids Turbopack top-level resolution race with zod schemas
+    const { chatRequestSchema } = await import("@/lib/validation/schemas");
     const v = validateBody(chatRequestSchema, rawBody);
     if (!v.ok) return v.error;
     const { message, mode, entityContext, conversationHistory, engine, callId: requestCallId, bugContext, setupData } = v.data;
