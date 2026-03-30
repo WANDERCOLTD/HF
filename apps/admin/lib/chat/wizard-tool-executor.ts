@@ -164,18 +164,66 @@ export async function executeWizardTool(
           };
         }
 
-        // No DB match — try name-based type inference for new institutions
-        const inferredType = inferTypeFromName(fields.institutionName);
-        if (inferredType) {
+        // No DB match — auto-create institution + domain eagerly
+        // This unblocks the SourcesPanel (needs domainId for file uploads)
+        const typeSlug = (fields.typeSlug as string) || (setupData?.typeSlug as string) || inferTypeFromName(fields.institutionName) || undefined;
+        try {
+          const { prisma } = await import("@/lib/prisma");
+          const slugify = (await import("slugify")).default;
+          const instName = fields.institutionName as string;
+
+          let typeId: string | undefined;
+          let domainKind: "INSTITUTION" | "COMMUNITY" = "INSTITUTION";
+          if (typeSlug) {
+            const instType = await prisma.institutionType.findFirst({
+              where: { slug: typeSlug },
+              select: { id: true, defaultDomainKind: true },
+            });
+            typeId = instType?.id;
+            if (instType?.defaultDomainKind === "COMMUNITY") domainKind = "COMMUNITY";
+          }
+
+          const institution = await prisma.institution.create({
+            data: {
+              name: instName,
+              slug: slugify(instName, { lower: true, strict: true }),
+              ...(typeId ? { typeId } : {}),
+            },
+          });
+
+          const domain = await prisma.domain.create({
+            data: {
+              name: instName,
+              slug: slugify(instName, { lower: true, strict: true }),
+              institutionId: institution.id,
+              kind: domainKind,
+            },
+          });
+
+          await prisma.user.update({
+            where: { id: userId },
+            data: { activeInstitutionId: institution.id },
+          });
+
+          console.log(`[wizard-tools] Auto-created institution "${instName}" (${institution.id}) + domain (${domain.id}) in update_setup`);
+
           return {
             ...base,
+            autoInjectFields: {
+              draftDomainId: domain.id,
+              draftInstitutionId: institution.id,
+              defaultDomainKind: domainKind,
+              ...(typeSlug ? { typeSlug } : {}),
+            },
             content:
               `Saved ${keys.length} field(s): ${keys.join(", ")}. ` +
-              `No existing institution found. TYPE AUTO-SET: "${inferredType}" ` +
-              `(inferred from the name "${fields.institutionName}"). ` +
-              `Call update_setup now with: { typeSlug: "${inferredType}" } — ` +
-              `then skip to the next unanswered field (do NOT ask about organisation type).`,
+              `No existing institution — created "${instName}" ` +
+              `(type: ${typeSlug || "general"}, domainId: ${domain.id}). ` +
+              `Proceed to the next unanswered field.`,
           };
+        } catch (createErr) {
+          console.error("[wizard-tools] Auto-create institution in update_setup failed:", createErr);
+          // Fall through — the safety nets in show_upload/create_course will catch it
         }
       }
 
