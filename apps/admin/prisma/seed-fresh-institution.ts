@@ -57,11 +57,11 @@ const TABLES_TO_CLEAR = [
   "PipelineStep",
   "PipelineRun",
   "FailedCall",
+  "PersonalityObservation",
   "Call",
 
   // Caller data
   "CallerModuleProgress",
-  "PersonalityObservation",
   "CallerPersonalityProfile",
   "CallerPersonality",
   "CallerMemorySummary",
@@ -74,13 +74,11 @@ const TABLES_TO_CLEAR = [
   "Goal",
   "OnboardingSession",
   "ExcludedCaller",
-  "Caller",
-
-  // Prompts (composed, not templates)
   "ComposedPrompt",
   "PromptSlugSelection",
   "PromptSlugReward",
   "PromptSlugStats",
+  "Caller",
 
   // Playbooks & curriculum
   "PlaybookItem",
