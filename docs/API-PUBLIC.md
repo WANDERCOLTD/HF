@@ -959,6 +959,28 @@ application/json attachment: { _meta, summary, caller, personality, memory, call
 
 ---
 
+### `GET` /api/v1/callers/:callerId/survey
+
+Fetch pre- and post-survey answers for a caller (stored as CallerAttribute records)
+
+**Auth**: OPERATOR · **Scope**: `callers:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | path | string | Yes | The caller ID |
+
+**Response** `200`
+```json
+{ ok: true, pre: Record<string, string|number|null>, post: Record<string, string|number|null> }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `GET` /api/v1/callers/:callerId/trust-progress
 
 Compute trust-weighted progress for a caller across all active curricula

@@ -1,0 +1,42 @@
+/* ── Post Survey Page ── */
+
+.post-survey-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100%;
+  padding: 24px;
+  background: var(--surface-secondary);
+}
+
+.post-survey-wrap .cs-container {
+  height: min(600px, 80dvh);
+  width: 100%;
+  max-width: 520px;
+}
+
+/* Thank-you state */
+.post-survey-thanks {
+  text-align: center;
+  padding: 48px 24px;
+  max-width: 400px;
+}
+
+.post-survey-thanks-icon {
+  font-size: 48px;
+  color: var(--status-success-text);
+  margin-bottom: 16px;
+}
+
+.post-survey-thanks-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.post-survey-thanks-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}

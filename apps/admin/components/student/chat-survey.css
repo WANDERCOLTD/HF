@@ -1,0 +1,292 @@
+/* ── Chat Survey ── cs-* prefix ── */
+/* WhatsApp-style conversational survey */
+
+.cs-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100dvh;
+  max-width: 520px;
+  margin: 0 auto;
+  background: var(--wa-bg);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px var(--wa-shadow);
+}
+
+/* Header */
+.cs-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--wa-header-bg);
+  color: var(--wa-header-text);
+}
+
+.cs-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--wa-avatar-bg);
+  color: var(--wa-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.cs-header-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.cs-header-status {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* Messages area */
+.cs-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background-image: url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M15 20 Q 20 10, 25 20' fill='none' stroke='var(--wa-pattern-fill, %23c8c3bb)' stroke-width='0.5' opacity='var(--wa-pattern-opacity, 0.15)' /%3E%3C/svg%3E");
+}
+
+/* Bubbles */
+.cs-bubble {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.45;
+  animation: cs-fade-in 0.25s ease-out;
+}
+
+.cs-bubble--assistant {
+  align-self: flex-start;
+  background: var(--wa-bubble-in);
+  color: var(--wa-text-primary);
+  border-top-left-radius: 2px;
+  box-shadow: 0 1px 0.5px var(--wa-shadow);
+}
+
+.cs-bubble--user {
+  align-self: flex-end;
+  background: var(--wa-bubble-out);
+  color: var(--wa-text-primary);
+  border-top-right-radius: 2px;
+  box-shadow: 0 1px 0.5px var(--wa-shadow);
+}
+
+@keyframes cs-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Typing indicator */
+.cs-typing {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.cs-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--wa-text-muted);
+  animation: cs-dot 1.4s infinite ease-in-out;
+}
+
+.cs-typing span:nth-child(2) { animation-delay: 0.2s; }
+.cs-typing span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes cs-dot {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+/* Input area — inline in chat */
+.cs-input-area {
+  align-self: stretch;
+  padding: 8px 0;
+  animation: cs-fade-in 0.3s ease-out;
+}
+
+/* Stars */
+.cs-stars {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.cs-star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--wa-text-muted);
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.15s;
+}
+
+.cs-star-btn:hover {
+  color: var(--login-gold);
+  transform: scale(1.2);
+}
+
+.cs-star-btn:active {
+  transform: scale(0.95);
+}
+
+/* Options (chips) */
+.cs-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.cs-option-btn {
+  padding: 8px 16px;
+  border-radius: 18px;
+  border: 1.5px solid var(--wa-border);
+  background: var(--wa-surface);
+  color: var(--wa-text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cs-option-btn:hover {
+  background: var(--wa-green-primary);
+  color: white;
+  border-color: var(--wa-green-primary);
+}
+
+.cs-option-btn:active {
+  transform: scale(0.97);
+}
+
+/* NPS row */
+.cs-nps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.cs-nps-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--wa-border);
+  background: var(--wa-surface);
+  color: var(--wa-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cs-nps-btn:hover {
+  background: var(--wa-green-primary);
+  color: white;
+  border-color: var(--wa-green-primary);
+}
+
+.cs-nps-labels {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 4px 8px 0;
+  font-size: 11px;
+  color: var(--wa-text-muted);
+}
+
+/* Text input */
+.cs-text-input {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: var(--wa-surface);
+  border-radius: 20px;
+  padding: 6px 8px 6px 14px;
+  box-shadow: 0 1px 2px var(--wa-shadow);
+}
+
+.cs-textarea {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--wa-text-primary);
+  resize: none;
+  line-height: 1.4;
+  padding: 4px 0;
+}
+
+.cs-textarea::placeholder {
+  color: var(--wa-text-muted);
+}
+
+.cs-send-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--wa-green-primary);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.cs-send-btn:hover { opacity: 0.9; }
+.cs-send-btn:disabled { opacity: 0.4; cursor: default; }
+
+.cs-skip-btn {
+  background: none;
+  border: none;
+  color: var(--wa-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  text-decoration: underline;
+}
+
+/* Complete state */
+.cs-complete {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+  animation: cs-fade-in 0.3s ease-out;
+}
+
+.cs-submit-btn {
+  padding: 12px 32px;
+  border-radius: 24px;
+  border: none;
+  background: var(--wa-green-primary);
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 2px 8px var(--wa-shadow);
+}
+
+.cs-submit-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.cs-submit-btn:disabled { opacity: 0.5; cursor: default; transform: none; }

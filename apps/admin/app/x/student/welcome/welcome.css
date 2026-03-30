@@ -1,0 +1,22 @@
+/* ── Welcome Survey Page ── */
+
+.welcome-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100%;
+  padding: 24px;
+  background: var(--surface-secondary);
+}
+
+.welcome-page .cs-container {
+  height: min(600px, 80dvh);
+  width: 100%;
+}
+
+.welcome-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}

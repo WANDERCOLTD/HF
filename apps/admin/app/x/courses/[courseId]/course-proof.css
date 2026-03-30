@@ -1,0 +1,288 @@
+/* ── Course Proof Points Tab ── cp-* prefix ── */
+
+.cp-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Section */
+.cp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cp-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cp-n {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* Awaiting state */
+.cp-awaiting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Confidence Lift bars */
+.cp-lift {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.cp-bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cp-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cp-bar-label {
+  width: 36px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.cp-bar-track {
+  flex: 1;
+  height: 20px;
+  background: var(--surface-secondary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cp-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.cp-bar--pre {
+  background: color-mix(in srgb, var(--text-muted) 40%, transparent);
+}
+
+.cp-bar--post {
+  background: var(--accent-primary);
+}
+
+.cp-bar-value {
+  width: 60px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+/* Sigma card */
+.cp-sigma-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 20px;
+  background: var(--surface-secondary);
+  border-radius: 12px;
+  min-width: 100px;
+}
+
+.cp-sigma-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cp-sigma--great {
+  color: var(--status-success-text);
+}
+
+.cp-sigma--good {
+  color: var(--accent-primary);
+}
+
+.cp-sigma--early {
+  color: var(--text-muted);
+}
+
+.cp-sigma-detail {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Summary stat cards */
+.cp-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.cp-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px;
+  text-align: center;
+}
+
+.cp-stat-icon {
+  color: var(--text-muted);
+}
+
+.cp-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cp-stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Table header */
+.cp-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cp-table-count {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cp-table-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Table */
+.cp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.cp-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-default);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.cp-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.cp-sortable:hover {
+  color: var(--text-primary);
+}
+
+.cp-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle, var(--border-default));
+  vertical-align: middle;
+}
+
+.cp-row:hover {
+  background: var(--surface-secondary);
+}
+
+.cp-student-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.cp-student-email {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Delta colors */
+.cp-delta--positive {
+  color: var(--status-success-text);
+  font-weight: 600;
+}
+
+.cp-delta--negative {
+  color: var(--status-error-text);
+  font-weight: 600;
+}
+
+/* Survey badges */
+.cp-survey-cell {
+  display: flex;
+  gap: 6px;
+}
+
+.cp-survey-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.cp-survey-badge--done {
+  background: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+  color: var(--status-success-text);
+}
+
+.cp-survey-badge--pending {
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+  color: var(--text-muted);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .cp-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cp-lift {
+    flex-direction: column;
+  }
+
+  .cp-table th:nth-child(n+6),
+  .cp-table td:nth-child(n+6) {
+    display: none;
+  }
+}

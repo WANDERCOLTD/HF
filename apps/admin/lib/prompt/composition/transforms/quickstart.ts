@@ -7,11 +7,12 @@
  */
 
 import { registerTransform } from "../TransformRegistry";
-import { classifyValue } from "../types";
+import { classifyValue, getAttributeValue } from "../types";
 import type { SpecConfig, PlaybookConfig } from "@/lib/types/json-fields";
-import type { AssembledContext } from "../types";
+import type { AssembledContext, CallerAttributeData } from "../types";
 import { PARAMS } from "@/lib/registry";
 import { getAudienceOption } from "./audience";
+import { SURVEY_SCOPES, PRE_SURVEY_KEYS } from "@/lib/learner/survey-keys";
 
 registerTransform("computeQuickStart", (
   _rawData: any,
@@ -140,6 +141,33 @@ registerTransform("computeQuickStart", (
           (caller.cohortGroup.owner?.name ? ` (teacher: ${caller.cohortGroup.owner.name})` : "");
       }
       return null;
+    })(),
+
+    learner_survey: (() => {
+      const surveyAttrs = loadedData.callerAttributes.filter(
+        (a: CallerAttributeData) => a.scope === SURVEY_SCOPES.PRE,
+      );
+      if (surveyAttrs.length === 0) return null;
+
+      const get = (key: string): string | null => {
+        const attr = surveyAttrs.find((a: CallerAttributeData) => a.key === key);
+        if (!attr) return null;
+        const val = getAttributeValue(attr);
+        return val != null ? String(val) : null;
+      };
+
+      const goal = get(PRE_SURVEY_KEYS.GOAL_TEXT);
+      const priorKnowledge = get(PRE_SURVEY_KEYS.PRIOR_KNOWLEDGE);
+      const concern = get(PRE_SURVEY_KEYS.CONCERN_TEXT);
+      const confidence = get(PRE_SURVEY_KEYS.CONFIDENCE);
+
+      const parts: string[] = [];
+      if (goal) parts.push(`Goal: "${goal}"`);
+      if (priorKnowledge) parts.push(`Prior knowledge: ${priorKnowledge}`);
+      if (confidence) parts.push(`Self-rated confidence: ${confidence}/5`);
+      if (concern) parts.push(`Concern: "${concern}"`);
+
+      return parts.length > 0 ? parts.join("\n") : null;
     })(),
 
     this_session: (() => {

@@ -7,7 +7,7 @@ import {
   BookMarked, FileText, ExternalLink, Plus, Pencil, Trash2,
   Sparkles, AlertTriangle, Info,
   Settings as SettingsIcon, Users2,
-  ListOrdered, Zap, Target,
+  ListOrdered, Zap, Target, BarChart3,
   PlayCircle,
 } from 'lucide-react';
 import { useTerminology } from '@/contexts/TerminologyContext';
@@ -17,6 +17,7 @@ import { CourseContentTab } from './CourseContentTab';
 import { CourseWhoTab } from './CourseWhoTab';
 import { CourseGoalsTab } from './CourseGoalsTab';
 import { CourseLearnersTab } from './CourseLearnersTab';
+import { CourseProofTab } from './CourseProofTab';
 import { SessionDetailPanel } from '@/components/shared/SessionDetailPanel';
 import { useSession } from 'next-auth/react';
 import { useEntityContext } from '@/contexts/EntityContext';
@@ -248,8 +249,9 @@ export default function CourseDetailPage() {
     { id: 'onboarding', label: 'Onboarding', icon: <PlayCircle size={14} /> },
     { id: 'content', label: 'Content', icon: <BookMarked size={14} />, count: contentOnlyCount || null },
     { id: 'sessions', label: 'Sessions', icon: <ListOrdered size={14} />, count: sessions?.plan?.estimatedSessions || null },
-    { id: 'audience', label: 'Audience', icon: <Users2 size={14} /> },
+    { id: 'audience', label: 'Cohort', icon: <Users2 size={14} /> },
     { id: 'learners', label: 'Learners', icon: <Users2 size={14} /> },
+    { id: 'proof', label: 'Proof Points', icon: <BarChart3 size={14} /> },
     { id: 'goals', label: 'Goals', icon: <Target size={14} /> },
     ...(isOperator ? [{ id: 'settings', label: 'Settings', icon: <SettingsIcon size={14} /> }] : []),
   ], [contentOnlyCount, isOperator, sessions]);
@@ -825,7 +827,7 @@ export default function CourseDetailPage() {
 
       {/* ── Tabs ──────────────────────────────────────── */}
       <DraggableTabs
-        storageKey="course-detail-tabs-v3"
+        storageKey="course-detail-tabs-v4"
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -903,6 +905,13 @@ export default function CourseDetailPage() {
       {/* ═══════════════════════════════════════════════ */}
       {activeTab === 'learners' && (
         <CourseLearnersTab courseId={courseId!} />
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* PROOF POINTS TAB                               */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === 'proof' && (
+        <CourseProofTab courseId={courseId!} />
       )}
 
       {/* ═══════════════════════════════════════════════ */}

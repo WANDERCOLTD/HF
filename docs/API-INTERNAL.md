@@ -2848,6 +2848,28 @@ application/json attachment: { _meta, summary, caller, personality, memory, call
 
 ---
 
+### `GET` /api/callers/:callerId/survey
+
+Fetch pre- and post-survey answers for a caller (stored as CallerAttribute records)
+
+**Auth**: OPERATOR · **Scope**: `callers:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | path | string | Yes | The caller ID |
+
+**Response** `200`
+```json
+{ ok: true, pre: Record<string, string|number|null>, post: Record<string, string|number|null> }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `POST` /api/callers/:callerId/switch-domain
 
 Switch a caller to a new domain. Archives old goals, creates new goals from the new domain's playbook, and optionally triggers re-onboarding.
@@ -8929,6 +8951,12 @@ List all classrooms (cohort groups) assigned to a course (playbook).
 
 ---
 
+### `GET` /api/courses/[courseId]/proof-points
+
+**Auth**: OPERATOR+
+
+---
+
 ### `GET` /api/courses/[courseId]/students
 
 List all students (callers) enrolled in a course (playbook).
@@ -9298,6 +9326,12 @@ Analyse the diff between a current and desired prompt, returning
 ### `GET` /api/student/progress
 
 **Auth**: STUDENT | OPERATOR+ (with callerId param)
+
+---
+
+### `GET` /api/student/survey
+
+**Auth**: VIEWER+
 
 ---
 
@@ -13379,10 +13413,10 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 399 |
-| Files with annotations | 398 |
+| Route files found | 402 |
+| Files with annotations | 401 |
 | Files missing annotations | 1 |
-| Coverage | 99.7% |
+| Coverage | 99.8% |
 
 ### Files missing `@api` annotations
 

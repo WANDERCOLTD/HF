@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { TrendingUp, Target, Phone, BookOpen, Lightbulb } from "lucide-react";
+import { TrendingUp, Target, Phone, BookOpen, Lightbulb, MessageSquare } from "lucide-react";
+import Link from "next/link";
 import StudentOnboarding from "@/components/student/StudentOnboarding";
 import { useStudentCallerId } from "@/hooks/useStudentCallerId";
 
@@ -49,6 +50,7 @@ function StudentProgressContent() {
   const [data, setData] = useState<ProgressData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showSurveyBanner, setShowSurveyBanner] = useState(false);
 
   useEffect(() => {
     if (isAdmin && !hasSelection) { setLoading(false); return; }
@@ -62,6 +64,15 @@ function StudentProgressContent() {
             const onboardingSeen = localStorage.getItem("onboarding-seen");
             if (d.totalCalls === 0 && !onboardingSeen) {
               setShowOnboarding(true);
+            }
+            // Check if post-survey banner should show (5+ calls, not yet submitted)
+            if (d.totalCalls >= 5) {
+              fetch(buildUrl("/api/student/survey?scope=POST_SURVEY"))
+                .then((r) => r.json())
+                .then((s) => {
+                  if (!s.submitted_at) setShowSurveyBanner(true);
+                })
+                .catch(() => {});
             }
           }
         }
@@ -131,6 +142,19 @@ function StudentProgressContent() {
         <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
           {data.classroom}{data.domain ? ` \u2014 ${data.domain}` : ""}
         </p>
+      )}
+
+      {/* Post-survey banner */}
+      {showSurveyBanner && (
+        <div className="hf-banner hf-banner-info" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <MessageSquare size={18} />
+          <span style={{ flex: 1 }}>
+            You&apos;ve completed {data.totalCalls} practice sessions! Tell us how it went — it takes 30 seconds.
+          </span>
+          <Link href="/x/student/survey/post" className="hf-btn hf-btn-primary" style={{ whiteSpace: "nowrap" }}>
+            Share Feedback &rarr;
+          </Link>
+        </div>
       )}
 
       {/* Stats */}

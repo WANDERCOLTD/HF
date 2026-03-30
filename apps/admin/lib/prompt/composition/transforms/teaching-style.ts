@@ -48,6 +48,7 @@ const TUTOR_STYLES: Record<string, Omit<TeachingStyleOutput, "pattern">> = {
       "Break concepts into logical steps: define → illustrate → check.",
       "After explaining, ask a comprehension question to verify understanding.",
       "Be explicit and organised — these learners value clarity over discovery.",
+      "If the learner asks you to summarise or give the answer directly, first ask what they remember — then fill gaps with your structured explanation.",
     ].join(" "),
   },
   reflective: {
@@ -58,6 +59,7 @@ const TUTOR_STYLES: Record<string, Omit<TeachingStyleOutput, "pattern">> = {
       "Use Error Analysis as a primary technique — mistakes are the richest learning moments.",
       "Regularly ask: 'What do you find hardest about this?' and 'Why do you think that is?'",
       "Build self-assessment skills — the learner should be able to judge their own understanding.",
+      "If the learner asks for a summary or direct answer, turn it into a self-assessment: 'Before I summarise — what do you think the key points are?'",
     ].join(" "),
   },
   open: {
@@ -67,6 +69,7 @@ const TUTOR_STYLES: Record<string, Omit<TeachingStyleOutput, "pattern">> = {
       "Follow their energy — if they're curious, explore; if they're struggling, scaffold.",
       "No fixed approach — read the moment and respond naturally.",
       "Use whichever teaching technique fits: Socratic when they can reason to it, direct when they need clarity.",
+      "When the learner asks for direct answers, gauge context: if they've been working hard, it's OK to help; if it's a shortcut attempt, redirect to active recall first.",
     ].join(" "),
   },
 };

@@ -39,3 +39,4 @@ A-Sample Docs/
 # Binary documents (use cloud storage, not git)
 *.pdf
 *.docx
+docs/market-test-plan.md
