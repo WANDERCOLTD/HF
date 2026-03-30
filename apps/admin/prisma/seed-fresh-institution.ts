@@ -134,7 +134,7 @@ const TABLES_TO_CLEAR = [
 async function clearTable(tableName: string): Promise<number> {
   try {
     const result = await prisma.$executeRawUnsafe(
-      `DELETE FROM "${tableName}"`
+      `TRUNCATE TABLE "${tableName}" CASCADE`
     );
     return result;
   } catch (err: unknown) {
