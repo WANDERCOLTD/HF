@@ -209,7 +209,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   // Sidebar width config
   const effectiveSidebarWidth = collapsed ? COLLAPSED_WIDTH : sidebarWidth;
 
-  const layoutHeight = '100vh';
+  const layoutHeight = '100dvh';
 
   // Auth pages, embed mode, and sim pages render without sidebar/chrome
   if (isAuthPage || isEmbed || isSimPage) {
@@ -360,7 +360,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body className="h-screen overflow-hidden bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased">
+      <body className="overflow-hidden bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased" style={{ height: '100dvh' }}>
         <EnvironmentBanner />
         <DynamicFavicon />
         <ErrorCaptureProvider>
