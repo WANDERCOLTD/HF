@@ -1201,17 +1201,17 @@ export async function executeWizardTool(
           }
         }
 
-        // 9a. Ensure the wizard user has a TEACHER Caller (needed for educator dashboard)
-        const existingTeacher = await prisma.caller.findFirst({
+        // 9a. Ensure the wizard user has a TEACHER Caller (needed for educator dashboard + cohort ownership)
+        let teacherCaller = await prisma.caller.findFirst({
           where: { userId, domainId, role: "TEACHER" },
           select: { id: true },
         });
-        if (!existingTeacher) {
+        if (!teacherCaller) {
           const user = await prisma.user.findUnique({
             where: { id: userId },
             select: { name: true, email: true },
           });
-          await prisma.caller.create({
+          teacherCaller = await prisma.caller.create({
             data: {
               name: user?.name || "Educator",
               email: user?.email || undefined,
@@ -1219,6 +1219,7 @@ export async function executeWizardTool(
               userId,
               domainId,
             },
+            select: { id: true },
           });
         }
 
@@ -1249,6 +1250,32 @@ export async function executeWizardTool(
             },
           });
         }
+
+        // 9d. Create default "Test Learners" cohort so the course has a join link
+        const joinToken = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+        const cohort = await prisma.cohortGroup.create({
+          data: {
+            name: `${courseName} — Test Learners`,
+            domainId,
+            ownerId: teacherCaller.id,
+            joinToken,
+            isActive: true,
+          },
+        });
+        await prisma.cohortPlaybook.create({
+          data: {
+            cohortGroupId: cohort.id,
+            playbookId,
+            assignedBy: "wizard-v5",
+          },
+        });
+        // Add the test caller to the cohort
+        await prisma.callerCohortMembership.create({
+          data: {
+            callerId: caller.id,
+            cohortGroupId: cohort.id,
+          },
+        });
 
         // 10. Backfill teachMethod on assertions extracted before teachingMode was set
         const resolvedTeachingModeNew = (input.teachingMode as string) || (setupData?.teachingMode as string);
@@ -1380,6 +1407,8 @@ export async function executeWizardTool(
             playbookId,
             callerId: caller.id,
             callerName,
+            cohortId: cohort.id,
+            joinToken,
             lessonPlanPreview,
             firstCallPreview,
           }),
