@@ -25,6 +25,9 @@ const MAX_OPTIONS = 10;
 /** Max label length for chip display */
 const MAX_LABEL_LENGTH = 60;
 
+/** File extensions that should never become chip labels */
+const FILE_EXT_RE = /\.\w{1,5}$/;
+
 /**
  * Extract short label from full option text.
  * Splits on common separators: " — ", " - ", ": "
@@ -253,13 +256,16 @@ export function stripParameterTags(text: string): string {
  * 5. Bold-prefixed: "**label** description"
  */
 export function parseOptionsFromText(text: string): ParsedOption[] {
-  return (
+  const raw =
     parseParameterTagOptions(text) ??
     parseNumberedOptions(text) ??
     parseLetteredOptions(text) ??
     parsePrefixedOptions(text) ??
     parseBulletedOptions(text) ??
     parseBoldPrefixedOptions(text) ??
-    []
-  );
+    [];
+
+  // Reject results where labels look like filenames (e.g. "Chapter-1.docx")
+  const filtered = raw.filter((o) => !FILE_EXT_RE.test(o.label));
+  return filtered.length >= MIN_OPTIONS ? filtered : [];
 }

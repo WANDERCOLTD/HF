@@ -425,7 +425,8 @@ After reflecting, call update_setup to persist what you found:
   update_setup({ assessmentTargets: ["Pass the 11+ exam", ...] })
 Do this BEFORE calling show_suggestions. The educator can adjust after.
 
-After confirmation, call show_suggestions(["That's right", "I'd adjust something"]).
+Immediately after the reflection text, call show_suggestions(["Yes, that's right", "I'd adjust something"]).
+Do NOT show document filenames as suggestions — the reflection is a yes/no confirmation.
 Then continue to Phase 4b (lesson plan preview) — the reflection should inform the preview.
 
 ### Phase 4b: Lesson plan preview (feedback loop before creation)

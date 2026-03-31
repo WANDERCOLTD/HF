@@ -3514,7 +3514,7 @@ model ContentSource {
   documentType            DocumentType @default(TEXTBOOK)
   documentTypeSource      String? // "ai:0.92" or "admin:manual" — provenance of classification
   textSample              String?      @db.Text // First ~1000 chars for few-shot classification learning
-  contentHash             String?      @unique // SHA-256 of raw file bytes — enables dedup on re-upload
+  contentHash             String? // SHA-256 of raw file bytes — enables institution-scoped dedup on re-upload
   aiClassification        String? // Original AI guess "TYPE:confidence" (never mutated after set)
   classificationCorrected Boolean      @default(false) // True when admin overrode AI's classification
 
@@ -3574,6 +3574,7 @@ model ContentSource {
   @@index([archivedAt])
   @@index([classificationCorrected])
   @@index([linkedSourceId])
+  @@index([contentHash])
 }
 
 // An atomic trusted teaching point with full provenance

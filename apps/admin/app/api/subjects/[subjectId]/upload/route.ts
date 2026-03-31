@@ -8,6 +8,7 @@ import { classifyDocument, fetchFewShotExamples } from "@/lib/content-trust/clas
 import { resolveExtractionConfig } from "@/lib/content-trust/resolve-config";
 import { getStorageAdapter, computeContentHash } from "@/lib/storage";
 import { config } from "@/lib/config";
+import { findDuplicateSource } from "@/lib/content-trust/dedup-source";
 
 /**
  * @api POST /api/subjects/:subjectId/upload
@@ -70,6 +71,63 @@ export async function POST(
     // ── Read file into buffer (used for text extraction + storage) ──
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    const contentHash = computeContentHash(buffer);
+
+    // ── Institution-scoped dedup check (fast, no AI) ──
+
+    const dedup = await findDuplicateSource(contentHash, subjectId);
+
+    if (dedup.deduplicated && dedup.existingSource) {
+      // Same file already uploaded + extracted within this institution — reuse it
+      const existingId = dedup.existingSource.id;
+
+      // Link existing source to this subject (idempotent)
+      await prisma.subjectSource.upsert({
+        where: { subjectId_sourceId: { subjectId, sourceId: existingId } },
+        update: {},
+        create: {
+          subjectId,
+          sourceId: existingId,
+          tags,
+          trustLevelOverride: trustLevelOverride ? (trustLevelOverride as any) : null,
+        },
+      });
+
+      // Link existing media to subject (idempotent)
+      const existingMedia = await prisma.mediaAsset.findUnique({ where: { contentHash } });
+      if (existingMedia) {
+        await prisma.subjectMedia.upsert({
+          where: { subjectId_mediaId: { subjectId, mediaId: existingMedia.id } },
+          update: {},
+          create: { subjectId, mediaId: existingMedia.id },
+        });
+      }
+
+      console.log(`[subjects/:id/upload] Deduplicated "${file.name}" → reusing source ${existingId} (${dedup.assertionCount} assertions)`);
+
+      return NextResponse.json(
+        {
+          ok: true,
+          source: {
+            id: dedup.existingSource.id,
+            slug: dedup.existingSource.slug,
+            name: dedup.existingSource.name,
+            trustLevel: dedup.existingSource.trustLevel,
+            documentType: dedup.existingSource.documentType,
+            documentTypeSource: null,
+          },
+          classification: null,
+          tags,
+          fileName: file.name,
+          textLength: null,
+          mediaId: existingMedia?.id ?? null,
+          awaitingClassification: false,
+          deduplicated: true,
+          assertionCount: dedup.assertionCount,
+        },
+        { status: 200 }
+      );
+    }
 
     // ── Extract text (fast, no AI) ──
 
@@ -111,7 +169,7 @@ export async function POST(
       ? [...tags, "syllabus"]
       : tags;
 
-    // ── Create ContentSource (with classified type) ──
+    // ── Create ContentSource (with classified type + contentHash) ──
 
     const baseSlug = file.name
       .replace(/\.[^/.]+$/, "")
@@ -133,6 +191,7 @@ export async function POST(
           documentTypeSource: `ai:${classification.confidence.toFixed(2)}`,
           textSample: text.substring(0, 1000),
           aiClassification: `${classification.documentType}:${classification.confidence.toFixed(2)}`,
+          contentHash,
         },
       });
     } catch (err: any) {
@@ -146,6 +205,7 @@ export async function POST(
             documentTypeSource: `ai:${classification.confidence.toFixed(2)}`,
             textSample: text.substring(0, 1000),
             aiClassification: `${classification.documentType}:${classification.confidence.toFixed(2)}`,
+            contentHash,
           },
         });
       } else {
@@ -165,10 +225,9 @@ export async function POST(
 
     // ── Store file in storage backend + create MediaAsset ──
 
-    const contentHash = computeContentHash(buffer);
     const storage = getStorageAdapter();
 
-    // Check for duplicate content
+    // Check for duplicate media content
     const existingMedia = await prisma.mediaAsset.findUnique({ where: { contentHash } });
     let mediaId: string;
 
@@ -233,6 +292,7 @@ export async function POST(
         textLength: text.length,
         mediaId,
         awaitingClassification: true,
+        deduplicated: false,
       },
       { status: 202 }
     );

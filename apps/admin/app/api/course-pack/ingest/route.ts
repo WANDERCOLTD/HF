@@ -8,6 +8,7 @@ import { config } from "@/lib/config";
 import type { InteractionPattern, TeachingMode } from "@/lib/content-trust/resolve-config";
 import { checkAutoTriggerCurriculum } from "@/lib/jobs/auto-trigger";
 import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
+import { findDuplicateSource } from "@/lib/content-trust/dedup-source";
 import type { SendIngestEvent } from "@/lib/content-trust/ingest-events";
 import pLimit from "p-limit";
 
@@ -648,12 +649,15 @@ async function createSource(
   const { text } = await extractTextFromBuffer(buffer, file.name);
   const finalDocType = documentType as DocumentType;
 
-  // Compute hash first — used for dedup at ContentSource level
+  // Compute hash first — used for institution-scoped dedup
   const contentHash = computeContentHash(buffer);
 
-  // Dedup: reuse existing ContentSource if the same file was uploaded before
-  let deduplicated = false;
-  let source = await prisma.contentSource.findUnique({ where: { contentHash } });
+  // Dedup: reuse existing ContentSource if same file uploaded within this institution
+  const dedup = await findDuplicateSource(contentHash, subjectId);
+  let deduplicated = dedup.deduplicated;
+  let source = dedup.existingSource
+    ? await prisma.contentSource.findUnique({ where: { id: dedup.existingSource.id } })
+    : null;
 
   if (!source) {
     const baseSlug = file.name
@@ -664,38 +668,19 @@ async function createSource(
     const sourceSlug = `${domainSlug}-${baseSlug}-${Date.now()}`;
     const displayName = file.name.replace(/\.[^/.]+$/, "");
 
-    try {
-      source = await prisma.contentSource.create({
-        data: {
-          slug: sourceSlug,
-          name: displayName,
-          trustLevel: "UNVERIFIED",
-          documentType: finalDocType,
-          documentTypeSource: "pack-manifest",
-          textSample: text.substring(0, 2000),
-          contentHash,
-        },
-      });
-    } catch (err: any) {
-      // Concurrent upload race — another request created the same hash; re-fetch and reuse
-      if (err.code === "P2002") {
-        source = await prisma.contentSource.findUnique({ where: { contentHash } });
-        if (!source) throw err;
-        deduplicated = true;
-      } else {
-        throw err;
-      }
-    }
-  } else {
-    // Source with same content hash exists — check if it has extraction results.
-    // If not (e.g. previous extraction failed), allow re-extraction.
-    const assertionCount = await prisma.contentAssertion.count({
-      where: { sourceId: source.id },
+    source = await prisma.contentSource.create({
+      data: {
+        slug: sourceSlug,
+        name: displayName,
+        trustLevel: "UNVERIFIED",
+        documentType: finalDocType,
+        documentTypeSource: "pack-manifest",
+        textSample: text.substring(0, 2000),
+        contentHash,
+      },
     });
-    deduplicated = assertionCount > 0;
-    if (!deduplicated) {
-      console.log(`[course-pack/ingest] Deduped source ${source.id} has 0 assertions — will re-extract`);
-    }
+  } else if (!deduplicated) {
+    console.log(`[course-pack/ingest] Deduped source ${source.id} has 0 assertions — will re-extract`);
   }
 
   // Attach to subject — idempotent upsert (@@unique([subjectId, sourceId]) already defined)
