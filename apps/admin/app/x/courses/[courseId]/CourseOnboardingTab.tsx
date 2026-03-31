@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, LogOut } from 'lucide-react';
 import { OnboardingPreview, type OnboardingPhase as OBPhase } from '@/components/shared/OnboardingPreview';
 import { OnboardingEditor } from '@/components/shared/OnboardingEditor';
 
@@ -19,6 +19,8 @@ export type CourseOnboardingTabProps = {
 
 import { SectionHeader } from './SectionHeader';
 
+type SubView = 'onboarding' | 'offboarding';
+
 // ── Main Component ─────────────────────────────────────
 
 export function CourseOnboardingTab({
@@ -26,6 +28,8 @@ export function CourseOnboardingTab({
   detail,
   isOperator,
 }: CourseOnboardingTabProps) {
+  const [subView, setSubView] = useState<SubView>('onboarding');
+
   // ── Onboarding preview data (lazy-loaded) ──────────────
   const [onboarding, setOnboarding] = useState<{
     source: string;
@@ -66,36 +70,70 @@ export function CourseOnboardingTab({
 
   return (
     <>
-      {/* ── First Call Preview ──────────────────────────── */}
-      <SectionHeader title="First Call Preview" icon={MessageCircle} />
-      <div className="hf-card-compact hf-mb-lg">
-        {loading ? (
-          <div className="hf-text-sm hf-text-muted hf-glow-active">Loading first call structure...</div>
-        ) : onboarding && onboarding.phases.length > 0 ? (
-          <>
-            <OnboardingPreview
-              phases={onboarding.phases}
-              personaName={onboarding.personaName}
-              greeting={onboarding.domainWelcome}
-              maxHeight={360}
-              hint={inheritedHint}
-            />
-          </>
-        ) : (
-          <div className="hf-text-sm hf-text-muted">
-            No first call flow configured. The onboarding wizard generates this automatically.
-          </div>
-        )}
+      {/* ── Sub-navigation pills ──────────────────────── */}
+      <div className="hf-flex hf-gap-xs hf-mb-lg">
+        <button
+          className={`hf-filter-pill${subView === 'onboarding' ? ' hf-filter-pill-active' : ''}`}
+          onClick={() => setSubView('onboarding')}
+        >
+          <MessageCircle size={13} />
+          First Call
+        </button>
+        <button
+          className={`hf-filter-pill${subView === 'offboarding' ? ' hf-filter-pill-active' : ''}`}
+          onClick={() => setSubView('offboarding')}
+        >
+          <LogOut size={13} />
+          End of Course
+        </button>
       </div>
 
-      {/* ── Onboarding Editor ──────────────────────────── */}
-      <SectionHeader title="First Call Structure &amp; Phases" icon={MessageCircle} />
-      <OnboardingEditor
-        courseId={courseId}
-        domainId={detail.domain.id}
-        domainName={detail.domain.name}
-        isOperator={isOperator}
-      />
+      {/* ── Onboarding sub-view ───────────────────────── */}
+      {subView === 'onboarding' && (
+        <>
+          <SectionHeader title="First Call Preview" icon={MessageCircle} />
+          <div className="hf-card-compact hf-mb-lg">
+            {loading ? (
+              <div className="hf-text-sm hf-text-muted hf-glow-active">Loading first call structure...</div>
+            ) : onboarding && onboarding.phases.length > 0 ? (
+              <OnboardingPreview
+                phases={onboarding.phases}
+                personaName={onboarding.personaName}
+                greeting={onboarding.domainWelcome}
+                maxHeight={360}
+                hint={inheritedHint}
+              />
+            ) : (
+              <div className="hf-text-sm hf-text-muted">
+                No first call flow configured. The onboarding wizard generates this automatically.
+              </div>
+            )}
+          </div>
+
+          <SectionHeader title="First Call Structure &amp; Phases" icon={MessageCircle} />
+          <OnboardingEditor
+            courseId={courseId}
+            domainId={detail.domain.id}
+            domainName={detail.domain.name}
+            isOperator={isOperator}
+            mode="onboarding"
+          />
+        </>
+      )}
+
+      {/* ── Offboarding sub-view ──────────────────────── */}
+      {subView === 'offboarding' && (
+        <>
+          <SectionHeader title="End of Course Flow" icon={LogOut} />
+          <OnboardingEditor
+            courseId={courseId}
+            domainId={detail.domain.id}
+            domainName={detail.domain.name}
+            isOperator={isOperator}
+            mode="offboarding"
+          />
+        </>
+      )}
     </>
   );
 }

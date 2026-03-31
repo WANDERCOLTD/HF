@@ -246,7 +246,7 @@ export default function CourseDetailPage() {
 
   const tabs: TabDefinition[] = useMemo(() => [
     { id: 'overview', label: 'Overview', icon: <Sparkles size={14} /> },
-    { id: 'onboarding', label: 'Onboarding', icon: <PlayCircle size={14} /> },
+    { id: 'onboarding', label: 'Journey', icon: <PlayCircle size={14} /> },
     { id: 'content', label: 'Content', icon: <BookMarked size={14} />, count: contentOnlyCount || null },
     { id: 'sessions', label: 'Sessions', icon: <ListOrdered size={14} />, count: sessions?.plan?.estimatedSessions || null },
     { id: 'audience', label: 'Cohort', icon: <Users2 size={14} /> },
@@ -951,10 +951,10 @@ export default function CourseDetailPage() {
                     <button
                       type="button"
                       className="hf-btn hf-btn-xs hf-btn-outline hf-flex hf-items-center hf-gap-xs"
-                      onClick={() => handleTabChange('overview')}
+                      onClick={() => handleTabChange('onboarding')}
                     >
                       <Info size={12} />
-                      Edit onboarding on the Overview tab
+                      Edit onboarding on the Journey tab
                     </button>
                   </div>
                 );

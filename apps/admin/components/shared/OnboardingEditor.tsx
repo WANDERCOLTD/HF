@@ -33,6 +33,8 @@ export interface OnboardingEditorProps {
   isOperator: boolean;
   /** Single-column layout for inline rail use */
   compact?: boolean;
+  /** Which section to display. Default: 'both' for backward compatibility */
+  mode?: 'onboarding' | 'offboarding' | 'both';
 }
 
 type OnboardingSource = 'course' | 'domain' | 'none';
@@ -47,6 +49,7 @@ export function OnboardingEditor({
   domainName,
   isOperator,
   compact = false,
+  mode = 'both',
 }: OnboardingEditorProps) {
   // Loading
   const [loading, setLoading] = useState(true);
@@ -82,6 +85,9 @@ export function OnboardingEditor({
   const isDirty = useMemo(() => {
     return JSON.stringify(structuredPhases) !== savedPhasesRef.current;
   }, [structuredPhases]);
+
+  const showOnboarding = mode === 'onboarding' || mode === 'both';
+  const showOffboarding = mode === 'offboarding' || mode === 'both';
 
   const isOffboardingDirty = useMemo(() => {
     const current = JSON.stringify({ phases: offboardingPhases, trigger: offboardingTrigger, banner: offboardingBanner });
@@ -148,6 +154,15 @@ export function OnboardingEditor({
       goals: p.goals,
     })),
     [structuredPhases],
+  );
+
+  const offboardingPreviewPhases: ChatPhase[] = useMemo(() =>
+    offboardingPhases.map((p) => ({
+      phase: p.phase,
+      duration: p.duration,
+      goals: p.goals,
+    })),
+    [offboardingPhases],
   );
 
   // ── Save handler ────────────────────────────────────
@@ -440,8 +455,8 @@ export function OnboardingEditor({
     );
   }
 
-  // Empty state
-  if (onboardingSource === 'none' && structuredPhases.length === 0) {
+  // Empty state (onboarding only — offboarding has its own empty state inline)
+  if (showOnboarding && onboardingSource === 'none' && structuredPhases.length === 0) {
     return (
       <div className="hf-empty-compact">
         <Compass size={28} className="hf-text-tertiary hf-mb-sm" />
@@ -541,10 +556,12 @@ export function OnboardingEditor({
   // ── Offboarding section ──
 
   const offboardingSection = (
-    <div className="ob-offboarding-section">
-      <div className="ob-offboarding-header">
-        <h3 className="hf-section-title">Offboarding — End of Course</h3>
-      </div>
+    <div className={mode === 'offboarding' ? '' : 'ob-offboarding-section'}>
+      {mode !== 'offboarding' && (
+        <div className="ob-offboarding-header">
+          <h3 className="hf-section-title">Offboarding — End of Course</h3>
+        </div>
+      )}
 
       {offboardingPhases.length === 0 ? (
         <div className="hf-empty-compact">
@@ -627,39 +644,64 @@ export function OnboardingEditor({
   if (compact) {
     return (
       <div>
-        {banners}
-        {phaseList}
+        {showOnboarding && (
+          <>
+            {banners}
+            {phaseList}
 
-        {/* Collapsible preview */}
-        <button
-          className="hf-flex hf-items-center hf-gap-xs hf-text-xs hf-text-muted hf-mt-md"
-          onClick={() => setPreviewOpen(!previewOpen)}
-          type="button"
-        >
-          <ChevronDown
-            size={13}
-            style={{ transform: previewOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }}
-          />
-          First Call Preview
-        </button>
-        {previewOpen && (
-          <div className="hf-mt-sm">
-            <OnboardingChatPreview
-              greeting={domainWelcome || undefined}
-              personaName={personaName || undefined}
-              phases={previewPhases}
-              maxHeight={400}
-            />
-          </div>
+            {/* Collapsible preview */}
+            <button
+              className="hf-flex hf-items-center hf-gap-xs hf-text-xs hf-text-muted hf-mt-md"
+              onClick={() => setPreviewOpen(!previewOpen)}
+              type="button"
+            >
+              <ChevronDown
+                size={13}
+                style={{ transform: previewOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }}
+              />
+              First Call Preview
+            </button>
+            {previewOpen && (
+              <div className="hf-mt-sm">
+                <OnboardingChatPreview
+                  greeting={domainWelcome || undefined}
+                  personaName={personaName || undefined}
+                  phases={previewPhases}
+                  maxHeight={400}
+                />
+              </div>
+            )}
+
+            {saveBar}
+          </>
         )}
-
-        {saveBar}
-        {offboardingSection}
+        {showOffboarding && offboardingSection}
       </div>
     );
   }
 
   // ── Full mode: two-column ──
+
+  if (mode === 'offboarding') {
+    return (
+      <div className="hf-mt-md">
+        <div className="ob-tab-layout">
+          <div className="ob-tab-edit-col">
+            {offboardingSection}
+          </div>
+          <div className="ob-tab-preview-col">
+            <div className="ob-tab-preview-sticky">
+              <div className="ob-tab-preview-label">End of Course Preview</div>
+              <OnboardingChatPreview
+                phases={offboardingPreviewPhases}
+                maxHeight={540}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="hf-mt-md">
@@ -683,7 +725,7 @@ export function OnboardingEditor({
       </div>
 
       {saveBar}
-      {offboardingSection}
+      {showOffboarding && offboardingSection}
     </div>
   );
 }

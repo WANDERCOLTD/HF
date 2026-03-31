@@ -1275,60 +1275,60 @@ export async function executeWizardTool(
             },
           });
           if (!existingPedSource) {
-          try {
-            const { convertCourseRefToAssertions } = await import("@/lib/content-trust/course-ref-to-assertions");
-            const { renderCourseRefMarkdown } = await import("@/lib/content-trust/course-ref-to-markdown");
-            const refData = {
-              courseOverview: {
-                subject: subjectDiscipline,
-                studentAge: (setupData?.audience as string) || undefined,
-              },
-              skillsFramework: setupData?.skillsFramework as any,
-              teachingApproach: setupData?.teachingPrinciples as any,
-              coursePhases: setupData?.coursePhases as any,
-              edgeCases: setupData?.edgeCases as any,
-              assessmentBoundaries: setupData?.assessmentBoundaries as string[],
-              learnerModel: setupData?.learnerModel as any,
-              sessionOverrides: setupData?.sessionOverrides as any,
-              contentStrategy: setupData?.contentStrategy as any,
-              communicationRules: setupData?.communicationRules as any,
-            };
-
-            const assertionRows = convertCourseRefToAssertions(refData);
-            if (assertionRows.length > 0) {
-              // Create a ContentSource to hold the pedagogy assertions
-              const refSource = await prisma.contentSource.create({
-                data: {
-                  name: `${courseName} — Course Reference`,
-                  documentType: "COURSE_REFERENCE",
-                  textSample: renderCourseRefMarkdown(refData),
-                  status: "COMPLETED",
+            try {
+              const { convertCourseRefToAssertions } = await import("@/lib/content-trust/course-ref-to-assertions");
+              const { renderCourseRefMarkdown } = await import("@/lib/content-trust/course-ref-to-markdown");
+              const refData = {
+                courseOverview: {
+                  subject: subjectDiscipline,
+                  studentAge: (setupData?.audience as string) || undefined,
                 },
-              });
+                skillsFramework: setupData?.skillsFramework as any,
+                teachingApproach: setupData?.teachingPrinciples as any,
+                coursePhases: setupData?.coursePhases as any,
+                edgeCases: setupData?.edgeCases as any,
+                assessmentBoundaries: setupData?.assessmentBoundaries as string[],
+                learnerModel: setupData?.learnerModel as any,
+                sessionOverrides: setupData?.sessionOverrides as any,
+                contentStrategy: setupData?.contentStrategy as any,
+                communicationRules: setupData?.communicationRules as any,
+              };
 
-              // Link source to primary subject
-              await prisma.subjectSource.create({
-                data: { subjectId: subject.id, sourceId: refSource.id },
-              });
-
-              // Create assertion rows
-              for (const row of assertionRows) {
-                await prisma.contentAssertion.create({
+              const assertionRows = convertCourseRefToAssertions(refData);
+              if (assertionRows.length > 0) {
+                // Create a ContentSource to hold the pedagogy assertions
+                const refSource = await prisma.contentSource.create({
                   data: {
-                    ...row,
-                    sourceId: refSource.id,
-                    confidence: 1.0,
-                    depth: 0,
-                    isActive: true,
+                    name: `${courseName} — Course Reference`,
+                    documentType: "COURSE_REFERENCE",
+                    textSample: renderCourseRefMarkdown(refData),
+                    status: "COMPLETED",
                   },
                 });
+
+                // Link source to primary subject
+                await prisma.subjectSource.create({
+                  data: { subjectId: subject.id, sourceId: refSource.id },
+                });
+
+                // Create assertion rows
+                for (const row of assertionRows) {
+                  await prisma.contentAssertion.create({
+                    data: {
+                      ...row,
+                      sourceId: refSource.id,
+                      confidence: 1.0,
+                      depth: 0,
+                      isActive: true,
+                    },
+                  });
+                }
+                console.log(`[wizard] Created ${assertionRows.length} pedagogy assertions from course reference data`);
               }
-              console.log(`[wizard] Created ${assertionRows.length} pedagogy assertions from course reference data`);
+            } catch (err) {
+              console.error("[wizard] Pedagogy assertion creation failed (non-fatal):", (err as Error).message);
             }
-          } catch (err) {
-            console.error("[wizard] Pedagogy assertion creation failed (non-fatal):", (err as Error).message);
           }
-          } // end if (!existingPedSource)
         }
 
         syncInstructionsToIdentitySpec(playbookId).catch(err =>
