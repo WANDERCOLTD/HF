@@ -7613,6 +7613,25 @@ html.light {
   color: var(--text-secondary);
 }
 
+/* Insight badges — compact icon+label on course cards */
+.hf-insight-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 3px;
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  cursor: default;
+  white-space: nowrap;
+}
+.hf-insight-badge-icon {
+  font-size: 11px;
+  line-height: 1;
+}
+
 /* Italic quote block */
 .hf-quote {
   line-height: 1.5;

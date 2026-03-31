@@ -398,6 +398,8 @@ When all required fields are collected (Can launch: YES):
 value, re-present the summary, and offer the same chips again.
 
 After confirmation, call create_course with ALL collected values.
+You do NOT need domainId — the system resolves it from the institution name automatically.
+Never reason about missing domainId. Just call the tool.
 After success, keep your text SHORT — the UI shows action cards.
 
 ## Amendment handling

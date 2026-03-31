@@ -21,7 +21,28 @@ export async function GET(request: NextRequest) {
       include: {
         domain: { select: { id: true, name: true } },
         group: { select: { id: true, name: true, groupType: true } },
-        subjects: { select: { subject: { select: { id: true, name: true } } } },
+        subjects: {
+          select: {
+            subject: {
+              select: {
+                id: true,
+                name: true,
+                teachingProfile: true,
+                sources: {
+                  select: {
+                    source: {
+                      select: {
+                        id: true,
+                        documentType: true,
+                        _count: { select: { assertions: true } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
         _count: { select: { enrollments: true, items: true } },
       },
       orderBy: { name: 'asc' },
@@ -45,19 +66,87 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    const courses = playbooks.map((pb: any) => ({
-      id: pb.id,
-      name: pb.name,
-      description: pb.description,
-      domain: pb.domain,
-      group: pb.group || null,
-      subjects: (pb.subjects || []).map((ps: any) => ps.subject),
-      studentCount: pb._count.enrollments,
-      specCount: pb._count.items,
-      status: pb.status.toLowerCase(),
-      version: pb.version,
-      createdAt: pb.createdAt.toISOString(),
-    }));
+    // Collect all source IDs to batch-fetch category counts
+    const allSourceIds: string[] = [];
+    for (const pb of playbooks as any[]) {
+      for (const ps of pb.subjects || []) {
+        for (const ss of ps.subject?.sources || []) {
+          allSourceIds.push(ss.source.id);
+        }
+      }
+    }
+
+    // Batch category counts for all sources across all courses
+    const categoryCounts = allSourceIds.length > 0
+      ? await prisma.contentAssertion.groupBy({
+          by: ['sourceId', 'category'],
+          where: { sourceId: { in: allSourceIds } },
+          _count: { id: true },
+        })
+      : [];
+
+    // Build sourceId → category → count map
+    const categoryBySource = new Map<string, Map<string, number>>();
+    for (const row of categoryCounts) {
+      if (!categoryBySource.has(row.sourceId)) categoryBySource.set(row.sourceId, new Map());
+      categoryBySource.get(row.sourceId)!.set(row.category || 'fact', row._count.id);
+    }
+
+    const courses = playbooks.map((pb: any) => {
+      const config = pb.config as Record<string, any> | null;
+      const subjects = (pb.subjects || []).map((ps: any) => ps.subject);
+
+      // Aggregate content stats across all subjects/sources
+      let totalTPs = 0;
+      let sourceCount = 0;
+      const docTypes = new Set<string>();
+      const aggregatedCategories: Record<string, number> = {};
+      const seenSources = new Set<string>();
+
+      for (const sub of subjects) {
+        for (const ss of sub.sources || []) {
+          const src = ss.source;
+          if (seenSources.has(src.id)) continue;
+          seenSources.add(src.id);
+          sourceCount++;
+          totalTPs += src._count.assertions;
+          if (src.documentType) docTypes.add(src.documentType);
+
+          const catMap = categoryBySource.get(src.id);
+          if (catMap) {
+            for (const [cat, count] of catMap) {
+              aggregatedCategories[cat] = (aggregatedCategories[cat] || 0) + count;
+            }
+          }
+        }
+      }
+
+      // First subject's teaching profile (primary pedagogy signal)
+      const teachingProfile = subjects.find((s: any) => s.teachingProfile)?.teachingProfile || null;
+
+      return {
+        id: pb.id,
+        name: pb.name,
+        description: pb.description,
+        domain: pb.domain,
+        group: pb.group || null,
+        subjects: subjects.map((s: any) => ({ id: s.id, name: s.name })),
+        studentCount: pb._count.enrollments,
+        specCount: pb._count.items,
+        status: pb.status.toLowerCase(),
+        version: pb.version,
+        createdAt: pb.createdAt.toISOString(),
+        // Enriched fields
+        audience: config?.audience || null,
+        teachingProfile,
+        contentStats: {
+          totalTPs,
+          sourceCount,
+          docTypes: [...docTypes],
+          categories: aggregatedCategories,
+        },
+      };
+    });
 
     // If searching, check for exact match to suggest reuse
     let existingCourse = null;

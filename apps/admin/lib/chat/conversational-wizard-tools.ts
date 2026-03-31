@@ -178,12 +178,12 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
       "Create the course with full infrastructure (identity spec, playbook, system specs, onboarding) and a test caller. " +
       "Only call this after the user explicitly confirms creation. " +
       "Pass ALL collected values — including optional ones like welcomeMessage, behaviorTargets, etc. " +
-      "Requires: domainId (from institution creation or existing institution), courseName, interactionPattern. " +
+      "domainId is optional — the system auto-resolves it from the institution name in setupData. " +
       "personalityPreset is mapped to behaviorTargets automatically if behaviorTargets is not provided.",
     input_schema: {
       type: "object",
       properties: {
-        domainId: { type: "string", description: "Domain ID." },
+        domainId: { type: "string", description: "Domain ID. Optional — auto-resolved from institution name if omitted." },
         groupId: { type: "string", description: "Department/group ID (if user specified a department)." },
         courseName: { type: "string" },
         subjectDiscipline: { type: "string" },
@@ -222,7 +222,7 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
           description: "Subject IDs from content upload (if any).",
         },
       },
-      required: ["domainId", "courseName", "interactionPattern"],
+      required: ["courseName", "interactionPattern"],
     },
   },
   {
@@ -280,8 +280,8 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
     input_schema: {
       type: "object",
       properties: {
-        domainId: { type: "string", description: "Domain ID." },
-        playbookId: { type: "string", description: "Playbook ID (from create_course result)." },
+        domainId: { type: "string", description: "Domain ID. Optional — auto-resolved from setupData if omitted." },
+        playbookId: { type: "string", description: "Playbook ID. Optional — auto-resolved from setupData if omitted." },
         welcomeMessage: { type: "string" },
         sessionCount: { type: "number" },
         durationMins: { type: "number" },
@@ -297,7 +297,7 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
           description: "Updated onboarding flow phases with content attachments. Use when the user wants to change which materials are shared in which phase of the first call.",
         },
       },
-      required: ["domainId", "playbookId"],
+      required: [],
     },
   },
   {

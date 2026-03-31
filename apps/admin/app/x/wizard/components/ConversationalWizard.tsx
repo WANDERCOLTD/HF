@@ -171,10 +171,16 @@ const WIZARD_STEPS: StepDefinition[] = [
 ];
 
 // ── Storage ──────────────────────────────────────────────
+// Bump to invalidate all cached wizard conversations (e.g. after prompt changes)
+const WIZARD_CACHE_VERSION = 1;
+
+function storageKey(version: string): string {
+  return `gs-${version}-c${WIZARD_CACHE_VERSION}-history`;
+}
 
 function loadHistory(version: string): Message[] {
   try {
-    const raw = sessionStorage.getItem(`gs-${version}-history`);
+    const raw = sessionStorage.getItem(storageKey(version));
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -183,7 +189,7 @@ function loadHistory(version: string): Message[] {
 
 function saveHistory(messages: Message[], version: string) {
   try {
-    sessionStorage.setItem(`gs-${version}-history`, JSON.stringify(messages));
+    sessionStorage.setItem(storageKey(version), JSON.stringify(messages));
   } catch { /* quota */ }
 }
 
@@ -247,7 +253,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
   const { getData, setData, clearData, isActive, startFlow } = useStepFlow();
 
   // Scope sessionStorage by institution so step-in doesn't leak across orgs
-  const storageKey = initialContext?.institutionId
+  const storageScope = initialContext?.institutionId
     ? `${wizardVersion}-${initialContext.institutionId}`
     : wizardVersion;
 
@@ -298,7 +304,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
 
   const handleStartOver = useCallback(() => {
     abortRef.current?.abort();
-    sessionStorage.removeItem(`gs-${storageKey}-history`);
+    sessionStorage.removeItem(storageKey(storageScope));
     clearData();
     setMessages([]);
     setInputValue("");
@@ -595,7 +601,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       const userMsg: Message = { id: uid(), role: "user", content: msg };
       const newMessages = [...messages, userMsg];
       setMessages(newMessages);
-      saveHistory(newMessages, storageKey);
+      saveHistory(newMessages, storageScope);
       scrollToBottom();
 
       // Promote to "sending" but don't downgrade "course-ref-analysing"
@@ -620,7 +626,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         };
         const withErr = [...newMessages, errMsg];
         setMessages(withErr);
-        saveHistory(withErr, storageKey);
+        saveHistory(withErr, storageScope);
         scrollToBottom();
         setTimeout(() => inputRef.current?.focus(), 150);
         return;
@@ -668,7 +674,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       }).reverse();
 
       setMessages(finalMessages);
-      saveHistory(finalMessages, storageKey);
+      saveHistory(finalMessages, storageScope);
       scrollToBottom();
       setTimeout(() => inputRef.current?.focus(), 150);
 
@@ -719,7 +725,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           m.systemType === "upload-zone" ? { ...m, resolved: true } : m,
         );
         const withUpload = [...updated, uploadMsg];
-        saveHistory(withUpload, storageKey);
+        saveHistory(withUpload, storageScope);
         return withUpload;
       });
 
@@ -784,7 +790,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           };
           setMessages((prev) => {
             const updated = [...prev, doneMsg];
-            saveHistory(updated, storageKey);
+            saveHistory(updated, storageScope);
             return updated;
           });
           scrollToBottom();
@@ -828,12 +834,12 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             const assistantMsg: Message = { id: uid(), role: "assistant", content: fallbackResult.data.content };
             const updated = [...messagesRef.current, assistantMsg];
             setMessages(updated);
-            saveHistory(updated, storageKey);
+            saveHistory(updated, storageScope);
             scrollToBottom();
           } else {
             // Safety net — show timeline message so chat isn't stuck
             const safetyMsg: Message = { id: uid(), role: "system", content: "Course reference processed — let's continue setting up your course", systemType: "timeline" };
-            setMessages((prev) => { const u = [...prev, safetyMsg]; saveHistory(u, storageKey); return u; });
+            setMessages((prev) => { const u = [...prev, safetyMsg]; saveHistory(u, storageScope); return u; });
             scrollToBottom();
           }
           return;
@@ -928,7 +934,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           const assistantMsg: Message = { id: uid(), role: "assistant", content: result.data.content };
           const updated = [...messagesRef.current, assistantMsg];
           setMessages(updated);
-          saveHistory(updated, storageKey);
+          saveHistory(updated, storageScope);
           scrollToBottom();
         } else {
           // API returned no content — show a timeline message so chat isn't stuck
@@ -940,7 +946,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           };
           setMessages((prev) => {
             const updated = [...prev, fallbackMsg];
-            saveHistory(updated, storageKey);
+            saveHistory(updated, storageScope);
             return updated;
           });
           scrollToBottom();
@@ -957,7 +963,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         };
         setMessages((prev) => {
           const updated = [...prev, fallbackDone];
-          saveHistory(updated, storageKey);
+          saveHistory(updated, storageScope);
           return updated;
         });
         scrollToBottom();
@@ -1098,7 +1104,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
     if (!isActive || initialised.current) return;
     initialised.current = true;
 
-    const saved = loadHistory(storageKey);
+    const saved = loadHistory(storageScope);
     if (saved.length > 0) {
       setMessages(saved);
       scrollToBottom();
@@ -1114,7 +1120,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         : "Hi! I'll help you set up your AI tutor. Tell me about the course you want to create — what subject, who it's for, and roughly how many sessions.",
     };
     setMessages([greeting]);
-    saveHistory([greeting], storageKey);
+    saveHistory([greeting], storageScope);
     scrollToBottom();
     setTimeout(() => inputRef.current?.focus(), 150);
   // eslint-disable-next-line react-hooks/exhaustive-deps

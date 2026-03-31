@@ -4,16 +4,26 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { BookOpen, Users, Plus, Trash2, X } from 'lucide-react';
+import { BookOpen, Users, Plus, Trash2, X, FileText, BookMarked } from 'lucide-react';
 import { useTerminology } from '@/contexts/TerminologyContext';
 import { StatusBadge, DomainPill } from '@/src/components/shared/EntityPill';
 import { FancySelect } from '@/components/shared/FancySelect';
 import { AdvancedBanner } from '@/components/shared/AdvancedBanner';
+import { getAudienceOption } from '@/lib/prompt/composition/transforms/audience';
+import { TEACHING_PROFILES, type TeachingProfileKey } from '@/lib/content-trust/teaching-profiles';
+import { INTERACTION_PATTERN_LABELS, type InteractionPattern } from '@/lib/content-trust/resolve-config';
 
 type Domain = { id: string; name: string };
 type Group = { id: string; name: string; groupType: string };
 
 type SubjectRef = { id: string; name: string };
+
+type ContentStats = {
+  totalTPs: number;
+  sourceCount: number;
+  docTypes: string[];
+  categories: Record<string, number>;
+};
 
 type CourseListItem = {
   id: string;
@@ -27,6 +37,9 @@ type CourseListItem = {
   status: string;
   version: string;
   createdAt: string;
+  audience: string | null;
+  teachingProfile: string | null;
+  contentStats: ContentStats | null;
 };
 
 const STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const;
@@ -43,17 +56,123 @@ const statusMap: Record<string, 'draft' | 'active' | 'archived'> = {
   archived: 'archived',
 };
 
-function CourseCard({ course, plural, deleteMode, selected, onToggle }: {
+// ── Insight Badges ─────────────────────────────────────
+
+/** Compact icon + label badge with tooltip, used on course cards */
+function InsightBadge({ icon, label, tooltip }: { icon: string; label: string; tooltip: string }) {
+  return (
+    <span className="hf-insight-badge" title={tooltip}>
+      <span className="hf-insight-badge-icon">{icon}</span>
+      {label}
+    </span>
+  );
+}
+
+/** Instruction-category labels for insight display */
+const INSTRUCTION_CATEGORY_LABELS: Record<string, { label: string; plural: string; icon: string }> = {
+  skill_framework: { label: 'skill', plural: 'skills', icon: '🎯' },
+  teaching_rule: { label: 'principle', plural: 'principles', icon: '📐' },
+  edge_case: { label: 'edge case', plural: 'edge cases', icon: '⚡' },
+};
+
+function CourseInsightBadges({ course }: { course: CourseListItem }) {
+  const badges: { icon: string; label: string; tooltip: string }[] = [];
+
+  // Teaching profile → interaction pattern
+  if (course.teachingProfile) {
+    const profile = TEACHING_PROFILES[course.teachingProfile as TeachingProfileKey];
+    if (profile) {
+      const patternInfo = INTERACTION_PATTERN_LABELS[profile.interactionPattern as InteractionPattern];
+      if (patternInfo) {
+        badges.push({ icon: patternInfo.icon, label: patternInfo.label, tooltip: patternInfo.description });
+      }
+    }
+  }
+
+  // Audience
+  if (course.audience) {
+    const opt = getAudienceOption(course.audience);
+    if (opt) {
+      badges.push({ icon: '👤', label: opt.ages, tooltip: `${opt.label} — ${opt.description}` });
+    }
+  }
+
+  // Teaching mode from profile
+  if (course.teachingProfile) {
+    const profile = TEACHING_PROFILES[course.teachingProfile as TeachingProfileKey];
+    if (profile) {
+      // Use a short label from the profile key (e.g. "comprehension-led" → "Comprehension")
+      const modeLabel = course.teachingProfile.replace(/-led$/, '');
+      badges.push({
+        icon: '📖',
+        label: modeLabel.charAt(0).toUpperCase() + modeLabel.slice(1),
+        tooltip: profile.description,
+      });
+    }
+  }
+
+  // Doc types
+  const stats = course.contentStats;
+  if (stats?.docTypes?.length) {
+    const docTypeLabels: Record<string, string> = {
+      COURSE_REFERENCE: 'Teaching Guide',
+      TEXTBOOK: 'Textbook',
+      READING_PASSAGE: 'Reading',
+      WORKSHEET: 'Worksheet',
+      CURRICULUM: 'Curriculum',
+      QUESTION_BANK: 'Questions',
+      ASSESSMENT: 'Assessment',
+      LESSON_PLAN: 'Lesson Plan',
+      COMPREHENSION: 'Comprehension',
+    };
+    for (const dt of stats.docTypes) {
+      const label = docTypeLabels[dt];
+      if (label) {
+        badges.push({ icon: '📄', label, tooltip: `Content type: ${label}` });
+      }
+    }
+  }
+
+  // Instruction category counts (skills, principles, edge cases)
+  if (stats?.categories) {
+    for (const [cat, config] of Object.entries(INSTRUCTION_CATEGORY_LABELS)) {
+      const count = stats.categories[cat];
+      if (count && count > 0) {
+        badges.push({
+          icon: config.icon,
+          label: `${count} ${count === 1 ? config.label : config.plural}`,
+          tooltip: `${count} ${config.plural} extracted from content`,
+        });
+      }
+    }
+  }
+
+  if (badges.length === 0) return null;
+
+  return (
+    <div className="hf-flex hf-gap-xs hf-mb-sm hf-flex-wrap">
+      {badges.map((b, i) => (
+        <InsightBadge key={i} icon={b.icon} label={b.label} tooltip={b.tooltip} />
+      ))}
+    </div>
+  );
+}
+
+function CourseCard({ course, plural, deleteMode, selected, onToggle, onArchive }: {
   course: CourseListItem;
   plural: (k: string) => string;
   deleteMode?: boolean;
   selected?: boolean;
   onToggle?: (id: string) => void;
+  onArchive?: (id: string) => void;
 }) {
+  const isPublished = course.status === 'PUBLISHED' || course.status === 'published';
+  const canDelete = !isPublished;
+  const stats = course.contentStats || { totalTPs: 0, sourceCount: 0, docTypes: [], categories: {} };
   const cardContent = (
     <>
       <div className="hf-flex hf-flex-between hf-items-start hf-mb-sm">
-        {deleteMode && (
+        {deleteMode && canDelete && (
           <input
             type="checkbox"
             checked={selected}
@@ -74,11 +193,27 @@ function CourseCard({ course, plural, deleteMode, selected, onToggle }: {
       {course.description && (
         <p className="hf-text-xs hf-text-muted hf-mb-sm hf-line-clamp-2">{course.description}</p>
       )}
+      <CourseInsightBadges course={course} />
       <div className="hf-flex hf-gap-md hf-text-xs hf-text-muted hf-items-center">
         <span><Users size={12} className="hf-icon-inline" /><strong>{course.studentCount}</strong> {plural('caller').toLowerCase()}</span>
-        <span><strong>{course.specCount}</strong> content</span>
+        {stats.totalTPs > 0 && (
+          <span><BookMarked size={12} className="hf-icon-inline" /><strong>{stats.totalTPs}</strong> TPs</span>
+        )}
+        {stats.sourceCount > 0 && (
+          <span><FileText size={12} className="hf-icon-inline" /><strong>{stats.sourceCount}</strong> sources</span>
+        )}
         <span className="hf-text-placeholder">v{course.version}</span>
       </div>
+      {deleteMode && !canDelete && (
+        <div className="hf-flex hf-flex-end hf-mt-sm">
+          <button
+            className="hf-btn hf-btn-xs hf-btn-secondary"
+            onClick={(e) => { e.stopPropagation(); onArchive?.(course.id); }}
+          >
+            Archive first
+          </button>
+        </div>
+      )}
     </>
   );
 
@@ -86,8 +221,8 @@ function CourseCard({ course, plural, deleteMode, selected, onToggle }: {
     return (
       <div
         className={`hf-card-compact${course.status === 'archived' ? ' hf-faded' : ''}${selected ? ' hf-card-selected' : ''}`}
-        onClick={() => onToggle?.(course.id)}
-        style={{ cursor: 'pointer' }}
+        onClick={() => canDelete && onToggle?.(course.id)}
+        style={canDelete ? { cursor: 'pointer' } : undefined}
       >
         {cardContent}
       </div>
@@ -273,6 +408,24 @@ export default function CoursesPage() {
       else next.add(id);
       return next;
     });
+  };
+
+  const handleArchive = async (id: string) => {
+    try {
+      const res = await fetch(`/api/playbooks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'ARCHIVED' }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.ok) {
+        setError(body.error || 'Failed to archive');
+        return;
+      }
+      await loadCourses();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to archive');
+    }
   };
 
   const handleDeleteSelected = async () => {
@@ -478,27 +631,6 @@ export default function CoursesPage() {
         </div>
       )}
 
-      {/* Summary Strip */}
-      {!loading && (
-        <div className="hf-summary-strip">
-          <div className="hf-summary-card">
-            <div className="hf-summary-card-value">{courseSummary.total}</div>
-            <div className="hf-summary-card-label">Total {plural('playbook')}</div>
-          </div>
-          <div className="hf-summary-card">
-            <div className="hf-summary-card-value" style={{ color: 'var(--status-success-text)' }}>{courseSummary.published}</div>
-            <div className="hf-summary-card-label">Published</div>
-          </div>
-          <div className="hf-summary-card">
-            <div className="hf-summary-card-value" style={{ color: 'var(--status-warning-text)' }}>{courseSummary.draft}</div>
-            <div className="hf-summary-card-label">Draft</div>
-          </div>
-          <div className="hf-summary-card">
-            <div className="hf-summary-card-value">{courseSummary.totalStudents}</div>
-            <div className="hf-summary-card-label">{plural('caller')}</div>
-          </div>
-        </div>
-      )}
 
       {/* Delete Action Bar */}
       {deleteMode && (
@@ -581,7 +713,7 @@ export default function CoursesPage() {
               </div>
               <div className="hf-card-grid-lg">
                 {group.courses.map((course) => (
-                  <CourseCard key={course.id} course={course} plural={plural} deleteMode={deleteMode} selected={selectedIds.has(course.id)} onToggle={toggleSelected} />
+                  <CourseCard key={course.id} course={course} plural={plural} deleteMode={deleteMode} selected={selectedIds.has(course.id)} onToggle={toggleSelected} onArchive={handleArchive} />
                 ))}
               </div>
             </div>
@@ -591,7 +723,7 @@ export default function CoursesPage() {
         /* Flat view */
         <div className="hf-card-grid-lg">
           {filteredCourses.map((course) => (
-            <CourseCard key={course.id} course={course} plural={plural} deleteMode={deleteMode} selected={selectedIds.has(course.id)} onToggle={toggleSelected} />
+            <CourseCard key={course.id} course={course} plural={plural} deleteMode={deleteMode} selected={selectedIds.has(course.id)} onToggle={toggleSelected} onArchive={handleArchive} />
           ))}
         </div>
       )}
