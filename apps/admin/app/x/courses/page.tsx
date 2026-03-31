@@ -279,13 +279,16 @@ export default function CoursesPage() {
     setDeleting(true);
     try {
       const results = await Promise.all(
-        Array.from(selectedIds).map((id) =>
-          fetch(`/api/playbooks/${id}`, { method: 'DELETE' }).then((r) => r.json())
-        )
+        Array.from(selectedIds).map(async (id) => {
+          const res = await fetch(`/api/playbooks/${id}`, { method: 'DELETE' });
+          const body = await res.json().catch(() => ({ ok: false, error: `HTTP ${res.status}` }));
+          return { id, ok: res.ok && body.ok, error: body.error };
+        })
       );
       const failed = results.filter((r) => !r.ok);
       if (failed.length > 0) {
-        setError(`${failed.length} of ${selectedIds.size} deletes failed`);
+        const reasons = [...new Set(failed.map((f) => f.error).filter(Boolean))];
+        setError(`${failed.length} of ${selectedIds.size} deletes failed${reasons.length ? ': ' + reasons.join('; ') : ''}`);
       }
       setSelectedIds(new Set());
       setDeleteMode(false);

@@ -1295,7 +1295,18 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
 
             if (msg.role === "assistant") {
               const isLast = !isForeground && suggestions.items.length === 0 && !welcomeSuggestion && msg.id === lastAssistantId;
-              const inlineOptions = isLast ? parseOptionsFromText(msg.content) : [];
+              const parsed = isLast ? parseOptionsFromText(msg.content) : [];
+              // Fallback: if no chips from show_suggestions or text parsing, and
+              // the message ends with a question, show default confirmation chips
+              const needsFallback = isLast && parsed.length === 0 && /\?\s*$/.test(msg.content.trim());
+              const inlineOptions = parsed.length > 0
+                ? parsed
+                : needsFallback
+                  ? [
+                      { marker: "1", label: "Yes, that's right", fullText: "Yes, that's right" },
+                      { marker: "2", label: "I'd change something", fullText: "I'd change something" },
+                    ]
+                  : [];
               const displayContent = stripParameterTags(msg.content);
               return (
                 <div key={msg.id} className="cv4-row cv4-row--assistant">
