@@ -51,6 +51,7 @@ function StudentProgressContent() {
   const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showSurveyBanner, setShowSurveyBanner] = useState(false);
+  const [surveyBannerMsg, setSurveyBannerMsg] = useState<string>('');
 
   useEffect(() => {
     if (isAdmin && !hasSelection) { setLoading(false); return; }
@@ -75,6 +76,11 @@ function StudentProgressContent() {
                   ? configData.offboarding?.triggerAfterCalls ?? 5
                   : 5;
                 if (d.totalCalls >= threshold && !surveyData?.submitted_at) {
+                  const defaultMsg = `You\u2019ve completed ${d.totalCalls} practice sessions! Tell us how it went \u2014 it takes 30 seconds.`;
+                  const bannerTpl = configData?.offboarding?.bannerMessage;
+                  setSurveyBannerMsg(
+                    bannerTpl ? bannerTpl.replace(/\{n\}/g, String(d.totalCalls)) : defaultMsg,
+                  );
                   setShowSurveyBanner(true);
                 }
               }).catch(() => {});
@@ -154,7 +160,7 @@ function StudentProgressContent() {
         <div className="hf-banner hf-banner-info" style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <MessageSquare size={18} />
           <span style={{ flex: 1 }}>
-            You&apos;ve completed {data.totalCalls} practice sessions! Tell us how it went — it takes 30 seconds.
+            {surveyBannerMsg}
           </span>
           <Link href="/x/student/survey/post" className="hf-btn hf-btn-primary" style={{ whiteSpace: "nowrap" }}>
             Share Feedback &rarr;

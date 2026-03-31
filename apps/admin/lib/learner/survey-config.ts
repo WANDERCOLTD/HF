@@ -76,3 +76,6 @@ export const DEFAULT_OFFBOARDING_SURVEY: SurveyStepConfig[] = [
 ];
 
 export const DEFAULT_OFFBOARDING_TRIGGER = 5;
+
+export const DEFAULT_OFFBOARDING_BANNER =
+  "You've completed {n} practice sessions! Tell us how it went — it takes 30 seconds.";

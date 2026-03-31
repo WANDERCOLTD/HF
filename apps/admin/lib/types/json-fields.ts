@@ -83,6 +83,7 @@ export interface OnboardingFlowPhases {
 
 export interface OffboardingConfig {
   triggerAfterCalls: number; // default 5
+  bannerMessage?: string; // shown on student progress page; {n} = session count
   phases: OnboardingPhase[];
 }
 

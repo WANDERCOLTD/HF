@@ -18,6 +18,64 @@ function validUuid(value: unknown): string | undefined {
   return undefined;
 }
 
+/** Resolve existing institution by name, or create institution + domain + link user. */
+async function ensureInstitutionAndDomain(
+  institutionName: string,
+  userId: string,
+  typeSlug?: string,
+): Promise<{ domainId: string; institutionId: string; domainKind: "INSTITUTION" | "COMMUNITY" } | null> {
+  const resolved = await resolveInstitutionByName(institutionName);
+  if (resolved) {
+    return { domainId: resolved.domainId, institutionId: resolved.institutionId, domainKind: resolved.domainKind };
+  }
+
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const slugify = (await import("slugify")).default;
+
+    let typeId: string | undefined;
+    let domainKind: "INSTITUTION" | "COMMUNITY" = "INSTITUTION";
+    const resolvedTypeSlug = typeSlug || inferTypeFromName(institutionName) || undefined;
+    if (resolvedTypeSlug) {
+      const instType = await prisma.institutionType.findFirst({
+        where: { slug: resolvedTypeSlug },
+        select: { id: true, defaultDomainKind: true },
+      });
+      typeId = instType?.id;
+      if (instType?.defaultDomainKind === "COMMUNITY") domainKind = "COMMUNITY";
+    }
+
+    const [institution, domain] = await prisma.$transaction(async (tx) => {
+      const inst = await tx.institution.create({
+        data: {
+          name: institutionName,
+          slug: slugify(institutionName, { lower: true, strict: true }),
+          ...(typeId ? { typeId } : {}),
+        },
+      });
+      const dom = await tx.domain.create({
+        data: {
+          name: institutionName,
+          slug: slugify(institutionName, { lower: true, strict: true }),
+          institutionId: inst.id,
+          kind: domainKind,
+        },
+      });
+      await tx.user.update({
+        where: { id: userId },
+        data: { activeInstitutionId: inst.id },
+      });
+      return [inst, dom] as const;
+    });
+
+    console.log(`[wizard-tools] ensureInstitutionAndDomain: created "${institutionName}" (inst: ${institution.id}, domain: ${domain.id})`);
+    return { domainId: domain.id, institutionId: institution.id, domainKind };
+  } catch (err) {
+    console.error("[wizard-tools] ensureInstitutionAndDomain failed:", err);
+    return null;
+  }
+}
+
 // ── Tool result type ────────────────────────────────────
 
 export interface WizardToolResult {
@@ -166,65 +224,25 @@ export async function executeWizardTool(
 
         // No DB match — auto-create institution + domain eagerly
         // This unblocks the SourcesPanel (needs domainId for file uploads)
-        const typeSlug = (fields.typeSlug as string) || (setupData?.typeSlug as string) || inferTypeFromName(fields.institutionName) || undefined;
-        try {
-          const { prisma } = await import("@/lib/prisma");
-          const slugify = (await import("slugify")).default;
-          const instName = fields.institutionName as string;
-
-          let typeId: string | undefined;
-          let domainKind: "INSTITUTION" | "COMMUNITY" = "INSTITUTION";
-          if (typeSlug) {
-            const instType = await prisma.institutionType.findFirst({
-              where: { slug: typeSlug },
-              select: { id: true, defaultDomainKind: true },
-            });
-            typeId = instType?.id;
-            if (instType?.defaultDomainKind === "COMMUNITY") domainKind = "COMMUNITY";
-          }
-
-          const institution = await prisma.institution.create({
-            data: {
-              name: instName,
-              slug: slugify(instName, { lower: true, strict: true }),
-              ...(typeId ? { typeId } : {}),
-            },
-          });
-
-          const domain = await prisma.domain.create({
-            data: {
-              name: instName,
-              slug: slugify(instName, { lower: true, strict: true }),
-              institutionId: institution.id,
-              kind: domainKind,
-            },
-          });
-
-          await prisma.user.update({
-            where: { id: userId },
-            data: { activeInstitutionId: institution.id },
-          });
-
-          console.log(`[wizard-tools] Auto-created institution "${instName}" (${institution.id}) + domain (${domain.id}) in update_setup`);
-
+        const typeSlug = (fields.typeSlug as string) || (setupData?.typeSlug as string) || undefined;
+        const created = await ensureInstitutionAndDomain(fields.institutionName, userId, typeSlug);
+        if (created) {
           return {
             ...base,
             autoInjectFields: {
-              draftDomainId: domain.id,
-              draftInstitutionId: institution.id,
-              defaultDomainKind: domainKind,
+              draftDomainId: created.domainId,
+              draftInstitutionId: created.institutionId,
+              defaultDomainKind: created.domainKind,
               ...(typeSlug ? { typeSlug } : {}),
             },
             content:
               `Saved ${keys.length} field(s): ${keys.join(", ")}. ` +
-              `No existing institution — created "${instName}" ` +
-              `(type: ${typeSlug || "general"}, domainId: ${domain.id}). ` +
+              `No existing institution — created "${fields.institutionName}" ` +
+              `(type: ${typeSlug || "general"}, domainId: ${created.domainId}). ` +
               `Proceed to the next unanswered field.`,
           };
-        } catch (createErr) {
-          console.error("[wizard-tools] Auto-create institution in update_setup failed:", createErr);
-          // Fall through — the safety nets in show_upload/create_course will catch it
         }
+        // ensureInstitutionAndDomain returned null — fall through, safety nets in show_upload/create_course will catch it
       }
 
       // ── Course resolution (requires known domainId) ─────
@@ -351,6 +369,22 @@ export async function executeWizardTool(
         }
       }
 
+      // ── Persist websiteUrl to Institution if provided ──
+      if (fields.websiteUrl && typeof fields.websiteUrl === "string") {
+        const instId = (setupData?.existingInstitutionId || setupData?.draftInstitutionId) as string | undefined;
+        if (instId) {
+          try {
+            const { prisma } = await import("@/lib/prisma");
+            await prisma.institution.update({
+              where: { id: instId },
+              data: { websiteUrl: fields.websiteUrl },
+            });
+          } catch (err) {
+            console.error("[wizard-tools] websiteUrl persist failed (non-fatal):", err);
+          }
+        }
+      }
+
       return { ...base, content: `Saved ${keys.length} field(s): ${keys.join(", ")}. Advance to the next graph priority. You MUST call show_suggestions or show_options — do NOT end with just a statement.` };
     }
 
@@ -363,76 +397,23 @@ export async function executeWizardTool(
       // This handles the case where the AI skips create_institution before the content phase.
       const existingDomainId = (setupData?.existingDomainId || setupData?.draftDomainId) as string | undefined;
       if (!existingDomainId && setupData?.institutionName) {
-        try {
-          const name = setupData.institutionName as string;
-
-          // 1. Check if it already exists (maybe created earlier in a different turn)
-          const resolved = await resolveInstitutionByName(name);
-          if (resolved) {
-            return {
-              ...base,
-              autoInjectFields: {
-                existingDomainId: resolved.domainId,
-                existingInstitutionId: resolved.institutionId,
-                defaultDomainKind: resolved.domainKind,
-              },
-              content: "Teaching Materials panel is visible in the right column. Guide the user to drop files there. Wait for their response.",
-            };
-          }
-
-          // 2. Not found — create institution + domain on-the-fly
-          const { prisma } = await import("@/lib/prisma");
-          const slugify = (await import("slugify")).default;
-          const typeSlug = setupData.typeSlug as string | undefined;
-
-          let typeId: string | undefined;
-          let domainKind: "INSTITUTION" | "COMMUNITY" = "INSTITUTION";
-          if (typeSlug) {
-            const instType = await prisma.institutionType.findFirst({
-              where: { slug: typeSlug },
-              select: { id: true, defaultDomainKind: true },
-            });
-            typeId = instType?.id;
-            if (instType?.defaultDomainKind === "COMMUNITY") domainKind = "COMMUNITY";
-          }
-
-          const institution = await prisma.institution.create({
-            data: {
-              name,
-              slug: slugify(name, { lower: true, strict: true }),
-              ...(typeId ? { typeId } : {}),
-            },
-          });
-
-          const domain = await prisma.domain.create({
-            data: {
-              name,
-              slug: slugify(name, { lower: true, strict: true }),
-              institutionId: institution.id,
-              kind: domainKind,
-            },
-          });
-
-          await prisma.user.update({
-            where: { id: userId },
-            data: { activeInstitutionId: institution.id },
-          });
-
-          console.log(`[wizard-tools] Auto-created institution "${name}" (${institution.id}) + domain (${domain.id}) for show_upload`);
-
+        const result = await ensureInstitutionAndDomain(
+          setupData.institutionName as string,
+          userId,
+          setupData.typeSlug as string | undefined,
+        );
+        if (result) {
           return {
             ...base,
             autoInjectFields: {
-              draftDomainId: domain.id,
-              draftInstitutionId: institution.id,
-              defaultDomainKind: domainKind,
+              draftDomainId: result.domainId,
+              draftInstitutionId: result.institutionId,
+              defaultDomainKind: result.domainKind,
             },
             content: "Teaching Materials panel is visible in the right column. Guide the user to drop files there. Wait for their response.",
           };
-        } catch (err) {
-          console.error("[wizard-tools] Auto-create institution for show_upload failed:", err);
-          // Fall through — show upload anyway, SourcesPanel will show a clear error
         }
+        // ensureInstitutionAndDomain returned null — fall through, show upload anyway
       }
       return { ...base, content: `Teaching Materials panel is visible in the right column. Guide the user to drop files there. Wait for their response.` };
     }
@@ -582,47 +563,14 @@ export async function executeWizardTool(
           || (setupData?.packSubjectIds as string[] | undefined);
 
         // ── Safety net: auto-create institution + domain if missing ──
-        // Mirrors the show_upload safety net. The AI sometimes skips
-        // create_institution and jumps straight to create_course.
+        // The AI sometimes skips create_institution and jumps straight to create_course.
         if (!domainId && setupData?.institutionName) {
-          const name = setupData.institutionName as string;
-          const resolved = await resolveInstitutionByName(name);
-          if (resolved) {
-            domainId = resolved.domainId;
-          } else {
-            const typeSlug = setupData.typeSlug as string | undefined;
-            let typeId: string | undefined;
-            let domainKind: "INSTITUTION" | "COMMUNITY" = "INSTITUTION";
-            if (typeSlug) {
-              const instType = await prisma.institutionType.findFirst({
-                where: { slug: typeSlug },
-                select: { id: true, defaultDomainKind: true },
-              });
-              typeId = instType?.id;
-              if (instType?.defaultDomainKind === "COMMUNITY") domainKind = "COMMUNITY";
-            }
-            const institution = await prisma.institution.create({
-              data: {
-                name,
-                slug: slugify(name, { lower: true, strict: true }),
-                ...(typeId ? { typeId } : {}),
-              },
-            });
-            const domain = await prisma.domain.create({
-              data: {
-                name,
-                slug: slugify(name, { lower: true, strict: true }),
-                institutionId: institution.id,
-                kind: domainKind,
-              },
-            });
-            await prisma.user.update({
-              where: { id: userId },
-              data: { activeInstitutionId: institution.id },
-            });
-            domainId = domain.id;
-            console.log(`[wizard-tools] Auto-created institution "${name}" (${institution.id}) + domain (${domain.id}) for create_course`);
-          }
+          const result = await ensureInstitutionAndDomain(
+            setupData.institutionName as string,
+            userId,
+            setupData.typeSlug as string | undefined,
+          );
+          if (result) domainId = result.domainId;
         }
 
         if (!domainId) {
@@ -889,8 +837,9 @@ export async function executeWizardTool(
           // Playbook was deleted — fall through to normal creation
         }
 
-        // 1. Create or find Subject
-        const subjectSlug = slugify(subjectDiscipline, { lower: true, strict: true });
+        // 1. Create or find Subject (domain-prefixed slug to scope per-institution)
+        const domainRow = await prisma.domain.findUnique({ where: { id: domainId }, select: { slug: true } });
+        const subjectSlug = `${domainRow!.slug}-${slugify(subjectDiscipline, { lower: true, strict: true })}`;
         let subject = await prisma.subject.findFirst({ where: { slug: subjectSlug } });
         if (!subject) {
           subject = await prisma.subject.create({
@@ -927,6 +876,13 @@ export async function executeWizardTool(
         }
 
         const playbookId = scaffoldResult.playbook.id;
+
+        // 4b. Link primary subject to playbook (step 7 only links pack subjects)
+        await prisma.playbookSubject.upsert({
+          where: { playbookId_subjectId: { playbookId, subjectId: subject.id } },
+          update: {},
+          create: { playbookId, subjectId: subject.id },
+        });
 
         // 5. Store config in playbook
         // Fall back to setupData (wizard data bag) for fields the AI may not repeat in create_course
@@ -1232,50 +1188,68 @@ export async function executeWizardTool(
 
         await enrollCaller(caller.id, playbookId, "wizard-v2");
 
-        // 9c. Instantiate Goal records for the test caller from config.goals
+        // 9c. Instantiate Goal records for the test caller from config.goals (skip duplicates)
         const callerGoals = (configUpdate.goals as Array<{ type: string; name: string; description?: string; isAssessmentTarget?: boolean; assessmentConfig?: any; priority?: number }>) || [];
         for (const g of callerGoals) {
-          await prisma.goal.create({
+          const existingGoal = await prisma.goal.findFirst({
+            where: { callerId: caller.id, playbookId, name: g.name, status: "ACTIVE" },
+          });
+          if (!existingGoal) {
+            await prisma.goal.create({
+              data: {
+                callerId: caller.id,
+                playbookId,
+                type: g.type || "LEARN",
+                name: g.name,
+                description: g.description || null,
+                isAssessmentTarget: g.isAssessmentTarget || false,
+                assessmentConfig: g.assessmentConfig || undefined,
+                status: "ACTIVE",
+                priority: g.priority || 5,
+                startedAt: new Date(),
+              },
+            });
+          }
+        }
+
+        // 9d. Create or reuse "Test Learners" cohort so the course has a join link
+        const cohortName = `${courseName} — Test Learners`;
+        let cohort = await prisma.cohortGroup.findFirst({
+          where: { domainId, name: cohortName },
+        });
+        if (!cohort) {
+          const joinToken = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+          cohort = await prisma.cohortGroup.create({
             data: {
-              callerId: caller.id,
-              playbookId,
-              type: g.type || "LEARN",
-              name: g.name,
-              description: g.description || null,
-              isAssessmentTarget: g.isAssessmentTarget || false,
-              assessmentConfig: g.assessmentConfig || undefined,
-              status: "ACTIVE",
-              priority: g.priority || 5,
-              startedAt: new Date(),
+              name: cohortName,
+              domainId,
+              ownerId: teacherCaller.id,
+              joinToken,
+              isActive: true,
             },
           });
         }
-
-        // 9d. Create default "Test Learners" cohort so the course has a join link
-        const joinToken = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
-        const cohort = await prisma.cohortGroup.create({
-          data: {
-            name: `${courseName} — Test Learners`,
-            domainId,
-            ownerId: teacherCaller.id,
-            joinToken,
-            isActive: true,
-          },
-        });
-        await prisma.cohortPlaybook.create({
-          data: {
+        await prisma.cohortPlaybook.upsert({
+          where: { cohortGroupId_playbookId: { cohortGroupId: cohort.id, playbookId } },
+          update: {},
+          create: {
             cohortGroupId: cohort.id,
             playbookId,
             assignedBy: "wizard-v5",
           },
         });
-        // Add the test caller to the cohort
-        await prisma.callerCohortMembership.create({
-          data: {
-            callerId: caller.id,
-            cohortGroupId: cohort.id,
-          },
+        // Add the test caller to the cohort (skip if already a member)
+        const existingMembership = await prisma.callerCohortMembership.findFirst({
+          where: { callerId: caller.id, cohortGroupId: cohort.id },
         });
+        if (!existingMembership) {
+          await prisma.callerCohortMembership.create({
+            data: {
+              callerId: caller.id,
+              cohortGroupId: cohort.id,
+            },
+          });
+        }
 
         // 10. Backfill teachMethod on assertions extracted before teachingMode was set
         const resolvedTeachingModeNew = (input.teachingMode as string) || (setupData?.teachingMode as string);
@@ -1289,9 +1263,18 @@ export async function executeWizardTool(
         const { syncInstructionsToIdentitySpec } = await import("@/lib/content-trust/sync-instructions-to-spec");
 
         // 10c. Create assertions from pedagogy data (if user filled any pedagogy nodes)
+        //      Skip if pedagogy source already exists for this subject (re-run guard)
         const hasPedagogy = setupData?.skillsFramework || setupData?.teachingPrinciples
           || setupData?.coursePhases || setupData?.edgeCases || setupData?.assessmentBoundaries;
         if (hasPedagogy) {
+          const existingPedSource = await prisma.contentSource.findFirst({
+            where: {
+              documentType: "COURSE_REFERENCE",
+              name: `${courseName} — Course Reference`,
+              subjects: { some: { subjectId: subject.id } },
+            },
+          });
+          if (!existingPedSource) {
           try {
             const { convertCourseRefToAssertions } = await import("@/lib/content-trust/course-ref-to-assertions");
             const { renderCourseRefMarkdown } = await import("@/lib/content-trust/course-ref-to-markdown");
@@ -1345,6 +1328,7 @@ export async function executeWizardTool(
           } catch (err) {
             console.error("[wizard] Pedagogy assertion creation failed (non-fatal):", (err as Error).message);
           }
+          } // end if (!existingPedSource)
         }
 
         syncInstructionsToIdentitySpec(playbookId).catch(err =>

@@ -609,6 +609,7 @@ model Institution {
   id             String  @id @default(uuid())
   name           String
   slug           String  @unique
+  websiteUrl     String? // Optional institution website (collected in wizard)
   logoUrl        String?
   primaryColor   String? // Hex color for accent (e.g., "#4f46e5")
   secondaryColor String? // Hex color for hover/secondary accent

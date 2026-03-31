@@ -21,6 +21,7 @@ import type { OnboardingPhase, SurveyStepConfig, OffboardingConfig } from '@/lib
 import {
   DEFAULT_OFFBOARDING_SURVEY,
   DEFAULT_OFFBOARDING_TRIGGER,
+  DEFAULT_OFFBOARDING_BANNER,
 } from '@/lib/learner/survey-config';
 
 // ── Types ──────────────────────────────────────────────
@@ -68,7 +69,8 @@ export function OnboardingEditor({
   // Offboarding state
   const [offboardingPhases, setOffboardingPhases] = useState<PhaseWithId[]>([]);
   const [offboardingTrigger, setOffboardingTrigger] = useState<number>(DEFAULT_OFFBOARDING_TRIGGER);
-  const savedOffboardingRef = useRef<string>('{"phases":[],"trigger":' + DEFAULT_OFFBOARDING_TRIGGER + '}');
+  const [offboardingBanner, setOffboardingBanner] = useState<string>(DEFAULT_OFFBOARDING_BANNER);
+  const savedOffboardingRef = useRef<string>('{"phases":[],"trigger":' + DEFAULT_OFFBOARDING_TRIGGER + ',"banner":"' + DEFAULT_OFFBOARDING_BANNER + '"}');
   const [offboardingSaving, setOffboardingSaving] = useState(false);
   const [offboardingSaveError, setOffboardingSaveError] = useState<string | null>(null);
   const [offboardingSaveSuccess, setOffboardingSaveSuccess] = useState(false);
@@ -82,9 +84,9 @@ export function OnboardingEditor({
   }, [structuredPhases]);
 
   const isOffboardingDirty = useMemo(() => {
-    const current = JSON.stringify({ phases: offboardingPhases, trigger: offboardingTrigger });
+    const current = JSON.stringify({ phases: offboardingPhases, trigger: offboardingTrigger, banner: offboardingBanner });
     return current !== savedOffboardingRef.current;
-  }, [offboardingPhases, offboardingTrigger]);
+  }, [offboardingPhases, offboardingTrigger, offboardingBanner]);
 
   // ── Fetch on mount ──────────────────────────────────
 
@@ -124,7 +126,8 @@ export function OnboardingEditor({
           }));
           setOffboardingPhases(obWithIds);
           setOffboardingTrigger(ob.triggerAfterCalls ?? DEFAULT_OFFBOARDING_TRIGGER);
-          savedOffboardingRef.current = JSON.stringify({ phases: obWithIds, trigger: ob.triggerAfterCalls ?? DEFAULT_OFFBOARDING_TRIGGER });
+          setOffboardingBanner(ob.bannerMessage ?? DEFAULT_OFFBOARDING_BANNER);
+          savedOffboardingRef.current = JSON.stringify({ phases: obWithIds, trigger: ob.triggerAfterCalls ?? DEFAULT_OFFBOARDING_TRIGGER, banner: ob.bannerMessage ?? DEFAULT_OFFBOARDING_BANNER });
         }
       }
     } catch (err) {
@@ -240,6 +243,7 @@ export function OnboardingEditor({
     ];
     setOffboardingPhases(defaults);
     setOffboardingTrigger(DEFAULT_OFFBOARDING_TRIGGER);
+    setOffboardingBanner(DEFAULT_OFFBOARDING_BANNER);
   }, []);
 
   // ── Offboarding: save handler ──────────────────────
@@ -251,6 +255,7 @@ export function OnboardingEditor({
     try {
       const payload: OffboardingConfig = {
         triggerAfterCalls: offboardingTrigger,
+        bannerMessage: offboardingBanner || undefined,
         phases: offboardingPhases.map(({ _id, ...rest }) => rest),
       };
       const res = await fetch(`/api/courses/${courseId}/survey-config`, {
@@ -260,7 +265,7 @@ export function OnboardingEditor({
       });
       const data = await res.json();
       if (data.ok) {
-        savedOffboardingRef.current = JSON.stringify({ phases: offboardingPhases, trigger: offboardingTrigger });
+        savedOffboardingRef.current = JSON.stringify({ phases: offboardingPhases, trigger: offboardingTrigger, banner: offboardingBanner });
         setOffboardingSaveSuccess(true);
         setTimeout(() => setOffboardingSaveSuccess(false), 3000);
       } else {
@@ -271,7 +276,7 @@ export function OnboardingEditor({
     } finally {
       setOffboardingSaving(false);
     }
-  }, [courseId, offboardingPhases, offboardingTrigger]);
+  }, [courseId, offboardingPhases, offboardingTrigger, offboardingBanner]);
 
   // ── Offboarding: cancel ────────────────────────────
 
@@ -279,6 +284,7 @@ export function OnboardingEditor({
     const saved = JSON.parse(savedOffboardingRef.current);
     setOffboardingPhases(saved.phases);
     setOffboardingTrigger(saved.trigger);
+    setOffboardingBanner(saved.banner ?? DEFAULT_OFFBOARDING_BANNER);
     setOffboardingSaveError(null);
   }, []);
 
@@ -564,6 +570,19 @@ export function OnboardingEditor({
               onChange={(e) => setOffboardingTrigger(Math.max(1, parseInt(e.target.value, 10) || 1))}
             />
             <span className="hf-text-sm hf-text-muted">sessions</span>
+          </div>
+
+          <div className="hf-mb-md">
+            <label className="hf-label">Banner message</label>
+            <input
+              type="text"
+              className="hf-input"
+              value={offboardingBanner}
+              disabled={!isOperator}
+              onChange={(e) => setOffboardingBanner(e.target.value)}
+              placeholder={DEFAULT_OFFBOARDING_BANNER}
+            />
+            <span className="hf-text-xs hf-text-muted">Use {'{n}'} for session count</span>
           </div>
 
           <SortableList

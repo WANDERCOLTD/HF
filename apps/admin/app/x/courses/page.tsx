@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { BookOpen, Users, Plus } from 'lucide-react';
+import { BookOpen, Users, Plus, Trash2, X } from 'lucide-react';
 import { useTerminology } from '@/contexts/TerminologyContext';
 import { StatusBadge, DomainPill } from '@/src/components/shared/EntityPill';
 import { FancySelect } from '@/components/shared/FancySelect';
@@ -43,13 +43,25 @@ const statusMap: Record<string, 'draft' | 'active' | 'archived'> = {
   archived: 'archived',
 };
 
-function CourseCard({ course, plural }: { course: CourseListItem; plural: (k: string) => string }) {
-  return (
-    <Link
-      href={`/x/courses/${course.id}`}
-      className={`hf-card-compact hf-card-link${course.status === 'archived' ? ' hf-faded' : ''}`}
-    >
+function CourseCard({ course, plural, deleteMode, selected, onToggle }: {
+  course: CourseListItem;
+  plural: (k: string) => string;
+  deleteMode?: boolean;
+  selected?: boolean;
+  onToggle?: (id: string) => void;
+}) {
+  const cardContent = (
+    <>
       <div className="hf-flex hf-flex-between hf-items-start hf-mb-sm">
+        {deleteMode && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggle?.(course.id)}
+            className="hf-checkbox hf-mr-sm"
+            onClick={(e) => e.stopPropagation()}
+          />
+        )}
         <h3 className="hf-heading-sm hf-mb-0 hf-flex-1">{course.name}</h3>
         <StatusBadge status={statusMap[course.status] || 'draft'} size="compact" />
       </div>
@@ -67,6 +79,27 @@ function CourseCard({ course, plural }: { course: CourseListItem; plural: (k: st
         <span><strong>{course.specCount}</strong> content</span>
         <span className="hf-text-placeholder">v{course.version}</span>
       </div>
+    </>
+  );
+
+  if (deleteMode) {
+    return (
+      <div
+        className={`hf-card-compact${course.status === 'archived' ? ' hf-faded' : ''}${selected ? ' hf-card-selected' : ''}`}
+        onClick={() => onToggle?.(course.id)}
+        style={{ cursor: 'pointer' }}
+      >
+        {cardContent}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={`/x/courses/${course.id}`}
+      className={`hf-card-compact hf-card-link${course.status === 'archived' ? ' hf-faded' : ''}`}
+    >
+      {cardContent}
     </Link>
   );
 }
@@ -99,6 +132,10 @@ export default function CoursesPage() {
   const [selectedDomain, setSelectedDomain] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('');
   const [groupBy, setGroupBy] = useState<'none' | 'department' | 'domain' | 'subject'>('none');
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadCourses = async () => {
     try {
@@ -229,6 +266,44 @@ export default function CoursesPage() {
     });
   };
 
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleDeleteSelected = async () => {
+    setDeleting(true);
+    try {
+      const results = await Promise.all(
+        Array.from(selectedIds).map((id) =>
+          fetch(`/api/playbooks/${id}`, { method: 'DELETE' }).then((r) => r.json())
+        )
+      );
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length > 0) {
+        setError(`${failed.length} of ${selectedIds.size} deletes failed`);
+      }
+      setSelectedIds(new Set());
+      setDeleteMode(false);
+      setShowDeleteConfirm(false);
+      await loadCourses();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const exitDeleteMode = () => {
+    setDeleteMode(false);
+    setSelectedIds(new Set());
+    setShowDeleteConfirm(false);
+  };
+
   // Redirect in progress
   if (legacyId || actionParam === 'setup') return (
     <div className="hf-empty-compact">
@@ -267,10 +342,27 @@ export default function CoursesPage() {
           <p className="hf-page-subtitle">Manage your {plural('playbook').toLowerCase()} and track {plural('caller').toLowerCase()} progress</p>
         </div>
         {isOperator && (
-          <Link href="/x/courses/new" className="hf-btn hf-btn-primary">
-            <Plus size={16} />
-            New {terms.playbook}
-          </Link>
+          <div className="hf-flex hf-gap-sm">
+            {deleteMode ? (
+              <button onClick={exitDeleteMode} className="hf-btn hf-btn-secondary">
+                <X size={16} />
+                Cancel
+              </button>
+            ) : (
+              <>
+                {courses.length > 0 && (
+                  <button onClick={() => setDeleteMode(true)} className="hf-btn hf-btn-secondary">
+                    <Trash2 size={16} />
+                    Delete
+                  </button>
+                )}
+                <Link href="/x/courses/new" className="hf-btn hf-btn-primary">
+                  <Plus size={16} />
+                  New {terms.playbook}
+                </Link>
+              </>
+            )}
+          </div>
         )}
       </div>
 
@@ -405,6 +497,41 @@ export default function CoursesPage() {
         </div>
       )}
 
+      {/* Delete Action Bar */}
+      {deleteMode && (
+        <div className="hf-banner hf-banner-warning hf-mb-md hf-flex hf-flex-between hf-items-center">
+          <span className="hf-text-sm hf-text-bold">
+            {selectedIds.size === 0
+              ? `Select ${plural('playbook').toLowerCase()} to delete`
+              : `${selectedIds.size} selected`}
+          </span>
+          <div className="hf-flex hf-gap-sm">
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={selectedIds.size === 0}
+                className="hf-btn hf-btn-sm hf-btn-destructive"
+              >
+                <Trash2 size={14} />
+                Delete Selected
+              </button>
+            ) : (
+              <>
+                <span className="hf-text-sm hf-text-error hf-text-bold">
+                  Permanently delete {selectedIds.size} {selectedIds.size === 1 ? terms.playbook.toLowerCase() : plural('playbook').toLowerCase()}?
+                </span>
+                <button onClick={() => setShowDeleteConfirm(false)} className="hf-btn hf-btn-sm hf-btn-secondary">
+                  No, keep
+                </button>
+                <button onClick={handleDeleteSelected} disabled={deleting} className="hf-btn hf-btn-sm hf-btn-destructive">
+                  {deleting ? 'Deleting...' : 'Yes, delete'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Course Cards Grid */}
       {loading ? (
         <div className="hf-card-grid-lg">
@@ -451,7 +578,7 @@ export default function CoursesPage() {
               </div>
               <div className="hf-card-grid-lg">
                 {group.courses.map((course) => (
-                  <CourseCard key={course.id} course={course} plural={plural} />
+                  <CourseCard key={course.id} course={course} plural={plural} deleteMode={deleteMode} selected={selectedIds.has(course.id)} onToggle={toggleSelected} />
                 ))}
               </div>
             </div>
@@ -461,7 +588,7 @@ export default function CoursesPage() {
         /* Flat view */
         <div className="hf-card-grid-lg">
           {filteredCourses.map((course) => (
-            <CourseCard key={course.id} course={course} plural={plural} />
+            <CourseCard key={course.id} course={course} plural={plural} deleteMode={deleteMode} selected={selectedIds.has(course.id)} onToggle={toggleSelected} />
           ))}
         </div>
       )}

@@ -1184,6 +1184,10 @@ html.light {
   padding: 16px;
   margin-bottom: 16px;
 }
+.hf-card-selected {
+  border-color: var(--status-error-text);
+  background: color-mix(in srgb, var(--status-error-text) 5%, var(--surface-primary));
+}
 
 /* Section titles (inside cards) */
 .hf-section-title {

@@ -9,9 +9,9 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
  * @scope callers:write
  * @auth session
  * @tags callers, reset
- * @description Reset all analysis data for a caller while preserving source calls/transcripts. Deletes CallScores, BehaviorMeasurements, RewardScores, PromptSlugSelections, CallerMemory, CallerMemorySummary, PersonalityObservations, CallerPersonality, CallerPersonalityProfile, ComposedPrompts, CallTargets, CallerTargets, and CALLER-scoped BehaviorTargets. Clears CallerIdentity fields and resets call sequence numbers. Preserves Caller record, Call records (transcripts), and CallerIdentity structure.
+ * @description Reset all analysis data for a caller while preserving source calls/transcripts. Deletes CallScores, BehaviorMeasurements, RewardScores, PromptSlugSelections, CallerMemory, CallerMemorySummary, PersonalityObservations, CallerPersonality, CallerPersonalityProfile, ComposedPrompts, CallTargets, CallerTargets, CallerAttributes (survey answers), CallerModuleProgress, and CALLER-scoped BehaviorTargets. Resets Goal progress to 0. Clears CallerIdentity fields and resets call sequence numbers. Preserves Caller record, Call records (transcripts), and CallerIdentity structure.
  * @pathParam callerId string - The caller ID to reset analysis data for
- * @response 200 { ok: true, message: string, deleted: { scores, behaviorMeasurements, rewardScores, callTargets, slugSelections, memories, memorySummary, observations, personalityProfiles, personality, prompts, callerTargets, behaviorTargets, identitiesCleared, callSequencesReset, callsPreserved } }
+ * @response 200 { ok: true, message: string, deleted: { scores, behaviorMeasurements, rewardScores, callTargets, slugSelections, memories, memorySummary, observations, personalityProfiles, personality, prompts, callerTargets, callerAttributes, moduleProgress, goalsReset, behaviorTargets, identitiesCleared, callSequencesReset, callsPreserved } }
  * @response 404 { ok: false, error: "Caller not found" }
  * @response 500 { ok: false, error: "Failed to reset caller" }
  */
@@ -118,6 +118,30 @@ export async function POST(
         where: { callerId },
       });
 
+      // === SURVEY + MASTERY + GOALS ===
+
+      // 10c. Delete CallerAttribute (survey answers — PRE_SURVEY / POST_SURVEY)
+      const callerAttributesDeleted = await tx.callerAttribute.deleteMany({
+        where: { callerId },
+      });
+
+      // 10d. Delete CallerModuleProgress (mastery tracking)
+      const moduleProgressDeleted = await tx.callerModuleProgress.deleteMany({
+        where: { callerId },
+      });
+
+      // 10e. Reset Goal progress (keep goals, reset progress to 0)
+      const goalsReset = await tx.goal.updateMany({
+        where: { callerId },
+        data: {
+          progress: 0,
+          progressMetrics: Prisma.DbNull,
+          status: "ACTIVE",
+          startedAt: null,
+          completedAt: null,
+        },
+      });
+
       // === CALLER IDENTITY ARTIFACTS ===
 
       // 11. Delete CALLER-scoped BehaviorTargets (linked via CallerIdentity)
@@ -170,6 +194,9 @@ export async function POST(
         personality: personalityDeleted.count,
         prompts: promptsDeleted.count,
         callerTargets: callerTargetsDeleted.count,
+        callerAttributes: callerAttributesDeleted.count,
+        moduleProgress: moduleProgressDeleted.count,
+        goalsReset: goalsReset.count,
         behaviorTargets: behaviorTargetsDeleted.count,
         identitiesCleared: identitiesUpdated.count,
         callSequencesReset: callSequenceReset.count,
