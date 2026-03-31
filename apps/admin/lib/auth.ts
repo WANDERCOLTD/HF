@@ -189,12 +189,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.institutionId = fresh.institutionId ?? null;
         }
       }
+      // Validate user still exists in DB (catches stale JWT after db:reset).
+      // Check at most once per 5 minutes to avoid a DB hit on every request.
+      if (token.id && !user) {
+        const now = Date.now();
+        const lastCheck = (token.userExistsCheckedAt as number) ?? 0;
+        if (now - lastCheck > 5 * 60 * 1000) {
+          const exists = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { id: true },
+          });
+          if (!exists) {
+            // User was deleted (e.g. db:reset) — clear token to force re-login
+            return { ...token, id: null, role: null };
+          }
+          token.userExistsCheckedAt = now;
+        }
+      }
       return token;
     },
 
     async session({ session, token }) {
       // For JWT sessions, get user info from token
       if (token) {
+        // If user was invalidated (deleted after db:reset), strip session
+        if (!token.id) {
+          (session as any).user = undefined;
+          return session;
+        }
         session.user.id = token.id as string;
         session.user.role = token.role as UserRole;
         session.user.assignedDomainId = (token.assignedDomainId as string) ?? null;
