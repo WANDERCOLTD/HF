@@ -878,17 +878,17 @@ Submit formative assessment results or record an exam result
 
 ### `POST` /api/v1/callers/:callerId/reset
 
-Reset all analysis data for a caller while preserving source calls/transcripts. Deletes CallScores, BehaviorMeasurements, RewardScores, PromptSlugSelections, CallerMemory, CallerMemorySummary, PersonalityObservations, CallerPersonality, CallerPersonalityProfile, ComposedPrompts, CallTargets, CallerTargets, CallerAttributes (survey answers), CallerModuleProgress, and CALLER-scoped BehaviorTargets. Resets Goal progress to 0. Clears CallerIdentity fields and resets call sequence numbers. Preserves Caller record, Call records (transcripts), and CallerIdentity structure.
+Full reset for a caller — deletes ALL runtime data (calls, transcripts,
 
 **Auth**: Session · **Scope**: `callers:write`
 
 | Parameter | In | Type | Required | Description |
 |-----------|-----|------|----------|-------------|
-| callerId | path | string | Yes | The caller ID to reset analysis data for |
+| callerId | path | string | Yes | The caller ID to reset |
 
 **Response** `200`
 ```json
-{ ok: true, message: string, deleted: { scores, behaviorMeasurements, rewardScores, callTargets, slugSelections, memories, memorySummary, observations, personalityProfiles, personality, prompts, callerTargets, callerAttributes, moduleProgress, goalsReset, behaviorTargets, identitiesCleared, callSequencesReset, callsPreserved } }
+{ ok: true, message: string, deleted: Record<string, number> }
 ```
 
 **Response** `404`
