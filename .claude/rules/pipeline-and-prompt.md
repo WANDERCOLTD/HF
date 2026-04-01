@@ -31,6 +31,12 @@ Every feature must respect this loop. Pipeline stages are spec-driven from `PIPE
 
 Run data loaders in parallel. Use a template compiler with Mustache-style syntax (`{{variable}}`, `{{#if}}`, `{{#each}}`). Keep transform logic in named transform modules, not inline in the loader.
 
+## COMP-001 Seed Sync (MANDATORY)
+
+When adding or removing a composition section in `getDefaultSections()` (CompositionExecutor.ts), you MUST also update `docs-archive/bdd-specs/COMP-001-prompt-composition.spec.json` to match. The DB spec sections take priority over code defaults — if the seed is stale, new sections silently disappear from every composed prompt.
+
+**Test:** `tests/lib/prompt/composition/seed-sync.test.ts` enforces this. It will fail if sections diverge.
+
 ## Async Registry Pattern
 
 ```typescript
