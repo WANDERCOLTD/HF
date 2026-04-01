@@ -80,7 +80,7 @@ export default function WelcomeSurveyPage(): React.ReactElement {
         }
 
         if (surveyData.ok && surveyData.answers?.[PRE_SURVEY_KEYS.SUBMITTED_AT]) {
-          router.push("/x/sim");
+          router.push("/x/student");
           return;
         }
       } finally {
