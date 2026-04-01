@@ -429,7 +429,6 @@ Their hobby is gardening. Reference these details naturally in conversation.
 | `computeQuickStart` | `AssembledContext` | quick start summary | _quickStart |
 | `computePreamble` | `AssembledContext` | preamble + rules | _preamble |
 | `extractIdentitySpec` | `AssembledContext` | identity config | identity |
-| `extractContentSpec` | `AssembledContext` | content config | content |
 | `computeTrustContext` | `AssembledContext` | trust context | contentTrust |
 | `narrativeFrame` | `memories[]` | narrative string | used within computeInstructions |
 

@@ -738,20 +738,6 @@
       "outputKey": "identity"
     },
     {
-      "id": "content",
-      "name": "Content Spec",
-      "priority": 12,
-      "dataSource": "_assembled",
-      "activateWhen": {
-        "condition": "contentSpecExists"
-      },
-      "fallback": {
-        "action": "null"
-      },
-      "transform": "extractContentSpec",
-      "outputKey": "content"
-    },
-    {
       "id": "instructions_pedagogy",
       "name": "Session Pedagogy",
       "priority": 13,

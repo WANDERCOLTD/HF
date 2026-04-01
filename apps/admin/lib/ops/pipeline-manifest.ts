@@ -346,15 +346,6 @@ export const PIPELINE_MANIFEST: PipelineManifest = {
       sourceFile: "lib/prompt/composition/CompositionExecutor.ts",
     },
     {
-      id: "content",
-      label: "Content/Curriculum (WHAT)",
-      loader: "resolveContentSpec",
-      transform: "extractContentSpec",
-      activateWhen: "contentSpecExists",
-      fallback: "omit",
-      sourceFile: "lib/prompt/composition/CompositionExecutor.ts",
-    },
-    {
       id: "instructions_voice",
       label: "Voice Instructions (HOW)",
       loader: "resolveVoiceSpec",

@@ -2,7 +2,7 @@
  * Registry of spec config paths that are consumed by prompt composition transforms.
  *
  * Traced from:
- *   - identity.ts: extractIdentitySpec, extractContentSpec
+ *   - identity.ts: extractIdentitySpec
  *   - voice.ts: computeVoiceGuidance
  *   - pedagogy.ts: computeSessionPedagogy
  *   - quickstart.ts: computeQuickStart
