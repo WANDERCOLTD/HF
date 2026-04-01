@@ -662,7 +662,7 @@
       "priority": 7,
       "dataSource": "_assembled",
       "activateWhen": {
-        "condition": "contentSpecExists"
+        "condition": "curriculumDataExists"
       },
       "fallback": {
         "action": "null"
@@ -738,6 +738,152 @@
       "outputKey": "identity"
     },
     {
+      "id": "content_trust",
+      "name": "Content Trust & Source Authority",
+      "priority": 12.5,
+      "dataSource": "subjectSources",
+      "activateWhen": {
+        "condition": "dataExists"
+      },
+      "fallback": {
+        "action": "null"
+      },
+      "transform": "computeTrustContext",
+      "outputKey": "contentTrust",
+      "dependsOn": ["curriculum"]
+    },
+    {
+      "id": "teaching_content",
+      "name": "Approved Teaching Content",
+      "priority": 12.6,
+      "dataSource": "curriculumAssertions",
+      "activateWhen": {
+        "condition": "dataExists"
+      },
+      "fallback": {
+        "action": "null"
+      },
+      "transform": "renderTeachingContent",
+      "outputKey": "teachingContent",
+      "dependsOn": ["content_trust"]
+    },
+    {
+      "id": "course_instructions",
+      "name": "Course Instructions",
+      "priority": 12.62,
+      "dataSource": "courseInstructions",
+      "activateWhen": {
+        "condition": "dataExists"
+      },
+      "fallback": {
+        "action": "null"
+      },
+      "transform": "renderCourseInstructions",
+      "outputKey": "courseInstructions"
+    },
+    {
+      "id": "visual_aids",
+      "name": "Visual Aids",
+      "priority": 12.65,
+      "dataSource": "visualAids",
+      "activateWhen": {
+        "condition": "dataExists"
+      },
+      "fallback": {
+        "action": "null"
+      },
+      "transform": "formatVisualAids",
+      "outputKey": "visualAids"
+    },
+    {
+      "id": "session_materials",
+      "name": "Session Materials",
+      "priority": 12.655,
+      "dataSource": "_assembled",
+      "activateWhen": {
+        "condition": "always"
+      },
+      "fallback": {
+        "action": "null"
+      },
+      "transform": "formatSessionMaterials",
+      "outputKey": "sessionMaterials"
+    },
+    {
+      "id": "physical_materials",
+      "name": "Physical Materials",
+      "priority": 12.66,
+      "dataSource": "_assembled",
+      "activateWhen": {
+        "condition": "always"
+      },
+      "fallback": {
+        "action": "null"
+      },
+      "transform": "formatPhysicalMaterials",
+      "outputKey": "physicalMaterials"
+    },
+    {
+      "id": "pedagogy_mode",
+      "name": "Pedagogy Mode",
+      "priority": 12.7,
+      "dataSource": "_assembled",
+      "activateWhen": {
+        "condition": "always"
+      },
+      "fallback": {
+        "action": "null"
+      },
+      "transform": "computePedagogyMode",
+      "outputKey": "pedagogyMode",
+      "dependsOn": ["curriculum"]
+    },
+    {
+      "id": "teaching_style",
+      "name": "Teaching Style",
+      "priority": 12.8,
+      "dataSource": "_assembled",
+      "activateWhen": {
+        "condition": "always"
+      },
+      "fallback": {
+        "action": "null"
+      },
+      "transform": "computeTeachingStyle",
+      "outputKey": "teachingStyle",
+      "dependsOn": ["identity"]
+    },
+    {
+      "id": "audience_guidance",
+      "name": "Audience Guidance",
+      "priority": 12.82,
+      "dataSource": "_assembled",
+      "activateWhen": {
+        "condition": "always"
+      },
+      "fallback": {
+        "action": "null"
+      },
+      "transform": "computeAudienceGuidance",
+      "outputKey": "audienceGuidance"
+    },
+    {
+      "id": "activity_toolkit",
+      "name": "Activity Toolkit",
+      "priority": 12.85,
+      "dataSource": "_assembled",
+      "activateWhen": {
+        "condition": "always"
+      },
+      "fallback": {
+        "action": "emptyObject",
+        "value": { "hasActivities": false, "recommended": [], "principles": [] }
+      },
+      "transform": "computeActivityToolkit",
+      "outputKey": "activityToolkit",
+      "dependsOn": ["personality", "curriculum", "instructions_pedagogy"]
+    },
+    {
       "id": "instructions_pedagogy",
       "name": "Session Pedagogy",
       "priority": 13,
@@ -788,7 +934,9 @@
         "curriculum",
         "learner_goals",
         "identity",
-        "content",
+        "content_trust",
+        "teaching_content",
+        "course_instructions",
         "instructions_pedagogy",
         "instructions_voice"
       ]
@@ -830,24 +978,6 @@
       "outputKey": "_preamble",
       "dependsOn": [
         "identity"
-      ]
-    },
-    {
-      "id": "first_call_bootstrap",
-      "name": "First Call Bootstrap",
-      "priority": 0,
-      "dataSource": "_assembled",
-      "activateWhen": {
-        "condition": "callCount == 0"
-      },
-      "fallback": {
-        "action": "skip"
-      },
-      "transform": null,
-      "outputKey": "_firstCallBootstrap",
-      "dependsOn": [
-        "quick_start",
-        "instructions"
       ]
     }
   ],
