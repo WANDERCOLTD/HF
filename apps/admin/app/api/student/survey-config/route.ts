@@ -5,7 +5,7 @@
  * @desc Returns onboarding + offboarding survey config for the student's enrolled course.
  *       Resolves the student's active CallerPlaybook → Playbook.config → survey steps.
  *       Falls back to defaults from lib/learner/survey-config.
- * @response 200 { ok, subject, onboarding: { surveySteps }, offboarding: { triggerAfterCalls, surveySteps } }
+ * @response 200 { ok, subject, onboarding: { surveySteps, endAction }, midSurvey: { endAction }, offboarding: { triggerAfterCalls, surveySteps, endAction } }
  * @response 404 { ok: false, error: "..." }
  */
 
@@ -21,6 +21,7 @@ import {
   DEFAULT_ONBOARDING_SURVEY,
   DEFAULT_OFFBOARDING_SURVEY,
   DEFAULT_OFFBOARDING_TRIGGER,
+  getSurveyTemplateConfig,
 } from "@/lib/learner/survey-config";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -67,11 +68,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const triggerAfterCalls =
       offboardingCfg?.triggerAfterCalls ?? DEFAULT_OFFBOARDING_TRIGGER;
 
+    // Load endAction defaults from contract/fallback templates
+    const templates = await getSurveyTemplateConfig();
+
     return NextResponse.json({
       ok: true,
       subject,
-      onboarding: { surveySteps: onboardingSurveySteps },
-      offboarding: { triggerAfterCalls, surveySteps: offboardingSurveySteps },
+      onboarding: {
+        surveySteps: onboardingSurveySteps,
+        endAction: templates.templates.pre_survey.endAction,
+      },
+      midSurvey: {
+        endAction: templates.templates.mid_survey.endAction,
+      },
+      offboarding: {
+        triggerAfterCalls,
+        surveySteps: offboardingSurveySteps,
+        endAction: templates.templates.post_survey.endAction,
+      },
     });
   } catch (err) {
     console.error("[student/survey-config GET]", err);

@@ -7,7 +7,10 @@ import { SURVEY_SCOPES, PRE_SURVEY_KEYS } from "@/lib/learner/survey-keys";
 import type { SurveyStepConfig } from "@/lib/types/json-fields";
 import {
   DEFAULT_ONBOARDING_SURVEY,
+  type SurveyEndAction,
 } from "@/lib/learner/survey-config";
+import { isSummaryAction, resolveRedirect } from "@/lib/learner/survey-end-action";
+import { StopSummaryCard } from "@/components/student/StopSummaryCard";
 import "./welcome.css";
 
 /** Convert SurveyStepConfig[] to SurveyStep[] with greeting + ready bookends */
@@ -41,9 +44,12 @@ export default function WelcomeSurveyPage(): React.ReactElement {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [subject, setSubject] = useState('this subject');
   const [teacherName, setTeacherName] = useState('');
   const [surveyConfigs, setSurveyConfigs] = useState<SurveyStepConfig[]>(DEFAULT_ONBOARDING_SURVEY);
+  const [endAction, setEndAction] = useState<SurveyEndAction | undefined>(undefined);
+  const [lastAnswers, setLastAnswers] = useState<Record<string, string | number>>({});
 
   // Check if already submitted + load context + survey config
   useEffect(() => {
@@ -67,6 +73,9 @@ export default function WelcomeSurveyPage(): React.ReactElement {
           if (configData.subject) setSubject(configData.subject);
           if (configData.onboarding?.surveySteps?.length > 0) {
             setSurveyConfigs(configData.onboarding.surveySteps);
+          }
+          if (configData.onboarding?.endAction) {
+            setEndAction(configData.onboarding.endAction);
           }
         }
 
@@ -96,11 +105,22 @@ export default function WelcomeSurveyPage(): React.ReactElement {
         body: JSON.stringify({ scope: SURVEY_SCOPES.PRE, answers: surveyAnswers }),
       });
       const data = await res.json();
-      if (data.ok) router.push("/x/sim");
+      if (data.ok) {
+        setLastAnswers(surveyAnswers);
+        if (isSummaryAction(endAction)) {
+          setSubmitted(true);
+        } else {
+          router.replace(resolveRedirect(endAction));
+        }
+      }
     } finally {
       setSubmitting(false);
     }
-  }, [router]);
+  }, [router, endAction]);
+
+  const handleContinueAfterSummary = useCallback(() => {
+    router.replace(resolveRedirect(endAction));
+  }, [router, endAction]);
 
   if (loading) {
     return (
@@ -110,8 +130,32 @@ export default function WelcomeSurveyPage(): React.ReactElement {
     );
   }
 
+  if (submitted) {
+    return (
+      <div className="welcome-page">
+        <StopSummaryCard
+          answers={lastAnswers}
+          steps={surveyConfigs}
+          onContinue={handleContinueAfterSummary}
+          continueLabel="Start Learning →"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="welcome-page">
+      <div style={{ maxWidth: 520, margin: "0 auto", padding: "0 16px" }}>
+        <div className="hf-flex hf-justify-end hf-mb-sm">
+          <button
+            className="hf-btn hf-btn-xs hf-btn-outline"
+            onClick={() => router.replace(resolveRedirect(endAction))}
+            type="button"
+          >
+            Skip →
+          </button>
+        </div>
+      </div>
       <ChatSurvey
         steps={buildSteps(surveyConfigs, subject, teacherName)}
         tutorName="AI Tutor"

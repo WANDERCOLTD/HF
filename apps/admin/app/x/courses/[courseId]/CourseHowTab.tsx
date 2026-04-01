@@ -57,7 +57,7 @@ const CATEGORY_ORDER = [
   'differentiation',
 ];
 
-type InstructionItem = {
+export type InstructionItem = {
   id: string;
   assertion: string;
   category: string;
@@ -78,7 +78,7 @@ type InstructionsData = {
 
 // ── Session Flow Pipeline ──────────────────────────────
 
-function SessionFlowPipeline({ items }: { items: InstructionItem[] }) {
+export function SessionFlowPipeline({ items }: { items: InstructionItem[] }) {
   // Detect sequential phases: look for numbered or arrow-separated steps
   const phases = items.map((item) => {
     const text = item.assertion.replace(/^\d+[\.\)]\s*/, '').trim();
@@ -301,20 +301,6 @@ export function CourseHowTab({
 
   return (
     <>
-      {/* ── 1. Every Session Flow ───────────────────────── */}
-      {!instructionsLoading && sessionFlowItems.length > 0 && (
-        <>
-          <SectionHeader
-            title="Every Session"
-            icon={Sparkles}
-            subtitle="How sessions 2+ are structured (from your course reference)"
-          />
-          <div className="hf-card-compact hf-mb-lg">
-            <SessionFlowPipeline items={sessionFlowItems} />
-          </div>
-        </>
-      )}
-
       {/* ── Course Reference Builder CTA ───────────────── */}
       {isOperator && (
         <div className="hf-mb-md">

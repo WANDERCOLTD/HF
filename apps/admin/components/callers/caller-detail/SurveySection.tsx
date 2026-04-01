@@ -122,8 +122,53 @@ function PostPanel({ data }: { data: SurveyData }): JSX.Element {
   );
 }
 
+function MidPanel({ data }: { data: SurveyData }): JSX.Element {
+  const progressFeeling = data["progress_feeling"];
+  const midSatisfaction = data["mid_satisfaction"];
+  const helpNeeded = data["help_needed"];
+  const submittedAt = data["submitted_at"];
+
+  const FEELING_LABELS: Record<string, string> = {
+    struggling: "Struggling",
+    ok: "Getting there",
+    good: "Feeling good",
+    great: "Loving it",
+  };
+
+  return (
+    <div className="ss-panel">
+      <div className="ss-panel-title">
+        Mid-Survey
+        {submittedAt && <span className="ss-panel-date">completed {formatDate(submittedAt)}</span>}
+      </div>
+
+      {progressFeeling != null && (
+        <div className="ss-row">
+          <span className="ss-label">Feeling:</span>
+          <span className="ss-value">{FEELING_LABELS[String(progressFeeling)] ?? String(progressFeeling)}</span>
+        </div>
+      )}
+
+      {midSatisfaction != null && (
+        <div className="ss-row">
+          <span className="ss-label">Satisfaction:</span>
+          <Stars value={Number(midSatisfaction)} />
+        </div>
+      )}
+
+      {helpNeeded != null && (
+        <div className="ss-row">
+          <span className="ss-label">Needs help with:</span>
+          <span className="ss-value-quote">&ldquo;{String(helpNeeded)}&rdquo;</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SurveySection({ callerId }: { callerId: string }): JSX.Element {
   const [pre, setPre] = useState<SurveyData | null>(null);
+  const [mid, setMid] = useState<SurveyData | null>(null);
   const [post, setPost] = useState<SurveyData | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -136,8 +181,10 @@ export function SurveySection({ callerId }: { callerId: string }): JSX.Element {
         if (cancelled) return;
         if (result.ok) {
           const hasPre = Object.keys(result.pre ?? {}).length > 0;
+          const hasMid = Object.keys(result.mid ?? {}).length > 0;
           const hasPost = Object.keys(result.post ?? {}).length > 0;
           setPre(hasPre ? result.pre : null);
+          setMid(hasMid ? result.mid : null);
           setPost(hasPost ? result.post : null);
         }
         setLoaded(true);
@@ -151,13 +198,14 @@ export function SurveySection({ callerId }: { callerId: string }): JSX.Element {
 
   if (!loaded) return <></>;
 
-  if (!pre && !post) {
+  if (!pre && !mid && !post) {
     return <p className="ss-empty">No survey data yet</p>;
   }
 
   return (
     <div className="ss-wrap">
       {pre && <PrePanel data={pre} />}
+      {mid && <MidPanel data={mid} />}
       {post && <PostPanel data={post} />}
     </div>
   );

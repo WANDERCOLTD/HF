@@ -13,9 +13,9 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Paperclip, Users2, ArrowLeft, ListOrdered, RefreshCw, ExternalLink, Sparkles, Flag } from "lucide-react";
+import { Paperclip, Users2, ArrowLeft, ListOrdered, RefreshCw, ExternalLink, Sparkles, Flag, Plus, Trash2, GripVertical, ClipboardList, ChevronDown } from "lucide-react";
 import { DotRail, type DotRailStep, type DotState } from "./DotRail";
-import { getSessionTypeColor, getSessionTypeLabel } from "@/lib/lesson-plan/session-ui";
+import { getSessionTypeColor, getSessionTypeLabel, isFormStop, type SessionTypeConfig, type EducatorType } from "@/lib/lesson-plan/session-ui";
 import type { SessionEntry, StudentProgress } from "@/lib/lesson-plan/types";
 import "./journey-rail.css";
 
@@ -43,6 +43,17 @@ export interface JourneyRailProps {
 
   /** Switch to a tab on the course page (for onboarding/offboarding links) */
   onSwitchTab?: (tab: string) => void;
+
+  /** Admin mode — inline controls for managing sessions */
+  onAddSession?: (afterSession: number, type: string) => void;
+  onRemoveSession?: (sessionNumber: number) => void;
+  onRetypeSession?: (sessionNumber: number, newType: string) => void;
+  onToggleOptional?: (sessionNumber: number, isOptional: boolean) => void;
+  onReorderSession?: (fromIndex: number, toIndex: number) => void;
+  /** Loaded session type config (for type dropdowns) */
+  sessionTypeConfig?: SessionTypeConfig;
+  /** Educator type groups (for simplified type picker) */
+  educatorTypes?: EducatorType[];
 }
 
 // ── Helpers ─────────────────────────────────────────
@@ -329,11 +340,24 @@ export function JourneyRail({
   onRegenSessionCountChange,
   renderSessionDetail,
   onSwitchTab,
+  onAddSession,
+  onRemoveSession,
+  onRetypeSession,
+  onToggleOptional,
+  onReorderSession,
+  sessionTypeConfig,
+  educatorTypes,
 }: JourneyRailProps) {
   const router = useRouter();
   const [focusCallerId, setFocusCallerId] = useState<string | null>(initialFocusCallerId);
   const [expandedSession, setExpandedSession] = useState<number | null>(null);
+  const [insertPickerAfter, setInsertPickerAfter] = useState<number | null>(null);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
   const stationRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  const isAdmin = !!(onAddSession || onRemoveSession || onRetypeSession);
+  const isPinned = (type: string) => ["onboarding", "offboarding"].includes(type);
 
   // Sync external prop
   useEffect(() => {
@@ -422,27 +446,43 @@ export function JourneyRail({
 
   // ── Station render (one session row) ──────────────
 
-  const renderStation = (entry: SessionEntry) => {
+  const renderStation = (entry: SessionEntry, idx: number) => {
     const state = getDotState(entry.session);
     const color = getSessionTypeColor(entry.type);
     const typeLabel = getSessionTypeLabel(entry.type);
     const mats = materialCount(entry);
     const tps = entry.assertionCount ?? 0;
     const onThisSession = callersOnSession(entry.session);
+    const pinned = isPinned(entry.type);
+    const formStop = isFormStop(entry.type);
 
     // In caller mode: active session auto-expands
     const isActiveForCaller = mode === "caller" && focusCaller?.currentSession === entry.session;
     const isExpanded = isActiveForCaller || expandedSession === entry.session;
 
+    // Drag state
+    const isDragOver = dragOver === idx;
+
     return (
       <div
         key={entry.session}
-        className="jrl-station"
+        className={`jrl-station${isDragOver ? " jrl-station--drag-over" : ""}`}
         ref={(el) => { stationRefs.current[entry.session] = el; }}
+        draggable={isAdmin && !pinned && !!onReorderSession}
+        onDragStart={() => { if (!pinned) setDragFrom(idx); }}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(idx); }}
+        onDragEnd={() => { setDragFrom(null); setDragOver(null); }}
+        onDrop={() => {
+          if (dragFrom !== null && dragFrom !== idx && onReorderSession) {
+            onReorderSession(dragFrom, idx);
+          }
+          setDragFrom(null);
+          setDragOver(null);
+        }}
       >
-        {/* Node on the rail */}
+        {/* Node on the rail — diamond for form stops, circle for voice */}
         <div
-          className={`jrl-station-node jrl-station-node--${state}`}
+          className={`jrl-station-node jrl-station-node--${state}${formStop ? " jrl-station-node--form" : ""}`}
           style={{ "--station-color": color } as React.CSSProperties}
         />
 
@@ -451,7 +491,6 @@ export function JourneyRail({
           className="jrl-station-row"
           onClick={() => {
             if (isActiveForCaller) {
-              // Active session in caller mode: navigate to detail
               router.push(`/x/courses/${courseId}/sessions/${entry.session}`);
             } else {
               setExpandedSession(isExpanded ? null : entry.session);
@@ -469,14 +508,42 @@ export function JourneyRail({
             }
           }}
         >
+          {/* Drag handle */}
+          {isAdmin && !pinned && onReorderSession && (
+            <GripVertical size={12} className="jrl-drag-handle" />
+          )}
           <span className="jrl-station-num">{entry.session}</span>
           <span className="jrl-station-label">{entry.label}</span>
-          <span
-            className="jrl-station-type"
-            style={{ "--station-color": color } as React.CSSProperties}
-          >
-            {typeLabel}
-          </span>
+
+          {/* Type badge — dropdown if admin, static otherwise */}
+          {isAdmin && !pinned && !formStop && onRetypeSession && educatorTypes ? (
+            <select
+              className="jrl-type-select"
+              value={educatorTypes.find((et) => et.dbTypes.includes(entry.type))?.educatorLabel || entry.type}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                const et = educatorTypes.find((t) => t.educatorLabel === e.target.value);
+                if (et) onRetypeSession(entry.session, et.dbTypes[0]);
+              }}
+              style={{ "--station-color": color } as React.CSSProperties}
+            >
+              {educatorTypes
+                .filter((et) => et.category === "teaching")
+                .map((et) => (
+                  <option key={et.educatorLabel} value={et.educatorLabel}>
+                    {et.educatorLabel}
+                  </option>
+                ))}
+            </select>
+          ) : (
+            <span
+              className="jrl-station-type"
+              style={{ "--station-color": color } as React.CSSProperties}
+            >
+              {typeLabel}
+            </span>
+          )}
+
           {entry.estimatedDurationMins ? (
             <span className="jrl-station-duration">
               {entry.estimatedDurationMins}m
@@ -495,6 +562,38 @@ export function JourneyRail({
               <span className="jrl-station-badge">
                 <span className="jrl-student-dot" /> {onThisSession.length}
               </span>
+            )}
+
+            {/* Admin: optional toggle */}
+            {isAdmin && !pinned && onToggleOptional && (
+              <label
+                className="jrl-optional-toggle"
+                onClick={(e) => e.stopPropagation()}
+                title={entry.isOptional ? "Students can skip" : "Required for all students"}
+              >
+                <input
+                  type="checkbox"
+                  checked={entry.isOptional ?? false}
+                  onChange={(e) => onToggleOptional(entry.session, e.target.checked)}
+                  className="hf-checkbox"
+                />
+                <span className="hf-text-xs hf-text-muted">Optional</span>
+              </label>
+            )}
+
+            {/* Admin: remove */}
+            {isAdmin && !pinned && onRemoveSession && (
+              <button
+                className="jrl-remove-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveSession(entry.session);
+                }}
+                title="Remove session"
+                type="button"
+              >
+                <Trash2 size={12} />
+              </button>
             )}
           </span>
         </div>
@@ -521,9 +620,21 @@ export function JourneyRail({
         {/* Expanded: detail panel */}
         {isExpanded && (
           entry.type === "onboarding" ? (
-            <OnboardingSessionDetail courseId={courseId} color={color} onSwitchTab={onSwitchTab} />
+            renderSessionDetail ? (
+              <div className="jrl-active-detail jrl-active-detail--full" style={{ "--station-color": color } as React.CSSProperties}>
+                {renderSessionDetail(entry)}
+              </div>
+            ) : (
+              <OnboardingSessionDetail courseId={courseId} color={color} onSwitchTab={onSwitchTab} />
+            )
           ) : entry.type === "offboarding" ? (
-            <OffboardingSessionDetail courseId={courseId} color={color} onSwitchTab={onSwitchTab} />
+            renderSessionDetail ? (
+              <div className="jrl-active-detail jrl-active-detail--full" style={{ "--station-color": color } as React.CSSProperties}>
+                {renderSessionDetail(entry)}
+              </div>
+            ) : (
+              <OffboardingSessionDetail courseId={courseId} color={color} onSwitchTab={onSwitchTab} />
+            )
           ) : renderSessionDetail ? (
             <div
               className="jrl-active-detail jrl-active-detail--full"
@@ -540,6 +651,50 @@ export function JourneyRail({
               color={color}
             />
           )
+        )}
+
+        {/* Admin: insert session ghost row */}
+        {isAdmin && onAddSession && idx < sessions.length - 1 && (
+          <div className="jrl-insert-row">
+            {insertPickerAfter === entry.session ? (
+              <div className="jrl-insert-picker">
+                {(educatorTypes || [
+                  { educatorLabel: "Learn", dbTypes: ["introduce"], icon: "BookOpen", category: "teaching" },
+                  { educatorLabel: "Review", dbTypes: ["review"], icon: "RotateCcw", category: "teaching" },
+                  { educatorLabel: "Assess", dbTypes: ["assess"], icon: "Target", category: "teaching" },
+                  { educatorLabel: "Survey", dbTypes: ["mid_survey"], icon: "ClipboardList", category: "survey" },
+                ]).map((et) => (
+                  <button
+                    key={et.educatorLabel}
+                    className="jrl-insert-option"
+                    onClick={() => {
+                      onAddSession(entry.session, et.dbTypes[0]);
+                      setInsertPickerAfter(null);
+                    }}
+                    type="button"
+                  >
+                    {et.category === "survey" ? <ClipboardList size={11} /> : null}
+                    {et.educatorLabel}
+                  </button>
+                ))}
+                <button
+                  className="jrl-insert-option jrl-insert-cancel"
+                  onClick={() => setInsertPickerAfter(null)}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                className="jrl-insert-btn"
+                onClick={() => setInsertPickerAfter(entry.session)}
+                type="button"
+              >
+                <Plus size={10} /> Insert
+              </button>
+            )}
+          </div>
         )}
       </div>
     );
@@ -672,7 +827,7 @@ export function JourneyRail({
       {/* Vertical rail with stations */}
       <div className="jrl-rail">
         <div className="jrl-rail-line" />
-        {sessions.map(renderStation)}
+        {sessions.map((entry, idx) => renderStation(entry, idx))}
       </div>
 
       {/* Class overview rows */}

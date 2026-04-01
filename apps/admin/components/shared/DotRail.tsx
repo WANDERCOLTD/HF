@@ -11,7 +11,7 @@
  * Clicking a dot scrolls the parent to that session (via onSelect callback).
  */
 
-import { getSessionTypeColor } from "@/lib/lesson-plan/session-ui";
+import { getSessionTypeColor, isFormStop } from "@/lib/lesson-plan/session-ui";
 
 export type DotState = "completed" | "active" | "upcoming";
 
@@ -39,11 +39,12 @@ export function DotRail({ steps, getState, onSelect, visibleSession }: DotRailPr
           const state = getState(step.session);
           const color = getSessionTypeColor(step.type);
           const isVisible = visibleSession === step.session;
+          const formDot = isFormStop(step.type);
 
           return (
             <button
               key={step.session}
-              className={`jrl-dot jrl-dot--${state}${isVisible ? " jrl-dot--visible" : ""}`}
+              className={`jrl-dot jrl-dot--${state}${isVisible ? " jrl-dot--visible" : ""}${formDot ? " jrl-dot--form" : ""}`}
               style={{ "--dot-color": color } as React.CSSProperties}
               onClick={() => onSelect?.(step.session)}
               title={`${step.session}. ${step.label}`}

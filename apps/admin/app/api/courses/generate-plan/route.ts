@@ -18,12 +18,16 @@ import { config } from "@/lib/config";
 // ── Types ──────────────────────────────────────────────
 
 const VALID_SESSION_TYPES = [
+  "pre_survey",
   "onboarding",
   "introduce",
   "deepen",
   "review",
   "assess",
   "consolidate",
+  "mid_survey",
+  "offboarding",
+  "post_survey",
 ] as const;
 
 interface LessonPlanEntry {

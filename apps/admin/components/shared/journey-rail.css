@@ -734,3 +734,149 @@
   text-overflow: ellipsis;
   max-width: 100%;
 }
+
+/* ── Admin Controls ──────────────────────────────── */
+
+.jrl-drag-handle {
+  cursor: grab;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.jrl-station-row:hover .jrl-drag-handle {
+  opacity: 1;
+}
+.jrl-station[draggable="true"] {
+  cursor: grab;
+}
+.jrl-station--drag-over {
+  outline: 2px dashed var(--accent-primary);
+  outline-offset: -2px;
+  border-radius: var(--radius-md, 8px);
+}
+
+.jrl-type-select {
+  appearance: none;
+  background: color-mix(in srgb, var(--station-color, var(--text-muted)) 12%, transparent);
+  color: var(--station-color, var(--text-muted));
+  border: 1px solid color-mix(in srgb, var(--station-color, var(--text-muted)) 30%, transparent);
+  border-radius: var(--radius-sm, 4px);
+  padding: 2px 20px 2px 6px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 4px center;
+}
+.jrl-type-select:focus {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+.jrl-optional-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.jrl-remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--radius-sm, 4px);
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.jrl-station-row:hover .jrl-remove-btn {
+  opacity: 1;
+}
+.jrl-remove-btn:hover {
+  color: var(--status-error-text);
+  background: color-mix(in srgb, var(--status-error-text) 10%, transparent);
+}
+
+/* Insert ghost row */
+.jrl-insert-row {
+  display: flex;
+  justify-content: center;
+  padding: 0.125rem 0;
+  margin-left: 1.25rem;
+}
+
+.jrl-insert-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--text-tertiary);
+  font-size: 0.625rem;
+  padding: 2px 10px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.jrl-station:hover + .jrl-station .jrl-insert-btn,
+.jrl-insert-row:hover .jrl-insert-btn {
+  opacity: 1;
+}
+.jrl-insert-btn:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.jrl-insert-picker {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.jrl-insert-option {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm, 4px);
+  padding: 4px 10px;
+  font-size: 0.6875rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.jrl-insert-option:hover {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+.jrl-insert-cancel {
+  color: var(--text-muted);
+}
+.jrl-insert-cancel:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+/* Form stop diamond node (station rail) */
+.jrl-station-node--form {
+  transform: rotate(45deg);
+  border-radius: 2px !important;
+  width: 0.625rem !important;
+  height: 0.625rem !important;
+}
+
+/* Form stop diamond dot (DotRail header) */
+.jrl-dot--form {
+  transform: rotate(45deg);
+  border-radius: 2px !important;
+}

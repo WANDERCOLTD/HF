@@ -177,7 +177,7 @@ export async function POST(
     return NextResponse.json({
       ok: true,
       message: "Joined classroom",
-      redirect: "/x/student/welcome",
+      redirect: "/x/student",
     });
   }
 
@@ -246,7 +246,7 @@ export async function POST(
   const response = NextResponse.json({
     ok: true,
     message: "Welcome! You've joined the classroom.",
-    redirect: "/x/student/welcome",
+    redirect: "/x/student",
   });
 
   const isProduction = process.env.NODE_ENV === "production";

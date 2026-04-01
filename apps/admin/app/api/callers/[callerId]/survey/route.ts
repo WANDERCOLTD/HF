@@ -4,9 +4,9 @@
  * @scope callers:read
  * @auth OPERATOR
  * @tags callers, survey
- * @description Fetch pre- and post-survey answers for a caller (stored as CallerAttribute records)
+ * @description Fetch pre-, mid-, and post-survey answers for a caller (stored as CallerAttribute records)
  * @pathParam callerId string - The caller ID
- * @response 200 { ok: true, pre: Record<string, string|number|null>, post: Record<string, string|number|null> }
+ * @response 200 { ok: true, pre: Record, mid: Record, post: Record }
  * @response 500 { ok: false, error: string }
  */
 
@@ -28,7 +28,7 @@ export async function GET(
     const attributes = await prisma.callerAttribute.findMany({
       where: {
         callerId,
-        scope: { in: [SURVEY_SCOPES.PRE, SURVEY_SCOPES.POST] },
+        scope: { in: [SURVEY_SCOPES.PRE, SURVEY_SCOPES.MID, SURVEY_SCOPES.POST] },
       },
       select: {
         key: true,
@@ -41,15 +41,17 @@ export async function GET(
     });
 
     const pre: Record<string, string | number | null> = {};
+    const mid: Record<string, string | number | null> = {};
     const post: Record<string, string | number | null> = {};
 
     for (const attr of attributes) {
       const value = attr.valueType === "NUMBER" ? attr.numberValue : attr.stringValue;
-      const bucket = attr.scope === SURVEY_SCOPES.PRE ? pre : post;
+      const bucket = attr.scope === SURVEY_SCOPES.PRE ? pre
+        : attr.scope === SURVEY_SCOPES.MID ? mid : post;
       bucket[attr.key] = value ?? null;
     }
 
-    return NextResponse.json({ ok: true, pre, post });
+    return NextResponse.json({ ok: true, pre, mid, post });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

@@ -2,6 +2,15 @@ import type { SurveyStepConfig } from "@/lib/types/json-fields";
 import { ContractRegistry } from "@/lib/contracts/registry";
 
 // ---------------------------------------------------------------------------
+// Survey end action — what happens after a survey is submitted
+// ---------------------------------------------------------------------------
+
+export type SurveyEndAction =
+  | { type: "next_stop" }
+  | { type: "redirect"; path: string }
+  | { type: "summary"; variant: "form_echo"; thenAction?: "next_stop" | "redirect"; thenPath?: string };
+
+// ---------------------------------------------------------------------------
 // Contract-backed survey template loader
 // ---------------------------------------------------------------------------
 
@@ -12,6 +21,7 @@ export interface SurveyTemplate {
   defaultEnabled: boolean;
   scope: string;
   questions: SurveyStepConfig[];
+  endAction?: SurveyEndAction;
 }
 
 export interface SurveyTemplateConfig {
@@ -166,6 +176,7 @@ const FALLBACK_SURVEY_TEMPLATES: SurveyTemplateConfig = {
       defaultEnabled: true,
       scope: "PRE_SURVEY",
       questions: DEFAULT_ONBOARDING_SURVEY,
+      endAction: { type: "summary", variant: "form_echo", thenAction: "next_stop" },
     },
     mid_survey: {
       label: "Mid-Survey",
@@ -174,6 +185,7 @@ const FALLBACK_SURVEY_TEMPLATES: SurveyTemplateConfig = {
       defaultEnabled: false,
       scope: "MID_SURVEY",
       questions: DEFAULT_MID_SURVEY,
+      endAction: { type: "summary", variant: "form_echo", thenAction: "next_stop" },
     },
     post_survey: {
       label: "Post-Survey",
@@ -182,6 +194,7 @@ const FALLBACK_SURVEY_TEMPLATES: SurveyTemplateConfig = {
       defaultEnabled: true,
       scope: "POST_SURVEY",
       questions: DEFAULT_OFFBOARDING_SURVEY,
+      endAction: { type: "summary", variant: "form_echo", thenAction: "redirect", thenPath: "/x/student/progress" },
     },
   },
 };

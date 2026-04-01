@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useResponsive } from '@/hooks/useResponsive';
 import { WhatsAppHeader } from '@/components/sim/WhatsAppHeader';
 import { SimChat } from '@/components/sim/SimChat';
@@ -23,7 +24,9 @@ export default function SimConversationPage() {
   const router = useRouter();
   const { callerId } = useParams<{ callerId: string }>();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const { isDesktop } = useResponsive();
+  const isStudent = session?.user?.role === 'STUDENT';
   const sessionGoal = searchParams.get('goal') || undefined;
   const expectedDomainId = searchParams.get('domainId') || undefined;
   const playbookId = searchParams.get('playbookId') || undefined;
@@ -105,6 +108,12 @@ export default function SimConversationPage() {
     return () => { cancelled = true; };
   }, [callerId, expectedDomainId, playbookId]);
 
+  // After a student's call ends, redirect through the journey resolver
+  // to pick up the next stop (e.g. mid-survey, next teaching session)
+  const handleStudentCallEnd = useCallback(() => {
+    setTimeout(() => router.push('/x/student'), 1500);
+  }, [router]);
+
   if (error) {
     return (
       <>
@@ -142,6 +151,7 @@ export default function SimConversationPage() {
       targetOverrides={targetOverrides}
       forceFirstCall={forceFirstCall || undefined}
       onBack={isDesktop ? undefined : () => router.push('/x/sim')}
+      onCallEnd={isStudent ? handleStudentCallEnd : undefined}
     />
   );
 }

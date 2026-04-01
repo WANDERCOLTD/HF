@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { PlayCircle, BookOpen, Users, GraduationCap, Building2, FileText, Sparkles, ChevronRight, ChevronDown, MessageCircle } from 'lucide-react';
 import { OnboardingPreview } from '@/components/shared/OnboardingPreview';
+import { ClipboardList } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TeachMethodStats } from '@/components/shared/TeachMethodStats';
 import { useTaskPoll, type PollableTask } from '@/hooks/useTaskPoll';
@@ -75,6 +76,11 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
   const welcomeMsg = getData<string>('welcomeMessage') || '';
   const packSubjects = getData<Array<{ id: string; name: string }>>('packSubjects') || [];
   const packSubjectIds = packSubjects.map((s) => s.id).filter(Boolean);
+
+  // Survey selections — default pre+post ON, mid OFF
+  const [surveyPre, setSurveyPre] = useState(true);
+  const [surveyMid, setSurveyMid] = useState(false);
+  const [surveyPost, setSurveyPost] = useState(true);
 
   // Build plan summary from actual lesson plan entries
   const planSummaryValue = (() => {
@@ -178,6 +184,7 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
           groupId: getData<string>('groupId') || undefined,
           onboardingFlowPhases: flowPhases && flowPhases.length > 0 ? flowPhases : undefined,
           packSubjectIds: packSubjectIds.length > 0 ? packSubjectIds : undefined,
+          surveySelections: { pre: surveyPre, mid: surveyMid, post: surveyPost },
         }),
         signal: controller.signal,
       });
@@ -236,6 +243,9 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
                 ...(learningOutcomes.length > 0
                   ? [{ label: 'Goals', value: `${learningOutcomes.length} learning outcome${learningOutcomes.length !== 1 ? 's' : ''}` }]
                   : []),
+                ...([surveyPre && 'Pre', surveyMid && 'Mid', surveyPost && 'Post'].filter(Boolean).length > 0
+                  ? [{ icon: <ClipboardList className="hf-icon-sm" />, label: 'Surveys', value: [surveyPre && 'Pre', surveyMid && 'Mid', surveyPost && 'Post'].filter(Boolean).join(' + ') }]
+                  : [{ icon: <ClipboardList className="hf-icon-sm" />, label: 'Surveys', value: 'None' }]),
               ],
             }}
             created={{
@@ -402,6 +412,49 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
           ]}
           onBack={onPrev}
         >
+          {/* ── Learner Surveys ── */}
+          <div className="hf-mt-md">
+            <div className="hf-flex hf-items-center hf-gap-xs hf-mb-sm">
+              <ClipboardList size={14} className="hf-text-muted" />
+              <span className="hf-text-sm hf-text-bold">Learner Surveys</span>
+            </div>
+            <div className="hf-card-compact">
+              <label className="hf-flex hf-items-center hf-gap-sm hf-mb-sm" style={{ cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={surveyPre}
+                  onChange={(e) => setSurveyPre(e.target.checked)}
+                  className="hf-checkbox"
+                />
+                <span className="hf-text-sm">Pre-Survey</span>
+                <span className="hf-text-xs hf-text-muted">— baseline confidence and goals</span>
+              </label>
+              <label className="hf-flex hf-items-center hf-gap-sm hf-mb-sm" style={{ cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={surveyMid}
+                  onChange={(e) => setSurveyMid(e.target.checked)}
+                  className="hf-checkbox"
+                />
+                <span className="hf-text-sm">Mid-Survey</span>
+                <span className="hf-text-xs hf-text-muted">— check in halfway through</span>
+              </label>
+              <label className="hf-flex hf-items-center hf-gap-sm" style={{ cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={surveyPost}
+                  onChange={(e) => setSurveyPost(e.target.checked)}
+                  className="hf-checkbox"
+                />
+                <span className="hf-text-sm">Post-Survey</span>
+                <span className="hf-text-xs hf-text-muted">— feedback and NPS</span>
+              </label>
+              <div className="hf-text-xs hf-text-muted hf-mt-sm">
+                All surveys are optional for learners — they can skip if they prefer.
+              </div>
+            </div>
+          </div>
+
           {/* ── First Call Preview (collapsible) ── */}
           {(flowPhases.length > 0 || welcomeMsg) && (
             <div className="hf-mt-md">

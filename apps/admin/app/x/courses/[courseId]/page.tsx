@@ -38,6 +38,7 @@ import {
 import { SimLaunchModal } from '@/components/shared/SimLaunchModal';
 import { SessionPlanViewer } from '@/components/shared/SessionPlanViewer';
 import { JourneyRail } from '@/components/shared/JourneyRail';
+import { SessionFlowPipeline, type InstructionItem } from './CourseHowTab';
 import { reorderItems } from '@/lib/sortable/reorder';
 // INTERACTION_PATTERN_LABELS + TEACHING_MODE_LABELS imported above
 import type { SessionEntry, SessionMediaRef as SessionMediaRefType, SessionMediaMap, StudentProgress } from '@/lib/lesson-plan/types';
@@ -205,6 +206,10 @@ export default function CourseDetailPage() {
   const [regenerating, setRegenerating] = useState(false);
   const [regenSessionCount, setRegenSessionCount] = useState<number | null>(null);
 
+  // Session flow (every-session pipeline, from course instructions)
+  const [sessionFlowItems, setSessionFlowItems] = useState<InstructionItem[]>([]);
+  const [sessionFlowLoaded, setSessionFlowLoaded] = useState(false);
+
   // Session Teaching Points
   const [sessionTPs, setSessionTPs] = useState<Record<number, TPItem[]>>({});
   const [unassignedTPs, setUnassignedTPs] = useState<TPItem[]>([]);
@@ -270,6 +275,18 @@ export default function CourseDetailPage() {
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false));
   }, [courseId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Lazy-load session flow when Journey tab is active ──
+  useEffect(() => {
+    if (!courseId || activeTab !== 'journey' || sessionFlowLoaded) return;
+    fetch(`/api/courses/${courseId}/course-instructions`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok) setSessionFlowItems(data.categories?.session_flow || []);
+      })
+      .catch(() => {})
+      .finally(() => setSessionFlowLoaded(true));
+  }, [courseId, activeTab, sessionFlowLoaded]);
 
   // ── Derived Data ─────────────────────────────────────
   const specGroups = useMemo(() => {
@@ -964,6 +981,69 @@ export default function CourseDetailPage() {
                 />
               );
             }}
+            // Admin rail controls
+            onAddSession={isOperator && sessions?.curriculumId ? (afterSession, type) => {
+              if (!sessions?.plan?.entries) return;
+              const newEntry = {
+                session: 0, type, moduleId: null, moduleLabel: '',
+                label: type === 'mid_survey' ? 'Mid-Survey' : `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+                estimatedDurationMins: type.includes('survey') ? 2 : 15,
+                isOptional: true,
+              };
+              const idx = sessions.plan.entries.findIndex((e) => e.session === afterSession);
+              const updated = [...sessions.plan.entries];
+              updated.splice(idx + 1, 0, newEntry);
+              updated.forEach((e, i) => { e.session = i + 1; });
+              setSessions(prev => prev ? { ...prev, plan: prev.plan ? { ...prev.plan, entries: updated } : null } : null);
+              fetch(`/api/curricula/${sessions.curriculumId}/lesson-plan`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entries: updated }),
+              }).catch(() => {});
+            } : undefined}
+            onRemoveSession={isOperator && sessions?.curriculumId ? (sessionNum) => {
+              if (!sessions?.plan?.entries) return;
+              const updated = sessions.plan.entries.filter((e) => e.session !== sessionNum);
+              updated.forEach((e, i) => { e.session = i + 1; });
+              setSessions(prev => prev ? { ...prev, plan: prev.plan ? { ...prev.plan, entries: updated } : null } : null);
+              fetch(`/api/curricula/${sessions.curriculumId}/lesson-plan`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entries: updated }),
+              }).catch(() => {});
+            } : undefined}
+            onRetypeSession={isOperator && sessions?.curriculumId ? (sessionNum, newType) => {
+              if (!sessions?.plan?.entries) return;
+              const updated = sessions.plan.entries.map((e) =>
+                e.session === sessionNum ? { ...e, type: newType } : e
+              );
+              setSessions(prev => prev ? { ...prev, plan: prev.plan ? { ...prev.plan, entries: updated } : null } : null);
+              fetch(`/api/curricula/${sessions.curriculumId}/lesson-plan`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entries: updated }),
+              }).catch(() => {});
+            } : undefined}
+            onToggleOptional={isOperator && sessions?.curriculumId ? (sessionNum, isOptional) => {
+              if (!sessions?.plan?.entries) return;
+              const updated = sessions.plan.entries.map((e) =>
+                e.session === sessionNum ? { ...e, isOptional } : e
+              );
+              setSessions(prev => prev ? { ...prev, plan: prev.plan ? { ...prev.plan, entries: updated } : null } : null);
+              fetch(`/api/curricula/${sessions.curriculumId}/lesson-plan`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entries: updated }),
+              }).catch(() => {});
+            } : undefined}
+            onReorderSession={isOperator && sessions?.curriculumId ? (from, to) => {
+              if (!sessions?.plan?.entries) return;
+              const updated = [...sessions.plan.entries];
+              const [moved] = updated.splice(from, 1);
+              updated.splice(to, 0, moved);
+              updated.forEach((e, i) => { e.session = i + 1; });
+              setSessions(prev => prev ? { ...prev, plan: prev.plan ? { ...prev.plan, entries: updated } : null } : null);
+              fetch(`/api/curricula/${sessions.curriculumId}/lesson-plan`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entries: updated }),
+              }).catch(() => {});
+            } : undefined}
           />
 
           {/* Session Plan Viewer — media assignment per session */}
@@ -1006,6 +1086,20 @@ export default function CourseDetailPage() {
                 curriculumId={sessions.curriculumId}
                 isOperator={isOperator}
               />
+            </div>
+          )}
+
+          {/* ── Every Session Flow (from course reference) ── */}
+          {sessionFlowItems.length > 0 && (
+            <div className="hf-mt-lg">
+              <SectionHeader
+                title="Every Session"
+                icon={Sparkles}
+                subtitle="How sessions 2+ are structured (from your course reference)"
+              />
+              <div className="hf-card-compact hf-mb-lg">
+                <SessionFlowPipeline items={sessionFlowItems} />
+              </div>
             </div>
           )}
         </>
