@@ -110,9 +110,9 @@ type BusyReason =
   | null                     // idle
   | "sending"                // foreground — API call in flight
   | "upload-draining"        // foreground — file uploaded, waiting for drain
-  | "course-ref-analysing";  // background — extraction + digest in progress
+  | "course-ref-analysing";  // foreground — extraction + digest in progress
 
-const FOREGROUND_REASONS: BusyReason[] = ["sending", "upload-draining"];
+const FOREGROUND_REASONS: BusyReason[] = ["sending", "upload-draining", "course-ref-analysing"];
 
 /** Glow durations for the SourcesPanel upload hint */
 const GLOW_DURATION_AI_HINT_MS = 5000;  // AI-initiated (show_upload tool) — longer
