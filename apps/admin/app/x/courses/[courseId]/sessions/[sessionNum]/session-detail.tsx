@@ -11,7 +11,7 @@ import {
 import { EditableTitle } from '@/components/shared/EditableTitle';
 import { SessionTPList, type TPItem, type SessionOption } from '@/components/shared/SessionTPList';
 import {
-  SESSION_TYPES, TEACHING_SESSION_TYPES, SESSION_TYPE_ICONS, getSessionTypeColor, getSessionTypeLabel, isFormStop,
+  SESSION_TYPES, TEACHING_SESSION_TYPE_ENTRIES, SESSION_TYPE_ICONS, getSessionTypeColor, getSessionTypeLabel, isFormStop,
 } from '@/lib/lesson-plan/session-ui';
 import './session-detail.css';
 
@@ -393,7 +393,7 @@ export function SessionDetailClient({ courseId, sessionNum }: SessionDetailClien
               >
                 {(isFormStop(entry.type) || entry.type === 'onboarding' || entry.type === 'offboarding'
                   ? SESSION_TYPES.filter((t) => t.value === entry.type)
-                  : TEACHING_SESSION_TYPES
+                  : TEACHING_SESSION_TYPE_ENTRIES
                 ).map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
                 ))}

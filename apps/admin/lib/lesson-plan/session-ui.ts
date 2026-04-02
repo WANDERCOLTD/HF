@@ -54,8 +54,8 @@ export const SESSION_TYPES = [
   { value: 'post_survey', label: 'Post-Survey', color: 'var(--login-blue)' },
 ] as const;
 
-/** Teaching session types only — for educator type dropdowns (excludes survey + structural) */
-export const TEACHING_SESSION_TYPES = SESSION_TYPES.filter(
+/** Teaching session type entries with labels/colors — for educator type dropdowns */
+export const TEACHING_SESSION_TYPE_ENTRIES = SESSION_TYPES.filter(
   (t) => !['pre_survey', 'mid_survey', 'post_survey', 'onboarding', 'offboarding'].includes(t.value),
 );
 
