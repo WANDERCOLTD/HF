@@ -64,6 +64,7 @@ export const WIZARD_GRAPH_NODES: WizardGraphNode[] = [
     required: false,
     priority: 4,
     dependsOn: [],
+    skipWhen: { type: "truthy", key: "existingDomainId" },
     promptHint: "Optional. Offer to skip. Used for logo/branding extraction.",
     mutablePostScaffold: true,
     affinityTags: ["identity", "institution"],

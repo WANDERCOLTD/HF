@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 interface ClassroomInfo {
   name: string;
@@ -19,16 +19,23 @@ interface ClassroomInfo {
 export default function JoinPage() {
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [classroom, setClassroom] = useState<ClassroomInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
+  // Pre-fill from URL query params (?firstName=X&lastName=Y&email=Z)
+  const [firstName, setFirstName] = useState(searchParams.get("firstName") ?? "");
+  const [lastName, setLastName] = useState(searchParams.get("lastName") ?? "");
+  const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [joining, setJoining] = useState(false);
   const [joined, setJoined] = useState(false);
+
+  // Track whether all params were pre-filled for auto-submit
+  const autoSubmitRef = useRef(
+    !!(searchParams.get("firstName")?.trim() && searchParams.get("lastName")?.trim() && searchParams.get("email")?.includes("@")),
+  );
 
   useEffect(() => {
     fetch(`/api/join/${token}`)
@@ -43,6 +50,15 @@ export default function JoinPage() {
       .catch(() => setError("Failed to verify link"))
       .finally(() => setLoading(false));
   }, [token]);
+
+  // Auto-submit when all fields are pre-filled via URL and classroom loaded
+  useEffect(() => {
+    if (autoSubmitRef.current && classroom && !joining && !joined) {
+      autoSubmitRef.current = false; // prevent re-trigger
+      handleJoin();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classroom]);
 
   const handleJoin = async () => {
     setJoining(true);
@@ -96,9 +112,9 @@ export default function JoinPage() {
           boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
         }}
       >
-        {loading ? (
+        {loading || (autoSubmitRef.current && !error) ? (
           <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 15 }}>
-            Verifying link...
+            {loading ? "Verifying link..." : "Joining..."}
           </div>
         ) : error && !classroom ? (
           <div style={{ textAlign: "center" }}>

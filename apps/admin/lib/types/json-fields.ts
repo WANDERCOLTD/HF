@@ -60,12 +60,16 @@ export interface TargetUpdate {
 /** A single survey question config — used in onboarding/offboarding survey phases */
 export interface SurveyStepConfig {
   id: string;
-  type: 'stars' | 'options' | 'nps' | 'text';
+  type: 'stars' | 'options' | 'nps' | 'text' | 'mcq';
   prompt: string;
   options?: { value: string; label: string }[];
   placeholder?: string;
   maxLength?: number;
   optional?: boolean;
+  /** For 'mcq' — the value of the correct option (not shown to learner) */
+  correctAnswer?: string;
+  /** For 'mcq' — links to ContentQuestion.id for traceability */
+  contentQuestionId?: string;
 }
 
 export interface OnboardingPhase {
@@ -134,6 +138,12 @@ export interface PlaybookConfig {
     pre?: { enabled: boolean; questions: SurveyStepConfig[] };
     mid?: { enabled: boolean; questions: SurveyStepConfig[] };
     post?: { enabled: boolean; questions: SurveyStepConfig[] };
+  };
+  /** Assessment configuration — personality profiling + pre/post knowledge testing */
+  assessment?: {
+    personality?: { enabled: boolean; questions: SurveyStepConfig[] };
+    preTest?: { enabled: boolean; questionCount: number };
+    postTest?: { enabled: boolean };
   };
   [key: string]: any;
 }

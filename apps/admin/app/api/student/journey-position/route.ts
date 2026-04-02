@@ -32,17 +32,20 @@ function redirectForStop(type: string): string {
   }
 }
 
-// Map survey stop types to CallerAttribute scopes
-function surveyScope(type: string): string | null {
+// Map survey stop types to CallerAttribute scopes that must be completed.
+// pre_survey and post_survey now have multi-phase flows:
+//   pre_survey  → PERSONALITY + PRE_TEST (or legacy PRE_SURVEY)
+//   post_survey → POST_TEST + POST_SURVEY (or legacy POST_SURVEY)
+function surveyScopesForStop(type: string): string[] {
   switch (type) {
     case "pre_survey":
-      return SURVEY_SCOPES.PRE;
+      return [SURVEY_SCOPES.PERSONALITY, SURVEY_SCOPES.PRE_TEST, SURVEY_SCOPES.PRE];
     case "mid_survey":
-      return SURVEY_SCOPES.MID;
+      return [SURVEY_SCOPES.MID];
     case "post_survey":
-      return SURVEY_SCOPES.POST;
+      return [SURVEY_SCOPES.POST_TEST, SURVEY_SCOPES.POST];
     default:
-      return null;
+      return [];
   }
 }
 
@@ -116,11 +119,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const surveySubmitted = new Set<string>();
     let currentSession: number | null = null;
     const skippedSessions = new Set<number>();
+    let preTestSkipped = false;
 
     for (const attr of callerAttrs) {
       // Survey completion check
       if (attr.key === "submitted_at" && attr.stringValue) {
         surveySubmitted.add(attr.scope);
+      }
+      // Pre-test skip marker (no questions available)
+      if (attr.key === "skipped" && attr.scope === "PRE_TEST" && attr.stringValue) {
+        preTestSkipped = true;
       }
       // Current session
       if (attr.key.endsWith(":current_session") && attr.scope === "CURRICULUM") {
@@ -144,9 +152,31 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
       if (isFormStop(entry.type)) {
         // Survey stop — check if submitted or skipped
-        // Mandatory surveys (isOptional === false) cannot be skipped — only submission counts
-        const scope = surveyScope(entry.type);
-        const isSubmitted = !!(scope && surveySubmitted.has(scope));
+        // Multi-phase stops: pre_survey requires PERSONALITY + (PRE_TEST or skipped),
+        // post_survey requires (POST_TEST or skipped) + POST_SURVEY.
+        // For backward compat, also accept legacy PRE_SURVEY scope.
+        const scopes = surveyScopesForStop(entry.type);
+
+        let isSubmitted = false;
+        if (entry.type === "pre_survey") {
+          // New flow: PERSONALITY done (or legacy PRE_SURVEY done)
+          const personalityDone = surveySubmitted.has(SURVEY_SCOPES.PERSONALITY);
+          const legacyPreDone = surveySubmitted.has(SURVEY_SCOPES.PRE);
+          // PRE_TEST may be skipped (no questions available) — check for skipped marker
+          const preTestDone = surveySubmitted.has(SURVEY_SCOPES.PRE_TEST) || preTestSkipped;
+          isSubmitted = (personalityDone && preTestDone) || legacyPreDone;
+        } else if (entry.type === "post_survey") {
+          // POST_TEST may not exist (no pre-test taken) — only require POST_SURVEY
+          const postSurveyDone = surveySubmitted.has(SURVEY_SCOPES.POST);
+          const postTestDone = surveySubmitted.has(SURVEY_SCOPES.POST_TEST);
+          // Post-test is only required if a pre-test was taken
+          const preTestWasTaken = surveySubmitted.has(SURVEY_SCOPES.PRE_TEST);
+          isSubmitted = postSurveyDone && (!preTestWasTaken || postTestDone);
+        } else {
+          // mid_survey — simple single scope
+          isSubmitted = scopes.some((s) => surveySubmitted.has(s));
+        }
+
         const isDone = isSubmitted || (isSkipped && entry.isOptional !== false);
         if (isDone) {
           completedStops++;

@@ -20,3 +20,35 @@
   justify-content: center;
   min-height: 200px;
 }
+
+/* ── Phase indicator pills ── */
+
+.welcome-phases {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.welcome-phase-pill {
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+  transition: all 0.2s;
+}
+
+.welcome-phase-pill--active {
+  background: var(--accent-primary);
+  color: var(--surface-primary);
+  border-color: var(--accent-primary);
+}
+
+.welcome-phase-pill--done {
+  background: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+  color: var(--status-success-text);
+  border-color: color-mix(in srgb, var(--status-success-text) 30%, transparent);
+}

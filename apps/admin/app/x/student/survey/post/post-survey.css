@@ -40,3 +40,68 @@
   color: var(--text-muted);
   margin-bottom: 24px;
 }
+
+/* ── Phase indicator pills ── */
+
+.post-survey-phases {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.post-survey-phase-pill {
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+  transition: all 0.2s;
+}
+
+.post-survey-phase-pill--active {
+  background: var(--accent-primary);
+  color: var(--surface-primary);
+  border-color: var(--accent-primary);
+}
+
+.post-survey-phase-pill--done {
+  background: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+  color: var(--status-success-text);
+  border-color: color-mix(in srgb, var(--status-success-text) 30%, transparent);
+}
+
+/* ── Uplift card ── */
+
+.post-survey-uplift-card {
+  text-align: center;
+  padding: 20px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--status-success-text) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-success-text) 20%, transparent);
+}
+
+.post-survey-uplift-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.post-survey-uplift-score {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--status-success-text);
+  line-height: 1.1;
+}
+
+.post-survey-uplift-detail {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}

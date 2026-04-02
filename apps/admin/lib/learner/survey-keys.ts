@@ -4,6 +4,9 @@ export const SURVEY_SCOPES = {
   PRE: "PRE_SURVEY",
   MID: "MID_SURVEY",
   POST: "POST_SURVEY",
+  PERSONALITY: "PERSONALITY",
+  PRE_TEST: "PRE_TEST",
+  POST_TEST: "POST_TEST",
 } as const;
 
 export const PRE_SURVEY_KEYS = {

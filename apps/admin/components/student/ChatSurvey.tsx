@@ -6,22 +6,26 @@ import './chat-survey.css';
 
 // ── Types ──────────────────────────────────────────────
 
-type StepType = 'message' | 'stars' | 'options' | 'nps' | 'text';
+type StepType = 'message' | 'stars' | 'options' | 'nps' | 'text' | 'mcq';
 
 export type SurveyStep = {
   id: string;
   type: StepType;
   /** AI message shown before the input (or standalone for type 'message') */
   prompt: string;
-  /** For 'options' type */
+  /** For 'options' and 'mcq' types */
   options?: { value: string; label: string }[];
   /** For 'text' type */
   placeholder?: string;
   maxLength?: number;
   optional?: boolean;
+  /** For 'mcq' — the value of the correct option (not shown to learner) */
+  correctAnswer?: string;
+  /** For 'mcq' — links to ContentQuestion.id for traceability */
+  contentQuestionId?: string;
 };
 
-type SurveyAnswers = Record<string, string | number>;
+type SurveyAnswers = Record<string, string | number | boolean>;
 
 type Props = {
   steps: SurveyStep[];
@@ -100,6 +104,20 @@ export function ChatSurvey({ steps, tutorName = 'AI Tutor', onComplete, submitti
     advance(step.id, value, label);
   }, [step, advance]);
 
+  const handleMcqClick = useCallback((value: string, label: string) => {
+    if (!step) return;
+    const isCorrect = value === step.correctAnswer;
+    // Store the answer and a separate _correct key for scoring
+    setAnswers((prev) => ({
+      ...prev,
+      [step.id]: value,
+      [`${step.id}_correct`]: isCorrect,
+    }));
+    setMessages((prev) => [...prev, { role: 'user', content: label }]);
+    setTextDraft('');
+    setTimeout(() => setCurrentStep((s) => s + 1), 300);
+  }, [step]);
+
   const handleNpsClick = useCallback((n: number) => {
     if (!step) return;
     advance(step.id, n, `${n}/10`);
@@ -174,6 +192,20 @@ export function ChatSurvey({ steps, tutorName = 'AI Tutor', onComplete, submitti
                     key={opt.value}
                     className="cs-option-btn"
                     onClick={() => handleOptionClick(opt.value, opt.label)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {step.type === 'mcq' && step.options && (
+              <div className="cs-options">
+                {step.options.map((opt) => (
+                  <button
+                    key={opt.value}
+                    className="cs-option-btn"
+                    onClick={() => handleMcqClick(opt.value, opt.label)}
                   >
                     {opt.label}
                   </button>

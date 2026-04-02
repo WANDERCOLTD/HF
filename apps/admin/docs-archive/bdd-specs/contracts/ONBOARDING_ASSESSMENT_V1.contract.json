@@ -1,0 +1,100 @@
+{
+  "contractId": "ONBOARDING_ASSESSMENT_V1",
+  "version": "1.0",
+  "status": "active",
+  "description": "Multi-phase onboarding assessment: personality profiling + pre/post knowledge testing. Three-layer resolution: system defaults (this contract) -> hub overrides (Domain.config.assessment) -> course overrides (Playbook.config.assessment).",
+
+  "appliesTo": {
+    "specRoles": ["ORCHESTRATE"],
+    "domains": ["assessment", "onboarding", "journey"]
+  },
+
+  "config": {
+    "phases": {
+      "personality": {
+        "label": "About You",
+        "description": "Learning preferences and self-assessment — feeds into adaptive prompt composition",
+        "scope": "PERSONALITY",
+        "mandatory": true,
+        "questions": [
+          {
+            "id": "learning_style",
+            "type": "options",
+            "prompt": "How do you prefer to learn?",
+            "options": [
+              { "value": "visual", "label": "Pictures and diagrams" },
+              { "value": "auditory", "label": "Listening and discussing" },
+              { "value": "reading", "label": "Reading and writing" },
+              { "value": "kinesthetic", "label": "Hands-on practice" }
+            ]
+          },
+          {
+            "id": "pace_preference",
+            "type": "options",
+            "prompt": "What pace works best for you?",
+            "options": [
+              { "value": "fast", "label": "Move quickly through material" },
+              { "value": "moderate", "label": "Steady pace with time to think" },
+              { "value": "slow", "label": "Take it slow, lots of examples" }
+            ]
+          },
+          {
+            "id": "interaction_style",
+            "type": "options",
+            "prompt": "How do you like to be taught?",
+            "options": [
+              { "value": "conversational", "label": "Chat naturally" },
+              { "value": "direct", "label": "Straight to the point" },
+              { "value": "exploratory", "label": "Let me figure things out" },
+              { "value": "guided", "label": "Step-by-step guidance" }
+            ]
+          },
+          {
+            "id": "confidence",
+            "type": "stars",
+            "prompt": "How confident are you in {subject} right now?"
+          },
+          {
+            "id": "goal_text",
+            "type": "text",
+            "prompt": "What's your main goal for this course?",
+            "placeholder": "e.g. Pass my exam, understand the fundamentals...",
+            "maxLength": 200
+          }
+        ]
+      },
+      "pre_test": {
+        "label": "Quick Knowledge Check",
+        "description": "Baseline knowledge assessment — questions sourced dynamically from curriculum content",
+        "scope": "PRE_TEST",
+        "mandatory": true,
+        "questionSource": "curriculum",
+        "questionCount": 5,
+        "selectionStrategy": "one_per_module",
+        "questionTypes": ["MCQ", "TRUE_FALSE"],
+        "fallbackBehavior": "skip_silently",
+        "questions": []
+      }
+    },
+    "post_test": {
+      "label": "How Much Did You Learn?",
+      "description": "Post-course knowledge assessment — mirrors pre-test questions for uplift measurement",
+      "scope": "POST_TEST",
+      "mandatory": true,
+      "questionSource": "pre_test_mirror",
+      "questions": []
+    },
+    "uplift": {
+      "formula": "absolute_and_normalised",
+      "keys": {
+        "preTestScore": "score",
+        "postTestScore": "score",
+        "upliftAbsolute": "uplift_absolute",
+        "upliftNormalised": "uplift_normalised",
+        "questionIds": "question_ids",
+        "submittedAt": "submitted_at",
+        "skipped": "skipped"
+      }
+    }
+  }
+}
