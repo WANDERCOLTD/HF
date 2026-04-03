@@ -76,9 +76,24 @@ async function getAssessmentConfig(): Promise<AssessmentConfig> {
 async function getPrimarySourceId(curriculumId: string): Promise<string | null> {
   const curriculum = await prisma.curriculum.findUnique({
     where: { id: curriculumId },
-    select: { primarySourceId: true },
+    select: { primarySourceId: true, subjectId: true },
   });
-  return curriculum?.primarySourceId ?? null;
+  if (!curriculum) return null;
+
+  // Direct FK is the fast path
+  if (curriculum.primarySourceId) return curriculum.primarySourceId;
+
+  // Fallback: find the first source linked to the curriculum's subject
+  if (curriculum.subjectId) {
+    const subjectSource = await prisma.subjectSource.findFirst({
+      where: { subjectId: curriculum.subjectId },
+      select: { sourceId: true },
+      orderBy: { createdAt: "asc" },
+    });
+    return subjectSource?.sourceId ?? null;
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
