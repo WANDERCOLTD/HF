@@ -46,11 +46,14 @@ If the push is rejected, suggest `git pull --rebase` first.
 
 ## 5. Pull + migrate + restart on VM (single SSH call)
 
-First, check locally if seed files changed in the commit:
+First, check locally what changed in the commit:
 
 ```bash
 git diff --name-only HEAD~1 HEAD -- 'apps/admin/prisma/seed*.ts' 'apps/admin/prisma/schema.prisma'
+git diff --name-only HEAD~1 HEAD -- 'apps/admin/lib/**/*.ts' 'apps/admin/prisma/schema.prisma'
 ```
+
+**Cache decision:** If `lib/**/*.ts` or `schema.prisma` changed, use `rm -rf .next` (full nuke — Turbopack caches stale module refs causing RSC payload leaks). Otherwise use `rm -rf .next/dev/lock` (lock only). `vm-cpp` always touches schema, so **default to full nuke**.
 
 Then run **everything in ONE SSH connection**. Build the bash script dynamically — include the seed block only if seed files changed above. The `set -e` ensures migration failures stop execution before restarting:
 
@@ -78,7 +81,11 @@ gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c 
   fuser -k 3001/tcp 2>/dev/null || true
   fuser -k 3002/tcp 2>/dev/null || true
   sleep 1
-  rm -rf .next/dev/lock
+
+  # vm-cpp always touches schema — full cache nuke to prevent Turbopack RSC leaks
+  # For vm-cp: use "rm -rf .next" if lib/schema changed, otherwise "rm -rf .next/dev/lock"
+  rm -rf .next
+
   nohup npx next dev --port 3000 > /tmp/hf-dev.log 2>&1 &
   sleep 2
   echo "==> READY"
