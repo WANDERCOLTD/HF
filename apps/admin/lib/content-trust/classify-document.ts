@@ -342,18 +342,26 @@ export async function classifyDocument(
       console.log(
         `[classify-document] Filename hint override: ${fileName} AI=${documentType} → ${hint.type}`,
       );
-      return {
+      const overriddenResult = {
         documentType: hint.type,
         confidence: Math.max(confidence, 0.85),
         reasoning: `${parsed.reasoning || "No reasoning provided"} [Filename signal: "${fileName}" → ${hint.type}]`,
       };
+      logAI("content-trust.classify:result", `Classify ${fileName}`, JSON.stringify(overriddenResult), {
+        fileName, documentType: hint.type, confidence: overriddenResult.confidence, filenameOverride: true,
+      });
+      return overriddenResult;
     }
 
-    return {
+    const classifiedResult = {
       documentType,
       confidence,
       reasoning: parsed.reasoning || "No reasoning provided",
     };
+    logAI("content-trust.classify:result", `Classify ${fileName}`, JSON.stringify(classifiedResult), {
+      fileName, documentType, confidence,
+    });
+    return classifiedResult;
   } catch (error: any) {
     console.error("[classify-document] Classification failed, defaulting to TEXTBOOK:", error?.message);
     logAI("content-trust.classify:error", `Classify ${fileName}`, error?.message || "unknown error", {

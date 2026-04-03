@@ -3,6 +3,7 @@ import { AIMessage } from "@/lib/ai/client";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering";
 import { getSystemContext, injectSystemContext } from "@/lib/ai/system-context";
 import { logAssistantCall } from "@/lib/ai/assistant-wrapper";
+import { logAI } from "@/lib/logger";
 import type { StepGuidanceRequest, ClassifyResponse } from "@/lib/workflow/types";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 
@@ -191,12 +192,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
+    const msg = error instanceof Error ? error.message : "Failed to provide step guidance";
     console.error("Workflow step-guidance error:", error);
+    logAI("workflow.step-guidance:error", "Step guidance failed", msg, { level: "error" });
     return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Failed to provide step guidance",
-      },
+      { ok: false, error: msg },
       { status: 500 }
     );
   }

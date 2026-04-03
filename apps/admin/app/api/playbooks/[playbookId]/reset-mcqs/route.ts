@@ -28,7 +28,7 @@ export async function POST(
   const body = await req.json().catch(() => ({}));
   const force = body.force === true;
 
-  // Resolve curriculum + primarySource
+  // Resolve curriculum + source(s) — check primarySourceId first, fall back to SubjectSource
   const playbook = await prisma.playbook.findUnique({
     where: { id: playbookId },
     select: {
@@ -36,19 +36,41 @@ export async function POST(
         select: {
           id: true,
           primarySourceId: true,
+          subjectId: true,
         },
       },
     },
   });
 
-  if (!playbook?.curriculum?.primarySourceId) {
+  if (!playbook?.curriculum) {
     return NextResponse.json(
-      { ok: false, error: "No curriculum or primary source found" },
+      { ok: false, error: "No curriculum found for this course" },
       { status: 404 },
     );
   }
 
-  const sourceId = playbook.curriculum.primarySourceId;
+  // Resolve source IDs: primarySourceId > SubjectSource fallback
+  let sourceIds: string[] = [];
+  let subjectSourceId: string | undefined;
+
+  if (playbook.curriculum.primarySourceId) {
+    sourceIds = [playbook.curriculum.primarySourceId];
+  } else if (playbook.curriculum.subjectId) {
+    const subjectSources = await prisma.subjectSource.findMany({
+      where: { subjectId: playbook.curriculum.subjectId },
+      select: { id: true, sourceId: true },
+      orderBy: { createdAt: "asc" },
+    });
+    sourceIds = subjectSources.map((s) => s.sourceId);
+    subjectSourceId = subjectSources[0]?.id;
+  }
+
+  if (sourceIds.length === 0) {
+    return NextResponse.json(
+      { ok: false, error: "No content sources linked to this curriculum" },
+      { status: 404 },
+    );
+  }
 
   // Check if any enrolled callers have pre-test results
   if (!force) {
@@ -74,18 +96,34 @@ export async function POST(
     }
   }
 
-  // Delete existing MCQs and regenerate
-  const deleted = await deleteQuestionsForSource(sourceId);
-  console.log(`[reset-mcqs] Deleted ${deleted} questions for source ${sourceId}`);
+  // Delete existing MCQs and regenerate across all resolved sources
+  let totalDeleted = 0;
+  let totalCreated = 0;
+  let totalDuplicates = 0;
+  let lastSkipReason: string | undefined;
+  let anyGenerated = false;
 
-  const result = await generateMcqsForSource(sourceId, { userId: auth.userId });
+  for (const sourceId of sourceIds) {
+    const deleted = await deleteQuestionsForSource(sourceId);
+    totalDeleted += deleted;
+    console.log(`[reset-mcqs] Deleted ${deleted} questions for source ${sourceId}`);
+
+    const result = await generateMcqsForSource(sourceId, {
+      userId: auth.userId,
+      subjectSourceId,
+    });
+    totalCreated += result.created;
+    totalDuplicates += result.duplicatesSkipped;
+    if (!result.skipped) anyGenerated = true;
+    if (result.skipReason) lastSkipReason = result.skipReason;
+  }
 
   return NextResponse.json({
     ok: true,
-    deleted,
-    created: result.created,
-    duplicatesSkipped: result.duplicatesSkipped,
-    skipped: result.skipped,
-    skipReason: result.skipReason,
+    deleted: totalDeleted,
+    created: totalCreated,
+    duplicatesSkipped: totalDuplicates,
+    skipped: !anyGenerated,
+    skipReason: anyGenerated ? undefined : lastSkipReason,
   });
 }

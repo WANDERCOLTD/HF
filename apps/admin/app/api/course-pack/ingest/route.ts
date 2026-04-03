@@ -11,6 +11,7 @@ import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
 import { findDuplicateSource } from "@/lib/content-trust/dedup-source";
 import { validateManifest } from "@/lib/content-trust/validate-manifest";
 import type { SendIngestEvent } from "@/lib/content-trust/ingest-events";
+import { logAI } from "@/lib/logger";
 import pLimit from "p-limit";
 
 /**
@@ -369,6 +370,12 @@ export async function POST(req: NextRequest) {
 
         // ── Complete ──
 
+        logAI("course-pack.ingest", `Ingest ${sourceCount} files for "${courseName}"`, JSON.stringify({
+          subjects: createdSubjects.length, sourceCount,
+          assertions: grandTotalAssertions, questions: grandTotalQuestions,
+          vocabulary: grandTotalVocabulary, images: grandTotalImages,
+        }), { sourceCount, subjectCount: createdSubjects.length, courseName });
+
         send({
           phase: "complete",
           message: "Extraction complete",
@@ -385,6 +392,7 @@ export async function POST(req: NextRequest) {
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Ingestion failed";
         console.error("[course-pack/ingest] Stream error:", err);
+        logAI("course-pack.ingest:error", `Ingest stream failed`, msg, { level: "error", courseName });
         send({ phase: "error", message: msg, data: { error: msg } });
       } finally {
         controller.close();
@@ -535,9 +543,9 @@ async function handleNonBlocking(
       );
     }
 
-    console.log(
-      `[course-pack/ingest] Non-blocking: ${sourceCount} sources created, ${extractionQueue.length} queued for extraction`,
-    );
+    logAI("course-pack.ingest", `Non-blocking ingest ${sourceCount} files for "${courseName}"`, JSON.stringify({
+      subjects: createdSubjects.length, sourceCount, extractionQueued: extractionQueue.length,
+    }), { sourceCount, subjectCount: createdSubjects.length, courseName, nonBlocking: true });
 
     return NextResponse.json({
       ok: true,
@@ -548,6 +556,7 @@ async function handleNonBlocking(
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Ingestion failed";
     console.error("[course-pack/ingest] Non-blocking error:", err);
+    logAI("course-pack.ingest:error", `Non-blocking ingest failed`, msg, { level: "error", courseName });
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

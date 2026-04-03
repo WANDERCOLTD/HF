@@ -8,6 +8,7 @@ import { resolveExtractionConfig } from "@/lib/content-trust/resolve-config";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { interpolateTemplate } from "@/lib/prompts/interpolate";
 import { config } from "@/lib/config";
+import { logAI } from "@/lib/logger";
 
 /**
  * @api POST /api/course-pack/analyze
@@ -213,6 +214,9 @@ export async function POST(req: NextRequest) {
       }
 
       const groupName = f.name.replace(/\.[^/.]+$/, "");
+      logAI("course-pack.analyze:result", `Analyze single file "${f.name}"`, JSON.stringify({ documentType: docType, confidence, reasoning }), {
+        fileCount: 1, courseName, documentType: docType,
+      });
       return NextResponse.json({
         ok: true,
         manifest: {
@@ -404,11 +408,21 @@ Analyze these files and group them by subject. Return JSON only.`;
     // ── Structural guard: fix AI mistakes before returning ──
     const { manifest: validatedManifest, fixes } = validateManifest(manifest);
 
+    const totalFiles = validatedManifest.groups.reduce((n, g) => n + g.files.length, 0) + validatedManifest.pedagogyFiles.length;
+    logAI("course-pack.analyze:result", `Analyze ${files.length} files for "${courseName}"`, JSON.stringify({
+      groups: validatedManifest.groups.length,
+      pedagogyFiles: validatedManifest.pedagogyFiles.length,
+      totalFiles,
+      fixes: fixes.length,
+    }), { fileCount: files.length, courseName, groupCount: validatedManifest.groups.length });
+
     return NextResponse.json({ ok: true, manifest: validatedManifest, fixes });
   } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Pack analysis failed";
     console.error("[course-pack/analyze] Error:", error);
+    logAI("course-pack.analyze:error", `Analyze failed`, msg, { level: "error" });
     return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : "Pack analysis failed" },
+      { ok: false, error: msg },
       { status: 500 },
     );
   }

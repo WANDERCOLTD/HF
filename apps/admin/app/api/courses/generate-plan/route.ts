@@ -14,6 +14,7 @@ import { getLessonPlanModel } from "@/lib/lesson-plan/models";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { interpolateTemplate } from "@/lib/prompts/interpolate";
 import { config } from "@/lib/config";
+import { logAI } from "@/lib/logger";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -411,6 +412,7 @@ Total modules: ${curriculum.modules.length}${documentExcerpt}`;
     await completeTask(taskId);
   } catch (error: any) {
     console.error("[courses/generate-plan] Background error:", error);
+    logAI("courses.generate-plan:error", "Lesson plan generation failed", error.message, { level: "error", taskId });
     await failTask(taskId, error.message);
   }
 }
@@ -498,6 +500,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, taskId }, { status: 202 });
   } catch (error: any) {
     console.error("[courses/generate-plan] POST error:", error);
+    logAI("courses.generate-plan:error", "POST failed", error.message, { level: "error" });
     return NextResponse.json(
       { ok: false, error: error.message },
       { status: 500 },

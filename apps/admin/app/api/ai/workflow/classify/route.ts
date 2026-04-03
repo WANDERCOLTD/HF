@@ -3,6 +3,7 @@ import { AIMessage } from "@/lib/ai/client";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering";
 import { getSystemContext, injectSystemContext } from "@/lib/ai/system-context";
 import { logAssistantCall } from "@/lib/ai/assistant-wrapper";
+import { logAI } from "@/lib/logger";
 import type { ClassifyRequest, ClassifyResponse, ChatOption } from "@/lib/workflow/types";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
@@ -278,12 +279,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
+    const msg = error instanceof Error ? error.message : "Failed to classify workflow intent";
     console.error("Workflow classify error:", error);
+    logAI("workflow.classify:error", "Workflow classify failed", msg, { level: "error" });
     return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Failed to classify workflow intent",
-      },
+      { ok: false, error: msg },
       { status: 500 }
     );
   }
