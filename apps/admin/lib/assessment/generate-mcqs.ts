@@ -94,7 +94,7 @@ export async function generateMcqsForSource(
       ...(options?.subjectSourceId ? { subjectSourceId: options.subjectSourceId } : {}),
     },
     select: assertionSelect,
-    orderBy: { sortOrder: "asc" },
+    orderBy: { createdAt: "asc" },
     take: 100, // Cap to avoid huge prompts
   });
 
@@ -103,7 +103,7 @@ export async function generateMcqsForSource(
     assertions = await prisma.contentAssertion.findMany({
       where: { sourceId },
       select: assertionSelect,
-      orderBy: { sortOrder: "asc" },
+      orderBy: { createdAt: "asc" },
       take: 100,
     });
   }
