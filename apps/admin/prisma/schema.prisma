@@ -3588,6 +3588,11 @@ model ContentAssertion {
   sourceId String
   source   ContentSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
+  // Subject scope (epic #94): which SubjectSource this assertion was extracted for.
+  // null = legacy (pre-subject-scoping) or shared pyramid parent node.
+  subjectSourceId String?
+  subjectSource   SubjectSource? @relation(fields: [subjectSourceId], references: [id], onDelete: SetNull)
+
   // Location within source
   chapter String? // "Chapter 3", "Learning Outcome 2"
   section String? // "§3.2 ISA Allowances", "AC 2.3"
@@ -3645,6 +3650,8 @@ model ContentAssertion {
   updatedAt DateTime @updatedAt
 
   @@index([sourceId])
+  @@index([sourceId, subjectSourceId])
+  @@index([subjectSourceId])
   @@index([trustLevel])
   @@index([category])
   @@index([validUntil])
@@ -3664,6 +3671,10 @@ model ContentQuestion {
   id       String        @id @default(uuid())
   sourceId String
   source   ContentSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  // Subject scope (epic #94)
+  subjectSourceId String?
+  subjectSource   SubjectSource? @relation(fields: [subjectSourceId], references: [id], onDelete: SetNull)
 
   // Question content
   questionText      String       @db.Text
@@ -3701,6 +3712,7 @@ model ContentQuestion {
   reviewer   User?     @relation("QuestionReviewer", fields: [reviewedBy], references: [id])
 
   @@index([sourceId])
+  @@index([subjectSourceId])
   @@index([questionType])
   @@index([assertionId])
   @@index([learningOutcomeRef])
@@ -3716,6 +3728,10 @@ model ContentVocabulary {
   id       String        @id @default(uuid())
   sourceId String
   source   ContentSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  // Subject scope (epic #94)
+  subjectSourceId String?
+  subjectSource   SubjectSource? @relation(fields: [subjectSourceId], references: [id], onDelete: SetNull)
 
   // Vocabulary content
   term          String
@@ -3747,8 +3763,9 @@ model ContentVocabulary {
   reviewedAt DateTime?
   reviewer   User?     @relation("VocabularyReviewer", fields: [reviewedBy], references: [id])
 
-  @@unique([sourceId, term])
+  @@unique([sourceId, subjectSourceId, term])
   @@index([sourceId])
+  @@index([subjectSourceId])
   @@index([topic])
 }
 
@@ -3811,6 +3828,11 @@ model SubjectSource {
 
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
+
+  // Back-relations: subject-scoped content (epic #94)
+  assertions ContentAssertion[]
+  questions  ContentQuestion[]
+  vocabulary ContentVocabulary[]
 
   @@unique([subjectId, sourceId])
   @@index([subjectId])
