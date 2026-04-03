@@ -368,8 +368,8 @@ export default function CourseDetailPage() {
                   }
                 })
                 .catch(() => {}); // silent — TPs are supplementary
-              // Fetch assessment MCQ preview
-              fetch(`/api/curricula/${data.curriculumId}/assessment-preview`)
+              // Fetch assessment MCQ preview (pass playbookId for cross-subject fallback)
+              fetch(`/api/curricula/${data.curriculumId}/assessment-preview?playbookId=${courseId}`)
                 .then((r) => r.json())
                 .then((ap) => { if (ap.ok) setMcqPreview(ap); })
                 .catch(() => {}); // silent — supplementary
@@ -498,13 +498,13 @@ export default function CourseDetailPage() {
           const forceData = await forceRes.json();
           if (forceData.ok && sessions?.curriculumId) {
             // Refresh MCQ preview
-            const preview = await fetch(`/api/curricula/${sessions.curriculumId}/assessment-preview`).then(r => r.json());
+            const preview = await fetch(`/api/curricula/${sessions.curriculumId}/assessment-preview?playbookId=${courseId}`).then(r => r.json());
             if (preview.ok) setMcqPreview(preview);
           }
         }
       } else if (data.ok && sessions?.curriculumId) {
         // Refresh MCQ preview
-        const preview = await fetch(`/api/curricula/${sessions.curriculumId}/assessment-preview`).then(r => r.json());
+        const preview = await fetch(`/api/curricula/${sessions.curriculumId}/assessment-preview?playbookId=${courseId}`).then(r => r.json());
         if (preview.ok) setMcqPreview(preview);
       }
     } catch {

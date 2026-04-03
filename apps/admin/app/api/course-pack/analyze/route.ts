@@ -3,6 +3,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { extractTextFromBuffer } from "@/lib/content-trust/extract-assertions";
 import { classifyDocument, fetchFewShotExamples, buildMultiPointSample, filenameTypeHint } from "@/lib/content-trust/classify-document";
+import { validateManifest } from "@/lib/content-trust/validate-manifest";
 import { resolveExtractionConfig } from "@/lib/content-trust/resolve-config";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { interpolateTemplate } from "@/lib/prompts/interpolate";
@@ -119,7 +120,11 @@ Rules:
 - Every file must appear exactly once (either in a group or in pedagogyFiles)
 - Group files by shared subject matter, not by file type
 - A passage and its question bank should be in the SAME group
-- If a file doesn't clearly belong to any group, put it in its own group
+- ONE primary subject per course: all content files for the same course belong in ONE group. Do NOT create separate groups for different chapters, documents, or question banks within the same course
+- Course guides, lesson plans, skills frameworks, session plans, and policy documents are NOT subjects — they MUST go in pedagogyFiles, never in groups
+- COURSE_REFERENCE, LESSON_PLAN, and POLICY_DOCUMENT types always belong in pedagogyFiles
+- Only create multiple groups if files genuinely cover DIFFERENT academic disciplines (e.g., "English Literature" vs "Mathematics")
+- If a file doesn't clearly belong to any group, add it to the largest existing group rather than creating a new one
 - Use the course name "{{courseName}}" for context about what these files are for`;
 
 function roleFromType(docType: string): PackFile["role"] {
@@ -396,7 +401,10 @@ Analyze these files and group them by subject. Return JSON only.`;
     // Drop empty groups after migration
     manifest.groups = manifest.groups.filter((g) => g.files.length > 0);
 
-    return NextResponse.json({ ok: true, manifest });
+    // ── Structural guard: fix AI mistakes before returning ──
+    const { manifest: validatedManifest, fixes } = validateManifest(manifest);
+
+    return NextResponse.json({ ok: true, manifest: validatedManifest, fixes });
   } catch (error: unknown) {
     console.error("[course-pack/analyze] Error:", error);
     return NextResponse.json(

@@ -101,6 +101,8 @@ interface PackUploadStepProps {
   teachingMode?: string;
   /** Subject discipline declared by teacher (e.g. "history", "english"). Passed to extraction for subject-aware prompt. */
   subjectDiscipline?: string;
+  /** Primary subject ID (from wizard). All uploaded docs attach to this subject. */
+  subjectId?: string;
   existingCourses?: ExistingCourse[];
   /** When provided, shows subject picker instead of course picker */
   existingSubjects?: ExistingSubject[];
@@ -130,6 +132,7 @@ export function PackUploadStep({
   interactionPattern,
   teachingMode,
   subjectDiscipline,
+  subjectId,
   existingCourses = [],
   existingSubjects = [],
   initialFiles,
@@ -466,6 +469,9 @@ export function PackUploadStep({
       }
       if (subjectDiscipline) {
         formData.append('subjectDiscipline', subjectDiscipline);
+      }
+      if (subjectId) {
+        formData.append('subjectId', subjectId);
       }
       for (const file of files) {
         formData.append('files', file);

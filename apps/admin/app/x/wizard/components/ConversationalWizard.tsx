@@ -1569,6 +1569,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
               interactionPattern={getData<string>("interactionPattern") || undefined}
               teachingMode={getData<string>("teachingMode") || undefined}
               subjectDiscipline={getData<string>("subjectDiscipline") || undefined}
+              subjectId={getData<string>("subjectId") || undefined}
               institutionName={getData<string>("institutionName") || undefined}
               glow={sourcesGlow}
               onProcessingStart={handleProcessingStart}

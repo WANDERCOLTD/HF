@@ -70,43 +70,59 @@ async function getAssessmentConfig(): Promise<AssessmentConfig> {
 }
 
 // ---------------------------------------------------------------------------
-// Resolve curriculum's primary content source
+// Resolve content source IDs — curriculum path or playbook-wide search
 // ---------------------------------------------------------------------------
 
-async function getPrimarySourceId(curriculumId: string): Promise<string | null> {
+async function getSourceIdsForCurriculum(curriculumId: string): Promise<string[]> {
   const curriculum = await prisma.curriculum.findUnique({
     where: { id: curriculumId },
     select: { primarySourceId: true, subjectId: true },
   });
-  if (!curriculum) return null;
+  if (!curriculum) return [];
 
   // Direct FK is the fast path
-  if (curriculum.primarySourceId) return curriculum.primarySourceId;
+  if (curriculum.primarySourceId) return [curriculum.primarySourceId];
 
-  // Fallback: find the first source linked to the curriculum's subject
+  // Fallback: all sources linked to the curriculum's subject
   if (curriculum.subjectId) {
-    const subjectSource = await prisma.subjectSource.findFirst({
+    const sources = await prisma.subjectSource.findMany({
       where: { subjectId: curriculum.subjectId },
       select: { sourceId: true },
       orderBy: { createdAt: "asc" },
     });
-    return subjectSource?.sourceId ?? null;
+    return sources.map((s) => s.sourceId);
   }
 
-  return null;
+  return [];
+}
+
+async function getSourceIdsForPlaybook(playbookId: string): Promise<string[]> {
+  const subjects = await prisma.playbookSubject.findMany({
+    where: { playbookId },
+    select: { subjectId: true },
+  });
+  if (subjects.length === 0) return [];
+
+  const sources = await prisma.subjectSource.findMany({
+    where: { subjectId: { in: subjects.map((s) => s.subjectId) } },
+    select: { sourceId: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return [...new Set(sources.map((s) => s.sourceId))];
 }
 
 // ---------------------------------------------------------------------------
-// Fetch questions from content source
+// Fetch questions from content sources
 // ---------------------------------------------------------------------------
 
 async function fetchQuestions(
-  sourceId: string,
+  sourceIds: string[],
   questionTypes: string[],
 ): Promise<ContentQuestionRow[]> {
+  if (sourceIds.length === 0) return [];
   return prisma.contentQuestion.findMany({
     where: {
-      sourceId,
+      sourceId: { in: sourceIds },
       questionType: { in: questionTypes as any },
     },
     select: {
@@ -224,16 +240,26 @@ export interface PreTestResult {
  * Returns questions as SurveyStepConfig[] ready for ChatSurvey rendering.
  */
 export async function buildPreTest(curriculumId: string): Promise<PreTestResult> {
-  const assessmentCfg = await getAssessmentConfig();
+  return buildFromSourceIds(await getSourceIdsForCurriculum(curriculumId));
+}
 
-  const sourceId = await getPrimarySourceId(curriculumId);
-  if (!sourceId) {
+/**
+ * Build a pre-test by searching all subjects linked to a playbook (course).
+ * Broader search — finds questions across all content sources in the course.
+ */
+export async function buildPreTestForPlaybook(playbookId: string): Promise<PreTestResult> {
+  return buildFromSourceIds(await getSourceIdsForPlaybook(playbookId));
+}
+
+async function buildFromSourceIds(sourceIds: string[]): Promise<PreTestResult> {
+  if (sourceIds.length === 0) {
     return { questions: [], questionIds: [], skipped: true, skipReason: "no_content_source" };
   }
 
-  const allQuestions = await fetchQuestions(sourceId, assessmentCfg.questionTypes);
+  const assessmentCfg = await getAssessmentConfig();
+  const allQuestions = await fetchQuestions(sourceIds, assessmentCfg.questionTypes);
   if (allQuestions.length === 0) {
-    return { questions: [], questionIds: [], skipped: true, skipReason: "no_questions", sourceId };
+    return { questions: [], questionIds: [], skipped: true, skipReason: "no_questions", sourceId: sourceIds[0] };
   }
 
   // Apply selection strategy
@@ -253,7 +279,7 @@ export async function buildPreTest(curriculumId: string): Promise<PreTestResult>
     questions: steps,
     questionIds: steps.map((s) => s.id),
     skipped: false,
-    sourceId,
+    sourceId: sourceIds[0],
   };
 }
 

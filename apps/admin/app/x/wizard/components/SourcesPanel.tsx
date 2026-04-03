@@ -43,6 +43,7 @@ interface SourcesPanelProps {
   interactionPattern?: string;
   teachingMode?: string;
   subjectDiscipline?: string;
+  subjectId?: string;
   institutionName?: string;
   /** When true, applies hf-glow-active to draw attention */
   glow?: boolean;
@@ -67,6 +68,7 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
   interactionPattern,
   teachingMode,
   subjectDiscipline,
+  subjectId,
   institutionName,
   glow,
   onSourcesReady,
@@ -228,6 +230,7 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
       if (interactionPattern) ingestForm.append("interactionPattern", interactionPattern);
       if (teachingMode) ingestForm.append("teachingMode", teachingMode);
       if (subjectDiscipline) ingestForm.append("subjectDiscipline", subjectDiscipline);
+      if (subjectId) ingestForm.append("subjectId", subjectId);
       for (const file of files) ingestForm.append("files", file);
 
       const ingestRes = await fetch("/api/course-pack/ingest", {
@@ -279,7 +282,7 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
       setError(err instanceof Error ? err.message : "Upload failed");
       setPhase("error");
     }
-  }, [files, domainId, courseName, interactionPattern, teachingMode, subjectDiscipline, onSourcesReady]);
+  }, [files, domainId, courseName, interactionPattern, teachingMode, subjectDiscipline, subjectId, onSourcesReady]);
 
   // Auto-process when files are added (after a short debounce to allow multi-file drops)
   // Only fires when domainId is available — if not, files stay queued until it arrives.

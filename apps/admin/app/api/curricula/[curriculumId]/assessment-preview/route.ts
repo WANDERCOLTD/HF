@@ -9,17 +9,23 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import { buildPreTest } from "@/lib/assessment/pre-test-builder";
+import { buildPreTest, buildPreTestForPlaybook } from "@/lib/assessment/pre-test-builder";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ curriculumId: string }> },
 ): Promise<NextResponse> {
   const auth = await requireAuth("OPERATOR");
   if (isAuthError(auth)) return auth.error;
 
   const { curriculumId } = await params;
-  const result = await buildPreTest(curriculumId);
+  let result = await buildPreTest(curriculumId);
+
+  // Fallback: if curriculum-scoped search found nothing, try playbook-wide
+  const playbookId = req.nextUrl.searchParams.get("playbookId");
+  if (result.skipped && playbookId) {
+    result = await buildPreTestForPlaybook(playbookId);
+  }
 
   return NextResponse.json({
     ok: true,

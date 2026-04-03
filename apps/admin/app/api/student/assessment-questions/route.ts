@@ -16,7 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import { buildPreTest, buildPostTest } from "@/lib/assessment/pre-test-builder";
+import { buildPreTest, buildPreTestForPlaybook, buildPostTest } from "@/lib/assessment/pre-test-builder";
 
 const VALID_TYPES = new Set(["pre_test", "post_test"]);
 
@@ -46,10 +46,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true, ...result });
   }
 
-  // pre_test — resolve enrolled curriculum
+  // pre_test — resolve enrolled playbook and curriculum
   const enrollment = await prisma.callerPlaybook.findFirst({
     where: { callerId: caller.id, status: "ACTIVE" },
     select: {
+      playbookId: true,
       playbook: {
         select: {
           subjects: {
@@ -72,12 +73,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   });
 
   const curriculumId = enrollment?.playbook?.subjects?.[0]?.subject?.curricula?.[0]?.id;
-  if (!curriculumId) {
-    return NextResponse.json(
-      { ok: true, questions: [], questionIds: [], skipped: true, skipReason: "no_curriculum" },
-    );
+
+  // Try curriculum-scoped first, then fall back to playbook-wide search
+  if (curriculumId) {
+    const result = await buildPreTest(curriculumId);
+    if (!result.skipped) {
+      return NextResponse.json({ ok: true, ...result });
+    }
   }
 
-  const result = await buildPreTest(curriculumId);
-  return NextResponse.json({ ok: true, ...result });
+  // Playbook-wide fallback — searches all subjects' content sources
+  if (enrollment?.playbookId) {
+    const result = await buildPreTestForPlaybook(enrollment.playbookId);
+    return NextResponse.json({ ok: true, ...result });
+  }
+
+  return NextResponse.json(
+    { ok: true, questions: [], questionIds: [], skipped: true, skipReason: "no_curriculum" },
+  );
 }

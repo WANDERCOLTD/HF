@@ -9,6 +9,7 @@ import type { InteractionPattern, TeachingMode } from "@/lib/content-trust/resol
 import { checkAutoTriggerCurriculum } from "@/lib/jobs/auto-trigger";
 import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
 import { findDuplicateSource } from "@/lib/content-trust/dedup-source";
+import { validateManifest } from "@/lib/content-trust/validate-manifest";
 import type { SendIngestEvent } from "@/lib/content-trust/ingest-events";
 import pLimit from "p-limit";
 
@@ -26,6 +27,7 @@ import pLimit from "p-limit";
  * @body manifest string — JSON PackManifest from /api/course-pack/analyze
  * @body domainId string — domain to link subjects to
  * @body courseName string — course name (for slug generation)
+ * @body subjectId string (optional) — primary subject ID (from wizard). All docs attach here.
  * @body interactionPattern string (optional) — e.g. "socratic", "directive"
  *
  * @response 200 text/event-stream — SSE progress events, final "complete" event includes
@@ -76,6 +78,7 @@ export async function POST(req: NextRequest) {
   const interactionPattern = (formData.get("interactionPattern") as string) || undefined;
   const teachingMode = (formData.get("teachingMode") as string) as TeachingMode | undefined;
   const subjectDiscipline = (formData.get("subjectDiscipline") as string) || undefined;
+  const primarySubjectId = (formData.get("subjectId") as string) || undefined;
 
   if (!manifestJson) {
     return NextResponse.json({ ok: false, error: "Missing manifest" }, { status: 400 });
@@ -94,7 +97,10 @@ export async function POST(req: NextRequest) {
 
   let manifest: PackManifest;
   try {
-    manifest = JSON.parse(manifestJson);
+    const parsed = JSON.parse(manifestJson);
+    // Defense-in-depth: re-validate manifest even though analyze route already did
+    const { manifest: validated } = validateManifest(parsed);
+    manifest = validated;
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid manifest JSON" }, { status: 400 });
   }
@@ -118,13 +124,19 @@ export async function POST(req: NextRequest) {
   const userId = authResult.session.user.id;
   const nonBlocking = formData.get("nonBlocking") === "true";
 
+  // ── Resolve primary subject (single subject for all uploads) ──
+
+  const primarySubject = await resolvePrimarySubject(
+    primarySubjectId, domain, subjectDiscipline || courseName,
+  );
+
   // ── Non-blocking mode: create sources fast, extract in background ──
 
   if (nonBlocking) {
     return handleNonBlocking(
       manifest, domain, files, userId, courseName,
       interactionPattern as InteractionPattern | undefined,
-      teachingMode, subjectDiscipline,
+      teachingMode, subjectDiscipline, primarySubject,
     );
   }
 
@@ -149,52 +161,28 @@ export async function POST(req: NextRequest) {
         let grandTotalVocabulary = 0;
         let grandTotalImages = 0;
 
-        // ── Process each subject group ──
+        // ── Use single primary subject for all groups ──
+
+        const subject = primarySubject;
+        createdSubjects.push({ id: subject.id, name: subject.name });
+
+        // Link Subject to Domain (idempotent)
+        const existingLink = await prisma.subjectDomain.findFirst({
+          where: { subjectId: subject.id, domainId },
+        });
+        if (!existingLink) {
+          await prisma.subjectDomain.create({
+            data: { subjectId: subject.id, domainId },
+          });
+        }
+
+        send({
+          phase: "subject-created",
+          message: `Subject ready: ${subject.name}`,
+          data: { subjectId: subject.id, subjectName: subject.name },
+        });
 
         for (const group of manifest.groups) {
-          send({
-            phase: "creating-subject",
-            message: `Creating subject: ${group.suggestedSubjectName}`,
-            data: { subjectName: group.suggestedSubjectName },
-          });
-
-          // Create or find Subject
-          const subjectSlug = `${domain.slug}-${group.suggestedSubjectName}`
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-|-$/g, "");
-
-          let subject = await prisma.subject.findFirst({
-            where: { slug: subjectSlug },
-          });
-
-          if (!subject) {
-            subject = await prisma.subject.create({
-              data: {
-                slug: subjectSlug,
-                name: group.suggestedSubjectName,
-                isActive: true,
-              },
-            });
-          }
-
-          createdSubjects.push({ id: subject.id, name: subject.name });
-
-          // Link Subject to Domain (idempotent)
-          const existingLink = await prisma.subjectDomain.findFirst({
-            where: { subjectId: subject.id, domainId },
-          });
-          if (!existingLink) {
-            await prisma.subjectDomain.create({
-              data: { subjectId: subject.id, domainId },
-            });
-          }
-
-          send({
-            phase: "subject-created",
-            message: `Subject ready: ${subject.name}`,
-            data: { subjectId: subject.id, subjectName: subject.name },
-          });
 
           // Create + extract each file in group (parallel, up to 3 concurrent)
           const groupSources: Array<{ sourceId: string; role: string; fileName: string }> = [];
@@ -294,34 +282,9 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // ── Process pedagogy files ──
+        // ── Process pedagogy files (same subject, pedagogy tags) ──
 
         if (manifest.pedagogyFiles.length > 0) {
-          const pedSubjectSlug = `${domain.slug}-course-guide`;
-          let pedSubject = await prisma.subject.findFirst({
-            where: { slug: pedSubjectSlug },
-          });
-          if (!pedSubject) {
-            pedSubject = await prisma.subject.create({
-              data: {
-                slug: pedSubjectSlug,
-                name: `${courseName || domain.name} Course Guide`,
-                isActive: true,
-              },
-            });
-          }
-
-          const existingPedLink = await prisma.subjectDomain.findFirst({
-            where: { subjectId: pedSubject.id, domainId },
-          });
-          if (!existingPedLink) {
-            await prisma.subjectDomain.create({
-              data: { subjectId: pedSubject.id, domainId },
-            });
-          }
-
-          createdSubjects.push({ id: pedSubject.id, name: pedSubject.name });
-
           const pedLimit = pLimit(3);
 
           const pedResults = await Promise.all(
@@ -336,7 +299,8 @@ export async function POST(req: NextRequest) {
               });
 
               const { sourceId, mediaStorageKey: pedMediaKey, text, source, deduplicated: pedDeduped } = await createSource(
-                file, pedSubject.id, domain.slug, mf.documentType || "LESSON_PLAN", userId,
+                file, subject.id, domain.slug, mf.documentType || "LESSON_PLAN", userId,
+                ["pedagogy", "pack-upload"],
               );
 
               send({
@@ -369,8 +333,8 @@ export async function POST(req: NextRequest) {
               } else {
                 fileTotals = await extractSource(
                   source, text, (mf.documentType || "LESSON_PLAN") as DocumentType, file.name,
-                  pedSubject.id, userId, interactionPattern as InteractionPattern | undefined,
-                  teachingMode, send, pedMediaKey, subjectDiscipline, pedSubject.name,
+                  subject.id, userId, interactionPattern as InteractionPattern | undefined,
+                  teachingMode, send, pedMediaKey, subjectDiscipline, subject.name,
                 );
               }
 
@@ -462,6 +426,7 @@ async function handleNonBlocking(
   interactionPattern: InteractionPattern | undefined,
   teachingMode: TeachingMode | undefined,
   subjectDiscipline: string | undefined,
+  primarySubject: { id: string; slug: string; name: string; isActive: boolean },
 ): Promise<Response> {
   try {
     const createdSubjects: Array<{ id: string; name: string }> = [];
@@ -469,40 +434,22 @@ async function handleNonBlocking(
     const extractionQueue: SourceForExtraction[] = [];
     let sourceCount = 0;
 
-    // ── Create subjects + sources for each group ──
+    // ── Single subject for all groups ──
+
+    const subject = primarySubject;
+    createdSubjects.push({ id: subject.id, name: subject.name });
+
+    // Link Subject to Domain (idempotent)
+    const existingLink = await prisma.subjectDomain.findFirst({
+      where: { subjectId: subject.id, domainId: domain.id },
+    });
+    if (!existingLink) {
+      await prisma.subjectDomain.create({
+        data: { subjectId: subject.id, domainId: domain.id },
+      });
+    }
 
     for (const group of manifest.groups) {
-      const subjectSlug = `${domain.slug}-${group.suggestedSubjectName}`
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
-
-      let subject = await prisma.subject.findFirst({
-        where: { slug: subjectSlug },
-      });
-
-      if (!subject) {
-        subject = await prisma.subject.create({
-          data: {
-            slug: subjectSlug,
-            name: group.suggestedSubjectName,
-            isActive: true,
-          },
-        });
-      }
-
-      createdSubjects.push({ id: subject.id, name: subject.name });
-
-      // Link Subject to Domain (idempotent)
-      const existingLink = await prisma.subjectDomain.findFirst({
-        where: { subjectId: subject.id, domainId: domain.id },
-      });
-      if (!existingLink) {
-        await prisma.subjectDomain.create({
-          data: { subjectId: subject.id, domainId: domain.id },
-        });
-      }
-
       // Create sources for each file in group
       for (const mf of group.files) {
         const file = files[mf.fileIndex];
@@ -529,7 +476,6 @@ async function handleNonBlocking(
       const questionSources = group.files.filter(f => f.role === "questions");
       if (passageSources.length > 0 && questionSources.length > 0) {
         const passageIds = passageSources.map(f => {
-          const file = files[f.fileIndex];
           return allSourceIds[allSourceIds.length - group.files.length + group.files.indexOf(f)];
         }).filter(Boolean);
         const questionIds = questionSources.map(f => {
@@ -548,52 +494,26 @@ async function handleNonBlocking(
       }
     }
 
-    // ── Pedagogy files ──
+    // ── Pedagogy files (same subject, pedagogy tags) ──
 
-    if (manifest.pedagogyFiles.length > 0) {
-      const pedSubjectSlug = `${domain.slug}-course-guide`;
-      let pedSubject = await prisma.subject.findFirst({
-        where: { slug: pedSubjectSlug },
-      });
-      if (!pedSubject) {
-        pedSubject = await prisma.subject.create({
-          data: {
-            slug: pedSubjectSlug,
-            name: `${courseName || domain.name} Course Guide`,
-            isActive: true,
-          },
+    for (const mf of manifest.pedagogyFiles) {
+      const file = files[mf.fileIndex];
+      if (!file) continue;
+
+      const { sourceId, mediaStorageKey, text, source, deduplicated } = await createSource(
+        file, subject.id, domain.slug, mf.documentType || "LESSON_PLAN", userId,
+        ["pedagogy", "pack-upload"],
+      );
+
+      allSourceIds.push(sourceId);
+      sourceCount++;
+
+      if (!deduplicated) {
+        extractionQueue.push({
+          source, text, documentType: mf.documentType || "LESSON_PLAN",
+          fileName: file.name, subjectId: subject.id,
+          subjectName: subject.name, mediaStorageKey,
         });
-      }
-
-      const existingPedLink = await prisma.subjectDomain.findFirst({
-        where: { subjectId: pedSubject.id, domainId: domain.id },
-      });
-      if (!existingPedLink) {
-        await prisma.subjectDomain.create({
-          data: { subjectId: pedSubject.id, domainId: domain.id },
-        });
-      }
-
-      createdSubjects.push({ id: pedSubject.id, name: pedSubject.name });
-
-      for (const mf of manifest.pedagogyFiles) {
-        const file = files[mf.fileIndex];
-        if (!file) continue;
-
-        const { sourceId, mediaStorageKey, text, source, deduplicated } = await createSource(
-          file, pedSubject.id, domain.slug, mf.documentType || "LESSON_PLAN", userId,
-        );
-
-        allSourceIds.push(sourceId);
-        sourceCount++;
-
-        if (!deduplicated) {
-          extractionQueue.push({
-            source, text, documentType: mf.documentType || "LESSON_PLAN",
-            fileName: file.name, subjectId: pedSubject.id,
-            subjectName: pedSubject.name, mediaStorageKey,
-          });
-        }
       }
     }
 
@@ -635,6 +555,45 @@ async function handleNonBlocking(
 // ── Helpers ────────────────────────────────────────────
 
 /**
+ * Resolve or create the single primary subject for all uploads.
+ * - If subjectId provided: look it up (wizard already created it)
+ * - Otherwise: derive one from subjectDiscipline/courseName (dedup-safe via slug)
+ */
+async function resolvePrimarySubject(
+  subjectId: string | undefined,
+  domain: { id: string; slug: string },
+  nameOrDiscipline: string,
+): Promise<{ id: string; slug: string; name: string; isActive: boolean }> {
+  if (subjectId) {
+    const existing = await prisma.subject.findUnique({
+      where: { id: subjectId },
+      select: { id: true, slug: true, name: true, isActive: true },
+    });
+    if (existing) return existing;
+  }
+
+  // Fallback: create/find one subject from the name
+  const slug = `${domain.slug}-${nameOrDiscipline}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  let subject = await prisma.subject.findFirst({
+    where: { slug },
+    select: { id: true, slug: true, name: true, isActive: true },
+  });
+
+  if (!subject) {
+    subject = await prisma.subject.create({
+      data: { slug, name: nameOrDiscipline, isActive: true },
+      select: { id: true, slug: true, name: true, isActive: true },
+    });
+  }
+
+  return subject;
+}
+
+/**
  * Create a ContentSource + MediaAsset and link to subject.
  * Pure DB/storage — no extraction, returns the text for the caller to extract.
  */
@@ -644,6 +603,7 @@ async function createSource(
   domainSlug: string,
   documentType: string,
   userId: string,
+  tagOverride?: string[],
 ) {
   const buffer = Buffer.from(await file.arrayBuffer());
   const { text } = await extractTextFromBuffer(buffer, file.name);
@@ -685,8 +645,8 @@ async function createSource(
 
   // Attach to subject — idempotent upsert (@@unique([subjectId, sourceId]) already defined)
   // Auto-tag student-visible based on document type (teacher can override via eye toggle)
-  const tags = ["content", "pack-upload"];
-  if (isStudentVisibleDefault(documentType)) tags.push("student-material");
+  const tags = tagOverride ?? ["content", "pack-upload"];
+  if (isStudentVisibleDefault(documentType) && !tags.includes("student-material")) tags.push("student-material");
 
   await prisma.subjectSource.upsert({
     where: { subjectId_sourceId: { subjectId, sourceId: source.id } },

@@ -708,6 +708,7 @@ async function handleWizardModeWithTools(
               draftPlaybookId: data.playbookId,
               draftCallerId: data.callerId,
               ...(data.domainId ? { draftDomainId: data.domainId } : {}),
+              ...(data.subjectId ? { subjectId: data.subjectId } : {}),
               ...(data.lessonPlanPreview ? { lessonPlanPreview: data.lessonPlanPreview } : {}),
               ...(data.firstCallPreview ? { firstCallPreview: data.firstCallPreview } : {}),
             };

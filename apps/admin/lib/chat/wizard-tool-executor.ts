@@ -1043,6 +1043,8 @@ export async function executeWizardTool(
         }
 
         // 7. Link content-upload subjects from PackUploadStep (if any)
+        //    LEGACY: Ingest now uses a single primary subject, so this is a no-op for new courses.
+        //    Kept for backward compatibility with courses created before the single-subject fix.
         //    Fallback: if AI didn't pass packSubjectIds, auto-discover content
         //    subjects already on this domain and link them to the new playbook.
         let subjectIdsToLink = packSubjectIds ?? [];
@@ -1077,10 +1079,8 @@ export async function executeWizardTool(
         }
 
         // 7b. Bridge COURSE_REFERENCE sources to the primary subject.
-        //     Content uploaded via SourcesPanel creates SubjectSource rows under
-        //     packSubjectIds, but COURSE_REFERENCE sources may be on a different
-        //     subject. Ensure they're also linked to the primary subject (step 1)
-        //     so the courseInstructions loader can find them via PlaybookSubject → SubjectSource.
+        //     LEGACY: Ingest now puts all docs (including pedagogy) on the primary subject.
+        //     Kept for backward compatibility with courses that have fragmented subjects.
         for (const packSubId of subjectIdsToLink) {
           const packSources = await prisma.subjectSource.findMany({
             where: { subjectId: packSubId },
@@ -1455,18 +1455,35 @@ export async function executeWizardTool(
           })),
         };
 
+        // Post-creation summary — surfaces entity counts so the AI can report them
+        const linkedSubjects = await prisma.playbookSubject.findMany({
+          where: { playbookId },
+          include: { subject: { select: { id: true, name: true } } },
+        });
+        const linkedSources = await prisma.subjectSource.findMany({
+          where: { subjectId: { in: linkedSubjects.map(ls => ls.subject.id) } },
+          select: { sourceId: true },
+          distinct: ["sourceId"],
+        });
+
         return {
           ...base,
           content: JSON.stringify({
             ok: true,
             domainId,
             playbookId,
+            subjectId: subject.id,
             callerId: caller.id,
             callerName,
             ...(demoCaller ? { demoCallerId: demoCaller.id, demoCallerName: demoName } : {}),
             cohortId: cohort.id,
             joinToken,
             firstCallPreview,
+            creationSummary: {
+              subjectCount: linkedSubjects.length,
+              subjectNames: linkedSubjects.map(ls => ls.subject.name),
+              documentCount: linkedSources.length,
+            },
           }),
         };
       } catch (err) {
