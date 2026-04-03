@@ -85,7 +85,7 @@ describe("generate-mcqs", () => {
   describe("generateMcqsForSource", () => {
     it("skips when too few assertions", async () => {
       mocks.prisma.contentAssertion.findMany.mockResolvedValue([
-        { id: "a1", claim: "Fact 1", category: "concept", chapter: null, section: null },
+        { id: "a1", assertion: "Fact 1", category: "concept", chapter: null, section: null },
       ]);
 
       const result = await generateMcqsForSource("src-1");
@@ -97,7 +97,7 @@ describe("generate-mcqs", () => {
     it("generates MCQs from assertions and saves them", async () => {
       const assertions = Array.from({ length: 5 }, (_, i) => ({
         id: `a${i}`,
-        claim: `Concept ${i}: important fact about topic ${i}`,
+        assertion: `Concept ${i}: important fact about topic ${i}`,
         category: "concept",
         chapter: `Chapter ${i}`,
         section: null,
@@ -149,7 +149,7 @@ describe("generate-mcqs", () => {
 
     it("handles AI returning no content", async () => {
       const assertions = Array.from({ length: 5 }, (_, i) => ({
-        id: `a${i}`, claim: `Fact ${i}`, category: "concept", chapter: null, section: null,
+        id: `a${i}`, assertion: `Fact ${i}`, category: "concept", chapter: null, section: null,
       }));
       mocks.prisma.contentAssertion.findMany.mockResolvedValue(assertions);
       mocks.ai.mockResolvedValue({ content: null });
@@ -161,7 +161,7 @@ describe("generate-mcqs", () => {
 
     it("deduplicates via contentHash", async () => {
       const assertions = Array.from({ length: 5 }, (_, i) => ({
-        id: `a${i}`, claim: `Fact ${i}`, category: "concept", chapter: null, section: null,
+        id: `a${i}`, assertion: `Fact ${i}`, category: "concept", chapter: null, section: null,
       }));
       mocks.prisma.contentAssertion.findMany.mockResolvedValue(assertions);
       mocks.ai.mockResolvedValue({
@@ -210,7 +210,7 @@ describe("generate-mcqs", () => {
       // generateMcqsForSource needs assertions
       mocks.prisma.contentAssertion.findMany.mockResolvedValue(
         Array.from({ length: 5 }, (_, i) => ({
-          id: `a${i}`, claim: `Fact ${i}`, category: "concept", chapter: null, section: null,
+          id: `a${i}`, assertion: `Fact ${i}`, category: "concept", chapter: null, section: null,
         })),
       );
       mocks.ai.mockResolvedValue({

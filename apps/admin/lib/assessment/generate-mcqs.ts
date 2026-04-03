@@ -86,7 +86,7 @@ export async function generateMcqsForSource(
     },
     select: {
       id: true,
-      claim: true,
+      assertion: true,
       category: true,
       chapter: true,
       section: true,
@@ -101,7 +101,7 @@ export async function generateMcqsForSource(
 
   // Build assertion summary for prompt
   const assertionText = assertions
-    .map((a, i) => `${i + 1}. [${a.category}] ${a.claim}${a.chapter ? ` (${a.chapter})` : ""}`)
+    .map((a, i) => `${i + 1}. [${a.category}] ${a.assertion}${a.chapter ? ` (${a.chapter})` : ""}`)
     .join("\n");
 
   const mcqCount = Math.max(1, count - 2);
