@@ -11463,6 +11463,7 @@ Creates a Caller record linked to the authenticated user in the specified domain
 |-----------|-----|------|----------|-------------|
 | domainId | body | string | No | Domain to create caller in (required) |
 | playbookId | body | string | No | Specific playbook to enroll in (optional, auto-resolves if omitted) |
+| skipOnboarding | body | boolean | No | Skip onboarding + surveys and jump to content (optional, default false) |
 
 **Response** `200`
 ```json

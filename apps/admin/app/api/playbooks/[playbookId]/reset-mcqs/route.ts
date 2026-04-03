@@ -64,7 +64,7 @@ export async function POST(
         scope: "PRE_TEST",
         key: "question_ids",
         caller: {
-          callerPlaybooks: {
+          enrollments: {
             some: { playbookId, status: "ACTIVE" },
           },
         },
