@@ -70,6 +70,9 @@ gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c 
   echo "==> Installing deps..."
   cd apps/admin && npm install --prefer-offline
 
+  echo "==> Regenerating Prisma client..."
+  npx prisma generate
+
   # ONLY if seed files changed — include this block:
   # echo "==> Seeding..."
   # npx tsx prisma/seed-full.ts

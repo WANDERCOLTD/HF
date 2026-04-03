@@ -71,6 +71,9 @@ gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c 
   echo "==> Running migrations..."
   npx prisma migrate deploy
 
+  echo "==> Regenerating Prisma client..."
+  npx prisma generate
+
   # ONLY if seed files changed — include this block:
   # echo "==> Seeding..."
   # npx tsx prisma/seed-full.ts
