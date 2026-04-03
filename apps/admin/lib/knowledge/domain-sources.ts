@@ -83,6 +83,7 @@ export async function getSubjectsForPlaybook(playbookId: string, domainId: strin
     id: string;
     teachingDepth: number | null;
     sources: Array<{
+      subjectSourceId: string;
       sourceId: string;
       documentType: string | null;
       sortOrder: number;
@@ -93,6 +94,7 @@ export async function getSubjectsForPlaybook(playbookId: string, domainId: strin
 }> {
   const sourceSelect = {
     select: {
+      id: true,
       sourceId: true,
       sortOrder: true,
       tags: true,
@@ -120,6 +122,7 @@ export async function getSubjectsForPlaybook(playbookId: string, domainId: strin
       subjects: playbookSubjects.map((ps) => ({
         ...ps.subject,
         sources: ps.subject.sources.map((s) => ({
+          subjectSourceId: s.id,
           sourceId: s.sourceId,
           documentType: s.source?.documentType ?? null,
           sortOrder: s.sortOrder,
@@ -148,6 +151,7 @@ export async function getSubjectsForPlaybook(playbookId: string, domainId: strin
     subjects: subjectDomains.map((sd) => ({
       ...sd.subject,
       sources: sd.subject.sources.map((s) => ({
+        subjectSourceId: s.id,
         sourceId: s.sourceId,
         documentType: s.source?.documentType ?? null,
         sortOrder: s.sortOrder,

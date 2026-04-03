@@ -88,6 +88,7 @@ const MOCK_SOURCE_WITH_SUBJECT = {
   documentType: "TEXTBOOK",
   subjects: [
     {
+      id: "ss-1",
       subjectId: "sub-1",
       subject: {
         slug: "food-safety",
@@ -173,7 +174,7 @@ describe("POST /api/content-sources/:sourceId/extract", () => {
     expect(data.documentType).toBe("TEXTBOOK");
 
     expect(mocks.createExtractionTask).toHaveBeenCalledWith(
-      "u1", "src-1", "Test Doc", "sub-1", "Food Safety"
+      "u1", "src-1", "Test Doc", "sub-1", "Food Safety", "ss-1"
     );
   });
 
@@ -190,7 +191,7 @@ describe("POST /api/content-sources/:sourceId/extract", () => {
 
     // Should work without subjectId — no 400 error
     expect(mocks.createExtractionTask).toHaveBeenCalledWith(
-      "u1", "src-1", "Orphan Doc", undefined, "Orphan Doc"
+      "u1", "src-1", "Orphan Doc", undefined, "Orphan Doc", undefined
     );
   });
 

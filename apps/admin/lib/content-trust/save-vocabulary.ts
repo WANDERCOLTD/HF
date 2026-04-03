@@ -20,12 +20,13 @@ export interface SaveVocabularyResult {
 export async function saveVocabulary(
   sourceId: string,
   vocabulary: ExtractedVocabulary[],
+  subjectSourceId?: string,
 ): Promise<SaveVocabularyResult> {
   if (vocabulary.length === 0) return { created: 0, duplicatesSkipped: 0 };
 
-  // Fetch existing terms for this source
+  // Fetch existing terms for this source (scoped by subjectSourceId when available)
   const existing = await prisma.contentVocabulary.findMany({
-    where: { sourceId },
+    where: { sourceId, ...(subjectSourceId ? { subjectSourceId } : {}) },
     select: { term: true },
   });
   const existingTerms = new Set(existing.map((e) => e.term.toLowerCase()));
@@ -46,6 +47,7 @@ export async function saveVocabulary(
   await prisma.contentVocabulary.createMany({
     data: toCreate.map((v, i) => ({
       sourceId,
+      subjectSourceId: subjectSourceId ?? null,
       term: v.term,
       definition: v.definition,
       partOfSpeech: v.partOfSpeech || null,

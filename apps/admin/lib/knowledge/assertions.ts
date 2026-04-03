@@ -40,13 +40,14 @@ export async function searchAssertionsHybrid(
   limit: number,
   minRelevance = 0.3,
   sourceIds?: string[],
+  subjectSourceIds?: string[],
 ): Promise<AssertionResult[]> {
   // Empty sourceIds = domain has no content sources → no results
   if (sourceIds && sourceIds.length === 0) return [];
 
   const [vectorResults, keywordResults] = await Promise.all([
-    searchAssertionsByVector(queryEmbedding, limit * 2, minRelevance, sourceIds),
-    searchAssertions(queryText, limit * 2, sourceIds),
+    searchAssertionsByVector(queryEmbedding, limit * 2, minRelevance, sourceIds, subjectSourceIds),
+    searchAssertions(queryText, limit * 2, sourceIds, subjectSourceIds),
   ]);
 
   // Merge by assertion text (dedup), average scores
@@ -85,10 +86,15 @@ export async function searchAssertionsByVector(
   limit: number,
   minRelevance = 0.3,
   sourceIds?: string[],
+  subjectSourceIds?: string[],
 ): Promise<AssertionResult[]> {
   if (sourceIds && sourceIds.length === 0) return [];
 
   const vectorLiteral = toVectorLiteral(queryEmbedding);
+
+  // Build WHERE clause: prefer subjectSourceIds when available, fall back to sourceIds
+  const hasSubjectScope = subjectSourceIds && subjectSourceIds.length > 0;
+  const hasSourceScope = sourceIds && sourceIds.length > 0;
 
   const rows = await prisma.$queryRaw<Array<{
     id: string;
@@ -102,7 +108,7 @@ export async function searchAssertionsByVector(
     sourceName: string;
     similarity: number;
   }>>(
-    sourceIds
+    hasSubjectScope
       ? Prisma.sql`
           SELECT a.id, a.assertion, a.category, a.chapter, a.tags,
                  a."trustLevel"::text, a."examRelevance",
@@ -112,22 +118,37 @@ export async function searchAssertionsByVector(
           FROM "ContentAssertion" a
           JOIN "ContentSource" s ON a."sourceId" = s.id
           WHERE a.embedding IS NOT NULL
-            AND a."sourceId" = ANY(${sourceIds}::text[])
+            AND (a."subjectSourceId" = ANY(${subjectSourceIds}::text[]) OR a."subjectSourceId" IS NULL)
+            AND a."sourceId" = ANY(${sourceIds ?? []}::text[])
           ORDER BY a.embedding <=> ${vectorLiteral}::vector
           LIMIT ${limit}
         `
-      : Prisma.sql`
-          SELECT a.id, a.assertion, a.category, a.chapter, a.tags,
-                 a."trustLevel"::text, a."examRelevance",
-                 a."teachMethod",
-                 s.name as "sourceName",
-                 1 - (a.embedding <=> ${vectorLiteral}::vector) as similarity
-          FROM "ContentAssertion" a
-          JOIN "ContentSource" s ON a."sourceId" = s.id
-          WHERE a.embedding IS NOT NULL
-          ORDER BY a.embedding <=> ${vectorLiteral}::vector
-          LIMIT ${limit}
-        `
+      : hasSourceScope
+        ? Prisma.sql`
+            SELECT a.id, a.assertion, a.category, a.chapter, a.tags,
+                   a."trustLevel"::text, a."examRelevance",
+                   a."teachMethod",
+                   s.name as "sourceName",
+                   1 - (a.embedding <=> ${vectorLiteral}::vector) as similarity
+            FROM "ContentAssertion" a
+            JOIN "ContentSource" s ON a."sourceId" = s.id
+            WHERE a.embedding IS NOT NULL
+              AND a."sourceId" = ANY(${sourceIds}::text[])
+            ORDER BY a.embedding <=> ${vectorLiteral}::vector
+            LIMIT ${limit}
+          `
+        : Prisma.sql`
+            SELECT a.id, a.assertion, a.category, a.chapter, a.tags,
+                   a."trustLevel"::text, a."examRelevance",
+                   a."teachMethod",
+                   s.name as "sourceName",
+                   1 - (a.embedding <=> ${vectorLiteral}::vector) as similarity
+            FROM "ContentAssertion" a
+            JOIN "ContentSource" s ON a."sourceId" = s.id
+            WHERE a.embedding IS NOT NULL
+            ORDER BY a.embedding <=> ${vectorLiteral}::vector
+            LIMIT ${limit}
+          `
   );
 
   return rows
@@ -154,6 +175,7 @@ export async function searchAssertions(
   queryText: string,
   limit: number,
   sourceIds?: string[],
+  subjectSourceIds?: string[],
 ): Promise<AssertionResult[]> {
   if (sourceIds && sourceIds.length === 0) return [];
 
@@ -167,17 +189,26 @@ export async function searchAssertions(
   if (words.length === 0) return [];
 
   // Search by content and tags, scoped to domain's sources when available
+  // Prefer subjectSourceIds for subject-scoped filtering (epic #94)
   const assertions = await prisma.contentAssertion.findMany({
     where: {
       ...(sourceIds ? { sourceId: { in: sourceIds } } : {}),
-      OR: [
-        // Match assertion text
-        ...words.slice(0, 5).map((w) => ({
-          assertion: { contains: w, mode: "insensitive" as const },
-        })),
-        // Match tags
-        { tags: { hasSome: words.slice(0, 10) } },
-      ],
+      ...(subjectSourceIds && subjectSourceIds.length > 0
+        ? { OR: [
+            { subjectSourceId: { in: subjectSourceIds } },
+            { subjectSourceId: null },
+          ] }
+        : {}),
+      AND: [{
+        OR: [
+          // Match assertion text
+          ...words.slice(0, 5).map((w) => ({
+            assertion: { contains: w, mode: "insensitive" as const },
+          })),
+          // Match tags
+          { tags: { hasSome: words.slice(0, 10) } },
+        ],
+      }],
     },
     take: limit * 2, // Fetch extra for scoring
     include: {

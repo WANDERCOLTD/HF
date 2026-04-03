@@ -89,12 +89,14 @@ export async function createExtractionTask(
   fileName: string,
   subjectId?: string,
   subjectName?: string,
+  subjectSourceId?: string,
 ): Promise<ExtractionJob> {
   const taskId = await startTaskTracking(userId, "extraction", {
     sourceId,
     fileName,
     subjectId,
     subjectName,
+    subjectSourceId,
     currentChunk: 0,
     totalChunks: 0,
     extractedCount: 0,

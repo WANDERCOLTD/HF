@@ -88,6 +88,7 @@ export async function POST(
         documentType: true,
         subjects: {
           select: {
+            id: true,
             subjectId: true,
             subject: {
               select: {
@@ -113,6 +114,7 @@ export async function POST(
 
     const body = await request.json().catch(() => ({}));
     const subjectId = body.subjectId || source.subjects[0]?.subjectId || undefined;
+    const subjectSourceId = source.subjects[0]?.id || undefined;
     const subjectSlug = source.subjects[0]?.subject?.slug || source.slug;
 
     // Resolve interactionPattern + teachingMode + subjectDiscipline from body or domain playbook
@@ -195,7 +197,7 @@ export async function POST(
 
     // Create extraction task and start background job
     const chunks = chunkText(text);
-    const job = await createExtractionTask(userId, sourceId, source.name, subjectId, subjectName);
+    const job = await createExtractionTask(userId, sourceId, source.name, subjectId, subjectName, subjectSourceId);
     await updateJob(job.id, { status: "extracting", totalChunks: chunks.length });
 
     // Fire-and-forget background extraction with document type
@@ -206,6 +208,7 @@ export async function POST(
       job.id,
       sourceId,
       subjectId,
+      subjectSourceId,
       userId,
       text,
       fileName,
@@ -251,6 +254,7 @@ async function runBackgroundExtraction(
   jobId: string,
   sourceId: string,
   subjectId: string | undefined,
+  subjectSourceId: string | undefined,
   userId: string,
   text: string,
   fileName: string,
@@ -284,7 +288,7 @@ async function runBackgroundExtraction(
   // Per-chunk save callback for generic extractors (assertions only)
   const onChunkComplete = async (data: ChunkCompleteData) => {
     try {
-      const { created, duplicatesSkipped } = await saveAssertions(sourceId, data.assertions);
+      const { created, duplicatesSkipped } = await saveAssertions(sourceId, data.assertions, subjectSourceId);
       totalCreated += created;
       totalDuplicatesSkipped += duplicatesSkipped;
     } catch (err: any) {
@@ -303,16 +307,16 @@ async function runBackgroundExtraction(
   const onSpecialistChunkComplete = async (data: SpecialistChunkCompleteData) => {
     try {
       if (data.assertions.length > 0) {
-        const { created, duplicatesSkipped } = await saveAssertions(sourceId, data.assertions);
+        const { created, duplicatesSkipped } = await saveAssertions(sourceId, data.assertions, subjectSourceId);
         totalCreated += created;
         totalDuplicatesSkipped += duplicatesSkipped;
       }
       if (data.questions.length > 0) {
-        const qResult = await saveQuestions(sourceId, data.questions);
+        const qResult = await saveQuestions(sourceId, data.questions, subjectSourceId);
         totalQuestionsCreated += qResult.created;
       }
       if (data.vocabulary.length > 0) {
-        const vResult = await saveVocabulary(sourceId, data.vocabulary);
+        const vResult = await saveVocabulary(sourceId, data.vocabulary, subjectSourceId);
         totalVocabularyCreated += vResult.created;
       }
     } catch (err: any) {
@@ -391,7 +395,7 @@ async function runBackgroundExtraction(
   if (chunkSaveFailures > 0) {
     console.log(`[extract] ${chunkSaveFailures} chunk save(s) failed — running reconciliation save`);
     try {
-      const { created, duplicatesSkipped } = await saveAssertions(sourceId, assertionResult.assertions);
+      const { created, duplicatesSkipped } = await saveAssertions(sourceId, assertionResult.assertions, subjectSourceId);
       totalCreated += created;
       totalDuplicatesSkipped += duplicatesSkipped;
 
@@ -412,7 +416,7 @@ async function runBackgroundExtraction(
   let linkingWarnings: string[] = [];
   if (totalQuestionsCreated > 0 || totalVocabularyCreated > 0) {
     try {
-      const linkResult = await linkContentForSource(sourceId);
+      const linkResult = await linkContentForSource(sourceId, subjectSourceId);
       linkingWarnings = linkResult.warnings;
       console.log(
         `[extract] Linking for ${sourceId}: ${linkResult.questionsLinked}q linked, ${linkResult.questionsOrphaned}q orphaned, ` +
@@ -458,7 +462,7 @@ async function runBackgroundExtraction(
 
   // ── MCQ auto-generation (non-blocking) ──
   // If this source is a curriculum's primarySource and has no MCQs, generate from assertions.
-  maybeGenerateMcqs(sourceId, userId).catch((err) =>
+  maybeGenerateMcqs(sourceId, userId, subjectSourceId).catch((err) =>
     console.error(`[extract] MCQ generation failed for source ${sourceId}:`, err),
   );
 

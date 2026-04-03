@@ -23,11 +23,15 @@ export interface SaveResult {
 export async function saveAssertions(
   sourceId: string,
   assertions: ExtractedAssertion[],
+  subjectSourceId?: string,
 ): Promise<SaveResult> {
   const existingHashes = new Set(
     (
       await prisma.contentAssertion.findMany({
-        where: { sourceId },
+        where: {
+          sourceId,
+          ...(subjectSourceId ? { subjectSourceId } : {}),
+        },
         select: { contentHash: true },
       })
     )
@@ -52,6 +56,7 @@ export async function saveAssertions(
     await prisma.contentAssertion.createMany({
       data: toCreate.map((a) => ({
         sourceId,
+        subjectSourceId: subjectSourceId ?? null,
         assertion: a.assertion,
         category: a.category,
         chapter: a.chapter || null,

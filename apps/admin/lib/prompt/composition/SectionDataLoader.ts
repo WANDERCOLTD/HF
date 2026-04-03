@@ -23,6 +23,7 @@ type ContentScope = {
     id: string;
     teachingDepth: number | null;
     sources: Array<{
+      subjectSourceId: string;
       sourceId: string;
       documentType: string | null;
       sortOrder: number;
@@ -185,6 +186,7 @@ async function resolveContentScope(callerId: string): Promise<ContentScope> {
   if (enrollments.length > 0) {
     const sourceSelect = {
       select: {
+        id: true,
         sourceId: true,
         sortOrder: true,
         tags: true,
@@ -217,6 +219,7 @@ async function resolveContentScope(callerId: string): Promise<ContentScope> {
       .map((ps) => ({
         ...ps.subject,
         sources: ps.subject.sources.map((s) => ({
+          subjectSourceId: s.id,
           sourceId: s.sourceId,
           documentType: s.source?.documentType ?? null,
           sortOrder: s.sortOrder,
@@ -244,6 +247,7 @@ async function resolveContentScope(callerId: string): Promise<ContentScope> {
           teachingDepth: true,
           sources: {
             select: {
+              id: true,
               sourceId: true,
               sortOrder: true,
               tags: true,
@@ -262,6 +266,7 @@ async function resolveContentScope(callerId: string): Promise<ContentScope> {
     subjects: subjectDomains.map((sd) => ({
       ...sd.subject,
       sources: sd.subject.sources.map((s) => ({
+        subjectSourceId: s.id,
         sourceId: s.sourceId,
         documentType: s.source?.documentType ?? null,
         sortOrder: s.sortOrder,
@@ -757,6 +762,11 @@ registerLoader("curriculumAssertions", async (_callerId, loaderConfig) => {
   const sourceIds = [...new Set(orderedSources.map((ss) => ss.sourceId))];
   if (sourceIds.length === 0) return [];
 
+  // Subject-scoped filtering (epic #94): prefer subjectSourceId when available
+  const subjectSourceIds = orderedSources
+    .map((ss) => ss.subjectSourceId)
+    .filter(Boolean);
+
   // Build source order + documentType maps for post-sort and rendering
   const sourceOrderMap = new Map<string, number>();
   const sourceDocTypeMap = new Map<string, string | null>();
@@ -772,11 +782,17 @@ registerLoader("curriculumAssertions", async (_callerId, loaderConfig) => {
     .map((s) => s.teachingDepth)
     .find((d) => d !== null) ?? null;
 
-  // Fetch assertions from these sources
-  // Order by depth (tree traversal) then orderIndex, with exam relevance as tiebreaker
+  // Fetch assertions from these sources, scoped by subjectSourceId when available
+  // Falls back to sourceId-only for legacy assertions (subjectSourceId = null)
   const assertions = await prisma.contentAssertion.findMany({
     where: {
       sourceId: { in: [...new Set(sourceIds)] },
+      ...(subjectSourceIds.length > 0
+        ? { OR: [
+            { subjectSourceId: { in: subjectSourceIds } },
+            { subjectSourceId: null },  // include shared pyramid parents
+          ] }
+        : {}),
       category: { notIn: [...INSTRUCTION_CATEGORIES] },
     },
     orderBy: [

@@ -52,13 +52,20 @@ export async function sourceNeedsMcqs(sourceId: string): Promise<boolean> {
 }
 
 /**
- * Check if a source is the primarySource for any curriculum.
+ * Check if a source is linked to a subject (via SubjectSource) or is a
+ * curriculum's primarySource.  Either condition means the source is
+ * "owned" content that should have pre-test questions.
+ *
+ * Previously only checked primarySourceId, but that's set by curriculum
+ * generation which runs *after* extraction — creating a race where MCQs
+ * were permanently skipped.
  */
-export async function isPrimarySource(sourceId: string): Promise<boolean> {
-  const count = await prisma.curriculum.count({
-    where: { primarySourceId: sourceId },
-  });
-  return count > 0;
+export async function isLinkedSource(sourceId: string): Promise<boolean> {
+  const [primaryCount, subjectSourceCount] = await Promise.all([
+    prisma.curriculum.count({ where: { primarySourceId: sourceId } }),
+    prisma.subjectSource.count({ where: { sourceId } }),
+  ]);
+  return primaryCount > 0 || subjectSourceCount > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,13 +74,16 @@ export async function isPrimarySource(sourceId: string): Promise<boolean> {
 
 export async function generateMcqsForSource(
   sourceId: string,
-  options?: { count?: number; userId?: string },
+  options?: { count?: number; userId?: string; subjectSourceId?: string },
 ): Promise<GenerateMcqsResult> {
   const count = options?.count ?? DEFAULT_COUNT;
 
-  // Load assertions for this source
+  // Load assertions for this source (scoped by subjectSourceId when available)
   const assertions = await prisma.contentAssertion.findMany({
-    where: { sourceId },
+    where: {
+      sourceId,
+      ...(options?.subjectSourceId ? { subjectSourceId: options.subjectSourceId } : {}),
+    },
     select: {
       id: true,
       claim: true,
@@ -199,7 +209,7 @@ Return ONLY a JSON array of objects:
     return { created: 0, duplicatesSkipped: 0, skipped: true, skipReason: "no_valid_mcqs" };
   }
 
-  const saveResult = await saveQuestions(sourceId, questions);
+  const saveResult = await saveQuestions(sourceId, questions, options?.subjectSourceId);
 
   console.log(
     `[generate-mcqs] Source ${sourceId}: generated ${questions.length}, saved ${saveResult.created}, dupes ${saveResult.duplicatesSkipped}`,
@@ -223,14 +233,15 @@ Return ONLY a JSON array of objects:
 export async function maybeGenerateMcqs(
   sourceId: string,
   userId?: string,
+  subjectSourceId?: string,
 ): Promise<void> {
-  const [needsMcqs, isPrimary] = await Promise.all([
+  const [needsMcqs, linked] = await Promise.all([
     sourceNeedsMcqs(sourceId),
-    isPrimarySource(sourceId),
+    isLinkedSource(sourceId),
   ]);
 
-  if (!needsMcqs || !isPrimary) return;
+  if (!needsMcqs || !linked) return;
 
-  console.log(`[generate-mcqs] Source ${sourceId} is primarySource with 0 MCQs — auto-generating`);
-  await generateMcqsForSource(sourceId, { userId });
+  console.log(`[generate-mcqs] Source ${sourceId} is linked source with 0 MCQs — auto-generating`);
+  await generateMcqsForSource(sourceId, { userId, subjectSourceId });
 }

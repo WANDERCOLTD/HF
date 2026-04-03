@@ -20,10 +20,12 @@ export interface DedupResult {
     documentType: string | null;
     trustLevel: string;
   } | null;
-  /** true = has assertions, safe to skip extraction */
+  /** true = has assertions for this specific subject, safe to skip extraction */
   deduplicated: boolean;
-  /** Number of assertions on the existing source (0 = previous extraction failed) */
+  /** Number of assertions on the existing source scoped to this subject (0 = needs extraction) */
   assertionCount: number;
+  /** The SubjectSource id that already has assertions (null if not deduplicated) */
+  subjectSourceId: string | null;
 }
 
 /**
@@ -73,15 +75,41 @@ export async function findDuplicateSource(
       name: true,
       documentType: true,
       trustLevel: true,
+      subjects: {
+        where: { subjectId },
+        select: { id: true },
+      },
       _count: { select: { assertions: true } },
     },
   });
 
   if (!match) {
-    return { existingSource: null, deduplicated: false, assertionCount: 0 };
+    return { existingSource: null, deduplicated: false, assertionCount: 0, subjectSourceId: null };
   }
 
-  const assertionCount = match._count.assertions;
+  // Check if this specific subject already has a SubjectSource link with extracted assertions
+  const subjectSourceForThisSubject = match.subjects[0] ?? null;
+  let scopedAssertionCount = 0;
+
+  if (subjectSourceForThisSubject) {
+    // Count assertions scoped to this specific SubjectSource
+    scopedAssertionCount = await prisma.contentAssertion.count({
+      where: {
+        sourceId: match.id,
+        subjectSourceId: subjectSourceForThisSubject.id,
+      },
+    });
+
+    // If no subject-scoped assertions, check for legacy (null) assertions
+    if (scopedAssertionCount === 0) {
+      scopedAssertionCount = await prisma.contentAssertion.count({
+        where: {
+          sourceId: match.id,
+          subjectSourceId: null,
+        },
+      });
+    }
+  }
 
   return {
     existingSource: {
@@ -91,7 +119,8 @@ export async function findDuplicateSource(
       documentType: match.documentType,
       trustLevel: match.trustLevel,
     },
-    deduplicated: assertionCount > 0,
-    assertionCount,
+    deduplicated: scopedAssertionCount > 0,
+    assertionCount: scopedAssertionCount,
+    subjectSourceId: subjectSourceForThisSubject?.id ?? null,
   };
 }

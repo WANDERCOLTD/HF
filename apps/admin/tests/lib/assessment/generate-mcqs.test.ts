@@ -14,6 +14,9 @@ vi.mock("@/lib/prisma", () => ({
     curriculum: {
       count: vi.fn(),
     },
+    subjectSource: {
+      count: vi.fn(),
+    },
   },
 }));
 
@@ -32,7 +35,7 @@ import { saveQuestions } from "@/lib/content-trust/save-questions";
 import {
   generateMcqsForSource,
   sourceNeedsMcqs,
-  isPrimarySource,
+  isLinkedSource,
   maybeGenerateMcqs,
 } from "@/lib/assessment/generate-mcqs";
 
@@ -59,15 +62,23 @@ describe("generate-mcqs", () => {
     });
   });
 
-  describe("isPrimarySource", () => {
+  describe("isLinkedSource", () => {
     it("returns true when source is primarySource for a curriculum", async () => {
       mocks.prisma.curriculum.count.mockResolvedValue(1);
-      expect(await isPrimarySource("src-1")).toBe(true);
+      mocks.prisma.subjectSource.count.mockResolvedValue(0);
+      expect(await isLinkedSource("src-1")).toBe(true);
     });
 
-    it("returns false when source is not a primarySource", async () => {
+    it("returns true when source is linked via SubjectSource", async () => {
       mocks.prisma.curriculum.count.mockResolvedValue(0);
-      expect(await isPrimarySource("src-1")).toBe(false);
+      mocks.prisma.subjectSource.count.mockResolvedValue(1);
+      expect(await isLinkedSource("src-1")).toBe(true);
+    });
+
+    it("returns false when source has no links", async () => {
+      mocks.prisma.curriculum.count.mockResolvedValue(0);
+      mocks.prisma.subjectSource.count.mockResolvedValue(0);
+      expect(await isLinkedSource("src-1")).toBe(false);
     });
   });
 
@@ -133,7 +144,7 @@ describe("generate-mcqs", () => {
           correctAnswer: "A",
           tags: ["auto-generated"],
         }),
-      ]));
+      ]), undefined);
     });
 
     it("handles AI returning no content", async () => {
@@ -172,9 +183,10 @@ describe("generate-mcqs", () => {
   });
 
   describe("maybeGenerateMcqs", () => {
-    it("skips when source is not a primarySource", async () => {
+    it("skips when source has no links", async () => {
       mocks.prisma.contentQuestion.count.mockResolvedValue(0);
       mocks.prisma.curriculum.count.mockResolvedValue(0);
+      mocks.prisma.subjectSource.count.mockResolvedValue(0);
 
       await maybeGenerateMcqs("src-1");
       expect(mocks.ai).not.toHaveBeenCalled();
@@ -183,9 +195,39 @@ describe("generate-mcqs", () => {
     it("skips when MCQs already exist", async () => {
       mocks.prisma.contentQuestion.count.mockResolvedValue(5);
       mocks.prisma.curriculum.count.mockResolvedValue(1);
+      mocks.prisma.subjectSource.count.mockResolvedValue(0);
 
       await maybeGenerateMcqs("src-1");
       expect(mocks.ai).not.toHaveBeenCalled();
+    });
+
+    it("generates when source is linked via SubjectSource and has no MCQs", async () => {
+      // sourceNeedsMcqs → true
+      mocks.prisma.contentQuestion.count.mockResolvedValue(0);
+      // isLinkedSource → true (via SubjectSource, not primarySource)
+      mocks.prisma.curriculum.count.mockResolvedValue(0);
+      mocks.prisma.subjectSource.count.mockResolvedValue(1);
+      // generateMcqsForSource needs assertions
+      mocks.prisma.contentAssertion.findMany.mockResolvedValue(
+        Array.from({ length: 5 }, (_, i) => ({
+          id: `a${i}`, claim: `Fact ${i}`, category: "concept", chapter: null, section: null,
+        })),
+      );
+      mocks.ai.mockResolvedValue({
+        content: JSON.stringify([{
+          question: "Q?",
+          options: [
+            { label: "A", text: "Right", isCorrect: true },
+            { label: "B", text: "Wrong", isCorrect: false },
+          ],
+          correctAnswer: "A",
+        }]),
+      });
+      mocks.save.mockResolvedValue({ created: 1, duplicatesSkipped: 0 });
+
+      await maybeGenerateMcqs("src-1", "user-1", "ss-1");
+      expect(mocks.ai).toHaveBeenCalled();
+      expect(mocks.save).toHaveBeenCalledWith("src-1", expect.any(Array), "ss-1");
     });
   });
 });

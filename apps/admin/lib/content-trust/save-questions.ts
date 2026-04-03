@@ -20,12 +20,13 @@ export interface SaveQuestionsResult {
 export async function saveQuestions(
   sourceId: string,
   questions: ExtractedQuestion[],
+  subjectSourceId?: string,
 ): Promise<SaveQuestionsResult> {
   if (questions.length === 0) return { created: 0, duplicatesSkipped: 0 };
 
-  // Fetch existing hashes for this source
+  // Fetch existing hashes for this source (scoped by subjectSourceId when available)
   const existing = await prisma.contentQuestion.findMany({
-    where: { sourceId },
+    where: { sourceId, ...(subjectSourceId ? { subjectSourceId } : {}) },
     select: { contentHash: true },
   });
   const existingHashes = new Set(existing.map((e) => e.contentHash).filter(Boolean));
@@ -45,6 +46,7 @@ export async function saveQuestions(
   await prisma.contentQuestion.createMany({
     data: toCreate.map((q, i) => ({
       sourceId,
+      subjectSourceId: subjectSourceId ?? null,
       questionText: q.questionText,
       questionType: q.questionType,
       options: q.options || undefined,

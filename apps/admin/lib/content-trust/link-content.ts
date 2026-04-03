@@ -167,7 +167,7 @@ function scoreCandidate(
  * Vector similarity is used selectively — only for the top keyword candidate
  * per item (1 embedding call per question, not N).
  */
-export async function linkContentForSource(sourceId: string): Promise<LinkingResult> {
+export async function linkContentForSource(sourceId: string, subjectSourceId?: string): Promise<LinkingResult> {
   const settings = await getContentLinkingSettings().catch(() => CONTENT_LINKING_DEFAULTS);
   const warnings: string[] = [];
 
@@ -186,12 +186,19 @@ export async function linkContentForSource(sourceId: string): Promise<LinkingRes
       hasEmbedding: boolean;
     }>
   >(
-    Prisma.sql`
-      SELECT id, assertion, chapter, section, "learningOutcomeRef", tags,
-             (embedding IS NOT NULL) as "hasEmbedding"
-      FROM "ContentAssertion"
-      WHERE "sourceId" = ${sourceId}
-    `,
+    subjectSourceId
+      ? Prisma.sql`
+          SELECT id, assertion, chapter, section, "learningOutcomeRef", tags,
+                 (embedding IS NOT NULL) as "hasEmbedding"
+          FROM "ContentAssertion"
+          WHERE "sourceId" = ${sourceId} AND "subjectSourceId" = ${subjectSourceId}
+        `
+      : Prisma.sql`
+          SELECT id, assertion, chapter, section, "learningOutcomeRef", tags,
+                 (embedding IS NOT NULL) as "hasEmbedding"
+          FROM "ContentAssertion"
+          WHERE "sourceId" = ${sourceId}
+        `,
   );
 
   if (rawAssertions.length === 0) {
@@ -205,7 +212,7 @@ export async function linkContentForSource(sourceId: string): Promise<LinkingRes
 
   // 2. Load unlinked questions
   const unlinkedQuestions = await prisma.contentQuestion.findMany({
-    where: { sourceId, assertionId: null },
+    where: { sourceId, assertionId: null, ...(subjectSourceId ? { subjectSourceId } : {}) },
     select: {
       id: true,
       questionText: true,
@@ -218,7 +225,7 @@ export async function linkContentForSource(sourceId: string): Promise<LinkingRes
 
   // 3. Load unlinked vocabulary
   const unlinkedVocab = await prisma.contentVocabulary.findMany({
-    where: { sourceId, assertionId: null },
+    where: { sourceId, assertionId: null, ...(subjectSourceId ? { subjectSourceId } : {}) },
     select: {
       id: true,
       term: true,
