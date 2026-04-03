@@ -143,3 +143,73 @@
   opacity: 0.5;
   pointer-events: none;
 }
+
+/* ── Question count selector ── */
+
+.ssd-count-select {
+  padding: 1px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* ── Exclude (×) button on question rows ── */
+
+.ssd-exclude-btn {
+  padding: 2px;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.ssd-question-row:hover .ssd-exclude-btn {
+  opacity: 1;
+}
+
+.ssd-exclude-btn:hover {
+  color: var(--status-error-text);
+}
+
+/* ── Type badge (T/F) ── */
+
+.ssd-type-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.ssd-type-badge--tf {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+}
+
+/* ── Assessment actions row (regenerate + bank link) ── */
+
+.ssd-assessment-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.ssd-bank-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.ssd-bank-link:hover {
+  color: var(--accent-primary);
+}

@@ -201,6 +201,7 @@ export interface PreTestResult {
   questionIds: string[];
   skipped: boolean;
   skipReason?: string;
+  sourceId?: string;
 }
 
 /**
@@ -217,7 +218,7 @@ export async function buildPreTest(curriculumId: string): Promise<PreTestResult>
 
   const allQuestions = await fetchQuestions(sourceId, assessmentCfg.questionTypes);
   if (allQuestions.length === 0) {
-    return { questions: [], questionIds: [], skipped: true, skipReason: "no_questions" };
+    return { questions: [], questionIds: [], skipped: true, skipReason: "no_questions", sourceId };
   }
 
   // Apply selection strategy
@@ -237,6 +238,7 @@ export async function buildPreTest(curriculumId: string): Promise<PreTestResult>
     questions: steps,
     questionIds: steps.map((s) => s.id),
     skipped: false,
+    sourceId,
   };
 }
 

@@ -28,5 +28,6 @@ export async function GET(
     questionIds: result.questionIds,
     skipped: result.skipped,
     skipReason: result.skipReason,
+    sourceId: result.sourceId,
   });
 }

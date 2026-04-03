@@ -219,7 +219,7 @@ export default function CourseDetailPage() {
   const [tpLoaded, setTpLoaded] = useState(false);
 
   // Assessment MCQ preview
-  const [mcqPreview, setMcqPreview] = useState<{ questions: SurveyStepConfig[]; skipped: boolean; skipReason?: string } | null>(null);
+  const [mcqPreview, setMcqPreview] = useState<{ questions: SurveyStepConfig[]; skipped: boolean; skipReason?: string; sourceId?: string } | null>(null);
 
   // Session media map (SessionMediaMap imported from @/lib/lesson-plan/types)
   type MediaRef = SessionMediaRefType & { mimeType: string };
@@ -555,6 +555,30 @@ export default function CourseDetailPage() {
       // silent — optimistic UI already shows updated questions
     } finally {
       setSurveySaving(false);
+    }
+  }, [detail]);
+
+  // ── Assessment config change handler (questionCount, excludedQuestionIds) ──
+  const handleAssessmentConfigChange = useCallback(async (patch: Record<string, unknown>) => {
+    if (!detail) return;
+    const cfg = (detail.config ?? {}) as Record<string, any>;
+    const newConfig = {
+      ...cfg,
+      assessment: {
+        ...cfg.assessment,
+        preTest: { ...cfg.assessment?.preTest, ...patch },
+      },
+    };
+    setDetail((prev) => prev ? { ...prev, config: newConfig } : prev);
+
+    try {
+      await fetch(`/api/playbooks/${detail.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: newConfig }),
+      });
+    } catch {
+      // silent
     }
   }, [detail]);
 
@@ -1076,6 +1100,7 @@ export default function CourseDetailPage() {
                     mcqPreview={mcqPreview}
                     onRegenerate={isOperator ? handleRegenerateMcqs : undefined}
                     regenerating={mcqRegenerating}
+                    onAssessmentConfigChange={isOperator ? handleAssessmentConfigChange : undefined}
                   />
                 );
               }

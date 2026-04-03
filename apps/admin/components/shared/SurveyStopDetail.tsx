@@ -2,15 +2,17 @@
 
 /**
  * SurveyStopDetail — preview + inline edit of survey questions for a journey rail stop.
- * Shows what learners will see when they reach this survey stop.
  *
- * When `onSave` is provided, each editable section gets an "Edit" button that swaps
- * the read-only list to a SurveyPhaseEditor. Save writes to the parent (typically
- * a PATCH to playbook config).
+ * Features:
+ * - Read-only preview of what learners see
+ * - Inline edit via SurveyPhaseEditor for survey questions
+ * - MCQ preview with question count selector, exclude (×), regenerate
+ * - Link to full question bank
  */
 
 import { useState, useCallback } from 'react';
-import { ClipboardList, Star, Hash, MessageSquare, CircleDot, CheckCircle2, Pencil, X, Check, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
+import { ClipboardList, Star, Hash, MessageSquare, CircleDot, CheckCircle2, Pencil, X, Check, RefreshCw, ExternalLink } from 'lucide-react';
 import './survey-stop-detail.css';
 import type { SurveyStepConfig } from '@/lib/types/json-fields';
 import {
@@ -34,6 +36,12 @@ const TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; className?
 };
 
 // ---------------------------------------------------------------------------
+// Question count options
+// ---------------------------------------------------------------------------
+
+const QUESTION_COUNT_OPTIONS = [3, 5, 7, 10];
+
+// ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
@@ -45,11 +53,13 @@ export interface SurveyStopDetailProps {
   /** Whether a save is in progress */
   saving?: boolean;
   /** Pre-loaded MCQ questions for assessment preview (from buildPreTest) */
-  mcqPreview?: { questions: SurveyStepConfig[]; skipped: boolean; skipReason?: string } | null;
-  /** Callback to regenerate MCQs — when provided, shows "Regenerate" button on assessment sections */
+  mcqPreview?: { questions: SurveyStepConfig[]; skipped: boolean; skipReason?: string; sourceId?: string } | null;
+  /** Callback to regenerate MCQs */
   onRegenerate?: () => void;
   /** Whether regeneration is in progress */
   regenerating?: boolean;
+  /** Callback to change assessment config (e.g. questionCount, excludedIds) */
+  onAssessmentConfigChange?: (patch: Record<string, unknown>) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -72,7 +82,8 @@ interface Section {
 function resolveQuestions(
   type: string,
   config: Record<string, unknown> | null | undefined,
-  mcqPreview?: { questions: SurveyStepConfig[]; skipped: boolean; skipReason?: string } | null,
+  mcqPreview?: SurveyStopDetailProps['mcqPreview'],
+  excludedIds?: Set<string>,
 ): { sections: Section[] } {
   const cfg = config ?? {};
   const surveys = cfg.surveys as Record<string, { enabled?: boolean; questions?: SurveyStepConfig[] }> | undefined;
@@ -88,15 +99,18 @@ function resolveQuestions(
     ];
     if (preTestEnabled) {
       const hasMcqs = mcqPreview && !mcqPreview.skipped && mcqPreview.questions.length > 0;
+      const filteredQs = hasMcqs
+        ? mcqPreview!.questions.filter((q) => !excludedIds?.has(q.contentQuestionId ?? q.id))
+        : [];
       sections.push({
         key: 'pre_test',
         label: 'Pre-Test',
         description: hasMcqs
-          ? `${mcqPreview!.questions.length} questions from uploaded content`
+          ? `${filteredQs.length} question${filteredQs.length !== 1 ? 's' : ''} from uploaded content`
           : mcqPreview?.skipped
             ? `No questions available (${mcqPreview.skipReason ?? 'no content'})`
             : `${preTestCount} questions sourced from curriculum content (MCQ)`,
-        questions: hasMcqs ? mcqPreview!.questions : [],
+        questions: filteredQs,
         isDynamic: !hasMcqs,
       });
     }
@@ -132,10 +146,16 @@ function resolveQuestions(
 }
 
 // ---------------------------------------------------------------------------
-// Read-only question list
+// Read-only question list (with optional exclude button)
 // ---------------------------------------------------------------------------
 
-function QuestionList({ questions }: { questions: SurveyStepConfig[] }): React.ReactElement {
+function QuestionList({
+  questions,
+  onExclude,
+}: {
+  questions: SurveyStepConfig[];
+  onExclude?: (questionId: string) => void;
+}): React.ReactElement {
   return (
     <ul className="ssd-question-list">
       {questions.map((q) => {
@@ -144,13 +164,25 @@ function QuestionList({ questions }: { questions: SurveyStepConfig[] }): React.R
           <li key={q.id} className="ssd-question-row">
             <Icon size={12} className="ssd-question-icon" />
             <span className="ssd-question-prompt">{q.prompt}</span>
-            {q.options && q.options.length > 0 && (
+            {q.type === 'true_false' && (
+              <span className="ssd-type-badge ssd-type-badge--tf">T/F</span>
+            )}
+            {q.options && q.options.length > 2 && (
               <span className="hf-text-xs hf-text-muted">
                 {q.options.length} options
               </span>
             )}
             {q.optional && (
               <span className="ssd-optional-badge">optional</span>
+            )}
+            {onExclude && (
+              <button
+                className="hf-btn-ghost ssd-exclude-btn"
+                onClick={() => onExclude(q.contentQuestionId ?? q.id)}
+                title="Exclude this question"
+              >
+                <X size={11} />
+              </button>
             )}
           </li>
         );
@@ -169,16 +201,25 @@ function SectionBlock({
   saving,
   onRegenerate,
   regenerating,
+  questionCount,
+  onQuestionCountChange,
+  onExclude,
+  sourceId,
 }: {
   section: Section;
   onSave?: (sectionKey: string, questions: SurveyStepConfig[]) => void;
   saving?: boolean;
   onRegenerate?: () => void;
   regenerating?: boolean;
+  questionCount?: number;
+  onQuestionCountChange?: (count: number) => void;
+  onExclude?: (questionId: string) => void;
+  sourceId?: string;
 }): React.ReactElement {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<SurveyStepConfig[]>(section.questions);
   const canEdit = section.editable && !!onSave;
+  const isAssessment = section.key === 'pre_test' || section.key === 'post_test';
 
   const handleEdit = useCallback(() => {
     setDraft([...section.questions]);
@@ -200,7 +241,22 @@ function SectionBlock({
       <div className="ssd-section-header">
         <ClipboardList size={13} className="hf-text-muted" />
         <span className="ssd-section-label">{section.label}</span>
-        {!section.isDynamic && !editing && section.questions.length > 0 && (
+
+        {/* Question count selector — assessment sections only */}
+        {isAssessment && section.key === 'pre_test' && onQuestionCountChange && (
+          <select
+            className="ssd-count-select"
+            value={questionCount ?? 5}
+            onChange={(e) => onQuestionCountChange(Number(e.target.value))}
+            title="Number of assessment questions"
+          >
+            {QUESTION_COUNT_OPTIONS.map((n) => (
+              <option key={n} value={n}>{n} Qs</option>
+            ))}
+          </select>
+        )}
+
+        {!section.isDynamic && !editing && !isAssessment && section.questions.length > 0 && (
           <span className="hf-text-xs hf-text-muted">
             {section.questions.length} question{section.questions.length !== 1 ? 's' : ''}
           </span>
@@ -239,18 +295,28 @@ function SectionBlock({
             </button>
           )}
         </div>
-      ) : section.questions.length > 0 && !editing && onRegenerate && (section.key === 'pre_test' || section.key === 'post_test') ? (
+      ) : isAssessment && section.questions.length > 0 && !editing ? (
         <>
-          <QuestionList questions={section.questions} />
-          <button
-            className="hf-btn-ghost ssd-regen-btn"
-            onClick={onRegenerate}
-            disabled={regenerating}
-            title="Regenerate assessment questions from content"
-          >
-            <RefreshCw size={12} className={regenerating ? 'hf-glow-active' : ''} />
-            {regenerating ? 'Regenerating…' : 'Regenerate'}
-          </button>
+          <QuestionList questions={section.questions} onExclude={onExclude} />
+          <div className="ssd-assessment-actions">
+            {onRegenerate && (
+              <button
+                className="hf-btn-ghost ssd-regen-btn"
+                onClick={onRegenerate}
+                disabled={regenerating}
+                title="Regenerate assessment questions from content"
+              >
+                <RefreshCw size={12} className={regenerating ? 'hf-glow-active' : ''} />
+                {regenerating ? 'Regenerating…' : 'Regenerate'}
+              </button>
+            )}
+            {sourceId && section.key === 'pre_test' && (
+              <Link href={`/x/content-sources/${sourceId}`} className="hf-btn-ghost ssd-bank-link" title="View full question bank">
+                <ExternalLink size={12} />
+                Question bank
+              </Link>
+            )}
+          </div>
         </>
       ) : editing ? (
         <SurveyPhaseEditor steps={draft} onChange={setDraft} disabled={saving} />
@@ -265,8 +331,31 @@ function SectionBlock({
 // Component
 // ---------------------------------------------------------------------------
 
-export function SurveyStopDetail({ type, playbookConfig, onSave, saving, mcqPreview, onRegenerate, regenerating }: SurveyStopDetailProps): React.ReactElement {
-  const { sections } = resolveQuestions(type, playbookConfig as Record<string, unknown>, mcqPreview);
+export function SurveyStopDetail({
+  type,
+  playbookConfig,
+  onSave,
+  saving,
+  mcqPreview,
+  onRegenerate,
+  regenerating,
+  onAssessmentConfigChange,
+}: SurveyStopDetailProps): React.ReactElement {
+  const cfg = (playbookConfig ?? {}) as Record<string, any>;
+  const questionCount = cfg.assessment?.preTest?.questionCount ?? 5;
+  const excludedIds = new Set<string>((cfg.assessment?.preTest?.excludedQuestionIds as string[]) ?? []);
+
+  const { sections } = resolveQuestions(type, playbookConfig as Record<string, unknown>, mcqPreview, excludedIds);
+
+  const handleQuestionCountChange = useCallback((count: number) => {
+    onAssessmentConfigChange?.({ questionCount: count });
+  }, [onAssessmentConfigChange]);
+
+  const handleExclude = useCallback((questionId: string) => {
+    const current = (cfg.assessment?.preTest?.excludedQuestionIds as string[]) ?? [];
+    if (current.includes(questionId)) return;
+    onAssessmentConfigChange?.({ excludedQuestionIds: [...current, questionId] });
+  }, [cfg, onAssessmentConfigChange]);
 
   return (
     <div className="ssd-root">
@@ -278,6 +367,10 @@ export function SurveyStopDetail({ type, playbookConfig, onSave, saving, mcqPrev
           saving={saving}
           onRegenerate={(section.key === 'pre_test' || section.key === 'post_test') ? onRegenerate : undefined}
           regenerating={regenerating}
+          questionCount={questionCount}
+          onQuestionCountChange={(section.key === 'pre_test') ? handleQuestionCountChange : undefined}
+          onExclude={(section.key === 'pre_test') ? handleExclude : undefined}
+          sourceId={mcqPreview?.sourceId}
         />
       ))}
     </div>
