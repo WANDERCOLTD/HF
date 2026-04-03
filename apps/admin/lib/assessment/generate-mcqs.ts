@@ -26,6 +26,7 @@ const CALL_POINT = "content-trust.generate-mcq";
 
 interface GeneratedMcq {
   question: string;
+  questionType?: "MCQ" | "TRUE_FALSE";
   options: { label: string; text: string; isCorrect: boolean }[];
   correctAnswer: string;
   chapter?: string;
@@ -93,20 +94,32 @@ export async function generateMcqsForSource(
     .map((a, i) => `${i + 1}. [${a.category}] ${a.claim}${a.chapter ? ` (${a.chapter})` : ""}`)
     .join("\n");
 
-  const systemPrompt = `You are an assessment question generator for an educational platform.
-Given a list of content assertions (facts/concepts from course materials), generate ${count} multiple-choice questions that test understanding of the key concepts.
+  const mcqCount = Math.max(1, count - 2);
+  const tfCount = Math.min(3, count - mcqCount);
 
-Rules:
-- Each question must have exactly 4 options labeled A, B, C, D
+  const systemPrompt = `You are an assessment question generator for an educational platform.
+Given a list of content assertions (facts/concepts from course materials), generate a mix of questions: ${mcqCount} multiple-choice (MCQ) and ${tfCount} true/false (TRUE_FALSE).
+
+MCQ rules:
+- Each MCQ must have exactly 4 options labeled A, B, C, D
 - Exactly one option must be correct
 - Distractors should be plausible but clearly wrong
+
+TRUE_FALSE rules:
+- Each TRUE_FALSE is a clear statement that is definitively true or false
+- Options are exactly: [{ "label": "True", "text": "True" }, { "label": "False", "text": "False" }]
+- correctAnswer is "True" or "False"
+- Avoid trivially obvious statements — make the student think
+
+General rules:
 - Questions should test understanding, not just recall
-- Spread questions across different topics/chapters
+- Spread across different topics/chapters
 - Keep questions clear and concise
-- Include a brief explanation for the correct answer
+- Include a brief 1-sentence explanation for the correct answer
 
 Return ONLY a JSON array of objects:
 [{
+  "questionType": "MCQ",
   "question": "What is...?",
   "options": [
     { "label": "A", "text": "...", "isCorrect": false },
@@ -116,7 +129,18 @@ Return ONLY a JSON array of objects:
   ],
   "correctAnswer": "B",
   "chapter": "optional chapter reference",
-  "explanation": "Brief explanation of why B is correct"
+  "explanation": "Brief explanation"
+},
+{
+  "questionType": "TRUE_FALSE",
+  "question": "Photosynthesis converts sunlight into chemical energy.",
+  "options": [
+    { "label": "True", "text": "True", "isCorrect": true },
+    { "label": "False", "text": "False", "isCorrect": false }
+  ],
+  "correctAnswer": "True",
+  "chapter": "Chapter 2",
+  "explanation": "Plants use chlorophyll to convert light energy during photosynthesis."
 }]`;
 
   const result = await getConfiguredMeteredAICompletion(
@@ -150,23 +174,26 @@ Return ONLY a JSON array of objects:
   // Convert to ExtractedQuestion format
   const questions: ExtractedQuestion[] = mcqs
     .filter((m) => m.question && m.options?.length >= 2 && m.correctAnswer)
-    .map((m) => ({
-      questionText: m.question,
-      questionType: "MCQ" as const,
-      options: m.options.map((o) => ({
-        label: o.label,
-        text: o.text,
-        isCorrect: o.isCorrect,
-      })),
-      correctAnswer: m.correctAnswer,
-      answerExplanation: m.explanation,
-      chapter: m.chapter,
-      tags: ["auto-generated"],
-      contentHash: createHash("sha256")
-        .update(`mcq:${m.question}:${m.correctAnswer}`)
-        .digest("hex")
-        .slice(0, 16),
-    }));
+    .map((m) => {
+      const qType = m.questionType === "TRUE_FALSE" ? "TRUE_FALSE" as const : "MCQ" as const;
+      return {
+        questionText: m.question,
+        questionType: qType,
+        options: m.options.map((o) => ({
+          label: o.label,
+          text: o.text,
+          isCorrect: o.isCorrect,
+        })),
+        correctAnswer: m.correctAnswer,
+        answerExplanation: m.explanation,
+        chapter: m.chapter,
+        tags: ["auto-generated"],
+        contentHash: createHash("sha256")
+          .update(`${qType.toLowerCase()}:${m.question}:${m.correctAnswer}`)
+          .digest("hex")
+          .slice(0, 16),
+      };
+    });
 
   if (questions.length === 0) {
     return { created: 0, duplicatesSkipped: 0, skipped: true, skipReason: "no_valid_mcqs" };

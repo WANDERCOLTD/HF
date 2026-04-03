@@ -1,12 +1,19 @@
 /**
  * @api GET /api/student/progress
  * @auth STUDENT | OPERATOR+ (with callerId param)
- * @desc Returns the student's learning profile: personality, goals, call count, classroom info
+ * @desc Returns the student's learning profile: personality, goals, call count, classroom info,
+ *   survey answers, test scores, and journey position.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireStudentOrAdmin, isStudentAuthError } from "@/lib/student-access";
+import { SURVEY_SCOPES } from "@/lib/learner/survey-keys";
+
+const SURVEY_ATTR_SCOPES = [
+  SURVEY_SCOPES.PERSONALITY, SURVEY_SCOPES.PRE, SURVEY_SCOPES.MID, SURVEY_SCOPES.POST,
+  SURVEY_SCOPES.PRE_TEST, SURVEY_SCOPES.POST_TEST,
+];
 
 export async function GET(request: NextRequest) {
   const auth = await requireStudentOrAdmin(request);
@@ -14,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   const { callerId } = auth;
 
-  const [profile, goals, callCount, caller, memorySummary, keyFactCount] = await Promise.all([
+  const [profile, goals, callCount, caller, memorySummary, keyFactCount, surveyAttrs] = await Promise.all([
     prisma.callerPersonalityProfile.findUnique({
       where: { callerId },
       select: { parameterValues: true, lastUpdatedAt: true, callsUsed: true },
@@ -77,7 +84,30 @@ export async function GET(request: NextRequest) {
     prisma.conversationArtifact.count({
       where: { callerId, type: "KEY_FACT" },
     }),
+    prisma.callerAttribute.findMany({
+      where: { callerId, scope: { in: SURVEY_ATTR_SCOPES } },
+      select: { key: true, scope: true, valueType: true, stringValue: true, numberValue: true, booleanValue: true },
+    }),
   ]);
+
+  // ── Build survey buckets ──
+  const surveys: Record<string, Record<string, string | number | boolean | null>> = {};
+  for (const scope of SURVEY_ATTR_SCOPES) surveys[scope] = {};
+
+  for (const attr of surveyAttrs) {
+    const value = attr.valueType === "NUMBER" ? attr.numberValue
+      : attr.valueType === "BOOLEAN" ? attr.booleanValue
+      : attr.stringValue;
+    surveys[attr.scope][attr.key] = value ?? null;
+  }
+
+  // ── Compute test score summary ──
+  const preTestScore = surveys[SURVEY_SCOPES.PRE_TEST]?.score != null ? Number(surveys[SURVEY_SCOPES.PRE_TEST].score) : null;
+  const postTestScore = surveys[SURVEY_SCOPES.POST_TEST]?.score != null ? Number(surveys[SURVEY_SCOPES.POST_TEST].score) : null;
+  const upliftAbsolute = surveys[SURVEY_SCOPES.POST_TEST]?.uplift_absolute != null ? Number(surveys[SURVEY_SCOPES.POST_TEST].uplift_absolute) : null;
+  const upliftNormalised = surveys[SURVEY_SCOPES.POST_TEST]?.uplift_normalised != null ? Number(surveys[SURVEY_SCOPES.POST_TEST].uplift_normalised) : null;
+
+  const hasData = (d: Record<string, unknown>) => Object.keys(d).length > 0;
 
   // Prefer join table memberships, fall back to legacy FK
   const primaryCohort = caller?.cohortMemberships?.[0]?.cohortGroup ?? caller?.cohortGroup;
@@ -107,5 +137,17 @@ export async function GET(request: NextRequest) {
     topTopics: (memorySummary?.topTopics as Array<{ topic: string; lastMentioned: string }>) ?? [],
     topicCount: memorySummary?.topicCount ?? 0,
     keyFactCount,
+    // Survey & assessment data
+    surveys: {
+      personality: hasData(surveys[SURVEY_SCOPES.PERSONALITY]) ? surveys[SURVEY_SCOPES.PERSONALITY] : null,
+      pre: hasData(surveys[SURVEY_SCOPES.PRE]) ? surveys[SURVEY_SCOPES.PRE] : null,
+      mid: hasData(surveys[SURVEY_SCOPES.MID]) ? surveys[SURVEY_SCOPES.MID] : null,
+      post: hasData(surveys[SURVEY_SCOPES.POST]) ? surveys[SURVEY_SCOPES.POST] : null,
+    },
+    testScores: {
+      preTest: preTestScore,
+      postTest: postTestScore,
+      uplift: upliftAbsolute != null ? { absolute: upliftAbsolute, normalised: upliftNormalised } : null,
+    },
   });
 }

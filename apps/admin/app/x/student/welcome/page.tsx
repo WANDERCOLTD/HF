@@ -97,6 +97,9 @@ export default function WelcomeSurveyPage(): React.ReactElement {
   const [preTestQuestionIds, setPreTestQuestionIds] = useState<string[]>([]);
   const [phases, setPhases] = useState<Phase[]>(["personality"]); // phases that will run
 
+  // Persona tone for encouragement messages
+  const [tone, setTone] = useState("default");
+
   // Legacy fallback state
   const [useLegacyFlow, setUseLegacyFlow] = useState(false);
   const [legacyConfigs, setLegacyConfigs] = useState<SurveyStepConfig[]>(DEFAULT_ONBOARDING_SURVEY);
@@ -127,6 +130,7 @@ export default function WelcomeSurveyPage(): React.ReactElement {
 
         if (configData.ok) {
           if (configData.subject) setSubject(configData.subject);
+          if (configData.tone) setTone(configData.tone);
           if (configData.onboarding?.endAction) {
             setEndAction(configData.onboarding.endAction);
           }
@@ -387,6 +391,9 @@ export default function WelcomeSurveyPage(): React.ReactElement {
           onComplete={handlePreTestComplete}
           submitting={submitting}
           submitLabel="Start Learning →"
+          showProgress
+          showSummary
+          tone={tone}
         />
       </div>
     );

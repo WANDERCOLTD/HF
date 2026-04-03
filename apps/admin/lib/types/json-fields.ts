@@ -60,14 +60,18 @@ export interface TargetUpdate {
 /** A single survey question config — used in onboarding/offboarding survey phases */
 export interface SurveyStepConfig {
   id: string;
-  type: 'stars' | 'options' | 'nps' | 'text' | 'mcq';
+  type: 'stars' | 'options' | 'nps' | 'text' | 'mcq' | 'true_false';
   prompt: string;
   options?: { value: string; label: string }[];
   placeholder?: string;
   maxLength?: number;
   optional?: boolean;
-  /** For 'mcq' — the value of the correct option (not shown to learner) */
+  /** For 'mcq' and 'true_false' — the value of the correct option (not shown to learner) */
   correctAnswer?: string;
+  /** For 'mcq' and 'true_false' — brief explanation of the correct answer */
+  explanation?: string;
+  /** For 'mcq' and 'true_false' — source chapter for summary grouping */
+  chapter?: string;
   /** For 'mcq' — links to ContentQuestion.id for traceability */
   contentQuestionId?: string;
 }

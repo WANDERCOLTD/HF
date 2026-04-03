@@ -29,6 +29,7 @@ const TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; className?
   options: CircleDot,
   nps: Hash,
   text: MessageSquare,
+  true_false: CheckCircle2,
   mcq: CheckCircle2,
 };
 

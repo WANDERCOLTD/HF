@@ -1,3 +1,7 @@
+<!-- MAINTENANCE: Update this doc when stop types or survey logic changes.
+     Technical reference: ~/.claude/projects/-Users-paulwander-projects-HF/memory/flow-journey-stops.md
+     Contract source: docs-archive/bdd-specs/contracts/session-types-v1-contract.json -->
+
 # The Learning Journey
 
 ## How HumanFirst courses work — and what's changing

@@ -101,6 +101,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({
       ok: true,
       subject,
+      tone: pbConfig.interactionPattern ?? "default",
       assessment: {
         personality: {
           enabled: pbConfig.assessment?.personality?.enabled ?? true,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { TrendingUp, Target, Phone, BookOpen, Lightbulb, MessageSquare } from "lucide-react";
+import { TrendingUp, Target, Phone, BookOpen, Lightbulb, MessageSquare, ClipboardCheck, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import StudentOnboarding from "@/components/student/StudentOnboarding";
 import { useStudentCallerId } from "@/hooks/useStudentCallerId";
@@ -9,6 +9,24 @@ import { useStudentCallerId } from "@/hooks/useStudentCallerId";
 interface TopicEntry {
   topic: string;
   lastMentioned: string;
+}
+
+interface SurveyAnswers {
+  personality: Record<string, string | number | boolean | null> | null;
+  pre: Record<string, string | number | boolean | null> | null;
+  mid: Record<string, string | number | boolean | null> | null;
+  post: Record<string, string | number | boolean | null> | null;
+}
+
+interface TestScores {
+  preTest: number | null;
+  postTest: number | null;
+  uplift: { absolute: number; normalised: number | null } | null;
+}
+
+interface JourneyData {
+  nextStop: { type: string; session: number; redirect: string };
+  journey: { totalStops: number; completedStops: number; currentPosition: number };
 }
 
 interface ProgressData {
@@ -35,6 +53,8 @@ interface ProgressData {
   topTopics: TopicEntry[];
   topicCount: number;
   keyFactCount: number;
+  surveys?: SurveyAnswers;
+  testScores?: TestScores;
 }
 
 export default function StudentProgressPage() {
@@ -52,9 +72,15 @@ function StudentProgressContent() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showSurveyBanner, setShowSurveyBanner] = useState(false);
   const [surveyBannerMsg, setSurveyBannerMsg] = useState<string>('');
+  const [journey, setJourney] = useState<JourneyData | null>(null);
 
   useEffect(() => {
     if (isAdmin && !hasSelection) { setLoading(false); return; }
+    // Fetch journey position in parallel
+    fetch(buildUrl("/api/student/journey-position"))
+      .then((r) => r.json())
+      .then((j) => { if (j.ok) setJourney(j); })
+      .catch(() => {});
     fetch(buildUrl("/api/student/progress"))
       .then((r) => r.json())
       .then((d) => {
@@ -166,6 +192,16 @@ function StudentProgressContent() {
             Share Feedback &rarr;
           </Link>
         </div>
+      )}
+
+      {/* Journey Position */}
+      {journey && journey.journey.totalStops > 0 && (
+        <JourneyBar journey={journey} />
+      )}
+
+      {/* Test Scores */}
+      {data.testScores && (data.testScores.preTest != null || data.testScores.postTest != null) && (
+        <TestScoreCard testScores={data.testScores} />
       )}
 
       {/* Stats */}
@@ -347,6 +383,120 @@ function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label
       <span className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
         {value}
       </span>
+    </div>
+  );
+}
+
+const STOP_LABELS: Record<string, string> = {
+  pre_survey: "Survey",
+  onboarding: "Welcome",
+  learn: "Learn",
+  review: "Review",
+  assessment: "Test",
+  mid_survey: "Check-in",
+  offboarding: "Final",
+  post_survey: "Feedback",
+  complete: "Done",
+};
+
+function JourneyBar({ journey }: { journey: JourneyData }) {
+  const { completedStops, totalStops } = journey.journey;
+  const pct = totalStops > 0 ? Math.round((completedStops / totalStops) * 100) : 0;
+  const nextLabel = STOP_LABELS[journey.nextStop.type] ?? journey.nextStop.type;
+
+  return (
+    <section className="mb-8">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+          Your Journey
+        </h2>
+        <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+          {completedStops}/{totalStops} steps
+        </span>
+      </div>
+      <div
+        className="rounded-lg border p-4"
+        style={{ borderColor: "var(--border-default)", background: "var(--surface-primary)" }}
+      >
+        <div className="h-2 rounded-full overflow-hidden mb-3" style={{ background: "var(--surface-secondary)" }}>
+          <div
+            className="h-full rounded-full transition-all"
+            style={{ width: `${pct}%`, background: "var(--accent-primary)" }}
+          />
+        </div>
+        {journey.nextStop.type !== "complete" ? (
+          <Link
+            href={journey.nextStop.redirect}
+            className="flex items-center gap-2 text-sm font-medium"
+            style={{ color: "var(--accent-primary)" }}
+          >
+            Next: {nextLabel} (session {journey.nextStop.session})
+            <ArrowUpRight size={14} />
+          </Link>
+        ) : (
+          <p className="text-sm" style={{ color: "var(--status-success-text)" }}>
+            Course complete!
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function TestScoreCard({ testScores }: { testScores: TestScores }) {
+  const { preTest, postTest, uplift } = testScores;
+
+  return (
+    <section className="mb-8">
+      <h2 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
+        Knowledge Check
+      </h2>
+      <div
+        className="rounded-lg border p-4"
+        style={{ borderColor: "var(--border-default)", background: "var(--surface-primary)" }}
+      >
+        <div className="space-y-3">
+          {preTest != null && (
+            <ScoreRow label="Pre-test" score={preTest} />
+          )}
+          {postTest != null && (
+            <ScoreRow label="Post-test" score={postTest} />
+          )}
+        </div>
+
+        {uplift && (
+          <div
+            className="flex items-center gap-2 mt-3 pt-3"
+            style={{ borderTop: "1px solid var(--border-default)" }}
+          >
+            <ClipboardCheck size={14} style={{ color: uplift.absolute > 0 ? "var(--status-success-text)" : "var(--text-muted)" }} />
+            <span className="text-sm font-semibold" style={{
+              color: uplift.absolute > 0 ? "var(--status-success-text)" : uplift.absolute < 0 ? "var(--status-error-text)" : "var(--text-primary)",
+            }}>
+              {uplift.absolute > 0 ? "+" : ""}{Math.round(uplift.absolute * 100)}% improvement
+            </span>
+            {uplift.normalised != null && (
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                ({uplift.normalised > 0 ? "+" : ""}{uplift.normalised}% normalised gain)
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ScoreRow({ label, score }: { label: string; score: number }) {
+  const pct = Math.round(score * 100);
+  const color = pct >= 70 ? "var(--status-success-text)" : pct >= 40 ? "var(--status-warning-text)" : "var(--status-error-text)";
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs font-medium w-16" style={{ color: "var(--text-muted)" }}>{label}</span>
+      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--surface-secondary)" }}>
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <span className="text-sm font-semibold w-10 text-right" style={{ color }}>{pct}%</span>
     </div>
   );
 }

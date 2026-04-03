@@ -88,3 +88,80 @@
   font-size: 13px;
   padding: 12px 0;
 }
+
+/* ── Test score bar ── */
+
+.ss-panel-wide {
+  grid-column: 1 / -1;
+}
+
+.ss-test-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ss-score-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.ss-score-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-secondary);
+  overflow: hidden;
+}
+
+.ss-score-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.ss-score-pct {
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ── Delta / improvement ── */
+
+.ss-delta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--border-default);
+  margin-top: 4px;
+}
+
+.ss-delta-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.ss-delta-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ss-delta-positive {
+  color: var(--status-success-text);
+}
+
+.ss-delta-negative {
+  color: var(--status-error-text);
+}
+
+.ss-delta-norm {
+  font-size: 11px;
+  color: var(--text-muted);
+}

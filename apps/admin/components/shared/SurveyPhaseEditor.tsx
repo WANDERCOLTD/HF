@@ -28,6 +28,7 @@ const TYPE_LABELS: Record<SurveyType, string> = {
   nps: 'Score 0-10',
   text: 'Text',
   mcq: 'Multiple Choice',
+  true_false: 'True / False',
 };
 
 // ── Helpers ────────────────────────────────────────────
