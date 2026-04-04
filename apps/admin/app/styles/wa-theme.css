@@ -1,0 +1,70 @@
+/* ── WhatsApp theme tokens ──
+ * Shared by SimChat, ChatSurvey, and any WA-styled component.
+ * Single source of truth — imported by sim.css and chat-survey.css.
+ */
+
+/* ===== Light mode (default) ===== */
+:root {
+  --wa-green-primary: #25D366;
+  --wa-green-dark: #075E54;
+  --wa-green-darker: #054C44;
+  --wa-green-light: #DCF8C6;
+  --wa-bg: #ECE5DD;
+  --wa-bubble-in: #FFFFFF;
+  --wa-bubble-out: #DCF8C6;
+  --wa-input-bg: #F0F0F0;
+  --wa-text-primary: #111B21;
+  --wa-text-secondary: #667781;
+  --wa-text-muted: #8696A0;
+  --wa-border: #D1D7DB;
+  --wa-divider: #E9EDEF;
+  --wa-header-bg: #075E54;
+  --wa-header-text: #FFFFFF;
+  --wa-status-online: #25D366;
+  --wa-surface: #FFFFFF;
+  --wa-surface-secondary: #F0F2F5;
+  --wa-surface-hover: #F5F6F6;
+  --wa-surface-active: #F0F2F5;
+  --wa-shadow: color-mix(in srgb, black 18%, transparent);
+  --wa-teacher-bg: #fffbeb;
+  --wa-teacher-border: #fcd34d;
+  --wa-teacher-shadow: color-mix(in srgb, #d97706 10%, transparent);
+  --wa-toast-bg: #323232;
+  --wa-tooltip-bg: #1f2937;
+  --wa-avatar-bg: #DFE5E7;
+  --wa-pattern-fill: %23c8c3bb;
+  --wa-pattern-opacity: 0.15;
+}
+
+/* ===== Dark mode ===== */
+.dark {
+  --wa-green-primary: #00A884;
+  --wa-green-dark: #00A884;
+  --wa-green-darker: #075E54;
+  --wa-green-light: #005C4B;
+  --wa-bg: #0B141A;
+  --wa-bubble-in: #202C33;
+  --wa-bubble-out: #005C4B;
+  --wa-input-bg: #2A3942;
+  --wa-text-primary: #E9EDEF;
+  --wa-text-secondary: #8696A0;
+  --wa-text-muted: #667781;
+  --wa-border: #2A3942;
+  --wa-divider: #222D34;
+  --wa-header-bg: #1F2C33;
+  --wa-header-text: #E9EDEF;
+  --wa-status-online: #00A884;
+  --wa-surface: #111B21;
+  --wa-surface-secondary: #1F2C33;
+  --wa-surface-hover: #2A3942;
+  --wa-surface-active: #2A3942;
+  --wa-shadow: color-mix(in srgb, black 40%, transparent);
+  --wa-teacher-bg: #451a03;
+  --wa-teacher-border: #92400e;
+  --wa-teacher-shadow: color-mix(in srgb, #92400e 15%, transparent);
+  --wa-toast-bg: #1a1a1a;
+  --wa-tooltip-bg: #374151;
+  --wa-avatar-bg: #2A3942;
+  --wa-pattern-fill: %23182520;
+  --wa-pattern-opacity: 0.3;
+}

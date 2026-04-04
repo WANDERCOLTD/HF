@@ -1103,9 +1103,13 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
 
 
   // ── Flow setup ────────────────────────────────────────
+  // Always call startFlow on mount — replaces any stale flow from a previous
+  // course build so the RHS panel doesn't show leftover data.
 
+  const flowStartedRef = useRef(false);
   useEffect(() => {
-    if (!isActive) {
+    if (!flowStartedRef.current) {
+      flowStartedRef.current = true;
       startFlow({
         flowId: `get-started-${wizardVersion}`,
         steps: WIZARD_STEPS,
@@ -1114,7 +1118,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, startFlow]);
+  }, []);
 
   // ── Sync initialContext into active flow (covers remount after institution fetch + reset) ──
 

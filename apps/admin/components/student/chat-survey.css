@@ -1,5 +1,6 @@
 /* ── Chat Survey ── cs-* prefix ── */
 /* WhatsApp-style conversational survey */
+@import '../../app/styles/wa-theme.css';
 
 .cs-container {
   display: flex;
