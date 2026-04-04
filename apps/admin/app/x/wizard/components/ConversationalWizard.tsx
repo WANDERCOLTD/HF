@@ -181,7 +181,13 @@ function storageKey(version: string): string {
 function loadHistory(version: string): Message[] {
   try {
     const raw = sessionStorage.getItem(storageKey(version));
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const msgs: Message[] = JSON.parse(raw);
+    // Strip trailing user message with no AI response (failed send from prior visit)
+    if (msgs.length > 0 && msgs[msgs.length - 1].role === "user") {
+      msgs.pop();
+    }
+    return msgs;
   } catch {
     return [];
   }
@@ -189,7 +195,10 @@ function loadHistory(version: string): Message[] {
 
 function saveHistory(messages: Message[], version: string) {
   try {
-    sessionStorage.setItem(storageKey(version), JSON.stringify(messages));
+    // Don't persist error messages — they're transient and stale errors
+    // create a bad experience when the user returns to the page
+    const filtered = messages.filter((m) => m.systemType !== "error");
+    sessionStorage.setItem(storageKey(version), JSON.stringify(filtered));
   } catch { /* quota */ }
 }
 
@@ -387,6 +396,9 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           if (res.status === 401) {
             signOut({ callbackUrl: "/login" });
             return { error: "Session expired — redirecting to login…" };
+          }
+          if (res.status === 403) {
+            return { error: "You don't have permission to use Build Course. Ask your admin to upgrade your role." };
           }
           const err = await res.json().catch(() => ({ error: "Request failed" }));
           return { error: err.error || `Server error (${res.status}). Try again in a moment.` };
@@ -1121,12 +1133,9 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
     if (!isActive || initialised.current) return;
     initialised.current = true;
 
-    const saved = loadHistory(storageScope);
-    if (saved.length > 0) {
-      setMessages(saved);
-      scrollToBottom();
-      return;
-    }
+    // Always start fresh — stale sessionStorage causes more UX issues than it solves.
+    // The wizard is short enough that resuming mid-conversation is rarely needed.
+    sessionStorage.removeItem(storageKey(storageScope));
 
     const hasContext = !!initialContext;
     const greeting: Message = {
