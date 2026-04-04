@@ -10,6 +10,9 @@ type StudentRow = {
   preConfidence: number | null;
   postConfidence: number | null;
   delta: number | null;
+  preTestScore: number | null;
+  postTestScore: number | null;
+  knowledgeDelta: number | null;
   callCount: number;
   nps: number | null;
   satisfaction: number | null;
@@ -35,6 +38,17 @@ type MasteryOverview = {
   avgMastery: number | null;
   completionRate: number | null;
   learnersWithProgress: number;
+  stdDev: number | null;
+  sigma: number | null;
+};
+
+type KnowledgeLift = {
+  avgPre: number | null;
+  avgPost: number | null;
+  meanDelta: number | null;
+  stdDev: number | null;
+  sigma: number | null;
+  n: number;
 };
 
 type ConfidenceLift = {
@@ -78,7 +92,7 @@ function escapeCSV(value: string | number | boolean | null | undefined): string 
 }
 
 function buildCSV(students: StudentRow[]): string {
-  const header = 'Name,Email,Pre-Confidence,Post-Confidence,Delta,Calls,NPS,Satisfaction,Pre-Survey,Post-Survey,Avg Mastery %,Modules Completed,Modules Total';
+  const header = 'Name,Email,Pre-Confidence,Post-Confidence,Conf Delta,Pre-Test %,Post-Test %,Knowledge Delta,Calls,NPS,Satisfaction,Pre-Survey,Post-Survey,Avg Mastery %,Modules Completed,Modules Total';
   const rows = students.map((s) =>
     [
       escapeCSV(s.name),
@@ -86,6 +100,9 @@ function buildCSV(students: StudentRow[]): string {
       escapeCSV(s.preConfidence),
       escapeCSV(s.postConfidence),
       escapeCSV(s.delta),
+      escapeCSV(s.preTestScore != null ? Math.round(s.preTestScore * 100) : null),
+      escapeCSV(s.postTestScore != null ? Math.round(s.postTestScore * 100) : null),
+      escapeCSV(s.knowledgeDelta != null ? Math.round(s.knowledgeDelta * 100) : null),
       escapeCSV(s.callCount),
       escapeCSV(s.nps),
       escapeCSV(s.satisfaction),
@@ -118,7 +135,8 @@ export async function GET(request: NextRequest, { params }: Params): Promise<Nex
     confidenceLift: { avgPre: null, avgPost: null, meanDelta: null, stdDev: null, sigma: null, n: 0 } as ConfidenceLift,
     engagement: { totalCallers: 0, activeCallers: 0, avgCallsPerStudent: 0, totalCalls: 0 } as Engagement,
     satisfaction: { avgNps: null, avgSatisfaction: null, surveyCount: 0 } as Satisfaction,
-    mastery: { modules: [], avgMastery: null, completionRate: null, learnersWithProgress: 0 } as MasteryOverview,
+    knowledgeLift: { avgPre: null, avgPost: null, meanDelta: null, stdDev: null, sigma: null, n: 0 } as KnowledgeLift,
+    mastery: { modules: [], avgMastery: null, completionRate: null, learnersWithProgress: 0, stdDev: null, sigma: null } as MasteryOverview,
     students: [] as StudentRow[],
   };
 
@@ -134,7 +152,7 @@ export async function GET(request: NextRequest, { params }: Params): Promise<Nex
             email: true,
             _count: { select: { calls: true } },
             callerAttributes: {
-              where: { scope: { in: ['PRE_SURVEY', 'POST_SURVEY'] } },
+              where: { scope: { in: ['PRE_SURVEY', 'POST_SURVEY', 'PRE_TEST', 'POST_TEST'] } },
               select: { key: true, scope: true, numberValue: true, stringValue: true },
             },
           },
@@ -226,6 +244,11 @@ export async function GET(request: NextRequest, { params }: Params): Promise<Nex
       const postConfidence = getNum('POST_SURVEY', 'confidence_lift');
       const delta = preConfidence != null && postConfidence != null ? postConfidence - preConfidence : null;
 
+      // Knowledge test scores (0-1 scale)
+      const preTestScore = getNum('PRE_TEST', 'score');
+      const postTestScore = getNum('POST_TEST', 'score');
+      const knowledgeDelta = preTestScore != null && postTestScore != null ? postTestScore - preTestScore : null;
+
       // Per-student mastery
       const callerProgress = progressByCallerModule.get(e.caller.id);
       let avgMastery: number | null = null;
@@ -242,6 +265,9 @@ export async function GET(request: NextRequest, { params }: Params): Promise<Nex
         preConfidence,
         postConfidence,
         delta,
+        preTestScore,
+        postTestScore,
+        knowledgeDelta,
         callCount: e.caller._count.calls,
         nps: getNum('POST_SURVEY', 'nps'),
         satisfaction: getNum('POST_SURVEY', 'satisfaction'),
@@ -284,6 +310,28 @@ export async function GET(request: NextRequest, { params }: Params): Promise<Nex
       };
     }
 
+    // Knowledge lift (pre/post test scores)
+    const knowledgeDeltas = students.filter((s) => s.knowledgeDelta != null).map((s) => s.knowledgeDelta!);
+    const preTests = students.filter((s) => s.preTestScore != null && s.postTestScore != null).map((s) => s.preTestScore!);
+    const postTests = students.filter((s) => s.preTestScore != null && s.postTestScore != null).map((s) => s.postTestScore!);
+
+    let knowledgeLift: KnowledgeLift;
+    if (knowledgeDeltas.length === 0) {
+      knowledgeLift = { avgPre: null, avgPost: null, meanDelta: null, stdDev: null, sigma: null, n: 0 };
+    } else {
+      const meanD = mean(knowledgeDeltas);
+      const sd = knowledgeDeltas.length >= 2 ? stdDev(knowledgeDeltas, meanD) : null;
+      const sigma = sd != null && sd > 0 ? meanD / sd : null;
+      knowledgeLift = {
+        avgPre: Math.round(mean(preTests) * 1000) / 1000,
+        avgPost: Math.round(mean(postTests) * 1000) / 1000,
+        meanDelta: Math.round(meanD * 1000) / 1000,
+        stdDev: sd != null ? Math.round(sd * 1000) / 1000 : null,
+        sigma: sigma != null ? Math.round(sigma * 100) / 100 : null,
+        n: knowledgeDeltas.length,
+      };
+    }
+
     // Engagement
     const totalCalls = students.reduce((sum, s) => sum + s.callCount, 0);
     const activeCallers = students.filter((s) => s.callCount > 0).length;
@@ -308,18 +356,29 @@ export async function GET(request: NextRequest, { params }: Params): Promise<Nex
     const learnersWithProgress = students.filter((s) => s.avgMastery != null).length;
     const allStudentMasteries = students.filter((s) => s.avgMastery != null).map((s) => s.avgMastery!);
     const allStudentCompleted = students.filter((s) => s.modulesCompleted > 0);
+    const masteryStdDev = allStudentMasteries.length >= 2
+      ? Math.round(stdDev(allStudentMasteries, mean(allStudentMasteries)) * 1000) / 1000
+      : null;
+    const masteryMean = allStudentMasteries.length > 0 ? mean(allStudentMasteries) : null;
+    const masterySigma = masteryStdDev != null && masteryStdDev > 0 && masteryMean != null
+      ? Math.round((masteryMean / masteryStdDev) * 100) / 100
+      : null;
+
     const mastery: MasteryOverview = {
       modules: moduleAggregates,
-      avgMastery: allStudentMasteries.length > 0 ? Math.round(mean(allStudentMasteries) * 1000) / 1000 : null,
+      avgMastery: masteryMean != null ? Math.round(masteryMean * 1000) / 1000 : null,
       completionRate: totalModules > 0 && students.length > 0
         ? Math.round((allStudentCompleted.length / students.length) * 1000) / 1000
         : null,
       learnersWithProgress,
+      stdDev: masteryStdDev,
+      sigma: masterySigma,
     };
 
     return NextResponse.json({
       ok: true,
       confidenceLift,
+      knowledgeLift,
       engagement,
       satisfaction,
       mastery,

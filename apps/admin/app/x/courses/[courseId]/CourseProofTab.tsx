@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  TrendingUp, Users2, Phone, Star, BookOpen,
+  TrendingUp, Users2, Phone, Star, BookOpen, Brain,
   Download, RefreshCw, CheckCircle2, Clock,
 } from 'lucide-react';
 import './course-proof.css';
@@ -15,6 +15,9 @@ type StudentRow = {
   preConfidence: number | null;
   postConfidence: number | null;
   delta: number | null;
+  preTestScore: number | null;
+  postTestScore: number | null;
+  knowledgeDelta: number | null;
   callCount: number;
   nps: number | null;
   satisfaction: number | null;
@@ -40,6 +43,17 @@ type MasteryOverview = {
   avgMastery: number | null;
   completionRate: number | null;
   learnersWithProgress: number;
+  stdDev: number | null;
+  sigma: number | null;
+};
+
+type KnowledgeLift = {
+  avgPre: number | null;
+  avgPost: number | null;
+  meanDelta: number | null;
+  stdDev: number | null;
+  sigma: number | null;
+  n: number;
 };
 
 type ConfidenceLift = {
@@ -66,6 +80,7 @@ type Satisfaction = {
 
 type ProofData = {
   confidenceLift: ConfidenceLift;
+  knowledgeLift: KnowledgeLift;
   engagement: Engagement;
   satisfaction: Satisfaction;
   mastery: MasteryOverview;
@@ -182,7 +197,7 @@ export function CourseProofTab({ courseId }: Props): React.ReactElement {
     );
   }
 
-  const { confidenceLift, engagement, satisfaction, mastery } = data;
+  const { confidenceLift, knowledgeLift, engagement, satisfaction, mastery } = data;
 
   return (
     <div className="cp-container">
@@ -226,6 +241,52 @@ export function CourseProofTab({ courseId }: Props): React.ReactElement {
               <div className="cp-sigma-detail">
                 Delta: +{formatNum(confidenceLift.meanDelta)}
                 {confidenceLift.stdDev != null && ` (SD ${formatNum(confidenceLift.stdDev)})`}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Knowledge Lift ── */}
+      <div className="hf-card cp-section">
+        <div className="cp-section-header">
+          <Brain size={16} />
+          <span>Knowledge Test Lift</span>
+          {knowledgeLift.n > 0 && (
+            <span className="cp-n">n = {knowledgeLift.n}</span>
+          )}
+        </div>
+
+        {knowledgeLift.n === 0 ? (
+          <div className="cp-awaiting">
+            <Clock size={14} />
+            Awaiting pre + post knowledge test completions
+          </div>
+        ) : (
+          <div className="cp-lift">
+            <div className="cp-bar-group">
+              <div className="cp-bar-row">
+                <span className="cp-bar-label">Pre</span>
+                <div className="cp-bar-track">
+                  <div className="cp-bar cp-bar--pre" style={{ width: barWidth(knowledgeLift.avgPre, 1) }} />
+                </div>
+                <span className="cp-bar-value">{knowledgeLift.avgPre != null ? `${Math.round(knowledgeLift.avgPre * 100)}%` : '—'}</span>
+              </div>
+              <div className="cp-bar-row">
+                <span className="cp-bar-label">Post</span>
+                <div className="cp-bar-track">
+                  <div className="cp-bar cp-bar--post" style={{ width: barWidth(knowledgeLift.avgPost, 1) }} />
+                </div>
+                <span className="cp-bar-value">{knowledgeLift.avgPost != null ? `${Math.round(knowledgeLift.avgPost * 100)}%` : '—'}</span>
+              </div>
+            </div>
+            <div className="cp-sigma-card">
+              <div className={`cp-sigma-value ${sigmaColor(knowledgeLift.sigma)}`}>
+                {knowledgeLift.sigma != null ? `${formatNum(knowledgeLift.sigma)}σ` : '—'}
+              </div>
+              <div className="cp-sigma-detail">
+                Delta: +{knowledgeLift.meanDelta != null ? `${Math.round(knowledgeLift.meanDelta * 100)}pp` : '—'}
+                {knowledgeLift.stdDev != null && ` (SD ${Math.round(knowledgeLift.stdDev * 100)}pp)`}
               </div>
             </div>
           </div>
@@ -287,6 +348,12 @@ export function CourseProofTab({ courseId }: Props): React.ReactElement {
                 <div className="cp-stat-value">{mastery.completionRate != null ? `${Math.round(mastery.completionRate * 100)}%` : '—'}</div>
                 <div className="cp-stat-label">Completion</div>
               </div>
+              <div className="hf-card-compact cp-stat">
+                <div className={`cp-stat-value ${sigmaColor(mastery.sigma)}`}>
+                  {mastery.sigma != null ? `${formatNum(mastery.sigma)}σ` : '—'}
+                </div>
+                <div className="cp-stat-label">Significance</div>
+              </div>
             </div>
             <div className="cp-module-bars">
               {mastery.modules.map((mod) => (
@@ -332,6 +399,9 @@ export function CourseProofTab({ courseId }: Props): React.ReactElement {
               <th className="cp-sortable" onClick={() => handleSort('delta')}>
                 Delta {sortBy === 'delta' && (sortAsc ? '↑' : '↓')}
               </th>
+              <th>Pre %</th>
+              <th>Post %</th>
+              <th>K.Delta</th>
               <th className="cp-sortable" onClick={() => handleSort('calls')}>
                 Calls {sortBy === 'calls' && (sortAsc ? '↑' : '↓')}
               </th>
@@ -362,6 +432,15 @@ export function CourseProofTab({ courseId }: Props): React.ReactElement {
                     {s.delta != null ? (
                       <span className={s.delta > 0 ? 'cp-delta--positive' : s.delta < 0 ? 'cp-delta--negative' : ''}>
                         {s.delta > 0 ? '+' : ''}{s.delta}
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td>{s.preTestScore != null ? `${Math.round(s.preTestScore * 100)}%` : '—'}</td>
+                  <td>{s.postTestScore != null ? `${Math.round(s.postTestScore * 100)}%` : '—'}</td>
+                  <td>
+                    {s.knowledgeDelta != null ? (
+                      <span className={s.knowledgeDelta > 0 ? 'cp-delta--positive' : s.knowledgeDelta < 0 ? 'cp-delta--negative' : ''}>
+                        {s.knowledgeDelta > 0 ? '+' : ''}{Math.round(s.knowledgeDelta * 100)}pp
                       </span>
                     ) : '—'}
                   </td>
