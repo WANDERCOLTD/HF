@@ -30,7 +30,7 @@ export const joinPostSchema = z.object({
   lastName: nameSchema,
   email: emailSchema,
   /** Enroll in a specific course (playbook) instead of all cohort playbooks */
-  playbookId: z.string().cuid().optional(),
+  playbookId: z.string().uuid().optional(),
   /** Skip onboarding wizard + surveys — go straight to teaching */
   skipOnboarding: z.boolean().optional(),
 });
