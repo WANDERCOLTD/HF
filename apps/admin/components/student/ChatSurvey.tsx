@@ -467,29 +467,30 @@ export function ChatSurvey({
           </div>
         )}
 
-        {/* Complete — submit button or summary CTA */}
-        {isComplete && !typing && (
-          <div className="cs-complete">
-            {showSummary && showingSummary ? (
-              <button
-                className="cs-submit-btn cs-submit-btn--cta"
-                onClick={() => onComplete(answers)}
-                disabled={submitting}
-              >
-                {submitting ? 'Saving...' : 'Start Learning →'}
-              </button>
-            ) : !showSummary ? (
-              <button
-                className="cs-submit-btn"
-                onClick={() => onComplete(answers)}
-                disabled={submitting}
-              >
-                {submitting ? 'Saving...' : submitLabel}
-              </button>
-            ) : null}
-          </div>
-        )}
       </div>
+
+      {/* Complete — submit button or summary CTA (outside scroll area so always visible) */}
+      {isComplete && !typing && (
+        <div className="cs-complete">
+          {showSummary && showingSummary ? (
+            <button
+              className="cs-submit-btn cs-submit-btn--cta"
+              onClick={() => onComplete(answers)}
+              disabled={submitting}
+            >
+              {submitting ? 'Saving...' : 'Start Learning →'}
+            </button>
+          ) : !showSummary ? (
+            <button
+              className="cs-submit-btn"
+              onClick={() => onComplete(answers)}
+              disabled={submitting}
+            >
+              {submitting ? 'Saving...' : submitLabel}
+            </button>
+          ) : null}
+        </div>
+      )}
 
       {/* Progress dots — assessment questions only */}
       {showProgress && assessmentSteps.length > 0 && currentAssessmentIndex >= 0 && !isComplete && (
