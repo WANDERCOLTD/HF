@@ -70,7 +70,9 @@ You can begin testing once we deploy to the TEST environment.
 |-----------------|--------|-------------|
 | Per-student mastery visible | **Working** | Course → Proof Points tab → student table shows Mastery % and Modules completed per student. |
 | Module-by-module mastery aggregates | **Working** | Proof Points tab shows a bar chart with average mastery and completion rate for each curriculum module. |
-| CSV export | **Working** | Proof Points tab → Export CSV. Includes name, email, confidence, mastery %, modules completed, NPS, satisfaction. |
+| Pre/post knowledge test delta | **Working** | Proof Points tab → Knowledge Test Lift section. Shows pre-test %, post-test %, delta in percentage points, and σ (statistical significance). Per-student columns in the table. |
+| Mastery with statistical significance | **Working** | Proof Points tab → Pipeline Mastery section shows avg mastery, completion rate, and σ. Per-module bars with completion %. |
+| CSV export | **Working** | Proof Points tab → Export CSV. Includes name, email, confidence, pre/post test scores, knowledge delta, mastery %, modules completed, NPS, satisfaction. |
 | Caller detail with full history | **Working** | Click any caller → Journey tab shows all sessions. How tab shows personality and memories. What tab shows scores, targets, goals, module progress. |
 
 ### Environment & Stability
@@ -108,13 +110,6 @@ These are features from your spec that we've deliberately deferred. They're desi
 | WhatsApp between-session Q&A | Learners ask the AI tutor quick questions via WhatsApp | WhatsApp integration + prompt composition for Q&A |
 | "Start later" after onboarding | Learner completes the form but starts their first session later via WhatsApp | WhatsApp integration |
 | Demo journey (investor demos) | Two entry points: fresh course setup, or jump into existing course/caller | VAPI integration |
-
-### Not Yet Surfaced (Data Exists, Display Pending)
-
-| Feature | Current State | Effort |
-|---------|--------------|--------|
-| Pre/post knowledge test delta as headline metric | Uplift calculation works in the API. Not yet shown as a top-line number on Proof Points. | ~2 hours |
-| Statistical significance (σ) for mastery | σ calculation exists for confidence lift. Not yet applied to mastery data. | ~1 hour |
 
 ---
 

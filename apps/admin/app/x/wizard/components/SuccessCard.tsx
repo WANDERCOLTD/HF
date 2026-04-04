@@ -7,7 +7,7 @@
  * Shows: view course, try practice call, copy link, create another, dashboard.
  */
 
-import { Check, Headphones, BookMarked, Link2, Plus, Users } from "lucide-react";
+import { Check, Headphones, BookMarked, Link2, Plus, Users, GraduationCap } from "lucide-react";
 
 interface SuccessCardProps {
   draftCallerId: string | undefined;
@@ -57,14 +57,14 @@ export function SuccessCard({
           <BookMarked size={16} /> View Your Course
         </a>
 
-        {/* Test callers created for this course */}
+        {/* Test callers — each with practice call link */}
         {(draftCallerId || draftDemoCallerId) && (
           <div className="cv4-success-callers">
             <div className="cv4-success-callers-label">
               <Users size={14} /> Test Learners
             </div>
-            <div className="cv4-success-row">
-              {draftDemoCallerId && (
+            {draftDemoCallerId && (
+              <div className="cv4-success-row">
                 <a
                   href={`/x/callers/${draftDemoCallerId}`}
                   className="hf-btn hf-btn-secondary cv4-success-btn-half"
@@ -73,8 +73,21 @@ export function SuccessCard({
                 >
                   {draftDemoCallerName || "Demo Caller"} <span className="hf-text-xs hf-text-muted">(ready)</span>
                 </a>
-              )}
-              {draftCallerId && (
+                <a
+                  href={`/x/sim/${draftDemoCallerId}?${new URLSearchParams({
+                    ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
+                    ...(draftDomainId ? { domainId: draftDomainId } : {}),
+                  }).toString()}`}
+                  className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Headphones size={14} /> Try a Practice Call
+                </a>
+              </div>
+            )}
+            {draftCallerId && (
+              <div className="cv4-success-row">
                 <a
                   href={`/x/callers/${draftCallerId}`}
                   className="hf-btn hf-btn-secondary cv4-success-btn-half"
@@ -83,27 +96,36 @@ export function SuccessCard({
                 >
                   {draftCallerName || "Test Caller"} <span className="hf-text-xs hf-text-muted">(new)</span>
                 </a>
-              )}
-            </div>
+                {communityJoinToken ? (
+                  <a
+                    href={`/join/${communityJoinToken}`}
+                    className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <GraduationCap size={14} /> Try the Learner Journey
+                  </a>
+                ) : (
+                  <a
+                    href={`/x/sim/${draftCallerId}?${new URLSearchParams({
+                      forceFirstCall: "true",
+                      ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
+                      ...(draftDomainId ? { domainId: draftDomainId } : {}),
+                    }).toString()}`}
+                    className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Headphones size={14} /> Try a Practice Call
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Secondary row — sharing + sim call */}
+        {/* Copy link */}
         <div className="cv4-success-row">
-          {draftCallerId && (
-            <a
-              href={`/x/sim/${draftCallerId}?${new URLSearchParams({
-                forceFirstCall: "true",
-                ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
-                ...(draftDomainId ? { domainId: draftDomainId } : {}),
-              }).toString()}`}
-              className="hf-btn hf-btn-secondary cv4-success-btn-half"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Headphones size={14} /> Try a Practice Call
-            </a>
-          )}
           {(communityJoinToken || draftCallerId) && (
             <button
               type="button"

@@ -325,7 +325,6 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
   const contentParts: string[] = [];
   if (contentTotals) {
     if (contentTotals.assertions > 0) contentParts.push(`${contentTotals.assertions} teaching pts`);
-    if (contentTotals.questions > 0) contentParts.push(`${contentTotals.questions} questions`);
     if (contentTotals.vocabulary > 0) contentParts.push(`${contentTotals.vocabulary} vocab`);
     if (contentTotals.images > 0) contentParts.push(`${contentTotals.images} images`);
   }
@@ -594,6 +593,22 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
                 }
                 return null;
               })()}
+            </BlueprintSection>
+          )}
+
+          {/* Assessment questions */}
+          {!isCommunity && assessments !== "none" && contentTotals && contentTotals.questions > 0 && (
+            <BlueprintSection
+              visible
+              active={false}
+              clickable={clickable}
+              onClick={() => click("lessons")}
+              sectionKey="assessment"
+            >
+              <div className="gs-bp-assessment">
+                <span className="gs-bp-assessment-label">Assessment Qs</span>
+                <span className="gs-bp-assessment-count">{contentTotals.questions}</span>
+              </div>
             </BlueprintSection>
           )}
 

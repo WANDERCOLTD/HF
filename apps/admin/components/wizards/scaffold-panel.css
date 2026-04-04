@@ -302,6 +302,31 @@
   color: var(--text-primary);
 }
 
+/* ── Assessment Qs ─────────────────────────────── */
+
+.gs-bp-assessment {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gs-bp-assessment-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.gs-bp-assessment-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  padding: 1px 8px;
+  border-radius: 10px;
+  line-height: 1.4;
+}
+
 /* ── Welcome ────────────────────────────────────── */
 
 .gs-bp-welcome {
