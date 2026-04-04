@@ -271,6 +271,57 @@
   color: var(--text-muted);
 }
 
+/* Pipeline Mastery */
+.cp-mastery-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.cp-module-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cp-module-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cp-module-label {
+  width: 140px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cp-bar--mastery {
+  background: var(--status-success-text);
+}
+
+.cp-module-pct {
+  width: 36px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.cp-module-completion {
+  width: 56px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+  flex-shrink: 0;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .cp-stats {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  TrendingUp, Users2, Phone, Star,
+  TrendingUp, Users2, Phone, Star, BookOpen,
   Download, RefreshCw, CheckCircle2, Clock,
 } from 'lucide-react';
 import './course-proof.css';
@@ -20,6 +20,26 @@ type StudentRow = {
   satisfaction: number | null;
   preSurveyDone: boolean;
   postSurveyDone: boolean;
+  avgMastery: number | null;
+  modulesCompleted: number;
+  modulesTotal: number;
+};
+
+type ModuleAggregate = {
+  moduleId: string;
+  slug: string;
+  title: string;
+  sortOrder: number;
+  avgMastery: number;
+  completionRate: number;
+  learnerCount: number;
+};
+
+type MasteryOverview = {
+  modules: ModuleAggregate[];
+  avgMastery: number | null;
+  completionRate: number | null;
+  learnersWithProgress: number;
 };
 
 type ConfidenceLift = {
@@ -48,6 +68,7 @@ type ProofData = {
   confidenceLift: ConfidenceLift;
   engagement: Engagement;
   satisfaction: Satisfaction;
+  mastery: MasteryOverview;
   students: StudentRow[];
 };
 
@@ -86,7 +107,7 @@ export function CourseProofTab({ courseId }: Props): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ProofData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'name' | 'delta' | 'calls' | 'nps'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'delta' | 'calls' | 'nps' | 'mastery'>('name');
   const [sortAsc, setSortAsc] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -129,6 +150,7 @@ export function CourseProofTab({ courseId }: Props): React.ReactElement {
       case 'delta': return dir * ((a.delta ?? -999) - (b.delta ?? -999));
       case 'calls': return dir * (a.callCount - b.callCount);
       case 'nps': return dir * ((a.nps ?? -999) - (b.nps ?? -999));
+      case 'mastery': return dir * ((a.avgMastery ?? -1) - (b.avgMastery ?? -1));
       default: return 0;
     }
   }) : [];
@@ -160,7 +182,7 @@ export function CourseProofTab({ courseId }: Props): React.ReactElement {
     );
   }
 
-  const { confidenceLift, engagement, satisfaction } = data;
+  const { confidenceLift, engagement, satisfaction, mastery } = data;
 
   return (
     <div className="cp-container">
@@ -234,6 +256,54 @@ export function CourseProofTab({ courseId }: Props): React.ReactElement {
         </div>
       </div>
 
+      {/* ── Pipeline Mastery ── */}
+      <div className="hf-card cp-section">
+        <div className="cp-section-header">
+          <BookOpen size={16} />
+          <span>Pipeline Mastery</span>
+          {mastery.learnersWithProgress > 0 && (
+            <span className="cp-n">{mastery.learnersWithProgress} learner{mastery.learnersWithProgress !== 1 ? 's' : ''} with progress</span>
+          )}
+        </div>
+
+        {mastery.modules.length === 0 ? (
+          <div className="cp-awaiting">
+            <Clock size={14} />
+            No curriculum modules found for this course
+          </div>
+        ) : mastery.learnersWithProgress === 0 ? (
+          <div className="cp-awaiting">
+            <Clock size={14} />
+            Awaiting session completions to track mastery
+          </div>
+        ) : (
+          <>
+            <div className="cp-mastery-summary">
+              <div className="hf-card-compact cp-stat">
+                <div className="cp-stat-value">{mastery.avgMastery != null ? `${Math.round(mastery.avgMastery * 100)}%` : '—'}</div>
+                <div className="cp-stat-label">Avg Mastery</div>
+              </div>
+              <div className="hf-card-compact cp-stat">
+                <div className="cp-stat-value">{mastery.completionRate != null ? `${Math.round(mastery.completionRate * 100)}%` : '—'}</div>
+                <div className="cp-stat-label">Completion</div>
+              </div>
+            </div>
+            <div className="cp-module-bars">
+              {mastery.modules.map((mod) => (
+                <div key={mod.moduleId} className="cp-module-row">
+                  <span className="cp-module-label" title={mod.title}>{mod.title}</span>
+                  <div className="cp-bar-track">
+                    <div className="cp-bar cp-bar--mastery" style={{ width: `${Math.round(mod.avgMastery * 100)}%` }} />
+                  </div>
+                  <span className="cp-module-pct">{Math.round(mod.avgMastery * 100)}%</span>
+                  <span className="cp-module-completion">{Math.round(mod.completionRate * 100)}% done</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
       {/* ── Per Student Table ── */}
       <div className="hf-card cp-section">
         <div className="cp-table-header">
@@ -265,6 +335,10 @@ export function CourseProofTab({ courseId }: Props): React.ReactElement {
               <th className="cp-sortable" onClick={() => handleSort('calls')}>
                 Calls {sortBy === 'calls' && (sortAsc ? '↑' : '↓')}
               </th>
+              <th className="cp-sortable" onClick={() => handleSort('mastery')}>
+                Mastery {sortBy === 'mastery' && (sortAsc ? '↑' : '↓')}
+              </th>
+              <th>Modules</th>
               <th className="cp-sortable" onClick={() => handleSort('nps')}>
                 NPS {sortBy === 'nps' && (sortAsc ? '↑' : '↓')}
               </th>
@@ -292,6 +366,14 @@ export function CourseProofTab({ courseId }: Props): React.ReactElement {
                     ) : '—'}
                   </td>
                   <td>{s.callCount}</td>
+                  <td>
+                    {s.avgMastery != null ? (
+                      <span className={s.avgMastery >= 0.8 ? 'cp-delta--positive' : ''}>
+                        {Math.round(s.avgMastery * 100)}%
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td>{s.modulesTotal > 0 ? `${s.modulesCompleted}/${s.modulesTotal}` : '—'}</td>
                   <td>{s.nps != null ? s.nps : '—'}</td>
                   <td>{s.satisfaction != null ? `${s.satisfaction}/5` : '—'}</td>
                   <td className="cp-survey-cell">
