@@ -711,6 +711,7 @@ async function handleWizardModeWithTools(
               ...(data.demoCallerId ? { draftDemoCallerId: data.demoCallerId } : {}),
               ...(data.demoCallerName ? { draftDemoCallerName: data.demoCallerName } : {}),
               ...(data.domainId ? { draftDomainId: data.domainId } : {}),
+              ...(data.joinToken ? { communityJoinToken: data.joinToken } : {}),
               ...(data.subjectId ? { subjectId: data.subjectId } : {}),
               ...(data.lessonPlanPreview ? { lessonPlanPreview: data.lessonPlanPreview } : {}),
               ...(data.firstCallPreview ? { firstCallPreview: data.firstCallPreview } : {}),
