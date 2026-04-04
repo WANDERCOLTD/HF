@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { useResponsive } from '@/hooks/useResponsive';
 import { WhatsAppHeader } from '@/components/sim/WhatsAppHeader';
 import { SimChat } from '@/components/sim/SimChat';
+import { useJourneyChat } from '@/hooks/useJourneyChat';
 import { deriveParameterMap } from '@/lib/agent-tuner/derive';
 import type { AgentTunerPill } from '@/lib/agent-tuner/types';
 
@@ -33,7 +34,6 @@ export default function SimConversationPage() {
   const communityName = searchParams.get('communityName') || undefined;
   const forceFirstCall = searchParams.get('forceFirstCall') === 'true';
 
-  // Tuner pills from Teach/Demonstrate wizard — derive target overrides for prompt composition
   const targetOverrides = useMemo(() => {
     const raw = searchParams.get('tunerPills');
     if (!raw) return undefined;
@@ -52,6 +52,9 @@ export default function SimConversationPage() {
   const [subjectDiscipline, setSubjectDiscipline] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
+  // Journey chat — unified WhatsApp-style survey/onboarding/teaching flow
+  const journey = useJourneyChat({ callerId, forceFirstCall });
+
   useEffect(() => {
     let cancelled = false;
 
@@ -64,7 +67,6 @@ export default function SimConversationPage() {
           return;
         }
         if (!cancelled) {
-          // Validate domain matches expected (from wizard navigation)
           const callerDomainId = data.caller.domain?.id || data.caller.domainId;
           if (expectedDomainId && callerDomainId && expectedDomainId !== callerDomainId) {
             setError('Caller is no longer in the expected institution. Please re-select from the wizard.');
@@ -85,7 +87,6 @@ export default function SimConversationPage() {
             pastCalls: calls,
           });
 
-          // Fetch playbook name + subject discipline if scoped to a specific course
           if (playbookId) {
             fetch(`/api/playbooks/${playbookId}`)
               .then(r => r.json())
@@ -96,7 +97,7 @@ export default function SimConversationPage() {
                   if (disc) setSubjectDiscipline(disc);
                 }
               })
-              .catch(() => {}); // Non-critical — falls back to domainName
+              .catch(() => {});
           }
         }
       } catch {
@@ -108,11 +109,12 @@ export default function SimConversationPage() {
     return () => { cancelled = true; };
   }, [callerId, expectedDomainId, playbookId]);
 
-  // After a student's call ends, redirect through the journey resolver
-  // to pick up the next stop (e.g. mid-survey, next teaching session)
   const handleStudentCallEnd = useCallback(() => {
-    setTimeout(() => router.push('/x/student'), 1500);
-  }, [router]);
+    if (isStudent) {
+      setTimeout(() => router.push('/x/student'), 1500);
+    }
+    // Journey onCallEnd is now called directly inside SimChat
+  }, [router, isStudent]);
 
   if (error) {
     return (
@@ -152,6 +154,7 @@ export default function SimConversationPage() {
       forceFirstCall={forceFirstCall || undefined}
       onBack={isDesktop ? undefined : () => router.push('/x/sim')}
       onCallEnd={isStudent ? handleStudentCallEnd : undefined}
+      journey={journey}
     />
   );
 }

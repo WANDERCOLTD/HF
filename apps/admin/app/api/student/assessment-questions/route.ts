@@ -2,12 +2,13 @@
  * @api GET /api/student/assessment-questions
  * @visibility internal
  * @scope student:read
- * @auth session (VIEWER+)
+ * @auth session (STUDENT | OPERATOR+)
  * @tags student, assessment
  * @description Returns pre-test or post-test questions for the authenticated student.
  *   Pre-test sources MCQ questions from the enrolled curriculum's content.
  *   Post-test mirrors the exact questions used in the pre-test.
  * @query type — "pre_test" | "post_test"
+ * @query callerId — required for OPERATOR+ (admin viewing student)
  * @response 200 { ok, questions: SurveyStepConfig[], questionIds: string[], skipped: boolean, skipReason?: string }
  * @response 400 { ok: false, error: "..." }
  * @response 404 { ok: false, error: "..." }
@@ -15,14 +16,14 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, isAuthError } from "@/lib/permissions";
+import { requireStudentOrAdmin, isStudentAuthError } from "@/lib/student-access";
 import { buildPreTest, buildPreTestForPlaybook, buildPostTest } from "@/lib/assessment/pre-test-builder";
 
 const VALID_TYPES = new Set(["pre_test", "post_test"]);
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const auth = await requireAuth("VIEWER");
-  if (isAuthError(auth)) return auth.error;
+  const auth = await requireStudentOrAdmin(request);
+  if (isStudentAuthError(auth)) return auth.error;
 
   const type = request.nextUrl.searchParams.get("type");
   if (!type || !VALID_TYPES.has(type)) {
@@ -32,23 +33,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Resolve caller
-  const caller = await prisma.caller.findFirst({
-    where: { userId: auth.session.user.id, role: "LEARNER" },
-    select: { id: true },
-  });
-  if (!caller) {
-    return NextResponse.json({ ok: false, error: "No learner profile found" }, { status: 404 });
-  }
+  const { callerId } = auth;
 
   if (type === "post_test") {
-    const result = await buildPostTest(caller.id);
+    const result = await buildPostTest(callerId);
     return NextResponse.json({ ok: true, ...result });
   }
 
   // pre_test — resolve enrolled playbook and curriculum
   const enrollment = await prisma.callerPlaybook.findFirst({
-    where: { callerId: caller.id, status: "ACTIVE" },
+    where: { callerId, status: "ACTIVE" },
     select: {
       playbookId: true,
       playbook: {

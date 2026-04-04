@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useTerminology } from "@/contexts/TerminologyContext";
 import { Sparkles, Target, MessageCircle, Rocket } from "lucide-react";
 import "./student-onboarding.css";
@@ -21,6 +20,8 @@ interface StudentOnboardingProps {
   institutionLogo: string | null;
   welcomeMessage: string | null;
   domain: string | null;
+  /** Optional caller ID for admin-in-sim context */
+  callerId?: string | null;
   onComplete: () => void;
 }
 
@@ -31,9 +32,9 @@ export default function StudentOnboarding({
   institutionLogo,
   welcomeMessage,
   domain,
+  callerId,
   onComplete,
 }: StudentOnboardingProps) {
-  const router = useRouter();
   const { lower } = useTerminology();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [confirmedGoals, setConfirmedGoals] = useState<Set<string>>(
@@ -46,7 +47,8 @@ export default function StudentOnboarding({
     if (!customGoal.trim()) return;
     setAddingGoal(true);
     try {
-      const res = await fetch("/api/student/goals", {
+      const goalsUrl = callerId ? `/api/student/goals?callerId=${callerId}` : "/api/student/goals";
+      const res = await fetch(goalsUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: customGoal.trim(), type: "LEARN" }),
@@ -62,10 +64,14 @@ export default function StudentOnboarding({
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     localStorage.setItem("onboarding-seen", "true");
+    // Mark onboarding complete in DB so journey-position advances
+    const onboardingUrl = callerId
+      ? `/api/student/onboarding?callerId=${callerId}`
+      : "/api/student/onboarding";
+    await fetch(onboardingUrl, { method: "POST" }).catch(() => {});
     onComplete();
-    router.push("/x/sim");
   };
 
   const totalSteps = 4;
@@ -304,8 +310,12 @@ export default function StudentOnboarding({
             Start Your First Conversation
           </button>
           <button
-            onClick={() => {
+            onClick={async () => {
               localStorage.setItem("onboarding-seen", "true");
+              const onboardingUrl = callerId
+                ? `/api/student/onboarding?callerId=${callerId}`
+                : "/api/student/onboarding";
+              await fetch(onboardingUrl, { method: "POST" }).catch(() => {});
               onComplete();
             }}
             className="so-btn-skip"

@@ -330,6 +330,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       "behaviorTargets", "lessonPlanModel", "personalityPreset", "personalityDescription",
       "physicalMaterials",
       "draftDomainId", "draftInstitutionId", "draftPlaybookId", "draftCallerId",
+      "draftCallerName", "draftDemoCallerId", "draftDemoCallerName",
       "launched", "sourceId", "packSubjectIds", "extractionTotals", "categoryCounts", "contentSkipped",
       "lastUploadClassifications", "courseContext",
       "welcomeSkipped", "tuneSkipped",
@@ -1150,6 +1151,9 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
   if (!isActive) return null;
 
   const draftCallerId = getData<string>("draftCallerId");
+  const draftCallerName = getData<string>("draftCallerName");
+  const draftDemoCallerId = getData<string>("draftDemoCallerId");
+  const draftDemoCallerName = getData<string>("draftDemoCallerName");
   const draftPlaybookId = getData<string>("draftPlaybookId");
   const draftDomainId = getData<string>("draftDomainId") || getData<string>("existingDomainId");
   const resolvedDomainId = draftDomainId || "";
@@ -1302,6 +1306,9 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
                 <div key={msg.id} className="cv4-row cv4-row--system">
                   <SuccessCard
                     draftCallerId={draftCallerId}
+                    draftCallerName={draftCallerName}
+                    draftDemoCallerId={draftDemoCallerId}
+                    draftDemoCallerName={draftDemoCallerName}
                     draftPlaybookId={draftPlaybookId}
                     draftDomainId={resolvedDomainId}
                     communityJoinToken={communityJoinToken}

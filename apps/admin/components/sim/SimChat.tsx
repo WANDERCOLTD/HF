@@ -13,6 +13,9 @@ import { MediaLibraryPanel } from './MediaLibraryPanel';
 import { VoicePanel } from './VoicePanel';
 import { useVoiceMode } from './useVoiceMode';
 import type { MediaInfo } from './MessageBubble';
+import { ChatSurveyInput } from './ChatSurveyInput';
+import type { ChatItem, UseJourneyChatResult } from '@/hooks/useJourneyChat';
+import type { SurveyStep } from '@/components/student/ChatSurvey';
 
 interface Message {
   id: string;
@@ -38,6 +41,8 @@ export interface SimChatProps {
   onCallEnd?: () => void;
   onNewCall?: () => void;
   onBack?: () => void;
+  /** Journey chat integration — items rendered before call history */
+  journey?: UseJourneyChatResult;
 }
 
 const AVATAR_COLORS = [
@@ -107,6 +112,7 @@ export function SimChat({
   onCallEnd,
   onNewCall,
   onBack,
+  journey,
 }: SimChatProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -669,6 +675,7 @@ export function SimChat({
 
       // Notify parent (refresh data, etc.)
       onCallEnd?.();
+      journey?.onCallEnd();
 
       // Standalone mode with no pipeline: navigate back
       if (!runPipeline && onBack) {
@@ -678,7 +685,7 @@ export function SimChat({
       showToast('Failed to save call');
       setIsEnding(false);
     }
-  }, [callId, callerId, messages, runPipeline, showToast, onCallEnd, onBack]);
+  }, [callId, callerId, messages, runPipeline, showToast, onCallEnd, onBack, journey]);
 
   const isEmbedded = mode === 'embedded';
 
@@ -720,6 +727,85 @@ export function SimChat({
           padding: '8px 12px 12px',
         }}
       >
+        {/* Journey items — surveys, onboarding, dividers */}
+        {journey?.items.map((item) => {
+          if (item.kind === 'text') {
+            return (
+              <MessageBubble
+                key={item.id}
+                role={item.role}
+                content={item.content}
+                timestamp={item.timestamp}
+                isRunContinuation={false}
+                isLastInRun={true}
+              />
+            );
+          }
+          if (item.kind === 'divider') {
+            return (
+              <div key={item.id} className="wa-date-chip" style={{ margin: '12px auto 8px' }}>
+                {item.label}
+              </div>
+            );
+          }
+          if (item.kind === 'survey_prompt') {
+            return (
+              <div key={item.id}>
+                {item.progress && (
+                  <div className="wa-date-chip wa-journey-progress" style={{ margin: '8px auto 4px', fontSize: 11 }}>
+                    {item.progress.label}
+                  </div>
+                )}
+                <MessageBubble
+                  role="assistant"
+                  content={item.step.prompt}
+                  timestamp={item.timestamp}
+                  isRunContinuation={false}
+                  isLastInRun={true}
+                />
+                {item.answered && (
+                  <MessageBubble
+                    role="user"
+                    content={item.answered.displayText}
+                    timestamp={item.timestamp}
+                    isRunContinuation={false}
+                    isLastInRun={true}
+                  />
+                )}
+              </div>
+            );
+          }
+          if (item.kind === 'next_stop') {
+            return (
+              <div key={item.id} style={{
+                display: 'flex',
+                justifyContent: 'center',
+                margin: '16px auto 8px',
+              }}>
+                <button
+                  className="wa-lobby-start-btn"
+                  onClick={item.action}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: 24,
+                    border: 'none',
+                    background: 'var(--wa-green-primary)',
+                    color: 'white',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    width: 'auto',
+                    height: 'auto',
+                  }}
+                >
+                  {item.label}
+                </button>
+              </div>
+            );
+          }
+          return null;
+        })}
+
         {/* History — past calls, one group per session */}
         {historyGroups.map((group, gi) => (
           <div key={`hg-${gi}`}>
@@ -745,8 +831,8 @@ export function SimChat({
           </div>
         ))}
 
-        {/* Lobby: green phone CTA to start a practice session */}
-        {callPhase === 'lobby' && (
+        {/* Lobby: green phone CTA to start a practice session (hidden during journey survey/onboarding) */}
+        {callPhase === 'lobby' && (!journey || journey.state === 'teaching' || journey.state === 'bypassed') && (
           <div style={{
             display: 'flex',
             flexDirection: 'column',
@@ -775,8 +861,8 @@ export function SimChat({
           </div>
         )}
 
-        {/* Loading spinner while checking for active call */}
-        {callPhase === 'loading' && (
+        {/* Loading spinner while checking for active call (or journey loading) */}
+        {callPhase === 'loading' && (!journey || journey.state === 'loading') && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
             <div className="hf-spinner" style={{ width: 28, height: 28 }} />
           </div>
@@ -919,8 +1005,21 @@ export function SimChat({
         />
       )}
 
-      {/* Input — text mode or voice mode */}
-      {callPhase === 'active' && (
+      {/* Input — survey mode, text mode, or voice mode */}
+      {journey?.activeSurveyStep && (
+        <div style={{
+          padding: '12px 16px',
+          borderTop: '1px solid var(--border-default)',
+          background: 'var(--surface-primary)',
+        }}>
+          <ChatSurveyInput
+            step={journey.activeSurveyStep}
+            onAnswer={journey.onSurveyAnswer}
+          />
+        </div>
+      )}
+
+      {callPhase === 'active' && !journey?.activeSurveyStep && (
         voiceMode.state !== 'off' ? (
           <VoicePanel
             voiceMode={voiceMode}

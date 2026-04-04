@@ -84,6 +84,13 @@
   --wa-chip-bg: color-mix(in srgb, var(--wa-surface-secondary) 90%, transparent);
 }
 
+/* Journey progress chip — smaller, muted */
+.wa-journey-progress {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
 /* Call ended marker — inline card like WhatsApp voice call entries */
 .wa-call-marker {
   align-self: center;

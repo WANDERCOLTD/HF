@@ -1,34 +1,27 @@
 /**
  * @api GET /api/student/survey
- * @auth VIEWER+
- * @query scope — PRE_SURVEY | POST_SURVEY
- * @desc Load existing survey answers for the authenticated student
+ * @auth session (STUDENT | OPERATOR+)
+ * @query scope — PRE_SURVEY | POST_SURVEY | PERSONALITY | PRE_TEST | etc.
+ * @query callerId — required for OPERATOR+ (admin viewing student)
+ * @desc Load existing survey answers for the caller
  *
  * @api POST /api/student/survey
- * @auth VIEWER+
+ * @auth session (STUDENT | OPERATOR+)
+ * @query callerId — required for OPERATOR+ (admin viewing student)
  * @body { scope: "PRE_SURVEY" | "POST_SURVEY", answers: Record<string, string | number> }
  * @desc Save (upsert) survey answers as CallerAttributes
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, isAuthError } from "@/lib/permissions";
+import { requireStudentOrAdmin, isStudentAuthError } from "@/lib/student-access";
 import { SURVEY_SCOPES } from "@/lib/learner/survey-keys";
 
 const VALID_SCOPES = new Set(Object.values(SURVEY_SCOPES));
 
-/** Resolve the LEARNER caller for the authenticated user */
-async function resolveCallerForUser(userId: string): Promise<string | null> {
-  const caller = await prisma.caller.findFirst({
-    where: { userId, role: "LEARNER" },
-    select: { id: true },
-  });
-  return caller?.id ?? null;
-}
-
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const auth = await requireAuth("VIEWER");
-  if (isAuthError(auth)) return auth.error;
+  const auth = await requireStudentOrAdmin(request);
+  if (isStudentAuthError(auth)) return auth.error;
 
   const scope = request.nextUrl.searchParams.get("scope");
   if (!scope || !VALID_SCOPES.has(scope)) {
@@ -38,13 +31,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const callerId = await resolveCallerForUser(auth.session.user.id);
-  if (!callerId) {
-    return NextResponse.json(
-      { ok: false, error: "No learner profile found" },
-      { status: 404 },
-    );
-  }
+  const { callerId } = auth;
 
   const attrs = await prisma.callerAttribute.findMany({
     where: { callerId, scope },
@@ -64,8 +51,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const auth = await requireAuth("VIEWER");
-  if (isAuthError(auth)) return auth.error;
+  const auth = await requireStudentOrAdmin(request);
+  if (isStudentAuthError(auth)) return auth.error;
 
   const body = await request.json() as {
     scope?: string;
@@ -87,13 +74,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const callerId = await resolveCallerForUser(auth.session.user.id);
-  if (!callerId) {
-    return NextResponse.json(
-      { ok: false, error: "No learner profile found" },
-      { status: 404 },
-    );
-  }
+  const { callerId } = auth;
 
   const upserts = Object.entries(answers).map(([key, value]) => {
     const isNum = typeof value === "number";

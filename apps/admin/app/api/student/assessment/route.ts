@@ -2,10 +2,11 @@
  * @api POST /api/student/assessment
  * @visibility internal
  * @scope student:write
- * @auth session (VIEWER+)
+ * @auth session (STUDENT | OPERATOR+)
  * @tags student, assessment
  * @description Submit pre-test or post-test answers. Stores each answer + correctness
  *   as CallerAttributes, computes score, and for post-test also computes uplift vs pre-test.
+ * @query callerId — required for OPERATOR+ (admin viewing student)
  * @body { scope: "PRE_TEST" | "POST_TEST", answers: Record<questionId, { answer: string, correct: boolean }>, questionIds: string[] }
  * @response 200 { ok, score, totalQuestions, correctCount, uplift? }
  * @response 400 { ok: false, error: "..." }
@@ -13,7 +14,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, isAuthError } from "@/lib/permissions";
+import { requireStudentOrAdmin, isStudentAuthError } from "@/lib/student-access";
 import { SURVEY_SCOPES } from "@/lib/learner/survey-keys";
 
 const VALID_SCOPES = new Set([SURVEY_SCOPES.PRE_TEST, SURVEY_SCOPES.POST_TEST]);
@@ -24,8 +25,8 @@ interface AnswerEntry {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const auth = await requireAuth("VIEWER");
-  if (isAuthError(auth)) return auth.error;
+  const auth = await requireStudentOrAdmin(request);
+  if (isStudentAuthError(auth)) return auth.error;
 
   const body = await request.json() as {
     scope?: string;
@@ -42,15 +43,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "Missing answers" }, { status: 400 });
   }
 
-  const caller = await prisma.caller.findFirst({
-    where: { userId: auth.session.user.id, role: "LEARNER" },
-    select: { id: true },
-  });
-  if (!caller) {
-    return NextResponse.json({ ok: false, error: "No learner profile found" }, { status: 404 });
-  }
-
-  const callerId = caller.id;
+  const { callerId } = auth;
   const totalQuestions = Object.keys(answers).length;
   const correctCount = Object.values(answers).filter((a) => a.correct).length;
   const score = totalQuestions > 0 ? correctCount / totalQuestions : 0;

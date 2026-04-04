@@ -707,6 +707,9 @@ async function handleWizardModeWithTools(
             const creationFields = {
               draftPlaybookId: data.playbookId,
               draftCallerId: data.callerId,
+              ...(data.callerName ? { draftCallerName: data.callerName } : {}),
+              ...(data.demoCallerId ? { draftDemoCallerId: data.demoCallerId } : {}),
+              ...(data.demoCallerName ? { draftDemoCallerName: data.demoCallerName } : {}),
               ...(data.domainId ? { draftDomainId: data.domainId } : {}),
               ...(data.subjectId ? { subjectId: data.subjectId } : {}),
               ...(data.lessonPlanPreview ? { lessonPlanPreview: data.lessonPlanPreview } : {}),

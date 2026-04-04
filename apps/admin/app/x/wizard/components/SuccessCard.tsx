@@ -7,10 +7,13 @@
  * Shows: view course, try practice call, copy link, create another, dashboard.
  */
 
-import { Check, Headphones, BookMarked, Link2, Plus } from "lucide-react";
+import { Check, Headphones, BookMarked, Link2, Plus, Users } from "lucide-react";
 
 interface SuccessCardProps {
   draftCallerId: string | undefined;
+  draftCallerName: string | undefined;
+  draftDemoCallerId: string | undefined;
+  draftDemoCallerName: string | undefined;
   draftPlaybookId: string | undefined;
   draftDomainId: string;
   communityJoinToken: string | undefined;
@@ -23,6 +26,9 @@ interface SuccessCardProps {
 
 export function SuccessCard({
   draftCallerId,
+  draftCallerName,
+  draftDemoCallerId,
+  draftDemoCallerName,
   draftPlaybookId,
   draftDomainId,
   communityJoinToken,
@@ -50,6 +56,37 @@ export function SuccessCard({
         >
           <BookMarked size={16} /> View Your Course
         </a>
+
+        {/* Test callers created for this course */}
+        {(draftCallerId || draftDemoCallerId) && (
+          <div className="cv4-success-callers">
+            <div className="cv4-success-callers-label">
+              <Users size={14} /> Test Learners
+            </div>
+            <div className="cv4-success-row">
+              {draftDemoCallerId && (
+                <a
+                  href={`/x/callers/${draftDemoCallerId}`}
+                  className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {draftDemoCallerName || "Demo Caller"} <span className="hf-text-xs hf-text-muted">(ready)</span>
+                </a>
+              )}
+              {draftCallerId && (
+                <a
+                  href={`/x/callers/${draftCallerId}`}
+                  className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {draftCallerName || "Test Caller"} <span className="hf-text-xs hf-text-muted">(new)</span>
+                </a>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Secondary row — sharing + sim call */}
         <div className="cv4-success-row">
