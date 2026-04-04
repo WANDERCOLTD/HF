@@ -14,12 +14,39 @@ import { PARAMS } from "@/lib/registry";
 import { getAudienceOption } from "./audience";
 import { SURVEY_SCOPES, PRE_SURVEY_KEYS, MID_SURVEY_KEYS } from "@/lib/learner/survey-keys";
 
+/** Keys whose presence (scope PRE) signals the learner already submitted onboarding data */
+const PRE_LOADED_KEYS: readonly string[] = [
+  PRE_SURVEY_KEYS.GOAL_TEXT,
+  PRE_SURVEY_KEYS.SUBMITTED_AT,
+];
+
+export type PersonalisationMode = "PRE_LOADED" | "COLD_START";
+
+/**
+ * Determine whether the caller already has pre-survey data.
+ * PRE_LOADED → name/goals known, skip discovery questions.
+ * COLD_START → no prior data, use discovery phase.
+ */
+export function detectPersonalisationMode(
+  callerAttributes: CallerAttributeData[],
+): PersonalisationMode {
+  const hasPreData = callerAttributes.some(
+    (a) =>
+      a.scope === SURVEY_SCOPES.PRE &&
+      PRE_LOADED_KEYS.includes(a.key),
+  );
+  const hasPersonality = callerAttributes.some(
+    (a) => a.scope === SURVEY_SCOPES.PERSONALITY,
+  );
+  return hasPreData || hasPersonality ? "PRE_LOADED" : "COLD_START";
+}
+
 registerTransform("computeQuickStart", (
   _rawData: any,
   context: AssembledContext,
 ) => {
   const { sharedState, loadedData, resolvedSpecs, sections } = context;
-  const { modules, isFirstCall, completedModules, moduleToReview, nextModule, thresholds } = sharedState;
+  const { modules, isFirstCall, completedModules, moduleToReview, nextModule, thresholds, currentSessionNumber, lessonPlanEntry } = sharedState;
   const caller = loadedData.caller;
   const learnerGoals = loadedData.goals;
   const identitySpec = resolvedSpecs.identitySpec;
@@ -168,6 +195,7 @@ registerTransform("computeQuickStart", (
       const priorKnowledge = get(PRE_SURVEY_KEYS.PRIOR_KNOWLEDGE);
       const concern = get(PRE_SURVEY_KEYS.CONCERN_TEXT);
       const confidence = get(PRE_SURVEY_KEYS.CONFIDENCE);
+      const motivation = get(PRE_SURVEY_KEYS.MOTIVATION);
 
       // Pre-test baseline score (0-1 scale)
       const preTestScore = getFromScope(SURVEY_SCOPES.PRE_TEST, "score");
@@ -181,6 +209,7 @@ registerTransform("computeQuickStart", (
         parts.push(`Baseline knowledge test: ${pct}%${pct >= 80 ? " (strong — can skip basics)" : pct <= 30 ? " (low — needs foundational support)" : ""}`);
       }
       if (concern) parts.push(`Concern: "${concern}"`);
+      if (motivation) parts.push(`Motivation: "${motivation}"`);
 
       return parts.length > 0 ? parts.join("\n") : null;
     })(),
@@ -348,6 +377,58 @@ registerTransform("computeQuickStart", (
       return subjectRef
         ? `Good to reconnect. Ready to pick up where we left off with ${subjectRef}?`
         : "Good to reconnect. Let's pick up where we left off.";
+    })(),
+
+    discovery_guidance: (() => {
+      if (!isFirstCall) return null;
+
+      const mode = detectPersonalisationMode(loadedData.callerAttributes);
+      if (mode === "PRE_LOADED") {
+        const getName = (): string | null => {
+          const attr = loadedData.callerAttributes.find(
+            (a: CallerAttributeData) => a.scope === SURVEY_SCOPES.PRE && a.key === PRE_SURVEY_KEYS.GOAL_TEXT,
+          );
+          return attr ? (getAttributeValue(attr) as string | null) : null;
+        };
+        const callerName = caller?.name ?? "this learner";
+        const goal = getName();
+        const parts = [`You already know this learner — their name is ${callerName}.`];
+        if (goal) parts.push(`Their goal: "${goal}".`);
+        parts.push("Do NOT ask for name or goals. Jump straight into teaching.");
+        return parts.join(" ");
+      }
+
+      // COLD_START — make discovery explicit
+      return "This is a new learner with no prior data. Start with a warm welcome, then discover their name, goals, and prior experience before teaching.";
+    })(),
+
+    offboarding_guidance: (() => {
+      // Detect final session: lesson plan type is 'offboarding' or 'consolidate',
+      // or all modules are completed with no next module
+      const sessionType = (lessonPlanEntry as any)?.type;
+      const isOffboardingSession = sessionType === "offboarding" || sessionType === "consolidate";
+      const allModulesComplete = modules.length > 0 && completedModules.size >= modules.length && !nextModule;
+
+      if (!isOffboardingSession && !allModulesComplete) return null;
+
+      const completedCount = completedModules.size;
+      const totalCount = modules.length;
+      const sessionNum = currentSessionNumber ?? "final";
+
+      const parts = [
+        `This is session ${sessionNum} — the final session for this learner.`,
+        `They have completed ${completedCount}/${totalCount} modules.`,
+        "",
+        "SESSION GOALS:",
+        "1. SUMMARISE: Briefly recap what they've learned across all sessions. Highlight key concepts and progress.",
+        "2. REFLECT: Ask them what was most valuable, what surprised them, and what they'd like to explore further.",
+        "3. CELEBRATE: Acknowledge their effort and growth. Be specific about improvements you've observed.",
+        "4. NEXT STEPS: Suggest concrete actions they can take to continue learning independently.",
+        "",
+        "Keep the tone warm and encouraging. This is a closing conversation, not a teaching session.",
+      ];
+
+      return parts.join("\n");
     })(),
   };
 });

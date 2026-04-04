@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { getTransform } from "@/lib/prompt/composition/TransformRegistry";
-import type { AssembledContext, CompositionSectionDef } from "@/lib/prompt/composition/types";
+import type { AssembledContext, CallerAttributeData, CompositionSectionDef } from "@/lib/prompt/composition/types";
+import { SURVEY_SCOPES, PRE_SURVEY_KEYS } from "@/lib/learner/survey-keys";
 
 // Mock the registry before importing quickstart (which imports PARAMS)
 vi.mock("@/lib/registry", () => ({
@@ -486,5 +487,124 @@ describe("computeQuickStart transform", () => {
     });
     const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
     expect(result.first_line).toBe("Shalom! I'm your Hebrew tutor.");
+  });
+
+  // ── Discovery guidance (PRE_LOADED vs COLD_START) ──────────────────
+
+  it("returns null discovery_guidance for non-first sessions", () => {
+    const ctx = makeContext(); // isFirstCall = false by default
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.discovery_guidance).toBeNull();
+  });
+
+  it("returns COLD_START guidance when no pre-survey attributes exist", () => {
+    const ctx = makeContext({
+      sharedState: { ...makeContext().sharedState, isFirstCall: true },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.discovery_guidance).toContain("new learner");
+    expect(result.discovery_guidance).toContain("discover their name");
+  });
+
+  it("returns PRE_LOADED guidance when caller has pre-survey goal", () => {
+    const preAttrs: CallerAttributeData[] = [
+      {
+        key: PRE_SURVEY_KEYS.GOAL_TEXT,
+        scope: SURVEY_SCOPES.PRE,
+        domain: null,
+        valueType: "STRING",
+        stringValue: "Pass my GCSE",
+        numberValue: null,
+        booleanValue: null,
+        jsonValue: null,
+        confidence: null,
+        sourceSpecSlug: null,
+      },
+    ];
+    const ctx = makeContext({
+      sharedState: { ...makeContext().sharedState, isFirstCall: true },
+      loadedData: {
+        ...makeContext().loadedData,
+        caller: { id: "c1", name: "Alice", email: null, phone: null, externalId: null, domain: null },
+        callerAttributes: preAttrs,
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.discovery_guidance).toContain("Do NOT ask for name or goals");
+    expect(result.discovery_guidance).toContain("Alice");
+    expect(result.discovery_guidance).toContain("Pass my GCSE");
+  });
+
+  it("returns PRE_LOADED guidance when caller has personality submission", () => {
+    const personalityAttr: CallerAttributeData[] = [
+      {
+        key: "type",
+        scope: SURVEY_SCOPES.PERSONALITY,
+        domain: null,
+        valueType: "STRING",
+        stringValue: "INTJ",
+        numberValue: null,
+        booleanValue: null,
+        jsonValue: null,
+        confidence: null,
+        sourceSpecSlug: null,
+      },
+    ];
+    const ctx = makeContext({
+      sharedState: { ...makeContext().sharedState, isFirstCall: true },
+      loadedData: {
+        ...makeContext().loadedData,
+        callerAttributes: personalityAttr,
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.discovery_guidance).toContain("Do NOT ask for name or goals");
+  });
+});
+
+// ── detectPersonalisationMode (pure function) ───────────────────────
+
+import { detectPersonalisationMode } from "@/lib/prompt/composition/transforms/quickstart";
+
+describe("detectPersonalisationMode", () => {
+  const makeAttr = (scope: string, key: string): CallerAttributeData => ({
+    key,
+    scope,
+    domain: null,
+    valueType: "STRING",
+    stringValue: "test",
+    numberValue: null,
+    booleanValue: null,
+    jsonValue: null,
+    confidence: null,
+    sourceSpecSlug: null,
+  });
+
+  it("returns COLD_START when no attributes", () => {
+    expect(detectPersonalisationMode([])).toBe("COLD_START");
+  });
+
+  it("returns COLD_START when only MID survey attributes exist", () => {
+    expect(detectPersonalisationMode([
+      makeAttr(SURVEY_SCOPES.MID, "progress_feeling"),
+    ])).toBe("COLD_START");
+  });
+
+  it("returns PRE_LOADED when PRE goal_text exists", () => {
+    expect(detectPersonalisationMode([
+      makeAttr(SURVEY_SCOPES.PRE, PRE_SURVEY_KEYS.GOAL_TEXT),
+    ])).toBe("PRE_LOADED");
+  });
+
+  it("returns PRE_LOADED when PRE submitted_at exists", () => {
+    expect(detectPersonalisationMode([
+      makeAttr(SURVEY_SCOPES.PRE, PRE_SURVEY_KEYS.SUBMITTED_AT),
+    ])).toBe("PRE_LOADED");
+  });
+
+  it("returns PRE_LOADED when PERSONALITY scope exists", () => {
+    expect(detectPersonalisationMode([
+      makeAttr(SURVEY_SCOPES.PERSONALITY, "type"),
+    ])).toBe("PRE_LOADED");
   });
 });
