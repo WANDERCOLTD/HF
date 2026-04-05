@@ -171,6 +171,12 @@
   font-style: italic;
 }
 
+.cl-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .cl-drill {
   color: var(--text-muted);
   display: flex;

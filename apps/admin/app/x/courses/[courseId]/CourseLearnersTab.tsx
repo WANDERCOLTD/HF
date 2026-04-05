@@ -202,6 +202,33 @@ export function CourseLearnersTab({ courseId }: Props): React.ReactElement {
     }
   }, [courseId]);
 
+  // ── Reset learner ──
+
+  const [resetting, setResetting] = useState<string | null>(null);
+
+  const handleReset = useCallback(async (callerId: string, name: string | null) => {
+    const displayName = name || 'this learner';
+    if (!confirm(`Reset ${displayName} to new learner?\n\nThis deletes all calls, scores, memories, and survey answers. They'll start from onboarding.`)) {
+      return;
+    }
+
+    setResetting(callerId);
+    try {
+      const res = await fetch(`/api/callers/${callerId}/reset`, { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        setMessage({ type: 'success', text: `${displayName} reset — they'll see onboarding on next visit` });
+        fetchLearners();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to reset learner' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Network error' });
+    } finally {
+      setResetting(null);
+    }
+  }, [fetchLearners]);
+
   // ── Filter ──
 
   const filtered = learners.filter((l) => {
@@ -345,7 +372,17 @@ export function CourseLearnersTab({ courseId }: Props): React.ReactElement {
                       <td>{relativeDate(l.joinedAt)}</td>
                       <td>{l.callCount}</td>
                       <td>{relativeDate(l.lastCallAt)}</td>
-                      <td>
+                      <td className="cl-actions">
+                        <button
+                          className="hf-btn hf-btn-xs"
+                          onClick={() => handleReset(l.callerId, l.name)}
+                          disabled={resetting === l.callerId}
+                          title="Reset to new learner"
+                        >
+                          {resetting === l.callerId
+                            ? <div className="hf-spinner" style={{ width: 12, height: 12 }} />
+                            : <RotateCcw size={12} />}
+                        </button>
                         <Link href={`/x/callers/${l.callerId}`} className="cl-drill">
                           <ExternalLink size={12} />
                         </Link>
