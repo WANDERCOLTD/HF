@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import { TEACHING_PROFILE_KEYS, type TeachingProfileKey } from "@/lib/content-trust/teaching-profiles";
+import { TEACHING_PROFILE_KEYS, suggestTeachingProfile, type TeachingProfileKey } from "@/lib/content-trust/teaching-profiles";
 
 /**
  * @api GET /api/subjects
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
         qualificationBody,
         qualificationRef,
         qualificationLevel,
-        teachingProfile: teachingProfile || undefined,
+        teachingProfile: teachingProfile || suggestTeachingProfile(name) || undefined,
       },
     });
 

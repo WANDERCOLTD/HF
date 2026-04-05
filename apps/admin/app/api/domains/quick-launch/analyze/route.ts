@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { type AnalysisPreview } from "@/lib/domain/quick-launch";
 import { generateIdentityFromAssertions } from "@/lib/domain/generate-identity";
+import { suggestTeachingProfile } from "@/lib/content-trust/teaching-profiles";
 import { startTaskTracking, updateTaskProgress } from "@/lib/ai/task-guidance";
 
 /**
@@ -159,6 +160,7 @@ export async function POST(req: NextRequest) {
           name: subjectName.trim(),
           qualificationRef: qualificationRef?.trim() || null,
           isActive: true,
+          teachingProfile: suggestTeachingProfile(subjectName.trim()),
         },
       });
     }

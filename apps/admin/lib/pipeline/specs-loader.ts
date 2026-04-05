@@ -274,6 +274,74 @@ export async function getPlaybookSpecs(
 }
 
 /**
+ * Resolve the teaching profile for a caller's enrolled course.
+ * Uses a single query: caller → enrollment → playbook → subject.
+ * Returns null if no profile is set (knowledge courses typically have one).
+ */
+export async function resolveCallerTeachingProfile(
+  callerId: string,
+  log: PipelineLogger,
+): Promise<string | null> {
+  const enrollment = await prisma.callerPlaybook.findFirst({
+    where: { callerId, status: "ACTIVE" },
+    select: {
+      playbook: {
+        select: {
+          subjects: {
+            select: {
+              subject: { select: { teachingProfile: true } },
+            },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+
+  const profile = enrollment?.playbook?.subjects?.[0]?.subject?.teachingProfile ?? null;
+  if (profile) {
+    log.info(`Caller teaching profile: ${profile}`);
+  }
+  return profile;
+}
+
+/**
+ * Filter specs by teaching profile condition.
+ * Specs with no `profileCondition` in their config run unconditionally (e.g. PERS-001).
+ * Specs with `profileCondition: ["comprehension-led"]` only run for that profile.
+ */
+export async function filterByTeachingProfile(
+  specIds: string[],
+  callerProfile: string | null,
+  log: PipelineLogger,
+): Promise<string[]> {
+  if (specIds.length === 0) return specIds;
+
+  // Load configs for specs that might have profileCondition
+  const specs = await prisma.analysisSpec.findMany({
+    where: { id: { in: specIds } },
+    select: { id: true, slug: true, config: true },
+  });
+
+  return specs
+    .filter((spec) => {
+      const specConfig = spec.config as Record<string, unknown> | null;
+      const condition = specConfig?.profileCondition as string[] | undefined;
+      if (!condition || !Array.isArray(condition)) return true; // no condition = always run
+      if (!callerProfile) {
+        log.info(`Skipping "${spec.slug}" — requires profile ${condition.join("/")} but caller has none`);
+        return false;
+      }
+      if (!condition.includes(callerProfile)) {
+        log.info(`Skipping "${spec.slug}" — requires ${condition.join("/")} but caller is ${callerProfile}`);
+        return false;
+      }
+      return true;
+    })
+    .map((s) => s.id);
+}
+
+/**
  * Batch-load parameters by IDs in a single query instead of N queries.
  * Reduces DB round-trips from O(N) to O(1).
  */

@@ -766,6 +766,11 @@ async function activateFeatureSet(featureSetId: string): Promise<SeedSpecResult>
     config.dependsOn = rawSpecData.context.dependsOn;
   }
 
+  // Copy profileCondition into config for teaching-profile-based spec filtering
+  if (config && rawSpecData?.profileCondition && Array.isArray(rawSpecData.profileCondition)) {
+    config.profileCondition = rawSpecData.profileCondition;
+  }
+
   // Compile the spec to generate promptTemplate from rawSpec in database
   // rawSpec is required - filesystem is only used during seeding, not activation
   let promptTemplate: string | null = null;

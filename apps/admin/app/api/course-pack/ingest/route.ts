@@ -10,6 +10,7 @@ import { checkAutoTriggerCurriculum } from "@/lib/jobs/auto-trigger";
 import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
 import { findDuplicateSource } from "@/lib/content-trust/dedup-source";
 import { validateManifest } from "@/lib/content-trust/validate-manifest";
+import { suggestTeachingProfile } from "@/lib/content-trust/teaching-profiles";
 import type { SendIngestEvent } from "@/lib/content-trust/ingest-events";
 import { logAI } from "@/lib/logger";
 import pLimit from "p-limit";
@@ -594,7 +595,7 @@ async function resolvePrimarySubject(
 
   if (!subject) {
     subject = await prisma.subject.create({
-      data: { slug, name: nameOrDiscipline, isActive: true },
+      data: { slug, name: nameOrDiscipline, isActive: true, teachingProfile: suggestTeachingProfile(nameOrDiscipline) },
       select: { id: true, slug: true, name: true, isActive: true },
     });
   }

@@ -15,6 +15,7 @@ import { scaffoldDomain } from "@/lib/domain/scaffold";
 import { loadPersonaFlowPhases, loadPersonaArchetype, loadPersonaWelcomeTemplate } from "@/lib/domain/quick-launch";
 import { applyBehaviorTargets } from "@/lib/domain/agent-tuning";
 import { enrollCaller, enrollCallerInDomainPlaybooks } from "@/lib/enrollment";
+import { suggestTeachingProfile } from "@/lib/content-trust/teaching-profiles";
 import { updateTaskProgress, completeTask, failTask } from "@/lib/ai/task-guidance";
 import type { ProgressEvent, ProgressCallback } from "./types";
 export type { ProgressEvent, ProgressCallback };
@@ -245,6 +246,7 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
             slug: disciplineSlug,
             name: ctx.input.subjectDiscipline,
             isActive: true,
+            teachingProfile: suggestTeachingProfile(ctx.input.subjectDiscipline),
           },
         });
       }
@@ -259,6 +261,7 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
             slug: courseSubjectSlug,
             name: ctx.input.courseName,
             isActive: true,
+            teachingProfile: suggestTeachingProfile(ctx.input.courseName),
           },
         });
       }

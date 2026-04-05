@@ -46,7 +46,7 @@ import { logAI } from "@/lib/logger";
 import { createLogger, type PipelineLogger } from "@/lib/pipeline/logger";
 import { mapToMemoryCategory } from "@/lib/pipeline/memory";
 import { loadGuardrails, type GuardrailsConfig } from "@/lib/pipeline/guardrails";
-import { getTranscriptLimit, getSystemSpecs, getSpecsByOutputType, getPlaybookSpecs, batchLoadParameters } from "@/lib/pipeline/specs-loader";
+import { getTranscriptLimit, getSystemSpecs, getSpecsByOutputType, getPlaybookSpecs, batchLoadParameters, resolveCallerTeachingProfile, filterByTeachingProfile } from "@/lib/pipeline/specs-loader";
 import type { SpecConfig } from "@/lib/types/json-fields";
 
 /**
@@ -276,8 +276,12 @@ async function runBatchedCallerAnalysis(
     totalUnique: combinedSpecs.length
   });
 
-  const measureSpecIds = combinedSpecs.filter(s => s.outputType === "MEASURE").map(s => s.id);
-  const learnSpecIds = combinedSpecs.filter(s => s.outputType === "LEARN").map(s => s.id);
+  // Filter profile-conditional specs (e.g. COMP-MEASURE-001 only runs for comprehension-led)
+  const callerProfile = await resolveCallerTeachingProfile(callerId, log);
+  const allMeasureIds = combinedSpecs.filter(s => s.outputType === "MEASURE").map(s => s.id);
+  const allLearnIds = combinedSpecs.filter(s => s.outputType === "LEARN").map(s => s.id);
+  const measureSpecIds = await filterByTeachingProfile(allMeasureIds, callerProfile, log);
+  const learnSpecIds = await filterByTeachingProfile(allLearnIds, callerProfile, log);
 
   // Load full MEASURE specs with triggers/actions
   const measureSpecs = measureSpecIds.length > 0

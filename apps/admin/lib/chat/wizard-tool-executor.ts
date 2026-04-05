@@ -846,8 +846,14 @@ export async function executeWizardTool(
         const subjectSlug = `${domainRow!.slug}-${slugify(subjectDiscipline, { lower: true, strict: true })}`;
         let subject = await prisma.subject.findFirst({ where: { slug: subjectSlug } });
         if (!subject) {
+          const { suggestTeachingProfile } = await import("@/lib/content-trust/teaching-profiles");
           subject = await prisma.subject.create({
-            data: { slug: subjectSlug, name: subjectDiscipline, isActive: true },
+            data: {
+              slug: subjectSlug,
+              name: subjectDiscipline,
+              isActive: true,
+              teachingProfile: suggestTeachingProfile(subjectDiscipline),
+            },
           });
         }
 
