@@ -465,3 +465,42 @@
   font-style: italic;
   color: var(--wa-text-secondary);
 }
+
+/* ── Mobile: full-screen WhatsApp feel ── */
+
+@media (max-width: 767px) {
+  .cs-container {
+    max-width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+    max-height: 100dvh;
+  }
+
+  /* Bigger touch targets on mobile */
+  .cs-option-btn {
+    padding: 12px 20px;
+    font-size: 15px;
+  }
+
+  .cs-star-btn {
+    padding: 12px;
+  }
+
+  .cs-tf-btn {
+    padding: 16px 36px;
+    font-size: 16px;
+  }
+
+  .cs-textarea {
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+
+  /* Safe area padding for notched phones */
+  .cs-complete {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .cs-progress {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+}

@@ -338,7 +338,7 @@ export function WelcomeSurveyFlow({ callerId, onComplete, onAlreadyDone }: Welco
   if (currentPhase === "personality") {
     return (
       <div className="welcome-page">
-        <div style={{ maxWidth: 520, margin: "0 auto", padding: "0 16px" }}>
+        <div className="welcome-phase-wrap">
           {phaseIndicator}
         </div>
         <ChatSurvey
@@ -356,7 +356,7 @@ export function WelcomeSurveyFlow({ callerId, onComplete, onAlreadyDone }: Welco
   if (currentPhase === "pre_test") {
     return (
       <div className="welcome-page">
-        <div style={{ maxWidth: 520, margin: "0 auto", padding: "0 16px" }}>
+        <div className="welcome-phase-wrap">
           {phaseIndicator}
         </div>
         <ChatSurvey

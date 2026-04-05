@@ -14,6 +14,22 @@
   width: 100%;
 }
 
+/* Mobile: full-screen WhatsApp feel — no card, no padding */
+@media (max-width: 767px) {
+  .welcome-page {
+    padding: 0;
+    background: var(--wa-bg);
+  }
+
+  .welcome-page .cs-container {
+    height: 100dvh;
+    height: 100svh; /* fallback for older browsers */
+    max-width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
 .welcome-loading {
   display: flex;
   align-items: center;
@@ -28,6 +44,12 @@
   gap: 8px;
   justify-content: center;
   margin-bottom: 12px;
+}
+
+@media (max-width: 767px) {
+  .welcome-phases {
+    display: none;
+  }
 }
 
 .welcome-phase-pill {
@@ -45,6 +67,12 @@
   background: var(--accent-primary);
   color: var(--surface-primary);
   border-color: var(--accent-primary);
+}
+
+.welcome-phase-wrap {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 0 16px;
 }
 
 .welcome-phase-pill--done {
