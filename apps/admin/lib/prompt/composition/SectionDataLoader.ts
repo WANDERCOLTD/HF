@@ -888,6 +888,8 @@ registerLoader("curriculumQuestions", async (_callerId, loaderConfig) => {
       chapter: true,
       learningOutcomeRef: true,
       difficulty: true,
+      skillRef: true,
+      metadata: true,
     },
   });
 });

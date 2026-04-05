@@ -12,6 +12,7 @@ import { saveQuestions } from "@/lib/content-trust/save-questions";
 import type { ExtractedQuestion } from "@/lib/content-trust/extractors/base-extractor";
 import { createHash } from "crypto";
 import { jsonrepair } from "jsonrepair";
+import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -19,6 +20,14 @@ import { jsonrepair } from "jsonrepair";
 
 const DEFAULT_COUNT = 8;
 const CALL_POINT = "content-trust.generate-mcq";
+
+/** Blocklist patterns that indicate framework/rubric leakage in generated questions */
+const FRAMEWORK_BLOCKLIST = [
+  /\b(skill\s*framework|assessment\s*framework|rubric|marking\s*criteria)\b/i,
+  /\b(emerging|developing|secure)\b.*\b(level|tier|band|stage)\b/i,
+  /\baccording to the (skill|assessment|marking)\b/i,
+  /\bSKILL-\d{2}\b/,
+];
 
 // ---------------------------------------------------------------------------
 // Types
@@ -91,6 +100,7 @@ export async function generateMcqsForSource(
   let assertions = await prisma.contentAssertion.findMany({
     where: {
       sourceId,
+      category: { notIn: [...INSTRUCTION_CATEGORIES] },
       ...(options?.subjectSourceId ? { subjectSourceId: options.subjectSourceId } : {}),
     },
     select: assertionSelect,
@@ -101,7 +111,7 @@ export async function generateMcqsForSource(
   // Fallback: if scoped query found too few, retry without subject scope
   if (assertions.length < 3 && options?.subjectSourceId) {
     assertions = await prisma.contentAssertion.findMany({
-      where: { sourceId },
+      where: { sourceId, category: { notIn: [...INSTRUCTION_CATEGORIES] } },
       select: assertionSelect,
       orderBy: { createdAt: "asc" },
       take: 100,
@@ -139,6 +149,13 @@ General rules:
 - Spread across different topics/chapters
 - Keep questions clear and concise
 - Include a brief 1-sentence explanation for the correct answer
+
+NEVER generate questions about:
+- Assessment frameworks, rubrics, or skill levels (e.g. "Emerging", "Developing", "Secure")
+- The structure or design of the curriculum itself
+- How students are assessed or graded
+- Internal skill codes (e.g. SKILL-01, SKILL-02)
+Questions must test the SUBJECT MATTER, not knowledge of the teaching system.
 
 Return ONLY a JSON array of objects:
 [{
@@ -218,14 +235,24 @@ Return ONLY a JSON array of objects:
       };
     });
 
-  if (questions.length === 0) {
+  // Filter out questions that leak framework/rubric language
+  const cleanQuestions = questions.filter((q) => {
+    const blocked = FRAMEWORK_BLOCKLIST.some((re) => re.test(q.questionText));
+    if (blocked) {
+      console.warn(`[generate-mcqs] Dropped framework-language question: "${q.questionText.slice(0, 80)}..."`);
+    }
+    return !blocked;
+  });
+
+  if (cleanQuestions.length === 0) {
     return { created: 0, duplicatesSkipped: 0, skipped: true, skipReason: "no_valid_mcqs" };
   }
 
-  const saveResult = await saveQuestions(sourceId, questions, options?.subjectSourceId);
+  const saveResult = await saveQuestions(sourceId, cleanQuestions, options?.subjectSourceId);
 
+  const dropped = questions.length - cleanQuestions.length;
   console.log(
-    `[generate-mcqs] Source ${sourceId}: generated ${questions.length}, saved ${saveResult.created}, dupes ${saveResult.duplicatesSkipped}`,
+    `[generate-mcqs] Source ${sourceId}: generated ${questions.length}, saved ${saveResult.created}, dupes ${saveResult.duplicatesSkipped}${dropped > 0 ? `, blocked ${dropped} framework-language` : ""}`,
   );
 
   return {

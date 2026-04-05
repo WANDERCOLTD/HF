@@ -490,15 +490,35 @@ registerTransform("renderTeachingContent", (
     ? allQuestions.filter((q) => (sessionQuestionIds as string[]).includes(q.id))
     : allQuestions;
 
-  // Render practice questions section if available
+  // Split questions by type: TUTOR_QUESTION (skill-mapped with tiered responses) vs MCQ/TRUE_FALSE (practice)
+  const tutorQuestions = questions.filter((q) => q.questionType === "TUTOR_QUESTION");
+  const practiceQuestions = questions.filter((q) => q.questionType !== "TUTOR_QUESTION");
+
   let questionsSection = "";
-  if (questions.length > 0) {
-    const qLines = questions.map((q, i) => {
+
+  // Render tutor questions with proof-point context
+  if (tutorQuestions.length > 0) {
+    const tqLines = tutorQuestions.map((q, i) => {
+      const meta = q.metadata as { assessmentNote?: string; modelResponses?: Record<string, { response: string; tutorMove: string }> } | null;
+      const skillLabel = q.skillRef?.replace(/^SKILL-\d+:/, "") || "General";
+      let line = `${i + 1}. [${skillLabel}] "${q.questionText}"`;
+      if (meta?.assessmentNote) line += `\n   Tests: ${meta.assessmentNote}`;
+      if (meta?.modelResponses?.emerging?.tutorMove) {
+        line += `\n   If struggling: "${meta.modelResponses.emerging.tutorMove}"`;
+      }
+      return line;
+    });
+    questionsSection += `\n\nTUTOR QUESTIONS (skill-mapped, ${tutorQuestions.length}):\nAsk these to assess specific skills. Adapt your follow-up based on the student's response quality.\n${tqLines.join("\n")}`;
+  }
+
+  // Render practice MCQs
+  if (practiceQuestions.length > 0) {
+    const pqLines = practiceQuestions.map((q, i) => {
       let line = `${i + 1}. ${q.questionText}`;
       if (q.correctAnswer) line += ` [Answer: ${q.correctAnswer}]`;
       return line;
     });
-    questionsSection = `\n\nPRACTICE QUESTIONS (${questions.length}):\nUse these to check understanding during the session. Don't read them verbatim — weave them naturally into conversation.\n${qLines.join("\n")}`;
+    questionsSection += `\n\nPRACTICE QUESTIONS (${practiceQuestions.length}):\nUse these to check understanding during the session. Don't read them verbatim — weave them naturally into conversation.\n${pqLines.join("\n")}`;
   }
 
   // Append vocabulary and questions to teaching points

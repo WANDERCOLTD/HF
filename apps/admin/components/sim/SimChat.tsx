@@ -191,7 +191,7 @@ export function SimChat({
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isStreaming, artifacts, actions]);
+  }, [messages, isStreaming, artifacts, actions, journey?.items]);
 
   // Poll for server-side messages (teacher interjections only)
   // AI-shared media is now handled via the X-Shared-Media response header

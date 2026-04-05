@@ -31,6 +31,7 @@ export default function JoinPage() {
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [joining, setJoining] = useState(false);
   const [joined, setJoined] = useState(false);
+  const [returning, setReturning] = useState(false);
 
   // Track whether all params were pre-filled for auto-submit
   const autoSubmitRef = useRef(
@@ -81,6 +82,7 @@ export default function JoinPage() {
 
       if (data.ok) {
         setJoined(true);
+        if (data.alreadyEnrolled) setReturning(true);
         setTimeout(() => {
           router.push(data.callerId ? `/x/sim/${data.callerId}` : (data.redirect || "/x/sim"));
         }, 1500);
@@ -132,12 +134,14 @@ export default function JoinPage() {
           </div>
         ) : joined ? (
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>{returning ? '👋' : '🎉'}</div>
             <h2 style={{ fontSize: 20, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>
-              Welcome!
+              {returning ? "Welcome back!" : "Welcome!"}
             </h2>
             <p style={{ fontSize: 14, color: "var(--text-muted)" }}>
-              You&apos;ve joined {classroom?.name}. Redirecting...
+              {returning
+                ? "Picking up where you left off. Redirecting..."
+                : <>You&apos;ve joined {classroom?.name}. Redirecting...</>}
             </p>
           </div>
         ) : classroom ? (

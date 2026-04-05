@@ -170,6 +170,8 @@ export interface CurriculumQuestionData {
   chapter: string | null;
   learningOutcomeRef: string | null;
   difficulty: number | null;
+  skillRef: string | null;
+  metadata: any;
 }
 
 export interface CurriculumVocabularyData {

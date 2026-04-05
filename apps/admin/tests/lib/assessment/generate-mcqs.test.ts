@@ -159,6 +159,91 @@ describe("generate-mcqs", () => {
       expect(result.skipReason).toBe("ai_no_response");
     });
 
+    it("excludes instruction-category assertions from AI prompt", async () => {
+      // Mix of student content and instruction categories
+      const assertions = [
+        { id: "a1", assertion: "Photosynthesis converts light to energy", category: "fact", chapter: "Ch1", section: null },
+        { id: "a2", assertion: "Cells divide through mitosis", category: "definition", chapter: "Ch2", section: null },
+        { id: "a3", assertion: "Students at Emerging level can identify explicit info", category: "assessment_guidance", chapter: null, section: null },
+        { id: "a4", assertion: "Session 1 covers retrieval skills", category: "session_metadata", chapter: null, section: null },
+        { id: "a5", assertion: "SKILL-01 focuses on recall", category: "skill_description", chapter: null, section: null },
+        { id: "a6", assertion: "Water boils at 100C", category: "fact", chapter: "Ch3", section: null },
+      ];
+      // The query uses notIn filter — mock should only return non-instruction assertions
+      mocks.prisma.contentAssertion.findMany.mockResolvedValue(
+        assertions.filter((a) => !["assessment_guidance", "session_metadata", "skill_description"].includes(a.category)),
+      );
+      mocks.ai.mockResolvedValue({
+        content: JSON.stringify([{
+          question: "What does photosynthesis convert?",
+          options: [
+            { label: "A", text: "Light to energy", isCorrect: true },
+            { label: "B", text: "Water to air", isCorrect: false },
+          ],
+          correctAnswer: "A",
+        }]),
+      });
+      mocks.save.mockResolvedValue({ created: 1, duplicatesSkipped: 0 });
+
+      const result = await generateMcqsForSource("src-1");
+      expect(result.skipped).toBe(false);
+
+      // Verify the AI prompt only contains subject matter, not framework language
+      const aiCall = mocks.ai.mock.calls[0][0];
+      const userMessage = aiCall.messages.find((m: any) => m.role === "user")?.content;
+      expect(userMessage).toContain("Photosynthesis");
+      expect(userMessage).toContain("Water boils");
+      expect(userMessage).not.toContain("Emerging level");
+      expect(userMessage).not.toContain("session_metadata");
+      expect(userMessage).not.toContain("SKILL-01");
+    });
+
+    it("drops questions containing framework/rubric language", async () => {
+      const assertions = Array.from({ length: 5 }, (_, i) => ({
+        id: `a${i}`, assertion: `Fact ${i}`, category: "fact", chapter: null, section: null,
+      }));
+      mocks.prisma.contentAssertion.findMany.mockResolvedValue(assertions);
+
+      // AI returns a mix of good and bad questions
+      mocks.ai.mockResolvedValue({
+        content: JSON.stringify([
+          {
+            question: "What does photosynthesis produce?",
+            options: [
+              { label: "A", text: "Oxygen", isCorrect: true },
+              { label: "B", text: "Carbon dioxide", isCorrect: false },
+            ],
+            correctAnswer: "A",
+          },
+          {
+            question: "According to the skill framework, what characterizes a student at the Emerging level?",
+            options: [
+              { label: "A", text: "Can recall", isCorrect: false },
+              { label: "B", text: "Describes plot events", isCorrect: true },
+            ],
+            correctAnswer: "B",
+          },
+          {
+            question: "What does SKILL-02 assess in this assessment framework?",
+            options: [
+              { label: "A", text: "Inference", isCorrect: true },
+              { label: "B", text: "Recall", isCorrect: false },
+            ],
+            correctAnswer: "A",
+          },
+        ]),
+      });
+      mocks.save.mockResolvedValue({ created: 1, duplicatesSkipped: 0 });
+
+      const result = await generateMcqsForSource("src-1");
+      expect(result.skipped).toBe(false);
+
+      // Only the clean question should be saved
+      const savedQuestions = mocks.save.mock.calls[0][1];
+      expect(savedQuestions).toHaveLength(1);
+      expect(savedQuestions[0].questionText).toBe("What does photosynthesis produce?");
+    });
+
     it("deduplicates via contentHash", async () => {
       const assertions = Array.from({ length: 5 }, (_, i) => ({
         id: `a${i}`, assertion: `Fact ${i}`, category: "concept", chapter: null, section: null,

@@ -17,6 +17,7 @@ interface PastCall {
 
 interface CallerInfo {
   name: string;
+  role: string;
   domain?: { name: string; slug: string } | null;
   pastCalls: PastCall[];
 }
@@ -53,7 +54,8 @@ export default function SimConversationPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Journey chat — unified WhatsApp-style survey/onboarding/teaching flow
-  const journey = useJourneyChat({ callerId, forceFirstCall });
+  // Only runs for LEARNER callers; waits for caller data before deciding.
+  const journey = useJourneyChat({ callerId, forceFirstCall, callerRole: caller?.role });
 
   useEffect(() => {
     let cancelled = false;
@@ -83,6 +85,7 @@ export default function SimConversationPage() {
             .sort((a: PastCall, b: PastCall) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
           setCaller({
             name: data.caller.name || 'Unknown',
+            role: data.caller.role || 'SIM',
             domain: data.caller.domain,
             pastCalls: calls,
           });

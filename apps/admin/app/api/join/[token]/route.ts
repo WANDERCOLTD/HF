@@ -156,16 +156,62 @@ export async function POST(
         cohortGroupId: cohort.id,
         caller: { userId: existingUser.id },
       },
+      select: { callerId: true },
     });
-    const existingCaller = existingMembership || await prisma.caller.findFirst({
-      where: { userId: existingUser.id, cohortGroupId: cohort.id },
-    });
+    const existingCallerDirect = !existingMembership
+      ? await prisma.caller.findFirst({
+          where: { userId: existingUser.id, cohortGroupId: cohort.id },
+          select: { id: true },
+        })
+      : null;
 
-    if (existingCaller) {
-      return NextResponse.json(
-        { ok: false, error: "An account with this email already exists. Please sign in instead.", redirect: "/login" },
-        { status: 409 }
-      );
+    const returningCallerId = existingMembership?.callerId ?? existingCallerDirect?.id;
+
+    if (returningCallerId) {
+      // Returning learner — sign them in and redirect to their journey
+      const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+      if (!secret) {
+        return NextResponse.json(
+          { ok: false, error: "Server configuration error" },
+          { status: 500 }
+        );
+      }
+
+      const returningJwt = await encode({
+        token: {
+          sub: existingUser.id,
+          id: existingUser.id,
+          email: existingUser.email,
+          name: existingUser.name,
+          role: existingUser.role,
+        },
+        secret,
+        salt: "authjs.session-token",
+        maxAge: 30 * 24 * 60 * 60,
+      });
+
+      const returningResponse = NextResponse.json({
+        ok: true,
+        alreadyEnrolled: true,
+        message: "Welcome back! Picking up where you left off.",
+        callerId: returningCallerId,
+        redirect: `/x/sim/${returningCallerId}`,
+      });
+
+      const isProductionReturning = process.env.NODE_ENV === "production";
+      const cookieNameReturning = isProductionReturning
+        ? "__Secure-authjs.session-token"
+        : "authjs.session-token";
+
+      returningResponse.cookies.set(cookieNameReturning, returningJwt, {
+        httpOnly: true,
+        secure: isProductionReturning,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60,
+      });
+
+      return returningResponse;
     }
 
     // Add existing user to this cohort

@@ -73,6 +73,8 @@ export interface UseJourneyChatResult {
 interface UseJourneyChatOptions {
   callerId: string;
   forceFirstCall?: boolean;
+  /** Caller's role from API — journey only runs for LEARNER callers. Undefined = still loading. */
+  callerRole?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -134,7 +136,7 @@ function buildPostSteps(configs: SurveyStepConfig[]): SurveyStep[] {
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useJourneyChat({ callerId, forceFirstCall }: UseJourneyChatOptions): UseJourneyChatResult {
+export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJourneyChatOptions): UseJourneyChatResult {
   const [items, setItems] = useState<ChatItem[]>([]);
   const [state, setState] = useState<JourneyState>('loading');
   const [activeSurveyStep, setActiveSurveyStep] = useState<SurveyStep | null>(null);
@@ -491,33 +493,31 @@ export function useJourneyChat({ callerId, forceFirstCall }: UseJourneyChatOptio
     // Push user answer bubble
     pushItems(textItem('user', displayText));
 
-    // Advance
+    // Advance after a short delay — conversational feel
     surveyIndexRef.current++;
-    const result = advanceSurveyStep();
+    setTimeout(() => {
+      const result = advanceSurveyStep();
 
-    if (result === 'complete') {
-      // Submit and continue
-      (async () => {
-        await submitSurvey();
+      if (result === 'complete') {
+        (async () => {
+          await submitSurvey();
 
-        // Check if there's a follow-on phase (personality → pre-test)
-        if (surveyPhaseRef.current === 'personality') {
-          // Check for pre-test
-          try {
-            const preTestRes = await fetch(url('/api/student/assessment-questions', callerId, { type: 'pre_test' }));
-            const preTestData = await preTestRes.json();
-            if (preTestData.ok && !preTestData.skipped && preTestData.questions?.length > 0) {
-              pushItems(dividerItem('Knowledge Check'));
-              startSurveyPhase('pre_test', buildPreTestSteps(preTestData.questions, subjectRef.current), preTestData.questionIds);
-              return;
-            }
-          } catch {}
-        }
+          if (surveyPhaseRef.current === 'personality') {
+            try {
+              const preTestRes = await fetch(url('/api/student/assessment-questions', callerId, { type: 'pre_test' }));
+              const preTestData = await preTestRes.json();
+              if (preTestData.ok && !preTestData.skipped && preTestData.questions?.length > 0) {
+                pushItems(dividerItem('Knowledge Check'));
+                startSurveyPhase('pre_test', buildPreTestSteps(preTestData.questions, subjectRef.current), preTestData.questionIds);
+                return;
+              }
+            } catch {}
+          }
 
-        // No follow-on — re-resolve
-        await resolveJourneyPosition();
-      })();
-    }
+          await resolveJourneyPosition();
+        })();
+      }
+    }, 400);
   }, [callerId, pushItems, advanceSurveyStep, submitSurvey, startSurveyPhase, resolveJourneyPosition]);
 
   // ── Handle call end (from SimChat) ──
@@ -537,14 +537,23 @@ export function useJourneyChat({ callerId, forceFirstCall }: UseJourneyChatOptio
   }, [pushItems, resolveJourneyPosition]);
 
   // ── Init ──
+  // Wait for callerRole before deciding. Only LEARNER callers have a journey.
   useEffect(() => {
     if (forceFirstCall) {
       setState('bypassed');
       return;
     }
+    if (callerRole === undefined) {
+      // Still loading caller data — stay in 'loading' (no API calls yet)
+      return;
+    }
+    if (callerRole !== 'LEARNER') {
+      setState('bypassed');
+      return;
+    }
     resolveJourneyPosition();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [callerRole, forceFirstCall]);
 
   return {
     items,

@@ -50,6 +50,9 @@ export const INSTRUCTION_CATEGORIES = [
   "learner_model",
   "session_override",
   "content_strategy",
+  "session_metadata",
+  "skill_description",
+  "assessment_guidance",
 ] as const;
 
 export type InstructionCategory = typeof INSTRUCTION_CATEGORIES[number];
