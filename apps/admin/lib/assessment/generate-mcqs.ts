@@ -81,11 +81,26 @@ export async function isLinkedSource(sourceId: string): Promise<boolean> {
 // Generate MCQs from assertions
 // ---------------------------------------------------------------------------
 
+/** Document types that should never generate student-facing MCQs */
+const MCQ_EXCLUDED_DOC_TYPES = new Set([
+  "COURSE_REFERENCE",  // Teacher guide — instructions, not student content
+  "QUESTION_BANK",     // Already has TUTOR_QUESTION items
+]);
+
 export async function generateMcqsForSource(
   sourceId: string,
   options?: { count?: number; userId?: string; subjectSourceId?: string },
 ): Promise<GenerateMcqsResult> {
   const count = options?.count ?? DEFAULT_COUNT;
+
+  // Skip teacher guides and question banks — they aren't student content
+  const source = await prisma.contentSource.findUnique({
+    where: { id: sourceId },
+    select: { documentType: true },
+  });
+  if (source?.documentType && MCQ_EXCLUDED_DOC_TYPES.has(source.documentType)) {
+    return { created: 0, duplicatesSkipped: 0, skipped: true, skipReason: "excluded_doc_type" };
+  }
 
   // Load assertions for this source (scoped by subjectSourceId when available)
   // Fall back to unscoped if scoped query returns too few — handles pre-epic-#94 data

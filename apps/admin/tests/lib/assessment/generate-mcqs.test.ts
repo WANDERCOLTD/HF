@@ -11,6 +11,9 @@ vi.mock("@/lib/prisma", () => ({
     contentAssertion: {
       findMany: vi.fn(),
     },
+    contentSource: {
+      findUnique: vi.fn(),
+    },
     curriculum: {
       count: vi.fn(),
     },
@@ -48,6 +51,8 @@ const mocks = {
 describe("generate-mcqs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: source is a reading passage (eligible for MCQ generation)
+    mocks.prisma.contentSource.findUnique.mockResolvedValue({ documentType: "READING_PASSAGE" });
   });
 
   describe("sourceNeedsMcqs", () => {
@@ -83,6 +88,16 @@ describe("generate-mcqs", () => {
   });
 
   describe("generateMcqsForSource", () => {
+    it("skips COURSE_REFERENCE and QUESTION_BANK document types", async () => {
+      for (const docType of ["COURSE_REFERENCE", "QUESTION_BANK"]) {
+        mocks.prisma.contentSource.findUnique.mockResolvedValue({ documentType: docType });
+        const result = await generateMcqsForSource("src-1");
+        expect(result.skipped).toBe(true);
+        expect(result.skipReason).toBe("excluded_doc_type");
+        expect(mocks.ai).not.toHaveBeenCalled();
+      }
+    });
+
     it("skips when too few assertions", async () => {
       mocks.prisma.contentAssertion.findMany.mockResolvedValue([
         { id: "a1", assertion: "Fact 1", category: "concept", chapter: null, section: null },
