@@ -1,0 +1,329 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "DISC-MEASURE-001",
+  "title": "Discussion Skills Measurement",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-04-05",
+  "domain": "discussion",
+  "specType": "SYSTEM",
+  "outputType": "MEASURE",
+  "profileCondition": ["discussion-led"],
+  "story": {
+    "asA": "Conversational AI System",
+    "iWant": "To measure discussion and critical thinking skills from each session transcript",
+    "soThat": "Learning trajectory can be tracked for discussion-led courses (Philosophy, Ethics, PSHE)"
+  },
+  "context": {
+    "applies": "Discussion-led courses only",
+    "dependsOn": [],
+    "assumptions": [
+      "Session involves open-ended dialogue on ethical, philosophical, or social topics",
+      "There is no single correct answer — quality is in reasoning, not conclusions",
+      "Tutor has posed questions that invite multiple perspectives"
+    ]
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC-DISC-001",
+      "title": "Perspective diversity scored",
+      "given": "A student discussing an ethical or philosophical question",
+      "when": "The system analyses how many viewpoints they consider",
+      "then": "A perspective diversity score between 0-1 is produced",
+      "measuredBy": ["DISC_PERSPECTIVE"]
+    },
+    {
+      "id": "AC-DISC-002",
+      "title": "Argument quality scored",
+      "given": "A student making claims or defending a position",
+      "when": "The system analyses the logical structure of their reasoning",
+      "then": "An argument quality score between 0-1 is produced",
+      "measuredBy": ["DISC_ARGUMENT"]
+    },
+    {
+      "id": "AC-DISC-003",
+      "title": "Position shift scored",
+      "given": "A student challenged on their views during discussion",
+      "when": "The system analyses whether they revise or refine their position",
+      "then": "A position shift score between 0-1 is produced",
+      "measuredBy": ["DISC_SHIFT"]
+    },
+    {
+      "id": "AC-DISC-004",
+      "title": "Reflection scored",
+      "given": "A student in dialogue about their own thinking",
+      "when": "The system analyses metacognitive awareness",
+      "then": "A reflection score between 0-1 is produced",
+      "measuredBy": ["DISC_REFLECTION"]
+    }
+  ],
+  "constraints": [],
+  "failureConditions": [
+    {
+      "id": "FC-DISC-001",
+      "trigger": "insufficient_student_speech",
+      "threshold": { "operator": "lt", "value": 30 },
+      "implication": "Not enough student speech to assess discussion skills — use neutral defaults",
+      "severity": "warning"
+    }
+  ],
+  "parameters": [
+    {
+      "id": "DISC_PERSPECTIVE",
+      "name": "perspective_diversity",
+      "description": "Considers multiple viewpoints rather than holding a single rigid position",
+      "section": "Discussion Skills",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "formula": "0.4 * viewpoint_count + 0.3 * nuance + 0.3 * fairness",
+      "subMetrics": [
+        {
+          "id": "viewpoint_count",
+          "name": "Viewpoint Count",
+          "weight": 0.4,
+          "definitions": {
+            "high": "Actively considers 3+ viewpoints, including ones they disagree with",
+            "low": "Only considers their own position, dismisses alternatives"
+          }
+        },
+        {
+          "id": "nuance",
+          "name": "Nuance",
+          "weight": 0.3,
+          "definitions": {
+            "high": "Recognises complexity, avoids black-and-white thinking",
+            "low": "Oversimplifies, sees issues as purely right/wrong"
+          }
+        },
+        {
+          "id": "fairness",
+          "name": "Fairness",
+          "weight": 0.3,
+          "definitions": {
+            "high": "Represents opposing views accurately and charitably",
+            "low": "Strawmans or dismisses opposing views without engagement"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.2, "label": "No Evidence", "implication": "Single rigid viewpoint, no awareness of alternatives" },
+        { "min": 0.2, "max": 0.4, "label": "Emerging", "implication": "Acknowledges alternatives exist but doesn't engage" },
+        { "min": 0.4, "max": 0.6, "label": "Developing", "implication": "Considers some perspectives but defaults to own view" },
+        { "min": 0.6, "max": 0.8, "label": "Secure", "implication": "Genuinely weighs multiple perspectives with nuance" },
+        { "min": 0.8, "max": 1.0, "label": "Mastery", "implication": "Actively seeks and steelmans opposing views" }
+      ],
+      "scoringAnchors": [
+        {
+          "score": 0.15,
+          "example": "That's just wrong. There's no way to justify it.",
+          "rationale": "Dismisses alternative views outright, no engagement with other perspectives",
+          "isGold": true
+        },
+        {
+          "score": 0.35,
+          "example": "I mean, I guess some people think differently, but I still think I'm right.",
+          "rationale": "Acknowledges others disagree but doesn't engage with their reasoning",
+          "isGold": true
+        },
+        {
+          "score": 0.55,
+          "example": "I see the other side — they'd say that freedom matters more than safety. But I think safety has to come first because...",
+          "rationale": "States the opposing view and responds to it, though prioritises own conclusion",
+          "isGold": true
+        },
+        {
+          "score": 0.75,
+          "example": "There are at least three ways to look at this. A utilitarian would say maximise happiness for the most people. A rights-based approach would say the individual's rights can't be violated regardless. And a virtue ethicist might ask what a good person would do. Each has merits.",
+          "rationale": "Identifies multiple frameworks, represents each fairly, doesn't rush to conclusion",
+          "isGold": true
+        },
+        {
+          "score": 0.9,
+          "example": "The strongest version of the argument I disagree with would be... [steelmans it]. And even though I end up somewhere different, I think they're right about [specific point]. The tension between these views is actually where the interesting question is.",
+          "rationale": "Steelmans opposing view, finds partial agreement, locates productive tension",
+          "isGold": true
+        }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Student already considers multiple perspectives. Push toward evaluating frameworks: 'Which of these perspectives do you find most compelling and why?'",
+        "whenLow": "Student is locked in one view. Present contrasting perspectives: 'Some people would argue the opposite — that X. What would you say to them?'",
+        "whenMedium": "Student is open but surface-level. Deepen engagement: 'You said the other side thinks X. Why might they believe that? What's their strongest argument?'"
+      },
+      "usedBy": ["AC-DISC-001"]
+    },
+    {
+      "id": "DISC_ARGUMENT",
+      "name": "argument_quality",
+      "description": "Constructs reasoned arguments with premises, evidence, and logical connection to conclusions",
+      "section": "Discussion Skills",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "formula": "0.35 * structure + 0.35 * reasoning + 0.3 * support",
+      "subMetrics": [
+        {
+          "id": "structure",
+          "name": "Argument Structure",
+          "weight": 0.35,
+          "definitions": {
+            "high": "Clear premise → reasoning → conclusion pattern",
+            "low": "Assertions without structure or logical flow"
+          }
+        },
+        {
+          "id": "reasoning",
+          "name": "Reasoning Quality",
+          "weight": 0.35,
+          "definitions": {
+            "high": "Logical connections, avoids fallacies, addresses counterarguments",
+            "low": "Circular reasoning, non-sequiturs, or emotional assertions"
+          }
+        },
+        {
+          "id": "support",
+          "name": "Supporting Evidence",
+          "weight": 0.3,
+          "definitions": {
+            "high": "Uses examples, analogies, or principles to support claims",
+            "low": "Unsupported assertions ('because I think so')"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.2, "label": "No Evidence", "implication": "Assertions without reasoning" },
+        { "min": 0.2, "max": 0.4, "label": "Emerging", "implication": "Attempts reasoning but weak structure" },
+        { "min": 0.4, "max": 0.6, "label": "Developing", "implication": "Some logical structure but gaps in reasoning" },
+        { "min": 0.6, "max": 0.8, "label": "Secure", "implication": "Well-structured arguments with supporting evidence" },
+        { "min": 0.8, "max": 1.0, "label": "Mastery", "implication": "Sophisticated argumentation with counterargument awareness" }
+      ],
+      "scoringAnchors": [
+        { "score": 0.15, "example": "It's just wrong because it is.", "rationale": "Pure assertion, no reasoning", "isGold": true },
+        { "score": 0.35, "example": "I think it's wrong because people shouldn't do that kind of thing.", "rationale": "Circular reasoning, no specific support", "isGold": true },
+        { "score": 0.55, "example": "I think it's wrong because it causes harm. For example, if everyone did it, society would suffer. So we should avoid it.", "rationale": "Basic consequentialist argument with example, but doesn't consider objections", "isGold": true },
+        { "score": 0.75, "example": "My argument is: the right to privacy is fundamental because it protects autonomy. Without privacy, people self-censor, which undermines democracy. You might object that security requires surveillance — but I'd respond that targeted, warranted surveillance achieves security without blanket privacy invasion.", "rationale": "Clear structure, principled reasoning, anticipates and addresses counterargument", "isGold": true },
+        { "score": 0.9, "example": "Let me distinguish two claims that are getting conflated. First, the empirical question: does X actually cause harm? The evidence suggests yes, but it's contested. Second, the normative question: even if it does, is preventing it worth the cost? These require different types of reasoning. On the first, I'd appeal to research. On the second, we need to weigh competing values.", "rationale": "Meta-analytical, distinguishes claim types, sophisticated philosophical reasoning", "isGold": true }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Student argues well. Introduce harder dilemmas: 'What if both options cause harm? How do you decide?'",
+        "whenLow": "Student asserts without reasoning. Model argument structure: 'What's your main reason? Can you give an example?'",
+        "whenMedium": "Student has basic reasoning. Push for counterarguments: 'What's the strongest objection to your view?'"
+      },
+      "usedBy": ["AC-DISC-002"]
+    },
+    {
+      "id": "DISC_SHIFT",
+      "name": "position_shift",
+      "description": "Willingness and ability to revise or refine a position when presented with new information or arguments",
+      "section": "Discussion Skills",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "formula": "0.4 * openness_to_change + 0.3 * quality_of_revision + 0.3 * intellectual_honesty",
+      "subMetrics": [
+        {
+          "id": "openness_to_change",
+          "name": "Openness to Change",
+          "weight": 0.4,
+          "definitions": {
+            "high": "Explicitly acknowledges when their view has changed and why",
+            "low": "Rigidly defends original position regardless of new input"
+          }
+        },
+        {
+          "id": "quality_of_revision",
+          "name": "Quality of Revision",
+          "weight": 0.3,
+          "definitions": {
+            "high": "Revisions are substantive and reflect genuine engagement with the challenge",
+            "low": "Superficial agreement ('yeah I guess so') without real integration"
+          }
+        },
+        {
+          "id": "intellectual_honesty",
+          "name": "Intellectual Honesty",
+          "weight": 0.3,
+          "definitions": {
+            "high": "Distinguishes between changing their mind and being convinced by social pressure",
+            "low": "Shifts position to please tutor rather than genuine reasoning"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.2, "label": "No Evidence", "implication": "Rigidly fixed — will not entertain change" },
+        { "min": 0.2, "max": 0.4, "label": "Emerging", "implication": "Acknowledges challenges but doesn't integrate them" },
+        { "min": 0.4, "max": 0.6, "label": "Developing", "implication": "Sometimes revises but inconsistently" },
+        { "min": 0.6, "max": 0.8, "label": "Secure", "implication": "Genuinely revises when good reasons are presented" },
+        { "min": 0.8, "max": 1.0, "label": "Mastery", "implication": "Actively seeks challenge, revises substantively, articulates why" }
+      ],
+      "scoringAnchors": [
+        { "score": 0.15, "example": "No, I'm not changing my mind. I know what I think.", "rationale": "Refuses to engage with challenge", "isGold": true },
+        { "score": 0.35, "example": "Yeah, OK, maybe. But I still think the same thing really.", "rationale": "Superficial acknowledgement, no real shift", "isGold": true },
+        { "score": 0.55, "example": "Hmm, I hadn't considered that angle. I'm not sure I fully agree but it does complicate my position. Let me think about it.", "rationale": "Genuine uncertainty, acknowledges complication, doesn't rush to new conclusion", "isGold": true },
+        { "score": 0.75, "example": "I think you've changed my mind on one specific thing — I was assuming X, but actually the evidence suggests Y. My overall position is similar but with an important caveat now.", "rationale": "Specific, substantive revision with clear reasoning about what changed and why", "isGold": true },
+        { "score": 0.9, "example": "This is interesting — I came in thinking A, but after discussing B and C, I've realised my original reasoning was based on a flawed assumption. I now think D, because... But I want to flag that I'm less certain than before, and here's what would change my mind again.", "rationale": "Traces the journey of their thinking, articulates the revision process, maintains intellectual humility", "isGold": true }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Student revises thoughtfully. Present genuine dilemmas: 'What would it take to change your mind on this?'",
+        "whenLow": "Student is rigid. Don't force change — instead model uncertainty: 'I wonder if it's possible that both views contain some truth?'",
+        "whenMedium": "Student is open but surface-level. Deepen: 'You said your view shifted — can you pinpoint exactly what caused the shift?'"
+      },
+      "usedBy": ["AC-DISC-003"]
+    },
+    {
+      "id": "DISC_REFLECTION",
+      "name": "reflection_quality",
+      "description": "Metacognitive awareness — thinking about their own thinking",
+      "section": "Discussion Skills",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "formula": "0.35 * self_awareness + 0.35 * assumption_surfacing + 0.3 * growth_recognition",
+      "subMetrics": [
+        {
+          "id": "self_awareness",
+          "name": "Self-Awareness",
+          "weight": 0.35,
+          "definitions": {
+            "high": "Notices their own biases, patterns, and reasoning habits",
+            "low": "No awareness of how their background or assumptions shape their views"
+          }
+        },
+        {
+          "id": "assumption_surfacing",
+          "name": "Assumption Surfacing",
+          "weight": 0.35,
+          "definitions": {
+            "high": "Explicitly identifies and questions their own assumptions",
+            "low": "Treats assumptions as facts without examination"
+          }
+        },
+        {
+          "id": "growth_recognition",
+          "name": "Growth Recognition",
+          "weight": 0.3,
+          "definitions": {
+            "high": "Articulates how their thinking has developed across sessions",
+            "low": "No awareness of change in their own thinking"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.2, "label": "No Evidence", "implication": "No metacognitive awareness" },
+        { "min": 0.2, "max": 0.4, "label": "Emerging", "implication": "Occasional 'I think...' without deeper reflection" },
+        { "min": 0.4, "max": 0.6, "label": "Developing", "implication": "Sometimes notices own assumptions but inconsistently" },
+        { "min": 0.6, "max": 0.8, "label": "Secure", "implication": "Regularly reflects on own thinking and assumptions" },
+        { "min": 0.8, "max": 1.0, "label": "Mastery", "implication": "Deep metacognition — tracks own intellectual growth" }
+      ],
+      "scoringAnchors": [
+        { "score": 0.15, "example": "It's obvious. Everyone knows that.", "rationale": "No awareness of own assumptions, presents opinion as universal fact", "isGold": true },
+        { "score": 0.35, "example": "I think this because... well, I've always thought this way.", "rationale": "Acknowledges it's personal but doesn't examine why", "isGold": true },
+        { "score": 0.55, "example": "I notice I'm assuming that everyone values fairness the same way I do. Maybe that's not true across cultures.", "rationale": "Identifies a specific assumption and questions its universality", "isGold": true },
+        { "score": 0.75, "example": "I realise I keep coming back to consequentialist reasoning — that's probably because of how I was raised. It makes me wonder if I'm missing something that a deontological view would catch.", "rationale": "Meta-level awareness of own reasoning pattern, identifies its origin, sees limitation", "isGold": true },
+        { "score": 0.9, "example": "Compared to where I started these sessions, my thinking has shifted significantly. I used to see this as black and white, but now I hold my views more tentatively. I'm not sure if that's growth or just confusion — but I think being comfortable with not knowing is itself a kind of progress.", "rationale": "Tracks intellectual growth across sessions, reflects on the nature of progress itself", "isGold": true }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Student is reflective. Push toward philosophical metacognition: 'Why do you think you tend toward that type of reasoning?'",
+        "whenLow": "Student doesn't reflect. Model it: 'I notice you said X with a lot of certainty. What's that certainty based on?'",
+        "whenMedium": "Student occasionally reflects. Encourage it: 'You just identified an assumption — that's really valuable. Can you find another one in your reasoning?'"
+      },
+      "usedBy": ["AC-DISC-004"]
+    }
+  ]
+}

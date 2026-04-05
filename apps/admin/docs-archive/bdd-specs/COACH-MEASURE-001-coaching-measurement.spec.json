@@ -1,0 +1,311 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "COACH-MEASURE-001",
+  "title": "Coaching Skills Measurement",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-04-05",
+  "domain": "coaching",
+  "specType": "SYSTEM",
+  "outputType": "MEASURE",
+  "profileCondition": ["coaching-led"],
+  "story": {
+    "asA": "Conversational AI System",
+    "iWant": "To measure coaching and development skills from each session transcript",
+    "soThat": "Learning trajectory can be tracked for coaching-led courses (Career, Leadership, Performance)"
+  },
+  "context": {
+    "applies": "Coaching-led courses only",
+    "dependsOn": [],
+    "assumptions": [
+      "Session involves goal-focused conversation with reflective questioning",
+      "Student is working toward personal or professional development goals",
+      "Tutor uses coaching techniques (not instruction)"
+    ]
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC-COACH-001",
+      "title": "Goal clarity scored",
+      "given": "A student discussing their goals or desired outcomes",
+      "when": "The system analyses how clearly they articulate what they want",
+      "then": "A goal clarity score between 0-1 is produced",
+      "measuredBy": ["COACH_CLARITY"]
+    },
+    {
+      "id": "AC-COACH-002",
+      "title": "Action commitment scored",
+      "given": "A student discussing next steps",
+      "when": "The system analyses whether they commit to concrete actions",
+      "then": "An action commitment score between 0-1 is produced",
+      "measuredBy": ["COACH_ACTION"]
+    },
+    {
+      "id": "AC-COACH-003",
+      "title": "Self-awareness scored",
+      "given": "A student reflecting on their strengths, weaknesses, or patterns",
+      "when": "The system analyses their level of self-knowledge",
+      "then": "A self-awareness score between 0-1 is produced",
+      "measuredBy": ["COACH_AWARENESS"]
+    },
+    {
+      "id": "AC-COACH-004",
+      "title": "Follow-through scored",
+      "given": "A student in session 2+",
+      "when": "The system analyses their report on previous commitments",
+      "then": "A follow-through score between 0-1 is produced",
+      "measuredBy": ["COACH_FOLLOWUP"]
+    }
+  ],
+  "constraints": [
+    {
+      "id": "CON-COACH-001",
+      "type": "session_1",
+      "description": "COACH_FOLLOWUP should be scored as null or excluded from aggregation on session 1 (no prior commitments to follow up on)",
+      "severity": "warning"
+    }
+  ],
+  "failureConditions": [
+    {
+      "id": "FC-COACH-001",
+      "trigger": "insufficient_student_speech",
+      "threshold": { "operator": "lt", "value": 30 },
+      "implication": "Not enough student speech to assess coaching skills — use neutral defaults",
+      "severity": "warning"
+    }
+  ],
+  "parameters": [
+    {
+      "id": "COACH_CLARITY",
+      "name": "goal_clarity",
+      "description": "Ability to articulate goals and desired outcomes clearly — from vague wants to specific, measurable targets",
+      "section": "Coaching Skills",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "formula": "0.4 * specificity + 0.3 * measurability + 0.3 * ownership",
+      "subMetrics": [
+        {
+          "id": "specificity",
+          "name": "Specificity",
+          "weight": 0.4,
+          "definitions": {
+            "high": "Names specific, concrete goals with clear scope",
+            "low": "Vague aspirations ('I want to be better')"
+          }
+        },
+        {
+          "id": "measurability",
+          "name": "Measurability",
+          "weight": 0.3,
+          "definitions": {
+            "high": "Can describe what success looks like and how to know they've achieved it",
+            "low": "No way to measure or recognise achievement"
+          }
+        },
+        {
+          "id": "ownership",
+          "name": "Ownership",
+          "weight": 0.3,
+          "definitions": {
+            "high": "Takes personal ownership — 'I will...' not 'they should...'",
+            "low": "Externalises — goals depend on others changing"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.2, "label": "No Evidence", "implication": "Cannot articulate any goals" },
+        { "min": 0.2, "max": 0.4, "label": "Emerging", "implication": "Vague aspirations without specificity" },
+        { "min": 0.4, "max": 0.6, "label": "Developing", "implication": "Some clarity but goals still broad" },
+        { "min": 0.6, "max": 0.8, "label": "Secure", "implication": "Clear, specific goals with ownership" },
+        { "min": 0.8, "max": 1.0, "label": "Mastery", "implication": "SMART goals with clear success criteria" }
+      ],
+      "scoringAnchors": [
+        { "score": 0.15, "example": "I don't know really. I just want things to be better.", "rationale": "No specific goal, no direction", "isGold": true },
+        { "score": 0.35, "example": "I want to be a better leader. My team needs me to improve.", "rationale": "Broad goal, externalised motivation, no specifics", "isGold": true },
+        { "score": 0.55, "example": "I want to get better at giving feedback to my team. Specifically, I avoid difficult conversations and I know that's holding us back.", "rationale": "Identifies specific area and current gap, but no success criteria", "isGold": true },
+        { "score": 0.75, "example": "My goal is to have one difficult feedback conversation per week for the next month. I'll know I'm succeeding if my direct reports say they feel more supported and I feel less anxious about it.", "rationale": "Specific, time-bound, measurable, personally owned", "isGold": true },
+        { "score": 0.9, "example": "By the end of this quarter, I want to have established a weekly 1:1 feedback rhythm with each of my three reports. Success looks like: each person can name one thing they're working on from our conversations, and I can give critical feedback without my heart rate spiking. I'll track it by journaling after each 1:1.", "rationale": "Highly specific, multiple success criteria, self-monitoring plan, emotionally honest", "isGold": true }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Student has clear goals. Challenge depth: 'What's the deeper reason this matters to you?'",
+        "whenLow": "Student is vague. Use SMART framework: 'What specifically would be different if things were better?'",
+        "whenMedium": "Student has direction but no specifics. Ask: 'How would you know when you've achieved this?'"
+      },
+      "usedBy": ["AC-COACH-001"]
+    },
+    {
+      "id": "COACH_ACTION",
+      "name": "action_commitment",
+      "description": "Commits to concrete, time-bound next steps rather than vague intentions",
+      "section": "Coaching Skills",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "formula": "0.35 * concreteness + 0.35 * time_bound + 0.3 * accountability",
+      "subMetrics": [
+        {
+          "id": "concreteness",
+          "name": "Concreteness",
+          "weight": 0.35,
+          "definitions": {
+            "high": "Names specific actions ('I will email X on Tuesday')",
+            "low": "Vague intentions ('I'll try to do something about it')"
+          }
+        },
+        {
+          "id": "time_bound",
+          "name": "Time-Bound",
+          "weight": 0.35,
+          "definitions": {
+            "high": "Attaches deadlines or timeframes to commitments",
+            "low": "No sense of when action will happen"
+          }
+        },
+        {
+          "id": "accountability",
+          "name": "Accountability",
+          "weight": 0.3,
+          "definitions": {
+            "high": "Identifies how they'll hold themselves accountable",
+            "low": "No follow-up mechanism or accountability plan"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.2, "label": "No Evidence", "implication": "No commitments made" },
+        { "min": 0.2, "max": 0.4, "label": "Emerging", "implication": "Vague intentions without specifics" },
+        { "min": 0.4, "max": 0.6, "label": "Developing", "implication": "Some concrete actions but no timeframe" },
+        { "min": 0.6, "max": 0.8, "label": "Secure", "implication": "Specific, time-bound actions committed" },
+        { "min": 0.8, "max": 1.0, "label": "Mastery", "implication": "Detailed action plan with accountability mechanism" }
+      ],
+      "scoringAnchors": [
+        { "score": 0.15, "example": "Yeah, I'll think about it.", "rationale": "No commitment, no specifics", "isGold": true },
+        { "score": 0.35, "example": "I should probably start having more conversations with my team.", "rationale": "'Should probably' — hedged, no timeline, no specifics", "isGold": true },
+        { "score": 0.55, "example": "I'm going to schedule a 1:1 with Sarah to discuss her performance. Probably next week.", "rationale": "Specific person and action, but 'probably' and no accountability", "isGold": true },
+        { "score": 0.75, "example": "By Friday I will have a 15-minute conversation with Sarah about the missed deadline. I'll prepare 3 specific points beforehand and I'll write down how it went afterwards.", "rationale": "Specific action, deadline, preparation plan, reflection mechanism", "isGold": true },
+        { "score": 0.9, "example": "Here's my plan: Monday I'll draft my feedback points. Tuesday morning I'll book the meeting. By Friday I'll have had the conversation. I'll journal about it that evening — what went well, what I'd change. And next session I want to report back to you on how it went.", "rationale": "Multi-step plan, specific days, journaling for reflection, built-in accountability with coach", "isGold": true }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Student commits well. Raise the bar: 'What's the hardest part of this plan? What might derail it?'",
+        "whenLow": "Student avoids commitment. Make it small: 'What's one tiny thing you could do before our next session?'",
+        "whenMedium": "Student has actions but no timeline. Ask: 'When exactly will you do this? Let's put a date on it.'"
+      },
+      "usedBy": ["AC-COACH-002"]
+    },
+    {
+      "id": "COACH_AWARENESS",
+      "name": "self_awareness",
+      "description": "Self-knowledge of strengths, weaknesses, patterns, and their origins",
+      "section": "Coaching Skills",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "formula": "0.35 * pattern_recognition + 0.35 * emotional_insight + 0.3 * blind_spot_acknowledgement",
+      "subMetrics": [
+        {
+          "id": "pattern_recognition",
+          "name": "Pattern Recognition",
+          "weight": 0.35,
+          "definitions": {
+            "high": "Identifies recurring patterns in own behaviour and traces their origins",
+            "low": "Treats each situation as unique, no pattern awareness"
+          }
+        },
+        {
+          "id": "emotional_insight",
+          "name": "Emotional Insight",
+          "weight": 0.35,
+          "definitions": {
+            "high": "Names and understands their emotional responses",
+            "low": "Unaware of or disconnected from emotional reactions"
+          }
+        },
+        {
+          "id": "blind_spot_acknowledgement",
+          "name": "Blind Spot Acknowledgement",
+          "weight": 0.3,
+          "definitions": {
+            "high": "Willingly identifies what they don't know about themselves",
+            "low": "Assumes full self-knowledge, defensive about weaknesses"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.2, "label": "No Evidence", "implication": "No self-reflection or pattern awareness" },
+        { "min": 0.2, "max": 0.4, "label": "Emerging", "implication": "Some self-awareness but mostly surface-level" },
+        { "min": 0.4, "max": 0.6, "label": "Developing", "implication": "Identifies patterns but doesn't explore origins" },
+        { "min": 0.6, "max": 0.8, "label": "Secure", "implication": "Good self-knowledge with emotional insight" },
+        { "min": 0.8, "max": 1.0, "label": "Mastery", "implication": "Deep self-knowledge including blind spots and origins" }
+      ],
+      "scoringAnchors": [
+        { "score": 0.15, "example": "I don't have any weaknesses with this. It's just that my team doesn't listen.", "rationale": "Zero self-awareness, fully externalised", "isGold": true },
+        { "score": 0.35, "example": "I know I'm not great at feedback. I've never been good at confrontation.", "rationale": "Identifies weakness but frames it as fixed trait, no pattern analysis", "isGold": true },
+        { "score": 0.55, "example": "I notice I always avoid difficult conversations. I think it's because I saw my parents argue a lot and I learned that conflict is dangerous. But I know that's not true in a work context.", "rationale": "Identifies pattern, traces origin, begins to separate past from present", "isGold": true },
+        { "score": 0.75, "example": "There's a pattern: when I feel anxious about someone's performance, I either avoid it entirely or overcompensate by being too harsh. Neither works. The anxiety is about being judged myself — if my team fails, I feel like I've failed. So the feedback becomes about me, not them.", "rationale": "Deep pattern recognition, emotional insight, understands the projection mechanism", "isGold": true },
+        { "score": 0.9, "example": "I've noticed something uncomfortable this week. I thought I was being supportive by not pushing Sarah, but actually I was protecting myself from the discomfort of her reaction. I keep finding versions of this pattern — I dress up avoidance as kindness. I'm not sure what else I'm doing that I think is empathy but is actually fear.", "rationale": "Real-time self-observation, challenges own narrative, identifies blind spot zone, intellectually honest", "isGold": true }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Student is deeply self-aware. Explore application: 'Now that you see the pattern, what would you do differently next time?'",
+        "whenLow": "Student externalises. Use gentle reflection: 'What's your part in this situation?' Don't push — let them arrive at it.",
+        "whenMedium": "Student sees patterns but not origins. Ask: 'When did this pattern start? Where did you first learn to respond this way?'"
+      },
+      "usedBy": ["AC-COACH-003"]
+    },
+    {
+      "id": "COACH_FOLLOWUP",
+      "name": "follow_through",
+      "description": "Reports on previous commitments — what was tried, what was learned, what changed",
+      "section": "Coaching Skills",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "formula": "0.35 * completeness + 0.35 * learning_extraction + 0.3 * honesty",
+      "subMetrics": [
+        {
+          "id": "completeness",
+          "name": "Completeness",
+          "weight": 0.35,
+          "definitions": {
+            "high": "Reports on all commitments with detail on what happened",
+            "low": "Doesn't mention prior commitments or gives vague updates"
+          }
+        },
+        {
+          "id": "learning_extraction",
+          "name": "Learning Extraction",
+          "weight": 0.35,
+          "definitions": {
+            "high": "Extracts learning from both successes and failures",
+            "low": "Reports events without reflection on what they mean"
+          }
+        },
+        {
+          "id": "honesty",
+          "name": "Honesty",
+          "weight": 0.3,
+          "definitions": {
+            "high": "Honestly reports when actions weren't completed and reflects on why",
+            "low": "Avoids mentioning failures, makes excuses, or fabricates completion"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.2, "label": "No Evidence", "implication": "Doesn't mention prior commitments" },
+        { "min": 0.2, "max": 0.4, "label": "Emerging", "implication": "Vague update without detail or learning" },
+        { "min": 0.4, "max": 0.6, "label": "Developing", "implication": "Reports on actions but doesn't extract learning" },
+        { "min": 0.6, "max": 0.8, "label": "Secure", "implication": "Detailed report with learning from experience" },
+        { "min": 0.8, "max": 1.0, "label": "Mastery", "implication": "Rich debrief — what happened, what was learned, what to adjust" }
+      ],
+      "scoringAnchors": [
+        { "score": 0.15, "example": "Oh, I forgot about that. I've been really busy.", "rationale": "Didn't follow through, didn't reflect on why", "isGold": true },
+        { "score": 0.35, "example": "Yeah, I tried talking to Sarah. It was fine, I think.", "rationale": "Minimal report, no detail, no learning extracted", "isGold": true },
+        { "score": 0.55, "example": "I did have the conversation with Sarah. I prepared my three points like I said. She was receptive to two of them but pushed back on the third. I'm not sure how to handle the pushback.", "rationale": "Detailed report on what happened, identifies unresolved issue, but doesn't extract learning yet", "isGold": true },
+        { "score": 0.75, "example": "I had the conversation. It went better than I expected — my preparation really helped. The thing I learned is that when I'm specific about the behaviour rather than the person, she doesn't get defensive. I want to apply that pattern to my conversation with James next.", "rationale": "Detailed report, extracts transferable learning, plans to apply it", "isGold": true },
+        { "score": 0.9, "example": "OK so here's what happened. I did two of the three things I committed to. The third — the conversation with James — I didn't do, and I want to be honest about why. I told myself I was waiting for the right moment, but actually I was scared. The two I did do went well — I wrote in my journal afterwards and noticed that my anxiety peaks before the conversation but drops within the first minute. That's useful data. For James, I think I need to commit to a specific time, not a 'right moment', because the right moment is a trap.", "rationale": "Honest about failure, extracts pattern from success, identifies self-deception, makes specific plan to address gap", "isGold": true }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Student follows through and reflects well. Focus on deeper patterns: 'What do your last three sessions tell you about how you learn best?'",
+        "whenLow": "Student doesn't follow through. Don't shame — explore: 'What got in the way? Was the commitment too big, or was something else going on?'",
+        "whenMedium": "Student acts but doesn't reflect. Ask: 'What did you learn from doing that? What would you do differently?'"
+      },
+      "usedBy": ["AC-COACH-004"]
+    }
+  ]
+}

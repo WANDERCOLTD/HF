@@ -1,0 +1,427 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "COMP-MEASURE-001",
+  "title": "Comprehension Skills Measurement",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-04-05",
+  "domain": "comprehension",
+  "specType": "SYSTEM",
+  "outputType": "MEASURE",
+  "profileCondition": ["comprehension-led"],
+  "story": {
+    "asA": "Conversational AI System",
+    "iWant": "To measure comprehension skills from each session transcript",
+    "soThat": "Learning trajectory can be tracked across sessions for comprehension-led courses"
+  },
+  "context": {
+    "applies": "Comprehension-led courses only (English, Literature, Languages)",
+    "dependsOn": [],
+    "assumptions": [
+      "Student has been guided through a passage or text",
+      "Transcript contains student responses to comprehension questions",
+      "Tutor has asked open-ended questions about the text"
+    ]
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC-COMP-001",
+      "title": "Theme understanding scored",
+      "given": "A student discussing themes from a passage",
+      "when": "The system analyses their articulation of central themes",
+      "then": "A theme understanding score between 0-1 is produced",
+      "rationale": "Theme understanding is the core comprehension skill — can they identify and express what the text is about?",
+      "measuredBy": ["COMP_THEME"]
+    },
+    {
+      "id": "AC-COMP-002",
+      "title": "Inference skill scored",
+      "given": "A student answering questions about implied meaning",
+      "when": "The system analyses their ability to draw conclusions beyond the literal text",
+      "then": "An inference skill score between 0-1 is produced",
+      "rationale": "Inference separates surface reading from deep comprehension",
+      "measuredBy": ["COMP_INFERENCE"]
+    },
+    {
+      "id": "AC-COMP-003",
+      "title": "Evidence usage scored",
+      "given": "A student making claims about the text",
+      "when": "The system analyses whether claims are supported with textual references",
+      "then": "An evidence usage score between 0-1 is produced",
+      "rationale": "Evidence usage shows analytical discipline — grounding interpretation in the text",
+      "measuredBy": ["COMP_EVIDENCE"]
+    },
+    {
+      "id": "AC-COMP-004",
+      "title": "Recall accuracy scored",
+      "given": "A student in session 2+",
+      "when": "The system analyses their recall of content from prior sessions",
+      "then": "A recall accuracy score between 0-1 is produced",
+      "rationale": "Recall shows retention and consolidation of learning across sessions",
+      "measuredBy": ["COMP_RECALL"]
+    }
+  ],
+  "constraints": [
+    {
+      "id": "CON-COMP-001",
+      "type": "session_1",
+      "description": "COMP_RECALL should be scored as null or excluded from aggregation on session 1 (nothing to recall yet)",
+      "severity": "warning"
+    }
+  ],
+  "failureConditions": [
+    {
+      "id": "FC-COMP-001",
+      "trigger": "insufficient_student_speech",
+      "threshold": { "operator": "lt", "value": 30 },
+      "implication": "Not enough student speech to assess comprehension — use neutral defaults",
+      "severity": "warning"
+    }
+  ],
+  "parameters": [
+    {
+      "id": "COMP_THEME",
+      "name": "theme_understanding",
+      "description": "Ability to articulate central themes in own words without parroting the text or tutor",
+      "section": "Comprehension Skills",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "formula": "0.4 * articulation_clarity + 0.35 * independence + 0.25 * depth",
+      "subMetrics": [
+        {
+          "id": "articulation_clarity",
+          "name": "Articulation Clarity",
+          "weight": 0.4,
+          "description": "How clearly the student expresses the theme",
+          "definitions": {
+            "high": "Expresses theme in own words with clarity and confidence",
+            "low": "Vague, confused, or unable to name a theme"
+          }
+        },
+        {
+          "id": "independence",
+          "name": "Independence",
+          "weight": 0.35,
+          "description": "Whether the student generates the theme independently vs parroting",
+          "definitions": {
+            "high": "Arrives at the theme through own reasoning",
+            "low": "Repeats tutor's words or reads directly from text"
+          }
+        },
+        {
+          "id": "depth",
+          "name": "Depth of Understanding",
+          "weight": 0.25,
+          "description": "How far beyond surface meaning the student goes",
+          "definitions": {
+            "high": "Connects theme to wider ideas, symbolism, or personal insight",
+            "low": "Identifies only the literal surface plot"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.2, "label": "No Evidence", "implication": "Cannot identify or articulate any theme" },
+        { "min": 0.2, "max": 0.4, "label": "Emerging", "implication": "Vague or parroted theme identification" },
+        { "min": 0.4, "max": 0.6, "label": "Developing", "implication": "Identifies theme but struggles to articulate independently" },
+        { "min": 0.6, "max": 0.8, "label": "Secure", "implication": "Articulates theme clearly in own words" },
+        { "min": 0.8, "max": 1.0, "label": "Mastery", "implication": "Deep thematic insight with connections beyond the text" }
+      ],
+      "scoringAnchors": [
+        {
+          "score": 0.15,
+          "example": "Um... it's about... a girl? And a garden?",
+          "rationale": "Cannot move beyond literal plot description, no thematic insight",
+          "isGold": true
+        },
+        {
+          "score": 0.35,
+          "example": "I think it's about being lonely. The girl is lonely because her parents died.",
+          "rationale": "Identifies a valid theme (loneliness) but stays at surface level, close to plot summary",
+          "isGold": true
+        },
+        {
+          "score": 0.55,
+          "example": "The story is about transformation — Mary starts as this spoiled, neglected child and the garden kind of changes her. Like she grows as a person while the garden grows.",
+          "rationale": "Identifies transformation theme, begins to connect character growth to symbolism, uses own words",
+          "isGold": true
+        },
+        {
+          "score": 0.75,
+          "example": "I think the garden represents renewal — not just for Mary but for everyone who touches it. Colin's healing mirrors the garden's restoration. It's about how nurturing something outside yourself can heal what's broken inside.",
+          "rationale": "Multi-layered thematic insight, connects symbolism across characters, independent analysis",
+          "isGold": true
+        },
+        {
+          "score": 0.9,
+          "example": "What strikes me is how Burnett uses the garden as a counterpoint to the colonial setting Mary comes from — the neglected English garden versus the 'managed' world of India. The theme isn't just renewal, it's about what happens when you stop trying to control nature and let things grow wild. That applies to the children too — they thrive when freed from adult control.",
+          "rationale": "Sophisticated multi-layered analysis, original insight connecting themes across contexts, critical perspective on the author's intent",
+          "isGold": true
+        }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Student has strong thematic understanding. Push deeper — ask about authorial intent, alternative interpretations, or how themes connect to other texts.",
+        "whenLow": "Student struggles with themes. Scaffold with closed questions first: 'What is this paragraph about?' before asking 'What's the bigger idea?'",
+        "whenMedium": "Student can identify themes but needs support articulating them independently. Use prompts like 'Can you say that in your own words?' or 'What makes you think that?'"
+      },
+      "usedBy": ["AC-COMP-001"]
+    },
+    {
+      "id": "COMP_INFERENCE",
+      "name": "inference_skill",
+      "description": "Ability to draw conclusions not explicitly stated in the text — reading between the lines",
+      "section": "Comprehension Skills",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "formula": "0.4 * beyond_literal + 0.3 * reasoning_quality + 0.3 * textual_grounding",
+      "subMetrics": [
+        {
+          "id": "beyond_literal",
+          "name": "Beyond Literal",
+          "weight": 0.4,
+          "description": "Goes beyond what is explicitly written",
+          "definitions": {
+            "high": "Identifies implied meaning, subtext, tone, and mood",
+            "low": "Only restates what is directly written"
+          }
+        },
+        {
+          "id": "reasoning_quality",
+          "name": "Reasoning Quality",
+          "weight": 0.3,
+          "description": "Logical reasoning in drawing inferences",
+          "definitions": {
+            "high": "Inferences are logical and well-supported",
+            "low": "Inferences are guesses without reasoning"
+          }
+        },
+        {
+          "id": "textual_grounding",
+          "name": "Textual Grounding",
+          "weight": 0.3,
+          "description": "Connects inferences back to specific text",
+          "definitions": {
+            "high": "Points to specific words, phrases, or passages that support the inference",
+            "low": "Makes claims without textual connection"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.2, "label": "No Evidence", "implication": "Only repeats what is explicitly written" },
+        { "min": 0.2, "max": 0.4, "label": "Emerging", "implication": "Attempts inference but stays close to literal text" },
+        { "min": 0.4, "max": 0.6, "label": "Developing", "implication": "Draws some valid inferences but reasoning is incomplete" },
+        { "min": 0.6, "max": 0.8, "label": "Secure", "implication": "Consistent inference with textual support" },
+        { "min": 0.8, "max": 1.0, "label": "Mastery", "implication": "Sophisticated inference connecting subtext, tone, and implication" }
+      ],
+      "scoringAnchors": [
+        {
+          "score": 0.15,
+          "example": "It says she went to the garden. So she went to the garden.",
+          "rationale": "Pure literal restatement, no inference at all",
+          "isGold": true
+        },
+        {
+          "score": 0.35,
+          "example": "I think she was sad? Because it says she was alone.",
+          "rationale": "Attempts inference (sad) but stays very close to literal (alone = sad), tentative",
+          "isGold": true
+        },
+        {
+          "score": 0.55,
+          "example": "When it says 'she looked at the key as if it were a living thing', I think that means the garden is becoming really important to her — like it's giving her purpose.",
+          "rationale": "Valid inference from figurative language, connects to character motivation, references specific text",
+          "isGold": true
+        },
+        {
+          "score": 0.75,
+          "example": "The writer uses the word 'contrary' repeatedly — I don't think it's just describing Mary's behaviour. It's almost like the narrator is challenging us to look past our first impression of her. By calling her contrary so often, we start questioning whether she really is.",
+          "rationale": "Infers authorial technique from word choice patterns, meta-level reading",
+          "isGold": true
+        },
+        {
+          "score": 0.9,
+          "example": "The shift from passive to active voice when Mary starts working in the garden — 'things were done for her' becomes 'she dug and pulled' — mirrors her psychological transformation. Burnett is using grammar itself as a metaphor for agency.",
+          "rationale": "Linguistic inference at structural level, connects form to meaning, highly sophisticated",
+          "isGold": true
+        }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Student infers well. Push toward evaluative inference: 'Why do you think the writer chose to do it this way?' or 'Could it mean something different?'",
+        "whenLow": "Student stays literal. Model inference explicitly: 'When it says X, it might suggest Y. What do you think?' Use the text to scaffold.",
+        "whenMedium": "Student attempts inference but needs grounding. Ask 'Where in the text does it suggest that?' to build evidence-linking habits."
+      },
+      "usedBy": ["AC-COMP-002"]
+    },
+    {
+      "id": "COMP_EVIDENCE",
+      "name": "evidence_usage",
+      "description": "Ability to support claims and interpretations with specific references to the text",
+      "section": "Comprehension Skills",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "formula": "0.4 * specificity + 0.3 * relevance + 0.3 * integration",
+      "subMetrics": [
+        {
+          "id": "specificity",
+          "name": "Specificity",
+          "weight": 0.4,
+          "description": "How specific the textual references are",
+          "definitions": {
+            "high": "Quotes specific words, phrases, or page references",
+            "low": "Vague or no references to the text"
+          }
+        },
+        {
+          "id": "relevance",
+          "name": "Relevance",
+          "weight": 0.3,
+          "description": "Whether the evidence actually supports the claim",
+          "definitions": {
+            "high": "Evidence directly supports the interpretation",
+            "low": "Evidence is tangential or disconnected from the claim"
+          }
+        },
+        {
+          "id": "integration",
+          "name": "Integration",
+          "weight": 0.3,
+          "description": "How well evidence is woven into the argument",
+          "definitions": {
+            "high": "Evidence is embedded naturally in the student's reasoning",
+            "low": "Evidence is quoted without connection to the argument"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.2, "label": "No Evidence", "implication": "Makes no reference to the text" },
+        { "min": 0.2, "max": 0.4, "label": "Emerging", "implication": "Occasional vague references ('it says somewhere...')" },
+        { "min": 0.4, "max": 0.6, "label": "Developing", "implication": "References text but not always relevant or specific" },
+        { "min": 0.6, "max": 0.8, "label": "Secure", "implication": "Consistently supports claims with specific, relevant evidence" },
+        { "min": 0.8, "max": 1.0, "label": "Mastery", "implication": "Seamlessly integrates evidence into sophisticated argument" }
+      ],
+      "scoringAnchors": [
+        {
+          "score": 0.15,
+          "example": "I just think she's mean. I dunno why.",
+          "rationale": "Assertion with zero textual support",
+          "isGold": true
+        },
+        {
+          "score": 0.35,
+          "example": "She's mean because it says so in the story somewhere.",
+          "rationale": "Acknowledges text exists but can't locate or quote it",
+          "isGold": true
+        },
+        {
+          "score": 0.55,
+          "example": "The text describes her as 'sour-faced' which shows she's not very pleasant to be around.",
+          "rationale": "Specific quote, relevant to claim, but analysis is thin",
+          "isGold": true
+        },
+        {
+          "score": 0.75,
+          "example": "On page 3, the phrase 'as tyrannical and selfish a little pig as ever lived' is really harsh — it's not just saying she's difficult, it's comparing her to an animal. That suggests the author wants us to feel repelled by her at first.",
+          "rationale": "Specific quote with page reference, analyses language technique, connects to authorial intent",
+          "isGold": true
+        },
+        {
+          "score": 0.9,
+          "example": "Burnett builds our dislike of Mary through accumulation — 'disagreeable', 'tyrannical', 'selfish', 'pig' all in one sentence. But then notice how in chapter 4, the descriptors shift to 'curious' and 'awakened'. The evidence of her transformation isn't in what she does — it's in the words the narrator chooses to describe her.",
+          "rationale": "Tracks evidence across passages, analyses patterns in authorial language, builds cumulative argument from multiple text references",
+          "isGold": true
+        }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Student uses evidence well. Challenge them with competing evidence: 'But what about when it says X? Does that change your view?'",
+        "whenLow": "Student doesn't reference text. Model it: 'Let's look at the exact words. Can you find where it says that?' Build the habit of going back to the text.",
+        "whenMedium": "Student quotes but doesn't analyse. Ask 'Why did you choose that quote?' or 'What specific words are doing the work in that sentence?'"
+      },
+      "usedBy": ["AC-COMP-003"]
+    },
+    {
+      "id": "COMP_RECALL",
+      "name": "recall_accuracy",
+      "description": "Ability to remember and reference content from prior sessions — retention and consolidation",
+      "section": "Comprehension Skills",
+      "type": "STATE",
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "formula": "0.4 * content_accuracy + 0.3 * detail_level + 0.3 * spontaneity",
+      "subMetrics": [
+        {
+          "id": "content_accuracy",
+          "name": "Content Accuracy",
+          "weight": 0.4,
+          "description": "Whether recalled content is factually correct",
+          "definitions": {
+            "high": "Recalls content accurately without confusion or invention",
+            "low": "Confuses details, invents content, or recalls nothing"
+          }
+        },
+        {
+          "id": "detail_level",
+          "name": "Detail Level",
+          "weight": 0.3,
+          "description": "How much detail is recalled",
+          "definitions": {
+            "high": "Recalls specific details, quotes, character names, plot points",
+            "low": "Only vague impressions ('it was about a girl')"
+          }
+        },
+        {
+          "id": "spontaneity",
+          "name": "Spontaneity",
+          "weight": 0.3,
+          "description": "Whether recall is spontaneous or requires heavy prompting",
+          "definitions": {
+            "high": "Recalls without prompting or with minimal cues",
+            "low": "Cannot recall even with specific prompts"
+          }
+        }
+      ],
+      "interpretationScale": [
+        { "min": 0.0, "max": 0.2, "label": "No Evidence", "implication": "No recall of prior session content" },
+        { "min": 0.2, "max": 0.4, "label": "Emerging", "implication": "Vague recall with significant prompting needed" },
+        { "min": 0.4, "max": 0.6, "label": "Developing", "implication": "Recalls main ideas but misses details" },
+        { "min": 0.6, "max": 0.8, "label": "Secure", "implication": "Accurate recall of themes and key details" },
+        { "min": 0.8, "max": 1.0, "label": "Mastery", "implication": "Detailed, spontaneous recall connecting across sessions" }
+      ],
+      "scoringAnchors": [
+        {
+          "score": 0.15,
+          "example": "I don't remember. We talked about something... a book maybe?",
+          "rationale": "Essentially no recall of prior session content",
+          "isGold": true
+        },
+        {
+          "score": 0.35,
+          "example": "Oh yeah, we read about... a girl and a garden? I can't remember her name though.",
+          "rationale": "Vague plot recall, no character names or theme recollection",
+          "isGold": true
+        },
+        {
+          "score": 0.55,
+          "example": "Last time we talked about Mary and how she found the garden. We said the garden was like a symbol for something... growth maybe?",
+          "rationale": "Recalls character name, basic plot, and begins to recall thematic discussion",
+          "isGold": true
+        },
+        {
+          "score": 0.75,
+          "example": "We discussed how Mary transforms from this spoiled child into someone who cares about the garden and other people. You asked me about the word 'contrary' and I said I thought the narrator was being ironic.",
+          "rationale": "Accurate recall of discussion content, specific vocabulary, and own contributions",
+          "isGold": true
+        },
+        {
+          "score": 0.9,
+          "example": "In session 1 we covered the opening chapters — Mary's isolation in India and her neglect. In session 2 we looked at the garden discovery and I argued that the garden represents Mary's inner world. Today I want to revisit that because I've been thinking about whether Colin's garden experience supports or complicates that reading.",
+          "rationale": "Detailed cross-session recall, recalls own interpretations, builds on prior learning, self-directed",
+          "isGold": true
+        }
+      ],
+      "promptGuidance": {
+        "whenHigh": "Strong recall. Build on it: 'You mentioned X last time — has your thinking changed?' Use their memory as a foundation for deeper work.",
+        "whenLow": "Weak recall. Use structured retrieval: 'Last time we talked about [topic]. Can you remember anything about that?' Provide cues rather than answers.",
+        "whenMedium": "Partial recall. Use spaced retrieval technique: 'What was the main theme we identified?' If they struggle, narrow it: 'Was it about loneliness or transformation?'"
+      },
+      "usedBy": ["AC-COMP-004"]
+    }
+  ]
+}
