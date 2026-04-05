@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { ROLE_LEVEL } from '@/lib/roles';
 import { WhatsAppHeader } from './WhatsAppHeader';
 import { MessageBubble } from './MessageBubble';
 import { TypingIndicator } from './TypingIndicator';
@@ -14,8 +16,10 @@ import { VoicePanel } from './VoicePanel';
 import { useVoiceMode } from './useVoiceMode';
 import type { MediaInfo } from './MessageBubble';
 import { ChatSurveyInput } from './ChatSurveyInput';
+import { SimAdminPanel } from './SimAdminPanel';
 import type { ChatItem, UseJourneyChatResult } from '@/hooks/useJourneyChat';
 import type { SurveyStep } from '@/components/student/ChatSurvey';
+import type { UserRole } from '@prisma/client';
 
 interface Message {
   id: string;
@@ -115,6 +119,10 @@ export function SimChat({
   journey,
 }: SimChatProps) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const roleLevel = ROLE_LEVEL[(session?.user?.role ?? 'STUDENT') as UserRole] ?? 0;
+  const isOperator = roleLevel >= 3;
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -134,6 +142,8 @@ export function SimChat({
   const [isGreeting, setIsGreeting] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const callIdRef = useRef<string | null>(null);
   const startingRef = useRef(false);
@@ -713,10 +723,13 @@ export function SimChat({
         voiceActive={voiceMode.state !== 'off'}
         callActive={callPhase === 'active' && messages.length > 0}
         avatarColor={hashColor(callerId)}
+        onAdminPanel={isOperator ? () => setShowAdminPanel(prev => !prev) : undefined}
+        adminPanelActive={showAdminPanel}
       />
 
       {/* Messages */}
       <div
+        ref={scrollContainerRef}
         className="wa-chat-bg"
         style={{
           flex: 1,
@@ -725,6 +738,11 @@ export function SimChat({
           flexDirection: 'column',
           gap: 4,
           padding: '8px 12px 12px',
+          position: 'relative',
+        }}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          setShowScrollTop(el.scrollTop > 300);
         }}
       >
         {/* Journey items — surveys, onboarding, dividers */}
@@ -861,8 +879,8 @@ export function SimChat({
           </div>
         )}
 
-        {/* Loading spinner while checking for active call (or journey loading) */}
-        {callPhase === 'loading' && (!journey || journey.state === 'loading') && (
+        {/* Loading spinner while checking for active call */}
+        {callPhase === 'loading' && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
             <div className="hf-spinner" style={{ width: 28, height: 28 }} />
           </div>
@@ -972,6 +990,19 @@ export function SimChat({
         )}
 
         <div ref={messagesEndRef} />
+
+        {/* Scroll-to-top button */}
+        {showScrollTop && (
+          <button
+            className="wa-scroll-top-btn"
+            onClick={() => scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+            aria-label="Scroll to top"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="18 15 12 9 6 15" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Error banner */}
@@ -1059,8 +1090,8 @@ export function SimChat({
         )
       )}
 
-      {/* Post-call: start new call — works in both standalone and embedded mode */}
-      {callPhase === 'ended' && (
+      {/* Post-call: start new call — hidden when journey has pending stops (surveys, onboarding) */}
+      {callPhase === 'ended' && (!journey || journey.state === 'teaching' || journey.state === 'complete' || journey.state === 'bypassed') && (
         <div style={{
           padding: '16px 20px',
           borderTop: '1px solid var(--border-default)',
@@ -1174,6 +1205,28 @@ export function SimChat({
 
       {/* Toast */}
       {toast && <div className="wa-toast">{toast}</div>}
+
+      {/* Admin debug panel — OPERATOR+ only */}
+      {isOperator && showAdminPanel && (
+        <SimAdminPanel
+          onClose={() => setShowAdminPanel(false)}
+          callId={callId}
+          callPhase={callPhase}
+          messageCount={messages.length}
+          isStreaming={isStreaming}
+          error={error}
+          newPromptId={newPromptId}
+          callerId={callerId}
+          callerName={callerName}
+          domainName={domainName}
+          playbookId={playbookId}
+          playbookName={playbookName}
+          subjectDiscipline={subjectDiscipline}
+          sessionGoal={sessionGoal}
+          journeyState={journey?.state}
+          activeSurveyStep={journey?.activeSurveyStep}
+        />
+      )}
     </>
   );
 

@@ -409,8 +409,25 @@ export function useJourneyChat({ callerId, forceFirstCall }: UseJourneyChatOptio
         timestamp: new Date(),
         action: async () => {
           // Mark onboarding complete
-          await fetch(url('/api/student/onboarding', callerId), { method: 'POST' }).catch(() => {});
-          resolveJourneyPosition();
+          try {
+            const res = await fetch(url('/api/student/onboarding', callerId), { method: 'POST' });
+            if (!res.ok) throw new Error('Failed');
+            resolveJourneyPosition();
+          } catch {
+            pushItems(textItem('assistant', "Something went wrong. Tap below to try again."));
+            // Re-push the same CTA so user can retry
+            pushItems({
+              id: nextId(),
+              kind: 'next_stop',
+              label: 'Try Again ▶',
+              timestamp: new Date(),
+              action: async () => {
+                const res2 = await fetch(url('/api/student/onboarding', callerId), { method: 'POST' }).catch(() => null);
+                if (res2?.ok) resolveJourneyPosition();
+                else pushItems(textItem('assistant', "Still having trouble. Please refresh the page."));
+              },
+            });
+          }
         },
       };
       pushItems(ctaItem);
@@ -453,6 +470,7 @@ export function useJourneyChat({ callerId, forceFirstCall }: UseJourneyChatOptio
         setState('teaching');
       }
     } catch {
+      pushItems(textItem('assistant', "Couldn't load your next step. Starting a practice session."));
       setState('teaching');
     } finally {
       resolving.current = false;

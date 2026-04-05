@@ -24,6 +24,21 @@ interface SuccessCardProps {
   onCopyLink: (url: string, key: string) => void;
 }
 
+/** Build a /join URL with pre-filled learner fields so the form auto-submits. */
+function buildJoinUrl(origin: string, token: string, playbookId?: string, callerName?: string): string {
+  const params = new URLSearchParams();
+  if (playbookId) params.set("course", playbookId);
+
+  const parts = (callerName || "Test Caller").split(/\s+/);
+  const first = parts[0];
+  const last = parts.slice(1).join(" ") || "Tester";
+  params.set("firstName", first);
+  params.set("lastName", last);
+  params.set("email", `${first.toLowerCase()}.${last.toLowerCase().replace(/\s+/g, "")}@tryit.example.com`);
+
+  return `${origin}/join/${token}?${params.toString()}`;
+}
+
 export function SuccessCard({
   draftCallerId,
   draftCallerName,
@@ -96,29 +111,19 @@ export function SuccessCard({
                 >
                   {draftCallerName || "Test Caller"} <span className="hf-text-xs hf-text-muted">(new)</span>
                 </a>
-                {communityJoinToken ? (
-                  <a
-                    href={`/join/${communityJoinToken}${draftPlaybookId ? `?course=${draftPlaybookId}` : ""}`}
-                    className="hf-btn hf-btn-secondary cv4-success-btn-half"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <GraduationCap size={14} /> Try the Learner Journey
-                  </a>
-                ) : (
-                  <a
-                    href={`/x/sim/${draftCallerId}?${new URLSearchParams({
-                      forceFirstCall: "true",
-                      ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
-                      ...(draftDomainId ? { domainId: draftDomainId } : {}),
-                    }).toString()}`}
-                    className="hf-btn hf-btn-secondary cv4-success-btn-half"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Headphones size={14} /> Try a Practice Call
-                  </a>
-                )}
+                <a
+                  href={communityJoinToken
+                    ? buildJoinUrl("", communityJoinToken, draftPlaybookId, draftCallerName)
+                    : `/x/sim/${draftCallerId}?${new URLSearchParams({
+                        ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
+                        ...(draftDomainId ? { domainId: draftDomainId } : {}),
+                      }).toString()}`}
+                  className="hf-btn hf-btn-secondary cv4-success-btn-half"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <GraduationCap size={14} /> Try the Learner Journey
+                </a>
               </div>
             )}
           </div>
@@ -131,14 +136,13 @@ export function SuccessCard({
               type="button"
               className="hf-btn hf-btn-secondary cv4-success-btn-half"
               onClick={() => {
-                const url = communityJoinToken
-                  ? `${window.location.origin}/join/${communityJoinToken}${draftPlaybookId ? `?course=${draftPlaybookId}` : ""}`
+                const tryItUrl = communityJoinToken
+                  ? buildJoinUrl(window.location.origin, communityJoinToken, draftPlaybookId, draftCallerName)
                   : `${window.location.origin}/x/sim/${draftCallerId}?${new URLSearchParams({
-                      forceFirstCall: "true",
                       ...(draftPlaybookId ? { playbookId: draftPlaybookId } : {}),
                       ...(draftDomainId ? { domainId: draftDomainId } : {}),
                     }).toString()}`;
-                onCopyLink(url, "tryit");
+                onCopyLink(tryItUrl, "tryit");
               }}
             >
               {linkCopied ? <><Check size={14} /> Copied!</> : <><Link2 size={14} /> Copy Try-It Link</>}

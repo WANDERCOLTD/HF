@@ -200,11 +200,49 @@ export async function POST(
       await applySkipOnboarding(newCaller.id, cohort.domainId);
     }
 
-    return NextResponse.json({
+    // Auto sign-in via JWT cookie (same as new-user path)
+    const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+    if (!secret) {
+      return NextResponse.json(
+        { ok: false, error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+
+    const existingJwt = await encode({
+      token: {
+        sub: existingUser.id,
+        id: existingUser.id,
+        email: existingUser.email,
+        name: existingUser.name,
+        role: existingUser.role,
+      },
+      secret,
+      salt: "authjs.session-token",
+      maxAge: 30 * 24 * 60 * 60,
+    });
+
+    const existingResponse = NextResponse.json({
       ok: true,
       message: "Joined classroom",
-      redirect: "/x/student",
+      callerId: newCaller.id,
+      redirect: `/x/sim/${newCaller.id}`,
     });
+
+    const isProductionExisting = process.env.NODE_ENV === "production";
+    const cookieNameExisting = isProductionExisting
+      ? "__Secure-authjs.session-token"
+      : "authjs.session-token";
+
+    existingResponse.cookies.set(cookieNameExisting, existingJwt, {
+      httpOnly: true,
+      secure: isProductionExisting,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60,
+    });
+
+    return existingResponse;
   }
 
   // Create new user + caller in one transaction
@@ -281,7 +319,8 @@ export async function POST(
   const response = NextResponse.json({
     ok: true,
     message: "Welcome! You've joined the classroom.",
-    redirect: "/x/student",
+    callerId: result.newCallerId,
+    redirect: `/x/sim/${result.newCallerId}`,
   });
 
   const isProduction = process.env.NODE_ENV === "production";

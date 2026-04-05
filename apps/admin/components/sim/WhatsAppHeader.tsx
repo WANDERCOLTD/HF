@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, PhoneOff, FolderOpen, Mic } from 'lucide-react';
+import { ArrowLeft, PhoneOff, FolderOpen, Mic, Settings } from 'lucide-react';
 
 interface WhatsAppHeaderProps {
   title: string;
@@ -10,13 +10,15 @@ interface WhatsAppHeaderProps {
   onMediaLibrary?: () => void;
   onAvatarClick?: () => void;
   onVoiceToggle?: () => void;
+  onAdminPanel?: () => void;
   mediaLibraryActive?: boolean;
   voiceActive?: boolean;
   callActive?: boolean;
+  adminPanelActive?: boolean;
   avatarColor?: string;
 }
 
-export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibrary, onAvatarClick, onVoiceToggle, mediaLibraryActive, voiceActive, callActive, avatarColor = 'var(--text-muted)' }: WhatsAppHeaderProps) {
+export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibrary, onAvatarClick, onVoiceToggle, onAdminPanel, mediaLibraryActive, voiceActive, callActive, adminPanelActive, avatarColor = 'var(--text-muted)' }: WhatsAppHeaderProps) {
   const initials = title.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
@@ -60,6 +62,17 @@ export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibr
         >
           <Mic size={20} />
           {voiceActive && <span className="wa-voice-dot" />}
+        </button>
+      )}
+      {onAdminPanel && (
+        <button
+          className="wa-back-btn"
+          onClick={onAdminPanel}
+          aria-label="Admin panel"
+          title="Admin panel"
+          style={{ color: adminPanelActive ? 'var(--wa-green-primary)' : undefined }}
+        >
+          <Settings size={20} />
         </button>
       )}
       {callActive && onEndCall && (

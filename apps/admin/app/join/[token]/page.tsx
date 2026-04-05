@@ -82,7 +82,7 @@ export default function JoinPage() {
       if (data.ok) {
         setJoined(true);
         setTimeout(() => {
-          router.push(data.redirect || "/x/sim");
+          router.push(data.callerId ? `/x/sim/${data.callerId}` : (data.redirect || "/x/sim"));
         }, 1500);
       } else {
         setError(data.error ?? "Failed to join");
