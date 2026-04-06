@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   BookMarked, AlertTriangle, Zap, RefreshCw,
@@ -60,14 +60,8 @@ import { SectionHeader } from './SectionHeader';
 // Fetches all assertions for the course, grouped by module/LO.
 // Read-only — editing happens in session detail pages.
 
-const CATEGORY_COLORS: Record<string, string> = {
-  fact: 'var(--accent-primary)',
-  definition: 'var(--badge-purple-text)',
-  rule: 'var(--status-warning-text)',
-  process: 'var(--badge-cyan-text)',
-  example: 'var(--status-success-text)',
-  threshold: 'var(--status-error-text)',
-};
+import { AssertionDetailDrawer } from '@/components/shared/AssertionDetailDrawer';
+import { getCategoryStyle } from '@/lib/content-categories';
 
 type TPData = {
   id: string;
@@ -83,6 +77,25 @@ function TeachingPointsInventory({ courseId, subjects }: { courseId: string; sub
   const [tps, setTps] = useState<TPData[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [drawerAssertionId, setDrawerAssertionId] = useState<string | null>(null);
+
+  // Arrow key navigation when drawer is open
+  const handleKeyNav = useCallback((e: KeyboardEvent) => {
+    if (!drawerAssertionId || tps.length === 0) return;
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const idx = tps.findIndex((tp) => tp.id === drawerAssertionId);
+    const next = e.key === 'ArrowDown'
+      ? Math.min(idx + 1, tps.length - 1)
+      : Math.max(idx - 1, 0);
+    if (next !== idx) setDrawerAssertionId(tps[next].id);
+  }, [drawerAssertionId, tps]);
+
+  useEffect(() => {
+    if (!drawerAssertionId) return;
+    document.addEventListener('keydown', handleKeyNav);
+    return () => document.removeEventListener('keydown', handleKeyNav);
+  }, [drawerAssertionId, handleKeyNav]);
 
   // Only fetch when expanded
   useEffect(() => {
@@ -140,39 +153,42 @@ function TeachingPointsInventory({ courseId, subjects }: { courseId: string; sub
                   {loRef}
                   <span className="hf-text-placeholder hf-ml-sm">({items.length})</span>
                 </div>
-                {items.map((tp) => (
-                  <div
-                    key={tp.id}
-                    className="hf-flex hf-items-start hf-gap-xs hf-text-xs"
-                    style={{ padding: '3px 4px', lineHeight: 1.5 }}
-                  >
-                    <span
-                      className="hf-micro-badge-sm hf-flex-shrink-0"
-                      style={{
-                        background: CATEGORY_COLORS[tp.category] || 'var(--text-muted)',
-                        color: 'white',
-                        fontSize: 9,
-                        padding: '1px 4px',
-                        borderRadius: 3,
-                        marginTop: 2,
-                      }}
+                {items.map((tp) => {
+                  const cs = getCategoryStyle(tp.category);
+                  return (
+                    <button
+                      key={tp.id}
+                      type="button"
+                      className={`hf-btn-reset hf-flex hf-items-start hf-gap-xs hf-text-xs cwt-tp-row${drawerAssertionId === tp.id ? ' cwt-tp-row-active' : ''}`}
+                      onClick={() => setDrawerAssertionId(tp.id)}
                     >
-                      {tp.category}
-                    </span>
-                    <span className="hf-flex-1 hf-text-secondary">{tp.assertion}</span>
-                    <span className="hf-text-placeholder hf-flex-shrink-0">[{tp.sourceName}]</span>
-                    {tp.session != null && (
-                      <span className="hf-micro-badge-sm hf-flex-shrink-0" style={{ background: 'var(--surface-secondary)', fontSize: 9 }}>
-                        S{tp.session}
+                      <span
+                        className="hf-micro-badge-sm hf-flex-shrink-0 cwt-tp-cat"
+                        style={{ background: cs.color }}
+                      >
+                        {tp.category}
                       </span>
-                    )}
-                  </div>
-                ))}
+                      <span className="hf-flex-1 hf-text-secondary hf-text-left">{tp.assertion}</span>
+                      <span className="hf-text-placeholder hf-flex-shrink-0">[{tp.sourceName}]</span>
+                      {tp.session != null && (
+                        <span className="hf-micro-badge-sm hf-flex-shrink-0 cwt-tp-session">
+                          S{tp.session}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             ))}
           </div>
         )
       )}
+
+      <AssertionDetailDrawer
+        courseId={courseId}
+        assertionId={drawerAssertionId}
+        onClose={() => setDrawerAssertionId(null)}
+      />
     </div>
   );
 }

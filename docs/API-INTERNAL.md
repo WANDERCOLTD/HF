@@ -5028,6 +5028,29 @@ Returns teaching point assertions for a course, with source name and optional se
 
 ---
 
+### `GET` /api/courses/:courseId/assertions/:assertionId
+
+Returns full detail for a single assertion, scoped to the course's subject graph.
+
+**Auth**: VIEWER · **Scope**: `courses:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| courseId | path | string | Yes | Playbook UUID |
+| assertionId | path | string | Yes | ContentAssertion UUID |
+
+**Response** `200`
+```json
+{ ok, assertion: AssertionDetail }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Not found" }
+```
+
+---
+
 ### `POST` /api/courses/:courseId/backfill-teach-methods
 
 Backfill teachMethod on ContentAssertions that have teachMethod=null.
@@ -13777,8 +13800,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 418 |
-| Files with annotations | 417 |
+| Route files found | 419 |
+| Files with annotations | 418 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 

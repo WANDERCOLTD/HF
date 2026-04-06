@@ -34,25 +34,8 @@ type ModuleLoData = {
   learningObjectives: LearningObjective[];
 };
 
-// ─── Category styling ────────────────────────────────
-
-const CATEGORY_STYLE: Record<string, { bg: string; text: string; label: string }> = {
-  fact: { bg: "var(--badge-blue-bg, #eff6ff)", text: "var(--status-info-text)", label: "Fact" },
-  definition: { bg: "var(--badge-purple-bg, #f5f3ff)", text: "var(--badge-purple-text, #5b21b6)", label: "Definition" },
-  rule: { bg: "var(--status-error-bg)", text: "var(--status-error-text)", label: "Rule" },
-  threshold: { bg: "var(--status-warning-bg)", text: "var(--status-warning-text)", label: "Threshold" },
-  process: { bg: "var(--status-success-bg)", text: "var(--status-success-text)", label: "Process" },
-  example: { bg: "var(--surface-secondary)", text: "var(--text-secondary)", label: "Example" },
-};
-
-const TRUST_DOTS: Record<string, string> = {
-  REGULATORY_STANDARD: "var(--trust-l5-text, #991b1b)",
-  ACCREDITED_MATERIAL: "var(--trust-l4-text, #854d0e)",
-  PUBLISHED_REFERENCE: "var(--status-info-text)",
-  EXPERT_CURATED: "var(--badge-purple-text, #5b21b6)",
-  AI_ASSISTED: "var(--status-success-text)",
-  UNVERIFIED: "var(--text-placeholder)",
-};
+// ─── Category + trust styling (from shared lib) ─────
+import { getCategoryStyle, getTrustLevel } from '@/lib/content-categories';
 
 // ─── Main Component ──────────────────────────────────
 
@@ -202,25 +185,25 @@ export function ModuleDetailPanel({
 // ─── Assertion Chip ──────────────────────────────────
 
 function AssertionChip({ assertion }: { assertion: Assertion }) {
-  const style = CATEGORY_STYLE[assertion.category] || CATEGORY_STYLE.example;
-  const trustColor = assertion.trustLevel ? TRUST_DOTS[assertion.trustLevel] : null;
+  const catStyle = getCategoryStyle(assertion.category);
+  const trust = assertion.trustLevel ? getTrustLevel(assertion.trustLevel) : null;
 
   return (
     <div
       className="hf-assertion-chip"
-      style={{ background: style.bg, color: style.text }}
+      style={{ background: catStyle.bg, color: catStyle.color }}
     >
       {/* Trust dot */}
-      {trustColor && (
+      {trust && (
         <span
           className="hf-assertion-trust-dot"
-          style={{ background: trustColor }}
-          title={assertion.trustLevel || undefined}
+          style={{ background: trust.color }}
+          title={trust.label}
         />
       )}
 
       {/* Category micro-label */}
-      <span className="hf-assertion-cat">{style.label}</span>
+      <span className="hf-assertion-cat">{catStyle.label}</span>
 
       {/* Assertion text — truncated with title for full text */}
       <span className="hf-assertion-text" title={assertion.assertion}>
