@@ -381,7 +381,7 @@ describe("generate-mcqs", () => {
       });
     });
 
-    it("falls back to assertion path when < 3 TUTOR_QUESTIONs", async () => {
+    it("falls back to assertion path when < 3 TUTOR_QUESTIONs but still tags POST_TEST", async () => {
       // Mock only 2 tutor questions (below threshold)
       mocks.prisma.subjectSource.findMany.mockResolvedValue([{ sourceId: "qb-src-1" }]);
       mocks.prisma.contentQuestion.findMany.mockResolvedValue([
@@ -414,9 +414,16 @@ describe("generate-mcqs", () => {
       // Should use default call point (not comprehension)
       const aiCall = mocks.ai.mock.calls[0][0];
       expect(aiCall.callPoint).toBe("content-trust.generate-mcq");
+
+      // Comprehension fallback must still tag POST_TEST — never show in pre-test
+      const saved = mocks.save.mock.calls[0][1];
+      expect(saved[0]).toMatchObject({
+        assessmentUse: "POST_TEST",
+        tags: expect.arrayContaining(["auto-generated", "comprehension-skill"]),
+      });
     });
 
-    it("falls back to assertion path when no QB sources exist", async () => {
+    it("falls back to assertion path when no QB sources exist but still tags POST_TEST", async () => {
       // No QB sources for this subject
       mocks.prisma.subjectSource.findMany.mockResolvedValue([]);
 
@@ -443,6 +450,12 @@ describe("generate-mcqs", () => {
 
       const aiCall = mocks.ai.mock.calls[0][0];
       expect(aiCall.callPoint).toBe("content-trust.generate-mcq");
+
+      // Comprehension fallback must still tag POST_TEST
+      const saved = mocks.save.mock.calls[0][1];
+      expect(saved[0]).toMatchObject({
+        assessmentUse: "POST_TEST",
+      });
     });
   });
 

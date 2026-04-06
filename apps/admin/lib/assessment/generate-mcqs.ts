@@ -379,7 +379,7 @@ export async function generateMcqsForSource(
   }
 
   // Default path: generate from assertions (bloom-distributed)
-  return generateFromAssertions(sourceId, count, options);
+  return generateFromAssertions(sourceId, count, options, isComprehension ? "comprehension" : "assertion");
 }
 
 // ---------------------------------------------------------------------------
@@ -420,6 +420,7 @@ async function generateFromAssertions(
   sourceId: string,
   count: number,
   options?: { userId?: string; subjectSourceId?: string },
+  source: "comprehension" | "assertion" = "assertion",
 ): Promise<GenerateMcqsResult> {
   // Load assertions for this source (scoped by subjectSourceId when available)
   const assertionSelect = {
@@ -477,7 +478,7 @@ async function generateFromAssertions(
     return { created: 0, duplicatesSkipped: 0, skipped: true, skipReason: "ai_no_response" };
   }
 
-  return parseAndSaveMcqs(sourceId, result.content, options, "assertion");
+  return parseAndSaveMcqs(sourceId, result.content, options, source);
 }
 
 // ---------------------------------------------------------------------------
