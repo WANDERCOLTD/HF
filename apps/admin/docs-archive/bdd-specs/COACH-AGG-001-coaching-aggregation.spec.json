@@ -1,0 +1,114 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "COACH-AGG-001",
+  "title": "Coaching Skills Aggregation",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-04-06",
+  "domain": "coaching",
+  "specType": "SYSTEM",
+  "outputType": "AGGREGATE",
+  "profileCondition": ["coaching-led"],
+  "specRole": "SYNTHESISE",
+  "story": {
+    "asA": "personalization system",
+    "iWant": "to aggregate coaching skill scores into a stable competency level",
+    "soThat": "the tutor can adapt scaffolding and accountability to the learner's development trajectory"
+  },
+  "context": {
+    "applies": "After COACH-MEASURE-001 has scored coaching parameters",
+    "dependsOn": ["COACH-MEASURE-001"],
+    "assumptions": ["Competency stabilizes after 2+ observations", "COACH_FOLLOWUP excluded from session 1 aggregation"]
+  },
+  "parameters": [
+    {
+      "id": "coach_aggregate",
+      "name": "Coaching Competency Aggregation",
+      "description": "Combines recent COACH_* scores into a stable competency level",
+      "section": "aggregation",
+      "config": {
+        "windowSize": 5,
+        "recencyWeight": 0.7,
+        "minimumObservations": 2,
+        "aggregationRules": [
+          {
+            "sourceParameter": "COACH_CLARITY",
+            "targetProfileKey": "goal_clarity",
+            "method": "threshold_mapping",
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          },
+          {
+            "sourceParameter": "COACH_ACTION",
+            "targetProfileKey": "action_commitment",
+            "method": "threshold_mapping",
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          },
+          {
+            "sourceParameter": "COACH_AWARENESS",
+            "targetProfileKey": "self_awareness",
+            "method": "threshold_mapping",
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          },
+          {
+            "sourceParameter": "COACH_FOLLOWUP",
+            "targetProfileKey": "follow_through",
+            "method": "threshold_mapping",
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          },
+          {
+            "sourceParameter": "_average",
+            "targetProfileKey": "competency_level",
+            "method": "threshold_mapping",
+            "averageOf": ["COACH_CLARITY", "COACH_ACTION", "COACH_AWARENESS", "COACH_FOLLOWUP"],
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Update Coaching Profile",
+      "given": "New coaching scores are available",
+      "when": "Aggregation phase runs",
+      "then": "Update CallerAttribute with aggregated competency levels",
+      "actions": [
+        {
+          "description": "Aggregate coaching observations into profile keys",
+          "parameterId": "coach_aggregate",
+          "weight": 1.0
+        }
+      ]
+    }
+  ]
+}

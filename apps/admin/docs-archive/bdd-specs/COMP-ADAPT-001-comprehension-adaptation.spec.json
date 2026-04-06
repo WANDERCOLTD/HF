@@ -1,0 +1,124 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "COMP-ADAPT-001",
+  "title": "Comprehension Teaching Adaptation",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-04-06",
+  "domain": "comprehension-adaptation",
+  "specType": "SYSTEM",
+  "outputType": "ADAPT",
+  "profileCondition": ["comprehension-led"],
+  "specRole": "SYNTHESISE",
+  "story": {
+    "asA": "conversational AI tutor",
+    "iWant": "to adapt my teaching approach based on the learner's comprehension scores",
+    "soThat": "struggling learners get more scaffolding and strong learners get deeper challenges"
+  },
+  "context": {
+    "applies": "After COMP-AGG-001 has aggregated comprehension scores",
+    "dependsOn": ["COMP-MEASURE-001", "COMP-AGG-001"],
+    "assumptions": ["At least 1 comprehension score exists before adaptation fires"]
+  },
+  "config": {
+    "defaultAdaptConfidence": 0.7
+  },
+  "parameters": [
+    {
+      "id": "comp_scaffolding",
+      "name": "Comprehension Scaffolding Adaptation",
+      "description": "Adjusts scaffolding level based on comprehension scores",
+      "section": "comprehension",
+      "isAdjustable": true,
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "COMP_INFERENCE",
+              "operator": "lt",
+              "threshold": 0.4,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-QUESTION-RATE",
+                "adjustment": "increase",
+                "delta": 0.15,
+                "rationale": "Low inference skill — increase Socratic questioning to guide discovery"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "COMP_RECALL",
+              "operator": "lt",
+              "threshold": 0.3,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-PATIENCE-LEVEL",
+                "adjustment": "increase",
+                "delta": 0.2,
+                "rationale": "Weak recall — slow down, add more spaced retrieval at session open"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "COMP_THEME",
+              "operator": "lt",
+              "threshold": 0.4,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-RESPONSE-LEN",
+                "adjustment": "decrease",
+                "delta": 0.1,
+                "rationale": "Weak theme understanding — keep responses shorter, ask more questions"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "COMP_THEME",
+              "operator": "gte",
+              "threshold": 0.7,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-QUESTION-RATE",
+                "adjustment": "set",
+                "value": 0.8,
+                "rationale": "Strong theme understanding — push toward evaluative and comparative questions"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "COMP_EVIDENCE",
+              "operator": "lt",
+              "threshold": 0.4,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-QUESTION-RATE",
+                "adjustment": "increase",
+                "delta": 0.1,
+                "rationale": "Weak evidence usage — ask 'Where in the text does it say that?' more often"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "related": [
+    { "id": "COMP-MEASURE-001", "title": "Comprehension Measurement", "relationship": "provides input scores" },
+    { "id": "COMP-AGG-001", "title": "Comprehension Aggregation", "relationship": "provides aggregated profile" }
+  ]
+}

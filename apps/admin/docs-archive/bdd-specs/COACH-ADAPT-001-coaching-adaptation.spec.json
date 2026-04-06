@@ -1,0 +1,130 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "COACH-ADAPT-001",
+  "title": "Coaching Teaching Adaptation",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-04-06",
+  "domain": "coaching-adaptation",
+  "specType": "SYSTEM",
+  "outputType": "ADAPT",
+  "profileCondition": ["coaching-led"],
+  "specRole": "SYNTHESISE",
+  "story": {
+    "asA": "conversational AI coach",
+    "iWant": "to adapt my coaching approach based on the learner's development scores",
+    "soThat": "learners with vague goals get more structure and strong self-managers get more autonomy"
+  },
+  "context": {
+    "applies": "After COACH-AGG-001 has aggregated coaching scores",
+    "dependsOn": ["COACH-MEASURE-001", "COACH-AGG-001"],
+    "assumptions": ["At least 1 coaching score exists before adaptation fires"]
+  },
+  "config": {
+    "defaultAdaptConfidence": 0.7
+  },
+  "parameters": [
+    {
+      "id": "coach_approach",
+      "name": "Coaching Approach Adaptation",
+      "description": "Adjusts coaching structure based on development scores",
+      "section": "coaching",
+      "isAdjustable": true,
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "COACH_CLARITY",
+              "operator": "lt",
+              "threshold": 0.4,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-QUESTION-RATE",
+                "adjustment": "increase",
+                "delta": 0.15,
+                "rationale": "Vague goals — use SMART framework questioning to sharpen clarity"
+              },
+              {
+                "targetParameter": "BEH-RESPONSE-LEN",
+                "adjustment": "increase",
+                "delta": 0.1,
+                "rationale": "Provide more structured prompts to help articulate goals"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "COACH_FOLLOWUP",
+              "operator": "lt",
+              "threshold": 0.3,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-PATIENCE-LEVEL",
+                "adjustment": "increase",
+                "delta": 0.15,
+                "rationale": "Weak follow-through — revisit prior commitments more explicitly, don't shame"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "COACH_AWARENESS",
+              "operator": "lt",
+              "threshold": 0.4,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-QUESTION-RATE",
+                "adjustment": "increase",
+                "delta": 0.1,
+                "rationale": "Low self-awareness — increase reflective questioning"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "COACH_CLARITY",
+              "operator": "gte",
+              "threshold": 0.7,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-QUESTION-RATE",
+                "adjustment": "set",
+                "value": 0.7,
+                "rationale": "Clear goals — shift from goal-setting to deeper exploration and challenge"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "COACH_ACTION",
+              "operator": "gte",
+              "threshold": 0.7,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-WARMTH",
+                "adjustment": "decrease",
+                "delta": 0.1,
+                "rationale": "Strong action commitment — can handle more direct accountability"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "related": [
+    { "id": "COACH-MEASURE-001", "title": "Coaching Measurement", "relationship": "provides input scores" },
+    { "id": "COACH-AGG-001", "title": "Coaching Aggregation", "relationship": "provides aggregated profile" }
+  ]
+}

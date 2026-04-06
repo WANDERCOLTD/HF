@@ -1,0 +1,124 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "DISC-ADAPT-001",
+  "title": "Discussion Teaching Adaptation",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-04-06",
+  "domain": "discussion-adaptation",
+  "specType": "SYSTEM",
+  "outputType": "ADAPT",
+  "profileCondition": ["discussion-led"],
+  "specRole": "SYNTHESISE",
+  "story": {
+    "asA": "conversational AI tutor",
+    "iWant": "to adapt my discussion facilitation based on the learner's critical thinking scores",
+    "soThat": "learners who hold rigid positions get more perspective challenges and reflective learners get deeper dilemmas"
+  },
+  "context": {
+    "applies": "After DISC-AGG-001 has aggregated discussion scores",
+    "dependsOn": ["DISC-MEASURE-001", "DISC-AGG-001"],
+    "assumptions": ["At least 1 discussion score exists before adaptation fires"]
+  },
+  "config": {
+    "defaultAdaptConfidence": 0.7
+  },
+  "parameters": [
+    {
+      "id": "disc_facilitation",
+      "name": "Discussion Facilitation Adaptation",
+      "description": "Adjusts facilitation approach based on discussion skill scores",
+      "section": "discussion",
+      "isAdjustable": true,
+      "targetRange": { "min": 0.0, "max": 1.0 },
+      "config": {
+        "adaptationRules": [
+          {
+            "condition": {
+              "profileKey": "DISC_PERSPECTIVE",
+              "operator": "lt",
+              "threshold": 0.4,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-QUESTION-RATE",
+                "adjustment": "increase",
+                "delta": 0.15,
+                "rationale": "Low perspective diversity — present more contrasting viewpoints"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "DISC_ARGUMENT",
+              "operator": "lt",
+              "threshold": 0.4,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-RESPONSE-LEN",
+                "adjustment": "increase",
+                "delta": 0.1,
+                "rationale": "Weak argument quality — model structured reasoning with examples"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "DISC_SHIFT",
+              "operator": "lt",
+              "threshold": 0.3,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-PATIENCE-LEVEL",
+                "adjustment": "increase",
+                "delta": 0.15,
+                "rationale": "Rigid position — be patient, use gentle challenging questions rather than direct confrontation"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "DISC_REFLECTION",
+              "operator": "gte",
+              "threshold": 0.7,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-QUESTION-RATE",
+                "adjustment": "set",
+                "value": 0.85,
+                "rationale": "Strong reflection — push toward meta-level philosophical questioning"
+              }
+            ]
+          },
+          {
+            "condition": {
+              "profileKey": "DISC_PERSPECTIVE",
+              "operator": "gte",
+              "threshold": 0.7,
+              "dataSource": "parameterValues"
+            },
+            "actions": [
+              {
+                "targetParameter": "BEH-WARMTH",
+                "adjustment": "decrease",
+                "delta": 0.1,
+                "rationale": "Strong perspective taking — can handle more challenging, direct questioning"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "related": [
+    { "id": "DISC-MEASURE-001", "title": "Discussion Measurement", "relationship": "provides input scores" },
+    { "id": "DISC-AGG-001", "title": "Discussion Aggregation", "relationship": "provides aggregated profile" }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "COMP-AGG-001",
+  "title": "Comprehension Skills Aggregation",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-04-06",
+  "domain": "comprehension",
+  "specType": "SYSTEM",
+  "outputType": "AGGREGATE",
+  "profileCondition": ["comprehension-led"],
+  "specRole": "SYNTHESISE",
+  "story": {
+    "asA": "personalization system",
+    "iWant": "to aggregate comprehension scores across sessions into a stable competency level",
+    "soThat": "the tutor can adapt teaching depth and scaffolding to the learner's comprehension trajectory"
+  },
+  "context": {
+    "applies": "After COMP-MEASURE-001 has scored comprehension parameters",
+    "dependsOn": ["COMP-MEASURE-001"],
+    "assumptions": ["Competency stabilizes after 2+ observations", "COMP_RECALL excluded from session 1 aggregation"]
+  },
+  "parameters": [
+    {
+      "id": "comp_aggregate",
+      "name": "Comprehension Competency Aggregation",
+      "description": "Combines recent COMP_* scores into a stable competency level",
+      "section": "aggregation",
+      "config": {
+        "windowSize": 5,
+        "recencyWeight": 0.7,
+        "minimumObservations": 2,
+        "aggregationRules": [
+          {
+            "sourceParameter": "COMP_THEME",
+            "targetProfileKey": "theme_understanding",
+            "method": "threshold_mapping",
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          },
+          {
+            "sourceParameter": "COMP_INFERENCE",
+            "targetProfileKey": "inference_skill",
+            "method": "threshold_mapping",
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          },
+          {
+            "sourceParameter": "COMP_EVIDENCE",
+            "targetProfileKey": "evidence_usage",
+            "method": "threshold_mapping",
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          },
+          {
+            "sourceParameter": "COMP_RECALL",
+            "targetProfileKey": "recall_accuracy",
+            "method": "threshold_mapping",
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          },
+          {
+            "sourceParameter": "_average",
+            "targetProfileKey": "competency_level",
+            "method": "threshold_mapping",
+            "averageOf": ["COMP_THEME", "COMP_INFERENCE", "COMP_EVIDENCE", "COMP_RECALL"],
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Update Comprehension Profile",
+      "given": "New comprehension scores are available",
+      "when": "Aggregation phase runs",
+      "then": "Update CallerAttribute with aggregated competency levels",
+      "actions": [
+        {
+          "description": "Aggregate comprehension observations into profile keys",
+          "parameterId": "comp_aggregate",
+          "weight": 1.0
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "DISC-AGG-001",
+  "title": "Discussion Skills Aggregation",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-04-06",
+  "domain": "discussion",
+  "specType": "SYSTEM",
+  "outputType": "AGGREGATE",
+  "profileCondition": ["discussion-led"],
+  "specRole": "SYNTHESISE",
+  "story": {
+    "asA": "personalization system",
+    "iWant": "to aggregate discussion skill scores into a stable competency level",
+    "soThat": "the tutor can adapt challenge level and perspective diversity to the learner's critical thinking trajectory"
+  },
+  "context": {
+    "applies": "After DISC-MEASURE-001 has scored discussion parameters",
+    "dependsOn": ["DISC-MEASURE-001"],
+    "assumptions": ["Competency stabilizes after 2+ observations"]
+  },
+  "parameters": [
+    {
+      "id": "disc_aggregate",
+      "name": "Discussion Competency Aggregation",
+      "description": "Combines recent DISC_* scores into a stable competency level",
+      "section": "aggregation",
+      "config": {
+        "windowSize": 5,
+        "recencyWeight": 0.7,
+        "minimumObservations": 2,
+        "aggregationRules": [
+          {
+            "sourceParameter": "DISC_PERSPECTIVE",
+            "targetProfileKey": "perspective_diversity",
+            "method": "threshold_mapping",
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          },
+          {
+            "sourceParameter": "DISC_ARGUMENT",
+            "targetProfileKey": "argument_quality",
+            "method": "threshold_mapping",
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          },
+          {
+            "sourceParameter": "DISC_SHIFT",
+            "targetProfileKey": "position_shift",
+            "method": "threshold_mapping",
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          },
+          {
+            "sourceParameter": "DISC_REFLECTION",
+            "targetProfileKey": "reflection_quality",
+            "method": "threshold_mapping",
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          },
+          {
+            "sourceParameter": "_average",
+            "targetProfileKey": "competency_level",
+            "method": "threshold_mapping",
+            "averageOf": ["DISC_PERSPECTIVE", "DISC_ARGUMENT", "DISC_SHIFT", "DISC_REFLECTION"],
+            "thresholds": [
+              { "min": 0.8, "value": "mastery", "confidence": 0.85 },
+              { "min": 0.6, "max": 0.8, "value": "secure", "confidence": 0.8 },
+              { "min": 0.4, "max": 0.6, "value": "developing", "confidence": 0.75 },
+              { "min": 0.2, "max": 0.4, "value": "emerging", "confidence": 0.7 },
+              { "max": 0.2, "value": "no_evidence", "confidence": 0.8 }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Update Discussion Profile",
+      "given": "New discussion scores are available",
+      "when": "Aggregation phase runs",
+      "then": "Update CallerAttribute with aggregated competency levels",
+      "actions": [
+        {
+          "description": "Aggregate discussion observations into profile keys",
+          "parameterId": "disc_aggregate",
+          "weight": 1.0
+        }
+      ]
+    }
+  ]
+}
