@@ -133,6 +133,56 @@ registerTransform("computeQuickStart", (
       ? "This is a TEXT chat — the learner types, not speaks. Typing is much slower than talking. Cover less material per session, keep messages concise, and don't rush through phases. A 20-min voice session is roughly equivalent to 5-7 min of text chat in content coverage."
       : null,
 
+    learning_guidance: (() => {
+      // Surface aggregated learning competency from CallerAttributes (set by COMP/DISC/COACH-AGG specs)
+      const learningAttrs = loadedData.callerAttributes.filter(
+        (a: CallerAttributeData) => a.scope === "COMP-AGG-001" || a.scope === "DISC-AGG-001" || a.scope === "COACH-AGG-001",
+      );
+      if (learningAttrs.length === 0) return null;
+
+      const get = (key: string): string | null => {
+        const attr = learningAttrs.find((a: CallerAttributeData) => a.key === key);
+        return attr?.stringValue ?? null;
+      };
+
+      const level = get("competency_level");
+      const parts: string[] = [];
+
+      if (level) parts.push(`Overall competency: ${level}`);
+
+      // Comprehension-specific
+      const theme = get("theme_understanding");
+      const inference = get("inference_skill");
+      const evidence = get("evidence_usage");
+      const recall = get("recall_accuracy");
+      if (theme) parts.push(`Theme understanding: ${theme}`);
+      if (inference) parts.push(`Inference: ${inference}`);
+      if (evidence) parts.push(`Evidence usage: ${evidence}`);
+      if (recall) parts.push(`Recall: ${recall}`);
+
+      // Discussion-specific
+      const perspective = get("perspective_diversity");
+      const argument = get("argument_quality");
+      const shift = get("position_shift");
+      const reflection = get("reflection_quality");
+      if (perspective) parts.push(`Perspective diversity: ${perspective}`);
+      if (argument) parts.push(`Argument quality: ${argument}`);
+      if (shift) parts.push(`Position shift: ${shift}`);
+      if (reflection) parts.push(`Reflection: ${reflection}`);
+
+      // Coaching-specific
+      const clarity = get("goal_clarity");
+      const action = get("action_commitment");
+      const awareness = get("self_awareness");
+      const followup = get("follow_through");
+      if (clarity) parts.push(`Goal clarity: ${clarity}`);
+      if (action) parts.push(`Action commitment: ${action}`);
+      if (awareness) parts.push(`Self-awareness: ${awareness}`);
+      if (followup) parts.push(`Follow-through: ${followup}`);
+
+      return parts.length > 0 ? parts.join("\n") : null;
+    })(),
+
     lesson_model: lessonPlanModel
       ? lessonPlanModel.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
       : null,
