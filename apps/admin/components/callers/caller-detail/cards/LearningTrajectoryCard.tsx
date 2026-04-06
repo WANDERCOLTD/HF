@@ -31,16 +31,12 @@ const PROFILE_LABELS: Record<string, string> = {
   'coaching-led': 'Coaching Progress',
 };
 
-const PROFILE_PARAMS: Record<string, string[]> = {
-  'comprehension-led': ['COMP_THEME', 'COMP_INFERENCE', 'COMP_EVIDENCE', 'COMP_RECALL'],
-  'discussion-led': ['DISC_PERSPECTIVE', 'DISC_ARGUMENT', 'DISC_SHIFT', 'DISC_REFLECTION'],
-  'coaching-led': ['COACH_CLARITY', 'COACH_ACTION', 'COACH_AWARENESS', 'COACH_FOLLOWUP'],
-};
-
 const PARAM_LABELS: Record<string, string> = {
-  COMP_THEME: 'Theme Understanding',
+  COMP_RETRIEVAL: 'Retrieval',
   COMP_INFERENCE: 'Inference',
-  COMP_EVIDENCE: 'Evidence Usage',
+  COMP_VOCABULARY: 'Vocabulary',
+  COMP_LANGUAGE: 'Language',
+  COMP_EVALUATION: 'Evaluation',
   COMP_RECALL: 'Recall',
   DISC_PERSPECTIVE: 'Perspective Diversity',
   DISC_ARGUMENT: 'Argument Quality',

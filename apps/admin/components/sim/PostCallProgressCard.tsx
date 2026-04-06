@@ -26,8 +26,8 @@ const BAND_LABELS: Record<string, string> = {
 };
 
 const PARAM_LABELS: Record<string, string> = {
-  COMP_THEME: 'Theme', COMP_INFERENCE: 'Inference', COMP_EVIDENCE: 'Evidence', COMP_RECALL: 'Recall',
-  COMP_RETRIEVAL: 'Retrieval', COMP_VOCABULARY: 'Vocabulary', COMP_LANGUAGE: 'Language', COMP_EVALUATION: 'Evaluation',
+  COMP_RETRIEVAL: 'Retrieval', COMP_INFERENCE: 'Inference', COMP_VOCABULARY: 'Vocabulary',
+  COMP_LANGUAGE: 'Language', COMP_EVALUATION: 'Evaluation', COMP_RECALL: 'Recall',
   DISC_PERSPECTIVE: 'Perspective', DISC_ARGUMENT: 'Argument', DISC_SHIFT: 'Position Shift', DISC_REFLECTION: 'Reflection',
   COACH_CLARITY: 'Goal Clarity', COACH_ACTION: 'Action', COACH_AWARENESS: 'Self-Awareness', COACH_FOLLOWUP: 'Follow-Through',
 };
