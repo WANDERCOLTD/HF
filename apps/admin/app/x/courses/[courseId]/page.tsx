@@ -274,13 +274,13 @@ export default function CourseDetailPage() {
   const tabs: TabDefinition[] = useMemo(() => [
     { id: 'overview', label: 'Overview', icon: <Sparkles size={14} /> },
     { id: 'journey', label: 'Journey', icon: <PlayCircle size={14} />, count: sessions?.plan?.estimatedSessions || null },
-    { id: 'content', label: 'Content', icon: <BookMarked size={14} />, count: contentOnlyCount || null },
+    { id: 'content', label: 'Content', icon: <BookMarked size={14} />, count: totalSources || null },
     { id: 'audience', label: 'Audience', icon: <Users2 size={14} /> },
     { id: 'learners', label: 'Learners', icon: <Users2 size={14} /> },
     { id: 'proof', label: 'Proof Points', icon: <BarChart3 size={14} /> },
     { id: 'goals', label: 'Goals', icon: <Target size={14} /> },
     ...(isOperator ? [{ id: 'settings', label: 'Settings', icon: <SettingsIcon size={14} /> }] : []),
-  ], [contentOnlyCount, isOperator, sessions]);
+  ], [totalSources, isOperator, sessions]);
 
   // ── Tab change: lazy load lesson plan data ──
   const handleTabChange = useCallback((tab: string) => {
