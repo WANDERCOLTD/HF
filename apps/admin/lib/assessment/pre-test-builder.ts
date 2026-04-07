@@ -25,6 +25,7 @@ interface ContentQuestionRow {
   learningOutcomeRef: string | null;
   difficulty: number | null;
   bloomLevel: string | null;
+  skillRef: string | null;
 }
 
 interface McqOption {
@@ -140,6 +141,7 @@ async function fetchQuestions(
       learningOutcomeRef: true,
       difficulty: true,
       bloomLevel: true,
+      skillRef: true,
     },
     orderBy: { sortOrder: "asc" },
   });
@@ -224,6 +226,74 @@ function selectByBloomSpread(
   }
 
   return selected;
+}
+
+/**
+ * Select questions distributed across comprehension skillRefs.
+ * Prioritises one question per skill for balanced coverage.
+ */
+function selectBySkillSpread(
+  questions: ContentQuestionRow[],
+  count: number,
+): ContentQuestionRow[] {
+  const bySkill = new Map<string, ContentQuestionRow[]>();
+  for (const q of questions) {
+    const key = q.skillRef ?? q.chapter ?? "_ungrouped";
+    const group = bySkill.get(key) ?? [];
+    group.push(q);
+    bySkill.set(key, group);
+  }
+
+  const selected: ContentQuestionRow[] = [];
+  const skills = [...bySkill.keys()];
+  let round = 0;
+
+  while (selected.length < count && round < 10) {
+    for (const skill of skills) {
+      if (selected.length >= count) break;
+      const group = bySkill.get(skill)!;
+      if (round < group.length) {
+        selected.push(group[round]);
+      }
+    }
+    round++;
+  }
+
+  return selected;
+}
+
+// ---------------------------------------------------------------------------
+// Fetch comprehension questions (POST_TEST eligible)
+// ---------------------------------------------------------------------------
+
+async function fetchComprehensionQuestions(
+  sourceIds: string[],
+  questionTypes: string[],
+): Promise<ContentQuestionRow[]> {
+  if (sourceIds.length === 0) return [];
+  return prisma.contentQuestion.findMany({
+    where: {
+      sourceId: { in: sourceIds },
+      questionType: { in: questionTypes as any },
+      // Include POST_TEST and BOTH — these are the comprehension MCQs
+      assessmentUse: { in: ["POST_TEST", "BOTH"] },
+    },
+    select: {
+      id: true,
+      questionText: true,
+      questionType: true,
+      options: true,
+      correctAnswer: true,
+      answerExplanation: true,
+      chapter: true,
+      section: true,
+      learningOutcomeRef: true,
+      difficulty: true,
+      bloomLevel: true,
+      skillRef: true,
+    },
+    orderBy: { sortOrder: "asc" },
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -363,6 +433,7 @@ export async function buildPostTest(callerId: string): Promise<PreTestResult> {
       learningOutcomeRef: true,
       difficulty: true,
       bloomLevel: true,
+      skillRef: true,
     },
   });
 
@@ -377,5 +448,39 @@ export async function buildPostTest(callerId: string): Promise<PreTestResult> {
     questionIds: steps.map((s) => s.id),
     skipped: steps.length === 0,
     skipReason: steps.length === 0 ? "questions_deleted" : undefined,
+  };
+}
+
+/**
+ * Build a comprehension post-test (or mid-test) by querying POST_TEST-tagged MCQs directly.
+ * Does NOT depend on pre-test question IDs — comprehension courses skip pre-tests.
+ * Selects questions spread across comprehension skillRefs (SKILL-01 through SKILL-06).
+ */
+export async function buildComprehensionPostTest(playbookId: string): Promise<PreTestResult> {
+  const sourceIds = await getSourceIdsForPlaybook(playbookId);
+  if (sourceIds.length === 0) {
+    return { questions: [], questionIds: [], skipped: true, skipReason: "no_content_source" };
+  }
+
+  const assessmentCfg = await getAssessmentConfig();
+  const allQuestions = await fetchComprehensionQuestions(sourceIds, assessmentCfg.questionTypes);
+  if (allQuestions.length === 0) {
+    return { questions: [], questionIds: [], skipped: true, skipReason: "no_questions", sourceId: sourceIds[0] };
+  }
+
+  // Spread across comprehension skills (one per skillRef, round-robin)
+  const selected = selectBySkillSpread(allQuestions, assessmentCfg.questionCount);
+
+  const steps = selected.map(toSurveyStep).filter((s): s is SurveyStepConfig => s !== null);
+
+  if (steps.length === 0) {
+    return { questions: [], questionIds: [], skipped: true, skipReason: "no_valid_mcq" };
+  }
+
+  return {
+    questions: steps,
+    questionIds: steps.map((s) => s.id),
+    skipped: false,
+    sourceId: sourceIds[0],
   };
 }

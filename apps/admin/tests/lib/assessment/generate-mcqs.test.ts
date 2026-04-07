@@ -36,6 +36,11 @@ vi.mock("@/lib/content-trust/save-questions", () => ({
   deleteQuestionsForSource: vi.fn(),
 }));
 
+vi.mock("@/lib/assessment/validate-mcqs", () => ({
+  validateMcqBatch: vi.fn((questions) => ({ validated: questions, issues: [] })),
+  aiReviewMcqs: vi.fn(async (questions) => ({ reviewed: questions, issues: [] })),
+}));
+
 import { prisma } from "@/lib/prisma";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { saveQuestions } from "@/lib/content-trust/save-questions";
@@ -371,11 +376,10 @@ describe("generate-mcqs", () => {
       expect(aiCall.callPoint).toBe("content-trust.generate-mcq-comprehension");
 
       // Verify saved question has skill-aligned metadata
-      // Comprehension MCQs are POST_TEST only (passage-dependent, can't be pre-tested)
       const saved = mocks.save.mock.calls[0][1];
       expect(saved[0]).toMatchObject({
         bloomLevel: "UNDERSTAND",
-        assessmentUse: "POST_TEST",
+        assessmentUse: "BOTH",
         chapter: "Inference",
         tags: expect.arrayContaining(["auto-generated", "comprehension-skill"]),
       });
@@ -429,7 +433,7 @@ describe("generate-mcqs", () => {
       // Comprehension fallback must still tag POST_TEST — never show in pre-test
       const saved = mocks.save.mock.calls[0][1];
       expect(saved[0]).toMatchObject({
-        assessmentUse: "POST_TEST",
+        assessmentUse: "BOTH",
         tags: expect.arrayContaining(["auto-generated", "comprehension-skill"]),
       });
     });
@@ -464,10 +468,10 @@ describe("generate-mcqs", () => {
       const aiCall = mocks.ai.mock.calls[0][0];
       expect(aiCall.callPoint).toBe("content-trust.generate-mcq-comprehension");
 
-      // Comprehension fallback must still tag POST_TEST
+      // Comprehension fallback uses default assessmentIntent (BOTH)
       const saved = mocks.save.mock.calls[0][1];
       expect(saved[0]).toMatchObject({
-        assessmentUse: "POST_TEST",
+        assessmentUse: "BOTH",
       });
     });
   });

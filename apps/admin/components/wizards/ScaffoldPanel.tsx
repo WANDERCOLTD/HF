@@ -10,7 +10,8 @@
  * Design: artifact-first (show the course, not a checklist).
  */
 
-import { Loader2, RotateCcw, ExternalLink, Pencil } from "lucide-react";
+import { useState } from "react";
+import { Loader2, RotateCcw, ExternalLink, Pencil, ChevronRight } from "lucide-react";
 import { estimateTeachingSessions } from "@/lib/lesson-plan/session-ui";
 import { useTerminology } from "@/contexts/TerminologyContext";
 import { CONTENT_CATEGORIES, CATEGORY_ORDER } from "@/lib/content-categories";
@@ -141,6 +142,39 @@ function DefaultTag() {
   return <span className="gs-bp-default" title="System default — click to customise">default</span>;
 }
 
+/* ── Guide Group (collapsible sub-section) ─────────── */
+
+function GuideGroup({ label, count, items, maxShow = 5, expanded, onToggle }: {
+  label: string;
+  count: number;
+  items: string[];
+  maxShow?: number;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const visible = items.slice(0, expanded ? maxShow : 0);
+  const remaining = count - maxShow;
+  return (
+    <div className="gs-bp-guide-group">
+      <button type="button" className="gs-bp-guide-header" onClick={(e) => { e.stopPropagation(); onToggle(); }}>
+        <span className="gs-bp-guide-label">{label}</span>
+        <span className="gs-bp-guide-count">{count}</span>
+        <ChevronRight size={12} className={`gs-bp-guide-chevron${expanded ? " gs-bp-guide-chevron--open" : ""}`} />
+      </button>
+      {expanded && (
+        <div className="gs-bp-guide-items">
+          {visible.map((item, i) => (
+            <div key={i} className="gs-bp-guide-item" title={item}>{item}</div>
+          ))}
+          {remaining > 0 && (
+            <div className="gs-bp-guide-more">+{remaining} more</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Status phase maps ──────────────────────────────── */
 
 const ITEM_TO_PHASE: Record<string, string> = {
@@ -226,6 +260,10 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
     personality: hasPlaybookId && !!getData<Record<string, number>>("behaviorTargets"),
   };
 
+  // Collapsible guide section accordion
+  const [expandedGuide, setExpandedGuide] = useState<string | null>(null);
+  const toggleGuide = (key: string) => setExpandedGuide(prev => prev === key ? null : key);
+
   // Data reads
   const institutionName = getData<string>("institutionName") || getData<string>("existingInstitutionName");
   const typeSlug = getData<string>("typeSlug");
@@ -255,6 +293,19 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
   const contentTotals = isExtracting ? extractionProgress : extractionTotals;
   const sourceCount = getData<number>("sourceCount");
   const categoryCounts = getData<Record<string, number>>("categoryCounts");
+
+  // Teaching guide data
+  const skillsFramework = getData<Array<{ id?: string; name: string; description?: string }>>("skillsFramework");
+  const teachingPrinciples = getData<{ corePrinciples?: string[] }>("teachingPrinciples");
+  const edgeCases = getData<Array<{ scenario: string; response?: string }>>("edgeCases");
+  const coursePhases = getData<Array<{ name: string; goal?: string }>>("coursePhases");
+
+  // Course identity extras
+  const courseContext = getData<string>("courseContext");
+
+  // Session extras
+  const assessmentTargets = getData<string[]>("assessmentTargets");
+  const constraints = getData<string[]>("constraints");
 
   // Default detection helper
   const isDefault = (field: string) => !userSetFields.includes(field);
@@ -436,10 +487,19 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
                 </span>
               )}
             </div>
-            {learningOutcomes && learningOutcomes.length > 0 && (
-              <div className="gs-bp-outcomes">
-                {learningOutcomes.length} learning outcome{learningOutcomes.length !== 1 ? "s" : ""}
+            {courseContext && (
+              <div className="gs-bp-philosophy">
+                &ldquo;{courseContext}&rdquo;
               </div>
+            )}
+            {learningOutcomes && learningOutcomes.length > 0 && (
+              <GuideGroup
+                label="Learning Outcomes"
+                count={learningOutcomes.length}
+                items={learningOutcomes}
+                expanded={expandedGuide === "outcomes"}
+                onToggle={() => toggleGuide("outcomes")}
+              />
             )}
           </BlueprintSection>
 
@@ -454,33 +514,48 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
             >
               <div className="gs-bp-content">
                 <span className="gs-bp-content-label">Teaching Guide</span>
-                <div className="gs-bp-meta" style={{ marginTop: 4 }}>
-                  {getData("skillsFramework") && (
-                    <span className="gs-bp-meta-item">
-                      {(getData<unknown[]>("skillsFramework") ?? []).length} skills
-                    </span>
-                  )}
-                  {(getData<Record<string, unknown>>("teachingPrinciples") as Record<string, unknown>)?.corePrinciples && (
-                    <span className="gs-bp-meta-item">
-                      {((getData<Record<string, unknown>>("teachingPrinciples") as Record<string, unknown>)?.corePrinciples as unknown[] ?? []).length} principles
-                    </span>
-                  )}
-                  {getData("edgeCases") && (
-                    <span className="gs-bp-meta-item">
-                      {(getData<unknown[]>("edgeCases") ?? []).length} edge cases
-                    </span>
-                  )}
-                  {getData("coursePhases") && (
-                    <span className="gs-bp-meta-item">
-                      {(getData<unknown[]>("coursePhases") ?? []).length} phases
-                    </span>
-                  )}
-                  {!getData("skillsFramework") && !getData("teachingPrinciples") && !getData("edgeCases") && !getData("coursePhases") && (
-                    <span className="gs-bp-meta-item" style={{ color: "var(--text-muted)" }}>
-                      Not started
-                    </span>
-                  )}
-                </div>
+                {!skillsFramework && !teachingPrinciples && !edgeCases && !coursePhases ? (
+                  <span className="gs-bp-content-detail">Not started</span>
+                ) : (
+                  <div>
+                    {skillsFramework && skillsFramework.length > 0 && (
+                      <GuideGroup
+                        label="Skills Framework"
+                        count={skillsFramework.length}
+                        items={skillsFramework.map(s => s.name)}
+                        expanded={expandedGuide === "skills"}
+                        onToggle={() => toggleGuide("skills")}
+                      />
+                    )}
+                    {teachingPrinciples?.corePrinciples && teachingPrinciples.corePrinciples.length > 0 && (
+                      <GuideGroup
+                        label="Core Principles"
+                        count={teachingPrinciples.corePrinciples.length}
+                        items={teachingPrinciples.corePrinciples}
+                        expanded={expandedGuide === "principles"}
+                        onToggle={() => toggleGuide("principles")}
+                      />
+                    )}
+                    {edgeCases && edgeCases.length > 0 && (
+                      <GuideGroup
+                        label="Tricky Scenarios"
+                        count={edgeCases.length}
+                        items={edgeCases.map(e => e.scenario)}
+                        expanded={expandedGuide === "edges"}
+                        onToggle={() => toggleGuide("edges")}
+                      />
+                    )}
+                    {coursePhases && coursePhases.length > 0 && (
+                      <GuideGroup
+                        label="Course Phases"
+                        count={coursePhases.length}
+                        items={coursePhases.map(p => p.name + (p.goal ? ` — ${p.goal}` : ""))}
+                        expanded={expandedGuide === "phases"}
+                        onToggle={() => toggleGuide("phases")}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             </BlueprintSection>
           )}
@@ -518,17 +593,17 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
                             return (
                               <span
                                 key={cat}
-                                className="gs-bp-category-pill"
+                                className="gs-bp-category-pill--labeled"
                                 title={meta.label}
                                 style={{ color: meta.color, background: meta.bg }}
                               >
-                                {categoryCounts[cat]}
+                                {meta.icon && <span>{meta.icon}</span>}
+                                {categoryCounts[cat]} {meta.label}
                               </span>
                             );
                           })}
                       </span>
                     )}
-                    <span className="gs-bp-content-hint">Available across all sessions</span>
                   </>
                 )}
               </div>
@@ -593,6 +668,18 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
                 }
                 return null;
               })()}
+              {assessmentTargets && assessmentTargets.length > 0 && (
+                <div className="gs-bp-targets">
+                  <span className="gs-bp-targets-label">Working toward:</span>
+                  {assessmentTargets.join(", ")}
+                </div>
+              )}
+              {constraints && constraints.length > 0 && (
+                <div className="gs-bp-constraints">
+                  <span className="gs-bp-constraints-label">Avoids:</span>
+                  {constraints.join(", ")}
+                </div>
+              )}
             </BlueprintSection>
           )}
 

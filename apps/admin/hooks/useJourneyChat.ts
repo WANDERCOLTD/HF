@@ -116,6 +116,22 @@ function buildPreTestSteps(configs: SurveyStepConfig[], subject: string): Survey
   ];
 }
 
+function buildMidTestSteps(configs: SurveyStepConfig[], subject: string): SurveyStep[] {
+  return [
+    { id: '_midtest_intro', type: 'message' as const, prompt: `Let's see how your ${subject} comprehension is coming along — just ${configs.length} quick questions.` },
+    ...configs.map((c) => ({ ...c, prompt: c.prompt.replace(/\{subject\}/g, subject) })),
+    { id: '_midtest_done', type: 'message' as const, prompt: "Nice work! That gives me a great picture of your progress." },
+  ];
+}
+
+function buildPostTestSteps(configs: SurveyStepConfig[], subject: string): SurveyStep[] {
+  return [
+    { id: '_posttest_intro', type: 'message' as const, prompt: `One last thing — let's see how much your ${subject} comprehension has grown. ${configs.length} questions, same skills we've been working on.` },
+    ...configs.map((c) => ({ ...c, prompt: c.prompt.replace(/\{subject\}/g, subject) })),
+    { id: '_posttest_done', type: 'message' as const, prompt: "Brilliant! Let's wrap up with some quick feedback." },
+  ];
+}
+
 function buildMidSteps(configs: SurveyStepConfig[]): SurveyStep[] {
   return [
     { id: '_mid_greeting', type: 'message' as const, prompt: "Hey! You're making great progress. Before your next session, I'd love a quick check-in." },
@@ -145,8 +161,9 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
   const surveyStepsRef = useRef<SurveyStep[]>([]);
   const surveyIndexRef = useRef(0);
   const surveyAnswersRef = useRef<Record<string, string | number | boolean>>({});
-  const surveyPhaseRef = useRef<'personality' | 'pre_test' | 'mid' | 'post'>('personality');
+  const surveyPhaseRef = useRef<'personality' | 'pre_test' | 'mid_test' | 'mid' | 'post_test' | 'post'>('personality');
   const preTestQuestionIdsRef = useRef<string[]>([]);
+  const mcqQuestionIdsRef = useRef<string[]>([]);
   const subjectRef = useRef('this subject');
   const resolving = useRef(false);
 
@@ -232,6 +249,26 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
             questionIds: preTestQuestionIdsRef.current,
           }),
         });
+      } else if (phase === 'mid_test' || phase === 'post_test') {
+        // MCQ assessment phases — submit to assessment endpoint
+        const assessmentAnswers: Record<string, { answer: string; correct: boolean }> = {};
+        for (const [key, value] of Object.entries(answers)) {
+          if (key.startsWith('_') || key.endsWith('_correct')) continue;
+          assessmentAnswers[key] = {
+            answer: String(value),
+            correct: answers[`${key}_correct`] === true,
+          };
+        }
+        const scope = phase === 'mid_test' ? 'MID_TEST' : 'POST_TEST';
+        await fetch(url('/api/student/assessment', callerId), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scope,
+            answers: assessmentAnswers,
+            questionIds: mcqQuestionIdsRef.current,
+          }),
+        });
       } else if (phase === 'mid') {
         const surveyAnswers: Record<string, string | number> = {};
         for (const [key, value] of Object.entries(answers)) {
@@ -259,12 +296,15 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
   }, [callerId]);
 
   // ── Start a survey phase ──
-  const startSurveyPhase = useCallback((phase: 'personality' | 'pre_test' | 'mid' | 'post', steps: SurveyStep[], questionIds?: string[]) => {
+  const startSurveyPhase = useCallback((phase: 'personality' | 'pre_test' | 'mid_test' | 'mid' | 'post_test' | 'post', steps: SurveyStep[], questionIds?: string[]) => {
     surveyPhaseRef.current = phase;
     surveyStepsRef.current = steps;
     surveyIndexRef.current = 0;
     surveyAnswersRef.current = {};
-    if (questionIds) preTestQuestionIdsRef.current = questionIds;
+    if (questionIds) {
+      if (phase === 'pre_test') preTestQuestionIdsRef.current = questionIds;
+      else mcqQuestionIdsRef.current = questionIds;
+    }
     setState('survey_active');
     advanceSurveyStep();
   }, [advanceSurveyStep]);
@@ -323,16 +363,19 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
     }
   }, [callerId, pushItems, startSurveyPhase]);
 
-  // ── Load and start mid-survey ──
+  // ── Load and start mid-survey (with optional MCQ mid-test) ──
   const loadMidSurvey = useCallback(async () => {
     try {
       pushItems(dividerItem('Quick Check-in'));
 
-      const [surveyRes, configRes] = await Promise.all([
+      const [surveyRes, configRes, midTestRes] = await Promise.all([
         fetch(url(`/api/student/survey`, callerId, { scope: SURVEY_SCOPES.MID })),
         fetch(url('/api/student/survey-config', callerId)),
+        fetch(url('/api/student/assessment-questions', callerId, { type: 'mid_test' })),
       ]);
-      const [surveyData, configData] = await Promise.all([surveyRes.json(), configRes.json()]);
+      const [surveyData, configData, midTestData] = await Promise.all([
+        surveyRes.json(), configRes.json(), midTestRes.json(),
+      ]);
 
       // Already done?
       if (surveyData?.ok && surveyData.answers?.[MID_SURVEY_KEYS.SUBMITTED_AT]) {
@@ -340,6 +383,15 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
         return;
       }
 
+      // If mid-test MCQs available and enabled, show them first
+      const midTestEnabled = configData?.ok && configData.assessment?.midTest?.enabled;
+      if (midTestEnabled && midTestData?.ok && !midTestData.skipped && midTestData.questions?.length > 0) {
+        const subject = configData.subject || subjectRef.current;
+        startSurveyPhase('mid_test', buildMidTestSteps(midTestData.questions, subject), midTestData.questionIds);
+        return;
+      }
+
+      // No mid-test or not enabled — go straight to satisfaction survey
       let midConfigs: SurveyStepConfig[] = DEFAULT_MID_SURVEY;
       if (configData?.ok && configData.midSurvey?.surveySteps?.length > 0) {
         midConfigs = configData.midSurvey.surveySteps;
@@ -352,16 +404,19 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
     }
   }, [callerId, pushItems, startSurveyPhase]);
 
-  // ── Load and start post-survey ──
+  // ── Load and start post-survey (with optional MCQ post-test) ──
   const loadPostSurvey = useCallback(async () => {
     try {
       pushItems(dividerItem('Course Feedback'));
 
-      const [surveyRes, configRes] = await Promise.all([
+      const [surveyRes, configRes, postTestRes] = await Promise.all([
         fetch(url('/api/student/survey', callerId, { scope: SURVEY_SCOPES.POST })),
         fetch(url('/api/student/survey-config', callerId)),
+        fetch(url('/api/student/assessment-questions', callerId, { type: 'post_test' })),
       ]);
-      const [surveyData, configData] = await Promise.all([surveyRes.json(), configRes.json()]);
+      const [surveyData, configData, postTestData] = await Promise.all([
+        surveyRes.json(), configRes.json(), postTestRes.json(),
+      ]);
 
       // Already done?
       if (surveyData?.ok && surveyData.answers?.[POST_SURVEY_KEYS.SUBMITTED_AT]) {
@@ -369,6 +424,15 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
         return;
       }
 
+      // If post-test MCQs available and enabled, show them first
+      const postTestEnabled = configData?.ok && configData.assessment?.postTest?.enabled;
+      if (postTestEnabled && postTestData?.ok && !postTestData.skipped && postTestData.questions?.length > 0) {
+        const subject = configData.subject || subjectRef.current;
+        startSurveyPhase('post_test', buildPostTestSteps(postTestData.questions, subject), postTestData.questionIds);
+        return;
+      }
+
+      // No post-test or not enabled — go straight to satisfaction survey
       let postConfigs: SurveyStepConfig[] = DEFAULT_OFFBOARDING_SURVEY;
       if (configData?.ok && configData.postSurvey?.surveySteps?.length > 0) {
         postConfigs = configData.postSurvey.surveySteps;
@@ -501,8 +565,9 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
       if (result === 'complete') {
         (async () => {
           await submitSurvey();
+          const completedPhase = surveyPhaseRef.current;
 
-          if (surveyPhaseRef.current === 'personality') {
+          if (completedPhase === 'personality') {
             try {
               const preTestRes = await fetch(url('/api/student/assessment-questions', callerId, { type: 'pre_test' }));
               const preTestData = await preTestRes.json();
@@ -511,6 +576,34 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
                 startSurveyPhase('pre_test', buildPreTestSteps(preTestData.questions, subjectRef.current), preTestData.questionIds);
                 return;
               }
+            } catch {}
+          }
+
+          // After mid-test MCQs → transition to mid satisfaction survey
+          if (completedPhase === 'mid_test') {
+            try {
+              const configRes = await fetch(url('/api/student/survey-config', callerId));
+              const configData = await configRes.json();
+              let midConfigs: SurveyStepConfig[] = DEFAULT_MID_SURVEY;
+              if (configData?.ok && configData.midSurvey?.surveySteps?.length > 0) {
+                midConfigs = configData.midSurvey.surveySteps;
+              }
+              startSurveyPhase('mid', buildMidSteps(midConfigs));
+              return;
+            } catch {}
+          }
+
+          // After post-test MCQs → transition to post satisfaction survey
+          if (completedPhase === 'post_test') {
+            try {
+              const configRes = await fetch(url('/api/student/survey-config', callerId));
+              const configData = await configRes.json();
+              let postConfigs: SurveyStepConfig[] = DEFAULT_OFFBOARDING_SURVEY;
+              if (configData?.ok && configData.offboarding?.surveySteps?.length > 0) {
+                postConfigs = configData.offboarding.surveySteps;
+              }
+              startSurveyPhase('post', buildPostSteps(postConfigs));
+              return;
             } catch {}
           }
 

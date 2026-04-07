@@ -144,6 +144,7 @@ export interface AssertionCreateData {
 // ── Section → Category Mapping ───────────────────────────────────────────────
 
 const SECTION_TO_CATEGORY: Record<string, InstructionCategory> = {
+  courseOverview: "session_metadata",
   skillsFramework: "skill_framework",
   skillDependencies: "skill_framework",
   "teachingApproach.corePrinciples": "teaching_rule",
@@ -164,6 +165,35 @@ const SECTION_TO_CATEGORY: Record<string, InstructionCategory> = {
 export function convertCourseRefToAssertions(data: CourseRefData): AssertionCreateData[] {
   const assertions: AssertionCreateData[] = [];
   let order = 0;
+
+  // Course Overview — audience descriptors for downstream consumers (MCQ generation, prompt composition)
+  if (data.courseOverview) {
+    const ov = data.courseOverview;
+    const fields: Array<{ key: string; label: string; value: string | number | undefined }> = [
+      { key: "subject", label: "Subject", value: ov.subject },
+      { key: "studentAge", label: "Student profile", value: ov.studentAge },
+      { key: "examContext", label: "Exam context", value: ov.examContext },
+      { key: "delivery", label: "Delivery", value: ov.delivery },
+      { key: "courseLength", label: "Course length", value: ov.courseLength },
+      { key: "prerequisite", label: "Prerequisites", value: ov.prerequisite },
+      { key: "coreProposition", label: "Core proposition", value: ov.coreProposition },
+      { key: "qualificationLevel", label: "Qualification level", value: ov.qualificationLevel },
+      { key: "eqfLevel", label: "EQF level", value: ov.eqfLevel },
+      { key: "ectsCredits", label: "ECTS credits", value: ov.ectsCredits },
+    ];
+
+    for (const field of fields) {
+      if (field.value == null || field.value === "") continue;
+      assertions.push({
+        assertion: `${field.label}: ${field.value}`,
+        category: "session_metadata",
+        chapter: "Course Overview",
+        section: null,
+        tags: ["course-overview", `co:${field.key}`],
+        orderIndex: order++,
+      });
+    }
+  }
 
   // Skills Framework
   if (data.skillsFramework?.length) {

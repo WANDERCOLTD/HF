@@ -207,6 +207,27 @@ export const CALL_POINTS: CallPointDef[] = [
     defaults: { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.1, maxTokens: 8192, timeoutMs: 120_000 },
   },
   {
+    id: "content-trust.generate-mcq",
+    label: "Content Trust - Generate MCQs",
+    description: "Generates MCQ questions from content assertions with bloom-distributed distractors",
+    category: "content-processing",
+    defaults: { provider: "claude", model: config.ai.claude.model, temperature: 0.3, maxTokens: 4000, timeoutMs: 60_000 },
+  },
+  {
+    id: "content-trust.generate-mcq-comprehension",
+    label: "Content Trust - Generate MCQs (Comprehension)",
+    description: "Generates MCQ questions from TUTOR_QUESTION bank with tiered-response distractors",
+    category: "content-processing",
+    defaults: { provider: "claude", model: config.ai.claude.model, temperature: 0.3, maxTokens: 4000, timeoutMs: 60_000 },
+  },
+  {
+    id: "content-trust.validate-mcq",
+    label: "Content Trust - Validate MCQs",
+    description: "AI quality review of generated MCQs — flags arguably-correct distractors, reading level mismatches",
+    category: "content-processing",
+    defaults: { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.1, maxTokens: 2000, timeoutMs: 30_000 },
+  },
+  {
     id: "content-trust.segment",
     label: "Content Trust - Segment",
     description: "Segments composite documents into logical sections for targeted extraction",

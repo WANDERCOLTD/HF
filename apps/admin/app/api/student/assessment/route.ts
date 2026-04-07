@@ -4,10 +4,10 @@
  * @scope student:write
  * @auth session (STUDENT | OPERATOR+)
  * @tags student, assessment
- * @description Submit pre-test or post-test answers. Stores each answer + correctness
+ * @description Submit pre-test, mid-test, or post-test answers. Stores each answer + correctness
  *   as CallerAttributes, computes score, and for post-test also computes uplift vs pre-test.
  * @query callerId — required for OPERATOR+ (admin viewing student)
- * @body { scope: "PRE_TEST" | "POST_TEST", answers: Record<questionId, { answer: string, correct: boolean }>, questionIds: string[] }
+ * @body { scope: "PRE_TEST" | "MID_TEST" | "POST_TEST", answers: Record<questionId, { answer: string, correct: boolean }>, questionIds: string[] }
  * @response 200 { ok, score, totalQuestions, correctCount, uplift? }
  * @response 400 { ok: false, error: "..." }
  */
@@ -17,7 +17,7 @@ import { prisma } from "@/lib/prisma";
 import { requireStudentOrAdmin, isStudentAuthError } from "@/lib/student-access";
 import { SURVEY_SCOPES } from "@/lib/learner/survey-keys";
 
-const VALID_SCOPES = new Set([SURVEY_SCOPES.PRE_TEST, SURVEY_SCOPES.POST_TEST]);
+const VALID_SCOPES = new Set([SURVEY_SCOPES.PRE_TEST, SURVEY_SCOPES.MID_TEST, SURVEY_SCOPES.POST_TEST]);
 
 interface AnswerEntry {
   answer: string;
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { scope, answers, questionIds } = body;
 
   if (!scope || !VALID_SCOPES.has(scope)) {
-    return NextResponse.json({ ok: false, error: "Invalid scope. Must be PRE_TEST or POST_TEST." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Invalid scope. Must be PRE_TEST, MID_TEST, or POST_TEST." }, { status: 400 });
   }
   if (!answers || typeof answers !== "object" || Object.keys(answers).length === 0) {
     return NextResponse.json({ ok: false, error: "Missing answers" }, { status: 400 });

@@ -147,6 +147,7 @@ export interface PlaybookConfig {
   assessment?: {
     personality?: { enabled: boolean; questions: SurveyStepConfig[] };
     preTest?: { enabled: boolean; questionCount: number };
+    midTest?: { enabled: boolean; afterSession?: number | "halfway" };
     postTest?: { enabled: boolean };
   };
   [key: string]: any;

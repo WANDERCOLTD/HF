@@ -36,6 +36,8 @@ type SessionPlanInfo = {
   generatedAt?: string | null;
 } | null;
 
+type MethodBreakdown = { teachMethod: string; count: number };
+
 export type CourseOverviewTabProps = {
   courseId: string;
   detail: {
@@ -52,6 +54,8 @@ export type CourseOverviewTabProps = {
   sessions: SetupStatusInput['sessions'];
   onSimCall?: () => void;
   instructionTotal: number;
+  categoryCounts?: Record<string, number>;
+  contentMethods?: MethodBreakdown[];
   onNavigate: (tab: string) => void;
 };
 
@@ -66,6 +70,8 @@ export function CourseOverviewTab({
   sessions,
   onSimCall,
   instructionTotal,
+  categoryCounts,
+  contentMethods,
   onNavigate,
 }: CourseOverviewTabProps): React.ReactElement {
   const config = (detail.config || {}) as PlaybookConfig;
@@ -102,6 +108,8 @@ export function CourseOverviewTab({
         totalTPs={totalTPs}
         totalSources={totalSources}
         instructionTotal={instructionTotal}
+        categoryCounts={categoryCounts}
+        contentMethods={contentMethods}
         goals={goals.map(g => ({ type: g.type, name: g.name }))}
         personaName={persona?.name ?? null}
         personaArchetype={persona?.extendsAgent ? archetypeLabel(persona.extendsAgent) : null}

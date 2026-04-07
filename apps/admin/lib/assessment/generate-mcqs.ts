@@ -14,9 +14,11 @@ import { prisma } from "@/lib/prisma";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { saveQuestions } from "@/lib/content-trust/save-questions";
 import type { ExtractedQuestion } from "@/lib/content-trust/extractors/base-extractor";
+import { VALID_DISTRACTOR_TYPES, type DistractorType } from "@/lib/content-trust/extractors/base-extractor";
 import { createHash } from "crypto";
 import { jsonrepair } from "jsonrepair";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
+import { validateMcqBatch, aiReviewMcqs } from "./validate-mcqs";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -42,7 +44,7 @@ interface GeneratedMcq {
   question: string;
   questionType?: "MCQ" | "TRUE_FALSE";
   bloomLevel?: string;
-  options: { label: string; text: string; isCorrect: boolean }[];
+  options: { label: string; text: string; isCorrect: boolean; distractorType?: string }[];
   correctAnswer: string;
   chapter?: string;
   skillRef?: string;
@@ -130,6 +132,108 @@ async function getTeachingProfileForSource(
 }
 
 // ---------------------------------------------------------------------------
+// Audience context from COURSE_REFERENCE structuredContent
+// ---------------------------------------------------------------------------
+
+interface AudienceContext {
+  studentAge?: string;
+  prerequisite?: string;
+  subject?: string;
+  delivery?: string;
+  qualificationLevel?: string;
+}
+
+/**
+ * Load audience descriptors from the COURSE_REFERENCE linked to a subject.
+ *
+ * Resolution order:
+ * 1. structuredContent.courseOverview (wizard-built course references)
+ * 2. ContentAssertion rows with `co:*` tags (PDF-extracted course references,
+ *    converted by course-ref-to-assertions.ts)
+ *
+ * Returns null when no COURSE_REFERENCE exists for the subject.
+ */
+async function getAudienceContext(subjectId: string): Promise<AudienceContext | null> {
+  const refSource = await prisma.subjectSource.findFirst({
+    where: {
+      subjectId,
+      source: { documentType: "COURSE_REFERENCE" },
+    },
+    select: {
+      sourceId: true,
+      source: { select: { structuredContent: true } },
+    },
+  });
+
+  if (!refSource) return null;
+
+  // Path 1: wizard-built — structuredContent has courseOverview
+  if (refSource.source?.structuredContent) {
+    const content = refSource.source.structuredContent as {
+      courseOverview?: {
+        subject?: string;
+        studentAge?: string;
+        prerequisite?: string;
+        delivery?: string;
+        qualificationLevel?: string;
+      };
+    };
+
+    const ov = content.courseOverview;
+    if (ov) {
+      return {
+        studentAge: ov.studentAge || undefined,
+        prerequisite: ov.prerequisite || undefined,
+        subject: ov.subject || undefined,
+        delivery: ov.delivery || undefined,
+        qualificationLevel: ov.qualificationLevel || undefined,
+      };
+    }
+  }
+
+  // Path 2: PDF-extracted — query assertions with co:* tags
+  const audienceAssertions = await prisma.contentAssertion.findMany({
+    where: {
+      sourceId: refSource.sourceId,
+      category: "session_metadata",
+      chapter: "Course Overview",
+    },
+    select: { assertion: true, tags: true },
+  });
+
+  if (audienceAssertions.length === 0) return null;
+
+  const context: AudienceContext = {};
+  for (const a of audienceAssertions) {
+    const tags = a.tags as string[];
+    // Extract value after "Label: " prefix
+    const value = a.assertion.includes(": ") ? a.assertion.split(": ").slice(1).join(": ") : undefined;
+    if (!value) continue;
+
+    if (tags.includes("co:studentAge")) context.studentAge = value;
+    else if (tags.includes("co:prerequisite")) context.prerequisite = value;
+    else if (tags.includes("co:subject")) context.subject = value;
+    else if (tags.includes("co:delivery")) context.delivery = value;
+    else if (tags.includes("co:qualificationLevel")) context.qualificationLevel = value;
+  }
+
+  // Only return if we found at least one field
+  return Object.values(context).some(Boolean) ? context : null;
+}
+
+/** Format audience context as a prompt section. Returns empty string if no context. */
+function formatAudienceSection(audience: AudienceContext | null): string {
+  if (!audience) return "";
+  const lines: string[] = ["AUDIENCE CONTEXT (calibrate vocabulary and difficulty to this level):"];
+  if (audience.subject) lines.push(`- Subject: ${audience.subject}`);
+  if (audience.studentAge) lines.push(`- Student profile: ${audience.studentAge}`);
+  if (audience.qualificationLevel) lines.push(`- Qualification level: ${audience.qualificationLevel}`);
+  if (audience.prerequisite) lines.push(`- Prerequisites: ${audience.prerequisite}`);
+  if (audience.delivery) lines.push(`- Delivery: ${audience.delivery}`);
+  return lines.length > 1 ? "\n\n" + lines.join("\n") : "";
+}
+
+// ---------------------------------------------------------------------------
 // Fetch TUTOR_QUESTIONs for a subject (from sibling QUESTION_BANK sources)
 // ---------------------------------------------------------------------------
 
@@ -177,25 +281,52 @@ async function fetchTutorQuestionsForSubject(
 function buildComprehensionPrompt(
   tutorQuestions: TutorQuestionData[],
   count: number,
+  audience: AudienceContext | null = null,
+  assessmentIntent: "PRE_TEST" | "POST_TEST" | "BOTH" = "BOTH",
 ): { systemPrompt: string; userContent: string } {
   const mcqCount = Math.max(1, count - 2);
   const tfCount = Math.min(3, count - mcqCount);
 
+  const distractorStrategy = assessmentIntent === "PRE_TEST"
+    ? `DISTRACTOR STRATEGY (PRE-TEST — diagnose baseline knowledge):
+- Distractor 1: a common MISCONCEPTION about the topic (type: "misconception") — based on the EMERGING tier response
+- Distractor 2: a PARTIAL TRUTH that shows incomplete understanding (type: "partial_truth") — based on the DEVELOPING tier response
+- Distractor 3: a SURFACE-LEVEL LURE that uses words from the question but misapplies them (type: "surface_lure")
+Pre-test distractors should be clearly wrong to someone who has studied the material, but tempting to someone who hasn't yet.`
+    : assessmentIntent === "POST_TEST"
+    ? `DISTRACTOR STRATEGY (POST-TEST — test mastery with subtle distractors):
+- Distractor 1: a PARTIAL TRUTH that is almost correct but missing a key nuance (type: "partial_truth") — based on the DEVELOPING tier response
+- Distractor 2: a RELATED CONCEPT that confuses a similar but distinct idea (type: "related_concept")
+- Distractor 3: a common MISCONCEPTION that persists even after study (type: "misconception") — based on the EMERGING tier response
+Post-test distractors should be subtle — they should only trip up someone who didn't fully learn the material.`
+    : `DISTRACTOR STRATEGY (GENERAL — balanced diagnostic spread):
+- Distractor 1: a common MISCONCEPTION about the topic (type: "misconception") — based on the EMERGING tier response
+- Distractor 2: a PARTIAL TRUTH showing incomplete understanding (type: "partial_truth") — based on the DEVELOPING tier response
+- Distractor 3: a RELATED CONCEPT or SURFACE LURE (type: "related_concept" or "surface_lure")`;
+
+  const audienceSection = formatAudienceSection(audience);
+
   const systemPrompt = `You are converting tutor reference questions into student-facing assessment items for an educational platform.
 
 You are given open-ended comprehension questions that a tutor would ask, along with model responses at different proficiency tiers (Emerging = weak, Developing = partial, Secure = strong). Your job is to convert these into ${mcqCount} multiple-choice (MCQ) and ${tfCount} true/false (TRUE_FALSE) questions.
+${audienceSection}
 
 CONVERSION STRATEGY:
 - Use the SECURE tier response as the basis for the CORRECT answer
-- Use the EMERGING tier response as the basis for a plausible DISTRACTOR (common misconception)
-- Generate 2 additional distractors that are plausible but clearly wrong
+- Use the EMERGING tier response as the basis for a misconception distractor
+- Use the DEVELOPING tier response as the basis for a partial-truth distractor
+- Generate 1 additional distractor (related concept or surface lure)
 - The question should test the same comprehension SKILL as the original tutor question
 - Preserve the bloom cognitive level (REMEMBER, UNDERSTAND, ANALYZE, EVALUATE)
+
+${distractorStrategy}
 
 MCQ rules:
 - Each MCQ must have exactly 4 options labeled A, B, C, D
 - Exactly one option must be correct
-- Distractors should be plausible but clearly wrong
+- Each INCORRECT option must include a "distractorType" field: one of "misconception", "partial_truth", "related_concept", "surface_lure"
+- Correct option must NOT have a distractorType field
+- All options must be similar in length and grammatical structure (no giveaways)
 
 TRUE_FALSE rules:
 - Each TRUE_FALSE is a clear statement that is definitively true or false
@@ -223,10 +354,10 @@ Return ONLY a JSON array:
   "bloomLevel": "UNDERSTAND",
   "skillRef": "SKILL-02:Inference",
   "options": [
-    { "label": "A", "text": "...", "isCorrect": false },
+    { "label": "A", "text": "...", "isCorrect": false, "distractorType": "misconception" },
     { "label": "B", "text": "...", "isCorrect": true },
-    { "label": "C", "text": "...", "isCorrect": false },
-    { "label": "D", "text": "...", "isCorrect": false }
+    { "label": "C", "text": "...", "isCorrect": false, "distractorType": "partial_truth" },
+    { "label": "D", "text": "...", "isCorrect": false, "distractorType": "related_concept" }
   ],
   "correctAnswer": "B",
   "chapter": "Inference",
@@ -281,6 +412,8 @@ Return ONLY a JSON array:
 function buildComprehensionSkillPrompt(
   assertionText: string,
   count: number,
+  audience: AudienceContext | null = null,
+  assessmentIntent: "PRE_TEST" | "POST_TEST" | "BOTH" = "BOTH",
 ): string {
   // Distribute questions across the 6 skills (favour inference + retrieval)
   const retrievalCount = Math.max(1, Math.floor(count * 0.2));
@@ -290,8 +423,16 @@ function buildComprehensionSkillPrompt(
   const evaluationCount = Math.max(1, Math.floor(count * 0.15));
   const recallCount = Math.max(0, count - retrievalCount - inferenceCount - vocabCount - languageCount - evaluationCount);
 
+  const audienceSection = formatAudienceSection(audience);
+  const distractorNote = assessmentIntent === "PRE_TEST"
+    ? "Use obvious misconceptions and surface lures — diagnose what the student doesn't yet know."
+    : assessmentIntent === "POST_TEST"
+    ? "Use subtle partial truths and related concepts — test whether the student truly mastered the material."
+    : "Use a balanced mix of misconceptions, partial truths, and related concepts.";
+
   return `You are generating comprehension assessment questions for an educational platform.
 Given content assertions (facts/concepts from course materials), generate questions that test COMPREHENSION SKILLS — not factual recall.
+${audienceSection}
 
 Generate exactly ${count} questions distributed across these comprehension skills:
 - ${retrievalCount} RETRIEVAL: Can the student find explicitly stated information? ("According to the text...", "The passage states that...")
@@ -304,7 +445,14 @@ Generate exactly ${count} questions distributed across these comprehension skill
 IMPORTANT: Frame every question as a COMPREHENSION task, even when the source material is factual.
 - Instead of "What is X?" (recall), ask "Based on this information, what can you conclude about X?" (inference)
 - Instead of "Define X" (recall), ask "In this context, what does X most likely refer to?" (vocabulary)
-- Ground questions in the content — reference "the passage", "the text", "the information provided"
+
+CRITICAL: Each question must be SELF-CONTAINED. The student will NOT have a passage in front of them.
+- Embed enough context in the question stem that the student can answer without a separate text.
+- BAD: "Based on the passage, what can you infer about the character's feelings?"
+- GOOD: "In a story where a girl stamps her foot and demands to be let in after being told to wait, what emotion is she most likely displaying?"
+- BAD: "What does the author imply about the economy?"
+- GOOD: "A writer describes factories closing, families moving away, and shops boarding up their windows. What is the writer implying about the local economy?"
+- Include a brief scenario, quote, or situation in the stem that gives the student something to reason about.
 
 Each question can be MCQ (4 options A/B/C/D, one correct) or TRUE_FALSE.
 Aim for roughly 75% MCQ and 25% TRUE_FALSE.
@@ -312,7 +460,10 @@ Aim for roughly 75% MCQ and 25% TRUE_FALSE.
 MCQ rules:
 - Each MCQ must have exactly 4 options labeled A, B, C, D
 - Exactly one option must be correct
-- Distractors should be plausible but clearly wrong
+- Each INCORRECT option must include a "distractorType" field: one of "misconception", "partial_truth", "related_concept", "surface_lure"
+- Correct option must NOT have a distractorType field
+- All options must be similar in length and grammatical structure (no giveaways)
+- ${distractorNote}
 
 TRUE_FALSE rules:
 - Each TRUE_FALSE is a clear statement that is definitively true or false
@@ -332,10 +483,10 @@ Return ONLY a JSON array:
   "bloomLevel": "UNDERSTAND",
   "skillRef": "SKILL-02:Inference",
   "options": [
-    { "label": "A", "text": "...", "isCorrect": false },
+    { "label": "A", "text": "...", "isCorrect": false, "distractorType": "misconception" },
     { "label": "B", "text": "...", "isCorrect": true },
-    { "label": "C", "text": "...", "isCorrect": false },
-    { "label": "D", "text": "...", "isCorrect": false }
+    { "label": "C", "text": "...", "isCorrect": false, "distractorType": "partial_truth" },
+    { "label": "D", "text": "...", "isCorrect": false, "distractorType": "related_concept" }
   ],
   "correctAnswer": "B",
   "chapter": "Inference",
@@ -360,14 +511,39 @@ Set the "chapter" field to the skill name (e.g. "Inference", "Vocabulary").`;
 function buildBloomDistributedPrompt(
   assertionText: string,
   count: number,
+  audience: AudienceContext | null = null,
+  assessmentIntent: "PRE_TEST" | "POST_TEST" | "BOTH" = "BOTH",
 ): string {
   const rememberCount = Math.max(1, Math.floor(count * 0.25));
   const understandCount = Math.max(1, Math.floor(count * 0.25));
   const applyCount = Math.max(1, Math.floor(count * 0.25));
   const analyzeCount = Math.max(0, count - rememberCount - understandCount - applyCount);
 
+  const distractorStrategy = assessmentIntent === "PRE_TEST"
+    ? `DISTRACTOR STRATEGY (PRE-TEST — diagnose baseline knowledge):
+Each MCQ must have 3 distractors, each with a typed purpose:
+- One "misconception": a common wrong belief about the topic (the answer a student gives BEFORE learning)
+- One "partial_truth": an answer that is partly correct but missing key detail
+- One "surface_lure": an answer that uses familiar words from the content but misapplies them
+Pre-test distractors should be clearly wrong to someone who has studied, but tempting to someone who hasn't.`
+    : assessmentIntent === "POST_TEST"
+    ? `DISTRACTOR STRATEGY (POST-TEST — test mastery with subtle distractors):
+Each MCQ must have 3 distractors, each with a typed purpose:
+- One "partial_truth": almost correct but missing a crucial nuance or condition
+- One "related_concept": confuses a similar but distinct concept from the same topic area
+- One "misconception": a persistent wrong belief that survives even after study
+Post-test distractors should be subtle — they should only trip up someone who didn't fully learn.`
+    : `DISTRACTOR STRATEGY (GENERAL — balanced diagnostic spread):
+Each MCQ must have 3 distractors, each with a typed purpose:
+- One "misconception": a common wrong belief about the topic
+- One "partial_truth": partly correct but incomplete or overgeneralized
+- One "related_concept" or "surface_lure": confuses similar concepts OR uses familiar words incorrectly`;
+
+  const audienceSection = formatAudienceSection(audience);
+
   return `You are an assessment question generator for an educational platform.
 Given a list of content assertions (facts/concepts from course materials), generate a mix of questions spread across cognitive levels.
+${audienceSection}
 
 Generate exactly ${count} questions with this bloom distribution:
 - ${rememberCount} at REMEMBER level (recall, define, identify)
@@ -375,13 +551,17 @@ Generate exactly ${count} questions with this bloom distribution:
 - ${applyCount} at APPLY level (use in context, calculate, demonstrate)
 - ${analyzeCount} at ANALYZE level (compare, contrast, evaluate)
 
+${distractorStrategy}
+
 Each question can be MCQ (4 options A/B/C/D, one correct) or TRUE_FALSE.
 Aim for roughly 75% MCQ and 25% TRUE_FALSE.
 
 MCQ rules:
 - Each MCQ must have exactly 4 options labeled A, B, C, D
 - Exactly one option must be correct
-- Distractors should be plausible but clearly wrong
+- Each INCORRECT option must include a "distractorType" field: one of "misconception", "partial_truth", "related_concept", "surface_lure"
+- Correct option must NOT have a distractorType field
+- All options must be similar in length and grammatical structure (no giveaways)
 
 TRUE_FALSE rules:
 - Each TRUE_FALSE is a clear statement that is definitively true or false
@@ -410,10 +590,10 @@ Return ONLY a JSON array:
   "question": "What is...?",
   "bloomLevel": "REMEMBER",
   "options": [
-    { "label": "A", "text": "...", "isCorrect": false },
+    { "label": "A", "text": "...", "isCorrect": false, "distractorType": "misconception" },
     { "label": "B", "text": "...", "isCorrect": true },
-    { "label": "C", "text": "...", "isCorrect": false },
-    { "label": "D", "text": "...", "isCorrect": false }
+    { "label": "C", "text": "...", "isCorrect": false, "distractorType": "partial_truth" },
+    { "label": "D", "text": "...", "isCorrect": false, "distractorType": "related_concept" }
   ],
   "correctAnswer": "B",
   "chapter": "optional chapter reference",
@@ -433,9 +613,10 @@ const MCQ_EXCLUDED_DOC_TYPES = new Set([
 
 export async function generateMcqsForSource(
   sourceId: string,
-  options?: { count?: number; userId?: string; subjectSourceId?: string },
+  options?: { count?: number; userId?: string; subjectSourceId?: string; assessmentIntent?: "PRE_TEST" | "POST_TEST" | "BOTH" },
 ): Promise<GenerateMcqsResult> {
   const count = options?.count ?? DEFAULT_COUNT;
+  const assessmentIntent = options?.assessmentIntent ?? "BOTH";
 
   // Skip teacher guides and question banks — they aren't student content
   const source = await prisma.contentSource.findUnique({
@@ -453,17 +634,20 @@ export async function generateMcqsForSource(
   );
   const isComprehension = teachingProfile === "comprehension-led";
 
+  // Load audience context from COURSE_REFERENCE (graceful no-op if unavailable)
+  const audience = subjectId ? await getAudienceContext(subjectId) : null;
+
   // Comprehension path: try to generate from TUTOR_QUESTIONs first
   if (isComprehension && subjectId) {
     const tutorQuestions = await fetchTutorQuestionsForSubject(subjectId);
     if (tutorQuestions.length >= 3) {
-      return generateFromTutorQuestions(sourceId, tutorQuestions, count, options);
+      return generateFromTutorQuestions(sourceId, tutorQuestions, count, options, audience, assessmentIntent);
     }
     // Fall through to assertion-based path if too few TUTOR_QUESTIONs
   }
 
   // Default path: generate from assertions (bloom-distributed)
-  return generateFromAssertions(sourceId, count, options, isComprehension ? "comprehension" : "assertion");
+  return generateFromAssertions(sourceId, count, options, isComprehension ? "comprehension" : "assertion", audience, assessmentIntent);
 }
 
 // ---------------------------------------------------------------------------
@@ -475,8 +659,10 @@ async function generateFromTutorQuestions(
   tutorQuestions: TutorQuestionData[],
   count: number,
   options?: { userId?: string; subjectSourceId?: string },
+  audience: AudienceContext | null = null,
+  assessmentIntent: "PRE_TEST" | "POST_TEST" | "BOTH" = "BOTH",
 ): Promise<GenerateMcqsResult> {
-  const { systemPrompt, userContent } = buildComprehensionPrompt(tutorQuestions, count);
+  const { systemPrompt, userContent } = buildComprehensionPrompt(tutorQuestions, count, audience, assessmentIntent);
 
   const result = await getConfiguredMeteredAICompletion(
     {
@@ -493,7 +679,7 @@ async function generateFromTutorQuestions(
     return { created: 0, duplicatesSkipped: 0, skipped: true, skipReason: "ai_no_response" };
   }
 
-  return parseAndSaveMcqs(sourceId, result.content, options, "comprehension");
+  return parseAndSaveMcqs(sourceId, result.content, options, "comprehension", assessmentIntent);
 }
 
 // ---------------------------------------------------------------------------
@@ -505,6 +691,8 @@ async function generateFromAssertions(
   count: number,
   options?: { userId?: string; subjectSourceId?: string },
   source: "comprehension" | "assertion" = "assertion",
+  audience: AudienceContext | null = null,
+  assessmentIntent: "PRE_TEST" | "POST_TEST" | "BOTH" = "BOTH",
 ): Promise<GenerateMcqsResult> {
   // Load assertions for this source (scoped by subjectSourceId when available)
   const assertionSelect = {
@@ -546,8 +734,8 @@ async function generateFromAssertions(
     .join("\n");
 
   const systemPrompt = source === "comprehension"
-    ? buildComprehensionSkillPrompt(assertionText, count)
-    : buildBloomDistributedPrompt(assertionText, count);
+    ? buildComprehensionSkillPrompt(assertionText, count, audience, assessmentIntent)
+    : buildBloomDistributedPrompt(assertionText, count, audience, assessmentIntent);
 
   const callPoint = source === "comprehension" ? COMPREHENSION_CALL_POINT : CALL_POINT;
 
@@ -566,7 +754,7 @@ async function generateFromAssertions(
     return { created: 0, duplicatesSkipped: 0, skipped: true, skipReason: "ai_no_response" };
   }
 
-  return parseAndSaveMcqs(sourceId, result.content, options, source);
+  return parseAndSaveMcqs(sourceId, result.content, options, source, assessmentIntent);
 }
 
 // ---------------------------------------------------------------------------
@@ -578,6 +766,7 @@ async function parseAndSaveMcqs(
   aiContent: string,
   options?: { userId?: string; subjectSourceId?: string },
   source: "comprehension" | "assertion" = "assertion",
+  assessmentIntent: "PRE_TEST" | "POST_TEST" | "BOTH" = "BOTH",
 ): Promise<GenerateMcqsResult> {
   let mcqs: GeneratedMcq[];
   try {
@@ -604,6 +793,10 @@ async function parseAndSaveMcqs(
           label: o.label,
           text: o.text,
           isCorrect: o.isCorrect,
+          // AI-to-DB guard: whitelist distractorType, fallback to undefined for correct answers
+          ...(!o.isCorrect && o.distractorType
+            ? { distractorType: VALID_DISTRACTOR_TYPES.has(o.distractorType as DistractorType) ? o.distractorType as DistractorType : "surface_lure" as DistractorType }
+            : {}),
         })),
         correctAnswer: m.correctAnswer,
         answerExplanation: m.explanation,
@@ -612,7 +805,7 @@ async function parseAndSaveMcqs(
           : m.chapter,
         skillRef: m.skillRef,
         bloomLevel,
-        assessmentUse: source === "comprehension" ? "POST_TEST" as const : "BOTH" as const,
+        assessmentUse: assessmentIntent,
         tags: ["auto-generated", source === "comprehension" ? "comprehension-skill" : "bloom-distributed"],
         contentHash: createHash("sha256")
           .update(`${source}-${qType.toLowerCase()}:${m.question}:${m.correctAnswer}`)
@@ -634,11 +827,25 @@ async function parseAndSaveMcqs(
     return { created: 0, duplicatesSkipped: 0, skipped: true, skipReason: "no_valid_mcqs" };
   }
 
-  const saveResult = await saveQuestions(sourceId, cleanQuestions, options?.subjectSourceId);
+  // Validation pass: deterministic checks (reject structural errors, flag warnings)
+  const validation = validateMcqBatch(cleanQuestions);
+
+  if (validation.validated.length === 0) {
+    return { created: 0, duplicatesSkipped: 0, skipped: true, skipReason: "all_failed_validation" };
+  }
+
+  // AI review: non-blocking, flags issues but never modifies questions
+  // Fire-and-forget — don't block save on AI review
+  aiReviewMcqs(validation.validated, undefined, options?.userId).catch((err) => {
+    console.warn("[generate-mcqs] AI review failed (non-blocking):", err);
+  });
+
+  const saveResult = await saveQuestions(sourceId, validation.validated, options?.subjectSourceId);
 
   const dropped = questions.length - cleanQuestions.length;
+  const validated = cleanQuestions.length - validation.rejected;
   console.log(
-    `[generate-mcqs] Source ${sourceId} (${source}): generated ${questions.length}, saved ${saveResult.created}, dupes ${saveResult.duplicatesSkipped}${dropped > 0 ? `, blocked ${dropped} framework-language` : ""}`,
+    `[generate-mcqs] Source ${sourceId} (${source}): generated ${questions.length}, validated ${validated}, saved ${saveResult.created}, dupes ${saveResult.duplicatesSkipped}${dropped > 0 ? `, blocked ${dropped} framework-language` : ""}${validation.rejected > 0 ? `, rejected ${validation.rejected} (validation)` : ""}`,
   );
 
   return {

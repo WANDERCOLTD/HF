@@ -6,6 +6,7 @@ export const SURVEY_SCOPES = {
   POST: "POST_SURVEY",
   PERSONALITY: "PERSONALITY",
   PRE_TEST: "PRE_TEST",
+  MID_TEST: "MID_TEST",
   POST_TEST: "POST_TEST",
 } as const;
 

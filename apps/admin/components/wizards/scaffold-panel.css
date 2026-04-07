@@ -554,6 +554,145 @@
   color: var(--text-primary);
 }
 
+/* ── Guide Group (collapsible sub-sections) ──────── */
+
+.gs-bp-guide-group {
+  border-bottom: 1px solid var(--border-default);
+}
+
+.gs-bp-guide-group:last-child {
+  border-bottom: none;
+}
+
+.gs-bp-guide-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 0;
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.gs-bp-guide-header:hover {
+  background: color-mix(in srgb, var(--accent-primary) 4%, transparent);
+  border-radius: 6px;
+}
+
+.gs-bp-guide-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.gs-bp-guide-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  padding: 0 6px;
+  border-radius: 8px;
+  line-height: 1.6;
+}
+
+.gs-bp-guide-chevron {
+  color: var(--text-muted);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.gs-bp-guide-chevron--open {
+  transform: rotate(90deg);
+}
+
+.gs-bp-guide-items {
+  padding: 2px 0 6px 8px;
+}
+
+.gs-bp-guide-item {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 10px;
+  position: relative;
+}
+
+.gs-bp-guide-item::before {
+  content: "·";
+  position: absolute;
+  left: 0;
+  color: var(--border-default);
+  font-weight: 700;
+}
+
+.gs-bp-guide-more {
+  font-size: 10px;
+  color: var(--accent-primary);
+  padding-left: 10px;
+  margin-top: 1px;
+  cursor: default;
+}
+
+/* ── Labeled category pills ──────────────────────── */
+
+.gs-bp-category-pill--labeled {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 7px;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+/* ── Philosophy / course context quote ───────────── */
+
+.gs-bp-philosophy {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-style: italic;
+  line-height: 1.45;
+  margin-top: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Targets + Constraints ───────────────────────── */
+
+.gs-bp-targets {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.gs-bp-targets-label {
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-right: 4px;
+}
+
+.gs-bp-constraints {
+  font-size: 11px;
+  color: var(--status-warning-text);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.gs-bp-constraints-label {
+  font-weight: 500;
+  margin-right: 4px;
+}
+
 /* ── Pulse animation ────────────────────────────── */
 
 @keyframes gs-pulse {

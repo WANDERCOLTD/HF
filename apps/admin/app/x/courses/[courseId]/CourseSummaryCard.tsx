@@ -5,8 +5,12 @@ import {
   ChevronRight, FileText,
 } from 'lucide-react';
 import { GOAL_TYPE_CONFIG } from '@/lib/goals/goal-constants';
+import { CONTENT_CATEGORIES, CATEGORY_ORDER } from '@/lib/content-categories';
+import { TEACH_METHOD_CONFIG } from '@/lib/content-trust/resolve-config';
 
 // ── Types ──────────────────────────────────────────
+
+export type MethodBreakdown = { teachMethod: string; count: number };
 
 export type CourseSummaryCardProps = {
   // Identity row
@@ -19,6 +23,9 @@ export type CourseSummaryCardProps = {
   totalTPs: number;
   totalSources: number;
   instructionTotal: number;
+  // Content breakdown (optional — enhances content + sessions rows)
+  categoryCounts?: Record<string, number>;
+  contentMethods?: MethodBreakdown[];
   // Goals
   goals: Array<{ type: string; name: string }>;
   // Teaching
@@ -72,6 +79,8 @@ export function CourseSummaryCard({
   totalTPs,
   totalSources,
   instructionTotal,
+  categoryCounts,
+  contentMethods,
   goals,
   personaName,
   personaArchetype,
@@ -161,6 +170,25 @@ export function CourseSummaryCard({
                   )}
                 </div>
               )}
+              {categoryCounts && totalTPs > 0 && (
+                <div className="hf-flex hf-gap-xs hf-flex-wrap" style={{ marginTop: 4 }}>
+                  {CATEGORY_ORDER
+                    .filter(cat => (categoryCounts[cat] ?? 0) > 0)
+                    .map(cat => {
+                      const meta = CONTENT_CATEGORIES[cat];
+                      return (
+                        <span
+                          key={cat}
+                          className="hf-badge hf-badge-sm"
+                          title={meta.label}
+                          style={{ color: meta.color, borderColor: meta.color }}
+                        >
+                          {meta.icon && `${meta.icon} `}{categoryCounts[cat]} {meta.label}
+                        </span>
+                      );
+                    })}
+                </div>
+              )}
             </div>
           </SummaryRow>
         )}
@@ -202,6 +230,21 @@ export function CourseSummaryCard({
                   </>
                 )}
               </span>
+              {contentMethods && contentMethods.length > 0 && (
+                <div className="hf-flex hf-gap-xs hf-flex-wrap" style={{ marginTop: 4 }}>
+                  {contentMethods
+                    .filter(m => m.count > 0)
+                    .slice(0, 5)
+                    .map(m => {
+                      const cfg = TEACH_METHOD_CONFIG[m.teachMethod as keyof typeof TEACH_METHOD_CONFIG];
+                      return (
+                        <span key={m.teachMethod} className="csc-stat-chip">
+                          {cfg?.icon || '?'} <span className="csc-stat-value">{m.count}</span> {cfg?.label || m.teachMethod}
+                        </span>
+                      );
+                    })}
+                </div>
+              )}
             </div>
           </SummaryRow>
         )}

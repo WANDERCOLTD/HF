@@ -43,6 +43,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             config: true,
             name: true,
             domain: { select: { name: true } },
+            subjects: {
+              select: { subject: { select: { teachingProfile: true } } },
+              take: 1,
+            },
           },
         },
       },
@@ -92,11 +96,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const triggerAfterCalls =
       offboardingCfg?.triggerAfterCalls ?? DEFAULT_OFFBOARDING_TRIGGER;
 
-    // ── Assessment config (personality + pre/post-test) ──
+    // ── Assessment config (personality + pre/mid/post-test) ──
+    const teachingProfile = enrollment.playbook.subjects?.[0]?.subject?.teachingProfile;
+    const isComprehension = teachingProfile === "comprehension-led";
+
     const personalityQuestions: SurveyStepConfig[] =
       pbConfig.assessment?.personality?.questions?.length
         ? pbConfig.assessment.personality.questions
         : DEFAULT_PERSONALITY_QUESTIONS;
+
+    // Profile-aware defaults: comprehension skips pre-test, enables mid-test
+    const preTestDefault = !isComprehension;
+    const midTestDefault = isComprehension;
 
     return NextResponse.json({
       ok: true,
@@ -108,8 +119,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           questions: personalityQuestions,
         },
         preTest: {
-          enabled: pbConfig.assessment?.preTest?.enabled ?? true,
+          enabled: pbConfig.assessment?.preTest?.enabled ?? preTestDefault,
           questionCount: pbConfig.assessment?.preTest?.questionCount ?? 5,
+        },
+        midTest: {
+          enabled: pbConfig.assessment?.midTest?.enabled ?? midTestDefault,
+          afterSession: pbConfig.assessment?.midTest?.afterSession ?? "halfway",
         },
         postTest: {
           enabled: pbConfig.assessment?.postTest?.enabled ?? true,

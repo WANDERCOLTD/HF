@@ -12090,7 +12090,7 @@ Lightweight status bar data — call activity (OPERATOR+) and AI spend (ADMIN+).
 
 ### `POST` /api/student/assessment
 
-Submit pre-test or post-test answers. Stores each answer + correctness
+Submit pre-test, mid-test, or post-test answers. Stores each answer + correctness
 
 **Auth**: session (STUDENT | OPERATOR+) · **Scope**: `student:write`
 
@@ -12108,7 +12108,7 @@ Submit pre-test or post-test answers. Stores each answer + correctness
 
 ### `GET` /api/student/assessment-questions
 
-Returns pre-test or post-test questions for the authenticated student.
+Returns pre-test, mid-test, or post-test questions for the authenticated student.
 
 **Auth**: session (STUDENT | OPERATOR+) · **Scope**: `student:read`
 

@@ -45,6 +45,8 @@ const QUESTION_COUNT_OPTIONS = [3, 5, 7, 10];
 // Props
 // ---------------------------------------------------------------------------
 
+type McqPreview = { questions: SurveyStepConfig[]; skipped: boolean; skipReason?: string; sourceId?: string };
+
 export interface SurveyStopDetailProps {
   type: string;
   playbookConfig?: Record<string, unknown> | null;
@@ -52,14 +54,20 @@ export interface SurveyStopDetailProps {
   onSave?: (sectionKey: string, questions: SurveyStepConfig[]) => void;
   /** Whether a save is in progress */
   saving?: boolean;
-  /** Pre-loaded MCQ questions for assessment preview (from buildPreTest) */
-  mcqPreview?: { questions: SurveyStepConfig[]; skipped: boolean; skipReason?: string; sourceId?: string } | null;
+  /** Pre-loaded MCQ questions for pre-test assessment preview */
+  mcqPreview?: McqPreview | null;
+  /** Mid-test MCQ preview (comprehension courses) */
+  midTestMcqPreview?: McqPreview | null;
+  /** Post-test MCQ preview (comprehension courses — different from pre-test mirror) */
+  postTestMcqPreview?: McqPreview | null;
+  /** Whether the course is comprehension-led */
+  isComprehension?: boolean;
   /** Callback to regenerate MCQs */
   onRegenerate?: () => void;
   /** Whether regeneration is in progress */
   regenerating?: boolean;
-  /** Callback to change assessment config (e.g. questionCount, excludedIds) */
-  onAssessmentConfigChange?: (patch: Record<string, unknown>) => void;
+  /** Callback to change assessment config (e.g. questionCount, excludedIds). testType defaults to 'preTest'. */
+  onAssessmentConfigChange?: (patch: Record<string, unknown>, testType?: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -82,8 +90,11 @@ interface Section {
 function resolveQuestions(
   type: string,
   config: Record<string, unknown> | null | undefined,
-  mcqPreview?: SurveyStopDetailProps['mcqPreview'],
+  mcqPreview?: McqPreview | null,
   excludedIds?: Set<string>,
+  midTestMcqPreview?: McqPreview | null,
+  postTestMcqPreview?: McqPreview | null,
+  isComprehension?: boolean,
 ): { sections: Section[] } {
   const cfg = config ?? {};
   const surveys = cfg.surveys as Record<string, { enabled?: boolean; questions?: SurveyStepConfig[] }> | undefined;
@@ -95,7 +106,7 @@ function resolveQuestions(
     const preTestCount = (assessment?.preTest as any)?.questionCount ?? 5;
 
     const sections: Section[] = [
-      { key: 'personality', label: 'Personality', description: 'Learning preferences & self-assessment', questions: personalityQs, editable: true },
+      { key: 'personality', label: 'Personality Profile', description: 'Learning preferences & self-assessment', questions: personalityQs, editable: true },
     ];
     if (preTestEnabled) {
       const hasMcqs = mcqPreview && !mcqPreview.skipped && mcqPreview.questions.length > 0;
@@ -104,7 +115,7 @@ function resolveQuestions(
         : [];
       sections.push({
         key: 'pre_test',
-        label: 'Pre-Test',
+        label: 'Knowledge Check',
         description: hasMcqs
           ? `${filteredQs.length} question${filteredQs.length !== 1 ? 's' : ''} from uploaded content`
           : mcqPreview?.skipped
@@ -118,27 +129,60 @@ function resolveQuestions(
   }
 
   if (type === 'mid_survey') {
+    const sections: Section[] = [];
     const midQs = surveys?.mid?.questions ?? DEFAULT_MID_SURVEY;
-    return { sections: [{ key: 'mid', label: 'Mid Check-in', description: 'Progress & satisfaction', questions: midQs, editable: true }] };
+    sections.push({ key: 'mid', label: 'Satisfaction Check-in', description: 'Progress & satisfaction', questions: midQs, editable: true });
+
+    // Mid Knowledge Check — comprehension courses with midTest enabled
+    if (assessment?.midTest?.enabled) {
+      const hasMcqs = midTestMcqPreview && !midTestMcqPreview.skipped && midTestMcqPreview.questions.length > 0;
+      sections.push({
+        key: 'mid_test',
+        label: 'Knowledge Check',
+        description: hasMcqs
+          ? `${midTestMcqPreview!.questions.length} comprehension skill question${midTestMcqPreview!.questions.length !== 1 ? 's' : ''}`
+          : 'Comprehension questions from course content',
+        questions: hasMcqs ? midTestMcqPreview!.questions : [],
+        isDynamic: !hasMcqs,
+      });
+    }
+    return { sections };
   }
 
   if (type === 'post_survey') {
     const sections: Section[] = [];
-    const preTestEnabled = assessment?.preTest?.enabled !== false;
-    if (preTestEnabled) {
-      const hasMcqs = mcqPreview && !mcqPreview.skipped && mcqPreview.questions.length > 0;
-      sections.push({
-        key: 'post_test',
-        label: 'Post-Test',
-        description: hasMcqs
-          ? `Same ${mcqPreview!.questions.length} questions as pre-test — measures knowledge uplift`
-          : 'Same questions as pre-test — measures knowledge uplift',
-        questions: hasMcqs ? mcqPreview!.questions : [],
-        isDynamic: !hasMcqs,
-      });
+    const postTestEnabled = assessment?.postTest?.enabled !== false;
+
+    if (postTestEnabled) {
+      // Comprehension: show actual POST_TEST questions (not pre-test mirror)
+      if (isComprehension && postTestMcqPreview) {
+        const hasMcqs = !postTestMcqPreview.skipped && postTestMcqPreview.questions.length > 0;
+        sections.push({
+          key: 'post_test',
+          label: 'Knowledge Check',
+          description: hasMcqs
+            ? `${postTestMcqPreview.questions.length} comprehension skill question${postTestMcqPreview.questions.length !== 1 ? 's' : ''}`
+            : 'Comprehension questions from course content',
+          questions: hasMcqs ? postTestMcqPreview.questions : [],
+          isDynamic: !hasMcqs,
+        });
+      } else if (!isComprehension) {
+        // Knowledge: mirror pre-test (existing behavior)
+        const hasMcqs = mcqPreview && !mcqPreview.skipped && mcqPreview.questions.length > 0;
+        sections.push({
+          key: 'post_test',
+          label: 'Knowledge Check',
+          description: hasMcqs
+            ? `Same ${mcqPreview!.questions.length} questions as pre-test — measures knowledge uplift`
+            : 'Same questions as pre-test — measures knowledge uplift',
+          questions: hasMcqs ? mcqPreview!.questions : [],
+          isDynamic: !hasMcqs,
+        });
+      }
     }
+
     const postQs = surveys?.post?.questions ?? DEFAULT_OFFBOARDING_SURVEY;
-    sections.push({ key: 'post', label: 'Feedback', description: 'Satisfaction & NPS', questions: postQs, editable: true });
+    sections.push({ key: 'post', label: 'Course Feedback', description: 'Satisfaction & NPS', questions: postQs, editable: true });
     return { sections };
   }
 
@@ -219,7 +263,7 @@ function SectionBlock({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<SurveyStepConfig[]>(section.questions);
   const canEdit = section.editable && !!onSave;
-  const isAssessment = section.key === 'pre_test' || section.key === 'post_test';
+  const isAssessment = section.key === 'pre_test' || section.key === 'mid_test' || section.key === 'post_test';
 
   const handleEdit = useCallback(() => {
     setDraft([...section.questions]);
@@ -310,7 +354,7 @@ function SectionBlock({
                 {regenerating ? 'Regenerating…' : 'Regenerate'}
               </button>
             )}
-            {sourceId && section.key === 'pre_test' && (
+            {sourceId && isAssessment && (
               <Link href={`/x/content-sources/${sourceId}`} className="hf-btn-ghost ssd-bank-link" title="View full question bank">
                 <ExternalLink size={12} />
                 Question bank
@@ -337,6 +381,9 @@ export function SurveyStopDetail({
   onSave,
   saving,
   mcqPreview,
+  midTestMcqPreview,
+  postTestMcqPreview,
+  isComprehension,
   onRegenerate,
   regenerating,
   onAssessmentConfigChange,
@@ -345,17 +392,28 @@ export function SurveyStopDetail({
   const questionCount = cfg.assessment?.preTest?.questionCount ?? 5;
   const excludedIds = new Set<string>((cfg.assessment?.preTest?.excludedQuestionIds as string[]) ?? []);
 
-  const { sections } = resolveQuestions(type, playbookConfig as Record<string, unknown>, mcqPreview, excludedIds);
+  const { sections } = resolveQuestions(
+    type, playbookConfig as Record<string, unknown>, mcqPreview, excludedIds,
+    midTestMcqPreview, postTestMcqPreview, isComprehension,
+  );
 
   const handleQuestionCountChange = useCallback((count: number) => {
-    onAssessmentConfigChange?.({ questionCount: count });
+    onAssessmentConfigChange?.({ questionCount: count }, 'preTest');
   }, [onAssessmentConfigChange]);
 
   const handleExclude = useCallback((questionId: string) => {
     const current = (cfg.assessment?.preTest?.excludedQuestionIds as string[]) ?? [];
     if (current.includes(questionId)) return;
-    onAssessmentConfigChange?.({ excludedQuestionIds: [...current, questionId] });
+    onAssessmentConfigChange?.({ excludedQuestionIds: [...current, questionId] }, 'preTest');
   }, [cfg, onAssessmentConfigChange]);
+
+  // Resolve sourceId per section type
+  const getSourceId = (key: string): string | undefined => {
+    if (key === 'pre_test') return mcqPreview?.sourceId;
+    if (key === 'mid_test') return midTestMcqPreview?.sourceId;
+    if (key === 'post_test') return (isComprehension ? postTestMcqPreview : mcqPreview)?.sourceId;
+    return undefined;
+  };
 
   return (
     <div className="ssd-root">
@@ -365,12 +423,12 @@ export function SurveyStopDetail({
           section={section}
           onSave={onSave}
           saving={saving}
-          onRegenerate={(section.key === 'pre_test' || section.key === 'post_test') ? onRegenerate : undefined}
+          onRegenerate={(section.key === 'pre_test' || section.key === 'mid_test' || section.key === 'post_test') ? onRegenerate : undefined}
           regenerating={regenerating}
           questionCount={questionCount}
           onQuestionCountChange={(section.key === 'pre_test') ? handleQuestionCountChange : undefined}
           onExclude={(section.key === 'pre_test') ? handleExclude : undefined}
-          sourceId={mcqPreview?.sourceId}
+          sourceId={getSourceId(section.key)}
         />
       ))}
     </div>

@@ -133,9 +133,12 @@
 .jrl-station-node {
   position: absolute;
   left: -1.75rem;
-  top: 0.5rem;
-  width: 0.875rem;
-  height: 0.875rem;
+  top: 0.35rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
   border: 2px solid var(--station-color, var(--border-default));
   background: var(--bg-primary);
@@ -145,24 +148,28 @@
 
 .jrl-station-node--completed {
   background: var(--station-color, var(--text-muted));
+  color: var(--surface-primary);
 }
 
 .jrl-station-node--active {
-  background: var(--bg-primary);
+  background: var(--station-color, var(--accent-primary));
+  color: var(--surface-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--station-color, var(--accent-primary)) 20%, transparent);
 }
 
 .jrl-station-node--active::after {
-  content: "";
-  position: absolute;
-  inset: 2px;
-  border-radius: 50%;
-  background: var(--station-color, var(--accent-primary));
+  display: none;
 }
 
 .jrl-station-node--upcoming {
   background: var(--bg-primary);
   border-color: var(--border-default);
+  color: var(--text-muted);
+}
+
+.jrl-station-icon {
+  flex-shrink: 0;
+  z-index: 1;
 }
 
 /* ── Station Row (collapsed) ──────────────────────── */
@@ -592,8 +599,13 @@
 
   .jrl-station-node {
     left: -1.375rem;
-    width: 0.75rem;
-    height: 0.75rem;
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  .jrl-station-icon {
+    width: 8px;
+    height: 8px;
   }
 
   .jrl-phase-bar {
@@ -804,6 +816,28 @@
   font-weight: 500;
 }
 
+/* Sub-component toggles for survey stops */
+.jrl-stop-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 2px 0 4px 28px;
+}
+
+.jrl-stop-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.jrl-stop-control-count {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
 .jrl-remove-btn {
   display: flex;
   align-items: center;
@@ -891,9 +925,13 @@
 /* Form stop diamond node (station rail) */
 .jrl-station-node--form {
   transform: rotate(45deg);
-  border-radius: 2px !important;
-  width: 0.625rem !important;
-  height: 0.625rem !important;
+  border-radius: 3px !important;
+  width: 1.125rem !important;
+  height: 1.125rem !important;
+}
+
+.jrl-station-node--form .jrl-station-icon {
+  transform: rotate(-45deg); /* counter-rotate so icon stays upright */
 }
 
 /* Form stop diamond dot (DotRail header) */

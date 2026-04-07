@@ -25,10 +25,14 @@ import pLimit from "p-limit";
 // Extended result types for specialist extractors
 // ------------------------------------------------------------------
 
+export type DistractorType = "misconception" | "partial_truth" | "related_concept" | "surface_lure";
+
+export const VALID_DISTRACTOR_TYPES = new Set<DistractorType>(["misconception", "partial_truth", "related_concept", "surface_lure"]);
+
 export interface ExtractedQuestion {
   questionText: string;
   questionType: "MCQ" | "TRUE_FALSE" | "MATCHING" | "FILL_BLANK" | "SHORT_ANSWER" | "OPEN" | "UNSCRAMBLE" | "ORDERING" | "TUTOR_QUESTION";
-  options?: Array<{ label: string; text: string; isCorrect?: boolean }>;
+  options?: Array<{ label: string; text: string; isCorrect?: boolean; distractorType?: DistractorType }>;
   correctAnswer?: string;
   answerExplanation?: string;
   markScheme?: string;

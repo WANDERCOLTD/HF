@@ -13,7 +13,8 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Paperclip, Users2, ArrowLeft, ListOrdered, RefreshCw, ExternalLink, Sparkles, Flag, Plus, Trash2, GripVertical, ClipboardList, ChevronDown } from "lucide-react";
+import { Paperclip, Users2, ArrowLeft, ListOrdered, RefreshCw, ExternalLink, Sparkles, Flag, Plus, Trash2, GripVertical, ClipboardList, ChevronDown, BookOpen, Layers, RotateCcw, Target, CheckCircle } from "lucide-react";
+import { SESSION_TYPE_ICONS } from "@/lib/lesson-plan/session-ui";
 import { DotRail, type DotRailStep, type DotState } from "./DotRail";
 import { getSessionTypeColor, getSessionTypeLabel, isFormStop, type SessionTypeConfig, type EducatorType } from "@/lib/lesson-plan/session-ui";
 import type { SessionEntry, StudentProgress } from "@/lib/lesson-plan/types";
@@ -58,6 +59,27 @@ export interface JourneyRailProps {
   onToggleMidSurvey?: (enabled: boolean) => void;
   /** Whether mid-survey is currently enabled */
   midSurveyEnabled?: boolean;
+
+  /** Sub-component toggles for survey stops */
+  personalityEnabled?: boolean;
+  onTogglePersonality?: (enabled: boolean) => void;
+  preTestEnabled?: boolean;
+  onTogglePreTest?: (enabled: boolean) => void;
+  midTestEnabled?: boolean;
+  onToggleMidTest?: (enabled: boolean) => void;
+  postTestEnabled?: boolean;
+  onTogglePostTest?: (enabled: boolean) => void;
+  /** Whether the course is comprehension-led (shows mid-test toggle) */
+  isComprehension?: boolean;
+  /** Question counts for badge display */
+  preTestQuestionCount?: number;
+  midTestQuestionCount?: number;
+  postTestQuestionCount?: number;
+  personalityQuestionCount?: number;
+  /** Mid/post satisfaction question counts */
+  midSurveyQuestionCount?: number;
+  postSurveyQuestionCount?: number;
+
   /** Loaded session type config (for type dropdowns) */
   sessionTypeConfig?: SessionTypeConfig;
   /** Educator type groups (for simplified type picker) */
@@ -357,6 +379,21 @@ export function JourneyRail({
   assessmentsEnabled,
   onToggleMidSurvey,
   midSurveyEnabled,
+  personalityEnabled,
+  onTogglePersonality,
+  preTestEnabled,
+  onTogglePreTest,
+  midTestEnabled,
+  onToggleMidTest,
+  postTestEnabled,
+  onTogglePostTest,
+  isComprehension,
+  preTestQuestionCount,
+  midTestQuestionCount,
+  postTestQuestionCount,
+  personalityQuestionCount,
+  midSurveyQuestionCount,
+  postSurveyQuestionCount,
   sessionTypeConfig,
   educatorTypes,
 }: JourneyRailProps) {
@@ -514,11 +551,18 @@ export function JourneyRail({
           setDragOver(null);
         }}
       >
-        {/* Node on the rail — diamond for form stops, circle for voice */}
-        <div
-          className={`jrl-station-node jrl-station-node--${state}${formStop ? " jrl-station-node--form" : ""}`}
-          style={{ "--station-color": color } as React.CSSProperties}
-        />
+        {/* Node on the rail — icon for each session type */}
+        {(() => {
+          const Icon = SESSION_TYPE_ICONS[entry.type] ?? BookOpen;
+          return (
+            <div
+              className={`jrl-station-node jrl-station-node--${state}${formStop ? " jrl-station-node--form" : ""}`}
+              style={{ "--station-color": color } as React.CSSProperties}
+            >
+              <Icon size={10} className="jrl-station-icon" />
+            </div>
+          );
+        })()}
 
         {/* Collapsed row */}
         <div
@@ -669,6 +713,62 @@ export function JourneyRail({
             )}
           </span>
         </div>
+
+        {/* Admin: sub-component toggles for survey stops */}
+        {isAdmin && formStop && assessmentsEnabled && !isExpanded && (
+          <div className="jrl-stop-controls" onClick={(e) => e.stopPropagation()}>
+            {entry.type === "pre_survey" && (
+              <>
+                {onTogglePersonality && (
+                  <label className="jrl-stop-control">
+                    <input type="checkbox" checked={personalityEnabled ?? true} onChange={(e) => onTogglePersonality(e.target.checked)} className="hf-checkbox" />
+                    <span className="hf-text-xs hf-text-muted">Personality Profile</span>
+                    {personalityQuestionCount != null && <span className="jrl-stop-control-count">{personalityQuestionCount} Qs</span>}
+                  </label>
+                )}
+                {onTogglePreTest && (
+                  <label className="jrl-stop-control">
+                    <input type="checkbox" checked={preTestEnabled ?? true} onChange={(e) => onTogglePreTest(e.target.checked)} className="hf-checkbox" />
+                    <span className="hf-text-xs hf-text-muted">Knowledge Check</span>
+                    {preTestQuestionCount != null && <span className="jrl-stop-control-count">{preTestQuestionCount} Qs</span>}
+                  </label>
+                )}
+              </>
+            )}
+            {entry.type === "mid_survey" && (
+              <>
+                <label className="jrl-stop-control">
+                  <input type="checkbox" checked={midSurveyEnabled ?? false} onChange={(e) => onToggleMidSurvey?.(e.target.checked)} className="hf-checkbox" disabled={!onToggleMidSurvey} />
+                  <span className="hf-text-xs hf-text-muted">Satisfaction Check-in</span>
+                  {midSurveyQuestionCount != null && <span className="jrl-stop-control-count">{midSurveyQuestionCount} Qs</span>}
+                </label>
+                {isComprehension && onToggleMidTest && (
+                  <label className="jrl-stop-control">
+                    <input type="checkbox" checked={midTestEnabled ?? false} onChange={(e) => onToggleMidTest(e.target.checked)} className="hf-checkbox" />
+                    <span className="hf-text-xs hf-text-muted">Knowledge Check</span>
+                    {midTestQuestionCount != null && <span className="jrl-stop-control-count">{midTestQuestionCount} Qs</span>}
+                  </label>
+                )}
+              </>
+            )}
+            {entry.type === "post_survey" && (
+              <>
+                {onTogglePostTest && (
+                  <label className="jrl-stop-control">
+                    <input type="checkbox" checked={postTestEnabled ?? true} onChange={(e) => onTogglePostTest(e.target.checked)} className="hf-checkbox" />
+                    <span className="hf-text-xs hf-text-muted">Knowledge Check</span>
+                    {postTestQuestionCount != null && <span className="jrl-stop-control-count">{postTestQuestionCount} Qs</span>}
+                  </label>
+                )}
+                <label className="jrl-stop-control">
+                  <input type="checkbox" checked={true} disabled className="hf-checkbox" />
+                  <span className="hf-text-xs hf-text-muted">Course Feedback</span>
+                  {postSurveyQuestionCount != null && <span className="jrl-stop-control-count">{postSurveyQuestionCount} Qs</span>}
+                </label>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Caller journey: completed session gets a quiet checkmark */}
         {mode === "caller" && state === "completed" && (

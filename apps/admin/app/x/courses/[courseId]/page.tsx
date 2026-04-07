@@ -166,8 +166,14 @@ export default function CourseDetailPage() {
   const [unassignedTPs, setUnassignedTPs] = useState<TPItem[]>([]);
   const [tpLoaded, setTpLoaded] = useState(false);
 
-  // Assessment MCQ preview
-  const [mcqPreview, setMcqPreview] = useState<{ questions: SurveyStepConfig[]; skipped: boolean; skipReason?: string; sourceId?: string } | null>(null);
+  // Assessment MCQ previews
+  type McqPreviewState = { questions: SurveyStepConfig[]; skipped: boolean; skipReason?: string; sourceId?: string } | null;
+  const [mcqPreview, setMcqPreview] = useState<McqPreviewState>(null);
+  const [midTestMcqPreview, setMidTestMcqPreview] = useState<McqPreviewState>(null);
+  const [postTestMcqPreview, setPostTestMcqPreview] = useState<McqPreviewState>(null);
+
+  // Derived: is this a comprehension-led course?
+  const isComprehension = subjects[0]?.teachingProfile === 'comprehension-led';
 
   // Session media map (SessionMediaMap imported from @/lib/lesson-plan/types)
   type MediaRef = SessionMediaRefType & { mimeType: string };
@@ -317,11 +323,20 @@ export default function CourseDetailPage() {
                   }
                 })
                 .catch(() => {}); // silent — TPs are supplementary
-              // Fetch assessment MCQ preview (pass playbookId for cross-subject fallback)
-              fetch(`/api/curricula/${data.curriculumId}/assessment-preview?playbookId=${courseId}`)
+              // Fetch assessment MCQ previews (pre + mid + post in parallel)
+              const previewBase = `/api/curricula/${data.curriculumId}/assessment-preview?playbookId=${courseId}`;
+              fetch(previewBase)
                 .then((r) => r.json())
                 .then((ap) => { if (ap.ok) setMcqPreview(ap); })
-                .catch(() => {}); // silent — supplementary
+                .catch(() => {});
+              fetch(`${previewBase}&type=mid_test`)
+                .then((r) => r.json())
+                .then((ap) => { if (ap.ok) setMidTestMcqPreview(ap); })
+                .catch(() => {});
+              fetch(`${previewBase}&type=post_test`)
+                .then((r) => r.json())
+                .then((ap) => { if (ap.ok) setPostTestMcqPreview(ap); })
+                .catch(() => {});
               // Fetch session media map
               setMediaMapLoading(true);
               fetch(`/api/curricula/${data.curriculumId}/lesson-plan/media-map`)
@@ -512,15 +527,15 @@ export default function CourseDetailPage() {
     }
   }, [detail]);
 
-  // ── Assessment config change handler (questionCount, excludedQuestionIds) ──
-  const handleAssessmentConfigChange = useCallback(async (patch: Record<string, unknown>) => {
+  // ── Assessment config change handler (questionCount, excludedQuestionIds, enabled) ──
+  const handleAssessmentConfigChange = useCallback(async (patch: Record<string, unknown>, testType: string = 'preTest') => {
     if (!detail) return;
     const cfg = (detail.config ?? {}) as Record<string, any>;
     const newConfig = {
       ...cfg,
       assessment: {
         ...cfg.assessment,
-        preTest: { ...cfg.assessment?.preTest, ...patch },
+        [testType]: { ...cfg.assessment?.[testType], ...patch },
       },
     };
     setDetail((prev) => prev ? { ...prev, config: newConfig } : prev);
@@ -970,6 +985,8 @@ export default function CourseDetailPage() {
           sessions={sessions}
           onSimCall={() => setShowSimModal(true)}
           instructionTotal={instructionTotal}
+          categoryCounts={categoryCounts}
+          contentMethods={contentMethods}
           onNavigate={handleTabChange}
         />
       )}
@@ -1021,6 +1038,9 @@ export default function CourseDetailPage() {
                     onSave={isOperator ? handleSurveyQuestions : undefined}
                     saving={surveySaving}
                     mcqPreview={mcqPreview}
+                    midTestMcqPreview={midTestMcqPreview}
+                    postTestMcqPreview={postTestMcqPreview}
+                    isComprehension={isComprehension}
                     onRegenerate={isOperator ? handleRegenerateMcqs : undefined}
                     regenerating={mcqRegenerating}
                     onAssessmentConfigChange={isOperator ? handleAssessmentConfigChange : undefined}
@@ -1153,6 +1173,22 @@ export default function CourseDetailPage() {
                 }
               }).catch(() => {});
             } : undefined}
+            // Sub-component toggles
+            isComprehension={isComprehension}
+            personalityEnabled={(detail.config as any)?.assessment?.personality?.enabled ?? true}
+            onTogglePersonality={isOperator ? (enabled) => handleAssessmentConfigChange({ enabled }, 'personality') : undefined}
+            preTestEnabled={(detail.config as any)?.assessment?.preTest?.enabled ?? !isComprehension}
+            onTogglePreTest={isOperator ? (enabled) => handleAssessmentConfigChange({ enabled }, 'preTest') : undefined}
+            midTestEnabled={(detail.config as any)?.assessment?.midTest?.enabled ?? isComprehension}
+            onToggleMidTest={isOperator ? (enabled) => handleAssessmentConfigChange({ enabled }, 'midTest') : undefined}
+            postTestEnabled={(detail.config as any)?.assessment?.postTest?.enabled ?? true}
+            onTogglePostTest={isOperator ? (enabled) => handleAssessmentConfigChange({ enabled }, 'postTest') : undefined}
+            personalityQuestionCount={((detail.config as any)?.assessment?.personality?.questions ?? []).length || 6}
+            preTestQuestionCount={mcqPreview && !mcqPreview.skipped ? mcqPreview.questions.length : (detail.config as any)?.assessment?.preTest?.questionCount ?? 5}
+            midTestQuestionCount={midTestMcqPreview && !midTestMcqPreview.skipped ? midTestMcqPreview.questions.length : undefined}
+            postTestQuestionCount={postTestMcqPreview && !postTestMcqPreview.skipped ? postTestMcqPreview.questions.length : undefined}
+            midSurveyQuestionCount={3}
+            postSurveyQuestionCount={5}
           />
 
           {/* Session Plan Viewer — media assignment per session */}
