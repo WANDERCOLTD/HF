@@ -1290,7 +1290,7 @@ async function cleanup(prisma: PrismaClient): Promise<void> {
     "subject",
     "mediaAsset",
     "userTask",
-    "userPersonality",
+    "callerPersonality",
   ];
 
   for (const table of tables) {
