@@ -270,6 +270,90 @@ Return ONLY a JSON array:
 }
 
 // ---------------------------------------------------------------------------
+// Comprehension skill-distributed MCQ prompt (assertion fallback for comprehension courses)
+// ---------------------------------------------------------------------------
+
+/**
+ * When a comprehension course has no QUESTION_BANK, generate MCQs from assertions
+ * but distribute across the 6 PIRLS/KS2-aligned comprehension skills instead of bloom levels.
+ * This ensures MCQs test the same skills the pipeline measures (COMP_RETRIEVAL, etc.).
+ */
+function buildComprehensionSkillPrompt(
+  assertionText: string,
+  count: number,
+): string {
+  // Distribute questions across the 6 skills (favour inference + retrieval)
+  const retrievalCount = Math.max(1, Math.floor(count * 0.2));
+  const inferenceCount = Math.max(1, Math.floor(count * 0.2));
+  const vocabCount = Math.max(1, Math.floor(count * 0.15));
+  const languageCount = Math.max(1, Math.floor(count * 0.15));
+  const evaluationCount = Math.max(1, Math.floor(count * 0.15));
+  const recallCount = Math.max(0, count - retrievalCount - inferenceCount - vocabCount - languageCount - evaluationCount);
+
+  return `You are generating comprehension assessment questions for an educational platform.
+Given content assertions (facts/concepts from course materials), generate questions that test COMPREHENSION SKILLS — not factual recall.
+
+Generate exactly ${count} questions distributed across these comprehension skills:
+- ${retrievalCount} RETRIEVAL: Can the student find explicitly stated information? ("According to the text...", "The passage states that...")
+- ${inferenceCount} INFERENCE: Can they read between the lines? ("What can you infer...", "The author implies...")
+- ${vocabCount} VOCABULARY: Do they understand words from context? ("In this context, the word X means...", "Which word best replaces...")
+- ${languageCount} LANGUAGE: Can they identify the effect of the author's choices? ("Why does the author use...", "The effect of this phrase is...")
+- ${evaluationCount} EVALUATION: Can they form and justify an opinion? ("Do you agree that...", "Which viewpoint is best supported...")
+- ${recallCount} RECALL: Can they remember key details accurately? ("What happened when...", "Who did X...")
+
+IMPORTANT: Frame every question as a COMPREHENSION task, even when the source material is factual.
+- Instead of "What is X?" (recall), ask "Based on this information, what can you conclude about X?" (inference)
+- Instead of "Define X" (recall), ask "In this context, what does X most likely refer to?" (vocabulary)
+- Ground questions in the content — reference "the passage", "the text", "the information provided"
+
+Each question can be MCQ (4 options A/B/C/D, one correct) or TRUE_FALSE.
+Aim for roughly 75% MCQ and 25% TRUE_FALSE.
+
+MCQ rules:
+- Each MCQ must have exactly 4 options labeled A, B, C, D
+- Exactly one option must be correct
+- Distractors should be plausible but clearly wrong
+
+TRUE_FALSE rules:
+- Each TRUE_FALSE is a clear statement that is definitively true or false
+- Options are exactly: [{ "label": "True", "text": "True" }, { "label": "False", "text": "False" }]
+- correctAnswer is "True" or "False"
+
+NEVER generate questions about:
+- Assessment frameworks, rubrics, or skill levels
+- The structure or design of the curriculum itself
+- How students are assessed or graded
+- Internal skill codes
+
+Return ONLY a JSON array:
+[{
+  "questionType": "MCQ",
+  "question": "Based on the passage, what can you infer about...?",
+  "bloomLevel": "UNDERSTAND",
+  "skillRef": "SKILL-02:Inference",
+  "options": [
+    { "label": "A", "text": "...", "isCorrect": false },
+    { "label": "B", "text": "...", "isCorrect": true },
+    { "label": "C", "text": "...", "isCorrect": false },
+    { "label": "D", "text": "...", "isCorrect": false }
+  ],
+  "correctAnswer": "B",
+  "chapter": "Inference",
+  "explanation": "Brief explanation"
+}]
+
+SKILL REF MAPPING — use these exact values:
+- Retrieval questions: skillRef = "SKILL-01:Retrieval"
+- Inference questions: skillRef = "SKILL-02:Inference"
+- Vocabulary questions: skillRef = "SKILL-03:Vocabulary"
+- Language questions: skillRef = "SKILL-04:Language Effect"
+- Evaluation questions: skillRef = "SKILL-05:Evaluation"
+- Recall questions: skillRef = "SKILL-06:Recall"
+
+Set the "chapter" field to the skill name (e.g. "Inference", "Vocabulary").`;
+}
+
+// ---------------------------------------------------------------------------
 // Default bloom-distributed MCQ prompt (for non-comprehension courses)
 // ---------------------------------------------------------------------------
 
@@ -461,17 +545,21 @@ async function generateFromAssertions(
     .map((a, i) => `${i + 1}. [${a.category}] ${a.assertion}${a.chapter ? ` (${a.chapter})` : ""}`)
     .join("\n");
 
-  const systemPrompt = buildBloomDistributedPrompt(assertionText, count);
+  const systemPrompt = source === "comprehension"
+    ? buildComprehensionSkillPrompt(assertionText, count)
+    : buildBloomDistributedPrompt(assertionText, count);
+
+  const callPoint = source === "comprehension" ? COMPREHENSION_CALL_POINT : CALL_POINT;
 
   const result = await getConfiguredMeteredAICompletion(
     {
-      callPoint: CALL_POINT,
+      callPoint,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Content assertions:\n\n${assertionText}` },
       ],
     },
-    { userId: options?.userId, sourceOp: CALL_POINT },
+    { userId: options?.userId, sourceOp: callPoint },
   );
 
   if (!result.content) {

@@ -381,7 +381,7 @@ describe("generate-mcqs", () => {
       });
     });
 
-    it("falls back to assertion path when < 3 TUTOR_QUESTIONs but still tags POST_TEST", async () => {
+    it("falls back to skill-distributed prompt when < 3 TUTOR_QUESTIONs", async () => {
       // Mock only 2 tutor questions (below threshold)
       mocks.prisma.subjectSource.findMany.mockResolvedValue([{ sourceId: "qb-src-1" }]);
       mocks.prisma.contentQuestion.findMany.mockResolvedValue([
@@ -397,8 +397,9 @@ describe("generate-mcqs", () => {
 
       mocks.ai.mockResolvedValue({
         content: JSON.stringify([{
-          question: "Basic recall question?",
-          bloomLevel: "REMEMBER",
+          question: "Based on the passage, what can you infer?",
+          bloomLevel: "UNDERSTAND",
+          skillRef: "SKILL-02:Inference",
           options: [
             { label: "A", text: "Right", isCorrect: true },
             { label: "B", text: "Wrong", isCorrect: false },
@@ -411,9 +412,19 @@ describe("generate-mcqs", () => {
       const result = await generateMcqsForSource("src-1", { subjectSourceId: "ss-1" });
       expect(result.skipped).toBe(false);
 
-      // Should use default call point (not comprehension)
+      // Comprehension fallback now uses comprehension call point
       const aiCall = mocks.ai.mock.calls[0][0];
-      expect(aiCall.callPoint).toBe("content-trust.generate-mcq");
+      expect(aiCall.callPoint).toBe("content-trust.generate-mcq-comprehension");
+
+      // Prompt should reference comprehension skills, not bloom levels
+      const systemMsg = aiCall.messages.find((m: any) => m.role === "system")?.content;
+      expect(systemMsg).toContain("RETRIEVAL");
+      expect(systemMsg).toContain("INFERENCE");
+      expect(systemMsg).toContain("VOCABULARY");
+      expect(systemMsg).toContain("LANGUAGE");
+      expect(systemMsg).toContain("EVALUATION");
+      expect(systemMsg).toContain("SKILL-01:Retrieval");
+      expect(systemMsg).not.toContain("REMEMBER level");
 
       // Comprehension fallback must still tag POST_TEST — never show in pre-test
       const saved = mocks.save.mock.calls[0][1];
@@ -423,7 +434,7 @@ describe("generate-mcqs", () => {
       });
     });
 
-    it("falls back to assertion path when no QB sources exist but still tags POST_TEST", async () => {
+    it("falls back to skill-distributed prompt when no QB sources exist", async () => {
       // No QB sources for this subject
       mocks.prisma.subjectSource.findMany.mockResolvedValue([]);
 
@@ -434,8 +445,9 @@ describe("generate-mcqs", () => {
 
       mocks.ai.mockResolvedValue({
         content: JSON.stringify([{
-          question: "Basic question?",
-          bloomLevel: "REMEMBER",
+          question: "What can you infer from this information?",
+          bloomLevel: "UNDERSTAND",
+          skillRef: "SKILL-02:Inference",
           options: [
             { label: "A", text: "Right", isCorrect: true },
             { label: "B", text: "Wrong", isCorrect: false },
@@ -448,8 +460,9 @@ describe("generate-mcqs", () => {
       const result = await generateMcqsForSource("src-1", { subjectSourceId: "ss-1" });
       expect(result.skipped).toBe(false);
 
+      // Uses comprehension call point even in no-QB fallback
       const aiCall = mocks.ai.mock.calls[0][0];
-      expect(aiCall.callPoint).toBe("content-trust.generate-mcq");
+      expect(aiCall.callPoint).toBe("content-trust.generate-mcq-comprehension");
 
       // Comprehension fallback must still tag POST_TEST
       const saved = mocks.save.mock.calls[0][1];
