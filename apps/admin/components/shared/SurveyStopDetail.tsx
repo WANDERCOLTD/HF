@@ -108,21 +108,26 @@ function resolveQuestions(
     const preTestCount = (assessment?.preTest as any)?.questionCount ?? 5;
 
     const sections: Section[] = [
-      { key: 'personality', label: 'Personality Profile', description: 'Learning preferences & self-assessment', questions: personalityQs, editable: true },
+      { key: 'personality', label: 'Personality Profile', description: 'Helps the AI adapt to each learner\'s preferences and confidence level', questions: personalityQs, editable: true },
     ];
     if (preTestEnabled) {
       const hasMcqs = mcqPreview && !mcqPreview.skipped && mcqPreview.questions.length > 0;
       const filteredQs = hasMcqs
         ? mcqPreview!.questions.filter((q) => !excludedIds?.has(q.contentQuestionId ?? q.id))
         : [];
+
+      const skipDesc = mcqPreview?.skipReason === 'no_questions' || mcqPreview?.skipReason === 'no_content_source'
+        ? 'No questions yet — upload course content and they\'ll be generated automatically'
+        : mcqPreview?.skipReason === 'too_few_assertions'
+          ? 'Not enough content extracted to generate questions — try adding more materials'
+          : 'Questions will be auto-generated once course content is processed';
+
       sections.push({
         key: 'pre_test',
         label: 'Knowledge Check',
         description: hasMcqs
-          ? `${filteredQs.length} question${filteredQs.length !== 1 ? 's' : ''} from uploaded content`
-          : mcqPreview?.skipped
-            ? `No questions available (${mcqPreview.skipReason ?? 'no content'})`
-            : `${preTestCount} questions sourced from curriculum content (MCQ)`,
+          ? `${filteredQs.length} question${filteredQs.length !== 1 ? 's' : ''} auto-generated from your uploaded content`
+          : skipDesc,
         questions: filteredQs,
         isDynamic: !hasMcqs,
       });
@@ -133,7 +138,7 @@ function resolveQuestions(
   if (type === 'mid_survey') {
     const sections: Section[] = [];
     const midQs = surveys?.mid?.questions ?? DEFAULT_MID_SURVEY;
-    sections.push({ key: 'mid', label: 'Satisfaction Check-in', description: 'Progress & satisfaction', questions: midQs, editable: true });
+    sections.push({ key: 'mid', label: 'Satisfaction Check-in', description: 'Quick check on how the learner is finding the course', questions: midQs, editable: true });
 
     // Mid Knowledge Check — comprehension courses with midTest enabled
     if (assessment?.midTest?.enabled) {
@@ -142,8 +147,8 @@ function resolveQuestions(
         key: 'mid_test',
         label: 'Knowledge Check',
         description: hasMcqs
-          ? `${midTestMcqPreview!.questions.length} comprehension skill question${midTestMcqPreview!.questions.length !== 1 ? 's' : ''}`
-          : 'Comprehension questions from course content',
+          ? `${midTestMcqPreview!.questions.length} comprehension question${midTestMcqPreview!.questions.length !== 1 ? 's' : ''} — measures progress midway through the course`
+          : 'Comprehension questions will appear here once course content is processed',
         questions: hasMcqs ? midTestMcqPreview!.questions : [],
         isDynamic: !hasMcqs,
       });
@@ -163,8 +168,8 @@ function resolveQuestions(
           key: 'post_test',
           label: 'Knowledge Check',
           description: hasMcqs
-            ? `${postTestMcqPreview.questions.length} comprehension skill question${postTestMcqPreview.questions.length !== 1 ? 's' : ''}`
-            : 'Comprehension questions from course content',
+            ? `${postTestMcqPreview.questions.length} comprehension question${postTestMcqPreview.questions.length !== 1 ? 's' : ''} — measures growth after all sessions`
+            : 'Comprehension questions will appear here once course content is processed',
           questions: hasMcqs ? postTestMcqPreview.questions : [],
           isDynamic: !hasMcqs,
         });
@@ -175,8 +180,8 @@ function resolveQuestions(
           key: 'post_test',
           label: 'Knowledge Check',
           description: hasMcqs
-            ? `Same ${mcqPreview!.questions.length} questions as pre-test — measures knowledge uplift`
-            : 'Same questions as pre-test — measures knowledge uplift',
+            ? `Same ${mcqPreview!.questions.length} questions as the pre-test — compares before and after to measure learning`
+            : 'Learners retake the same pre-test questions so you can measure improvement',
           questions: hasMcqs ? mcqPreview!.questions : [],
           isDynamic: !hasMcqs,
         });
@@ -184,7 +189,7 @@ function resolveQuestions(
     }
 
     const postQs = surveys?.post?.questions ?? DEFAULT_OFFBOARDING_SURVEY;
-    sections.push({ key: 'post', label: 'Course Feedback', description: 'Satisfaction & NPS', questions: postQs, editable: true });
+    sections.push({ key: 'post', label: 'Course Feedback', description: 'How the learner felt about the experience — satisfaction, confidence, and free-text feedback', questions: postQs, editable: true });
     return { sections };
   }
 
@@ -328,7 +333,7 @@ function SectionBlock({
 
       {section.isDynamic ? (
         <div className="ssd-dynamic-note">
-          <span className="hf-text-xs hf-text-muted">Questions auto-selected from curriculum content at runtime</span>
+          <span className="hf-text-xs hf-text-muted">Questions are generated automatically from your uploaded content. Click Regenerate to create them now.</span>
           {onRegenerate && (
             <button
               className="hf-btn-ghost ssd-regen-btn"

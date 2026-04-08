@@ -451,6 +451,20 @@ export default function CourseDetailPage() {
         body: JSON.stringify({ force: false }),
       });
       const data = await res.json();
+      // Helper to refresh all MCQ previews after regeneration
+      const refreshAllPreviews = async () => {
+        if (!sessions?.curriculumId) return;
+        const base = `/api/curricula/${sessions.curriculumId}/assessment-preview?playbookId=${courseId}`;
+        const [pre, mid, post] = await Promise.all([
+          fetch(base).then(r => r.json()).catch(() => null),
+          fetch(`${base}&type=mid_test`).then(r => r.json()).catch(() => null),
+          fetch(`${base}&type=post_test`).then(r => r.json()).catch(() => null),
+        ]);
+        if (pre?.ok) setMcqPreview(pre);
+        if (mid?.ok) setMidTestMcqPreview(mid);
+        if (post?.ok) setPostTestMcqPreview(post);
+      };
+
       if (data.hasResults) {
         // Warn user about affected callers
         if (confirm(`${data.message}\n\nRegenerate anyway?`)) {
@@ -460,20 +474,16 @@ export default function CourseDetailPage() {
             body: JSON.stringify({ force: true }),
           });
           const forceData = await forceRes.json();
-          if (forceData.ok && sessions?.curriculumId) {
-            // Refresh MCQ preview
-            const preview = await fetch(`/api/curricula/${sessions.curriculumId}/assessment-preview?playbookId=${courseId}`).then(r => r.json());
-            if (preview.ok) setMcqPreview(preview);
-          }
+          if (forceData.ok) await refreshAllPreviews();
         }
-      } else if (data.ok && sessions?.curriculumId) {
+      } else if (data.ok) {
         if (data.skipped) {
-          // Generation was skipped — update preview to show reason
-          setMcqPreview({ questions: [], skipped: true, skipReason: data.skipReason ?? "generation_skipped" });
+          const skipPreview = { questions: [] as SurveyStepConfig[], skipped: true, skipReason: data.skipReason ?? "generation_skipped" };
+          setMcqPreview(skipPreview);
+          setMidTestMcqPreview(skipPreview);
+          setPostTestMcqPreview(skipPreview);
         } else {
-          // Refresh MCQ preview
-          const preview = await fetch(`/api/curricula/${sessions.curriculumId}/assessment-preview?playbookId=${courseId}`).then(r => r.json());
-          if (preview.ok) setMcqPreview(preview);
+          await refreshAllPreviews();
         }
       }
     } catch {

@@ -726,7 +726,7 @@ export function JourneyRail({
                     {personalityQuestionCount != null && <span className="jrl-stop-control-count">{personalityQuestionCount} Qs</span>}
                   </label>
                 )}
-                {onTogglePreTest && (
+                {onTogglePreTest && !isComprehension && (
                   <label className="jrl-stop-control">
                     <input type="checkbox" checked={preTestEnabled ?? true} onChange={(e) => onTogglePreTest(e.target.checked)} className="hf-checkbox" />
                     <span className="hf-text-xs hf-text-muted">Knowledge Check</span>
