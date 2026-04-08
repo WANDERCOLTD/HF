@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
  * @scope admin:write
  * @auth session (SUPERADMIN)
  * @tags admin, data-management, demo
- * @description Scoped demo reset for Aardvark Academy. Removes demo-created courses,
+ * @description Scoped demo reset for Abacus Academy. Removes demo-created courses,
  *   callers, and cohorts — leaving seed data (golden-* tagged) intact.
  *   Safe to call between demo runs; institution settings are never touched.
  * @response 200 { ok: true, deleted: { callers: number, playbooks: number, cohorts: number } }
@@ -20,9 +20,9 @@ export async function POST() {
     const authResult = await requireAuth("SUPERADMIN");
     if (isAuthError(authResult)) return authResult.error;
 
-    // Find Aardvark Academy and its domain
+    // Find Abacus Academy and its domain
     const institution = await prisma.institution.findUnique({
-      where: { slug: "aardvark-academy" },
+      where: { slug: "abacus-academy" },
       select: {
         id: true,
         domains: { select: { id: true } },
@@ -31,7 +31,7 @@ export async function POST() {
 
     if (!institution) {
       return NextResponse.json(
-        { ok: false, error: "Aardvark Academy not found — run the golden seed first" },
+        { ok: false, error: "Abacus Academy not found — run the golden seed first" },
         { status: 404 }
       );
     }

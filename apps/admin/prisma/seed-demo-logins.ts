@@ -8,7 +8,7 @@
  * Non-PROD only — refuses to run when NEXT_PUBLIC_APP_ENV=LIVE.
  *
  * Accounts:
- *   teach@abacus.com   / hff       → School educator (separate from golden's Aardvark)
+ *   teach@abacus.com   / hff       → School educator (separate from golden's Abacus Academy)
  *   healthcare@hff.com / hff2026  → Healthcare educator (separate from golden's health@)
  *
  * Idempotent: uses upsert on email.
