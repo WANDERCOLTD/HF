@@ -559,7 +559,7 @@ export function JourneyRail({
               className={`jrl-station-node jrl-station-node--${state}${formStop ? " jrl-station-node--form" : ""}`}
               style={{ "--station-color": color } as React.CSSProperties}
             >
-              <Icon size={10} className="jrl-station-icon" />
+              <Icon size={14} className="jrl-station-icon" />
             </div>
           );
         })()}

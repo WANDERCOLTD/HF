@@ -26,8 +26,8 @@
 
 .jrl-dot {
   position: relative;
-  width: 1rem;
-  height: 1rem;
+  width: 1.25rem;
+  height: 1.25rem;
   border-radius: 50%;
   border: 2px solid var(--dot-color, var(--border-default));
   background: transparent;
@@ -76,7 +76,7 @@
 }
 
 .jrl-dot-label {
-  width: 1rem;
+  width: 1.25rem;
   text-align: center;
   font-size: 0.5625rem;
   color: var(--text-muted);
@@ -132,10 +132,10 @@
 
 .jrl-station-node {
   position: absolute;
-  left: -1.75rem;
-  top: 0.35rem;
-  width: 1.125rem;
-  height: 1.125rem;
+  left: -2rem;
+  top: 0.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -598,14 +598,14 @@
   }
 
   .jrl-station-node {
-    left: -1.375rem;
-    width: 0.875rem;
-    height: 0.875rem;
+    left: -1.5rem;
+    width: 1.125rem;
+    height: 1.125rem;
   }
 
   .jrl-station-icon {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
   }
 
   .jrl-phase-bar {
@@ -926,8 +926,8 @@
 .jrl-station-node--form {
   transform: rotate(45deg);
   border-radius: 3px !important;
-  width: 1.125rem !important;
-  height: 1.125rem !important;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
 }
 
 .jrl-station-node--form .jrl-station-icon {

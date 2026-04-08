@@ -102,7 +102,9 @@ function resolveQuestions(
 
   if (type === 'pre_survey') {
     const personalityQs = assessment?.personality?.questions ?? DEFAULT_PERSONALITY_QUESTIONS;
-    const preTestEnabled = assessment?.preTest?.enabled !== false;
+    // Comprehension courses default to pre-test off (passage-dependent questions)
+    const preTestDefault = isComprehension ? false : true;
+    const preTestEnabled = assessment?.preTest?.enabled ?? preTestDefault;
     const preTestCount = (assessment?.preTest as any)?.questionCount ?? 5;
 
     const sections: Section[] = [
