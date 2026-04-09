@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from "react";
 import { GenomeBrowser } from "@/components/shared/GenomeBrowser";
+import { AssertionDetailDrawer } from "@/components/shared/AssertionDetailDrawer";
 import type { GenomeData } from "@/app/api/courses/[courseId]/genome/route";
 import { Dna } from "lucide-react";
 
@@ -20,6 +21,7 @@ export function CourseGenomeTab({ courseId }: CourseGenomeTabProps) {
   const [data, setData] = useState<GenomeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedAssertionId, setSelectedAssertionId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,13 +88,14 @@ export function CourseGenomeTab({ courseId }: CourseGenomeTabProps) {
     <div className="hf-card" style={{ position: "relative" }}>
       <GenomeBrowser
         data={data}
-        onSessionClick={(session) => {
-          // Future: open AssertionDetailDrawer or navigate to session
-          console.log("[genome] Session clicked:", session);
-        }}
-        onCategoryClick={(session, category) => {
-          console.log("[genome] Category clicked:", session, category);
-        }}
+        onAssertionClick={(id) => setSelectedAssertionId(id)}
+        activeAssertionId={selectedAssertionId}
+      />
+      <AssertionDetailDrawer
+        courseId={courseId}
+        assertionId={selectedAssertionId}
+        onClose={() => setSelectedAssertionId(null)}
+        onNavigate={(id) => setSelectedAssertionId(id)}
       />
     </div>
   );

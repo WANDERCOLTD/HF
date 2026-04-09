@@ -10,11 +10,30 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
 import { HFDrawer } from './HFDrawer';
 import { getCategoryStyle, getTrustLevel } from '@/lib/content-categories';
 
 // ── Types ──────────────────────────────────────────
+
+type AssertionChild = {
+  id: string;
+  assertion: string;
+  category: string;
+  depth: number | null;
+};
+
+type AssertionQuestion = {
+  id: string;
+  questionText: string;
+  questionType: string;
+};
+
+type AssertionVocab = {
+  id: string;
+  term: string;
+  definition: string | null;
+};
 
 type AssertionDetail = {
   id: string;
@@ -36,7 +55,10 @@ type AssertionDetail = {
   createdAt: string;
   source: { id: string; name: string };
   reviewer: { id: string; name: string | null; email: string } | null;
-  _count: { children: number };
+  _count: { children: number; questions: number; vocabulary: number; mediaLinks: number };
+  children: AssertionChild[];
+  questions: AssertionQuestion[];
+  vocabulary: AssertionVocab[];
 };
 
 // ── Component ──────────────────────────────────────
@@ -45,10 +67,13 @@ export function AssertionDetailDrawer({
   courseId,
   assertionId,
   onClose,
+  onNavigate,
 }: {
   courseId: string;
   assertionId: string | null;
   onClose: () => void;
+  /** Navigate to a different assertion (e.g. child drill-down) */
+  onNavigate?: (assertionId: string) => void;
 }): React.ReactElement {
   const [detail, setDetail] = useState<AssertionDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -211,15 +236,109 @@ export function AssertionDetailDrawer({
               }
             </span>
 
-            {detail._count.children > 0 && (
-              <>
-                <span className="hf-drawer-field-label">Sub-assertions</span>
-                <span className="hf-drawer-field-value">{detail._count.children}</span>
-              </>
-            )}
           </div>
+
+          {/* ── What's under this TP ──────────────── */}
+          {(detail._count.children > 0 || detail._count.questions > 0 || detail._count.vocabulary > 0 || detail._count.mediaLinks > 0) && (
+            <UnderSection detail={detail} onNavigate={onNavigate} />
+          )}
         </>
       )}
     </HFDrawer>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Expandable "What's under this TP" section
+// ---------------------------------------------------------------------------
+
+function UnderSection({ detail, onNavigate }: { detail: AssertionDetail; onNavigate?: (id: string) => void }) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  const toggle = (key: string) =>
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const sections: { key: string; label: string; count: number }[] = [
+    { key: "children", label: "Sub-assertions", count: detail._count.children },
+    { key: "questions", label: "Questions", count: detail._count.questions },
+    { key: "vocabulary", label: "Vocabulary", count: detail._count.vocabulary },
+    { key: "media", label: "Media", count: detail._count.mediaLinks },
+  ].filter((s) => s.count > 0);
+
+  return (
+    <div className="hf-mt-md" style={{ borderTop: "1px solid var(--border-default)", paddingTop: 12 }}>
+      <span className="hf-text-xs hf-text-muted" style={{ fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        What&apos;s under this TP
+      </span>
+      <div className="hf-mt-sm">
+        {sections.map(({ key, label, count }) => (
+          <div key={key}>
+            <button
+              className="hf-flex hf-items-center hf-gap-xs hf-text-sm"
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: "6px 0",
+                width: "100%",
+                color: "var(--text-primary)",
+              }}
+              onClick={() => toggle(key)}
+            >
+              {expanded[key]
+                ? <ChevronDown size={14} />
+                : <ChevronRight size={14} />
+              }
+              <span style={{ fontWeight: 500 }}>{label}</span>
+              <span className="hf-badge hf-badge-sm hf-badge-neutral">{count}</span>
+            </button>
+            {expanded[key] && key === "children" && (
+              <div className="hf-ml-md hf-mb-sm">
+                {detail.children.map((c) => (
+                  <div
+                    key={c.id}
+                    className="hf-text-xs hf-py-xs"
+                    style={{
+                      borderBottom: "1px solid var(--border-default)",
+                      cursor: onNavigate ? "pointer" : "default",
+                    }}
+                    onClick={() => onNavigate?.(c.id)}
+                    role={onNavigate ? "button" : undefined}
+                  >
+                    <span className="hf-badge hf-badge-sm hf-badge-neutral hf-mr-xs">{c.category}</span>
+                    {c.assertion}
+                  </div>
+                ))}
+              </div>
+            )}
+            {expanded[key] && key === "questions" && (
+              <div className="hf-ml-md hf-mb-sm">
+                {detail.questions.map((q) => (
+                  <div key={q.id} className="hf-text-xs hf-py-xs" style={{ borderBottom: "1px solid var(--border-default)" }}>
+                    <span className="hf-badge hf-badge-sm hf-badge-neutral hf-mr-xs">{q.questionType}</span>
+                    {q.questionText}
+                  </div>
+                ))}
+              </div>
+            )}
+            {expanded[key] && key === "vocabulary" && (
+              <div className="hf-ml-md hf-mb-sm">
+                {detail.vocabulary.map((v) => (
+                  <div key={v.id} className="hf-text-xs hf-py-xs" style={{ borderBottom: "1px solid var(--border-default)" }}>
+                    <strong>{v.term}</strong>
+                    {v.definition && <span className="hf-text-muted"> — {v.definition}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {expanded[key] && key === "media" && (
+              <div className="hf-ml-md hf-mb-sm hf-text-xs hf-text-muted hf-py-xs">
+                {detail._count.mediaLinks} linked media asset{detail._count.mediaLinks !== 1 ? "s" : ""}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

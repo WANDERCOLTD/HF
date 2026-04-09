@@ -107,7 +107,7 @@ export interface LessonPlanModelDefinition {
 }
 
 // ---------------------------------------------------------------------------
-// Session viewer types (shared by SessionPlanViewer, course detail, wizard)
+// Session viewer types (shared by JourneyRail, course detail, wizard)
 // ---------------------------------------------------------------------------
 
 export interface SessionEntry {

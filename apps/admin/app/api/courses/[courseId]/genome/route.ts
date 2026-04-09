@@ -31,6 +31,12 @@ interface GenomeLO {
   assertionCount: number;
 }
 
+export interface GenomeAssertion {
+  id: string;
+  assertion: string;
+  category: string;
+}
+
 interface GenomeSessionAssertions {
   /** Teaching session index (1-based, teaching-only — excludes structural stops) */
   teachingIndex: number;
@@ -46,6 +52,16 @@ interface GenomeSessionAssertions {
   isAssessment: boolean;
   /** LO refs for this session */
   loRefs: string[];
+  /** Individual assertions for drill-down */
+  assertions: GenomeAssertion[];
+}
+
+export interface GenomeJourneyStop {
+  session: number;
+  type: string;
+  label: string;
+  /** 1-based teaching index (null for structural/survey stops) */
+  teachingIndex: number | null;
 }
 
 export interface GenomeData {
@@ -56,6 +72,8 @@ export interface GenomeData {
   modules: GenomeModule[];
   learningOutcomes: GenomeLO[];
   sessions: GenomeSessionAssertions[];
+  /** Full lesson plan as compact stops (including structural) for journey rail */
+  journeyStops: GenomeJourneyStop[];
 }
 
 // ---------------------------------------------------------------------------
@@ -145,15 +163,15 @@ export async function GET(
 
     // 6. Load assertions for all sessions that have assertionIds
     const allAssertionIds = teachingEntries.flatMap((e: any) => e.assertionIds || []);
-    const assertionMap = new Map<string, { category: string; learningOutcomeRef: string | null }>();
+    const assertionMap = new Map<string, { assertion: string; category: string; learningOutcomeRef: string | null }>();
 
     if (allAssertionIds.length > 0) {
       const assertions = await prisma.contentAssertion.findMany({
         where: { id: { in: allAssertionIds } },
-        select: { id: true, category: true, learningOutcomeRef: true },
+        select: { id: true, assertion: true, category: true, learningOutcomeRef: true },
       });
       for (const a of assertions) {
-        assertionMap.set(a.id, { category: a.category, learningOutcomeRef: a.learningOutcomeRef });
+        assertionMap.set(a.id, { assertion: a.assertion, category: a.category, learningOutcomeRef: a.learningOutcomeRef });
       }
     }
 
@@ -167,12 +185,14 @@ export async function GET(
       const ids: string[] = entry.assertionIds || [];
       const categories: Record<string, number> = {};
       const loRefsFromAssertions = new Set<string>();
+      const sessionAssertions: GenomeAssertion[] = [];
 
       for (const id of ids) {
         const a = assertionMap.get(id);
         if (a) {
           categories[a.category] = (categories[a.category] || 0) + 1;
           if (a.learningOutcomeRef) loRefsFromAssertions.add(a.learningOutcomeRef);
+          sessionAssertions.push({ id, assertion: a.assertion, category: a.category });
         }
       }
 
@@ -190,6 +210,7 @@ export async function GET(
         totalAssertions: ids.length,
         isAssessment: entry.type === "assess",
         loRefs,
+        assertions: sessionAssertions,
       };
     });
 
@@ -240,6 +261,17 @@ export async function GET(
       }
     }
 
+    // 11. Build full journey stops (all entries including structural)
+    const teachingIndexBySession = new Map(
+      genomeSessions.map((s) => [s.session, s.teachingIndex]),
+    );
+    const journeyStops: GenomeJourneyStop[] = entries.map((entry: any) => ({
+      session: entry.session,
+      type: entry.type,
+      label: entry.label || entry.type,
+      teachingIndex: teachingIndexBySession.get(entry.session) ?? null,
+    }));
+
     const data: GenomeData = {
       courseId,
       courseName: playbook.name,
@@ -248,6 +280,7 @@ export async function GET(
       modules: genomeModules,
       learningOutcomes: genomeLOs,
       sessions: genomeSessions,
+      journeyStops,
     };
 
     return NextResponse.json({ ok: true, data });
@@ -267,6 +300,7 @@ function emptyGenome(courseId: string, courseName: string): GenomeData {
     courseName,
     teachingSessionCount: 0,
     totalAssertions: 0,
+    journeyStops: [],
     modules: [],
     learningOutcomes: [],
     sessions: [],

@@ -48,7 +48,17 @@ export async function GET(
         createdAt: true,
         sourceId: true,
         source: { select: { id: true, name: true } },
-        _count: { select: { children: true } },
+        _count: { select: { children: true, questions: true, vocabulary: true, mediaLinks: true } },
+        children: {
+          orderBy: { depth: "asc" },
+          select: { id: true, assertion: true, category: true, depth: true },
+        },
+        questions: {
+          select: { id: true, questionText: true, questionType: true },
+        },
+        vocabulary: {
+          select: { id: true, term: true, definition: true },
+        },
       },
     });
 

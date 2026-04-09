@@ -13,12 +13,21 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Paperclip, Users2, ArrowLeft, ListOrdered, RefreshCw, ExternalLink, Sparkles, Flag, Plus, Trash2, GripVertical, ClipboardList, ChevronDown, BookOpen, Layers, RotateCcw, Target, CheckCircle } from "lucide-react";
+import { Paperclip, Users2, ArrowLeft, ListOrdered, RefreshCw, ExternalLink, Sparkles, Flag, Plus, Trash2, GripVertical, ClipboardList, ChevronDown, BookOpen, Layers, RotateCcw, Target, CheckCircle, Zap, X, Image } from "lucide-react";
 import { SESSION_TYPE_ICONS } from "@/lib/lesson-plan/session-ui";
 import { DotRail, type DotRailStep, type DotState } from "./DotRail";
 import { getSessionTypeColor, getSessionTypeLabel, isFormStop, type SessionTypeConfig, type EducatorType } from "@/lib/lesson-plan/session-ui";
-import type { SessionEntry, StudentProgress } from "@/lib/lesson-plan/types";
+import { SessionTPList, UnassignedTPList, type TPItem, type SessionOption } from "@/components/shared/SessionTPList";
+import type { SessionEntry, SessionMediaRef, SessionMediaMap, StudentProgress } from "@/lib/lesson-plan/types";
 import "./journey-rail.css";
+
+// ── Available Media type (for "add material" dropdowns) ──
+
+export interface AvailableMedia {
+  id: string;
+  fileName: string;
+  title: string | null;
+}
 
 // ── Props ───────────────────────────────────────────
 
@@ -87,6 +96,36 @@ export interface JourneyRailProps {
 
   /** Hide the class overview (enrolled caller rows) */
   hideClassOverview?: boolean;
+
+  // ── Merged from SessionPlanViewer ─────────────────
+
+  /** Teaching points per session (keyed by session number) */
+  sessionTPs?: Record<number, TPItem[]>;
+  /** Teaching points not assigned to any session */
+  unassignedTPs?: TPItem[];
+  /** Session media map (images, thumbnails, unassigned) */
+  mediaMap?: SessionMediaMap | null;
+  /** Available media for assignment dropdowns */
+  availableMedia?: AvailableMedia[];
+  /** Move a TP to a different session */
+  onTPMove?: (assertionId: string, toSession: number) => void;
+  /** Assign media to a session */
+  onSessionMediaAssign?: (mediaId: string, sessionNum: number) => void;
+  /** Remove media from a session */
+  onSessionMediaRemove?: (sessionNum: number, mediaId: string) => void;
+  /** Assign media to a phase within a session */
+  onPhaseMediaAssign?: (sessionNum: number, phaseId: string, mediaId: string) => void;
+  /** Remove media from a phase within a session */
+  onPhaseMediaRemove?: (sessionNum: number, phaseId: string, mediaId: string) => void;
+  /** Reorder media within a session */
+  onMediaReorder?: (sessionNum: number, fromIdx: number, toIdx: number) => void;
+
+  /** Variant: "full" (default) for interactive rail, "timeline" for read-only compact preview */
+  variant?: "full" | "timeline";
+  /** Read-only mode (no edit controls) */
+  readonly?: boolean;
+  /** Max collapsed sessions in timeline variant before "show all" */
+  maxCollapsed?: number;
 }
 
 // ── Helpers ─────────────────────────────────────────
@@ -263,44 +302,51 @@ function DefaultSessionDetail({
         </div>
       )}
 
+      {/* Zebra-striped phases (SPV style) */}
       {entry.phases && entry.phases.length > 0 && (
-        <div className="jrl-phase-bar">
-          {entry.phases.map((phase, pi) => {
-            const totalPhaseDur = entry.phases!.reduce(
-              (s, p) => s + (p.durationMins || 0),
-              0,
-            );
-            const fraction = totalPhaseDur > 0 && phase.durationMins
-              ? phase.durationMins / totalPhaseDur
-              : 1 / entry.phases!.length;
-
-            return (
-              <div
-                key={phase.id + pi}
-                className="jrl-phase-segment"
-                style={{ flex: fraction }}
-              >
-                <span className="jrl-phase-segment-label">
-                  {phase.label.split(" — ")[0]}
-                </span>
-                {phase.durationMins && (
-                  <span className="jrl-phase-segment-dur">
-                    {phase.durationMins}m
-                  </span>
-                )}
-                {phase.teachMethods && phase.teachMethods.length > 0 && (
-                  <div className="jrl-phase-segment-methods">
-                    {phase.teachMethods.slice(0, 2).map((m) => (
+        <div className="spv-phases">
+          {entry.phases.map((phase, pi) => (
+            <div
+              key={phase.id + pi}
+              className={`spv-phase ${pi % 2 === 0 ? "spv-phase--even" : "spv-phase--odd"}`}
+            >
+              <div className="spv-phase-accent" style={{ background: color }} />
+              <div className="spv-phase-content">
+                <div className="spv-phase-header">
+                  <span className="spv-phase-label">{phase.label}</span>
+                  {phase.durationMins && (
+                    <span className="spv-phase-dur">{phase.durationMins}m</span>
+                  )}
+                </div>
+                {phase.teachMethods?.length ? (
+                  <div className="spv-phase-methods">
+                    <Zap size={9} className="hf-session-methods-icon" />
+                    {phase.teachMethods.map((m) => (
                       <span key={m} className="hf-chip hf-chip-sm">{m}</span>
+                    ))}
+                  </div>
+                ) : null}
+                {phase.guidance && (
+                  <div className="spv-phase-guidance">{phase.guidance}</div>
+                )}
+                {/* Per-phase materials */}
+                {phase.media && phase.media.length > 0 && (
+                  <div className="spv-phase-materials">
+                    {phase.media.map((m) => (
+                      <span key={m.mediaId} className="spv-material-chip">
+                        <Paperclip size={10} />
+                        <span className="spv-material-name">{m.fileName || m.figureRef || "File"}</span>
+                      </span>
                     ))}
                   </div>
                 )}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
+      {/* Session-level materials */}
       {mats > 0 && (
         <div className="jrl-active-materials">
           {entry.media?.map((m) => (
@@ -317,22 +363,6 @@ function DefaultSessionDetail({
               {m.fileName || m.figureRef || "File"}
             </span>
           ))}
-          {entry.phases?.flatMap((p) =>
-            (p.media || []).map((m) => (
-              <span key={m.mediaId} className="jrl-material-chip">
-                {m.mimeType?.startsWith("image/") ? (
-                  <img
-                    src={`/api/media/${m.mediaId}`}
-                    alt={m.captionText || m.fileName || ""}
-                    className="jrl-material-thumb"
-                  />
-                ) : (
-                  <Paperclip size={9} />
-                )}
-                {m.fileName || m.figureRef || "File"}
-              </span>
-            )),
-          )}
         </div>
       )}
 
@@ -400,6 +430,19 @@ export function JourneyRail({
   sessionTypeConfig,
   educatorTypes,
   hideClassOverview = false,
+  sessionTPs = {},
+  unassignedTPs = [],
+  mediaMap,
+  availableMedia = [],
+  onTPMove,
+  onSessionMediaAssign,
+  onSessionMediaRemove,
+  onPhaseMediaAssign,
+  onPhaseMediaRemove,
+  onMediaReorder,
+  variant = "full",
+  readonly = false,
+  maxCollapsed = 6,
 }: JourneyRailProps) {
   const router = useRouter();
   const [focusCallerId, setFocusCallerId] = useState<string | null>(initialFocusCallerId);
@@ -408,8 +451,15 @@ export function JourneyRail({
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
   const stationRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const [lightboxImage, setLightboxImage] = useState<(SessionMediaRef & { mimeType: string }) | null>(null);
+  const [unassignedSearch, setUnassignedSearch] = useState("");
+  const [dragMediaId, setDragMediaId] = useState<string | null>(null);
+  const [phaseDropdown, setPhaseDropdown] = useState<{ sessionNum: number; phaseId: string } | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const isAdmin = !!(onAddSession || onRemoveSession || onRetypeSession);
+  const isTimeline = variant === "timeline";
+  const isAdmin = !!(onAddSession || onRemoveSession || onRetypeSession) && !isTimeline && !readonly;
   const isPinned = (type: string) => ["onboarding", "offboarding"].includes(type);
 
 
@@ -478,6 +528,43 @@ export function JourneyRail({
     }, 3000);
     return () => clearInterval(id);
   }, [sessions.length, loading, error, regenerating, onRetry, courseId]);
+
+  // Close phase media dropdown on outside click
+  useEffect(() => {
+    if (!phaseDropdown) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setPhaseDropdown(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [phaseDropdown]);
+
+  // TP derived data
+  const tpLoaded = Object.keys(sessionTPs).length > 0 || unassignedTPs.length > 0;
+
+  const sessionTPOptions: SessionOption[] = useMemo(
+    () => sessions.map((e) => ({ session: e.session, label: e.label })),
+    [sessions],
+  );
+
+  // Media already assigned to phases (to exclude from "available" dropdowns)
+  const assignedMediaIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const entry of sessions) {
+      for (const m of entry.media || []) ids.add(m.mediaId);
+      for (const phase of entry.phases || []) {
+        for (const m of phase.media || []) ids.add(m.mediaId);
+      }
+    }
+    return ids;
+  }, [sessions]);
+
+  const filteredAvailableMedia = useMemo(
+    () => availableMedia.filter((m) => !assignedMediaIds.has(m.id)),
+    [availableMedia, assignedMediaIds],
+  );
 
   // ── Loading / Error / Empty ───────────────────────
 
@@ -580,6 +667,7 @@ export function JourneyRail({
         {/* Collapsed row */}
         <div
           className="jrl-station-row"
+          style={{ "--station-color": color } as React.CSSProperties}
           onClick={() => {
             if (isActiveForCaller) {
               router.push(`/x/courses/${courseId}/sessions/${entry.session}`);
@@ -838,6 +926,68 @@ export function JourneyRail({
           )
         )}
 
+        {/* Expanded: Teaching Points (from SPV merge) */}
+        {isExpanded && tpLoaded && onTPMove && !formStop && (
+          <div style={{ marginLeft: "1.75rem" }}>
+            <SessionTPList
+              sessionNumber={entry.session}
+              assertions={sessionTPs[entry.session] || []}
+              sessions={sessionTPOptions}
+              onMove={onTPMove}
+              readonly={readonly}
+            />
+          </div>
+        )}
+
+        {/* Expanded: Session media strip (drag-drop, from SPV merge) */}
+        {isExpanded && !isTimeline && mediaMap && !formStop && (
+          <div
+            className={`spv-session-media${dragMediaId ? " spv-drop-target" : ""}`}
+            style={{ marginLeft: "1.75rem" }}
+            onDragOver={(e) => { if (dragMediaId) { e.preventDefault(); e.currentTarget.classList.add("spv-drop-hover"); } }}
+            onDragLeave={(e) => e.currentTarget.classList.remove("spv-drop-hover")}
+            onDrop={(e) => {
+              e.currentTarget.classList.remove("spv-drop-hover");
+              if (dragMediaId && onSessionMediaAssign) {
+                onSessionMediaAssign(dragMediaId, entry.session);
+                setDragMediaId(null);
+              }
+            }}
+          >
+            {(() => {
+              const sm = mediaMap.sessions?.find((s) => s.session === entry.session);
+              if (sm && sm.images.length > 0) {
+                return sm.images.map((img) => (
+                  <div
+                    key={img.mediaId}
+                    className="hf-session-media-thumb"
+                    title={img.captionText || img.figureRef || img.fileName}
+                  >
+                    {img.mimeType.startsWith("image/") ? (
+                      <img
+                        src={`/api/media/${img.mediaId}`}
+                        alt={img.captionText || img.figureRef || ""}
+                        onClick={() => setLightboxImage(img)}
+                        style={{ cursor: "pointer" }}
+                      />
+                    ) : (
+                      <span className="hf-session-media-icon" onClick={() => setLightboxImage(img)} style={{ cursor: "pointer" }}>{img.figureRef || "File"}</span>
+                    )}
+                    {!readonly && onSessionMediaRemove && (
+                      <button
+                        className="hf-session-media-remove"
+                        onClick={(e) => { e.stopPropagation(); onSessionMediaRemove(entry.session, img.mediaId); }}
+                        title="Remove from session"
+                      >&#10005;</button>
+                    )}
+                  </div>
+                ));
+              }
+              return null;
+            })()}
+          </div>
+        )}
+
         {/* Admin: insert session ghost row */}
         {isAdmin && onAddSession && idx < sessions.length - 1 && (
           <div className="jrl-insert-row">
@@ -939,10 +1089,167 @@ export function JourneyRail({
     );
   };
 
+  // ── Timeline variant: visible entries ──────────────
+
+  const visibleEntries = isTimeline && !showAll && sessions.length > maxCollapsed
+    ? [...sessions.slice(0, maxCollapsed - 1), sessions[sessions.length - 1]]
+    : sessions;
+
+  const hiddenCount = isTimeline && !showAll && sessions.length > maxCollapsed
+    ? sessions.length - maxCollapsed
+    : 0;
+
+  // ── Unassigned images (below rail) ───────────────
+
+  const renderUnassignedImages = () => {
+    if (isTimeline || !mediaMap || mediaMap.unassigned.length === 0) return null;
+    const filtered = unassignedSearch
+      ? mediaMap.unassigned.filter((img) => {
+          const q = unassignedSearch.toLowerCase();
+          return (img.fileName?.toLowerCase().includes(q)) ||
+            (img.captionText?.toLowerCase().includes(q)) ||
+            (img.figureRef?.toLowerCase().includes(q));
+        })
+      : mediaMap.unassigned;
+    const PAGE_SIZE = 12;
+    const shown = filtered.slice(0, PAGE_SIZE);
+    const remaining = filtered.length - PAGE_SIZE;
+
+    return (
+      <div className="hf-card-compact hf-mt-md">
+        <div className="hf-flex hf-flex-between hf-items-center hf-mb-sm">
+          <span className="hf-section-title hf-text-sm">
+            <Image size={14} /> Unassigned Images ({mediaMap.unassigned.length})
+          </span>
+          <div className="hf-flex hf-gap-sm hf-items-center">
+            {mediaMap.unassigned.length > 6 && (
+              <input
+                type="text"
+                className="hf-input hf-input-xs"
+                placeholder="Filter images\u2026"
+                value={unassignedSearch}
+                onChange={(e) => setUnassignedSearch(e.target.value)}
+                style={{ width: 140 }}
+              />
+            )}
+            <span className="hf-text-xs hf-text-muted">
+              {mediaMap.stats.assigned} of {mediaMap.stats.total} assigned
+            </span>
+          </div>
+        </div>
+        <div className="hf-session-media-grid">
+          {shown.map((img) => (
+            <div
+              key={img.mediaId}
+              className="hf-session-media-card"
+              draggable={!readonly}
+              onDragStart={(e) => { setDragMediaId(img.mediaId); e.dataTransfer.setData("text/plain", `assign:${img.mediaId}`); e.dataTransfer.effectAllowed = "move"; }}
+              onDragEnd={() => setDragMediaId(null)}
+            >
+              <div className="hf-session-media-card-thumb" onClick={() => setLightboxImage(img)} style={{ cursor: "pointer" }}>
+                {img.mimeType.startsWith("image/") ? (
+                  <img src={`/api/media/${img.mediaId}`} alt={img.captionText || img.figureRef || ""} />
+                ) : (
+                  <span className="hf-session-media-icon">{img.figureRef || "File"}</span>
+                )}
+              </div>
+              <div className="hf-session-media-card-label">
+                {img.figureRef || img.captionText || img.fileName}
+              </div>
+              {!readonly && onSessionMediaAssign && (
+                <select
+                  className="hf-input hf-input-xs"
+                  defaultValue=""
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    if (val > 0) onSessionMediaAssign(img.mediaId, val);
+                    e.target.value = "";
+                  }}
+                >
+                  <option value="" disabled>Assign to session\u2026</option>
+                  {sessions.map((se) => (
+                    <option key={se.session} value={se.session}>
+                      S{se.session}: {se.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          ))}
+        </div>
+        {remaining > 0 && (
+          <p className="hf-text-xs hf-text-muted hf-mt-sm">
+            +{remaining} more — use the filter to find specific images
+          </p>
+        )}
+      </div>
+    );
+  };
+
   // ── Main Render ───────────────────────────────────
 
   const dur = totalDuration(sessions);
 
+  // Timeline variant: simplified read-only view
+  if (isTimeline) {
+    return (
+      <div className="jrl-container">
+        <div className="spv-timeline-header">
+          <span className="hf-section-title hf-mb-0">Session Plan</span>
+          <span className="hf-text-xs hf-text-muted">
+            {sessions.length} session{sessions.length !== 1 ? "s" : ""}
+            {dur > 0 ? ` \u00b7 ~${formatDuration(dur)}` : ""}
+          </span>
+        </div>
+        <div className="spv-timeline">
+          <div className="spv-timeline-line" />
+          {visibleEntries.map((entry, i) => {
+            const realIndex = !showAll && sessions.length > maxCollapsed && i === visibleEntries.length - 1
+              ? sessions.length - 1
+              : i;
+            const color = getSessionTypeColor(entry.type);
+            return (
+              <div key={`sess-${entry.session}`} className="spv-timeline-item">
+                <div className="spv-timeline-node" style={{ borderColor: color }} />
+                <div className="hf-session-row" style={{ "--session-color": color } as React.CSSProperties}>
+                  <span className="hf-session-num">{entry.session}</span>
+                  <span className="hf-session-type cd-session-type">{getSessionTypeLabel(entry.type)}</span>
+                  <span className="hf-session-label">{entry.label}</span>
+                  {entry.estimatedDurationMins ? (
+                    <span className="hf-session-meta">{entry.estimatedDurationMins}m</span>
+                  ) : null}
+                </div>
+                {/* Phase breadcrumbs */}
+                {entry.phases && entry.phases.length > 0 && (
+                  <div className="jrl-phase-trail">
+                    {entry.phases.map((p, pi) => (
+                      <span key={p.id + pi}>
+                        {pi > 0 && <span className="jrl-phase-sep">&rsaquo;</span>}
+                        {p.label.split(" — ")[0]}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {/* "Show all" toggle */}
+                {hiddenCount > 0 && i === maxCollapsed - 2 && (
+                  <button className="spv-show-all-btn" onClick={() => setShowAll(true)}>
+                    Show all {sessions.length} sessions ({hiddenCount} hidden)
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          {showAll && sessions.length > maxCollapsed && (
+            <button className="spv-show-all-btn" onClick={() => setShowAll(false)}>
+              Show fewer
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Full variant: interactive rail
   return (
     <div className="jrl-container">
       {/* Back button (caller → class) */}
@@ -974,7 +1281,7 @@ export function JourneyRail({
             </span>
           )}
         </div>
-        {onRegenerate && (
+        {onRegenerate && !readonly && (
           <div className="hf-flex hf-items-center hf-gap-sm">
             <label className="hf-flex hf-items-center hf-gap-xs hf-text-xs hf-text-muted">
               Sessions
@@ -1015,8 +1322,33 @@ export function JourneyRail({
         {sessions.map((entry, idx) => renderStation(entry, idx))}
       </div>
 
+      {/* Unassigned TPs (from SPV merge) */}
+      {tpLoaded && unassignedTPs.length > 0 && onTPMove && (
+        <UnassignedTPList
+          assertions={unassignedTPs}
+          sessions={sessionTPOptions}
+          onMove={onTPMove}
+        />
+      )}
+
+      {/* Unassigned images (from SPV merge) */}
+      {renderUnassignedImages()}
+
       {/* Class overview rows */}
       {!hideClassOverview && renderClassOverview()}
+
+      {/* Lightbox */}
+      {lightboxImage && (
+        <div className="spv-lightbox-overlay" onClick={() => setLightboxImage(null)}>
+          <div className="spv-lightbox-content" onClick={(e) => e.stopPropagation()}>
+            {lightboxImage.mimeType.startsWith("image/") ? (
+              <img src={`/api/media/${lightboxImage.mediaId}`} alt={lightboxImage.captionText || ""} />
+            ) : null}
+            {lightboxImage.captionText && <p className="spv-lightbox-caption">{lightboxImage.captionText}</p>}
+            <button className="spv-lightbox-close" onClick={() => setLightboxImage(null)}>&#10005;</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

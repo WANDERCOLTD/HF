@@ -37,7 +37,6 @@ import {
   type SpecGroup,
 } from '@/lib/course/group-specs';
 import { SimLaunchModal } from '@/components/shared/SimLaunchModal';
-import { SessionPlanViewer } from '@/components/shared/SessionPlanViewer';
 import { CourseGenomeTab } from './CourseGenomeTab';
 import { JourneyRail } from '@/components/shared/JourneyRail';
 import { PlanHeaderCard } from '@/components/shared/PlanHeaderCard';
@@ -1267,53 +1266,21 @@ export default function CourseDetailPage() {
             postTestQuestionCount={postTestMcqPreview && !postTestMcqPreview.skipped ? postTestMcqPreview.questions.length : undefined}
             midSurveyQuestionCount={3}
             postSurveyQuestionCount={5}
+            // Merged SPV props — media/TP features
+            sessionTPs={sessionTPs}
+            unassignedTPs={unassignedTPs}
+            mediaMap={sessionMediaMap}
+            availableMedia={sessionMediaMap?.unassigned.map(u => ({
+              id: u.mediaId,
+              fileName: u.fileName || u.mediaId,
+              title: u.captionText || null,
+            })) ?? []}
+            onTPMove={isOperator ? handleTPMove : undefined}
+            onSessionMediaAssign={isOperator ? handleAssignImageToSession : undefined}
+            onSessionMediaRemove={isOperator ? handleRemoveSessionImage : undefined}
+            onMediaReorder={isOperator ? handleReorderSessionImages : undefined}
           />
           </CollapsibleCard>
-
-          {/* Session Plan Viewer — media assignment per session */}
-          {sessions?.plan?.entries && sessions.plan.entries.length > 0 && (
-            <div className="hf-mt-lg">
-              <SessionPlanViewer
-                variant="full"
-                entries={sessions.plan.entries}
-                model={sessions.plan.model}
-                generatedAt={sessions.plan.generatedAt}
-                estimatedSessions={sessions.plan.estimatedSessions}
-                sessionTPs={sessionTPs}
-                unassignedTPs={unassignedTPs}
-                mediaMap={sessionMediaMap}
-                studentProgress={sessions.studentProgress}
-                hidePlanHeader
-                hideClassProgress
-                onReorder={isOperator ? (from, to) => {
-                  if (!sessions?.curriculumId || !sessions?.plan?.entries) return;
-                  const reordered = reorderItems(sessions.plan.entries, from, to);
-                  setSessions(prev => prev ? { ...prev, plan: prev.plan ? { ...prev.plan, entries: reordered } : null } : null);
-                  fetch(`/api/curricula/${sessions.curriculumId}/lesson-plan`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ entries: reordered }),
-                  }).catch(() => {});
-                } : undefined}
-                onTPMove={isOperator ? handleTPMove : undefined}
-                onSessionMediaAssign={isOperator ? handleAssignImageToSession : undefined}
-                onSessionMediaRemove={isOperator ? handleRemoveSessionImage : undefined}
-                onMediaReorder={isOperator ? handleReorderSessionImages : undefined}
-                availableMedia={sessionMediaMap?.unassigned.map(u => ({
-                  id: u.mediaId,
-                  fileName: u.fileName || u.mediaId,
-                  title: u.captionText || null,
-                })) ?? []}
-                onRegenerate={isOperator ? handleRegenerate : undefined}
-                regenerating={regenerating}
-                regenSessionCount={regenSessionCount}
-                onRegenSessionCountChange={setRegenSessionCount}
-                courseId={courseId!}
-                curriculumId={sessions.curriculumId}
-                isOperator={isOperator}
-              />
-            </div>
-          )}
 
           {/* ── Every Session Flow (from course reference) ── */}
           {sessionFlowItems.length > 0 && (

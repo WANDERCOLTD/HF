@@ -137,6 +137,24 @@ export function getSessionTypeLabel(type: string): string {
   return SESSION_TYPES.find((t) => t.value === type)?.label || type;
 }
 
+const SHORT_LABELS: Record<string, string> = {
+  pre_survey: "PR",
+  onboarding: "OB",
+  introduce: "IN",
+  deepen: "DP",
+  review: "RV",
+  assess: "AS",
+  consolidate: "CO",
+  mid_survey: "MS",
+  offboarding: "OF",
+  post_survey: "PO",
+};
+
+/** 2-letter abbreviation for session type (for compact visualizations like genome browser). */
+export function getSessionTypeShortLabel(type: string): string {
+  return SHORT_LABELS[type] || type.slice(0, 2).toUpperCase();
+}
+
 /** Is this a form stop (survey category)? */
 export function isFormStop(type: string): boolean {
   return ['pre_survey', 'mid_survey', 'post_survey'].includes(type);

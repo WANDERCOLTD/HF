@@ -9,8 +9,9 @@
  * Reusable — takes data props, not tied to any specific page.
  */
 
-import { useState, useRef, useCallback, type CSSProperties } from "react";
-import type { GenomeData } from "@/app/api/courses/[courseId]/genome/route";
+import { useState, useRef, useCallback, useMemo, type CSSProperties } from "react";
+import type { GenomeData, GenomeJourneyStop, GenomeAssertion } from "@/app/api/courses/[courseId]/genome/route";
+import { getSessionTypeColor, getSessionTypeShortLabel, isFormStop } from "@/lib/lesson-plan/session-ui";
 import "./genome-browser.css";
 
 // ---------------------------------------------------------------------------
@@ -60,6 +61,18 @@ interface TooltipState {
 }
 
 // ---------------------------------------------------------------------------
+// Assertion list popover state
+// ---------------------------------------------------------------------------
+
+interface PopoverState {
+  x: number;
+  y: number;
+  assertions: GenomeAssertion[];
+  category: string;
+  sessionLabel: string;
+}
+
+// ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
@@ -69,14 +82,19 @@ export interface GenomeBrowserProps {
   onSessionClick?: (session: number) => void;
   /** Callback when a specific assertion category in a session is clicked */
   onCategoryClick?: (session: number, category: string) => void;
+  /** Callback when an individual assertion is selected (for detail drawer) */
+  onAssertionClick?: (assertionId: string) => void;
+  /** Currently selected assertion ID (for active highlight) */
+  activeAssertionId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function GenomeBrowser({ data, onSessionClick, onCategoryClick }: GenomeBrowserProps) {
+export function GenomeBrowser({ data, onSessionClick, onCategoryClick, onAssertionClick, activeAssertionId }: GenomeBrowserProps) {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [popover, setPopover] = useState<PopoverState | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const showTooltip = useCallback((e: React.MouseEvent, title: string, lines: string[]) => {
@@ -91,6 +109,51 @@ export function GenomeBrowser({ data, onSessionClick, onCategoryClick }: GenomeB
   }, []);
 
   const hideTooltip = useCallback(() => setTooltip(null), []);
+
+  const openPopover = useCallback((e: React.MouseEvent, assertions: GenomeAssertion[], category: string, sessionLabel: string) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setTooltip(null);
+    setPopover({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top + 8,
+      assertions,
+      category,
+      sessionLabel,
+    });
+  }, []);
+
+  const closePopover = useCallback(() => setPopover(null), []);
+
+  // Partition journey stops into pre-teaching, teaching, post-teaching
+  const journeyGroups = useMemo(() => {
+    if (!data.journeyStops?.length) return null;
+    const pre: GenomeJourneyStop[] = [];
+    const teaching: GenomeJourneyStop[] = [];
+    const post: GenomeJourneyStop[] = [];
+    let seenTeaching = false;
+    let lastTeachingIdx = -1;
+
+    // Find last teaching stop index
+    for (let i = data.journeyStops.length - 1; i >= 0; i--) {
+      if (data.journeyStops[i].teachingIndex !== null) { lastTeachingIdx = i; break; }
+    }
+
+    for (let i = 0; i < data.journeyStops.length; i++) {
+      const stop = data.journeyStops[i];
+      if (stop.teachingIndex !== null) {
+        seenTeaching = true;
+        teaching.push(stop);
+      } else if (!seenTeaching) {
+        pre.push(stop);
+      } else if (i > lastTeachingIdx) {
+        post.push(stop);
+      }
+      // Mid-survey between teaching sessions — treat as teaching-aligned
+      // (skip for now — it would need its own column handling)
+    }
+    return { pre, teaching, post };
+  }, [data.journeyStops]);
 
   if (data.teachingSessionCount === 0) {
     return (
@@ -203,17 +266,25 @@ export function GenomeBrowser({ data, onSessionClick, onCategoryClick }: GenomeB
                 if (count === 0) return null;
                 const maxCount = Math.max(...data.sessions.map((ss) => ss.totalAssertions), 1);
                 const heightPct = Math.max(16, (count / maxCount) * 60);
+                const catAssertions = s.assertions.filter((a) => a.category === cat);
+                const hasActive = catAssertions.some((a) => a.id === activeAssertionId);
                 return (
                   <div
                     key={cat}
-                    className="genome-tp-band"
+                    className={`genome-tp-band${hasActive ? " genome-tp-band--active" : ""}`}
                     style={{
                       background: getCategoryColor(cat),
                       height: `${heightPct}px`,
+                      cursor: "pointer",
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
                       onCategoryClick?.(s.session, cat);
+                      if (catAssertions.length === 1 && onAssertionClick) {
+                        onAssertionClick(catAssertions[0].id);
+                      } else if (catAssertions.length > 1) {
+                        openPopover(e, catAssertions, cat, s.label);
+                      }
                     }}
                   >
                     <span>{cat}</span>
@@ -226,31 +297,56 @@ export function GenomeBrowser({ data, onSessionClick, onCategoryClick }: GenomeB
           ))}
         </div>
 
-        {/* ═══ TRACK 4: Assessment waymarkers ═══ */}
-        <div className="genome-track" style={{ display: "grid", gridTemplateColumns: gridCols }}>
-          <div className="genome-track-label">Assessments</div>
-          {data.sessions.map((s) => (
-            <div key={s.teachingIndex} className="genome-assess-cell">
-              {s.isAssessment ? (
-                <div
-                  className="genome-waymarker"
-                  onMouseEnter={(e) =>
-                    showTooltip(e, "Assessment", [
-                      `${s.totalAssertions} TPs tested`,
-                      `${s.loRefs.length} LOs aligned${s.loRefs.length === 0 ? " ⚠️" : ""}`,
-                    ])
-                  }
-                  onMouseLeave={hideTooltip}
-                >
-                  <div className="genome-waymarker-icon" />
-                  <span className="genome-waymarker-label">Assess</span>
-                </div>
-              ) : (
-                <div className="genome-waymarker-dot" />
-              )}
+        {/* ═══ TRACK 4: Journey Rail (full lesson plan aligned to genome) ═══ */}
+        {journeyGroups && (
+          <div
+            className="genome-journey-track"
+            style={{
+              display: "grid",
+              gridTemplateColumns: `120px auto repeat(${sessionCount}, minmax(80px, 1fr)) auto`,
+            }}
+          >
+            <div className="genome-track-label">Journey</div>
+
+            {/* Pre-teaching stops (PR, OB) */}
+            <div className="genome-journey-cluster">
+              {journeyGroups.pre.map((stop) => (
+                <JourneyStop
+                  key={stop.session}
+                  stop={stop}
+                  size="small"
+                  showTooltip={showTooltip}
+                  hideTooltip={hideTooltip}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+
+            {/* Teaching stops — aligned to genome columns */}
+            {journeyGroups.teaching.map((stop) => (
+              <div key={stop.session} className="genome-journey-cell">
+                <JourneyStop
+                  stop={stop}
+                  size="large"
+                  showTooltip={showTooltip}
+                  hideTooltip={hideTooltip}
+                />
+              </div>
+            ))}
+
+            {/* Post-teaching stops (OF, PO) */}
+            <div className="genome-journey-cluster">
+              {journeyGroups.post.map((stop) => (
+                <JourneyStop
+                  key={stop.session}
+                  stop={stop}
+                  size="small"
+                  showTooltip={showTooltip}
+                  hideTooltip={hideTooltip}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Legend */}
@@ -264,7 +360,7 @@ export function GenomeBrowser({ data, onSessionClick, onCategoryClick }: GenomeB
       </div>
 
       {/* Tooltip */}
-      {tooltip && (
+      {tooltip && !popover && (
         <div className="genome-tooltip" style={{ left: tooltip.x, top: tooltip.y }}>
           <div className="genome-tooltip-title">{tooltip.title}</div>
           <div className="genome-tooltip-meta">
@@ -273,6 +369,33 @@ export function GenomeBrowser({ data, onSessionClick, onCategoryClick }: GenomeB
             ))}
           </div>
         </div>
+      )}
+
+      {/* Assertion list popover */}
+      {popover && (
+        <>
+          <div className="genome-popover-backdrop" onClick={closePopover} />
+          <div className="genome-popover" style={{ left: popover.x, top: popover.y }}>
+            <div className="genome-popover-header">
+              <span>{popover.sessionLabel} — {popover.category}</span>
+              <button className="genome-popover-close" onClick={closePopover} aria-label="Close">×</button>
+            </div>
+            <div className="genome-popover-list">
+              {popover.assertions.map((a) => (
+                <button
+                  key={a.id}
+                  className={`genome-popover-item${a.id === activeAssertionId ? " genome-popover-item--active" : ""}`}
+                  onClick={() => {
+                    onAssertionClick?.(a.id);
+                    closePopover();
+                  }}
+                >
+                  <span className="genome-popover-item-text">{a.assertion}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -337,4 +460,45 @@ function renderModuleSpans(
   }
 
   return nodes;
+}
+
+// ---------------------------------------------------------------------------
+// Journey stop renderer
+// ---------------------------------------------------------------------------
+
+function JourneyStop({
+  stop,
+  size,
+  showTooltip,
+  hideTooltip,
+}: {
+  stop: GenomeJourneyStop;
+  size: "small" | "large";
+  showTooltip: (e: React.MouseEvent, title: string, lines: string[]) => void;
+  hideTooltip: () => void;
+}) {
+  const color = getSessionTypeColor(stop.type);
+  const shortLabel = getSessionTypeShortLabel(stop.type);
+  const isAssess = stop.type === "assess";
+  const isForm = isFormStop(stop.type);
+
+  return (
+    <div
+      className={`genome-journey-stop genome-journey-stop--${size}`}
+      onMouseEnter={(e) =>
+        showTooltip(e, stop.label, [
+          `Session ${stop.session}`,
+          `Type: ${stop.type}`,
+          ...(stop.teachingIndex ? [`Teaching session ${stop.teachingIndex}`] : ["Structural stop"]),
+        ])
+      }
+      onMouseLeave={hideTooltip}
+    >
+      <div
+        className={`genome-journey-dot${isAssess || isForm ? " genome-journey-dot--diamond" : ""}`}
+        style={{ "--stop-color": color } as CSSProperties}
+      />
+      <span className="genome-journey-label" style={{ color }}>{shortLabel}</span>
+    </div>
+  );
 }

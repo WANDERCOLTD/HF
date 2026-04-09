@@ -30,7 +30,7 @@ import type { OptionsPanel } from "./OptionsCard";
 import { SourcesPanel } from "./SourcesPanel";
 import type { SourcesReadyData, SourcesPanelHandle } from "./SourcesPanel";
 import type { FirstCallPreviewData } from "./FirstCallPreviewCard";
-import { SessionPlanViewer } from "@/components/shared/SessionPlanViewer";
+import { JourneyRail } from "@/components/shared/JourneyRail";
 import type { SessionEntry } from "@/lib/lesson-plan/types";
 import { MiniJourneyRail } from "@/components/shared/MiniJourneyRail";
 import { ScaffoldPanel } from "@/components/wizards/ScaffoldPanel";
@@ -1319,9 +1319,10 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             if (msg.systemType === "first-call-preview" && msg.firstCallPreview) {
               return (
                 <div key={msg.id} className="cv4-row cv4-row--system">
-                  <SessionPlanViewer
+                  <JourneyRail
                     variant="timeline"
-                    entries={previewToSessionEntries(msg.firstCallPreview)}
+                    sessions={previewToSessionEntries(msg.firstCallPreview)}
+                    courseId=""
                     readonly
                   />
                 </div>
