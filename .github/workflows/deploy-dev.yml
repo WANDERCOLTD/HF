@@ -1,6 +1,11 @@
 name: Deploy to Dev
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/admin/**'
+      - '.github/workflows/deploy-dev.yml'
   workflow_dispatch:
 
 concurrency:
@@ -35,25 +40,38 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker europe-west2-docker.pkg.dev --quiet
 
-      - name: Build runner image
-        run: |
-          docker build --platform linux/amd64 --target runner \
-            --build-arg NEXT_PUBLIC_APP_ENV=DEV \
-            -t ${{ env.REGISTRY }}/hf-admin:dev \
-            -t ${{ env.REGISTRY }}/hf-admin:dev-${{ github.sha }} \
-            -f apps/admin/Dockerfile apps/admin
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Build seed image
-        run: |
-          docker build --platform linux/amd64 --target seed \
-            -t ${{ env.REGISTRY }}/hf-seed:dev \
-            -f apps/admin/Dockerfile apps/admin
+      - name: Build + push runner image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/admin
+          file: apps/admin/Dockerfile
+          target: runner
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            NEXT_PUBLIC_APP_ENV=DEV
+            NODE_OPTIONS=--max-old-space-size=4096
+          tags: |
+            ${{ env.REGISTRY }}/hf-admin:dev
+            ${{ env.REGISTRY }}/hf-admin:dev-${{ github.sha }}
+          cache-from: type=gha,scope=runner-dev
+          cache-to: type=gha,mode=max,scope=runner-dev
 
-      - name: Push images
-        run: |
-          docker push ${{ env.REGISTRY }}/hf-admin:dev
-          docker push ${{ env.REGISTRY }}/hf-admin:dev-${{ github.sha }}
-          docker push ${{ env.REGISTRY }}/hf-seed:dev
+      - name: Build + push seed image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/admin
+          file: apps/admin/Dockerfile
+          target: seed
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/hf-seed:dev
+          cache-from: type=gha,scope=seed-dev
+          cache-to: type=gha,mode=max,scope=seed-dev
 
       - name: Run schema migration
         run: |
