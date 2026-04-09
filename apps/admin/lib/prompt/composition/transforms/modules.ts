@@ -513,6 +513,8 @@ export async function computeSharedState(
     currentSessionNumber,
     lessonPlanSessionType,
     lessonPlanEntry,
+    // Carry-forward TP IDs from previous session (for [Review] labeling)
+    carryForwardAssertionIds: (lessonPlanEntry as any)?.carryForwardAssertionIds as string[] | undefined,
   };
 }
 

@@ -427,6 +427,18 @@ registerTransform("renderTeachingContent", (
     }
   }
 
+  // Label carry-forward TPs with [Review] prefix so the AI treats them as review, not new material
+  const carryForwardIds = new Set<string>(
+    (context.sharedState?.carryForwardAssertionIds as string[] | undefined) || [],
+  );
+  if (carryForwardIds.size > 0) {
+    assertions = assertions.map((a) =>
+      carryForwardIds.has(a.id)
+        ? { ...a, assertion: `[Review from last session] ${a.assertion}` }
+        : a,
+    );
+  }
+
   // Detect if we have pyramid hierarchy
   const hasHierarchy = assertions.some((a) => a.depth !== null && a.depth !== undefined);
 

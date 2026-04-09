@@ -245,3 +245,55 @@ describe("renderVoicePrompt — session pacing + lesson model", () => {
     expect(result).not.toContain("Teaching model:");
   });
 });
+
+describe("renderVoicePrompt — post-coverage guidance", () => {
+  it("renders post-coverage block when postCoverageGuidance is present", () => {
+    const result = renderVoicePrompt({
+      instructions: {
+        session_pedagogy: {
+          sessionType: "INTRODUCE",
+          flow: ["1. Reconnect", "2. Teach"],
+          postCoverageGuidance: "IF YOU COVER ALL TEACHING POINTS BEFORE THE SESSION ENDS:\n1. Signal completion\n2. Confidence check",
+        },
+      },
+    } as any);
+
+    expect(result).toContain("IF YOU COVER ALL TEACHING POINTS");
+    expect(result).toContain("Signal completion");
+    expect(result).toContain("Confidence check");
+  });
+
+  it("omits post-coverage block when not present", () => {
+    const result = renderVoicePrompt({
+      instructions: {
+        session_pedagogy: {
+          sessionType: "INTRODUCE",
+          flow: ["1. Reconnect"],
+        },
+      },
+    } as any);
+
+    expect(result).not.toContain("IF YOU COVER ALL TEACHING POINTS");
+  });
+
+  it("renders offboarding guidance when present", () => {
+    const result = renderVoicePrompt({
+      _quickStart: {
+        offboarding_guidance: "SUMMARISE: Recap key concepts\nREFLECT: Ask what was most valuable",
+      },
+    } as any);
+
+    expect(result).toContain("SUMMARISE: Recap key concepts");
+    expect(result).toContain("REFLECT: Ask what was most valuable");
+  });
+
+  it("includes DELIVERY rule 6 referencing post-coverage flow", () => {
+    const result = renderVoicePrompt({
+      instructions: {
+        teaching_content: "## TEACHING CONTENT\nSome points here",
+      },
+    } as any);
+
+    expect(result).toContain("6. If all points are covered and understood, follow the post-coverage flow");
+  });
+});

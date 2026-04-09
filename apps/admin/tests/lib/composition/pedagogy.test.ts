@@ -392,6 +392,114 @@ describe("computeSessionPedagogy transform", () => {
     });
   });
 
+  describe("postCoverageGuidance", () => {
+    const sessionTypes = ["introduce", "deepen", "review", "assess", "consolidate"] as const;
+
+    function makeLpCtx(sessionType: string): AssembledContext {
+      return makeContext({
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: false,
+          isFirstCallInDomain: false,
+          lessonPlanSessionType: sessionType,
+          currentSessionNumber: 3,
+          lessonPlanEntry: {
+            session: 3,
+            type: sessionType,
+            moduleId: "MOD-1",
+            moduleLabel: "Module A",
+            label: `${sessionType} session`,
+          },
+        },
+      });
+    }
+
+    it.each(sessionTypes)("produces postCoverageGuidance for %s sessions", (type) => {
+      const result = getTransform("computeSessionPedagogy")!(null, makeLpCtx(type), makeSectionDef());
+      expect(result.postCoverageGuidance).toBeDefined();
+      expect(result.postCoverageGuidance).toContain("IF YOU COVER ALL TEACHING POINTS");
+    });
+
+    it("produces postCoverageGuidance for generic returning caller with curriculum", () => {
+      const ctx = makeContext(); // has modules, not first call
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.postCoverageGuidance).toContain("IF YOU COVER ALL TEACHING POINTS");
+    });
+
+    it("does NOT produce postCoverageGuidance for first calls", () => {
+      const ctx = makeContext({
+        sharedState: { ...makeContext().sharedState, isFirstCall: true },
+      });
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.postCoverageGuidance).toBeUndefined();
+    });
+
+    it("does NOT produce postCoverageGuidance for open conversation", () => {
+      const ctx = makeContext({
+        sharedState: {
+          ...makeContext().sharedState,
+          modules: [],
+          moduleToReview: null,
+          nextModule: null,
+          isFirstCall: false,
+          lessonPlanSessionType: null,
+          lessonPlanEntry: null,
+        },
+        sections: {},
+      });
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.postCoverageGuidance).toBeUndefined();
+    });
+
+    it("uses spec-driven phases when TUT-001 has postCoverageFlow", () => {
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          systemSpecs: [{
+            slug: "spec-tut-001",
+            name: "TUT-001",
+            config: {
+              session_pedagogy: {
+                postCoverageFlow: {
+                  phases: [
+                    { phase: "custom_signal", action: "Custom signal text" },
+                    { phase: "custom_check", condition: "Custom condition", action: "Custom action" },
+                  ],
+                  principles: ["Custom principle one"],
+                },
+              },
+            },
+          }],
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: false,
+          lessonPlanSessionType: "introduce",
+          currentSessionNumber: 2,
+          lessonPlanEntry: {
+            session: 2,
+            type: "introduce",
+            moduleId: "MOD-1",
+            moduleLabel: "Module A",
+            label: "introduce session",
+          },
+        },
+      });
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.postCoverageGuidance).toContain("Custom signal text");
+      expect(result.postCoverageGuidance).toContain("[Custom condition]");
+      expect(result.postCoverageGuidance).toContain("Custom principle one");
+    });
+
+    it("uses hardcoded fallback when no TUT-001 spec is loaded", () => {
+      const ctx = makeLpCtx("deepen");
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      // Fallback includes teach-back instruction
+      expect(result.postCoverageGuidance).toContain("Teach-back");
+      expect(result.postCoverageGuidance).toContain("Confidence check");
+    });
+  });
+
   describe("NO CURRICULUM flow (anti-hallucination)", () => {
     function makeNoCurriculumContext(overrides: Partial<AssembledContext> = {}): AssembledContext {
       return makeContext({
