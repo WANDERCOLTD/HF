@@ -188,7 +188,7 @@ export async function PUT(
     // Merge lesson plan into existing deliveryConfig
     const existingDC = getDeliveryConfig(curriculum);
     const plan: LessonPlan = {
-      estimatedSessions: entries.length,
+      estimatedSessions: entries.filter((e: any) => !["pre_survey", "post_survey", "mid_survey", "onboarding", "offboarding"].includes(e.type)).length,
       entries: entries.map((e: any, i: number) => ({
         session: i + 1,
         type: e.type,
@@ -339,17 +339,17 @@ async function runBackgroundLessonPlanGeneration(
       return `Module ${i + 1}: "${m.title}" (${m.learningOutcomes?.length || 0} LOs, ${count} assertions)`;
     }).join("\n");
 
+    // totalSessionTarget = number of TEACHING sessions the educator wants.
+    // Structural stops (onboarding, offboarding, surveys) are auto-injected after generation.
     const targetHint = totalSessionTarget
-      ? `The educator has requested EXACTLY ${totalSessionTarget} sessions total. You MUST return exactly ${totalSessionTarget} entries.${
+      ? `The educator has requested EXACTLY ${totalSessionTarget} TEACHING sessions. You MUST return exactly ${totalSessionTarget} entries. Do NOT include onboarding, offboarding, pre_survey, post_survey, or mid_survey — those are auto-injected separately. Only use: introduce, deepen, review, assess, consolidate.${
           totalSessionTarget <= 2
-            ? " With only 1-2 sessions, skip onboarding/offboarding/consolidate/review — use only introduce and deepen types. Combine multiple modules into single sessions if needed."
+            ? " With only 1-2 sessions, use only introduce and deepen types. Combine multiple modules into single sessions if needed."
             : totalSessionTarget <= 4
-              ? " Session 1 must be onboarding. Skip offboarding/consolidate/review — use the remaining sessions for introduce and deepen. Combine related modules if needed."
-              : totalSessionTarget <= 6
-                ? " Session 1 must be onboarding. Last session must be offboarding. Skip consolidate unless there are enough sessions."
-                : ` Session 1 must be onboarding. Session ${totalSessionTarget} must be offboarding.`
+              ? " Use introduce and deepen for most sessions. Include one assess near the end if appropriate. Combine related modules if needed."
+              : " Include periodic review sessions every 3-4 modules. Include assess sessions as appropriate."
         }`
-      : "Propose a reasonable number of sessions based on the content depth.";
+      : "Propose a reasonable number of TEACHING sessions based on the content depth. Do NOT include onboarding, offboarding, or survey sessions — those are auto-injected separately. Only use: introduce, deepen, review, assess, consolidate.";
 
     const durationHint = durationMins
       ? `Target session duration: ${durationMins} minutes. Adjust content density per session accordingly — shorter sessions need less content per session, longer sessions can cover more.`
@@ -367,14 +367,16 @@ async function runBackgroundLessonPlanGeneration(
         ? "Do NOT include any \"assess\" sessions. Skip formal assessments entirely."
         : "Include light assessment checks — one \"assess\" session near the end is sufficient.";
 
-    const systemPrompt = `You are a curriculum planning assistant. Given a set of teaching modules, propose a structured lesson plan — an ordered sequence of call sessions that covers all modules effectively.
+    const systemPrompt = `You are a curriculum planning assistant. Given a set of teaching modules, propose a structured lesson plan — an ordered sequence of TEACHING call sessions that covers all modules effectively.
+
+IMPORTANT: You are generating ONLY the teaching sessions. Onboarding, offboarding, and survey stops are auto-injected by the system — do NOT include them.
 
 Rules:
-- Each session has a type: onboarding (first session), introduce (first exposure to module), deepen (revisit module for mastery), review (consolidate multiple modules), assess (test knowledge), consolidate (final synthesis), offboarding (last session — course wrap-up, feedback, celebration)
+- Valid session types: introduce (first exposure to module), deepen (revisit module for mastery), review (consolidate multiple modules), assess (test knowledge), consolidate (final synthesis)
+- Do NOT use: onboarding, offboarding, pre_survey, post_survey, mid_survey
 - ${targetHint}
 - The session count target is the MOST IMPORTANT constraint. All other rules below are secondary and should be relaxed if they conflict with the target count.
-- When sessions allow (n > 4): first session should be onboarding, LAST session should be offboarding (not consolidate), include periodic review sessions every 3-4 modules. Use consolidate for pre-final synthesis, not the final session.
-- When n <= 4: first session should be onboarding, skip offboarding.
+- When sessions allow (n > 4): include periodic review sessions every 3-4 modules. Use consolidate for pre-final synthesis.
 - Each module should have at least an "introduce" session, and larger modules (more assertions) should also have "deepen" sessions. If there are fewer sessions than modules, combine related modules into single sessions.
 - ${durationHint}
 - ${emphasisHint}
@@ -384,8 +386,8 @@ Respond with ONLY a JSON object (no markdown, no explanation outside JSON):
 {
   "reasoning": "Brief explanation of your plan structure",
   "entries": [
-    { "session": 1, "type": "onboarding", "moduleId": null, "moduleLabel": "", "label": "Welcome + Background Probe" },
-    { "session": 2, "type": "introduce", "moduleId": "MOD-1", "moduleLabel": "Module Name", "label": "Introduction to Module Name", "estimatedDurationMins": 30, "assertionCount": 23 },
+    { "session": 1, "type": "introduce", "moduleId": "MOD-1", "moduleLabel": "Module Name", "label": "Introduction to Module Name", "estimatedDurationMins": 30, "assertionCount": 23 },
+    { "session": 2, "type": "deepen", "moduleId": "MOD-1", "moduleLabel": "Module Name", "label": "Deep Dive: Module Name", "estimatedDurationMins": 30, "assertionCount": 15 },
     ...
   ]
 }`;
@@ -487,7 +489,8 @@ Total modules: ${modules.length}`;
     await updateTaskProgress(taskId, {
       context: {
         plan: entries,
-        estimatedSessions: entries.length,
+        // estimatedSessions = teaching sessions only (what the educator controls)
+        estimatedSessions: entries.filter((e) => !["pre_survey", "post_survey", "mid_survey", "onboarding", "offboarding"].includes(e.type)).length,
         reasoning: parsed.reasoning || "",
       },
     });
