@@ -36,6 +36,7 @@ interface LLMPrompt {
       max_seconds?: number;
       silence_wait?: string;
     };
+    offboarding_guidance?: string | null;
   };
   caller?: {
     id?: string;
@@ -108,6 +109,7 @@ interface LLMPrompt {
       sessionType?: string;
       flow?: string[];
       principles?: string[];
+      postCoverageGuidance?: string;
     };
     personality_adaptation?: string[];
     behavior_targets_summary?: Array<{
@@ -288,6 +290,16 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
     if (curr.nextModule) parts.push(`Next module: ${curr.nextModule.name}`);
   }
   if (qs?.curriculum_progress) parts.push(qs.curriculum_progress);
+  // Post-coverage guidance — what to do when all TPs are covered
+  if (pedagogy?.postCoverageGuidance) {
+    parts.push("");
+    parts.push(pedagogy.postCoverageGuidance);
+  }
+  // Offboarding guidance — final session wrap-up
+  if (qs?.offboarding_guidance) {
+    parts.push("");
+    parts.push(qs.offboarding_guidance);
+  }
   // Anti-hallucination guard: if no curriculum data at all, make it explicit
   if (!curr?.hasData && !qs?.curriculum_progress) {
     parts.push("IMPORTANT: No curriculum is loaded for this caller. Do NOT invent or assume specific academic topics, modules, or subject matter.");
@@ -309,6 +321,7 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
     parts.push("3. If the student already knows something, acknowledge and move on.");
     parts.push("4. Aim to cover all points by session end. Prioritise understanding over completion.");
     parts.push("5. Stay conversational — teach through dialogue, not monologue.");
+    parts.push("6. If all points are covered and understood, follow the post-coverage flow in [SESSION PLAN].");
     // Strip the leading ## heading if present (the [TEACHING CONTENT] tag replaces it)
     const body = teachingContent
       .replace(/^## (?:APPROVED )?TEACHING (?:POINTS|CONTENT)\n[^\n]*\n?/, "")

@@ -48,6 +48,8 @@ registerTransform("computeSessionPedagogy", (
     successMetrics?: string[];
     /** Lesson plan session info, when available */
     lessonPlanSession?: { number: number; type: string; label: string };
+    /** Post-coverage guidance — what to do when all TPs are covered */
+    postCoverageGuidance?: string;
   } = {
     sessionType: isFirstCall ? "FIRST_CALL" : "RETURNING_CALLER",
     flow: [],
@@ -275,6 +277,43 @@ registerTransform("computeSessionPedagogy", (
     // No reviewFirst — nothing to review
     // No newMaterial — nothing assigned
     console.log("[pedagogy] No curriculum loaded — using open conversation flow");
+  }
+
+  // =========================================================================
+  // POST-COVERAGE GUIDANCE — what to do when all TPs are covered
+  // =========================================================================
+  const isTeachingSession = hasCurriculum && !isFirstCall && !isFirstCallInDomain
+    && plan.sessionType !== "OPEN_CONVERSATION";
+
+  if (isTeachingSession) {
+    const tutorSpec = (context.loadedData.systemSpecs as Array<{ slug?: string; config?: any }>)?.find(
+      (s) => s.slug?.toUpperCase().includes("TUT-001") || s.slug?.toUpperCase().includes("TUTOR-IDENTITY"),
+    );
+    const pcFlow = tutorSpec?.config?.session_pedagogy?.postCoverageFlow;
+
+    if (pcFlow?.phases) {
+      plan.postCoverageGuidance = [
+        "IF YOU COVER ALL TEACHING POINTS BEFORE THE SESSION ENDS:",
+        ...(pcFlow.phases as Array<{ condition?: string; action: string }>).map((p, i: number) =>
+          `${i + 1}. ${p.condition ? `[${p.condition}] ` : ""}${p.action}`,
+        ),
+        "",
+        ...((pcFlow.principles as string[]) || []).map((p: string) => `- ${p}`),
+      ].join("\n");
+    } else {
+      // Hardcoded fallback (spec not yet seeded)
+      plan.postCoverageGuidance = [
+        "IF YOU COVER ALL TEACHING POINTS BEFORE THE SESSION ENDS:",
+        "1. Signal: 'We've covered everything I had planned — nice work.'",
+        "2. Confidence check: 'Which topic feels least solid?'",
+        "3. [Shaky] Teach-back: 'Try explaining [topic] to me as if I didn't know it.'",
+        "4. [Solid] Retrieval probe: application question combining two session concepts.",
+        "5. Preview next session + warm close.",
+        "",
+        "- Never invent new curriculum beyond what is assigned.",
+        "- Stretching should feel rewarding, not punitive.",
+      ].join("\n");
+    }
   }
 
   plan.principles = hasCurriculum

@@ -423,6 +423,24 @@ export async function computeSharedState(
           media: entry.media || null,
         };
 
+        // Merge carry-forward TPs from previous session (weak-LO assertions)
+        const carryForwardAttr = data.callerAttributes.find(
+          (a) => a.key.includes(':carry_forward_tps') && a.scope === 'CURRICULUM'
+        );
+        if (carryForwardAttr?.stringValue && lessonPlanEntry) {
+          try {
+            const carryIds: string[] = JSON.parse(carryForwardAttr.stringValue);
+            if (carryIds.length > 0) {
+              const existingIds = lessonPlanEntry.assertionIds || [];
+              // Prepend carry-forward (review first), deduplicate
+              lessonPlanEntry.assertionIds = [...new Set([...carryIds, ...existingIds])];
+              // Store carry-forward IDs for [Review] labeling in teaching-content
+              (lessonPlanEntry as any).carryForwardAssertionIds = carryIds;
+              console.log(`[modules] Merged ${carryIds.length} carry-forward TPs into session ${currentSessionNumber}`);
+            }
+          } catch { /* ignore malformed JSON */ }
+        }
+
         // Override nextModule if entry specifies a moduleId
         if (entry.moduleId) {
           const entryModule = modules.find((m) => (m.id || m.slug) === entry.moduleId);

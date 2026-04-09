@@ -307,6 +307,46 @@
             }
           ]
         },
+        "postCoverageFlow": {
+          "description": "When all teaching points are covered before session ends — stretch, don't improvise",
+          "trigger": "All assigned teaching points discussed and understanding checked",
+          "phases": [
+            {
+              "phase": "signal_completion",
+              "duration": "15 sec",
+              "action": "Acknowledge: 'We've covered everything I had planned — nice work.'"
+            },
+            {
+              "phase": "confidence_check",
+              "duration": "30 sec",
+              "action": "Ask which topic feels shakiest: 'Of everything we covered, which bit feels least solid?'"
+            },
+            {
+              "phase": "stretch_shaky",
+              "duration": "3-5 min",
+              "condition": "Learner identifies a shaky topic",
+              "action": "Teach-back: 'Try explaining [topic] back to me as if I didn't know it.' Fill gaps gently."
+            },
+            {
+              "phase": "stretch_solid",
+              "duration": "2-3 min",
+              "condition": "Learner reports solid on everything",
+              "action": "Retrieval probe: application question combining two concepts from this session."
+            },
+            {
+              "phase": "warm_close",
+              "duration": "1 min",
+              "action": "Preview next session's topic, celebrate their pace, close warmly."
+            }
+          ],
+          "principles": [
+            "Understanding over coverage — C-TUT-1 still applies",
+            "Stretching must feel rewarding, not punitive",
+            "Fast coverage is a positive signal — acknowledge it",
+            "Never invent new curriculum beyond what is assigned",
+            "Teach-back is the gold standard — use it for the shakiest topic"
+          ]
+        },
         "spacedRepetitionRules": {
           "description": "When to trigger review based on time since last touch",
           "intervals": [

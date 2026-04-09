@@ -418,7 +418,7 @@
           "spaced_retrieval": ["pop_quiz", "rapid_fire", "mcq_voice"],
           "new_material": ["scenario", "analogy_builder"],
           "integrate": ["teach_back", "scenario", "mcq_voice", "connection_map"],
-          "close": ["reflection_prompt", "rapid_fire", "connection_map"]
+          "close": ["reflection_prompt", "rapid_fire", "connection_map", "teach_back"]
         },
         "mastery_level_recommendations": {
           "novice": ["mcq_voice", "pop_quiz"],

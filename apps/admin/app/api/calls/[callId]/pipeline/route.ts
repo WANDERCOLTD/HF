@@ -1638,6 +1638,7 @@ async function advanceLessonPlanSession(
     specSlug: string;
     moduleId: string;
     overallMastery: number;
+    outcomes?: Record<string, number>;
     masteryThreshold: number;
   } | null,
 ): Promise<boolean> {
@@ -1698,6 +1699,45 @@ async function advanceLessonPlanSession(
     } else if (currentEntry.type === "onboarding") {
       // Onboarding session — should have been advanced by trackOnboardingAfterCall
       shouldAdvance = true;
+    }
+
+    // ── TP Carry-Forward: identify weak-LO teaching points ──
+    const carryForwardKey = `curriculum:${curriculum.slug}:carry_forward_tps`;
+    if (shouldAdvance && currentEntry.assertionIds?.length && learningAssessment?.outcomes) {
+      const threshold = learningAssessment.masteryThreshold || 0.7;
+      const weakLOs = Object.entries(learningAssessment.outcomes)
+        .filter(([, score]) => score < threshold)
+        .map(([lo]) => lo);
+
+      if (weakLOs.length > 0) {
+        // Find assertions linked to weak LOs — carry them forward
+        const assertions = await prisma.contentAssertion.findMany({
+          where: { id: { in: currentEntry.assertionIds } },
+          select: { id: true, learningOutcomeRef: true },
+        });
+        const carryForwardIds = assertions
+          .filter(a => a.learningOutcomeRef && weakLOs.includes(a.learningOutcomeRef))
+          .map(a => a.id);
+
+        if (carryForwardIds.length > 0) {
+          await prisma.callerAttribute.upsert({
+            where: { callerId_key_scope: { callerId, key: carryForwardKey, scope: "CURRICULUM" } },
+            update: { stringValue: JSON.stringify(carryForwardIds), updatedAt: new Date() },
+            create: { callerId, key: carryForwardKey, scope: "CURRICULUM", stringValue: JSON.stringify(carryForwardIds) },
+          });
+          log.info(`Carry-forward: ${carryForwardIds.length} TPs from weak LOs [${weakLOs.join(", ")}]`);
+        } else {
+          // All assertions are on strong LOs — clear carry-forward
+          await prisma.callerAttribute.deleteMany({
+            where: { callerId, key: carryForwardKey, scope: "CURRICULUM" },
+          });
+        }
+      } else {
+        // All LOs met threshold — clear carry-forward
+        await prisma.callerAttribute.deleteMany({
+          where: { callerId, key: carryForwardKey, scope: "CURRICULUM" },
+        });
+      }
     }
 
     if (shouldAdvance) {
