@@ -431,7 +431,21 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             const prevSet = (getData<string[]>("userSetFields") ?? []);
             const newSet = new Set(prevSet);
             for (const [k, v] of Object.entries(fields)) {
-              setData(k, v);
+              // Dedup array fields by identity key to prevent AI re-sends creating duplicates
+              const DEDUP_BY_NAME = ["skillsFramework", "coursePhases", "edgeCases"];
+              const DEDUP_BY_VALUE = ["learningOutcomes", "assessmentBoundaries", "assessmentTargets", "constraints"];
+              if (DEDUP_BY_NAME.includes(k) && Array.isArray(v)) {
+                const key = k === "edgeCases" ? "scenario" : "name";
+                setData(k, [...new Map((v as Array<Record<string, unknown>>).map(s => [s[key], s])).values()]);
+              } else if (DEDUP_BY_VALUE.includes(k) && Array.isArray(v)) {
+                setData(k, [...new Set(v as string[])]);
+              } else if (k === "teachingPrinciples" && v && typeof v === "object") {
+                const tp = v as Record<string, unknown>;
+                if (Array.isArray(tp.corePrinciples)) tp.corePrinciples = [...new Set(tp.corePrinciples as string[])];
+                setData(k, tp);
+              } else {
+                setData(k, v);
+              }
               newSet.add(k);
             }
             setData("userSetFields", Array.from(newSet));

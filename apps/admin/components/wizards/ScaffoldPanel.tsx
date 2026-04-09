@@ -492,15 +492,16 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
                 &ldquo;{courseContext}&rdquo;
               </div>
             )}
-            {learningOutcomes && learningOutcomes.length > 0 && (
-              <GuideGroup
+            {learningOutcomes && learningOutcomes.length > 0 && (() => {
+              const unique = [...new Set(learningOutcomes)];
+              return <GuideGroup
                 label="Learning Outcomes"
-                count={learningOutcomes.length}
-                items={learningOutcomes}
+                count={unique.length}
+                items={unique}
                 expanded={expandedGuide === "outcomes"}
                 onToggle={() => toggleGuide("outcomes")}
-              />
-            )}
+              />;
+            })()}
           </BlueprintSection>
 
           {/* Teaching Guide — pedagogy nodes (only when courseRefEnabled) */}
@@ -518,42 +519,46 @@ export function ScaffoldPanel({ getData, currentStepIndex = -1, currentPhaseId, 
                   <span className="gs-bp-content-detail">Not started</span>
                 ) : (
                   <div>
-                    {skillsFramework && skillsFramework.length > 0 && (
-                      <GuideGroup
+                    {skillsFramework && skillsFramework.length > 0 && (() => {
+                      const uniqueSkills = [...new Map(skillsFramework.map(s => [s.name, s])).values()];
+                      return <GuideGroup
                         label="Skills Framework"
-                        count={skillsFramework.length}
-                        items={skillsFramework.map(s => s.name)}
+                        count={uniqueSkills.length}
+                        items={uniqueSkills.map(s => s.name)}
                         expanded={expandedGuide === "skills"}
                         onToggle={() => toggleGuide("skills")}
-                      />
-                    )}
-                    {teachingPrinciples?.corePrinciples && teachingPrinciples.corePrinciples.length > 0 && (
-                      <GuideGroup
+                      />;
+                    })()}
+                    {teachingPrinciples?.corePrinciples && teachingPrinciples.corePrinciples.length > 0 && (() => {
+                      const unique = [...new Set(teachingPrinciples.corePrinciples)];
+                      return <GuideGroup
                         label="Core Principles"
-                        count={teachingPrinciples.corePrinciples.length}
-                        items={teachingPrinciples.corePrinciples}
+                        count={unique.length}
+                        items={unique}
                         expanded={expandedGuide === "principles"}
                         onToggle={() => toggleGuide("principles")}
-                      />
-                    )}
-                    {edgeCases && edgeCases.length > 0 && (
-                      <GuideGroup
+                      />;
+                    })()}
+                    {edgeCases && edgeCases.length > 0 && (() => {
+                      const unique = [...new Map(edgeCases.map(e => [e.scenario, e])).values()];
+                      return <GuideGroup
                         label="Tricky Scenarios"
-                        count={edgeCases.length}
-                        items={edgeCases.map(e => e.scenario)}
+                        count={unique.length}
+                        items={unique.map(e => e.scenario)}
                         expanded={expandedGuide === "edges"}
                         onToggle={() => toggleGuide("edges")}
-                      />
-                    )}
-                    {coursePhases && coursePhases.length > 0 && (
-                      <GuideGroup
+                      />;
+                    })()}
+                    {coursePhases && coursePhases.length > 0 && (() => {
+                      const unique = [...new Map(coursePhases.map(p => [p.name, p])).values()];
+                      return <GuideGroup
                         label="Course Phases"
-                        count={coursePhases.length}
-                        items={coursePhases.map(p => p.name + (p.goal ? ` — ${p.goal}` : ""))}
+                        count={unique.length}
+                        items={unique.map(p => p.name + (p.goal ? ` — ${p.goal}` : ""))}
                         expanded={expandedGuide === "phases"}
                         onToggle={() => toggleGuide("phases")}
-                      />
-                    )}
+                      />;
+                    })()}
                   </div>
                 )}
               </div>
