@@ -5151,6 +5151,24 @@ Runs advisory checks against the course's current lesson plan.
 
 ---
 
+### `GET` /api/courses/:courseId/genome
+
+Returns hierarchical data for the course genome browser visualization.
+
+**Auth**: session (VIEWER+) · **Scope**: `courses:read`
+
+**Response** `200`
+```json
+{ ok: true, data: GenomeData }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "..." }
+```
+
+---
+
 ### `POST` /api/courses/:courseId/learners/ensure-cohort
 
 Idempotently find-or-create a default cohort for a course.
@@ -13800,8 +13818,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 419 |
-| Files with annotations | 418 |
+| Route files found | 420 |
+| Files with annotations | 419 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 

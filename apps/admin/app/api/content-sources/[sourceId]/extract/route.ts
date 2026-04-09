@@ -35,6 +35,7 @@ import {
 } from "@/lib/content-trust/extract-images";
 import { linkFiguresToAssertions } from "@/lib/content-trust/link-figures";
 import { purgeSourceContent } from "@/lib/content-trust/purge-source-content";
+import { snapshotAssertionIds, refreshLessonPlanAssertions } from "@/lib/lesson-plan/refresh-assertion-ids";
 import { getImageExtractionSettings } from "@/lib/system-settings";
 import {
   startTaskTracking,
@@ -288,8 +289,10 @@ async function runBackgroundExtraction(
     subjectName?: string;
   },
 ) {
-  // Replace mode: purge existing content before re-extracting
+  // Replace mode: snapshot old IDs then purge existing content before re-extracting
+  let purgedAssertionIds: Set<string> | undefined;
   if (replace) {
+    purgedAssertionIds = await snapshotAssertionIds(sourceId);
     const purged = await purgeSourceContent(sourceId);
     console.log(`[extract] Replace mode — purged ${purged.assertions} assertions, ${purged.questions} questions, ${purged.vocabulary} vocabulary for source ${sourceId}`);
   }
@@ -451,6 +454,21 @@ async function runBackgroundExtraction(
     extractedCount: assertionResult.assertions.length,
     warnings: [...(assertionResult.warnings || []), ...linkingWarnings],
   });
+
+  // Refresh stale assertionIds in any lesson plans that referenced purged assertions
+  if (purgedAssertionIds && purgedAssertionIds.size > 0 && totalCreated > 0) {
+    try {
+      const refreshResult = await refreshLessonPlanAssertions(sourceId, purgedAssertionIds);
+      if (refreshResult.curriculaUpdated > 0) {
+        console.log(
+          `[extract] Refreshed lesson plan assertions: ${refreshResult.curriculaUpdated} curricula, ` +
+          `${refreshResult.entriesCleared} entries cleared, ${refreshResult.entriesRefilled} refilled`,
+        );
+      }
+    } catch (err: any) {
+      console.error(`[extract] Lesson plan assertion refresh failed for source ${sourceId}:`, err.message);
+    }
+  }
 
   // Stamp extraction version + timestamp for staleness detection
   await prisma.contentSource.update({

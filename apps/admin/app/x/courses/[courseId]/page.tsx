@@ -8,7 +8,7 @@ import {
   Sparkles, AlertTriangle,
   Settings as SettingsIcon, Users2,
   Zap, Target, BarChart3,
-  PlayCircle, Copy, Link2,
+  PlayCircle, Copy, Link2, Dna,
 } from 'lucide-react';
 import { useTerminology } from '@/contexts/TerminologyContext';
 import { INTERACTION_PATTERN_LABELS, TEACHING_MODE_LABELS } from '@/lib/content-trust/resolve-config';
@@ -38,6 +38,7 @@ import {
 } from '@/lib/course/group-specs';
 import { SimLaunchModal } from '@/components/shared/SimLaunchModal';
 import { SessionPlanViewer } from '@/components/shared/SessionPlanViewer';
+import { CourseGenomeTab } from './CourseGenomeTab';
 import { JourneyRail } from '@/components/shared/JourneyRail';
 import { PlanHeaderCard } from '@/components/shared/PlanHeaderCard';
 import { CollapsibleCard } from '@/components/shared/CollapsibleCard';
@@ -119,7 +120,7 @@ type SessionTabData = {
 
 import { SectionHeader } from './SectionHeader';
 
-const VALID_TABS = ['overview', 'journey', 'content', 'audience', 'learners', 'proof', 'goals', 'settings'];
+const VALID_TABS = ['overview', 'journey', 'genome', 'content', 'audience', 'learners', 'proof', 'goals', 'settings'];
 
 const statusMap: Record<string, 'draft' | 'active' | 'archived'> = {
   draft: 'draft',
@@ -295,6 +296,7 @@ export default function CourseDetailPage() {
   const tabs: TabDefinition[] = useMemo(() => [
     { id: 'overview', label: 'Overview', icon: <Sparkles size={14} /> },
     { id: 'journey', label: 'Journey', icon: <PlayCircle size={14} />, count: sessions?.plan?.estimatedSessions || null },
+    { id: 'genome', label: 'Genome', icon: <Dna size={14} /> },
     { id: 'content', label: 'Content', icon: <BookMarked size={14} />, count: totalSources || null },
     { id: 'audience', label: 'Audience', icon: <Users2 size={14} /> },
     { id: 'learners', label: 'Learners', icon: <Users2 size={14} /> },
@@ -1327,6 +1329,13 @@ export default function CourseDetailPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* GENOME TAB — course content hierarchy viz      */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === 'genome' && (
+        <CourseGenomeTab courseId={courseId!} />
       )}
 
       {/* ═══════════════════════════════════════════════ */}

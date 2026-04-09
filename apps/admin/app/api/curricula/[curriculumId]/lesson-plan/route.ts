@@ -212,6 +212,30 @@ export async function PUT(
       generatedFrom: "manual",
     };
 
+    // ── Fix #6: Validate assertionIds exist in DB before saving ──
+    const allIds = plan.entries.flatMap((e) => e.assertionIds || []);
+    let staleWarning: string | undefined;
+    if (allIds.length > 0) {
+      const existing = await prisma.contentAssertion.findMany({
+        where: { id: { in: allIds } },
+        select: { id: true },
+      });
+      const existingSet = new Set(existing.map((a) => a.id));
+      const staleIds = allIds.filter((id) => !existingSet.has(id));
+      if (staleIds.length > 0) {
+        staleWarning = `${staleIds.length} of ${allIds.length} assertionIds reference deleted assertions`;
+        console.warn(`[lesson-plan PUT] ${staleWarning} in curriculum ${curriculumId}`);
+        // Strip stale IDs rather than saving dead references
+        for (const entry of plan.entries) {
+          if (Array.isArray(entry.assertionIds)) {
+            entry.assertionIds = entry.assertionIds.filter((id) => existingSet.has(id));
+            if (entry.assertionIds.length === 0) entry.assertionIds = undefined;
+            entry.assertionCount = entry.assertionIds?.length;
+          }
+        }
+      }
+    }
+
     await prisma.curriculum.update({
       where: { id: curriculumId },
       data: {
@@ -219,7 +243,7 @@ export async function PUT(
       },
     });
 
-    return NextResponse.json({ ok: true, plan, entries: plan.entries });
+    return NextResponse.json({ ok: true, plan, entries: plan.entries, ...(staleWarning ? { warning: staleWarning } : {}) });
   } catch (error: any) {
     console.error("[curricula/:id/lesson-plan] PUT error:", error);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -464,27 +488,78 @@ Total modules: ${modules.length}`;
     entries.length = 0;
     entries.push(...expandedEntries);
 
-    // Distribute content assertions across sessions (round-robin)
-    // Use course-aware resolution (PlaybookSubject → Subject → SubjectSource),
-    // falling back to direct SubjectSource via curriculum.subjectId
+    // ── Fix #2: Resolve actual LO refs from DB (not synthetic LO1/LO2) ──
+    // The moduleLOMap has raw text strings. Replace with actual LearningObjective.ref values.
+    const dbModules = await prisma.curriculumModule.findMany({
+      where: { curriculumId, isActive: true },
+      select: {
+        slug: true,
+        learningObjectives: { select: { ref: true }, orderBy: { sortOrder: "asc" } },
+      },
+    });
+    const moduleToLORefs: Record<string, string[]> = {};
+    for (const m of dbModules) {
+      if (m.learningObjectives.length > 0) {
+        moduleToLORefs[m.slug] = m.learningObjectives.map((lo) => lo.ref);
+      }
+    }
+    // Update entries with real LO refs from DB
+    for (const entry of entries) {
+      if (entry.moduleId && moduleToLORefs[entry.moduleId]) {
+        entry.learningOutcomeRefs = moduleToLORefs[entry.moduleId];
+      }
+    }
+
+    // ── Fix #3: Assessment/consolidate inherit LO refs from all prior teaching sessions ──
+    for (const entry of entries) {
+      if (entry.type === "assess" || entry.type === "consolidate") {
+        const priorLORefs = new Set<string>();
+        for (const prior of entries) {
+          if (prior.session >= entry.session) break;
+          if (Array.isArray(prior.learningOutcomeRefs)) {
+            prior.learningOutcomeRefs.forEach((ref: string) => priorLORefs.add(ref));
+          }
+        }
+        if (priorLORefs.size > 0) {
+          entry.learningOutcomeRefs = [...priorLORefs];
+        }
+      }
+    }
+
+    // ── Fix #1: Module-aware assertion distribution (replaces round-robin) ──
     const sourceIds = await resolveSourceIdsForGeneration(curriculumId, curriculum.subjectId);
 
     if (sourceIds.length > 0) {
       const assertions = await prisma.contentAssertion.findMany({
         where: { sourceId: { in: sourceIds } },
-        select: { id: true },
+        select: { id: true, learningOutcomeRef: true, topicSlug: true, chapter: true, contentHash: true },
         orderBy: [{ depth: "asc" }, { orderIndex: "asc" }],
       });
 
       if (assertions.length > 0) {
-        const teachingSessions = entries.filter((e) =>
-          !["onboarding", "offboarding", "pre_survey", "post_survey", "mid_survey"].includes(e.type)
-          && e.assertionIds !== undefined
-        );
-        const target = teachingSessions.length > 0 ? teachingSessions : entries.filter((e) => e.assertionIds !== undefined);
-        for (let i = 0; i < assertions.length && target.length > 0; i++) {
-          target[i % target.length].assertionIds!.push(assertions[i].id);
+        // ── Fix #4: Cross-doc dedup by contentHash ──
+        const seen = new Set<string>();
+        const deduped = assertions.filter((a) => {
+          if (!a.contentHash) return true;
+          if (seen.has(a.contentHash)) return false;
+          seen.add(a.contentHash);
+          return true;
+        });
+        if (deduped.length < assertions.length) {
+          console.log(`[lesson-plan] Deduped ${assertions.length - deduped.length} cross-source duplicate assertions`);
         }
+
+        // Initialize empty assertionIds on teaching entries
+        for (const entry of entries) {
+          if (!["onboarding", "offboarding", "pre_survey", "post_survey", "mid_survey"].includes(entry.type)) {
+            entry.assertionIds = [];
+          }
+        }
+
+        // Use shared module-aware distribution
+        const { distributeAssertionsByModule } = await import("@/lib/lesson-plan/refresh-assertion-ids");
+        const distResult = distributeAssertionsByModule(entries, deduped, curriculumId);
+        console.log(`[lesson-plan] Distributed assertions: ${distResult.refilled} entries filled, ${distResult.orphaned} orphaned`);
       }
     }
 

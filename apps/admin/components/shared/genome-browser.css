@@ -1,0 +1,291 @@
+/* ═══════════════════════════════════════════════════════════ */
+/* GenomeBrowser — multi-track course visualization           */
+/* ═══════════════════════════════════════════════════════════ */
+
+.genome {
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 8px;
+}
+
+.genome-container {
+  display: grid;
+  gap: 0;
+  min-width: max-content;
+}
+
+/* ── Track (horizontal row) ── */
+
+.genome-track {
+  display: grid;
+  align-items: stretch;
+  gap: 2px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.genome-track:last-child {
+  border-bottom: none;
+}
+
+.genome-track-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* ── Axis (session headers) ── */
+
+.genome-axis {
+  display: grid;
+  gap: 2px;
+  padding: 0 0 4px;
+  border-bottom: 2px solid var(--border-default);
+}
+
+.genome-axis-cell {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 4px 2px;
+  min-width: 80px;
+}
+
+.genome-axis-num {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.genome-axis-type {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 1px;
+}
+
+/* ── Module spans ── */
+
+.genome-module-span {
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-height: 36px;
+  cursor: default;
+  transition: filter 0.15s;
+  background: var(--module-color);
+}
+
+.genome-module-span:hover {
+  filter: brightness(0.95);
+}
+
+.genome-module-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.genome-module-meta {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── LO bars ── */
+
+.genome-lo-row {
+  display: grid;
+  gap: 2px;
+  align-items: center;
+  padding: 1px 0;
+}
+
+.genome-lo-bar {
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 10px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  transition: filter 0.15s;
+  background: var(--lo-color);
+}
+
+.genome-lo-bar:hover {
+  filter: brightness(0.92);
+}
+
+/* ── TP blocks (stacked category bars) ── */
+
+.genome-tp-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px;
+  min-width: 80px;
+  cursor: default;
+}
+
+.genome-tp-band {
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 9px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 16px;
+  transition: filter 0.15s;
+}
+
+.genome-tp-band:hover {
+  filter: brightness(0.9);
+}
+
+.genome-tp-total {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── Assessment waymarker ── */
+
+.genome-assess-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+  padding: 4px;
+}
+
+.genome-waymarker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.genome-waymarker-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  transform: rotate(45deg);
+  background: var(--status-error-text);
+}
+
+.genome-waymarker-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--status-error-text);
+  text-transform: uppercase;
+}
+
+.genome-waymarker-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-default);
+}
+
+/* ── Empty state ── */
+
+.genome-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ── Tooltip / Popover ── */
+
+.genome-tooltip {
+  position: absolute;
+  z-index: 50;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--text-primary) 12%, transparent);
+  font-size: 12px;
+  max-width: 280px;
+  pointer-events: none;
+}
+
+.genome-tooltip-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.genome-tooltip-meta {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* ── Legend ── */
+
+.genome-legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 0 4px;
+  border-top: 1px solid var(--border-default);
+}
+
+.genome-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.genome-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+/* ── Header ── */
+
+.genome-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 8px;
+}
+
+.genome-header-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.genome-header-stats {
+  font-size: 11px;
+  color: var(--text-muted);
+}

@@ -392,6 +392,12 @@ registerTransform("renderTeachingContent", (
     const explicitAssertions = allAssertions.filter((a) => idSet.has(a.id));
     if (explicitAssertions.length > 0) {
       assertions = explicitAssertions;
+    } else {
+      console.warn(
+        `[teaching-content] Stale assertionIds: ${explicitIds.length} IDs matched 0 of ${allAssertions.length} assertions. ` +
+        `Session ${context.sharedState?.lessonPlanEntry?.session ?? "?"} falling back to LO refs. ` +
+        `Source may have been re-extracted without lesson plan refresh.`,
+      );
     }
   }
 
