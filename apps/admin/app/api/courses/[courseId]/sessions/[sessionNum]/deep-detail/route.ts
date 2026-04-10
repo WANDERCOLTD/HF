@@ -225,9 +225,9 @@ export async function GET(
         teachMethod: true,
         learningOutcomeRef: true,
         reviewedAt: true,
+        reviewedBy: true,
         sourceId: true,
         source: { select: { id: true, name: true } },
-        reviewer: { select: { id: true, name: true, email: true } },
         _count: { select: { questions: true } },
       },
       orderBy: [{ depth: "asc" }, { orderIndex: "asc" }],
@@ -242,6 +242,23 @@ export async function GET(
         assertionMatchesAnyLoRef(a.learningOutcomeRef, sessionLoRefs),
       );
     }
+
+    // Hydrate reviewer users separately — ContentAssertion has `reviewedBy`
+    // as a plain String? userId, not a relation, so we can't include a join.
+    const reviewerIds = [
+      ...new Set(
+        sessionAssertions
+          .map((a) => a.reviewedBy)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const reviewers = reviewerIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: reviewerIds } },
+          select: { id: true, name: true, email: true },
+        })
+      : [];
+    const reviewerById = new Map(reviewers.map((u) => [u.id, u]));
 
     // 5. Load questions for those TPs
     const tpIds = sessionAssertions.map((a) => a.id);
@@ -264,19 +281,20 @@ export async function GET(
       : [];
 
     // 6. Build response
-    const tps: DeepDetailTP[] = sessionAssertions.map((a) => ({
-      id: a.id,
-      assertion: a.assertion,
-      category: a.category,
-      teachMethod: a.teachMethod,
-      learningOutcomeRef: a.learningOutcomeRef,
-      reviewedAt: a.reviewedAt ? a.reviewedAt.toISOString() : null,
-      reviewer: a.reviewer
-        ? { id: a.reviewer.id, name: a.reviewer.name, email: a.reviewer.email }
-        : null,
-      source: a.source,
-      questionCount: a._count.questions,
-    }));
+    const tps: DeepDetailTP[] = sessionAssertions.map((a) => {
+      const reviewer = a.reviewedBy ? reviewerById.get(a.reviewedBy) ?? null : null;
+      return {
+        id: a.id,
+        assertion: a.assertion,
+        category: a.category,
+        teachMethod: a.teachMethod,
+        learningOutcomeRef: a.learningOutcomeRef,
+        reviewedAt: a.reviewedAt ? a.reviewedAt.toISOString() : null,
+        reviewer: reviewer ? { id: reviewer.id, name: reviewer.name, email: reviewer.email } : null,
+        source: a.source,
+        questionCount: a._count.questions,
+      };
+    });
 
     const responseQuestions: DeepDetailQuestion[] = questions.map((q) => ({
       id: q.id,
