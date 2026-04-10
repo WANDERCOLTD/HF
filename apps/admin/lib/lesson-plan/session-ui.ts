@@ -174,6 +174,24 @@ export function isTeachingSession(type: string): boolean {
   return (TEACHING_SESSION_TYPES as readonly string[]).includes(type);
 }
 
+/** Session types that are structural wrappers, not content bearers. */
+export const STRUCTURAL_SESSION_TYPES = [
+  'onboarding',
+  'offboarding',
+  'pre_survey',
+  'mid_survey',
+  'post_survey',
+] as const;
+
+/**
+ * Content-bearing: can hold assertionIds.
+ * Includes teaching types (introduce, deepen, review, assess) + consolidate.
+ * Excludes surveys, onboarding, offboarding.
+ */
+export function isContentBearingSession(type: string): boolean {
+  return !(STRUCTURAL_SESSION_TYPES as readonly string[]).includes(type);
+}
+
 /**
  * Estimate teaching session count from a total session target.
  * Before a lesson plan exists, assumes 1 onboarding + 1 offboarding

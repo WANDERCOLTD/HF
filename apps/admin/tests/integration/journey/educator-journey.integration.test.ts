@@ -28,6 +28,7 @@ import {
   type CompositionResult,
 } from "@/lib/prompt/composition";
 import { resolveAndEnrollSingle } from "@/lib/enrollment";
+import { assertionMatchesAnyLoRef } from "@/lib/lesson-plan/lo-ref-match";
 
 const prisma = new PrismaClient();
 let fixtures: JourneyFixtures;
@@ -190,14 +191,14 @@ describe("Step 3: Teaching points assigned to lesson plan sessions", () => {
     // Session 1: BIO-LO1 → should match 3 assertions
     const session1Refs = lessonPlan[0].learningOutcomeRefs;
     const session1TPs = allAssertions.filter((a) =>
-      session1Refs.some((ref: string) => a.learningOutcomeRef?.includes(ref))
+      assertionMatchesAnyLoRef(a.learningOutcomeRef, session1Refs)
     );
     expect(session1TPs.length).toBe(3);
 
     // Session 2: BIO-LO2 → should match 2 assertions
     const session2Refs = lessonPlan[1].learningOutcomeRefs;
     const session2TPs = allAssertions.filter((a) =>
-      session2Refs.some((ref: string) => a.learningOutcomeRef?.includes(ref))
+      assertionMatchesAnyLoRef(a.learningOutcomeRef, session2Refs)
     );
     expect(session2TPs.length).toBe(2);
 

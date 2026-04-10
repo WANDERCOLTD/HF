@@ -22,6 +22,7 @@
 
 import { registerTransform } from "../TransformRegistry";
 import type { AssembledContext, CurriculumAssertionData } from "../types";
+import { assertionMatchesAnyLoRef } from "@/lib/lesson-plan/lo-ref-match";
 
 // ------------------------------------------------------------------
 // Flat rendering (legacy backward compat)
@@ -405,10 +406,9 @@ registerTransform("renderTeachingContent", (
   if (assertions === allAssertions) {
     const sessionLORefs = context.sharedState?.lessonPlanEntry?.learningOutcomeRefs;
     if (sessionLORefs?.length && allAssertions.length > 0) {
-      const sessionAssertions = allAssertions.filter((a) => {
-        if (!a.learningOutcomeRef) return false;
-        return sessionLORefs.some((ref) => a.learningOutcomeRef!.includes(ref));
-      });
+      const sessionAssertions = allAssertions.filter((a) =>
+        assertionMatchesAnyLoRef(a.learningOutcomeRef, sessionLORefs),
+      );
       if (sessionAssertions.length > 0) {
         assertions = sessionAssertions;
       }
@@ -423,10 +423,9 @@ registerTransform("renderTeachingContent", (
       return match ? match[1] : lo;
     });
 
-    const moduleAssertions = allAssertions.filter((a) => {
-      if (!a.learningOutcomeRef) return false;
-      return loIds.some((loId) => a.learningOutcomeRef!.includes(loId));
-    });
+    const moduleAssertions = allAssertions.filter((a) =>
+      assertionMatchesAnyLoRef(a.learningOutcomeRef, loIds),
+    );
 
     if (moduleAssertions.length > 0) {
       assertions = moduleAssertions;

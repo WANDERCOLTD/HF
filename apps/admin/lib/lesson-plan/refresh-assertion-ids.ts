@@ -10,6 +10,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
+import { assertionMatchesAnyLoRef } from "@/lib/lesson-plan/lo-ref-match";
+import { STRUCTURAL_SESSION_TYPES } from "@/lib/lesson-plan/session-ui";
 
 export interface RefreshResult {
   curriculaUpdated: number;
@@ -143,8 +145,6 @@ export async function refreshLessonPlanAssertions(
 // Module-aware assertion distribution (shared by refresh + generation)
 // ---------------------------------------------------------------------------
 
-const STRUCTURAL_SESSION_TYPES = ["onboarding", "offboarding", "pre_survey", "post_survey", "mid_survey"];
-
 interface AssertionRef {
   id: string;
   learningOutcomeRef: string | null;
@@ -170,7 +170,7 @@ export function distributeAssertionsByModule(
   curriculumId: string,
 ): { refilled: number; orphaned: number } {
   const teachingEntries = entries.filter(
-    (e: any) => !STRUCTURAL_SESSION_TYPES.includes(e.type),
+    (e: any) => !(STRUCTURAL_SESSION_TYPES as readonly string[]).includes(e.type),
   );
 
   // Skip entries that already have assertionIds
@@ -191,8 +191,7 @@ export function distributeAssertionsByModule(
 
     const matched = assertions.filter((a) => {
       if (assigned.has(a.id)) return false;
-      if (!a.learningOutcomeRef) return false;
-      return loRefs.some((ref: string) => a.learningOutcomeRef!.includes(ref));
+      return assertionMatchesAnyLoRef(a.learningOutcomeRef, loRefs);
     });
 
     if (matched.length > 0) {

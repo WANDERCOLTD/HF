@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { getSubjectsForPlaybook } from "@/lib/knowledge/domain-sources";
+import { assertionMatchesAnyLoRef } from "@/lib/lesson-plan/lo-ref-match";
 
 type Params = { params: Promise<{ curriculumId: string }> };
 
@@ -160,9 +161,7 @@ export async function GET(
         const loRefs = entry.learningOutcomeRefs as string[];
         for (const a of assertions) {
           if (assignedIds.has(a.id)) continue;
-          if (!a.learningOutcomeRef) continue;
-          const matches = loRefs.some((ref) => a.learningOutcomeRef!.includes(ref));
-          if (matches) {
+          if (assertionMatchesAnyLoRef(a.learningOutcomeRef, loRefs)) {
             sessionGroup.assertions.push(toSummary(a));
             assignedIds.add(a.id);
           }

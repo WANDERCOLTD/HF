@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
+import { loRefsMatch } from "@/lib/lesson-plan/lo-ref-match";
 
 type Params = { params: Promise<{ courseId: string }> };
 
@@ -239,14 +240,14 @@ export async function GET(
       for (const lo of mod.learningObjectives) {
         // Find sessions that reference this LO
         const sessionsWithLO = genomeSessions.filter((s) =>
-          s.loRefs.some((ref) => ref.includes(lo.ref) || lo.ref.includes(ref)),
+          s.loRefs.some((ref) => loRefsMatch(ref, lo.ref)),
         );
         if (sessionsWithLO.length === 0) continue;
 
         // Count assertions with this LO
         let assertionCount = 0;
         for (const [, a] of assertionMap) {
-          if (a.learningOutcomeRef && (a.learningOutcomeRef.includes(lo.ref) || lo.ref.includes(a.learningOutcomeRef))) {
+          if (loRefsMatch(a.learningOutcomeRef, lo.ref)) {
             assertionCount++;
           }
         }

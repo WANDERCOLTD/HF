@@ -15,10 +15,10 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { loRefsMatch } from "../lib/lesson-plan/lo-ref-match";
+import { STRUCTURAL_SESSION_TYPES } from "../lib/lesson-plan/session-ui";
 
 const prisma = new PrismaClient();
-
-const STRUCTURAL_SESSION_TYPES = ["onboarding", "offboarding", "pre_survey", "post_survey", "mid_survey"];
 
 async function main(): Promise<void> {
   console.log("=== Backfill Lesson Plan Assertions ===\n");
@@ -96,7 +96,7 @@ async function main(): Promise<void> {
     let losPopulated = 0;
 
     for (const entry of entries) {
-      if (STRUCTURAL_SESSION_TYPES.includes(entry.type)) continue;
+      if ((STRUCTURAL_SESSION_TYPES as readonly string[]).includes(entry.type)) continue;
 
       // Fix #2: Populate learningOutcomeRefs from module
       if (entry.moduleId && moduleToLORefs[entry.moduleId]) {
@@ -145,7 +145,7 @@ async function main(): Promise<void> {
           Array.isArray(entry.learningOutcomeRefs) && entry.learningOutcomeRefs.length > 0) {
         const matched: string[] = [];
         for (const [loRef, ids] of assertionsByLO) {
-          if (entry.learningOutcomeRefs.some((ref: string) => loRef.includes(ref))) {
+          if (entry.learningOutcomeRefs.some((ref: string) => loRefsMatch(loRef, ref))) {
             matched.push(...ids);
           }
         }
