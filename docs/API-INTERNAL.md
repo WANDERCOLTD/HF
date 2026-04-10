@@ -5307,6 +5307,34 @@ Returns the lesson plan sessions for a course. Looks up subjects via
 
 ---
 
+### `GET` /api/courses/:courseId/sessions/:sessionNum/deep-detail
+
+Returns rich detail for a single lesson plan session — full teaching
+
+**Auth**: session (VIEWER+) · **Scope**: `courses:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| courseId | path | string | Yes | Playbook UUID |
+| sessionNum | path | string | Yes | 1-based session index within the lesson plan |
+
+**Response** `200`
+```json
+{ ok, data }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "Invalid session number" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" | "Session not found" | "Not a content-bearing session" }
+```
+
+---
+
 ### `GET` /api/courses/:courseId/setup-status
 
 Returns aggregated setup status for stages 4-6 of the Course Setup Tracker.
@@ -13818,8 +13846,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 420 |
-| Files with annotations | 419 |
+| Route files found | 421 |
+| Files with annotations | 420 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 

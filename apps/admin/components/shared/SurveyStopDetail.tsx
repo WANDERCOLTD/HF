@@ -12,7 +12,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { ClipboardList, Star, Hash, MessageSquare, CircleDot, CheckCircle2, Pencil, X, Check, RefreshCw, ExternalLink } from 'lucide-react';
+import { ClipboardList, Star, Hash, MessageSquare, CircleDot, CheckCircle2, Pencil, X, Check, RefreshCw, ExternalLink, Headphones, ChevronDown, ChevronRight } from 'lucide-react';
 import './survey-stop-detail.css';
 import type { SurveyStepConfig } from '@/lib/types/json-fields';
 import {
@@ -228,6 +228,7 @@ function QuestionList({
             )}
             {onExclude && (
               <button
+                type="button"
                 className="hf-btn-ghost ssd-exclude-btn"
                 onClick={() => onExclude(q.contentQuestionId ?? q.id)}
                 title="Exclude this question"
@@ -313,16 +314,16 @@ function SectionBlock({
           </span>
         )}
         {canEdit && !editing && (
-          <button className="hf-btn-ghost ssd-edit-btn" onClick={handleEdit} title="Edit questions">
+          <button type="button" className="hf-btn-ghost ssd-edit-btn" onClick={handleEdit} title="Edit questions">
             <Pencil size={12} />
           </button>
         )}
         {editing && (
           <div className="ssd-edit-actions">
-            <button className="hf-btn-ghost ssd-cancel-btn" onClick={handleCancel} title="Cancel" disabled={saving}>
+            <button type="button" className="hf-btn-ghost ssd-cancel-btn" onClick={handleCancel} title="Cancel" disabled={saving}>
               <X size={13} />
             </button>
-            <button className="hf-btn-ghost ssd-save-btn" onClick={handleSave} title="Save" disabled={saving}>
+            <button type="button" className="hf-btn-ghost ssd-save-btn" onClick={handleSave} title="Save" disabled={saving}>
               <Check size={13} />
               {saving ? 'Saving…' : 'Save'}
             </button>
@@ -336,6 +337,7 @@ function SectionBlock({
           <span className="hf-text-xs hf-text-muted">Questions are generated automatically from your uploaded content. Click Regenerate to create them now.</span>
           {onRegenerate && (
             <button
+              type="button"
               className="hf-btn-ghost ssd-regen-btn"
               onClick={onRegenerate}
               disabled={regenerating}
@@ -352,6 +354,7 @@ function SectionBlock({
           <div className="ssd-assessment-actions">
             {onRegenerate && (
               <button
+                type="button"
                 className="hf-btn-ghost ssd-regen-btn"
                 onClick={onRegenerate}
                 disabled={regenerating}
@@ -422,8 +425,22 @@ export function SurveyStopDetail({
     return undefined;
   };
 
+  // Compute totals for the learner experience header
+  const totalQuestions = sections.reduce(
+    (sum, s) => sum + (s.isDynamic ? 0 : s.questions.length),
+    0,
+  );
+  const sectionCount = sections.filter((s) => !s.isDynamic || s.questions.length > 0).length;
+
   return (
     <div className="ssd-root">
+      <LearnerExperienceHeader
+        type={type}
+        sections={sections}
+        totalQuestions={totalQuestions}
+        sectionCount={sectionCount}
+      />
+
       {sections.map((section) => (
         <SectionBlock
           key={section.key}
@@ -440,4 +457,96 @@ export function SurveyStopDetail({
       ))}
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Learner Experience header — narrative summary of what the learner hears
+// ---------------------------------------------------------------------------
+
+function LearnerExperienceHeader({
+  type,
+  sections,
+  totalQuestions,
+  sectionCount,
+}: {
+  type: string;
+  sections: Section[];
+  totalQuestions: number;
+  sectionCount: number;
+}): React.ReactElement | null {
+  const [open, setOpen] = useState(false);
+
+  if (sections.length === 0) return null;
+
+  const stopLabel =
+    type === 'pre_survey'
+      ? 'Before the first teaching session'
+      : type === 'mid_survey'
+        ? 'Mid-way through the course'
+        : 'After the final teaching session';
+
+  return (
+    <div className="ssd-lx-header">
+      <div className="ssd-lx-header-top">
+        <Headphones size={13} className="hf-text-muted" />
+        <div className="ssd-lx-summary">
+          <div className="ssd-lx-title">Learner experience</div>
+          <div className="hf-text-xs hf-text-muted">
+            {stopLabel} · {sectionCount} section{sectionCount !== 1 ? 's' : ''} · {totalQuestions} question{totalQuestions !== 1 ? 's' : ''} total
+          </div>
+        </div>
+      </div>
+      <details
+        className="ssd-lx-details"
+        open={open}
+        onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+      >
+        <summary className="ssd-lx-summary-row">
+          <span className="ssd-lx-caret">
+            {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          </span>
+          <span className="hf-text-xs">
+            {open ? 'Hide flow' : 'Show what the learner hears'}
+          </span>
+        </summary>
+        <ol className="ssd-lx-flow">
+          {sections
+            .filter((s) => !s.isDynamic && s.questions.length > 0)
+            .map((s, i) => (
+              <li key={s.key} className="ssd-lx-step">
+                <span className="ssd-lx-step-num">{i + 1}</span>
+                <div className="ssd-lx-step-body">
+                  <div className="ssd-lx-step-label">{s.label}</div>
+                  <div className="hf-text-xs hf-text-muted">
+                    {s.questions.length} question{s.questions.length !== 1 ? 's' : ''}
+                    {' — '}
+                    {summariseFirstQuestions(s.questions)}
+                  </div>
+                </div>
+              </li>
+            ))}
+          {sections
+            .filter((s) => s.isDynamic || s.questions.length === 0)
+            .map((s, i, arr) => (
+              <li key={s.key} className="ssd-lx-step ssd-lx-step--empty">
+                <span className="ssd-lx-step-num">?</span>
+                <div className="ssd-lx-step-body">
+                  <div className="ssd-lx-step-label">{s.label}</div>
+                  <div className="hf-text-xs hf-text-muted">
+                    Not yet generated
+                  </div>
+                </div>
+              </li>
+            ))}
+        </ol>
+      </details>
+    </div>
+  );
+}
+
+function summariseFirstQuestions(questions: SurveyStepConfig[]): string {
+  const first = questions[0];
+  if (!first) return '';
+  const prompt = first.prompt.length > 60 ? first.prompt.slice(0, 57) + '…' : first.prompt;
+  return `starts with "${prompt}"`;
 }
