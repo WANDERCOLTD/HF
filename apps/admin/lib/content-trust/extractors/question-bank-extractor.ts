@@ -69,6 +69,7 @@ Each item: {
   "section": string?,              // Question number (e.g., "1.1", "2.3")
   "tags": string[],                // Include the skill name as a tag
   "skillRef": string?,             // Skill reference (e.g., "SKILL-01:Retrieval", "SKILL-02:Inference")
+  "learningOutcomeRef": string | null,  // Which LO this question assesses — see LO enum in user prompt. Null if none apply.
   "bloomLevel": "REMEMBER" | "UNDERSTAND" | "APPLY" | "ANALYZE" | "EVALUATE" | "CREATE",
   "metadata": {
     "followUp": string?,           // Optional follow-up prompt
@@ -279,6 +280,7 @@ export class QuestionBankExtractor extends DocumentExtractor {
           section: q.section || undefined,
           tags: Array.isArray(q.tags) ? q.tags : [],
           skillRef,
+          learningOutcomeRef: enforceWhitelist(q.learningOutcomeRef),
           bloomLevel,
           assessmentUse: "TUTOR_ONLY" as const,
           metadata: {
