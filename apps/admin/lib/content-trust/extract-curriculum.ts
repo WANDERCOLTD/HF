@@ -11,6 +11,66 @@ import type { ExtractedAssertion } from "./extract-assertions";
 import { getPromptTemplate } from "@/lib/prompts/prompt-settings";
 
 // ------------------------------------------------------------------
+// Meta-pedagogical module guard (epic #131)
+// ------------------------------------------------------------------
+
+/**
+ * Patterns that identify AI-generated modules describing tutor methodology
+ * rather than student-facing learning. Defence in depth: even if the
+ * curriculum-extraction prompt's SCOPE rule is ignored, these patterns catch
+ * the leak before garbage reaches the DB.
+ *
+ * Why: on PW: Secret Garden, the AI produced modules like "Session Structure
+ * and Flow Management" and "Assessment Framework and Success Metrics" — neither
+ * is a student outcome, both belong in the tutor instruction layer.
+ */
+const META_PEDAGOGICAL_PATTERNS: RegExp[] = [
+  /\btutor\b/i,
+  /\bsession (?:structure|flow|management)\b/i,
+  /\bflow management\b/i,
+  /\bteaching (?:practice|methodology|method)\b/i,
+  /\bassessment (?:framework|strategy|approach|methodology)\b/i,
+  /\bsuccess metrics?\b/i,
+  /\bscaffolding technique/i,
+  /\bdifferentiation strateg/i,
+  /\bcommunication rule/i,
+  /\bpedagogical (?:approach|framework)\b/i,
+  /\bhow to teach\b/i,
+];
+
+/**
+ * Filter AI-generated modules, rejecting any whose title or description
+ * matches a meta-pedagogical pattern. Mutates the passed warnings array
+ * with a human-readable note for each rejection so they surface in the
+ * Curriculum tab's scorecard banner.
+ */
+function filterMetaPedagogicalModules(
+  modules: any[],
+  warnings: string[],
+): any[] {
+  if (!Array.isArray(modules)) return [];
+  const rejectedTitles: string[] = [];
+  const kept = modules.filter((m) => {
+    const title = String(m?.title || "").trim();
+    const desc = String(m?.description || "").trim();
+    const combined = `${title} ${desc}`;
+    for (const pattern of META_PEDAGOGICAL_PATTERNS) {
+      if (pattern.test(combined)) {
+        rejectedTitles.push(title || "(untitled)");
+        return false;
+      }
+    }
+    return true;
+  });
+  if (rejectedTitles.length > 0) {
+    const msg = `Rejected ${rejectedTitles.length} meta-pedagogical module(s) from AI output: ${rejectedTitles.map((t) => `"${t}"`).join(", ")}. These describe tutor behaviour, not student learning — they belong in the tutor instruction layer.`;
+    console.warn(`[extract-curriculum] ${msg}`);
+    warnings.push(msg);
+  }
+  return kept;
+}
+
+// ------------------------------------------------------------------
 // Types
 // ------------------------------------------------------------------
 
@@ -221,11 +281,13 @@ Generate a structured curriculum from these assertions.`;
       };
     }
 
+    const keptModules = filterMetaPedagogicalModules(parsed.modules || [], warnings);
+
     return {
       ok: true,
       name: parsed.name || subjectName,
       description: parsed.description || "",
-      modules: (parsed.modules || []).map((m: any, i: number) => ({
+      modules: keptModules.map((m: any, i: number) => ({
         id: m.id || `MOD-${i + 1}`,
         title: m.title || `Module ${i + 1}`,
         description: m.description || "",
@@ -301,11 +363,14 @@ export async function extractSkeletonFromAssertions(
       return { ok: false, name: subjectName, description: "", modules: [], deliveryConfig: {}, warnings: [], error: "No JSON in skeleton response" };
     }
 
+    const skeletonWarnings: string[] = [];
+    const keptSkeletonModules = filterMetaPedagogicalModules(parsed.modules || [], skeletonWarnings);
+
     return {
       ok: true,
       name: parsed.name || subjectName,
       description: parsed.description || "",
-      modules: (parsed.modules || []).map((m: any, i: number) => ({
+      modules: keptSkeletonModules.map((m: any, i: number) => ({
         id: m.id || `MOD-${i + 1}`,
         title: m.title || `Module ${i + 1}`,
         description: m.description || "",
@@ -316,7 +381,7 @@ export async function extractSkeletonFromAssertions(
         sortOrder: m.sortOrder || i + 1,
       })),
       deliveryConfig: {},
-      warnings: [],
+      warnings: skeletonWarnings,
     };
   } catch (error: any) {
     return { ok: false, name: subjectName, description: "", modules: [], deliveryConfig: {}, warnings: [], error: `Skeleton extraction failed: ${error.message}` };
@@ -393,11 +458,13 @@ Generate a structured curriculum for this subject.`;
       warnings.push("No goals provided — curriculum is based on AI inference for this subject");
     }
 
+    const keptGoalModules = filterMetaPedagogicalModules(parsed.modules || [], warnings);
+
     return {
       ok: true,
       name: parsed.name || subjectName,
       description: parsed.description || "",
-      modules: (parsed.modules || []).map((m: any, i: number) => ({
+      modules: keptGoalModules.map((m: any, i: number) => ({
         id: m.id || `MOD-${i + 1}`,
         title: m.title || `Module ${i + 1}`,
         description: m.description || "",
