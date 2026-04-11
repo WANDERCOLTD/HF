@@ -58,7 +58,8 @@ Each item: {
   "category": "session_metadata" | "skill_description" | "assessment_guidance",
   "chapter": string?,    // Skill name (e.g., "Retrieval", "Inference")
   "section": string?,
-  "tags": string[]
+  "tags": string[],
+  "learningOutcomeRef": string | null  // Which LO this assertion serves — see LO enum in user prompt. Null if none apply.
 }
 
 ## questions array (the main output)
