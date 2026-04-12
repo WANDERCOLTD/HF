@@ -45,7 +45,7 @@ export interface SessionTypeConfig {
 export const SESSION_TYPES = [
   { value: 'pre_survey', label: 'Pre-Survey', color: 'var(--login-blue)' },
   { value: 'onboarding', label: 'First Call', color: 'var(--accent-primary)' },
-  { value: 'introduce', label: 'Introduce', color: 'var(--status-info-text)' },
+  { value: 'introduce', label: 'Introduce', color: 'var(--accent-secondary, #8b5cf6)' },
   { value: 'deepen', label: 'Deepen', color: 'var(--status-info-text)' },
   { value: 'review', label: 'Review', color: 'var(--status-warning-text)' },
   { value: 'assess', label: 'Assess', color: 'var(--status-error-text)' },

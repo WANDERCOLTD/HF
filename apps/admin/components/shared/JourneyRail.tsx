@@ -302,6 +302,15 @@ function DefaultSessionDetail({
         </div>
       )}
 
+      {entry.learningOutcomeRefs && entry.learningOutcomeRefs.length > 0 && (
+        <div className="jrl-detail-los">
+          <span className="hf-text-xs hf-text-muted">Learning Outcomes:</span>{" "}
+          <span className="hf-text-xs hf-text-secondary">
+            {entry.learningOutcomeRefs.join(", ")}
+          </span>
+        </div>
+      )}
+
       {/* Zebra-striped phases (SPV style) */}
       {entry.phases && entry.phases.length > 0 && (
         <div className="spv-phases">

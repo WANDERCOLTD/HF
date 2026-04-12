@@ -17,7 +17,7 @@
 
 import { useState, useRef, useCallback, useMemo, type CSSProperties } from "react";
 import type { GenomeData, GenomeJourneyStop, GenomeAssertion } from "@/app/api/courses/[courseId]/genome/route";
-import { getSessionTypeColor, getSessionTypeShortLabel, isFormStop } from "@/lib/lesson-plan/session-ui";
+import { getSessionTypeColor, getSessionTypeLabel, getSessionTypeShortLabel, isFormStop } from "@/lib/lesson-plan/session-ui";
 import { getCategoryStyle } from "@/lib/content-categories";
 import { HFDrawer } from "./HFDrawer";
 import "./genome-browser.css";
@@ -319,7 +319,7 @@ export function GenomeBrowser({ data, onSessionClick, onCategoryClick, onAsserti
           {visibleSessions.map((s) => (
             <div key={s.teachingIndex} className="genome-axis-cell">
               <div className="genome-axis-num">{s.teachingIndex}</div>
-              <div className="genome-axis-type">{s.type}</div>
+              <div className="genome-axis-type">{getSessionTypeLabel(s.type)}</div>
             </div>
           ))}
         </div>
@@ -355,7 +355,7 @@ export function GenomeBrowser({ data, onSessionClick, onCategoryClick, onAsserti
         {visibleLOs.length > 0 && (
           <div className="genome-lo-track">
             <div className="genome-lo-track-header">
-              <span className="genome-track-label">Outcomes</span>
+              <span className="genome-track-label">Learning Outcomes</span>
             </div>
             {visibleLOs.map(({ lo, originalIndex, clippedStart, clippedEnd }) => (
               <div key={lo.ref} className="genome-lo-row">

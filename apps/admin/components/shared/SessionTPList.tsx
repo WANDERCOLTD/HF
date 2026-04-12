@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { BookOpen } from "lucide-react";
+import { getCategoryStyle } from "@/lib/content-categories";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -36,15 +37,7 @@ interface SessionTPListProps {
 }
 
 // ── Category config ────────────────────────────────────
-
-const CATEGORY_CSS: Record<string, string> = {
-  fact: "hf-tp-category--fact",
-  definition: "hf-tp-category--definition",
-  rule: "hf-tp-category--rule",
-  process: "hf-tp-category--process",
-  example: "hf-tp-category--example",
-  threshold: "hf-tp-category--threshold",
-};
+// Colors now come from canonical getCategoryStyle() in content-categories.ts
 
 const CATEGORY_SHORT: Record<string, string> = {
   fact: "fact",
@@ -145,12 +138,12 @@ function TPRow({
     [tp.id, sessionNumber, onMove],
   );
 
-  const catClass = CATEGORY_CSS[tp.category] || "hf-tp-category--fact";
+  const catStyle = getCategoryStyle(tp.category);
   const catLabel = CATEGORY_SHORT[tp.category] || tp.category.slice(0, 5);
 
   return (
     <div className="hf-tp-row">
-      <span className={`hf-tp-category ${catClass}`}>{catLabel}</span>
+      <span className="hf-tp-category" style={{ color: catStyle.color, background: catStyle.bg }}>{catLabel}</span>
       <span className="hf-tp-text" title={tp.assertion}>{tp.assertion}</span>
       {tp.teachMethod && (
         <span className="hf-tp-method">{tp.teachMethod.replace(/_/g, " ")}</span>

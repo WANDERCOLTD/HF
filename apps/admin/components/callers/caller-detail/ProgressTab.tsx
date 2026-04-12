@@ -11,6 +11,7 @@ import { ModuleDetailPanel } from "./cards/ModuleDetailPanel";
 import type { CallScore, CurriculumProgress, LearnerProfile, Goal, Call, MemorySummary } from "./types";
 import { CATEGORY_COLORS } from "./constants";
 import { GOAL_TYPE_CONFIG } from "@/lib/goals/goal-constants";
+import { getSessionTypeLabel, getSessionTypeColor } from "@/lib/lesson-plan/session-ui";
 
 // =====================================================
 // ScoresSection
@@ -1183,14 +1184,7 @@ export function TopLevelAgentBehaviorSection({ callerId, calls: propCalls, calle
 // Plan Progress Section - shows lesson plan progress for a caller
 // ------------------------------------------------------------------
 
-const PLAN_SESSION_TYPES: Record<string, { label: string; color: string }> = {
-  onboarding: { label: "Onboarding", color: "var(--accent-primary)" },
-  introduce: { label: "Introduce", color: "var(--status-success-text)" },
-  deepen: { label: "Deepen", color: "var(--accent-primary)" },
-  review: { label: "Review", color: "var(--status-warning-text)" },
-  assess: { label: "Assess", color: "var(--status-error-text)" },
-  consolidate: { label: "Consolidate", color: "var(--accent-secondary, #8b5cf6)" },
-};
+// Session type labels/colors now come from canonical getSessionTypeLabel/getSessionTypeColor
 
 export function PlanProgressSection({
   callerId,
@@ -1303,7 +1297,7 @@ export function PlanProgressSection({
       {/* Session list */}
       <div className="hf-grid-gap-4">
         {progressEntries.map((e: any) => {
-          const sessionCfg = PLAN_SESSION_TYPES[e.type] || { label: e.type, color: "var(--text-muted)" };
+          const sessionCfg = { label: getSessionTypeLabel(e.type), color: getSessionTypeColor(e.type) };
           return (
             <div key={e.session} className="hf-plan-row" style={{
               border: e.status === "current" ? "1px solid var(--accent-primary)" : "1px solid var(--border-subtle)",

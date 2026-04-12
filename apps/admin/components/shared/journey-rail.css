@@ -345,7 +345,11 @@
 }
 
 .jrl-detail-module {
-  padding: 0.25rem 0.75rem 0.5rem;
+  padding: 0.25rem 0.75rem 0.125rem;
+}
+
+.jrl-detail-los {
+  padding: 0 0.75rem 0.5rem;
 }
 
 .jrl-detail-link {

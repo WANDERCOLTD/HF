@@ -42,6 +42,18 @@ export const CONTENT_CATEGORIES: Record<string, CategoryStyle> = {
   observation:      { color: 'var(--status-success-text)',       bg: 'color-mix(in srgb, var(--status-success-text) 10%, transparent)',       label: 'Observations',     icon: '👁️' },
   discussion_point: { color: 'var(--accent-secondary, #8b5cf6)',bg: 'color-mix(in srgb, var(--accent-secondary, #8b5cf6) 10%, transparent)',label: 'Discussion Point', icon: '💬' },
   context:          { color: 'var(--text-muted)',                bg: 'color-mix(in srgb, var(--text-muted) 10%, transparent)',                label: 'Context',          icon: '📄' },
+  // Literary / domain-specific categories
+  character:            { color: 'var(--accent-primary)',            bg: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)',            label: 'Characters',          icon: '👤' },
+  theme:                { color: 'var(--login-navy)',                bg: 'color-mix(in srgb, var(--login-navy) 10%, transparent)',                label: 'Themes',              icon: '🎭' },
+  setting:              { color: 'var(--status-success-text)',       bg: 'color-mix(in srgb, var(--status-success-text) 10%, transparent)',       label: 'Settings',            icon: '🌍' },
+  key_event:            { color: 'var(--login-gold)',                bg: 'color-mix(in srgb, var(--login-gold) 10%, transparent)',                label: 'Key Events',          icon: '⚡' },
+  key_point:            { color: 'var(--login-gold)',                bg: 'color-mix(in srgb, var(--login-gold) 10%, transparent)',                label: 'Key Points',          icon: '📌' },
+  key_quote:            { color: 'var(--login-blue)',                bg: 'color-mix(in srgb, var(--login-blue) 10%, transparent)',                label: 'Key Quotes',          icon: '💬' },
+  language_feature:     { color: 'var(--login-blue)',                bg: 'color-mix(in srgb, var(--login-blue) 10%, transparent)',                label: 'Language Features',   icon: '✏️' },
+  vocabulary_highlight: { color: 'var(--login-navy)',                bg: 'color-mix(in srgb, var(--login-navy) 10%, transparent)',                label: 'Vocabulary',          icon: '📖' },
+  overview:             { color: 'var(--accent-primary)',            bg: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)',            label: 'Overview',            icon: '📋' },
+  summary:              { color: 'var(--accent-primary)',            bg: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)',            label: 'Summary',             icon: '📝' },
+  principle:            { color: 'var(--accent-primary)',            bg: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)',            label: 'Principles',          icon: '⚖️' },
 };
 
 export const CATEGORY_ORDER = ['fact', 'definition', 'rule', 'process', 'example', 'threshold'] as const;
