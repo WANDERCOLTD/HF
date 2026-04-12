@@ -363,11 +363,10 @@ export abstract class DocumentExtractor {
     if (dupVocab > 0) warnings.push(`Removed ${dupVocab} duplicate vocabulary items`);
 
     // Assign teachMethod from category + teachingMode (specialist extractors don't set it per-chunk)
-    if (options.teachingMode) {
-      for (const a of dedupAssertions) {
-        if (!a.teachMethod) {
-          a.teachMethod = categoryToTeachMethod(a.category, options.teachingMode);
-        }
+    const mode = options.teachingMode || "recall";
+    for (const a of dedupAssertions) {
+      if (!a.teachMethod) {
+        a.teachMethod = categoryToTeachMethod(a.category, mode);
       }
     }
 
