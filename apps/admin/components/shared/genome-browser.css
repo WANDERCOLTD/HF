@@ -3,7 +3,7 @@
 /* ═══════════════════════════════════════════════════════════ */
 
 .genome {
-  overflow-x: auto;
+  overflow-x: auto; /* safety net; fit-to-width should avoid triggering */
   overflow-y: visible;
   padding-bottom: 8px;
 }
@@ -11,13 +11,91 @@
 .genome-container {
   display: grid;
   gap: 0;
-  min-width: max-content;
+  grid-template-columns: var(--genome-cols);
+}
+
+/* ── View controls toolbar ── */
+
+.genome-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 0 10px;
+}
+
+.genome-density-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.genome-density-btn {
+  background: var(--surface-primary);
+  color: var(--text-muted);
+  border: none;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.genome-density-btn:not(:last-child) {
+  border-right: 1px solid var(--border-default);
+}
+
+.genome-density-btn:hover {
+  background: var(--surface-secondary);
+}
+
+.genome-density-btn--active {
+  background: color-mix(in srgb, var(--accent-primary) 12%, var(--surface-primary));
+  color: var(--text-primary);
+}
+
+.genome-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.genome-pager-btn {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.genome-pager-btn:hover:not(:disabled) {
+  background: var(--surface-secondary);
+}
+
+.genome-pager-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.genome-pager-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 140px;
+  text-align: center;
 }
 
 /* ── Track (horizontal row) ── */
 
 .genome-track {
   display: grid;
+  grid-template-columns: var(--genome-cols);
   align-items: stretch;
   gap: 2px;
   padding: 6px 0;
@@ -44,6 +122,7 @@
 
 .genome-axis {
   display: grid;
+  grid-template-columns: var(--genome-cols);
   gap: 2px;
   padding: 0 0 4px;
   border-bottom: 2px solid var(--border-default);
@@ -54,7 +133,7 @@
   font-size: 10px;
   color: var(--text-muted);
   padding: 4px 2px;
-  min-width: 80px;
+  min-width: 0;
 }
 
 .genome-axis-num {
@@ -83,6 +162,7 @@
   justify-content: space-between;
   gap: 4px;
   min-height: 36px;
+  min-width: 0;
   cursor: default;
   transition: filter 0.15s;
   background: var(--module-color);
@@ -96,6 +176,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .genome-module-meta {
@@ -105,27 +186,42 @@
   white-space: nowrap;
 }
 
-/* ── LO bars ── */
+/* ── LO track + LO bars ── */
+
+.genome-lo-track {
+  border-bottom: 1px solid var(--border-default);
+  padding: 6px 0;
+}
+
+.genome-lo-track-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
 
 .genome-lo-row {
   display: grid;
+  grid-template-columns: var(--genome-cols);
   gap: 2px;
-  align-items: center;
+  align-items: stretch;
   padding: 1px 0;
 }
 
 .genome-lo-bar {
   border-radius: 4px;
-  padding: 3px 6px;
+  padding: 4px 6px;
   font-size: 10px;
+  line-height: 1.3;
   color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: default;
   min-height: 22px;
+  min-width: 0;
   display: flex;
   align-items: center;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  cursor: default;
   transition: filter 0.15s;
   background: var(--lo-color);
 }
@@ -141,7 +237,7 @@
   flex-direction: column;
   gap: 1px;
   padding: 2px;
-  min-width: 80px;
+  min-width: 0;
   cursor: default;
 }
 
@@ -153,8 +249,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 4px;
   min-height: 16px;
+  min-width: 0;
+  overflow: hidden;
   transition: filter 0.15s;
+}
+
+.genome-tp-band > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .genome-tp-band:hover {
@@ -172,6 +278,8 @@
 /* ── Journey Rail (full lesson plan aligned to genome) ── */
 
 .genome-journey-track {
+  display: grid;
+  grid-template-columns: var(--genome-journey-cols);
   padding: 8px 0 6px;
   border-bottom: 1px solid var(--border-default);
   position: relative;
@@ -202,6 +310,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 0;
   z-index: 1;
 }
 
@@ -345,30 +454,6 @@
   overflow: hidden;
 }
 
-/* ── Legend ── */
-
-.genome-legend {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 8px 0 4px;
-  border-top: 1px solid var(--border-default);
-}
-
-.genome-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: var(--text-muted);
-}
-
-.genome-legend-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-}
-
 /* ── Header ── */
 
 .genome-header {
@@ -389,7 +474,7 @@
   color: var(--text-muted);
 }
 
-/* ── Category legend ─────────────────────────────────── */
+/* ── Category legend (chips) ─────────────────────────────── */
 
 .genome-legend {
   display: flex;
@@ -428,4 +513,46 @@
 .genome-legend-count {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Density: compact ───────────────────────────────────── */
+
+.genome[data-density="compact"] .genome-track,
+.genome[data-density="compact"] .genome-lo-track {
+  padding: 3px 0;
+}
+
+.genome[data-density="compact"] .genome-module-span {
+  font-size: 10px;
+  min-height: 26px;
+  padding: 4px 6px;
+}
+
+.genome[data-density="compact"] .genome-lo-bar {
+  font-size: 9px;
+  min-height: 18px;
+  padding: 3px 5px;
+  line-height: 1.25;
+}
+
+.genome[data-density="compact"] .genome-tp-band {
+  font-size: 8px;
+  min-height: 13px;
+  padding: 1px 3px;
+}
+
+.genome[data-density="compact"] .genome-tp-cell {
+  padding: 1px;
+}
+
+.genome[data-density="compact"] .genome-tp-total {
+  font-size: 9px;
+}
+
+.genome[data-density="compact"] .genome-axis-num {
+  font-size: 11px;
+}
+
+.genome[data-density="compact"] .genome-axis-type {
+  font-size: 8px;
 }
