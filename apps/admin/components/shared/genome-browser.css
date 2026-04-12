@@ -9,9 +9,9 @@
 }
 
 .genome-container {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0;
-  grid-template-columns: var(--genome-cols);
 }
 
 /* ── View controls toolbar ── */
