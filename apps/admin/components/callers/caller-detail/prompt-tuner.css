@@ -1,0 +1,493 @@
+/* ── Prompt Tuner Sidebar ─────────────────────────────────────────── */
+
+.ps-tuner-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface-primary);
+  border-left: 1px solid var(--border-default);
+  width: 360px;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: width 0.2s ease, opacity 0.15s ease;
+}
+
+/* Always-mounted hidden state — preserves React state */
+.ps-tuner-sidebar--hidden {
+  width: 0;
+  border-left: none;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.ps-tuner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px 16px;
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.ps-tuner-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ps-tuner-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ps-tuner-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ps-tuner-badge {
+  display: inline-flex;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+  color: var(--accent-primary);
+}
+
+.ps-tuner-close {
+  all: unset;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+.ps-tuner-close:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+/* ── Scrollable body ── */
+.ps-tuner-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Loading ── */
+.ps-tuner-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 12px 0;
+}
+
+/* ── Sections ── */
+.ps-tuner-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ps-tuner-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+/* ── Collapsible group header ── */
+.ps-tuner-group-header {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.ps-tuner-group-header:hover .ps-tuner-section-title {
+  color: var(--text-primary);
+}
+
+.ps-tuner-group-chevron {
+  color: var(--text-placeholder);
+  display: flex;
+  align-items: center;
+}
+
+.ps-tuner-group-count {
+  font-size: 10px;
+  color: var(--text-placeholder);
+  margin-left: 2px;
+}
+
+.ps-tuner-group-changed {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  margin-left: auto;
+}
+
+/* ── Teaching Dials (sliders) ── */
+.ps-tuner-dials {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ps-tuner-dial {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface-secondary);
+  transition: background 0.15s;
+}
+
+.ps-tuner-dial--changed {
+  background: color-mix(in srgb, var(--accent-primary) 8%, var(--surface-secondary));
+  outline: 1px solid color-mix(in srgb, var(--accent-primary) 20%, transparent);
+}
+
+.ps-tuner-dial-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.ps-tuner-dial-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.ps-tuner-dial-value {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-muted);
+  min-width: 32px;
+  text-align: right;
+}
+
+.ps-tuner-dial-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ps-tuner-dial-low,
+.ps-tuner-dial-high {
+  font-size: 10px;
+  color: var(--text-placeholder);
+  white-space: nowrap;
+  min-width: 44px;
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ps-tuner-dial-low { text-align: right; }
+.ps-tuner-dial-high { text-align: left; }
+
+.ps-tuner-dial-scope {
+  font-size: 9px;
+  color: var(--text-placeholder);
+  margin-top: 2px;
+}
+
+/* ── Range slider styling ── */
+.ps-tuner-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-default);
+  outline: none;
+  cursor: pointer;
+}
+
+.ps-tuner-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  border: 2px solid var(--surface-primary);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--text-primary) 20%, transparent);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.ps-tuner-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.ps-tuner-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  border: 2px solid var(--surface-primary);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--text-primary) 20%, transparent);
+  cursor: pointer;
+}
+
+/* ── Approach selectors ── */
+.ps-tuner-selectors {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ps-tuner-select-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ps-tuner-select-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.ps-tuner-select {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  min-width: 140px;
+}
+
+.ps-tuner-select--changed {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 5%, var(--surface-primary));
+}
+
+/* ── Scope toggle ── */
+.ps-tuner-scope {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ps-tuner-scope-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.ps-tuner-scope-option input[type="radio"] {
+  accent-color: var(--accent-primary);
+}
+
+/* ── Pending changes ── */
+.ps-tuner-pending {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ps-tuner-pending-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-secondary));
+  font-size: 12px;
+}
+
+.ps-tuner-pending-label {
+  font-weight: 500;
+  color: var(--text-primary);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ps-tuner-pending-values {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+}
+
+.ps-tuner-pending-old {
+  color: var(--status-error-text);
+  text-decoration: line-through;
+}
+
+.ps-tuner-pending-arrow {
+  color: var(--text-placeholder);
+}
+
+.ps-tuner-pending-new {
+  color: var(--status-success-text);
+  font-weight: 600;
+}
+
+/* ── Error ── */
+.ps-tuner-error {
+  margin: 0;
+}
+
+/* ── Sticky footer ── */
+.ps-tuner-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  background: var(--surface-primary);
+}
+
+.ps-tuner-apply {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.ps-tuner-discard {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ps-tuner-no-changes {
+  font-size: 12px;
+  color: var(--text-placeholder);
+  text-align: center;
+  width: 100%;
+  padding: 4px 0;
+}
+
+/* ── Applied banner (shown in prompt section after apply) ── */
+.ps-tuner-applied-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--status-success-text) 8%, var(--surface-secondary));
+  border: 1px solid color-mix(in srgb, var(--status-success-text) 20%, transparent);
+  font-size: 12px;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.ps-tuner-applied-changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.ps-tuner-applied-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.ps-tuner-applied-checkmark {
+  color: var(--status-success-text);
+}
+
+/* ── Responsive: sidebar → bottom drawer on mobile ── */
+@media (max-width: 1024px) {
+  .ps-tuner-sidebar {
+    width: 100%;
+    max-height: 70dvh;
+    border-left: none;
+    border-top: 1px solid var(--border-default);
+  }
+  .ps-tuner-sidebar--hidden {
+    width: 100%;
+    height: 0;
+    max-height: 0;
+  }
+}
+
+/* ── CallerDetailPage layout mods ── */
+.cdp-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.cdp-body > .cdp-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Tune toggle button in header */
+.cdp-tune-btn {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+  transition: all 0.15s;
+}
+
+.cdp-tune-btn:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.cdp-tune-btn--active {
+  background: color-mix(in srgb, var(--accent-primary) 10%, var(--surface-primary));
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.cdp-tune-btn--has-changes {
+  border-color: var(--status-warning-text);
+  color: var(--status-warning-text);
+}
+
+/* Spinner inside button */
+.hf-spinner-sm {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+}

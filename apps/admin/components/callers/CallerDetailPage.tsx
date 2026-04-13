@@ -5,7 +5,7 @@ import { useParams, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEntityContext } from "@/contexts/EntityContext";
 import { DomainPill } from "@/src/components/shared/EntityPill";
-import { Smartphone, User, BookMarked, PlayCircle, Brain, BarChart3, Target, BookOpen, ClipboardCheck, CheckSquare, GitBranch, MessageCircle, Gauge, Archive } from "lucide-react";
+import { Smartphone, User, BookMarked, PlayCircle, Brain, BarChart3, Target, BookOpen, ClipboardCheck, CheckSquare, GitBranch, MessageCircle, Gauge, Archive, SlidersHorizontal } from "lucide-react";
 import { EditableTitle } from "@/components/shared/EditableTitle";
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
 import { CallerDomainSection } from "@/components/callers/CallerDomainSection";
@@ -13,6 +13,7 @@ import { SimChat } from "@/components/sim/SimChat";
 import '@/app/x/sim/sim.css';
 import './caller-detail-page.css';
 import './caller-detail/lens.css';
+import './caller-detail/prompt-tuner.css';
 import { useAssistant, useAssistantKeyboardShortcut } from "@/hooks/useAssistant";
 
 // Extracted sub-components
@@ -24,6 +25,7 @@ import { ScoresSection, LearningSection, AssessmentTargetsCard, TopicsCoveredSec
 import { LearningTrajectoryCard } from "./caller-detail/cards/LearningTrajectoryCard";
 import { ArtifactsSection } from "./caller-detail/ArtifactsTab";
 import { UnifiedPromptSection } from "./caller-detail/PromptsSection";
+import { PromptTunerSidebar } from "./caller-detail/PromptTunerSidebar";
 
 // Lens system
 import { useCallerLens } from "./caller-detail/hooks/useCallerLens";
@@ -98,6 +100,10 @@ export default function CallerDetailPage() {
   const [expandedCall, setExpandedCall] = useState<string | null>(null);
   const [expandedMemory, setExpandedMemory] = useState<string | null>(null);
   const [activePromptExpanded, setActivePromptExpanded] = useState(false);
+
+  // Tuner sidebar state
+  const [tunerOpen, setTunerOpen] = useState(false);
+  const [appliedChanges, setAppliedChanges] = useState<{ label: string; oldValue: string; newValue: string }[] | null>(null);
 
   // Prompts state
   const [composedPrompts, setComposedPrompts] = useState<ComposedPrompt[]>([]);
@@ -763,6 +769,18 @@ export default function CallerDetailPage() {
             ✨ Ask AI
           </button>
 
+          {/* Tune Button — opens persistent sidebar */}
+          {composedPrompts.length > 0 && (
+            <button
+              onClick={() => setTunerOpen(!tunerOpen)}
+              title="Open Prompt Tuner"
+              className={`cdp-tune-btn${tunerOpen ? " cdp-tune-btn--active" : ""}`}
+            >
+              <SlidersHorizontal size={14} />
+              Tune
+            </button>
+          )}
+
           {/* Export Data Button (GDPR SAR) */}
           <button
             onClick={async () => {
@@ -854,6 +872,8 @@ export default function CallerDetailPage() {
                 loading={promptsLoading}
                 onRefresh={fetchPrompts}
                 callerId={callerId}
+                appliedChanges={appliedChanges}
+                onDismissApplied={() => setAppliedChanges(null)}
               />
             </div>
           )}
@@ -938,7 +958,8 @@ export default function CallerDetailPage() {
         })}
       </div>
 
-      {/* Section Content - Scrollable */}
+      {/* Section Content + Tuner Sidebar */}
+      <div className="cdp-body">
       <div className="cdp-content">
       {activeSection === null && (
         <>
@@ -1120,6 +1141,28 @@ export default function CallerDetailPage() {
         </div>
       )}
       </div>
+      {/* Prompt Tuner Sidebar — always mounted, hidden via CSS to preserve state */}
+      {composedPrompts.length > 0 && (
+        <PromptTunerSidebar
+          open={tunerOpen}
+          llmPrompt={composedPrompts[composedPrompts.length - 1]?.llmPrompt ?? null}
+          callerId={callerId}
+          callerName={data.caller.name || "Learner"}
+          playbookId={data.publishedPlaybookId ?? null}
+          onApplied={(changes) => {
+            setAppliedChanges(changes.map((c) => ({
+              label: c.label,
+              oldValue: c.oldValue,
+              newValue: c.newValue,
+            })));
+            setTunerOpen(false);
+            setActivePromptExpanded(true);
+            fetchPrompts();
+          }}
+          onClose={() => setTunerOpen(false)}
+        />
+      )}
+      </div>{/* cdp-body */}
       </>
       )}
     </div>

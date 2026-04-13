@@ -56,6 +56,8 @@ export async function GET(
         name: true,
         definition: true,
         domainGroup: true,
+        interpretationHigh: true,
+        interpretationLow: true,
       },
       orderBy: [
         { domainGroup: "asc" },
@@ -90,6 +92,8 @@ export async function GET(
         name: param.name,
         definition: param.definition,
         domainGroup: param.domainGroup,
+        interpretationHigh: param.interpretationHigh ?? null,
+        interpretationLow: param.interpretationLow ?? null,
 
         // Cascade values
         systemValue: systemTarget?.targetValue ?? null,

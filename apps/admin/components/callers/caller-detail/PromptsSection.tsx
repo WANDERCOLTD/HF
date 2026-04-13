@@ -91,11 +91,15 @@ export function UnifiedPromptSection({
   loading,
   onRefresh,
   callerId,
+  appliedChanges,
+  onDismissApplied,
 }: {
   prompts: ComposedPrompt[];
   loading: boolean;
   onRefresh: () => void;
   callerId: string;
+  appliedChanges?: { label: string; oldValue: string; newValue: string }[] | null;
+  onDismissApplied?: () => void;
 }) {
   const indexed = useMemo(() => indexPrompts(prompts), [prompts]);
   const total = indexed.length;
@@ -316,6 +320,28 @@ export function UnifiedPromptSection({
           </button>
         </div>
       </div>
+
+      {/* ── Applied Changes Banner (from Prompt Tuner) ── */}
+      {appliedChanges && appliedChanges.length > 0 && (
+        <div className="ps-tuner-applied-banner">
+          <div className="ps-tuner-applied-changes">
+            {appliedChanges.map((c, i) => (
+              <span key={i} className="ps-tuner-applied-chip">
+                <span className="ps-tuner-applied-checkmark">&#10003;</span>
+                {c.label} {c.oldValue}&rarr;{c.newValue}
+              </span>
+            ))}
+          </div>
+          {onDismissApplied && (
+            <button
+              className="hf-btn hf-btn-xs hf-btn-secondary"
+              onClick={onDismissApplied}
+            >
+              Dismiss
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Composition Inputs ── */}
       {selected.inputs && (

@@ -576,6 +576,7 @@ General rules:
 - ANALYZE questions test whether the student can compare, evaluate, or reason
 - Spread across different topics/chapters
 - Include a brief 1-sentence explanation for the correct answer
+- VARY question stems — NEVER repeat the same opening phrase (e.g. "Which of the following"). Use diverse formats: "What is…", "How would you…", "Why does…", "Calculate…", "A student claims X — is this correct?", scenario-based setups, etc.
 
 NEVER generate questions about:
 - Assessment frameworks, rubrics, or skill levels (e.g. "Emerging", "Developing", "Secure")
