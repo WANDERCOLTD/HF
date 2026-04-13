@@ -8,8 +8,10 @@ Commit local changes, push to remote, then pull on the hf-dev VM with database m
 
 ## 1. Check local status
 
+**IMPORTANT — Working directory:** Always run git commands from the repo root (`/Users/paulwander/projects/HF`). Use absolute paths or `cd` explicitly. Relative paths from a wrong cwd cause silent pathspec failures.
+
 ```bash
-git status --short
+cd /Users/paulwander/projects/HF && git status --short
 ```
 
 Show the user what's changed. If there are no changes, tell them and stop.
@@ -30,7 +32,7 @@ Show the diff summary (`git diff --stat`) so the user can see what's being commi
 
 Ask the user for a commit message using AskUserQuestion if none was provided as an argument ($ARGUMENTS).
 
-Stage relevant files (avoid playwright-report, .env, credentials). Then commit:
+Stage relevant files using directory-level paths (e.g. `git add apps/admin/lib/ apps/admin/app/` NOT individual files with brackets). Avoid playwright-report, .env, credentials. Then commit:
 
 ```bash
 git commit -m '<message>
@@ -57,10 +59,10 @@ git diff --name-only HEAD~1 HEAD -- 'apps/admin/lib/**/*.ts' 'apps/admin/prisma/
 
 **Cache decision:** If `lib/**/*.ts` or `schema.prisma` changed, use `rm -rf .next` (full nuke — Turbopack caches stale module refs causing RSC payload leaks). Otherwise use `rm -rf .next/dev/lock` (lock only). `vm-cpp` always touches schema, so **default to full nuke**.
 
-Then run **everything in ONE SSH connection**. Build the bash script dynamically — include the seed block only if seed files changed above. The `set -e` ensures migration failures stop execution before restarting:
+Then run **everything in ONE SSH connection** using a heredoc (NOT `bash -c '...'` — single quotes get mangled by IAP tunnel). Build the script dynamically — include the seed block only if seed files changed above. The `set -e` ensures migration failures stop execution before restarting:
 
 ```bash
-gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c '
+gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash <<'REMOTE'
   set -e
   echo "==> Pulling..."
   cd ~/HF && git stash 2>/dev/null || true
@@ -94,7 +96,7 @@ gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c 
   nohup npx next dev --port 3000 > /tmp/hf-dev.log 2>&1 &
   sleep 2
   echo "==> READY"
-'
+REMOTE
 ```
 
 If the SSH command fails with exit code 255, wait 3 seconds and retry once.

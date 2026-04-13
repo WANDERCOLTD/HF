@@ -539,6 +539,7 @@ export async function GET(
       curriculum,
       learnerProfile,
       goals: goalsWithSignals,
+      publishedPlaybookId: publishedPlaybook?.id ?? null,
       availableSlugNames: Array.from(availableSlugNames).sort(),
       counts: {
         calls: callCount,

@@ -180,6 +180,7 @@ export type CallerData = {
   curriculum?: CurriculumProgress | null;
   learnerProfile?: LearnerProfile | null;
   goals?: Goal[];
+  publishedPlaybookId?: string | null;
   counts: {
     calls: number;
     memories: number;
