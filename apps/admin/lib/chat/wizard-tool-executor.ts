@@ -1423,28 +1423,47 @@ export async function executeWizardTool(
         syncInstructionsToIdentitySpec(playbookId).catch(err =>
           console.error("[wizard] instruction spec sync failed (non-fatal):", err.message));
 
-        // 11. Auto-generate curriculum (non-blocking, fire-and-forget)
+        // 11. Auto-generate curriculum + lesson plan (background, chained)
+        //
+        // Both steps run in the background so the wizard response returns fast, but
+        // they are chained sequentially: curriculum first (which waits for extractions
+        // to finish), then lesson plan (which uses the freshly-built curriculum).
+        //
+        // Running in parallel used to produce placeholder modules ("M00-1", "4MD-2")
+        // because curriculum gen fired before extractions completed, got zero assertions,
+        // and fell through to goals-based generation.
+        const curriculumSubjectIds = subjectIdsToLink.length > 0 ? subjectIdsToLink : packSubjectIds;
         const { generateInstantCurriculum } = await import("@/lib/domain/instant-curriculum");
-        generateInstantCurriculum({
-          domainId,
-          playbookId,
-          subjectName: subjectDiscipline,
-          persona: interactionPattern,
-          subjectIds: subjectIdsToLink.length > 0 ? subjectIdsToLink : packSubjectIds,
-          intents: {
-            sessionCount: input.sessionCount ? Number(input.sessionCount) : undefined,
-            durationMins: input.durationMins ? Number(input.durationMins) : undefined,
-            emphasis: input.planEmphasis as string | undefined,
-          },
-        }).catch(err => console.error("[wizard] Instant curriculum failed (non-fatal):", err.message));
+        (async () => {
+          try {
+            await generateInstantCurriculum({
+              domainId,
+              playbookId,
+              subjectName: subjectDiscipline,
+              persona: interactionPattern,
+              subjectIds: curriculumSubjectIds,
+              intents: {
+                sessionCount: input.sessionCount ? Number(input.sessionCount) : undefined,
+                durationMins: input.durationMins ? Number(input.durationMins) : undefined,
+                emphasis: input.planEmphasis as string | undefined,
+              },
+            });
+          } catch (err: any) {
+            console.error("[wizard] Instant curriculum failed (non-fatal):", err.message);
+          }
 
-        // Generate real lesson plan from content sources (background — don't block response)
-        generateLessonPlanPreview(
-          prisma, subjectIdsToLink.length > 0 ? subjectIdsToLink : packSubjectIds, subject.id,
-          input.sessionCount ? Number(input.sessionCount) : undefined,
-          input.durationMins ? Number(input.durationMins) : undefined,
-          playbookId,
-        ).catch(err => console.error("[wizard] Lesson plan preview failed (non-fatal):", err.message));
+          // Lesson plan runs AFTER curriculum so it can use the real modules/assertions.
+          try {
+            await generateLessonPlanPreview(
+              prisma, curriculumSubjectIds, subject.id,
+              input.sessionCount ? Number(input.sessionCount) : undefined,
+              input.durationMins ? Number(input.durationMins) : undefined,
+              playbookId,
+            );
+          } catch (err: any) {
+            console.error("[wizard] Lesson plan preview failed (non-fatal):", err.message);
+          }
+        })();
 
         // Build first call preview data (phases + resolved media filenames)
         const previewDomain = await prisma.domain.findUnique({

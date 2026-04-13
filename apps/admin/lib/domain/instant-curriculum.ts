@@ -44,6 +44,60 @@ export interface InstantCurriculumResult {
   error?: string;
 }
 
+// ── Wait for extractions ───────────────────────────────
+
+/**
+ * Poll until all sources linked to the given subjects have finished extracting,
+ * or until the timeout expires. Uses `lastExtractedAt IS NOT NULL` as the
+ * completion signal.
+ *
+ * Without this wait, `generateInstantCurriculum` can run while extractions are
+ * still in-flight, see zero assertions, and fall through to goals-based
+ * generation — producing placeholder modules instead of real content-grounded ones.
+ */
+async function waitForExtractions(
+  subjectIds: string[],
+  timeoutMs: number = 180_000, // 3 minutes — covers most realistic extraction jobs
+  pollIntervalMs: number = 2000,
+): Promise<{ done: boolean; totalSources: number; readySources: number; assertionCount: number }> {
+  const p = db();
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    // Count all sources linked to these subjects and how many have completed extraction
+    const sources = await p.contentSource.findMany({
+      where: { subjects: { some: { subjectId: { in: subjectIds } } } },
+      select: { id: true, lastExtractedAt: true },
+    });
+    const totalSources = sources.length;
+    const readySources = sources.filter((s) => s.lastExtractedAt !== null).length;
+
+    if (totalSources > 0 && readySources === totalSources) {
+      const assertionCount = await p.contentAssertion.count({
+        where: { source: { subjects: { some: { subjectId: { in: subjectIds } } } } },
+      });
+      return { done: true, totalSources, readySources, assertionCount };
+    }
+
+    await new Promise((r) => setTimeout(r, pollIntervalMs));
+  }
+
+  // Timed out — return current state; caller decides whether to proceed with partial data
+  const sources = await p.contentSource.findMany({
+    where: { subjects: { some: { subjectId: { in: subjectIds } } } },
+    select: { id: true, lastExtractedAt: true },
+  });
+  const assertionCount = await p.contentAssertion.count({
+    where: { source: { subjects: { some: { subjectId: { in: subjectIds } } } } },
+  });
+  return {
+    done: false,
+    totalSources: sources.length,
+    readySources: sources.filter((s) => s.lastExtractedAt !== null).length,
+    assertionCount,
+  };
+}
+
 // ── Main Function ──────────────────────────────────────
 
 export async function generateInstantCurriculum(
@@ -73,6 +127,19 @@ export async function generateInstantCurriculum(
 
   if (existingContentItem) {
     return { ok: true, contentSpecId: existingContentItem.specId!, moduleCount: 0, path: "skipped" };
+  }
+
+  // ── Wait for extractions to finish if content was uploaded ──
+  // This prevents the wizard's create_course from running curriculum generation
+  // while extractions are still in-flight (which would produce a skeleton instead
+  // of a content-grounded curriculum).
+  if (subjectIds && subjectIds.length > 0) {
+    const waitResult = await waitForExtractions(subjectIds);
+    console.log(
+      `[instant-curriculum] Extractions ${waitResult.done ? "complete" : "TIMED OUT"} — ` +
+      `${waitResult.readySources}/${waitResult.totalSources} sources ready, ` +
+      `${waitResult.assertionCount} assertions available`,
+    );
   }
 
   // ── Path 1: Assertion-based (content uploaded) ──
