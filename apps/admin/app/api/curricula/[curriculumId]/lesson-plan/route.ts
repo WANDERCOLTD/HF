@@ -657,7 +657,7 @@ export async function POST(
     // Verify curriculum exists
     const curriculum = await prisma.curriculum.findUnique({
       where: { id: curriculumId },
-      select: { id: true, notableInfo: true, subjectId: true },
+      select: { id: true, notableInfo: true, deliveryConfig: true, subjectId: true },
     });
 
     if (!curriculum) {
@@ -683,23 +683,25 @@ export async function POST(
     if (!emphasis) emphasis = "balanced";
     if (!includeAssessments) includeAssessments = "light";
 
-    // Check curriculum has modules
+    // Check curriculum has modules — same 3-source fallback as the background task
     const notableInfo = (curriculum.notableInfo as Record<string, any>) || {};
     let modules: any[] = notableInfo.modules || [];
+
+    if (modules.length === 0) {
+      // Fallback: first-class CurriculumModule records from DB
+      const dbModules = await prisma.curriculumModule.findMany({
+        where: { curriculumId, isActive: true },
+        select: { id: true },
+        take: 1,
+      });
+      if (dbModules.length > 0) modules = dbModules;
+    }
 
     if (modules.length === 0) {
       // Fallback: deliveryConfig.lessonPlan.entries (from wizard plan preview)
       const dc = (curriculum.deliveryConfig as Record<string, any>) || {};
       const planEntries = dc?.lessonPlan?.entries as any[] | undefined;
-      if (planEntries?.length) {
-        modules = planEntries.map((e: any, i: number) => ({
-          id: e.moduleId || `MOD-${i + 1}`,
-          title: e.label || e.moduleLabel || `Session ${i + 1}`,
-          description: `${e.type || "lesson"} session`,
-          sortOrder: i,
-          learningOutcomes: e.learningOutcomes || [],
-        }));
-      }
+      if (planEntries?.length) modules = planEntries;
     }
 
     if (modules.length === 0) {
