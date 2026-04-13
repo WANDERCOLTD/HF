@@ -14,6 +14,8 @@ git status --short
 
 Show the user what's changed. If there are no changes, tell them and stop.
 
+**IMPORTANT:** Never pass `apps/admin/` as a git pathspec — bracket dirs like `[courseId]` are misread as globs, producing `could not open directory 'apps/admin/apps/admin/'` warnings. Use plain `git status --short` and `git diff --stat` without path filtering.
+
 ## 2. Auto version bump
 
 ```bash

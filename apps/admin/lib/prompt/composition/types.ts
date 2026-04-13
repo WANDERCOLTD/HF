@@ -130,6 +130,8 @@ export interface CurriculumAssertionData {
   trustLevel: string | null;
   examRelevance: number | null;
   learningOutcomeRef: string | null;
+  /** FK to LearningObjective — single source of truth for LO linkage (#142) */
+  learningObjectiveId: string | null;
   sourceName: string;
   sourceTrustLevel: string;
   /** Source ID for grouping assertions by document */
@@ -295,6 +297,19 @@ export interface SharedComputedState {
       mimeType?: string;
     }> | null;
   } | null;
+  /** Carry-forward TP IDs from previous session (for [Review] labeling) */
+  carryForwardAssertionIds?: string[];
+  /** Lesson plan mode: 'structured' (default multi-session) or 'continuous' (fat stack) */
+  lessonPlanMode?: "structured" | "continuous";
+  /** Working set selected by continuous mode selector (null in structured mode) */
+  workingSet?: {
+    assertionIds: string[];
+    reviewIds: string[];
+    newIds: string[];
+    selectedLOs?: Array<{ id: string; ref: string; moduleId: string; status: string }>;
+  } | null;
+  /** Map of LO ref → LO id for FK-based filtering (#142) */
+  loRefToIdMap?: Map<string, string>;
 }
 
 export interface ModuleData {

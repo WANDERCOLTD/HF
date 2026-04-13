@@ -140,7 +140,7 @@ export async function GET(
             sortOrder: true,
             learningObjectives: {
               orderBy: { sortOrder: "asc" },
-              select: { ref: true, description: true },
+              select: { id: true, ref: true, description: true },
             },
           },
         },
@@ -165,15 +165,15 @@ export async function GET(
 
     // 6. Load assertions for all sessions that have assertionIds
     const allAssertionIds = teachingEntries.flatMap((e: any) => e.assertionIds || []);
-    const assertionMap = new Map<string, { assertion: string; category: string; learningOutcomeRef: string | null }>();
+    const assertionMap = new Map<string, { assertion: string; category: string; learningOutcomeRef: string | null; learningObjectiveId: string | null }>();
 
     if (allAssertionIds.length > 0) {
       const assertions = await prisma.contentAssertion.findMany({
         where: { id: { in: allAssertionIds }, category: { notIn: [...INSTRUCTION_CATEGORIES] } },
-        select: { id: true, assertion: true, category: true, learningOutcomeRef: true },
+        select: { id: true, assertion: true, category: true, learningOutcomeRef: true, learningObjectiveId: true },
       });
       for (const a of assertions) {
-        assertionMap.set(a.id, { assertion: a.assertion, category: a.category, learningOutcomeRef: a.learningOutcomeRef });
+        assertionMap.set(a.id, { assertion: a.assertion, category: a.category, learningOutcomeRef: a.learningOutcomeRef, learningObjectiveId: a.learningObjectiveId });
       }
     }
 
@@ -239,16 +239,25 @@ export async function GET(
     for (const mod of curriculum?.modules || []) {
       for (const lo of mod.learningObjectives) {
         // Find sessions that reference this LO
+        // #142: prefer FK matching, fall back to string ref
         const sessionsWithLO = genomeSessions.filter((s) =>
           s.loRefs.some((ref) => loRefsMatch(ref, lo.ref)),
         );
         if (sessionsWithLO.length === 0) continue;
 
-        // Count assertions with this LO
+        // #142: Count assertions linked to this LO via FK
         let assertionCount = 0;
         for (const [, a] of assertionMap) {
-          if (loRefsMatch(a.learningOutcomeRef, lo.ref)) {
+          if (a.learningObjectiveId === lo.id) {
             assertionCount++;
+          }
+        }
+        // Fallback: string ref matching if FK found nothing
+        if (assertionCount === 0) {
+          for (const [, a] of assertionMap) {
+            if (loRefsMatch(a.learningOutcomeRef, lo.ref)) {
+              assertionCount++;
+            }
           }
         }
 

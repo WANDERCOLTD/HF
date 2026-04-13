@@ -111,6 +111,7 @@ export async function GET(
         category: true,
         teachMethod: true,
         learningOutcomeRef: true,
+        learningObjectiveId: true,
         topicSlug: true,
         depth: true,
       },
@@ -132,6 +133,13 @@ export async function GET(
         total: 0,
       });
     }
+
+    // #142: Build LO ref → id map for FK-based session matching
+    const loRows = await prisma.learningObjective.findMany({
+      where: { module: { curriculumId, isActive: true } },
+      select: { id: true, ref: true },
+    });
+    const loRefToIdMap = new Map(loRows.map((lo) => [lo.ref, lo.id]));
 
     // Build assertion lookup
     const assertionMap = new Map(assertions.map((a) => [a.id, a]));
@@ -156,14 +164,30 @@ export async function GET(
           }
         }
       }
-      // Priority 2: Match via learningOutcomeRefs (AI-assigned)
+      // Priority 2: Match via learningOutcomeRefs — prefer FK, fall back to string ref
       else if (Array.isArray(entry.learningOutcomeRefs) && entry.learningOutcomeRefs.length > 0) {
         const loRefs = entry.learningOutcomeRefs as string[];
-        for (const a of assertions) {
-          if (assignedIds.has(a.id)) continue;
-          if (assertionMatchesAnyLoRef(a.learningOutcomeRef, loRefs)) {
-            sessionGroup.assertions.push(toSummary(a));
-            assignedIds.add(a.id);
+        // #142: Resolve refs → LO IDs for FK-based matching
+        const loIdSet = new Set(loRefs.map((ref: string) => loRefToIdMap.get(ref)).filter(Boolean));
+        let matched = false;
+        if (loIdSet.size > 0) {
+          for (const a of assertions) {
+            if (assignedIds.has(a.id)) continue;
+            if (a.learningObjectiveId && loIdSet.has(a.learningObjectiveId)) {
+              sessionGroup.assertions.push(toSummary(a));
+              assignedIds.add(a.id);
+              matched = true;
+            }
+          }
+        }
+        // Fallback: string-ref matching for legacy data
+        if (!matched) {
+          for (const a of assertions) {
+            if (assignedIds.has(a.id)) continue;
+            if (assertionMatchesAnyLoRef(a.learningOutcomeRef, loRefs)) {
+              sessionGroup.assertions.push(toSummary(a));
+              assignedIds.add(a.id);
+            }
           }
         }
       }

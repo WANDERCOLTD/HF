@@ -29,7 +29,7 @@ import { prisma } from "@/lib/prisma";
  * Load modules from first-class CurriculumModule + LearningObjective records.
  * Returns ModuleData[] if records exist, null to fall back to JSON/spec paths.
  */
-async function loadModulesFromDB(curriculumId: string): Promise<ModuleData[] | null> {
+async function loadModulesFromDB(curriculumId: string): Promise<{ modules: ModuleData[]; loRefToIdMap: Map<string, string> } | null> {
   try {
     const dbModules = await prisma.curriculumModule.findMany({
       where: { curriculumId, isActive: true },
@@ -37,7 +37,16 @@ async function loadModulesFromDB(curriculumId: string): Promise<ModuleData[] | n
       orderBy: { sortOrder: "asc" },
     });
     if (dbModules.length === 0) return null;
-    return dbModules.map((m) => ({
+    // #142: Build LO ref → id map for FK-based filtering in teaching-content
+    const loRefToIdMap = new Map<string, string>();
+    for (const m of dbModules) {
+      for (const lo of m.learningObjectives) {
+        if (!loRefToIdMap.has(lo.ref)) {
+          loRefToIdMap.set(lo.ref, lo.id);
+        }
+      }
+    }
+    const modules = dbModules.map((m) => ({
       id: m.id,
       slug: m.slug,
       name: m.title,
@@ -49,6 +58,7 @@ async function loadModulesFromDB(curriculumId: string): Promise<ModuleData[] | n
       concepts: m.keyTerms,
       learningOutcomes: m.learningObjectives.map((lo) => lo.description),
     }));
+    return { modules, loRefToIdMap };
   } catch (err: any) {
     console.warn("[modules] DB module load failed, falling back to JSON:", err.message);
     return null;
@@ -285,10 +295,14 @@ export async function computeSharedState(
   let metadata: CurriculumMetadata | null = null;
   let specSlug = '';
 
+  // #142: LO ref → id map for FK-based assertion filtering
+  let loRefToIdMap = new Map<string, string>();
+
   if (curriculumId) {
-    const dbModules = await loadModulesFromDB(curriculumId);
-    if (dbModules && dbModules.length > 0) {
-      modules = dbModules;
+    const dbResult = await loadModulesFromDB(curriculumId);
+    if (dbResult && dbResult.modules.length > 0) {
+      modules = dbResult.modules;
+      loRefToIdMap = dbResult.loRefToIdMap;
       console.log(`[modules] DB-first: loaded ${modules.length} modules from CurriculumModule records`);
     }
   }
@@ -387,16 +401,20 @@ export async function computeSharedState(
   // Load lesson plan from Subject curriculum deliveryConfig
   const subjects = data.subjectSources?.subjects;
   let lessonPlan: { estimatedSessions: number; entries: any[] } | null = null;
+  let deliveryConfig: Record<string, any> | null = null;
 
   if (subjects?.length) {
     for (const subject of subjects) {
       const dc = subject.curriculum?.deliveryConfig as Record<string, any> | null;
       if (dc?.lessonPlan?.entries?.length) {
         lessonPlan = dc.lessonPlan;
+        deliveryConfig = dc;
         break;
       }
     }
   }
+
+  const lessonPlanMode = (deliveryConfig?.lessonPlanMode as string) === 'continuous' ? 'continuous' as const : 'structured' as const;
 
   if (lessonPlan && onboardingSession?.isComplete) {
     // Read currentSession from callerAttributes
@@ -464,6 +482,111 @@ export async function computeSharedState(
     }
   }
 
+  // =========================================================================
+  // CONTINUOUS MODE — working set selector replaces session-based scoping
+  // =========================================================================
+  let workingSet: SharedComputedState['workingSet'] = null;
+
+  if (lessonPlanMode === 'continuous' && modules.length > 0 && specSlug && curriculumId) {
+    try {
+      const { selectWorkingSet } = await import("@/lib/curriculum/working-set-selector");
+      const { getTpProgressBatch } = await import("@/lib/curriculum/track-progress");
+
+      // Load all assertions for this curriculum (from loaded data)
+      const allAssertions = data.curriculumAssertions || [];
+
+      // Load LOs from DB (real records with id, ref, moduleId)
+      const dbLOs = await prisma.learningObjective.findMany({
+        where: { module: { curriculumId, isActive: true } },
+        select: { id: true, ref: true, moduleId: true, sortOrder: true, description: true },
+        orderBy: [{ module: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+      });
+
+      // Get assertion IDs for progress lookup
+      const assertionIds = allAssertions.map((a) => a.id);
+      const callerId = data.caller?.id;
+
+      if (callerId && assertionIds.length > 0 && dbLOs.length > 0) {
+        const tpProgress = await getTpProgressBatch(callerId, specSlug, assertionIds);
+
+        // Build LO mastery map from existing CallerAttributes
+        const loMasteryMap: Record<string, number> = {};
+        for (const attr of data.callerAttributes) {
+          if (attr.key.includes(':lo_mastery:') && attr.scope === 'CURRICULUM') {
+            const suffix = attr.key.split(':lo_mastery:')[1];
+            if (suffix && suffix.length > 0 && attr.numberValue != null) {
+              loMasteryMap[suffix] = attr.numberValue;
+            }
+          }
+        }
+
+        const pbConfig = (data.playbooks?.[0]?.config || {}) as Record<string, any>;
+        const callDurationMins = (pbConfig.durationMins as number) || 15;
+        const threshold = specConfig.thresholds?.masteryComplete ?? 0.7;
+
+        const wsResult = selectWorkingSet({
+          assertions: allAssertions.map((a) => ({
+            id: a.id,
+            learningObjectiveId: a.learningObjectiveId || null,
+            learningOutcomeRef: a.learningOutcomeRef || null,
+            depth: a.depth ?? null,
+            orderIndex: a.orderIndex ?? 0,
+          })),
+          learningObjectives: dbLOs,
+          modules: modules.map((m) => ({
+            id: m.id || m.slug,
+            slug: m.slug,
+            name: m.name,
+            sortOrder: m.sortOrder ?? m.sequence ?? 0,
+            prerequisites: (m.prerequisites || []) as string[],
+          })),
+          tpMasteryMap: tpProgress,
+          loMasteryMap,
+          callDurationMins,
+          masteryThreshold: threshold,
+        });
+
+        workingSet = {
+          assertionIds: wsResult.assertionIds,
+          reviewIds: wsResult.reviewIds,
+          newIds: wsResult.newIds,
+          selectedLOs: wsResult.selectedLOs,
+        };
+
+        // Build synthetic lessonPlanEntry from working set
+        lessonPlanEntry = {
+          session: 1,
+          type: 'continuous',
+          moduleId: wsResult.frontierModuleId || null,
+          moduleLabel: 'Learning Programme',
+          label: 'Adaptive session',
+          phases: null,
+          learningOutcomeRefs: null,
+          assertionIds: wsResult.assertionIds,
+          vocabularyIds: null,
+          questionIds: null,
+          media: null,
+        };
+        lessonPlanSessionType = 'continuous';
+        currentSessionNumber = 1;
+
+        // Override nextModule to the frontier module
+        if (wsResult.frontierModuleId) {
+          const frontier = modules.find((m) => (m.id || m.slug) === wsResult.frontierModuleId);
+          if (frontier) nextModule = frontier;
+        }
+
+        console.log(
+          `[modules] Continuous mode: selected ${wsResult.selectedLOs.length} LOs, ` +
+          `${wsResult.assertionIds.length} TPs (${wsResult.reviewIds.length} review, ${wsResult.newIds.length} new). ` +
+          `Progress: ${wsResult.totalMastered}/${wsResult.totalLOs} LOs mastered.`
+        );
+      }
+    } catch (err) {
+      console.error('[modules] Continuous mode selector failed, falling back to structured:', err);
+    }
+  }
+
   // Determine review intensity based on time gap
   // Thresholds from specConfig (default: 14/7/3 days for reintroduce/deep_review/application)
   const reviewSchedule = specConfig.reviewSchedule || { reintroduce: 14, deepReview: 7, application: 3 };
@@ -515,6 +638,11 @@ export async function computeSharedState(
     lessonPlanEntry,
     // Carry-forward TP IDs from previous session (for [Review] labeling)
     carryForwardAssertionIds: (lessonPlanEntry as any)?.carryForwardAssertionIds as string[] | undefined,
+    // Continuous learning mode
+    lessonPlanMode,
+    workingSet,
+    // #142: LO ref → id map for FK-based assertion filtering in teaching-content
+    loRefToIdMap,
   };
 }
 

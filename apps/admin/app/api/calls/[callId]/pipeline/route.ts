@@ -33,7 +33,7 @@ import { extractArtifacts } from "@/lib/artifacts/extract-artifacts";
 import { deliverArtifacts } from "@/lib/artifacts/deliver-artifacts";
 import { extractActions } from "@/lib/actions/extract-actions";
 import { config as appConfig } from "@/lib/config";
-import { updateCurriculumProgress, getCurriculumProgress, completeModule } from "@/lib/curriculum/track-progress";
+import { updateCurriculumProgress, getCurriculumProgress, completeModule, updateTpMasteryBatch } from "@/lib/curriculum/track-progress";
 import { initializeLessonPlanSession } from "@/lib/enrollment/init-lesson-plan";
 import { ContractRegistry } from "@/lib/contracts/registry";
 import { loadPipelineStages, PipelineStage } from "@/lib/pipeline/config";
@@ -1673,6 +1673,57 @@ async function advanceLessonPlanSession(
     const dc = curriculum.deliveryConfig as Record<string, any> | null;
     const lessonPlan = dc?.lessonPlan;
     if (!lessonPlan?.entries?.length) continue;
+
+    // ── Continuous mode: update per-TP mastery instead of advancing session ──
+    if (dc?.lessonPlanMode === 'continuous' && learningAssessment?.outcomes) {
+      const threshold = learningAssessment.masteryThreshold || 0.7;
+
+      // Find assertions that were in the working set (current session's assertionIds)
+      const continuousEntry = lessonPlan.entries[0];
+      if (continuousEntry?.type === 'continuous') {
+        // #142: Resolve LO ref strings → IDs, then query assertions by FK
+        const assessedLoRefs = Object.keys(learningAssessment.outcomes);
+        const loRows = await prisma.learningObjective.findMany({
+          where: {
+            ref: { in: assessedLoRefs },
+            module: { curriculum: { slug: curriculum.slug }, isActive: true },
+          },
+          select: { id: true, ref: true },
+        });
+        const loRefToId = new Map(loRows.map((lo) => [lo.ref, lo.id]));
+        const assessedLoIds = loRows.map((lo) => lo.id);
+
+        const assessedTps = assessedLoIds.length > 0
+          ? await prisma.contentAssertion.findMany({
+              where: {
+                learningObjectiveId: { in: assessedLoIds },
+              },
+              select: { id: true, learningObjectiveId: true },
+            })
+          : [];
+
+        // Reverse map: LO ID → ref for score lookup
+        const loIdToRef = new Map(loRows.map((lo) => [lo.id, lo.ref]));
+
+        const updates: Record<string, { mastery: number; status: "not_started" | "in_progress" | "mastered" }> = {};
+        for (const tp of assessedTps) {
+          const loRef = tp.learningObjectiveId ? loIdToRef.get(tp.learningObjectiveId) : null;
+          const loScore = loRef
+            ? learningAssessment.outcomes[loRef] ?? 0
+            : 0;
+          updates[tp.id] = {
+            mastery: loScore,
+            status: loScore >= threshold ? "mastered" : loScore > 0 ? "in_progress" : "not_started",
+          };
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await updateTpMasteryBatch(callerId, curriculum.slug, updates);
+          log.info(`Continuous mode: updated ${Object.keys(updates).length} TP mastery scores`);
+        }
+      }
+      break; // No session advancement in continuous mode
+    }
 
     // Get current session
     const progress = await getCurriculumProgress(callerId, curriculum.slug);

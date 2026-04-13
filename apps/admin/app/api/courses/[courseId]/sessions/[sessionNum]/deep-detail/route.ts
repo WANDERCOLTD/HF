@@ -13,6 +13,7 @@ type Params = { params: Promise<{ courseId: string; sessionNum: string }> };
 // ── Response shape ─────────────────────────────────────
 
 interface LOShort {
+  id: string;
   ref: string;
   description: string;
 }
@@ -133,7 +134,7 @@ export async function GET(
             slug: true,
             title: true,
             learningObjectives: {
-              select: { ref: true, description: true },
+              select: { id: true, ref: true, description: true },
               orderBy: { sortOrder: "asc" },
             },
           },
@@ -166,6 +167,7 @@ export async function GET(
             slug: m.slug,
             title: m.title,
             learningObjectives: m.learningObjectives.map((lo) => ({
+              id: lo.id,
               ref: lo.ref,
               description: lo.description,
             })),
@@ -224,6 +226,7 @@ export async function GET(
         category: true,
         teachMethod: true,
         learningOutcomeRef: true,
+        learningObjectiveId: true,
         reviewedAt: true,
         reviewedBy: true,
         sourceId: true,
@@ -233,14 +236,32 @@ export async function GET(
       orderBy: [{ depth: "asc" }, { orderIndex: "asc" }],
     });
 
+    // #142: Resolve LO refs → IDs for FK-based matching
+    const loRefToId = new Map<string, string>();
+    for (const [, mod] of moduleMap) {
+      for (const lo of mod.learningObjectives) {
+        if (!loRefToId.has(lo.ref)) loRefToId.set(lo.ref, lo.id);
+      }
+    }
+
     let sessionAssertions: typeof allAssertions = [];
     if (Array.isArray(entry.assertionIds) && entry.assertionIds.length > 0) {
       const idSet = new Set<string>(entry.assertionIds);
       sessionAssertions = allAssertions.filter((a) => idSet.has(a.id));
     } else if (sessionLoRefs.length > 0) {
-      sessionAssertions = allAssertions.filter((a) =>
-        assertionMatchesAnyLoRef(a.learningOutcomeRef, sessionLoRefs),
-      );
+      // #142: Prefer FK matching
+      const sessionLoIds = new Set(sessionLoRefs.map((ref) => loRefToId.get(ref)).filter(Boolean));
+      if (sessionLoIds.size > 0) {
+        sessionAssertions = allAssertions.filter((a) =>
+          a.learningObjectiveId && sessionLoIds.has(a.learningObjectiveId),
+        );
+      }
+      // Fallback: string-ref matching
+      if (sessionAssertions.length === 0) {
+        sessionAssertions = allAssertions.filter((a) =>
+          assertionMatchesAnyLoRef(a.learningOutcomeRef, sessionLoRefs),
+        );
+      }
     }
 
     // Hydrate reviewer users separately — ContentAssertion has `reviewedBy`

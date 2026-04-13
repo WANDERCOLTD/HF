@@ -344,6 +344,82 @@ function hasMultipleSources(assertions: CurriculumAssertionData[]): boolean {
 }
 
 // ------------------------------------------------------------------
+// LO-grouped rendering (continuous mode)
+// ------------------------------------------------------------------
+
+/**
+ * Render assertions grouped by Learning Outcome.
+ * Each LO becomes a section header, with its child TPs as bullets.
+ * Review TPs are labeled. TPs without an LO go into a "General" section.
+ *
+ * #142: Groups by `learningObjectiveId` (FK) not string ref. Uses
+ * `learningOutcomeRef` only as a display label fallback.
+ */
+function renderLoGrouped(
+  assertions: CurriculumAssertionData[],
+  reviewIds: string[],
+  loLookup?: Map<string, string>,
+): string {
+  const reviewSet = new Set(reviewIds);
+  const lines: string[] = [];
+
+  // Group by learningObjectiveId (FK authority)
+  const loGroups = new Map<string, CurriculumAssertionData[]>();
+  const noLoGroup: CurriculumAssertionData[] = [];
+
+  for (const a of assertions) {
+    const loId = a.learningObjectiveId;
+    if (loId) {
+      const list = loGroups.get(loId) || [];
+      list.push(a);
+      loGroups.set(loId, list);
+    } else {
+      noLoGroup.push(a);
+    }
+  }
+
+  // Render review LOs first, then new LOs
+  const sortedEntries = [...loGroups.entries()].sort(([_idA, tpsA], [_idB, tpsB]) => {
+    const aIsReview = tpsA.some((tp) => reviewSet.has(tp.id));
+    const bIsReview = tpsB.some((tp) => reviewSet.has(tp.id));
+    if (aIsReview && !bIsReview) return -1;
+    if (!aIsReview && bIsReview) return 1;
+    return 0;
+  });
+
+  for (const [loId, tps] of sortedEntries) {
+    const isReviewLO = tps.some((tp) => reviewSet.has(tp.id));
+    const prefix = isReviewLO ? "[Review from previous call]\n" : "";
+    // Display label: prefer LO ref from lookup, fall back to first assertion's string ref
+    const label = loLookup?.get(loId) ?? tps[0]?.learningOutcomeRef ?? loId;
+    lines.push(`${prefix}## Learning Outcome: ${label}`);
+    lines.push("");
+    lines.push("Teaching points:");
+
+    for (const a of tps) {
+      const citation = a.pageRef ? ` [${a.pageRef}]` : "";
+      const methodTag = a.teachMethod ? ` [${a.teachMethod}]` : "";
+      lines.push(`- ${a.assertion}${citation}${methodTag}`);
+    }
+    lines.push("");
+  }
+
+  // Render orphan TPs (no LO link)
+  if (noLoGroup.length > 0) {
+    lines.push("## Additional Teaching Points");
+    lines.push("");
+    for (const a of noLoGroup) {
+      const citation = a.pageRef ? ` [${a.pageRef}]` : "";
+      const methodTag = a.teachMethod ? ` [${a.teachMethod}]` : "";
+      lines.push(`- ${a.assertion}${citation}${methodTag}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+// ------------------------------------------------------------------
 // Main transform
 // ------------------------------------------------------------------
 
@@ -385,6 +461,31 @@ registerTransform("renderTeachingContent", (
     currentModule = context.sharedState?.nextModule || context.sharedState?.moduleToReview;
   }
   let assertions = allAssertions;
+  let isContinuousMode = false;
+
+  // ── Continuous mode: working set already selected by selector ──
+  if (context.sharedState?.lessonPlanMode === 'continuous' && context.sharedState?.workingSet) {
+    const wsIds = new Set(context.sharedState.workingSet.assertionIds);
+    const wsAssertions = allAssertions.filter((a) => wsIds.has(a.id));
+
+    if (wsAssertions.length > 0) {
+      // Label review TPs (reuse existing carry-forward pattern)
+      const reviewIds = new Set(context.sharedState.workingSet.reviewIds);
+      assertions = wsAssertions.map((a) =>
+        reviewIds.has(a.id)
+          ? { ...a, assertion: `[Review from previous call] ${a.assertion}` }
+          : a,
+      );
+      isContinuousMode = true;
+      console.log(
+        `[teaching-content] Continuous mode: ${assertions.length} TPs in working set ` +
+        `(${reviewIds.size} review, ${assertions.length - reviewIds.size} new)`,
+      );
+    }
+  }
+
+  // ── Structured mode: session-based priority chain ──
+  if (!isContinuousMode) {
 
   // Priority 0: Explicit assertionIds from lesson plan entry (educator-curated, most precise)
   const explicitIds = context.sharedState?.lessonPlanEntry?.assertionIds;
@@ -403,32 +504,78 @@ registerTransform("renderTeachingContent", (
   }
 
   // Priority 1: Session-specific LO refs from lesson plan (only if assertionIds didn't match)
+  // #142: Prefer FK-based filtering. Resolve LO refs → IDs via sharedState LO map,
+  // fall back to string-ref matching for legacy plans without LO IDs.
   if (assertions === allAssertions) {
     const sessionLORefs = context.sharedState?.lessonPlanEntry?.learningOutcomeRefs;
     if (sessionLORefs?.length && allAssertions.length > 0) {
-      const sessionAssertions = allAssertions.filter((a) =>
-        assertionMatchesAnyLoRef(a.learningOutcomeRef, sessionLORefs),
-      );
-      if (sessionAssertions.length > 0) {
-        assertions = sessionAssertions;
+      // Try FK path: resolve refs to LO IDs from curriculum LO map
+      const loRefToId = context.sharedState?.loRefToIdMap as Map<string, string> | undefined;
+      const sessionLoIds = loRefToId
+        ? sessionLORefs.map((ref: string) => loRefToId.get(ref)).filter(Boolean) as string[]
+        : [];
+
+      if (sessionLoIds.length > 0) {
+        const loIdSet = new Set(sessionLoIds);
+        const sessionAssertions = allAssertions.filter((a) =>
+          a.learningObjectiveId && loIdSet.has(a.learningObjectiveId),
+        );
+        if (sessionAssertions.length > 0) {
+          assertions = sessionAssertions;
+        }
+      }
+
+      // Fallback: string-ref matching (legacy plans or no LO map)
+      if (assertions === allAssertions) {
+        const sessionAssertions = allAssertions.filter((a) =>
+          assertionMatchesAnyLoRef(a.learningOutcomeRef, sessionLORefs),
+        );
+        if (sessionAssertions.length > 0) {
+          assertions = sessionAssertions;
+        }
       }
     }
   }
 
   // Priority 2: Fall back to current module LOs (existing behavior)
+  // #142: Prefer FK path, fall back to string-ref matching
   if (assertions === allAssertions && currentModule?.learningOutcomes?.length && allAssertions.length > 0) {
     const moduleLOs = currentModule.learningOutcomes as string[];
-    const loIds = moduleLOs.map((lo) => {
-      const match = lo.match(/^(LO\d+|AC[\d.]+)/i);
-      return match ? match[1] : lo;
-    });
+    const loRefToId = context.sharedState?.loRefToIdMap as Map<string, string> | undefined;
 
-    const moduleAssertions = allAssertions.filter((a) =>
-      assertionMatchesAnyLoRef(a.learningOutcomeRef, loIds),
-    );
+    // FK path
+    if (loRefToId) {
+      const moduleLoIds = moduleLOs
+        .map((lo) => {
+          const match = lo.match(/^(LO\d+|AC[\d.]+)/i);
+          const ref = match ? match[1] : lo;
+          return loRefToId.get(ref);
+        })
+        .filter(Boolean) as string[];
 
-    if (moduleAssertions.length > 0) {
-      assertions = moduleAssertions;
+      if (moduleLoIds.length > 0) {
+        const loIdSet = new Set(moduleLoIds);
+        const moduleAssertions = allAssertions.filter((a) =>
+          a.learningObjectiveId && loIdSet.has(a.learningObjectiveId),
+        );
+        if (moduleAssertions.length > 0) {
+          assertions = moduleAssertions;
+        }
+      }
+    }
+
+    // Fallback: string-ref matching
+    if (assertions === allAssertions) {
+      const loIds = moduleLOs.map((lo) => {
+        const match = lo.match(/^(LO\d+|AC[\d.]+)/i);
+        return match ? match[1] : lo;
+      });
+      const moduleAssertions = allAssertions.filter((a) =>
+        assertionMatchesAnyLoRef(a.learningOutcomeRef, loIds),
+      );
+      if (moduleAssertions.length > 0) {
+        assertions = moduleAssertions;
+      }
     }
   }
 
@@ -444,6 +591,8 @@ registerTransform("renderTeachingContent", (
     );
   }
 
+  } // end if (!isContinuousMode)
+
   // Detect if we have pyramid hierarchy
   const hasHierarchy = assertions.some((a) => a.depth !== null && a.depth !== undefined);
 
@@ -454,7 +603,15 @@ registerTransform("renderTeachingContent", (
 
   let teachingPoints: string;
 
-  if (hasMultipleSources(assertions)) {
+  if (isContinuousMode) {
+    // LO-grouped mode: group TPs under their parent LO header
+    // Build LO ID → ref display label lookup from working set
+    const loLookup = new Map<string, string>();
+    for (const lo of context.sharedState?.workingSet?.selectedLOs || []) {
+      loLookup.set(lo.id, lo.ref);
+    }
+    teachingPoints = renderLoGrouped(assertions, context.sharedState?.workingSet?.reviewIds || [], loLookup);
+  } else if (hasMultipleSources(assertions)) {
     // Source-grouped mode: group by document in teacher-set order, with delivery hints
     teachingPoints = renderSourceGrouped(assertions);
   } else if (hasHierarchy) {

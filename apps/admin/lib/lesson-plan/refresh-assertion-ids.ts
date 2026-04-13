@@ -70,7 +70,7 @@ export async function refreshLessonPlanAssertions(
   // Exclude instruction categories — same filter as generateLessonPlan()
   const currentAssertions = await prisma.contentAssertion.findMany({
     where: { sourceId, category: { notIn: [...INSTRUCTION_CATEGORIES] } },
-    select: { id: true, learningOutcomeRef: true, topicSlug: true, chapter: true, contentHash: true },
+    select: { id: true, learningOutcomeRef: true, learningObjectiveId: true, topicSlug: true, chapter: true, contentHash: true },
     orderBy: [{ depth: "asc" }, { orderIndex: "asc" }],
   });
 
@@ -118,8 +118,15 @@ export async function refreshLessonPlanAssertions(
     }
 
     if (modified) {
+      // #142: Build LO ref→id map for FK-based matching
+      const loRows = await prisma.learningObjective.findMany({
+        where: { module: { curriculumId: curriculum.id, isActive: true } },
+        select: { id: true, ref: true },
+      });
+      const loMap = new Map(loRows.map((lo) => [lo.ref, lo.id]));
+
       // Re-distribute current assertions across cleared entries using module-aware logic
-      const result = distributeAssertionsByModule(entries, currentAssertions, curriculum.id);
+      const result = distributeAssertionsByModule(entries, currentAssertions, curriculum.id, loMap);
       entriesRefilled += result.refilled;
       entriesOrphaned += result.orphaned;
 
@@ -148,6 +155,7 @@ export async function refreshLessonPlanAssertions(
 interface AssertionRef {
   id: string;
   learningOutcomeRef: string | null;
+  learningObjectiveId: string | null;
   topicSlug: string | null;
   chapter: string | null;
   contentHash?: string | null;
@@ -168,6 +176,8 @@ export function distributeAssertionsByModule(
   entries: any[],
   assertions: AssertionRef[],
   curriculumId: string,
+  /** #142: LO ref → id map for FK-based matching. When provided, assertions are matched by learningObjectiveId first. */
+  loRefToIdMap?: Map<string, string>,
 ): { refilled: number; orphaned: number } {
   const teachingEntries = entries.filter(
     (e: any) => !(STRUCTURAL_SESSION_TYPES as readonly string[]).includes(e.type),
@@ -185,14 +195,31 @@ export function distributeAssertionsByModule(
   const assigned = new Set<string>();
 
   // Pass 1: Module-aware assignment via learningOutcomeRefs
+  // #142: Prefer FK matching when loRefToIdMap is available
   for (const entry of emptyEntries) {
     const loRefs: string[] = entry.learningOutcomeRefs || [];
     if (loRefs.length === 0) continue;
 
-    const matched = assertions.filter((a) => {
-      if (assigned.has(a.id)) return false;
-      return assertionMatchesAnyLoRef(a.learningOutcomeRef, loRefs);
-    });
+    let matched: AssertionRef[] = [];
+
+    // FK path
+    if (loRefToIdMap && loRefToIdMap.size > 0) {
+      const loIdSet = new Set(loRefs.map((ref) => loRefToIdMap.get(ref)).filter(Boolean));
+      if (loIdSet.size > 0) {
+        matched = assertions.filter((a) => {
+          if (assigned.has(a.id)) return false;
+          return a.learningObjectiveId !== null && loIdSet.has(a.learningObjectiveId);
+        });
+      }
+    }
+
+    // Fallback: string-ref matching
+    if (matched.length === 0) {
+      matched = assertions.filter((a) => {
+        if (assigned.has(a.id)) return false;
+        return assertionMatchesAnyLoRef(a.learningOutcomeRef, loRefs);
+      });
+    }
 
     if (matched.length > 0) {
       entry.assertionIds = matched.map((a) => a.id);

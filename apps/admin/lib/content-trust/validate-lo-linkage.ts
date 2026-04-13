@@ -248,21 +248,30 @@ export async function computeCourseLinkageScorecard(courseId: string): Promise<C
   // Legacy totals (for the deprecated scorecard block)
   let legacyWithRef = 0;
   let legacyWithFk = 0;
+  // FK-based linkage counts: which LO IDs have at least one assertion?
+  const fkLoIdCounts = new Map<string, number>();
   const refCounts = new Map<string, number>();
 
   for (const a of assertions) {
     const isTutor = instructionSet.has(a.category);
     const hasRef = sanitiseLORef(a.learningOutcomeRef) !== null;
+    // #142: FK is the authority for linkage
     const hasFk = a.learningObjectiveId !== null;
 
     if (isTutor) {
       tutorTotal++;
-      if (hasRef) tutorLinked++;
+      if (hasFk) tutorLinked++;
     } else {
       studentTotal++;
-      if (hasRef) studentLinked++;
+      if (hasFk) studentLinked++;
     }
 
+    // Track FK-based LO coverage
+    if (hasFk) {
+      fkLoIdCounts.set(a.learningObjectiveId!, (fkLoIdCounts.get(a.learningObjectiveId!) ?? 0) + 1);
+    }
+
+    // Legacy counters (deprecated scorecard block)
     if (hasRef) {
       legacyWithRef++;
       if (a.learningOutcomeRef) {
@@ -279,7 +288,7 @@ export async function computeCourseLinkageScorecard(courseId: string): Promise<C
   const curricula = await prisma.curriculum.findMany({
     where: { subjectId: { in: subjectIds } },
     orderBy: { createdAt: "desc" },
-    select: { id: true, modules: { select: { id: true, isActive: true, learningObjectives: { select: { ref: true, description: true } } } } },
+    select: { id: true, modules: { select: { id: true, isActive: true, learningObjectives: { select: { id: true, ref: true, description: true } } } } },
   });
   const primaryCurriculumId = curricula[0]?.id ?? null;
   const allModules = curricula.flatMap((c) => c.modules);
@@ -287,12 +296,8 @@ export async function computeCourseLinkageScorecard(courseId: string): Promise<C
   const los = activeModules.flatMap((m) => m.learningObjectives);
   const garbageDescriptions = los.filter((lo) => !isValidLoPair(lo.ref, lo.description)).length;
 
-  // LOs with at least one student TP assigned to them
-  const outcomesWithoutContent = los.filter((lo) => {
-    const canon = sanitiseLORef(lo.ref);
-    if (!canon) return true;
-    return !refCounts.has(canon) && !refCounts.has(lo.ref);
-  }).length;
+  // #142: LOs with at least one assertion linked via FK
+  const outcomesWithoutContent = los.filter((lo) => !fkLoIdCounts.has(lo.id)).length;
   const outcomesWithContent = los.length - outcomesWithoutContent;
 
   // ── Questions ──────────────────────────────────────────
