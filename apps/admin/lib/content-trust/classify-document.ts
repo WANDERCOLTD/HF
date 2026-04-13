@@ -68,8 +68,14 @@ const FILENAME_TYPE_HINTS: Array<{
   { pattern: /question[_-]?bank/i, type: "QUESTION_BANK", role: "questions" },
   { pattern: /reading[_-]?passage/i, type: "READING_PASSAGE", role: "passage" },
   { pattern: /lesson[_-]?plan/i, type: "LESSON_PLAN", role: "pedagogy" },
-  { pattern: /mark[_-]?scheme/i, type: "ASSESSMENT", role: "questions" },
-  { pattern: /past[_-]?paper/i, type: "ASSESSMENT", role: "questions" },
+  { pattern: /mark[_-]?scheme|markscheme/i, type: "ASSESSMENT", role: "questions" },
+  // Past papers / exam papers — catch common naming patterns:
+  //   past-paper, pastpaper, past_paper
+  //   sats-paper, sats_paper
+  //   2024-paper, paper-2024, paper_2025
+  //   mock-paper, exam-paper, test-paper, practice-paper
+  //   KS2-paper, GCSE-paper
+  { pattern: /past[_-]?paper|sats[_-]?paper|(?:^|[_-])(?:paper[_-]?\d{4}|\d{4}[_-]?paper)|mock[_-]?paper|exam[_-]?paper|test[_-]?paper|practice[_-]?paper|ks\d[_-]?.*paper|gcse[_-]?.*paper|a[_-]?level[_-]?.*paper/i, type: "ASSESSMENT", role: "questions" },
 ];
 
 /**

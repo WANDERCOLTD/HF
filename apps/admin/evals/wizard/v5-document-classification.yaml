@@ -1,0 +1,581 @@
+description: "Document classification — SATs/past-paper vs TEXTBOOK regression + all type coverage"
+
+# Run with: npm run eval:classify
+# Tests the content-classification system prompt from PROMPT_REGISTRY["content-classification"]
+# in apps/admin/lib/prompts/registry.ts.
+#
+# The classifier returns: { documentType, confidence, reasoning }
+# Temperature 0.1, maxTokens 500 — matches production config.
+
+prompts:
+  - id: content-classification
+    raw: |
+      You are a document classification specialist for an educational content system.
+      You receive a multi-point sample from a document (start, middle, and end sections) plus the filename. Classify the document into one of these types:
+
+      - CURRICULUM: A formal syllabus, curriculum specification, or qualification framework. Contains Learning Outcomes (LOs), Assessment Criteria (ACs), range statements, or module descriptors. Highly structured with numbered LOs and ACs. Examples: CII R04 syllabus, Ofqual qualification spec, City & Guilds Level 2 Food Safety handbook.
+      - TEXTBOOK: A published study text, training manual, or dense reference material structured as chapters covering a subject. Contains detailed explanations, chapters, worked examples organised by topic. The primary teaching content used for first-teaching. Must have chapter/section structure and explanatory prose written TO the student. Examples: Sprenger food safety textbook, BFT study guide, Key Stage 2 Maths textbook, insurance study text. NOT a past paper, NOT a question set with mark schemes, NOT a test — those are ASSESSMENT.
+      - COMPREHENSION: A reading passage or article with comprehension questions, vocabulary exercises, and/or answer keys. The learner reads the passage then answers questions to demonstrate understanding. The document is primarily READ-ONLY — the learner does not fill anything in. Examples: "The Black Death" reading worksheet, British Council LearnEnglish article, reading comprehension sheet with questions at the end.
+      - WORKSHEET: A fill-in / write-up / production sheet that the student COMPLETES. Contains blank spaces, tables to fill, exercises requiring written answers, lab sheets. The learner produces content ON the sheet. Examples: lab report template, math practice sheet, fill-in-the-blank grammar exercise, write-up template.
+      - ASSESSMENT: Formal test/exam material — ANY past paper, exam paper, mock, practice paper, practice test, or test. Typical features: numbered exam questions (Q1, Q2, Question 1), answer boxes or blank lines for pupil responses, marks indicated ("(2 marks)", "[3]"), a cover page stating "DO NOT OPEN UNTIL...", a time limit, "write your answer here", mark schemes, grade boundaries, or question-and-answer pairs. If the document IS a test paper (even without a mark scheme attached), classify as ASSESSMENT. Worked examples INSIDE an exam paper do NOT make it a textbook. Examples: 2024 KS2 SATs paper, mock GCSE paper, end-of-module test, past paper with mark scheme, practice paper, arithmetic test paper.
+      - REFERENCE: Quick reference card, glossary, cheat sheet, or summary table. Flat lookup material, no narrative or exercises. Examples: tax rate card, food temperature reference chart, glossary of terms.
+      - EXAMPLE: An illustrative or case-study document used as source material for discussion. Something the AI will talk ABOUT with the learner. Examples: sample cross-contamination report, case study document, sample complaint letter.
+      - LESSON_PLAN: A teacher-facing plan with objectives, activities, timing, differentiation strategies, and assessment opportunities. NOT a student document. Examples: lesson plan for "Introduction to Negotiation", scheme of work, teaching guide.
+      - POLICY_DOCUMENT: A regulatory, compliance, or safety procedure document. Defines required practices, hazards, control measures, legal requirements. Examples: Food Standards Agency pest control guide, HACCP procedures, health & safety policy, regulatory compliance manual.
+      - READING_PASSAGE: A standalone reading passage or text extract that the learner reads before or during a tutoring session. Contains narrative, descriptive, or informational prose but NO questions, exercises, or answer keys. Often has metadata headers (title, author, word count, text type). The document IS the text the learner reads — nothing more. Examples: chapter extract from The Secret Garden, a poem for analysis, a news article for discussion, a descriptive passage for comprehension practice.
+      - QUESTION_BANK: A tutor reference document containing questions mapped to skills or learning outcomes, with model answers at multiple proficiency tiers (e.g., Emerging / Developing / Secure), suggested tutor responses or "next moves" at each tier, and assessment guidance. NOT a learner-facing test — it is a teaching script or tutor playbook. The tutor uses this to guide conversation. Typically references a separate reading passage. Examples: comprehension question bank with tiered model responses, skill-mapped discussion guide, tutor playbook for a specific passage.
+      - COURSE_REFERENCE: A tutor instruction document that tells the AI HOW to deliver a course. Contains some or all of: skills framework with proficiency tiers, session flow/phases, scaffolding rules, teaching principles, teaching techniques, communication guidelines, assessment approach, course outcomes, edge-case handling, parent communication rules. This is instructions FOR the tutor, not content FOR the student — even if it describes what students should learn (learning outcomes) or what student responses look like at each proficiency level (calibration material). The key distinction: a TEXTBOOK teaches the student directly; a COURSE_REFERENCE tells the tutor how to teach. If the document says "the tutor should..." or "this document is for the tutor" or describes session structure and teaching approach, it is a COURSE_REFERENCE. Examples: course reference guide, tutor methodology document, teaching approach playbook, course delivery handbook.
+
+      DISAMBIGUATION RULES (apply in order):
+      0. Describes HOW to teach a course: tutor behaviour rules, skills framework, session flow/phases, scaffolding techniques, teaching approach, communication guidelines, or course-level learning outcomes → COURSE_REFERENCE (not LESSON_PLAN, TEXTBOOK, or QUESTION_BANK). A COURSE_REFERENCE MAY contain learning outcomes, proficiency tier descriptions, and student response examples — these are calibration material for the tutor, not student-facing content. If the document's primary purpose is instructing the tutor on course delivery (not teaching students directly), classify as COURSE_REFERENCE.
+      1. Has numbered LOs/ACs/Range statements → CURRICULUM (not TEXTBOOK)
+      2. Pure reading text with NO questions, exercises, or answer keys — just the passage → READING_PASSAGE (not TEXTBOOK or COMPREHENSION)
+      3. Questions with tiered model responses (Emerging/Developing/Secure) + tutor guidance + skill mappings → QUESTION_BANK (not ASSESSMENT or COMPREHENSION)
+      4. Has reading passage + comprehension questions + answers IN THE SAME DOCUMENT, learner reads but doesn't fill in → COMPREHENSION (not WORKSHEET or READING_PASSAGE)
+      5. Has blank spaces, fill-in tables, or requires learner to write/produce content → WORKSHEET (not COMPREHENSION)
+      6. Has any of: mark scheme, grade boundaries, numbered exam-style questions (Q1, Q2) with marks indicated like "(2 marks)" or "[3]", answer boxes/lines for pupil responses, a cover page stating "time allowed" or "DO NOT OPEN", or is titled/identified as a past paper, mock, practice paper, SATs paper, GCSE paper, A-level paper, exam, or test → ASSESSMENT (not TEXTBOOK, not WORKSHEET). Worked examples inside an exam paper do NOT make it a TEXTBOOK.
+      7. Is teacher-facing with lesson timing, activities, differentiation → LESSON_PLAN (not TEXTBOOK)
+      8. Defines safety procedures, hazards, control measures, legal requirements → POLICY_DOCUMENT (not TEXTBOOK or REFERENCE)
+      9. Is flat lookup (glossary, chart, table) with no narrative → REFERENCE (not TEXTBOOK)
+
+      IMPORTANT: Look at ALL sections (start, middle, AND end) before classifying. Many teaching documents are COMPOSITE.
+
+      Return a JSON object:
+      {
+        "documentType": "CURRICULUM" | "TEXTBOOK" | "COMPREHENSION" | "WORKSHEET" | "ASSESSMENT" | "REFERENCE" | "EXAMPLE" | "LESSON_PLAN" | "POLICY_DOCUMENT" | "READING_PASSAGE" | "QUESTION_BANK" | "COURSE_REFERENCE",
+        "confidence": 0.0-1.0,
+        "reasoning": "one sentence explaining why"
+      }
+
+      Return ONLY valid JSON (no markdown code fences).
+
+      ---
+      {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      temperature: 0.1
+      max_tokens: 500
+
+# ---------------------------------------------------------------------------
+# Shared assertion helper (inline JS — checks documentType from JSON output)
+# ---------------------------------------------------------------------------
+
+tests:
+
+  # ── 1. SATs past paper — regression: was mis-classified as TEXTBOOK ────────
+
+  - description: "REGRESSION: KS2 SATs maths paper → ASSESSMENT (not TEXTBOOK)"
+    vars:
+      userMessage: |
+        Filename: 2024-ks2-maths-paper-1-arithmetic.pdf
+
+        Document sample (3 sections):
+
+        === START ===
+        Key Stage 2
+        Mathematics
+        Paper 1: Arithmetic
+        First name _______________
+        Last name _______________
+        Date of birth Day ___ Month ___ Year ___
+        School name _______________
+        Time allowed: 30 minutes
+        Instructions: You must not use a calculator to answer any questions in this test.
+        Do not open this booklet until you are told to start.
+
+        === MIDDLE ===
+        Q5.    326 + 484 = ____________    (1 mark)
+
+        Q6.    1,007 − 358 = ____________    (1 mark)
+
+        Q7.    24 × 6 = ____________    (1 mark)
+
+        Q8.    Write the missing number.
+               ___ × 8 = 96    (1 mark)
+
+        Worked example:
+        Q0.    12 + 5 = 17    ✓
+
+        Q9.    835 ÷ 5 = ____________    (1 mark)
+
+        === END ===
+        Q20.   Calculate 15% of 340.
+               ____________    (1 mark)
+
+        Q21.   Write the value of 2³.
+               ____________    (1 mark)
+
+        End of test.
+        Total marks: ___/40
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          let parsed;
+          try { parsed = JSON.parse(stripped); }
+          catch(e) { return { pass: false, reason: `Output is not valid JSON: ${e.message}` }; }
+          if (parsed.documentType !== 'ASSESSMENT') {
+            return { pass: false, reason: `Expected ASSESSMENT, got ${parsed.documentType}. Reasoning: ${parsed.reasoning}` };
+          }
+          return true;
+
+  # ── 2. Mock GCSE paper (no mark scheme attached) ───────────────────────────
+
+  - description: "Mock GCSE paper without mark scheme → ASSESSMENT"
+    vars:
+      userMessage: |
+        Filename: gcse-english-language-mock-paper1.pdf
+
+        Document sample (3 sections):
+
+        === START ===
+        GCSE English Language
+        Paper 1: Explorations in Creative Reading and Writing
+        Mock Examination
+        Time allowed: 1 hour 45 minutes
+        Instructions to candidates:
+        • Answer ALL questions.
+        • Use black ink or black ball-point pen.
+        • Write your name and centre number at the top of this page.
+        DO NOT TURN OVER UNTIL TOLD TO DO SO.
+
+        === MIDDLE ===
+        Section A: Reading
+
+        Read the source text carefully, then answer Questions 1–4.
+
+        Question 1
+        Read again the first part of the source, lines 1–5.
+        List four things from this part of the text about the narrator's surroundings.    [4 marks]
+
+        Write your answer here:
+        1. _______________
+        2. _______________
+        3. _______________
+        4. _______________
+
+        Question 2
+        How does the writer use language to convey the atmosphere in lines 6–15?    [8 marks]
+
+        === END ===
+        Section B: Writing
+
+        Question 5
+        You are going to enter a creative writing competition.
+
+        Either: Write a description suggested by this picture.
+        Or: Write the opening part of a story about a journey.
+
+        (24 marks for content and organisation; 16 marks for technical accuracy)
+        [40 marks]
+
+        Write your answer here or on additional paper.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          let parsed;
+          try { parsed = JSON.parse(stripped); }
+          catch(e) { return { pass: false, reason: `Output is not valid JSON: ${e.message}` }; }
+          if (parsed.documentType !== 'ASSESSMENT') {
+            return { pass: false, reason: `Expected ASSESSMENT, got ${parsed.documentType}. Reasoning: ${parsed.reasoning}` };
+          }
+          return true;
+
+  # ── 3. Textbook chapter (worked examples ≠ ASSESSMENT) ────────────────────
+
+  - description: "Textbook chapter with worked examples → TEXTBOOK (not ASSESSMENT)"
+    vars:
+      userMessage: |
+        Filename: ks2-maths-textbook-chapter4-fractions.pdf
+
+        Document sample (3 sections):
+
+        === START ===
+        Chapter 4: Understanding Fractions
+
+        By the end of this chapter you will be able to:
+        • identify and name fractions of shapes and quantities
+        • compare and order fractions with different denominators
+        • add and subtract fractions with the same denominator
+
+        4.1 What is a Fraction?
+        A fraction represents a part of a whole. When we divide a pizza into 4 equal slices and eat 1 slice, we have eaten one quarter — written as ¼.
+
+        The number on the bottom (denominator) tells us how many equal parts the whole is divided into.
+        The number on the top (numerator) tells us how many parts we are talking about.
+
+        === MIDDLE ===
+        4.3 Adding Fractions with the Same Denominator
+
+        When the denominators are the same, we simply add the numerators and keep the denominator.
+
+        Worked Example 1:
+          ²/₅ + ¹/₅ = ³/₅
+        We add the numerators (2 + 1 = 3) and keep the denominator (5).
+
+        Worked Example 2:
+          ³/₈ + ²/₈ = ⁵/₈
+        Check: can you simplify? 5 and 8 share no common factors, so ⁵/₈ is already in its simplest form.
+
+        Now try these yourself:
+        a) ²/₇ + ³/₇ = ___    b) ¹/₆ + ⁴/₆ = ___    c) ⁵/₉ + ²/₉ = ___
+
+        === END ===
+        4.6 Chapter Summary
+
+        In this chapter you have learned:
+        ✓ A fraction has a numerator (top) and a denominator (bottom)
+        ✓ To compare fractions, convert to a common denominator
+        ✓ To add/subtract fractions: same denominator — just work with the numerators
+        ✓ Mixed numbers combine a whole number and a fraction
+
+        Chapter 4 Review Questions — try these before moving on to Chapter 5.
+        (Answers on page 89)
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          let parsed;
+          try { parsed = JSON.parse(stripped); }
+          catch(e) { return { pass: false, reason: `Output is not valid JSON: ${e.message}` }; }
+          if (parsed.documentType !== 'TEXTBOOK') {
+            return { pass: false, reason: `Expected TEXTBOOK, got ${parsed.documentType}. Reasoning: ${parsed.reasoning}` };
+          }
+          return true;
+
+  # ── 4. Course reference guide → COURSE_REFERENCE ──────────────────────────
+
+  - description: "Tutor delivery guide with skills framework → COURSE_REFERENCE"
+    vars:
+      userMessage: |
+        Filename: 11plus-comprehension-course-reference-guide.pdf
+
+        Document sample (3 sections):
+
+        === START ===
+        11+ Creative Comprehension: Course Reference Guide
+        For Tutor Use Only — Version 2.1
+
+        This document tells the AI tutor how to deliver the 11+ Creative Comprehension course.
+        It is NOT for students. Do not share this document with learners or parents.
+
+        Course Purpose:
+        To develop pupils' ability to read literary texts closely and respond to comprehension
+        questions at the level required for selective school entry at 11+.
+
+        The tutor should use a Socratic style — guiding pupils to discover answers through
+        questioning rather than explaining directly.
+
+        === MIDDLE ===
+        Skills Framework — Proficiency Tiers
+
+        Skill: Inference
+        Emerging: Pupil identifies surface-level information only ("it says he was cold").
+        Developing: Pupil makes basic inference with some textual reference ("he must be cold because of the description of the wind").
+        Secure: Pupil makes confident inference with precise evidence and explanation ("the writer implies despair through the phrase 'leaden sky', evoking heaviness and hopelessness").
+
+        Tutor next move at Emerging: Ask "What does the author tell us about how the character feels? Can you find a word or phrase?"
+        Tutor next move at Developing: "That's a good start — can you quote the exact words that gave you that idea?"
+
+        === END ===
+        Session Flow (each 50-minute session):
+        Phase 1 — Cold read (10 min): Pupil reads the passage silently. Tutor does not intervene.
+        Phase 2 — First impressions (5 min): Open question: "What did you notice?"
+        Phase 3 — Targeted questions (25 min): Tutor works through Question Bank in order.
+        Phase 4 — Consolidation (10 min): Tutor summarises progress, sets focus for next session.
+
+        Edge cases: If pupil refuses to attempt a question, tutor should read the relevant lines aloud
+        together before re-asking. Never give the answer directly.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          let parsed;
+          try { parsed = JSON.parse(stripped); }
+          catch(e) { return { pass: false, reason: `Output is not valid JSON: ${e.message}` }; }
+          if (parsed.documentType !== 'COURSE_REFERENCE') {
+            return { pass: false, reason: `Expected COURSE_REFERENCE, got ${parsed.documentType}. Reasoning: ${parsed.reasoning}` };
+          }
+          return true;
+
+  # ── 5. Curriculum spec with numbered LOs/ACs → CURRICULUM ─────────────────
+
+  - description: "Numbered LOs and ACs → CURRICULUM"
+    vars:
+      userMessage: |
+        Filename: ofqual-level2-food-safety-spec.pdf
+
+        Document sample (3 sections):
+
+        === START ===
+        Level 2 Award in Food Safety in Catering
+        Qualification Specification — Ofqual Regulated
+
+        Unit 1: Principles of Food Safety
+
+        Aim: This unit provides learners with the knowledge and understanding of food safety principles
+        required to work safely in a catering environment.
+
+        Credit value: 1
+        Guided Learning Hours: 9
+
+        Learning Outcomes and Assessment Criteria
+
+        === MIDDLE ===
+        Learning Outcome 1: Understand the importance of food safety in catering
+
+        Assessment Criteria:
+        AC 1.1  State the importance of food safety procedures
+        AC 1.2  Describe the legal responsibilities of food handlers and food business operators
+        AC 1.3  State the consequences of poor food safety practices
+
+        Learning Outcome 2: Understand how to prevent food contamination
+
+        Assessment Criteria:
+        AC 2.1  Identify the sources of food safety hazards
+        AC 2.2  Describe how food can become contaminated
+        AC 2.3  Explain methods used to prevent food contamination
+
+        Range Statement for AC 2.1:
+        Sources include: microbiological, chemical, physical, and allergenic hazards.
+
+        === END ===
+        Learning Outcome 4: Understand how to keep the work environment clean and safe
+
+        Assessment Criteria:
+        AC 4.1  State the importance of maintaining a clean work area
+        AC 4.2  Describe cleaning and disinfection procedures
+        AC 4.3  Identify appropriate personal protective equipment for food handling
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          let parsed;
+          try { parsed = JSON.parse(stripped); }
+          catch(e) { return { pass: false, reason: `Output is not valid JSON: ${e.message}` }; }
+          if (parsed.documentType !== 'CURRICULUM') {
+            return { pass: false, reason: `Expected CURRICULUM, got ${parsed.documentType}. Reasoning: ${parsed.reasoning}` };
+          }
+          return true;
+
+  # ── 6. Reading passage (narrative, no questions) → READING_PASSAGE ─────────
+
+  - description: "Narrative prose with no questions or exercises → READING_PASSAGE"
+    vars:
+      userMessage: |
+        Filename: the-secret-garden-extract-chapter3.pdf
+
+        Document sample (3 sections):
+
+        === START ===
+        Text Type: Literary fiction — classic novel extract
+        Title: The Secret Garden (Chapter 3)
+        Author: Frances Hodgson Burnett
+        Word count: approx. 520
+        Recommended for: Year 5–6, reading age 10–12
+
+        When Mary Lennox was sent to Misselthwaite Manor to live with her uncle, everybody said she was
+        the most disagreeable-looking child ever seen. It was true, too. She had a little thin face and
+        a little thin body, thin light hair and a sour expression.
+
+        === MIDDLE ===
+        The garden was the queeerest-looking place she had ever seen in her life. High walls surrounded
+        it on all sides, and over the top of the walls, grey-green shoots of creepers were beginning to
+        show. There was not a door to be seen, and Mary could not help wondering how one got in.
+
+        "How can I get into it?" she said to herself. "There is no door." She had begun to like the
+        garden because no one had ever been in it. How could she get in? Why had it been shut up?
+
+        === END ===
+        She went back to the walk outside the long ivy-covered wall over which she could see the tree
+        tops; and the second time she walked up and down the most interesting and exciting thing happened
+        to her, and it was all through Ben Weatherstaff's robin. She heard a chirp and a twitter, and
+        when she looked at the bare flower-bed at her left side there he was hopping about and pecking
+        at the earth and worms with his bright eyes...
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          let parsed;
+          try { parsed = JSON.parse(stripped); }
+          catch(e) { return { pass: false, reason: `Output is not valid JSON: ${e.message}` }; }
+          if (parsed.documentType !== 'READING_PASSAGE') {
+            return { pass: false, reason: `Expected READING_PASSAGE, got ${parsed.documentType}. Reasoning: ${parsed.reasoning}` };
+          }
+          return true;
+
+  # ── 7. Worksheet with fill-in blanks → WORKSHEET ──────────────────────────
+
+  - description: "Fill-in-the-blank student sheet → WORKSHEET"
+    vars:
+      userMessage: |
+        Filename: year5-fractions-worksheet-lesson4.pdf
+
+        Document sample (3 sections):
+
+        === START ===
+        Name: _______________________    Date: _______________    Class: _______
+
+        Fractions Worksheet — Lesson 4: Equivalent Fractions
+
+        Learning objective: I can find equivalent fractions and simplify fractions.
+
+        Part A — Complete the equivalent fractions (fill in the missing numbers):
+
+        ½  =  ___/4  =  ___/8  =  ___/10
+
+        2/3  =  ___/6  =  ___/9  =  ___/12
+
+        === MIDDLE ===
+        Part B — Simplify these fractions to their lowest terms. Show your working.
+
+        1)  6/8  = _________    Working: ___________________________
+
+        2)  9/12 = _________    Working: ___________________________
+
+        3)  10/15 = ________    Working: ___________________________
+
+        Part C — Word problems. Write your full working below each question.
+
+        There are 20 pupils in a class. 8 are wearing glasses. What fraction of the class
+        wears glasses? Write your answer in its simplest form.
+
+        Answer: _________________
+
+        === END ===
+        Part D — Challenge: Can you write three fractions equivalent to 3/5?
+
+        1) ________________   2) ________________   3) ________________
+
+        Explain HOW you found them:
+        ___________________________________________________________________
+        ___________________________________________________________________
+
+        Teacher's notes: ___________________________________________________
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          let parsed;
+          try { parsed = JSON.parse(stripped); }
+          catch(e) { return { pass: false, reason: `Output is not valid JSON: ${e.message}` }; }
+          if (parsed.documentType !== 'WORKSHEET') {
+            return { pass: false, reason: `Expected WORKSHEET, got ${parsed.documentType}. Reasoning: ${parsed.reasoning}` };
+          }
+          return true;
+
+  # ── 8. Question bank with tiered model responses → QUESTION_BANK ──────────
+
+  - description: "Tiered model responses (Emerging/Developing/Secure) + tutor moves → QUESTION_BANK"
+    vars:
+      userMessage: |
+        Filename: comprehension-question-bank-the-black-death.pdf
+
+        Document sample (3 sections):
+
+        === START ===
+        Comprehension Question Bank
+        Passage: "The Black Death" (Year 6 Non-Fiction)
+        Skills mapped to: KS2 Reading AFs 2, 3, 4, 6
+
+        FOR TUTOR USE ONLY — This document contains model answers and tutor guidance.
+        Do not share with pupils.
+
+        How to use this bank:
+        • Ask questions in order unless a pupil shows mastery — then skip ahead.
+        • After each answer, locate the response on the tier ladder below and choose the next move.
+        • Return to Emerging questions if a pupil slips back.
+
+        === MIDDLE ===
+        Question 2 (Inference — AF3)
+        "What does the writer suggest about how people felt when the plague arrived?"
+
+        Emerging response: "They were scared." / "Everyone died."
+        Tutor next move: "What word or phrase in the text makes you think that? Point to it."
+
+        Developing response: Pupil references a phrase but offers limited explanation.
+          Example: "It says 'gripped by terror' which shows they were very frightened."
+        Tutor next move: "Good — can you say WHY the writer used 'gripped'? What does that image suggest?"
+
+        Secure response: Pupil selects precise language and explains the writer's intent.
+          Example: "The phrase 'gripped by terror' personifies fear as a physical force — suggesting
+          the population had no agency or escape, not just that they were afraid."
+        Tutor next move: Affirm and move to Question 3.
+
+        === END ===
+        Question 5 (Vocabulary — AF6)
+        "Find and explain the word 'virulent' in paragraph 3."
+
+        Emerging: Pupil cannot locate the word or defines it as 'violent'.
+        Tutor move: Read the sentence aloud, ask "what kind of word could fit here instead?"
+
+        Developing: "It means very bad or harmful."
+        Tutor move: "That's close — can you be more precise? What's virulent about a disease specifically?"
+
+        Secure: "Virulent means extremely infectious and damaging — more intense than just 'harmful'.
+        The writer uses it to convey that this strain of plague spread and killed unusually fast."
+        Tutor move: Affirm. Extend: "Can you think of another context where we use 'virulent'?"
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          let parsed;
+          try { parsed = JSON.parse(stripped); }
+          catch(e) { return { pass: false, reason: `Output is not valid JSON: ${e.message}` }; }
+          if (parsed.documentType !== 'QUESTION_BANK') {
+            return { pass: false, reason: `Expected QUESTION_BANK, got ${parsed.documentType}. Reasoning: ${parsed.reasoning}` };
+          }
+          return true;
+
+  # ── Confidence sanity check ───────────────────────────────────────────────
+
+  - description: "SANITY: All responses return valid JSON with required fields"
+    vars:
+      userMessage: |
+        Filename: sample-doc.pdf
+
+        Document sample (3 sections):
+
+        === START ===
+        Chapter 1: Introduction to Photosynthesis
+
+        In this chapter you will learn how plants convert sunlight, water, and carbon dioxide
+        into glucose and oxygen — a process called photosynthesis.
+
+        === MIDDLE ===
+        The chemical equation for photosynthesis is:
+        6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + 6O₂
+
+        This occurs in the chloroplasts, specifically in the thylakoid membranes (light reactions)
+        and the stroma (Calvin cycle).
+
+        === END ===
+        Chapter summary: Photosynthesis is the foundation of almost all food chains on Earth.
+        Test yourself: What are the three raw materials needed for photosynthesis?
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          let parsed;
+          try { parsed = JSON.parse(stripped); }
+          catch(e) { return { pass: false, reason: `Output is not valid JSON: ${e.message}` }; }
+          const valid = ['CURRICULUM','TEXTBOOK','COMPREHENSION','WORKSHEET','ASSESSMENT',
+            'REFERENCE','EXAMPLE','LESSON_PLAN','POLICY_DOCUMENT','READING_PASSAGE',
+            'QUESTION_BANK','COURSE_REFERENCE'];
+          if (!parsed.documentType) return { pass: false, reason: 'Missing documentType field' };
+          if (!valid.includes(parsed.documentType)) return { pass: false, reason: `Unknown documentType: ${parsed.documentType}` };
+          if (typeof parsed.confidence !== 'number') return { pass: false, reason: 'Missing or non-numeric confidence field' };
+          if (!parsed.reasoning) return { pass: false, reason: 'Missing reasoning field' };
+          return true;
