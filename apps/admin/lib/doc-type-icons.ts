@@ -149,17 +149,41 @@ export function getDocTypeInfo(type: string): DocTypeInfo {
 /**
  * Document types that students should see by default.
  * Teacher can override via the eye toggle on the sources panel.
+ *
+ * Rule of thumb: if it's material the student would reference, read, or work
+ * from during a session, it's student-visible. If it's a tutor playbook or
+ * teacher-facing methodology, it's teacher-only.
  */
 const STUDENT_VISIBLE_DOC_TYPES = new Set([
   "READING_PASSAGE",
   "WORKSHEET",
   "COMPREHENSION",
   "EXAMPLE",
+  "TEXTBOOK",        // Study texts — students read during sessions
+  "ASSESSMENT",      // Past papers, mark schemes — students reference during practice
+  "REFERENCE",       // Quick-reference cards, glossaries, framework docs
+  "CURRICULUM",      // Syllabus/curriculum specs — students see what they're learning
+]);
+
+/**
+ * Document types that stay teacher-only by default — these are for tutor
+ * guidance and would confuse students. Teacher can still override per-file.
+ */
+const TEACHER_ONLY_DOC_TYPES = new Set([
+  "COURSE_REFERENCE",  // Tutor methodology / course delivery guide
+  "LESSON_PLAN",        // Teacher-facing plans
+  "QUESTION_BANK",      // Tutor playbook with tiered model answers
+  "POLICY_DOCUMENT",    // Regulatory / compliance reference
 ]);
 
 /** Should this document type be shared with students by default? */
 export function isStudentVisibleDefault(documentType: string): boolean {
   return STUDENT_VISIBLE_DOC_TYPES.has(documentType);
+}
+
+/** Should this document type stay teacher-only? */
+export function isTeacherOnlyDocType(documentType: string): boolean {
+  return TEACHER_ONLY_DOC_TYPES.has(documentType);
 }
 
 /** Ordered groups for the role-grouped picker UI */

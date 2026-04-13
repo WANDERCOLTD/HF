@@ -445,7 +445,7 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
         <div className="cv4-sources-files">
           {classifications.map((c, idx) => {
             const info = getDocTypeInfo(c.documentType);
-            const isVisible = studentVisible[idx] ?? false;
+            const isVisible = studentVisible[idx] ?? isStudentVisibleDefault(c.documentType);
             return (
               <div key={c.fileName} className="cv4-sources-file">
                 <FileText size={12} />
