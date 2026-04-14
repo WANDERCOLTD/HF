@@ -71,12 +71,16 @@ async function loadModulesFromDB(curriculumId: string): Promise<{ modules: Modul
  * Try to find curriculum info from the loaded data context.
  * Looks in subjectSources → subjects → curriculum.
  */
-function findCurriculumInfo(data: LoadedDataContext): { id: string; name: string | null } | null {
+function findCurriculumInfo(data: LoadedDataContext): { id: string; name: string | null; slug: string | null } | null {
   const subjects = data.subjectSources?.subjects;
   if (!subjects?.length) return null;
   for (const subject of subjects) {
     if (subject.curriculum?.id) {
-      return { id: subject.curriculum.id, name: (subject.curriculum as any).name || null };
+      return {
+        id: subject.curriculum.id,
+        name: (subject.curriculum as any).name || null,
+        slug: (subject.curriculum as any).slug || null,
+      };
     }
   }
   return null;
@@ -305,7 +309,10 @@ export async function computeSharedState(
     if (dbResult && dbResult.modules.length > 0) {
       modules = dbResult.modules;
       loRefToIdMap = dbResult.loRefToIdMap;
-      console.log(`[modules] DB-first: loaded ${modules.length} modules from CurriculumModule records`);
+      // Propagate the curriculum slug so the continuous branch's specSlug guard passes.
+      // Without this, DB-first-loaded curricula silently fall through to structured mode.
+      specSlug = curriculumInfo?.slug || '';
+      console.log(`[modules] DB-first: loaded ${modules.length} modules from CurriculumModule records (slug=${specSlug || '(none)'})`);
     }
   }
 
