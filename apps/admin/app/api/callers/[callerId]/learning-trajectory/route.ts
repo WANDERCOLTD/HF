@@ -67,7 +67,7 @@ export async function GET(
   // Load CallScores for this profile's parameters across all calls (most recent first)
   const scores = await prisma.callScore.findMany({
     where: {
-      call: { callerPlaybook: { callerId } },
+      call: { callerId },
       parameter: { parameterId: { startsWith: prefix } },
     },
     select: {
