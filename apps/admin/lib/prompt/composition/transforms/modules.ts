@@ -71,7 +71,8 @@ async function loadModulesFromDB(curriculumId: string): Promise<{ modules: Modul
  * Try to find curriculum info from the loaded data context.
  * Looks in subjectSources → subjects → curriculum.
  */
-function findCurriculumInfo(data: LoadedDataContext): { id: string; name: string | null; slug: string | null } | null {
+/** Exported for regression tests — see tests/lib/composition/modules.test.ts. */
+export function findCurriculumInfo(data: LoadedDataContext): { id: string; name: string | null; slug: string | null } | null {
   const subjects = data.subjectSources?.subjects;
   if (!subjects?.length) return null;
   for (const subject of subjects) {
@@ -84,6 +85,27 @@ function findCurriculumInfo(data: LoadedDataContext): { id: string; name: string
     }
   }
   return null;
+}
+
+/**
+ * Resolve the effective `lessonPlanMode` for a course given its curriculum
+ * delivery config and playbook config.
+ *
+ * Explicit `deliveryConfig.lessonPlanMode === 'continuous'` wins. Otherwise,
+ * `playbookConfig.teachingMode === 'comprehension'` also routes to continuous,
+ * because comprehension courses are inherently linear reading courses that
+ * interleave skills over a shared passage rather than sequencing through
+ * discrete sessions. Everything else defaults to 'structured'.
+ *
+ * Exported for regression tests — see tests/lib/composition/modules.test.ts.
+ */
+export function resolveLessonPlanMode(
+  deliveryConfig: Record<string, unknown> | null | undefined,
+  playbookConfig: Record<string, unknown> | null | undefined,
+): 'continuous' | 'structured' {
+  if ((deliveryConfig?.lessonPlanMode as string) === 'continuous') return 'continuous';
+  if ((playbookConfig?.teachingMode as string) === 'comprehension') return 'continuous';
+  return 'structured';
 }
 
 // =============================================================================
@@ -423,16 +445,8 @@ export async function computeSharedState(
     }
   }
 
-  // Courses with teachingMode: comprehension are inherently continuous —
-  // the student reads source material (book, passage) in its natural order and
-  // skills are interleaved across the same content. Route them through the
-  // continuous branch even when Curriculum.deliveryConfig.lessonPlanMode has
-  // not been explicitly set. This is a bridge until the scheduler epic lands.
-  const playbookTeachingMode = (data.playbooks?.[0]?.config as Record<string, unknown> | undefined)?.teachingMode;
-  const isComprehensionCourse = playbookTeachingMode === 'comprehension';
-  const lessonPlanMode = ((deliveryConfig?.lessonPlanMode as string) === 'continuous' || isComprehensionCourse)
-    ? 'continuous' as const
-    : 'structured' as const;
+  const playbookConfigForMode = data.playbooks?.[0]?.config as Record<string, unknown> | undefined;
+  const lessonPlanMode = resolveLessonPlanMode(deliveryConfig, playbookConfigForMode);
 
   if (lessonPlan && onboardingSession?.isComplete) {
     // Read currentSession from callerAttributes

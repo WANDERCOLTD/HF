@@ -9,7 +9,11 @@
  * - Module ordering and sequencing
  */
 import { describe, it, expect } from "vitest";
-import { computeSharedState } from "@/lib/prompt/composition/transforms/modules";
+import {
+  computeSharedState,
+  findCurriculumInfo,
+  resolveLessonPlanMode,
+} from "@/lib/prompt/composition/transforms/modules";
 import { getTransform } from "@/lib/prompt/composition/TransformRegistry";
 import type {
   LoadedDataContext,
@@ -531,5 +535,120 @@ describe("computeModuleProgress transform", () => {
   it("is registered in the transform registry", () => {
     expect(transform).toBeDefined();
     expect(typeof transform).toBe("function");
+  });
+});
+
+// =====================================================
+// REGRESSION: comprehension routing + specSlug propagation
+// Covers Phase 0 fixes from 304d602b and f1c6508a (2026-04-14).
+// =====================================================
+
+describe("resolveLessonPlanMode", () => {
+  it("returns 'continuous' when deliveryConfig.lessonPlanMode is explicitly continuous", () => {
+    expect(resolveLessonPlanMode({ lessonPlanMode: "continuous" }, null)).toBe("continuous");
+    expect(resolveLessonPlanMode({ lessonPlanMode: "continuous" }, { teachingMode: "recall" })).toBe("continuous");
+  });
+
+  it("returns 'continuous' when playbook.teachingMode is comprehension (Phase 0 routing fix)", () => {
+    // Regression for Boaz 2026-04-13 B2: Secret Garden served wrong passage because
+    // comprehension courses never set deliveryConfig.lessonPlanMode=continuous, so
+    // they silently fell through to the structured session-index lookup.
+    expect(resolveLessonPlanMode(null, { teachingMode: "comprehension" })).toBe("continuous");
+    expect(resolveLessonPlanMode({}, { teachingMode: "comprehension" })).toBe("continuous");
+    expect(resolveLessonPlanMode(undefined, { teachingMode: "comprehension" })).toBe("continuous");
+  });
+
+  it("returns 'structured' for all other teachingMode values", () => {
+    expect(resolveLessonPlanMode(null, { teachingMode: "recall" })).toBe("structured");
+    expect(resolveLessonPlanMode(null, { teachingMode: "practice" })).toBe("structured");
+    expect(resolveLessonPlanMode(null, { teachingMode: "syllabus" })).toBe("structured");
+  });
+
+  it("returns 'structured' when both inputs are empty", () => {
+    expect(resolveLessonPlanMode(null, null)).toBe("structured");
+    expect(resolveLessonPlanMode(undefined, undefined)).toBe("structured");
+    expect(resolveLessonPlanMode({}, {})).toBe("structured");
+  });
+
+  it("explicit deliveryConfig='structured' does not override comprehension routing", () => {
+    // Comprehension is an inherent course property; if a continuous-style
+    // delivery was not set, comprehension still forces continuous. This is
+    // intentional — see ADR 2026-04-14-outcome-graph-pacing.md.
+    expect(resolveLessonPlanMode({ lessonPlanMode: "structured" }, { teachingMode: "comprehension" })).toBe("continuous");
+  });
+});
+
+describe("findCurriculumInfo", () => {
+  it("returns null when there are no subjects", () => {
+    const data = makeLoadedData();
+    expect(findCurriculumInfo(data)).toBeNull();
+  });
+
+  it("returns id, name, and slug for the first subject with a curriculum", () => {
+    // Regression for Phase 0 commit f1c6508a: findCurriculumInfo must surface
+    // the curriculum slug so the DB-first module path can populate specSlug,
+    // which is required by the continuous branch guard.
+    const data = makeLoadedData({
+      subjectSources: {
+        subjects: [
+          {
+            id: "subj-1",
+            slug: "sg",
+            name: "Secret Garden",
+            defaultTrustLevel: "ACCREDITED_MATERIAL",
+            qualificationRef: null,
+            sources: [],
+            curriculum: {
+              id: "curr-abc",
+              slug: "abacus-academy-english-language-curriculum",
+              name: "Secret Garden Comprehension",
+              description: null,
+              notableInfo: null,
+              deliveryConfig: null,
+              trustLevel: "ACCREDITED_MATERIAL",
+              qualificationBody: null,
+              qualificationNumber: null,
+              qualificationLevel: null,
+            },
+          },
+        ],
+      } as any,
+    });
+    const info = findCurriculumInfo(data);
+    expect(info).not.toBeNull();
+    expect(info!.id).toBe("curr-abc");
+    expect(info!.name).toBe("Secret Garden Comprehension");
+    expect(info!.slug).toBe("abacus-academy-english-language-curriculum");
+  });
+
+  it("returns slug:null when curriculum record has no slug field", () => {
+    const data = makeLoadedData({
+      subjectSources: {
+        subjects: [
+          {
+            id: "subj-1",
+            slug: "x",
+            name: "X",
+            defaultTrustLevel: "ACCREDITED_MATERIAL",
+            qualificationRef: null,
+            sources: [],
+            curriculum: {
+              id: "curr-xyz",
+              name: "No Slug",
+              description: null,
+              notableInfo: null,
+              deliveryConfig: null,
+              trustLevel: "ACCREDITED_MATERIAL",
+              qualificationBody: null,
+              qualificationNumber: null,
+              qualificationLevel: null,
+            } as any,
+          },
+        ],
+      } as any,
+    });
+    const info = findCurriculumInfo(data);
+    expect(info).not.toBeNull();
+    expect(info!.slug).toBeNull();
   });
 });
