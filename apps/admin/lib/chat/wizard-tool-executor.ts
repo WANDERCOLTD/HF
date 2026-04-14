@@ -701,24 +701,10 @@ export async function executeWizardTool(
             });
             await enrollCaller(caller.id, existingPlaybookId, "wizard-v2");
 
-            // Instantiate Goal records for the test caller from config.goals
-            const existingGoals = (existingConfig.goals as Array<{ type: string; name: string; description?: string; isAssessmentTarget?: boolean; assessmentConfig?: any; priority?: number }>) || [];
-            for (const g of existingGoals) {
-              await prisma.goal.create({
-                data: {
-                  callerId: caller.id,
-                  playbookId: existingPlaybookId,
-                  type: g.type || "LEARN",
-                  name: g.name,
-                  description: g.description || null,
-                  isAssessmentTarget: g.isAssessmentTarget || false,
-                  assessmentConfig: g.assessmentConfig || undefined,
-                  status: "ACTIVE",
-                  priority: g.priority || 5,
-                  startedAt: new Date(),
-                },
-              });
-            }
+            // Instantiate Goal records for the test caller from config.goals (shared helper)
+            const { instantiatePlaybookGoals: instantiateGoalsExisting } = await import("@/lib/enrollment/instantiate-goals");
+            await instantiateGoalsExisting(caller.id, resolvedDomainId).catch((err) =>
+              console.error(`[wizard] Goal instantiation failed for existing-course caller ${caller.id}:`, err.message));
 
             // Auto-generate curriculum if existing playbook has none (non-blocking)
             const { generateInstantCurriculum: genCurriculum } = await import("@/lib/domain/instant-curriculum");
@@ -1228,7 +1214,7 @@ export async function executeWizardTool(
         }
 
         // 9b. Create TWO test callers: demo (skips onboarding) + full (normal journey)
-        const callerGoals = (configUpdate.goals as Array<{ type: string; name: string; description?: string; isAssessmentTarget?: boolean; assessmentConfig?: any; priority?: number }>) || [];
+        const { instantiatePlaybookGoals } = await import("@/lib/enrollment/instantiate-goals");
 
         async function createTestCaller(callerName: string, skipOnboarding: boolean) {
           const c = await prisma.caller.create({
@@ -1236,28 +1222,10 @@ export async function executeWizardTool(
           });
           await enrollCaller(c.id, playbookId, "wizard-v2");
 
-          // Instantiate Goal records from config.goals (skip duplicates)
-          for (const g of callerGoals) {
-            const exists = await prisma.goal.findFirst({
-              where: { callerId: c.id, playbookId, name: g.name, status: "ACTIVE" },
-            });
-            if (!exists) {
-              await prisma.goal.create({
-                data: {
-                  callerId: c.id,
-                  playbookId,
-                  type: g.type || "LEARN",
-                  name: g.name,
-                  description: g.description || null,
-                  isAssessmentTarget: g.isAssessmentTarget || false,
-                  assessmentConfig: g.assessmentConfig || undefined,
-                  status: "ACTIVE",
-                  priority: g.priority || 5,
-                  startedAt: new Date(),
-                },
-              });
-            }
-          }
+          // Instantiate Goal rows from playbook.config.goals. Shared helper keeps
+          // v5 wizard (course-setup) and chat wizard in lockstep.
+          await instantiatePlaybookGoals(c.id, domainId).catch((err) =>
+            console.error(`[wizard] Goal instantiation failed for ${c.id}:`, err.message));
 
           // Skip onboarding: mark complete, mark surveys submitted, init lesson plan
           if (skipOnboarding) {

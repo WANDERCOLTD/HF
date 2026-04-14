@@ -15,6 +15,7 @@ import { scaffoldDomain } from "@/lib/domain/scaffold";
 import { loadPersonaFlowPhases, loadPersonaArchetype, loadPersonaWelcomeTemplate } from "@/lib/domain/quick-launch";
 import { applyBehaviorTargets } from "@/lib/domain/agent-tuning";
 import { enrollCaller, enrollCallerInDomainPlaybooks } from "@/lib/enrollment";
+import { instantiatePlaybookGoals } from "@/lib/enrollment/instantiate-goals";
 import { suggestTeachingProfile } from "@/lib/content-trust/teaching-profiles";
 import { updateTaskProgress, completeTask, failTask } from "@/lib/ai/task-guidance";
 import type { ProgressEvent, ProgressCallback } from "./types";
@@ -330,6 +331,24 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
         });
         const existingConfig = (pb?.config || {}) as Record<string, any>;
         const planIntents = ctx.input.planIntents;
+
+        // Map learning outcomes → GoalTemplate entries so instantiatePlaybookGoals
+        // creates real Goal rows on enrolment. Without this, enrolled learners have
+        // no reward signal and the adapt loop runs dry.
+        let mergedGoals = (existingConfig.goals as Array<{ name?: string; [k: string]: any }> | undefined) || [];
+        if (ctx.input.learningOutcomes?.length) {
+          const existingNames = new Set(mergedGoals.map((g) => g.name?.toLowerCase().trim()));
+          const newLOGoals = ctx.input.learningOutcomes
+            .filter((lo) => !existingNames.has(lo.toLowerCase().trim()))
+            .map((lo) => ({
+              type: "LEARN" as const,
+              name: lo,
+              isDefault: true,
+              priority: 5,
+            }));
+          mergedGoals = [...mergedGoals, ...newLOGoals];
+        }
+
         await prisma.playbook.update({
           where: { id: scaffoldResult.playbook.id },
           data: {
@@ -351,6 +370,8 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
               ...(ctx.input.lessonPlanModel && { lessonPlanModel: ctx.input.lessonPlanModel }),
               // Course learning outcomes — the educator's stated goals (distinct from module LOs)
               ...(ctx.input.learningOutcomes?.length && { courseLearningOutcomes: ctx.input.learningOutcomes }),
+              // GoalTemplate entries — consumed by instantiatePlaybookGoals on enrolment
+              ...(mergedGoals.length > 0 && { goals: mergedGoals }),
               // Audience segment — per-course override (falls back to domain/system default)
               ...(ctx.input.audience && { audience: ctx.input.audience }),
             },
@@ -586,6 +607,11 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
           } else {
             await enrollCallerInDomainPlaybooks(callerId, domainId);
           }
+          // Instantiate Goal rows from playbook.config.goals — without this the
+          // caller has no reward signal and the adapt loop cannot progress.
+          await instantiatePlaybookGoals(callerId, domainId).catch((err) => {
+            ctx.results.warnings!.push(`Goal instantiation (caller ${callerId}): ${err.message}`);
+          });
           invitationCount++;
         } catch (err) {
           ctx.results.warnings!.push(`Failed to enroll caller ${callerId}: ${err}`);
