@@ -383,53 +383,37 @@ export function GenomeBrowser({ data, onSessionClick, onCategoryClick, onAsserti
           </div>
         )}
 
-        {/* ═══ TRACK 3: Teaching Points (stacked category bars) ═══ */}
+        {/* ═══ TRACK 3: Teaching Points (one block per assertion, coloured by category) ═══ */}
         <div className="genome-track">
           <div className="genome-track-label">Teaching Points</div>
           {visibleSessions.map((s) => {
-            const maxCount = Math.max(...visibleSessions.map((ss) => ss.totalAssertions), 1);
+            const orderedAssertions = sortedCategories.flatMap((cat) =>
+              s.assertions.filter((a) => a.category === cat),
+            );
             return (
               <div
                 key={s.teachingIndex}
                 className="genome-tp-cell"
                 onClick={() => onSessionClick?.(s.session)}
-                onMouseEnter={(e) =>
-                  showTooltip(e, `${s.label}`, [
-                    `${s.totalAssertions} teaching points`,
-                    ...Object.entries(s.categories)
-                      .sort(([, a], [, b]) => b - a)
-                      .map(([cat, count]) => `${getCategoryStyle(cat).label}: ${count}`),
-                    ...(s.loRefs.length > 0 ? [`LOs: ${s.loRefs.join(", ")}`] : []),
-                  ])
-                }
                 onMouseLeave={hideTooltip}
               >
-                {sortedCategories.map((cat) => {
-                  const count = s.categories[cat] || 0;
-                  if (count === 0) return null;
-                  const heightPct = Math.max(16, (count / maxCount) * 60);
-                  const catAssertions = s.assertions.filter((a) => a.category === cat);
-                  const hasActive = catAssertions.some((a) => a.id === activeAssertionId);
+                {orderedAssertions.map((a) => {
+                  const isActive = a.id === activeAssertionId;
+                  const label = getCategoryStyle(a.category).label;
                   return (
                     <div
-                      key={cat}
-                      className={`genome-tp-band${hasActive ? " genome-tp-band--active" : ""}`}
-                      style={{
-                        background: getCategoryColor(cat),
-                        height: `${heightPct}px`,
-                      }}
+                      key={a.id}
+                      className={`genome-tp-item${isActive ? " genome-tp-item--active" : ""}`}
+                      style={{ background: getCategoryColor(a.category) }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onCategoryClick?.(s.session, cat);
-                        if (catAssertions.length === 1 && onAssertionClick) {
-                          onAssertionClick(catAssertions[0].id);
-                        } else if (catAssertions.length > 1) {
-                          openPopover(e, catAssertions, cat, s.label);
-                        }
+                        onCategoryClick?.(s.session, a.category);
+                        onAssertionClick?.(a.id);
                       }}
+                      onMouseEnter={(e) => showTooltip(e, a.assertion, [label])}
+                      onMouseLeave={hideTooltip}
                     >
-                      <span>{getCategoryStyle(cat).label}</span>
-                      <span>{count}</span>
+                      <span>{a.assertion}</span>
                     </div>
                   );
                 })}

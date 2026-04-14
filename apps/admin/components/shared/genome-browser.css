@@ -241,30 +241,35 @@
   cursor: default;
 }
 
-.genome-tp-band {
+.genome-tp-item {
   border-radius: 3px;
   padding: 2px 4px;
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 500;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-  min-height: 16px;
+  min-height: 14px;
   min-width: 0;
   overflow: hidden;
+  cursor: pointer;
   transition: filter 0.15s;
 }
 
-.genome-tp-band > span:first-child {
+.genome-tp-item > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  color: var(--text-primary);
 }
 
-.genome-tp-band:hover {
-  filter: brightness(0.9);
+.genome-tp-item:hover {
+  filter: brightness(0.92);
+}
+
+.genome-tp-item--active {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -1px;
 }
 
 .genome-tp-total {
@@ -411,10 +416,6 @@
 
 /* ── Active TP band ── */
 
-.genome-tp-band--active {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: -1px;
-}
 
 /* ── Assertion list (rendered inside HFDrawer) ── */
 
@@ -535,9 +536,9 @@
   line-height: 1.25;
 }
 
-.genome[data-density="compact"] .genome-tp-band {
+.genome[data-density="compact"] .genome-tp-item {
   font-size: 8px;
-  min-height: 13px;
+  min-height: 12px;
   padding: 1px 3px;
 }
 
