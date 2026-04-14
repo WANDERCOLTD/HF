@@ -72,6 +72,7 @@ async function runCurriculumGeneration(
   const assertions = await prisma.contentAssertion.findMany({
     where: { sourceId: { in: sourceIds } },
     select: {
+      id: true, // required for in-extractor LO-ref write-back
       assertion: true,
       category: true,
       chapter: true,
@@ -93,6 +94,12 @@ async function runCurriculumGeneration(
   // Step 2: Generate curriculum via AI
   await updateTaskProgress(taskId, { currentStep: 2 });
 
+  // Build the 1-based index → assertion ID map in the SAME ordering used by
+  // extractCurriculumFromAssertions so the AI's assertionTags[i] can be
+  // resolved back to a real UUID at commit time.
+  const assertionIdByIndexObj: Record<string, string> = {};
+  assertions.forEach((a, i) => { assertionIdByIndexObj[String(i + 1)] = a.id; });
+
   const result = await extractCurriculumFromAssertions(
     assertions,
     subjectName,
@@ -104,11 +111,14 @@ async function runCurriculumGeneration(
     return;
   }
 
-  // Step 3: Complete — store preview + summary in context
+  // Step 3: Complete — store preview + summary + assertion index map in
+  // context. Maps don't JSON-serialise, so we keep the map as a plain object
+  // keyed by stringified index; the commit route rebuilds the Map.
   await updateTaskProgress(taskId, {
     currentStep: 3,
     context: {
       preview: result,
+      assertionIdByIndexObj,
       moduleCount: result.modules?.length ?? 0,
       warnings: result.warnings,
       summary: {

@@ -85,11 +85,29 @@ export interface CurriculumIntents {
   assessments?: string;     // "formal" | "light" | "none"
 }
 
+/**
+ * AI-emitted assertion→LO tag. `i` is the 1-based index used in the prompt
+ * (matches the `[i]` prefix on each assertion line). `ref` is the LO ref
+ * string (e.g. "LO4") or null if no LO fits. Caller is responsible for
+ * mapping `i` back to a real assertion ID using the same ordering it used
+ * to build the prompt.
+ */
+export interface AssertionTag {
+  i: number;
+  ref: string | null;
+}
+
 export interface ExtractedCurriculum {
   ok: boolean;
   name: string;
   description: string;
   modules: CurriculumModule[];
+  /**
+   * Per-assertion LO ref mapping emitted by the same AI call that produced
+   * the modules. Index is 1-based, matching the `[i]` prefix in the prompt.
+   * Empty array if the AI didn't emit tags.
+   */
+  assertionTags: AssertionTag[];
   deliveryConfig: {
     sessionStructure?: string[];
     assessmentStrategy?: string;
@@ -186,7 +204,11 @@ function parseAIJSON(content: string): any {
 
 /**
  * Extract curriculum structure from assertions.
- * Takes the assertions from a syllabus-tagged source and organizes them into modules.
+ * Takes the assertions from a syllabus-tagged source and organizes them into
+ * modules. The AI also emits per-assertion LO ref tags in `assertionTags` —
+ * these are returned (not written) so the caller can apply them inside the
+ * same transaction as the curriculum upsert via
+ * `syncModulesToDB({ assertionTags, assertionIdByIndex })`.
  */
 export async function extractCurriculumFromAssertions(
   assertions: Array<{ assertion: string; category: string; chapter?: string | null; section?: string | null; tags?: string[] }>,
@@ -202,6 +224,7 @@ export async function extractCurriculumFromAssertions(
       name: subjectName,
       description: "",
       modules: [],
+      assertionTags: [],
       deliveryConfig: {},
       warnings: ["No assertions provided — upload and extract a document first"],
       error: "No assertions to build curriculum from",
@@ -276,6 +299,7 @@ Generate a structured curriculum from these assertions.`;
         name: subjectName,
         description: "",
         modules: [],
+        assertionTags: [],
         deliveryConfig: {},
         warnings,
         error: "AI did not return valid JSON",
@@ -283,6 +307,48 @@ Generate a structured curriculum from these assertions.`;
     }
 
     const keptModules = filterMetaPedagogicalModules(parsed.modules || [], warnings);
+
+    // Parse assertion tags. Build the set of valid LO refs from the modules
+    // the AI emitted so we can reject any tag that points at a non-existent
+    // ref (structural guard per .claude/rules/ai-to-db-guard.md). Indexes
+    // outside the assertion range are also rejected.
+    const validRefs = new Set<string>();
+    for (const m of keptModules) {
+      for (const lo of m.learningOutcomes || []) {
+        const parsedLine = parseLoLineFromString(lo);
+        if (parsedLine) validRefs.add(parsedLine.ref);
+      }
+    }
+
+    const rawTags = Array.isArray(parsed.assertionTags) ? parsed.assertionTags : [];
+    const assertionTags: AssertionTag[] = [];
+    let droppedUnknownRef = 0;
+    let droppedOutOfRange = 0;
+    for (const t of rawTags) {
+      if (typeof t?.i !== "number" || t.i < 1 || t.i > assertions.length) {
+        droppedOutOfRange++;
+        continue;
+      }
+      if (t.ref === null || t.ref === undefined) {
+        assertionTags.push({ i: t.i, ref: null });
+        continue;
+      }
+      if (typeof t.ref !== "string" || !validRefs.has(t.ref)) {
+        droppedUnknownRef++;
+        continue;
+      }
+      assertionTags.push({ i: t.i, ref: t.ref });
+    }
+    if (droppedUnknownRef > 0 || droppedOutOfRange > 0) {
+      warnings.push(
+        `[extract-curriculum] Dropped ${droppedUnknownRef} tag(s) with unknown ref and ${droppedOutOfRange} with out-of-range index`,
+      );
+    }
+
+    // Note: we don't write tags to the DB here — that's the caller's job,
+    // via syncModulesToDB({ assertionTags, assertionIdByIndex }). Keeps this
+    // function side-effect free and wraps tag writes in the same transaction
+    // as the LO upsert.
 
     return {
       ok: true,
@@ -298,6 +364,7 @@ Generate a structured curriculum from these assertions.`;
         estimatedDurationMinutes: m.estimatedDurationMinutes || null,
         sortOrder: m.sortOrder || i + 1,
       })),
+      assertionTags,
       deliveryConfig: parsed.deliveryConfig || {},
       warnings,
     };
@@ -307,11 +374,20 @@ Generate a structured curriculum from these assertions.`;
       name: subjectName,
       description: "",
       modules: [],
+      assertionTags: [],
       deliveryConfig: {},
       warnings,
       error: `AI extraction failed: ${error.message}`,
     };
   }
+}
+
+/** Minimal "LOn: description" parser used for building the valid-ref set. */
+function parseLoLineFromString(line: string): { ref: string; description: string } | null {
+  if (typeof line !== "string") return null;
+  const m = line.match(/^\s*(LO-?\d+|AC[\d.]+|R\d+-LO-?\d+(?:-AC[\d.]+)?)\s*:\s*(.+)$/i);
+  if (!m) return null;
+  return { ref: m[1].toUpperCase(), description: m[2].trim() };
 }
 
 // ------------------------------------------------------------------
@@ -330,7 +406,7 @@ export async function extractSkeletonFromAssertions(
   intents?: CurriculumIntents,
 ): Promise<ExtractedCurriculum> {
   if (assertions.length === 0) {
-    return { ok: false, name: subjectName, description: "", modules: [], deliveryConfig: {}, warnings: [], error: "No assertions provided" };
+    return { ok: false, name: subjectName, description: "", modules: [], assertionTags: [], deliveryConfig: {}, warnings: [], error: "No assertions provided" };
   }
 
   // Compact assertion format for skeleton (less detail = faster)
@@ -361,7 +437,7 @@ export async function extractSkeletonFromAssertions(
 
     const parsed = parseAIJSON(response.content || "");
     if (!parsed) {
-      return { ok: false, name: subjectName, description: "", modules: [], deliveryConfig: {}, warnings: [], error: "No JSON in skeleton response" };
+      return { ok: false, name: subjectName, description: "", modules: [], assertionTags: [], deliveryConfig: {}, warnings: [], error: "No JSON in skeleton response" };
     }
 
     const skeletonWarnings: string[] = [];
@@ -381,11 +457,12 @@ export async function extractSkeletonFromAssertions(
         estimatedDurationMinutes: null,
         sortOrder: m.sortOrder || i + 1,
       })),
+      assertionTags: [],
       deliveryConfig: {},
       warnings: skeletonWarnings,
     };
   } catch (error: any) {
-    return { ok: false, name: subjectName, description: "", modules: [], deliveryConfig: {}, warnings: [], error: `Skeleton extraction failed: ${error.message}` };
+    return { ok: false, name: subjectName, description: "", modules: [], assertionTags: [], deliveryConfig: {}, warnings: [], error: `Skeleton extraction failed: ${error.message}` };
   }
 }
 
@@ -449,6 +526,7 @@ Generate a structured curriculum for this subject.`;
         name: subjectName,
         description: "",
         modules: [],
+        assertionTags: [],
         deliveryConfig: {},
         warnings,
         error: "AI did not return valid JSON",
@@ -475,6 +553,8 @@ Generate a structured curriculum for this subject.`;
         estimatedDurationMinutes: m.estimatedDurationMinutes || null,
         sortOrder: m.sortOrder || i + 1,
       })),
+      // No assertions in goals-mode — nothing to tag.
+      assertionTags: [],
       deliveryConfig: parsed.deliveryConfig || {},
       warnings,
     };
@@ -484,6 +564,7 @@ Generate a structured curriculum for this subject.`;
       name: subjectName,
       description: "",
       modules: [],
+      assertionTags: [],
       deliveryConfig: {},
       warnings,
       error: `AI curriculum generation failed: ${error.message}`,

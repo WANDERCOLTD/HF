@@ -286,6 +286,15 @@ Number learning outcomes sequentially across the ENTIRE curriculum, NOT per modu
   - Wrong: MOD-1 has LO1/LO2/LO3, MOD-2 has LO1/LO2/LO3 (ref collision)
   - Right: MOD-1 has LO1/LO2/LO3, MOD-2 has LO4/LO5/LO6 (continuous numbering)
 
+ASSERTION TAGGING (REQUIRED)
+Each input assertion was presented with a leading index in square brackets, e.g. [12] (chapter > section) [category] text.
+You MUST also return an "assertionTags" array mapping every input assertion index to the LO ref it best supports.
+  - "i" is the integer index shown in square brackets at the start of each assertion line.
+  - "ref" is the LO ref string (e.g. "LO4") this assertion most directly supports, or null if no LO fits.
+  - Include EVERY input assertion index exactly once. Index numbering starts at 1 (matches the brackets).
+  - Prefer null over a weak match — don't force-tag assertions that are generic or off-topic.
+  - Every ref you emit must be one you defined in a module's learningOutcomes list above; never invent new refs.
+
 Return valid JSON only with this structure:
 {
   "name": "Curriculum title",
@@ -318,6 +327,12 @@ Return valid JSON only with this structure:
       "estimatedDurationMinutes": 30,
       "sortOrder": 2
     }
+  ],
+  "assertionTags": [
+    { "i": 1, "ref": "LO1" },
+    { "i": 2, "ref": "LO1" },
+    { "i": 3, "ref": null },
+    { "i": 4, "ref": "LO4" }
   ],
   "deliveryConfig": {
     "sessionStructure": ["Opening review", "New content", "Practice activity", "Summary check"],

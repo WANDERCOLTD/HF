@@ -35,7 +35,7 @@ export interface GenerateContentSpecOptions {
 
 export interface DomainAssertionData {
   domain: { id: string; slug: string; name: string };
-  assertions: Array<{ assertion: string; category: string; chapter: string | null; section: string | null; tags: string[] }>;
+  assertions: Array<{ id: string; assertion: string; category: string; chapter: string | null; section: string | null; tags: string[] }>;
   subjectName: string;
   qualificationRef?: string;
   sourceCount: number;
@@ -79,13 +79,14 @@ export async function loadDomainAssertions(domainId: string, tx?: TxClient, subj
   const sourceIds = subjectSources.map((ss) => ss.sourceId);
   const assertions = await p.contentAssertion.findMany({
     where: { sourceId: { in: sourceIds } },
-    select: { assertion: true, category: true, chapter: true, section: true, tags: true },
+    select: { id: true, assertion: true, category: true, chapter: true, section: true, tags: true },
     orderBy: [{ chapter: "asc" }, { section: "asc" }, { createdAt: "asc" }],
   });
 
   return {
     domain,
     assertions: assertions.map((a) => ({
+      id: a.id, // required for in-extractor LO-ref write-back
       assertion: a.assertion,
       category: a.category || "fact",
       chapter: a.chapter,

@@ -123,6 +123,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     // ── Save mode — persist curriculum to DB ──
     if (mode === "save") {
       let result = body.curriculum;
+      // Reconstructed from the task context when committing a preview. Keeps
+      // assertion tag write-back in the same request as the curriculum save.
+      let assertionIdByIndex: Map<number, string> | undefined;
 
       // If taskId provided, read preview from the completed task
       if (body.taskId && !result) {
@@ -135,6 +138,12 @@ export async function POST(req: NextRequest, { params }: Params) {
         }
         const ctx = task.context as Record<string, any>;
         result = ctx?.preview;
+        const idByIndexObj = ctx?.assertionIdByIndexObj as Record<string, string> | undefined;
+        if (idByIndexObj) {
+          assertionIdByIndex = new Map(
+            Object.entries(idByIndexObj).map(([k, v]) => [Number(k), v]),
+          );
+        }
         if (!result) {
           return NextResponse.json(
             { error: "No curriculum preview found in task. Generate first." },
@@ -193,10 +202,15 @@ export async function POST(req: NextRequest, { params }: Params) {
         },
       });
 
-      // Dual-write: sync modules to first-class DB models
+      // Dual-write: sync modules to first-class DB models. Pass assertion
+      // tags + index map so the tag write happens in the same transaction
+      // as the LO upsert, just before reconcile binds FKs.
       if (result.modules?.length > 0) {
         try {
-          await syncModulesToDB(curriculum.id, result.modules);
+          await syncModulesToDB(curriculum.id, result.modules, {
+            assertionTags: result.assertionTags,
+            assertionIdByIndex,
+          });
         } catch (err: any) {
           console.warn("[subjects/:id/curriculum] Module sync failed (non-fatal):", err.message);
         }

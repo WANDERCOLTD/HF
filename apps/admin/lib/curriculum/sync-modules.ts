@@ -14,8 +14,8 @@ import { prisma } from "@/lib/prisma";
 import type { LegacyCurriculumModuleJSON } from "@/lib/types/json-fields";
 import { parseLoLine } from "@/lib/content-trust/validate-lo-linkage";
 import { reconcileAssertionLOs, type ReconcileResult } from "@/lib/content-trust/reconcile-lo-linkage";
-import { retagAssertionsWithLOs } from "@/lib/content-trust/retag-assertions-with-los";
 import { sanitizeModuleTitle } from "@/lib/content-trust/sanitize-module";
+import type { AssertionTag } from "@/lib/content-trust/extract-curriculum";
 
 export type SyncModulesMode = "merge" | "replace";
 
@@ -28,6 +28,69 @@ export interface SyncModulesOptions {
    *   Use only for explicit user-triggered regeneration.
    */
   mode?: SyncModulesMode;
+  /**
+   * Per-assertion LO ref tags emitted by the curriculum-extraction AI call
+   * alongside the modules. When provided with assertionIdByIndex, the tag
+   * strings are written to `ContentAssertion.learningOutcomeRef` inside the
+   * same transaction as the LO upsert, BEFORE reconciliation runs — so the
+   * reconciler's Pass 1 (fast string match) binds the FKs immediately.
+   */
+  assertionTags?: AssertionTag[];
+  /**
+   * Map from AI-emitted 1-based assertion index → real ContentAssertion.id.
+   * Built at the call site from the same ordering used to construct the
+   * prompt. Used together with assertionTags.
+   */
+  assertionIdByIndex?: Map<number, string>;
+}
+
+/**
+ * Apply AI-emitted assertionTags to ContentAssertion.learningOutcomeRef.
+ * Per .claude/rules/ai-to-db-guard.md, every write goes through validation:
+ *   1. Index must resolve to a real assertion ID via assertionIdByIndex
+ *   2. Ref must be in the curriculum's LO whitelist (fetched from DB)
+ *   3. Writes are capped to the input size — no surprise multipliers
+ */
+async function applyAssertionTags(
+  tx: { contentAssertion: { updateMany: (args: unknown) => Promise<{ count: number }> } },
+  curriculumId: string,
+  tags: AssertionTag[],
+  idByIndex: Map<number, string>,
+  validRefs: Set<string>,
+): Promise<{ applied: number; skippedBadIndex: number; skippedUnknownRef: number }> {
+  const byRef = new Map<string, string[]>();
+  let skippedBadIndex = 0;
+  let skippedUnknownRef = 0;
+
+  for (const tag of tags) {
+    if (!tag || typeof tag.i !== "number") { skippedBadIndex++; continue; }
+    const id = idByIndex.get(tag.i);
+    if (!id) { skippedBadIndex++; continue; }
+    if (tag.ref === null || tag.ref === undefined) continue;
+    if (!validRefs.has(tag.ref)) { skippedUnknownRef++; continue; }
+    const list = byRef.get(tag.ref) || [];
+    if (list.length >= idByIndex.size) continue; // cap per ref
+    list.push(id);
+    byRef.set(tag.ref, list);
+  }
+
+  let applied = 0;
+  for (const [ref, ids] of byRef) {
+    const res = await tx.contentAssertion.updateMany({
+      where: { id: { in: ids } },
+      data: { learningOutcomeRef: ref },
+    } as unknown);
+    applied += res.count;
+  }
+
+  if (applied > 0 || skippedBadIndex > 0 || skippedUnknownRef > 0) {
+    console.log(
+      `[sync-modules] applyAssertionTags curriculum=${curriculumId}: ` +
+        `applied=${applied} skipped-bad-index=${skippedBadIndex} skipped-unknown-ref=${skippedUnknownRef}`,
+    );
+  }
+
+  return { applied, skippedBadIndex, skippedUnknownRef };
 }
 
 // ---------------------------------------------------------------------------
@@ -192,27 +255,30 @@ export async function syncModulesToDB(
       }
     }
 
+    // Apply AI-emitted assertion tags inside the same transaction so the tag
+    // write and the LO upsert are atomic — and so reconcile (which runs next)
+    // sees the fresh ref strings via Pass 1's fast string-match path.
+    // globalSeenRefs is the whitelist of refs we just wrote — it's what tags
+    // are validated against.
+    if (options?.assertionTags?.length && options?.assertionIdByIndex?.size) {
+      await applyAssertionTags(
+        tx as unknown as Parameters<typeof applyAssertionTags>[0],
+        curriculumId,
+        options.assertionTags,
+        options.assertionIdByIndex,
+        globalSeenRefs,
+      );
+    }
+
     return synced;
   });
 
-  // Step 1 (NEW): retag assertions that have no learningOutcomeRef. The
-  // original extractor ran BEFORE the curriculum existed, so most assertions
-  // landed with ref=null. We now ask the AI to map each null-ref assertion to
-  // the best-matching LO ref (whitelist-validated). This produces string refs
-  // that the next step can bind to FKs via the fast string-match path.
-  // Non-fatal on error — reconcile's Pass 2 semantic matching will still run
-  // and catch whatever it can.
-  try {
-    await retagAssertionsWithLOs(curriculumId);
-  } catch (err) {
-    console.error(`[sync-modules] retagAssertionsWithLOs failed for curriculum ${curriculumId}:`, err);
-  }
-
-  // Step 2: reconcile FKs. Pass 1 string-matches the refs (including the
-  // ones just written by retag above). Pass 2 semantic-matches the remaining
-  // null-ref assertions and writes BOTH the FK and the ref string.
-  // Epic #131 A4 — closes the temporal dependency between assertion
-  // extraction and curriculum creation. Idempotent.
+  // Epic #131 A4 — after LOs are written, reconcile existing assertions'
+  // learningObjectiveId FK by matching learningOutcomeRef strings against the
+  // newly-persisted LO rows. Pass 1 is a fast string match; Pass 2 is a
+  // semantic keyword fallback that now also writes the ref string back.
+  // Ref strings themselves come from the curriculum-extraction AI call which
+  // emits them alongside modules — no separate retag pass needed.
   let reconcile: ReconcileResult | null = null;
   try {
     reconcile = await reconcileAssertionLOs(curriculumId);

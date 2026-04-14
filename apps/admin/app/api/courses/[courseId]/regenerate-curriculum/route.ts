@@ -103,6 +103,7 @@ export async function POST(
         category: { notIn: [...INSTRUCTION_CATEGORIES] },
       },
       select: {
+        id: true, // required for in-extractor LO-ref write-back
         assertion: true,
         category: true,
         chapter: true,
@@ -151,6 +152,11 @@ export async function POST(
       .filter((m) => m._count.callerProgress > 0)
       .map((m) => m.slug);
 
+    // Build the index→id map in the SAME order used to build the prompt.
+    // extractCurriculumFromAssertions indexes assertions starting at 1.
+    const assertionIdByIndex = new Map<number, string>();
+    assertions.forEach((a, i) => assertionIdByIndex.set(i + 1, a.id));
+
     // 5. Call the curriculum extractor (A3-hardened prompt)
     const extracted = await extractCurriculumFromAssertions(
       assertions,
@@ -185,7 +191,13 @@ export async function POST(
     // Explicit educator-triggered regenerate — use 'replace' mode so modules
     // no longer in the new curriculum are deactivated. All other callers use
     // the safer default 'merge' to avoid clobbering on AI non-determinism.
-    const syncResult = await syncModulesToDB(existingCurriculum.id, newModules, { mode: "replace" });
+    // Pass assertion tags so the in-transaction apply can write LO refs back
+    // to the source assertions before reconcile runs.
+    const syncResult = await syncModulesToDB(existingCurriculum.id, newModules, {
+      mode: "replace",
+      assertionTags: extracted.assertionTags,
+      assertionIdByIndex,
+    });
 
     // 7. Detect orphan-progress risk — modules that had progress but are no
     // longer in the new curriculum (by slug)
