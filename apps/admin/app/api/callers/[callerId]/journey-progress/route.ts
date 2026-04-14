@@ -46,7 +46,7 @@ export async function GET(
           id: true,
           name: true,
           domainId: true,
-          playbookSubjects: {
+          subjects: {
             select: { subjectId: true },
           },
         },
@@ -65,7 +65,7 @@ export async function GET(
   const enrollmentSubjectMap = new Map<string, string[]>();
 
   for (const enr of enrollments) {
-    const subjectIds = enr.playbook.playbookSubjects.map((ps) => ps.subjectId);
+    const subjectIds = enr.playbook.subjects.map((ps) => ps.subjectId);
     if (subjectIds.length > 0) {
       enrollmentSubjectMap.set(enr.playbookId, subjectIds);
       for (const id of subjectIds) allSubjectIds.add(id);
