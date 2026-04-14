@@ -4,7 +4,7 @@ description: Deploy to Cloud Run — environment-aware (dev, test, prod)
 
 Interactive deployment guide for GCP Cloud Run. Supports 3 environments.
 
-> **Auto-deploy:** DEV and TEST auto-deploy on every push to `main` via GitHub Actions (`deploy-dev.yml`, `deploy-test.yml`). Use `/deploy` only for: PROD deploys, rollbacks, manual re-deploys, or pre-flight checks.
+> **Manual-only deploy.** All environments (DEV, TEST, PROD) deploy manually via `/deploy`. Pushing to `main` does NOT trigger a deploy — `deploy-dev.yml` / `deploy-test.yml` / `deploy-prod.yml` only run on `workflow_dispatch`. This is deliberate: VM dev iteration (`/vm-cp`, `/vm-cpp`) should not cascade to Cloud Run.
 
 ## CRITICAL: Environment Selection
 
@@ -32,7 +32,23 @@ All environments:
 - **Region**: `europe-west2`
 - **Artifact Registry**: `europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker/`
 
-After environment selection, ask the deploy action:
+## MANDATORY: Pending-migration guard (run BEFORE asking deploy action)
+
+After the user picks an environment and BEFORE offering the Quick/Full/Rollback choice, **always** run:
+
+```bash
+cd apps/admin && npx prisma migrate status
+```
+
+Parse the output:
+
+- If it says **"Database schema is up to date"** → proceed to the deploy-action question normally.
+- If it says **"Following migrations have not yet been applied"** or **"Drift detected"** → STOP. Print the pending migration names and force the user into **Full deploy**. Do NOT offer Quick deploy as an option. Message the user:
+  > ⚠️ Pending migrations detected: `<names>`. Quick deploy is disabled — you must run Full deploy so the migrate job applies them. This guard exists because code-only deploys against an un-migrated DB cause runtime Prisma errors (`column does not exist`) that aren't caught by smoke tests.
+
+This guard is non-negotiable. Never skip it, even if the user insists it's "just a code change". The only way to bypass is to first apply the migration via Full deploy, then re-run `/deploy` which will then show a clean status.
+
+After environment selection and the migration guard, ask the deploy action:
 
 **Question:** "What deploy action do you need?"
 **Header:** "Deploy"
@@ -269,6 +285,7 @@ git push origin deploy-$ENV-$(date +%Y%m%d-%H%M%S)
 ## Safety Rules
 
 - ALWAYS ask which environment FIRST — never assume
+- ALWAYS run the pending-migration guard (`npx prisma migrate status`) after env selection, BEFORE offering Quick/Full — block Quick if anything is pending
 - ALWAYS run `git pull origin main` FIRST before any deploy step
 - ALWAYS check for uncommitted changes (`git status`) — warn if dirty
 - ALWAYS confirm with the user before running any command

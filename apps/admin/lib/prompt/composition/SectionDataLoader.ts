@@ -419,7 +419,7 @@ registerLoader("recentCalls", async (callerId, config) => {
 
 registerLoader("callCount", async (callerId) => {
   return prisma.call.count({
-    where: { callerId },
+    where: { callerId, endedAt: { not: null } },
   });
 });
 
