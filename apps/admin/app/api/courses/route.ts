@@ -138,6 +138,7 @@ export async function GET(request: NextRequest) {
         createdAt: pb.createdAt.toISOString(),
         // Enriched fields
         audience: config?.audience || null,
+        learningStructure: (config?.learningStructure as 'structured' | 'continuous' | undefined) || null,
         teachingProfile,
         contentStats: {
           totalTPs,

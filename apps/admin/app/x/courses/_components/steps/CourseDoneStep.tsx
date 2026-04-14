@@ -58,6 +58,7 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
   const learningOutcomes = getData<string[]>('learningOutcomes') || [];
   const lessonPlanMode = getData<string>('lessonPlanMode') || 'skipped';
   const lessonPlanModel = getData<string>('lessonPlanModel') || 'direct_instruction';
+  const learningStructure = getData<'structured' | 'continuous'>('learningStructure') || 'structured';
   const teachingMode = getData<string>('teachingMode');
   const subjectDiscipline = getData<string>('subjectDiscipline');
   const audience = getData<string>('audience');
@@ -177,6 +178,7 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
           curriculumId: getData<string>('curriculumId') || undefined,
           planIntents: planIntents || undefined,
           lessonPlanMode,
+          learningStructure,
           cohortGroupIds: cohortGroupIds.length > 0 ? cohortGroupIds : undefined,
           selectedCallerIds: selectedCallerIds.length > 0 ? selectedCallerIds : undefined,
           behaviorTargets: behaviorTargets && Object.keys(behaviorTargets).length > 0 ? behaviorTargets : undefined,

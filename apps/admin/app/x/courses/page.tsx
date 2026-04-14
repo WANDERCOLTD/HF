@@ -38,6 +38,7 @@ type CourseListItem = {
   version: string;
   createdAt: string;
   audience: string | null;
+  learningStructure: 'structured' | 'continuous' | null;
   teachingProfile: string | null;
   contentStats: ContentStats | null;
 };
@@ -77,6 +78,15 @@ const INSTRUCTION_CATEGORY_LABELS: Record<string, { label: string; plural: strin
 
 function CourseInsightBadges({ course }: { course: CourseListItem }) {
   const badges: { icon: string; label: string; tooltip: string }[] = [];
+
+  // Learning structure — only show when Continuous (Structured is the default, keep cards uncluttered)
+  if (course.learningStructure === 'continuous') {
+    badges.push({
+      icon: '♾️',
+      label: 'Continuous',
+      tooltip: 'Continuous Learning — all material in one programme; the system picks teaching points per call based on mastery.',
+    });
+  }
 
   // Teaching profile → interaction pattern
   if (course.teachingProfile) {

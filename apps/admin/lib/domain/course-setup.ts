@@ -47,6 +47,7 @@ export interface CourseSetupInput {
   planIntents?: PlanIntents;
   lessonPlanMode?: "accept" | "reviewed" | "skipped";
   lessonPlanModel?: string; // "direct_instruction" | "socratic" | etc.
+  learningStructure?: "structured" | "continuous"; // Framing decision from IntentStep — persisted to Playbook.config
   // Students step — cohort/individual enrollment
   cohortGroupIds?: string[];
   selectedCallerIds?: string[];
@@ -368,6 +369,8 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
               ...(!planIntents?.emphasis && ctx.input.emphasis && { emphasis: ctx.input.emphasis }),
               // Lesson plan model — used by quickstart.ts for prompt composition
               ...(ctx.input.lessonPlanModel && { lessonPlanModel: ctx.input.lessonPlanModel }),
+              // Learning structure — structured (fixed syllabus) vs continuous (adaptive per-call)
+              ...(ctx.input.learningStructure && { learningStructure: ctx.input.learningStructure }),
               // Course learning outcomes — the educator's stated goals (distinct from module LOs)
               ...(ctx.input.learningOutcomes?.length && { courseLearningOutcomes: ctx.input.learningOutcomes }),
               // GoalTemplate entries — consumed by instantiatePlaybookGoals on enrolment

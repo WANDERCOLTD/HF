@@ -21,6 +21,8 @@ import type { StepProps } from "../CourseSetupWizard";
 
 export function PlanSettingsStep({ setData, getData, onNext, onPrev }: StepProps) {
   // ── State ──────────────────────────────────────────
+  // Source of truth for structured vs continuous is IntentStep (data bag key "learningStructure").
+  // Hydrated on mount below; falls back to "structured".
   const [lessonPlanMode, setLessonPlanMode] = useState<"structured" | "continuous">("structured");
   const [sessionCount, setSessionCount] = useState<number | null>(null);
   const [durationMins, setDurationMins] = useState<number>(15);
@@ -59,7 +61,6 @@ export function PlanSettingsStep({ setData, getData, onNext, onPrev }: StepProps
       emphasis: string;
       assessments: string;
       lessonPlanModel?: string;
-      lessonPlanMode?: string;
     }>("planIntents");
     if (saved) {
       if (saved.sessionCount) setSessionCount(saved.sessionCount);
@@ -67,8 +68,12 @@ export function PlanSettingsStep({ setData, getData, onNext, onPrev }: StepProps
       if (saved.emphasis) setEmphasis(saved.emphasis as typeof emphasis);
       if (saved.assessments) setAssessments(saved.assessments as typeof assessments);
       if (saved.lessonPlanModel) setLessonPlanModel(saved.lessonPlanModel as LessonPlanModel);
-      if (saved.lessonPlanMode === "continuous") setLessonPlanMode("continuous");
     }
+
+    // Learning structure — set in IntentStep, canonical source
+    const structure = getData<"structured" | "continuous">("learningStructure");
+    if (structure === "continuous") setLessonPlanMode("continuous");
+    else setLessonPlanMode("structured");
 
     // Also restore model from IntentStep's direct key
     const directModel = getData<LessonPlanModel>("lessonPlanModel");
@@ -200,37 +205,15 @@ export function PlanSettingsStep({ setData, getData, onNext, onPrev }: StepProps
           </div>
         )}
 
-        <div className="hf-flex-col hf-gap-lg">
-          {/* Learning structure */}
-          <div>
-            <div className="hf-mb-xs">
-              <FieldHint
-                label="Learning structure"
-                hint="Structured sessions divide material into a fixed sequence. Continuous learning puts all material in one programme and adapts each call to the learner's progress."
-                labelClass="hf-label"
-              />
-            </div>
-            <div className="hf-chip-row">
-              <button
-                onClick={() => setLessonPlanMode("structured")}
-                className={"hf-chip" + (!isContinuous ? " hf-chip-selected" : "")}
-              >
-                Structured Sessions
-              </button>
-              <button
-                onClick={() => setLessonPlanMode("continuous")}
-                className={"hf-chip" + (isContinuous ? " hf-chip-selected" : "")}
-              >
-                Continuous Learning
-              </button>
-            </div>
-            {isContinuous && (
-              <div className="hf-hint">
-                All material in one programme. The system selects learning outcomes each call based on mastery.
-              </div>
-            )}
-          </div>
+        {/* Read-only summary — canonical source is IntentStep */}
+        <div className="hf-banner hf-banner-info hf-mb-md">
+          <span>
+            Learning structure: <strong>{isContinuous ? "Continuous Learning" : "Structured Sessions"}</strong>
+            {" — "}change on the previous step.
+          </span>
+        </div>
 
+        <div className="hf-flex-col hf-gap-lg">
           {/* Teaching model */}
           <div>
             <div className="hf-mb-xs">

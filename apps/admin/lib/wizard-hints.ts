@@ -36,6 +36,15 @@ export const WIZARD_HINTS: Record<string, FieldHintContent> = {
     ],
   },
 
+  "course.learningStructure": {
+    why: "Some courses follow a fixed syllabus; others are open-ended practice where each call should adapt to the learner.",
+    effect: "Structured Sessions divides material into a sequenced plan you can review and edit. Continuous Learning puts everything in one programme and lets the system pick what to cover per call based on mastery.",
+    examples: [
+      "Structured — exam prep, textbook walk-through, cohort courses",
+      "Continuous — drill/practice, open-ended tutoring, self-paced mastery",
+    ],
+  },
+
   "course.model": {
     why: "Different teaching models structure sessions differently — choosing one shapes how knowledge is sequenced, practiced, and assessed.",
     effect: "The AI distributes teaching points across sessions using the model's phase structure. Direct Instruction gives clear linear progression; 5E encourages exploration before explanation; Spiral revisits topics at increasing depth.",

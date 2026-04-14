@@ -42,6 +42,7 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
   const [existingCourse, setExistingCourse] = useState<ExistingCourse | null>(null);
   const [hoveredPattern, setHoveredPattern] = useState<InteractionPattern | null>(null);
   const [lessonPlanModel, setLessonPlanModel] = useState<LessonPlanModel>('direct_instruction');
+  const [learningStructure, setLearningStructure] = useState<'structured' | 'continuous'>('structured');
   const [teachingMode, setTeachingMode] = useState<string | null>(null);
   const [subjectDiscipline, setSubjectDiscipline] = useState('');
   const [audience, setAudience] = useState<AudienceId | null>(null);
@@ -118,6 +119,8 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
     if (savedDiscipline) setSubjectDiscipline(savedDiscipline);
     const savedAudience = getData<AudienceId>('audience');
     if (savedAudience) setAudience(savedAudience);
+    const savedStructure = getData<'structured' | 'continuous'>('learningStructure');
+    if (savedStructure) setLearningStructure(savedStructure);
   }, [getData]);
 
   // Load available groups when domain is selected
@@ -264,12 +267,19 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
     if (subjectDiscipline.trim()) setData('subjectDiscipline', subjectDiscipline.trim());
     if (audience) setData('audience', audience);
     if (groupId) setData('groupId', groupId);
+    setData('learningStructure', learningStructure);
 
     // Store resolved defaults in data bag for LessonPlanStep
     const defaults = resolvedDefaults ?? {
       sessionCount: 6, durationMins: 15, emphasis: 'balanced', assessments: 'light', lessonPlanModel: 'direct_instruction',
     };
     setData('resolvedDefaults', defaults);
+
+    // Continuous learning — no plan generation needed; PlanSettingsStep writes the single synthetic entry.
+    if (learningStructure === 'continuous') {
+      onNext();
+      return;
+    }
 
     // Eager plan generation — fires in background, LessonPlanStep polls for result
     try {
@@ -533,6 +543,38 @@ export function IntentStep({ setData, getData, onNext, onPrev, endFlow }: StepPr
               <FieldHint label="Teaching model" hint={WIZARD_HINTS["course.model"]} labelClass="hf-label" />
             </div>
             <LessonPlanModelPicker value={lessonPlanModel} onChange={setLessonPlanModel} />
+          </div>
+        )}
+
+        {/* ── Section 4b: Learning structure (structured vs continuous) ─── */}
+        {showModel && (
+          <div className="hf-phase-reveal hf-mb-lg">
+            <div className="hf-mb-xs">
+              <FieldHint label="Learning structure" hint={WIZARD_HINTS["course.learningStructure"]} labelClass="hf-label" />
+            </div>
+            <div className="hf-chip-row" role="radiogroup" aria-label="Learning structure">
+              <button
+                onClick={() => setLearningStructure('structured')}
+                className={learningStructure === 'structured' ? 'hf-chip hf-chip-selected' : 'hf-chip'}
+                role="radio"
+                aria-checked={learningStructure === 'structured'}
+              >
+                Structured Sessions
+              </button>
+              <button
+                onClick={() => setLearningStructure('continuous')}
+                className={learningStructure === 'continuous' ? 'hf-chip hf-chip-selected' : 'hf-chip'}
+                role="radio"
+                aria-checked={learningStructure === 'continuous'}
+              >
+                Continuous Learning
+              </button>
+            </div>
+            <p className="hf-text-xs hf-text-muted hf-mt-xs">
+              {learningStructure === 'continuous'
+                ? 'All material in one programme — the system picks learning outcomes each call based on mastery.'
+                : 'Material is divided into a sequenced lesson plan you can review and edit.'}
+            </p>
           </div>
         )}
 
