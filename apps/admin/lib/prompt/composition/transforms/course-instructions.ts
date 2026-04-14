@@ -14,8 +14,10 @@ import type { AssembledContext, CourseInstructionData } from "../types";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 
 /** Match a session range string (e.g., "1", "1-3", "final") against a call number. */
-function matchesSessionRange(range: string, callNumber: number, totalSessions?: number): boolean {
+function matchesSessionRange(range: unknown, callNumber: number, totalSessions?: number): boolean {
+  if (typeof range !== "string") return true; // non-string section → include
   const trimmed = range.trim().toLowerCase();
+  if (!trimmed) return true;
   if (trimmed === "final" || trimmed === "last") {
     return totalSessions ? callNumber >= totalSessions : false;
   }

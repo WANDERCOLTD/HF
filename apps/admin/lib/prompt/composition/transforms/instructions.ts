@@ -228,7 +228,11 @@ registerTransform("computeInstructions", (
         : t.targetValue <= thresholds.low
           ? (t.parameter?.interpretationLow || t.when_low)
           : (t.parameter?.interpretationHigh || t.when_high) && (t.parameter?.interpretationLow || t.when_low)
-            ? `Balance: ${((t.parameter?.interpretationHigh || t.when_high) as string).split(",")[0].trim()} while also ${((t.parameter?.interpretationLow || t.when_low) as string).split(",")[0].toLowerCase().trim()}`
+            ? (() => {
+                const high = String(t.parameter?.interpretationHigh || t.when_high || "").split(",")[0].trim();
+                const low = String(t.parameter?.interpretationLow || t.when_low || "").split(",")[0].toLowerCase().trim();
+                return `Balance: ${high} while also ${low}`;
+              })()
             : (t.parameter?.interpretationHigh || t.when_high) || (t.parameter?.interpretationLow || t.when_low) || "balanced approach",
     })),
 

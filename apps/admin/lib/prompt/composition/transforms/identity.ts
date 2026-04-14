@@ -266,8 +266,9 @@ export function applyGroupToneOverride(
   }
 
   // Append freeform style notes
-  if (styleNotes?.trim()) {
-    guidelines.push(`Department teaching style: ${styleNotes.trim()}`);
+  const styleNotesStr = typeof styleNotes === "string" ? styleNotes.trim() : "";
+  if (styleNotesStr) {
+    guidelines.push(`Department teaching style: ${styleNotesStr}`);
   }
 
   if (guidelines.length === (specConfig.styleGuidelines || []).length) {

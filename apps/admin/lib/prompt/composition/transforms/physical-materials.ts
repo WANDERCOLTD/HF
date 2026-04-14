@@ -13,11 +13,10 @@ import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 registerTransform("formatPhysicalMaterials", (_rawData: any, context: AssembledContext) => {
   const playbookConfig = context.loadedData?.playbooks?.[0]?.config as PlaybookConfig | undefined;
-  const physicalMaterials = playbookConfig?.physicalMaterials;
+  const raw = playbookConfig?.physicalMaterials;
+  const description = typeof raw === "string" ? raw.trim() : "";
 
-  if (!physicalMaterials || physicalMaterials.trim() === "") return null;
+  if (!description) return null;
 
-  return {
-    description: physicalMaterials.trim(),
-  };
+  return { description };
 });
