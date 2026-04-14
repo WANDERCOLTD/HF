@@ -1,6 +1,19 @@
 /**
- * Instantiate goals from a domain's published playbook config.
- * Called on caller creation and domain switch.
+ * Instantiate Goal rows for a caller's ACTIVE playbook enrolments.
+ *
+ * Historically this took `(callerId, domainId)` and picked "a" published
+ * playbook in the domain via findFirst — which was non-deterministic and,
+ * in any multi-course domain, silently looked at the wrong playbook (most
+ * often the oldest seed). The fix is to iterate the caller's real
+ * CallerPlaybook enrolments and instantiate goals for each.
+ *
+ * For each active enrolment:
+ *   1. Read `playbook.config.goals[]` — create one Goal per entry.
+ *   2. If config.goals is empty, derive goals from the playbook's linked
+ *      curriculum modules so the adapt loop always has a reward signal.
+ *
+ * Idempotent: skips a playbook if the caller already has ACTIVE/PAUSED
+ * goals linked to it.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -28,14 +41,22 @@ function coerceGoalType(raw: unknown): GoalTypeLiteral {
   return "LEARN";
 }
 
+type GoalConfigEntry = {
+  type: string;
+  name: string;
+  description?: string | null;
+  contentSpecSlug?: string;
+  isAssessmentTarget?: boolean;
+  assessmentConfig?: unknown;
+  priority?: number;
+};
+
 /**
  * Derive fallback goals from the playbook's linked curriculum modules.
- * Used when the wizard failed to capture explicit learning outcomes — rather
- * than leaving the caller goal-less (no reward signal, adapt loop runs dry),
- * we create one LEARN goal per curriculum module using the module title.
- * Returns [] if no curriculum / no modules are linked.
+ * One LEARN goal per module using the module title. Returns [] if no
+ * curriculum / no modules are linked.
  */
-async function deriveGoalsFromCurriculum(playbookId: string): Promise<Array<{ type: GoalTypeLiteral; name: string; description?: string; priority: number }>> {
+async function deriveGoalsFromCurriculum(playbookId: string): Promise<GoalConfigEntry[]> {
   const subjects = await prisma.playbookSubject.findMany({
     where: { playbookId },
     select: { subjectId: true },
@@ -52,7 +73,7 @@ async function deriveGoalsFromCurriculum(playbookId: string): Promise<Array<{ ty
   });
 
   return modules.map((m) => ({
-    type: "LEARN" as GoalTypeLiteral,
+    type: "LEARN" as const,
     name: `Master ${m.title}`,
     description: m.description || undefined,
     priority: 5,
@@ -60,51 +81,34 @@ async function deriveGoalsFromCurriculum(playbookId: string): Promise<Array<{ ty
 }
 
 /**
- * Create Goal records for a caller from their domain's published playbook.
- * Reads `playbook.config.goals[]` and creates one Goal per entry.
- * If config.goals is empty, falls back to deriving goals from curriculum
- * modules so the adapt loop always has a reward signal to work against.
- * Safe to call multiple times — skips if goals already exist for the playbook.
+ * Instantiate goals for a single playbook the caller is enrolled in.
+ * Returns the names of goals created (empty if skipped or nothing to do).
  */
-export async function instantiatePlaybookGoals(
+async function instantiateForPlaybook(
   callerId: string,
-  domainId: string,
+  playbookId: string,
+  playbookConfig: PlaybookConfig | null,
 ): Promise<string[]> {
-  const playbook = await prisma.playbook.findFirst({
-    where: { domainId, status: "PUBLISHED" },
-    select: { id: true, config: true },
-  });
-
-  if (!playbook) return [];
-
-  const pbConfig = (playbook.config || {}) as PlaybookConfig;
-  let goalConfigs: Array<{
-    type: string;
-    name: string;
-    description?: string | null;
-    contentSpecSlug?: string;
-    isAssessmentTarget?: boolean;
-    assessmentConfig?: unknown;
-    priority?: number;
-  }> = pbConfig.goals || [];
-
-  // Fallback: if no explicit goals were captured (wizard miss), derive from
-  // the curriculum modules so the caller gets some reward signal.
-  if (goalConfigs.length === 0) {
-    const derived = await deriveGoalsFromCurriculum(playbook.id);
-    if (derived.length === 0) {
-      console.warn(`[instantiate-goals] No goals in config and no curriculum modules for playbook ${playbook.id} — caller ${callerId} will have 0 goals`);
-      return [];
-    }
-    console.log(`[instantiate-goals] Derived ${derived.length} fallback goal(s) from curriculum modules for playbook ${playbook.id}`);
-    goalConfigs = derived;
-  }
-
   // Skip if caller already has goals for this playbook (idempotent)
   const existing = await prisma.goal.count({
-    where: { callerId, playbookId: playbook.id, status: { in: ["ACTIVE", "PAUSED"] } },
+    where: { callerId, playbookId, status: { in: ["ACTIVE", "PAUSED"] } },
   });
   if (existing > 0) return [];
+
+  const cfg = playbookConfig || {};
+  let goalConfigs: GoalConfigEntry[] = (cfg.goals as GoalConfigEntry[] | undefined) || [];
+
+  // Fallback: if no explicit goals were captured (wizard miss), derive from
+  // curriculum modules so the caller gets some reward signal.
+  if (goalConfigs.length === 0) {
+    const derived = await deriveGoalsFromCurriculum(playbookId);
+    if (derived.length === 0) {
+      console.warn(`[instantiate-goals] No goals in config and no curriculum modules for playbook ${playbookId} — caller ${callerId} will have 0 goals on this playbook`);
+      return [];
+    }
+    console.log(`[instantiate-goals] Derived ${derived.length} fallback goal(s) from curriculum modules for playbook ${playbookId}`);
+    goalConfigs = derived;
+  }
 
   const created: string[] = [];
 
@@ -124,7 +128,7 @@ export async function instantiatePlaybookGoals(
     const goal = await prisma.goal.create({
       data: {
         callerId,
-        playbookId: playbook.id,
+        playbookId,
         type: coerceGoalType(goalConfig.type),
         name: goalConfig.name,
         description: goalConfig.description || null,
@@ -141,4 +145,51 @@ export async function instantiatePlaybookGoals(
   }
 
   return created;
+}
+
+/**
+ * Create Goal records for every ACTIVE playbook enrolment a caller has.
+ *
+ * Previously this took a domainId and used findFirst to pick a playbook,
+ * which was broken for any multi-course domain. Now it reads the caller's
+ * real CallerPlaybook rows — the source of truth for what the caller is
+ * enrolled in — and instantiates goals for each published playbook.
+ *
+ * @param callerId - The caller to create goals for
+ * @param _legacyDomainIdIgnored - Deprecated positional parameter kept for
+ *   call-site compatibility. Domain is derived from the playbook.
+ */
+export async function instantiatePlaybookGoals(
+  callerId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _legacyDomainIdIgnored?: string,
+): Promise<string[]> {
+  const enrollments = await prisma.callerPlaybook.findMany({
+    where: { callerId, status: "ACTIVE" },
+    select: {
+      playbookId: true,
+      playbook: { select: { id: true, status: true, config: true } },
+    },
+  });
+
+  if (enrollments.length === 0) {
+    console.warn(`[instantiate-goals] Caller ${callerId} has no active enrolments — no goals to instantiate`);
+    return [];
+  }
+
+  const allCreated: string[] = [];
+  for (const e of enrollments) {
+    if (e.playbook.status !== "PUBLISHED") {
+      console.warn(`[instantiate-goals] Skipping playbook ${e.playbookId} — status is ${e.playbook.status}, not PUBLISHED`);
+      continue;
+    }
+    const created = await instantiateForPlaybook(
+      callerId,
+      e.playbookId,
+      (e.playbook.config || null) as PlaybookConfig | null,
+    );
+    allCreated.push(...created);
+  }
+
+  return allCreated;
 }
