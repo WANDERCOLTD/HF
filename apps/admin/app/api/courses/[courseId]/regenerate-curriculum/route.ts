@@ -182,7 +182,10 @@ export async function POST(
       keyTerms: m.keyTerms,
     }));
 
-    const syncResult = await syncModulesToDB(existingCurriculum.id, newModules);
+    // Explicit educator-triggered regenerate — use 'replace' mode so modules
+    // no longer in the new curriculum are deactivated. All other callers use
+    // the safer default 'merge' to avoid clobbering on AI non-determinism.
+    const syncResult = await syncModulesToDB(existingCurriculum.id, newModules, { mode: "replace" });
 
     // 7. Detect orphan-progress risk — modules that had progress but are no
     // longer in the new curriculum (by slug)

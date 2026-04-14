@@ -14,6 +14,20 @@ import { prisma } from "@/lib/prisma";
 import type { LegacyCurriculumModuleJSON } from "@/lib/types/json-fields";
 import { parseLoLine } from "@/lib/content-trust/validate-lo-linkage";
 import { reconcileAssertionLOs, type ReconcileResult } from "@/lib/content-trust/reconcile-lo-linkage";
+import { sanitizeModuleTitle } from "@/lib/content-trust/sanitize-module";
+
+export type SyncModulesMode = "merge" | "replace";
+
+export interface SyncModulesOptions {
+  /**
+   * `merge` (default): upsert incoming modules, leave untouched any existing
+   *   modules not present in this run. Protects against AI non-determinism
+   *   clobbering previously-valid modules.
+   * `replace`: deactivate modules whose slugs are not in the incoming set.
+   *   Use only for explicit user-triggered regeneration.
+   */
+  mode?: SyncModulesMode;
+}
 
 // ---------------------------------------------------------------------------
 // syncModulesToDB — upserts CurriculumModule + LO records from JSON modules
@@ -30,8 +44,12 @@ import { reconcileAssertionLOs, type ReconcileResult } from "@/lib/content-trust
 export async function syncModulesToDB(
   curriculumId: string,
   modules: LegacyCurriculumModuleJSON[],
-): Promise<{ count: number; reconcile: ReconcileResult | null }> {
-  if (!modules || modules.length === 0) return { count: 0, reconcile: null };
+  options?: SyncModulesOptions,
+): Promise<{ count: number; reconcile: ReconcileResult | null; warnings: string[] }> {
+  if (!modules || modules.length === 0) return { count: 0, reconcile: null, warnings: [] };
+
+  const mode: SyncModulesMode = options?.mode ?? "merge";
+  const warnings: string[] = [];
 
   const result = await prisma.$transaction(async (tx) => {
     const synced: string[] = [];
@@ -39,13 +57,22 @@ export async function syncModulesToDB(
     for (let i = 0; i < modules.length; i++) {
       const mod = modules[i];
       const slug = mod.id || `MOD-${i + 1}`;
+      const cleanTitle = sanitizeModuleTitle(mod.title, slug);
+
+      // Surface modules with no learning outcomes so the caller can warn the
+      // educator rather than silently shipping empty teaching units. Consolidation
+      // / review modules are sometimes legitimate, so this is advisory not fatal.
+      const loCount = Array.isArray(mod.learningOutcomes) ? mod.learningOutcomes.length : 0;
+      if (loCount === 0) {
+        warnings.push(`Module "${cleanTitle}" (${slug}) has no learning outcomes`);
+      }
 
       const upserted = await tx.curriculumModule.upsert({
         where: { curriculumId_slug: { curriculumId, slug } },
         create: {
           curriculumId,
           slug,
-          title: mod.title || slug,
+          title: cleanTitle,
           description: mod.description || null,
           sortOrder: mod.sortOrder ?? i,
           estimatedDurationMinutes: mod.estimatedDurationMinutes || null,
@@ -53,12 +80,13 @@ export async function syncModulesToDB(
           assessmentCriteria: mod.assessmentCriteria || [],
         },
         update: {
-          title: mod.title || slug,
+          title: cleanTitle,
           description: mod.description || null,
           sortOrder: mod.sortOrder ?? i,
           estimatedDurationMinutes: mod.estimatedDurationMinutes || null,
           keyTerms: mod.keyTerms || [],
           assessmentCriteria: mod.assessmentCriteria || [],
+          isActive: true, // reactivate in case a prior 'replace' run archived it
         },
       });
 
@@ -113,16 +141,24 @@ export async function syncModulesToDB(
       synced.push(upserted.id);
     }
 
-    // Deactivate modules that no longer exist in the JSON
-    const currentSlugs = modules.map((m, i) => m.id || `MOD-${i + 1}`);
-    await tx.curriculumModule.updateMany({
-      where: {
-        curriculumId,
-        slug: { notIn: currentSlugs },
-        isActive: true,
-      },
-      data: { isActive: false },
-    });
+    // Destructive replace: deactivate modules whose slugs are NOT in this run.
+    // Default mode is 'merge' — we never deactivate silently, because AI
+    // non-determinism can produce a shorter module list on re-run and clobber
+    // previously valid modules (see #143 follow-up).
+    if (mode === "replace") {
+      const currentSlugs = modules.map((m, i) => m.id || `MOD-${i + 1}`);
+      const deactivated = await tx.curriculumModule.updateMany({
+        where: {
+          curriculumId,
+          slug: { notIn: currentSlugs },
+          isActive: true,
+        },
+        data: { isActive: false },
+      });
+      if (deactivated.count > 0) {
+        warnings.push(`Deactivated ${deactivated.count} module(s) not present in this run (replace mode)`);
+      }
+    }
 
     return synced;
   });
@@ -141,5 +177,9 @@ export async function syncModulesToDB(
     // Non-fatal — curriculum save itself succeeded.
   }
 
-  return { count: result.length, reconcile };
+  if (warnings.length > 0) {
+    console.warn(`[sync-modules] curriculum ${curriculumId} warnings:\n  - ${warnings.join("\n  - ")}`);
+  }
+
+  return { count: result.length, reconcile, warnings };
 }

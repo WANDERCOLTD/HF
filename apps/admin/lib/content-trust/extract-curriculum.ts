@@ -9,6 +9,7 @@
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import type { ExtractedAssertion } from "./extract-assertions";
 import { getPromptTemplate } from "@/lib/prompts/prompt-settings";
+import { sanitizeModuleTitle } from "./sanitize-module";
 
 // ------------------------------------------------------------------
 // Meta-pedagogical module guard (epic #131)
@@ -289,7 +290,7 @@ Generate a structured curriculum from these assertions.`;
       description: parsed.description || "",
       modules: keptModules.map((m: any, i: number) => ({
         id: m.id || `MOD-${i + 1}`,
-        title: m.title || `Module ${i + 1}`,
+        title: sanitizeModuleTitle(m.title, `Module ${i + 1}`),
         description: m.description || "",
         learningOutcomes: m.learningOutcomes || [],
         assessmentCriteria: m.assessmentCriteria || [],
@@ -372,7 +373,7 @@ export async function extractSkeletonFromAssertions(
       description: parsed.description || "",
       modules: keptSkeletonModules.map((m: any, i: number) => ({
         id: m.id || `MOD-${i + 1}`,
-        title: m.title || `Module ${i + 1}`,
+        title: sanitizeModuleTitle(m.title, `Module ${i + 1}`),
         description: m.description || "",
         learningOutcomes: [],
         assessmentCriteria: [],
@@ -466,7 +467,7 @@ Generate a structured curriculum for this subject.`;
       description: parsed.description || "",
       modules: keptGoalModules.map((m: any, i: number) => ({
         id: m.id || `MOD-${i + 1}`,
-        title: m.title || `Module ${i + 1}`,
+        title: sanitizeModuleTitle(m.title, `Module ${i + 1}`),
         description: m.description || "",
         learningOutcomes: m.learningOutcomes || [],
         assessmentCriteria: m.assessmentCriteria || [],
