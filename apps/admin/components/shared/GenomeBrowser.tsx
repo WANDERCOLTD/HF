@@ -358,7 +358,7 @@ export function GenomeBrowser({ data, onSessionClick, onCategoryClick, onAsserti
               <span className="genome-track-label">Learning Outcomes</span>
             </div>
             {visibleLOs.map(({ lo, originalIndex, clippedStart, clippedEnd }) => (
-              <div key={lo.ref} className="genome-lo-row">
+              <div key={`${lo.moduleSlug}-${lo.ref}-${originalIndex}`} className="genome-lo-row">
                 <div />
                 <div
                   className="genome-lo-bar"

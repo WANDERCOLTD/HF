@@ -54,6 +54,33 @@ export async function syncModulesToDB(
   const result = await prisma.$transaction(async (tx) => {
     const synced: string[] = [];
 
+    // Curriculum-wide LO ref dedup. The curriculum-extraction prompt promises
+    // global uniqueness across modules, but the AI ignores it and restarts
+    // numbering per module. Without this guard, duplicate refs land in
+    // LearningObjective and crash any UI that uses ref as a React key
+    // (e.g. GenomeBrowser). Rename collisions with a letter suffix so no
+    // content is silently dropped. Per .claude/rules/ai-to-db-guard.md.
+    const globalSeenRefs = new Set<string>();
+    function uniquifyRef(ref: string): string {
+      if (!globalSeenRefs.has(ref)) {
+        globalSeenRefs.add(ref);
+        return ref;
+      }
+      for (const suffix of "bcdefghijklmnopqrstuvwxyz") {
+        const candidate = `${ref}${suffix}`;
+        if (!globalSeenRefs.has(candidate)) {
+          globalSeenRefs.add(candidate);
+          return candidate;
+        }
+      }
+      // 26 collisions on the same ref is absurd — fall back to a counter.
+      let n = 2;
+      while (globalSeenRefs.has(`${ref}-${n}`)) n += 1;
+      const fallback = `${ref}-${n}`;
+      globalSeenRefs.add(fallback);
+      return fallback;
+    }
+
     for (let i = 0; i < modules.length; i++) {
       const mod = modules[i];
       const slug = mod.id || `MOD-${i + 1}`;
@@ -114,7 +141,11 @@ export async function syncModulesToDB(
             continue;
           }
           seenRefs.add(line.ref);
-          parsed.push({ ref: line.ref, description: line.description, sortOrder: j });
+          const uniqueRef = uniquifyRef(line.ref);
+          if (uniqueRef !== line.ref) {
+            warnings.push(`Module "${cleanTitle}" (${slug}): renamed duplicate LO ref ${line.ref} → ${uniqueRef}`);
+          }
+          parsed.push({ ref: uniqueRef, description: line.description, sortOrder: j });
         }
 
         if (skipped.length > 0) {
