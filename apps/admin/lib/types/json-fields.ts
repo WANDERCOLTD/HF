@@ -99,8 +99,12 @@ export interface OffboardingConfig {
 // Playbook.config
 // ---------------------------------------------------------------------------
 
+export type GoalTypeLiteral = "LEARN" | "ACHIEVE" | "CHANGE" | "CONNECT" | "SUPPORT" | "CREATE";
+
+export const GOAL_TYPE_VALUES: readonly GoalTypeLiteral[] = ["LEARN", "ACHIEVE", "CHANGE", "CONNECT", "SUPPORT", "CREATE"] as const;
+
 export interface GoalTemplate {
-  type: string; // GoalType: LEARN, ACHIEVE, CHANGE, CONNECT, SUPPORT, CREATE
+  type: GoalTypeLiteral;
   name: string;
   description?: string;
   contentSpecSlug?: string;

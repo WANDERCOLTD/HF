@@ -573,8 +573,8 @@ export async function main(externalPrisma?: PrismaClient, opts?: { skipCleanup?:
                 postTest: { enabled: true },
               },
               goals: [
-                { type: "TOPIC_MASTERED", name: "Master core topics" },
-                { type: "CONFIDENCE_GAIN", name: "Build confidence" },
+                { type: "LEARN", name: "Master core topics" },
+                { type: "CHANGE", name: "Build confidence" },
               ],
             },
           },

@@ -4,7 +4,29 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import type { PlaybookConfig } from "@/lib/types/json-fields";
+import { GOAL_TYPE_VALUES, type GoalTypeLiteral, type PlaybookConfig } from "@/lib/types/json-fields";
+
+const LEGACY_GOAL_TYPE_MAP: Record<string, GoalTypeLiteral> = {
+  TOPIC_MASTERED: "LEARN",
+  CONFIDENCE_GAIN: "CHANGE",
+  KNOWLEDGE_GAIN: "LEARN",
+  HABIT_CHANGE: "CHANGE",
+};
+
+function coerceGoalType(raw: unknown): GoalTypeLiteral {
+  if (typeof raw === "string") {
+    const upper = raw.toUpperCase();
+    if ((GOAL_TYPE_VALUES as readonly string[]).includes(upper)) {
+      return upper as GoalTypeLiteral;
+    }
+    if (LEGACY_GOAL_TYPE_MAP[upper]) {
+      console.warn(`[instantiate-goals] Mapping legacy goal type "${upper}" → "${LEGACY_GOAL_TYPE_MAP[upper]}"`);
+      return LEGACY_GOAL_TYPE_MAP[upper];
+    }
+  }
+  console.warn(`[instantiate-goals] Unknown goal type ${JSON.stringify(raw)} — defaulting to LEARN`);
+  return "LEARN";
+}
 
 /**
  * Create Goal records for a caller from their domain's published playbook.
@@ -51,7 +73,7 @@ export async function instantiatePlaybookGoals(
       data: {
         callerId,
         playbookId: playbook.id,
-        type: goalConfig.type,
+        type: coerceGoalType(goalConfig.type),
         name: goalConfig.name,
         description: goalConfig.description || null,
         contentSpecId,

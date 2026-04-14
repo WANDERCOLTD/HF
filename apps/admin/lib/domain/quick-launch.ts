@@ -23,6 +23,7 @@ import {
 } from "@/lib/domain/generate-identity";
 import { scaffoldDomain } from "@/lib/domain/scaffold";
 import { applyBehaviorTargets, applyCallerTargets } from "@/lib/domain/agent-tuning";
+import { parseLoLine } from "@/lib/content-trust/validate-lo-linkage";
 import { generateContentSpec, patchContentSpecForContract } from "@/lib/domain/generate-content-spec";
 import { generateCurriculumFromGoals } from "@/lib/content-trust/extract-curriculum";
 import { generateSkeletonCurriculum } from "@/lib/content-trust/generate-skeleton-curriculum";
@@ -669,11 +670,25 @@ const stepExecutors: Record<string, StepExecutor> = {
           sortOrder: mod.sortOrder ?? i,
           estimatedDurationMinutes: mod.estimatedDurationMinutes ?? null,
           learningObjectives: {
-            create: (mod.learningOutcomes || []).map((lo: any, j: number) => ({
-              ref: typeof lo === "string" ? `LO${j + 1}` : lo.ref || `LO${j + 1}`,
-              description: typeof lo === "string" ? lo : lo.description || lo,
-              sortOrder: j,
-            })),
+            // Use parseLoLine to handle the "LOn: description" string format produced by the
+            // curriculum-extraction prompt. Falls back to (string-as-description, synthesised ref)
+            // for legacy callers that pass raw descriptions, but rejects bare refs like "LO1".
+            create: (mod.learningOutcomes || [])
+              .map((lo: any, j: number) => {
+                if (typeof lo === "string") {
+                  const parsed = parseLoLine(lo);
+                  if (parsed) return { ref: parsed.ref, description: parsed.description, sortOrder: j };
+                  // Bare ref like "LO1" — descriptionMatchesRef garbage. Reject.
+                  if (/^LO-?\d+$/i.test(lo.trim())) return null;
+                  // Plain description with no ref — synthesise a ref.
+                  return { ref: `LO${j + 1}`, description: lo, sortOrder: j };
+                }
+                if (lo && typeof lo === "object" && lo.description) {
+                  return { ref: lo.ref || `LO${j + 1}`, description: lo.description, sortOrder: j };
+                }
+                return null;
+              })
+              .filter((x: any): x is { ref: string; description: string; sortOrder: number } => x !== null),
           },
         },
       });

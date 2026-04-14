@@ -701,10 +701,11 @@ export async function executeWizardTool(
             });
             await enrollCaller(caller.id, existingPlaybookId, "wizard-v2");
 
-            // Instantiate Goal records for the test caller from config.goals (shared helper)
+            // Instantiate Goal records for the test caller from config.goals (shared helper).
+            // No try/catch — if this fails, the wizard's "course ready" claim is a lie and the
+            // educator will see "No goals yet" with no warning. Surface the failure instead.
             const { instantiatePlaybookGoals: instantiateGoalsExisting } = await import("@/lib/enrollment/instantiate-goals");
-            await instantiateGoalsExisting(caller.id, resolvedDomainId).catch((err) =>
-              console.error(`[wizard] Goal instantiation failed for existing-course caller ${caller.id}:`, err.message));
+            await instantiateGoalsExisting(caller.id, resolvedDomainId);
 
             // Auto-generate curriculum if existing playbook has none (non-blocking)
             const { generateInstantCurriculum: genCurriculum } = await import("@/lib/domain/instant-curriculum");
@@ -1223,9 +1224,9 @@ export async function executeWizardTool(
           await enrollCaller(c.id, playbookId, "wizard-v2");
 
           // Instantiate Goal rows from playbook.config.goals. Shared helper keeps
-          // v5 wizard (course-setup) and chat wizard in lockstep.
-          await instantiatePlaybookGoals(c.id, domainId).catch((err) =>
-            console.error(`[wizard] Goal instantiation failed for ${c.id}:`, err.message));
+          // v5 wizard (course-setup) and chat wizard in lockstep. Re-throw on failure
+          // so the wizard reports the broken state instead of pretending success.
+          await instantiatePlaybookGoals(c.id, domainId);
 
           // Skip onboarding: mark complete, mark surveys submitted, init lesson plan
           if (skipOnboarding) {
@@ -2235,13 +2236,42 @@ async function generateLessonPlanPreview(
     const teachingEntries = expandedEntries.filter((e) =>
       !["pre_survey", "mid_survey", "post_survey", "onboarding", "offboarding"].includes(e.type),
     );
-    const modulesFromPlan = teachingEntries.map((e, i) => ({
-      id: `MOD-${i + 1}`,
-      title: e.label,
-      description: `${e.type} session`,
-      sortOrder: i,
-      learningOutcomes: (e.assertionIds || []).slice(0, 3).map((_: string, j: number) => `LO${j + 1}`),
-    }));
+
+    // Build LOs from real assertion text rather than fabricating "LO1"/"LO2"/"LO3" placeholders.
+    // The parseLoLine guard in syncModulesToDB rejects bare-ref lines (rightly), so synthesised
+    // garbage produces 0-LO modules that are silently unteachable. Fetch assertions in one batch
+    // and emit "LOn: <assertion text>" pairs that survive the guard.
+    const allAssertionIds = teachingEntries.flatMap((e: any) => (e.assertionIds || []).slice(0, 3));
+    const assertionMap = new Map<string, string>();
+    if (allAssertionIds.length > 0) {
+      const rows = await prisma.contentAssertion.findMany({
+        where: { id: { in: allAssertionIds } },
+        select: { id: true, assertion: true },
+      });
+      for (const r of rows) assertionMap.set(r.id, r.assertion);
+    }
+
+    let loCounter = 0;
+    const modulesFromPlan = teachingEntries.map((e: any, i: number) => {
+      const ids: string[] = (e.assertionIds || []).slice(0, 3);
+      const learningOutcomes = ids
+        .map((aid) => {
+          const text = assertionMap.get(aid);
+          if (!text) return null;
+          loCounter += 1;
+          // Trim to a single sentence — keep it concise but real.
+          const desc = text.replace(/\s+/g, " ").trim().slice(0, 240);
+          return `LO${loCounter}: ${desc}`;
+        })
+        .filter((s): s is string => s !== null);
+      return {
+        id: `MOD-${i + 1}`,
+        title: e.label,
+        description: `${e.type} session`,
+        sortOrder: i,
+        learningOutcomes,
+      };
+    });
 
     if (existingCurriculum) {
       const dc = (existingCurriculum.deliveryConfig as Record<string, any>) || {};

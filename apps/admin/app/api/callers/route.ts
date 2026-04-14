@@ -273,9 +273,15 @@ export async function POST(req: Request) {
     // Instantiate goals from playbook config (if any)
     // Auto-compose first prompt so VAPI calls don't hit the generic fallback
     if (caller.domainId) {
-      await instantiatePlaybookGoals(caller.id, caller.domainId).catch((err) => {
-        console.error(`[callers] Goal instantiation failed for ${caller.id}:`, err.message);
-      });
+      try {
+        await instantiatePlaybookGoals(caller.id, caller.domainId);
+      } catch (err: any) {
+        console.error(`[callers] Goal instantiation failed for ${caller.id}:`, err);
+        return NextResponse.json(
+          { error: `Goal instantiation failed: ${err?.message || "unknown error"}`, callerId: caller.id },
+          { status: 500 },
+        );
+      }
       autoComposeForCaller(caller.id).catch((err) => {
         console.error(`[callers] Auto-compose failed for ${caller.id}:`, err.message);
       });
