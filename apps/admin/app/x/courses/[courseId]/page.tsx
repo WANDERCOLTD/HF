@@ -1408,7 +1408,10 @@ export default function CourseDetailPage() {
       {/* GOALS TAB                                      */}
       {/* ═══════════════════════════════════════════════ */}
       {activeTab === 'goals' && (
-        <CourseGoalsTab courseId={courseId!} />
+        <CourseGoalsTab
+          courseId={courseId!}
+          playbookConfig={detail?.config as Record<string, unknown> | null | undefined}
+        />
       )}
 
       {/* Sessions tab removed — merged into Journey tab above */}

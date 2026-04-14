@@ -2,158 +2,90 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Target, Filter } from 'lucide-react';
-import { FancySelect } from '@/components/shared/FancySelect';
-import { CallerPill, GoalPill } from '@/src/components/shared/EntityPill';
-import {
-  GOAL_TYPE_CONFIG,
-  GOAL_STATUS_CONFIG,
-  GOAL_TYPE_OPTIONS,
-  GOAL_STATUS_OPTIONS,
-} from '@/lib/goals/goal-constants';
+import { Target, Users } from 'lucide-react';
+import { CallerPill } from '@/src/components/shared/EntityPill';
+import { GOAL_TYPE_CONFIG } from '@/lib/goals/goal-constants';
 
 // ── Types ──────────────────────────────────────────────
 
-type Goal = {
+/** One entry from playbook.config.goals[] — the course template. */
+type TemplateGoal = {
+  type: string;
+  name: string;
+  description?: string | null;
+  isAssessmentTarget?: boolean;
+  priority?: number;
+};
+
+/** A per-caller Goal row (for the student rollup section). */
+type StudentGoal = {
   id: string;
   type: string;
   name: string;
-  description: string | null;
   status: string;
-  priority: number;
   progress: number;
-  startedAt: string | null;
-  completedAt: string | null;
-  targetDate: string | null;
-  caller: {
-    id: string;
-    name: string;
-    domain: { id: string; slug: string; name: string } | null;
-  };
-  playbook: { id: string; name: string; version: string } | null;
-  contentSpec: { id: string; slug: string; name: string } | null;
-};
-
-type GoalCounts = {
-  total: number;
-  byStatus: Record<string, number>;
-  byType: Record<string, number>;
+  caller: { id: string; name: string };
 };
 
 export type CourseGoalsTabProps = {
   courseId: string;
+  /** The playbook's config JSON — read from detail.config on the parent page. */
+  playbookConfig?: Record<string, unknown> | null;
 };
-
-// ── Progress Ring ──────────────────────────────────────
-
-function ProgressRing({ progress, size = 48, strokeWidth = 4, color }: {
-  progress: number;
-  size?: number;
-  strokeWidth?: number;
-  color: string;
-}): React.ReactElement {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - progress * circumference;
-  return (
-    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}>
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--border-default)" strokeWidth={strokeWidth} />
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth}
-        strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-        style={{ transition: 'stroke-dashoffset 0.3s ease' }} />
-      <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central"
-        style={{ transform: 'rotate(90deg)', transformOrigin: 'center', fontSize: size * 0.24, fontWeight: 700, fill: color, fontFamily: 'ui-monospace, monospace' }}>
-        {Math.round(progress * 100)}%
-      </text>
-    </svg>
-  );
-}
 
 // ── Main Component ─────────────────────────────────────
 
-export function CourseGoalsTab({ courseId }: CourseGoalsTabProps): React.ReactElement {
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [counts, setCounts] = useState<GoalCounts | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export function CourseGoalsTab({ courseId, playbookConfig }: CourseGoalsTabProps): React.ReactElement {
+  // Course template goals come from playbook.config.goals — the course-level
+  // intent set by the educator via the wizard. These are NOT per-caller rows.
+  const templateGoals: TemplateGoal[] = useMemo(() => {
+    const raw = (playbookConfig?.goals as TemplateGoal[] | undefined) || [];
+    return Array.isArray(raw) ? raw : [];
+  }, [playbookConfig]);
 
-  // Filters
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterType, setFilterType] = useState('all');
-  const [search, setSearch] = useState('');
+  // Student rollup — how enrolled learners are tracking against the template.
+  // Fetched lazily so the primary "course goals" view renders instantly.
+  const [studentGoals, setStudentGoals] = useState<StudentGoal[]>([]);
+  const [studentLoading, setStudentLoading] = useState(true);
 
-  // Fetch goals scoped to this course (playbook)
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-    const params = new URLSearchParams({ playbookId: courseId });
-    if (filterStatus !== 'all') params.set('status', filterStatus);
-    if (filterType !== 'all') params.set('type', filterType);
-
-    fetch(`/api/goals?${params}`)
+    setStudentLoading(true);
+    fetch(`/api/goals?playbookId=${courseId}`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.ok) {
-          setGoals(data.goals);
-          setCounts(data.counts);
-        } else {
-          setError(data.error || 'Failed to load goals');
-        }
+        if (data.ok && Array.isArray(data.goals)) setStudentGoals(data.goals);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Network error'))
-      .finally(() => setLoading(false));
-  }, [courseId, filterStatus, filterType]);
+      .catch(() => {
+        // Non-fatal — the primary view still renders from template goals.
+      })
+      .finally(() => setStudentLoading(false));
+  }, [courseId]);
 
-  // Client-side search filter
-  const filtered = useMemo(() => {
-    if (!search) return goals;
-    const s = search.toLowerCase();
-    return goals.filter((g) =>
-      g.name.toLowerCase().includes(s) ||
-      g.description?.toLowerCase().includes(s) ||
-      g.caller.name.toLowerCase().includes(s)
-    );
-  }, [goals, search]);
-
-  // Group by caller for the per-student view
-  const byCaller = useMemo(() => {
-    const map = new Map<string, { caller: Goal['caller']; goals: Goal[] }>();
-    for (const g of filtered) {
-      const existing = map.get(g.caller.id);
+  // Aggregate enrolled callers for the "Students tracking these goals" section.
+  const studentRollup = useMemo(() => {
+    const byCaller = new Map<string, { caller: StudentGoal['caller']; count: number; avgProgress: number }>();
+    for (const g of studentGoals) {
+      const existing = byCaller.get(g.caller.id);
       if (existing) {
-        existing.goals.push(g);
+        existing.count += 1;
+        existing.avgProgress = (existing.avgProgress * (existing.count - 1) + g.progress) / existing.count;
       } else {
-        map.set(g.caller.id, { caller: g.caller, goals: [g] });
+        byCaller.set(g.caller.id, { caller: g.caller, count: 1, avgProgress: g.progress });
       }
     }
-    return [...map.values()].sort((a, b) => a.caller.name.localeCompare(b.caller.name));
-  }, [filtered]);
+    return [...byCaller.values()].sort((a, b) => a.caller.name.localeCompare(b.caller.name));
+  }, [studentGoals]);
 
-  // ── Loading ──────────────────────────────────────────
+  // ── Empty: no template goals ──────────────────────────
 
-  if (loading) {
-    return (
-      <div className="hf-empty-compact">
-        <div className="hf-spinner" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="hf-banner hf-banner-error hf-mt-md">{error}</div>
-    );
-  }
-
-  // ── Empty State ──────────────────────────────────────
-
-  if (goals.length === 0 && filterStatus === 'all' && filterType === 'all') {
+  if (templateGoals.length === 0) {
     return (
       <div className="hf-empty-state hf-mt-lg">
         <div className="hf-empty-state-icon"><Target size={48} /></div>
-        <div className="hf-empty-state-title">No goals yet</div>
+        <div className="hf-empty-state-title">No course goals yet</div>
         <div className="hf-empty-state-desc">
-          Goals are created automatically when students are enrolled in this course
+          Course goals come from the learning outcomes you set during course creation.
+          Open the course wizard and add learning outcomes to populate this view.
         </div>
       </div>
     );
@@ -163,123 +95,99 @@ export function CourseGoalsTab({ courseId }: CourseGoalsTabProps): React.ReactEl
 
   return (
     <div className="hf-mt-md">
-      {/* Status summary cards */}
-      {counts && (
-        <div className="hf-grid-4 hf-mb-md">
-          {Object.entries(GOAL_STATUS_CONFIG).map(([key, cfg]) => {
-            const count = counts.byStatus[key] || 0;
-            return (
-              <button
-                key={key}
-                type="button"
-                className={`hf-stat-card hf-stat-card-compact hf-stat-card-clickable${filterStatus === key ? ' hf-stat-card-active' : ''}`}
-                onClick={() => setFilterStatus(filterStatus === key ? 'all' : key)}
-              >
-                <div className="hf-stat-value-sm" style={{ color: cfg.color }}>{count}</div>
-                <div className="hf-text-xs hf-text-muted">{cfg.icon} {cfg.label}</div>
-              </button>
-            );
-          })}
+      {/* Primary view: course-level goals (the template) */}
+      <div className="hf-section-header">
+        <h3 className="hf-section-title">
+          <Target size={18} className="hf-text-muted" />
+          Course Goals
+        </h3>
+        <div className="hf-section-desc">
+          The learning outcomes every enrolled student is working towards. Defined during course creation.
         </div>
-      )}
-
-      {/* Filters */}
-      <div className="hf-flex hf-gap-sm hf-mb-md hf-flex-wrap hf-items-center">
-        <Filter size={14} className="hf-text-muted" />
-        <input
-          type="text"
-          placeholder="Search goals or students..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="hf-input hf-input-sm"
-          style={{ width: 200 }}
-        />
-        <FancySelect
-          value={filterStatus}
-          onChange={setFilterStatus}
-          searchable={false}
-          style={{ minWidth: 130 }}
-          options={GOAL_STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
-        />
-        <FancySelect
-          value={filterType}
-          onChange={setFilterType}
-          searchable={false}
-          style={{ minWidth: 130 }}
-          options={GOAL_TYPE_OPTIONS.map((t) => ({ value: t.value, label: t.label }))}
-        />
-        <span className="hf-text-xs hf-text-muted hf-ml-auto">
-          {filtered.length} goal{filtered.length !== 1 ? 's' : ''} across {byCaller.length} student{byCaller.length !== 1 ? 's' : ''}
-        </span>
       </div>
 
-      {/* No results after filter */}
-      {filtered.length === 0 && (
-        <div className="hf-empty-state hf-mt-md">
-          <div className="hf-empty-state-icon"><Target size={36} /></div>
-          <div className="hf-empty-state-title">No goals match filters</div>
-          <div className="hf-empty-state-desc">Try adjusting the status or type filter</div>
+      <div className="hf-flex-col hf-gap-sm hf-mb-lg">
+        {templateGoals.map((g, i) => {
+          const typeConfig = GOAL_TYPE_CONFIG[g.type] || {
+            label: g.type,
+            icon: '\u{1F3AF}',
+            color: 'var(--text-muted)',
+            glow: 'var(--text-muted)',
+          };
+          return (
+            <div key={`${g.name}-${i}`} className="hf-card hf-card-compact">
+              <div className="hf-flex hf-items-start hf-gap-sm">
+                <div
+                  className="hf-icon-box"
+                  style={{
+                    background: `color-mix(in srgb, ${typeConfig.color} 12%, transparent)`,
+                    color: typeConfig.color,
+                  }}
+                >
+                  <span style={{ fontSize: 20 }}>{typeConfig.icon}</span>
+                </div>
+                <div className="hf-flex-1 hf-min-w-0">
+                  <div className="hf-flex hf-items-center hf-gap-xs hf-mb-2xs">
+                    <span
+                      className="hf-chip hf-chip-xs"
+                      style={{
+                        background: `color-mix(in srgb, ${typeConfig.color} 10%, transparent)`,
+                        color: typeConfig.color,
+                      }}
+                    >
+                      {typeConfig.label}
+                    </span>
+                    {g.isAssessmentTarget && (
+                      <span className="hf-chip hf-chip-xs hf-chip-warning">
+                        Assessment target
+                      </span>
+                    )}
+                  </div>
+                  <div className="hf-text-sm hf-text-primary hf-text-bold">{g.name}</div>
+                  {g.description && (
+                    <div className="hf-text-xs hf-text-muted hf-mt-2xs">{g.description}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Secondary: which students are tracking these goals */}
+      <div className="hf-section-header">
+        <h3 className="hf-section-title">
+          <Users size={18} className="hf-text-muted" />
+          Enrolled Students
+        </h3>
+        <div className="hf-section-desc">
+          {studentLoading
+            ? 'Loading student progress…'
+            : studentRollup.length === 0
+              ? 'No students are currently tracking these goals. Enrol a caller to start.'
+              : `${studentRollup.length} student${studentRollup.length !== 1 ? 's' : ''} working on ${templateGoals.length} course goal${templateGoals.length !== 1 ? 's' : ''}.`}
+        </div>
+      </div>
+
+      {!studentLoading && studentRollup.length > 0 && (
+        <div className="hf-flex-col hf-gap-xs">
+          {studentRollup.map(({ caller, count, avgProgress }) => (
+            <Link
+              key={caller.id}
+              href={`/x/callers/${caller.id}?tab=learning`}
+              className="hf-list-row hf-list-row-clickable"
+            >
+              <CallerPill label={caller.name} size="compact" />
+              <div className="hf-flex-1 hf-text-xs hf-text-muted">
+                {count} goal{count !== 1 ? 's' : ''} instantiated
+              </div>
+              <div className="hf-text-xs hf-text-muted hf-text-right hf-flex-shrink-0">
+                {Math.round(avgProgress * 100)}% avg progress
+              </div>
+            </Link>
+          ))}
         </div>
       )}
-
-      {/* Goals grouped by student */}
-      <div className="hf-flex-col hf-gap-md">
-        {byCaller.map(({ caller, goals: callerGoals }) => (
-          <div key={caller.id} className="hf-card">
-            {/* Student header */}
-            <div className="hf-flex hf-items-center hf-gap-sm hf-mb-sm">
-              <Link href={`/x/callers/${caller.id}?tab=learning`}>
-                <CallerPill label={caller.name} size="compact" />
-              </Link>
-              <span className="hf-text-xs hf-text-muted">
-                {callerGoals.length} goal{callerGoals.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-
-            {/* Goal rows */}
-            <div className="hf-flex-col hf-gap-xs">
-              {callerGoals.map((goal) => {
-                const typeConfig = GOAL_TYPE_CONFIG[goal.type] || { label: goal.type, icon: '\u{1F3AF}', color: 'var(--text-muted)', glow: 'var(--text-muted)' };
-                const statusConfig = GOAL_STATUS_CONFIG[goal.status] || { label: goal.status, icon: '', color: 'var(--text-muted)' };
-
-                return (
-                  <Link
-                    key={goal.id}
-                    href={`/x/callers/${goal.caller.id}?tab=learning`}
-                    className="hf-list-row hf-list-row-clickable"
-                  >
-                    <ProgressRing progress={goal.progress} color={typeConfig.color} />
-                    <div className="hf-flex-1 hf-min-w-0">
-                      <div className="hf-flex hf-items-center hf-gap-xs hf-mb-2xs">
-                        <span
-                          className="hf-chip hf-chip-xs"
-                          style={{ background: `color-mix(in srgb, ${typeConfig.color} 10%, transparent)`, color: typeConfig.color }}
-                        >
-                          {typeConfig.icon} {typeConfig.label}
-                        </span>
-                        <span
-                          className="hf-chip hf-chip-xs"
-                          style={{ background: `color-mix(in srgb, ${statusConfig.color} 10%, transparent)`, color: statusConfig.color }}
-                        >
-                          {statusConfig.label}
-                        </span>
-                      </div>
-                      <div className="hf-text-sm hf-text-primary hf-text-bold hf-truncate">{goal.name}</div>
-                      {goal.description && (
-                        <div className="hf-text-xs hf-text-muted hf-truncate">{goal.description}</div>
-                      )}
-                    </div>
-                    <div className="hf-text-xs hf-text-muted hf-text-right hf-flex-shrink-0">
-                      {goal.startedAt && <div>Started {new Date(goal.startedAt).toLocaleDateString()}</div>}
-                      {goal.completedAt && <div className="hf-text-success">Completed {new Date(goal.completedAt).toLocaleDateString()}</div>}
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
