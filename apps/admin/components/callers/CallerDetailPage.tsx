@@ -95,8 +95,24 @@ export default function CallerDetailPage() {
   const [expandedMemory, setExpandedMemory] = useState<string | null>(null);
   const [activePromptExpanded, setActivePromptExpanded] = useState(false);
 
-  // Tuner sidebar state
-  const [tunerOpen, setTunerOpen] = useState(false);
+  // Tuner sidebar state — persisted per caller
+  const tunerStorageKey = `hf.tuner.open.${callerId}`;
+  const [tunerOpen, setTunerOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(tunerStorageKey) === "1";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(tunerStorageKey, tunerOpen ? "1" : "0");
+  }, [tunerOpen, tunerStorageKey]);
+  useEffect(() => {
+    if (!tunerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTunerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tunerOpen]);
   const [appliedChanges, setAppliedChanges] = useState<{ label: string; oldValue: string; newValue: string }[] | null>(null);
 
   // Prompts state
@@ -768,7 +784,7 @@ export default function CallerDetailPage() {
           {composedPrompts.length > 0 && (
             <button
               onClick={() => setTunerOpen(!tunerOpen)}
-              title="Open Prompt Tuner"
+              title="Adjust teaching style and behaviour targets"
               className={`cdp-tune-btn${tunerOpen ? " cdp-tune-btn--active" : ""}`}
             >
               <SlidersHorizontal size={14} />
@@ -917,7 +933,7 @@ export default function CallerDetailPage() {
         })}
       </div>
 
-      {/* Section Content + Tuner Sidebar */}
+      {/* Section Content */}
       <div className="cdp-body">
       <div className="cdp-content">
       {activeSection === "overview" && (
@@ -1131,28 +1147,37 @@ export default function CallerDetailPage() {
         </div>
       )}
       </div>
-      {/* Prompt Tuner Sidebar — always mounted, hidden via CSS to preserve state */}
-      {composedPrompts.length > 0 && (
-        <PromptTunerSidebar
-          open={tunerOpen}
-          llmPrompt={composedPrompts[composedPrompts.length - 1]?.llmPrompt ?? null}
-          callerId={callerId}
-          callerName={data.caller.name || "Learner"}
-          playbookId={data.publishedPlaybookId ?? null}
-          onApplied={(changes) => {
-            setAppliedChanges(changes.map((c) => ({
-              label: c.label,
-              oldValue: c.oldValue,
-              newValue: c.newValue,
-            })));
-            setTunerOpen(false);
-            setActivePromptExpanded(true);
-            fetchPrompts();
-          }}
-          onClose={() => setTunerOpen(false)}
-        />
-      )}
       </div>{/* cdp-body */}
+      {/* Prompt Tuner Sidebar — fixed overlay, always mounted to preserve state */}
+      {composedPrompts.length > 0 && (
+        <>
+          {tunerOpen && (
+            <div
+              className="ps-tuner-backdrop"
+              onClick={() => setTunerOpen(false)}
+              aria-hidden="true"
+            />
+          )}
+          <PromptTunerSidebar
+            open={tunerOpen}
+            llmPrompt={composedPrompts[composedPrompts.length - 1]?.llmPrompt ?? null}
+            callerId={callerId}
+            callerName={data.caller.name || "Learner"}
+            playbookId={data.publishedPlaybookId ?? null}
+            onApplied={(changes) => {
+              setAppliedChanges(changes.map((c) => ({
+                label: c.label,
+                oldValue: c.oldValue,
+                newValue: c.newValue,
+              })));
+              setTunerOpen(false);
+              setActivePromptExpanded(true);
+              fetchPrompts();
+            }}
+            onClose={() => setTunerOpen(false)}
+          />
+        </>
+      )}
     </div>
   );
 }

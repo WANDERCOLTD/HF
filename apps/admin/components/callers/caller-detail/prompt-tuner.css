@@ -1,24 +1,41 @@
-/* ── Prompt Tuner Sidebar ─────────────────────────────────────────── */
+/* ── Prompt Tuner Sidebar — fixed right-edge slideout ────────────── */
+
+.ps-tuner-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--text-primary) 28%, transparent);
+  z-index: 199;
+  animation: ps-tuner-fade-in 0.2s ease;
+}
+
+@keyframes ps-tuner-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 
 .ps-tuner-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  max-width: 100vw;
+  z-index: 200;
   display: flex;
   flex-direction: column;
-  height: 100%;
   background: var(--surface-primary);
   border-left: 1px solid var(--border-default);
-  width: 360px;
-  flex-shrink: 0;
+  box-shadow: -8px 0 32px color-mix(in srgb, var(--text-primary) 18%, transparent);
+  transform: translateX(0);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
-  transition: width 0.2s ease, opacity 0.15s ease;
 }
 
 /* Always-mounted hidden state — preserves React state */
 .ps-tuner-sidebar--hidden {
-  width: 0;
-  border-left: none;
-  opacity: 0;
+  transform: translateX(100%);
   pointer-events: none;
-  overflow: hidden;
+  box-shadow: none;
 }
 
 /* ── Header ── */
@@ -503,31 +520,23 @@
   color: var(--status-success-text);
 }
 
-/* ── Responsive: sidebar → bottom drawer on mobile ── */
+/* ── Responsive: sidebar → bottom sheet on mobile ── */
 @media (max-width: 1024px) {
   .ps-tuner-sidebar {
+    top: auto;
     width: 100%;
-    max-height: 70dvh;
+    max-width: 100%;
+    height: 80dvh;
+    max-height: 80dvh;
     border-left: none;
     border-top: 1px solid var(--border-default);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    transform: translateY(0);
   }
   .ps-tuner-sidebar--hidden {
-    width: 100%;
-    height: 0;
-    max-height: 0;
+    transform: translateY(100%);
   }
-}
-
-/* ── CallerDetailPage layout mods ── */
-.cdp-body {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-.cdp-body > .cdp-content {
-  flex: 1;
-  overflow-y: auto;
 }
 
 /* Tune toggle button in header */

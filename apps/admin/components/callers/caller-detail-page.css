@@ -12,6 +12,12 @@
   width: 100%;
 }
 
+.cdp-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
 .cdp-content {
   flex: 1;
   overflow-y: auto;
@@ -231,7 +237,7 @@
   background: var(--surface-primary);
   border: 1px solid var(--border-default);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--text-primary) 10%, transparent);
   z-index: 20;
   min-width: 120px;
   padding: 4px;

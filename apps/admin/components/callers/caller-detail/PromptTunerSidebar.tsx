@@ -302,7 +302,7 @@ export function PromptTunerSidebar({
     }
     if (draftMode !== currentMode) {
       changes.push({
-        type: "config", key: "mode", label: "Pedagogy Mode",
+        type: "config", key: "mode", label: "Learning Mode",
         oldValue: currentMode, newValue: draftMode,
         configKey: "teachingMode", configValue: draftMode,
       });
@@ -401,7 +401,7 @@ export function PromptTunerSidebar({
         const { total = 0, succeeded = 0, failed = 0 } = result;
         if (failed > 0) {
           console.warn(`[tuner] Fan-out recompose: ${succeeded}/${total} succeeded`, result.errors);
-          setApplyResult(`Applied. Recomposed ${succeeded} of ${total} learners — ${failed} failed (see console).`);
+          setApplyResult(`Applied to ${succeeded} of ${total} learners. ${failed} could not be updated — try again or contact support.`);
         } else {
           setApplyResult(`Applied course-wide. Recomposed ${succeeded} learner${succeeded === 1 ? "" : "s"}.`);
         }
@@ -599,6 +599,8 @@ export function PromptTunerSidebar({
                             max={1}
                             step={0.05}
                             value={draft}
+                            aria-label={p.name || humanise(p.parameterId)}
+                            aria-valuetext={fmt(draft)}
                             onChange={(e) =>
                               setDraftTargets((prev) => ({
                                 ...prev,
