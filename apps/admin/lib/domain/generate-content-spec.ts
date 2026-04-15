@@ -163,7 +163,72 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
     };
   }
 
-  // 6. Content Spec as AnalysisSpec removed (ADR-002).
+  // 4. Write assertionTags directly to ContentAssertion.learningOutcomeRef.
+  //
+  // This function is the wizard's primary curriculum-generation path (via
+  // generateInstantCurriculum). Since ADR-002, it no longer creates an
+  // AnalysisSpec and doesn't call syncModulesToDB — the Curriculum/Module/LO
+  // rows are written by a separate path (persistPlanToCurriculum) that has
+  // no access to the assertion tags. If we don't write tags here, they
+  // vanish and applyAssertionTags never fires.
+  //
+  // Structural guard per .claude/rules/ai-to-db-guard.md:
+  //   - Each tag's index must map to a real assertion ID in the input list
+  //   - Each ref must match an LO ref the curriculum just emitted
+  //   - Writes are capped per ref to the input size (no surprise multipliers)
+  if (curriculum.assertionTags.length > 0) {
+    const validRefs = new Set<string>();
+    for (const m of curriculum.modules) {
+      for (const lo of m.learningOutcomes || []) {
+        // LO lines are "LOn: description" — extract the ref.
+        const match = /^\s*(LO-?\d+|AC[\d.]+|R\d+-LO-?\d+(?:-AC[\d.]+)?)\s*:/i.exec(lo);
+        if (match) validRefs.add(match[1].toUpperCase());
+      }
+    }
+
+    const byRef = new Map<string, string[]>();
+    let skippedBadIndex = 0;
+    let skippedUnknownRef = 0;
+
+    for (const tag of curriculum.assertionTags) {
+      if (typeof tag.i !== "number" || tag.i < 1 || tag.i > assertions.length) {
+        skippedBadIndex++;
+        continue;
+      }
+      const id = assertions[tag.i - 1]?.id;
+      if (!id) {
+        skippedBadIndex++;
+        continue;
+      }
+      if (tag.ref === null || tag.ref === undefined) continue;
+      if (!validRefs.has(tag.ref.toUpperCase())) {
+        skippedUnknownRef++;
+        continue;
+      }
+      const list = byRef.get(tag.ref) || [];
+      if (list.length >= assertions.length) continue;
+      list.push(id);
+      byRef.set(tag.ref, list);
+    }
+
+    let applied = 0;
+    for (const [ref, ids] of byRef) {
+      const res = await p.contentAssertion.updateMany({
+        where: { id: { in: ids } },
+        data: { learningOutcomeRef: ref },
+      });
+      applied += res.count;
+    }
+
+    if (applied > 0 || skippedBadIndex > 0 || skippedUnknownRef > 0) {
+      console.log(
+        `[generate-content-spec] applyAssertionTags domainId=${domainId}: ` +
+          `applied=${applied} skipped-bad-index=${skippedBadIndex} skipped-unknown-ref=${skippedUnknownRef}`,
+      );
+    }
+  }
+
+  // 5. Content Spec as AnalysisSpec removed (ADR-002).
   //    Curriculum data now lives in Curriculum + CurriculumModule + LearningObjective tables,
   //    populated by extractCurriculumFromAssertions → Curriculum model pipeline.
   //    The AnalysisSpec is no longer created or linked to playbooks.
