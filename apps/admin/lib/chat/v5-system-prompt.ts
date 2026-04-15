@@ -506,6 +506,14 @@ export async function buildV5SystemPrompt(
     detectedFrom?: string[];
   };
   const pedagogy = (setupData.coursePedagogy as DetectedPedagogy | undefined) ?? null;
+  // Diagnostic (#167) — log whether pedagogy is in setupData on every turn
+  // so we can tell if detection reached the server or not.
+  console.log(
+    `[v5-system-prompt] coursePedagogy in setupData:`,
+    pedagogy
+      ? JSON.stringify(pedagogy)
+      : `<missing> (keys: ${Object.keys(setupData).join(",")})`,
+  );
   let pedagogyOverlay = "";
   if (pedagogy && (pedagogy.lessonPlanMode || pedagogy.cadenceMinutesPerCall || pedagogy.suggestedSessionCount)) {
     const lines: string[] = [
