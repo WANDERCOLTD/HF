@@ -537,8 +537,10 @@ export async function computeSharedState(
 
   if (lessonPlanMode === 'continuous' && modules.length > 0 && specSlug && curriculumId) {
     try {
-      const { selectWorkingSet } = await import("@/lib/curriculum/working-set-selector");
       const { getTpProgressBatch } = await import("@/lib/curriculum/track-progress");
+      const { selectNextExchange } = await import("@/lib/pipeline/scheduler");
+      const { getPresetForPlaybook } = await import("@/lib/pipeline/scheduler-presets");
+      const { readSchedulerDecision, persistSchedulerDecision } = await import("@/lib/pipeline/scheduler-decision");
 
       // Load all assertions for this curriculum (from loaded data) and
       // filter out non-teachable types (COURSE_REFERENCE = tutor rules).
@@ -552,10 +554,10 @@ export async function computeSharedState(
         );
       }
 
-      // Load LOs from DB (real records with id, ref, moduleId)
+      // Load LOs from DB — include per-LO masteryThreshold override (#155)
       const dbLOs = await prisma.learningObjective.findMany({
         where: { module: { curriculumId, isActive: true } },
-        select: { id: true, ref: true, moduleId: true, sortOrder: true, description: true },
+        select: { id: true, ref: true, moduleId: true, sortOrder: true, description: true, masteryThreshold: true },
         orderBy: [{ module: { sortOrder: "asc" } }, { sortOrder: "asc" }],
       });
 
@@ -581,27 +583,57 @@ export async function computeSharedState(
         const callDurationMins = (pbConfig.durationMins as number) || 15;
         const threshold = specConfig.thresholds?.masteryComplete ?? 0.7;
 
-        const wsResult = selectWorkingSet({
-          assertions: allAssertions.map((a) => ({
-            id: a.id,
-            learningObjectiveId: a.learningObjectiveId || null,
-            learningOutcomeRef: a.learningOutcomeRef || null,
-            depth: a.depth ?? null,
-            orderIndex: a.orderIndex ?? 0,
-          })),
-          learningObjectives: dbLOs,
-          modules: modules.map((m) => ({
-            id: m.id || m.slug,
-            slug: m.slug,
-            name: m.name,
-            sortOrder: m.sortOrder ?? m.sequence ?? 0,
-            prerequisites: (m.prerequisites || []) as string[],
-          })),
-          tpMasteryMap: tpProgress,
-          loMasteryMap,
-          callDurationMins,
-          masteryThreshold: threshold,
-        });
+        // Scheduler v1 Slice 2 (#155) — selectNextExchange replaces the
+        // placeholder SchedulerDecision write from Slice 1. It delegates
+        // candidate-pool selection to selectWorkingSet (via the runner) and
+        // adds mode/outcome picking with explicit policy weights.
+        const policy = getPresetForPlaybook(data.playbooks?.[0]);
+
+        // Read prior decision to compute cadence counter. First call: null.
+        const priorDecision = await readSchedulerDecision(callerId).catch(() => null);
+        const pendingCount =
+          priorDecision == null
+            ? 0
+            : priorDecision.mode === "assess"
+              ? 1
+              : (priorDecision.callsSinceAssess ?? 0) + 1;
+
+        const { decision, workingSet: wsResult } = selectNextExchange(
+          {
+            workingSetInput: {
+              assertions: allAssertions.map((a) => ({
+                id: a.id,
+                learningObjectiveId: a.learningObjectiveId || null,
+                learningOutcomeRef: a.learningOutcomeRef || null,
+                depth: a.depth ?? null,
+                orderIndex: a.orderIndex ?? 0,
+              })),
+              learningObjectives: dbLOs.map((lo) => ({
+                id: lo.id,
+                ref: lo.ref,
+                moduleId: lo.moduleId,
+                sortOrder: lo.sortOrder,
+                description: lo.description,
+                // Per-LO override (#155): nullable, falls back to input-level
+                masteryThreshold: lo.masteryThreshold,
+              })),
+              modules: modules.map((m) => ({
+                id: m.id || m.slug,
+                slug: m.slug,
+                name: m.name,
+                sortOrder: m.sortOrder ?? m.sequence ?? 0,
+                prerequisites: (m.prerequisites || []) as string[],
+              })),
+              tpMasteryMap: tpProgress,
+              loMasteryMap,
+              callDurationMins,
+              masteryThreshold: threshold,
+            },
+            priorDecision,
+            callsSinceLastAssess: pendingCount,
+          },
+          policy,
+        );
 
         workingSet = {
           assertionIds: wsResult.assertionIds,
@@ -610,7 +642,10 @@ export async function computeSharedState(
           selectedLOs: wsResult.selectedLOs,
         };
 
-        // Build synthetic lessonPlanEntry from working set
+        // Build synthetic lessonPlanEntry from working set.
+        // `frontierModuleId` preserved verbatim to keep curriculum_guidance
+        // and session_pedagogy rendering anchored to the same module the
+        // scheduler picked from — the frontierModuleId contract flagged in #155.
         lessonPlanEntry = {
           session: 1,
           type: 'continuous',
@@ -634,30 +669,25 @@ export async function computeSharedState(
         }
 
         console.log(
-          `[modules] Continuous mode: selected ${wsResult.selectedLOs.length} LOs, ` +
+          `[modules] Scheduler ${policy.name}: ${decision.mode} | ${wsResult.selectedLOs.length} LOs, ` +
           `${wsResult.assertionIds.length} TPs (${wsResult.reviewIds.length} review, ${wsResult.newIds.length} new). ` +
-          `Progress: ${wsResult.totalMastered}/${wsResult.totalLOs} LOs mastered.`
+          `Progress: ${wsResult.totalMastered}/${wsResult.totalLOs} LOs mastered. | ${decision.reason}`
         );
 
-        // Scheduler v1 Slice 1 (#154) — persist a placeholder decision so the
-        // next call's EXTRACT can event-gate caller-skill scoring. Slice 1 has
-        // no mode selection yet — the placeholder mode comes from
-        // config.scheduler.placeholderMode (env-overridable so operators can
-        // flip scoring back on if Slice 2 is delayed). Slices 2+3 replace
-        // this with the real selectNextExchange output.
+        // Persist the real decision. EXTRACT on the next call reads this via
+        // event-gate.ts to decide whether caller-skill scoring is allowed.
         try {
-          const { persistSchedulerDecision } = await import("@/lib/pipeline/scheduler-decision");
-          const placeholderMode = config.scheduler.placeholderMode as
-            | "teach" | "review" | "assess" | "practice";
+          const nextCallsSinceAssess = decision.mode === "assess" ? 0 : pendingCount;
           await persistSchedulerDecision(callerId, {
-            mode: placeholderMode,
-            outcomeId: wsResult.selectedLOs[0]?.id ?? null,
-            contentSourceId: null,
-            workingSetAssertionIds: wsResult.assertionIds,
-            reason: `slice-1 placeholder: mode=${placeholderMode} from config.scheduler.placeholderMode`,
+            mode: decision.mode,
+            outcomeId: decision.outcomeId,
+            contentSourceId: decision.contentSourceId,
+            workingSetAssertionIds: decision.workingSetAssertionIds,
+            reason: decision.reason,
+            callsSinceAssess: nextCallsSinceAssess,
           });
         } catch (persistErr) {
-          console.warn('[modules] Failed to persist placeholder SchedulerDecision (non-blocking):', persistErr);
+          console.warn('[modules] Failed to persist SchedulerDecision (non-blocking):', persistErr);
         }
       }
     } catch (err) {

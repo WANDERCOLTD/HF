@@ -45,7 +45,22 @@ export async function evaluateCheckpoints(
     select: { score: true, parameter: { select: { parameterId: true } } },
   });
 
-  if (scores.length === 0) return [];
+  // #155 checkpoint starvation warning — event-gated scoring (Slice 1 event-gate.ts)
+  // now suppresses caller scores on teach/review calls, so checkpoint evaluator
+  // can receive zero LO scores on legitimate teach-only callers. Without this
+  // log, the checkpoint silently reports no progress across multiple sessions
+  // until a dashboard notices. Minimum observations threshold is low (1) because
+  // one explicit assess call is enough evidence.
+  const MIN_OBSERVATIONS = 1;
+  if (scores.length < MIN_OBSERVATIONS) {
+    console.warn(
+      `[checkpoint-evaluator] Score starvation: caller=${callerId} call=${callId} ` +
+      `session=${sessionNumber} produced ${scores.length} LO scores (min=${MIN_OBSERVATIONS}). ` +
+      `Likely cause: event-gated scoring suppressed teach-mode call. ` +
+      `Checkpoint will not be evaluated until a scheduler 'mode: assess' decision runs.`,
+    );
+    return [];
+  }
 
   // Average score across all learning outcome parameters for this session
   const avgScore = scores.reduce((sum, s) => sum + s.score, 0) / scores.length;

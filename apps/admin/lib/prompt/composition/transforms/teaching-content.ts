@@ -463,20 +463,34 @@ registerTransform("renderTeachingContent", (
   let assertions = allAssertions;
   let isContinuousMode = false;
 
-  // ── Continuous mode: working set already selected by selector ──
+  // ── Continuous mode: scheduler-owned selection is the single source of truth (#155) ──
+  //
+  // Previously this branch silently fell through to the structured-mode priority
+  // chain when the working-set IDs didn't match current assertions (stale data,
+  // regeneration race). That produced two competing selection passes and silent
+  // TP drift. Slice 2 locks the transform to the scheduler's decision — if the
+  // IDs are stale, we log and commit to an empty renderable set rather than
+  // shadow-selecting via LO-ref matching.
   if (context.sharedState?.lessonPlanMode === 'continuous' && context.sharedState?.workingSet) {
     const wsIds = new Set(context.sharedState.workingSet.assertionIds);
     const wsAssertions = allAssertions.filter((a) => wsIds.has(a.id));
 
-    if (wsAssertions.length > 0) {
-      // Label review TPs (reuse existing carry-forward pattern)
-      const reviewIds = new Set(context.sharedState.workingSet.reviewIds);
-      assertions = wsAssertions.map((a) =>
-        reviewIds.has(a.id)
-          ? { ...a, assertion: `[Review from previous call] ${a.assertion}` }
-          : a,
+    // Label review TPs (reuse existing carry-forward pattern)
+    const reviewIds = new Set(context.sharedState.workingSet.reviewIds);
+    assertions = wsAssertions.map((a) =>
+      reviewIds.has(a.id)
+        ? { ...a, assertion: `[Review from previous call] ${a.assertion}` }
+        : a,
+    );
+    isContinuousMode = true;
+
+    if (wsAssertions.length === 0 && wsIds.size > 0) {
+      console.error(
+        `[teaching-content] Scheduler working set is stale: ${wsIds.size} IDs matched 0 of ${allAssertions.length} assertions. ` +
+        `NOT falling back to structured selection — continuous mode commits to scheduler output. ` +
+        `Run curriculum regeneration or investigate scheduler state.`,
       );
-      isContinuousMode = true;
+    } else {
       console.log(
         `[teaching-content] Continuous mode: ${assertions.length} TPs in working set ` +
         `(${reviewIds.size} review, ${assertions.length - reviewIds.size} new)`,
@@ -495,8 +509,11 @@ registerTransform("renderTeachingContent", (
     if (explicitAssertions.length > 0) {
       assertions = explicitAssertions;
     } else {
-      console.warn(
-        `[teaching-content] Stale assertionIds: ${explicitIds.length} IDs matched 0 of ${allAssertions.length} assertions. ` +
+      // #155: stale lesson plan detected. Log error (not warn) so it surfaces
+      // in pipeline manifests, then fall through to LO-ref priority. Structured
+      // mode retains the fallback cascade — the scheduler only owns continuous.
+      console.error(
+        `[teaching-content] Stale structured assertionIds: ${explicitIds.length} IDs matched 0 of ${allAssertions.length} assertions. ` +
         `Session ${context.sharedState?.lessonPlanEntry?.session ?? "?"} falling back to LO refs. ` +
         `Source may have been re-extracted without lesson plan refresh.`,
       );

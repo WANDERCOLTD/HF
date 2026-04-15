@@ -2245,6 +2245,11 @@ model LearningObjective {
   description String @db.Text // Full text: "Understand the process of mitosis"
   sortOrder   Int    @default(0)
 
+  // Per-LO mastery criterion override. Null → inherit CurriculumModule.masteryThreshold.
+  // Added by #155 (scheduler v1) so Exam-prep / Confidence-build presets can tune
+  // thresholds per outcome without touching the parent module.
+  masteryThreshold Float?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

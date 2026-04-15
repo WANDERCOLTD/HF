@@ -548,16 +548,13 @@ export const config = {
   // ---------------------------------------------------------------------------
   scheduler: {
     /**
-     * Slice 1 placeholder mode written by COMPOSE in continuous mode.
-     * Default "teach" → EXTRACT event-gate skips caller-skill scoring next call
-     * (fixes #154 S1–S4: no scoring without assessment evidence). Operators can
-     * flip to "assess" via env to re-enable scoring without a redeploy, which
-     * is the escape hatch if Slice 2 is delayed.
-     * Override: SCHEDULER_SLICE1_PLACEHOLDER_MODE=teach|review|assess|practice
+     * Slice 1 placeholder-mode escape hatch — REMOVED in Slice 2 (#155).
+     * The real scheduler now writes mode from selectNextExchange; there is no
+     * placeholder to override. Leaving this comment as a deprecation marker so
+     * operators searching for SCHEDULER_SLICE1_PLACEHOLDER_MODE can find the
+     * upgrade path: the env var is no-op; pick a preset via Playbook.config
+     * instead (story #166 adds the wizard picker).
      */
-    get placeholderMode(): string {
-      return optional("SCHEDULER_SLICE1_PLACEHOLDER_MODE", "teach");
-    },
 
     /**
      * Comma-separated list of SchedulerDecision modes that allow caller-skill

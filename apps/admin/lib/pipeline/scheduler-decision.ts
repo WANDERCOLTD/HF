@@ -25,6 +25,14 @@ export interface SchedulerDecision {
   workingSetAssertionIds: string[];
   reason: string;
   writtenAt: string;
+  /**
+   * Calls-since-last-assess counter at the time of this decision.
+   * Added by Slice 2 (#155). Incremented monotonically on teach/review
+   * decisions; reset to 0 on assess. The next COMPOSE reads this and
+   * increments to decide whether to fire `mode: assess`. Optional so Slice 1
+   * persisted decisions still deserialise.
+   */
+  callsSinceAssess?: number;
 }
 
 export async function persistSchedulerDecision(

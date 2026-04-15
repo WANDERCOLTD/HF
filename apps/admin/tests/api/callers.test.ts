@@ -53,6 +53,18 @@ vi.mock("@/lib/enrollment", () => ({
   resolveAndEnrollSingle: vi.fn().mockResolvedValue(null),
 }));
 
+// callers/route.ts now surfaces goal-instantiation failures as HTTP 500
+// instead of silently swallowing them (commit 06c9d79a). The test must mock
+// the instantiate-goals module so it resolves cleanly in the happy path.
+vi.mock("@/lib/enrollment/instantiate-goals", () => ({
+  instantiatePlaybookGoals: vi.fn().mockResolvedValue([]),
+}));
+
+// Same for auto-compose — the POST handler calls it after goal instantiation.
+vi.mock("@/lib/enrollment/auto-compose", () => ({
+  autoComposeForCaller: vi.fn().mockResolvedValue(undefined),
+}));
+
 // =====================================================
 // TESTS
 // =====================================================

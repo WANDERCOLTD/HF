@@ -44,6 +44,11 @@ export interface LORef {
   moduleId: string;
   sortOrder: number;
   description: string;
+  /**
+   * Per-LO mastery threshold override (#155). Null → inherit the input-level
+   * masteryThreshold (which in turn resolves from module/preset/default).
+   */
+  masteryThreshold?: number | null;
 }
 
 export interface ModuleRef {
@@ -169,9 +174,13 @@ export function selectWorkingSet(input: WorkingSetInput): WorkingSetResult {
 
     if (childTps.length === 0) continue;  // Skip LOs with no TPs
 
+    // Per-LO threshold override (#155). Null falls back to the input-level
+    // threshold so behaviour is unchanged for LOs without overrides.
+    const loThreshold = lo.masteryThreshold ?? masteryThreshold;
+
     // Compute LO status from child TPs
     const allMastered = childTps.every(
-      (tp) => (tpMasteryMap[tp.id]?.mastery ?? 0) >= masteryThreshold
+      (tp) => (tpMasteryMap[tp.id]?.mastery ?? 0) >= loThreshold
     );
     const anyAttempted = childTps.some(
       (tp) => tpMasteryMap[tp.id]?.status === "in_progress" || tpMasteryMap[tp.id]?.status === "mastered"
@@ -203,7 +212,7 @@ export function selectWorkingSet(input: WorkingSetInput): WorkingSetResult {
 
   let reviewLO: LOWithMeta | null = null;
   const reviewCandidates = loGraph
-    .filter((lo) => lo.status === "in_progress" && lo.mastery < masteryThreshold)
+    .filter((lo) => lo.status === "in_progress" && lo.mastery < (lo.masteryThreshold ?? masteryThreshold))
     .sort((a, b) => a.mastery - b.mastery);  // weakest first
 
   if (reviewCandidates.length > 0) {

@@ -79,6 +79,8 @@ describe("computeTrustContext transform", () => {
     const ctx = makeContext({
       resolvedSpecs: {
         identitySpec: null,
+        voiceSpec: null,
+      },
     });
 
     const result = getTransform("computeTrustContext")!(null, ctx, makeSectionDef());
@@ -89,11 +91,6 @@ describe("computeTrustContext transform", () => {
     const ctx = makeContext({
       resolvedSpecs: {
         identitySpec: null,
-              secondarySources: [],
-            },
-          },
-          description: null,
-        },
         voiceSpec: null,
       },
     });
@@ -112,13 +109,6 @@ describe("computeTrustContext transform", () => {
     const ctx = makeContext({
       resolvedSpecs: {
         identitySpec: null,
-              secondarySources: [
-                { slug: "ref-1", name: "Reference Book", trustLevel: "EXPERT_CURATED", authors: ["Author A"], edition: "3rd Ed." },
-              ],
-            },
-          },
-          description: null,
-        },
         voiceSpec: null,
       },
     });
@@ -137,11 +127,6 @@ describe("computeTrustContext transform", () => {
     const ctx = makeContext({
       resolvedSpecs: {
         identitySpec: null,
-              secondarySources: [],
-            },
-          },
-          description: null,
-        },
         voiceSpec: null,
       },
     });
@@ -158,11 +143,6 @@ describe("computeTrustContext transform", () => {
     const ctx = makeContext({
       resolvedSpecs: {
         identitySpec: null,
-              secondarySources: [],
-            },
-          },
-          description: null,
-        },
         voiceSpec: null,
       },
     });
@@ -176,11 +156,6 @@ describe("computeTrustContext transform", () => {
     const ctx = makeContext({
       resolvedSpecs: {
         identitySpec: null,
-              secondarySources: [],
-            },
-          },
-          description: null,
-        },
         voiceSpec: null,
       },
       sharedState: {
@@ -208,6 +183,8 @@ describe("computeTrustContext transform", () => {
       const ctx = makeContext({
         resolvedSpecs: {
           identitySpec: null,
+          voiceSpec: null,
+        },
         loadedData: {
           ...makeContext().loadedData,
           subjectSources: {
