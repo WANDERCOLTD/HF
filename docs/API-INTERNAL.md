@@ -5750,18 +5750,17 @@ Resolve which images belong to each lesson plan session (from persisted media[] 
 
 ### `POST` /api/curricula/:curriculumId/reconcile-orphans
 
-Run Pass 3 (vector cosine) reconciliation for orphan teaching
+Run Pass 2 (AI retag) reconciliation for orphan teaching
 
 **Auth**: OPERATOR · **Scope**: `curricula:write`
 
 | Parameter | In | Type | Required | Description |
 |-----------|-----|------|----------|-------------|
 | curriculumId | path | string | Yes |  |
-| force | query | boolean | No | Reserved for future use (server cooldown still applies) |
 
 **Response** `200`
 ```json
-{ ok, scanned, vectorFkWritten, vectorNearMiss, avgVectorConfidence }
+{ ok, scanned, matched, unmatched, invalidRefs }
 ```
 
 **Response** `429`

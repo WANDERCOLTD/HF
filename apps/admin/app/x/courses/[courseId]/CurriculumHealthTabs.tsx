@@ -110,7 +110,7 @@ export function CurriculumHealthTabs({
     fetch(`/api/curricula/${curriculumId}/reconcile-orphans`, { method: "POST" })
       .then((r) => r.json())
       .then((res) => {
-        if (res.ok && res.vectorFkWritten > 0) {
+        if (res.ok && res.matched > 0) {
           onScorecardRefresh?.();
         }
       })
@@ -139,16 +139,17 @@ export function CurriculumHealthTabs({
           setReconcileBanner(`Reconcile failed: ${data.error || "unknown error"}`);
         }
       } else {
-        const matched = data.vectorFkWritten ?? 0;
-        const avgPct = Math.round((data.avgVectorConfidence ?? 0) * 100);
+        const matched = data.matched ?? 0;
+        const invalid = data.invalidRefs ?? 0;
         if (matched === 0) {
           setReconcileBanner(
-            `No additional matches found. Orphans may need manual linkage or new source content.`,
+            invalid > 0
+              ? `No matches applied. AI returned ${invalid} invalid LO reference${invalid !== 1 ? "s" : ""}. Try regenerating the curriculum.`
+              : `No additional matches found. Orphans may need manual linkage or new source content.`,
           );
         } else {
           setReconcileBanner(
-            `Matched ${matched} additional teaching point${matched !== 1 ? "s" : ""} ` +
-              `(avg confidence ${avgPct}%).`,
+            `Matched ${matched} additional teaching point${matched !== 1 ? "s" : ""} via AI retagging.`,
           );
         }
         onScorecardRefresh?.();

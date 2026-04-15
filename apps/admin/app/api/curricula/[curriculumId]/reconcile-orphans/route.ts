@@ -8,13 +8,12 @@ import { reconcileAssertionLOs } from "@/lib/content-trust/reconcile-lo-linkage"
  * @scope curricula:write
  * @auth OPERATOR
  * @tags curricula, content-trust
- * @description Run Pass 3 (vector cosine) reconciliation for orphan teaching
- *   points on this curriculum. Passes 1 and 2 already auto-fire on curriculum
- *   save — this route is the on-demand force trigger for Pass 3 from the UI.
+ * @description Run Pass 2 (AI retag) reconciliation for orphan teaching
+ *   points on this curriculum. Passes 1 and 2 auto-fire on curriculum save —
+ *   this route is the on-demand force trigger from the UI.
  *   Rate-limited: 60s in-memory cooldown per curriculumId to prevent hot-loops.
  * @pathParam curriculumId string
- * @query force boolean - Reserved for future use (server cooldown still applies)
- * @response 200 { ok, scanned, vectorFkWritten, vectorNearMiss, avgVectorConfidence }
+ * @response 200 { ok, scanned, matched, unmatched, invalidRefs }
  * @response 429 { ok: false, error, retryAfter }
  */
 
@@ -49,15 +48,14 @@ export async function POST(
     }
     lastRunByCurriculum.set(curriculumId, now);
 
-    const result = await reconcileAssertionLOs(curriculumId, { runVectorPass: true });
+    const result = await reconcileAssertionLOs(curriculumId, { runAiRetagPass: true });
 
     return NextResponse.json({
       ok: true,
       scanned: result.assertionsScanned,
-      vectorFkWritten: result.vectorFkWritten,
-      vectorNearMiss: result.vectorNearMiss,
-      vectorBelowThreshold: result.vectorBelowThreshold,
-      avgVectorConfidence: result.avgVectorConfidence,
+      matched: result.aiRetagMatched,
+      unmatched: result.aiRetagUnmatched,
+      invalidRefs: result.aiRetagInvalidRefs,
     });
   } catch (err: any) {
     console.error("[reconcile-orphans] Error:", err);

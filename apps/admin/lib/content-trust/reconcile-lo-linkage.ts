@@ -1,47 +1,48 @@
 /**
  * reconcile-lo-linkage.ts
  *
- * Epic #131 A4 — populate `ContentAssertion.learningObjectiveId` by joining
- * the string `learningOutcomeRef` against `LearningObjective.ref` within the
- * curriculum scope.
+ * Populate `ContentAssertion.learningObjectiveId` after a curriculum exists.
  *
  * Two-pass reconciliation:
  *
- *   **Pass 1 — Structured ref matching** (original A4 logic, authoritative).
+ *   **Pass 1 — Structured ref matching** (deterministic, free).
  *   Matches `learningOutcomeRef` strings against LO refs via `loRefsMatch`
- *   (word-boundary bidirectional). Handles "LO1"↔"R04-LO1" etc.
+ *   (word-boundary bidirectional). Handles "LO1"↔"R04-LO1" etc. Writes
+ *   `linkConfidence = 1.0`.
  *
- *   **Pass 2 — Semantic keyword matching** (#142).
- *   For assertions that still have no FK after pass 1 (null ref, free-text ref,
- *   or unmatched structured ref), scores assertion text against LO descriptions
- *   using Jaccard keyword overlap with category bonus. Best match above threshold
- *   gets the FK set. No AI calls — pure deterministic text similarity.
+ *   **Pass 2 — AI retag** (issue #162 follow-up — replaces the old Jaccard
+ *   and vector passes that proved unreliable on narrative content).
+ *   For orphans after Pass 1, batch the assertion text + full LO list into
+ *   one AI call and ask it to return `{ [assertionId]: "LO ref" | null }`.
+ *   Output is validated against the real LO whitelist — any ref not in the
+ *   curriculum is rejected. Matched rows get `linkConfidence = 0.85`
+ *   (AI-verified but not ground-truth). This is the fix for "the extractor
+ *   can't tag refs because the curriculum didn't exist yet" — we retag AFTER
+ *   the curriculum is in place.
  *
  * Runs automatically from `syncModulesToDB` after every curriculum save, and
- * on-demand from the repair script (B2) and the extract route after first-pass
- * extraction (handles the temporal dependency where assertions are extracted
- * before LOs exist).
+ * on-demand from the `/api/curricula/[id]/reconcile-orphans` endpoint.
  *
- * The FK (`learningObjectiveId`) is the **single source of truth** for linkage.
- * The string `learningOutcomeRef` is preserved as write-time provenance — never
- * overwritten by semantic matching.
+ * The FK (`learningObjectiveId`) is the single source of truth. The string
+ * `learningOutcomeRef` is preserved as write-time provenance.
+ *
+ * History: the earlier Jaccard keyword pass (Pass 2) scored 0 matches on
+ * real narrative content (LO descriptions use abstract verbs like "Identify"
+ * while assertions are concrete), and the vector cosine pass (Pass 3) near-
+ * missed 41 assertions in the 0.4–0.55 band for the same reason. Both
+ * removed in favour of a single AI retag call that sees both texts with
+ * full context.
  */
 
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import { loRefsMatch } from "@/lib/lesson-plan/lo-ref-match";
-import { openAiEmbed, toVectorLiteral } from "@/lib/embeddings";
+import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
+import { parseJsonResponse } from "./extractors/base-extractor";
 
 // ── Configuration ─────────────────────────────────────────
 
-const SEMANTIC_LO_THRESHOLD = parseFloat(
-  process.env.SEMANTIC_LO_THRESHOLD || "0.3",
-);
-
-// Pass 3 (vector / cosine similarity) threshold (issue #162).
-const VECTOR_LO_THRESHOLD = parseFloat(
-  process.env.VECTOR_LO_THRESHOLD || "0.6",
-);
+// Max orphans to send in a single AI retag call. Above this we batch.
+const RETAG_BATCH_SIZE = 80;
 
 // ── Result types ──────────────────────────────────────────
 
@@ -56,25 +57,37 @@ export interface ReconcileResult {
   fkAlreadySet: number;
   noRefOnAssertion: number;
   refDidNotMatchAnyLo: number;
-  /** Pass 2: FKs set via semantic keyword matching (linkConfidence = Jaccard score) */
-  semanticFkWritten: number;
-  semanticBelowThreshold: number;
-  /** Pass 3: FKs set via vector cosine similarity (linkConfidence = cosine) — issue #162 */
-  vectorFkWritten: number;
-  vectorBelowThreshold: number;
-  vectorNearMiss: number;
-  avgVectorConfidence: number;
+  /** Pass 2: FKs set via AI retag with LO list in context (linkConfidence = 0.85) */
+  aiRetagMatched: number;
+  aiRetagUnmatched: number;
+  aiRetagInvalidRefs: number;
   assertionsByLoRef: Record<string, number>;
+
+  // Legacy fields preserved for type-compat with older callers/tests.
+  // Always 0 in the new flow.
+  /** @deprecated — old Jaccard pass removed */
+  semanticFkWritten: number;
+  /** @deprecated — old Jaccard pass removed */
+  semanticBelowThreshold: number;
+  /** @deprecated — old vector cosine pass removed */
+  vectorFkWritten: number;
+  /** @deprecated — old vector cosine pass removed */
+  vectorBelowThreshold: number;
+  /** @deprecated — old vector cosine pass removed */
+  vectorNearMiss: number;
+  /** @deprecated — old vector cosine pass removed */
+  avgVectorConfidence: number;
 }
 
 export interface ReconcileOptions {
-  /** Set false to skip Pass 3. Default true. */
-  runVectorPass?: boolean;
+  /** Set false to skip Pass 2 (the AI retag). Default true. */
+  runAiRetagPass?: boolean;
 }
 
-// ── Semantic scoring ──────────────────────────────────────
+// ── Legacy helpers preserved for test/tooling compat ─────
+// These were the scoring primitives for the removed Jaccard Pass 2.
+// Kept exported in case external tools import them — harmless when unused.
 
-/** Stop words to exclude from keyword scoring */
 const STOP_WORDS = new Set([
   "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
   "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
@@ -85,10 +98,6 @@ const STOP_WORDS = new Set([
   "they", "them", "we", "our", "you", "your", "he", "she", "his", "her",
 ]);
 
-/**
- * Tokenise text into lowercase keyword set, stripping stop words and
- * short tokens. Designed for comparing assertion text against LO descriptions.
- */
 export function tokenise(text: string): Set<string> {
   const words = text
     .toLowerCase()
@@ -98,17 +107,7 @@ export function tokenise(text: string): Set<string> {
   return new Set(words);
 }
 
-/**
- * Score how well an assertion matches an LO description.
- * Returns 0–1 where 1 = perfect overlap.
- *
- * Base: Jaccard-style overlap weighted toward the LO side
- * (how much of the LO description is covered by the assertion text).
- *
- * Category bonus: +0.1 when the assertion category semantically aligns
- * with the LO description (e.g. category "character" + LO mentioning
- * "character motivations").
- */
+/** @deprecated — old Jaccard pass removed. Kept as a pure helper for tests. */
 export function scoreMatch(
   assertionText: string,
   assertionCategory: string,
@@ -116,27 +115,13 @@ export function scoreMatch(
 ): number {
   const aTokens = tokenise(assertionText);
   const loTokens = tokenise(loDescription);
-
   if (loTokens.size === 0 || aTokens.size === 0) return 0;
-
   let overlap = 0;
-  for (const t of loTokens) {
-    if (aTokens.has(t)) overlap++;
-  }
-
-  // Base score: fraction of LO keywords found in assertion
+  for (const t of loTokens) if (aTokens.has(t)) overlap++;
   const base = overlap / loTokens.size;
-
-  // Category bonus: if the assertion category appears as a keyword in the LO
   const catTokens = tokenise(assertionCategory.replace(/_/g, " "));
   let catBonus = 0;
-  for (const ct of catTokens) {
-    if (loTokens.has(ct)) {
-      catBonus = 0.1;
-      break;
-    }
-  }
-
+  for (const ct of catTokens) if (loTokens.has(ct)) { catBonus = 0.1; break; }
   return Math.min(1, base + catBonus);
 }
 
@@ -157,7 +142,7 @@ export async function reconcileAssertionLOs(
   curriculumId: string,
   options: ReconcileOptions = {},
 ): Promise<ReconcileResult> {
-  const runVectorPass = options.runVectorPass !== false;
+  const runAiRetagPass = options.runAiRetagPass !== false;
   const curriculum = await prisma.curriculum.findUnique({
     where: { id: curriculumId },
     select: {
@@ -184,13 +169,17 @@ export async function reconcileAssertionLOs(
     fkAlreadySet: 0,
     noRefOnAssertion: 0,
     refDidNotMatchAnyLo: 0,
+    aiRetagMatched: 0,
+    aiRetagUnmatched: 0,
+    aiRetagInvalidRefs: 0,
+    assertionsByLoRef: {},
+    // Legacy fields
     semanticFkWritten: 0,
     semanticBelowThreshold: 0,
     vectorFkWritten: 0,
     vectorBelowThreshold: 0,
     vectorNearMiss: 0,
     avgVectorConfidence: 0,
-    assertionsByLoRef: {},
   };
 
   if (!curriculum) return empty;
@@ -325,82 +314,37 @@ export async function reconcileAssertionLOs(
     });
   }
 
-  // ── Pass 2: Semantic keyword matching ───────────────────
-  // Pre-tokenise LO descriptions once
-  const loTokensCache = new Map<string, Set<string>>();
-  for (const lo of loArray) {
-    loTokensCache.set(lo.id, tokenise(lo.description));
-  }
-
-  // Track which assertions Pass 2 matched so Pass 3 can skip them. Pass 3
-  // runs per-row (score is the confidence), so we update one row at a time
-  // rather than batching — still cheap, ~100 rows per course.
-  const pass2Matched = new Set<string>();
-
-  // Pass 2 writes per-row so we can persist the individual Jaccard score as
-  // linkConfidence. Each write also sets `learningOutcomeRef` (back-filled)
-  // so the next reconcile run can short-circuit in Pass 1.
-  for (const a of needsSemantic) {
-    let bestScore = 0;
-    let bestLo: { id: string; ref: string } | null = null;
-
-    for (const lo of loArray) {
-      const score = scoreMatch(a.assertion, a.category, lo.description);
-      if (score > bestScore) {
-        bestScore = score;
-        bestLo = lo;
-      }
+  // ── Pass 2: AI retag ────────────────────────────────────
+  // Issue #162 follow-up. The old Jaccard (Pass 2) and vector cosine (Pass 3)
+  // passes both scored poorly on real narrative content because LO
+  // descriptions use abstract verbs ("Identify", "Analyse") while assertions
+  // are concrete. One AI call with both texts in context beats both of them
+  // combined. Runs per-batch to stay under prompt size limits.
+  if (runAiRetagPass && needsSemantic.length > 0) {
+    const retag = await runAiRetagPass_impl(needsSemantic, loArray);
+    result.aiRetagMatched = retag.matched;
+    result.aiRetagUnmatched = retag.unmatched;
+    result.aiRetagInvalidRefs = retag.invalidRefs;
+    for (const [ref, count] of Object.entries(retag.byRef)) {
+      result.assertionsByLoRef[ref] = (result.assertionsByLoRef[ref] ?? 0) + count;
     }
-
-    if (bestLo && bestScore >= SEMANTIC_LO_THRESHOLD) {
-      await prisma.contentAssertion.update({
-        where: { id: a.id },
-        data: {
-          learningObjectiveId: bestLo.id,
-          learningOutcomeRef: bestLo.ref,
-          linkConfidence: bestScore,
-        },
-      });
-      pass2Matched.add(a.id);
-      result.semanticFkWritten++;
-      result.assertionsByLoRef[bestLo.ref] = (result.assertionsByLoRef[bestLo.ref] ?? 0) + 1;
-    } else {
-      result.semanticBelowThreshold++;
-    }
-  }
-
-  // ── Pass 3: Vector cosine similarity ────────────────────
-  // Issue #162. For assertions still orphaned after Pass 2, embed their text
-  // (reusing the pgvector column when already populated) and the LO
-  // descriptions, compute cosine similarity, and link when score >=
-  // VECTOR_LO_THRESHOLD. In-memory only — LOs do not persist embeddings.
-  if (runVectorPass) {
-    const stillOrphan = needsSemantic.filter((a) => !pass2Matched.has(a.id));
-    if (stillOrphan.length > 0) {
-      const { matched, nearMiss, belowThreshold, avgConfidence } =
-        await runVectorReconcile(stillOrphan, loArray);
-      result.vectorFkWritten = matched;
-      result.vectorBelowThreshold = belowThreshold;
-      result.vectorNearMiss = nearMiss;
-      result.avgVectorConfidence = avgConfidence;
-    }
+  } else {
+    result.aiRetagUnmatched = needsSemantic.length;
   }
 
   console.log(
     `[reconcile-lo-linkage] curriculum=${curriculumId}: scanned=${result.assertionsScanned} ` +
       `cleared-stale-refs=${result.staleRefsCleared} cleared-stale-fks=${result.staleFksCleared} ` +
-      `pass1=${result.fkWritten} pass2-jaccard=${result.semanticFkWritten} ` +
-      `pass3-vector=${result.vectorFkWritten} (avg=${result.avgVectorConfidence.toFixed(2)} ` +
-      `near-miss=${result.vectorNearMiss} below=${result.vectorBelowThreshold}) ` +
+      `pass1=${result.fkWritten} pass2-ai-retag=${result.aiRetagMatched} ` +
+      `(unmatched=${result.aiRetagUnmatched} invalid-refs=${result.aiRetagInvalidRefs}) ` +
       `alreadySet=${result.fkAlreadySet} noRef=${result.noRefOnAssertion} ` +
-      `unmatched-ref=${result.refDidNotMatchAnyLo} jaccard-below=${result.semanticBelowThreshold} ` +
-      `(jaccardThreshold=${SEMANTIC_LO_THRESHOLD} vectorThreshold=${VECTOR_LO_THRESHOLD})`,
+      `unmatched-ref=${result.refDidNotMatchAnyLo}`,
   );
 
   return result;
 }
 
-// ── Pass 3: Vector cosine similarity ──────────────────────────
+// ── Pass 2: AI retag ──────────────────────────────────────
 
 type OrphanAssertion = {
   id: string;
@@ -413,127 +357,143 @@ type OrphanAssertion = {
 type LoRow = { id: string; ref: string; description: string };
 
 /**
- * Reconcile orphan assertions against LO descriptions via pgvector cosine
- * similarity. Reuses the existing `ContentAssertion.embedding` column when
- * populated; embeds missing rows on-demand via `openAiEmbed`. LO descriptions
- * are embedded in-memory per call — no schema change for LearningObjective.
+ * Ask the AI to tag orphan assertions to LOs using the full LO list as
+ * context. This is the fix for "the extractor can't tag refs because the
+ * curriculum didn't exist yet" — we retag AFTER the curriculum is in place.
+ *
+ * Batches orphans in groups of RETAG_BATCH_SIZE to stay under prompt limits.
+ * Output is validated against the real LO whitelist — refs not in the
+ * curriculum are rejected (the AI-to-DB guard).
+ *
+ * Writes `linkConfidence = 0.85` on match: AI-verified but not ground-truth.
+ * Teachers who manually pick via the drawer get `1.0`.
  */
-async function runVectorReconcile(
+async function runAiRetagPass_impl(
   orphans: OrphanAssertion[],
   los: LoRow[],
 ): Promise<{
   matched: number;
-  nearMiss: number;
-  belowThreshold: number;
-  avgConfidence: number;
+  unmatched: number;
+  invalidRefs: number;
+  byRef: Record<string, number>;
 }> {
-  // 1. Fetch existing embeddings for these orphan IDs (may be null)
-  const orphanIds = orphans.map((o) => o.id);
-  const existingRows = await prisma.$queryRaw<
-    Array<{ id: string; embedding: number[] | null }>
-  >(
-    Prisma.sql`SELECT id, embedding::real[] AS embedding FROM "ContentAssertion" WHERE id = ANY(${orphanIds})`,
-  );
-  const existingMap = new Map<string, number[] | null>();
-  for (const row of existingRows) {
-    existingMap.set(row.id, row.embedding ?? null);
-  }
+  const validRefs = new Set(los.map((lo) => lo.ref.toUpperCase()));
+  const loById = new Map(los.map((lo) => [lo.id, lo] as const));
+  const loByRef = new Map(los.map((lo) => [lo.ref.toUpperCase(), lo] as const));
 
-  // 2. Embed the assertions that don't yet have one
-  const needsEmbedding = orphans.filter((o) => {
-    const emb = existingMap.get(o.id);
-    return !emb || emb.length === 0;
-  });
-  if (needsEmbedding.length > 0) {
-    const freshEmbeddings = await openAiEmbed(needsEmbedding.map((o) => o.assertion));
-    for (let i = 0; i < needsEmbedding.length; i++) {
-      const o = needsEmbedding[i];
-      const emb = freshEmbeddings[i];
-      if (!emb || emb.length === 0) continue;
-      existingMap.set(o.id, emb);
-      // Persist so future runs skip this (cheap write, amortises)
-      await prisma.$executeRaw(
-        Prisma.sql`UPDATE "ContentAssertion" SET embedding = ${toVectorLiteral(emb)}::vector WHERE id = ${o.id}`,
-      );
-    }
-  }
-
-  // 3. Embed all LO descriptions in one batch (in-memory only)
-  const loTexts = los.map((lo) => lo.description).filter((d) => d && d.trim().length > 0);
-  if (loTexts.length === 0) {
-    return { matched: 0, nearMiss: 0, belowThreshold: orphans.length, avgConfidence: 0 };
-  }
-  const loEmbeddings = await openAiEmbed(los.map((lo) => lo.description || " "));
-
-  // 4. For each orphan, compute cosine against every LO and pick the best
   let matched = 0;
-  let nearMiss = 0;
-  let belowThreshold = 0;
-  const confidences: number[] = [];
+  let unmatched = 0;
+  let invalidRefs = 0;
+  const byRef: Record<string, number> = {};
 
-  for (const o of orphans) {
-    const orphanEmb = existingMap.get(o.id);
-    if (!orphanEmb || orphanEmb.length === 0) {
-      belowThreshold++;
-      continue;
-    }
-    let bestScore = 0;
-    let bestLo: LoRow | null = null;
-    for (let i = 0; i < los.length; i++) {
-      const loEmb = loEmbeddings[i];
-      if (!loEmb) continue;
-      const score = cosineSimilarity(orphanEmb, loEmb);
-      if (score > bestScore) {
-        bestScore = score;
-        bestLo = los[i];
-      }
-    }
-    if (!bestLo) {
-      belowThreshold++;
-      continue;
-    }
-    if (bestScore >= 0.4 && bestScore < VECTOR_LO_THRESHOLD) {
-      nearMiss++;
-      console.debug(
-        `[pass3 near-miss] assertion=${o.id} lo=${bestLo.id} score=${bestScore.toFixed(3)}`,
+  // Build the LO list block (stable across batches)
+  const loList = los
+    .map((lo) => `- ${lo.ref}: ${lo.description}`)
+    .join("\n");
+
+  // Process in batches
+  for (let i = 0; i < orphans.length; i += RETAG_BATCH_SIZE) {
+    const batch = orphans.slice(i, i + RETAG_BATCH_SIZE);
+
+    const assertionBlock = batch
+      .map((a) => `${a.id} [${a.category}] ${a.assertion}`)
+      .join("\n");
+
+    const systemPrompt = `You are a curriculum mapping assistant. You receive a list of Learning Outcomes (LOs) from a course curriculum, and a list of teaching points (assertions) that are currently unassigned to any LO. Your job is to map each assertion to the single best-matching LO, or to "null" if no LO fits.
+
+Rules:
+- Return ONLY a JSON object of the form { "<assertionId>": "<LO ref>" | null, ... }
+- Every assertion id in the input MUST appear as a key in the output
+- Values must be either a valid LO ref (exact string from the provided list) or null
+- Prefer null over a weak guess — it is better to leave an assertion unassigned than to mis-tag it
+- Consider the assertion's category tag for disambiguation (e.g. "character" hints at character-focused LOs)
+- An assertion can match at most one LO — pick the single best one
+- Do not invent LO refs not in the provided list`;
+
+    const userPrompt = `Learning Outcomes:
+${loList}
+
+Unassigned teaching points (format: <id> [<category>] <text>):
+${assertionBlock}
+
+Return the JSON mapping now.`;
+
+    let result;
+    try {
+      result = await getConfiguredMeteredAICompletion(
+        {
+          callPoint: "content-trust.retag-orphans",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          maxTokens: 4000,
+          temperature: 0,
+        },
+        { sourceOp: "content-trust:retag-orphans" },
       );
+    } catch (err) {
+      console.error(`[ai-retag] batch ${i / RETAG_BATCH_SIZE} failed:`, err);
+      unmatched += batch.length;
+      continue;
     }
-    if (bestScore >= VECTOR_LO_THRESHOLD) {
+
+    // Parse the JSON response — shared repair tolerates trailing text, unquoted
+    // keys, code fences, etc.
+    let parsed: Record<string, string | null>;
+    try {
+      const raw = parseJsonResponse(result.content.trim());
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        throw new Error("not an object");
+      }
+      parsed = raw as Record<string, string | null>;
+    } catch (err) {
+      console.error(`[ai-retag] parse failed for batch ${i / RETAG_BATCH_SIZE}:`, err);
+      unmatched += batch.length;
+      continue;
+    }
+
+    // Per-row validation + write
+    for (const a of batch) {
+      const rawRef = parsed[a.id];
+      if (rawRef == null || rawRef === "") {
+        unmatched++;
+        continue;
+      }
+      if (typeof rawRef !== "string") {
+        invalidRefs++;
+        unmatched++;
+        continue;
+      }
+      const normalised = rawRef.trim().toUpperCase();
+      if (!validRefs.has(normalised)) {
+        // AI hallucinated a ref not in the curriculum — reject per ai-to-db guard
+        invalidRefs++;
+        unmatched++;
+        continue;
+      }
+      const lo = loByRef.get(normalised);
+      if (!lo) {
+        invalidRefs++;
+        unmatched++;
+        continue;
+      }
+      // Write — AI-verified but not ground-truth: linkConfidence 0.85
       await prisma.contentAssertion.update({
-        where: { id: o.id },
+        where: { id: a.id },
         data: {
-          learningObjectiveId: bestLo.id,
-          learningOutcomeRef: bestLo.ref,
-          linkConfidence: bestScore,
+          learningObjectiveId: lo.id,
+          learningOutcomeRef: lo.ref,
+          linkConfidence: 0.85,
         },
       });
       matched++;
-      confidences.push(bestScore);
-    } else {
-      belowThreshold++;
+      byRef[lo.ref] = (byRef[lo.ref] ?? 0) + 1;
     }
   }
 
-  const avgConfidence =
-    confidences.length > 0
-      ? confidences.reduce((a, b) => a + b, 0) / confidences.length
-      : 0;
+  // loById is referenced only for type-check safety / future extension
+  void loById;
 
-  return { matched, nearMiss, belowThreshold, avgConfidence };
-}
-
-/** Cosine similarity of two equal-length numeric vectors. */
-function cosineSimilarity(a: number[], b: number[]): number {
-  const len = Math.min(a.length, b.length);
-  if (len === 0) return 0;
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < len; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  if (normA === 0 || normB === 0) return 0;
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+  return { matched, unmatched, invalidRefs, byRef };
 }
