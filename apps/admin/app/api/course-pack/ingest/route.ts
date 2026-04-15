@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
   // ── Resolve primary subject (single subject for all uploads) ──
 
   const primarySubject = await resolvePrimarySubject(
-    primarySubjectId, domain, subjectDiscipline || courseName,
+    primarySubjectId, domain, courseName,
   );
 
   // ── Non-blocking mode: create sources fast, extract in background ──
@@ -567,12 +567,15 @@ async function handleNonBlocking(
 /**
  * Resolve or create the single primary subject for all uploads.
  * - If subjectId provided: look it up (wizard already created it)
- * - Otherwise: derive one from subjectDiscipline/courseName (dedup-safe via slug)
+ * - Otherwise: key the subject by courseName (not subjectDiscipline) so each
+ *   course owns its own Subject row. Keying on discipline ("english") would
+ *   cause two different courses in the same domain to share one Subject and
+ *   co-mingle every uploaded doc — see #169.
  */
 async function resolvePrimarySubject(
   subjectId: string | undefined,
   domain: { id: string; slug: string },
-  nameOrDiscipline: string,
+  courseName: string,
 ): Promise<{ id: string; slug: string; name: string; isActive: boolean }> {
   if (subjectId) {
     const existing = await prisma.subject.findUnique({
@@ -582,12 +585,12 @@ async function resolvePrimarySubject(
     if (existing) return existing;
   }
 
-  // Fallback: create/find one subject from the name
-  const slug = `${domain.slug}-${nameOrDiscipline}`
+  const slug = `${domain.slug}-${courseName}`
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
+  // Idempotent on re-upload for the same course; isolated across courses.
   let subject = await prisma.subject.findFirst({
     where: { slug },
     select: { id: true, slug: true, name: true, isActive: true },
@@ -595,7 +598,7 @@ async function resolvePrimarySubject(
 
   if (!subject) {
     subject = await prisma.subject.create({
-      data: { slug, name: nameOrDiscipline, isActive: true, teachingProfile: suggestTeachingProfile(nameOrDiscipline) },
+      data: { slug, name: courseName, isActive: true, teachingProfile: suggestTeachingProfile(courseName) },
       select: { id: true, slug: true, name: true, isActive: true },
     });
   }

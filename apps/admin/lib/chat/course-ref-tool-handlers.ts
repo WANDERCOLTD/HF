@@ -181,7 +181,6 @@ async function attachToExistingCourse(
   const { prisma } = await import("@/lib/prisma");
   const slugify = (await import("slugify")).default;
 
-  // Find the playbook and its domain
   const playbook = await prisma.playbook.findUnique({
     where: { id: courseId },
     include: { domain: true },
@@ -190,20 +189,33 @@ async function attachToExistingCourse(
     return { ...base, content: JSON.stringify({ ok: false, error: "Course not found" }), is_error: true };
   }
 
-  // Find or create the course guide subject
-  const guideSlug = `${playbook.domain.slug}-course-guide`;
-  let subject = await prisma.subject.findFirst({ where: { slug: guideSlug } });
-  if (!subject) {
-    subject = await prisma.subject.create({
-      data: { name: `${playbook.domain.name} Course Guide`, slug: guideSlug },
+  // Resolve the playbook's primary subject (course-scoped — no more
+  // domain-shared `${domain.slug}-course-guide` leak). Matches the
+  // wizard-tool-executor pattern. Falls back to creating a per-course
+  // subject if none exists yet.
+  const playbookSubject = await prisma.playbookSubject.findFirst({
+    where: { playbookId: playbook.id },
+    select: { subjectId: true },
+  });
+
+  let subjectId = playbookSubject?.subjectId;
+  if (!subjectId) {
+    const newSubject = await prisma.subject.create({
+      data: {
+        name: playbook.name,
+        slug: slugify(`${playbook.domain.slug}-${playbook.slug}`, { lower: true, strict: true }),
+        isActive: true,
+      },
     });
-    // Link subject to domain
+    await prisma.playbookSubject.create({
+      data: { playbookId: playbook.id, subjectId: newSubject.id },
+    });
     await prisma.subjectDomain.create({
-      data: { subjectId: subject.id, domainId: playbook.domainId },
+      data: { subjectId: newSubject.id, domainId: playbook.domainId },
     });
+    subjectId = newSubject.id;
   }
 
-  // Create content source + assertions in transaction
   const result = await prisma.$transaction(async (tx) => {
     const source = await tx.contentSource.create({
       data: {
@@ -217,16 +229,14 @@ async function attachToExistingCourse(
       },
     });
 
-    // Link to subject
     await tx.subjectSource.create({
       data: {
-        subjectId: subject!.id,
+        subjectId: subjectId!,
         sourceId: source.id,
         tags: ["course-reference", "chat-built"],
       },
     });
 
-    // Create assertions
     if (assertions.length > 0) {
       await tx.contentAssertion.createMany({
         data: assertions.map((a) => ({
@@ -315,17 +325,22 @@ async function createCourseFromRef(
       },
     });
 
-    // 5. Create course guide subject
-    const guideSlug = `${domain.slug}-course-guide`;
-    let subject = await tx.subject.findFirst({ where: { slug: guideSlug } });
-    if (!subject) {
-      subject = await tx.subject.create({
-        data: { name: `${domain.name} Course Guide`, slug: guideSlug },
-      });
-      await tx.subjectDomain.create({
-        data: { subjectId: subject.id, domainId: domain.id },
-      });
-    }
+    // 5. Create a per-course subject (taxonomy node owned by this course).
+    //    Keyed by domain.slug + course.slug so each course owns its own
+    //    Subject row. No more domain-shared `*-course-guide` leak.
+    const subject = await tx.subject.create({
+      data: {
+        name: courseName,
+        slug: slugify(`${domain.slug}-${courseSlug}`, { lower: true, strict: true }),
+        isActive: true,
+      },
+    });
+    await tx.subjectDomain.create({
+      data: { subjectId: subject.id, domainId: domain.id },
+    });
+    await tx.playbookSubject.create({
+      data: { playbookId: playbook.id, subjectId: subject.id },
+    });
 
     // 6. Create content source
     const source = await tx.contentSource.create({
