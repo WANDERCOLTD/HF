@@ -232,11 +232,29 @@ export async function computeCourseLinkageScorecard(courseId: string): Promise<C
     warnings.push("No content uploaded yet. Add documents on the Content tab so there's something to teach.");
   }
 
+  // ── Source metadata — used to route assertions to the right bucket ──
+  // A COURSE_REFERENCE / LESSON_PLAN / POLICY_DOCUMENT is tutor methodology
+  // by definition. Its assertions shouldn't count as "student teaching points"
+  // regardless of their extracted category (which often ends up as generic
+  // "fact" / "rule" / "process" and would otherwise land in the student box).
+  const sources = sourceIds.length > 0
+    ? await prisma.contentSource.findMany({
+        where: { id: { in: sourceIds } },
+        select: { id: true, documentType: true },
+      })
+    : [];
+  const TUTOR_ONLY_DOC_TYPES = new Set(["COURSE_REFERENCE", "LESSON_PLAN", "POLICY_DOCUMENT"]);
+  const tutorSourceIds = new Set(
+    sources
+      .filter((s) => s.documentType && TUTOR_ONLY_DOC_TYPES.has(s.documentType))
+      .map((s) => s.id),
+  );
+
   // ── Assertions (split by layer) ─────────────────────────
   const assertions = sourceIds.length > 0
     ? await prisma.contentAssertion.findMany({
         where: { sourceId: { in: sourceIds } },
-        select: { category: true, learningOutcomeRef: true, learningObjectiveId: true },
+        select: { sourceId: true, category: true, learningOutcomeRef: true, learningObjectiveId: true },
       })
     : [];
 
@@ -253,7 +271,12 @@ export async function computeCourseLinkageScorecard(courseId: string): Promise<C
   const refCounts = new Map<string, number>();
 
   for (const a of assertions) {
-    const isTutor = instructionSet.has(a.category);
+    // Route by source documentType first (strongest signal: a COURSE_REFERENCE
+    // doc IS tutor methodology, regardless of per-assertion category).
+    // Fall back to category-based detection for mixed-content sources.
+    const isTutorBySource = a.sourceId !== null && tutorSourceIds.has(a.sourceId);
+    const isTutorByCategory = instructionSet.has(a.category);
+    const isTutor = isTutorBySource || isTutorByCategory;
     const hasRef = sanitiseLORef(a.learningOutcomeRef) !== null;
     // #142: FK is the authority for linkage
     const hasFk = a.learningObjectiveId !== null;
