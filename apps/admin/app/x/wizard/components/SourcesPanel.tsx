@@ -498,7 +498,13 @@ export const SourcesPanel = forwardRef<SourcesPanelHandle, SourcesPanelProps>(fu
       {phase === "done" && (
         <div className="cv4-sources-done">
           <Check size={14} />
-          <span>{totalAssertions + totalQuestions + totalVocabulary} item{(totalAssertions + totalQuestions + totalVocabulary) !== 1 ? "s" : ""} ready</span>
+          <span>
+            {[
+              totalAssertions > 0 && `${totalAssertions} fact${totalAssertions !== 1 ? "s" : ""}`,
+              totalQuestions > 0 && `${totalQuestions} question${totalQuestions !== 1 ? "s" : ""}`,
+              totalVocabulary > 0 && `${totalVocabulary} vocab term${totalVocabulary !== 1 ? "s" : ""}`,
+            ].filter(Boolean).join(" · ")}
+          </span>
           <span className="cv4-sources-done-hint">Available across all sessions</span>
         </div>
       )}
