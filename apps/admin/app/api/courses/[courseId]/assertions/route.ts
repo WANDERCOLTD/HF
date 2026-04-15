@@ -14,7 +14,8 @@ import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
  *   Used by the What tab TP inventory.
  * @pathParam courseId string - Playbook UUID
  * @query limit number - Max assertions to return (default 500, max 1000)
- * @response 200 { ok, assertions: Array<{ id, assertion, category, teachMethod, learningOutcomeRef, sourceName, session }>, total }
+ * @query scope string - "content" (default, TPs only), "instructions" (TIs only), or "all" (both)
+ * @response 200 { ok, assertions: Array<{ id, assertion, category, teachMethod, learningOutcomeRef, sourceName, session, trustLevel }>, total }
  */
 export async function GET(
   req: NextRequest,
@@ -27,6 +28,13 @@ export async function GET(
     const { courseId } = await params;
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Number(searchParams.get("limit") || "500"), 1000);
+    const scope = (searchParams.get("scope") || "content") as "content" | "instructions" | "all";
+    const categoryFilter =
+      scope === "all"
+        ? {}
+        : scope === "instructions"
+          ? { category: { in: [...INSTRUCTION_CATEGORIES] } }
+          : { category: { notIn: [...INSTRUCTION_CATEGORIES] } };
 
     // Look up playbook to get domainId
     const playbook = await prisma.playbook.findUnique({
@@ -52,23 +60,23 @@ export async function GET(
     }
 
     // Fetch assertions with source name
+    const whereClause = { sourceId: { in: sourceIds }, ...categoryFilter };
     const [assertions, total] = await Promise.all([
       prisma.contentAssertion.findMany({
-        where: { sourceId: { in: sourceIds }, category: { notIn: [...INSTRUCTION_CATEGORIES] } },
+        where: whereClause,
         select: {
           id: true,
           assertion: true,
           category: true,
           teachMethod: true,
           learningOutcomeRef: true,
+          trustLevel: true,
           source: { select: { name: true } },
         },
         orderBy: [{ learningOutcomeRef: "asc" }, { orderIndex: "asc" }],
         take: limit,
       }),
-      prisma.contentAssertion.count({
-        where: { sourceId: { in: sourceIds }, category: { notIn: [...INSTRUCTION_CATEGORIES] } },
-      }),
+      prisma.contentAssertion.count({ where: whereClause }),
     ]);
 
     // Get lesson plan to map assertions to sessions
@@ -103,6 +111,7 @@ export async function GET(
         category: a.category,
         teachMethod: a.teachMethod,
         learningOutcomeRef: a.learningOutcomeRef,
+        trustLevel: a.trustLevel,
         sourceName: a.source?.name ?? null,
         session: assertionSessionMap.get(a.id) ?? null,
       })),

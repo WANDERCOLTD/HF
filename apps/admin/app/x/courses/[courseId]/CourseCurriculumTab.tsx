@@ -16,23 +16,10 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import {
-  AlertTriangle,
-  RefreshCw,
-  CheckCircle2,
-  Sparkles,
-  BookOpen,
-  Wrench,
-  HelpCircle,
-  ClipboardList,
-  Layers,
-  CircleDashed,
-  CircleDot,
-  Clock,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
-import CurriculumEditor from "@/app/x/subjects/_components/CurriculumEditor";
-import type { CourseLinkageScorecard, CurriculumHealth } from "@/lib/content-trust/validate-lo-linkage";
+import type { CourseLinkageScorecard } from "@/lib/content-trust/validate-lo-linkage";
+import { CurriculumHealthTabs } from "./CurriculumHealthTabs";
 import "./course-curriculum-tab.css";
 
 interface CourseCurriculumTabProps {
@@ -154,8 +141,11 @@ export function CourseCurriculumTab({
       {error && <div className="hf-banner hf-banner-error">{error}</div>}
 
       {scorecard && (
-        <ScorecardBanner
+        <CurriculumHealthTabs
           scorecard={scorecard}
+          courseId={courseId}
+          curriculumId={curriculumId}
+          isOperator={isOperator}
           onRegenerate={isOperator ? handleRegenerate : undefined}
           regenerating={regenerating}
         />
@@ -165,220 +155,6 @@ export function CourseCurriculumTab({
       {regenResult && (
         <RegenerateResult result={regenResult} onSwitchTab={onSwitchTab} />
       )}
-
-      {/* The actual editor */}
-      <CurriculumEditor curriculumId={curriculumId} />
-    </div>
-  );
-}
-
-// ── Scorecard banner component ────────────────────────────────
-
-function ScorecardBanner({
-  scorecard,
-  onRegenerate,
-  regenerating,
-}: {
-  scorecard: CourseLinkageScorecard;
-  onRegenerate?: () => void;
-  regenerating: boolean;
-}) {
-  const hasWarnings = scorecard.warnings.length > 0;
-  const structure = scorecard.structure;
-  const structureLine = structure.learningOutcomes > 0
-    ? `${structure.activeModules} module${structure.activeModules !== 1 ? "s" : ""} · ${structure.learningOutcomes} learning outcome${structure.learningOutcomes !== 1 ? "s" : ""}`
-    : "No modules yet";
-
-  return (
-    <div className="hf-card curriculum-scorecard">
-      <div className="curriculum-scorecard-header">
-        <div className="curriculum-scorecard-title">
-          <HealthPill health={scorecard.health} />
-          <span className="hf-section-title">Curriculum health</span>
-        </div>
-        {onRegenerate && (
-          <button
-            type="button"
-            className="hf-btn hf-btn-primary hf-btn-sm"
-            onClick={onRegenerate}
-            disabled={regenerating}
-            title="Rebuild the curriculum from your uploaded content"
-          >
-            {regenerating ? (
-              <>
-                <RefreshCw size={13} className="hf-glow-active" /> Regenerating…
-              </>
-            ) : (
-              <>
-                <Sparkles size={13} /> Regenerate
-              </>
-            )}
-          </button>
-        )}
-      </div>
-
-      <div className="curriculum-scorecard-grid">
-        <MetricCard
-          icon={<BookOpen size={16} />}
-          accent="primary"
-          label="Student teaching points"
-          headline={
-            scorecard.studentContent.total === 0
-              ? "No student content yet"
-              : `${scorecard.studentContent.linkedToOutcome} of ${scorecard.studentContent.total} connected to a learning outcome`
-          }
-          pct={scorecard.studentContent.total > 0 ? scorecard.studentContent.linkedPct : null}
-          helper="What your learners will actually study"
-        />
-
-        <MetricCard
-          icon={<ClipboardList size={16} />}
-          accent="gold"
-          label="Assessment items"
-          headline={
-            scorecard.assessmentItems.total === 0
-              ? "No assessment content yet"
-              : `${scorecard.assessmentItems.total} source question${scorecard.assessmentItems.total !== 1 ? "s" : ""} and model answers`
-          }
-          subline={
-            scorecard.assessmentItems.total > 0
-              ? `${scorecard.assessmentItems.linkedToOutcome} tied to specific outcomes`
-              : undefined
-          }
-          helper="Question banks and past papers the tutor draws from"
-        />
-
-        <MetricCard
-          icon={<Wrench size={16} />}
-          accent="info"
-          label="Tutor instructions"
-          headline={
-            scorecard.tutorInstructions.total === 0
-              ? "No tutor instructions yet"
-              : `${scorecard.tutorInstructions.total} rule${scorecard.tutorInstructions.total !== 1 ? "s" : ""} guide the AI tutor`
-          }
-          subline={
-            scorecard.tutorInstructions.total > 0
-              ? `${scorecard.tutorInstructions.linkedToOutcome} tied to specific outcomes`
-              : undefined
-          }
-          helper="How the AI tutor behaves during sessions"
-        />
-
-        <MetricCard
-          icon={<HelpCircle size={16} />}
-          accent="success"
-          label="Questions & MCQs"
-          headline={
-            scorecard.questions.total === 0
-              ? "No questions yet"
-              : `${scorecard.questions.linkedToTp} of ${scorecard.questions.total} linked to a teaching point`
-          }
-          pct={scorecard.questions.total > 0 ? scorecard.questions.linkedPct : null}
-          helper="How learners are assessed"
-        />
-
-        <MetricCard
-          icon={<Layers size={16} />}
-          accent="gold"
-          label="Curriculum structure"
-          headline={structureLine}
-          subline={
-            structure.learningOutcomes > 0
-              ? structure.garbageDescriptions === 0 && structure.outcomesWithoutContent === 0
-                ? "All outcomes have real descriptions and teaching content"
-                : structure.garbageDescriptions > 0
-                  ? `${structure.garbageDescriptions} outcome${structure.garbageDescriptions !== 1 ? "s need" : " needs"} a real description`
-                  : `${structure.outcomesWithoutContent} outcome${structure.outcomesWithoutContent !== 1 ? "s have" : " has"} no teaching content yet`
-              : undefined
-          }
-          helper="The shape of your course"
-        />
-      </div>
-
-      {hasWarnings && (
-        <ul className="curriculum-scorecard-warnings">
-          {scorecard.warnings.map((w, i) => (
-            <li key={i} className="hf-text-xs">
-              <AlertTriangle size={11} className="hf-text-warning" /> {w}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-// ── Health pill ───────────────────────────────────────────────
-
-function HealthPill({ health }: { health: CurriculumHealth }) {
-  const config: Record<CurriculumHealth, { label: string; icon: React.ReactNode; className: string }> = {
-    ready: {
-      label: "Ready",
-      icon: <CheckCircle2 size={13} />,
-      className: "curriculum-health-pill--ready",
-    },
-    nearly_there: {
-      label: "Nearly there",
-      icon: <CircleDot size={13} />,
-      className: "curriculum-health-pill--nearly",
-    },
-    needs_attention: {
-      label: "Needs attention",
-      icon: <AlertTriangle size={13} />,
-      className: "curriculum-health-pill--attention",
-    },
-    not_started: {
-      label: "Not started",
-      icon: <Clock size={13} />,
-      className: "curriculum-health-pill--notstarted",
-    },
-  };
-  const c = config[health];
-  return (
-    <span className={`curriculum-health-pill ${c.className}`}>
-      {c.icon}
-      {c.label}
-    </span>
-  );
-}
-
-// ── Metric card ──────────────────────────────────────────────
-
-function MetricCard({
-  icon,
-  accent,
-  label,
-  headline,
-  subline,
-  pct,
-  helper,
-}: {
-  icon: React.ReactNode;
-  accent: "primary" | "success" | "info" | "gold";
-  label: string;
-  headline: string;
-  subline?: string;
-  pct?: number | null;
-  helper?: string;
-}) {
-  return (
-    <div className={`curriculum-metric-card curriculum-metric-card--${accent}`}>
-      <div className="curriculum-metric-card-head">
-        <span className="curriculum-metric-card-icon">{icon}</span>
-        <span className="curriculum-metric-card-label">{label}</span>
-      </div>
-      <div className="curriculum-metric-card-headline">{headline}</div>
-      {subline && <div className="curriculum-metric-card-subline">{subline}</div>}
-      {typeof pct === "number" && (
-        <div className="curriculum-metric-card-bar">
-          <div
-            className="curriculum-metric-card-bar-fill"
-            style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
-          />
-        </div>
-      )}
-      {helper && <div className="curriculum-metric-card-helper">{helper}</div>}
     </div>
   );
 }

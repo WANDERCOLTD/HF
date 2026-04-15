@@ -5065,10 +5065,11 @@ Returns teaching point assertions for a course, with source name and optional se
 |-----------|-----|------|----------|-------------|
 | courseId | path | string | Yes | Playbook UUID |
 | limit | query | number | No | Max assertions to return (default 500, max 1000) |
+| scope | query | string | No | "content" (default, TPs only), "instructions" (TIs only), or "all" (both) |
 
 **Response** `200`
 ```json
-{ ok, assertions: Array<{ id, assertion, category, teachMethod, learningOutcomeRef, sourceName, session }>, total }
+{ ok, assertions: Array<{ id, assertion, category, teachMethod, learningOutcomeRef, sourceName, session, trustLevel }>, total }
 ```
 
 ---
@@ -5330,6 +5331,24 @@ Set or clear course-level onboarding flow phase override. Pass null to reset to 
 **Response** `404`
 ```json
 { ok: false, error: "Course not found" }
+```
+
+---
+
+### `GET` /api/courses/:courseId/questions
+
+Returns all extracted questions for a course with linked teaching-point
+
+**Auth**: VIEWER · **Scope**: `courses:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| courseId | path | string | Yes | Playbook UUID |
+| limit | query | number | No | Max questions to return (default 500, max 1000) |
+
+**Response** `200`
+```json
+{ ok, questions: Array<{ id, questionText, questionType, assertion: { id, category, text, learningOutcomeRef } | null, sourceName, linkedToTp }>, total, linkedCount }
 ```
 
 ---
@@ -13981,8 +14000,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 427 |
-| Files with annotations | 426 |
+| Route files found | 428 |
+| Files with annotations | 427 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 

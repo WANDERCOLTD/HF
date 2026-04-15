@@ -176,3 +176,262 @@
   gap: 6px;
   color: var(--text-primary);
 }
+
+/* ═══════════════════════════════════════════════════════
+   Curriculum health tabs (inline tab strip + panel)
+   ═══════════════════════════════════════════════════════ */
+
+.curriculum-sources-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--text-muted) 6%, transparent);
+  border-radius: 6px;
+}
+
+.curriculum-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-default);
+  margin-top: 4px;
+  overflow-x: auto;
+}
+
+.curriculum-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.curriculum-tab:hover {
+  color: var(--text-primary);
+}
+
+.curriculum-tab--active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-primary);
+}
+
+.curriculum-tab-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.curriculum-tab-label {
+  font-weight: 600;
+}
+
+.curriculum-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+  color: var(--text-muted);
+}
+
+.curriculum-tab--active .curriculum-tab-badge {
+  background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  color: var(--accent-primary);
+}
+
+.curriculum-tab--weak .curriculum-tab-badge {
+  background: color-mix(in srgb, var(--status-warning-text) 14%, transparent);
+  color: var(--status-warning-text);
+}
+
+.curriculum-tab--bad .curriculum-tab-badge,
+.curriculum-tab--empty .curriculum-tab-badge {
+  background: color-mix(in srgb, var(--status-error-text) 14%, transparent);
+  color: var(--status-error-text);
+}
+
+.curriculum-tab-panel {
+  padding: 16px 0 4px;
+  min-height: 200px;
+}
+
+.curriculum-panel-loading {
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+/* ── Assertion list (shared by TP + TI tabs) ─────────── */
+
+.curriculum-assertion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.curriculum-assertion-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.curriculum-assertion-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-default) 50%, transparent);
+  margin-bottom: 4px;
+}
+
+.curriculum-assertion-group-label {
+  color: var(--text-primary);
+}
+
+.curriculum-assertion-group-count {
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.curriculum-assertion-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.curriculum-assertion-row:hover {
+  background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+}
+
+.curriculum-assertion-row--active {
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+}
+
+.curriculum-assertion-category {
+  flex-shrink: 0;
+  color: var(--surface-primary);
+}
+
+.curriculum-assertion-source {
+  flex-shrink: 0;
+}
+
+.curriculum-assertion-session {
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  color: var(--accent-primary);
+}
+
+/* ── Coverage dots (TP tab LO headers) ───────────────── */
+
+.curriculum-coverage-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.curriculum-coverage-dot--healthy {
+  background: var(--status-success-text);
+}
+
+.curriculum-coverage-dot--weak {
+  background: var(--status-warning-text);
+}
+
+.curriculum-coverage-dot--bad {
+  background: var(--status-error-text);
+}
+
+/* ── Trust badges (per-row) ──────────────────────────── */
+
+.curriculum-trust-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.curriculum-trust-dot--high {
+  background: var(--status-success-text);
+}
+
+.curriculum-trust-dot--med {
+  background: var(--status-warning-text);
+}
+
+.curriculum-trust-dot--low {
+  background: var(--status-error-text);
+}
+
+/* ── MCQ list ────────────────────────────────────────── */
+
+.curriculum-mcq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.curriculum-mcq-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-primary);
+}
+
+.curriculum-mcq-type {
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--login-blue, var(--accent-primary)) 14%, transparent);
+  color: var(--login-blue, var(--accent-primary));
+}
+
+.curriculum-mcq-lo {
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  color: var(--accent-primary);
+}
+
+.curriculum-mcq-tp-chip {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+  color: var(--status-success-text);
+}
+
+.curriculum-mcq-tp-chip--unlinked {
+  background: color-mix(in srgb, var(--status-error-text) 12%, transparent);
+  color: var(--status-error-text);
+}
