@@ -342,6 +342,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       "draftCallerName", "draftDemoCallerId", "draftDemoCallerName",
       "launched", "sourceId", "packSubjectIds", "extractionTotals", "categoryCounts", "contentSkipped",
       "lastUploadClassifications", "courseContext",
+      "coursePedagogy", "courseRefDigest", "courseRefEnabled",
       "welcomeSkipped", "tuneSkipped",
       "communityMode", "draftCohortGroupId", "communityJoinToken", "communityHubUrl",
     ];
@@ -997,8 +998,12 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         // Activate pedagogy nodes
         setData("courseRefEnabled", true);
 
-        // Send silently — no visible user bubble, just let the AI narrate what it found
-        const digestOverrides = { courseRefDigest: digest };
+        // Send silently — no visible user bubble, just let the AI narrate what it found.
+        // Include detected pedagogy in the override payload so it lands on THIS
+        // turn (not just subsequent ones after the whitelist picks it up).
+        const detectedPedagogy = getData("coursePedagogy");
+        const digestOverrides: Record<string, unknown> = { courseRefDigest: digest };
+        if (detectedPedagogy) digestOverrides.coursePedagogy = detectedPedagogy;
         const hiddenMsg = "Teaching guide analyzed — here's what I found in your course reference";
         const currentMessages = messagesRef.current;
         const result = await sendToAPI(hiddenMsg, [...currentMessages, { id: uid(), role: "user" as const, content: hiddenMsg }], digestOverrides);

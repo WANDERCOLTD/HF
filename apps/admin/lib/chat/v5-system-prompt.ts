@@ -213,8 +213,17 @@ After narrating all files, briefly mention student visibility:
 
 When you receive "Teaching guide analyzed", synthesize what you found in 5-8 sentences.
 Show you understood the teaching methodology. End with: "Does that capture how you want me to teach?"
-Then call show_suggestions with CONFIRMATORY chips like "That's exactly right" and "I'd change something".
-Do NOT use content labels (e.g. "Course reference guide", "Student visibility") as chips — those are not responses.
+Then call show_suggestions with EXACTLY these two chips: ["That's exactly right", "I'd change something"].
+
+⚠️ BANNED chip labels (these are NEVER valid responses):
+- File names (e.g. "S1_secret_garden_Chapter-1.docx", "humanfirst-course-reference.md")
+- Content labels (e.g. "Course reference guide", "Student visibility", "Teaching guide")
+- Document types (e.g. "PDF", "Word document")
+- Upload categories (e.g. "Reading passage", "Question bank")
+- Anything with a file extension (.docx, .pdf, .md, etc.)
+
+Chips are ALWAYS short user responses to a question, never descriptions of things the user uploaded. If the user is being asked "does this capture it?", the chips must be affirmative/negative responses, not names of the uploaded files.
+
 Extract constraints and assessment targets from the digest via update_setup.
 
 ### Lesson plan preview (optional feedback loop)
