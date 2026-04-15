@@ -185,4 +185,50 @@ describe("parseOptionsFromText", () => {
     expect(result[0].label.length).toBeLessThanOrEqual(60);
     expect(result[0].label).toContain("\u2026");
   });
+
+  // ── Bold-prefixed fallback removal (2026-04-15 regression fix) ──
+  //
+  // The April 1 wizard prompt mandated bolding the opening concept of every
+  // sentence/bullet. That made the old `parseBoldPrefixedOptions` fallback
+  // misfire on summary messages — it extracted section headings as chip
+  // labels, so a yes/no question like "Does that capture how you want me to
+  // teach?" rendered chips like "Question bank" / "Course reference guide"
+  // instead of "Yes, that's right" / "I'd change something". The fallback
+  // was removed; show_suggestions is now the authoritative path for chips.
+
+  it("does NOT extract chips from bold-prefixed section headings (#155 smoke test)", () => {
+    const text = `Perfect! I've pulled together the teaching methodology from your course reference.
+
+**Socratic questioning** — the core approach. The AI teaches through guided questioning and scaffolding, never by supplying themes directly.
+
+**Skills framework** — students start with basic plot recall, then move to distinguishing plot from theme, then to articulating themes with supporting evidence from the text.
+
+**Assessment focuses on mastery criteria** like recalling themes without plot-only answers and connecting them to specific textual moments.
+
+Does that capture how you want me to teach?`;
+    const result = parseOptionsFromText(text);
+    expect(result).toEqual([]);
+  });
+
+  it("does NOT extract chips from bold-prefixed upload summaries (Secret Garden smoke test)", () => {
+    const text = `I can see what you uploaded:
+
+**Secret Garden Chapter 1 passage** — the literary text the student will read before each call.
+**Question bank** — practice material with structured questions and model responses.
+**Course reference guide** — your detailed teaching methodology.
+
+Does that capture how you want me to teach?`;
+    const result = parseOptionsFromText(text);
+    expect(result).toEqual([]);
+  });
+
+  it("still extracts chips from explicit numbered lists even when bold is present", () => {
+    const text = `Some **bold prose** with highlights. Here are your options:
+1. Continue with the current plan
+2. Start over from scratch`;
+    const result = parseOptionsFromText(text);
+    expect(result).toHaveLength(2);
+    expect(result[0].label).toBe("Continue with the current plan");
+    expect(result[1].label).toBe("Start over from scratch");
+  });
 });

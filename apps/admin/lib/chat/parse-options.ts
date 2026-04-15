@@ -187,29 +187,15 @@ function parseBulletedOptions(text: string): ParsedOption[] | null {
   }));
 }
 
-/**
- * Try to parse bold-prefixed lines: "**label** description"
- * Matches markdown bold items on separate lines (common AI response format).
- */
-function parseBoldPrefixedOptions(text: string): ParsedOption[] | null {
-  const regex = /^\s*\*\*(.+?)\*\*\s*(.*)$/gm;
-  const matches: RegExpMatchArray[] = [];
-  let match: RegExpMatchArray | null;
-
-  while ((match = regex.exec(text)) !== null) {
-    matches.push(match);
-  }
-
-  if (matches.length < MIN_OPTIONS || matches.length > MAX_OPTIONS) return null;
-  if (!isContiguousBlock(text, matches)) return null;
-
-  return matches.map((m) => ({
-    marker: "**",
-    label: m[1].trim(),
-    description: m[2].trim() || undefined,
-    fullText: m[2].trim() ? `${m[1].trim()} ${m[2].trim()}` : m[1].trim(),
-  }));
-}
+// parseBoldPrefixedOptions was removed 2026-04-15 (#155 smoke test fallout).
+// Since the April 1 prompt change mandated bolding the opening concept of
+// every sentence and bullet ("**Teaching approach:** Socratic..."), every
+// multi-paragraph AI response triggered this fallback and produced false-
+// positive chips made from section headings — e.g. rendering "Question bank"
+// and "Course reference guide" as answer chips for a yes/no confirmation
+// question. The `show_suggestions` tool is now the authoritative path for
+// chips; the remaining text fallbacks (numbered / lettered / bulleted /
+// <parameter> XML) only fire for structurally unambiguous choice lists.
 
 /**
  * Try to parse XML-style <parameter name="options"> tags that the AI sometimes hallucinates.
@@ -253,7 +239,9 @@ export function stripParameterTags(text: string): string {
  * 2. Lettered: "A. X", "a) X"
  * 3. Prefixed: "Option 1: X", "Choice A: X"
  * 4. Bulleted: "- X", "• X"
- * 5. Bold-prefixed: "**label** description"
+ *
+ * Bold-prefixed ("**label** description") was removed 2026-04-15 — see
+ * comment above. The AI's mandated bolding style made it unreliable.
  */
 export function parseOptionsFromText(text: string): ParsedOption[] {
   const raw =
@@ -262,7 +250,6 @@ export function parseOptionsFromText(text: string): ParsedOption[] {
     parseLetteredOptions(text) ??
     parsePrefixedOptions(text) ??
     parseBulletedOptions(text) ??
-    parseBoldPrefixedOptions(text) ??
     [];
 
   // Reject results where labels look like filenames (e.g. "Chapter-1.docx")
