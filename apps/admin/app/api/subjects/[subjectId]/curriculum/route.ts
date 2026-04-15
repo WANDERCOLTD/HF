@@ -210,6 +210,10 @@ export async function POST(req: NextRequest, { params }: Params) {
           await syncModulesToDB(curriculum.id, result.modules, {
             assertionTags: result.assertionTags,
             assertionIdByIndex,
+            // First curriculum generation for this subject — opt into the AI
+            // retag pass so orphan assertions (extracted before the curriculum
+            // existed) get matched to the newly-written LOs in a single call.
+            runAiRetagPass: true,
           });
         } catch (err: any) {
           console.warn("[subjects/:id/curriculum] Module sync failed (non-fatal):", err.message);

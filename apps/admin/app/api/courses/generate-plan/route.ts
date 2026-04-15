@@ -295,6 +295,9 @@ async function runGeneratePlan(
       await syncModulesToDB(curriculumRecord.id, curriculum.modules, {
         assertionTags: useAssertionPath ? curriculum.assertionTags : undefined,
         assertionIdByIndex: useAssertionPath ? assertionIdByIndex : undefined,
+        // First-time course creation — explicit opt-in so the AI retag pass
+        // catches orphan assertions from the pre-curriculum extraction run.
+        runAiRetagPass: true,
       });
     } catch (err: any) {
       console.warn("[courses/generate-plan] Module sync failed (non-fatal):", err.message);
