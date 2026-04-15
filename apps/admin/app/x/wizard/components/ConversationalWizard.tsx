@@ -920,6 +920,20 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           if (hasPedagogy(pedagogy)) {
             setData("coursePedagogy", pedagogy);
             console.log("[wizard] detected pedagogy from course ref:", pedagogy);
+          } else {
+            // #167 diagnostic — we need to see detection misses in the log,
+            // otherwise they silently fall through to the "5 × 30" defaults
+            // and nobody knows why. First 200 chars of joined text helps
+            // diagnose whether the extractor is paraphrasing phrases that
+            // the regex patterns no longer match (the suspected failure mode).
+            console.warn(
+              "[wizard] detectPedagogy found no signals — falling back to defaults",
+              {
+                assertionCount: allAssertions.length,
+                joinedTextLength: joinedText.length,
+                sample: joinedText.slice(0, 200),
+              },
+            );
           }
         } catch (err) {
           console.warn("[wizard] pedagogy detection failed:", err);
