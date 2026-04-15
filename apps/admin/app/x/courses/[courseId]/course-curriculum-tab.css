@@ -310,6 +310,24 @@
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
+  margin-left: auto;
+}
+
+.curriculum-assertion-group-desc {
+  flex: 1;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.curriculum-assertion-empty {
+  padding: 6px 8px 8px 22px;
+  font-style: italic;
 }
 
 .curriculum-assertion-row {

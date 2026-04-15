@@ -1,6 +1,6 @@
 {
   "name": "admin",
-  "version": "0.7.139",
+  "version": "0.7.141",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -23,6 +23,7 @@
     "prisma:status": "npx prisma migrate status",
     "smoke:env": "./scripts/smoke-env.sh",
     "deploy:gate": "./scripts/deploy-gate.sh",
+    "test:debt": "vitest run --config vitest.debt.config.ts",
     "prisma:dev": "npx prisma migrate dev",
     "prisma:generate": "npx prisma generate",
     "prisma:seed": "npx prisma db seed",

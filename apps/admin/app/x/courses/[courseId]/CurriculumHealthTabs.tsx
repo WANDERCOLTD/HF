@@ -173,6 +173,7 @@ export function CurriculumHealthTabs({
         {activeTab === "teaching-points" && (
           <AssertionsPanel
             courseId={courseId}
+            curriculumId={curriculumId}
             scope="content"
             emptyMessage="No teaching points yet. Upload source documents on the Content tab to extract them."
             showLoCoverage
@@ -184,6 +185,7 @@ export function CurriculumHealthTabs({
         {activeTab === "instructions" && (
           <AssertionsPanel
             courseId={courseId}
+            curriculumId={null}
             scope="instructions"
             emptyMessage="No tutor instructions yet. These come from COURSE_REFERENCE documents or custom rules."
             groupByCategory
@@ -308,20 +310,25 @@ function ModulesPanel({ curriculumId }: { curriculumId: string | null }) {
 
 // ── Assertions panel (shared by Teaching Points + Tutor Instructions) ─
 
+type LoMeta = { ref: string; description: string; moduleOrder: number; loOrder: number };
+
 function AssertionsPanel({
   courseId,
+  curriculumId,
   scope,
   emptyMessage,
   showLoCoverage = false,
   groupByCategory = false,
 }: {
   courseId: string;
+  curriculumId: string | null;
   scope: "content" | "instructions";
   emptyMessage: string;
   showLoCoverage?: boolean;
   groupByCategory?: boolean;
 }) {
   const [items, setItems] = useState<Assertion[]>([]);
+  const [loMeta, setLoMeta] = useState<Map<string, LoMeta>>(new Map());
   const [loading, setLoading] = useState(false);
   const [drawerId, setDrawerId] = useState<string | null>(null);
 
@@ -345,6 +352,39 @@ function AssertionsPanel({
     };
   }, [courseId, scope]);
 
+  // Fetch curriculum LO metadata (for sorting + descriptions) when this panel
+  // groups by LO. Uses the same endpoint the Modules tab reads from, so labels
+  // and ordering always match between the two tabs.
+  useEffect(() => {
+    if (!curriculumId || !showLoCoverage) return;
+    let cancelled = false;
+    fetch(`/api/curricula/${curriculumId}/modules`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (cancelled) return;
+        if (!res.ok || !Array.isArray(res.modules)) return;
+        const map = new Map<string, LoMeta>();
+        res.modules.forEach((m: any, mi: number) => {
+          const los: Array<{ ref: string; description: string }> =
+            m.learningObjectives ?? [];
+          los.forEach((lo, li) => {
+            if (!lo.ref) return;
+            map.set(lo.ref, {
+              ref: lo.ref,
+              description: lo.description ?? "",
+              moduleOrder: mi,
+              loOrder: li,
+            });
+          });
+        });
+        setLoMeta(map);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [curriculumId, showLoCoverage]);
+
   // Keyboard nav when drawer is open
   const handleKeyNav = useCallback(
     (e: KeyboardEvent) => {
@@ -365,8 +405,10 @@ function AssertionsPanel({
     return () => document.removeEventListener("keydown", handleKeyNav);
   }, [drawerId, handleKeyNav]);
 
-  // Group by LO ref or category
-  const grouped = useMemo(() => {
+  // Group by LO ref or category. When showing LO coverage, also surface LOs
+  // from the curriculum that have zero assertions (so red "no coverage" dots
+  // appear for them) and sort groups in curriculum order, not lexicographically.
+  const orderedGroups = useMemo(() => {
     const groups = new Map<string, Assertion[]>();
     for (const a of items) {
       const key = groupByCategory
@@ -375,8 +417,39 @@ function AssertionsPanel({
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(a);
     }
-    return groups;
-  }, [items, groupByCategory]);
+
+    if (showLoCoverage && loMeta.size > 0) {
+      // Seed every known LO so zero-coverage ones appear in the list
+      for (const ref of loMeta.keys()) {
+        if (!groups.has(ref)) groups.set(ref, []);
+      }
+      // Sort in curriculum order (module index, then LO index), Unassigned last
+      return Array.from(groups.entries()).sort(([a], [b]) => {
+        if (a === "Unassigned") return 1;
+        if (b === "Unassigned") return -1;
+        const ma = loMeta.get(a);
+        const mb = loMeta.get(b);
+        if (ma && mb) {
+          if (ma.moduleOrder !== mb.moduleOrder) return ma.moduleOrder - mb.moduleOrder;
+          return ma.loOrder - mb.loOrder;
+        }
+        if (ma) return -1;
+        if (mb) return 1;
+        return a.localeCompare(b, undefined, { numeric: true });
+      });
+    }
+
+    if (groupByCategory) {
+      return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+    }
+
+    // Fallback: natural sort on the ref string (LO1, LO2, ..., LO19)
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === "Unassigned") return 1;
+      if (b === "Unassigned") return -1;
+      return a.localeCompare(b, undefined, { numeric: true });
+    });
+  }, [items, groupByCategory, showLoCoverage, loMeta]);
 
   if (loading && items.length === 0) {
     return (
@@ -397,25 +470,39 @@ function AssertionsPanel({
   return (
     <>
       <div className="curriculum-assertion-list">
-        {Array.from(grouped.entries()).map(([groupKey, rows]) => (
-          <div key={groupKey} className="curriculum-assertion-group">
-            <div className="curriculum-assertion-group-header">
-              {showLoCoverage && groupKey !== "Unassigned" && (
-                <CoverageDot count={rows.length} />
+        {orderedGroups.map(([groupKey, rows]) => {
+          const meta = showLoCoverage ? loMeta.get(groupKey) : undefined;
+          return (
+            <div key={groupKey} className="curriculum-assertion-group">
+              <div className="curriculum-assertion-group-header">
+                {showLoCoverage && groupKey !== "Unassigned" && (
+                  <CoverageDot count={rows.length} />
+                )}
+                <span className="curriculum-assertion-group-label">{groupKey}</span>
+                {meta?.description && (
+                  <span className="curriculum-assertion-group-desc">
+                    {meta.description}
+                  </span>
+                )}
+                <span className="curriculum-assertion-group-count">({rows.length})</span>
+              </div>
+              {rows.length === 0 ? (
+                <div className="curriculum-assertion-empty hf-text-xs hf-text-muted">
+                  No teaching points linked to this outcome yet.
+                </div>
+              ) : (
+                rows.map((a) => (
+                  <AssertionRow
+                    key={a.id}
+                    assertion={a}
+                    active={drawerId === a.id}
+                    onSelect={() => setDrawerId(a.id)}
+                  />
+                ))
               )}
-              <span className="curriculum-assertion-group-label">{groupKey}</span>
-              <span className="curriculum-assertion-group-count">({rows.length})</span>
             </div>
-            {rows.map((a) => (
-              <AssertionRow
-                key={a.id}
-                assertion={a}
-                active={drawerId === a.id}
-                onSelect={() => setDrawerId(a.id)}
-              />
-            ))}
-          </div>
-        ))}
+          );
+        })}
       </div>
       <AssertionDetailDrawer
         courseId={courseId}
