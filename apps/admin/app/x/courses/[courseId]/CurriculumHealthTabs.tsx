@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import CurriculumEditor from "@/app/x/subjects/_components/CurriculumEditor";
 import { AssertionDetailDrawer } from "@/components/shared/AssertionDetailDrawer";
-import { getCategoryStyle } from "@/lib/content-categories";
+import { getCategoryStyle, CONTENT_CATEGORIES } from "@/lib/content-categories";
 import type { CourseLinkageScorecard, CurriculumHealth } from "@/lib/content-trust/validate-lo-linkage";
 
 // ── Types ────────────────────────────────────────────────
@@ -222,8 +222,8 @@ function pickDefaultTab(sc: CourseLinkageScorecard): TabKey {
 function modulesBadge(sc: CourseLinkageScorecard): string {
   const m = sc.structure.activeModules;
   const lo = sc.structure.learningOutcomes;
-  if (m === 0) return "0";
-  return `${m} · ${lo} LO${lo !== 1 ? "s" : ""}`;
+  if (m === 0) return "empty";
+  return `${m} mods · ${lo} LOs`;
 }
 function modulesTone(sc: CourseLinkageScorecard): TabTone {
   if (sc.structure.activeModules === 0) return "empty";
@@ -233,8 +233,8 @@ function modulesTone(sc: CourseLinkageScorecard): TabTone {
 }
 
 function tpBadge(sc: CourseLinkageScorecard): string {
-  if (sc.studentContent.total === 0) return "0";
-  return `${sc.studentContent.linkedToOutcome}/${sc.studentContent.total}`;
+  if (sc.studentContent.total === 0) return "empty";
+  return `${sc.studentContent.linkedToOutcome} of ${sc.studentContent.total} linked`;
 }
 function tpTone(sc: CourseLinkageScorecard): TabTone {
   if (sc.studentContent.total === 0) return "empty";
@@ -244,8 +244,8 @@ function tpTone(sc: CourseLinkageScorecard): TabTone {
 }
 
 function questionsBadge(sc: CourseLinkageScorecard): string {
-  if (sc.questions.total === 0) return "0";
-  return `${sc.questions.linkedToTp}/${sc.questions.total}`;
+  if (sc.questions.total === 0) return "empty";
+  return `${sc.questions.linkedToTp} of ${sc.questions.total} linked`;
 }
 function questionsTone(sc: CourseLinkageScorecard): TabTone {
   if (sc.questions.total === 0) return "empty";
@@ -255,8 +255,8 @@ function questionsTone(sc: CourseLinkageScorecard): TabTone {
 }
 
 function instructionsBadge(sc: CourseLinkageScorecard): string {
-  if (sc.tutorInstructions.total === 0) return "0";
-  return `${sc.tutorInstructions.total}`;
+  if (sc.tutorInstructions.total === 0) return "none";
+  return `${sc.tutorInstructions.total} rules`;
 }
 function instructionsTone(sc: CourseLinkageScorecard): TabTone {
   if (sc.tutorInstructions.total === 0) return "weak";
@@ -266,22 +266,20 @@ function instructionsTone(sc: CourseLinkageScorecard): TabTone {
 // ── Sources header strip ─────────────────────────────────
 
 function SourcesStrip({ scorecard }: { scorecard: CourseLinkageScorecard }) {
-  const { structure, assessmentItems } = scorecard;
-  const parts: string[] = [];
-  if (structure.activeModules > 0) {
-    parts.push(`${structure.activeModules} module${structure.activeModules !== 1 ? "s" : ""}`);
-  }
-  if (assessmentItems.total > 0) {
-    parts.push(
-      `${assessmentItems.total} assessment item${assessmentItems.total !== 1 ? "s" : ""}`,
-    );
-  }
-  const summary = parts.length > 0 ? parts.join(" · ") : "Nothing extracted yet";
+  const { assessmentItems } = scorecard;
+
+  // Assessment items are raw source-document questions (question banks, past
+  // papers) — distinct from the generated MCQs shown in the Questions tab.
+  // We surface them here so they don't get conflated with the MCQ badge.
+  const extra =
+    assessmentItems.total > 0
+      ? ` · ${assessmentItems.total} source question${assessmentItems.total !== 1 ? "s" : ""} from question banks`
+      : "";
 
   return (
     <div className="curriculum-sources-strip">
       <span className="hf-text-xs hf-text-muted">
-        Built from extracted content · {summary}
+        Built from your uploaded documents{extra}
       </span>
       <Link
         href={`/x/courses/${scorecard.course.id}?tab=content`}
@@ -474,7 +472,10 @@ function AssertionsPanel({
           const meta = showLoCoverage ? loMeta.get(groupKey) : undefined;
           return (
             <div key={groupKey} className="curriculum-assertion-group">
-              <div className="curriculum-assertion-group-header">
+              <div
+                className="curriculum-assertion-group-header"
+                title={meta?.description || undefined}
+              >
                 {showLoCoverage && groupKey !== "Unassigned" && (
                   <CoverageDot count={rows.length} />
                 )}
@@ -523,18 +524,29 @@ function AssertionRow({
   onSelect: () => void;
 }) {
   const cs = getCategoryStyle(assertion.category);
+  const categoryMeta = CONTENT_CATEGORIES[assertion.category];
+  // Prefer the human label ("Vocabulary") over the raw key ("vocabulary_highlight").
+  // Fallback to a best-effort title-cased version when the category is unknown
+  // to the registry — keeps unknown extraction types readable.
+  const humanLabel =
+    categoryMeta?.label ??
+    assertion.category
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   return (
     <button
       type="button"
       className={`hf-btn-reset curriculum-assertion-row${active ? " curriculum-assertion-row--active" : ""}`}
       onClick={onSelect}
+      title={assertion.assertion}
     >
       <TrustBadge level={assertion.trustLevel} />
       <span
         className="hf-micro-badge-sm curriculum-assertion-category"
         style={{ background: cs.color }}
+        title={`Category: ${assertion.category}`}
       >
-        {assertion.category}
+        {humanLabel}
       </span>
       <span className="hf-flex-1 hf-text-secondary hf-text-xs hf-text-left">
         {assertion.assertion}
