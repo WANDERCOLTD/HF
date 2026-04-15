@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import { generateCurriculumFromGoals } from "@/lib/content-trust/extract-curriculum";
+import { generateCurriculumFromGoals, extractCurriculumFromAssertions, type ExtractedCurriculum } from "@/lib/content-trust/extract-curriculum";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import {
   startTaskTracking,
@@ -162,28 +162,85 @@ async function runGeneratePlan(
       }
     }
 
-    // 1. Generate curriculum from goals (enriched with document text if available)
+    // 1. Generate curriculum
+    // Prefer the assertion-based path when the uploaded source has already
+    // been extracted — extractCurriculumFromAssertions uses the real assertion
+    // list as context AND emits assertionTags so the tag-on-extract pipeline
+    // can wire LO refs back to the source assertions in one pass.
+    // Fall back to generateCurriculumFromGoals when there are no assertions
+    // (or too few for a meaningful curriculum).
     await updateTaskProgress(taskId, {
       context: { phase: "curriculum", message: documentText ? "Generating curriculum from your goals and document..." : "Generating curriculum from your goals...", stepIndex: 1, totalSteps: 4 },
     });
 
-    // Inject document context into learning outcomes to enrich AI generation
-    let enrichedOutcomes = learningOutcomes;
-    if (documentText) {
-      const truncatedDoc = documentText.substring(0, 8000);
-      enrichedOutcomes = [
-        ...learningOutcomes,
-        `[DOCUMENT CONTEXT — the educator uploaded a document with this content. Use it to inform the curriculum structure and ensure modules cover the document's topics:]\n${truncatedDoc}`,
-      ];
+    // Load pre-extracted assertions for this source (if any). These are the
+    // rows produced by course-pack/ingest before generate-plan was invoked.
+    let sourceAssertions: Array<{ id: string; assertion: string; category: string; chapter: string | null; section: string | null; tags: string[] }> = [];
+    if (sourceId) {
+      const rows = await prisma.contentAssertion.findMany({
+        where: {
+          sourceId,
+          // Exclude instruction categories — we want student-facing teaching points
+          category: { notIn: ["course_overview", "tutor_guidance", "session_metadata"] },
+        },
+        select: { id: true, assertion: true, category: true, chapter: true, section: true, tags: true },
+        orderBy: [{ chapter: "asc" }, { section: "asc" }, { createdAt: "asc" }],
+      });
+      sourceAssertions = rows.map((r) => ({
+        id: r.id,
+        assertion: r.assertion,
+        category: r.category || "fact",
+        chapter: r.chapter,
+        section: r.section,
+        tags: (r.tags as string[]) || [],
+      }));
     }
 
-    const curriculum = await generateCurriculumFromGoals(
-      courseName,
-      teachingStyle,
-      enrichedOutcomes,
-      undefined, // no qualificationRef
-      sessionCount,
-    );
+    const MIN_ASSERTIONS_FOR_EXTRACTOR_PATH = 10;
+    const useAssertionPath = sourceAssertions.length >= MIN_ASSERTIONS_FOR_EXTRACTOR_PATH;
+
+    // Build index→id map in the same order as the assertion list we're about
+    // to pass to the extractor. extractCurriculumFromAssertions indexes
+    // starting at 1 (matches the "[i]" prefix in the prompt).
+    const assertionIdByIndex = new Map<number, string>();
+    if (useAssertionPath) {
+      sourceAssertions.forEach((a, i) => assertionIdByIndex.set(i + 1, a.id));
+    }
+
+    let curriculum: ExtractedCurriculum;
+    if (useAssertionPath) {
+      console.log(
+        `[courses/generate-plan] Using assertion-based extraction path (${sourceAssertions.length} assertions available)`,
+      );
+      curriculum = await extractCurriculumFromAssertions(
+        sourceAssertions,
+        courseName,
+        undefined, // no qualificationRef
+        {
+          sessionCount: sessionCount ?? undefined,
+          durationMins: durationMins ?? undefined,
+          emphasis,
+          assessments,
+        },
+      );
+    } else {
+      // Inject document context into learning outcomes to enrich AI generation
+      let enrichedOutcomes = learningOutcomes;
+      if (documentText) {
+        const truncatedDoc = documentText.substring(0, 8000);
+        enrichedOutcomes = [
+          ...learningOutcomes,
+          `[DOCUMENT CONTEXT — the educator uploaded a document with this content. Use it to inform the curriculum structure and ensure modules cover the document's topics:]\n${truncatedDoc}`,
+        ];
+      }
+      curriculum = await generateCurriculumFromGoals(
+        courseName,
+        teachingStyle,
+        enrichedOutcomes,
+        undefined, // no qualificationRef
+        sessionCount,
+      );
+    }
 
     if (!curriculum.ok || curriculum.modules.length === 0) {
       await failTask(taskId, curriculum.error || "Curriculum generation produced no modules");
@@ -231,9 +288,14 @@ async function runGeneratePlan(
       return { subject, curriculumRecord };
     });
 
-    // 2b. Sync modules to first-class DB models
+    // 2b. Sync modules to first-class DB models. When we used the assertion
+    // path, pass the tags + index map so LO refs get written back to the
+    // source assertions inside the same transaction as the LO upsert.
     try {
-      await syncModulesToDB(curriculumRecord.id, curriculum.modules);
+      await syncModulesToDB(curriculumRecord.id, curriculum.modules, {
+        assertionTags: useAssertionPath ? curriculum.assertionTags : undefined,
+        assertionIdByIndex: useAssertionPath ? assertionIdByIndex : undefined,
+      });
     } catch (err: any) {
       console.warn("[courses/generate-plan] Module sync failed (non-fatal):", err.message);
     }
