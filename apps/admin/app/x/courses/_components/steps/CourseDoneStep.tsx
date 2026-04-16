@@ -78,9 +78,8 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
   const packSubjects = getData<Array<{ id: string; name: string }>>('packSubjects') || [];
   const packSubjectIds = packSubjects.map((s) => s.id).filter(Boolean);
 
-  // Survey selections — default pre+post ON, mid OFF
+  // Survey selections — default pre+post ON
   const [surveyPre, setSurveyPre] = useState(true);
-  const [surveyMid, setSurveyMid] = useState(false);
   const [surveyPost, setSurveyPost] = useState(true);
 
   // Build plan summary from actual lesson plan entries
@@ -186,7 +185,7 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
           groupId: getData<string>('groupId') || undefined,
           onboardingFlowPhases: flowPhases && flowPhases.length > 0 ? flowPhases : undefined,
           packSubjectIds: packSubjectIds.length > 0 ? packSubjectIds : undefined,
-          surveySelections: { pre: surveyPre, mid: surveyMid, post: surveyPost },
+          surveySelections: { pre: surveyPre, post: surveyPost },
         }),
         signal: controller.signal,
       });
@@ -245,8 +244,8 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
                 ...(learningOutcomes.length > 0
                   ? [{ label: 'Goals', value: `${learningOutcomes.length} learning outcome${learningOutcomes.length !== 1 ? 's' : ''}` }]
                   : []),
-                ...([surveyPre && 'Pre', surveyMid && 'Mid', surveyPost && 'Post'].filter(Boolean).length > 0
-                  ? [{ icon: <ClipboardList className="hf-icon-sm" />, label: 'Surveys', value: [surveyPre && 'Pre', surveyMid && 'Mid', surveyPost && 'Post'].filter(Boolean).join(' + ') }]
+                ...([surveyPre && 'Pre', surveyPost && 'Post'].filter(Boolean).length > 0
+                  ? [{ icon: <ClipboardList className="hf-icon-sm" />, label: 'Surveys', value: [surveyPre && 'Pre', surveyPost && 'Post'].filter(Boolean).join(' + ') }]
                   : [{ icon: <ClipboardList className="hf-icon-sm" />, label: 'Surveys', value: 'None' }]),
               ],
             }}
@@ -430,16 +429,6 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
                 />
                 <span className="hf-text-sm">Pre-Survey</span>
                 <span className="hf-text-xs hf-text-muted">— baseline confidence and goals</span>
-              </label>
-              <label className="hf-flex hf-items-center hf-gap-sm hf-mb-sm" style={{ cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={surveyMid}
-                  onChange={(e) => setSurveyMid(e.target.checked)}
-                  className="hf-checkbox"
-                />
-                <span className="hf-text-sm">Mid-Survey</span>
-                <span className="hf-text-xs hf-text-muted">— check in halfway through</span>
               </label>
               <label className="hf-flex hf-items-center hf-gap-sm" style={{ cursor: 'pointer' }}>
                 <input

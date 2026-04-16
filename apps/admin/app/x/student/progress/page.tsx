@@ -393,7 +393,6 @@ const STOP_LABELS: Record<string, string> = {
   learn: "Learn",
   review: "Review",
   assessment: "Test",
-  mid_survey: "Check-in",
   offboarding: "Final",
   post_survey: "Feedback",
   complete: "Done",

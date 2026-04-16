@@ -100,17 +100,6 @@
         "sortOrder": 15
       },
       {
-        "value": "mid_survey",
-        "label": "Mid-Survey",
-        "educatorLabel": "Mid-Survey",
-        "category": "survey",
-        "color": "var(--login-blue)",
-        "icon": "ClipboardList",
-        "autoInclude": null,
-        "canSkip": true,
-        "sortOrder": 50
-      },
-      {
         "value": "offboarding",
         "label": "Last Call",
         "educatorLabel": "Last Call",
@@ -155,7 +144,7 @@
       },
       {
         "educatorLabel": "Survey",
-        "dbTypes": ["pre_survey", "mid_survey", "post_survey"],
+        "dbTypes": ["pre_survey", "post_survey"],
         "icon": "ClipboardList",
         "category": "survey"
       }

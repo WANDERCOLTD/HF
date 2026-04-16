@@ -8,7 +8,7 @@ import {
   Sparkles, AlertTriangle, RefreshCw,
   Settings as SettingsIcon, Users2,
   Zap, Target, BarChart3,
-  PlayCircle, Copy, Link2, Dna, GraduationCap,
+  PlayCircle, Copy, Link2, Dna, GraduationCap, Wand2,
 } from 'lucide-react';
 import { useTerminology } from '@/contexts/TerminologyContext';
 import { INTERACTION_PATTERN_LABELS, TEACHING_MODE_LABELS } from '@/lib/content-trust/resolve-config';
@@ -17,6 +17,7 @@ import { OnboardingEditor } from '@/components/shared/OnboardingEditor';
 import { CourseContentTab } from './CourseContentTab';
 import { CourseWhoTab } from './CourseWhoTab';
 import { CourseGoalsTab } from './CourseGoalsTab';
+import { CourseDesignTab } from './CourseDesignTab';
 import { CourseLearnersTab } from './CourseLearnersTab';
 import { CourseProofTab } from './CourseProofTab';
 import { SessionDetailPanel } from '@/components/shared/SessionDetailPanel';
@@ -122,7 +123,10 @@ type SessionTabData = {
 
 import { SectionHeader } from './SectionHeader';
 
-const VALID_TABS = ['overview', 'journey', 'curriculum', 'genome', 'content', 'audience', 'learners', 'proof', 'goals', 'settings'];
+const VALID_TABS = ['design', 'curriculum', 'content', 'learners', 'proof', 'goals', 'settings',
+  // Legacy tab IDs — redirected in handleTabChange
+  'overview', 'journey', 'genome', 'audience',
+];
 
 const statusMap: Record<string, 'draft' | 'active' | 'archived'> = {
   draft: 'draft',
@@ -161,7 +165,7 @@ export default function CourseDetailPage() {
   // Tabs — synced to ?tab= URL param for browser back/forward
   const tabFromUrl = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<string>(
-    tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'overview'
+    tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'design'
   );
 
   // Sessions tab
@@ -184,7 +188,6 @@ export default function CourseDetailPage() {
   // Assessment MCQ previews
   type McqPreviewState = { questions: SurveyStepConfig[]; skipped: boolean; skipReason?: string; sourceId?: string } | null;
   const [mcqPreview, setMcqPreview] = useState<McqPreviewState>(null);
-  const [midTestMcqPreview, setMidTestMcqPreview] = useState<McqPreviewState>(null);
   const [postTestMcqPreview, setPostTestMcqPreview] = useState<McqPreviewState>(null);
 
   // Derived: is this a comprehension-led course?
@@ -297,12 +300,9 @@ export default function CourseDetailPage() {
   }, [sessions]);
 
   const tabs: TabDefinition[] = useMemo(() => [
-    { id: 'overview', label: 'Overview', icon: <Sparkles size={14} /> },
-    { id: 'journey', label: 'Journey', icon: <PlayCircle size={14} />, count: sessions?.plan?.estimatedSessions || null },
+    { id: 'design', label: 'Design', icon: <Wand2 size={14} /> },
     { id: 'curriculum', label: 'Curriculum', icon: <GraduationCap size={14} /> },
-    { id: 'genome', label: 'Genome', icon: <Dna size={14} /> },
     { id: 'content', label: 'Content', icon: <BookMarked size={14} />, count: totalSources || null },
-    { id: 'audience', label: 'Audience', icon: <Users2 size={14} /> },
     { id: 'learners', label: 'Learners', icon: <Users2 size={14} /> },
     { id: 'proof', label: 'Proof Points', icon: <BarChart3 size={14} /> },
     { id: 'goals', label: 'Goals', icon: <Target size={14} /> },
@@ -320,14 +320,19 @@ export default function CourseDetailPage() {
 
   // ── Tab change: lazy load lesson plan data ──
   const handleTabChange = useCallback((tab: string) => {
-    // URL compat: old tab names redirect to journey
-    const resolvedTab = (tab === 'sessions' || tab === 'onboarding') ? 'journey' : tab;
+    // URL compat: redirect retired tab IDs to their new homes
+    const TAB_REDIRECTS: Record<string, string> = {
+      sessions: 'design', onboarding: 'design', overview: 'design',
+      journey: 'design', genome: 'learners', audience: 'design',
+    };
+    const resolvedTab = TAB_REDIRECTS[tab] ?? tab;
     setActiveTab(resolvedTab);
     // Sync tab to URL for browser back/forward
     const params = new URLSearchParams(window.location.search);
     params.set('tab', resolvedTab);
     router.replace(`?${params.toString()}`, { scroll: false });
-    if (resolvedTab === 'journey' && sessions === null && !sessionsLoading) {
+    // Load sessions data when Design or Learners tab needs it (was: Journey tab)
+    if ((resolvedTab === 'design' || resolvedTab === 'learners' || resolvedTab === 'curriculum') && sessions === null && !sessionsLoading) {
       setSessionsLoading(true);
       setSessionsError(null);
       fetch(`/api/courses/${courseId}/sessions?includeProgress=true`)
@@ -357,15 +362,11 @@ export default function CourseDetailPage() {
                   }
                 })
                 .catch(() => {}); // silent — TPs are supplementary
-              // Fetch assessment MCQ previews (pre + mid + post in parallel)
+              // Fetch assessment MCQ previews (pre + post in parallel)
               const previewBase = `/api/curricula/${data.curriculumId}/assessment-preview?playbookId=${courseId}`;
               fetch(previewBase)
                 .then((r) => r.json())
                 .then((ap) => { if (ap.ok) setMcqPreview(ap); })
-                .catch(() => {});
-              fetch(`${previewBase}&type=mid_test`)
-                .then((r) => r.json())
-                .then((ap) => { if (ap.ok) setMidTestMcqPreview(ap); })
                 .catch(() => {});
               fetch(`${previewBase}&type=post_test`)
                 .then((r) => r.json())
@@ -397,10 +398,11 @@ export default function CourseDetailPage() {
     }
   }, [courseId, sessions, sessionsLoading, regenSessionCount, configDefaults, configLoading, detail]);
 
-  // ── Load session data when landing on Journey tab via URL ──
+  // ── Load session data when landing on a tab that needs it via URL ──
   useEffect(() => {
-    if (!courseId || activeTab !== 'journey' || sessions !== null || sessionsLoading) return;
-    handleTabChange('journey');
+    if (!courseId || sessions !== null || sessionsLoading) return;
+    if (!['design', 'learners', 'curriculum'].includes(activeTab)) return;
+    handleTabChange(activeTab);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, activeTab, handleTabChange]);
 
@@ -496,13 +498,11 @@ export default function CourseDetailPage() {
       const refreshAllPreviews = async () => {
         if (!sessions?.curriculumId) return;
         const base = `/api/curricula/${sessions.curriculumId}/assessment-preview?playbookId=${courseId}`;
-        const [pre, mid, post] = await Promise.all([
+        const [pre, post] = await Promise.all([
           fetch(base).then(r => r.json()).catch(() => null),
-          fetch(`${base}&type=mid_test`).then(r => r.json()).catch(() => null),
           fetch(`${base}&type=post_test`).then(r => r.json()).catch(() => null),
         ]);
         if (pre?.ok) setMcqPreview(pre);
-        if (mid?.ok) setMidTestMcqPreview(mid);
         if (post?.ok) setPostTestMcqPreview(post);
       };
 
@@ -1038,7 +1038,7 @@ export default function CourseDetailPage() {
 
       {/* ── Tabs ──────────────────────────────────────── */}
       <DraggableTabs
-        storageKey="course-detail-tabs-v6"
+        storageKey="course-detail-tabs-v7"
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -1142,7 +1142,6 @@ export default function CourseDetailPage() {
                     onSave={isOperator ? handleSurveyQuestions : undefined}
                     saving={surveySaving}
                     mcqPreview={mcqPreview}
-                    midTestMcqPreview={midTestMcqPreview}
                     postTestMcqPreview={postTestMcqPreview}
                     isComprehension={isComprehension}
                     onRegenerate={isOperator ? handleRegenerateMcqs : undefined}
@@ -1165,7 +1164,7 @@ export default function CourseDetailPage() {
               if (!sessions?.plan?.entries) return;
               const newEntry = {
                 session: 0, type, moduleId: null, moduleLabel: '',
-                label: type === 'mid_survey' ? 'Mid-Survey' : `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+                label: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
                 estimatedDurationMins: type.includes('survey') ? 2 : 15,
                 isOptional: true,
               };
@@ -1224,13 +1223,10 @@ export default function CourseDetailPage() {
               }).catch(() => {});
             } : undefined}
             assessmentsEnabled={(detail.config as any)?.surveys?.pre?.enabled ?? true}
-            midSurveyEnabled={(detail.config as any)?.surveys?.mid?.enabled ?? false}
             onToggleAssessments={isOperator ? (enabled) => {
-              // Toggle pre + post linked; if turning off, also force mid off
               const cfg = (detail.config ?? {}) as Record<string, any>;
               const surveys = {
                 pre: { ...cfg.surveys?.pre, enabled },
-                mid: { ...cfg.surveys?.mid, enabled: enabled ? (cfg.surveys?.mid?.enabled ?? false) : false },
                 post: { ...cfg.surveys?.post, enabled },
               };
               const newConfig = { ...cfg, surveys };
@@ -1252,46 +1248,16 @@ export default function CourseDetailPage() {
                 }
               }).catch(() => {});
             } : undefined}
-            onToggleMidSurvey={isOperator ? (enabled) => {
-              const cfg = (detail.config ?? {}) as Record<string, any>;
-              const surveys = {
-                ...cfg.surveys,
-                mid: { ...cfg.surveys?.mid, enabled },
-              };
-              const newConfig = { ...cfg, surveys };
-              setDetail((prev) => prev ? { ...prev, config: newConfig } : prev);
-
-              fetch(`/api/playbooks/${detail.id}`, {
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ config: newConfig }),
-              }).then(() => {
-                if (sessions?.curriculumId && sessions?.plan?.entries) {
-                  fetch(`/api/curricula/${sessions.curriculumId}/lesson-plan`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ entries: sessions.plan.entries, surveys }),
-                  }).then((r) => r.json()).then((data) => {
-                    if (data.ok && data.entries) {
-                      setSessions((prev) => prev ? { ...prev, plan: prev.plan ? { ...prev.plan, entries: data.entries } : null } : null);
-                    }
-                  }).catch(() => {});
-                }
-              }).catch(() => {});
-            } : undefined}
             // Sub-component toggles
-            isComprehension={isComprehension}
             personalityEnabled={(detail.config as any)?.assessment?.personality?.enabled ?? true}
             onTogglePersonality={isOperator ? (enabled) => handleAssessmentConfigChange({ enabled }, 'personality') : undefined}
-            preTestEnabled={(detail.config as any)?.assessment?.preTest?.enabled ?? !isComprehension}
+            preTestEnabled={(detail.config as any)?.assessment?.preTest?.enabled ?? true}
             onTogglePreTest={isOperator ? (enabled) => handleAssessmentConfigChange({ enabled }, 'preTest') : undefined}
-            midTestEnabled={(detail.config as any)?.assessment?.midTest?.enabled ?? isComprehension}
-            onToggleMidTest={isOperator ? (enabled) => handleAssessmentConfigChange({ enabled }, 'midTest') : undefined}
             postTestEnabled={(detail.config as any)?.assessment?.postTest?.enabled ?? true}
             onTogglePostTest={isOperator ? (enabled) => handleAssessmentConfigChange({ enabled }, 'postTest') : undefined}
-            personalityQuestionCount={((detail.config as any)?.assessment?.personality?.questions ?? []).length || 6}
+            personalityQuestionCount={((detail.config as any)?.assessment?.personality?.questions ?? []).length || 3}
             preTestQuestionCount={mcqPreview && !mcqPreview.skipped ? mcqPreview.questions.length : (detail.config as any)?.assessment?.preTest?.questionCount ?? 5}
-            midTestQuestionCount={midTestMcqPreview && !midTestMcqPreview.skipped ? midTestMcqPreview.questions.length : undefined}
             postTestQuestionCount={postTestMcqPreview && !postTestMcqPreview.skipped ? postTestMcqPreview.questions.length : undefined}
-            midSurveyQuestionCount={3}
             postSurveyQuestionCount={5}
             // Merged SPV props — media/TP features
             sessionTPs={sessionTPs}
@@ -1414,7 +1380,25 @@ export default function CourseDetailPage() {
         />
       )}
 
-      {/* Sessions tab removed — merged into Journey tab above */}
+      {/* ═══════════════════════════════════════════════ */}
+      {/* DESIGN TAB                                     */}
+      {/* ═══════════════════════════════════════════════ */}
+      {activeTab === 'design' && (
+        <CourseDesignTab
+          courseId={courseId!}
+          playbookConfig={detail?.config as Record<string, unknown> | null | undefined}
+          detail={detail ? { id: detail.id, name: detail.name, config: detail.config, domain: detail.domain, publishedAt: detail.publishedAt, version: parseInt(detail.version || '1', 10) } : null}
+          subjects={subjects}
+          persona={persona}
+          sessionPlan={sessions?.plan ? { estimatedSessions: sessions.plan.estimatedSessions, totalDurationMins: totalSessionDuration, generatedAt: sessions.plan.generatedAt } : null}
+          sessions={sessions}
+          onSimCall={() => setShowSimModal(true)}
+          instructionTotal={instructionTotal}
+          categoryCounts={categoryCounts}
+          contentMethods={contentMethods}
+          onNavigate={handleTabChange}
+        />
+      )}
 
 
       {/* ═══════════════════════════════════════════════ */}

@@ -69,7 +69,6 @@ export interface CourseSetupInput {
   // Survey configuration — which surveys to enable on the journey rail
   surveySelections?: {
     pre?: boolean;  // default true
-    mid?: boolean;  // default false
     post?: boolean; // default true
   };
 }
@@ -557,11 +556,10 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
             ...existingPbConfig,
             ...(resolvedWelcome && { welcomeMessage: resolvedWelcome }),
             ...(resolvedFlowPhases && { onboardingFlowPhases: resolvedFlowPhases }),
-            // Survey selections from wizard (defaults: pre=true, mid=false, post=true)
+            // Survey selections from wizard (defaults: pre=true, post=true)
             ...(ctx.input.surveySelections && {
               surveys: {
                 pre: { enabled: ctx.input.surveySelections.pre ?? true, questions: [] },
-                mid: { enabled: ctx.input.surveySelections.mid ?? false, questions: [] },
                 post: { enabled: ctx.input.surveySelections.post ?? true, questions: [] },
               },
             }),

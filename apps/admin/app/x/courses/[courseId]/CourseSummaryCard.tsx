@@ -113,7 +113,7 @@ export function CourseSummaryCard({
 
         {/* ── Identity row ──────────────────────────── */}
         {hasIdentity && (
-          <SummaryRow icon={Users2} onClick={() => onNavigate('audience')}>
+          <SummaryRow icon={Users2} onClick={() => onNavigate('design')}>
             <div className="csc-row-content">
               <div className="csc-identity-labels">
                 {[interactionPattern, audienceLabel && (audienceAges ? `${audienceLabel} (${audienceAges})` : audienceLabel), teachingMode]
@@ -195,7 +195,7 @@ export function CourseSummaryCard({
 
         {/* ── Teaching / persona row ───────────────── */}
         {personaName && (
-          <SummaryRow icon={Sparkles} onClick={() => onNavigate('audience')}>
+          <SummaryRow icon={Sparkles} onClick={() => onNavigate('design')}>
             <div className="csc-row-content">
               <span className="hf-text-sm">
                 {personaName}
@@ -214,7 +214,7 @@ export function CourseSummaryCard({
 
         {/* ── Sessions row ─────────────────────────── */}
         {hasSessions && (
-          <SummaryRow icon={PlayCircle} onClick={() => onNavigate('journey')}>
+          <SummaryRow icon={PlayCircle} onClick={() => onNavigate('design')}>
             <div className="csc-row-content">
               <span className="hf-text-sm">
                 {sessionPlan.estimatedSessions} {sessionPlan.estimatedSessions === 1 ? 'session' : 'sessions'}

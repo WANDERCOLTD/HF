@@ -77,7 +77,7 @@ export function CourseGenomeTab({ courseId }: CourseGenomeTabProps) {
           <Dna size={24} />
           <span>No lesson plan yet</span>
           <span className="hf-text-muted hf-text-xs">
-            Generate a lesson plan on the Journey tab to see the course genome.
+            Generate a lesson plan to see the course genome.
           </span>
         </div>
       </div>

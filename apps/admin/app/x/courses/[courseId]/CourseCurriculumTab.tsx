@@ -206,13 +206,13 @@ function RegenerateResult({
             <button
               type="button"
               className="hf-link"
-              onClick={() => onSwitchTab("journey")}
+              onClick={() => onSwitchTab("design")}
             >
-              Go to the Journey tab →
+              Go to the Design tab →
             </button>
           ) : (
-            <Link href="?tab=journey" className="hf-link">
-              Go to the Journey tab →
+            <Link href="?tab=design" className="hf-link">
+              Go to the Design tab →
             </Link>
           )}
         </div>

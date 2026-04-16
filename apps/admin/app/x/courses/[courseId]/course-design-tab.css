@@ -1,0 +1,126 @@
+/* CourseDesignTab — cdt-* prefix */
+
+/* ── Flow Diagram ─────────────────────────────── */
+
+.cdt-flow-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 0;
+  overflow-x: auto;
+}
+
+.cdt-flow-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.cdt-flow-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 2px solid var(--border-default);
+  background: var(--surface-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 90px;
+}
+
+.cdt-flow-bubble:hover {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 5%, var(--surface-primary));
+}
+
+.cdt-flow-bubble--active {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 10%, var(--surface-primary));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 15%, transparent);
+}
+
+.cdt-flow-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cdt-flow-arrow {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ── Phase List ────────────────────────────────── */
+
+.cdt-phase-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cdt-phase-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.cdt-phase-row:hover {
+  background: var(--surface-secondary);
+}
+
+.cdt-phase-toggle {
+  flex-shrink: 0;
+}
+
+.cdt-phase-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.cdt-phase-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cdt-phase-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cdt-phase-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Info Grid (Learning state) ──────────────── */
+
+.cdt-info-grid {
+  display: flex;
+  gap: 24px;
+}
+
+.cdt-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ── Welcome Message Preview ─────────────────── */
+
+.cdt-welcome-preview {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--surface-secondary);
+  font-size: 12px;
+  color: var(--text-primary);
+  font-style: italic;
+}

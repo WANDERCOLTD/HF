@@ -26,7 +26,6 @@ const VALID_SESSION_TYPES = [
   "review",
   "assess",
   "consolidate",
-  "mid_survey",
   "offboarding",
   "post_survey",
 ] as const;

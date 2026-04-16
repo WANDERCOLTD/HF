@@ -154,7 +154,7 @@ export async function GET(
     }
 
     // 4. Filter to teaching sessions only
-    const STRUCTURAL = ["onboarding", "offboarding", "pre_survey", "post_survey", "mid_survey"];
+    const STRUCTURAL = ["onboarding", "offboarding", "pre_survey", "post_survey"];
     const teachingEntries = entries.filter((e: any) => !STRUCTURAL.includes(e.type));
     if (teachingEntries.length === 0) {
       return NextResponse.json({ ok: true, data: emptyGenome(courseId, playbook.name) });

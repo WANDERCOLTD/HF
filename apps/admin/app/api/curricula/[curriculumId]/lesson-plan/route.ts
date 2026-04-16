@@ -25,7 +25,6 @@ const VALID_SESSION_TYPES = [
   "review",
   "assess",
   "consolidate",
-  "mid_survey",
   "offboarding",
   "post_survey",
 ] as const;
@@ -190,7 +189,7 @@ export async function PUT(
     // Merge lesson plan into existing deliveryConfig
     const existingDC = getDeliveryConfig(curriculum);
     const plan: LessonPlan = {
-      estimatedSessions: entries.filter((e: any) => !["pre_survey", "post_survey", "mid_survey", "onboarding", "offboarding"].includes(e.type)).length,
+      estimatedSessions: entries.filter((e: any) => !["pre_survey", "post_survey", "onboarding", "offboarding"].includes(e.type)).length,
       entries: entries.map((e: any, i: number) => ({
         session: i + 1,
         type: e.type,
@@ -368,7 +367,7 @@ async function runBackgroundLessonPlanGeneration(
     // totalSessionTarget = number of TEACHING sessions the educator wants.
     // Structural stops (onboarding, offboarding, surveys) are auto-injected after generation.
     const targetHint = totalSessionTarget
-      ? `The educator has requested EXACTLY ${totalSessionTarget} TEACHING sessions. You MUST return exactly ${totalSessionTarget} entries. Do NOT include onboarding, offboarding, pre_survey, post_survey, or mid_survey — those are auto-injected separately. Only use: introduce, deepen, review, assess, consolidate.${
+      ? `The educator has requested EXACTLY ${totalSessionTarget} TEACHING sessions. You MUST return exactly ${totalSessionTarget} entries. Do NOT include onboarding, offboarding, pre_survey, or post_survey — those are auto-injected separately. Only use: introduce, deepen, review, assess, consolidate.${
           totalSessionTarget <= 2
             ? " With only 1-2 sessions, use only introduce and deepen types. Combine multiple modules into single sessions if needed."
             : totalSessionTarget <= 4
@@ -399,7 +398,7 @@ IMPORTANT: You are generating ONLY the teaching sessions. Onboarding, offboardin
 
 Rules:
 - Valid session types: introduce (first exposure to module), deepen (revisit module for mastery), review (consolidate multiple modules), assess (test knowledge), consolidate (final synthesis)
-- Do NOT use: onboarding, offboarding, pre_survey, post_survey, mid_survey
+- Do NOT use: onboarding, offboarding, pre_survey, post_survey
 - ${targetHint}
 - The session count target is the MOST IMPORTANT constraint. All other rules below are secondary and should be relaxed if they conflict with the target count.
 - When sessions allow (n > 4): include periodic review sessions every 3-4 modules. Use consolidate for pre-final synthesis.
@@ -553,7 +552,7 @@ Total modules: ${modules.length}`;
 
         // Initialize empty assertionIds on teaching entries
         for (const entry of entries) {
-          if (!["onboarding", "offboarding", "pre_survey", "post_survey", "mid_survey"].includes(entry.type)) {
+          if (!["onboarding", "offboarding", "pre_survey", "post_survey"].includes(entry.type)) {
             entry.assertionIds = [];
           }
         }
@@ -580,7 +579,7 @@ Total modules: ${modules.length}`;
       context: {
         plan: entries,
         // estimatedSessions = teaching sessions only (what the educator controls)
-        estimatedSessions: entries.filter((e) => !["pre_survey", "post_survey", "mid_survey", "onboarding", "offboarding"].includes(e.type)).length,
+        estimatedSessions: entries.filter((e) => !["pre_survey", "post_survey", "onboarding", "offboarding"].includes(e.type)).length,
         reasoning: parsed.reasoning || "",
       },
     });
