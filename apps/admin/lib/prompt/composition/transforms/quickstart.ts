@@ -216,7 +216,7 @@ registerTransform("computeQuickStart", (
           : "Light assessment: occasional check-in questions and gentle comprehension checks"
       : null,
 
-    this_caller: `${caller?.name ?? caller?.id ?? "anonymous"} (call #${loadedData.callCount + 1})`,
+    this_caller: `${caller?.name ?? caller?.id ?? "anonymous"} (call #${loadedData.callCount || 1})`,
 
     cohort_context: (() => {
       // Prefer multi-cohort memberships, fall back to legacy single cohort

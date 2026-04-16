@@ -273,7 +273,8 @@ Each learning outcome MUST be a single string in the EXACT format: "LOn: full de
   - Followed by ": " (colon + space)
   - Followed by a COMPLETE descriptive sentence using measurable verbs (Identify, Explain, Analyse, Apply, Evaluate, Compare)
   - The descriptive sentence must be a REAL learning outcome about the subject matter — NEVER the word "Identify..." or "LO1" or a placeholder
-  - Minimum 5 words after the colon
+  - Minimum 5 words, maximum 30 words after the colon — always complete the sentence (never truncate mid-word)
+  - If a concept needs more detail, prefer a precise short sentence over a long rambling one
   - Wrong: "LO1" | "LO1:" | "LO1: Identify..." | "Character analysis"
   - Right: "LO1: Identify the main themes and recurring motifs in a literary passage"
   - Right: "LO2: Explain how sentence structure affects the reader's interpretation"
@@ -366,7 +367,8 @@ Each learning outcome MUST be a single string in the EXACT format: "LOn: full de
   - Followed by ": " (colon + space)
   - Followed by a COMPLETE descriptive sentence using measurable verbs (Identify, Explain, Analyse, Apply, Evaluate, Compare)
   - The descriptive sentence must be a REAL learning outcome about the subject matter — NEVER the word "Identify..." or "LO1" or a placeholder
-  - Minimum 5 words after the colon
+  - Minimum 5 words, maximum 30 words after the colon — always complete the sentence (never truncate mid-word)
+  - If a concept needs more detail, prefer a precise short sentence over a long rambling one
   - Wrong: "LO1" | "LO1:" | "LO1: Identify..." | "Foundational concepts"
   - Right: "LO1: Identify the key components of a balanced investment portfolio"
   - Right: "LO2: Apply compound interest calculations to real-world savings scenarios"

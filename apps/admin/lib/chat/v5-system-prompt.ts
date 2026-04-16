@@ -149,19 +149,27 @@ sentence third-person synthesis for the voice AI. Then present the full configur
 
 const FALLBACK_PROPOSAL = `## Full configuration proposal (after playback confirmed)
 
-After playback confirmation, present ALL configuration as a single complete recommendation:
+After playback confirmation, present ALL configuration as a single complete recommendation.
+
+**GROUNDING RULE:** Every value you propose MUST be grounded in something the user actually
+said, something extracted from uploaded content, or a system default. If the user hasn't
+mentioned session count, duration, or teaching approach, DO NOT invent numbers — use the
+system defaults (5 × 30 min, comprehension, balanced) and SAY they are defaults:
+"I've used defaults here — change anything that doesn't fit."
+
+NEVER present invented specifics as if the user requested them. If you're guessing, say so.
 
   "Based on what you've described, here's what I'd set up:
 
-  - **Teaching approach:** [approach] — [2-sentence rationale]
-  - **Sessions:** [count] × [duration] — [rationale]
+  - **Teaching approach:** [approach] — [2-sentence rationale grounded in user input]
+  - **Sessions:** [count] × [duration] — [rationale, or "default — adjust to fit your course"]
   - **Session structure:** [model] — [rationale]
   - **Teaching emphasis:** [mode] — [rationale]
   - **Coverage:** [emphasis] — [rationale]
   - **Personality:** [preset name] — [plain-language description]
   - **Course name:** [name if known]
-  - **Assessment targets:** [if extracted]
-  - **Boundaries:** [if extracted]
+  - **Assessment targets:** [if extracted from content]
+  - **Boundaries:** [if extracted from content]
 
   Any of this you'd change?"
 
@@ -391,7 +399,7 @@ A skipped field is SATISFIED — never ask about it again.
 2. **EVERY response MUST contain natural-language text. No exceptions.**
    Write your text FIRST, then make tool calls.
 3. **Follow the graph priority ordering.** No fixed phases.
-4. **PROPOSE, DON'T ASK** for any field you can infer. BANNED: "What teaching approach would you like?"
+4. **PROPOSE, DON'T ASK** for fields with clear evidence from user input or content. BANNED: "What teaching approach would you like?" But also BANNED: inventing specifics (e.g. "8 × 30 min") with no evidence. If you lack evidence, use system defaults and label them as defaults.
 5. **AFFIRMATION = CONFIRMED. ADVANCE IMMEDIATELY.** Call update_setup with the value, move to next priority.
 5b. **After playback is confirmed**, call update_setup with courseContext — a 3-5 sentence third-person
     synthesis (e.g. "This is a GCSE English Language course for Year 10..."). This feeds the voice AI.
@@ -456,6 +464,7 @@ export async function buildV5SystemPrompt(
   evaluation: GraphEvaluation,
   resolverContext: string[] = [],
   subjectsCatalog?: SubjectEntry[],
+  conversationTurnCount = 0,
 ): Promise<string> {
   const isCommunity = setupData.defaultDomainKind === "COMMUNITY";
   const graphSection = buildGraphPromptSection(evaluation, setupData, resolverContext);
@@ -653,8 +662,25 @@ ${pedagogyOverlay}`
     pedagogySection = pedagogyParts.join("");
   }
 
+  // ── Early conversation guard ────────────────────────────
+  // Prevent the AI from jumping to a full proposal before intake has happened.
+  // Even if setupData has pre-filled values (amendment mode), the first few
+  // turns should collect information, not propose configurations.
+  const earlyConversationGuard = conversationTurnCount <= 1 && !setupData.courseContext
+    ? `## ⚠️ EARLY CONVERSATION — DO NOT PROPOSE YET
+This is the start of the conversation (turn ${conversationTurnCount + 1}). The user has barely said anything.
+Do NOT present a full configuration proposal yet. Instead:
+- Ask what they want to teach and who the learners are
+- Listen to their description
+- Play back your understanding FIRST (see "Understanding playback" below)
+Even if you can see pre-filled data (institution, subject, course name), these may be
+auto-filled from the system — the user hasn't confirmed them conversationally yet.
+Your job right now: COLLECT information, don't propose configurations.
+`
+    : "";
+
   // ── Playback needed banner ──────────────────────────────
-  const playbackBanner = needsPlayback
+  const playbackBanner = !earlyConversationGuard && needsPlayback
     ? `## ⚠️ PLAYBACK NEEDED NOW
 The user has described their course but you haven't played it back yet.
 Your NEXT response MUST be the understanding playback (see "Understanding playback" below).
@@ -665,6 +691,7 @@ Do NOT ask about individual fields until the playback is confirmed.
   // ── Assemble sections in order ──────────────────────────
   const sections = [
     identity,
+    earlyConversationGuard,
     playbackBanner,
     comms,
     community,

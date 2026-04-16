@@ -108,7 +108,8 @@ export async function POST(request: NextRequest) {
       const userId = authResult.session.user.id;
       const subjectsCatalog = await getSubjectsCatalog();
       const graphEval = evaluateGraph(setupData || {});
-      const wizardPrompt = await buildV5SystemPrompt(setupData || {}, graphEval, [], subjectsCatalog);
+      const turnCount = conversationHistory.filter((m: { role: string }) => m.role === "user").length;
+      const wizardPrompt = await buildV5SystemPrompt(setupData || {}, graphEval, [], subjectsCatalog, turnCount);
       const wizardTools = CONVERSATIONAL_TOOLS;
 
       // Deduplicate: client includes the current message in conversationHistory
@@ -766,7 +767,8 @@ async function handleWizardModeWithTools(
   if (!finalContent && !hasInteractivePanel) {
     const freshSubjectsCatalog = await getSubjectsCatalog();
     const graphEval = evaluateGraph(mergedSetupData);
-    const continuationPrompt = await buildV5SystemPrompt(mergedSetupData, graphEval, [], freshSubjectsCatalog);
+    const continuationTurnCount = loopMessages.filter((m) => m.role === "user").length;
+    const continuationPrompt = await buildV5SystemPrompt(mergedSetupData, graphEval, [], freshSubjectsCatalog, continuationTurnCount);
     const logPhase = `v5:${graphEval.readinessPct}%`;
 
     // Replace system message with updated context

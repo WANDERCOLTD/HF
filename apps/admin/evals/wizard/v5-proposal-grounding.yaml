@@ -1,0 +1,127 @@
+description: "Wizard V5 — proposal grounding: no invented values"
+
+# Run with: npm run eval:wizard:v5:proposal-grounding
+#
+# Snapshot: Post-playback — user confirmed understanding. AI must now generate
+# a configuration proposal. Tests that the AI grounds values in evidence and
+# labels defaults as defaults, rather than inventing specifics.
+
+prompts:
+  - id: v5-generate-proposal
+    label: "V5 — Generating proposal after playback confirmed"
+    raw: |
+      You are the HumanFirst Studio setup assistant. You help educators create and configure
+      AI tutoring courses through natural conversation.
+
+      ## How you communicate
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER expose internal field names.
+      - **NEVER hide proposals in reasoning.**
+
+      ## Full configuration proposal (after playback confirmed)
+
+      After playback confirmation, present ALL configuration as a single complete recommendation.
+
+      **GROUNDING RULE:** Every value you propose MUST be grounded in something the user actually
+      said, something extracted from uploaded content, or a system default. If the user hasn't
+      mentioned session count, duration, or teaching approach, DO NOT invent numbers — use the
+      system defaults (5 × 30 min, comprehension, balanced) and SAY they are defaults:
+      "I've used defaults here — change anything that doesn't fit."
+      NEVER present invented specifics as if the user requested them.
+
+        "Based on what you've described, here's what I'd set up:
+
+        - **Teaching approach:** [approach] — [rationale grounded in user input]
+        - **Sessions:** [count] × [duration] — [rationale, or 'default — adjust to fit']
+        - **Session structure:** [model] — [rationale]
+        - **Teaching emphasis:** [mode] — [rationale]
+        - **Personality:** [preset name] — [plain-language description]
+        - **Course name:** [name if known]
+
+        Any of this you'd change?"
+
+      ## Rules
+      1. Call update_setup EVERY time you learn new information.
+      2. ALWAYS include natural-language text.
+      4. **PROPOSE, DON'T ASK** for fields with clear evidence. If you lack evidence,
+         use system defaults and label them as defaults.
+      5. **AFFIRMATION = CONFIRMED. ADVANCE IMMEDIATELY.**
+
+      ## Graph-driven priorities
+
+      Readiness: 25% | Can launch: NO
+
+      ### Already collected
+        ✓ Organisation name: "Abacus Academy"
+        ✓ Organisation type: "school"
+        ✓ Subject area: "English Language"
+        ✓ Course name: "Secret Garden"
+        ✓ Course context: "An English Language course at Abacus Academy."
+
+      ### What to ask next (priority order)
+        1. Teaching approach [options] → PROPOSE: infer best fit from subject/level. [REQUIRED]
+        2. Teaching emphasis [options]
+        3. Session count [numeric]
+        4. Duration [numeric]
+        ... and 5 more optional fields
+
+      ### Still required for launch
+        ✗ Teaching approach
+
+      ---
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1200
+      tools:
+        - name: update_setup
+          description: "Save collected setup fields"
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                additionalProperties: true
+            required: [fields]
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+
+tests:
+
+  # ── Grounding: defaults labelled as defaults ──────────────────────────────
+
+  - description: "GROUNDING: Proposal labels defaults as defaults (user gave minimal info)"
+    vars:
+      userMessage: "That captures it."
+    assert:
+      - type: llm-rubric
+        value: |
+          The AI generates a configuration proposal. Check that it does NOT present session count
+          or duration as if the user requested them (user only said "English Language" and "Secret Garden").
+          The proposal should either: (a) use defaults and explicitly say "default" or "I've assumed",
+          or (b) ask the user about sessions. It must NOT say something like "8 × 30 minutes —
+          gives enough time to work through comprehension strategies" as if the user asked for 8 sessions.
+          Any specific number that wasn't mentioned by the user must be flagged as a default/assumption.
+
+  - description: "GROUNDING: No invented assessment targets when user didn't mention any"
+    vars:
+      userMessage: "Yes, that's right."
+    assert:
+      - type: not-icontains
+        value: "11+"
+      - type: not-icontains
+        value: "entrance exam"
+      - type: llm-rubric
+        value: |
+          The AI should NOT invent assessment targets like "11+ entrance exam preparation"
+          when the user never mentioned exams, assessments, or specific targets. The course
+          context only says "An English Language course at Abacus Academy." If assessment
+          targets appear, they should only be included if extracted from content (none was uploaded).
