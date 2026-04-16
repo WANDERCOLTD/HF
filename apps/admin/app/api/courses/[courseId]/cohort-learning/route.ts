@@ -114,13 +114,13 @@ export async function GET(
   // Per-parameter averages (latest score per caller per param)
   const latestScores = await prisma.callScore.findMany({
     where: {
-      call: { callerPlaybook: { callerId: { in: callerIds } } },
+      call: { callerId: { in: callerIds }, playbookId: courseId },
       parameter: { parameterId: { startsWith: prefix } },
     },
     select: {
       score: true,
       parameter: { select: { parameterId: true, name: true } },
-      call: { select: { callerPlaybook: { select: { callerId: true } } } },
+      call: { select: { callerId: true } },
     },
     orderBy: { createdAt: "desc" },
     take: 500,
@@ -129,7 +129,7 @@ export async function GET(
   // Take latest per caller per param
   const latestByCallerParam = new Map<string, number>();
   for (const s of latestScores) {
-    const cid = s.call.callerPlaybook?.callerId;
+    const cid = s.call.callerId;
     if (!cid) continue;
     const key = `${cid}:${s.parameter.parameterId}`;
     if (!latestByCallerParam.has(key)) {
