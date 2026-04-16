@@ -176,6 +176,7 @@ export async function GET(
           externalId: true,
           transcript: true,
           createdAt: true,
+          endedAt: true,
           callSequence: true,
           curriculumModuleId: true,
           curriculumModule: {

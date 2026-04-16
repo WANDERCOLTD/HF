@@ -399,7 +399,7 @@ registerLoader("learnerProfile", async (callerId) => {
 
 registerLoader("recentCalls", async (callerId, config) => {
   return prisma.call.findMany({
-    where: { callerId },
+    where: { callerId, endedAt: { not: null } },
     orderBy: { createdAt: "desc" },
     take: config?.limit || 5,
     select: {

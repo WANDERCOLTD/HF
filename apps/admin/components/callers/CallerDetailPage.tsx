@@ -250,10 +250,10 @@ export default function CallerDetailPage() {
   const handlePromptAll = async () => {
     if (!callerId || !data || composing) return;
 
-    // Get all calls sorted oldest first
-    const calls = data.calls || [];
+    // Get completed calls sorted oldest first (skip orphaned calls with no endedAt)
+    const calls = (data.calls || []).filter((c: any) => c.endedAt);
     if (calls.length === 0) {
-      alert("No calls to process");
+      alert("No completed calls to process");
       return;
     }
 

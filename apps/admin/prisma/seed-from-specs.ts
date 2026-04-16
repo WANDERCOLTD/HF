@@ -766,6 +766,13 @@ async function activateFeatureSet(featureSetId: string): Promise<SeedSpecResult>
     console.log(`      Built config with ${compiledParams.length} parameters for ${outputType} spec`);
   }
 
+  // Fallback: if no branch above built a config but the rawSpec declares one,
+  // create config from rawSpecData.config so keys like `scoringGate` are preserved.
+  if (!config && rawSpecData?.config && typeof rawSpecData.config === "object") {
+    config = { ...rawSpecData.config };
+    console.log(`      Fallback: created config from rawSpec.config keys: ${Object.keys(config!).join(", ")}`);
+  }
+
   // Copy context.dependsOn into config for runtime dependency validation
   if (config && rawSpecData?.context?.dependsOn && Array.isArray(rawSpecData.context.dependsOn)) {
     config.dependsOn = rawSpecData.context.dependsOn;
