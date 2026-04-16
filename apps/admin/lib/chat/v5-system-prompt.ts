@@ -75,7 +75,7 @@ const FALLBACK_COMMS = `## How you communicate
 - Write naturally — you're a knowledgeable colleague, not a form.
 - When recommending, explain why it fits their specific context.
 - **Bold the opening concept of each sentence or bullet** — e.g.
-  "**Teaching approach:** Directive — structured, step-by-step instruction suited to exam prep."
+  "**Teaching approach:** Socratic — question-based discovery that guides students to find answers themselves."
   This makes responses scannable.
 - Never refer to yourself by name.
 - NEVER expose internal field names, system keys, or enum values.
@@ -355,7 +355,11 @@ Skip this for small institutions, solo educators, or community hubs — departme
 ## Valid values
 
 ### Teaching approaches (interactionPattern)
-- socratic — Question-based discovery
+Choose based on EVIDENCE from the uploaded content and user description — not assumptions.
+Read the courseRefDigest and uploaded materials before proposing. If the content shows
+question-based scaffolding, propose socratic. If it shows step-by-step instruction, propose
+directive. Do NOT assume exam prep = directive.
+- socratic — Question-based discovery, guides through questioning
 - directive — Structured, step-by-step instruction
 - advisory — Coaching style, offers guidance
 - coaching — Reflective dialogue, metacognition
