@@ -1068,10 +1068,8 @@ export default function CourseDetailPage() {
         />
       )}
 
-      {/* ═══════════════════════════════════════════════ */}
-      {/* JOURNEY TAB — unified rail: surveys + calls    */}
-      {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'journey' && (() => {
+      {/* Journey tab removed — absorbed into Design + Learners (see #172) */}
+      {activeTab === '__legacy_journey__' && (() => {
         const isContinuousMode = sessions?.plan?.entries?.length === 1 && sessions.plan.entries[0]?.type === 'continuous';
 
         if (isContinuousMode) {
@@ -1308,13 +1306,6 @@ export default function CourseDetailPage() {
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* GENOME TAB — course content hierarchy viz      */}
-      {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'genome' && (
-        <CourseGenomeTab courseId={courseId!} />
-      )}
-
-      {/* ═══════════════════════════════════════════════ */}
       {/* CONTENT TAB                                    */}
       {/* ═══════════════════════════════════════════════ */}
       {activeTab === 'content' && (
@@ -1334,20 +1325,6 @@ export default function CourseDetailPage() {
             if (instrCount !== undefined) setInstructionTotal(instrCount);
             if (unassignedContent !== undefined) setUnassignedContentCount(unassignedContent);
           }}
-        />
-      )}
-
-      {/* ═══════════════════════════════════════════════ */}
-      {/* AUDIENCE TAB                                   */}
-      {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'audience' && (
-        <CourseWhoTab
-          courseId={courseId!}
-          detail={detail}
-          isOperator={isOperator}
-          persona={persona}
-          specGroups={specGroups}
-          onDetailUpdate={setDetail}
         />
       )}
 
@@ -1387,7 +1364,7 @@ export default function CourseDetailPage() {
         <CourseDesignTab
           courseId={courseId!}
           playbookConfig={detail?.config as Record<string, unknown> | null | undefined}
-          detail={detail ? { id: detail.id, name: detail.name, config: detail.config, domain: detail.domain, publishedAt: detail.publishedAt, version: parseInt(detail.version || '1', 10) } : null}
+          detail={detail ? { id: detail.id, name: detail.name, status: detail.status, config: detail.config, domain: detail.domain, publishedAt: detail.publishedAt, version: parseInt(detail.version || '1', 10) } : null}
           subjects={subjects}
           persona={persona}
           sessionPlan={sessions?.plan ? { estimatedSessions: sessions.plan.estimatedSessions, totalDurationMins: totalSessionDuration, generatedAt: sessions.plan.generatedAt } : null}

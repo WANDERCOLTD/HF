@@ -47,11 +47,11 @@ export type CourseDesignTabProps = {
   courseId: string;
   playbookConfig?: Record<string, unknown> | null;
   // Overview data (absorbed from CourseOverviewTab)
-  detail?: { id: string; name: string; config?: Record<string, unknown> | null; domain: { id: string; name: string; slug: string }; publishedAt?: string | null; version?: number } | null;
+  detail?: { id: string; name: string; status: string; config?: Record<string, unknown> | null; domain: { id: string; name: string; slug: string }; publishedAt?: string | null; version?: number } | null;
   subjects?: SubjectSummary[];
   persona?: PersonaInfo;
   sessionPlan?: SessionPlanInfo;
-  sessions?: SetupStatusInput['sessions'];
+  sessions?: SetupStatusInput['sessions'] | null;
   onSimCall?: () => void;
   instructionTotal?: number;
   categoryCounts?: Record<string, number>;
@@ -169,7 +169,7 @@ export function CourseDesignTab({
             courseId={courseId}
             detail={detail}
             subjects={subjects || []}
-            sessions={sessions}
+            sessions={sessions ?? { plan: null }}
             onSimCall={onSimCall}
           />
           <CourseSummaryCard
