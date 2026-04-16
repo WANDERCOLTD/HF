@@ -1298,26 +1298,10 @@ export async function executeWizardTool(
           // so the wizard reports the broken state instead of pretending success.
           await instantiatePlaybookGoals(c.id, domainId);
 
-          // Skip onboarding: mark complete, mark surveys submitted, init lesson plan
+          // Skip onboarding: mark complete, mark surveys submitted
           if (skipOnboarding) {
-            const { initializeLessonPlanSession } = await import("@/lib/enrollment/init-lesson-plan");
-            const { SURVEY_SCOPES, PRE_SURVEY_KEYS, POST_SURVEY_KEYS } = await import("@/lib/learner/survey-keys");
-
-            await prisma.onboardingSession.upsert({
-              where: { callerId_domainId: { callerId: c.id, domainId } },
-              create: { callerId: c.id, domainId, isComplete: true, wasSkipped: true, completedAt: new Date() },
-              update: { isComplete: true, wasSkipped: true, completedAt: new Date() },
-            });
-
-            const now = new Date().toISOString();
-            for (const scope of [SURVEY_SCOPES.PRE, SURVEY_SCOPES.POST]) {
-              const key = scope === SURVEY_SCOPES.PRE ? PRE_SURVEY_KEYS.SUBMITTED_AT : POST_SURVEY_KEYS.SUBMITTED_AT;
-              await prisma.callerAttribute.upsert({
-                where: { callerId_key_scope: { callerId: c.id, key, scope } },
-                create: { callerId: c.id, key, scope, valueType: "STRING", stringValue: now },
-                update: { stringValue: now },
-              });
-            }
+            const { applySkipOnboarding } = await import("@/lib/enrollment/skip-onboarding");
+            await applySkipOnboarding(c.id, domainId);
 
             const { autoComposeForCaller } = await import("@/lib/enrollment/auto-compose");
             autoComposeForCaller(c.id).catch(err =>
