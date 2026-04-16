@@ -488,7 +488,7 @@ export function buildGraphFallback(
 export function getGroupStatuses(
   evaluation: GraphEvaluation,
 ): Map<NodeGroup, "complete" | "active" | "waiting"> {
-  const groups: NodeGroup[] = ["institution", "course", "pedagogy", "content", "welcome", "tune"];
+  const groups: NodeGroup[] = ["institution", "course", "pedagogy", "content", "welcome", "experience", "tune"];
   const result = new Map<NodeGroup, "complete" | "active" | "waiting">();
 
   for (const group of groups) {

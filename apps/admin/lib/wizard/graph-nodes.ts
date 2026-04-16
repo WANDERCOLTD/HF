@@ -295,6 +295,76 @@ export const WIZARD_GRAPH_NODES: WizardGraphNode[] = [
     affinityTags: ["assessment", "pedagogy"],
   },
 
+  // ── EXPERIENCE GROUP ───────────────────────────────────
+  // Student welcome flow + NPS configuration.
+  // Auto-defaulted — wizard presents suggested config and asks if educator wants to adjust.
+
+  {
+    key: "welcomeGoals",
+    label: "Goals step in welcome",
+    group: "experience",
+    inputType: "options",
+    required: false,
+    priority: 4,
+    dependsOn: [],
+    resolvedBy: ["auto-default"],
+    promptHint: "Whether students set learning goals before their first session. Default: on. Part of the student welcome flow.",
+    mutablePostScaffold: true,
+    affinityTags: ["experience", "welcome"],
+  },
+  {
+    key: "welcomeAboutYou",
+    label: "About You step in welcome",
+    group: "experience",
+    inputType: "options",
+    required: false,
+    priority: 4,
+    dependsOn: [],
+    resolvedBy: ["auto-default"],
+    promptHint: "Whether students answer confidence + motivation questions before their first session. Default: on. Part of the student welcome flow.",
+    mutablePostScaffold: true,
+    affinityTags: ["experience", "welcome"],
+  },
+  {
+    key: "welcomeKnowledgeCheck",
+    label: "Baseline knowledge check in welcome",
+    group: "experience",
+    inputType: "options",
+    required: false,
+    priority: 4,
+    dependsOn: [],
+    resolvedBy: ["auto-default"],
+    promptHint: "Whether students take baseline MCQs before their first session. Default: off (unless curriculum content has been uploaded). Part of the student welcome flow.",
+    mutablePostScaffold: true,
+    affinityTags: ["experience", "assessment"],
+  },
+  {
+    key: "welcomeAiIntro",
+    label: "AI introduction call in welcome",
+    group: "experience",
+    inputType: "options",
+    required: false,
+    priority: 4,
+    dependsOn: [],
+    resolvedBy: ["auto-default"],
+    promptHint: "Whether students have a warm-up voice/chat call with the AI before the first teaching session. Default: off. Part of the student welcome flow.",
+    mutablePostScaffold: true,
+    affinityTags: ["experience", "welcome"],
+  },
+  {
+    key: "npsEnabled",
+    label: "Student feedback (NPS)",
+    group: "experience",
+    inputType: "options",
+    required: false,
+    priority: 4,
+    dependsOn: [],
+    resolvedBy: ["auto-default"],
+    promptHint: "Whether to ask students for feedback (NPS/satisfaction) after they reach mastery. Default: on.",
+    mutablePostScaffold: true,
+    affinityTags: ["experience", "feedback"],
+  },
+
   // ── TUNE GROUP ─────────────────────────────────────────
 
   {

@@ -29,7 +29,7 @@ export type NodeStatus =
   | "locked";         // Post-scaffold: structural field, cannot change
 
 /** Display group for ScaffoldPanel sections */
-export type NodeGroup = "institution" | "course" | "pedagogy" | "content" | "welcome" | "tune";
+export type NodeGroup = "institution" | "course" | "pedagogy" | "content" | "welcome" | "experience" | "tune";
 
 /** Priority tier — lower number = ask sooner */
 export type PriorityTier = 1 | 2 | 3 | 4;

@@ -22,6 +22,7 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
       "existingInstitutionId, existingDomainId, defaultDomainKind, " +
       "physicalMaterials, personalityPreset, personalityDescription, " +
       "courseContext, assessmentTargets, constraints, communityMode, " +
+      "welcomeGoals, welcomeAboutYou, welcomeKnowledgeCheck, welcomeAiIntro, npsEnabled, " +
       "contentSkipped, welcomeSkipped, tuneSkipped, " +
       "courseRefEnabled, skillsFramework, teachingPrinciples, coursePhases, " +
       "edgeCases, assessmentBoundaries. " +

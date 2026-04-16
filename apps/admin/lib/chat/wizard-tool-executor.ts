@@ -655,9 +655,28 @@ export async function executeWizardTool(
               configUpdate.sessionCount = pedagogy.suggestedSessionCount;
             }
 
-            // Enable pre-survey by default (mandatory per product decision)
+            // Student experience config — from wizard or defaults
+            if (!configUpdate.welcome) {
+              configUpdate.welcome = {
+                goals: { enabled: setupData?.welcomeGoals !== false },
+                aboutYou: { enabled: setupData?.welcomeAboutYou !== false },
+                knowledgeCheck: { enabled: setupData?.welcomeKnowledgeCheck === true },
+                aiIntroCall: { enabled: setupData?.welcomeAiIntro === true },
+              };
+            }
+            if (!configUpdate.nps) {
+              configUpdate.nps = {
+                enabled: setupData?.npsEnabled !== false,
+                trigger: "mastery" as const,
+                threshold: 80,
+              };
+            }
+            // Legacy surveys config — kept for backward compat with applyAutoIncludeStops
             if (!configUpdate.surveys) {
-              configUpdate.surveys = { pre: { enabled: true }, mid: { enabled: false }, post: { enabled: true } };
+              configUpdate.surveys = {
+                pre: { enabled: configUpdate.welcome.aboutYou.enabled || configUpdate.welcome.knowledgeCheck.enabled },
+                post: { enabled: configUpdate.nps.enabled },
+              };
             }
 
             await prisma.playbook.update({
@@ -1016,9 +1035,28 @@ export async function executeWizardTool(
           }
         }
 
-        // Enable pre-survey by default (mandatory per product decision)
+        // Student experience config — from wizard or defaults
+        if (!configUpdate.welcome) {
+          configUpdate.welcome = {
+            goals: { enabled: setupData?.welcomeGoals !== false },
+            aboutYou: { enabled: setupData?.welcomeAboutYou !== false },
+            knowledgeCheck: { enabled: setupData?.welcomeKnowledgeCheck === true },
+            aiIntroCall: { enabled: setupData?.welcomeAiIntro === true },
+          };
+        }
+        if (!configUpdate.nps) {
+          configUpdate.nps = {
+            enabled: setupData?.npsEnabled !== false,
+            trigger: "mastery" as const,
+            threshold: 80,
+          };
+        }
+        // Legacy surveys config — kept for backward compat with applyAutoIncludeStops
         if (!configUpdate.surveys) {
-          configUpdate.surveys = { pre: { enabled: true }, mid: { enabled: false }, post: { enabled: true } };
+          configUpdate.surveys = {
+            pre: { enabled: configUpdate.welcome.aboutYou.enabled || configUpdate.welcome.knowledgeCheck.enabled },
+            post: { enabled: configUpdate.nps.enabled },
+          };
         }
 
         await prisma.playbook.update({
@@ -2292,7 +2330,7 @@ async function generateLessonPlanPreview(
     };
 
     const teachingEntries = expandedEntries.filter((e) =>
-      !["pre_survey", "mid_survey", "post_survey", "onboarding", "offboarding"].includes(e.type),
+      !["pre_survey", "post_survey", "onboarding", "offboarding"].includes(e.type),
     );
 
     // Build LOs from real assertion text rather than fabricating "LO1"/"LO2"/"LO3" placeholders.

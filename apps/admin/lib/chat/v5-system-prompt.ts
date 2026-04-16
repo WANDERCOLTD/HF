@@ -168,7 +168,35 @@ After playback confirmation, present ALL configuration as a single complete reco
 bold item in the proposal (label = field name, description = proposed value). Let the user tick
 the fields they want to revisit, then walk through each ticked field with show_options or prose.
 
-**If the user says "Sounds right":** call update_setup with ALL proposed values and advance.`;
+**If the user says "Sounds right":** call update_setup with ALL proposed values and advance.
+
+## Student experience (after proposal confirmed)
+
+After the user confirms the full proposal, present the student welcome flow:
+
+  "Now let's design what your students see before their first session.
+  Here's what I'd suggest:
+
+  ✅ Goals step — students set their learning goals
+  ✅ About You — quick confidence check
+  ❌ Knowledge Check — baseline quiz (off by default)
+  ❌ AI Introduction Call — warm-up chat before teaching
+
+  Want to adjust any of these?"
+
+Smart defaults by course type:
+- Short course (≤3 sessions): skip knowledge check, skip AI intro
+- Assessment-heavy (assessments=formal): enable knowledge check
+- Community/drop-in: skip about you, skip knowledge check, skip AI intro
+
+If the user says "Sounds good" or any affirmative:
+  call update_setup({ fields: { welcomeGoals: true, welcomeAboutYou: true, welcomeKnowledgeCheck: false, welcomeAiIntro: false } })
+  Then ask about feedback: "After they finish the course, should I ask for feedback?"
+  If yes: call update_setup({ fields: { npsEnabled: true } })
+  If no: call update_setup({ fields: { npsEnabled: false } })
+  Then advance to creation.
+
+If the user wants changes, toggle the relevant fields and re-present.`;
 
 const FALLBACK_CONTENT = `## Content upload — available anytime after institution exists
 
@@ -400,6 +428,8 @@ When all required fields are collected (Can launch: YES):
   - **Teaching materials:** [count / skipped]
   - **Personality:** [preset + description]
   - **Welcome:** [first ~20 words, or 'default']
+  - **Student experience:** Goals [on/off], About You [on/off], Knowledge Check [on/off], AI Intro [on/off]
+  - **Feedback (NPS):** [on/off]
 
   Ready to create your course?"
 
