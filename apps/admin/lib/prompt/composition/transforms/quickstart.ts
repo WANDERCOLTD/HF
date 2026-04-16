@@ -12,7 +12,7 @@ import type { SpecConfig, PlaybookConfig } from "@/lib/types/json-fields";
 import type { AssembledContext, CallerAttributeData } from "../types";
 import { PARAMS } from "@/lib/registry";
 import { getAudienceOption } from "./audience";
-import { SURVEY_SCOPES, PRE_SURVEY_KEYS, MID_SURVEY_KEYS } from "@/lib/learner/survey-keys";
+import { SURVEY_SCOPES, PRE_SURVEY_KEYS } from "@/lib/learner/survey-keys";
 
 /** Keys whose presence (scope PRE) signals the learner already submitted onboarding data */
 const PRE_LOADED_KEYS: readonly string[] = [
@@ -281,40 +281,6 @@ registerTransform("computeQuickStart", (
       if (motivation) parts.push(`Motivation: "${motivation}"`);
 
       return parts.length > 0 ? parts.join("\n") : null;
-    })(),
-
-    learner_mid_feedback: (() => {
-      const midAttrs = loadedData.callerAttributes.filter(
-        (a: CallerAttributeData) => a.scope === SURVEY_SCOPES.MID,
-      );
-      if (midAttrs.length === 0) return null;
-
-      const get = (key: string): string | null => {
-        const attr = midAttrs.find((a: CallerAttributeData) => a.key === key);
-        if (!attr) return null;
-        const val = getAttributeValue(attr);
-        return val != null ? String(val) : null;
-      };
-
-      const feeling = get(MID_SURVEY_KEYS.PROGRESS_FEELING);
-      const satisfaction = get(MID_SURVEY_KEYS.MID_SATISFACTION);
-      const helpNeeded = get(MID_SURVEY_KEYS.HELP_NEEDED);
-
-      const parts: string[] = [];
-      if (feeling) parts.push(`Mid-course feeling: ${feeling}`);
-      if (satisfaction) parts.push(`Satisfaction: ${satisfaction}/5`);
-      if (helpNeeded) parts.push(`Requested help with: "${helpNeeded}"`);
-
-      if (parts.length === 0) return null;
-
-      // Add adaptation instruction based on feedback
-      if (feeling === "struggling") {
-        parts.push("→ ADAPT: Slow down, offer more examples, check understanding frequently.");
-      } else if (feeling === "great") {
-        parts.push("→ ADAPT: Student is thriving — increase challenge, go deeper.");
-      }
-
-      return parts.join("\n");
     })(),
 
     this_session: (() => {

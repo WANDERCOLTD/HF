@@ -604,12 +604,6 @@ describe("detectPersonalisationMode", () => {
     expect(detectPersonalisationMode([])).toBe("COLD_START");
   });
 
-  it("returns COLD_START when only MID survey attributes exist", () => {
-    expect(detectPersonalisationMode([
-      makeAttr(SURVEY_SCOPES.MID, "progress_feeling"),
-    ])).toBe("COLD_START");
-  });
-
   it("returns PRE_LOADED when PRE goal_text exists", () => {
     expect(detectPersonalisationMode([
       makeAttr(SURVEY_SCOPES.PRE, PRE_SURVEY_KEYS.GOAL_TEXT),
