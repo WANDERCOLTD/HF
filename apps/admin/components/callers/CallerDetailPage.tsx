@@ -1125,14 +1125,22 @@ export default function CallerDetailPage() {
       {/* Tuning panel — inline slide-out, stays open across tab switches */}
       {tunerOpen && composedPrompts.length > 0 && (
         <div className="cdp-tuning-panel">
-          <UnifiedPromptSection
-            prompts={composedPrompts}
-            loading={promptsLoading}
-            onRefresh={fetchPrompts}
-            callerId={callerId}
-            appliedChanges={appliedChanges}
-            onDismissApplied={() => setAppliedChanges(null)}
-          />
+          <details className="cdp-prompt-collapse">
+            <summary className="cdp-prompt-collapse-toggle">
+              Prompt Preview
+              <span className="cdp-prompt-collapse-hint">#{composedPrompts.length}</span>
+            </summary>
+            <div className="cdp-prompt-collapse-body">
+              <UnifiedPromptSection
+                prompts={composedPrompts}
+                loading={promptsLoading}
+                onRefresh={fetchPrompts}
+                callerId={callerId}
+                appliedChanges={appliedChanges}
+                onDismissApplied={() => setAppliedChanges(null)}
+              />
+            </div>
+          </details>
           <PromptTunerSidebar
             inline
             open

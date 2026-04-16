@@ -35,6 +35,54 @@
   flex-direction: column;
 }
 
+/* ── Collapsible prompt preview inside tuning panel ── */
+.cdp-prompt-collapse {
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.cdp-prompt-collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  list-style: none; /* hide default triangle */
+}
+
+.cdp-prompt-collapse-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.cdp-prompt-collapse-toggle::before {
+  content: "▶";
+  font-size: 9px;
+  transition: transform 0.15s;
+}
+
+.cdp-prompt-collapse[open] > .cdp-prompt-collapse-toggle::before {
+  transform: rotate(90deg);
+}
+
+.cdp-prompt-collapse-hint {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--surface-tertiary);
+  color: var(--text-secondary);
+}
+
+.cdp-prompt-collapse-body {
+  max-height: 300px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-default);
+}
+
 /* ── Loading / Error ── */
 .cdp-loading {
   padding: 40px;
