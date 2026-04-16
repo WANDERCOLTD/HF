@@ -117,6 +117,43 @@ export interface GoalTemplate {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Welcome + NPS config (student experience)
+// ---------------------------------------------------------------------------
+
+/** Controls which phases appear in the student welcome flow before their first session. */
+export interface WelcomeConfig {
+  /** Students set learning goals */
+  goals: { enabled: boolean };
+  /** Quick confidence + motivation check */
+  aboutYou: { enabled: boolean };
+  /** Baseline MCQs from curriculum content */
+  knowledgeCheck: { enabled: boolean };
+  /** AI voice/chat introduction call before teaching starts */
+  aiIntroCall: { enabled: boolean };
+}
+
+/** NPS / satisfaction feedback trigger configuration. */
+export interface NpsConfig {
+  enabled: boolean;
+  trigger: "mastery" | "session_count";
+  /** Mastery %: trigger when >= this value. Session count: trigger after this many calls. */
+  threshold: number;
+}
+
+export const DEFAULT_WELCOME_CONFIG: WelcomeConfig = {
+  goals: { enabled: true },
+  aboutYou: { enabled: true },
+  knowledgeCheck: { enabled: false },
+  aiIntroCall: { enabled: false },
+};
+
+export const DEFAULT_NPS_CONFIG: NpsConfig = {
+  enabled: true,
+  trigger: "mastery",
+  threshold: 80,
+};
+
 export interface PlaybookConfig {
   systemSpecToggles?: Record<string, { isEnabled: boolean }>;
   goals?: GoalTemplate[];
@@ -141,17 +178,19 @@ export interface PlaybookConfig {
   welcomeMessage?: string;
   courseContext?: string;
   offboarding?: OffboardingConfig;
-  /** Survey configuration — replaces buried phases[].surveySteps[] pattern */
+  /** Student welcome flow configuration — controls which phases show before first session */
+  welcome?: WelcomeConfig;
+  /** NPS / satisfaction feedback configuration */
+  nps?: NpsConfig;
+  /** Survey configuration — legacy, kept for backward compat with applyAutoIncludeStops */
   surveys?: {
-    pre?: { enabled: boolean; questions: SurveyStepConfig[] };
-    mid?: { enabled: boolean; questions: SurveyStepConfig[] };
-    post?: { enabled: boolean; questions: SurveyStepConfig[] };
+    pre?: { enabled: boolean; questions?: SurveyStepConfig[] };
+    post?: { enabled: boolean; questions?: SurveyStepConfig[] };
   };
   /** Assessment configuration — personality profiling + pre/post knowledge testing */
   assessment?: {
     personality?: { enabled: boolean; questions: SurveyStepConfig[] };
     preTest?: { enabled: boolean; questionCount: number };
-    midTest?: { enabled: boolean; afterSession?: number | "halfway" };
     postTest?: { enabled: boolean };
   };
   [key: string]: any;

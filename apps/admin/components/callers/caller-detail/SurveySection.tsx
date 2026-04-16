@@ -230,53 +230,9 @@ function PostPanel({ data }: { data: SurveyData }): JSX.Element {
   );
 }
 
-function MidPanel({ data }: { data: SurveyData }): JSX.Element {
-  const progressFeeling = data["progress_feeling"];
-  const midSatisfaction = data["mid_satisfaction"];
-  const helpNeeded = data["help_needed"];
-  const submittedAt = data["submitted_at"];
-
-  const FEELING_LABELS: Record<string, string> = {
-    struggling: "Struggling",
-    ok: "Getting there",
-    good: "Feeling good",
-    great: "Loving it",
-  };
-
-  return (
-    <div className="ss-panel">
-      <div className="ss-panel-title">
-        Mid-Survey
-        {submittedAt && <span className="ss-panel-date">completed {formatDate(submittedAt)}</span>}
-      </div>
-
-      {progressFeeling != null && (
-        <div className="ss-row">
-          <span className="ss-label">Feeling:</span>
-          <span className="ss-value">{FEELING_LABELS[String(progressFeeling)] ?? String(progressFeeling)}</span>
-        </div>
-      )}
-
-      {midSatisfaction != null && (
-        <div className="ss-row">
-          <span className="ss-label">Satisfaction:</span>
-          <Stars value={Number(midSatisfaction)} />
-        </div>
-      )}
-
-      {helpNeeded != null && (
-        <div className="ss-row">
-          <span className="ss-label">Needs help with:</span>
-          <span className="ss-value-quote">&ldquo;{String(helpNeeded)}&rdquo;</span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function SurveySection({ callerId }: { callerId: string }): JSX.Element {
   const [pre, setPre] = useState<SurveyData | null>(null);
-  const [mid, setMid] = useState<SurveyData | null>(null);
   const [post, setPost] = useState<SurveyData | null>(null);
   const [personality, setPersonality] = useState<SurveyData | null>(null);
   const [preTest, setPreTest] = useState<SurveyData | null>(null);
@@ -293,7 +249,6 @@ export function SurveySection({ callerId }: { callerId: string }): JSX.Element {
         if (result.ok) {
           const hasData = (d: Record<string, unknown> | undefined) => Object.keys(d ?? {}).length > 0;
           setPre(hasData(result.pre) ? result.pre : null);
-          setMid(hasData(result.mid) ? result.mid : null);
           setPost(hasData(result.post) ? result.post : null);
           setPersonality(hasData(result.personality) ? result.personality : null);
           setPreTest(hasData(result.preTest) ? result.preTest : null);
@@ -310,7 +265,7 @@ export function SurveySection({ callerId }: { callerId: string }): JSX.Element {
 
   if (!loaded) return <></>;
 
-  const hasAny = pre || mid || post || personality || preTest || postTest;
+  const hasAny = pre || post || personality || preTest || postTest;
   if (!hasAny) {
     return <p className="ss-empty">No survey data yet</p>;
   }
@@ -320,7 +275,6 @@ export function SurveySection({ callerId }: { callerId: string }): JSX.Element {
       {personality && <PersonalityPanel data={personality} />}
       {pre && <PrePanel data={pre} />}
       <TestScorePanel preTest={preTest} postTest={postTest} />
-      {mid && <MidPanel data={mid} />}
       {post && <PostPanel data={post} />}
     </div>
   );

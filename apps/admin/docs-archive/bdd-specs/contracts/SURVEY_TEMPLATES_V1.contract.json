@@ -53,41 +53,6 @@
         "endAction": { "type": "summary", "variant": "form_echo", "thenAction": "next_stop" }
       },
 
-      "mid_survey": {
-        "label": "Mid-Survey",
-        "description": "Check in with learners mid-course",
-        "defaultPosition": "halfway",
-        "defaultEnabled": false,
-        "scope": "MID_SURVEY",
-        "questions": [
-          {
-            "id": "progress_feeling",
-            "type": "options",
-            "prompt": "How are you feeling about the course so far?",
-            "options": [
-              { "value": "struggling", "label": "Struggling" },
-              { "value": "ok", "label": "Getting there" },
-              { "value": "good", "label": "Feeling good" },
-              { "value": "great", "label": "Loving it" }
-            ]
-          },
-          {
-            "id": "mid_satisfaction",
-            "type": "stars",
-            "prompt": "How would you rate your experience so far?"
-          },
-          {
-            "id": "help_needed",
-            "type": "text",
-            "prompt": "Anything you'd like more help with?",
-            "placeholder": "e.g. More practice questions, slower pace...",
-            "maxLength": 200,
-            "optional": true
-          }
-        ],
-        "endAction": { "type": "summary", "variant": "form_echo", "thenAction": "next_stop" }
-      },
-
       "post_survey": {
         "label": "Post-Survey",
         "description": "Gather feedback at end of course",

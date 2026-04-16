@@ -4,11 +4,11 @@
  * @tags student, survey
  * @desc Returns survey + assessment config for the student's enrolled course.
  *       Resolution chain per survey type:
- *         1. playbook.config.surveys.{pre,mid,post}.questions  (educator overrides)
+ *         1. playbook.config.surveys.{pre,post}.questions  (educator overrides)
  *         2. playbook.config.onboardingFlowPhases (legacy fallback for pre)
  *         3. SURVEY_TEMPLATES_V1 contract defaults
  *       Also returns assessment config (personality questions, pre/post-test settings).
- * @response 200 { ok, subject, assessment, onboarding, midSurvey, offboarding }
+ * @response 200 { ok, subject, assessment, onboarding, offboarding }
  * @response 404 { ok: false, error: "..." }
  */
 
@@ -25,7 +25,6 @@ import {
   DEFAULT_ONBOARDING_SURVEY,
   DEFAULT_OFFBOARDING_SURVEY,
   DEFAULT_OFFBOARDING_TRIGGER,
-  DEFAULT_MID_SURVEY,
   getSurveyTemplateConfig,
 } from "@/lib/learner/survey-config";
 import { DEFAULT_PERSONALITY_QUESTIONS } from "@/lib/assessment/personality-defaults";
@@ -78,12 +77,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           ? legacySurveyPhase.surveySteps
           : templates.templates.pre_survey.questions ?? DEFAULT_ONBOARDING_SURVEY;
 
-    // ── Resolution chain: mid-survey questions ──
-    const midSurveySteps: SurveyStepConfig[] =
-      pbConfig.surveys?.mid?.questions?.length
-        ? pbConfig.surveys.mid.questions
-        : templates.templates.mid_survey.questions ?? DEFAULT_MID_SURVEY;
-
     // ── Resolution chain: post-survey questions ──
     const offboardingCfg = pbConfig.offboarding as OffboardingConfig | undefined;
     const postSurveySteps: SurveyStepConfig[] =
@@ -105,9 +98,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ? pbConfig.assessment.personality.questions
         : DEFAULT_PERSONALITY_QUESTIONS;
 
-    // Profile-aware defaults: comprehension skips pre-test, enables mid-test
+    // Profile-aware defaults: comprehension courses skip pre-test (continuous retrieval handles it)
     const preTestDefault = !isComprehension;
-    const midTestDefault = isComprehension;
 
     return NextResponse.json({
       ok: true,
@@ -122,10 +114,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           enabled: pbConfig.assessment?.preTest?.enabled ?? preTestDefault,
           questionCount: pbConfig.assessment?.preTest?.questionCount ?? 5,
         },
-        midTest: {
-          enabled: pbConfig.assessment?.midTest?.enabled ?? midTestDefault,
-          afterSession: pbConfig.assessment?.midTest?.afterSession ?? "halfway",
-        },
         postTest: {
           enabled: pbConfig.assessment?.postTest?.enabled ?? true,
         },
@@ -133,10 +121,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       onboarding: {
         surveySteps: onboardingSurveySteps,
         endAction: templates.templates.pre_survey.endAction,
-      },
-      midSurvey: {
-        surveySteps: midSurveySteps,
-        endAction: templates.templates.mid_survey.endAction,
       },
       offboarding: {
         triggerAfterCalls,

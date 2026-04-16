@@ -41,6 +41,7 @@
   - [Content Review](#content-review)
   - [Content Sources](#content-sources)
   - [Content Trust](#content-trust)
+  - [Course](#course)
   - [Course Pack](#course-pack)
   - [Courses](#courses)
   - [Curricula](#curricula)
@@ -2932,7 +2933,7 @@ Fetch all survey + assessment answers for a caller (stored as CallerAttribute re
 
 **Response** `200`
 ```json
-{ ok: true, pre: Record, mid: Record, post: Record, personality: Record, preTest: Record, postTest: Record }
+{ ok: true, pre: Record, post: Record, personality: Record, preTest: Record, postTest: Record }
 ```
 
 **Response** `500`
@@ -5038,6 +5039,26 @@ Find all COURSE_REFERENCE sources for a course and trigger
 **Response** `404`
 ```json
 { ok: false, error }
+```
+
+---
+
+## Course
+
+### `PUT` /api/courses/[courseId]/design
+
+Save student experience design config (welcome flow phases + NPS settings).
+
+**Auth**: session (OPERATOR+) · **Scope**: `course:write`
+
+**Response** `200`
+```json
+{ ok: true }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
 ```
 
 ---
@@ -12369,7 +12390,7 @@ Submit pre-test, mid-test, or post-test answers. Stores each answer + correctnes
 
 ### `GET` /api/student/assessment-questions
 
-Returns pre-test, mid-test, or post-test questions for the authenticated student.
+Returns pre-test or post-test questions for the authenticated student.
 
 **Auth**: session (STUDENT | OPERATOR+) · **Scope**: `student:read`
 
@@ -12495,7 +12516,7 @@ Mark onboarding as complete for a caller.
 
 **Response** `200`
 ```json
-{ ok, subject, assessment, onboarding, midSurvey, offboarding }
+{ ok, subject, assessment, onboarding, offboarding }
 ```
 
 **Response** `404`
@@ -14061,8 +14082,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 431 |
-| Files with annotations | 430 |
+| Route files found | 432 |
+| Files with annotations | 431 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 

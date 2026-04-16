@@ -17,12 +17,10 @@ vi.mock("@/lib/student-access", () => ({
 vi.mock("@/lib/learner/survey-config", () => ({
   DEFAULT_ONBOARDING_SURVEY: [{ id: "default_pre", type: "text", prompt: "Default pre" }],
   DEFAULT_OFFBOARDING_SURVEY: [{ id: "default_post", type: "text", prompt: "Default post" }],
-  DEFAULT_MID_SURVEY: [{ id: "default_mid", type: "text", prompt: "Default mid" }],
   DEFAULT_OFFBOARDING_TRIGGER: 5,
   getSurveyTemplateConfig: vi.fn().mockResolvedValue({
     templates: {
       pre_survey: { questions: [{ id: "contract_pre", type: "stars", prompt: "Contract pre" }], endAction: { type: "next_stop" } },
-      mid_survey: { questions: [{ id: "contract_mid", type: "stars", prompt: "Contract mid" }], endAction: { type: "next_stop" } },
       post_survey: { questions: [{ id: "contract_post", type: "stars", prompt: "Contract post" }], endAction: { type: "next_stop" } },
     },
   }),
@@ -70,8 +68,6 @@ describe("GET /api/student/survey-config — resolution chain", () => {
     expect(data.subject).toBe("Maths");
     // Pre-survey: contract defaults (no playbook override, no legacy)
     expect(data.onboarding.surveySteps[0].id).toBe("contract_pre");
-    // Mid-survey: contract defaults
-    expect(data.midSurvey.surveySteps[0].id).toBe("contract_mid");
     // Post-survey: contract defaults
     expect(data.offboarding.surveySteps[0].id).toBe("contract_post");
   });
@@ -82,7 +78,6 @@ describe("GET /api/student/survey-config — resolution chain", () => {
         config: {
           surveys: {
             pre: { enabled: true, questions: [{ id: "custom_pre", type: "text", prompt: "Custom pre" }] },
-            mid: { enabled: true, questions: [{ id: "custom_mid", type: "text", prompt: "Custom mid" }] },
             post: { enabled: true, questions: [{ id: "custom_post", type: "text", prompt: "Custom post" }] },
           },
         },
@@ -95,7 +90,6 @@ describe("GET /api/student/survey-config — resolution chain", () => {
     const data = await res.json();
 
     expect(data.onboarding.surveySteps[0].id).toBe("custom_pre");
-    expect(data.midSurvey.surveySteps[0].id).toBe("custom_mid");
     expect(data.offboarding.surveySteps[0].id).toBe("custom_post");
   });
 
@@ -117,8 +111,6 @@ describe("GET /api/student/survey-config — resolution chain", () => {
 
     // Pre: legacy fallback
     expect(data.onboarding.surveySteps[0].id).toBe("legacy_pre");
-    // Mid: contract default (no legacy fallback for mid)
-    expect(data.midSurvey.surveySteps[0].id).toBe("contract_mid");
   });
 
   it("returns assessment config with personality defaults", async () => {

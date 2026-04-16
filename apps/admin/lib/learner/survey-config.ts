@@ -28,7 +28,6 @@ export interface SurveyTemplate {
 export interface SurveyTemplateConfig {
   templates: {
     pre_survey: SurveyTemplate;
-    mid_survey: SurveyTemplate;
     post_survey: SurveyTemplate;
   };
 }
@@ -55,7 +54,7 @@ export async function getSurveyTemplateConfig(): Promise<SurveyTemplateConfig> {
 
 /** Get default questions for a specific survey type. */
 export async function getDefaultSurveyQuestions(
-  type: "pre_survey" | "mid_survey" | "post_survey",
+  type: "pre_survey" | "post_survey",
 ): Promise<SurveyStepConfig[]> {
   const cfg = await getSurveyTemplateConfig();
   return cfg.templates[type]?.questions ?? [];
@@ -99,6 +98,7 @@ export const DEFAULT_ONBOARDING_SURVEY: SurveyStepConfig[] = [
   },
 ];
 
+/** @deprecated Mid-survey removed from journey rail. Kept for backward compat with existing data. */
 export const DEFAULT_MID_SURVEY: SurveyStepConfig[] = [
   {
     id: "progress_feeling",
@@ -182,15 +182,6 @@ const FALLBACK_SURVEY_TEMPLATES: SurveyTemplateConfig = {
       defaultEnabled: true,
       scope: "PRE_SURVEY",
       questions: DEFAULT_ONBOARDING_SURVEY,
-      endAction: { type: "summary", variant: "form_echo", thenAction: "next_stop" },
-    },
-    mid_survey: {
-      label: "Mid-Survey",
-      description: "Check in with learners mid-course",
-      defaultPosition: "halfway",
-      defaultEnabled: false,
-      scope: "MID_SURVEY",
-      questions: DEFAULT_MID_SURVEY,
       endAction: { type: "summary", variant: "form_echo", thenAction: "next_stop" },
     },
     post_survey: {

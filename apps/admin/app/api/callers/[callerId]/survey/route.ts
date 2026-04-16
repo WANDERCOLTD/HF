@@ -5,9 +5,9 @@
  * @auth OPERATOR
  * @tags callers, survey
  * @description Fetch all survey + assessment answers for a caller (stored as CallerAttribute records).
- *   Returns pre/mid/post survey answers, personality profile answers, and pre/post test scores.
+ *   Returns pre/post survey answers, personality profile answers, and pre/post test scores.
  * @pathParam callerId string - The caller ID
- * @response 200 { ok: true, pre: Record, mid: Record, post: Record, personality: Record, preTest: Record, postTest: Record }
+ * @response 200 { ok: true, pre: Record, post: Record, personality: Record, preTest: Record, postTest: Record }
  * @response 500 { ok: false, error: string }
  */
 
@@ -17,7 +17,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { SURVEY_SCOPES } from "@/lib/learner/survey-keys";
 
 const ALL_SCOPES = [
-  SURVEY_SCOPES.PRE, SURVEY_SCOPES.MID, SURVEY_SCOPES.POST,
+  SURVEY_SCOPES.PRE, SURVEY_SCOPES.POST,
   SURVEY_SCOPES.PERSONALITY, SURVEY_SCOPES.PRE_TEST, SURVEY_SCOPES.POST_TEST,
 ];
 
@@ -46,7 +46,6 @@ export async function GET(
 
     const buckets: Record<string, Record<string, string | number | boolean | null>> = {
       [SURVEY_SCOPES.PRE]: {},
-      [SURVEY_SCOPES.MID]: {},
       [SURVEY_SCOPES.POST]: {},
       [SURVEY_SCOPES.PERSONALITY]: {},
       [SURVEY_SCOPES.PRE_TEST]: {},
@@ -64,7 +63,6 @@ export async function GET(
     return NextResponse.json({
       ok: true,
       pre: buckets[SURVEY_SCOPES.PRE],
-      mid: buckets[SURVEY_SCOPES.MID],
       post: buckets[SURVEY_SCOPES.POST],
       personality: buckets[SURVEY_SCOPES.PERSONALITY],
       preTest: buckets[SURVEY_SCOPES.PRE_TEST],

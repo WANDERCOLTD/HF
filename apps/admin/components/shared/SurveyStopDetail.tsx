@@ -16,7 +16,6 @@ import { ClipboardList, Star, Hash, MessageSquare, CircleDot, CheckCircle2, Penc
 import './survey-stop-detail.css';
 import type { SurveyStepConfig } from '@/lib/types/json-fields';
 import {
-  DEFAULT_MID_SURVEY,
   DEFAULT_OFFBOARDING_SURVEY,
 } from '@/lib/learner/survey-config';
 import { DEFAULT_PERSONALITY_QUESTIONS } from '@/lib/assessment/personality-defaults';
@@ -56,11 +55,9 @@ export interface SurveyStopDetailProps {
   saving?: boolean;
   /** Pre-loaded MCQ questions for pre-test assessment preview */
   mcqPreview?: McqPreview | null;
-  /** Mid-test MCQ preview (comprehension courses) */
-  midTestMcqPreview?: McqPreview | null;
   /** Post-test MCQ preview (comprehension courses — different from pre-test mirror) */
   postTestMcqPreview?: McqPreview | null;
-  /** Whether the course is comprehension-led */
+  /** Whether the course is comprehension-led (affects post-test source) */
   isComprehension?: boolean;
   /** Callback to regenerate MCQs */
   onRegenerate?: () => void;
@@ -92,7 +89,6 @@ function resolveQuestions(
   config: Record<string, unknown> | null | undefined,
   mcqPreview?: McqPreview | null,
   excludedIds?: Set<string>,
-  midTestMcqPreview?: McqPreview | null,
   postTestMcqPreview?: McqPreview | null,
   isComprehension?: boolean,
 ): { sections: Section[] } {
@@ -102,9 +98,7 @@ function resolveQuestions(
 
   if (type === 'pre_survey') {
     const personalityQs = assessment?.personality?.questions ?? DEFAULT_PERSONALITY_QUESTIONS;
-    // Comprehension courses default to pre-test off (passage-dependent questions)
-    const preTestDefault = isComprehension ? false : true;
-    const preTestEnabled = assessment?.preTest?.enabled ?? preTestDefault;
+    const preTestEnabled = assessment?.preTest?.enabled ?? true;
     const preTestCount = (assessment?.preTest as any)?.questionCount ?? 5;
 
     const sections: Section[] = [
@@ -129,27 +123,6 @@ function resolveQuestions(
           ? `${filteredQs.length} question${filteredQs.length !== 1 ? 's' : ''} auto-generated from your uploaded content`
           : skipDesc,
         questions: filteredQs,
-        isDynamic: !hasMcqs,
-      });
-    }
-    return { sections };
-  }
-
-  if (type === 'mid_survey') {
-    const sections: Section[] = [];
-    const midQs = surveys?.mid?.questions ?? DEFAULT_MID_SURVEY;
-    sections.push({ key: 'mid', label: 'Satisfaction Check-in', description: 'Quick check on how the learner is finding the course', questions: midQs, editable: true });
-
-    // Mid Knowledge Check — comprehension courses with midTest enabled
-    if (assessment?.midTest?.enabled) {
-      const hasMcqs = midTestMcqPreview && !midTestMcqPreview.skipped && midTestMcqPreview.questions.length > 0;
-      sections.push({
-        key: 'mid_test',
-        label: 'Knowledge Check',
-        description: hasMcqs
-          ? `${midTestMcqPreview!.questions.length} comprehension question${midTestMcqPreview!.questions.length !== 1 ? 's' : ''} — measures progress midway through the course`
-          : 'Comprehension questions will appear here once course content is processed',
-        questions: hasMcqs ? midTestMcqPreview!.questions : [],
         isDynamic: !hasMcqs,
       });
     }
@@ -271,7 +244,7 @@ function SectionBlock({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<SurveyStepConfig[]>(section.questions);
   const canEdit = section.editable && !!onSave;
-  const isAssessment = section.key === 'pre_test' || section.key === 'mid_test' || section.key === 'post_test';
+  const isAssessment = section.key === 'pre_test' || section.key === 'post_test';
 
   const handleEdit = useCallback(() => {
     setDraft([...section.questions]);
@@ -391,7 +364,6 @@ export function SurveyStopDetail({
   onSave,
   saving,
   mcqPreview,
-  midTestMcqPreview,
   postTestMcqPreview,
   isComprehension,
   onRegenerate,
@@ -404,7 +376,7 @@ export function SurveyStopDetail({
 
   const { sections } = resolveQuestions(
     type, playbookConfig as Record<string, unknown>, mcqPreview, excludedIds,
-    midTestMcqPreview, postTestMcqPreview, isComprehension,
+    postTestMcqPreview, isComprehension,
   );
 
   const handleQuestionCountChange = useCallback((count: number) => {
@@ -420,7 +392,6 @@ export function SurveyStopDetail({
   // Resolve sourceId per section type
   const getSourceId = (key: string): string | undefined => {
     if (key === 'pre_test') return mcqPreview?.sourceId;
-    if (key === 'mid_test') return midTestMcqPreview?.sourceId;
     if (key === 'post_test') return (isComprehension ? postTestMcqPreview : mcqPreview)?.sourceId;
     return undefined;
   };
@@ -447,7 +418,7 @@ export function SurveyStopDetail({
           section={section}
           onSave={onSave}
           saving={saving}
-          onRegenerate={(section.key === 'pre_test' || section.key === 'mid_test' || section.key === 'post_test') ? onRegenerate : undefined}
+          onRegenerate={(section.key === 'pre_test' || section.key === 'post_test') ? onRegenerate : undefined}
           regenerating={regenerating}
           questionCount={questionCount}
           onQuestionCountChange={(section.key === 'pre_test') ? handleQuestionCountChange : undefined}
@@ -481,9 +452,7 @@ function LearnerExperienceHeader({
   const stopLabel =
     type === 'pre_survey'
       ? 'Before the first teaching session'
-      : type === 'mid_survey'
-        ? 'Mid-way through the course'
-        : 'After the final teaching session';
+      : 'After the final teaching session';
 
   return (
     <div className="ssd-lx-header">

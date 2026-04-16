@@ -996,7 +996,7 @@ Fetch all survey + assessment answers for a caller (stored as CallerAttribute re
 
 **Response** `200`
 ```json
-{ ok: true, pre: Record, mid: Record, post: Record, personality: Record, preTest: Record, postTest: Record }
+{ ok: true, pre: Record, post: Record, personality: Record, preTest: Record, postTest: Record }
 ```
 
 **Response** `500`
