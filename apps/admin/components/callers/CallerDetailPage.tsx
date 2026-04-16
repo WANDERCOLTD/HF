@@ -5,7 +5,7 @@ import { useParams, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEntityContext } from "@/contexts/EntityContext";
 import { DomainPill } from "@/src/components/shared/EntityPill";
-import { User, BookMarked, PlayCircle, Brain, BarChart3, Target, BookOpen, ClipboardCheck, CheckSquare, GitBranch, MessageCircle, Gauge, Archive, SlidersHorizontal, Phone } from "lucide-react";
+import { User, BookMarked, PlayCircle, Brain, BarChart3, Target, BookOpen, ClipboardCheck, CheckSquare, GitBranch, MessageCircle, Gauge, Archive, SlidersHorizontal, Phone, TrendingUp } from "lucide-react";
 import { EditableTitle } from "@/components/shared/EditableTitle";
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
 import { CallerDomainSection } from "@/components/callers/CallerDomainSection";
@@ -26,6 +26,7 @@ import { ArtifactsSection } from "./caller-detail/ArtifactsTab";
 import { UnifiedPromptSection } from "./caller-detail/PromptsSection";
 import { CallsPromptsTab } from "./caller-detail/CallsPromptsTab";
 import { PromptTunerSidebar } from "./caller-detail/PromptTunerSidebar";
+import { UpliftTab } from "./caller-detail/UpliftTab";
 
 // Overview lens (now rendered as the first section tab)
 import { useCallerInsights } from "./caller-detail/hooks/useCallerInsights";
@@ -61,7 +62,7 @@ export default function CallerDetailPage() {
     transcripts: "calls-prompts", prompt: "calls-prompts",
   };
   const rawTab = searchParams.get("tab");
-  const validTabs: SectionId[] = ["overview", "calls-prompts", "how", "what", "artifacts", "ai-call"];
+  const validTabs: SectionId[] = ["overview", "uplift", "calls-prompts", "how", "what", "artifacts", "ai-call"];
   const mappedTab = rawTab ? (tabRedirects[rawTab] || rawTab) as SectionId : null;
   const initialTab: SectionId = mappedTab && validTabs.includes(mappedTab) ? mappedTab : "overview";
 
@@ -532,10 +533,11 @@ export default function CallerDetailPage() {
   // Sections organized to mirror Course WHAT | HOW | WHO from learner's perspective:
   // Journey (call history) | How (profile/traits) | What (scores/goals) | Artifacts | Call
   // Tabs affected by pipeline processing (will show pulsing indicator)
-  const processingTabs = new Set<SectionId>(["calls-prompts", "how", "what", "artifacts"]);
+  const processingTabs = new Set<SectionId>(["calls-prompts", "how", "what", "uplift", "artifacts"]);
 
   const sections: { id: SectionId; label: string; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
     { id: "overview", label: "Overview", icon: <span aria-hidden>🧭</span>, group: "shared" },
+    { id: "uplift", label: "Uplift", icon: <TrendingUp size={13} />, group: "shared" },
     { id: "calls-prompts", label: "Calls & Prompts", icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
     { id: "how", label: "How", icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
     { id: "what", label: "What", icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
@@ -961,6 +963,10 @@ export default function CallerDetailPage() {
             </div>
           )}
         </>
+      )}
+
+      {activeSection === "uplift" && (
+        <UpliftTab callerId={callerId} insights={insights} />
       )}
 
       {activeSection === "calls-prompts" && (

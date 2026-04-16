@@ -198,7 +198,60 @@ export type CallerData = {
   };
 };
 
-export type SectionId = "overview" | "calls-prompts" | "how" | "what" | "artifacts" | "ai-call";
+export type SectionId = "overview" | "uplift" | "calls-prompts" | "how" | "what" | "artifacts" | "ai-call";
+
+// ---------------------------------------------------------------------------
+// Uplift tab types — computed from existing models, no new DB tables
+// ---------------------------------------------------------------------------
+
+export type ScoreTrend = {
+  parameterId: string;
+  parameterName: string;
+  scores: { callDate: string; score: number; confidence: number }[];
+};
+
+export type AdaptationItem = {
+  parameterName: string;
+  defaultValue: number;
+  currentValue: number;
+  delta: number;
+  callsUsed: number;
+  confidence: number;
+};
+
+export type UpliftData = {
+  confidencePre: number | null;
+  confidencePost: number | null;
+  confidenceDelta: number | null;
+  testScorePre: number | null;
+  testScorePost: number | null;
+  knowledgeDelta: number | null;
+  overallMastery: number;
+  totalCalls: number;
+  firstCallAt: string | null;
+  latestCallAt: string | null;
+  timeOnPlatformDays: number;
+  moduleProgress: {
+    moduleId: string;
+    slug: string;
+    title: string;
+    sortOrder: number;
+    mastery: number;
+    status: string;
+    callCount: number;
+  }[];
+  goals: Goal[];
+  scoreTrends: ScoreTrend[];
+  adaptationEvidence: AdaptationItem[];
+  memoryCounts: {
+    facts: number;
+    preferences: number;
+    events: number;
+    topics: number;
+    total: number;
+  };
+  callFrequencyPerWeek: number;
+};
 
 export type ComposedPrompt = {
   id: string;

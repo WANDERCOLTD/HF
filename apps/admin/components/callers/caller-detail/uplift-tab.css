@@ -1,0 +1,311 @@
+/* ── Uplift Tab ─────────────────────────────────────── */
+
+.uplift-root {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Headline Strip ─────────────────────────────────── */
+
+.uplift-headline-strip {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.uplift-delta-card {
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 12px;
+}
+
+.uplift-delta-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.uplift-delta-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.uplift-delta-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.uplift-delta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.uplift-delta-badge--positive {
+  color: var(--status-success-text);
+  background: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+}
+
+.uplift-delta-badge--negative {
+  color: var(--status-error-text);
+  background: color-mix(in srgb, var(--status-error-text) 12%, transparent);
+}
+
+.uplift-delta-badge--neutral {
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+}
+
+.uplift-delta-awaiting {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── Section Layout ─────────────────────────────────── */
+
+.uplift-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.uplift-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+/* ── Module Progress ────────────────────────────────── */
+
+.uplift-module-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.uplift-module-name {
+  flex: 0 0 200px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.uplift-module-bar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--surface-secondary);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.uplift-module-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: var(--accent-primary);
+  transition: width 0.3s ease;
+}
+
+.uplift-module-bar-fill--complete {
+  background: var(--status-success-text);
+}
+
+.uplift-module-pct {
+  flex: 0 0 42px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.uplift-module-status {
+  flex: 0 0 80px;
+  font-size: 11px;
+  text-align: right;
+}
+
+.uplift-module-status--completed { color: var(--status-success-text); }
+.uplift-module-status--in_progress { color: var(--accent-primary); }
+.uplift-module-status--not_started { color: var(--text-muted); }
+
+/* ── Goals ──────────────────────────────────────────── */
+
+.uplift-goal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.uplift-goal-type {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+}
+
+.uplift-goal-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.uplift-goal-bar-track {
+  flex: 0 0 120px;
+  height: 8px;
+  background: var(--surface-secondary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.uplift-goal-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent-primary);
+  transition: width 0.3s ease;
+}
+
+.uplift-goal-pct {
+  flex: 0 0 36px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.uplift-goal-status {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.uplift-goal-status--COMPLETED { color: var(--status-success-text); }
+.uplift-goal-status--ACTIVE { color: var(--accent-primary); }
+.uplift-goal-status--PAUSED { color: var(--text-muted); }
+
+/* ── Score Trends ───────────────────────────────────── */
+
+.uplift-trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.uplift-trend-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.uplift-trend-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.uplift-trend-avg {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.uplift-trend-direction {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.uplift-trend-direction--up { color: var(--status-success-text); }
+.uplift-trend-direction--down { color: var(--status-error-text); }
+.uplift-trend-direction--stable { color: var(--text-muted); }
+
+/* ── Adaptation Evidence ────────────────────────────── */
+
+.uplift-adapt-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.uplift-adapt-name {
+  flex: 0 0 160px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.uplift-adapt-shift {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.uplift-adapt-arrow {
+  color: var(--text-muted);
+}
+
+.uplift-adapt-current {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.uplift-adapt-delta {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+/* ── Engagement Strip ───────────────────────────────── */
+
+.uplift-engagement-strip {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+}
+
+.uplift-engagement-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.uplift-engagement-label {
+  color: var(--text-muted);
+}
+
+.uplift-engagement-value {
+  font-weight: 600;
+}

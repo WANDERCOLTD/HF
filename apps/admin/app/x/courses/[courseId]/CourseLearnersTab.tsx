@@ -10,6 +10,8 @@ import { CohortLearningAggregate } from './CohortLearningAggregate';
 import { ClassProgressSection } from '@/components/shared/ClassProgressSection';
 import type { StudentMasteryProgress } from '@/components/shared/ClassProgressSection';
 import { CourseGenomeTab } from './CourseGenomeTab';
+import { CohortAggregateCards } from './CohortAggregateCards';
+import { CohortProgressTable } from './CohortProgressTable';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -83,6 +85,32 @@ export function CourseLearnersTab({ courseId, initialJoinToken, studentProgress 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [search, setSearch] = useState('');
+
+  // ── Proof-points data for aggregate cards + progress table ──
+  const [proofData, setProofData] = useState<{
+    confidenceLift: any;
+    knowledgeLift: any;
+    mastery: any;
+    engagement: any;
+    students: any[];
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchProof(): Promise<void> {
+      try {
+        const res = await fetch(`/api/courses/${courseId}/proof-points`);
+        const data = await res.json();
+        if (!cancelled && data.ok) {
+          setProofData(data);
+        }
+      } catch {
+        // silent — proof data is optional enrichment
+      }
+    }
+    fetchProof();
+    return () => { cancelled = true; };
+  }, [courseId]);
 
   // ── Fetch learners ──
 
@@ -266,29 +294,38 @@ export function CourseLearnersTab({ courseId, initialJoinToken, studentProgress 
         <ClassProgressSection studentProgress={studentProgress} />
       )}
 
-      {/* Summary cards */}
-      <div className="cl-summary">
-        <div className="hf-card-compact cl-stat">
-          <Users2 size={16} className="cl-stat-icon" />
-          <div className="cl-stat-value">{summary.enrolled}</div>
-          <div className="cl-stat-label">Enrolled</div>
+      {/* Aggregate cards — enriched when proof data available, fallback to basic */}
+      {proofData ? (
+        <CohortAggregateCards
+          confidenceLift={proofData.confidenceLift}
+          knowledgeLift={proofData.knowledgeLift}
+          mastery={proofData.mastery}
+          engagement={proofData.engagement}
+        />
+      ) : (
+        <div className="cl-summary">
+          <div className="hf-card-compact cl-stat">
+            <Users2 size={16} className="cl-stat-icon" />
+            <div className="cl-stat-value">{summary.enrolled}</div>
+            <div className="cl-stat-label">Enrolled</div>
+          </div>
+          <div className="hf-card-compact cl-stat">
+            <TrendingUp size={16} className="cl-stat-icon" />
+            <div className="cl-stat-value">{summary.active}</div>
+            <div className="cl-stat-label">Active (7d)</div>
+          </div>
+          <div className="hf-card-compact cl-stat">
+            <Phone size={16} className="cl-stat-icon" />
+            <div className="cl-stat-value">{summary.totalCalls}</div>
+            <div className="cl-stat-label">Total Calls</div>
+          </div>
+          <div className="hf-card-compact cl-stat">
+            <Target size={16} className="cl-stat-icon" />
+            <div className="cl-stat-value">{summary.goalRate}%</div>
+            <div className="cl-stat-label">Goal Rate</div>
+          </div>
         </div>
-        <div className="hf-card-compact cl-stat">
-          <TrendingUp size={16} className="cl-stat-icon" />
-          <div className="cl-stat-value">{summary.active}</div>
-          <div className="cl-stat-label">Active (7d)</div>
-        </div>
-        <div className="hf-card-compact cl-stat">
-          <Phone size={16} className="cl-stat-icon" />
-          <div className="cl-stat-value">{summary.totalCalls}</div>
-          <div className="cl-stat-label">Total Calls</div>
-        </div>
-        <div className="hf-card-compact cl-stat">
-          <Target size={16} className="cl-stat-icon" />
-          <div className="cl-stat-value">{summary.goalRate}%</div>
-          <div className="cl-stat-label">Goal Rate</div>
-        </div>
-      </div>
+      )}
 
       {/* Join link */}
       {joinUrl && (
@@ -336,7 +373,12 @@ export function CourseLearnersTab({ courseId, initialJoinToken, studentProgress 
         </div>
       </div>
 
-      {/* Roster */}
+      {/* Cohort Progress Table — enriched roster with sortable metrics */}
+      {proofData && proofData.students.length > 0 && (
+        <CohortProgressTable students={proofData.students} />
+      )}
+
+      {/* Basic Roster (fallback when no proof data, or for invited learners) */}
       <div className="hf-card cl-section">
         <div className="cl-roster-header">
           <input

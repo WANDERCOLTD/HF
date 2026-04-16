@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 type Params = { params: Promise<{ courseId: string }> };
 
 type StudentRow = {
+  callerId: string;
   name: string | null;
   email: string | null;
   preConfidence: number | null;
@@ -21,6 +22,7 @@ type StudentRow = {
   avgMastery: number | null;
   modulesCompleted: number;
   modulesTotal: number;
+  lastCallAt: string | null;
 };
 
 type ModuleAggregate = {
@@ -92,7 +94,7 @@ function escapeCSV(value: string | number | boolean | null | undefined): string 
 }
 
 function buildCSV(students: StudentRow[]): string {
-  const header = 'Name,Email,Pre-Confidence,Post-Confidence,Conf Delta,Pre-Test %,Post-Test %,Knowledge Delta,Calls,NPS,Satisfaction,Pre-Survey,Post-Survey,Avg Mastery %,Modules Completed,Modules Total';
+  const header = 'Name,Email,Pre-Confidence,Post-Confidence,Conf Delta,Pre-Test %,Post-Test %,Knowledge Delta,Calls,Last Call,NPS,Satisfaction,Pre-Survey,Post-Survey,Avg Mastery %,Modules Completed,Modules Total';
   const rows = students.map((s) =>
     [
       escapeCSV(s.name),
@@ -104,6 +106,7 @@ function buildCSV(students: StudentRow[]): string {
       escapeCSV(s.postTestScore != null ? Math.round(s.postTestScore * 100) : null),
       escapeCSV(s.knowledgeDelta != null ? Math.round(s.knowledgeDelta * 100) : null),
       escapeCSV(s.callCount),
+      escapeCSV(s.lastCallAt),
       escapeCSV(s.nps),
       escapeCSV(s.satisfaction),
       escapeCSV(s.preSurveyDone ? 'Yes' : 'No'),
@@ -151,6 +154,11 @@ export async function GET(request: NextRequest, { params }: Params): Promise<Nex
             name: true,
             email: true,
             _count: { select: { calls: true } },
+            calls: {
+              select: { createdAt: true },
+              orderBy: { createdAt: 'desc' as const },
+              take: 1,
+            },
             callerAttributes: {
               where: { scope: { in: ['PRE_SURVEY', 'POST_SURVEY', 'PRE_TEST', 'POST_TEST'] } },
               select: { key: true, scope: true, numberValue: true, stringValue: true },
@@ -260,6 +268,7 @@ export async function GET(request: NextRequest, { params }: Params): Promise<Nex
       }
 
       return {
+        callerId: e.caller.id,
         name: e.caller.name,
         email: e.caller.email,
         preConfidence,
@@ -276,6 +285,7 @@ export async function GET(request: NextRequest, { params }: Params): Promise<Nex
         avgMastery,
         modulesCompleted,
         modulesTotal: totalModules,
+        lastCallAt: e.caller.calls[0]?.createdAt?.toISOString() ?? null,
       };
     });
 
