@@ -564,6 +564,7 @@ export function PromptTunerSidebar({
         </div>
 
         {/* Data-driven behavior dials — graphic EQ layout, grouped by domainGroup */}
+        <div className="ps-eq-groups">
         {!paramsLoading && grouped.map(({ group, params }) => {
           const isCollapsed = collapsedGroups.has(group);
           const groupChangedCount = params.filter((p) => {
@@ -640,6 +641,7 @@ export function PromptTunerSidebar({
             </div>
           );
         })}
+        </div>{/* ps-eq-groups */}
 
         {/* Pending changes */}
         {hasChanges && (

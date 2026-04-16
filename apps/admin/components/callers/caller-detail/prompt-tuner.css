@@ -236,11 +236,20 @@
    GRAPHIC EQ LAYOUT — vertical sliders in a wrapped grid
    ══════════════════════════════════════════════════════════════════════ */
 
-/* ── Group box ── */
+/* ── Groups container — flex-wrap so small groups sit side-by-side ── */
+.ps-eq-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ── Group box — shrink to fit content, grow to fill row ── */
 .ps-eq-group {
   border: 1px solid var(--border-default);
   border-radius: 10px;
   overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 140px; /* at least ~2 channels wide */
 }
 
 .ps-eq-group-header {
