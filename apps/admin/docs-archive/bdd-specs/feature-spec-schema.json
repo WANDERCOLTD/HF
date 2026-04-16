@@ -52,6 +52,22 @@
       "default": "MEASURE",
       "description": "Runtime output (META specs only) - MEASURE=caller scores, LEARN=memories, ADAPT=targets, MEASURE_AGENT=agent scores, REWARD=rewards, COMPOSE=prompts, AGGREGATE=profiles. IDENTITY/CONTENT specs use specRole instead."
     },
+    "config": {
+      "type": "object",
+      "description": "Spec-level runtime configuration. Stored in AnalysisSpec.config JSON field. Keys vary by outputType.",
+      "properties": {
+        "scoringGate": {
+          "type": "string",
+          "enum": ["always", "assessment"],
+          "description": "MEASURE specs only. Controls whether the scheduler event-gate can suppress scoring. 'always' = score on every call (personality, learning style, engagement — specs that observe the caller). 'assessment' or absent = only score when the prior scheduler decision was assess/practice (curriculum mastery evidence). Rule of thumb: if the spec measures WHO the learner is, use 'always'. If it measures WHAT they know, leave gated."
+        },
+        "assessmentMode": {
+          "type": "string",
+          "description": "LEARN specs only. E.g. 'curriculum_mastery' for LEARN-ASSESS-001."
+        }
+      },
+      "additionalProperties": true
+    },
     "story": {
       "type": "object",
       "required": ["asA", "iWant", "soThat"],
