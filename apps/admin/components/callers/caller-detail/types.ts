@@ -198,7 +198,7 @@ export type CallerData = {
   };
 };
 
-export type SectionId = "overview" | "journey" | "calls-prompts" | "how" | "what" | "artifacts" | "ai-call";
+export type SectionId = "overview" | "calls-prompts" | "how" | "what" | "artifacts" | "ai-call";
 
 export type ComposedPrompt = {
   id: string;
@@ -213,6 +213,52 @@ export type ComposedPrompt = {
   evalResult: Record<string, any> | null;  // Persisted AI quality evaluation
   evalAt: string | null;
   triggerCall?: { id: string; createdAt: string; source: string } | null;
+};
+
+// ---------------------------------------------------------------------------
+// Pipeline types (shared between CallsPromptsTab and pipeline UI)
+// ---------------------------------------------------------------------------
+
+export type PipelineMode = "prep" | "prompt";
+export type PipelineStatus = "ready" | "running" | "success" | "warning" | "error";
+
+export type LogEntry = {
+  timestamp: string;
+  level: "info" | "warn" | "error" | "debug";
+  message: string;
+  data?: any;
+};
+
+export type OpResult = {
+  ok: boolean;
+  opId: string;
+  logs: LogEntry[];
+  duration: number;
+  error?: string;
+  data?: {
+    scoresCreated?: number;
+    memoriesCreated?: number;
+    agentMeasurements?: number;
+    playbookUsed?: string | null;
+    stageErrors?: string[];
+    composeFailed?: boolean;
+    composeError?: string;
+  };
+};
+
+/** Lazy-loaded call detail from GET /api/calls/:callId */
+export type CallDetail = {
+  ok: boolean;
+  call: any;
+  scores: any[];
+  memories: any[];
+  measurements: any[];
+  rewardScore: { id: string; overallScore: number; parameterDiffs: any[]; modelVersion: string; scoredAt: string } | null;
+  triggeredPrompts: any[];
+  personalityObservation: any | null;
+  effectiveTargets: any[];
+  callerTargets?: any[];
+  counts: Record<string, number>;
 };
 
 export type ParamDisplayInfo = {

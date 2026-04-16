@@ -1,13 +1,78 @@
 /* =============================================================
    CallsPromptsTab — cpt-* prefix
-   Call-anchored timeline: calls + prompts + diffs unified.
-   Story: #175
+   Unified call timeline: transcript, extraction, behaviour,
+   prompts, diffs, logs — all accordion-style cards.
    ============================================================= */
 
 .cpt-root {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* ── Toolbar (bulk ops) ──────────────────────────── */
+
+.cpt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  margin-bottom: 4px;
+  background: var(--surface-primary);
+  position: relative;
+}
+
+.cpt-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cpt-toolbar-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface-secondary) 70%, var(--accent-primary) 30%);
+}
+.cpt-toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cpt-toolbar-btn--primary {
+  background: var(--accent-primary);
+  color: var(--text-on-dark);
+  border-color: var(--accent-primary);
+}
+.cpt-toolbar-btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-primary) 85%, black);
+}
+
+.cpt-toolbar-spacer {
+  flex: 1;
+}
+
+.cpt-bulk-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 0 0 10px 10px;
+  overflow: hidden;
+  background: var(--surface-secondary);
+}
+.cpt-bulk-progress-bar {
+  height: 100%;
+  background: var(--accent-primary);
+  transition: width 0.3s ease;
 }
 
 /* ── Call entry ─────────────────────────────────────── */
@@ -28,18 +93,35 @@
 .cpt-call-header {
   display: flex;
   align-items: center;
-  gap: 10px;
   width: 100%;
-  padding: 12px 16px;
   background: var(--surface-primary);
+}
+.cpt-call-header:hover {
+  background: var(--surface-secondary);
+}
+
+.cpt-call-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  padding: 12px 0 12px 16px;
+  background: none;
   border: none;
   cursor: pointer;
   text-align: left;
   font: inherit;
   color: var(--text-primary);
+  min-width: 0;
 }
-.cpt-call-header:hover {
-  background: var(--surface-secondary);
+
+.cpt-call-chevron {
+  padding: 12px 16px 12px 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .cpt-call-icon {
@@ -104,6 +186,55 @@
   50% { opacity: 0.3; }
 }
 
+/* ── Pipeline action buttons (per-call header) ───── */
+
+.cpt-call-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.cpt-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  border: 1px solid var(--border-default);
+  border-radius: 5px;
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.cpt-action-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface-secondary) 70%, var(--accent-primary) 30%);
+}
+.cpt-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cpt-action-btn--primary {
+  background: var(--accent-primary);
+  color: var(--text-on-dark);
+  border-color: var(--accent-primary);
+}
+.cpt-action-btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-primary) 85%, black);
+}
+
+@keyframes cpt-spin {
+  to { transform: rotate(360deg); }
+}
+.cpt-spinning {
+  animation: cpt-spin 1s linear infinite;
+}
+
 /* ── Call body (expanded) ──────────────────────────── */
 
 .cpt-call-body {
@@ -113,15 +244,30 @@
   gap: 8px;
 }
 
-/* ── Transcript card ──────────────────────────────── */
+.cpt-loading {
+  text-align: center;
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
 
-.cpt-transcript-card {
+/* ── Shared accordion card ───────────────────────── */
+
+.cpt-accordion-card {
   border: 1px solid var(--border-default);
   border-radius: 8px;
   overflow: hidden;
 }
+.cpt-accordion-card--empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
 
-.cpt-transcript-header {
+.cpt-accordion-header {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -136,20 +282,40 @@
   font-weight: 600;
   color: var(--text-primary);
 }
-.cpt-transcript-header:hover {
+.cpt-accordion-header:hover {
   background: color-mix(in srgb, var(--surface-secondary) 80%, var(--accent-primary) 20%);
 }
 
-.cpt-transcript-label {
+.cpt-accordion-label {
   flex: 1;
 }
-.cpt-transcript-count {
+.cpt-accordion-count {
   font-size: 10px;
   font-weight: 500;
   color: var(--text-muted);
 }
 
-/* Preview (collapsed) — first 2 messages */
+.cpt-accordion-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cpt-processing-banner {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--status-info-text);
+  background: var(--status-info-bg);
+  border-radius: 6px;
+}
+.cpt-processing-banner--error {
+  color: var(--status-error-text);
+  background: var(--status-error-bg);
+}
+
+/* ── Transcript ──────────────────────────────────── */
+
 .cpt-transcript-preview {
   padding: 8px 12px;
   display: flex;
@@ -185,7 +351,6 @@
   color: var(--status-success-text);
 }
 
-/* Full transcript (expanded) */
 .cpt-transcript-body {
   max-height: 500px;
   overflow-y: auto;
@@ -200,7 +365,6 @@
   flex-direction: column;
   gap: 2px;
 }
-
 .cpt-msg-role {
   font-size: 10px;
   font-weight: 600;
@@ -213,92 +377,152 @@
 .cpt-msg-role--assistant {
   color: var(--status-success-text);
 }
-
 .cpt-msg-content {
   font-size: 13px;
   line-height: 1.5;
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-.cpt-msg--user .cpt-msg-content {
   padding: 8px 12px;
-  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
   border-radius: 8px;
+}
+.cpt-msg--user .cpt-msg-content {
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
 }
 .cpt-msg--assistant .cpt-msg-content {
-  padding: 8px 12px;
   background: var(--surface-secondary);
-  border-radius: 8px;
 }
 
-/* ── Prompt card ───────────────────────────────────── */
+/* ── Extraction ──────────────────────────────────── */
 
-.cpt-prompt-card {
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.cpt-prompt-card--empty {
+.cpt-extraction-preview {
+  padding: 6px 12px;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  font-size: 12px;
+  gap: 12px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 
-.cpt-prompt-header {
+.cpt-extraction-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cpt-memory-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  background: var(--surface-secondary);
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
+  gap: 6px;
+  padding: 4px 0;
   font-size: 12px;
+}
+.cpt-memory-cat {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+.cpt-memory-key {
   font-weight: 600;
   color: var(--text-primary);
+  flex-shrink: 0;
 }
-.cpt-prompt-header:hover {
-  background: color-mix(in srgb, var(--surface-secondary) 80%, var(--accent-primary) 20%);
-}
-
-.cpt-prompt-label {
+.cpt-memory-val {
+  color: var(--text-muted);
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.cpt-prompt-trigger {
+.cpt-memory-conf {
   font-size: 10px;
-  font-weight: 500;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  flex-shrink: 0;
 }
 
-.cpt-prompt-preview {
-  padding: 8px 12px;
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.5;
-  font-family: var(--font-mono, monospace);
+.cpt-traits-grid {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
-
-.cpt-prompt-body {
-  padding: 12px;
-  font-size: 11px;
-  line-height: 1.6;
-  font-family: var(--font-mono, monospace);
+.cpt-trait-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--surface-secondary);
+  font-size: 12px;
+}
+.cpt-trait-letter {
+  font-weight: 700;
+  color: var(--accent-primary);
+}
+.cpt-trait-value {
   color: var(--text-primary);
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 400px;
-  overflow-y: auto;
-  margin: 0;
-  background: var(--surface-primary);
+  font-weight: 500;
+}
+
+.cpt-scores-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+}
+.cpt-score-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--surface-secondary);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.cpt-score-name {
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cpt-score-val {
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.cpt-action-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+.cpt-action-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.cpt-action-title {
+  flex: 1;
+  color: var(--text-primary);
+}
+.cpt-action-assignee {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Behaviour ───────────────────────────────────── */
+
+.cpt-reward-badge {
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: auto;
+  padding-right: 4px;
 }
 
 /* ── Pipeline summary ──────────────────────────────── */
@@ -332,32 +556,31 @@
   color: var(--text-muted);
 }
 
-/* ── Diff card ─────────────────────────────────────── */
+/* ── Prompt card ───────────────────────────────────── */
 
-.cpt-diff-card {
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.cpt-diff-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
+.cpt-prompt-preview {
   padding: 8px 12px;
-  background: var(--surface-secondary);
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  font-family: var(--font-mono, monospace);
+}
+
+.cpt-prompt-body {
+  padding: 12px;
+  font-size: 11px;
+  line-height: 1.6;
+  font-family: var(--font-mono, monospace);
   color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+  margin: 0;
+  background: var(--surface-primary);
 }
-.cpt-diff-header:hover {
-  background: color-mix(in srgb, var(--surface-secondary) 80%, var(--accent-primary) 20%);
-}
+
+/* ── Diff card ─────────────────────────────────────── */
 
 .cpt-diff-stats {
   margin-left: auto;
@@ -394,6 +617,88 @@
   flex-shrink: 0;
   color: var(--text-muted);
   user-select: none;
+}
+
+/* ── Logs card ───────────────────────────────────── */
+
+.cpt-logs-status {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.cpt-logs-status--ok {
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
+}
+.cpt-logs-status--warning {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+}
+.cpt-logs-status--error {
+  background: var(--status-error-bg);
+  color: var(--status-error-text);
+}
+
+.cpt-logs-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.cpt-logs-summary {
+  display: flex;
+  gap: 16px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+}
+.cpt-logs-summary strong {
+  color: var(--text-primary);
+}
+
+.cpt-logs-entries {
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  background: var(--surface-dark, #1e1e2e);
+}
+
+.cpt-log-line {
+  display: flex;
+  gap: 8px;
+  padding: 3px 12px;
+  color: var(--text-on-dark, #ddd);
+}
+.cpt-log-line--error {
+  border-left: 3px solid var(--status-error-text);
+}
+.cpt-log-line--warn {
+  border-left: 3px solid var(--status-warning-text);
+}
+.cpt-log-line--info {
+  border-left: 3px solid var(--status-info-text);
+}
+.cpt-log-line--debug {
+  border-left: 3px solid var(--text-muted);
+  opacity: 0.7;
+}
+
+.cpt-log-time {
+  flex-shrink: 0;
+  width: 70px;
+  color: var(--text-muted);
+}
+.cpt-log-level {
+  flex-shrink: 0;
+  width: 45px;
+  font-weight: 600;
+}
+.cpt-log-msg {
+  flex: 1;
+  word-break: break-word;
 }
 
 /* ── Bootstrap anchor ──────────────────────────────── */

@@ -18,7 +18,7 @@ export function OverviewSection({
       <div style={{ background: "var(--surface-primary)", border: "1px solid var(--border-default)", borderRadius: 12, padding: 20 }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 16 }}>Quick Stats</h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <StatCard label="Total Calls" value={data.counts.calls} icon="📞" onClick={() => onNavigate("journey")} />
+          <StatCard label="Total Calls" value={data.counts.calls} icon="📞" onClick={() => onNavigate("calls-prompts")} />
           <StatCard label="Memories" value={data.counts.memories} icon="💭" onClick={() => onNavigate("how")} />
           <StatCard label="Observations" value={data.counts.observations} icon="👁️" onClick={() => onNavigate("how")} />
           <StatCard
@@ -126,7 +126,7 @@ export function OverviewSection({
       {/* Recent Calls */}
       <div
         style={{ background: "var(--surface-primary)", border: "1px solid var(--border-default)", borderRadius: 12, padding: 20, cursor: "pointer" }}
-        onClick={() => onNavigate("journey")}
+        onClick={() => onNavigate("calls-prompts")}
       >
         <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 16 }}>Recent Calls</h3>
         {data.calls.length === 0 ? (

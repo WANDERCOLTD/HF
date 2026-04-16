@@ -5,7 +5,7 @@ import { useParams, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEntityContext } from "@/contexts/EntityContext";
 import { DomainPill } from "@/src/components/shared/EntityPill";
-import { Smartphone, User, BookMarked, PlayCircle, Brain, BarChart3, Target, BookOpen, ClipboardCheck, CheckSquare, GitBranch, MessageCircle, Gauge, Archive, SlidersHorizontal, Phone } from "lucide-react";
+import { User, BookMarked, PlayCircle, Brain, BarChart3, Target, BookOpen, ClipboardCheck, CheckSquare, GitBranch, MessageCircle, Gauge, Archive, SlidersHorizontal, Phone } from "lucide-react";
 import { EditableTitle } from "@/components/shared/EditableTitle";
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
 import { CallerDomainSection } from "@/components/callers/CallerDomainSection";
@@ -17,7 +17,7 @@ import './caller-detail/prompt-tuner.css';
 import { useAssistant, useAssistantKeyboardShortcut } from "@/hooks/useAssistant";
 
 // Extracted sub-components
-import { CallsSection, ProcessingNotice } from "./caller-detail/CallsTab";
+import { ProcessingNotice } from "./caller-detail/CallsTab";
 import { MemoriesSection, PersonalitySection, CallerSlugsSection, CallerEnrollmentsSection } from "./caller-detail/ProfileTab";
 import { SurveySection } from "./caller-detail/SurveySection";
 import { ScoresSection, LearningSection, AssessmentTargetsCard, TopicsCoveredSection, ExamReadinessSection, TopLevelAgentBehaviorSection, PlanProgressSection, ModuleProgressView } from "./caller-detail/ProgressTab";
@@ -53,14 +53,15 @@ export default function CallerDetailPage() {
   // Backwards compat: map old tab IDs to new consolidated tabs
   const tabRedirects: Record<string, SectionId> = {
     // Old consolidated tab IDs → new WHAT/HOW/WHO IDs
-    calls: "journey", profile: "how", progress: "what",
+    calls: "calls-prompts", profile: "how", progress: "what",
+    journey: "calls-prompts",
     // Legacy sub-section IDs → new tabs
     memories: "how", traits: "how", personality: "how", slugs: "how",
     scores: "what", "agent-behavior": "what", learning: "what", "exam-readiness": "what", goals: "what",
-    transcripts: "journey", prompt: "journey",
+    transcripts: "calls-prompts", prompt: "calls-prompts",
   };
   const rawTab = searchParams.get("tab");
-  const validTabs: SectionId[] = ["overview", "journey", "calls-prompts", "how", "what", "artifacts", "ai-call"];
+  const validTabs: SectionId[] = ["overview", "calls-prompts", "how", "what", "artifacts", "ai-call"];
   const mappedTab = rawTab ? (tabRedirects[rawTab] || rawTab) as SectionId : null;
   const initialTab: SectionId = mappedTab && validTabs.includes(mappedTab) ? mappedTab : "overview";
 
@@ -533,12 +534,11 @@ export default function CallerDetailPage() {
   // Sections organized to mirror Course WHAT | HOW | WHO from learner's perspective:
   // Journey (call history) | How (profile/traits) | What (scores/goals) | Artifacts | Call
   // Tabs affected by pipeline processing (will show pulsing indicator)
-  const processingTabs = new Set<SectionId>(["journey", "calls-prompts", "how", "what", "artifacts"]);
+  const processingTabs = new Set<SectionId>(["calls-prompts", "how", "what", "artifacts"]);
 
   const sections: { id: SectionId; label: string; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
     { id: "overview", label: "Overview", icon: <span aria-hidden>🧭</span>, group: "shared" },
     { id: "calls-prompts", label: "Calls & Prompts", icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
-    { id: "journey", label: "Journey", icon: <Smartphone size={13} />, count: data.counts.calls, group: "history" },
     { id: "how", label: "How", icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
     { id: "what", label: "What", icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
     { id: "artifacts", label: "Artifacts", icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
@@ -966,7 +966,7 @@ export default function CallerDetailPage() {
               paramConfig={paramConfig}
               enrollmentJourneys={enrollmentJourneys}
               onNavigateToCall={(callId) => {
-                setActiveSection("journey");
+                setActiveSection("calls-prompts");
                 setExpandedCall(callId);
               }}
               onNavigateToTab={(tab) => {
@@ -1001,30 +1001,19 @@ export default function CallerDetailPage() {
           composedPrompts={composedPrompts}
           callerId={callerId}
           processingCallIds={processingCallIds}
-        />
-      )}
-
-      {activeSection === "journey" && (
-        <CallsSection
-          calls={data.calls}
           expandedCall={expandedCall}
           setExpandedCall={setExpandedCall}
-          callerId={callerId}
-          processingCallIds={processingCallIds}
           onCallUpdated={() => {
-            // Refresh data after op runs
             fetch(`/api/callers/${callerId}`)
               .then((r) => r.json())
               .then((result) => {
                 if (result.ok) {
-                  // Map personalityProfile -> personality for backward compatibility
                   setData({
                     ...result,
                     personality: result.personalityProfile || null,
                   });
                 }
               });
-            // Refresh prompts list to show newly composed prompts
             fetchPrompts();
           }}
         />

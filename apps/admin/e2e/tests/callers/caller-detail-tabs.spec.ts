@@ -2,7 +2,7 @@ import { test, expect } from '../../fixtures';
 
 /**
  * Caller Detail Tabs E2E Tests
- * Tests the WHAT | HOW | WHO tab layout (Journey, How, What, Artifacts)
+ * Tests the WHAT | HOW | WHO tab layout (Calls & Prompts, How, What, Artifacts)
  * and SectionSelector toggle chips
  */
 test.describe('Caller Detail Tab Structure', () => {
@@ -27,17 +27,17 @@ test.describe('Caller Detail Tab Structure', () => {
     const navigated = await navigateToCallerDetail(page);
     if (!navigated) return;
 
-    // Should show tabs: Journey, How, What, Artifacts (or Call)
+    // Should show tabs: Calls & Prompts, How, What, Artifacts (or Call)
     const tabContainer = page.locator('[role="tablist"], [class*="tab"]').first();
 
     // Check for the expected tab names
-    const journeyTab = page.getByText(/^Journey$/i);
+    const callsTab = page.getByText(/Calls & Prompts/i);
     const howTab = page.getByText(/^How$/i);
     const whatTab = page.getByText(/^What$/i);
 
     // At least the core tabs should be present
-    if (await journeyTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await expect(journeyTab).toBeVisible();
+    if (await callsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await expect(callsTab).toBeVisible();
     }
   });
 
@@ -169,8 +169,8 @@ test.describe('Call-Level Tabs', () => {
     await callerLink.click();
     await page.waitForLoadState('domcontentloaded');
 
-    // Click Journey tab first
-    const callsTab = page.getByText(/^Journey$/i).first();
+    // Click Calls & Prompts tab first
+    const callsTab = page.getByText(/Calls & Prompts/i).first();
     if (await callsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
       await callsTab.click();
       await page.waitForTimeout(500);

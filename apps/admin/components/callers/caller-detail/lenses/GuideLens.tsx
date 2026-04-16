@@ -67,7 +67,7 @@ export function GuideLens({
       <RecentCallsCard
         calls={data.calls}
         onCallClick={onNavigateToCall}
-        onViewAll={() => onNavigateToTab?.("journey")}
+        onViewAll={() => onNavigateToTab?.("calls-prompts")}
       />
 
       {/* Achievements */}
