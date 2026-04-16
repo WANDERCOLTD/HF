@@ -2002,12 +2002,9 @@ const stageExecutors: Record<string, StageExecutor> = {
     });
 
     // 4b. Evaluate learning checkpoints (comprehension/discussion/coaching courses)
-    const sessionAttr = await prisma.callerAttribute.findFirst({
-      where: { callerId: ctx.callerId, scope: "CURRICULUM", key: "currentSession" },
-      select: { numberValue: true },
-    });
-    const sessionNumber = sessionAttr?.numberValue ?? 1;
-    const checkpointResults = await evaluateCheckpoints(ctx.callerId, ctx.callId, sessionNumber);
+    // sessionNumber hardcoded to 1 — scheduler owns pacing, currentSession attr is no longer written.
+    // TODO: rekey checkpoints to outcome-graph progress when scheduler matures.
+    const checkpointResults = await evaluateCheckpoints(ctx.callerId, ctx.callId, 1);
     if (checkpointResults.length > 0) {
       ctx.log.info(`Checkpoints evaluated`, { results: checkpointResults });
     }

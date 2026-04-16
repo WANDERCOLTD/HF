@@ -1,0 +1,60 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - generic [ref=e6]: DEV ENVIRONMENT
+    - generic [ref=e7]: v0.7.153
+  - generic [ref=e8]:
+    - img "HF" [ref=e10]
+    - heading "HumanFirst Foundation" [level=1] [ref=e11]
+    - paragraph [ref=e12]: Sign in to continue
+  - generic [ref=e13]:
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]: Email
+        - textbox "Email" [ref=e17]:
+          - /placeholder: you@example.com
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e20]: Password
+          - link "Forgot password?" [ref=e21] [cursor=pointer]:
+            - /url: /forgot-password
+        - textbox "Password" [ref=e22]:
+          - /placeholder: Enter password
+      - button "Sign in" [disabled] [ref=e23]
+    - generic [ref=e24]: Admin access only. Testers use their invite link.
+  - generic [ref=e25]:
+    - generic [ref=e26]: Demo Accounts
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - generic [ref=e30]: teach@abacus.com
+          - generic [ref=e31]: School · Educator
+        - generic [ref=e32]:
+          - button "Copy email" [ref=e33]:
+            - img [ref=e34]
+          - button "Login" [ref=e37]
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]: corporate@hff.com
+          - generic [ref=e41]: Corporate · Educator
+        - generic [ref=e42]:
+          - button "Copy email" [ref=e43]:
+            - img [ref=e44]
+          - button "Login" [ref=e47]
+      - generic [ref=e48]:
+        - generic [ref=e49]:
+          - generic [ref=e50]: training@hff.com
+          - generic [ref=e51]: Training · Educator
+        - generic [ref=e52]:
+          - button "Copy email" [ref=e53]:
+            - img [ref=e54]
+          - button "Login" [ref=e57]
+    - generic [ref=e58]:
+      - generic [ref=e59]:
+        - text: "Password:"
+        - code [ref=e60]: hff2026
+      - button "Copy password" [ref=e61]:
+        - img [ref=e62]
+```

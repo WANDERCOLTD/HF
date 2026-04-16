@@ -67,13 +67,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const curriculum = enrollment.playbook.subjects?.[0]?.subject?.curricula?.[0];
-    const deliveryConfig = curriculum?.deliveryConfig as Record<string, unknown> | null;
+    const pbConfig = (enrollment.playbook.config ?? {}) as PlaybookConfig;
     const onboardingComplete = onboardingSession?.isComplete || onboardingSession?.wasSkipped || false;
 
     // ── Continuous mode: 4-state resolver (WELCOME → LEARNING → NPS → COMPLETE) ──
-    const lessonPlanMode = deliveryConfig?.lessonPlanMode as string | undefined;
+    // lessonPlanMode lives on Playbook.config (written by wizard), not Curriculum.deliveryConfig
+    const lessonPlanMode = pbConfig.lessonPlanMode;
     if (lessonPlanMode === 'continuous' && curriculum?.slug) {
-      const pbConfig = (enrollment.playbook.config ?? {}) as PlaybookConfig;
       const nps: NpsConfig = { ...DEFAULT_NPS_CONFIG, ...pbConfig.nps };
       // Wizard writes welcome.knowledgeCheck; seed/legacy writes assessment.preTest
       const preTestEnabled = pbConfig.welcome?.knowledgeCheck?.enabled

@@ -171,6 +171,7 @@ export interface PlaybookConfig {
   durationMins?: number;
   emphasis?: string; // "breadth" | "balanced" | "depth"
   assessments?: string; // "formal" | "light" | "none"
+  lessonPlanMode?: "structured" | "continuous"; // How pacing works: scheduler (continuous) or pre-planned (structured)
   lessonPlanModel?: string; // "direct_instruction" | "socratic" | etc.
   // Course goals — educator's stated learning outcomes (distinct from module LOs)
   courseLearningOutcomes?: string[];
