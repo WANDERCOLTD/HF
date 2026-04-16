@@ -4,6 +4,7 @@
  * Verifies:
  * - Same hash + same institution + same subject → returns existing source (deduplicated)
  * - Same hash + different subject → not deduplicated (epic #94)
+ * - COURSE_REFERENCE documents → only dedup within same subject, not institution-wide
  * - Same hash + null institution (demo) → matches other null-institution sources
  * - Existing source with 0 assertions → deduplicated: false (allow re-extract)
  * - No matching hash → returns null
@@ -144,6 +145,21 @@ describe("findDuplicateSource", () => {
     expect(result.deduplicated).toBe(false);
     expect(result.existingSource?.id).toBe("src-failed");
     expect(result.assertionCount).toBe(0);
+  });
+
+  it("scopes COURSE_REFERENCE dedup to exact subject (no institution-wide matching)", async () => {
+    mocks.subjectDomainFindFirst.mockResolvedValue({
+      domain: { institutionId: "inst-abc" },
+    });
+    mocks.contentSourceFindFirst.mockResolvedValue(null);
+
+    await findDuplicateSource("hash-ref", "sub-1", "COURSE_REFERENCE");
+
+    // COURSE_REFERENCE should query by exact subjectId, not institution-wide
+    const where = mocks.contentSourceFindFirst.mock.calls[0][0].where;
+    expect(where.subjects.some).toEqual({ subjectId: "sub-1" });
+    // Should NOT have the nested domain/institution scoping
+    expect(where.subjects.some.subject).toBeUndefined();
   });
 
   it("returns not-deduplicated when source exists but subject has no SubjectSource link", async () => {

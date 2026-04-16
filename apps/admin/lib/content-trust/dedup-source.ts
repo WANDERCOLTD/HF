@@ -45,28 +45,40 @@ export async function resolveInstitutionId(subjectId: string): Promise<string | 
 /**
  * Find an existing ContentSource with the same file hash within the same
  * institution scope. Returns dedup info including whether extraction completed.
+ *
+ * COURSE_REFERENCE documents are never deduped across subjects — they carry
+ * course-specific tutor instructions that must stay scoped to one subject.
+ * For COURSE_REFERENCE, we only match sources already linked to this exact subject.
  */
 export async function findDuplicateSource(
   contentHash: string,
   subjectId: string,
+  documentType?: string,
 ): Promise<DedupResult> {
+  // COURSE_REFERENCE documents are course-specific by nature — their assertions
+  // contain tutor instructions scoped to a single course. Never share them across
+  // subjects, even within the same institution. Only dedup within the same subject.
+  const isCourseRef = documentType === "COURSE_REFERENCE";
+
   const institutionId = await resolveInstitutionId(subjectId);
 
   const match = await prisma.contentSource.findFirst({
     where: {
       contentHash,
       subjects: {
-        some: {
-          subject: {
-            domains: {
-              some: {
-                domain: institutionId
-                  ? { institutionId }
-                  : { institutionId: null },
+        some: isCourseRef
+          ? { subjectId }
+          : {
+              subject: {
+                domains: {
+                  some: {
+                    domain: institutionId
+                      ? { institutionId }
+                      : { institutionId: null },
+                  },
+                },
               },
             },
-          },
-        },
       },
     },
     select: {

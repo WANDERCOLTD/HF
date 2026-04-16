@@ -204,7 +204,7 @@ export const CALL_POINTS: CallPointDef[] = [
     label: "Content Trust - Question Bank Extraction",
     description: "Specialist extractor for tutor question banks (3 arrays + tiered model responses)",
     category: "content-processing",
-    defaults: { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.1, maxTokens: 8192, timeoutMs: 120_000 },
+    defaults: { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.1, maxTokens: 16384, timeoutMs: 120_000 },
   },
   {
     id: "content-trust.generate-mcq",

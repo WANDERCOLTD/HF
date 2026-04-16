@@ -188,16 +188,13 @@ export async function searchAssertions(
 
   if (words.length === 0) return [];
 
-  // Search by content and tags, scoped to domain's sources when available
-  // Prefer subjectSourceIds for subject-scoped filtering (epic #94)
+  // Search by content and tags, scoped to domain's sources when available.
+  // Strict subjectSourceId scoping — no null fallback to prevent cross-course leaking.
   const assertions = await prisma.contentAssertion.findMany({
     where: {
       ...(sourceIds ? { sourceId: { in: sourceIds } } : {}),
       ...(subjectSourceIds && subjectSourceIds.length > 0
-        ? { OR: [
-            { subjectSourceId: { in: subjectSourceIds } },
-            { subjectSourceId: null },
-          ] }
+        ? { subjectSourceId: { in: subjectSourceIds } }
         : {}),
       AND: [{
         OR: [

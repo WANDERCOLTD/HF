@@ -782,16 +782,16 @@ registerLoader("curriculumAssertions", async (_callerId, loaderConfig) => {
     .map((s) => s.teachingDepth)
     .find((d) => d !== null) ?? null;
 
-  // Fetch assertions from these sources, scoped by subjectSourceId when available
-  // Falls back to sourceId-only for legacy assertions (subjectSourceId = null)
+  // Fetch assertions from these sources, scoped by subjectSourceId when available.
+  // When subjectSourceIds are present we ONLY fetch those — no null fallback.
+  // The null fallback previously caused cross-course content leaking when a
+  // ContentSource was shared (deduped) across subjects: assertions with
+  // subjectSourceId=null were visible to ALL courses linking that source.
   const assertions = await prisma.contentAssertion.findMany({
     where: {
       sourceId: { in: [...new Set(sourceIds)] },
       ...(subjectSourceIds.length > 0
-        ? { OR: [
-            { subjectSourceId: { in: subjectSourceIds } },
-            { subjectSourceId: null },  // include shared pyramid parents
-          ] }
+        ? { subjectSourceId: { in: subjectSourceIds } }
         : {}),
       category: { notIn: [...INSTRUCTION_CATEGORIES] },
     },
