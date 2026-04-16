@@ -591,14 +591,36 @@ async function resolvePrimarySubject(
     .replace(/^-|-$/g, "");
 
   // Idempotent on re-upload for the same course; isolated across courses.
+  // Guard: if a matching slug exists but is already owned by a different playbook,
+  // create a new subject with a unique slug to prevent content co-mingling.
   let subject = await prisma.subject.findFirst({
     where: { slug },
     select: { id: true, slug: true, name: true, isActive: true },
   });
 
+  if (subject) {
+    const ownedByPlaybook = await prisma.playbookSubject.findFirst({
+      where: { subjectId: subject.id },
+      select: { playbookId: true },
+    });
+    if (ownedByPlaybook) {
+      // Subject exists and is linked to a playbook — only reuse if it's the same
+      // course re-uploading. For a new course, create a fresh subject.
+      // The caller typically passes subjectId explicitly for re-uploads, so if we
+      // reached here via slug match only, it's a different course with the same name.
+      console.log(
+        `[ingest] Subject slug "${slug}" already owned by playbook ${ownedByPlaybook.playbookId}. Creating new per-course subject.`,
+      );
+      subject = null;
+    }
+  }
+
   if (!subject) {
+    // Ensure unique slug if the base slug was already taken
+    const existingSlug = await prisma.subject.findFirst({ where: { slug }, select: { id: true } });
+    const finalSlug = existingSlug ? `${slug}-${Date.now()}` : slug;
     subject = await prisma.subject.create({
-      data: { slug, name: courseName, isActive: true, teachingProfile: suggestTeachingProfile(courseName) },
+      data: { slug: finalSlug, name: courseName, isActive: true, teachingProfile: suggestTeachingProfile(courseName) },
       select: { id: true, slug: true, name: true, isActive: true },
     });
   }

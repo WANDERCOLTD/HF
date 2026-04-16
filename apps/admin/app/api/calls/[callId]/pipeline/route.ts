@@ -43,6 +43,7 @@ import { TRAITS } from "@/lib/registry";
 import { recoverBrokenJson } from "@/lib/utils/json-recovery";
 import { executeComposition, persistComposedPrompt, loadComposeConfig } from "@/lib/prompt/composition";
 import { renderPromptSummary } from "@/lib/prompt/composition/renderPromptSummary";
+import { getAudienceOption, type AudienceId } from "@/lib/prompt/composition/transforms/audience";
 import { getPipelineGates, getAITimeoutSettings } from "@/lib/system-settings";
 import { logAI } from "@/lib/logger";
 import { createLogger, type PipelineLogger } from "@/lib/pipeline/logger";
@@ -1125,11 +1126,16 @@ function buildAdaptPrompt(
   callScores: Array<{ parameterId: string; score: number; confidence: number }>,
   callerProfile: Record<string, any> | null,
   targetParams: Array<{ parameterId: string; name: string; definition: string | null }>,
-  transcriptLimit: number = 2500
+  transcriptLimit: number = 2500,
+  audienceContext?: { audience: string; ages: string; description: string } | null,
 ): string {
   const scoreList = callScores.map(s => `${s.parameterId}:${s.score.toFixed(2)}`).join("|");
   const paramList = targetParams.map(p => `${p.parameterId}:${p.name}`).join("|");
   const profileStr = callerProfile ? JSON.stringify(callerProfile).slice(0, 500) : "";
+
+  const audienceBlock = audienceContext
+    ? `\nAUDIENCE: ${audienceContext.audience} (age ${audienceContext.ages}) — ${audienceContext.description}\nSet targets appropriate for this age group. For younger audiences, keep challenge, complexity, and pace LOW. For BEH-CHALLENGE-LEVEL with primary school children, stay ≤0.4.`
+    : "";
 
   return `Compute agent behavior targets (0-1) for next call based on caller profile.
 
@@ -1137,7 +1143,7 @@ TRANSCRIPT:
 ${transcript.slice(0, transcriptLimit)}
 
 CALLER SCORES: ${scoreList}
-${profileStr ? `PROFILE: ${profileStr}` : ""}
+${profileStr ? `PROFILE: ${profileStr}` : ""}${audienceBlock}
 
 PARAMS: ${paramList}
 
@@ -1150,7 +1156,7 @@ Return compact JSON:
  * These specs compute what target values the agent should aim for based on caller profile
  */
 async function runAdaptSpecs(
-  call: { id: string; transcript: string | null },
+  call: { id: string; transcript: string | null; playbookId: string | null },
   callerId: string,
   engine: AIEngine,
   guardrails: GuardrailsConfig,
@@ -1241,12 +1247,31 @@ async function runAdaptSpecs(
     // @ai-call pipeline.adapt — Compute personalized behavior targets | config: /x/ai-config
     const transcriptLimit = await getTranscriptLimit("pipeline.adapt");
     const adaptTimeouts = await getAITimeoutSettings();
+
+    // Load audience context from the playbook so AI can reason about age-appropriateness
+    let audienceContext: { audience: string; ages: string; description: string } | null = null;
+    if (call.playbookId) {
+      const pb = await prisma.playbook.findUnique({
+        where: { id: call.playbookId },
+        select: { config: true },
+      });
+      const pbConfig = pb?.config as Record<string, any> | null;
+      const audienceId = (pbConfig?.audience as AudienceId) || null;
+      if (audienceId) {
+        const opt = getAudienceOption(audienceId);
+        if (opt) {
+          audienceContext = { audience: opt.id, ages: opt.ages, description: opt.description };
+        }
+      }
+    }
+
     const prompt = buildAdaptPrompt(
       call.transcript || "",
       callScores,
       callerProfile?.parameterValues as Record<string, any> | null,
       targetParams,
-      transcriptLimit
+      transcriptLimit,
+      audienceContext,
     );
 
     try {
@@ -1311,12 +1336,27 @@ async function runAdaptSpecs(
 }
 
 /**
- * Validate/clamp targets to safe ranges using guardrails from SUPERVISE spec
+ * Audience-aware max bounds for specific parameters.
+ * Falls back to guardrails.targetClamp.maxValue when no audience override exists.
+ *
+ * TODO: Move to GUARD-001 spec config so caps are admin-tunable, not hardcoded.
+ */
+const AUDIENCE_TARGET_CAPS: Record<string, Partial<Record<AudienceId, number>>> = {
+  "BEH-CHALLENGE-LEVEL": {
+    primary: 0.4,
+    secondary: 0.6,
+  },
+};
+
+/**
+ * Validate/clamp targets to safe ranges using guardrails from SUPERVISE spec.
+ * When an audience is provided, applies tighter per-parameter caps for age-appropriate behavior.
  */
 async function validateTargets(
   callId: string,
   guardrails: GuardrailsConfig,
-  log: PipelineLogger
+  log: PipelineLogger,
+  audience?: AudienceId | null,
 ): Promise<{ adjustments: number }> {
   const targets = await prisma.callTarget.findMany({
     where: { callId },
@@ -1328,18 +1368,31 @@ async function validateTargets(
 
   const { minValue, maxValue } = guardrails.targetClamp;
 
-  // Clamp targets to safe range (avoid extremes)
+  // Clamp targets to safe range (avoid extremes), with audience-aware overrides
   let adjustments = 0;
   for (const target of targets) {
+    let effectiveMax = maxValue;
+
+    // Apply audience-specific cap if stricter than global max
+    if (audience) {
+      const paramCaps = AUDIENCE_TARGET_CAPS[target.parameterId];
+      const audienceCap = paramCaps?.[audience];
+      if (audienceCap !== undefined && audienceCap < effectiveMax) {
+        effectiveMax = audienceCap;
+      }
+    }
+
     let newValue = target.targetValue;
     let adjusted = false;
+    let clampLabel = `${minValue}-${effectiveMax}`;
 
     if (newValue < minValue) {
       newValue = minValue;
       adjusted = true;
-    } else if (newValue > maxValue) {
-      newValue = maxValue;
+    } else if (newValue > effectiveMax) {
+      newValue = effectiveMax;
       adjusted = true;
+      clampLabel = `${minValue}-${effectiveMax}` + (audience ? ` (audience:${audience})` : "");
     }
 
     if (adjusted) {
@@ -1347,14 +1400,14 @@ async function validateTargets(
         where: { id: target.id },
         data: {
           targetValue: newValue,
-          reasoning: `${target.reasoning || ""} [clamped to ${minValue}-${maxValue}]`.trim(),
+          reasoning: `${target.reasoning || ""} [clamped to ${clampLabel}]`.trim(),
         },
       });
       adjustments++;
     }
   }
 
-  log.info(`Targets validated`, { adjustments, clampRange: { minValue, maxValue } });
+  log.info(`Targets validated`, { adjustments, clampRange: { minValue, maxValue }, audience: audience || "none" });
   return { adjustments };
 }
 
@@ -2061,7 +2114,18 @@ const stageExecutors: Record<string, StageExecutor> = {
   // SUPERVISE stage: Validate and clamp targets
   SUPERVISE: async (ctx, stage) => {
     ctx.log.info(`Stage ${stage.name}: ${stage.description}`);
-    const validateResult = await validateTargets(ctx.callId, ctx.guardrails, ctx.log);
+
+    // Load audience from playbook for audience-aware target clamping
+    let audience: AudienceId | null = null;
+    if (ctx.call.playbookId) {
+      const pb = await prisma.playbook.findUnique({
+        where: { id: ctx.call.playbookId },
+        select: { config: true },
+      });
+      audience = ((pb?.config as Record<string, any> | null)?.audience as AudienceId) || null;
+    }
+
+    const validateResult = await validateTargets(ctx.callId, ctx.guardrails, ctx.log, audience);
     const callerTargetResult = await aggregateCallerTargets(ctx.callId, ctx.callerId, ctx.guardrails, ctx.log);
     return {
       targetsValidated: validateResult.adjustments,

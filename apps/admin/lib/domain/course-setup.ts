@@ -253,14 +253,32 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
         });
       }
     }
-    // If subjectDiscipline provided but no pack subject, find or create from discipline
+    // If subjectDiscipline provided but no pack subject, find or create from discipline.
+    // Guard: if a matching subject already belongs to another playbook, create a new
+    // per-course subject instead of sharing. Prevents cross-course content leaking.
     if (!subject && ctx.input.subjectDiscipline) {
       const disciplineSlug = `${domainSlug}-${slugify(ctx.input.courseName, { lower: true, strict: true })}`;
-      subject = await prisma.subject.findFirst({ where: { slug: disciplineSlug } });
+      const candidate = await prisma.subject.findFirst({ where: { slug: disciplineSlug } });
+      if (candidate) {
+        // Check if another playbook already owns this subject
+        const ownedByOther = await prisma.playbookSubject.findFirst({
+          where: { subjectId: candidate.id },
+          select: { playbookId: true },
+        });
+        if (!ownedByOther) {
+          subject = candidate; // Unclaimed — safe to reuse
+        } else {
+          console.log(`[course-setup] Subject ${disciplineSlug} already owned by playbook ${ownedByOther.playbookId}, creating per-course subject`);
+        }
+      }
       if (!subject) {
+        // Create per-course subject with unique slug
+        const uniqueSlug = candidate
+          ? `${disciplineSlug}-${Date.now()}`
+          : disciplineSlug;
         subject = await prisma.subject.create({
           data: {
-            slug: disciplineSlug,
+            slug: uniqueSlug,
             name: ctx.input.subjectDiscipline,
             isActive: true,
             teachingProfile: suggestTeachingProfile(ctx.input.subjectDiscipline),
@@ -433,8 +451,24 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
     }
 
     // 4b. Link content-rich subjects from PackUploadStep (if any)
+    // Guard: skip subjects already owned by another playbook to prevent
+    // cross-course content leaking (e.g. shared "English Language" subject
+    // from a previous course bleeding Ch 1 content into a Ch 4 course).
     if (ctx.input.packSubjectIds && ctx.input.packSubjectIds.length > 0 && scaffoldResult.playbook) {
       for (const packSubId of ctx.input.packSubjectIds) {
+        // Skip subjects already linked to a DIFFERENT playbook
+        const existingOwner = await prisma.playbookSubject.findFirst({
+          where: { subjectId: packSubId, playbookId: { not: scaffoldResult.playbook.id } },
+          select: { playbookId: true },
+        });
+        if (existingOwner) {
+          console.warn(
+            `[course-setup] Skipping packSubject ${packSubId} — already owned by playbook ${existingOwner.playbookId}. ` +
+            `Content isolation: each course gets its own subjects.`,
+          );
+          continue;
+        }
+
         // Link to Playbook
         await prisma.playbookSubject.upsert({
           where: {

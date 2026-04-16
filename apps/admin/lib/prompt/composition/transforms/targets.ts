@@ -7,6 +7,28 @@ import { registerTransform } from "../TransformRegistry";
 import { classifyValue } from "../types";
 import type { AssembledContext, BehaviorTargetData, CallerTargetData, CompositionSectionDef } from "../types";
 import { config } from "@/lib/config";
+import type { AudienceId } from "./audience";
+
+/**
+ * Audience-aware default targets for parameters not covered by INIT-001.
+ * Keyed by parameterId → audienceId → { value, confidence }.
+ * "default" is the fallback when audience is unset or unrecognized.
+ *
+ * TODO: Move to INIT-001 spec config (audience-keyed defaultTargets) so educators
+ * can tune these via the admin UI instead of requiring a code change.
+ */
+const AUDIENCE_TARGET_DEFAULTS: Record<string, Partial<Record<AudienceId | "default", { value: number; confidence: number }>>> = {
+  "BEH-CHALLENGE-LEVEL": {
+    primary:             { value: 0.3, confidence: 0.5 },
+    secondary:           { value: 0.45, confidence: 0.4 },
+    "sixth-form":        { value: 0.55, confidence: 0.4 },
+    "higher-ed":         { value: 0.6, confidence: 0.3 },
+    "adult-professional": { value: 0.55, confidence: 0.3 },
+    "adult-casual":      { value: 0.45, confidence: 0.3 },
+    mixed:               { value: 0.5, confidence: 0.3 },
+    default:             { value: 0.5, confidence: 0.3 },
+  },
+};
 
 /** Normalized target type that works for both CallerTarget and BehaviorTarget */
 export interface NormalizedTarget {
@@ -78,6 +100,38 @@ registerTransform("mergeAndGroupTargets", (
         }
       }
       console.log(`[targets] First call: injected ${Object.keys(defaultTargets).length - existingParams.size} defaults from ${source}`);
+    }
+
+    // Inject audience-aware defaults for parameters in AUDIENCE_TARGET_DEFAULTS
+    // that still don't have a target after domain/INIT-001 defaults
+    const playbookConfig = (playbooks?.[0] as any)?.config;
+    const audience: AudienceId = playbookConfig?.audience || "mixed";
+    const updatedExistingParams = new Set(merged.map(t => t.parameterId));
+    let audienceInjected = 0;
+
+    for (const [paramId, audienceMap] of Object.entries(AUDIENCE_TARGET_DEFAULTS)) {
+      if (updatedExistingParams.has(paramId)) continue;
+      const defaults = audienceMap[audience] || audienceMap.default;
+      if (!defaults) continue;
+
+      merged.push({
+        parameterId: paramId,
+        targetValue: defaults.value,
+        confidence: defaults.confidence,
+        source: "BehaviorTarget",
+        scope: "AUDIENCE_DEFAULT",
+        parameter: {
+          name: paramId.replace("BEH-", "").replace(/-/g, " ").toLowerCase(),
+          interpretationLow: null,
+          interpretationHigh: null,
+          domainGroup: "Audience Defaults",
+        },
+      });
+      audienceInjected++;
+    }
+
+    if (audienceInjected > 0) {
+      console.log(`[targets] First call: injected ${audienceInjected} audience-aware defaults for audience=${audience}`);
     }
   }
 
