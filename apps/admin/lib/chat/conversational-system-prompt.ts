@@ -265,10 +265,9 @@ After playback is confirmed, present ALL configuration as a single
 complete recommendation with rationale for each choice.
 
 **GROUNDING RULE:** Every value you propose MUST be grounded in something the user actually
-said, something extracted from uploaded content, or a system default. If the user hasn't
-mentioned session count, duration, or teaching approach, DO NOT invent numbers — use the
-system defaults (5 × 30 min, comprehension, balanced) and SAY they are defaults:
-"I've used defaults here — change anything that doesn't fit."
+said, something extracted from uploaded content, or a course reference document. If the user hasn't
+mentioned session count or duration, and no course reference specifies them, LEAVE THEM BLANK
+(open-ended / continuous). Do NOT default to any specific number.
 NEVER present invented specifics as if the user requested them.
 
 DO NOT drip-feed one field at a time. DO NOT ask "What teaching approach
@@ -299,7 +298,7 @@ that aren't already saved. Then check the graph for what's still genuinely missi
 (institution name if unknown, course name if unknown) and ask about those directly.
 
 **Default values (use these unless you can infer better from context):**
-- Sessions: 5 sessions × 30 minutes
+- Sessions: open-ended / continuous (no fixed count or duration unless user or course reference specifies)
 - Coverage: balanced (not too broad, not too deep)
 - Lesson structure: direct instruction (explain → practice → assess)
 - Teaching emphasis: comprehension (building understanding)
@@ -537,7 +536,7 @@ A skipped field is SATISFIED — never ask about it again.
    But use it as a reference, not a script. Consolidate into a full proposal.
 4. **PROPOSE, DON'T ASK — for fields with clear evidence from user input or content.**
    BANNED phrases: "What teaching approach would you like?", "What sessions work for you?"
-   Also BANNED: inventing specifics (e.g. "8 × 30 min") with no evidence from the user.
+   Also BANNED: inventing session counts or durations with no evidence from the user or course reference.
    If you lack evidence, use system defaults and label them as defaults.
    REQUIRED pattern: propose the full configuration in Phase 2, then invite amendment.
    NEVER drip-feed one field per turn after the initial intake.
@@ -583,7 +582,7 @@ A skipped field is SATISFIED — never ask about it again.
 Users can click items on the "Building Your Course" progress panel to review settings.
 When you receive "I'd like to review my [section]":
 1. In ONE response, recap the current values for that section in natural language
-   (e.g. "Your course is **GCSE Biology**, using a **Socratic** approach, 5 × 30 min sessions.")
+   (e.g. "Your course is **GCSE Biology**, using a **Socratic** approach, continuous 15-minute calls.")
 2. If "Keep as is" → acknowledge and continue with next priority field from the graph.
 3. If "Change something" → ask WHICH field in that section to change, then:
    - Show show_options if choices apply, OR ask in prose for free-text fields
@@ -678,8 +677,8 @@ export async function buildConversationalSystemPrompt(
 - syllabus — Strict syllabus coverage, exam preparation
 
 ### Session structure
-- Session count: 3, 5, 8, or 12 (default: 5)
-- Duration: 15, 20, 30, 45, or 60 minutes (default: 30)
+- Session count: open-ended (continuous) by default. Only set a fixed number if the user or course reference specifies one. Options if needed: 3, 5, 8, or 12.
+- Duration: only propose if the user or course reference specifies. Options: 15, 20, 30, 45, or 60 minutes. If unspecified, ask: "How long should each call be?"
 - Coverage: breadth (survey many topics), balanced (default), depth (deep-dive fewer topics)
 
 ### Lesson plan model (lessonPlanModel)

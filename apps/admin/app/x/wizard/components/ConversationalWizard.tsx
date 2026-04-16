@@ -911,28 +911,47 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         setData("courseRefDigest", digest);
 
         // #167 — detect pedagogy signals (cadence, continuous mode, preset)
-        // from the extracted assertions so the wizard's proposal builder
-        // overrides its hardcoded "5 × 30" defaults with what the
-        // course reference actually said.
+        // Scan BOTH extracted assertions AND raw source text. The extractor
+        // paraphrases phrases, so regex patterns may not match assertions alone.
+        // Raw source text preserves the original markers ("Call duration: 12-15 minutes").
         try {
           const { detectPedagogy, hasPedagogy } = await import("@/lib/wizard/detect-pedagogy");
-          const joinedText = allAssertions.map((a) => a.assertion).join("\n");
-          const pedagogy = detectPedagogy(joinedText);
+          const joinedAssertions = allAssertions.map((a) => a.assertion).join("\n");
+
+          // Also fetch textSample from course reference sources — the raw first
+          // ~1000 chars preserve the original phrasing that regex detection needs.
+          // The extractor paraphrases assertions, so "Call duration: 12-15 minutes"
+          // becomes something the regex can't match.
+          let rawSourceText = "";
+          for (const idx of courseRefIndices) {
+            const sid = sourceIds[idx];
+            if (!sid) continue;
+            try {
+              const rawRes = await fetch(`/api/content-sources/${sid}`);
+              if (rawRes.ok) {
+                const rawData = await rawRes.json();
+                if (rawData.source?.textSample) {
+                  rawSourceText += rawData.source.textSample + "\n";
+                }
+              }
+            } catch { /* non-fatal */ }
+          }
+
+          // Scan both — raw source text first (more reliable), then assertions as fallback
+          const combinedText = rawSourceText
+            ? `${rawSourceText}\n---\n${joinedAssertions}`
+            : joinedAssertions;
+          const pedagogy = detectPedagogy(combinedText);
           if (hasPedagogy(pedagogy)) {
             setData("coursePedagogy", pedagogy);
             console.log("[wizard] detected pedagogy from course ref:", pedagogy);
           } else {
-            // #167 diagnostic — we need to see detection misses in the log,
-            // otherwise they silently fall through to the "5 × 30" defaults
-            // and nobody knows why. First 200 chars of joined text helps
-            // diagnose whether the extractor is paraphrasing phrases that
-            // the regex patterns no longer match (the suspected failure mode).
             console.warn(
               "[wizard] detectPedagogy found no signals — falling back to defaults",
               {
                 assertionCount: allAssertions.length,
-                joinedTextLength: joinedText.length,
-                sample: joinedText.slice(0, 200),
+                rawSourceLength: rawSourceText.length,
+                sample: (rawSourceText || joinedAssertions).slice(0, 200),
               },
             );
           }

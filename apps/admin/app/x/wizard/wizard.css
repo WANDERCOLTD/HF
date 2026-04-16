@@ -155,7 +155,7 @@
 }
 
 .cv4-bubble--assistant {
-  max-width: 90%;
+  max-width: 96%;
   background: var(--surface-secondary);
   color: var(--text-primary);
   border-radius: 16px 16px 16px 4px;
@@ -1613,7 +1613,7 @@
 
 .cv4-msg-actions-wrap {
   position: relative;
-  max-width: 90%;
+  max-width: 96%;
 }
 
 .cv4-msg-actions-trigger {

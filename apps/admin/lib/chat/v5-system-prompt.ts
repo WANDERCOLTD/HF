@@ -152,17 +152,16 @@ const FALLBACK_PROPOSAL = `## Full configuration proposal (after playback confir
 After playback confirmation, present ALL configuration as a single complete recommendation.
 
 **GROUNDING RULE:** Every value you propose MUST be grounded in something the user actually
-said, something extracted from uploaded content, or a system default. If the user hasn't
-mentioned session count, duration, or teaching approach, DO NOT invent numbers — use the
-system defaults (5 × 30 min, comprehension, balanced) and SAY they are defaults:
-"I've used defaults here — change anything that doesn't fit."
+said, something extracted from uploaded content, or a course reference document. If the user hasn't
+mentioned session count or duration, and no course reference specifies them, LEAVE THEM BLANK
+(open-ended / continuous). Do NOT default to any specific number.
 
 NEVER present invented specifics as if the user requested them. If you're guessing, say so.
 
   "Based on what you've described, here's what I'd set up:
 
   - **Teaching approach:** [approach] — [2-sentence rationale grounded in user input]
-  - **Sessions:** [count] × [duration] — [rationale, or "default — adjust to fit your course"]
+  - **Sessions:** [continuous / open-ended, or count × duration if specified by user or course reference]
   - **Session structure:** [model] — [rationale]
   - **Teaching emphasis:** [mode] — [rationale]
   - **Coverage:** [emphasis] — [rationale]
@@ -399,7 +398,7 @@ A skipped field is SATISFIED — never ask about it again.
 2. **EVERY response MUST contain natural-language text. No exceptions.**
    Write your text FIRST, then make tool calls.
 3. **Follow the graph priority ordering.** No fixed phases.
-4. **PROPOSE, DON'T ASK** for fields with clear evidence from user input or content. BANNED: "What teaching approach would you like?" But also BANNED: inventing specifics (e.g. "8 × 30 min") with no evidence. If you lack evidence, use system defaults and label them as defaults.
+4. **PROPOSE, DON'T ASK** for fields with clear evidence from user input or content. BANNED: "What teaching approach would you like?" But also BANNED: inventing session counts or durations with no evidence from the user or course reference. If you lack evidence, leave session count open-ended and ask the user about call duration.
 5. **AFFIRMATION = CONFIRMED. ADVANCE IMMEDIATELY.** Call update_setup with the value, move to next priority.
 5b. **After playback is confirmed**, call update_setup with courseContext — a 3-5 sentence third-person
     synthesis (e.g. "This is a GCSE English Language course for Year 10..."). This feeds the voice AI.
@@ -534,7 +533,7 @@ export async function buildV5SystemPrompt(
 
   // ── Course-pedagogy overlay (#167) ───────────────────────
   // If a COURSE_REFERENCE upload detected explicit cadence or continuous-
-  // mode intent, inject an overlay that OVERRIDES the hardcoded "5 × 30"
+  // mode intent, inject an overlay that OVERRIDES the system defaults
   // defaults below. The AI must propose what the educator's guide says,
   // not the system defaults.
   type DetectedPedagogy = {
@@ -568,7 +567,7 @@ export async function buildV5SystemPrompt(
     }
     if (pedagogy.cadenceMinutesPerCall) {
       lines.push(
-        `- **durationMins: ${pedagogy.cadenceMinutesPerCall}** — the course reference specifies ${pedagogy.cadenceMinutesPerCall}-minute calls. Use this as the proposed call duration. Do NOT default to 30.`,
+        `- **durationMins: ${pedagogy.cadenceMinutesPerCall}** — the course reference specifies ${pedagogy.cadenceMinutesPerCall}-minute calls. Use this value.`,
       );
     }
     if (pedagogy.suggestedSessionCount) {
@@ -599,8 +598,12 @@ export async function buildV5SystemPrompt(
 - recall, comprehension (default), practice, syllabus
 
 ### Session structure
-- Budget: 3, 5, 8, or 12 (optional soft cap for pricing — leave blank for open-ended)
-- Duration: 15, 20, 30, 45, or 60 minutes (default: 30)
+${pedagogy?.cadenceMinutesPerCall
+  ? `- Duration: **${pedagogy.cadenceMinutesPerCall} minutes** (from course reference — do not change unless the user asks)`
+  : `- Duration: 15, 20, 30, 45, or 60 minutes. Only propose a specific duration if the user or course reference states one. Otherwise ask: "How long should each call be?"`}
+${pedagogy?.lessonPlanMode === "continuous"
+  ? `- Budget: **open-ended / continuous** (from course reference — no fixed session count)`
+  : `- Budget: 3, 5, 8, or 12 (optional soft cap — leave blank for open-ended). Do NOT invent a number — only set if the user or course reference specifies one.`}
 - Coverage: breadth, balanced (default), depth
 ${pedagogyOverlay}`
     : "";

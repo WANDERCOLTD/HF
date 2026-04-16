@@ -5,7 +5,7 @@
  * pedagogical intent signals — session cadence, adaptive mode, pedagogical
  * preset. Used by the V5 conversational wizard to populate
  * `setupData.coursePedagogy` so the proposal builder can override its
- * hardcoded "5 × 30" defaults.
+ * system defaults.
  *
  * This is a deterministic regex scan, not an AI call. The course-reference
  * template (`a-sample-docs/course-reference-template.md`) uses structured
@@ -13,8 +13,8 @@
  * call-by-call" that make keyword detection reliable for the common cases.
  *
  * Fallback: when nothing is detected, returns null on every field. The
- * wizard then falls back to its existing defaults ("5 × 30"), which is
- * the current behaviour.
+ * wizard then leaves session count and duration unset (open-ended /
+ * continuous) unless the user specifies them.
  *
  * Issue #167.
  */
