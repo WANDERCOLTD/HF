@@ -16,6 +16,7 @@ import { useState, useMemo } from "react";
 import {
   ChevronDown, ChevronRight, Phone, Brain, TrendingUp,
   FileText, Diff, CheckCircle2, AlertCircle, Clock,
+  MessageSquare,
 } from "lucide-react";
 import { computeDiff } from "./PromptsSection";
 import type { Call, ComposedPrompt } from "./types";
@@ -99,6 +100,70 @@ function buildTimeline(
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+/** Parse "User: …\nAssistant: …" transcript format into message array */
+function parseTranscript(transcript: string): { role: "user" | "assistant"; content: string }[] {
+  const messages: { role: "user" | "assistant"; content: string }[] = [];
+  const lines = transcript.split("\n");
+  let current: { role: "user" | "assistant"; content: string } | null = null;
+  for (const line of lines) {
+    if (line.startsWith("User: ")) {
+      if (current) messages.push(current);
+      current = { role: "user", content: line.slice(6) };
+    } else if (line.startsWith("Assistant: ")) {
+      if (current) messages.push(current);
+      current = { role: "assistant", content: line.slice(11) };
+    } else if (current) {
+      current.content += "\n" + line;
+    }
+  }
+  if (current) messages.push(current);
+  return messages;
+}
+
+function TranscriptCard({ transcript }: { transcript: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const messages = useMemo(() => parseTranscript(transcript), [transcript]);
+
+  if (messages.length === 0) return null;
+
+  return (
+    <div className="cpt-transcript-card">
+      <button className="cpt-transcript-header" onClick={() => setExpanded(!expanded)}>
+        <MessageSquare size={13} />
+        <span className="cpt-transcript-label">Transcript</span>
+        <span className="cpt-transcript-count">{messages.length} messages</span>
+        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+      </button>
+      {!expanded && messages.length > 0 && (
+        <div className="cpt-transcript-preview">
+          {messages.slice(0, 2).map((m, i) => (
+            <div key={i} className="cpt-transcript-preview-line">
+              <span className={`cpt-transcript-role cpt-transcript-role--${m.role}`}>
+                {m.role === "user" ? "Learner" : "AI"}
+              </span>
+              <span className="cpt-transcript-preview-text">
+                {m.content.slice(0, 120)}{m.content.length > 120 ? "…" : ""}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {expanded && (
+        <div className="cpt-transcript-body">
+          {messages.map((m, i) => (
+            <div key={i} className={`cpt-msg cpt-msg--${m.role}`}>
+              <span className={`cpt-msg-role cpt-msg-role--${m.role}`}>
+                {m.role === "user" ? "Learner" : "AI"}
+              </span>
+              <div className="cpt-msg-content">{m.content}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function PipelineSummary({ call }: { call: Call }) {
   const items: { icon: React.ReactNode; label: string; ok: boolean }[] = [
@@ -266,7 +331,12 @@ export function CallsPromptsTab({
             {/* Expanded detail */}
             {isExpanded && (
               <div className="cpt-call-body">
-                {/* 1. Prompt used */}
+                {/* 1. Transcript — the actual conversation */}
+                {entry.transcript && (
+                  <TranscriptCard transcript={entry.transcript} />
+                )}
+
+                {/* 2. Prompt used */}
                 {entry.promptUsed ? (
                   <PromptPreview prompt={entry.promptUsed} label="Prompt used" />
                 ) : (
@@ -276,10 +346,10 @@ export function CallsPromptsTab({
                   </div>
                 )}
 
-                {/* 2. What happened — pipeline summary */}
+                {/* 3. What happened — pipeline summary */}
                 <PipelineSummary call={entry} />
 
-                {/* 3. What changed for next call — diff */}
+                {/* 4. What changed for next call — diff */}
                 {entry.promptUsed && entry.promptAfter && (
                   <DiffCard before={entry.promptUsed} after={entry.promptAfter} />
                 )}
