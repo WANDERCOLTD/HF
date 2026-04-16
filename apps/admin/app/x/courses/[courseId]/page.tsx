@@ -204,6 +204,9 @@ export default function CourseDetailPage() {
 
   // Course setup readiness (reported from CourseSetupTracker via Design tab)
   const [setupReadiness, setSetupReadiness] = useState<{ completedCount: number; allComplete: boolean } | null>(null);
+  const handleReadinessChange = useCallback((count: number, all: boolean) => {
+    setSetupReadiness(prev => (prev?.completedCount === count && prev?.allComplete === all) ? prev : { completedCount: count, allComplete: all });
+  }, []);
 
   // Settings actions
   const [publishing, setPublishing] = useState(false);
@@ -1384,7 +1387,7 @@ export default function CourseDetailPage() {
           categoryCounts={categoryCounts}
           contentMethods={contentMethods}
           onNavigate={handleTabChange}
-          onReadinessChange={(count, all) => setSetupReadiness({ completedCount: count, allComplete: all })}
+          onReadinessChange={handleReadinessChange}
         />
       )}
 
