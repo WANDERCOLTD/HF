@@ -18,6 +18,7 @@ import { buildGraphPromptSection } from "@/lib/wizard/graph-evaluator";
 import { AGENT_TUNING_DEFAULTS } from "@/lib/domain/agent-tuning";
 import { config } from "@/lib/config";
 import { getPromptSpecs } from "@/lib/prompts/spec-prompts";
+import { getVisibilitySummary } from "@/lib/doc-type-icons";
 import { interpolateTemplate } from "@/lib/prompts/interpolate";
 
 // ── Helpers ──────────────────────────────────────────────
@@ -364,10 +365,7 @@ For EACH file, narrate in plain language:
   Does that match what you uploaded, or would you describe either file differently?"
 
 After narrating all files, briefly mention student visibility:
-- Reading passages, worksheets, comprehension materials, and examples are
-  automatically shared with students (they can see them on their phone during calls).
-- Question banks, syllabi, lesson plans, and teaching guides stay behind the scenes for the tutor only.
-- "You can adjust what students see using the eye toggles in the panel."
+${getVisibilitySummary()}
 
 Content upload is optional — a course can be created without materials.
 

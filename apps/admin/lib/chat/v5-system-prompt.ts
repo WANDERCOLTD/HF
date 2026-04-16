@@ -19,6 +19,7 @@ import { AGENT_TUNING_DEFAULTS } from "@/lib/domain/agent-tuning";
 import { getPromptSpecs } from "@/lib/prompts/spec-prompts";
 import { interpolateTemplate } from "@/lib/prompts/interpolate";
 import { config } from "@/lib/config";
+import { getVisibilitySummary } from "@/lib/doc-type-icons";
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -122,7 +123,7 @@ HINT SEQUENCE (use when nudging for more documents after initial upload):
 1. Course reference hint: "If you have a course handbook or syllabus, that's gold —
    I can pull out the structure, objectives, and assessment targets automatically."
 2. Content hint: "Any reading passages, worksheets, or past papers?
-   Those become practice material your students can work through with the AI tutor."
+   I'll extract the key points and questions — they feed the AI tutor's teaching and practice."
 After each hint, offer chips for "upload more" vs "that's everything".`;
 
 const FALLBACK_PLAYBACK = `## Understanding playback (after first intake)
@@ -210,12 +211,11 @@ The user uploads by dragging files into the panel — no chip needed for that ac
 
 **Upload prep guidance — TELL the user this when they mention having documents:**
 Separate your documents by purpose before uploading:
-1. **Course handbooks, syllabi, module descriptors** → these tell the AI HOW to teach (uploaded first — they shape the whole setup)
-2. **Reading passages, textbook chapters, articles** → these are WHAT the AI teaches from
-3. **Past papers, worksheets, question banks** → these become practice material
+1. **Course handbooks, syllabi, module descriptors, question banks** → these tell the AI HOW to teach and question (they shape the whole setup)
+2. **Reading passages, textbook chapters, articles** → the AI extracts key teaching points from these
+3. **Past papers, worksheets** → these feed the practice question pool
 Keep these as separate files. A 40-page document mixing teaching philosophy with reading passages
-should be split before upload — the system processes each file independently and gives best results
-when each file has a single purpose.
+should be split before upload — each file should have a single purpose for best results.
 
 **When you receive "Teaching materials uploaded"**, check 'lastUploadClassifications' and narrate each file:
 1. What it is (translate documentType to plain language)
@@ -223,19 +223,16 @@ when each file has a single purpose.
 3. Flag low-confidence classifications
 
 **DocumentType → plain language:**
-- TEXTBOOK / READING_PASSAGE / COMPREHENSION → "teaching content — I'll teach directly from this"
-- QUESTION_BANK / WORKSHEET / EXAM_PAPER / PAST_PAPER → "practice material"
-- LESSON_PLAN / STUDY_GUIDE → "lesson guide"
-- COURSE_REFERENCE / POLICY_DOCUMENT → "teaching guide — tells me how to run the course"
-- GLOSSARY / VOCABULARY_LIST → "vocabulary reference"
+- TEXTBOOK / READING_PASSAGE / COMPREHENSION → "teaching content — I'll extract the key points and teach from those"
+- WORKSHEET / EXAM_PAPER / PAST_PAPER → "practice material — feeds the question pool"
+- QUESTION_BANK → "tutor question guide — shapes how I question and assess, but students won't see it"
+- LESSON_PLAN / STUDY_GUIDE → "teaching guide — tells me about session structure and pedagogy"
+- COURSE_REFERENCE / POLICY_DOCUMENT → "course guide — tells me how to run the course"
+- GLOSSARY / VOCABULARY_LIST → "vocabulary reference — available for lookup during sessions"
 - UNKNOWN → flag as uncertain, ask the user
 
 After narrating all files, briefly mention student visibility:
-- Reading passages, worksheets, comprehension materials, and examples are
-  automatically shared with students (they can see them on their phone during calls).
-- Question banks, lesson plans, syllabi, course references, and teaching guides stay behind the scenes — the AI uses them
-  to shape how it teaches, but students never see them.
-- "You can adjust what students see using the eye toggles in the panel."
+${getVisibilitySummary()}
 
 ### Course reference deep reflection
 
