@@ -57,6 +57,8 @@ export type CourseDesignTabProps = {
   categoryCounts?: Record<string, number>;
   contentMethods?: MethodBreakdown[];
   onNavigate?: (tab: string) => void;
+  /** Reports setup readiness (completedCount, allComplete) to parent for hero badge */
+  onReadinessChange?: (completedCount: number, allComplete: boolean) => void;
 };
 
 type FlowState = 'WELCOME' | 'LEARNING' | 'NPS' | 'COMPLETE';
@@ -97,6 +99,7 @@ export function CourseDesignTab({
   courseId, playbookConfig,
   detail, subjects, persona, sessionPlan, sessions,
   onSimCall, instructionTotal, categoryCounts, contentMethods, onNavigate,
+  onReadinessChange,
 }: CourseDesignTabProps): React.ReactElement {
   const [welcome, setWelcome] = useState<WelcomeConfig>(DEFAULT_WELCOME_CONFIG);
   const [nps, setNps] = useState<NpsConfig>(DEFAULT_NPS_CONFIG);
@@ -162,16 +165,9 @@ export function CourseDesignTab({
 
   return (
     <div className="hf-mt-lg">
-      {/* ── Setup Tracker + Summary (absorbed from Overview) ── */}
+      {/* ── Summary (absorbed from Overview) ── */}
       {detail && (
         <>
-          <CourseSetupTracker
-            courseId={courseId}
-            detail={detail}
-            subjects={subjects || []}
-            sessions={sessions ?? { plan: null }}
-            onSimCall={onSimCall}
-          />
           <CourseSummaryCard
             interactionPattern={patternLabel}
             teachingMode={profile?.teachingMode ?? null}
@@ -328,6 +324,18 @@ export function CourseDesignTab({
             students see their progress dashboard with goals, topics, and test scores.
           </p>
         </div>
+      )}
+
+      {/* ── Setup Tracker (bottom — readiness reported to hero via callback) ── */}
+      {detail && (
+        <CourseSetupTracker
+          courseId={courseId}
+          detail={detail}
+          subjects={subjects || []}
+          sessions={sessions ?? { plan: null }}
+          onSimCall={onSimCall}
+          onReadinessChange={onReadinessChange}
+        />
       )}
     </div>
   );

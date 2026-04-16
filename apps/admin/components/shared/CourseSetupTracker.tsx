@@ -31,6 +31,8 @@ interface CourseSetupTrackerProps {
   sessions: SetupStatusInput['sessions'];
   /** Callback when "Try a Practice Call" is clicked */
   onSimCall?: () => void;
+  /** Reports readiness changes to parent (e.g. for hero badge) */
+  onReadinessChange?: (completedCount: number, allComplete: boolean) => void;
 }
 
 // ── Component ─────────────────────────────────────────
@@ -41,6 +43,7 @@ export function CourseSetupTracker({
   subjects,
   sessions,
   onSimCall,
+  onReadinessChange,
 }: CourseSetupTrackerProps) {
   const [expanded, setExpanded] = useState(false);
   const [readiness, setReadiness] = useState<SetupStatusInput['readiness']>(null);
@@ -92,6 +95,11 @@ export function CourseSetupTracker({
   });
 
   const { stages, completedCount, allComplete, nextHint } = setupStatus;
+
+  // Report readiness to parent (hero badge)
+  useEffect(() => {
+    onReadinessChange?.(completedCount, allComplete);
+  }, [completedCount, allComplete, onReadinessChange]);
 
   // Auto-expand when something is in progress, collapse when all done
   useEffect(() => {

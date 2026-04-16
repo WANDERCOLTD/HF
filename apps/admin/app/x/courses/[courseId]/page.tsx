@@ -202,6 +202,9 @@ export default function CourseDetailPage() {
   const [unassignedSearch, setUnassignedSearch] = useState('');
   const [dragMediaId, setDragMediaId] = useState<string | null>(null);
 
+  // Course setup readiness (reported from CourseSetupTracker via Design tab)
+  const [setupReadiness, setSetupReadiness] = useState<{ completedCount: number; allComplete: boolean } | null>(null);
+
   // Settings actions
   const [publishing, setPublishing] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -950,6 +953,13 @@ export default function CourseDetailPage() {
               }}
             />
             <StatusBadge status={statusMap[detail.status.toLowerCase()] || 'draft'} />
+            {setupReadiness && (
+              <span className={`cd-readiness-pip ${setupReadiness.allComplete ? 'cd-readiness-pip--ready' : 'cd-readiness-pip--progress'}`}
+                title={setupReadiness.allComplete ? 'Ready to teach' : `Setup: ${setupReadiness.completedCount} of 6`}
+              >
+                {setupReadiness.allComplete ? 'Ready' : `${setupReadiness.completedCount}/6`}
+              </span>
+            )}
           </div>
           <div className="hf-flex hf-gap-sm hf-items-center">
             <DomainPill label={detail.domain.name} href={`/x/domains?id=${detail.domain.id}`} size="compact" />
@@ -1374,6 +1384,7 @@ export default function CourseDetailPage() {
           categoryCounts={categoryCounts}
           contentMethods={contentMethods}
           onNavigate={handleTabChange}
+          onReadinessChange={(count, all) => setSetupReadiness({ completedCount: count, allComplete: all })}
         />
       )}
 
