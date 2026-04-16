@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { SURVEY_SCOPES, PRE_SURVEY_KEYS, POST_SURVEY_KEYS } from "@/lib/learner/survey-keys";
-import { initializeLessonPlanSession } from "./init-lesson-plan";
+// initializeLessonPlanSession removed — scheduler replaces session tracking
 
 /**
  * Skip onboarding for a caller: marks OnboardingSession complete,
@@ -52,8 +52,6 @@ export async function applySkipOnboarding(
     });
   }
 
-  // Initialize lesson plan session to first content session
-  await initializeLessonPlanSession(callerId, domainId);
   console.log(`[skip-onboarding] Skipped onboarding for ${callerId}`);
 }
 

@@ -17,7 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireStudentOrAdmin, isStudentAuthError } from "@/lib/student-access";
 import { autoComposeForCaller } from "@/lib/enrollment/auto-compose";
-import { initializeLessonPlanSession } from "@/lib/enrollment/init-lesson-plan";
+// initializeLessonPlanSession removed — scheduler replaces session tracking
 import { SURVEY_SCOPES } from "@/lib/learner/survey-keys";
 
 export async function POST(
@@ -188,10 +188,7 @@ export async function POST(
       });
     }
 
-    // 6. Initialize lesson plan session if onboarding is skipped
-    if (shouldSkip) {
-      await initializeLessonPlanSession(callerId, domainId);
-    }
+    // 6. Session initialization removed — scheduler handles pacing
   }
 
   // 7. Recompose prompt

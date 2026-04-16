@@ -473,14 +473,6 @@ export async function PATCH(
       data: updateData,
     });
 
-    // Eagerly advance lesson plan session so journey-position resolves correctly
-    // before the async pipeline completes. Pipeline still handles mastery/adaptation.
-    if (endedAt && call.callerId) {
-      advanceSessionEagerly(call.callerId).catch((err) =>
-        console.error("[calls PATCH] Eager session advance failed (non-fatal):", err.message),
-      );
-    }
-
     return NextResponse.json({
       ok: true,
       call: updated,
@@ -494,57 +486,5 @@ export async function PATCH(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Eager session advancement — runs on call save (before async pipeline)
-// Unconditionally advances to the next session so the journey-position
-// resolver returns the correct next stop immediately. The pipeline still
-// runs mastery checks and adapts prompts, but doesn't block navigation.
-// ---------------------------------------------------------------------------
-
-async function advanceSessionEagerly(callerId: string): Promise<void> {
-  const caller = await prisma.caller.findUnique({
-    where: { id: callerId },
-    select: { domainId: true },
-  });
-  if (!caller?.domainId) return;
-
-  const subjectDomains = await prisma.subjectDomain.findMany({
-    where: { domainId: caller.domainId },
-    include: {
-      subject: {
-        include: {
-          curricula: {
-            orderBy: { updatedAt: "desc" },
-            take: 1,
-            select: { slug: true, deliveryConfig: true },
-          },
-        },
-      },
-    },
-  });
-
-  for (const sd of subjectDomains) {
-    const curriculum = sd.subject.curricula[0];
-    if (!curriculum) continue;
-
-    const dc = curriculum.deliveryConfig as Record<string, unknown> | null;
-    const lessonPlan = dc?.lessonPlan as { entries: { session: number; type: string }[]; estimatedSessions: number } | undefined;
-    if (!lessonPlan?.entries?.length) continue;
-
-    const { getCurriculumProgress, updateCurriculumProgress } = await import("@/lib/curriculum/track-progress");
-    const progress = await getCurriculumProgress(callerId, curriculum.slug);
-    const currentSession = progress.currentSession;
-    if (!currentSession) break;
-
-    const nextSession = currentSession + 1;
-    if (nextSession <= lessonPlan.estimatedSessions) {
-      await updateCurriculumProgress(callerId, curriculum.slug, {
-        currentSession: nextSession,
-        lastAccessedAt: new Date(),
-      });
-      console.log(`[calls PATCH] Eagerly advanced session ${currentSession} → ${nextSession} for ${curriculum.slug}`);
-    }
-
-    break; // Only process first curriculum
-  }
-}
+// advanceSessionEagerly deleted — scheduler replaces session tracking.
+// See ADR: docs/decisions/2026-04-14-outcome-graph-pacing.md

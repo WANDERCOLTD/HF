@@ -34,7 +34,7 @@ import { deliverArtifacts } from "@/lib/artifacts/deliver-artifacts";
 import { extractActions } from "@/lib/actions/extract-actions";
 import { config as appConfig } from "@/lib/config";
 import { updateCurriculumProgress, getCurriculumProgress, completeModule, updateTpMasteryBatch } from "@/lib/curriculum/track-progress";
-import { initializeLessonPlanSession } from "@/lib/enrollment/init-lesson-plan";
+// initializeLessonPlanSession removed — scheduler replaces session tracking
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { ContractRegistry } from "@/lib/contracts/registry";
 import { loadPipelineStages, PipelineStage } from "@/lib/pipeline/config";
@@ -1634,22 +1634,15 @@ async function trackOnboardingAfterCall(
   });
   log.info("Onboarding completed", { callerId, domainId: caller.domainId });
 
-  // Initialize lesson plan session tracking for Subject-based curricula
-  const lpResult = await initializeLessonPlanSession(callerId, caller.domainId);
-  if (lpResult.initialized) {
-    log.info(`Initialized lesson plan session tracking for ${lpResult.specSlug}`, {
-      currentSession: lpResult.session,
-    });
-  }
-
   return true;
 }
 
 /**
- * Advance lesson plan session after a call.
- * Called after mastery tracking — advances to next session based on session type.
+ * Update per-TP mastery scores after a call.
+ * Resolves LO assessment outcomes → individual TP mastery via FK chain.
+ * Session advancement removed — scheduler owns pacing.
  */
-async function advanceLessonPlanSession(
+async function updateTpMasteryAfterCall(
   callerId: string,
   log: PipelineLogger,
   learningAssessment?: {
@@ -1660,13 +1653,14 @@ async function advanceLessonPlanSession(
     masteryThreshold: number;
   } | null,
 ): Promise<boolean> {
+  if (!learningAssessment?.outcomes) return false;
+
   const caller = await prisma.caller.findUnique({
     where: { id: callerId },
     select: { domainId: true },
   });
   if (!caller?.domainId) return false;
 
-  // Find Subject curricula with lesson plans
   const subjectDomains = await prisma.subjectDomain.findMany({
     where: { domainId: caller.domainId },
     include: {
@@ -1675,164 +1669,59 @@ async function advanceLessonPlanSession(
           curricula: {
             orderBy: { updatedAt: "desc" },
             take: 1,
-            select: { slug: true, deliveryConfig: true },
+            select: { slug: true },
           },
         },
       },
     },
   });
 
-  let advanced = false;
-
   for (const sd of subjectDomains) {
     const curriculum = sd.subject.curricula[0];
     if (!curriculum) continue;
 
-    const dc = curriculum.deliveryConfig as Record<string, any> | null;
-    const lessonPlan = dc?.lessonPlan;
-    if (!lessonPlan?.entries?.length) continue;
+    const threshold = learningAssessment.masteryThreshold || 0.7;
 
-    // ── Continuous mode: update per-TP mastery instead of advancing session ──
-    if (dc?.lessonPlanMode === 'continuous' && learningAssessment?.outcomes) {
-      const threshold = learningAssessment.masteryThreshold || 0.7;
+    // Resolve LO ref strings → IDs, then query assertions by FK
+    const assessedLoRefs = Object.keys(learningAssessment.outcomes);
+    const loRows = await prisma.learningObjective.findMany({
+      where: {
+        ref: { in: assessedLoRefs },
+        module: { curriculum: { slug: curriculum.slug }, isActive: true },
+      },
+      select: { id: true, ref: true },
+    });
+    const assessedLoIds = loRows.map((lo) => lo.id);
 
-      // Find assertions that were in the working set (current session's assertionIds)
-      const continuousEntry = lessonPlan.entries[0];
-      if (continuousEntry?.type === 'continuous') {
-        // #142: Resolve LO ref strings → IDs, then query assertions by FK
-        const assessedLoRefs = Object.keys(learningAssessment.outcomes);
-        const loRows = await prisma.learningObjective.findMany({
-          where: {
-            ref: { in: assessedLoRefs },
-            module: { curriculum: { slug: curriculum.slug }, isActive: true },
-          },
-          select: { id: true, ref: true },
-        });
-        const loRefToId = new Map(loRows.map((lo) => [lo.ref, lo.id]));
-        const assessedLoIds = loRows.map((lo) => lo.id);
+    const assessedTps = assessedLoIds.length > 0
+      ? await prisma.contentAssertion.findMany({
+          where: { learningObjectiveId: { in: assessedLoIds } },
+          select: { id: true, learningObjectiveId: true },
+        })
+      : [];
 
-        const assessedTps = assessedLoIds.length > 0
-          ? await prisma.contentAssertion.findMany({
-              where: {
-                learningObjectiveId: { in: assessedLoIds },
-              },
-              select: { id: true, learningObjectiveId: true },
-            })
-          : [];
+    const loIdToRef = new Map(loRows.map((lo) => [lo.id, lo.ref]));
 
-        // Reverse map: LO ID → ref for score lookup
-        const loIdToRef = new Map(loRows.map((lo) => [lo.id, lo.ref]));
-
-        const updates: Record<string, { mastery: number; status: "not_started" | "in_progress" | "mastered" }> = {};
-        for (const tp of assessedTps) {
-          const loRef = tp.learningObjectiveId ? loIdToRef.get(tp.learningObjectiveId) : null;
-          const loScore = loRef
-            ? learningAssessment.outcomes[loRef] ?? 0
-            : 0;
-          updates[tp.id] = {
-            mastery: loScore,
-            status: loScore >= threshold ? "mastered" : loScore > 0 ? "in_progress" : "not_started",
-          };
-        }
-
-        if (Object.keys(updates).length > 0) {
-          await updateTpMasteryBatch(callerId, curriculum.slug, updates);
-          log.info(`Continuous mode: updated ${Object.keys(updates).length} TP mastery scores`);
-        }
-      }
-      break; // No session advancement in continuous mode
+    const updates: Record<string, { mastery: number; status: "not_started" | "in_progress" | "mastered" }> = {};
+    for (const tp of assessedTps) {
+      const loRef = tp.learningObjectiveId ? loIdToRef.get(tp.learningObjectiveId) : null;
+      const loScore = loRef ? learningAssessment.outcomes[loRef] ?? 0 : 0;
+      updates[tp.id] = {
+        mastery: loScore,
+        status: loScore >= threshold ? "mastered" : loScore > 0 ? "in_progress" : "not_started",
+      };
     }
 
-    // Get current session
-    const progress = await getCurriculumProgress(callerId, curriculum.slug);
-    const currentSession = progress.currentSession;
-    if (!currentSession) continue;
-
-    const currentEntry = lessonPlan.entries.find((e: any) => e.session === currentSession);
-    if (!currentEntry) continue;
-
-    // Determine whether to advance
-    let shouldAdvance = false;
-
-    if (["review", "assess", "consolidate"].includes(currentEntry.type)) {
-      // Cross-module sessions always advance after the call
-      shouldAdvance = true;
-    } else if (currentEntry.moduleId && learningAssessment) {
-      // Module-specific sessions advance if mastery met
-      if (
-        learningAssessment.moduleId === currentEntry.moduleId &&
-        learningAssessment.overallMastery >= learningAssessment.masteryThreshold
-      ) {
-        shouldAdvance = true;
-      }
-    } else if (currentEntry.type === "onboarding") {
-      // Onboarding session — should have been advanced by trackOnboardingAfterCall
-      shouldAdvance = true;
+    if (Object.keys(updates).length > 0) {
+      await updateTpMasteryBatch(callerId, curriculum.slug, updates);
+      log.info(`Updated ${Object.keys(updates).length} TP mastery scores`);
+      return true;
     }
 
-    // ── TP Carry-Forward: identify weak-LO teaching points ──
-    const carryForwardKey = `curriculum:${curriculum.slug}:carry_forward_tps`;
-    if (shouldAdvance && currentEntry.assertionIds?.length && learningAssessment?.outcomes) {
-      const threshold = learningAssessment.masteryThreshold || 0.7;
-      const weakLOs = Object.entries(learningAssessment.outcomes)
-        .filter(([, score]) => score < threshold)
-        .map(([lo]) => lo);
-
-      if (weakLOs.length > 0) {
-        // Find assertions linked to weak LOs — carry them forward
-        const assertions = await prisma.contentAssertion.findMany({
-          where: { id: { in: currentEntry.assertionIds } },
-          select: { id: true, learningOutcomeRef: true },
-        });
-        const carryForwardIds = assertions
-          .filter(a => a.learningOutcomeRef && weakLOs.includes(a.learningOutcomeRef))
-          .map(a => a.id);
-
-        if (carryForwardIds.length > 0) {
-          await prisma.callerAttribute.upsert({
-            where: { callerId_key_scope: { callerId, key: carryForwardKey, scope: "CURRICULUM" } },
-            update: { stringValue: JSON.stringify(carryForwardIds), updatedAt: new Date() },
-            create: { callerId, key: carryForwardKey, scope: "CURRICULUM", stringValue: JSON.stringify(carryForwardIds) },
-          });
-          log.info(`Carry-forward: ${carryForwardIds.length} TPs from weak LOs [${weakLOs.join(", ")}]`);
-        } else {
-          // All assertions are on strong LOs — clear carry-forward
-          await prisma.callerAttribute.deleteMany({
-            where: { callerId, key: carryForwardKey, scope: "CURRICULUM" },
-          });
-        }
-      } else {
-        // All LOs met threshold — clear carry-forward
-        await prisma.callerAttribute.deleteMany({
-          where: { callerId, key: carryForwardKey, scope: "CURRICULUM" },
-        });
-      }
-    }
-
-    if (shouldAdvance) {
-      const nextSession = currentSession + 1;
-      if (nextSession <= lessonPlan.estimatedSessions) {
-        await updateCurriculumProgress(callerId, curriculum.slug, {
-          currentSession: nextSession,
-          lastAccessedAt: new Date(),
-        });
-        log.info(`Advanced to lesson plan session ${nextSession} for ${curriculum.slug}`, {
-          previousSession: currentSession,
-          previousType: currentEntry.type,
-          previousModule: currentEntry.moduleId,
-        });
-        advanced = true;
-      } else {
-        log.info(`Lesson plan complete for ${curriculum.slug}`, {
-          totalSessions: lessonPlan.estimatedSessions,
-        });
-      }
-    }
-
-    break; // Only process first curriculum
+    break;
   }
 
-  return advanced;
+  return false;
 }
 
 // =====================================================
@@ -1934,8 +1823,8 @@ const stageExecutors: Record<string, StageExecutor> = {
           }),
         // 2. Onboarding completion
         trackOnboardingAfterCall(ctx.callerId, ctx.callId, ctx.log),
-        // 3. Lesson plan session advancement
-        advanceLessonPlanSession(ctx.callerId, ctx.log, callerResult.learningAssessment),
+        // 3. TP mastery update (scheduler reads these next call)
+        updateTpMasteryAfterCall(ctx.callerId, ctx.log, callerResult.learningAssessment),
         // 4. Artifact extraction + delivery
         appConfig.artifacts.enabled
           ? extractArtifacts(ctx.call, ctx.callerId, ctx.engine, ctx.log)
