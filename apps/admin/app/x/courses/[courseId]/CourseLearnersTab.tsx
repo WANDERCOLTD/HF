@@ -8,8 +8,8 @@ import {
 } from 'lucide-react';
 import { CohortLearningAggregate } from './CohortLearningAggregate';
 import { ClassProgressSection } from '@/components/shared/ClassProgressSection';
+import type { StudentMasteryProgress } from '@/components/shared/ClassProgressSection';
 import { CourseGenomeTab } from './CourseGenomeTab';
-import type { SessionEntry, StudentProgress } from '@/lib/lesson-plan/types';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -44,8 +44,7 @@ type Summary = {
 type Props = {
   courseId: string;
   initialJoinToken?: string | null;
-  sessionEntries?: SessionEntry[];
-  studentProgress?: StudentProgress[];
+  studentProgress?: StudentMasteryProgress[];
 };
 
 // ── Helpers ────────────────────────────────────────────
@@ -73,7 +72,7 @@ function statusBadge(status: string): { label: string; className: string } {
 
 // ── Component ──────────────────────────────────────────
 
-export function CourseLearnersTab({ courseId, initialJoinToken, sessionEntries, studentProgress }: Props): React.ReactElement {
+export function CourseLearnersTab({ courseId, initialJoinToken, studentProgress }: Props): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [cohortId, setCohortId] = useState<string | null>(null);
   const [joinToken, setJoinToken] = useState<string | null>(initialJoinToken ?? null);
@@ -262,9 +261,9 @@ export function CourseLearnersTab({ courseId, initialJoinToken, sessionEntries, 
       {/* Cohort learning aggregate — auto-hides if no learning data */}
       <CohortLearningAggregate courseId={courseId} />
 
-      {/* Class progress — per-session completion bars (from Journey tab data) */}
-      {sessionEntries && studentProgress && (
-        <ClassProgressSection entries={sessionEntries} studentProgress={studentProgress} />
+      {/* Class progress — per-student TP mastery bars */}
+      {studentProgress && studentProgress.length > 0 && (
+        <ClassProgressSection studentProgress={studentProgress} />
       )}
 
       {/* Summary cards */}

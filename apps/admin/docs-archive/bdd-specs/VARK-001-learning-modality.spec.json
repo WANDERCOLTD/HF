@@ -8,6 +8,9 @@
   "domain": "learning",
   "specType": "SYSTEM",
   "outputType": "MEASURE",
+  "config": {
+    "scoringGate": "always"
+  },
   "story": {
     "asA": "Conversational AI System",
     "iWant": "To measure caller learning modality preferences using the VARK model",

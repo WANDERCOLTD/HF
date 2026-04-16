@@ -317,9 +317,29 @@ async function runBatchedCallerAnalysis(
   }
 
   // Collect unique parameters to score (batched lookup - O(1) instead of O(N))
-  // When skipMeasure is true, we still load the specs but zero out the params
-  // below so the LLM prompt has nothing to score. LEARN actions run normally.
-  const paramMap = skipMeasure ? new Map() : await batchLoadParameters(measureSpecs);
+  //
+  // Spec-level scoring gate (#155 follow-up): MEASURE specs can declare
+  // `config.scoringGate: "always"` to bypass the scheduler event-gate.
+  // Personality/learning-style specs score on every call (they observe the
+  // caller, not curriculum mastery). Curriculum-evidence specs remain gated
+  // so teach-mode sessions don't produce false mastery scores (Boaz S1–S4).
+  //
+  // When skipMeasure is true we still include "always" specs — only the
+  // gated specs are zeroed out.
+  let paramMap: Map<string, { parameterId: string; name: string; definition: string | null }>;
+  if (skipMeasure) {
+    const alwaysSpecs = measureSpecs.filter(
+      (s) => (s.config as SpecConfig)?.scoringGate === "always",
+    );
+    paramMap = alwaysSpecs.length > 0
+      ? await batchLoadParameters(alwaysSpecs)
+      : new Map();
+    if (alwaysSpecs.length > 0) {
+      log.info(`Event-gate: ${measureSpecs.length - alwaysSpecs.length} MEASURE specs gated, ${alwaysSpecs.length} always-on (${alwaysSpecs.map(s => s.slug).join(", ")})`);
+    }
+  } else {
+    paramMap = await batchLoadParameters(measureSpecs);
+  }
 
   // Collect LEARN actions
   const learnActions: Array<{ category: string; keyPrefix: string; keyHint: string; description: string }> = [];
@@ -1796,7 +1816,7 @@ const stageExecutors: Record<string, StageExecutor> = {
 
     if (!gate.allow) {
       ctx.log.info(
-        `EXTRACT caller-scoring gated: ${gate.reason} (kept ${callerResult.memoriesCreated} memories, dropped scoring)`,
+        `EXTRACT caller-scoring gated: ${gate.reason} (${callerResult.scoresCreated} always-on scores, ${callerResult.memoriesCreated} memories — gated specs skipped)`,
       );
     }
     const deltaResult = await computeAdapt(ctx.callId, ctx.callerId, ctx.log);

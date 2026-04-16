@@ -8,6 +8,9 @@
   "domain": "personality",
   "specType": "SYSTEM",
   "outputType": "MEASURE",
+  "config": {
+    "scoringGate": "always"
+  },
   "story": {
     "asA": "Conversational AI System",
     "iWant": "To measure caller personality traits using the Big Five (OCEAN) model",

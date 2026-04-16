@@ -64,7 +64,7 @@ function triggerBadge(p: ComposedPrompt): string {
 }
 
 /** Compute a proper line-level diff (Myers algorithm) between two prompt texts */
-function computeDiff(
+export function computeDiff(
   prev: string,
   curr: string,
 ): { type: "same" | "added" | "removed"; text: string }[] {

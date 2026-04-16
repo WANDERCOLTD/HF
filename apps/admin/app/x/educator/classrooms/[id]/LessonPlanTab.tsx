@@ -31,8 +31,11 @@ type Course = {
 
 type StudentProgress = {
   callerId: string;
-  name: string;
-  currentSession: number | null;
+  name: string | null;
+  mastered: number;
+  inProgress: number;
+  notStarted: number;
+  totalTps: number;
 };
 
 // ── Helpers ────────────────────────────────────────────
@@ -123,20 +126,19 @@ export function LessonPlanTab({ classroomId }: { classroomId: string }) {
   }
 
   const totalStudents = studentProgress.length;
+  const avgMastery = totalStudents > 0
+    ? Math.round(
+        studentProgress.reduce((sum, s) => {
+          return sum + (s.totalTps > 0 ? (s.mastered / s.totalTps) * 100 : 0);
+        }, 0) / totalStudents,
+      )
+    : 0;
 
   return (
     <div className="cls-lp-root">
       {courses.map((course) => {
         const modelLabel = getLessonPlanModel(course.model).label;
         const sessionCount = course.entries.length;
-
-        // Count sessions by progress state
-        const completedSessions = course.entries.filter((e) =>
-          studentProgress.filter((s) => s.currentSession !== null && s.currentSession > e.session).length === totalStudents
-        ).length;
-        const activeSessions = course.entries.filter((e) =>
-          studentProgress.some((s) => s.currentSession === e.session)
-        ).length;
 
         return (
           <div key={course.playbookId} className="cls-lp-course">
@@ -147,16 +149,7 @@ export function LessonPlanTab({ classroomId }: { classroomId: string }) {
                 <span className="hf-chip hf-chip-sm" style={{ cursor: "default" }}>{modelLabel}</span>
                 <span className="hf-text-xs hf-text-muted">{sessionCount} session{sessionCount !== 1 ? "s" : ""}</span>
                 <span className="hf-text-xs hf-text-muted">{totalStudents} student{totalStudents !== 1 ? "s" : ""}</span>
-                {completedSessions > 0 && (
-                  <span className="hf-text-xs" style={{ color: "var(--status-success-text)" }}>
-                    {completedSessions} completed
-                  </span>
-                )}
-                {activeSessions > 0 && (
-                  <span className="hf-text-xs" style={{ color: "var(--status-info-text)" }}>
-                    {activeSessions} active
-                  </span>
-                )}
+                <span className="hf-text-xs hf-text-muted">{avgMastery}% avg mastery</span>
               </div>
             </div>
 
@@ -165,31 +158,13 @@ export function LessonPlanTab({ classroomId }: { classroomId: string }) {
               {course.entries.map((entry) => {
                 const sessionKey = `${course.playbookId}-${entry.session}`;
                 const isExpanded = expandedSessions.has(sessionKey);
-
-                // Students: completed = past this session, active = on this session, not_started = before
-                const completed = studentProgress.filter(
-                  (s) => s.currentSession !== null && s.currentSession > entry.session
-                );
-                const active = studentProgress.filter((s) => s.currentSession === entry.session);
-                const notStarted = studentProgress.filter(
-                  (s) => s.currentSession === null || s.currentSession < entry.session
-                );
-
-                const reachedCount = completed.length + active.length;
-                const progressPct = totalStudents > 0
-                  ? Math.round((reachedCount / totalStudents) * 100)
-                  : 0;
-
-                const isAllDone = totalStudents > 0 && completed.length === totalStudents;
-                const hasActive = active.length > 0;
                 const hasPhases = Array.isArray(entry.phases) && entry.phases.length > 0;
-                const canExpand = hasPhases || active.length > 0;
 
                 return (
                   <div key={sessionKey} className="cls-lp-session-item">
                     <div
-                      className={`cls-lp-session-row${canExpand ? " cls-lp-session-row--expandable" : ""}`}
-                      onClick={canExpand ? () => toggleSession(sessionKey) : undefined}
+                      className={`cls-lp-session-row${hasPhases ? " cls-lp-session-row--expandable" : ""}`}
+                      onClick={hasPhases ? () => toggleSession(sessionKey) : undefined}
                     >
                       {/* Number */}
                       <span className="cls-lp-session-num">{entry.session}</span>
@@ -218,41 +193,16 @@ export function LessonPlanTab({ classroomId }: { classroomId: string }) {
                         <span className="cls-lp-session-dur">{entry.estimatedDurationMins}m</span>
                       )}
 
-                      {/* Progress */}
-                      <div className="cls-lp-progress">
-                        <div className="cls-lp-progress-bar">
-                          <div
-                            className="cls-lp-progress-fill"
-                            style={{
-                              width: `${progressPct}%`,
-                              background: isAllDone
-                                ? "var(--status-success-text)"
-                                : hasActive
-                                  ? "var(--status-info-text)"
-                                  : "var(--border-default)",
-                            }}
-                          />
-                        </div>
-                        <span className="cls-lp-progress-count">
-                          {isAllDone
-                            ? <span style={{ color: "var(--status-success-text)" }}>✓ {totalStudents}</span>
-                            : hasActive
-                              ? <span style={{ color: "var(--status-info-text)" }}>▶ {active.length}/{totalStudents}</span>
-                              : <span className="hf-text-muted">· {reachedCount}/{totalStudents}</span>
-                          }
-                        </span>
-                      </div>
-
                       {/* Expand chevron */}
-                      {canExpand && (
+                      {hasPhases && (
                         <span className={`cls-lp-chevron${isExpanded ? " cls-lp-chevron--open" : ""}`} />
                       )}
                     </div>
 
-                    {/* Expanded: phases + student names */}
-                    {isExpanded && (
+                    {/* Expanded: phases */}
+                    {isExpanded && hasPhases && (
                       <div className="cls-lp-expand">
-                        {hasPhases && entry.phases!.map((phase, pi) => (
+                        {entry.phases!.map((phase, pi) => (
                           <div key={phase.id + pi} className="cls-lp-phase">
                             <span className="cls-lp-phase-label">{phase.label}</span>
                             {phase.durationMins && (
@@ -265,28 +215,6 @@ export function LessonPlanTab({ classroomId }: { classroomId: string }) {
                             ) : null}
                           </div>
                         ))}
-
-                        {active.length > 0 && (
-                          <div className="cls-lp-student-group">
-                            <span className="cls-lp-student-group-label">On this session:</span>
-                            <span className="cls-lp-student-names">
-                              {active.map((s) => s.name).join(", ")}
-                            </span>
-                          </div>
-                        )}
-                        {completed.length > 0 && (
-                          <div className="cls-lp-student-group">
-                            <span className="cls-lp-student-group-label">Completed:</span>
-                            <span className="cls-lp-student-names">
-                              {completed.map((s) => s.name).join(", ")}
-                            </span>
-                          </div>
-                        )}
-                        {notStarted.length > 0 && active.length === 0 && completed.length === 0 && (
-                          <div className="cls-lp-student-group">
-                            <span className="cls-lp-student-group-label hf-text-muted">Not reached yet</span>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -296,6 +224,42 @@ export function LessonPlanTab({ classroomId }: { classroomId: string }) {
           </div>
         );
       })}
+
+      {/* Student mastery summary */}
+      {totalStudents > 0 && (
+        <div className="cls-lp-student-summary hf-mt-lg">
+          <span className="hf-section-title">Student Progress</span>
+          <div className="hf-card-compact">
+            {studentProgress.map((s) => {
+              const pct = s.totalTps > 0 ? Math.round((s.mastered / s.totalTps) * 100) : 0;
+              const isComplete = s.totalTps > 0 && s.mastered === s.totalTps;
+              return (
+                <div key={s.callerId} className="cd-progress-row">
+                  <span className="hf-text-xs" style={{ minWidth: 100 }}>{s.name || "Unknown"}</span>
+                  <div className="cd-progress-bar">
+                    <div
+                      className="cd-progress-fill"
+                      style={{
+                        width: `${pct}%`,
+                        background: isComplete ? "var(--status-success-text)" : "var(--accent-primary)",
+                      }}
+                    />
+                  </div>
+                  <span className="cd-progress-count hf-text-xs" style={{ minWidth: 48, textAlign: "right" }}>
+                    {isComplete ? (
+                      <span style={{ color: "var(--status-success-text)" }}>&#10003; 100%</span>
+                    ) : pct > 0 ? (
+                      <span>{pct}%</span>
+                    ) : (
+                      <span className="hf-text-muted">—</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

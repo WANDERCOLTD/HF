@@ -8,6 +8,9 @@
   "domain": "engagement",
   "specType": "SYSTEM",
   "outputType": "MEASURE",
+  "config": {
+    "scoringGate": "always"
+  },
   "story": {
     "asA": "Conversational AI System",
     "iWant": "To measure cognitive activation and engagement patterns in real-time",

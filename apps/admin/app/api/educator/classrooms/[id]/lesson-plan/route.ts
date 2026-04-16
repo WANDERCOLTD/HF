@@ -49,7 +49,7 @@ export async function GET(
                     curricula: {
                       orderBy: { createdAt: "desc" },
                       take: 1,
-                      select: { deliveryConfig: true },
+                      select: { slug: true, deliveryConfig: true },
                     },
                   },
                 },
@@ -60,14 +60,15 @@ export async function GET(
       },
     });
 
-    // Build course list with lesson plan entries
-    // Find the first curriculum with a lessonPlan across all linked subjects
+    // Build course list with lesson plan entries + collect first curriculum slug for TP progress
+    let firstCurriculumSlug: string | null = null;
     const courses = cohortPlaybooks
       .map(({ playbook }) => {
         let lessonPlanConfig: Record<string, any> | null = null;
         for (const ps of playbook.subjects) {
           const c = ps.subject.curricula[0];
           if (!c) continue;
+          if (c.slug && !firstCurriculumSlug) firstCurriculumSlug = c.slug;
           const dc = c.deliveryConfig as Record<string, any> | null;
           if (dc?.lessonPlan?.entries?.length) {
             lessonPlanConfig = dc.lessonPlan;
@@ -114,32 +115,27 @@ export async function GET(
       memberMap.set(c.id, c.name ?? null);
     }
 
-    const memberIds = [...memberMap.keys()];
+    // Get TP mastery progress for each member
+    let studentProgress: Array<{ callerId: string; name: string | null; mastered: number; inProgress: number; notStarted: number; totalTps: number }>;
 
-    // Get current session for each member
-    const sessionAttrs = memberIds.length > 0
-      ? await prisma.callerAttribute.findMany({
-          where: {
-            callerId: { in: memberIds },
-            key: { contains: ":current_session" },
-            scope: "CURRICULUM",
-          },
-          select: { callerId: true, numberValue: true },
-        })
-      : [];
-
-    const sessionByCallerId = new Map<string, number>();
-    for (const attr of sessionAttrs) {
-      if (attr.numberValue !== null) {
-        sessionByCallerId.set(attr.callerId, Math.round(attr.numberValue));
-      }
+    if (firstCurriculumSlug) {
+      const { getTpProgressSummary } = await import("@/lib/curriculum/track-progress");
+      studentProgress = await Promise.all(
+        [...memberMap.entries()].map(async ([callerId, name]) => {
+          const summary = await getTpProgressSummary(callerId, firstCurriculumSlug!);
+          return { callerId, name, ...summary };
+        }),
+      );
+    } else {
+      studentProgress = [...memberMap.entries()].map(([callerId, name]) => ({
+        callerId,
+        name,
+        mastered: 0,
+        inProgress: 0,
+        notStarted: 0,
+        totalTps: 0,
+      }));
     }
-
-    const studentProgress = [...memberMap.entries()].map(([callerId, name]) => ({
-      callerId,
-      name,
-      currentSession: sessionByCallerId.get(callerId) ?? null,
-    }));
 
     return NextResponse.json({ ok: true, courses, studentProgress });
   } catch (error: unknown) {

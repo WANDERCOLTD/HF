@@ -66,6 +66,7 @@ export async function GET(
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        slug: true,
         deliveryConfig: true,
         modules: {
           where: { isActive: true },
@@ -114,47 +115,32 @@ export async function GET(
       })),
     );
 
-    // 6. Optionally include student progress
+    // 6. Optionally include student TP mastery progress
     const includeProgress = req.nextUrl.searchParams.get("includeProgress") === "true";
-    let studentProgress: Array<{ callerId: string; name: string; currentSession: number | null }> | undefined;
+    // Find the first curriculum slug for TP progress lookup
+    const curriculumSlug = curricula.find(c => c.slug)?.slug ?? null;
+    let studentProgress: Array<{ callerId: string; name: string | null; mastered: number; inProgress: number; notStarted: number; totalTps: number }> | undefined;
 
-    if (includeProgress && plan) {
+    if (includeProgress && curriculumSlug) {
+      const { getTpProgressSummary } = await import("@/lib/curriculum/track-progress");
+
       // Get enrolled students via CallerPlaybook
       const callerPlaybooks = await prisma.callerPlaybook.findMany({
         where: { playbookId: courseId },
         select: { caller: { select: { id: true, name: true } } },
       });
 
-      const memberMap = new Map<string, string | null>();
-      for (const cp of callerPlaybooks) {
-        memberMap.set(cp.caller.id, cp.caller.name ?? null);
-      }
-      const memberIds = [...memberMap.keys()];
-
-      // Get current_session CallerAttribute for each member
-      const sessionAttrs = memberIds.length > 0
-        ? await prisma.callerAttribute.findMany({
-            where: {
-              callerId: { in: memberIds },
-              key: { contains: ":current_session" },
-              scope: "CURRICULUM",
-            },
-            select: { callerId: true, numberValue: true },
-          })
-        : [];
-
-      const sessionByCallerId = new Map<string, number>();
-      for (const attr of sessionAttrs) {
-        if (attr.numberValue !== null) {
-          sessionByCallerId.set(attr.callerId, Math.round(attr.numberValue));
-        }
-      }
-
-      studentProgress = [...memberMap.entries()].map(([callerId, name]) => ({
-        callerId,
-        name,
-        currentSession: sessionByCallerId.get(callerId) ?? null,
-      }));
+      // Batch-fetch TP progress for each student
+      studentProgress = await Promise.all(
+        callerPlaybooks.map(async (cp) => {
+          const summary = await getTpProgressSummary(cp.caller.id, curriculumSlug);
+          return {
+            callerId: cp.caller.id,
+            name: cp.caller.name,
+            ...summary,
+          };
+        }),
+      );
     }
 
     return NextResponse.json({

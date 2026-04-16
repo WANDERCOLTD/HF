@@ -8,6 +8,9 @@
   "specType": "SYSTEM",
   "outputType": "MEASURE",
   "specRole": "EXTRACT",
+  "config": {
+    "scoringGate": "always"
+  },
   "metadata": {
     "observation": {
       "signalParameters": [

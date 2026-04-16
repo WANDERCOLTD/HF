@@ -1348,7 +1348,6 @@ export default function CourseDetailPage() {
         <CourseLearnersTab
           courseId={courseId!}
           initialJoinToken={joinToken}
-          sessionEntries={sessions?.plan?.entries}
           studentProgress={sessions?.studentProgress}
         />
       )}
