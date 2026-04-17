@@ -315,17 +315,30 @@ export function buildGraphPromptSection(
       );
     }
   } else {
-    const top = evaluation.suggested.slice(0, 3);
-    for (let i = 0; i < top.length; i++) {
-      const node = top[i];
-      const marker = i === 0 ? " → (HANDLE THIS NEXT — propose or confirm, do not ask bare questions)" : "";
-      lines.push(`  ${i + 1}. ${node.label} [${node.inputType}]${marker}`);
-      lines.push(`     ${node.promptHint}`);
-      if (node.required) lines.push("     [REQUIRED for launch]");
+    // Split required from optional — required ALWAYS shown first with hard gate
+    const requiredSuggested = evaluation.suggested.filter((n) => n.required);
+    const optionalSuggested = evaluation.suggested.filter((n) => !n.required);
+
+    if (requiredSuggested.length > 0) {
+      lines.push("### REQUIRED — handle these BEFORE any optional fields");
+      for (const node of requiredSuggested) {
+        lines.push(`  ★ ${node.label} [${node.inputType}] — MUST SET before offering to create course`);
+        lines.push(`     ${node.promptHint}`);
+      }
+      lines.push("");
     }
-    const rest = evaluation.suggested.slice(3);
-    if (rest.length > 0) {
-      lines.push(`  ... and ${rest.length} more optional fields available`);
+
+    if (optionalSuggested.length > 0) {
+      const top = optionalSuggested.slice(0, 3);
+      lines.push("### Optional (after all required fields are set)");
+      for (const node of top) {
+        lines.push(`  ${node.label} [${node.inputType}]`);
+        lines.push(`     ${node.promptHint}`);
+      }
+      const rest = optionalSuggested.slice(3);
+      if (rest.length > 0) {
+        lines.push(`  ... and ${rest.length} more optional fields available`);
+      }
     }
   }
   lines.push("");
