@@ -93,7 +93,7 @@ describe("buildV5SystemPrompt", () => {
       courseName: "GCSE Biology",
       subjectDiscipline: "Biology",
     };
-    const result = await buildV5SystemPrompt(setupData, emptyEvaluation());
+    const result = await buildV5SystemPrompt(setupData, emptyEvaluation(), [], undefined, 2);
     expect(result).toContain("PLAYBACK NEEDED NOW");
   });
 

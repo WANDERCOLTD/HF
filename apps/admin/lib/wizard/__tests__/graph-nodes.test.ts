@@ -87,7 +87,7 @@ describe("graph-nodes structural validation", () => {
   });
 
   it("every node has a valid group", () => {
-    const validGroups = new Set(["institution", "course", "pedagogy", "content", "welcome", "tune"]);
+    const validGroups = new Set(["institution", "course", "pedagogy", "content", "welcome", "tune", "experience"]);
     for (const node of ALL_NODES) {
       expect(
         validGroups.has(node.group),

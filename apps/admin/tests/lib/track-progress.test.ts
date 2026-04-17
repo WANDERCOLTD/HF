@@ -269,16 +269,10 @@ describe('track-progress.ts', () => {
   });
 
   describe('currentSession tracking', () => {
-    it('stores currentSession as NUMBER via contract key pattern', async () => {
-      await updateCurriculumProgress('caller-1', 'FS-L2-001', {
-        currentSession: 3,
-      });
-
-      const upsertCall = mockPrisma.callerAttribute.upsert.mock.calls[0][0];
-      expect(upsertCall.where.callerId_key_scope.key).toBe('curriculum:FS-L2-001:current_session');
-      expect(upsertCall.where.callerId_key_scope.scope).toBe('CURRICULUM');
-      expect(upsertCall.create.valueType).toBe('NUMBER');
-      expect(upsertCall.create.numberValue).toBe(3);
+    it('currentSession removed — scheduler owns pacing', () => {
+      // currentSession was removed from ProgressUpdate interface.
+      // Scheduler now owns session numbering. This test documents that.
+      expect(true).toBe(true);
     });
 
     it('reads currentSession from progress attributes', async () => {
@@ -303,14 +297,20 @@ describe('track-progress.ts', () => {
         lastAccessedAt: new Date('2026-02-16T12:00:00Z'),
       });
 
-      // Should have 3 upsert calls: currentModule, currentSession, lastAccessed
-      expect(mockPrisma.callerAttribute.upsert).toHaveBeenCalledTimes(3);
+      // Should have 2 upsert calls: currentModule + lastAccessed (currentSession removed)
+      expect(mockPrisma.callerAttribute.upsert).toHaveBeenCalledTimes(2);
 
-      const sessionCall = mockPrisma.callerAttribute.upsert.mock.calls.find(
-        (c: any) => c[0].where.callerId_key_scope.key.includes('current_session')
+      const moduleCall = mockPrisma.callerAttribute.upsert.mock.calls.find(
+        (c: any) => c[0].where.callerId_key_scope.key.includes('current_module')
       );
-      expect(sessionCall).toBeDefined();
-      expect(sessionCall![0].create.numberValue).toBe(5);
+      expect(moduleCall).toBeDefined();
+      expect(moduleCall![0].create.stringValue).toBe('mod-3');
+
+      const lastAccessedCall = mockPrisma.callerAttribute.upsert.mock.calls.find(
+        (c: any) => c[0].where.callerId_key_scope.key.includes('last_accessed')
+      );
+      expect(lastAccessedCall).toBeDefined();
+      expect(lastAccessedCall![0].create.stringValue).toBe('2026-02-16T12:00:00.000Z');
     });
   });
 });

@@ -261,10 +261,13 @@ describe("mergeAndGroupTargets transform", () => {
     const rawData = { behaviorTargets: [], callerTargets: [] };
     const result = getTransform("mergeAndGroupTargets")!(rawData, ctx, makeSectionDef());
 
-    expect(result.totalCount).toBe(2);
+    expect(result.totalCount).toBe(3); // 2 INIT-001 + 1 AUDIENCE_DEFAULT (BEH-CHALLENGE-LEVEL)
     const warmth = result.all.find((t: any) => t.parameterId === "BEH-WARMTH");
     expect(warmth).toBeDefined();
     expect(warmth.scope).toBe("INIT_DEFAULT");
+    const challenge = result.all.find((t: any) => t.parameterId === "BEH-CHALLENGE-LEVEL");
+    expect(challenge).toBeDefined();
+    expect(challenge.scope).toBe("AUDIENCE_DEFAULT");
   });
 
   it("applies preview target overrides from specConfig", () => {
