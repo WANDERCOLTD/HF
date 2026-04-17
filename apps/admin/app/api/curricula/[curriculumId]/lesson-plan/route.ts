@@ -600,21 +600,29 @@ async function resolveSourceIdsForGeneration(
   curriculumId: string,
   subjectId: string | null,
 ): Promise<string[]> {
-  // Tier 1: Find playbook via curriculum → subject → playbookSubject
-  const playbookSubject = await prisma.playbookSubject.findFirst({
-    where: { subject: { curricula: { some: { id: curriculumId } } } },
-    select: { playbookId: true, playbook: { select: { domainId: true } } },
+  // Tier 1: Direct curriculum.playbookId → PlaybookSource
+  const curriculum = await prisma.curriculum.findUnique({
+    where: { id: curriculumId },
+    select: { playbookId: true },
   });
-  if (playbookSubject?.playbook?.domainId) {
-    const { subjects } = await getSubjectsForPlaybook(
-      playbookSubject.playbookId,
-      playbookSubject.playbook.domainId,
-    );
-    const ids = [...new Set(subjects.flatMap((s) => s.sources.map((ss) => ss.sourceId)))];
+  if (curriculum?.playbookId) {
+    const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
+    const ids = await getSourceIdsForPlaybook(curriculum.playbookId);
     if (ids.length > 0) return ids;
   }
 
-  // Tier 2: Direct SubjectSource
+  // Tier 2: Legacy — find playbook via subject → playbookSubject
+  const playbookSubject = await prisma.playbookSubject.findFirst({
+    where: { subject: { curricula: { some: { id: curriculumId } } } },
+    select: { playbookId: true },
+  });
+  if (playbookSubject) {
+    const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
+    const ids = await getSourceIdsForPlaybook(playbookSubject.playbookId);
+    if (ids.length > 0) return ids;
+  }
+
+  // Tier 3: Direct SubjectSource (last resort)
   if (subjectId) {
     const subjectSources = await prisma.subjectSource.findMany({
       where: { subjectId },

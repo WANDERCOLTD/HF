@@ -78,14 +78,21 @@ async function getAssessmentConfig(): Promise<AssessmentConfig> {
 async function getSourceIdsForCurriculum(curriculumId: string): Promise<string[]> {
   const curriculum = await prisma.curriculum.findUnique({
     where: { id: curriculumId },
-    select: { primarySourceId: true, subjectId: true },
+    select: { primarySourceId: true, playbookId: true, subjectId: true },
   });
   if (!curriculum) return [];
 
   // Direct FK is the fast path
   if (curriculum.primarySourceId) return [curriculum.primarySourceId];
 
-  // Fallback: all sources linked to the curriculum's subject
+  // Tier 1: PlaybookSource via curriculum.playbookId
+  if (curriculum.playbookId) {
+    const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
+    const ids = await getSourceIdsForPlaybook(curriculum.playbookId);
+    if (ids.length > 0) return ids;
+  }
+
+  // Tier 2: Legacy SubjectSource fallback
   if (curriculum.subjectId) {
     const sources = await prisma.subjectSource.findMany({
       where: { subjectId: curriculum.subjectId },

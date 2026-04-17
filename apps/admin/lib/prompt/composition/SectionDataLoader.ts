@@ -18,6 +18,7 @@ import type { LoadedDataContext, SystemSpecData } from "./types";
 /** Pre-resolved content scope passed to content loaders via config. */
 type ContentScope = {
   domainId: string;
+  playbookId?: string; // Direct course ID for curriculum lookup
   subjectIds: string[];
   subjects: Array<{
     id: string;
@@ -169,6 +170,7 @@ async function resolveContentScope(callerId: string): Promise<ContentScope> {
     const result = await getSubjectsForPlaybook(playbookId, caller.domainId);
     return {
       domainId: caller.domainId,
+      playbookId,
       subjectIds: result.subjects.map((s) => s.id),
       subjects: result.subjects,
       scoped: result.scoped,
@@ -785,6 +787,26 @@ registerLoader("subjectSources", async (callerId, loaderConfig) => {
 
   if (subjects.length === 0) return null;
 
+  // Prefer curriculum from playbook (direct link) over subject.curricula
+  const playbookCurriculum = scope.playbookId
+    ? await prisma.curriculum.findFirst({
+        where: { playbookId: scope.playbookId },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          description: true,
+          notableInfo: true,
+          deliveryConfig: true,
+          trustLevel: true,
+          qualificationBody: true,
+          qualificationNumber: true,
+          qualificationLevel: true,
+        },
+      })
+    : null;
+
   return {
     subjects: subjects.map((subject) => ({
       id: subject.id,
@@ -805,7 +827,7 @@ registerLoader("subjectSources", async (callerId, loaderConfig) => {
         validUntil: ss.source.validUntil,
         isActive: ss.source.isActive,
       })),
-      curriculum: subject.curricula[0] || null,
+      curriculum: playbookCurriculum || subject.curricula[0] || null,
     })),
   };
 });

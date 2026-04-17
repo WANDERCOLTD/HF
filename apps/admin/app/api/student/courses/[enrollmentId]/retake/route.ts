@@ -45,19 +45,10 @@ export async function POST(
       playbook: {
         select: {
           id: true,
-          subjects: {
+          curricula: {
+            orderBy: { updatedAt: "desc" as const },
             take: 1,
-            select: {
-              subject: {
-                select: {
-                  curricula: {
-                    orderBy: { updatedAt: "desc" as const },
-                    take: 1,
-                    select: { slug: true },
-                  },
-                },
-              },
-            },
+            select: { slug: true },
           },
         },
       },
@@ -113,7 +104,7 @@ export async function POST(
   });
 
   // 3. Reset curriculum progress CallerAttributes for this playbook's spec slug
-  const specSlug = enrollment.playbook.subjects[0]?.subject?.curricula[0]?.slug;
+  const specSlug = enrollment.playbook.curricula[0]?.slug;
   if (specSlug) {
     await prisma.callerAttribute.deleteMany({
       where: {

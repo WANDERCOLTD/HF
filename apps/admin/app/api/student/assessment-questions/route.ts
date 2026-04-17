@@ -78,18 +78,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       playbookId: true,
       playbook: {
         select: {
-          subjects: {
-            select: {
-              subject: {
-                select: {
-                  curricula: {
-                    where: { deliveryConfig: { not: null } },
-                    select: { id: true },
-                    take: 1,
-                  },
-                },
-              },
-            },
+          curricula: {
+            where: { deliveryConfig: { not: null } },
+            select: { id: true },
             take: 1,
           },
         },
@@ -97,7 +88,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     },
   });
 
-  const curriculumId = enrollment?.playbook?.subjects?.[0]?.subject?.curricula?.[0]?.id;
+  const curriculumId = enrollment?.playbook?.curricula?.[0]?.id;
 
   // Try curriculum-scoped first, then fall back to playbook-wide search
   if (curriculumId) {

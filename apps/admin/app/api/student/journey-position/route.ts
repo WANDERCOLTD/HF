@@ -35,18 +35,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             select: {
               id: true,
               config: true,
-              subjects: {
-                select: {
-                  subject: {
-                    select: {
-                      curricula: {
-                        where: { deliveryConfig: { not: null } },
-                        select: { id: true, slug: true, deliveryConfig: true },
-                        take: 1,
-                      },
-                    },
-                  },
-                },
+              curricula: {
+                where: { deliveryConfig: { not: null } },
+                select: { id: true, slug: true, deliveryConfig: true },
                 take: 1,
               },
             },
@@ -66,7 +57,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const curriculum = enrollment.playbook.subjects?.[0]?.subject?.curricula?.[0];
+    const curriculum = enrollment.playbook.curricula?.[0];
     const pbConfig = (enrollment.playbook.config ?? {}) as PlaybookConfig;
     const onboardingComplete = onboardingSession?.isComplete || onboardingSession?.wasSkipped || false;
 

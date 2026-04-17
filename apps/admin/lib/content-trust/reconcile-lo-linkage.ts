@@ -146,6 +146,7 @@ export async function reconcileAssertionLOs(
     select: {
       id: true,
       subjectId: true,
+      playbookId: true,
       modules: {
         where: { isActive: true },
         select: {
@@ -197,12 +198,19 @@ export async function reconcileAssertionLOs(
 
   if (loArray.length === 0) return empty;
 
-  // Resolve source IDs via the subject link chain
-  const subjectSources = await prisma.subjectSource.findMany({
-    where: { subjectId: curriculum.subjectId ?? undefined },
-    select: { sourceId: true },
-  });
-  const sourceIds = [...new Set(subjectSources.map((s) => s.sourceId))];
+  // Resolve source IDs: prefer PlaybookSource (via curriculum.playbookId), fall back to SubjectSource
+  let sourceIds: string[] = [];
+  if (curriculum.playbookId) {
+    const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
+    sourceIds = await getSourceIdsForPlaybook(curriculum.playbookId);
+  }
+  if (sourceIds.length === 0 && curriculum.subjectId) {
+    const subjectSources = await prisma.subjectSource.findMany({
+      where: { subjectId: curriculum.subjectId },
+      select: { sourceId: true },
+    });
+    sourceIds = [...new Set(subjectSources.map((s) => s.sourceId))];
+  }
   if (sourceIds.length === 0) return empty;
 
   // ── Pre-pass: clear stale state ──────────────────────────
