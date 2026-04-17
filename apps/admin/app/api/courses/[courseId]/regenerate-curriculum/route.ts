@@ -124,15 +124,14 @@ export async function POST(
       );
     }
 
-    // 3. Find existing curriculum for this subject (we upsert onto it, not create)
-    const curriculumRecord = await prisma.curriculum.findFirst({
+    // 3. Find or create curriculum for this subject
+    const existingCurr = await prisma.curriculum.findFirst({
       where: { subjectId: primarySubject.id },
       orderBy: { createdAt: "desc" },
       select: { id: true, deliveryConfig: true },
     });
 
-    // Create curriculum if none exists (wizard path may not have created one)
-    const curriculumRecord = curriculumRecord ?? await prisma.curriculum.create({
+    const curriculumRecord = existingCurr ?? await prisma.curriculum.create({
       data: {
         subjectId: primarySubject.id,
         name: primarySubject.name,
