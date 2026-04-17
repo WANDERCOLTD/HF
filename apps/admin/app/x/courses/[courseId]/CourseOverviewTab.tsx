@@ -87,7 +87,11 @@ export function CourseOverviewTab({
     : null;
 
   const totalTPs = subjects.reduce((sum, s) => sum + s.assertionCount, 0);
-  const totalSources = subjects.reduce((sum, s) => sum + s.sourceCount, 0);
+  const totalSources = (() => {
+    const seen = new Set<string>();
+    for (const s of subjects) for (const src of (s.sources ?? [])) seen.add(src.id);
+    return seen.size || subjects.reduce((sum, s) => sum + s.sourceCount, 0);
+  })();
 
   return (
     <>

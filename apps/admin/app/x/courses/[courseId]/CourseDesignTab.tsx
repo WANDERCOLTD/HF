@@ -159,7 +159,11 @@ export function CourseDesignTab({
     ? (INTERACTION_PATTERN_LABELS[profile.interactionPattern as InteractionPattern]?.label ?? profile.interactionPattern)
     : null;
   const totalTPs = (subjects || []).reduce((sum, s) => sum + s.assertionCount, 0);
-  const totalSources = (subjects || []).reduce((sum, s) => sum + s.sourceCount, 0);
+  const totalSources = (() => {
+    const seen = new Set<string>();
+    for (const s of (subjects || [])) for (const src of (s.sources ?? [])) seen.add(src.id);
+    return seen.size || (subjects || []).reduce((sum, s) => sum + s.sourceCount, 0);
+  })();
 
   return (
     <div className="hf-mt-lg">

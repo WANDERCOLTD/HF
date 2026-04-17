@@ -297,7 +297,13 @@ export default function CourseDetailPage() {
   }, [specGroups]);
 
   const totalTPs = useMemo(() => subjects.reduce((sum, s) => sum + s.assertionCount, 0), [subjects]);
-  const totalSources = useMemo(() => subjects.reduce((sum, s) => sum + s.sourceCount, 0), [subjects]);
+  const totalSources = useMemo(() => {
+    const seen = new Set<string>();
+    for (const s of subjects) {
+      for (const src of (s.sources ?? [])) seen.add(src.id);
+    }
+    return seen.size || subjects.reduce((sum, s) => sum + s.sourceCount, 0);
+  }, [subjects]);
   const contentOnlyCount = contentTotal - instructionTotal;
 
   const totalSessionDuration = useMemo(() => {

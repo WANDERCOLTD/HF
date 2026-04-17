@@ -755,26 +755,31 @@ export async function executeWizardTool(
             const { instantiatePlaybookGoals: instantiateGoalsExisting } = await import("@/lib/enrollment/instantiate-goals");
             await instantiateGoalsExisting(caller.id, resolvedDomainId);
 
+            // Resolve primary subject for the existing playbook
+            const existingPbSubject = await prisma.playbookSubject.findFirst({
+              where: { playbookId: existingPlaybookId },
+              select: { subjectId: true },
+            });
+
             // Auto-generate curriculum if existing playbook has none (non-blocking)
+            // Include primary subject — after bridging, sources live there.
+            const existingCurrSubjectIds = [
+              ...(existingPbSubject ? [existingPbSubject.subjectId] : []),
+              ...(packSubjectIds ?? []),
+            ];
             const { generateInstantCurriculum: genCurriculum } = await import("@/lib/domain/instant-curriculum");
             genCurriculum({
               domainId: resolvedDomainId,
               playbookId: existingPlaybookId,
               subjectName: subjectDiscipline,
               persona: interactionPattern,
-              subjectIds: packSubjectIds,
+              subjectIds: existingCurrSubjectIds,
               intents: {
                 sessionCount: input.sessionCount ? Number(input.sessionCount) : undefined,
                 durationMins: input.durationMins ? Number(input.durationMins) : undefined,
                 emphasis: input.planEmphasis as string | undefined,
               },
             }).catch(err => console.error("[wizard] Instant curriculum (existing) failed (non-fatal):", err.message));
-
-            // Resolve primary subject for the existing playbook
-            const existingPbSubject = await prisma.playbookSubject.findFirst({
-              where: { playbookId: existingPlaybookId },
-              select: { subjectId: true },
-            });
 
             // Bridge COURSE_REFERENCE sources to the primary subject (existing course path)
             if (existingPbSubject && packSubjectIds?.length) {
@@ -1451,7 +1456,9 @@ export async function executeWizardTool(
         // Running in parallel used to produce placeholder modules ("M00-1", "4MD-2")
         // because curriculum gen fired before extractions completed, got zero assertions,
         // and fell through to goals-based generation.
-        const curriculumSubjectIds = subjectIdsToLink.length > 0 ? subjectIdsToLink : packSubjectIds;
+        // Always include the primary subject — after bridging (step 7b),
+        // content sources live on subject.id, not just packSubjectIds.
+        const curriculumSubjectIds = [subject.id, ...(subjectIdsToLink.length > 0 ? subjectIdsToLink : (packSubjectIds ?? []))];
         const { generateInstantCurriculum } = await import("@/lib/domain/instant-curriculum");
         (async () => {
           try {
