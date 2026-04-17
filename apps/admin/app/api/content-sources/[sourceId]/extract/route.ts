@@ -12,7 +12,7 @@ import { segmentDocument } from "@/lib/content-trust/segment-document";
 import { saveAssertions } from "@/lib/content-trust/save-assertions";
 import { saveQuestions } from "@/lib/content-trust/save-questions";
 import { saveVocabulary } from "@/lib/content-trust/save-vocabulary";
-import { getExtractor, EXTRACTOR_VERSION } from "@/lib/content-trust/extractors/registry";
+import { getExtractor, EXTRACTOR_VERSION, isExtractionOutdated } from "@/lib/content-trust/extractors/registry";
 import { resolveExtractionConfig } from "@/lib/content-trust/resolve-config";
 import {
   createExtractionTask,
@@ -87,6 +87,7 @@ export async function POST(
         slug: true,
         name: true,
         documentType: true,
+        extractorVersion: true,
         subjects: {
           select: {
             id: true,
@@ -114,6 +115,24 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}));
+
+    // Extraction cache gate: skip if assertions exist, extractor is current, and not a forced replace
+    const replace = body.replace === true;
+    if (
+      !replace &&
+      source._count.assertions > 0 &&
+      !isExtractionOutdated(source.extractorVersion)
+    ) {
+      return NextResponse.json({
+        ok: true,
+        skipped: true,
+        reason: "extraction-current",
+        message: `Source already has ${source._count.assertions} assertions at extractor v${source.extractorVersion}. Pass replace:true to force re-extraction.`,
+        sourceId,
+        existingAssertions: source._count.assertions,
+        extractorVersion: source.extractorVersion,
+      });
+    }
     const subjectId = body.subjectId || source.subjects[0]?.subjectId || undefined;
     const subjectSourceId = source.subjects[0]?.id || undefined;
     const subjectSlug = source.subjects[0]?.subject?.slug || source.slug;
@@ -260,7 +279,6 @@ export async function POST(
     const curriculumLoRefs = await fetchCurriculumLoRefs(subjectId).catch(() => []);
 
     // Fire-and-forget background extraction with document type
-    const replace = body.replace === true;
     const fileName = source.mediaAssets[0]?.fileName || source.name;
     const mediaStorageKey = source.mediaAssets[0]?.storageKey;
     runBackgroundExtraction(

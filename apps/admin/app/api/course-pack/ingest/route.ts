@@ -760,13 +760,33 @@ async function extractSource(
   subjectName?: string,
 ): Promise<{ assertions: number; questions: number; vocabulary: number; images: number }> {
   try {
-    const { getExtractor } = await import("@/lib/content-trust/extractors/registry");
+    const { getExtractor, EXTRACTOR_VERSION: EV, isExtractionOutdated } = await import("@/lib/content-trust/extractors/registry");
     const { resolveExtractionConfig } = await import("@/lib/content-trust/resolve-config");
     const { saveAssertions } = await import("@/lib/content-trust/save-assertions");
     const { saveQuestions } = await import("@/lib/content-trust/save-questions");
     const { saveVocabulary } = await import("@/lib/content-trust/save-vocabulary");
     const { linkContentForSource } = await import("@/lib/content-trust/link-content");
     const { embedAssertionsForSource } = await import("@/lib/embeddings");
+
+    // Extraction cache gate: skip if source already has current-version assertions
+    const existing = await prisma.contentSource.findUnique({
+      where: { id: source.id },
+      select: { extractorVersion: true, _count: { select: { assertions: true, questions: true, vocabulary: true, mediaAssets: true } } },
+    });
+    if (existing && existing._count.assertions > 0 && !isExtractionOutdated(existing.extractorVersion)) {
+      console.log(`[course-pack/ingest] Extraction cache hit for ${fileName} (v${existing.extractorVersion}, ${existing._count.assertions} assertions) — skipping`);
+      send({
+        phase: "file-complete",
+        message: `${fileName}: cached — ${existing._count.assertions} points`,
+        data: { fileName, sourceId: source.id, ...existing._count, cached: true },
+      });
+      return {
+        assertions: existing._count.assertions,
+        questions: existing._count.questions,
+        vocabulary: existing._count.vocabulary,
+        images: existing._count.mediaAssets,
+      };
+    }
 
     let totalCreated = 0;
     let chunkSaveFailures = 0;
@@ -950,10 +970,9 @@ async function extractSource(
 
     // Stamp extraction version + timestamp for staleness detection
     if (totalCreated > 0) {
-      const { EXTRACTOR_VERSION } = await import("@/lib/content-trust/extractors/registry");
       await prisma.contentSource.update({
         where: { id: source.id },
-        data: { extractorVersion: EXTRACTOR_VERSION, lastExtractedAt: new Date() },
+        data: { extractorVersion: EV, lastExtractedAt: new Date() },
       });
     }
 
