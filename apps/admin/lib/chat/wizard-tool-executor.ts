@@ -520,15 +520,12 @@ export async function executeWizardTool(
     }
 
     case "create_course": {
-      // ── Guard: required fields must be present before creation ──
-      const REQUIRED_FOR_LAUNCH = ["courseName", "interactionPattern", "learningOutcomes"] as const;
-      const missing = REQUIRED_FOR_LAUNCH.filter((k) => {
-        const v = setupData?.[k];
-        return v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0);
-      });
-      if (missing.length > 0) {
-        const labels = missing.map((k) => k === "learningOutcomes" ? "Learning outcomes" : k === "interactionPattern" ? "Teaching approach" : "Course name");
-        console.log(`[wizard-tools] create_course BLOCKED — missing required: ${missing.join(", ")}`);
+      // ── Guard: graph must say "Can launch: YES" before creation ──
+      const { evaluateGraph } = await import("@/lib/wizard/graph-evaluator");
+      const graphCheck = evaluateGraph(setupData ?? {});
+      if (!graphCheck.canLaunch) {
+        const labels = graphCheck.missingRequired.map((n) => n.label);
+        console.log(`[wizard-tools] create_course BLOCKED — missing required: ${labels.join(", ")}`);
         return { ack: `Cannot create course yet — still missing: ${labels.join(", ")}. Collect these first, then try again.` };
       }
       // Server-side: full course creation with scaffolding (identity spec, playbook, system specs, publish, onboarding)

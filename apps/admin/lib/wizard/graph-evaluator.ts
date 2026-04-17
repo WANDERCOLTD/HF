@@ -71,6 +71,7 @@ export function checkDependencies(
 
 // ── Priority heuristic ────────────────────────────────────
 
+const WEIGHT_REQUIRED = 200; // Required nodes always rank above optional at same priority
 const WEIGHT_PRIORITY_TIER = 100;
 const WEIGHT_UNLOCK = 30;
 const WEIGHT_AFFINITY = 20;
@@ -122,6 +123,7 @@ function prioritize(
 
   const scored = available.map((node) => {
     let score = 0;
+    if (node.required) score += WEIGHT_REQUIRED;
     score += (5 - node.priority) * WEIGHT_PRIORITY_TIER;
     score += (unlockScores.get(node.key) || 0) * WEIGHT_UNLOCK;
     // Affinity: use tags (not group) — nodes sharing more tags bond tighter
