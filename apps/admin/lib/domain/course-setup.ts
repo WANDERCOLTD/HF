@@ -57,6 +57,8 @@ export interface CourseSetupInput {
   onboardingFlowPhases?: Array<{ phase: string; duration: string; goals: string[]; avoid?: string[] }>;
   // Content step — subjects created by PackUploadStep (with actual ContentSources)
   packSubjectIds?: string[];
+  // Phase 5: Direct source IDs from ingest (bypasses Subject chain)
+  sourceIds?: string[];
   // Two-axis identity (stored in Playbook.config)
   interactionPattern?: string; // HOW to interact: "socratic" | "directive" | "advisory" | "coaching" | ...
   teachingMode?: string; // WHAT to emphasise: "recall" | "comprehension" | "practice" | "syllabus"
@@ -518,6 +520,14 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
             },
           });
         }
+      }
+    }
+
+    // Phase 5: Direct PlaybookSource creation from sourceIds (bypasses Subject chain)
+    if (ctx.input.sourceIds?.length && scaffoldResult.playbook) {
+      const { upsertPlaybookSource } = await import("@/lib/knowledge/domain-sources");
+      for (const srcId of ctx.input.sourceIds) {
+        await upsertPlaybookSource(scaffoldResult.playbook.id, srcId);
       }
     }
 

@@ -220,7 +220,12 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
         packSubjectIds: {
           type: "array",
           items: { type: "string" },
-          description: "Subject IDs from content upload (if any).",
+          description: "Subject IDs from content upload (legacy, prefer uploadSourceIds).",
+        },
+        uploadSourceIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Content source IDs from content upload (preferred over packSubjectIds).",
         },
       },
       required: ["courseName", "interactionPattern"],

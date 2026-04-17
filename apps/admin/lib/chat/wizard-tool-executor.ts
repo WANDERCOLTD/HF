@@ -569,6 +569,9 @@ export async function executeWizardTool(
         const subjectDiscipline = (input.subjectDiscipline as string) || courseName;
         const packSubjectIds = (input.packSubjectIds as string[] | undefined)
           || (setupData?.packSubjectIds as string[] | undefined);
+        // Phase 5: prefer sourceIds for direct PlaybookSource creation
+        const uploadSourceIds = (input.uploadSourceIds as string[] | undefined)
+          || (setupData?.uploadSourceIds as string[] | undefined);
 
         // ── Safety net: auto-create institution + domain if missing ──
         // The AI sometimes skips create_institution and jumps straight to create_course.
@@ -1196,6 +1199,16 @@ export async function executeWizardTool(
               const { upsertPlaybookSource: upsertBridgeNew } = await import("@/lib/knowledge/domain-sources");
               await upsertBridgeNew(playbookId, ps.sourceId);
             }
+          }
+        }
+
+        // 7c. Direct PlaybookSource creation from uploadSourceIds (Phase 5)
+        //     When ingest provides sourceIds directly, create PlaybookSource without
+        //     needing the Subject → SubjectSource chain.
+        if (uploadSourceIds?.length) {
+          const { upsertPlaybookSource } = await import("@/lib/knowledge/domain-sources");
+          for (const srcId of uploadSourceIds) {
+            await upsertPlaybookSource(playbookId, srcId);
           }
         }
 

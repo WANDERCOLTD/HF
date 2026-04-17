@@ -382,6 +382,7 @@ export async function POST(req: NextRequest) {
           message: "Extraction complete",
           data: {
             subjects: createdSubjects,
+            sourceIds: allSourceIds, // Phase 5: wizard uses sourceIds instead of packSubjectIds
             sourceCount,
             totalAssertions: grandTotalAssertions,
             totalQuestions: grandTotalQuestions,
