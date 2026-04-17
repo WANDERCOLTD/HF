@@ -474,7 +474,7 @@ async function composeContentFromSubject(
   domainId: string
 ): Promise<ContentSection> {
   // Try playbook curriculum first (direct link)
-  const { resolvePlaybookId } = await import("@/lib/enrollment");
+  const { resolvePlaybookId } = await import("@/lib/enrollment/resolve-playbook");
   const enrolledPbId = await resolvePlaybookId(callerId);
   if (enrolledPbId) {
     const pbCurr = await prisma.curriculum.findFirst({
