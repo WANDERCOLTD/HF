@@ -995,6 +995,34 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           } catch (configErr) {
             console.warn("[wizard] course config detection failed:", configErr);
           }
+
+          // Auto-extract learning outcomes from assertions if not already set.
+          // The AI consistently fails to do this via prompt, so we do it in code.
+          if (!getData("learningOutcomes") && allAssertions.length > 0) {
+            const OUTCOME_CATS = ["LEARNING_OUTCOME", "SKILL", "COMPETENCY", "OBJECTIVE"];
+            const outcomeLike = allAssertions.filter((a) =>
+              OUTCOME_CATS.includes(a.category) ||
+              a.category === "KEY_CONCEPT" ||
+              a.category === "COMPREHENSION_SKILL"
+            );
+            // Fall back to top assertions from any category if no outcome-specific ones
+            const pool = outcomeLike.length >= 3 ? outcomeLike : allAssertions;
+            // Deduplicate by text similarity (take first 6 unique-ish)
+            const seen = new Set<string>();
+            const outcomes: string[] = [];
+            for (const a of pool) {
+              const key = a.assertion.toLowerCase().slice(0, 40);
+              if (!seen.has(key) && a.assertion.length > 10) {
+                seen.add(key);
+                outcomes.push(a.assertion);
+                if (outcomes.length >= 6) break;
+              }
+            }
+            if (outcomes.length >= 2) {
+              setData("learningOutcomes", outcomes);
+              console.log(`[wizard] auto-extracted ${outcomes.length} learning outcomes from assertions`);
+            }
+          }
         } catch (err) {
           console.warn("[wizard] pedagogy detection failed:", err);
         }
