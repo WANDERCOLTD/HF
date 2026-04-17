@@ -272,6 +272,7 @@ export function buildGraphPromptSection(
   lines.push("");
 
   // Collected
+  const docKeys = new Set((blackboard._docConfigKeys as string[] | undefined) || []);
   if (evaluation.satisfied.length > 0) {
     lines.push("### Already collected");
     for (const node of evaluation.satisfied) {
@@ -279,7 +280,8 @@ export function buildGraphPromptSection(
       const val = blackboard[node.key];
       const display =
         typeof val === "object" ? JSON.stringify(val) : String(val);
-      lines.push(`  ✓ ${node.label}: ${display}`);
+      const source = docKeys.has(node.key) ? " (from document)" : "";
+      lines.push(`  ✓ ${node.label}: ${display}${source}`);
     }
     lines.push("");
   }

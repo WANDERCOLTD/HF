@@ -147,9 +147,10 @@ export const WIZARD_GRAPH_NODES: WizardGraphNode[] = [
     group: "course",
     inputType: "free-text",
     required: true,
-    priority: 1,
+    priority: 2, // Lowered from 1 — let upload happen first so outcomes can be extracted from content
     dependsOn: [],
-    promptHint: "REQUIRED. Ask the educator what students should be able to DO by the end of the course. Save as array of strings. Extract from casual mentions if possible. E.g. 'So the main goals are: understand photosynthesis, identify plant structures, and describe nutrient cycles.' If the educator skips this question, do NOT proceed to finalize — without learning outcomes the course has no goals and no reward signal for the adapt loop.",
+    resolvedBy: ["file-upload"],
+    promptHint: "REQUIRED — but if the user has documents to upload, prompt upload FIRST. Outcomes can be extracted from uploaded content automatically. Only ask the user to type outcomes if no content has been uploaded and none is expected. Save as array of strings.",
     mutablePostScaffold: true,
     affinityTags: ["course", "goals"],
   },

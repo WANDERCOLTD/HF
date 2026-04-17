@@ -1447,15 +1447,16 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             if (msg.role === "assistant") {
               const isLast = !isForeground && suggestions.items.length === 0 && !welcomeSuggestion && msg.id === lastAssistantId;
               const parsed = isLast ? parseOptionsFromText(msg.content) : [];
-              // Fallback: if no chips from show_suggestions or text parsing, and
-              // the message ends with a question, show default confirmation chips
-              const needsFallback = isLast && parsed.length === 0 && /\?\s*$/.test(msg.content.trim());
+              // Fallback: if no chips from show_suggestions or text parsing,
+              // ALWAYS show default chips on the last assistant message.
+              // The AI must never leave the user with no visible next action.
+              const needsFallback = isLast && parsed.length === 0;
               const inlineOptions = parsed.length > 0
                 ? parsed
                 : needsFallback
                   ? [
-                      { marker: "1", label: "Yes, that's right", fullText: "Yes, that's right" },
-                      { marker: "2", label: "I'd change something", fullText: "I'd change something" },
+                      { marker: "1", label: "Continue", fullText: "Continue" },
+                      { marker: "2", label: "I have a question", fullText: "I have a question" },
                     ]
                   : [];
               const displayContent = separateEmojiLines(stripParameterTags(msg.content));
