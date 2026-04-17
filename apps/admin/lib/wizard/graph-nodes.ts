@@ -150,7 +150,7 @@ export const WIZARD_GRAPH_NODES: WizardGraphNode[] = [
     priority: 2, // Lowered from 1 — let upload happen first so outcomes can be extracted from content
     dependsOn: [],
     resolvedBy: ["file-upload"],
-    promptHint: "REQUIRED — but if the user has documents to upload, prompt upload FIRST. Outcomes can be extracted from uploaded content automatically. Only ask the user to type outcomes if no content has been uploaded and none is expected. Save as array of strings.",
+    promptHint: "REQUIRED. If content has been uploaded (courseRefDigest exists), extract 3-6 learning outcomes from it and call update_setup immediately — do NOT ask the user. If no content uploaded, ask: 'What should students be able to do by the end?' Save as array of strings.",
     mutablePostScaffold: true,
     affinityTags: ["course", "goals"],
   },
