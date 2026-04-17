@@ -57,20 +57,25 @@ export async function syncGoalsFromReference(
 
   if (assertions.length === 0) return result;
 
-  // 3. Find all playbooks linked to this source (via subject)
-  const subjectSources = await prisma.subjectSource.findMany({
+  // 3. Find all playbooks linked to this source via PlaybookSource (direct)
+  const playbookSourceLinks = await prisma.playbookSource.findMany({
     where: { sourceId },
-    select: { subjectId: true },
-  });
-  const subjectIds = subjectSources.map((ss) => ss.subjectId);
-
-  if (subjectIds.length === 0) return result;
-
-  const playbookSubjects = await prisma.playbookSubject.findMany({
-    where: { subjectId: { in: subjectIds } },
     select: { playbookId: true },
   });
-  const playbookIds = [...new Set(playbookSubjects.map((ps) => ps.playbookId))];
+  let playbookIds = [...new Set(playbookSourceLinks.map((ps) => ps.playbookId))];
+
+  // Fallback: legacy SubjectSource → PlaybookSubject chain
+  if (playbookIds.length === 0) {
+    const subjectSources = await prisma.subjectSource.findMany({
+      where: { sourceId },
+      select: { subjectId: true },
+    });
+    const playbookSubjects = await prisma.playbookSubject.findMany({
+      where: { subjectId: { in: subjectSources.map((ss) => ss.subjectId) } },
+      select: { playbookId: true },
+    });
+    playbookIds = [...new Set(playbookSubjects.map((ps) => ps.playbookId))];
+  }
 
   if (playbookIds.length === 0) return result;
 

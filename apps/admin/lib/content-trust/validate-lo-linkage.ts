@@ -223,14 +223,13 @@ export async function computeCourseLinkageScorecard(courseId: string): Promise<C
   });
   if (!playbook) return null;
 
+  // Source IDs via PlaybookSource; subject IDs from PlaybookSubject (for curriculum lookup)
+  const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
+  const sourceIds = await getSourceIdsForPlaybook(courseId);
   const ps = await prisma.playbookSubject.findMany({
     where: { playbookId: courseId },
-    select: {
-      subjectId: true,
-      subject: { select: { sources: { select: { sourceId: true } } } },
-    },
+    select: { subjectId: true },
   });
-  const sourceIds = [...new Set(ps.flatMap((p) => p.subject.sources.map((s) => s.sourceId)))];
   const subjectIds = [...new Set(ps.map((p) => p.subjectId))];
 
   const warnings: string[] = [];

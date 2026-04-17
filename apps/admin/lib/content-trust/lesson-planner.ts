@@ -339,42 +339,9 @@ export async function generateLessonPlanForPlaybook(
   const maxTPs = modelDef.defaults.maxTpsPerSession;
   const effectiveMaxTPs = Math.round(maxTPs * (sessionLength / 15));
 
-  // 1. Resolve all source IDs for this playbook
-  const playbookSubjects = await prisma.playbookSubject.findMany({
-    where: { playbookId },
-    select: {
-      subject: {
-        select: {
-          sources: {
-            select: { sourceId: true, sortOrder: true },
-            orderBy: { sortOrder: "asc" },
-          },
-        },
-      },
-    },
-  });
-
-  let sourceIds: string[];
-  if (playbookSubjects.length > 0) {
-    sourceIds = [...new Set(
-      playbookSubjects.flatMap((ps) => ps.subject.sources.map((s) => s.sourceId)),
-    )];
-  } else {
-    // Fallback: domain-wide
-    const playbook = await prisma.playbook.findUnique({
-      where: { id: playbookId },
-      select: { domainId: true },
-    });
-    if (!playbook?.domainId) {
-      return emptyPlan(sessionLength);
-    }
-    const domainSources = await prisma.subjectDomain.findMany({
-      where: { domainId: playbook.domainId },
-      select: { subject: { select: { sources: { select: { sourceId: true } } } } },
-    });
-    sourceIds = [...new Set(domainSources.flatMap((sd) => sd.subject.sources.map((s) => s.sourceId)))];
-  }
-
+  // 1. Resolve all source IDs for this playbook via PlaybookSource
+  const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
+  const sourceIds = await getSourceIdsForPlaybook(playbookId);
   if (sourceIds.length === 0) return emptyPlan(sessionLength);
 
   // 2. Load all content across sources

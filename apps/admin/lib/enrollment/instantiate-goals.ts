@@ -57,20 +57,33 @@ type GoalConfigEntry = {
  * curriculum / no modules are linked.
  */
 async function deriveGoalsFromCurriculum(playbookId: string): Promise<GoalConfigEntry[]> {
-  const subjects = await prisma.playbookSubject.findMany({
-    where: { playbookId },
-    select: { subjectId: true },
-  });
-  if (subjects.length === 0) return [];
-
-  const modules = await prisma.curriculumModule.findMany({
+  // Prefer curriculum via direct playbookId link
+  let modules = await prisma.curriculumModule.findMany({
     where: {
       isActive: true,
-      curriculum: { subjectId: { in: subjects.map((s) => s.subjectId) } },
+      curriculum: { playbookId },
     },
     select: { id: true, slug: true, title: true, description: true, sortOrder: true },
     orderBy: [{ curriculumId: "asc" }, { sortOrder: "asc" }],
   });
+
+  // Fallback: legacy Subject chain
+  if (modules.length === 0) {
+    const subjects = await prisma.playbookSubject.findMany({
+      where: { playbookId },
+      select: { subjectId: true },
+    });
+    if (subjects.length > 0) {
+      modules = await prisma.curriculumModule.findMany({
+        where: {
+          isActive: true,
+          curriculum: { subjectId: { in: subjects.map((s) => s.subjectId) } },
+        },
+        select: { id: true, slug: true, title: true, description: true, sortOrder: true },
+        orderBy: [{ curriculumId: "asc" }, { sortOrder: "asc" }],
+      });
+    }
+  }
 
   return modules.map((m) => ({
     type: "LEARN" as const,

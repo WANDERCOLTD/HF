@@ -47,18 +47,9 @@ export async function reconcileQuestionAssertions(courseId: string): Promise<Que
     byTp: {},
   };
 
-  // 1. Resolve the course's source set via subject links
-  const playbookSubjects = await prisma.playbookSubject.findMany({
-    where: { playbookId: courseId },
-    select: {
-      subject: {
-        select: { sources: { select: { sourceId: true } } },
-      },
-    },
-  });
-  const sourceIds = [
-    ...new Set(playbookSubjects.flatMap((ps) => ps.subject.sources.map((s) => s.sourceId))),
-  ];
+  // 1. Resolve the course's source set via PlaybookSource
+  const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
+  const sourceIds = await getSourceIdsForPlaybook(courseId);
   if (sourceIds.length === 0) return empty;
 
   // 2. Load orphan questions (no assertionId yet)
