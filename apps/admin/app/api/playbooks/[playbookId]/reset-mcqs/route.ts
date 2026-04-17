@@ -28,27 +28,9 @@ export async function POST(
   const body = await req.json().catch(() => ({}));
   const force = body.force === true;
 
-  // Resolve content sources via Playbook → PlaybookSubject → SubjectSource
-  const subjects = await prisma.playbookSubject.findMany({
-    where: { playbookId },
-    select: { subjectId: true },
-  });
-
-  if (subjects.length === 0) {
-    return NextResponse.json(
-      { ok: false, error: "No subjects linked to this course" },
-      { status: 404 },
-    );
-  }
-
-  const subjectSources = await prisma.subjectSource.findMany({
-    where: { subjectId: { in: subjects.map((s) => s.subjectId) } },
-    select: { id: true, sourceId: true },
-    orderBy: { createdAt: "asc" },
-  });
-
-  const sourceIds = [...new Set(subjectSources.map((s) => s.sourceId))];
-  const subjectSourceId = subjectSources[0]?.id;
+  // Resolve content sources via PlaybookSource (direct link)
+  const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
+  const sourceIds = await getSourceIdsForPlaybook(playbookId);
 
   if (sourceIds.length === 0) {
     return NextResponse.json(
@@ -56,6 +38,20 @@ export async function POST(
       { status: 404 },
     );
   }
+
+  // Get a subjectSourceId for backward compat (MCQ generation still uses it)
+  const subjects = await prisma.playbookSubject.findMany({
+    where: { playbookId },
+    select: { subjectId: true },
+  });
+  const subjectSources = subjects.length > 0
+    ? await prisma.subjectSource.findMany({
+        where: { subjectId: { in: subjects.map((s) => s.subjectId) } },
+        select: { id: true },
+        take: 1,
+      })
+    : [];
+  const subjectSourceId = subjectSources[0]?.id;
 
   // Check if any enrolled callers have pre-test results
   if (!force) {

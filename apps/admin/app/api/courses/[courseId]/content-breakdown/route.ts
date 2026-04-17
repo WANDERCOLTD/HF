@@ -261,7 +261,7 @@ export async function GET(
     }> | undefined;
 
     if (bySubject) {
-      // Get subjects linked to this course (playbook-scoped, domain fallback)
+      // Get subjects linked to this course for labeling
       const playbookSubjects = await prisma.playbookSubject.findMany({
         where: { playbookId: courseId },
         select: {
@@ -269,20 +269,19 @@ export async function GET(
             select: {
               id: true,
               name: true,
-              sources: { select: { sourceId: true } },
             },
           },
         },
       });
 
-      // If we reached here, scoped=true, so playbookSubjects is always populated
+      // Use all course sourceIds for a single "course" group
+      // (PlaybookSource scopes content to course, not subject)
       const subjectRecords = playbookSubjects.map((ps) => ps.subject);
 
       bySubjectData = [];
       for (const subject of subjectRecords) {
-        const subSourceIds = subject.sources
-          .map((ss) => ss.sourceId)
-          .filter((id) => sourceIds.includes(id));
+        // All course sources belong to the course, not a specific subject
+        const subSourceIds = sourceIds;
         if (subSourceIds.length === 0) continue;
 
         const subGroups = await prisma.contentAssertion.groupBy({

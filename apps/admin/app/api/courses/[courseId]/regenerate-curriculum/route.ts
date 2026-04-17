@@ -61,6 +61,11 @@ export async function POST(
       );
     }
 
+    // Source IDs from PlaybookSource (direct link)
+    const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
+    const sourceIds = await getSourceIdsForPlaybook(courseId);
+
+    // Subject metadata from PlaybookSubject (name, qualificationRef for curriculum gen)
     const playbookSubjects = await prisma.playbookSubject.findMany({
       where: { playbookId: courseId },
       select: {
@@ -70,29 +75,23 @@ export async function POST(
             id: true,
             name: true,
             qualificationRef: true,
-            sources: { select: { sourceId: true } },
           },
         },
       },
     });
 
-    if (playbookSubjects.length === 0) {
+    if (sourceIds.length === 0 && playbookSubjects.length === 0) {
       return NextResponse.json(
-        { ok: false, error: "Course has no linked subject — upload content first" },
+        { ok: false, error: "Course has no content — upload content first" },
         { status: 404 },
       );
     }
 
-    // Use ALL subjects for this playbook — content may be split across
-    // primary subject (Course Guide) and pack subjects (Question Bank, Reading Passage).
-    const primarySubject = playbookSubjects[0].subject;
-    const sourceIds = [...new Set(
-      playbookSubjects.flatMap((ps) => ps.subject.sources.map((s) => s.sourceId))
-    )];
+    const primarySubject = playbookSubjects[0]?.subject ?? { id: "", name: "Unknown", qualificationRef: null };
 
     if (sourceIds.length === 0) {
       return NextResponse.json(
-        { ok: false, error: "Subject has no content sources — upload content first" },
+        { ok: false, error: "Course has no content sources — upload content first" },
         { status: 404 },
       );
     }
