@@ -245,10 +245,17 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
       });
       const slugify = (await import("slugify")).default;
       const currSlug = `${slugify(subjectName, { lower: true, strict: true })}-content-${Date.now()}`;
+      // Resolve playbookId from subject → PlaybookSubject
+      const pbLink = await p.playbookSubject.findFirst({
+        where: { subjectId },
+        select: { playbookId: true },
+      });
+
       const curriculumRecord = existingCurr ?? await p.curriculum.create({
         data: {
           slug: currSlug,
           subjectId,
+          playbookId: pbLink?.playbookId ?? null,
           name: curriculum.name || subjectName,
           description: curriculum.description || "",
           deliveryConfig: curriculum.deliveryConfig || {},
