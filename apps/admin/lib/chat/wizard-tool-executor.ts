@@ -107,7 +107,18 @@ export async function executeWizardTool(
 
   switch (toolName) {
     case "update_setup": {
-      const fields = input.fields as Record<string, unknown>;
+      const rawFields = input.fields as Record<string, unknown>;
+      // Filter out keys locked by document config — the educator's checkboxes
+      // are the source of truth, the AI must not overwrite them.
+      const docLocked = new Set((setupData?._docConfigKeys as string[]) || []);
+      const fields: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(rawFields)) {
+        if (docLocked.has(k)) {
+          console.log(`[wizard-tools] update_setup: skipping "${k}" — locked by document config`);
+          continue;
+        }
+        fields[k] = v;
+      }
       const keys = Object.keys(fields);
 
       // ── Institution resolution ──────────────────────────

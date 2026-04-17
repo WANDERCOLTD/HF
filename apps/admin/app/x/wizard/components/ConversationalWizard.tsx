@@ -349,7 +349,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       "draftCallerName", "draftDemoCallerId", "draftDemoCallerName",
       "launched", "sourceId", "packSubjectIds", "extractionTotals", "categoryCounts", "contentSkipped",
       "lastUploadClassifications", "courseContext",
-      "coursePedagogy", "courseRefDigest", "courseRefEnabled",
+      "coursePedagogy", "courseRefDigest", "courseRefEnabled", "_docConfigKeys",
       "welcomeSkipped", "tuneSkipped",
       "communityMode", "draftCohortGroupId", "communityJoinToken", "communityHubUrl",
     ];
@@ -969,14 +969,19 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             if (hasCourseConfig(courseConfig)) {
               // Structured config from the document WINS over AI guesses.
               // The educator wrote these checkboxes — they are the truth.
-              if (courseConfig.courseName) setData("courseName", courseConfig.courseName);
-              if (courseConfig.subjectDiscipline) setData("subjectDiscipline", courseConfig.subjectDiscipline);
-              if (courseConfig.interactionPattern) setData("interactionPattern", courseConfig.interactionPattern);
-              if (courseConfig.teachingMode) setData("teachingMode", courseConfig.teachingMode);
-              if (courseConfig.audience) setData("audience", courseConfig.audience);
-              if (courseConfig.planEmphasis) setData("planEmphasis", courseConfig.planEmphasis);
-              if (courseConfig.learningOutcomes?.length) setData("learningOutcomes", courseConfig.learningOutcomes);
-              console.log("[wizard] course config from document (overrides AI):", courseConfig);
+              // Track which keys came from the document so update_setup won't clobber them.
+              const docKeys: string[] = [];
+              if (courseConfig.courseName) { setData("courseName", courseConfig.courseName); docKeys.push("courseName"); }
+              if (courseConfig.subjectDiscipline) { setData("subjectDiscipline", courseConfig.subjectDiscipline); docKeys.push("subjectDiscipline"); }
+              if (courseConfig.interactionPattern) { setData("interactionPattern", courseConfig.interactionPattern); docKeys.push("interactionPattern"); }
+              if (courseConfig.teachingMode) { setData("teachingMode", courseConfig.teachingMode); docKeys.push("teachingMode"); }
+              if (courseConfig.audience) { setData("audience", courseConfig.audience); docKeys.push("audience"); }
+              if (courseConfig.planEmphasis) { setData("planEmphasis", courseConfig.planEmphasis); docKeys.push("planEmphasis"); }
+              if (courseConfig.learningOutcomes?.length) { setData("learningOutcomes", courseConfig.learningOutcomes); docKeys.push("learningOutcomes"); }
+              if (docKeys.length > 0) {
+                setData("_docConfigKeys", docKeys);
+              }
+              console.log("[wizard] course config from document (locked keys):", docKeys, courseConfig);
             }
           } catch (configErr) {
             console.warn("[wizard] course config detection failed:", configErr);
