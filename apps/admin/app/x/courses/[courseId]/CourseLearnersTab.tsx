@@ -9,7 +9,6 @@ import {
 import { CohortLearningAggregate } from './CohortLearningAggregate';
 import { ClassProgressSection } from '@/components/shared/ClassProgressSection';
 import type { StudentMasteryProgress } from '@/components/shared/ClassProgressSection';
-import { CourseGenomeTab } from './CourseGenomeTab';
 import { CohortAggregateCards } from './CohortAggregateCards';
 import { CohortProgressTable } from './CohortProgressTable';
 
@@ -476,8 +475,6 @@ export function CourseLearnersTab({ courseId, initialJoinToken, studentProgress 
         )}
       </div>
 
-      {/* ── Genome (TP coverage heatmap) — absorbed from Genome tab ── */}
-      <CourseGenomeTab courseId={courseId} />
     </div>
   );
 }

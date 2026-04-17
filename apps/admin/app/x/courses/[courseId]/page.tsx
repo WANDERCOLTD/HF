@@ -8,7 +8,7 @@ import {
   Sparkles, AlertTriangle, RefreshCw,
   Settings as SettingsIcon, Users2,
   Zap, Target, BarChart3,
-  PlayCircle, Copy, Link2, Dna, GraduationCap, Wand2,
+  PlayCircle, Copy, Link2, GraduationCap, Wand2,
 } from 'lucide-react';
 import { useTerminology } from '@/contexts/TerminologyContext';
 import { INTERACTION_PATTERN_LABELS, TEACHING_MODE_LABELS } from '@/lib/content-trust/resolve-config';
@@ -38,7 +38,6 @@ import {
   type SpecGroup,
 } from '@/lib/course/group-specs';
 import { SimLaunchModal } from '@/components/shared/SimLaunchModal';
-import { CourseGenomeTab } from './CourseGenomeTab';
 import { CourseCurriculumTab } from './CourseCurriculumTab';
 import { JourneyRail } from '@/components/shared/JourneyRail';
 import { ContinuousProgrammeView } from '@/components/shared/ContinuousProgrammeView';
@@ -335,7 +334,7 @@ export default function CourseDetailPage() {
     // URL compat: redirect retired tab IDs to their new homes
     const TAB_REDIRECTS: Record<string, string> = {
       sessions: 'design', onboarding: 'design', overview: 'design',
-      journey: 'design', genome: 'learners', audience: 'design',
+      journey: 'design', genome: 'content', audience: 'design',
     };
     const resolvedTab = TAB_REDIRECTS[tab] ?? tab;
     setActiveTab(resolvedTab);
