@@ -176,7 +176,9 @@ function TeachingPointsInventory({ courseId, subjects }: { courseId: string; sub
       .finally(() => setLoading(false));
   }, [fetched, courseId, allItems.length]);
 
-  const totalCount = subjects.reduce((sum, s) => sum + s.assertionCount, 0);
+  // Use contentTotal (from breakdown API via PlaybookSource) — not subjects.reduce
+  // which double-counts when sources are linked to multiple subjects.
+  const totalCount = contentTotal || subjects.reduce((sum, s) => sum + s.assertionCount, 0);
   if (totalCount === 0) return null;
 
   // Split into TPs (content) and TIs (instructions)
