@@ -1290,10 +1290,13 @@ const SUBJECT_PREAMBLES: Record<string, string> = {
  */
 export function inferSubjectDiscipline(subjectDiscipline?: string, subjectName?: string): string | null {
   const candidates = [subjectDiscipline, subjectName].filter(Boolean) as string[];
+  // Sort keys longest-first so "computing" matches before "com", etc.
+  const keys = Object.keys(SUBJECT_PREAMBLES).sort((a, b) => b.length - a.length);
   for (const s of candidates) {
-    const lower = s.toLowerCase();
-    for (const key of Object.keys(SUBJECT_PREAMBLES)) {
-      if (lower.includes(key)) return key;
+    for (const key of keys) {
+      // Word-boundary match: "biochemistry" should NOT match "chemistry"
+      const re = new RegExp(`\\b${key}\\b`, "i");
+      if (re.test(s)) return key;
     }
   }
   return null;

@@ -52,7 +52,7 @@ export async function POST(
     // 1. Resolve course → subject → sources → existing curriculum
     const playbook = await prisma.playbook.findUnique({
       where: { id: courseId },
-      select: { id: true, name: true, domainId: true },
+      select: { id: true, name: true, domainId: true, config: true },
     });
     if (!playbook) {
       return NextResponse.json(
@@ -159,9 +159,12 @@ export async function POST(
     assertions.forEach((a, i) => assertionIdByIndex.set(i + 1, a.id));
 
     // 5. Call the curriculum extractor (A3-hardened prompt)
+    // Prefer playbook.config.subjectDiscipline over subject.name for AI prompt
+    const pbConfig = (playbook.config as Record<string, unknown>) || {};
+    const disciplineName = (pbConfig.subjectDiscipline as string) || primarySubject.name;
     const extracted = await extractCurriculumFromAssertions(
       assertions,
-      primarySubject.name,
+      disciplineName,
       primarySubject.qualificationRef ?? undefined,
     );
 

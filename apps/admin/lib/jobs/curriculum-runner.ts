@@ -100,9 +100,20 @@ async function runCurriculumGeneration(
   const assertionIdByIndexObj: Record<string, string> = {};
   assertions.forEach((a, i) => { assertionIdByIndexObj[String(i + 1)] = a.id; });
 
+  // Prefer playbook.config.subjectDiscipline over subject.name for AI prompt
+  let disciplineName = subjectName;
+  const pbSubject = await prisma.playbookSubject.findFirst({
+    where: { subjectId },
+    select: { playbook: { select: { config: true } } },
+  });
+  if (pbSubject?.playbook?.config) {
+    const pbConfig = pbSubject.playbook.config as Record<string, unknown>;
+    if (pbConfig.subjectDiscipline) disciplineName = pbConfig.subjectDiscipline as string;
+  }
+
   const result = await extractCurriculumFromAssertions(
     assertions,
-    subjectName,
+    disciplineName,
     subject.qualificationRef || undefined,
   );
 

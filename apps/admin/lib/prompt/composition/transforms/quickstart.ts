@@ -72,13 +72,9 @@ registerTransform("computeQuickStart", (
   const pbConfig = (playbook?.config || {}) as PlaybookConfig;
   const subjectDiscipline = pbConfig.subjectDiscipline;
   const courseContext = pbConfig.courseContext;
-  // Derive subject name from PlaybookSubject data when subjectDiscipline isn't explicitly set
-  const subjectNames = (loadedData.subjectSources as any)?.subjects
-    ?.map((s: any) => s.name)
-    ?.filter(Boolean) as string[] | undefined;
-  const subjectRef = subjectDiscipline
-    || (subjectNames?.length ? subjectNames.join(" & ") : null)
-    || null;
+  // subjectDiscipline is the single source of truth for AI-facing subject identity.
+  // Do NOT fall back to subject.name — it may be a course-slug, not a discipline.
+  const subjectRef = subjectDiscipline || null;
   const audienceId = pbConfig.audience;
   const constraints = pbConfig.constraints;
   const durationMins = pbConfig.durationMins;
