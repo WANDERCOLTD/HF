@@ -184,6 +184,75 @@ async function resolveContentScope(callerId: string): Promise<ContentScope> {
   });
 
   if (enrollments.length > 0) {
+    const playbookIds = enrollments.map((e) => e.playbookId);
+
+    // PRIMARY: PlaybookSource for content scoping (union of all enrolled courses)
+    const allPlaybookSources = await prisma.playbookSource.findMany({
+      where: { playbookId: { in: playbookIds } },
+      select: {
+        sourceId: true,
+        sortOrder: true,
+        tags: true,
+        source: { select: { documentType: true } },
+      },
+      orderBy: { sortOrder: "asc" },
+    });
+
+    // Subject metadata from PlaybookSubject (taxonomy, teachingDepth)
+    const allPlaybookSubjects = await prisma.playbookSubject.findMany({
+      where: { playbookId: { in: playbookIds } },
+      select: { subject: { select: { id: true, teachingDepth: true } } },
+    });
+
+    // Dedupe subjects by ID
+    const seen = new Set<string>();
+    const uniqueSubjects = allPlaybookSubjects
+      .filter((ps) => {
+        if (seen.has(ps.subject.id)) return false;
+        seen.add(ps.subject.id);
+        return true;
+      })
+      .map((ps) => ps.subject);
+
+    if (allPlaybookSources.length > 0 || uniqueSubjects.length > 0) {
+      // Attach all sources to first subject for backward compat
+      const subjects = uniqueSubjects.map((subj, idx) => ({
+        ...subj,
+        sources: idx === 0
+          ? allPlaybookSources.map((s) => ({
+              subjectSourceId: "",
+              sourceId: s.sourceId,
+              documentType: s.source?.documentType ?? null,
+              sortOrder: s.sortOrder,
+              tags: s.tags,
+            }))
+          : [],
+      }));
+
+      // If no subjects exist but sources do, synthesize minimal entry
+      if (subjects.length === 0 && allPlaybookSources.length > 0) {
+        subjects.push({
+          id: "",
+          teachingDepth: null,
+          sources: allPlaybookSources.map((s) => ({
+            subjectSourceId: "",
+            sourceId: s.sourceId,
+            documentType: s.source?.documentType ?? null,
+            sortOrder: s.sortOrder,
+            tags: s.tags,
+          })),
+        });
+      }
+
+      return {
+        domainId: caller.domainId,
+        subjectIds: uniqueSubjects.map((s) => s.id),
+        subjects,
+        scoped: true,
+      };
+    }
+
+    // FALLBACK: Legacy Subject chain (pre-migration courses without PlaybookSource)
     const sourceSelect = {
       select: {
         id: true,
@@ -195,8 +264,8 @@ async function resolveContentScope(callerId: string): Promise<ContentScope> {
       orderBy: { sortOrder: "asc" as const },
     } as const;
 
-    const allPlaybookSubjects = await prisma.playbookSubject.findMany({
-      where: { playbookId: { in: enrollments.map((e) => e.playbookId) } },
+    const legacySubjects = await prisma.playbookSubject.findMany({
+      where: { playbookId: { in: playbookIds } },
       select: {
         subject: {
           select: {
@@ -208,12 +277,11 @@ async function resolveContentScope(callerId: string): Promise<ContentScope> {
       },
     });
 
-    // Dedupe subjects by ID (same subject may appear in multiple enrollments)
-    const seen = new Set<string>();
-    const subjects = allPlaybookSubjects
+    const seenLegacy = new Set<string>();
+    const subjects = legacySubjects
       .filter((ps) => {
-        if (seen.has(ps.subject.id)) return false;
-        seen.add(ps.subject.id);
+        if (seenLegacy.has(ps.subject.id)) return false;
+        seenLegacy.add(ps.subject.id);
         return true;
       })
       .map((ps) => ({
