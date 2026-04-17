@@ -11,6 +11,8 @@
 
 import { db, type TxClient } from "@/lib/prisma";
 import { extractCurriculumFromAssertions, type CurriculumIntents } from "@/lib/content-trust/extract-curriculum";
+import { syncModulesToDB } from "@/lib/curriculum/sync-modules";
+import type { LegacyCurriculumModuleJSON } from "@/lib/types/json-fields";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -231,10 +233,52 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
     }
   }
 
-  // 5. Content Spec as AnalysisSpec removed (ADR-002).
-  //    Curriculum data now lives in Curriculum + CurriculumModule + LearningObjective tables,
-  //    populated by extractCurriculumFromAssertions → Curriculum model pipeline.
-  //    The AnalysisSpec is no longer created or linked to playbooks.
+  // 5. Persist curriculum to DB (ADR-002: Curriculum/Module/LO tables, not AnalysisSpec).
+  //    Find the subject that owns these assertions, upsert a Curriculum record,
+  //    then sync modules + LOs via the standard sync pipeline.
+  const subjectId = options?.subjectIds?.[0];
+  if (subjectId) {
+    try {
+      const existingCurr = await p.curriculum.findFirst({
+        where: { subjectId },
+        select: { id: true },
+      });
+      const curriculumRecord = existingCurr ?? await p.curriculum.create({
+        data: {
+          subjectId,
+          name: curriculum.name || subjectName,
+          description: curriculum.description || "",
+          deliveryConfig: curriculum.deliveryConfig || {},
+        },
+      });
+
+      const modulesToSync: LegacyCurriculumModuleJSON[] = curriculum.modules.map((m) => ({
+        id: m.id,
+        title: m.title,
+        description: m.description,
+        sortOrder: m.sortOrder,
+        estimatedDurationMinutes: m.estimatedDurationMinutes ?? undefined,
+        learningOutcomes: m.learningOutcomes,
+        assessmentCriteria: m.assessmentCriteria,
+        keyTerms: m.keyTerms,
+      }));
+
+      const assertionIdByIndex = new Map<number, string>();
+      assertions.forEach((a, i) => assertionIdByIndex.set(i + 1, a.id));
+
+      const syncResult = await syncModulesToDB(curriculumRecord.id, modulesToSync, {
+        mode: "merge",
+        assertionTags: curriculum.assertionTags,
+        assertionIdByIndex,
+      });
+
+      console.log(
+        `[generate-content-spec] persisted curriculum: ${syncResult.count} modules → ${curriculumRecord.id}`,
+      );
+    } catch (err) {
+      console.error("[generate-content-spec] curriculum persist failed (non-fatal):", (err as Error).message);
+    }
+  }
 
   return {
     contentSpec: null,
