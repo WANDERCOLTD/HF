@@ -680,9 +680,15 @@ export async function getConfiguredAICompletion(
   // Load config from database
   const aiConfig = await getAIConfig(callPoint);
 
-  // Use override if provided, otherwise use config
+  // Use override if provided, otherwise use config.
+  // When the engine is overridden to a different provider, the configured model
+  // (e.g. "claude-sonnet-4-20250514") won't work on the other provider (e.g. OpenAI).
+  // Fall back to the default model for the overridden engine.
   const engine = engineOverride ?? aiConfig.provider;
-  const model = aiConfig.model;
+  const modelProviderMismatch = engineOverride && engineOverride !== aiConfig.provider;
+  const model = modelProviderMismatch
+    ? (engine === "claude" ? config.ai.claude.model : engine === "openai" ? config.ai.openai.model : aiConfig.model)
+    : aiConfig.model;
 
   // Merge: explicit options > DB config > app config defaults
   const finalMaxTokens = maxTokens ?? aiConfig.maxTokens ?? config.ai.defaults.maxTokens;
@@ -717,9 +723,15 @@ export async function getConfiguredAICompletionStream(
   // Load config from database
   const aiConfig = await getAIConfig(callPoint);
 
-  // Use override if provided, otherwise use config
+  // Use override if provided, otherwise use config.
+  // When the engine is overridden to a different provider, the configured model
+  // (e.g. "claude-sonnet-4-20250514") won't work on the other provider (e.g. OpenAI).
+  // Fall back to the default model for the overridden engine.
   const engine = engineOverride ?? aiConfig.provider;
-  const model = aiConfig.model;
+  const modelProviderMismatch = engineOverride && engineOverride !== aiConfig.provider;
+  const model = modelProviderMismatch
+    ? (engine === "claude" ? config.ai.claude.model : engine === "openai" ? config.ai.openai.model : aiConfig.model)
+    : aiConfig.model;
 
   // Merge: explicit options > DB config > app config defaults
   const finalMaxTokens = maxTokens ?? aiConfig.maxTokens ?? config.ai.defaults.maxTokens;
