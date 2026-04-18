@@ -744,6 +744,65 @@
       }
     }
   ],
+  "triggers": [
+    {
+      "name": "Universal Memory Extraction",
+      "given": "A conversation with any caller",
+      "when": "The caller shares personal information during conversation",
+      "then": "Extract and store structured memories for future personalisation",
+      "actions": [
+        {
+          "description": "Extract biographical facts: name, age, location, occupation, employer, education",
+          "learnCategory": "FACT",
+          "learnKeyPrefix": "bio_",
+          "learnKeyHint": "bio_name, bio_age, bio_location, bio_occupation",
+          "weight": 1.0
+        },
+        {
+          "description": "Extract family members, pets, and significant relationships: names, roles, details",
+          "learnCategory": "RELATIONSHIP",
+          "learnKeyPrefix": "family_",
+          "learnKeyHint": "family_spouse, family_child, family_pet, family_friend",
+          "weight": 1.0
+        },
+        {
+          "description": "Extract expressed preferences and opinions: likes, dislikes, communication style, learning style",
+          "learnCategory": "PREFERENCE",
+          "learnKeyPrefix": "prefers_",
+          "learnKeyHint": "prefers_pace, prefers_style, prefers_topic",
+          "weight": 0.9
+        },
+        {
+          "description": "Extract interests, hobbies, passions, and topics of curiosity",
+          "learnCategory": "TOPIC",
+          "learnKeyPrefix": "topic_",
+          "learnKeyHint": "topic_hobby, topic_interest, topic_passion",
+          "weight": 0.9
+        },
+        {
+          "description": "Extract upcoming events, plans, deadlines, and life milestones",
+          "learnCategory": "EVENT",
+          "learnKeyPrefix": "event_",
+          "learnKeyHint": "event_upcoming, event_milestone, event_deadline",
+          "weight": 0.8
+        },
+        {
+          "description": "Extract current situational context: stress, transitions, temporary circumstances",
+          "learnCategory": "CONTEXT",
+          "learnKeyPrefix": "context_",
+          "learnKeyHint": "context_situation, context_mood, context_challenge",
+          "weight": 0.7
+        },
+        {
+          "description": "Extract references to past experiences, stories, and interaction history",
+          "learnCategory": "FACT",
+          "learnKeyPrefix": "history_",
+          "learnKeyHint": "history_experience, history_past_event, history_background",
+          "weight": 0.7
+        }
+      ]
+    }
+  ],
   "related": [
     {
       "id": "PERS-001",

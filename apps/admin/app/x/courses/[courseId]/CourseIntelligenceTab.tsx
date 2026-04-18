@@ -269,8 +269,77 @@ function GroupedAssertionList({ items, groupBy, drawerAssertionId, onSelect }: {
   );
 }
 
-/** Category proportional bar */
-function CategoryBar({ categoryCounts }: { categoryCounts: Record<string, number> }) {
+// ── Squarify treemap layout ───────────────────────────
+
+type TreemapRect = { cat: string; count: number; x: number; y: number; w: number; h: number };
+
+/** Squarified treemap: lays out items into a rectangle, optimising for square-ish cells. */
+function squarify(
+  items: Array<{ cat: string; count: number }>,
+  width: number,
+  height: number,
+): TreemapRect[] {
+  const total = items.reduce((s, i) => s + i.count, 0);
+  if (total === 0 || items.length === 0) return [];
+
+  // Normalise areas to fill width * height
+  const areas = items.map((i) => ({ ...i, area: (i.count / total) * width * height }));
+
+  const rects: TreemapRect[] = [];
+  let x = 0, y = 0, w = width, h = height;
+
+  function layoutRow(row: typeof areas, rowArea: number, short: number, isHoriz: boolean) {
+    const long = rowArea / short;
+    let offset = 0;
+    for (const item of row) {
+      const size = item.area / long;
+      if (isHoriz) {
+        rects.push({ cat: item.cat, count: item.count, x, y: y + offset, w: long, h: size });
+      } else {
+        rects.push({ cat: item.cat, count: item.count, x: x + offset, y, w: size, h: long });
+      }
+      offset += size;
+    }
+    if (isHoriz) { x += long; w -= long; }
+    else { y += long; h -= long; }
+  }
+
+  function worst(row: typeof areas, short: number): number {
+    const rowArea = row.reduce((s, i) => s + i.area, 0);
+    let max = 0;
+    for (const item of row) {
+      const long = rowArea / short;
+      const size = item.area / long;
+      const ratio = Math.max(long / size, size / long);
+      if (ratio > max) max = ratio;
+    }
+    return max;
+  }
+
+  let remaining = [...areas];
+  while (remaining.length > 0) {
+    const short = Math.min(w, h);
+    const isHoriz = h <= w;
+    const row: typeof areas = [remaining[0]];
+    remaining = remaining.slice(1);
+
+    while (remaining.length > 0) {
+      const candidate = [...row, remaining[0]];
+      if (worst(candidate, short) <= worst(row, short)) {
+        row.push(remaining[0]);
+        remaining = remaining.slice(1);
+      } else {
+        break;
+      }
+    }
+    const rowArea = row.reduce((s, i) => s + i.area, 0);
+    layoutRow(row, rowArea, short, isHoriz);
+  }
+  return rects;
+}
+
+/** Category treemap — HDD-style proportional display */
+function CategoryTreemap({ categoryCounts }: { categoryCounts: Record<string, number> }) {
   const total = Object.values(categoryCounts).reduce((s, c) => s + c, 0);
   if (total === 0) return null;
 
@@ -278,30 +347,38 @@ function CategoryBar({ categoryCounts }: { categoryCounts: Record<string, number
     .filter(([, c]) => c > 0)
     .sort((a, b) => b[1] - a[1]);
 
+  const TREEMAP_W = 100; // percentage-based
+  const TREEMAP_H = 100;
+  const rects = squarify(
+    entries.map(([cat, count]) => ({ cat, count })),
+    TREEMAP_W,
+    TREEMAP_H,
+  );
+
   return (
-    <div className="ci-cat-bar-container">
-      <div className="ci-cat-bar">
-        {entries.map(([cat, count]) => {
-          const meta = CONTENT_CATEGORIES[cat] ?? getCategoryStyle(cat);
-          const pct = (count / total) * 100;
+    <div className="ci-treemap-container">
+      <div className="ci-treemap">
+        {rects.map((r) => {
+          const meta = CONTENT_CATEGORIES[r.cat] ?? getCategoryStyle(r.cat);
+          const pct = Math.round((r.count / total) * 100);
+          // Show label inside if cell is big enough
+          const showLabel = r.w > 15 && r.h > 18;
+          const showCount = r.w > 10 && r.h > 12;
           return (
             <div
-              key={cat}
-              className="ci-cat-bar-segment"
-              style={{ width: `${pct}%`, background: meta.color }}
-              title={`${meta.label}: ${count} (${Math.round(pct)}%)`}
-            />
-          );
-        })}
-      </div>
-      <div className="ci-cat-legend">
-        {entries.map(([cat, count]) => {
-          const meta = CONTENT_CATEGORIES[cat] ?? getCategoryStyle(cat);
-          return (
-            <div key={cat} className="ci-cat-legend-item">
-              <span className="ci-cat-swatch" style={{ background: meta.color }} />
-              <span className="ci-cat-legend-label">{meta.label}</span>
-              <span className="ci-cat-legend-count">{count}</span>
+              key={r.cat}
+              className="ci-treemap-cell"
+              style={{
+                left: `${r.x}%`,
+                top: `${r.y}%`,
+                width: `${r.w}%`,
+                height: `${r.h}%`,
+                background: meta.color,
+              }}
+              data-label={`${meta.label}: ${r.count} (${pct}%)`}
+            >
+              {showLabel && <span className="ci-treemap-label">{meta.label}</span>}
+              {showCount && <span className="ci-treemap-count">{r.count}</span>}
             </div>
           );
         })}
@@ -578,7 +655,7 @@ export function CourseIntelligenceTab({
             <span className="ci-panel-title">Content Mix</span>
           </div>
           {categoryCounts && Object.keys(categoryCounts).length > 0 ? (
-            <CategoryBar categoryCounts={categoryCounts} />
+            <CategoryTreemap categoryCounts={categoryCounts} />
           ) : (
             <div className="hf-empty hf-text-sm">No categories yet</div>
           )}

@@ -243,7 +243,6 @@ export function GenomeBrowser({ data, onSessionClick, onCategoryClick, onAsserti
     <div className="genome" ref={containerRef} data-density={density}>
       {/* Header */}
       <div className="genome-header">
-        <span className="genome-header-title">Course Genome</span>
         <span className="genome-header-stats">
           {sessionCount} sessions · {data.modules.length} modules · {data.totalAssertions} teaching points
         </span>
