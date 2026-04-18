@@ -569,23 +569,31 @@ async function runBatchedCallerAnalysis(
             const mappedCategory = mapToMemoryCategory(category);
             const memValue = String(value);
 
-            // Dedup: check for existing active memory with same key
-            const existing = await prisma.callerMemory.findFirst({
-              where: { callerId, key, supersededById: null },
+            // Dedup: check for existing active memory with same key+value (exact match)
+            const exactMatch = await prisma.callerMemory.findFirst({
+              where: { callerId, key, value: memValue, supersededById: null },
             });
 
-            if (existing && existing.value === memValue) {
-              // Same value — skip (update confidence if higher)
-              if (confidence > existing.confidence) {
+            if (exactMatch) {
+              // Identical — skip (update confidence if higher)
+              if (confidence > exactMatch.confidence) {
                 await prisma.callerMemory.update({
-                  where: { id: existing.id },
+                  where: { id: exactMatch.id },
                   data: { confidence },
                 });
               }
               continue;
             }
 
-            // Create new memory (supersede old if exists)
+            // For single-value keys (bio_name, etc.), supersede the old entry.
+            // For multi-value keys (family_pet, topic_interest), allow multiple.
+            const MULTI_VALUE_PREFIXES = ["family_", "topic_", "event_", "history_"];
+            const isMultiValue = MULTI_VALUE_PREFIXES.some(p => key.startsWith(p));
+
+            const toSupersede = isMultiValue ? null : await prisma.callerMemory.findFirst({
+              where: { callerId, key, supersededById: null },
+            });
+
             const newMemory = await prisma.callerMemory.create({
               data: {
                 callerId,
@@ -599,9 +607,9 @@ async function runBatchedCallerAnalysis(
               },
             });
 
-            if (existing) {
+            if (toSupersede) {
               await prisma.callerMemory.update({
-                where: { id: existing.id },
+                where: { id: toSupersede.id },
                 data: { supersededById: newMemory.id },
               });
             }
