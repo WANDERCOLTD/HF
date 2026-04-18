@@ -16,7 +16,7 @@ import './wizard-summary.css'; // reuse wiz-hero-check + wiz-fade-up keyframes
 import { FileText, AlertTriangle, Check } from 'lucide-react';
 import type { PackUploadResult } from '@/components/wizards/PackUploadStep';
 import { DocTypeBadge } from '@/app/x/content-sources/_components/shared/badges';
-import { CONTENT_CATEGORIES } from '@/lib/content-categories';
+import { getCategoryStyle } from '@/lib/content-categories';
 import { INSTRUCTION_CATEGORIES } from '@/lib/content-trust/resolve-config';
 
 // ── Props ────────────────────────────────────────
@@ -158,18 +158,18 @@ export function ExtractionSummary({
         const renderPills = (cats: [string, number][]) => (
           <div className="es-categories">
             {cats.map(([cat, count]) => {
-              const colors = CONTENT_CATEGORIES[cat];
+              const colors = getCategoryStyle(cat);
               return (
                 <span
                   key={cat}
                   className="es-category-pill"
-                  style={colors ? {
+                  style={{
                     color: colors.color,
                     background: colors.bg,
                     borderColor: colors.color,
-                  } : undefined}
+                  }}
                 >
-                  {cat} <span className="es-category-count">{count}</span>
+                  {colors.label} <span className="es-category-count">{count}</span>
                 </span>
               );
             })}

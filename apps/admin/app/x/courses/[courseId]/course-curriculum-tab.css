@@ -249,6 +249,11 @@
   color: var(--accent-primary);
 }
 
+.curriculum-tab--healthy .curriculum-tab-badge {
+  background: color-mix(in srgb, var(--status-success-text) 14%, transparent);
+  color: var(--status-success-text);
+}
+
 .curriculum-tab--weak .curriculum-tab-badge {
   background: color-mix(in srgb, var(--status-warning-text) 14%, transparent);
   color: var(--status-warning-text);

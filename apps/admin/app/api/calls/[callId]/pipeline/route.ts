@@ -208,7 +208,10 @@ function buildBatchedCallerPrompt(
   assessmentPromptInstructions?: string | null,
 ): string {
   const paramList = measureParams.map(p => `${p.parameterId}:${p.name}`).join("|");
-  const learnList = learnActions.map(a => `${a.category}:${a.description}`).join("|");
+  const learnList = learnActions.map(a => {
+    const hints = a.keyHint ? ` (keys: ${a.keyHint})` : "";
+    return `${a.category}:${a.description}${hints}`;
+  }).join("|");
 
   let learningSection = "";
   let learningJsonHint = "";
@@ -562,19 +565,45 @@ async function runBatchedCallerAnalysis(
 
           if (category && key && value) {
             const mappedCategory = mapToMemoryCategory(category);
+            const memValue = String(value);
 
-            await prisma.callerMemory.create({
+            // Dedup: check for existing active memory with same key
+            const existing = await prisma.callerMemory.findFirst({
+              where: { callerId, key, supersededById: null },
+            });
+
+            if (existing && existing.value === memValue) {
+              // Same value — skip (update confidence if higher)
+              if (confidence > existing.confidence) {
+                await prisma.callerMemory.update({
+                  where: { id: existing.id },
+                  data: { confidence },
+                });
+              }
+              continue;
+            }
+
+            // Create new memory (supersede old if exists)
+            const newMemory = await prisma.callerMemory.create({
               data: {
                 callerId,
                 callId: call.id,
                 category: mappedCategory,
                 key,
-                value: String(value),
+                value: memValue,
                 evidence: "AI extraction",
                 confidence,
                 extractedBy: `${engine}_batched_v2`,
               },
             });
+
+            if (existing) {
+              await prisma.callerMemory.update({
+                where: { id: existing.id },
+                data: { supersededById: newMemory.id },
+              });
+            }
+
             memoriesCreated++;
           }
         }

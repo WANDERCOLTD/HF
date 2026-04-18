@@ -23,31 +23,9 @@ import { HFDrawer } from "./HFDrawer";
 import "./genome-browser.css";
 
 // ---------------------------------------------------------------------------
-// Category color map (assertion categories → pastel tones via CSS vars)
+// Category color — pastel tint derived from canonical CONTENT_CATEGORIES.
+// Uses 22% mix with surface-primary for subtle genome-grid backgrounds.
 // ---------------------------------------------------------------------------
-
-const CATEGORY_COLORS: Record<string, string> = {
-  // Standard content categories
-  fact: "color-mix(in srgb, var(--accent-primary) 25%, var(--surface-primary))",
-  process: "color-mix(in srgb, var(--status-success-text) 25%, var(--surface-primary))",
-  example: "color-mix(in srgb, var(--login-gold) 30%, var(--surface-primary))",
-  rule: "color-mix(in srgb, var(--status-error-text) 20%, var(--surface-primary))",
-  concept: "color-mix(in srgb, var(--login-blue) 30%, var(--surface-primary))",
-  principle: "color-mix(in srgb, var(--accent-primary) 18%, var(--surface-primary))",
-  definition: "color-mix(in srgb, var(--login-navy) 15%, var(--surface-primary))",
-  // Literary / domain-specific content categories
-  character: "color-mix(in srgb, var(--accent-primary) 22%, var(--surface-primary))",
-  theme: "color-mix(in srgb, var(--login-navy) 20%, var(--surface-primary))",
-  setting: "color-mix(in srgb, var(--status-success-text) 20%, var(--surface-primary))",
-  key_event: "color-mix(in srgb, var(--login-gold) 25%, var(--surface-primary))",
-  key_point: "color-mix(in srgb, var(--login-gold) 22%, var(--surface-primary))",
-  key_quote: "color-mix(in srgb, var(--login-blue) 20%, var(--surface-primary))",
-  language_feature: "color-mix(in srgb, var(--login-blue) 25%, var(--surface-primary))",
-  vocabulary_highlight: "color-mix(in srgb, var(--login-navy) 18%, var(--surface-primary))",
-  overview: "color-mix(in srgb, var(--accent-primary) 15%, var(--surface-primary))",
-  summary: "color-mix(in srgb, var(--accent-primary) 20%, var(--surface-primary))",
-  threshold: "color-mix(in srgb, var(--status-error-text) 18%, var(--surface-primary))",
-};
 
 const MODULE_COLORS = [
   "color-mix(in srgb, var(--accent-primary) 12%, var(--surface-primary))",
@@ -69,7 +47,8 @@ const LO_COLORS = [
 const PAGE_SIZE = 6;
 
 function getCategoryColor(category: string): string {
-  return CATEGORY_COLORS[category] || "color-mix(in srgb, var(--text-muted) 15%, var(--surface-primary))";
+  const base = getCategoryStyle(category).color;
+  return `color-mix(in srgb, ${base} 22%, var(--surface-primary))`;
 }
 
 // ---------------------------------------------------------------------------

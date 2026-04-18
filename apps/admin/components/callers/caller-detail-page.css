@@ -635,9 +635,46 @@
   50% { opacity: 0.4; transform: scale(0.75); }
 }
 
-/* ── Tune button in tab bar — push to far right ── */
-.cdp-tab-bar .cdp-tune-btn {
+/* ── Right-aligned action group in tab bar ── */
+.cdp-tab-actions {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cdp-tab-action {
+  padding: 5px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-primary);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.cdp-tab-action:hover:not(:disabled) {
+  background: var(--surface-secondary);
+}
+
+.cdp-tab-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cdp-tab-action--primary {
+  background: var(--button-primary-bg);
+  color: var(--text-on-dark);
+  border-color: var(--button-primary-bg);
+}
+
+.cdp-tab-action--primary:hover:not(:disabled) {
+  background: var(--button-primary-hover);
 }
 
 /* ── Profile section divider ── */

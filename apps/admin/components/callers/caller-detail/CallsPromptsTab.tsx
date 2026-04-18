@@ -530,6 +530,13 @@ function LogsCard({ result }: { result: OpResult }) {
 // Main component
 // ---------------------------------------------------------------------------
 
+export type BulkActions = {
+  runBulkPipeline: (mode: PipelineMode) => void;
+  bulkRunning: PipelineMode | null;
+  bulkProgress: { current: number; total: number } | null;
+  hasCalls: boolean;
+};
+
 type CallsPromptsTabProps = {
   calls: Call[];
   composedPrompts: ComposedPrompt[];
@@ -538,6 +545,7 @@ type CallsPromptsTabProps = {
   onCallUpdated?: () => void;
   expandedCall?: string | null;
   setExpandedCall?: (id: string | null) => void;
+  onBulkActionsReady?: (actions: BulkActions) => void;
 };
 
 export function CallsPromptsTab({
@@ -548,6 +556,7 @@ export function CallsPromptsTab({
   onCallUpdated,
   expandedCall: externalExpanded,
   setExpandedCall: externalSetExpanded,
+  onBulkActionsReady,
 }: CallsPromptsTabProps) {
   // Expanded state — use external if provided (for GuideLens navigation)
   const [internalExpanded, setInternalExpanded] = useState<string | null>(null);
@@ -733,6 +742,16 @@ export function CallsPromptsTab({
     if (onCallUpdated) onCallUpdated();
   }, [calls, pipelineStatus, runPipeline, onCallUpdated]);
 
+  // Expose bulk actions to parent (for tab-bar buttons)
+  useEffect(() => {
+    onBulkActionsReady?.({
+      runBulkPipeline,
+      bulkRunning,
+      bulkProgress,
+      hasCalls: entries.length > 0,
+    });
+  }, [onBulkActionsReady, runBulkPipeline, bulkRunning, bulkProgress, entries.length]);
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -749,26 +768,9 @@ export function CallsPromptsTab({
 
   return (
     <div className="cpt-root">
-      {/* Toolbar — bulk ops */}
+      {/* Toolbar — AI Config + progress (bulk buttons moved to tab bar) */}
       {entries.length > 0 && (
         <div className="cpt-toolbar">
-          <button
-            className="cpt-toolbar-btn"
-            onClick={() => runBulkPipeline("prep")}
-            disabled={bulkRunning !== null}
-          >
-            <Zap size={13} />
-            {bulkRunning === "prep" ? `Analyzing ${bulkProgress?.current}/${bulkProgress?.total}` : "Analyze All"}
-          </button>
-          <button
-            className="cpt-toolbar-btn cpt-toolbar-btn--primary"
-            onClick={() => runBulkPipeline("prompt")}
-            disabled={bulkRunning !== null}
-          >
-            <Play size={13} />
-            {bulkRunning === "prompt" ? `Prompting ${bulkProgress?.current}/${bulkProgress?.total}` : "Prompt All"}
-          </button>
-          <div className="cpt-toolbar-spacer" />
           <div onClick={(e) => e.stopPropagation()}>
             <AIConfigButton callPoint="pipeline.measure" label="AI Config" />
           </div>

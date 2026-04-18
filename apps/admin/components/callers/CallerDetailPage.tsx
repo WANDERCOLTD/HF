@@ -5,7 +5,7 @@ import { useParams, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEntityContext } from "@/contexts/EntityContext";
 import { DomainPill } from "@/src/components/shared/EntityPill";
-import { User, BookMarked, PlayCircle, Brain, BarChart3, Target, BookOpen, ClipboardCheck, CheckSquare, GitBranch, MessageCircle, Gauge, Archive, SlidersHorizontal, Phone, TrendingUp } from "lucide-react";
+import { User, BookMarked, PlayCircle, Brain, BarChart3, Target, BookOpen, ClipboardCheck, CheckSquare, GitBranch, MessageCircle, Gauge, Archive, SlidersHorizontal, Phone, TrendingUp, Zap, Play } from "lucide-react";
 import { EditableTitle } from "@/components/shared/EditableTitle";
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
 import { CallerDomainSection } from "@/components/callers/CallerDomainSection";
@@ -24,7 +24,7 @@ import { ScoresSection, LearningSection, AssessmentTargetsCard, TopicsCoveredSec
 import { LearningTrajectoryCard } from "./caller-detail/cards/LearningTrajectoryCard";
 import { ArtifactsSection } from "./caller-detail/ArtifactsTab";
 import { UnifiedPromptSection } from "./caller-detail/PromptsSection";
-import { CallsPromptsTab } from "./caller-detail/CallsPromptsTab";
+import { CallsPromptsTab, type BulkActions } from "./caller-detail/CallsPromptsTab";
 import { PromptTunerSidebar } from "./caller-detail/PromptTunerSidebar";
 import { UpliftTab } from "./caller-detail/UpliftTab";
 
@@ -125,6 +125,9 @@ export default function CallerDetailPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [tunerOpen]);
   const [appliedChanges, setAppliedChanges] = useState<{ label: string; oldValue: string; newValue: string }[] | null>(null);
+
+  // Bulk pipeline actions (exposed by CallsPromptsTab for tab-bar buttons)
+  const [bulkActions, setBulkActions] = useState<BulkActions | null>(null);
 
   // Prompts state
   const [composedPrompts, setComposedPrompts] = useState<ComposedPrompt[]>([]);
@@ -775,17 +778,45 @@ export default function CallerDetailPage() {
           );
         })}
 
-        {/* Tune toggle — right-aligned in tab bar */}
-        {composedPrompts.length > 0 && (
-          <button
-            onClick={() => setTunerOpen(!tunerOpen)}
-            title="Adjust teaching style and behaviour targets"
-            className={`cdp-tune-btn${tunerOpen ? " cdp-tune-btn--active" : ""}`}
-          >
-            <SlidersHorizontal size={14} />
-            Tune
-          </button>
-        )}
+        {/* Right-aligned action group */}
+        <div className="cdp-tab-actions">
+          {bulkActions?.hasCalls && (
+            <>
+              <button
+                className="cdp-tab-action"
+                onClick={() => bulkActions.runBulkPipeline("prep")}
+                disabled={bulkActions.bulkRunning !== null}
+                title="Run analysis on all calls"
+              >
+                <Zap size={13} />
+                {bulkActions.bulkRunning === "prep"
+                  ? `${bulkActions.bulkProgress?.current}/${bulkActions.bulkProgress?.total}`
+                  : "Analyse All"}
+              </button>
+              <button
+                className="cdp-tab-action cdp-tab-action--primary"
+                onClick={() => bulkActions.runBulkPipeline("prompt")}
+                disabled={bulkActions.bulkRunning !== null}
+                title="Generate prompts for all calls"
+              >
+                <Play size={13} />
+                {bulkActions.bulkRunning === "prompt"
+                  ? `${bulkActions.bulkProgress?.current}/${bulkActions.bulkProgress?.total}`
+                  : "Prompt All"}
+              </button>
+            </>
+          )}
+          {composedPrompts.length > 0 && (
+            <button
+              onClick={() => setTunerOpen(!tunerOpen)}
+              title="Adjust teaching style and behaviour targets"
+              className={`cdp-tune-btn${tunerOpen ? " cdp-tune-btn--active" : ""}`}
+            >
+              <SlidersHorizontal size={14} />
+              Tune
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Section Content */}
@@ -860,6 +891,7 @@ export default function CallerDetailPage() {
           processingCallIds={processingCallIds}
           expandedCall={expandedCall}
           setExpandedCall={setExpandedCall}
+          onBulkActionsReady={setBulkActions}
           onCallUpdated={() => {
             fetch(`/api/callers/${callerId}`)
               .then((r) => r.json())
