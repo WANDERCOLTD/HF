@@ -129,8 +129,6 @@ export default function CallerDetailPage() {
   // Prompts state
   const [composedPrompts, setComposedPrompts] = useState<ComposedPrompt[]>([]);
   const [promptsLoading, setPromptsLoading] = useState(false);
-  const [composing, setComposing] = useState(false);
-  const [promptProgress, setPromptProgress] = useState("");
   const [exporting, setExporting] = useState(false);
 
   // Domain state
@@ -256,122 +254,6 @@ export default function CallerDetailPage() {
     }
   }, [callerId]);
 
-  // Process ALL calls oldest-first, generating prompts for each
-  const handlePromptAll = async () => {
-    if (!callerId || !data || composing) return;
-
-    // Get completed calls sorted oldest first (skip orphaned calls with no endedAt)
-    const calls = (data.calls || []).filter((c: any) => c.endedAt);
-    if (calls.length === 0) {
-      alert("No completed calls to process");
-      return;
-    }
-
-    const sortedCalls = [...calls].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    );
-
-    // Count how many calls already have prompts
-    const existingCount = sortedCalls.filter(call =>
-      composedPrompts.some(p => p.triggerCallId === call.id)
-    ).length;
-
-    // Ask user with 3 options
-    const choice = window.prompt(
-      `Process ${sortedCalls.length} call(s) oldest-first.\n` +
-      (existingCount > 0 ? `(${existingCount} already have prompts)\n\n` : "\n") +
-      `Enter your choice:\n` +
-      `  1 = Prompt ALL (replace existing)\n` +
-      `  2 = Skip Existing\n` +
-      `  3 = Cancel`,
-      existingCount > 0 ? "2" : "1"
-    );
-
-    if (!choice || choice === "3") {
-      return; // Cancelled
-    }
-
-    const replaceExisting = choice === "1";
-
-    setComposing(true);
-    setPromptProgress(`0/${sortedCalls.length}`);
-
-    let processed = 0;
-    let skipped = 0;
-    let errors = 0;
-
-    for (const call of sortedCalls) {
-      // Check if this call already has a prompt (via ComposedPrompt with triggerCallId)
-      const hasPrompt = composedPrompts.some(p => p.triggerCallId === call.id);
-
-      if (hasPrompt && !replaceExisting) {
-        skipped++;
-        processed++;
-        setPromptProgress(`${processed}/${sortedCalls.length} (${skipped} skipped)`);
-        continue;
-      }
-
-      try {
-        // Run the pipeline with mode="prompt" for this call
-        const res = await fetch(`/api/calls/${call.id}/pipeline`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            callerId,
-            mode: "prompt",
-            engine: "openai", // or could use a preference
-            force: true,
-          }),
-        });
-        const result = await res.json();
-        if (!result.ok) {
-          console.error(`Pipeline failed for call ${call.id}:`, result.error);
-          errors++;
-        }
-      } catch (err: any) {
-        console.error(`Error processing call ${call.id}:`, err);
-        errors++;
-      }
-
-      processed++;
-      setPromptProgress(`${processed}/${sortedCalls.length}${errors > 0 ? ` (${errors} errors)` : ""}`);
-    }
-
-    // Refresh prompts list
-    await fetchPrompts();
-
-    // Backfill usedPromptId for all calls that don't have it
-    setPromptProgress("Backfilling usedPromptId...");
-    let backfillResult = { callsUpdated: 0, callsSkipped: 0 };
-    try {
-      const backfillRes = await fetch("/api/ops", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          opid: "prompt:backfill",
-          settings: { callerId, verbose: false },
-        }),
-      });
-      const backfillData = await backfillRes.json();
-      if (backfillData.success && backfillData.result) {
-        backfillResult = backfillData.result;
-      }
-    } catch (err) {
-      console.error("Backfill error:", err);
-    }
-
-    setComposing(false);
-    setPromptProgress("");
-
-    // Show summary
-    alert(
-      `Prompt ALL complete!\n\n` +
-      `Processed: ${processed} calls\n` +
-      `Skipped: ${skipped}\n` +
-      `Errors: ${errors}\n\n` +
-      `Backfill: ${backfillResult.callsUpdated} calls linked to prompts`
-    );
-  };
 
   const fetchData = useCallback(() => {
     if (!callerId) return;
@@ -766,16 +648,6 @@ export default function CallerDetailPage() {
             className="cdp-btn-analyze"
           >
             🧠 Analyze
-          </button>
-
-          {/* Prompt ALL Button - processes all calls oldest-first */}
-          <button
-            onClick={handlePromptAll}
-            disabled={composing}
-            title="Generate prompts for all calls without prompts (oldest first)"
-            className="cdp-btn-prompt-all"
-          >
-            {composing ? `Prompting... ${promptProgress}` : "Prompt ALL"}
           </button>
 
           {/* Ask AI Button */}
