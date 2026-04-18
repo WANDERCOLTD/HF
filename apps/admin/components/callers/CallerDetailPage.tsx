@@ -310,6 +310,7 @@ export default function CallerDetailPage() {
             callerId,
             mode: "prompt",
             engine: "openai", // or could use a preference
+            force: true,
           }),
         });
         const result = await res.json();

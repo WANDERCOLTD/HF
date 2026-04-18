@@ -4,12 +4,14 @@
  * CallsPromptsTab — unified call timeline. The single tab for everything call-related.
  *
  * Per call (accordion cards, cpt-* styling):
- * 1. Transcript — preview + full conversation
- * 2. Extraction — memories, traits, scores, actions (lazy-loaded)
- * 3. Behaviour — measurements + reward score (lazy-loaded)
- * 4. Prompt used — the composed prompt active during this call
- * 5. What changed — diff between this call's prompt and the next
- * 6. Logs — pipeline operation logs (conditional, after pipeline runs)
+ * 1. Prompt used — the composed prompt active during this call
+ * 2. Transcript — preview + full conversation
+ * 3. Extraction — memories, traits, scores, actions (lazy-loaded)
+ * 4. Next Prompt — the recomposed prompt for the next call
+ * 5. Behaviour — measurements + reward score (lazy-loaded)
+ * 6. Pipeline summary — chip row (Memories / Scores / Behaviour)
+ * 7. What changed — diff between this call's prompt and the next
+ * 8. Logs — pipeline operation logs (conditional, after pipeline runs)
  *
  * Toolbar: Analyze All, Prompt All, AI Config, progress bar
  *
@@ -659,7 +661,7 @@ export function CallsPromptsTab({
       const response = await fetch(`/api/calls/${callId}/pipeline`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callerId, mode, engine }),
+        body: JSON.stringify({ callerId, mode, engine, force: true }),
       });
       const result = await response.json();
 
@@ -842,25 +844,7 @@ export function CallsPromptsTab({
             {/* Expanded detail — accordion cards */}
             {isExpanded && (
               <div className="cpt-call-body">
-                {/* 1. Transcript */}
-                {entry.transcript && <TranscriptCard transcript={entry.transcript} />}
-
-                {/* 2. Extraction (lazy-loaded) */}
-                {(details || isProcessing || isLoading) && (
-                  <ExtractionCard
-                    details={details}
-                    callId={entry.id}
-                    callerId={callerId}
-                    isProcessing={isProcessing}
-                  />
-                )}
-
-                {/* 3. Behaviour (lazy-loaded) */}
-                {(details || isProcessing || isLoading) && (
-                  <BehaviourCard details={details} isProcessing={isProcessing} />
-                )}
-
-                {/* 4. Prompt used */}
+                {/* 1. Prompt used */}
                 {entry.promptUsed ? (
                   <PromptPreview prompt={entry.promptUsed} label="Prompt used" />
                 ) : (
@@ -870,18 +854,38 @@ export function CallsPromptsTab({
                   </div>
                 )}
 
-                {/* 5. Pipeline summary */}
+                {/* 2. Transcript */}
+                {entry.transcript && <TranscriptCard transcript={entry.transcript} />}
+
+                {/* 3. Extraction (lazy-loaded) */}
+                {(details || isProcessing || isLoading) && (
+                  <ExtractionCard
+                    details={details}
+                    callId={entry.id}
+                    callerId={callerId}
+                    isProcessing={isProcessing}
+                  />
+                )}
+
+                {/* 4. Next Prompt */}
+                {entry.promptAfter && (
+                  <PromptPreview prompt={entry.promptAfter} label="Next Prompt" />
+                )}
+
+                {/* 5. Behaviour (lazy-loaded) */}
+                {(details || isProcessing || isLoading) && (
+                  <BehaviourCard details={details} isProcessing={isProcessing} />
+                )}
+
+                {/* 6. Pipeline summary */}
                 <PipelineSummary call={entry} />
 
-                {/* 6. What changed for next call */}
+                {/* 7. What changed for next call */}
                 {entry.promptUsed && entry.promptAfter && (
                   <DiffCard before={entry.promptUsed} after={entry.promptAfter} />
                 )}
-                {entry.promptAfter && !entry.promptUsed && (
-                  <PromptPreview prompt={entry.promptAfter} label="Prompt composed after call" />
-                )}
 
-                {/* 7. Logs (conditional — only after pipeline runs) */}
+                {/* 8. Logs (conditional — only after pipeline runs) */}
                 {latestResult && (
                   <LogsCard result={latestResult} />
                 )}
