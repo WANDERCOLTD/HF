@@ -78,7 +78,7 @@ const ALL_STEPS: Step[] = [
 
 function getProfile(): Profile {
   const val = process.env.SEED_PROFILE || "full";
-  if (val === "core" || val === "test" || val === "full" || val === "golden") return val;
+  if (val === "core" || val === "demo" || val === "test" || val === "full" || val === "golden") return val;
   console.warn(`Invalid SEED_PROFILE "${val}", defaulting to "full"`);
   return "full";
 }
