@@ -72,7 +72,7 @@ const CONTENT_SOURCE = {
   slug: `${TAG}aqa-psych-spec`,
   name: "AQA Psychology AS-Level Specification",
   description: "Core specification content for AQA AS-Level Psychology, covering cognitive, social, developmental, and clinical topics.",
-  documentType: "COURSE_REFERENCE" as const,
+  documentType: "TEXTBOOK" as const,
 };
 
 const CURRICULUM = {
@@ -588,7 +588,7 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
           learningOutcomeRef: a.learningOutcomeRef,
           learningObjectiveId: loRefToId.get(a.learningOutcomeRef) ?? null,
           topicSlug: a.topicSlug,
-          teachMethod: a.category === "process" ? "guided_practice" : "recall",
+          teachMethod: a.category === "process" ? "worked_example" : "recall_quiz",
           depth: 1,
           orderIndex: i,
           createdBy: "demo-course-seed",
