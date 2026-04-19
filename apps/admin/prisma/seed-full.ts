@@ -7,52 +7,40 @@
  * Usage:
  *   npx tsx prisma/seed-full.ts              # Full seed (additive, all steps)
  *   npx tsx prisma/seed-full.ts --reset      # Clear DB first, then full seed
- *   SEED_PROFILE=core npx tsx prisma/seed-full.ts     # PROD — specs + demo domains only
+ *   SEED_PROFILE=core npx tsx prisma/seed-full.ts     # PROD — specs only
  *   SEED_PROFILE=test npx tsx prisma/seed-full.ts     # TEST — core + e2e fixtures
  *   SEED_PROFILE=full npx tsx prisma/seed-full.ts     # DEV/VM — everything (default)
  *   SEED_PROFILE=golden npx tsx prisma/seed-full.ts   # Golden path — clean minimal demo data
  *
  * Profiles:
- *   core    — Specs, domains, institution, demo domains, run configs, dedup (PROD)
- *   test    — Everything in core + e2e fixtures (TEST)
- *   full    — Everything in test + educator demo, school data, legacy fixtures (DEV/VM)
- *   golden  — Specs + institution types + 3 clean institutions (demo golden path)
+ *   core    — Specs, archetypes, institution types, run configs, dedup (PROD)
+ *   test    — Everything in core + e2e fixtures + demo logins (TEST)
+ *   full    — Everything in test + golden school + demo course (DEV/VM)
+ *   golden  — Specs + institution types + 1 clean institution (demo golden path)
  *
  * Steps (full profile):
  *   1.  seed-clean              → 51 specs, 160 params, admin user, contracts
- *   2.  seed-identity-archetypes → 7 communication style archetypes (TUT, COACH, COMPANION, GUIDE, MENTOR, ADVISOR, FACILITATOR)
- *   3.  seed-institution-types  → 6 institution types (school, corporate, community, coaching, healthcare, training)
- *   4.  seed-domains            → 4 professional domains
- *   5.  seed-default-institution → "HumanFirst" institution
- *   6.  seed-demo-domains       → 12 demo callers + 4 playbooks (3 per domain)
- *   7.  seed-run-configs        → 8 analysis run config templates
- *   8.  seed (dedup)            → Parameter deduplication cleanup
- *   9.  seed-e2e                → E2E test fixtures                    [test, full]
- *   10. seed-educator-demo      → 3 schools, 10 teachers, 210 pupils   [full only]
- *   11. seed-school-institutions → School institution records           [full only]
- *   12. seed-demo-fixtures      → "Paul" demo caller, QM overlay       [full only]
- *   13. seed-holographic-demo   → 3 domains (2 schools + 1 community) for Holographic UI  [full only]
- *   14. seed-demo-logins        → 6 demo login accounts (non-PROD)     [test, full]
+ *   2.  seed-identity-archetypes → 7 communication style archetypes
+ *   3.  seed-institution-types  → 6 institution types
+ *   4.  seed-run-configs        → 8 analysis run config templates
+ *   5.  seed (dedup)            → Parameter deduplication cleanup
+ *   6.  seed-golden             → Abacus Academy institution + domain     [golden, full]
+ *   7.  seed-demo-course        → Intro to Psychology, 8 learners          [full only]
+ *   8.  seed-e2e                → E2E test fixtures                       [test, full]
+ *   9.  seed-demo-logins        → Demo login accounts (non-PROD)          [test, full]
  */
 
 import { PrismaClient } from "@prisma/client";
 
 import { main as seedClean } from "./seed-clean";
-import { main as seedDomains } from "./seed-domains";
-import { main as seedDefaultInstitution } from "./seed-default-institution";
-import { main as seedDemoDomains } from "./seed-demo-domains";
 import { main as seedRunConfigs } from "./seed-run-configs";
 import { main as seedDedup } from "./seed";
 import { main as seedE2E } from "./seed-e2e";
-import { main as seedEducatorDemo } from "./seed-educator-demo";
-import { main as seedSchoolInstitutions } from "./seed-school-institutions";
-import { main as seedDemoFixtures } from "./seed-demo-fixtures";
 import { main as seedInstitutionTypes } from "./seed-institution-types";
 import { main as seedDemoLogins } from "./seed-demo-logins";
 import { main as seedGolden } from "./seed-golden";
 import { main as seedIdentityArchetypes } from "./seed-identity-archetypes";
-import { main as seedHolographicDemo } from "./seed-holographic-demo";
-import { main as seedEnglishModules } from "./seed-english-modules";
+import { main as seedDemoCourse } from "./seed-demo-course";
 
 type Profile = "core" | "test" | "full" | "golden";
 
@@ -70,24 +58,17 @@ const ALL_STEPS: Step[] = [
   { name: "seed-institution-types", fn: seedInstitutionTypes },
 
   // ── Core (runs in core/test/full but NOT golden) ────────
-  { name: "seed-domains", fn: seedDomains, profiles: ["core", "test", "full"] },
-  { name: "seed-default-institution", fn: seedDefaultInstitution, profiles: ["core", "test", "full"] },
-  { name: "seed-demo-domains", fn: seedDemoDomains, profiles: ["core", "test", "full"] },
   { name: "seed-run-configs", fn: seedRunConfigs, profiles: ["core", "test", "full"] },
   { name: "seed (dedup)", fn: seedDedup, profiles: ["core", "test", "full"] },
 
-  // ── Golden (minimal demo data — additive when in full, cleanup skipped) ──
+  // ── Golden (Abacus Academy — additive when in full, cleanup skipped) ──
   { name: "seed-golden", fn: seedGolden, profiles: ["golden", "full"] },
 
-  // ── Test (core + e2e fixtures) ──────────────────────────
-  { name: "seed-e2e", fn: seedE2E, profiles: ["test", "full"] },
+  // ── Full (demo course with 8 learners) ──────────────────
+  { name: "seed-demo-course", fn: seedDemoCourse, profiles: ["full"] },
 
-  // ── Full (test + educator/school/legacy data) ───────────
-  { name: "seed-english-modules", fn: seedEnglishModules, profiles: ["full"] },
-  { name: "seed-educator-demo", fn: seedEducatorDemo, profiles: ["full"] },
-  { name: "seed-school-institutions", fn: seedSchoolInstitutions, profiles: ["full"] },
-  { name: "seed-demo-fixtures", fn: seedDemoFixtures, profiles: ["full"] },
-  { name: "seed-holographic-demo", fn: seedHolographicDemo, profiles: ["full"] },
+  // ── Test + Full (e2e fixtures + demo logins) ────────────
+  { name: "seed-e2e", fn: seedE2E, profiles: ["test", "full"] },
   { name: "seed-demo-logins", fn: seedDemoLogins, profiles: ["test", "full"] },
 ];
 

@@ -193,7 +193,7 @@ export function CourseDesignTab({
         </>
       )}
 
-      {/* ── Flow Diagram ─────────────────────────────── */}
+      {/* ── Student Experience Flow (tab-card) ────────── */}
       <div className="hf-card hf-mb-lg">
         <div className="hf-flex hf-items-center hf-gap-sm hf-mb-md">
           <Wand2 size={16} className="hf-text-muted" />
@@ -202,11 +202,14 @@ export function CourseDesignTab({
           {saved && <span className="hf-text-xs" style={{ color: 'var(--status-success-text)' }}>Saved</span>}
         </div>
 
-        {/* State machine visual */}
-        <div className="cdt-flow-row">
+        {/* Tab strip */}
+        <div className="cdt-flow-row" role="tablist" aria-label="Student experience phases">
           {FLOW_STATES.map((state, i) => (
             <div key={state.key} className="cdt-flow-item">
               <button
+                role="tab"
+                aria-selected={activeState === state.key}
+                aria-controls={`cdt-panel-${state.key}`}
                 className={`cdt-flow-bubble ${activeState === state.key ? 'cdt-flow-bubble--active' : ''}`}
                 onClick={() => setActiveState(state.key)}
               >
@@ -219,112 +222,115 @@ export function CourseDesignTab({
             </div>
           ))}
         </div>
+
+        {/* Divider */}
+        <div className="cdt-flow-divider" />
+
+        {/* Panel content */}
+        {activeState === 'WELCOME' && (
+          <div role="tabpanel" id="cdt-panel-WELCOME" className="cdt-flow-panel">
+            <div className="hf-section-title hf-mb-sm">Welcome Flow Phases</div>
+            <p className="hf-text-xs hf-text-muted hf-mb-md">
+              Configure what students see before their first learning session. Toggle phases on or off.
+            </p>
+            <div className="cdt-phase-list">
+              {WELCOME_PHASES.map((phase) => (
+                <label key={phase.key} className="cdt-phase-row">
+                  <div className="cdt-phase-toggle">
+                    <input
+                      type="checkbox"
+                      checked={welcome[phase.key].enabled}
+                      onChange={() => toggleWelcomePhase(phase.key)}
+                      className="hf-checkbox"
+                    />
+                  </div>
+                  <div className="cdt-phase-icon">{phase.icon}</div>
+                  <div className="cdt-phase-info">
+                    <span className="cdt-phase-name">{phase.label}</span>
+                    <span className="cdt-phase-desc">{phase.description}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {/* Welcome message preview */}
+            {typeof playbookConfig?.welcomeMessage === 'string' && playbookConfig.welcomeMessage && (
+              <div className="hf-mt-md">
+                <div className="hf-text-xs hf-text-bold hf-mb-xs">Welcome Message</div>
+                <div className="cdt-welcome-preview">
+                  {String(playbookConfig.welcomeMessage).slice(0, 120)}
+                  {String(playbookConfig.welcomeMessage).length > 120 ? '...' : ''}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeState === 'LEARNING' && (
+          <div role="tabpanel" id="cdt-panel-LEARNING" className="cdt-flow-panel">
+            <div className="hf-section-title hf-mb-sm">Learning Sessions</div>
+            <div className="cdt-info-grid">
+              <div className="cdt-info-item">
+                <span className="hf-text-xs hf-text-muted">Pacing</span>
+                <span className="hf-text-sm hf-text-bold">Scheduler-driven</span>
+              </div>
+              {(playbookConfig?.sessionCount as number) > 0 && (
+                <div className="cdt-info-item">
+                  <span className="hf-text-xs hf-text-muted">Session budget</span>
+                  <span className="hf-text-sm hf-text-bold">{playbookConfig?.sessionCount as number}</span>
+                </div>
+              )}
+              {durationMins && (
+                <div className="cdt-info-item">
+                  <span className="hf-text-xs hf-text-muted">Duration</span>
+                  <span className="hf-text-sm hf-text-bold">{durationMins} min</span>
+                </div>
+              )}
+            </div>
+            <p className="hf-text-xs hf-text-muted hf-mt-sm">
+              Session count and duration can be changed on the Journey tab.
+            </p>
+          </div>
+        )}
+
+        {activeState === 'NPS' && (
+          <div role="tabpanel" id="cdt-panel-NPS" className="cdt-flow-panel">
+            <div className="hf-section-title hf-mb-sm">Student Feedback</div>
+            <p className="hf-text-xs hf-text-muted hf-mb-md">
+              When enabled, students are asked for feedback (NPS + satisfaction) after reaching the mastery threshold.
+            </p>
+            <label className="cdt-phase-row">
+              <div className="cdt-phase-toggle">
+                <input
+                  type="checkbox"
+                  checked={nps.enabled}
+                  onChange={toggleNps}
+                  className="hf-checkbox"
+                />
+              </div>
+              <div className="cdt-phase-icon"><ThumbsUp size={14} /></div>
+              <div className="cdt-phase-info">
+                <span className="cdt-phase-name">NPS & Satisfaction</span>
+                <span className="cdt-phase-desc">
+                  {nps.trigger === 'mastery'
+                    ? `Triggered at ${nps.threshold}% mastery`
+                    : `Triggered after ${nps.threshold} sessions`}
+                </span>
+              </div>
+            </label>
+          </div>
+        )}
+
+        {activeState === 'COMPLETE' && (
+          <div role="tabpanel" id="cdt-panel-COMPLETE" className="cdt-flow-panel">
+            <div className="hf-section-title hf-mb-sm">Course Complete</div>
+            <p className="hf-text-xs hf-text-muted">
+              When all learning outcomes are mastered and feedback is submitted (if enabled),
+              students see their progress dashboard with goals, topics, and test scores.
+            </p>
+          </div>
+        )}
       </div>
-
-      {/* ── State Detail Panel ───────────────────────── */}
-      {activeState === 'WELCOME' && (
-        <div className="hf-card hf-mb-lg">
-          <div className="hf-section-title hf-mb-sm">Welcome Flow Phases</div>
-          <p className="hf-text-xs hf-text-muted hf-mb-md">
-            Configure what students see before their first learning session. Toggle phases on or off.
-          </p>
-          <div className="cdt-phase-list">
-            {WELCOME_PHASES.map((phase) => (
-              <label key={phase.key} className="cdt-phase-row">
-                <div className="cdt-phase-toggle">
-                  <input
-                    type="checkbox"
-                    checked={welcome[phase.key].enabled}
-                    onChange={() => toggleWelcomePhase(phase.key)}
-                    className="hf-checkbox"
-                  />
-                </div>
-                <div className="cdt-phase-icon">{phase.icon}</div>
-                <div className="cdt-phase-info">
-                  <span className="cdt-phase-name">{phase.label}</span>
-                  <span className="cdt-phase-desc">{phase.description}</span>
-                </div>
-              </label>
-            ))}
-          </div>
-
-          {/* Welcome message preview */}
-          {typeof playbookConfig?.welcomeMessage === 'string' && playbookConfig.welcomeMessage && (
-            <div className="hf-mt-md">
-              <div className="hf-text-xs hf-text-bold hf-mb-xs">Welcome Message</div>
-              <div className="cdt-welcome-preview">
-                {String(playbookConfig.welcomeMessage).slice(0, 120)}
-                {String(playbookConfig.welcomeMessage).length > 120 ? '...' : ''}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeState === 'LEARNING' && (
-        <div className="hf-card hf-mb-lg">
-          <div className="hf-section-title hf-mb-sm">Learning Sessions</div>
-          <div className="cdt-info-grid">
-            <div className="cdt-info-item">
-              <span className="hf-text-xs hf-text-muted">Pacing</span>
-              <span className="hf-text-sm hf-text-bold">Scheduler-driven</span>
-            </div>
-            {(playbookConfig?.sessionCount as number) > 0 && (
-              <div className="cdt-info-item">
-                <span className="hf-text-xs hf-text-muted">Session budget</span>
-                <span className="hf-text-sm hf-text-bold">{playbookConfig?.sessionCount as number}</span>
-              </div>
-            )}
-            {durationMins && (
-              <div className="cdt-info-item">
-                <span className="hf-text-xs hf-text-muted">Duration</span>
-                <span className="hf-text-sm hf-text-bold">{durationMins} min</span>
-              </div>
-            )}
-          </div>
-          <p className="hf-text-xs hf-text-muted hf-mt-sm">
-            Session count and duration can be changed on the Journey tab.
-          </p>
-        </div>
-      )}
-
-      {activeState === 'NPS' && (
-        <div className="hf-card hf-mb-lg">
-          <div className="hf-section-title hf-mb-sm">Student Feedback</div>
-          <p className="hf-text-xs hf-text-muted hf-mb-md">
-            When enabled, students are asked for feedback (NPS + satisfaction) after reaching the mastery threshold.
-          </p>
-          <label className="cdt-phase-row">
-            <div className="cdt-phase-toggle">
-              <input
-                type="checkbox"
-                checked={nps.enabled}
-                onChange={toggleNps}
-                className="hf-checkbox"
-              />
-            </div>
-            <div className="cdt-phase-icon"><ThumbsUp size={14} /></div>
-            <div className="cdt-phase-info">
-              <span className="cdt-phase-name">NPS & Satisfaction</span>
-              <span className="cdt-phase-desc">
-                {nps.trigger === 'mastery'
-                  ? `Triggered at ${nps.threshold}% mastery`
-                  : `Triggered after ${nps.threshold} sessions`}
-              </span>
-            </div>
-          </label>
-        </div>
-      )}
-
-      {activeState === 'COMPLETE' && (
-        <div className="hf-card hf-mb-lg">
-          <div className="hf-section-title hf-mb-sm">Course Complete</div>
-          <p className="hf-text-xs hf-text-muted">
-            When all learning outcomes are mastered and feedback is submitted (if enabled),
-            students see their progress dashboard with goals, topics, and test scores.
-          </p>
-        </div>
-      )}
 
       {/* ── Setup Tracker (bottom — readiness reported to hero via callback) ── */}
       {detail && (

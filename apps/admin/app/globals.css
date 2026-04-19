@@ -4634,6 +4634,29 @@ html.light {
   background: var(--surface-tertiary);
   color: var(--text-primary);
 }
+.jobs-popup-dismiss {
+  flex-shrink: 0;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+}
+.jobs-popup-row:hover .jobs-popup-dismiss {
+  opacity: 1;
+}
+.jobs-popup-dismiss:hover {
+  background: var(--surface-tertiary);
+  color: var(--text-primary);
+}
 .jobs-popup-icon-success {
   color: var(--status-success-text);
 }

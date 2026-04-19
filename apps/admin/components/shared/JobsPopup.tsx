@@ -208,6 +208,20 @@ export function JobsPopup({ open, onClose, anchorRef }: JobsPopupProps) {
     router.push(getClickPath(task));
   };
 
+  const handleDismiss = async (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation();
+    try {
+      await fetch('/api/tasks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskIds: [taskId], action: 'abandon' }),
+      });
+      setActiveTasks((prev) => prev.filter((t) => t.id !== taskId));
+    } catch {
+      // Silent
+    }
+  };
+
   const isEmpty = activeTasks.length === 0 && recentTasks.length === 0;
 
   return (
@@ -256,6 +270,13 @@ export function JobsPopup({ open, onClose, anchorRef }: JobsPopupProps) {
                         />
                       </div>
                     </div>
+                    <button
+                      className="jobs-popup-dismiss"
+                      onClick={(e) => handleDismiss(e, task.id)}
+                      title="Dismiss stale job"
+                    >
+                      <X size={12} />
+                    </button>
                   </div>
                 ))}
               </div>

@@ -79,12 +79,18 @@ export async function runIniChecks(): Promise<IniResult> {
   }
 
   const counts = { pass: 0, warn: 0, fail: 0 };
+  // Only critical/recommended issues drive the top-level RAG indicator.
+  // Optional warns (VAPI, storage) show in detail but don't degrade status.
+  const ragCounts = { fail: 0, warn: 0 };
   for (const check of Object.values(checks)) {
     counts[check.status]++;
+    if (check.status !== "pass" && check.severity !== "optional") {
+      ragCounts[check.status]++;
+    }
   }
 
   const ragStatus: RagStatus =
-    counts.fail > 0 ? "red" : counts.warn > 0 ? "amber" : "green";
+    ragCounts.fail > 0 ? "red" : ragCounts.warn > 0 ? "amber" : "green";
 
   return {
     ok: true,

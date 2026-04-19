@@ -53,6 +53,18 @@
   flex-shrink: 0;
 }
 
+/* ── Flow Divider + Panel ─────────────────────── */
+
+.cdt-flow-divider {
+  height: 1px;
+  background: var(--border-default);
+  margin: 0 -24px;
+}
+
+.cdt-flow-panel {
+  padding-top: 20px;
+}
+
 /* ── Phase List ────────────────────────────────── */
 
 .cdt-phase-list {

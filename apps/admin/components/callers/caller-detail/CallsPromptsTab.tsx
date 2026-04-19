@@ -26,7 +26,6 @@ import {
   MessageSquare, BarChart3, Target, ClipboardCheck,
   CheckSquare, Play, Zap, ScrollText,
 } from "lucide-react";
-import { AIConfigButton } from "@/components/shared/AIConfigButton";
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
 import { useTerminology } from "@/contexts/TerminologyContext";
 import { computeDiff } from "./PromptsSection";
@@ -183,11 +182,12 @@ function TranscriptCard({ transcript }: { transcript: string }) {
   );
 }
 
-function ExtractionCard({ details, callId, callerId, isProcessing }: {
+function ExtractionCard({ details, callId, callerId, isProcessing, isLoading }: {
   details: CallDetail | null;
   callId: string;
   callerId: string;
   isProcessing: boolean;
+  isLoading?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [extractionVis, toggleExtractionVis] = useSectionVisibility("call-extraction", {
@@ -208,7 +208,7 @@ function ExtractionCard({ details, callId, callerId, isProcessing }: {
   const observation = details?.personalityObservation;
   const totalCount = memories.length + scores.length + (observation ? 1 : 0);
 
-  if (!details && !isProcessing) return null;
+  if (!details && !isProcessing && !isLoading) return null;
 
   return (
     <div className="cpt-accordion-card">
@@ -314,9 +314,10 @@ function ExtractionCard({ details, callId, callerId, isProcessing }: {
   );
 }
 
-function BehaviourCard({ details, isProcessing }: {
+function BehaviourCard({ details, isProcessing, isLoading }: {
   details: CallDetail | null;
   isProcessing: boolean;
+  isLoading?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const measurements = details?.measurements || [];
@@ -324,7 +325,7 @@ function BehaviourCard({ details, isProcessing }: {
   const effectiveTargets = details?.effectiveTargets || [];
   const callerTargets = details?.callerTargets || [];
 
-  if (!details && !isProcessing) return null;
+  if (!details && !isProcessing && !isLoading) return null;
 
   const rewardPct = rewardScore ? (rewardScore.overallScore * 100).toFixed(0) : null;
   const rewardColor = rewardScore
@@ -771,17 +772,10 @@ export function CallsPromptsTab({
 
   return (
     <div className="cpt-root">
-      {/* Toolbar — AI Config + progress (bulk buttons moved to tab bar) */}
-      {entries.length > 0 && (
-        <div className="cpt-toolbar">
-          <div onClick={(e) => e.stopPropagation()}>
-            <AIConfigButton callPoint="pipeline.measure" label="AI Config" />
-          </div>
-          {bulkProgress && (
-            <div className="cpt-bulk-progress">
-              <div className="cpt-bulk-progress-bar" style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }} />
-            </div>
-          )}
+      {/* Bulk progress bar (no toolbar chrome — AI Config accessible via tab bar) */}
+      {bulkProgress && (
+        <div className="cpt-bulk-progress">
+          <div className="cpt-bulk-progress-bar" style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }} />
         </div>
       )}
 
@@ -867,14 +861,13 @@ export function CallsPromptsTab({
                 {entry.transcript && <TranscriptCard transcript={entry.transcript} />}
 
                 {/* 3. Extraction (lazy-loaded) */}
-                {(details || isProcessing || isLoading) && (
-                  <ExtractionCard
-                    details={details}
-                    callId={entry.id}
-                    callerId={callerId}
-                    isProcessing={isProcessing}
-                  />
-                )}
+                <ExtractionCard
+                  details={details}
+                  callId={entry.id}
+                  callerId={callerId}
+                  isProcessing={isProcessing}
+                  isLoading={isLoading}
+                />
 
                 {/* 4. Next Prompt */}
                 {entry.promptAfter && (
@@ -882,9 +875,7 @@ export function CallsPromptsTab({
                 )}
 
                 {/* 5. Behaviour (lazy-loaded) */}
-                {(details || isProcessing || isLoading) && (
-                  <BehaviourCard details={details} isProcessing={isProcessing} />
-                )}
+                <BehaviourCard details={details} isProcessing={isProcessing} isLoading={isLoading} />
 
                 {/* 6. Pipeline summary */}
                 <PipelineSummary call={entry} />

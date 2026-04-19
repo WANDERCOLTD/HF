@@ -51,7 +51,7 @@ CMD ["node", "server.js"]
 #
 # Usage:
 #   docker run --rm --env DATABASE_URL=... hf-admin-seed
-#   docker run --rm --env DATABASE_URL=... hf-admin-seed npx tsx prisma/seed-domains.ts
+#   docker run --rm --env DATABASE_URL=... --env SEED_PROFILE=core hf-admin-seed
 FROM node:20-alpine AS seed
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules

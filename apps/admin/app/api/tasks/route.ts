@@ -200,7 +200,7 @@ export async function GET(request: NextRequest) {
  * @tags tasks
  * @description Archives, unarchives, or permanently deletes completed tasks in bulk.
  * @body taskIds string[] - Array of task IDs to act on (required)
- * @body action "archive" | "unarchive" | "delete" - Action to perform (default: "archive")
+ * @body action "archive" | "unarchive" | "delete" | "abandon" - Action to perform (default: "archive")
  * @response 200 { ok: true, count: number }
  * @response 400 { ok: false, error: "..." }
  * @response 500 { ok: false, error: "..." }
@@ -222,6 +222,22 @@ export async function PATCH(request: NextRequest) {
     }
 
     const { prisma } = await import("@/lib/prisma");
+
+    // Abandon — mark in_progress tasks as abandoned
+    if (action === "abandon") {
+      const result = await prisma.userTask.updateMany({
+        where: {
+          id: { in: taskIds },
+          userId: session.user.id,
+          status: "in_progress",
+        },
+        data: {
+          status: "abandoned",
+          completedAt: new Date(),
+        },
+      });
+      return NextResponse.json({ ok: true, count: result.count });
+    }
 
     // Hard delete — only archived jobs can be permanently removed
     if (action === "delete") {

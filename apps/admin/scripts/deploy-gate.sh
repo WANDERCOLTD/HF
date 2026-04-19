@@ -20,6 +20,9 @@
 #     because Cloud SQL private IPs are only reachable from inside the VPC.
 #     A laptop-side prisma migrate status can't see the target DB at all.
 #     The VM is already inside the VPC so the migration diff works there.
+#     It runs `git pull --rebase` first so the VM's migration folder matches
+#     what's being deployed — without this, a stale VM reports "up to date"
+#     even when new migrations exist locally (2026-04-19 incident).
 #
 # Usage:
 #   ./scripts/deploy-gate.sh <env>
@@ -137,17 +140,21 @@ else
   # `|| true` ensures the SSH subshell always exits 0 so the outer parser
   # runs against the actual stdout.
   ssh_cmd='set -e
+    cd ~/HF && git pull --rebase --quiet 2>&1 || { echo "__GATE_PULL_FAILED__"; exit 12; }
     export DATABASE_URL="$(gcloud secrets versions access latest --secret='"$DB_SECRET"' --project=hf-admin-prod 2>/dev/null)"
     if [ -z "$DATABASE_URL" ]; then
       echo "__GATE_NO_SECRET__"
       exit 11
     fi
-    cd ~/HF/apps/admin && (npx prisma migrate status 2>&1 || true)'
+    cd apps/admin && (npx prisma migrate status 2>&1 || true)'
 
   if gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap \
        --command="$ssh_cmd" 2>&1 | tee /tmp/deploy-gate-migrate.$$; then
 
-    if grep -q "__GATE_NO_SECRET__" /tmp/deploy-gate-migrate.$$; then
+    if grep -q "__GATE_PULL_FAILED__" /tmp/deploy-gate-migrate.$$; then
+      echo "  FAIL  git pull on hf-dev failed — VM may have uncommitted changes or be on a different branch" >&2
+      gate_fail "migration-vm-pull"
+    elif grep -q "__GATE_NO_SECRET__" /tmp/deploy-gate-migrate.$$; then
       echo "  FAIL  VM could not read $DB_SECRET from Secret Manager" >&2
       gate_fail "migration-vm-secret"
     elif grep -qE "Database schema is up to date" /tmp/deploy-gate-migrate.$$; then

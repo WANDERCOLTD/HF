@@ -2932,8 +2932,8 @@ model ComposedPrompt {
   status String @default("active") // "active" | "superseded" | "expired"
 
   // Prompt quality evaluation (persisted from AI eval)
-  evalResult Json?      // { overall, dimensions, topImprovements }
-  evalAt     DateTime?  // When the eval was last run
+  evalResult Json? // { overall, dimensions, topImprovements }
+  evalAt     DateTime? // When the eval was last run
 
   // Timestamps
   composedAt DateTime  @default(now())
@@ -3602,13 +3602,13 @@ model ContentSource {
   updatedAt DateTime @updatedAt
 
   // Relations
-  assertions  ContentAssertion[]
-  questions   ContentQuestion[]
-  vocabulary  ContentVocabulary[]
-  curricula   Curriculum[]        @relation("CurriculumPrimarySource")
-  subjects        SubjectSource[]  // Subjects this source belongs to (legacy scoping)
+  assertions      ContentAssertion[]
+  questions       ContentQuestion[]
+  vocabulary      ContentVocabulary[]
+  curricula       Curriculum[]        @relation("CurriculumPrimarySource")
+  subjects        SubjectSource[] // Subjects this source belongs to (legacy scoping)
   playbookSources PlaybookSource[] // Direct course → source link (replaces Subject chain)
-  mediaAssets     MediaAsset[]     // Media files from this content source
+  mediaAssets     MediaAsset[] // Media files from this content source
 
   @@index([trustLevel])
   @@index([documentType])

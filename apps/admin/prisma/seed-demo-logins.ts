@@ -1,15 +1,14 @@
 /**
  * Seed Demo Login Accounts
  *
- * Creates EDUCATOR users for institution types NOT covered by seed-golden.
- * seed-golden already creates: school@, corporate@, community@, training@,
- * coaching@, health@, city@ — so only types without golden coverage go here.
+ * Creates EDUCATOR users for demo access. Links to Abacus Academy
+ * institution (created by seed-golden).
  *
  * Non-PROD only — refuses to run when NEXT_PUBLIC_APP_ENV=LIVE.
  *
  * Accounts:
- *   teach@abacus.com   / hff       → School educator (separate from golden's Abacus Academy)
- *   healthcare@hff.com / hff2026  → Healthcare educator (separate from golden's health@)
+ *   teach@abacus.com   / hff       → School educator (Abacus Academy)
+ *   healthcare@hff.com / hff2026  → Healthcare educator (Demo Facility)
  *
  * Idempotent: uses upsert on email.
  */
