@@ -81,6 +81,8 @@ export async function GET(request: NextRequest) {
       ok: true,
       domains: domainsWithInfo,
       count: domains.length,
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
     });
   } catch (error: any) {
     console.error("Error fetching domains:", error);

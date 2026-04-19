@@ -2921,6 +2921,23 @@ application/json attachment: { _meta, summary, caller, personality, memory, call
 
 ---
 
+### `GET` /api/callers/:callerId/status
+
+Lightweight endpoint for polling call analysis status.
+
+**Auth**: Bearer token · **Scope**: `callers:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | path | string | Yes | Caller UUID |
+
+**Response** `200`
+```json
+{ ok: true, calls: [{ id, hasScores, hasPrompt }] }
+```
+
+---
+
 ### `GET` /api/callers/:callerId/survey
 
 Fetch all survey + assessment answers for a caller (stored as CallerAttribute records).
@@ -14103,8 +14120,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 433 |
-| Files with annotations | 432 |
+| Route files found | 434 |
+| Files with annotations | 433 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 

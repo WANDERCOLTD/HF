@@ -127,6 +127,8 @@ export async function GET(
         domainId: playbook.domainId,
         domainName: playbook.domain.name,
       },
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
     });
   } catch (err: any) {
     console.error('[GET /api/courses/:courseId/subjects]', err);

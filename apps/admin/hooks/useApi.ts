@@ -20,6 +20,8 @@ export interface UseApiOptions<T> {
   onSuccess?: (data: T) => void;
   /** Called on fetch error */
   onError?: (error: string) => void;
+  /** Cache TTL in ms. 0 = no cache (default). Set > 0 to cache responses. */
+  cacheTtl?: number;
 }
 
 export interface UseApiResult<T> {
@@ -31,14 +33,42 @@ export interface UseApiResult<T> {
   setData: (data: T | null) => void;
 }
 
+// ── Module-level caches ──────────────────────────────────
+// In-flight request dedup: prevents duplicate concurrent fetches to the same URL
+const inflightRequests = new Map<string, Promise<any>>();
+// Response cache with TTL: stores successful responses for reuse
+const responseCache = new Map<string, { data: any; fetchedAt: number }>();
+
+/** Clear cached responses. Pass a URL to clear a specific entry, or omit to clear all. */
+export function invalidateApiCache(url?: string): void {
+  if (url) {
+    responseCache.delete(url);
+  } else {
+    responseCache.clear();
+  }
+}
+
 /**
  * Hook for fetching data from API endpoints.
  * Handles loading state, errors, and the standard { ok, ...data } response pattern.
+ *
+ * Features:
+ * - In-flight request deduplication (same URL won't be fetched twice concurrently)
+ * - Optional response caching with configurable TTL via `cacheTtl` option
+ * - `refetch()` always bypasses cache
  *
  * @example Basic usage
  * ```tsx
  * const { data: goals, loading, error, refetch } = useApi<Goal[]>('/api/goals', {
  *   transform: (res) => res.goals
+ * });
+ * ```
+ *
+ * @example With caching (30s TTL)
+ * ```tsx
+ * const { data } = useApi<Domain[]>('/api/domains', {
+ *   transform: (res) => res.domains,
+ *   cacheTtl: 30000,
  * });
  * ```
  *
@@ -50,19 +80,13 @@ export interface UseApiResult<T> {
  *   [status, type]
  * );
  * ```
- *
- * @example Skip initial fetch
- * ```tsx
- * const { data, refetch } = useApi<Goal[]>('/api/goals', { skip: true });
- * // Later: refetch();
- * ```
  */
 export function useApi<T>(
   url: string | null,
   options: UseApiOptions<T> = {},
   deps: unknown[] = []
 ): UseApiResult<T> {
-  const { skip = false, transform, onSuccess, onError } = options;
+  const { skip = false, transform, onSuccess, onError, cacheTtl = 0 } = options;
 
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(!skip && url !== null);
@@ -77,22 +101,47 @@ export function useApi<T>(
     };
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (bypassCache = false) => {
     if (!url) {
       setLoading(false);
       return;
+    }
+
+    // Check response cache (only if TTL > 0 and not bypassing)
+    if (!bypassCache && cacheTtl > 0) {
+      const cached = responseCache.get(url);
+      if (cached && (Date.now() - cached.fetchedAt) < cacheTtl) {
+        if (!mountedRef.current) return;
+        const result = transform ? transform(cached.data) : (cached.data as unknown as T);
+        setData(result);
+        setLoading(false);
+        setError(null);
+        onSuccess?.(result);
+        return;
+      }
     }
 
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(url);
-      const json: ApiResponse<T> = await response.json();
+      // Deduplicate concurrent requests to the same URL
+      let responsePromise = inflightRequests.get(url);
+      if (!responsePromise) {
+        responsePromise = fetch(url).then((r) => r.json());
+        inflightRequests.set(url, responsePromise);
+      }
+
+      const json: ApiResponse<T> = await responsePromise;
+      inflightRequests.delete(url);
 
       if (!mountedRef.current) return;
 
       if (json.ok) {
+        // Cache successful response
+        if (cacheTtl > 0) {
+          responseCache.set(url, { data: json, fetchedAt: Date.now() });
+        }
         const result = transform ? transform(json) : (json as unknown as T);
         setData(result);
         onSuccess?.(result);
@@ -102,6 +151,7 @@ export function useApi<T>(
         onError?.(errorMsg);
       }
     } catch (err) {
+      inflightRequests.delete(url);
       if (!mountedRef.current) return;
       const errorMsg = err instanceof Error ? err.message : "Network error";
       setError(errorMsg);
@@ -111,7 +161,7 @@ export function useApi<T>(
         setLoading(false);
       }
     }
-  }, [url, transform, onSuccess, onError]);
+  }, [url, transform, onSuccess, onError, cacheTtl]);
 
   // Initial fetch and refetch on dependency changes
   useEffect(() => {
@@ -125,7 +175,7 @@ export function useApi<T>(
     data,
     loading,
     error,
-    refetch: fetchData,
+    refetch: () => fetchData(true), // Always bypass cache on manual refetch
     setData,
   };
 }

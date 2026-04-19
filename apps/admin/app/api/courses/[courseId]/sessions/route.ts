@@ -132,7 +132,7 @@ export async function GET(
     let studentProgress: Array<{ callerId: string; name: string | null; mastered: number; inProgress: number; notStarted: number; totalTps: number }> | undefined;
 
     if (includeProgress && curriculumSlug) {
-      const { getTpProgressSummary } = await import("@/lib/curriculum/track-progress");
+      const { getTpProgressSummaryBatch } = await import("@/lib/curriculum/track-progress");
 
       // Get enrolled students via CallerPlaybook
       const callerPlaybooks = await prisma.callerPlaybook.findMany({
@@ -140,17 +140,14 @@ export async function GET(
         select: { caller: { select: { id: true, name: true } } },
       });
 
-      // Batch-fetch TP progress for each student
-      studentProgress = await Promise.all(
-        callerPlaybooks.map(async (cp) => {
-          const summary = await getTpProgressSummary(cp.caller.id, curriculumSlug);
-          return {
-            callerId: cp.caller.id,
-            name: cp.caller.name,
-            ...summary,
-          };
-        }),
-      );
+      // Single query for all students instead of N separate queries
+      const callerIds = callerPlaybooks.map((cp) => cp.caller.id);
+      const progressMap = await getTpProgressSummaryBatch(callerIds, curriculumSlug);
+      studentProgress = callerPlaybooks.map((cp) => ({
+        callerId: cp.caller.id,
+        name: cp.caller.name,
+        ...(progressMap.get(cp.caller.id) || { totalTps: 0, mastered: 0, inProgress: 0, notStarted: 0 }),
+      }));
     }
 
     return NextResponse.json({

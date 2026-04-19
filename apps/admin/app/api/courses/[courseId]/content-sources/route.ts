@@ -132,6 +132,8 @@ export async function GET(
         instructionAssertions: totalInstructions,
         sources: sources.length,
       },
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
     });
   } catch (error: unknown) {
     console.error("[courses/:id/content-sources] GET error:", error);

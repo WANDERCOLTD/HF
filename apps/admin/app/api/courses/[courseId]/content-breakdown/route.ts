@@ -292,32 +292,27 @@ export async function GET(
         },
       });
 
-      // Use all course sourceIds for a single "course" group
-      // (PlaybookSource scopes content to course, not subject)
       const subjectRecords = playbookSubjects.map((ps) => ps.subject);
 
-      bySubjectData = [];
-      for (const subject of subjectRecords) {
-        // All course sources belong to the course, not a specific subject
-        const subSourceIds = sourceIds;
-        if (subSourceIds.length === 0) continue;
+      // All subjects share the same course-scoped sourceIds, so one query covers all
+      const sharedMethodGroups = sourceIds.length > 0
+        ? await prisma.contentAssertion.groupBy({
+            by: ["teachMethod"],
+            where: { sourceId: { in: sourceIds } },
+            _count: { id: true },
+            orderBy: { _count: { id: "desc" } },
+          })
+        : [];
+      const sharedMethods = sharedMethodGroups.map((g) => ({
+        teachMethod: g.teachMethod || "unassigned",
+        count: g._count.id,
+      }));
 
-        const subGroups = await prisma.contentAssertion.groupBy({
-          by: ["teachMethod"],
-          where: { sourceId: { in: subSourceIds } },
-          _count: { id: true },
-          orderBy: { _count: { id: "desc" } },
-        });
-
-        bySubjectData.push({
-          subjectId: subject.id,
-          subjectName: subject.name,
-          methods: subGroups.map((g) => ({
-            teachMethod: g.teachMethod || "unassigned",
-            count: g._count.id,
-          })),
-        });
-      }
+      bySubjectData = subjectRecords.map((subject) => ({
+        subjectId: subject.id,
+        subjectName: subject.name,
+        methods: sharedMethods,
+      }));
     }
 
     return NextResponse.json({
@@ -332,6 +327,8 @@ export async function GET(
       categoryCounts,
       categoryItems,
       ...(bySubjectData ? { bySubject: bySubjectData } : {}),
+    }, {
+      headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
     });
   } catch (error: unknown) {
     console.error("[courses/:id/content-breakdown] GET error:", error);

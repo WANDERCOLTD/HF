@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import { VerticalSlider, SliderGroup } from "@/components/shared/VerticalSlider";
 import { Sparkline } from "@/components/shared/Sparkline";
@@ -469,8 +469,11 @@ export function CallerSlugsSection({ callerId }: { callerId: string }) {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const loadedForRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (loadedForRef.current === callerId) return;
+    loadedForRef.current = callerId;
     fetchSlugs();
   }, [callerId]);
 
@@ -812,6 +815,7 @@ export function CallerEnrollmentsSection({
   const [availablePlaybooks, setAvailablePlaybooks] = useState<{ id: string; name: string; version: string }[]>([]);
   const [enrolling, setEnrolling] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const enrollLoadedRef = useRef<string | null>(null);
 
   const fetchEnrollments = useCallback(async () => {
     try {
@@ -829,6 +833,8 @@ export function CallerEnrollmentsSection({
   }, [callerId, onCountChange]);
 
   useEffect(() => {
+    if (enrollLoadedRef.current === callerId) return;
+    enrollLoadedRef.current = callerId;
     fetchEnrollments();
   }, [fetchEnrollments]);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { BookOpen, CheckSquare, Layers, Target, Check, X } from "lucide-react";
 import { VerticalSlider, SliderGroup } from "@/components/shared/VerticalSlider";
 import { GoalPill, PlaybookPill, StatusBadge } from "@/src/components/shared/EntityPill";
@@ -251,8 +251,11 @@ export function TrustProgressSection({ callerId }: { callerId: string }) {
   const [curricula, setCurricula] = useState<TrustCurriculum[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
+  const loadedForRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (loadedForRef.current === callerId) return;
+    loadedForRef.current = callerId;
     fetch(`/api/callers/${callerId}/trust-progress`)
       .then((r) => r.json())
       .then((data) => {
@@ -832,8 +835,11 @@ export function ExamReadinessSection({ callerId, onDataLoaded }: { callerId: str
   const [curricula, setCurricula] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const examLoadedRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (examLoadedRef.current === callerId) return;
+    examLoadedRef.current = callerId;
     fetch(`/api/callers/${callerId}/exam-readiness`)
       .then((r) => r.json())
       .then((result) => {
@@ -1015,8 +1021,11 @@ export function TopLevelAgentBehaviorSection({ callerId, calls: propCalls, calle
   const [callerTargets, setCallerTargets] = useState<any[]>(propCallerTargets || []);
   const [behaviorTargets, setBehaviorTargets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const behaviorLoadedRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (behaviorLoadedRef.current === callerId) return;
+    behaviorLoadedRef.current = callerId;
     fetchData();
   }, [callerId]);
 

@@ -358,15 +358,26 @@ export default function CallerDetailPage() {
 
   useEffect(() => {
     if (!isProcessing) return;
-    const interval = setInterval(() => {
-      fetch(`/api/callers/${callerId}`)
-        .then((r) => r.json())
-        .then((result) => {
-          if (result.ok) {
-            setData({ ...result, personality: result.personalityProfile || null });
+    const interval = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/callers/${callerId}/status`);
+        const result = await r.json();
+        if (!result.ok) return;
+
+        const stillProcessing = result.calls.some(
+          (c: { hasScores: boolean; hasPrompt: boolean }) => !c.hasScores && !c.hasPrompt,
+        );
+        if (!stillProcessing) {
+          // All calls analyzed — do one full refetch
+          const full = await fetch(`/api/callers/${callerId}`);
+          const fullResult = await full.json();
+          if (fullResult.ok) {
+            setData({ ...fullResult, personality: fullResult.personalityProfile || null });
           }
-        })
-        .catch((e) => console.warn("[CallerDetail] Polling fetch failed:", e));
+        }
+      } catch (e) {
+        console.warn("[CallerDetail] Polling fetch failed:", e);
+      }
     }, 5000);
     return () => clearInterval(interval);
   }, [isProcessing, callerId]);

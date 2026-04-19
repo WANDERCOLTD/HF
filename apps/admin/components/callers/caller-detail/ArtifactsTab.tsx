@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ArtifactCard } from "@/components/sim/ArtifactCard";
 import { CheckSquare, Plus, BookMarked, ClipboardCheck } from "lucide-react";
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
@@ -40,8 +40,12 @@ export function ArtifactsSection({ callerId, isProcessing }: { callerId: string;
     artifacts: true, actions: true,
   });
 
-  // Load artifacts
+  const artifactsLoadedRef = useRef<string | null>(null);
+
+  // Load artifacts (skip on tab re-toggle for same caller)
   useEffect(() => {
+    if (artifactsLoadedRef.current === callerId) return;
+    artifactsLoadedRef.current = callerId;
     fetch(`/api/callers/${callerId}/artifacts?limit=200`)
       .then((r) => r.json())
       .then((result) => {
@@ -65,7 +69,12 @@ export function ArtifactsSection({ callerId, isProcessing }: { callerId: string;
       .finally(() => setLoadingActions(false));
   }, [callerId]);
 
-  useEffect(() => { loadActions(); }, [loadActions]);
+  const actionsLoadedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (actionsLoadedRef.current === callerId) return;
+    actionsLoadedRef.current = callerId;
+    loadActions();
+  }, [loadActions]);
 
   // Auto-poll when processing to pick up new artifacts/actions
   useEffect(() => {

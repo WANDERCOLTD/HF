@@ -249,10 +249,9 @@ export default function CourseDetailPage() {
       fetch(`/api/playbooks/${courseId}`).then((r) => r.json()),
       fetch(`/api/courses/${courseId}/subjects`).then((r) => r.json()),
       fetch(`/api/courses/${courseId}/content-breakdown?bySubject=true`).then((r) => r.json()),
-      fetch(`/api/courses/${courseId}/learners`).then((r) => r.json()).catch(() => null),
       fetch(`/api/courses/${courseId}/content-sources`).then((r) => r.json()).catch(() => null),
     ])
-      .then(([pbData, subData, breakdownData, learnersData, contentSourcesData]) => {
+      .then(([pbData, subData, breakdownData, contentSourcesData]) => {
         if (pbData.ok) {
           setDetail(pbData.playbook);
           pushEntity({
@@ -274,9 +273,6 @@ export default function CourseDetailPage() {
           setUnassignedContentCount(breakdownData.unassignedContentCount || 0);
           setCategoryCounts(breakdownData.categoryCounts || {});
           setCategoryItems(breakdownData.categoryItems ?? undefined);
-        }
-        if (learnersData?.ok && learnersData.joinToken) {
-          setJoinToken(learnersData.joinToken);
         }
         if (contentSourcesData?.ok) {
           setCourseSources(contentSourcesData.sources || []);

@@ -2,23 +2,25 @@
  * Demo Course Seed — Introduction to Psychology
  *
  * Creates a single, fully-populated course on the Abacus Academy domain
- * (created by seed-golden.ts). 8 learners at varied stages: completed,
+ * (created by seed-golden.ts). 5 learners at varied stages: completed,
  * in-progress, struggling, and new — so every UI tab looks rich in demos.
+ *
+ * Includes AI-generated pipeline data from demo-fixtures.json:
+ * call scores, memories, personality profiles, composed prompts,
+ * reward scores, call targets, and behavior measurements.
+ * No pipeline re-runs needed after seeding.
  *
  * Depends on: seed-golden (creates institution + domain), seed-clean (specs)
  * Profiles: full only
  */
 
 import { PrismaClient } from "@prisma/client";
+import * as fs from "fs";
+import * as path from "path";
 
 const TAG = "demo-psych-";
 
 // ── Helpers ─────────────────────────────────────────────────
-
-function seededFloat(seed: number): number {
-  const x = Math.sin(seed * 9301 + 49297) * 233280;
-  return x - Math.floor(x);
-}
 
 function seededRange(min: number, max: number, seed: string): number {
   let hash = 0;
@@ -31,10 +33,6 @@ function seededRange(min: number, max: number, seed: string): number {
 
 function seededInt(min: number, max: number, seed: string): number {
   return Math.floor(seededRange(min, max + 0.99, seed));
-}
-
-function r2(n: number): number {
-  return Math.round(n * 100) / 100;
 }
 
 function daysAgo(days: number, extraMinutes = 0): Date {
@@ -201,7 +199,6 @@ interface LearnerDef {
   mastery: number;
   /** Which modules this learner has engaged with, with per-module mastery */
   moduleProgress: Record<string, { mastery: number; status: string; callCount: number }>;
-  personalitySeeds?: Record<string, number>;
 }
 
 const LEARNERS: LearnerDef[] = [
@@ -218,7 +215,6 @@ const LEARNERS: LearnerDef[] = [
       [`${TAG}attachment`]: { mastery: 0.82, status: "COMPLETED", callCount: 1 },
       [`${TAG}psychopathology`]: { mastery: 0.78, status: "COMPLETED", callCount: 1 },
     },
-    personalitySeeds: { "B5-O": 0.82, "B5-C": 0.78, "B5-E": 0.65, "B5-A": 0.80, "B5-N": 0.22, "VARK-VISUAL": 0.45, "VARK-AUDITORY": 0.70, "VARK-READWRITE": 0.85, "VARK-KINESTHETIC": 0.35 },
   },
   // Steady progress — mid-journey, scores improving
   {
@@ -233,7 +229,6 @@ const LEARNERS: LearnerDef[] = [
       [`${TAG}attachment`]: { mastery: 0.20, status: "IN_PROGRESS", callCount: 1 },
       [`${TAG}psychopathology`]: { mastery: 0.0, status: "NOT_STARTED", callCount: 0 },
     },
-    personalitySeeds: { "B5-O": 0.70, "B5-C": 0.60, "B5-E": 0.55, "B5-A": 0.75, "B5-N": 0.35, "VARK-VISUAL": 0.65, "VARK-AUDITORY": 0.55, "VARK-READWRITE": 0.70, "VARK-KINESTHETIC": 0.40 },
   },
   // Early stage — just getting started, few data points
   {
@@ -248,7 +243,6 @@ const LEARNERS: LearnerDef[] = [
       [`${TAG}attachment`]: { mastery: 0.0, status: "NOT_STARTED", callCount: 0 },
       [`${TAG}psychopathology`]: { mastery: 0.0, status: "NOT_STARTED", callCount: 0 },
     },
-    personalitySeeds: { "B5-O": 0.60, "B5-C": 0.55, "B5-E": 0.80, "B5-A": 0.70, "B5-N": 0.30, "VARK-VISUAL": 0.50, "VARK-AUDITORY": 0.75, "VARK-READWRITE": 0.45, "VARK-KINESTHETIC": 0.70 },
   },
   // Struggling — needs attention, shows "at risk" signals
   {
@@ -263,7 +257,6 @@ const LEARNERS: LearnerDef[] = [
       [`${TAG}attachment`]: { mastery: 0.0, status: "NOT_STARTED", callCount: 0 },
       [`${TAG}psychopathology`]: { mastery: 0.0, status: "NOT_STARTED", callCount: 0 },
     },
-    personalitySeeds: { "B5-O": 0.40, "B5-C": 0.35, "B5-E": 0.50, "B5-A": 0.55, "B5-N": 0.65, "VARK-VISUAL": 0.80, "VARK-AUDITORY": 0.35, "VARK-READWRITE": 0.30, "VARK-KINESTHETIC": 0.75 },
   },
   // Brand new — just had first call, shows onboarding state
   {
@@ -337,36 +330,7 @@ const TRANSCRIPTS = [
   },
 ];
 
-// ── Memory Templates ────────────────────────────────────────
-
-function memoriesForArchetype(firstName: string, archetype: Archetype): Array<{ category: string; key: string; value: string; confidence: number }> {
-  const base = [
-    { category: "FACT", key: "first_name", value: firstName, confidence: 0.98 },
-    { category: "FACT", key: "year_group", value: "Year 12", confidence: 0.95 },
-  ];
-
-  if (archetype === "newActive" || archetype === "newEmpty") return base.slice(0, 1);
-
-  const extras: Record<string, Array<{ category: string; key: string; value: string; confidence: number }>> = {
-    completed: [
-      { category: "PREFERENCE", key: "learning_style", value: "Enjoys independent research and evaluating studies critically", confidence: 0.85 },
-      { category: "TOPIC", key: "favourite_study", value: "Fascinated by Milgram's obedience experiments and their ethical implications", confidence: 0.80 },
-      { category: "FACT", key: "career_interest", value: "Considering studying Psychology at university", confidence: 0.75 },
-      { category: "CONTEXT", key: "study_habits", value: "Uses flashcards and practice essays, studies in 45-minute focused blocks", confidence: 0.70 },
-    ],
-    inProgress: [
-      { category: "PREFERENCE", key: "learning_style", value: "Prefers examples and real-world applications over abstract theory", confidence: 0.80 },
-      { category: "TOPIC", key: "current_struggle", value: "Finding it hard to distinguish between types of conformity", confidence: 0.75 },
-      { category: "CONTEXT", key: "study_habits", value: "Studies best in short sessions with regular breaks", confidence: 0.70 },
-    ],
-    struggling: [
-      { category: "PREFERENCE", key: "learning_style", value: "Needs visual diagrams and step-by-step explanations", confidence: 0.80 },
-      { category: "TOPIC", key: "current_struggle", value: "Gets confused by similar-sounding psychological terms and researcher names", confidence: 0.85 },
-    ],
-  };
-
-  return [...base, ...(extras[archetype] || [])];
-}
+// Memory templates removed — all memories now loaded from demo-fixtures.json
 
 // ── Goal Templates ──────────────────────────────────────────
 
@@ -426,6 +390,13 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
     const callerIds = existingCallers.map((c) => c.id);
 
     if (callerIds.length > 0) {
+      // Find call IDs for FK cleanup
+      const existingCalls = await prisma.call.findMany({
+        where: { callerId: { in: callerIds } },
+        select: { id: true },
+      });
+      const existingCallIds = existingCalls.map((c) => c.id);
+
       // Delete in FK-safe order
       await prisma.callerModuleProgress.deleteMany({ where: { callerId: { in: callerIds } } });
       await prisma.composedPrompt.deleteMany({ where: { callerId: { in: callerIds } } });
@@ -435,6 +406,12 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
       await prisma.callerPersonalityProfile.deleteMany({ where: { callerId: { in: callerIds } } });
       await prisma.callScore.deleteMany({ where: { callerId: { in: callerIds } } });
       await prisma.onboardingSession.deleteMany({ where: { callerId: { in: callerIds } } });
+      // Pipeline output tables (FK to call)
+      if (existingCallIds.length > 0) {
+        await prisma.rewardScore.deleteMany({ where: { callId: { in: existingCallIds } } });
+        await prisma.callTarget.deleteMany({ where: { callId: { in: existingCallIds } } });
+        await prisma.behaviorMeasurement.deleteMany({ where: { callId: { in: existingCallIds } } });
+      }
       await prisma.call.deleteMany({ where: { callerId: { in: callerIds } } });
       await prisma.callerPlaybook.deleteMany({ where: { callerId: { in: callerIds } } });
       await prisma.callerCohortMembership.deleteMany({ where: { callerId: { in: callerIds } } });
@@ -752,21 +729,16 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
 
     console.log(`  Teacher: ${teacherCaller.name}, Cohort: ${cohort.name}`);
 
-    // ── 10. Create Learners + Enrichment ──
-    // Look up real parameter IDs for scoring (created by spec seeds)
-    const scoreParams = await prisma.parameter.findMany({
-      where: { name: { in: ["Engagement", "Comprehension", "Recall"] } },
-      select: { id: true, name: true },
-    });
-    const paramIdMap: Record<string, string> = {};
-    for (const p of scoreParams) {
-      paramIdMap[p.name.toLowerCase()] = p.id;
-    }
-    const hasScoreParams = Object.keys(paramIdMap).length > 0;
+    // ── 10. Create Learners + Calls ──
+    // Build parameter existence set for fixture validation
+    const allParams = await prisma.parameter.findMany({ select: { parameterId: true } });
+    const validParamIds = new Set(allParams.map((p) => p.parameterId).filter(Boolean));
+
+    // Maps for fixture resolution
+    const callerExtToId = new Map<string, string>();
+    const callExtToId = new Map<string, string>();
 
     let totalCalls = 0;
-    let totalScores = 0;
-    let totalMemories = 0;
     let totalGoals = 0;
 
     for (const learnerDef of LEARNERS) {
@@ -776,6 +748,7 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
         update: { name: learnerDef.name, email: learnerDef.email, role: "LEARNER", domainId: domain.id },
         create: { name: learnerDef.name, email: learnerDef.email, externalId, role: "LEARNER", domainId: domain.id },
       });
+      callerExtToId.set(externalId, learner.id);
 
       // Enroll in playbook
       await prisma.callerPlaybook.upsert({
@@ -824,81 +797,11 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
               endedAt: endDate,
             },
           });
+          const callExtId = `${TAG}call-${slugify(learnerDef.name)}-${c + 1}`;
+          callExtToId.set(callExtId, call.id);
           callIds.push(call.id);
         }
         totalCalls += learnerDef.callCount;
-      }
-
-      // ── CallScores ──
-      if (callIds.length > 0 && learnerDef.archetype !== "newActive" && hasScoreParams) {
-        const scoreBatch = [];
-        const [minScore, maxScore] = archScoreRange(learnerDef.archetype);
-
-        for (let c = 0; c < callIds.length; c++) {
-          // Score improves slightly over time for non-struggling learners
-          const progressBoost = learnerDef.archetype === "struggling" ? 0 : (c / callIds.length) * 0.10;
-
-          for (const paramKey of ["engagement", "comprehension", "recall"]) {
-            const pid = paramIdMap[paramKey];
-            if (!pid) continue; // Skip if parameter doesn't exist
-            const baseScore = r2(seededRange(minScore, maxScore, `score-${externalId}-${c}-${paramKey}`));
-            const score = r2(Math.min(1, baseScore + progressBoost));
-            scoreBatch.push({
-              callId: callIds[c],
-              callerId: learner.id,
-              parameterId: pid,
-              score,
-              confidence: r2(seededRange(0.6, 0.9, `conf-${externalId}-${c}-${paramKey}`)),
-              evidence: [`Extracted from psychology discussion`],
-              reasoning: `${learnerDef.archetype} performance`,
-              scoredBy: "demo-course-seed",
-            });
-          }
-        }
-
-        if (scoreBatch.length > 0) {
-          await prisma.callScore.createMany({ data: scoreBatch });
-          totalScores += scoreBatch.length;
-        }
-      }
-
-      // ── CallerMemory ──
-      const firstName = learnerDef.name.split(" ")[0];
-      const memories = memoriesForArchetype(firstName, learnerDef.archetype);
-      if (memories.length > 0) {
-        await prisma.callerMemory.createMany({
-          data: memories.map((m) => ({
-            callerId: learner.id,
-            category: m.category,
-            source: "EXTRACTED",
-            key: m.key,
-            value: m.value,
-            confidence: m.confidence,
-            extractedBy: "demo-course-seed",
-          })),
-        });
-        totalMemories += memories.length;
-
-        // Memory summary
-        const facts = memories.filter((m) => m.category === "FACT");
-        const prefs = memories.filter((m) => m.category === "PREFERENCE");
-        const topics = memories.filter((m) => m.category === "TOPIC");
-        await prisma.callerMemorySummary.upsert({
-          where: { callerId: learner.id },
-          update: {},
-          create: {
-            callerId: learner.id,
-            factCount: facts.length,
-            preferenceCount: prefs.length,
-            eventCount: 0,
-            topicCount: topics.length,
-            keyFacts: facts.map((f) => ({ key: f.key, value: f.value, confidence: f.confidence })),
-            topTopics: topics.map((t) => ({ topic: t.value, frequency: 3, lastMentioned: new Date().toISOString() })),
-            preferences: Object.fromEntries(prefs.map((p) => [p.key, p.value])),
-            lastMemoryAt: new Date(),
-            lastAggregatedAt: new Date(),
-          },
-        });
       }
 
       // ── Goals ──
@@ -922,21 +825,6 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
           })),
         });
         totalGoals += goals.length;
-      }
-
-      // ── Personality Profile ──
-      if (learnerDef.personalitySeeds) {
-        await prisma.callerPersonalityProfile.upsert({
-          where: { callerId: learner.id },
-          update: {},
-          create: {
-            callerId: learner.id,
-            parameterValues: learnerDef.personalitySeeds,
-            callsUsed: learnerDef.callCount,
-            specsUsed: 2,
-            lastUpdatedAt: new Date(),
-          },
-        });
       }
 
       // ── Module Progress ──
@@ -979,24 +867,183 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
         });
       }
 
-      // ── Composed Prompt (for enriched learners) ──
-      if (learnerDef.archetype === "completed" || learnerDef.archetype === "inProgress" || learnerDef.archetype === "struggling") {
-        const lastCallId = callIds[callIds.length - 1] ?? null;
-        await prisma.composedPrompt.create({
-          data: {
-            callerId: learner.id,
-            playbookId: playbook.id,
-            prompt: `${firstName} is a Year 12 Psychology student who ${learnerDef.archetype === "completed" ? "has demonstrated strong understanding across all modules" : learnerDef.archetype === "inProgress" ? "is making good progress, currently working through Social Influence" : "needs additional support with terminology and foundational concepts"}. Continue building on their ${learnerDef.archetype === "struggling" ? "emerging" : "growing"} understanding of psychological research methods and evaluation skills.`,
-            triggerType: "post_call",
-            triggerCallId: lastCallId,
-            model: "claude-sonnet-4-5-20250514",
-            composedAt: daysAgo(2),
-            status: "active",
-          },
-        });
+      console.log(`    ${learnerDef.name} (${learnerDef.archetype}): ${learnerDef.callCount} calls`);
+    }
+
+    // ── 11. Load AI-generated pipeline fixtures ──
+    const fixturesPath = path.join(__dirname, "demo-fixtures.json");
+    if (!fs.existsSync(fixturesPath)) {
+      console.log(`  ⚠ demo-fixtures.json not found — skipping pipeline data`);
+    } else {
+      const fixtures = JSON.parse(fs.readFileSync(fixturesPath, "utf-8"));
+      let fScores = 0, fMemories = 0, fPrompts = 0, fRewards = 0, fTargets = 0, fBehaviors = 0, fProfiles = 0, fSummaries = 0;
+
+      // Helper: validate parameterId exists in DB
+      const paramExists = (paramId: string): boolean => validParamIds.has(paramId);
+
+      // Call Scores (537)
+      if (fixtures.callScores?.length) {
+        const batch = [];
+        for (const s of fixtures.callScores) {
+          const callId = callExtToId.get(s.callExt);
+          const callerId = callerExtToId.get(s.callerExt);
+          if (!callId || !callerId || !paramExists(s.param)) continue;
+          batch.push({
+            callId, callerId, parameterId: s.param as string,
+            score: s.score, confidence: s.confidence,
+            evidence: s.evidence, reasoning: s.reasoning, scoredBy: s.scoredBy,
+          });
+        }
+        if (batch.length > 0) {
+          await prisma.callScore.createMany({ data: batch });
+          fScores = batch.length;
+        }
       }
 
-      console.log(`    ${learnerDef.name} (${learnerDef.archetype}): ${learnerDef.callCount} calls`);
+      // AI Memories (74)
+      if (fixtures.aiMemories?.length) {
+        const batch = [];
+        for (const m of fixtures.aiMemories) {
+          const callerId = callerExtToId.get(m.callerExt);
+          if (!callerId) continue;
+          batch.push({
+            callerId, category: m.category, source: m.source,
+            key: m.key, value: m.value, confidence: m.confidence,
+            extractedBy: m.extractedBy,
+          });
+        }
+        if (batch.length > 0) {
+          await prisma.callerMemory.createMany({ data: batch });
+          fMemories = batch.length;
+        }
+      }
+
+      // Memory Summaries (5)
+      if (fixtures.memorySummaries?.length) {
+        for (const s of fixtures.memorySummaries) {
+          const callerId = callerExtToId.get(s.callerExt);
+          if (!callerId) continue;
+          await prisma.callerMemorySummary.upsert({
+            where: { callerId },
+            update: {
+              factCount: s.factCount, preferenceCount: s.preferenceCount,
+              eventCount: s.eventCount, topicCount: s.topicCount,
+              keyFacts: s.keyFacts, topTopics: s.topTopics, preferences: s.preferences,
+              lastMemoryAt: new Date(), lastAggregatedAt: new Date(),
+            },
+            create: {
+              callerId,
+              factCount: s.factCount, preferenceCount: s.preferenceCount,
+              eventCount: s.eventCount, topicCount: s.topicCount,
+              keyFacts: s.keyFacts, topTopics: s.topTopics, preferences: s.preferences,
+              lastMemoryAt: new Date(), lastAggregatedAt: new Date(),
+            },
+          });
+          fSummaries++;
+        }
+      }
+
+      // Personality Profiles (4 — enriched with 46 params each)
+      if (fixtures.personalityProfiles?.length) {
+        for (const p of fixtures.personalityProfiles) {
+          const callerId = callerExtToId.get(p.callerExt);
+          if (!callerId) continue;
+          await prisma.callerPersonalityProfile.upsert({
+            where: { callerId },
+            update: { parameterValues: p.parameterValues, callsUsed: p.callsUsed, specsUsed: p.specsUsed, lastUpdatedAt: new Date() },
+            create: { callerId, parameterValues: p.parameterValues, callsUsed: p.callsUsed, specsUsed: p.specsUsed, lastUpdatedAt: new Date() },
+          });
+          fProfiles++;
+        }
+      }
+
+      // Composed Prompts (14 — includes full session prompts)
+      if (fixtures.composedPrompts?.length) {
+        for (const p of fixtures.composedPrompts) {
+          const callerId = callerExtToId.get(p.callerExt);
+          if (!callerId) continue;
+          const triggerCallId = p.triggerCallExt ? callExtToId.get(p.triggerCallExt) ?? null : null;
+          await prisma.composedPrompt.create({
+            data: {
+              callerId, playbookId: playbook.id,
+              prompt: p.prompt, triggerType: p.triggerType,
+              triggerCallId, model: p.model, status: p.status,
+              composedAt: daysAgo(2),
+            },
+          });
+          fPrompts++;
+        }
+      }
+
+      // Reward Scores (12)
+      if (fixtures.rewardScores?.length) {
+        const batch = [];
+        for (const r of fixtures.rewardScores) {
+          const callId = callExtToId.get(r.callExt);
+          if (!callId) continue;
+          batch.push({
+            callId,
+            overallScore: r.overallScore as number,
+            modelVersion: r.modelVersion as string,
+            scoredBy: r.scoredBy as string | null,
+            parameterDiffs: r.parameterDiffs ?? undefined,
+            outcomeSignals: r.outcomeSignals ?? undefined,
+            goalProgressScore: r.goalProgressScore ?? undefined,
+          });
+        }
+        if (batch.length > 0) {
+          await prisma.rewardScore.createMany({ data: batch });
+          fRewards = batch.length;
+        }
+      }
+
+      // Call Targets (427)
+      if (fixtures.callTargets?.length) {
+        const batch = [];
+        for (const t of fixtures.callTargets) {
+          const callId = callExtToId.get(t.callExt);
+          if (!callId || !paramExists(t.param)) continue;
+          batch.push({
+            callId, parameterId: t.param as string,
+            targetValue: t.targetValue as number,
+            reasoning: t.reasoning as string | null,
+          });
+        }
+        if (batch.length > 0) {
+          await prisma.callTarget.createMany({ data: batch });
+          fTargets = batch.length;
+        }
+      }
+
+      // Behavior Measurements (552)
+      if (fixtures.behaviorMeasurements?.length) {
+        const batch = [];
+        for (const b of fixtures.behaviorMeasurements) {
+          const callId = callExtToId.get(b.callExt);
+          if (!callId || !paramExists(b.param)) continue;
+          batch.push({
+            callId, parameterId: b.param as string,
+            actualValue: b.actualValue as number,
+            confidence: (b.confidence as number | null) ?? undefined,
+            evidence: b.evidence as string[],
+            measuredBy: b.measuredBy as string | null,
+          });
+        }
+        if (batch.length > 0) {
+          await prisma.behaviorMeasurement.createMany({ data: batch });
+          fBehaviors = batch.length;
+        }
+      }
+
+      console.log(`  Pipeline fixtures loaded:`);
+      console.log(`     Scores:       ${fScores}`);
+      console.log(`     Memories:     ${fMemories}`);
+      console.log(`     Summaries:    ${fSummaries}`);
+      console.log(`     Profiles:     ${fProfiles}`);
+      console.log(`     Prompts:      ${fPrompts}`);
+      console.log(`     Rewards:      ${fRewards}`);
+      console.log(`     Targets:      ${fTargets}`);
+      console.log(`     Behaviors:    ${fBehaviors}`);
     }
 
     // ── Summary ──
@@ -1005,23 +1052,9 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
     console.log(`     Curriculum: ${MODULES.length} modules, ${loRefToId.size} LOs, ${ASSERTIONS.length} assertions`);
     console.log(`     Learners:   ${LEARNERS.length}`);
     console.log(`     Calls:      ${totalCalls}`);
-    console.log(`     Scores:     ${totalScores}`);
-    console.log(`     Memories:   ${totalMemories}`);
     console.log(`     Goals:      ${totalGoals}`);
   } finally {
     if (!externalPrisma) await prisma.$disconnect();
-  }
-}
-
-// ── Score Range by Archetype ────────────────────────────────
-
-function archScoreRange(archetype: Archetype): [number, number] {
-  switch (archetype) {
-    case "completed": return [0.70, 0.95];
-    case "inProgress": return [0.40, 0.70];
-    case "struggling": return [0.15, 0.40];
-    case "newActive": return [0.30, 0.50];
-    case "newEmpty": return [0, 0];
   }
 }
 

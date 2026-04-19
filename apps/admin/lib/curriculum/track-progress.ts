@@ -673,6 +673,49 @@ export async function getTpProgressSummary(
 }
 
 /**
+ * Batch version of getTpProgressSummary for multiple callers.
+ * Single DB query instead of N separate queries.
+ */
+export async function getTpProgressSummaryBatch(
+  callerIds: string[],
+  specSlug: string,
+): Promise<Map<string, TpProgressSummary>> {
+  if (callerIds.length === 0) return new Map();
+
+  const keyPattern = await ContractRegistry.getKeyPattern('CURRICULUM_PROGRESS_V1');
+  if (!keyPattern) throw new Error('CURRICULUM_PROGRESS_V1 contract not loaded');
+
+  const prefix = keyPattern
+    .replace('{specSlug}', specSlug)
+    .replace(':{key}', ':');
+
+  const attributes = await prisma.callerAttribute.findMany({
+    where: {
+      callerId: { in: callerIds },
+      scope: 'CURRICULUM',
+      key: { startsWith: `${prefix}tp_status:` },
+    },
+    select: { callerId: true, stringValue: true },
+  });
+
+  const result = new Map<string, TpProgressSummary>();
+  for (const id of callerIds) {
+    result.set(id, { totalTps: 0, mastered: 0, inProgress: 0, notStarted: 0 });
+  }
+  for (const attr of attributes) {
+    const summary = result.get(attr.callerId)!;
+    summary.totalTps++;
+    switch (attr.stringValue) {
+      case 'mastered': summary.mastered++; break;
+      case 'in_progress': summary.inProgress++; break;
+      default: summary.notStarted++; break;
+    }
+  }
+
+  return result;
+}
+
+/**
  * Batch-write TP mastery for multiple assertions.
  * Used by pipeline after continuous-mode assessment.
  */
