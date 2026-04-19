@@ -70,9 +70,16 @@ const SUBJECT = {
 
 const CONTENT_SOURCE = {
   slug: `${TAG}aqa-psych-spec`,
-  name: "AQA Psychology AS-Level Specification",
-  description: "Core specification content for AQA AS-Level Psychology, covering cognitive, social, developmental, and clinical topics.",
+  name: "AQA Psychology AS-Level Teaching Guide",
+  description: "Core teaching content for AQA AS-Level Psychology — key theories, research studies, and evaluation points across Memory, Social Influence, Attachment, and Psychopathology.",
   documentType: "TEXTBOOK" as const,
+};
+
+const COURSE_REF_SOURCE = {
+  slug: `${TAG}intro-psych-course-ref`,
+  name: "Introduction to Psychology — Course Reference",
+  description: "Tutor configuration for the Intro to Psychology course — teaching approach, session flow, scaffolding techniques, skill framework, and assessment boundaries.",
+  documentType: "COURSE_REFERENCE" as const,
 };
 
 const CURRICULUM = {
@@ -161,6 +168,25 @@ const ASSERTIONS = [
   { assertion: "Phobias are characterised by persistent, excessive fear (emotional), avoidance behaviour (behavioural), and irrational beliefs about the feared stimulus (cognitive).", category: "concept", chapter: "Psychopathology", section: "Phobias", tags: ["phobias", "characteristics"], learningOutcomeRef: "PSY-PSP-2", topicSlug: "phobias" },
   { assertion: "The two-process model (Mowrer, 1947) explains phobias through classical conditioning (acquisition of fear) maintained by operant conditioning (avoidance is negatively reinforced).", category: "process", chapter: "Psychopathology", section: "Phobias", tags: ["phobias", "two-process-model", "Mowrer"], learningOutcomeRef: "PSY-PSP-2", topicSlug: "phobias" },
   { assertion: "Beck's cognitive theory of depression proposes that negative schemas and the cognitive triad (negative views of self, world, and future) maintain depressive thinking.", category: "concept", chapter: "Psychopathology", section: "Depression", tags: ["depression", "Beck", "cognitive-triad"], learningOutcomeRef: "PSY-PSP-3", topicSlug: "depression-ocd" },
+];
+
+// Course reference assertions (tutor instructions — instruction categories)
+const COURSE_REF_ASSERTIONS = [
+  { assertion: "Use Socratic questioning as the primary teaching method — ask questions that guide students to discover principles themselves. Direct explanation is a last resort.", category: "skill_framework", chapter: "Teaching Approach", section: "Core Principles" },
+  { assertion: "Ground every concept in a landmark study. Never teach a theory without its foundational research — the method, the findings, and what they mean.", category: "skill_framework", chapter: "Teaching Approach", section: "Core Principles" },
+  { assertion: "Build evaluation skills gradually: start by modelling AO3 points ('One strength of this study is...') then shift to asking students to generate their own evaluations.", category: "scaffolding_technique", chapter: "Teaching Approach", section: "Evaluation Skills" },
+  { assertion: "Connect every concept to real life before introducing formal terminology. Ask 'Have you ever noticed...?' to activate prior experience.", category: "scaffolding_technique", chapter: "Teaching Approach", section: "Real-world Connection" },
+  { assertion: "Call flow: Opening (~2 min) → Retrieval check (~2 min) → Core exchange (~8 min) → Stretch or consolidate (~2 min) → Close (~1 min). Total 12-15 minutes.", category: "session_flow", chapter: "Teaching Approach", section: "Call Structure" },
+  { assertion: "Phase 1 (Foundation): Prioritise warmth and encouragement. Accept less precise terminology. Model evaluation rather than asking students to generate it. Focus on Memory as entry point.", category: "session_flow", chapter: "Course Phases", section: "Phase 1" },
+  { assertion: "Phase 2 (Building Understanding): Increase Socratic challenge — ask 'why?' and 'how do you know?' more frequently. Begin interleaving retrieval checks from earlier topics.", category: "session_flow", chapter: "Course Phases", section: "Phase 2" },
+  { assertion: "Phase 3 (Consolidation): Expect accurate terminology without prompting. Ask comparison questions across topics. Push for independent evaluation and AO1/AO3 answer structuring.", category: "session_flow", chapter: "Course Phases", section: "Phase 3" },
+  { assertion: "Handle psychopathology sensitively — acknowledge that mental health is personal. Never push if the student is uncomfortable. Offer to focus on research methodology instead of disorders.", category: "edge_case", chapter: "Edge Cases", section: "Sensitive Content" },
+  { assertion: "If a student consistently cannot recall material from previous calls, dedicate one full call to retrieval practice across all previously covered outcomes before introducing new content.", category: "edge_case", chapter: "Edge Cases", section: "Recall Failure" },
+  { assertion: "Student talk ratio target: >40% of call duration. If the tutor is talking more than 60%, shift to more questions and shorter explanations.", category: "communication_rule", chapter: "Metrics", section: "Quality Signals" },
+  { assertion: "Outcome progression rate target: 1-2 outcomes reaching mastery per 3 calls. If slower, check whether retrieval checks are taking too long or if scaffolding needs adjusting.", category: "communication_rule", chapter: "Metrics", section: "Quality Signals" },
+  { assertion: "SKILL-01: Research Evaluation — ability to critically assess psychological research. Emerging: can name a study. Developing: identifies obvious limitations. Secure: independently weighs strengths against limitations.", category: "skill_description", chapter: "Skills Framework", section: "Research Evaluation" },
+  { assertion: "SKILL-02: Psychological Terminology — accurate use of subject-specific vocabulary. Emerging: uses everyday language. Developing: uses terms when prompted. Secure: spontaneously uses correct terminology.", category: "skill_description", chapter: "Skills Framework", section: "Terminology" },
+  { assertion: "SKILL-03: Application — ability to apply concepts to novel scenarios. Emerging: cannot connect theory to examples. Developing: applies concepts with scaffolding. Secure: independently generates novel examples.", category: "skill_description", chapter: "Skills Framework", section: "Application" },
 ];
 
 // ── Learner Archetypes ──────────────────────────────────────
@@ -599,7 +625,50 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
       refToAssertionIds.set(a.learningOutcomeRef, existing);
     }
 
-    console.log(`  Assertions: ${ASSERTIONS.length}`);
+    console.log(`  Teaching points: ${ASSERTIONS.length}`);
+
+    // ── 7b. Create Course Reference Source + Assertions ──
+    let courseRefSource = await prisma.contentSource.findFirst({ where: { slug: COURSE_REF_SOURCE.slug } });
+    if (!courseRefSource) {
+      courseRefSource = await prisma.contentSource.create({
+        data: {
+          slug: COURSE_REF_SOURCE.slug,
+          name: COURSE_REF_SOURCE.name,
+          description: COURSE_REF_SOURCE.description,
+          documentType: COURSE_REF_SOURCE.documentType,
+        },
+      });
+    }
+
+    await prisma.subjectSource.upsert({
+      where: { subjectId_sourceId: { subjectId: subject.id, sourceId: courseRefSource.id } },
+      update: {},
+      create: { subjectId: subject.id, sourceId: courseRefSource.id },
+    });
+
+    await prisma.playbookSource.upsert({
+      where: { playbookId_sourceId: { playbookId: playbook.id, sourceId: courseRefSource.id } },
+      update: {},
+      create: { playbookId: playbook.id, sourceId: courseRefSource.id, tags: ["course-reference"] },
+    });
+
+    for (let i = 0; i < COURSE_REF_ASSERTIONS.length; i++) {
+      const a = COURSE_REF_ASSERTIONS[i];
+      await prisma.contentAssertion.create({
+        data: {
+          sourceId: courseRefSource.id,
+          assertion: a.assertion,
+          category: a.category,
+          chapter: a.chapter,
+          section: a.section,
+          depth: 1,
+          orderIndex: i,
+          createdBy: "demo-course-seed",
+        },
+      });
+    }
+
+    console.log(`  Tutor instructions: ${COURSE_REF_ASSERTIONS.length}`);
 
     // ── 8. Build lesson plan ──
     const teachingEntries = [];
