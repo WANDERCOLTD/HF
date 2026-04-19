@@ -306,6 +306,7 @@
   flex: 1;
   height: 100%;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 32px 40px;
   background: var(--surface-secondary);
 }

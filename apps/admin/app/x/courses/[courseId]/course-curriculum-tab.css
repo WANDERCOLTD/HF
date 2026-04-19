@@ -284,6 +284,7 @@
   gap: 14px;
   max-height: 480px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .curriculum-assertion-group {
@@ -456,6 +457,7 @@
   gap: 4px;
   max-height: 480px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .curriculum-mcq-row {

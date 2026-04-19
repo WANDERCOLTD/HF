@@ -73,6 +73,7 @@ Options:
 2. **Quick deploy** — Code-only change, no schema or spec changes
 3. **Full deploy** — Schema + specs + code (migrate → seed → deploy)
 4. **Rollback** — Revert to a previous Cloud Run revision
+5. **Seed only** — Re-run seed job with a chosen profile (no code deploy)
 
 Based on the user's choice, walk them through the exact commands step by step. Always confirm before executing any command.
 
@@ -172,20 +173,34 @@ gcloud run deploy $SERVICE \
   --no-cpu-throttling
 ```
 
-### 4. (DEV only) Seed demo accounts
+### 4. Seed after deploy (optional)
 
-For DEV quick deploys, always rebuild the seed image and run the seed job to ensure demo login accounts exist. Skip this step for TEST/PROD.
+Ask the user whether to seed after deploying:
+
+**Question:** "Seed the database after deploy?"
+**Header:** "Seed"
+**multiSelect:** false
+
+Options:
+1. **Skip** — Deploy code only, leave data as-is
+2. **demo** — Clean demo data (golden school + demo course + demo logins, no e2e junk)
+3. **full** — Everything including e2e fixtures (DEV/TEST only)
+4. **core** — Specs + contracts only (safe for PROD)
+
+If the user picks a seed profile, rebuild the seed image and run the seed job:
 
 ```bash
 # Build seed image (on VM — uses shared cache, deps already cached from runner build)
 gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- "cd ~/HF/apps/admin && gcloud builds submit --config cloudbuild-seed.yaml --project hf-admin-prod --region europe-west2 --substitutions=_TAG=latest ."
 
-# Execute seed job (SEED_PROFILE=full includes demo logins)
-gcloud run jobs update hf-seed-dev \
-  --set-env-vars=SEED_PROFILE=full \
+# Execute seed job
+gcloud run jobs update $SEED_JOB \
+  --set-env-vars=SEED_PROFILE=$SELECTED_PROFILE \
   --region=europe-west2 --project=hf-admin-prod
-gcloud run jobs execute hf-seed-dev --region=europe-west2 --project=hf-admin-prod --wait
+gcloud run jobs execute $SEED_JOB --region=europe-west2 --project=hf-admin-prod --wait
 ```
+
+**Guard:** If the user picks `full` for PROD or `core` for DEV, warn them — it's likely not what they want.
 
 ## Full Deploy Steps (option 3)
 
@@ -223,6 +238,45 @@ gcloud run deploy $SERVICE \
   --region=europe-west2 --project=hf-admin-prod \
   --no-cpu-throttling
 ```
+
+## Seed Only Steps (option 5)
+
+Re-run the seed job against an environment without deploying code. Useful for resetting demo data or syncing DEV with the VM's dataset.
+
+### 1. Pick seed profile
+
+**Question:** "Which seed profile?"
+**Header:** "Seed Profile"
+**multiSelect:** false
+
+Options:
+1. **demo** — Golden school + demo course + demo logins (no e2e junk) — matches VM `SEED_PROFILE=demo`
+2. **full** — Everything including e2e fixtures
+3. **core** — Specs + contracts only
+4. **golden** — Specs + 1 clean institution (Abacus Academy)
+
+**Guard:** Block `full` or `demo` for PROD. Block `core` for DEV (likely not what you want — warn and confirm).
+
+### 2. Rebuild seed image (on VM)
+
+The `:latest` seed image may be stale. Always rebuild before running:
+
+```bash
+gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- "cd ~/HF && git pull --rebase && cd apps/admin && gcloud builds submit --config cloudbuild-seed.yaml --project hf-admin-prod --region europe-west2 --substitutions=_TAG=latest ."
+```
+
+### 3. Run seed job
+
+```bash
+gcloud run jobs update $SEED_JOB \
+  --set-env-vars=SEED_PROFILE=$SELECTED_PROFILE \
+  --region=europe-west2 --project=hf-admin-prod
+gcloud run jobs execute $SEED_JOB --region=europe-west2 --project=hf-admin-prod --wait
+```
+
+### 4. Smoke test
+
+Run the same smoke tests as after a deploy to verify the seeded data didn't break anything.
 
 ## Rollback Steps (option 4)
 

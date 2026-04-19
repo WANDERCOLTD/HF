@@ -354,6 +354,7 @@
 .cpt-transcript-body {
   max-height: 500px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -564,6 +565,32 @@
   color: var(--text-muted);
 }
 
+/* ── Provenance label (Input Prompt / Next Prompt source) ── */
+
+.cpt-prompt-provenance {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-secondary);
+  padding: 1px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+/* ── Bootstrap badge on Call 1 header ─────────────── */
+
+.cpt-bootstrap-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--status-info-text);
+  background: var(--status-info-bg);
+  padding: 1px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
 /* ── Prompt card ───────────────────────────────────── */
 
 .cpt-prompt-preview {
@@ -584,6 +611,7 @@
   word-break: break-word;
   max-height: 400px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   margin: 0;
   background: var(--surface-primary);
 }
@@ -603,6 +631,7 @@
 .cpt-diff-body {
   max-height: 400px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   font-family: var(--font-mono, monospace);
   font-size: 11px;
   line-height: 1.6;
@@ -669,6 +698,7 @@
 .cpt-logs-entries {
   max-height: 300px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   font-family: var(--font-mono, monospace);
   font-size: 11px;
   background: var(--surface-dark, #1e1e2e);
@@ -709,13 +739,4 @@
   word-break: break-word;
 }
 
-/* ── Bootstrap anchor ──────────────────────────────── */
-
-.cpt-bootstrap {
-  margin-top: 8px;
-  opacity: 0.6;
-  transition: opacity 0.15s;
-}
-.cpt-bootstrap:hover {
-  opacity: 1;
-}
+/* (Bootstrap is now integrated as Call 1's Input Prompt — no separate section) */

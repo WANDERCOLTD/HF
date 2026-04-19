@@ -4,7 +4,7 @@
  * CallsPromptsTab — unified call timeline. The single tab for everything call-related.
  *
  * Per call (accordion cards, cpt-* styling):
- * 1. Prompt used — the composed prompt active during this call
+ * 1. Input Prompt — the prompt used for this call (previous call's Next Prompt, or bootstrap)
  * 2. Transcript — preview + full conversation
  * 3. Extraction — memories, traits, scores, actions (lazy-loaded)
  * 4. Next Prompt — the recomposed prompt for the next call
@@ -41,6 +41,10 @@ import "./calls-prompts-tab.css";
 type CallWithPrompts = Call & {
   promptUsed: ComposedPrompt | null;
   promptAfter: ComposedPrompt | null;
+  callNum: number;
+  isFirst: boolean;
+  /** Label for where Input Prompt came from: "Call 3" or "Bootstrap" */
+  inputSource: string;
 };
 
 type DiffLine = { type: "same" | "added" | "removed"; text: string };
@@ -81,36 +85,47 @@ function filterLogs(logs: LogEntry[], level: "full" | "med" | "off"): LogEntry[]
   return logs;
 }
 
-/** Join calls to their prompts using triggerCallId */
+/** Join calls to their prompts — Input Prompt = previous call's Next Prompt */
 function buildTimeline(
   calls: Call[],
   prompts: ComposedPrompt[],
 ): { entries: CallWithPrompts[]; bootstrap: ComposedPrompt | null } {
-  const sorted = [...calls].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
-  const sortedPrompts = [...prompts].sort(
-    (a, b) => new Date(a.composedAt).getTime() - new Date(b.composedAt).getTime(),
+  // Sort ASC (oldest first) to build the chain
+  const chronological = [...calls].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
 
-  const bootstrap = sortedPrompts.find(p => !p.triggerCallId) ?? null;
+  const bootstrap = prompts.find(p => !p.triggerCallId) ?? null;
 
+  // Map: callId → prompt composed AFTER that call
   const afterCallMap = new Map<string, ComposedPrompt>();
-  for (const p of sortedPrompts) {
+  for (const p of prompts) {
     if (p.triggerCallId) afterCallMap.set(p.triggerCallId, p);
   }
 
-  const entries = sorted.map((call) => {
-    const callTime = new Date(call.createdAt).getTime();
-    let promptUsed: ComposedPrompt | null = null;
-    for (let i = sortedPrompts.length - 1; i >= 0; i--) {
-      if (new Date(sortedPrompts[i].composedAt).getTime() <= callTime) {
-        promptUsed = sortedPrompts[i];
-        break;
-      }
+  // Build chain: Call N's input = Call N-1's promptAfter (or bootstrap for Call 1)
+  const entries: CallWithPrompts[] = chronological.map((call, idx) => {
+    const callNum = idx + 1;
+    const promptAfter = afterCallMap.get(call.id) ?? null;
+    let promptUsed: ComposedPrompt | null;
+    let inputSource: string;
+
+    if (idx === 0) {
+      // First call — input is the bootstrap prompt
+      promptUsed = bootstrap;
+      inputSource = "Bootstrap";
+    } else {
+      // Input = previous call's Next Prompt
+      const prevCallId = chronological[idx - 1].id;
+      promptUsed = afterCallMap.get(prevCallId) ?? null;
+      inputSource = `Call ${idx}`;
     }
-    return { ...call, promptUsed, promptAfter: afterCallMap.get(call.id) ?? null };
+
+    return { ...call, promptUsed, promptAfter, callNum, isFirst: idx === 0, inputSource };
   });
+
+  // Reverse to DESC (newest first) for display
+  entries.reverse();
 
   return { entries, bootstrap };
 }
@@ -138,8 +153,8 @@ function parseTranscript(transcript: string): { role: "user" | "assistant"; cont
 // Accordion sub-components (all cpt-* styled)
 // ---------------------------------------------------------------------------
 
-function TranscriptCard({ transcript }: { transcript: string }) {
-  const [expanded, setExpanded] = useState(false);
+function TranscriptCard({ transcript, defaultExpanded = false }: { transcript: string; defaultExpanded?: boolean }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const messages = useMemo(() => parseTranscript(transcript), [transcript]);
 
   if (messages.length === 0) return null;
@@ -404,7 +419,12 @@ function PipelineSummary({ call }: { call: Call }) {
   );
 }
 
-function PromptPreview({ prompt, label }: { prompt: ComposedPrompt; label: string }) {
+function PromptPreview({ prompt, label, provenance }: {
+  prompt: ComposedPrompt;
+  label: string;
+  /** e.g. "from Call 5" or "★ Bootstrap" or "→ Call 7" */
+  provenance?: string;
+}) {
   const [expanded, setExpanded] = useState(false);
   const text = prompt.prompt || "";
   const preview = text.slice(0, 200);
@@ -414,7 +434,9 @@ function PromptPreview({ prompt, label }: { prompt: ComposedPrompt; label: strin
       <button className="cpt-accordion-header" onClick={() => setExpanded(!expanded)}>
         <FileText size={13} />
         <span className="cpt-accordion-label">{label}</span>
-        <span className="cpt-accordion-count">{prompt.triggerType}</span>
+        {provenance && (
+          <span className="cpt-prompt-provenance">{provenance}</span>
+        )}
         {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
       </button>
       {expanded && (
@@ -779,11 +801,11 @@ export function CallsPromptsTab({
         </div>
       )}
 
-      {/* Call entries — newest first */}
-      {entries.map((entry, idx) => {
+      {/* Call entries — newest first (DESC) */}
+      {entries.map((entry) => {
         const isExpanded = effectiveExpanded === entry.id;
         const isProcessing = !!processingCallIds?.has(entry.id);
-        const callNum = entries.length - idx;
+        const callNum = entry.callNum;
         const details = callDetails[entry.id] || null;
         const isLoading = !!loadingDetails[entry.id];
         const callResults = pipelineResults[entry.id] || {};
@@ -806,6 +828,9 @@ export function CallsPromptsTab({
                   <span className="cpt-call-date">{formatDate(entry.createdAt)}</span>
                   {entry.curriculumModule && (
                     <span className="cpt-call-module">{entry.curriculumModule.title}</span>
+                  )}
+                  {entry.isFirst && (
+                    <span className="cpt-bootstrap-badge">First</span>
                   )}
                 </div>
                 <div className="cpt-call-status">
@@ -847,18 +872,22 @@ export function CallsPromptsTab({
             {/* Expanded detail — accordion cards */}
             {isExpanded && (
               <div className="cpt-call-body">
-                {/* 1. Prompt used */}
+                {/* 1. Input Prompt — from previous call's composition (or bootstrap) */}
                 {entry.promptUsed ? (
-                  <PromptPreview prompt={entry.promptUsed} label="Prompt used" />
+                  <PromptPreview
+                    prompt={entry.promptUsed}
+                    label="Input Prompt"
+                    provenance={entry.isFirst ? "★ Bootstrap" : `from ${entry.inputSource}`}
+                  />
                 ) : (
                   <div className="cpt-accordion-card cpt-accordion-card--empty">
                     <AlertCircle size={13} />
-                    <span>No prompt was composed before this call</span>
+                    <span>No input prompt — {entry.isFirst ? "bootstrap not yet composed" : "previous call has no composition"}</span>
                   </div>
                 )}
 
-                {/* 2. Transcript */}
-                {entry.transcript && <TranscriptCard transcript={entry.transcript} />}
+                {/* 2. Transcript — expanded by default for selected call */}
+                {entry.transcript && <TranscriptCard transcript={entry.transcript} defaultExpanded />}
 
                 {/* 3. Extraction (lazy-loaded) */}
                 <ExtractionCard
@@ -869,9 +898,13 @@ export function CallsPromptsTab({
                   isLoading={isLoading}
                 />
 
-                {/* 4. Next Prompt */}
+                {/* 4. Next Prompt — destination label */}
                 {entry.promptAfter && (
-                  <PromptPreview prompt={entry.promptAfter} label="Next Prompt" />
+                  <PromptPreview
+                    prompt={entry.promptAfter}
+                    label="Next Prompt"
+                    provenance={`→ Call ${entry.callNum + 1}`}
+                  />
                 )}
 
                 {/* 5. Behaviour (lazy-loaded) */}
@@ -900,12 +933,7 @@ export function CallsPromptsTab({
         );
       })}
 
-      {/* Bootstrap prompt */}
-      {bootstrap && (
-        <div className="cpt-bootstrap">
-          <PromptPreview prompt={bootstrap} label="Bootstrap (enrollment)" />
-        </div>
-      )}
+      {/* Bootstrap is now shown as Call 1's Input Prompt — no separate section needed */}
     </div>
   );
 }
