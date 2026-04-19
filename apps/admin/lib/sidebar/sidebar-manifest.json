@@ -3,7 +3,7 @@
     "id": "demo-top",
     "items": [
       { "id": "demo-gs-v5", "href": "/x/get-started-v5", "label": "Build Course", "icon": "Sparkles", "highlighted": true, "wizard": true },
-      { "id": "demo-dash", "href": "/x/educator", "label": "Dashboard", "icon": "GraduationCap", "shortcutHint": "⌘D" },
+      { "id": "demo-dash", "href": "/x", "label": "Dashboard", "icon": "GraduationCap", "shortcutHint": "⌘D" },
       { "id": "demo-sim", "href": "/x/sim", "label": "Learn", "icon": "MessageCircle", "shortcutHint": "⌘S" },
       { "id": "demo-callers", "href": "/x/callers", "label": "Callers", "icon": "User", "shortcutHint": "⌘L" },
       { "id": "demo-courses", "href": "/x/courses", "label": "Courses", "icon": "BookOpen", "terminologyLabel": "playbook_plural" }
@@ -17,7 +17,7 @@
     "items": [
       { "id": "edu-gs-v5", "href": "/x/get-started-v5", "label": "Build Course", "icon": "Sparkles", "highlighted": true, "wizard": true, "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "edu-onboarding", "href": "/x/onboarding", "label": "Onboarding Flows", "icon": "Route", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] },
-      { "id": "edu-home", "href": "/x/educator", "label": "Dashboard", "icon": "GraduationCap", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] }
+      { "id": "edu-home", "href": "/x", "label": "Dashboard", "icon": "GraduationCap", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] }
     ]
   },
   {
@@ -123,7 +123,7 @@
     "terminologySectionTitle": "domain",
     "defaultHiddenFor": ["OPERATOR", "SUPER_TESTER", "TESTER", "DEMO", "STUDENT", "EDUCATOR"],
     "items": [
-      { "id": "edu-dashboard", "href": "/x/educator", "label": "Dashboard", "icon": "GraduationCap", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] },
+      { "id": "edu-dashboard", "href": "/x", "label": "Dashboard", "icon": "GraduationCap", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "edu-departments", "href": "/x/educator/departments", "label": "Departments", "icon": "Building", "terminologyLabel": "group_plural", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "edu-try", "href": "/x/educator/try", "label": "Try It", "icon": "PlayCircle", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "edu-reports", "href": "/x/educator/reports", "label": "Reports", "icon": "TrendingUp", "visibleFor": ["EDUCATOR", "ADMIN", "SUPERADMIN"] },
