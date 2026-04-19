@@ -181,7 +181,7 @@ export default function OnboardingFlowsPage() {
               </select>
               {selectedDomain && (
                 <Link
-                  href={`/x/domains/${selectedDomain}?tab=onboarding`}
+                  href={`/x/domains?id=${selectedDomain}&tab=onboarding`}
                   className="hf-btn hf-btn--secondary ob-edit-link"
                 >
                   <ExternalLink size={14} /> Edit at institution

@@ -372,10 +372,10 @@ function EntitySection({
   // Build href for each item
   const getItemHref = (item: EntityItem) => {
     switch (entityKey) {
-      case "domains": return `/x/domains/${item.id}`;
+      case "domains": return `/x/domains?id=${item.id}`;
       case "playbooks": return `/x/playbooks/${item.id}`;
       case "callers": return `/x/callers/${item.id}`;
-      case "specs": return `/x/specs/${item.id}`;
+      case "specs": return `/x/specs?id=${item.id}`;
       case "communities": return `/x/communities/${item.id}`;
       default: return config.href;
     }
