@@ -211,7 +211,7 @@ export async function DELETE(
   { params }: { params: Promise<{ ticketId: string }> }
 ) {
   try {
-    const authResult = await requireAuth("OPERATOR");
+    const authResult = await requireAuth("TESTER");
     if (isAuthError(authResult)) return authResult.error;
     const { session } = authResult;
 
@@ -226,10 +226,10 @@ export async function DELETE(
       return NextResponse.json({ ok: false, error: "Ticket not found" }, { status: 404 });
     }
 
-    // Only allow creator or ADMIN+ to delete
+    // Creator can delete own ticket; OPERATOR+ can delete any
     const deleteRoleLevel = ROLE_LEVEL[session.user.role as UserRole] ?? 0;
-    if (ticket.creatorId !== session.user.id && deleteRoleLevel < 4) {
-      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    if (ticket.creatorId !== session.user.id && deleteRoleLevel < 3) {
+      return NextResponse.json({ ok: false, error: "You can only delete your own feedback" }, { status: 403 });
     }
 
     await prisma.ticket.delete({
