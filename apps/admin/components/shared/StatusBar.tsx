@@ -130,9 +130,9 @@ export function StatusBar() {
     setVersionPopupOpen(false);
   }, []);
 
-  // ── System health poll (SUPERADMIN only, every 120s) — stores full IniResult ──
+  // ── System health poll (SUPERADMIN only, every 120s) — skip when masquerading ──
   useEffect(() => {
-    if (!isSuperAdmin || !session?.user) return;
+    if (!isSuperAdmin || !session?.user || isMasquerading) return;
 
     const fetchHealth = async () => {
       try {
@@ -148,11 +148,11 @@ export function StatusBar() {
     fetchHealth();
     const interval = setInterval(fetchHealth, 120000);
     return () => clearInterval(interval);
-  }, [isSuperAdmin, session?.user]);
+  }, [isSuperAdmin, isMasquerading, session?.user]);
 
-  // ── Deep logging poll (ADMIN+, every 120s — toggle is optimistic, poll is cross-tab sync only) ──
+  // ── Deep logging poll (ADMIN+, every 120s) — skip when masquerading ──
   useEffect(() => {
-    if (!isAdmin || !session?.user) return;
+    if (!isAdmin || !session?.user || isMasquerading) return;
 
     const fetchDeepLogging = async () => {
       try {
@@ -169,7 +169,7 @@ export function StatusBar() {
     fetchDeepLogging();
     const interval = setInterval(fetchDeepLogging, 120000);
     return () => clearInterval(interval);
-  }, [isAdmin, session?.user]);
+  }, [isAdmin, isMasquerading, session?.user]);
 
   // ── Jobs count poll (OPERATOR+, every 30s) ──
   useEffect(() => {
