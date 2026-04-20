@@ -19,8 +19,7 @@ The learners are adults preparing for the IELTS Academic exam, typically targeti
 
 Teaching approach: socratic — the student writes, the AI coaches revision through targeted questions. Never write for the student.
 
-Sessions: 12 × 25 minutes
-Lesson plan model: spiral — revisit essay types across sessions, building on previous feedback.
+Calls: ~12 × 25 minutes (continuous — no fixed plan, the system adapts to the learner)
 Coverage: depth — better to master two essay types than skim all five.
 
 Learning outcomes:
@@ -38,7 +37,7 @@ Assessment targets:
 - Band 6.5+ on Lexical Resource
 - Band 6.5+ on Grammatical Range & Accuracy
 
-Assessment style: formal — track band scores per criterion across sessions.
+Assessment style: formal — track band scores per criterion across calls.
 
 I have teaching documents to upload — the official assessment criteria, a tutor guide for how the AI should coach writing, sample responses with examiner comments, and an essay types reference.
 ```
@@ -49,16 +48,16 @@ I have teaching documents to upload — the official assessment criteria, a tuto
 
 Upload these during the wizard content step.
 
-### From this directory (already downloaded)
+### From this directory (4 files)
 
 | # | File | Document Type | What it provides |
 |---|------|---------------|------------------|
-| 1 | `course-ref-writing-task2.md` | COURSE_REFERENCE | Tutor guide — session structure, scaffolding, scoring rules, constraints |
-| 2 | `ielts-writing-key-assessment-criteria.md` | COURSE_REFERENCE | What each criterion measures — the scoring rubric |
+| 1 | `course-ref-writing-task2.md` | COURSE_REFERENCE | Skills framework (4 IELTS criteria with tiers), Socratic teaching approach, call flow, scoring rules, scaffolding techniques, L1 interference patterns, edge cases |
+| 2 | `ielts-writing-key-assessment-criteria.md` | COURSE_REFERENCE | What each of the 4 criteria measures — the official scoring rubric definitions |
 | 3 | `ielts-sample-responses-examiner-comments.md` | TEXTBOOK | Calibration data — Band 5.5 vs 7.5 with examiner reasoning |
 | 4 | `ielts-task2-essay-types-guide.md` | TEXTBOOK | Essay types, structures, example prompts, common topics |
 
-### Download manually and upload
+### Download manually and upload (1 file)
 
 | # | Document | URL | Document Type |
 |---|----------|-----|---------------|
@@ -66,12 +65,17 @@ Upload these during the wizard content step.
 
 This is the most critical document — band-by-band detail for all 4 criteria (Band 9 down to Band 1). Without it the AI knows what to assess but can't place students on the scale.
 
-### Optional (richer content for later)
+---
 
-| # | Document | URL | Document Type |
-|---|----------|-----|---------------|
-| 6 | Sample responses PDF (5 pages) | `ielts.org/cdn/computer-delivered-sample-tests-academic-writing/ielts-academic-writing-example-responses-to-parts-1-and-2-with-band-scores-and-examiner-comments.pdf` | TEXTBOOK |
-| 7 | Writing Task 2 descriptors only | `ielts.org/-/media/pdfs/writing-band-descriptors-task-2.ashx` | COURSE_REFERENCE |
+## What to watch for in the demo
+
+These are the moments that show what HumanFirst does:
+
+1. **Wizard chat** — paste the prompt, watch the wizard extract institution, domain, course name, teaching approach, and learning outcomes from natural language
+2. **Content upload** — drop all 5 files, watch the AI classify each one (COURSE_REFERENCE vs TEXTBOOK) and group them into a single subject
+3. **Extraction** — the system pulls teaching assertions from the course ref (scoring rules, scaffolding techniques, L1 patterns) and content assertions from the textbooks (essay structures, sample responses)
+4. **Skills framework** — the 4 IELTS criteria appear as skills with Emerging/Developing/Secure tiers, ready for the AI tutor to score against
+5. **Adaptive prompting** — on a live call, the composed prompt includes the Socratic teaching rules, the scoring rules, and the scaffolding techniques from the course ref — the tutor behaves differently because of what the educator uploaded
 
 ---
 
@@ -86,10 +90,7 @@ Institution: IELTS Prep Lab
                       Module: Opinion / Agree-Disagree Essays
                       Module: Discussion Essays
                       Module: Problem-Solution Essays
-                      Module: Advantages-Disadvantages Essays
-                      Module: Coherence & Cohesion Techniques
-                      Module: Lexical Resource & Vocabulary
-                      ... (AI decides based on assertion content)
+                      ... (AI decides based on content)
 ```
 
-Future courses (Writing Task 1, Reading, etc.) would be additional Playbooks under the same Domain, either reusing the "IELTS Academic Writing" Subject or creating new Subjects as appropriate.
+Future courses (Writing Task 1, Reading, etc.) would be additional Playbooks under the same Domain.

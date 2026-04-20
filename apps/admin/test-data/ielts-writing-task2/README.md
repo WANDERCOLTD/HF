@@ -1,60 +1,34 @@
-# IELTS Writing Task 2 — Course Content
+# IELTS Writing Task 2 — Demo Content Pack
 
-Test data for IELTS Writing Task 2 course creation pilot.
+Test data for IELTS Writing Task 2 course creation. See [wizard-prompt.md](wizard-prompt.md) for the full demo script.
 
-## Documents to Upload as Content Sources
+## Files to Upload
 
-### 1. COURSE_REFERENCE: Tutor Guide (written)
-- File: `course-ref-writing-task2.md`
-- Contains: Session structure, essay type progression, scoring rules, scaffolding, constraints, L1 interference patterns, emotional handling
-- Upload as: COURSE_REFERENCE document type
+| # | File | Type | What it provides |
+|---|------|------|------------------|
+| 1 | `course-ref-writing-task2.md` | COURSE_REFERENCE | Skills framework (4 IELTS criteria, 3 tiers), Socratic teaching approach, call flow, scoring rules, scaffolding, L1 patterns, edge cases |
+| 2 | `ielts-writing-key-assessment-criteria.md` | COURSE_REFERENCE | Official criteria definitions (TR, CC, LR, GRA) |
+| 3 | `ielts-sample-responses-examiner-comments.md` | TEXTBOOK | Band 5.5 + Band 7.5 responses with examiner analysis |
+| 4 | `ielts-task2-essay-types-guide.md` | TEXTBOOK | 3 essay types (Opinion, Discussion, Two-Part) with structures and prompts |
 
-### 2. COURSE_REFERENCE: Key Assessment Criteria (downloaded)
-- Source: ielts.org official PDF
-- File: `ielts-writing-key-assessment-criteria.md`
-- Contains: 4 criteria definitions (Task Response, Coherence & Cohesion, Lexical Resource, Grammatical Range & Accuracy)
-- Upload as: COURSE_REFERENCE document type
+## Manual Download Required
 
-### 3. TEXTBOOK: Sample Responses + Examiner Commentary (downloaded)
-- Source: ielts.org official PDF
-- File: `ielts-sample-responses-examiner-comments.md`
-- Contains: 2 Task 2 candidate responses (Band 5.5 + Band 7.5) with examiner analysis
-- Upload as: TEXTBOOK document type
+| # | Document | Source | Type |
+|---|----------|--------|------|
+| 5 | **Band Descriptors PDF** (9 pages) | British Council — `takeielts.britishcouncil.org` | COURSE_REFERENCE |
 
-### 4. TEXTBOOK: Essay Types Guide (downloaded)
-- Source: IDP IELTS + ielts.org official guidance
-- File: `ielts-task2-essay-types-guide.md`
-- Contains: 3 essay types (Opinion, Discussion, Two-Part), identification cues, structures, example prompts
-- Upload as: TEXTBOOK document type
+This is the most important document — the 9-band scoring rubric the AI tutor uses to place students on the scale.
 
-### 5. TEXTBOOK: Agree/Disagree Essay Structure (downloaded)
-- Source: ielts.org official guidance
-- File: `ielts-agree-disagree-guide.md`
-- Contains: 4-paragraph structure, 3 position options, planning steps, dos and don'ts
-- Upload as: TEXTBOOK document type
-
-## Documents You Must Download Manually (PDFs won't fetch programmatically)
-
-### 6. COURSE_REFERENCE: Band Descriptors (9-band scale)
-- URL: https://takeielts.britishcouncil.org/sites/default/files/ielts_writing_band_descriptors.pdf
-- 9 pages, band-by-band detail for all 4 criteria
-- THIS IS THE MOST IMPORTANT DOCUMENT — the scoring rubric the AI will use
-
-## Course Hierarchy
+## Expected Hierarchy
 
 ```
-Domain: "IELTS Academic"
-  Course: "Writing Task 2 — Essay Writing"
-    Subject 1: Opinion / Agree-Disagree Essays
-    Subject 2: Discussion Essays  
-    Subject 3: Problem-Solution Essays
-    Subject 4: Advantages-Disadvantages Essays
+IELTS Prep Lab (Institution)
+  └─ IELTS Academic (Domain)
+       └─ IELTS Academic Writing (Subject)
+            └─ Writing Task 2 — Essay Mastery (Playbook)
+                 └─ Curriculum (auto-generated)
+                      Module: Opinion / Agree-Disagree Essays
+                      Module: Discussion Essays
+                      Module: Problem-Solution Essays
+                      ... (AI decides from content)
 ```
-
-## Common Task 2 Topics (for practice prompts)
-
-- Education: classroom learning, free education, children's development
-- Environment: economic progress vs sustainability, pollution
-- Technology: screen time effects, information access
-- Health: exercise, government vs private healthcare
-- Society: parental pressure, rules and laws

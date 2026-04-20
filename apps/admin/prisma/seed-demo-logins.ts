@@ -7,6 +7,7 @@
  * Non-PROD only — refuses to run when NEXT_PUBLIC_APP_ENV=LIVE.
  *
  * Accounts:
+ *   admin@test.com     / admin123  → Superadmin (Abacus Academy)
  *   teach@abacus.com   / hff       → School educator (Abacus Academy)
  *   healthcare@hff.com / hff2026  → Healthcare educator (Demo Facility)
  *
@@ -18,18 +19,21 @@ import bcrypt from "bcryptjs";
 
 const DEMO_PASSWORD = "hff2026";
 const ABACUS_PASSWORD = "hff";
+const ADMIN_PASSWORD = "admin123";
 
 interface DemoAccount {
   email: string;
   name: string;
+  role: "SUPERADMIN" | "EDUCATOR";
   typeSlug: string;
   institutionName: string;
   password?: string;
 }
 
 const DEMO_ACCOUNTS: DemoAccount[] = [
-  { email: "teach@abacus.com", name: "Abacus Teacher", typeSlug: "school", institutionName: "Abacus Academy", password: ABACUS_PASSWORD },
-  { email: "healthcare@hff.com", name: "Demo Provider", typeSlug: "healthcare", institutionName: "Demo Facility" },
+  { email: "admin@test.com", name: "Test Admin", role: "SUPERADMIN", typeSlug: "school", institutionName: "Abacus Academy", password: ADMIN_PASSWORD },
+  { email: "teach@abacus.com", name: "Abacus Teacher", role: "EDUCATOR", typeSlug: "school", institutionName: "Abacus Academy", password: ABACUS_PASSWORD },
+  { email: "healthcare@hff.com", name: "Demo Provider", role: "EDUCATOR", typeSlug: "healthcare", institutionName: "Demo Facility" },
 ];
 
 export async function main(externalPrisma?: PrismaClient): Promise<void> {
@@ -88,7 +92,7 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
       update: {
         name: account.name,
         passwordHash,
-        role: "EDUCATOR",
+        role: account.role,
         isActive: true,
         institutionId: institution.id,
       },
@@ -96,7 +100,7 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
         email: account.email,
         name: account.name,
         passwordHash,
-        role: "EDUCATOR",
+        role: account.role,
         isActive: true,
         institutionId: institution.id,
       },

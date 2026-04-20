@@ -937,7 +937,14 @@ export function CallsPromptsTab({
         );
       })}
 
-      {/* Bootstrap is now shown as Call 1's Input Prompt — no separate section needed */}
+      {/* When no calls exist but a bootstrap prompt was composed, show it standalone */}
+      {entries.length === 0 && bootstrap && (
+        <PromptPreview
+          prompt={bootstrap}
+          label="Bootstrap Prompt"
+          provenance="★ Ready for Call 1"
+        />
+      )}
     </div>
   );
 }
