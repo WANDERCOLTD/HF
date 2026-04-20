@@ -124,9 +124,10 @@ export function FeedbackSubmitModal({
           el.classList.contains("fb-modal-overlay"),
       });
       const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+      console.log("[Feedback] Screenshot captured:", dataUrl.length, "chars");
       setScreenshot(dataUrl);
-    } catch {
-      // Screenshot not critical — skip silently
+    } catch (err) {
+      console.error("[Feedback] Screenshot capture failed:", err);
     } finally {
       setCapturing(false);
     }
@@ -158,19 +159,26 @@ export function FeedbackSubmitModal({
 
     setSubmitting(true);
     try {
+      const payload = {
+        title: title.trim(),
+        description: fullDescription,
+        category,
+        pageContext: pageContextStr,
+        screenshot: screenshot ?? undefined,
+      };
+      console.log("[Feedback] Submitting:", {
+        ...payload,
+        screenshot: payload.screenshot ? `${payload.screenshot.length} chars` : "none",
+      });
+
       const res = await fetch("/api/tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title.trim(),
-          description: fullDescription,
-          category,
-          pageContext: pageContextStr,
-          screenshot: screenshot ?? undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
+      console.log("[Feedback] Response:", { ok: data.ok, screenshotUrl: data.ticket?.screenshotUrl ? "present" : "missing" });
 
       if (!data.ok) {
         setError(data.error || "Something went wrong. Please try again.");
