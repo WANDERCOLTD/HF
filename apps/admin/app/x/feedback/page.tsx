@@ -66,7 +66,7 @@ export default function FeedbackPage(): React.ReactElement {
   // Modal
   const [showSubmit, setShowSubmit] = useState(false);
 
-  // Build query
+  // Build query — skip fetch on "mine" tab until session provides userId
   const queryParams = new URLSearchParams();
   if (activeTab === "mine" && userId) queryParams.set("creatorId", userId);
   if (filterCategory !== "ALL") queryParams.set("category", filterCategory);
@@ -74,7 +74,10 @@ export default function FeedbackPage(): React.ReactElement {
 
   const { data, loading, refetch } = useApi<{ tickets: Ticket[]; total: number }>(
     `/api/tickets${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
-    { transform: (d) => d as unknown as { tickets: Ticket[]; total: number } },
+    {
+      skip: activeTab === "mine" && !userId,
+      transform: (d) => d as unknown as { tickets: Ticket[]; total: number },
+    },
   );
 
   const rawTickets = data?.tickets ?? [];
