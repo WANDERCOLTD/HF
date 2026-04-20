@@ -436,8 +436,8 @@ export function StatusBar() {
           </span>
         )}
 
-        {/* Feedback trigger (TESTER+, not shown for OPERATOR+ who use Bug Report) */}
-        {isTesterPlus && !isOperator && (
+        {/* Feedback trigger (TESTER+) */}
+        {isTesterPlus && (
           <span
             className="hf-status-item hf-status-clickable"
             onClick={() => setFeedbackModalOpen(true)}
