@@ -424,6 +424,15 @@ function FeedbackDetail({
         </div>
       )}
 
+      {/* Screenshot */}
+      {ticket.screenshotUrl && (
+        <div className="pfb-detail-section">
+          <div className="pfb-detail-label">Screenshot</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={ticket.screenshotUrl} alt="Feedback screenshot" className="pfb-screenshot" />
+        </div>
+      )}
+
       {/* Comments */}
       {ticket.comments && ticket.comments.length > 0 && (
         <div className="pfb-detail-section">

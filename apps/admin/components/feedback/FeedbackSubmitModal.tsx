@@ -177,7 +177,7 @@ export function FeedbackSubmitModal({
         return;
       }
 
-      onSuccess(data.ticketNumber);
+      onSuccess(data.ticket?.ticketNumber ?? 0);
     } catch {
       setError("Network error. Please try again.");
     } finally {

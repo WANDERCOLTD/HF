@@ -115,7 +115,7 @@ export async function POST(req: Request) {
     const { session } = authResult;
 
     const body = await req.json();
-    const { title, description, priority, category, assigneeId, tags, pageContext } = body;
+    const { title, description, priority, category, assigneeId, tags, pageContext, screenshot } = body;
 
     if (!title?.trim()) {
       return NextResponse.json(
@@ -155,6 +155,7 @@ export async function POST(req: Request) {
         assigneeId: assigneeId || null,
         tags: tags || [],
         ...(pageContext ? { pageContext } : {}),
+        ...(screenshot ? { screenshotUrl: screenshot } : {}),
       },
       include: {
         creator: {
