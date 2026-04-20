@@ -97,6 +97,7 @@ export function StatusBar() {
   const [logsOverlayOpen, setLogsOverlayOpen] = useState(false);
   const [versionPopupOpen, setVersionPopupOpen] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
 
   // ── Data states ──
   // System health — full result for HealthPopup (ADMIN+ only, polls every 120s)
@@ -114,6 +115,7 @@ export function StatusBar() {
   // so admins keep full visibility while stepped in
   const realRole = (session?.user?.role ?? 'VIEWER') as keyof typeof ROLE_LEVEL;
   const roleLevel = ROLE_LEVEL[realRole] ?? 0;
+  const isSuperAdmin = roleLevel >= 5;
   const isAdmin = roleLevel >= 4;
   const isOperator = roleLevel >= 3;
   const isTesterPlus = roleLevel >= 1;
@@ -128,9 +130,9 @@ export function StatusBar() {
     setVersionPopupOpen(false);
   }, []);
 
-  // ── System health poll (ADMIN+, every 120s) — stores full IniResult ──
+  // ── System health poll (SUPERADMIN only, every 120s) — stores full IniResult ──
   useEffect(() => {
-    if (!isAdmin || !session?.user) return;
+    if (!isSuperAdmin || !session?.user) return;
 
     const fetchHealth = async () => {
       try {
@@ -146,7 +148,7 @@ export function StatusBar() {
     fetchHealth();
     const interval = setInterval(fetchHealth, 120000);
     return () => clearInterval(interval);
-  }, [isAdmin, session?.user]);
+  }, [isSuperAdmin, session?.user]);
 
   // ── Deep logging poll (ADMIN+, every 120s — toggle is optimistic, poll is cross-tab sync only) ──
   useEffect(() => {
@@ -324,7 +326,7 @@ export function StatusBar() {
         )}
 
         {/* Health RAG → HealthPopup */}
-        {isAdmin && healthRag && (
+        {isSuperAdmin && healthRag && (
           <span
             ref={healthChipRef}
             className="hf-status-item hf-status-clickable"
@@ -501,10 +503,19 @@ export function StatusBar() {
         <FeedbackSubmitModal
           open={feedbackModalOpen}
           onClose={() => setFeedbackModalOpen(false)}
-          onSuccess={() => {
+          onSuccess={(ticketNumber) => {
             setFeedbackModalOpen(false);
+            setFeedbackToast(`Logged as #${ticketNumber}`);
+            setTimeout(() => setFeedbackToast(null), 4000);
           }}
         />
+      )}
+
+      {/* Feedback success toast */}
+      {feedbackToast && (
+        <div className="hf-status-feedback-toast">
+          {feedbackToast}
+        </div>
       )}
 
       {/* ── Popups (rendered outside clusters, position: fixed, z-index: 100) ── */}
@@ -518,7 +529,7 @@ export function StatusBar() {
         />
       )}
 
-      {isAdmin && (
+      {isSuperAdmin && (
         <HealthPopup
           open={healthPopupOpen}
           onClose={() => setHealthPopupOpen(false)}
