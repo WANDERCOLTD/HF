@@ -221,16 +221,35 @@ async function main(): Promise<void> {
       if (count > 0) console.log(`  ✓ ${model}: ${count} deleted`);
     };
 
+    // Helper: try deleteMany, skip if table doesn't exist (P2021)
+    const tryDel = async (model: string, fn: () => Promise<{ count: number }>) => {
+      try {
+        const { count } = await fn();
+        if (count > 0) console.log(`  ✓ ${model}: ${count} deleted`);
+      } catch (e: any) {
+        if (e.code === "P2021") {
+          console.log(`  ⊘ ${model}: table not yet migrated, skipping`);
+        } else throw e;
+      }
+    };
+    const tryUpdate = async (label: string, fn: () => Promise<any>) => {
+      try { await fn(); } catch (e: any) {
+        if (e.code === "P2021" || e.code === "P2009") {
+          console.log(`  ⊘ ${label}: column/table not yet migrated, skipping`);
+        } else throw e;
+      }
+    };
+
     // Direct FK children of Playbook
-    del("PlaybookItem", (await prisma.playbookItem.deleteMany({ where: { playbookId: { in: playbookIds } } })).count);
-    del("PlaybookSubject", (await prisma.playbookSubject.deleteMany({ where: { playbookId: { in: playbookIds } } })).count);
-    del("PlaybookSource", (await prisma.playbookSource.deleteMany({ where: { playbookId: { in: playbookIds } } })).count);
-    del("CallerPlaybook (remaining)", (await prisma.callerPlaybook.deleteMany({ where: { playbookId: { in: playbookIds } } })).count);
-    del("CohortPlaybook (remaining)", (await prisma.cohortPlaybook.deleteMany({ where: { playbookId: { in: playbookIds } } })).count);
-    // Unlink nullable FKs
-    await prisma.curriculum.updateMany({ where: { playbookId: { in: playbookIds } }, data: { playbookId: null } });
-    await prisma.call.updateMany({ where: { playbookId: { in: playbookIds } }, data: { playbookId: null } });
-    await prisma.goal.updateMany({ where: { playbookId: { in: playbookIds } }, data: { playbookId: null } });
+    await tryDel("PlaybookItem", () => prisma.playbookItem.deleteMany({ where: { playbookId: { in: playbookIds } } }));
+    await tryDel("PlaybookSubject", () => prisma.playbookSubject.deleteMany({ where: { playbookId: { in: playbookIds } } }));
+    await tryDel("PlaybookSource", () => prisma.playbookSource.deleteMany({ where: { playbookId: { in: playbookIds } } }));
+    await tryDel("CallerPlaybook (remaining)", () => prisma.callerPlaybook.deleteMany({ where: { playbookId: { in: playbookIds } } }));
+    await tryDel("CohortPlaybook (remaining)", () => prisma.cohortPlaybook.deleteMany({ where: { playbookId: { in: playbookIds } } }));
+    // Unlink nullable FKs (may not exist on older schemas)
+    await tryUpdate("Curriculum.playbookId", () => prisma.curriculum.updateMany({ where: { playbookId: { in: playbookIds } }, data: { playbookId: null } }));
+    await tryUpdate("Call.playbookId", () => prisma.call.updateMany({ where: { playbookId: { in: playbookIds } }, data: { playbookId: null } }));
+    await tryUpdate("Goal.playbookId", () => prisma.goal.updateMany({ where: { playbookId: { in: playbookIds } }, data: { playbookId: null } }));
     // Delete playbooks
     del("Playbook", (await prisma.playbook.deleteMany({ where: { id: { in: playbookIds } } })).count);
   }
