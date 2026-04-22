@@ -198,7 +198,6 @@ async function main(): Promise<void> {
     del("RewardScore", (await prisma.rewardScore.deleteMany({ where: { callId: { in: callIds } } })).count);
     del("CallTarget", (await prisma.callTarget.deleteMany({ where: { callId: { in: callIds } } })).count);
     del("BehaviorMeasurement", (await prisma.behaviorMeasurement.deleteMany({ where: { callId: { in: callIds } } })).count);
-    del("TranscriptSegment", (await prisma.transcriptSegment.deleteMany({ where: { callId: { in: callIds } } })).count);
     del("Call", (await prisma.call.deleteMany({ where: { id: { in: callIds } } })).count);
   }
 
