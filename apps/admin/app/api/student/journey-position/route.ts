@@ -8,8 +8,7 @@
  *   WELCOME → PRE_SURVEY → LEARNING → NPS/POST_SURVEY → COMPLETE.
  *   Pre-survey fires after first call if educator enabled it. NPS fires at mastery threshold or call count.
  *   Post-test MCQs only included when pre-test was completed (for clean uplift delta).
- * @response 200 { ok, nextStop: { type, session, redirect, includePostTest? }, journey: { totalStops, completedStops, currentPosition, progressPercentage? } }
- * @response 404 { ok: false, error: "..." }
+ * @response 200 { ok, nextStop: { type, session, redirect, includePostTest? }, journey: { totalStops, completedStops, currentPosition, progressPercentage? } | null }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -51,10 +50,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ]);
 
     if (!enrollment) {
-      return NextResponse.json(
-        { ok: false, error: "No active enrollment", nextStop: { type: "complete", session: 0, redirect: "/x/student/progress" } },
-        { status: 404 },
-      );
+      return NextResponse.json({
+        ok: true,
+        nextStop: { type: "complete", session: 0, redirect: "/x/student/progress" },
+        journey: null,
+      });
     }
 
     const curriculum = enrollment.playbook.curricula?.[0];

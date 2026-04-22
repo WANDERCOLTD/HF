@@ -12520,12 +12520,7 @@ Resolves the student's next stop via a 4-state machine (continuous mode):
 
 **Response** `200`
 ```json
-{ ok, nextStop: { type, session, redirect, includePostTest? }, journey: { totalStops, completedStops, currentPosition, progressPercentage? } }
-```
-
-**Response** `404`
-```json
-{ ok: false, error: "..." }
+{ ok, nextStop: { type, session, redirect, includePostTest? }, journey: { totalStops, completedStops, currentPosition, progressPercentage? } | null }
 ```
 
 ---
