@@ -234,7 +234,7 @@ async function main(): Promise<void> {
     };
     const tryUpdate = async (label: string, fn: () => Promise<any>) => {
       try { await fn(); } catch (e: any) {
-        if (e.code === "P2021" || e.code === "P2009") {
+        if (e.code === "P2021" || e.code === "P2022" || e.code === "P2009") {
           console.log(`  ⊘ ${label}: column/table not yet migrated, skipping`);
         } else throw e;
       }
