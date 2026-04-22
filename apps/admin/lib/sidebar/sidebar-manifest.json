@@ -38,7 +38,8 @@
   {
     "id": "launch",
     "title": "Launch",
-    "defaultHiddenFor": ["STUDENT", "EDUCATOR", "SUPER_TESTER"],
+    "requiredRole": "OPERATOR",
+    "defaultHiddenFor": ["STUDENT", "EDUCATOR"],
     "items": [
       { "id": "institution", "href": "/x/institutions/new", "label": "Institution", "icon": "Rocket", "highlighted": true, "wizard": true, "terminologyLabel": "domain" },
       { "id": "new-course", "href": "/x/courses/new", "label": "Course", "icon": "Rocket", "wizard": true, "terminologyLabel": "playbook" },
@@ -55,7 +56,8 @@
     "id": "calls",
     "title": "Calls",
     "href": "/x/sim",
-    "defaultHiddenFor": ["TESTER", "SUPER_TESTER", "STUDENT", "DEMO", "EDUCATOR"],
+    "requiredRole": "OPERATOR",
+    "defaultHiddenFor": ["STUDENT", "DEMO", "EDUCATOR"],
     "items": [
       { "id": "sim", "href": "/x/sim", "label": "Learn", "icon": "MessageCircle" },
       { "id": "analytics", "href": "/x/analytics", "label": "Analytics", "icon": "TrendingUp", "advancedOnly": true },
@@ -94,7 +96,8 @@
   {
     "id": "manage",
     "title": "Manage",
-    "defaultHiddenFor": ["STUDENT", "DEMO", "TESTER", "SUPER_TESTER", "EDUCATOR"],
+    "requiredRole": "OPERATOR",
+    "defaultHiddenFor": ["STUDENT", "DEMO", "EDUCATOR"],
     "items": [
       { "id": "communities", "href": "/x/communities", "label": "Communities", "icon": "Users2", "visibleFor": ["OPERATOR", "ADMIN", "SUPERADMIN"] },
       { "id": "manage-cohorts", "href": "/x/cohorts", "label": "Classrooms", "icon": "School", "terminologyLabel": "cohort_plural", "visibleFor": ["EDUCATOR", "OPERATOR", "ADMIN", "SUPERADMIN"], "roleVariants": { "EDUCATOR": { "href": "/x/educator/classrooms" } } },

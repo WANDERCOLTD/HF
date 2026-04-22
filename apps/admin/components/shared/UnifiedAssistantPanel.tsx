@@ -88,6 +88,15 @@ const TAB_CONFIG = {
 // MAIN COMPONENT
 // ============================================================================
 
+/**
+ * @deprecated Use ChatPanel (via GlobalAssistant) instead.
+ * This component calls /api/ai/assistant which has no tool calling, no streaming,
+ * and no entity context. ChatPanel uses /api/chat DATA mode with all three.
+ *
+ * Still mounted in: /x/specs, /x/domains, /x/dictionary, /x/playground, /x/demos.
+ * Remove those page-level instances in a follow-up story, then delete this file.
+ * See: https://github.com/paw2paw/HF/issues/200
+ */
 export function UnifiedAssistantPanel({
   visible = false,
   onClose,

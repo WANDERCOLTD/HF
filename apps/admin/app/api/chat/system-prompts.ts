@@ -3,10 +3,11 @@ import { renderVoicePrompt } from "@/lib/prompt/composition/renderPromptSummary"
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import { resolveSourceFiles, getClaudeMdContext, type BugContext } from "@/lib/chat/bug-context";
 import { resolveTerminology, TECHNICAL_TERMS, type TermMap } from "@/lib/terminology";
+import { buildTuningSystemPrompt } from "@/lib/chat/tuning-system-prompt";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
 
-type ChatMode = "DATA" | "CALL" | "BUG";
+type ChatMode = "DATA" | "CALL" | "BUG" | "TUNING";
 
 interface EntityBreadcrumb {
   type: string;
@@ -73,6 +74,10 @@ export async function buildSystemPrompt(
       return await buildCallSimPrompt(entityContext, terms, termBlock);
     case "BUG":
       return { prompt: await buildBugDiagnosisPrompt(entityContext, bugContext, termBlock) };
+    case "TUNING": {
+      const tuningPrompt = await buildTuningSystemPrompt();
+      return { prompt: tuningPrompt + termBlock + `\n\n${baseContext}` };
+    }
   }
 }
 

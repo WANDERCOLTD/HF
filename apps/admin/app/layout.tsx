@@ -9,7 +9,6 @@ import { EntityProvider, ChatProvider, ThemeProvider, PaletteProvider, useChatCo
 import { TerminologyProvider } from '@/contexts/TerminologyContext';
 import { GuidanceProvider } from '@/contexts/GuidanceContext';
 import { GlobalAssistantProvider } from '@/contexts/AssistantContext';
-import { ChatPanel } from '@/components/chat';
 import { GlobalAssistant } from '@/components/shared/GlobalAssistant';
 import { ContentJobQueueProvider, ContentJobQueue } from '@/components/shared/ContentJobQueue';
 import EnvironmentBanner from '@/components/shared/EnvironmentBanner';

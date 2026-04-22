@@ -429,6 +429,10 @@ export const config = {
     get adminAssistant(): string {
       return optional("ADMIN_ASSISTANT_SPEC_SLUG", "PROMPT-ADMIN-001");
     },
+    /** Tuning Assistant system prompt */
+    get tuningAssistant(): string {
+      return optional("TUNING_ASSISTANT_SPEC_SLUG", "PROMPT-TUNA-001");
+    },
     /** Workflow Classifier system prompt */
     get workflowClassifier(): string {
       return optional("WORKFLOW_CLASSIFIER_SPEC_SLUG", "PROMPT-WORKFLOW-001");

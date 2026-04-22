@@ -34,7 +34,7 @@ import {
 
 export const runtime = "nodejs";
 
-type ChatMode = "DATA" | "CALL" | "BUG" | "WIZARD" | "COURSE_REF";
+type ChatMode = "DATA" | "CALL" | "BUG" | "WIZARD" | "COURSE_REF" | "TUNING";
 
 interface EntityBreadcrumb {
   type: string;
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
 
     // Build mode-specific system prompt with terminology
     const userInstitutionId = authResult.session.user.institutionId;
-    const { prompt: systemPrompt, llmPrompt } = await buildSystemPrompt(mode as "DATA" | "CALL" | "BUG", entityContext, bugContext, userRole, userInstitutionId);
+    const { prompt: systemPrompt, llmPrompt } = await buildSystemPrompt(mode as "DATA" | "CALL" | "BUG" | "TUNING", entityContext, bugContext, userRole, userInstitutionId);
 
     // Prepare messages with conversation history
     const lastHistoryMessage = conversationHistory[conversationHistory.length - 1];
@@ -241,6 +241,32 @@ export async function POST(request: NextRequest) {
     if (mode === "BUG") {
       // @ai-call chat.bug — Bug diagnosis with code context | config: /x/ai-config
       const callPoint = "chat.bug";
+
+      const { stream: meteredStream } = await getConfiguredMeteredAICompletionStream(
+        {
+          callPoint,
+          engineOverride: engine,
+          messages,
+        },
+        { sourceOp: callPoint }
+      );
+
+      logChatRequest(mode, message, selectedEngine, conversationHistory, entityContext);
+
+      return new Response(meteredStream, {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Transfer-Encoding": "chunked",
+          "X-Chat-Mode": mode,
+          "X-AI-Engine": selectedEngine,
+        },
+      });
+    }
+
+    // TUNING mode: streaming parameter guidance, no tool calling
+    if (mode === "TUNING") {
+      // @ai-call chat.tuning — Tuning assistant with parameter catalogue | config: /x/ai-config
+      const callPoint = "chat.tuning";
 
       const { stream: meteredStream } = await getConfiguredMeteredAICompletionStream(
         {

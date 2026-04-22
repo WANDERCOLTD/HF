@@ -340,29 +340,10 @@ async function loadPipelineContext(): Promise<PipelineContext> {
   };
 }
 
-async function loadKnowledgeContext(limit = 20): Promise<KnowledgeContext[]> {
-  const artifacts = await prisma.knowledgeArtifact.findMany({
-    select: {
-      id: true,
-      title: true,
-      type: true,
-      tags: true,
-      sourceChunkIds: true,
-      parameter: {
-        select: { domainGroup: true },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-  });
-
-  return artifacts.map((a) => ({
-    id: a.id,
-    title: a.title,
-    type: a.type,
-    domain: a.parameter?.domainGroup || undefined,
-    chunkCount: a.sourceChunkIds.length,
-  }));
+async function loadKnowledgeContext(): Promise<KnowledgeContext[]> {
+  // KnowledgeArtifact model was removed from the schema — return empty until
+  // a replacement knowledge model is introduced.
+  return [];
 }
 
 async function loadPersonasContext(): Promise<PersonaContext[]> {
@@ -627,7 +608,7 @@ export async function getSystemContext(
 
   if (modules.includes("knowledge")) {
     loaders.push(
-      loadKnowledgeContext(20).then((data) => {
+      loadKnowledgeContext().then((data) => {
         context.knowledge = data;
       })
     );
