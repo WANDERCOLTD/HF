@@ -241,16 +241,20 @@ async function main(): Promise<void> {
       if (count > 0) console.log(`  ✓ ${model}: ${count} deleted`);
     };
 
-    // Subjects on deleted domains
-    del("Subject", (await prisma.subject.deleteMany({ where: { domainId: { in: domainIdsToDelete } } })).count);
     // Content assertions created by demo seeds
     del("ContentAssertion (demo)", (await prisma.contentAssertion.deleteMany({ where: { createdBy: "demo-course-seed" } })).count);
-    // Analysis profiles on deleted domains
-    del("AnalysisProfile", (await prisma.analysisProfile.deleteMany({ where: { domainId: { in: domainIdsToDelete } } })).count);
-    // Knowledge docs on deleted domains
-    del("KnowledgeDoc", (await prisma.knowledgeDoc.deleteMany({ where: { domainId: { in: domainIdsToDelete } } })).count);
-    // Domain spec items
-    del("DomainSpecItem", (await prisma.domainSpecItem.deleteMany({ where: { domainId: { in: domainIdsToDelete } } })).count);
+    // Subject-Domain links (many-to-many)
+    del("SubjectDomain", (await prisma.subjectDomain.deleteMany({ where: { domainId: { in: domainIdsToDelete } } })).count);
+    // PlaybookGroups on deleted domains
+    const groupIds = (await prisma.playbookGroup.findMany({ where: { domainId: { in: domainIdsToDelete } }, select: { id: true } })).map(g => g.id);
+    if (groupIds.length > 0) {
+      del("PlaybookGroupSubject", (await prisma.playbookGroupSubject.deleteMany({ where: { groupId: { in: groupIds } } })).count);
+      del("PlaybookGroup", (await prisma.playbookGroup.deleteMany({ where: { id: { in: groupIds } } })).count);
+    }
+    // CohortGroups on deleted domains
+    del("CohortGroup", (await prisma.cohortGroup.deleteMany({ where: { domainId: { in: domainIdsToDelete } } })).count);
+    // Callers on deleted domains (nullify FK)
+    await prisma.caller.updateMany({ where: { domainId: { in: domainIdsToDelete } }, data: { domainId: null } });
     // Domains
     del("Domain", (await prisma.domain.deleteMany({ where: { id: { in: domainIdsToDelete } } })).count);
   }
