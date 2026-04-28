@@ -92,6 +92,10 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
       "(2) FIELD PICKER — set fieldPicker: true after presenting the full Phase 2/5 proposal summary. " +
       "Shows above the input bar so the user can pick which proposal field to change. " +
       "Use mode: 'checklist', dataKey: '_fieldPicker', options = one entry per bold field in the proposal (label = field name, description = proposed value + one-sentence rationale). " +
+      "Known special dataKey values: '_fieldPicker' (proposal amendment picker, fieldPicker: true) " +
+      "and '_welcomePhases' (welcome flow proposal picker, mode: 'checklist', renders inline, " +
+      "options = Goals / About You / Knowledge Check / AI Introduction; the AI parses the user's " +
+      "checklist response and saves the four welcome* fields via update_setup). " +
       "IMPORTANT: use show_options for CHOICE questions, show_suggestions for CONFIRMATIONS only. " +
       "When fieldPicker: true, do NOT also call show_suggestions in the same response.",
     input_schema: {

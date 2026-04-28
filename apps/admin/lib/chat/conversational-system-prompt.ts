@@ -573,6 +573,13 @@ A skipped field is SATISFIED — never ask about it again.
    **CRITICAL anti-loop:** If you proposed interactionPattern = "socratic" and user says
    "That's right", call update_setup({ fields: { interactionPattern: "socratic" } }) in
    THAT response. Failure to save causes an infinite loop.
+5c. **WELCOME FLOW IS A DELIBERATE CHOICE.** After main proposal confirmation and BEFORE Phase 5
+    playback (Phase 4c, between lesson plan preview and the launch summary), propose the four
+    welcome flow phases (Goals / About You / Knowledge Check / AI Introduction) with reasoning
+    grounded in the course context. Save the educator's response with
+    \`update_setup({ fields: { welcomeGoals: bool, welcomeAboutYou: bool, welcomeKnowledgeCheck: bool, welcomeAiIntro: bool } })\` —
+    all four keys, explicit booleans. Never skip this step. Never call \`create_course\` before all
+    four welcome keys are explicitly set. See "Phase 4c: Welcome flow proposal" for format.
 6. NEVER re-ask something already collected. Check "Already collected" above.
 7. For content upload, the user drops files into the Teaching Materials panel on the right.
    After files are processed, describe each file's classification in text.
@@ -612,6 +619,67 @@ Amendment tiers:
 
 {{amendmentTier}}`;
 
+// ── Phase 4c: Welcome flow proposal (inline — structural, fires between 4b and 5) ─────
+
+const PHASE_4C_WELCOME_FLOW = `### Phase 4c: Welcome flow proposal (MANDATORY — fires AFTER main proposal confirmed, BEFORE Phase 5 playback)
+
+This step happens EXACTLY ONCE per conversation, between Phase 4b (lesson plan preview) and Phase 5
+(playback summary). It is NOT optional. Skipping it means the student welcome flow gets silent
+defaults the educator never approved.
+
+**Trigger:** \`setupData.interactionPattern\` is set AND none of \`setupData.welcomeGoals /
+welcomeAboutYou / welcomeKnowledgeCheck / welcomeAiIntro\` have been recorded yet.
+
+**Your response MUST contain three things, in this order:**
+
+1. **Prose with reasoning.** Propose the bundle in the visible response text — do not hide your
+   reasoning. State each phase, on or off, with one short rationale grounded in the course context
+   (audience, subject, assessment style, uploaded content, lesson plan mode). Example:
+
+   "One last design decision before we build it: what should students see before their first
+   teaching session?
+
+   • **Goals** — on. Students learn faster when they articulate their target.
+   • **About You** — on. The tutor's first call adapts better with confidence/motivation context.
+   • **Knowledge Check** — off. You haven't pinned this to a specific exam paper, so a baseline
+     quiz would feel arbitrary.
+   • **AI Introduction Call** — off. Year 10 students are comfortable jumping straight into a session.
+
+   Tick the ones you want. Or just say 'sounds good'."
+
+2. **show_options checklist.** Call show_options with:
+   - \`mode: "checklist"\`
+   - \`dataKey: "_welcomePhases"\` (special key — the AI parses the user's response to update the
+     four \`welcome*\` keys)
+   - \`required: false\` (Skip = "all defaults")
+   - 4 options whose values map to the four welcome keys. Mark recommended: true on the ones in
+     your proposed bundle.
+
+3. **show_suggestions chips.** Call show_suggestions with \`["Sounds good", "I'll explain"]\`.
+
+**Default reasoning (use as a starting point, then flavor with course context):**
+- **Goals → on** (default)
+- **About You → on** (default)
+- **Knowledge Check → off** by default; propose **on** if assessments=formal OR curriculum
+  content was uploaded
+- **AI Introduction Call → off** by default; propose **on** if audience=primary
+
+**After the educator responds:**
+
+- "Sounds good" or any affirmative → call update_setup with ALL FOUR welcome keys as explicit
+  booleans matching your recommended bundle. All four. Explicit. Even when all four = the default.
+  Never ship to create_course with these unset.
+- Ticked checklist subset → call update_setup with all four keys, true for ticked, false for
+  un-ticked.
+- "Turn off knowledge check" or any natural-language override → call update_setup with all four
+  keys, applying the override over your recommended bundle. Then confirm the new bundle in
+  1-2 sentences before advancing.
+- All four off → confirm in prose that the rail will be empty AND mention that the AI's first-call
+  discovery questions are also skipped (because aboutYou=false gates them).
+
+After the welcome flow is captured, advance to Phase 5 playback. Do NOT call create_course before
+all four welcome keys are explicitly set in setupData.`;
+
 // ── Phase 5 & 6 (always inline — not in specs, short and structural) ────────
 
 const PHASE_5_6 = `### Phase 5: Playback and approval
@@ -628,6 +696,7 @@ Before creating anything, present a structured summary:
   - **Physical resources:** [textbooks/workbooks students need, or omit this line if none]
   - **Personality:** [preset names + brief description]
   - **Welcome:** [first ~20 words of welcomeMessage, or 'default']
+  - **Welcome flow:** [human bundle of enabled phases joined with " + ", with disabled phases in parentheses; e.g. "Goals + About You (Knowledge Check off, AI Intro off)". When all four are off, write "none — direct entry to teaching".]
 
   Ready to create your course?"
 
@@ -758,6 +827,7 @@ export async function buildConversationalSystemPrompt(
     proposalSection,
     specs[config.specs.wizContent],
     specs[config.specs.wiz4ContentExtra],
+    PHASE_4C_WELCOME_FLOW,
     PHASE_5_6,
     valuesSection,
     rulesSection,

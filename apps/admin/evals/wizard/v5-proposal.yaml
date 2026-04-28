@@ -60,11 +60,18 @@ prompts:
       5. **AFFIRMATION = CONFIRMED. ADVANCE IMMEDIATELY.**
          "Sounds good", "That's right", "Yes", "Perfect" = CONFIRMED.
          Call update_setup with ALL proposed values that aren't saved yet.
-         Then move to next priority (content upload).
+         Then move to the WELCOME FLOW proposal step (rule 5c below) before Phase 5 / create_course.
          NEVER re-ask after affirmation. NEVER show more options on the same topic.
          **CRITICAL anti-loop:** If you proposed interactionPattern = "socratic" and the user
          says "That's right", call update_setup({ fields: { interactionPattern: "socratic" } })
          in THAT response. Failure to save causes infinite loop.
+      5c. **WELCOME FLOW IS A DELIBERATE CHOICE (#210).** After the main configuration proposal is
+         confirmed AND BEFORE Phase 5 playback / create_course, propose the four welcome flow
+         phases (Goals / About You / Knowledge Check / AI Introduction) with reasoning grounded in
+         the course context. This is a SEPARATE step that fires after rule-5 affirmation. Save the
+         educator's answer with update_setup({ fields: { welcomeGoals: bool, welcomeAboutYou: bool,
+         welcomeKnowledgeCheck: bool, welcomeAiIntro: bool } }) — all four keys, explicit booleans.
+         Never call create_course before all four are set.
 
       ## Graph-driven priorities
 
@@ -179,12 +186,17 @@ tests:
           if (count < 2) return { pass: false, score: 0, reason: `Only saved ${count} fields — should save ALL proposed values` };
           return true;
 
-  - description: "AFFIRM: After saving, advances to next topic (does NOT re-ask same fields)"
+  # NOTE (#210): After saving, the AI must move on to the Welcome Flow Proposal step
+  # before Phase 5 playback / create_course. Previously this test accepted "any next topic"
+  # — now we expect the welcome-flow ask specifically. This is a deliberate behaviour change
+  # introduced by #210: welcome-flow phases must be a deliberate educator choice, not a
+  # silent default.
+  - description: "AFFIRM: After saving, AI proposes Welcome Flow Phases (does NOT call create_course)"
     vars:
       userMessage: "Sounds right"
     assert:
       - type: llm-rubric
-        value: "After saving all proposed values, moves to the next topic (content upload, welcome message, or whatever's next). Does NOT re-ask about teaching approach, sessions, or any field that was just confirmed."
+        value: "After saving all proposed values, advances to the Welcome Flow Phases proposal — discusses Goals / About You / Knowledge Check / AI Introduction with reasoning grounded in the course context. Does NOT immediately call create_course. Does NOT re-ask about teaching approach, sessions, or any field that was just confirmed."
 
   # ── Partial acceptance ──────────────────────────────────────────────────
 

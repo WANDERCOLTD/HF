@@ -198,35 +198,73 @@ NEVER present invented specifics as if the user requested them. If you're guessi
 bold item in the proposal (label = field name, description = proposed value). Let the user tick
 the fields they want to revisit, then walk through each ticked field with show_options or prose.
 
-**If the user says "Sounds right":** call update_setup with ALL proposed values and advance.
+**If the user says "Sounds right":** call update_setup with ALL proposed values, then move to the
+"Welcome flow proposal" step below — do NOT call create_course yet.
 
-## Student experience (after proposal confirmed)
+## Welcome flow proposal (MANDATORY — fires AFTER main proposal confirmed, BEFORE Phase 5 playback)
 
-After the user confirms the full proposal, present the student welcome flow:
+This step happens EXACTLY ONCE per conversation, immediately after the educator confirms the main
+configuration proposal and before the Phase 5 summary. It is NOT optional. Skipping it means the
+student welcome flow gets silent defaults the educator never approved.
 
-  "Now let's design what your students see before their first session.
-  Here's what I'd suggest:
+**Trigger:** \`setupData.interactionPattern\` is set AND none of \`setupData.welcomeGoals /
+welcomeAboutYou / welcomeKnowledgeCheck / welcomeAiIntro\` have been recorded yet.
 
-  ✅ Goals step — students set their learning goals
-  ✅ About You — quick confidence check
-  ❌ Knowledge Check — baseline quiz (off by default)
-  ❌ AI Introduction Call — warm-up chat before teaching
+**Your response MUST contain three things, in this order:**
 
-  Want to adjust any of these?"
+1. **Prose with reasoning.** Propose the bundle in the visible response text — do not hide your
+   reasoning. State each phase, on or off, with one short rationale grounded in the course context
+   (audience, subject, assessment style, uploaded content, lesson plan mode). Example:
 
-Smart defaults by course type:
-- Short course (≤3 sessions): skip knowledge check, skip AI intro
-- Assessment-heavy (assessments=formal): enable knowledge check
-- Community/drop-in: skip about you, skip knowledge check, skip AI intro
+   "Great — your course is locked in. One last design decision before we build it: what should
+   students see before their first teaching session?
 
-If the user says "Sounds good" or any affirmative:
-  call update_setup({ fields: { welcomeGoals: true, welcomeAboutYou: true, welcomeKnowledgeCheck: false, welcomeAiIntro: false } })
-  Then ask about feedback: "After they finish the course, should I ask for feedback?"
-  If yes: call update_setup({ fields: { npsEnabled: true } })
-  If no: call update_setup({ fields: { npsEnabled: false } })
-  Then advance to creation.
+   • **Goals** — on. Students learn faster when they articulate their target.
+   • **About You** — on. The tutor's first call adapts better with confidence/motivation context.
+   • **Knowledge Check** — off. You haven't pinned this to a specific exam paper, so a baseline
+     quiz would feel arbitrary.
+   • **AI Introduction Call** — off. Year 10 students are comfortable jumping straight into a session.
 
-If the user wants changes, toggle the relevant fields and re-present.`;
+   Tick the ones you want. Or just say 'sounds good'."
+
+2. **show_options checklist.** Call show_options with:
+   - \`mode: "checklist"\`
+   - \`dataKey: "_welcomePhases"\` (special key — not a real setupData field; the AI parses the
+     resulting user message to update the four \`welcome*\` keys)
+   - \`required: false\` (Skip = "all defaults")
+   - 4 options whose values map to the four welcome keys. Mark recommended: true on the ones in
+     your proposed bundle.
+
+3. **show_suggestions chips.** Call show_suggestions with \`["Sounds good", "I'll explain"]\`.
+
+**Default reasoning (use as a starting point, then flavor with course context):**
+- **Goals → on** (default)
+- **About You → on** (default)
+- **Knowledge Check → off** by default; propose **on** if assessments=formal OR curriculum
+  content was uploaded
+- **AI Introduction Call → off** by default; propose **on** if audience=primary
+
+If audience=adult-professional and the course is short/skill-focused, you may propose all four off
+and recommend the educator just teach.
+
+**After the educator responds:**
+
+- "Sounds good" or any affirmative → call update_setup with ALL FOUR welcome keys as explicit
+  booleans matching your recommended bundle (e.g.
+  \`update_setup({ fields: { welcomeGoals: true, welcomeAboutYou: true, welcomeKnowledgeCheck: false, welcomeAiIntro: false } })\`).
+  All four. Explicit. Even when all four = the default. Never ship to create_course with these
+  unset.
+- Ticked checklist subset → call update_setup with all four keys, true for ticked, false for
+  un-ticked.
+- "Turn off knowledge check" or any natural-language override → call update_setup with all four
+  keys, applying the override over your recommended bundle. Then confirm the new bundle in
+  1-2 sentences before advancing.
+- All four off → confirm in prose that the rail will be empty AND mention that the AI's first-call
+  discovery questions are also skipped (because aboutYou=false gates them).
+
+After the welcome flow is captured, ask about feedback (npsEnabled), then advance to Phase 5
+playback. Do NOT call create_course before Phase 5 playback. Do NOT call create_course before
+all four welcome keys are explicitly set in setupData.`;
 
 const FALLBACK_CONTENT = `## Content upload — available anytime after institution exists
 
@@ -435,6 +473,13 @@ A skipped field is SATISFIED — never ask about it again.
 5. **AFFIRMATION = CONFIRMED. ADVANCE IMMEDIATELY.** Call update_setup with the value, move to next priority.
 5b. **After playback is confirmed**, call update_setup with courseContext — a 3-5 sentence third-person
     synthesis (e.g. "This is a GCSE English Language course for Year 10..."). This feeds the voice AI.
+5c. **WELCOME FLOW IS A DELIBERATE CHOICE.** After main proposal confirmation and BEFORE Phase 5
+    playback, propose the four welcome flow phases (Goals / About You / Knowledge Check /
+    AI Introduction) with reasoning grounded in the course context (audience, assessments,
+    uploaded content). Save the educator's response with
+    \`update_setup({ fields: { welcomeGoals: bool, welcomeAboutYou: bool, welcomeKnowledgeCheck: bool, welcomeAiIntro: bool } })\` —
+    all four keys, explicit booleans. Never skip this step. Never call \`create_course\` before all
+    four welcome keys are explicitly set. See "Welcome flow proposal" section above for format.
 6. NEVER re-ask something already collected.
 7. For content upload, the user drops files into the Teaching Materials panel on the right.
 8. Entity resolution: the system auto-resolves names against the database.
@@ -459,7 +504,7 @@ When all required fields are collected (Can launch: YES):
   - **Teaching materials:** [count / skipped]
   - **Personality:** [preset + description]
   - **Welcome:** [first ~20 words, or 'default']
-  - **Student experience:** Goals [on/off], About You [on/off], Knowledge Check [on/off], AI Intro [on/off]
+  - **Welcome flow:** [human bundle of enabled phases joined with " + ", with disabled phases in parentheses; e.g. "Goals + About You (Knowledge Check off, AI Intro off)". When all four are off, write "none — direct entry to teaching".]
   - **Feedback (NPS):** [on/off]
 
   Ready to create your course?"
@@ -724,11 +769,33 @@ Do NOT ask about individual fields until the playback is confirmed.
 `
     : "";
 
+  // ── Welcome flow needed banner ──────────────────────────
+  // Fires after the main proposal is confirmed (interactionPattern set) but before any of
+  // the four welcomeFlow keys have been recorded by the AI. This is the load-bearing guard
+  // that stops create_course from firing with silent DEFAULT_WELCOME_CONFIG fallbacks.
+  const mainProposalConfirmed = !!setupData.interactionPattern;
+  const noWelcomeChoiceYet =
+    setupData.welcomeGoals === undefined &&
+    setupData.welcomeAboutYou === undefined &&
+    setupData.welcomeKnowledgeCheck === undefined &&
+    setupData.welcomeAiIntro === undefined;
+  const welcomeFlowBanner =
+    !earlyConversationGuard && !playbackBanner && mainProposalConfirmed && noWelcomeChoiceYet
+      ? `## ⚠️ WELCOME FLOW NEEDED NOW
+The user has confirmed the main configuration. Your NEXT response MUST propose the four welcome
+flow phases (Goals, About You, Knowledge Check, AI Introduction) with reasoning grounded in the
+course context, then call show_options checklist (mode: "checklist", dataKey: "_welcomePhases")
+and show_suggestions with ["Sounds good", "I'll explain"]. Do NOT call create_course yet.
+See "Welcome flow proposal" below for the full pattern.
+`
+      : "";
+
   // ── Assemble sections in order ──────────────────────────
   const sections = [
     identity,
     earlyConversationGuard,
     playbackBanner,
+    welcomeFlowBanner,
     comms,
     community,
     opening,

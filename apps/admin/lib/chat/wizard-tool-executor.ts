@@ -684,6 +684,15 @@ export async function executeWizardTool(
 
             // Student experience config — from wizard or defaults
             if (!configUpdate.welcome) {
+              // Observability (#210) — detect AI shipping create_course without explicit welcome flags.
+              // When 0 keys are set, the wizard is silently falling back to DEFAULT_WELCOME_CONFIG.
+              const welcomeKeysSet = ["welcomeGoals", "welcomeAboutYou", "welcomeKnowledgeCheck", "welcomeAiIntro"]
+                .filter((k) => (setupData as Record<string, unknown> | undefined)?.[k] !== undefined).length;
+              if (welcomeKeysSet === 0) {
+                console.warn(
+                  `[wizard-tool-executor] create_course (existing path) called without explicit welcome flags — falling back to DEFAULT_WELCOME_CONFIG. playbookId=${existingPlaybookId}`,
+                );
+              }
               configUpdate.welcome = {
                 goals: { enabled: setupData?.welcomeGoals !== false },
                 aboutYou: { enabled: setupData?.welcomeAboutYou !== false },
@@ -1092,6 +1101,15 @@ export async function executeWizardTool(
 
         // Student experience config — from wizard or defaults
         if (!configUpdate.welcome) {
+          // Observability (#210) — detect AI shipping create_course without explicit welcome flags.
+          // When 0 keys are set, the wizard is silently falling back to DEFAULT_WELCOME_CONFIG.
+          const welcomeKeysSet = ["welcomeGoals", "welcomeAboutYou", "welcomeKnowledgeCheck", "welcomeAiIntro"]
+            .filter((k) => (setupData as Record<string, unknown> | undefined)?.[k] !== undefined).length;
+          if (welcomeKeysSet === 0) {
+            console.warn(
+              `[wizard-tool-executor] create_course (new path) called without explicit welcome flags — falling back to DEFAULT_WELCOME_CONFIG. playbookId=${playbookId}`,
+            );
+          }
           configUpdate.welcome = {
             goals: { enabled: setupData?.welcomeGoals !== false },
             aboutYou: { enabled: setupData?.welcomeAboutYou !== false },

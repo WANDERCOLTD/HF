@@ -1,0 +1,297 @@
+description: "Wizard V5 — welcome flow phases proposal (#210)"
+
+# Run with: npx promptfoo eval -c evals/wizard/v5-welcome-flow.yaml --no-cache
+#
+# Snapshot: main configuration proposal confirmed. courseContext + interactionPattern
+# saved. None of the four welcome* keys recorded yet. The AI's NEXT response must
+# be the Welcome Flow Proposal (Goals / About You / Knowledge Check / AI Introduction)
+# — NOT create_course.
+
+prompts:
+  # Snapshot 1 — main proposal confirmed, welcome flow NOT asked yet.
+  # AI's job: propose the four phases. Used by Test 1 and 1b only.
+  - id: v5-pre-welcome-proposal
+    label: "V5 — Main proposal confirmed, welcome flow not yet asked"
+    raw: |
+      You are the HumanFirst Studio setup assistant.
+
+      ## How you communicate
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER hide proposals in reasoning — every proposal must appear explicitly in the visible response text.
+      - NEVER expose internal field names.
+      - NEVER output XML tags in your text responses.
+
+      ## Welcome flow proposal (MANDATORY — fires AFTER main proposal confirmed, BEFORE Phase 5 playback)
+
+      This step happens EXACTLY ONCE per conversation, immediately after the educator confirms the main
+      configuration proposal and before the Phase 5 summary. It is NOT optional.
+
+      **Trigger:** `setupData.interactionPattern` is set AND none of `setupData.welcomeGoals /
+      welcomeAboutYou / welcomeKnowledgeCheck / welcomeAiIntro` have been recorded yet.
+
+      **Your response MUST contain three things, in this order:**
+
+      1. Prose with reasoning. Propose the bundle in the visible response text. State each phase, on or
+         off, with one short rationale grounded in the course context (audience, subject, assessment
+         style, uploaded content).
+
+      2. show_options checklist. Call show_options with:
+         - mode: "checklist"
+         - dataKey: "_welcomePhases"
+         - required: false
+         - 4 options whose values map to welcomeGoals / welcomeAboutYou / welcomeKnowledgeCheck /
+           welcomeAiIntro. Mark recommended: true on the ones in your proposed bundle.
+
+      3. show_suggestions chips. Call show_suggestions with ["Sounds good", "I'll explain"].
+
+      **Default reasoning (use as a starting point, then flavor with course context):**
+      - Goals → on (default)
+      - About You → on (default)
+      - Knowledge Check → off by default; propose on if assessments=formal OR curriculum content
+        was uploaded
+      - AI Introduction Call → off by default; propose on if audience=primary
+
+      **After the educator responds:**
+
+      - "Sounds good" or any affirmative → call update_setup with ALL FOUR welcome keys as explicit
+        booleans matching your recommended bundle (e.g.
+        update_setup({ fields: { welcomeGoals: true, welcomeAboutYou: true, welcomeKnowledgeCheck: false, welcomeAiIntro: false } })).
+        All four. Explicit. Even when all four = the default. Never ship to create_course with these
+        unset.
+      - "Turn off knowledge check" or any natural-language override → call update_setup with all four
+        keys, applying the override over your recommended bundle. Then confirm the new bundle in
+        1-2 sentences before advancing.
+      - All four off → confirm in prose that the rail will be empty AND mention that the AI's first-call
+        discovery questions are also skipped (because aboutYou=false gates them).
+
+      ## Rules
+      5c. WELCOME FLOW IS A DELIBERATE CHOICE. After main proposal confirmation and BEFORE Phase 5
+          playback, propose the four welcome flow phases. Never skip this step. Never call
+          create_course before all four welcome keys are explicitly set.
+
+      ## Phase 5: Summary
+
+      When all four welcome* keys are set AND can-launch is YES, present a structured summary:
+        - **Welcome flow:** [human bundle of enabled phases joined with " + ", with disabled phases in
+          parentheses; e.g. "Goals + About You (Knowledge Check off, AI Intro off)". When all four are
+          off, write "none — direct entry to teaching".]
+
+      ## Graph-driven priorities
+
+      Readiness: 70% | Can launch: NO
+
+      ### Already collected
+        ✓ Organisation name: "Riverside Academy"
+        ✓ Subject area: "Biology"
+        ✓ Course name: "GCSE Biology"
+        ✓ Course context: "A 6-session GCSE Biology course for Year 10 students at Riverside Academy. Socratic question-led discovery."
+        ✓ Teaching approach: "socratic"
+        ✓ Sessions: 6 × 30 min
+        ✓ Coverage: balanced
+        ✓ Personality: socratic-mentor
+
+      ### Welcome flow phases
+      {{welcomePhasesState}}
+
+      ## Conversation state
+      {{conversationContext}}
+
+      ---
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1500
+      tools:
+        - name: update_setup
+          description: "Save collected setup fields"
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                additionalProperties: true
+            required: [fields]
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips (confirmation/skip only)"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+        - name: show_options
+          description: "Show structured option card inline in chat"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              dataKey: { type: string }
+              mode: { type: string }
+              required: { type: boolean }
+              fieldPicker: { type: boolean }
+              options: { type: array }
+            required: [question, dataKey, mode, options]
+        - name: create_course
+          description: "Create the course — only call after welcome flow captured"
+          input_schema:
+            type: object
+            properties:
+              courseName: { type: string }
+              interactionPattern: { type: string }
+            required: [courseName, interactionPattern]
+
+defaultTest:
+  vars:
+    welcomePhasesState: |
+      NOT YET CHOSEN — none of the four welcome* keys are set yet.
+        - welcomeGoals: undefined
+        - welcomeAboutYou: undefined
+        - welcomeKnowledgeCheck: undefined
+        - welcomeAiIntro: undefined
+
+tests:
+
+  # ── Test 1 — proposes welcome flow on the user's first nudge after main confirm ──
+
+  - description: "Test 1 — AI proposes welcome flow phases with reasoning + checklist + chips"
+    vars:
+      conversationContext: |
+        Last turn the user said "Sounds right" to the full configuration proposal. The AI saved
+        interactionPattern, sessionCount, durationMins, planEmphasis, personalityPreset. The welcome
+        flow ask has NOT been made yet — this is the AI's first chance to propose it.
+      userMessage: "What's next?"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const showOptions = _tc.find(t => t.name === 'show_options');
+          if (!showOptions) return { pass: false, score: 0, reason: 'No show_options call — welcome flow checklist must render' };
+          const args = showOptions.args || {};
+          if (args.mode !== 'checklist') return { pass: false, score: 0, reason: `show_options mode must be "checklist", got "${args.mode}"` };
+          if (args.dataKey !== '_welcomePhases') return { pass: false, score: 0, reason: `dataKey must be "_welcomePhases", got "${args.dataKey}"` };
+          const opts = args.options || [];
+          if (opts.length !== 4) return { pass: false, score: 0, reason: `Expected 4 options (Goals/AboutYou/KC/AIIntro), got ${opts.length}` };
+          const create = _tc.find(t => t.name === 'create_course');
+          if (create) return { pass: false, score: 0, reason: 'create_course called BEFORE welcome flow choice — banned by rule 5c' };
+          return true;
+
+  - description: "Test 1b — Welcome flow proposal has reasoning text and chips"
+    vars:
+      conversationContext: |
+        Last turn the user said "Sounds right" to the full configuration proposal. The AI saved
+        interactionPattern, sessionCount, durationMins, planEmphasis, personalityPreset. The welcome
+        flow ask has NOT been made yet — this is the AI's first chance to propose it.
+      userMessage: "What's next?"
+    assert:
+      - type: llm-rubric
+        value: "Response includes prose proposing the four welcome flow phases (Goals, About You, Knowledge Check, AI Introduction) with at least one rationale grounded in the course context (Year 10, GCSE, Biology, Socratic). Ends with show_suggestions chips like 'Sounds good' / 'I'll explain'. Does NOT call create_course."
+
+  # ── Test 2 — Sounds good → all four welcome keys saved as explicit booleans ──
+
+  - description: "Test 2 — 'Sounds good' saves ALL FOUR welcome keys as explicit booleans"
+    vars:
+      conversationContext: |
+        Last turn YOU (the AI) proposed the four welcome flow phases:
+          - Goals — on. Year 10 students focus better when they name their target grade.
+          - About You — on. The tutor adapts better with confidence/motivation context.
+          - Knowledge Check — off. No specific exam paper pinned, baseline quiz would feel arbitrary.
+          - AI Introduction Call — off. Year 10 students are comfortable jumping in.
+        You called show_options checklist with dataKey "_welcomePhases" and show_suggestions with
+        ["Sounds good", "I'll explain"]. The user is now responding to your proposal.
+      userMessage: "Sounds good"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup after Sounds good — welcome keys not saved' };
+          const fields = update.args?.fields || update.args || {};
+          const missing = [];
+          if (typeof fields.welcomeGoals !== 'boolean') missing.push('welcomeGoals not a boolean');
+          if (typeof fields.welcomeAboutYou !== 'boolean') missing.push('welcomeAboutYou not a boolean');
+          if (typeof fields.welcomeKnowledgeCheck !== 'boolean') missing.push('welcomeKnowledgeCheck not a boolean');
+          if (typeof fields.welcomeAiIntro !== 'boolean') missing.push('welcomeAiIntro not a boolean');
+          if (missing.length) return { pass: false, score: 0, reason: 'All four welcome* keys MUST be explicit booleans: ' + missing.join('; ') };
+          return true;
+
+  # ── Test 3 — natural-language override "turn off knowledge check" ──
+
+  - description: "Test 3 — 'turn off knowledge check' → update_setup with welcomeKnowledgeCheck=false plus the other three"
+    vars:
+      conversationContext: |
+        Last turn YOU (the AI) proposed the four welcome flow phases with the recommended bundle:
+        Goals on, About You on, Knowledge Check off, AI Introduction Call off. You called
+        show_options checklist with dataKey "_welcomePhases" and show_suggestions with
+        ["Sounds good", "I'll explain"]. The user is now responding to your proposal.
+      userMessage: "Turn off knowledge check, the rest is fine"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup after override — welcome keys not saved' };
+          const fields = update.args?.fields || update.args || {};
+          if (fields.welcomeKnowledgeCheck !== false) return { pass: false, score: 0, reason: `welcomeKnowledgeCheck must be false, got ${JSON.stringify(fields.welcomeKnowledgeCheck)}` };
+          // The other three must also be present as booleans (recommended bundle = goals on, aboutYou on, aiIntro off)
+          if (typeof fields.welcomeGoals !== 'boolean') return { pass: false, score: 0, reason: 'welcomeGoals missing — all four keys must be set' };
+          if (typeof fields.welcomeAboutYou !== 'boolean') return { pass: false, score: 0, reason: 'welcomeAboutYou missing' };
+          if (typeof fields.welcomeAiIntro !== 'boolean') return { pass: false, score: 0, reason: 'welcomeAiIntro missing' };
+          return true;
+
+  # ── Test 4 — All-off path mentions call-1 discovery questions are skipped too ──
+
+  - description: "Test 4 — 'I don't want any of that' → all four off, AI mentions discovery questions are skipped"
+    vars:
+      conversationContext: |
+        Last turn YOU (the AI) proposed the four welcome flow phases with the recommended bundle:
+        Goals on, About You on, Knowledge Check off, AI Introduction Call off. You called
+        show_options checklist with dataKey "_welcomePhases" and show_suggestions with
+        ["Sounds good", "I'll explain"]. The user is now responding to your proposal.
+      userMessage: "I don't want any of that, just teach them"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup' };
+          const fields = update.args?.fields || update.args || {};
+          if (fields.welcomeGoals !== false) return { pass: false, score: 0, reason: `welcomeGoals must be false (all-off), got ${JSON.stringify(fields.welcomeGoals)}` };
+          if (fields.welcomeAboutYou !== false) return { pass: false, score: 0, reason: `welcomeAboutYou must be false` };
+          if (fields.welcomeKnowledgeCheck !== false) return { pass: false, score: 0, reason: `welcomeKnowledgeCheck must be false` };
+          if (fields.welcomeAiIntro !== false) return { pass: false, score: 0, reason: `welcomeAiIntro must be false` };
+          return true;
+      - type: llm-rubric
+        value: "Response text mentions that the AI's first-call discovery questions are also skipped (because welcome.aboutYou is off, which gates them). The educator should not be surprised by call-1 behaviour."
+
+  # ── Test 5 — Phase 5 summary line format (after welcome flow captured) ──
+
+  - description: "Test 5 — When asked for the summary, AI uses human bundle format for Welcome flow line"
+    vars:
+      welcomePhasesState: |
+        ALL FOUR EXPLICITLY SET — the user has chosen their welcome flow.
+          - welcomeGoals: true
+          - welcomeAboutYou: true
+          - welcomeKnowledgeCheck: false
+          - welcomeAiIntro: false
+        The "WELCOME FLOW NEEDED NOW" banner does NOT apply — proceed straight to Phase 5 summary.
+      conversationContext: |
+        Last turn YOU (the AI) saved the welcome flow choice via update_setup with welcomeGoals=true,
+        welcomeAboutYou=true, welcomeKnowledgeCheck=false, welcomeAiIntro=false. All four
+        welcome* keys are now explicitly set in setupData. The user is now asking for the Phase 5
+        summary before launch. Time for the playback summary using the new "Welcome flow:" line format.
+      userMessage: |
+        Sounds good. Now show me the summary so I can confirm before you build it.
+    assert:
+      - type: llm-rubric
+        value: |
+          The summary text uses the new "Welcome flow:" line format: a human bundle joined with " + "
+          showing the enabled phases (e.g. "Goals + About You") with disabled phases in parentheses
+          (e.g. "(Knowledge Check off, AI Intro off)"). The summary does NOT use the old per-field
+          "Goals [on/off], About You [on/off], ..." format. If all four are off, the line reads
+          "none — direct entry to teaching".

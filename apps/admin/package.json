@@ -71,7 +71,10 @@
     "eval:wizard:community": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-community.yaml --no-cache",
     "eval:wizard:amendment": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-amendment.yaml --no-cache",
     "eval:wizard:tone": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-conversational-tone.yaml --no-cache",
-    "eval:wizard:all": "npm run eval:wizard && npm run eval:wizard:intake && npm run eval:wizard:proposal && npm run eval:wizard:content && npm run eval:wizard:community && npm run eval:wizard:amendment && npm run eval:wizard:tone",
+    "eval:wizard:welcome": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-welcome-flow.yaml --no-cache",
+    "eval:wizard:v5:welcome": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-welcome-flow.yaml --no-cache",
+    "eval:wizard:v4:welcome": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v4-welcome-flow.yaml --no-cache",
+    "eval:wizard:all": "npm run eval:wizard && npm run eval:wizard:intake && npm run eval:wizard:proposal && npm run eval:wizard:content && npm run eval:wizard:community && npm run eval:wizard:amendment && npm run eval:wizard:tone && npm run eval:wizard:welcome",
     "eval:classify": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-document-classification.yaml --no-cache",
     "eval:all": "npm run eval:wizard:all && npm run eval:classify",
     "eval:view": "promptfoo view"
