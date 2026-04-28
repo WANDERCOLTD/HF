@@ -65,29 +65,25 @@ export async function POST(
     const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
     const sourceIds = await getSourceIdsForPlaybook(courseId);
 
-    // Subject metadata from PlaybookSubject (name, qualificationRef for curriculum gen)
-    const playbookSubjects = await prisma.playbookSubject.findMany({
-      where: { playbookId: courseId },
-      select: {
-        subjectId: true,
-        subject: {
-          select: {
-            id: true,
-            name: true,
-            qualificationRef: true,
-          },
-        },
-      },
-    });
+    // Subject metadata — pick the Subject whose Curriculum has the most
+    // modules, falling back deterministically. See #206.
+    const { resolvePrimarySubjectForPlaybook } = await import(
+      "@/lib/knowledge/resolve-primary-subject"
+    );
+    const resolved = await resolvePrimarySubjectForPlaybook(courseId);
 
-    if (sourceIds.length === 0 && playbookSubjects.length === 0) {
+    if (sourceIds.length === 0 && !resolved) {
       return NextResponse.json(
         { ok: false, error: "Course has no content — upload content first" },
         { status: 404 },
       );
     }
 
-    const primarySubject = playbookSubjects[0]?.subject ?? { id: "", name: "Unknown", qualificationRef: null };
+    const primarySubject = resolved?.subject ?? {
+      id: "",
+      name: "Unknown",
+      qualificationRef: null,
+    };
 
     if (sourceIds.length === 0) {
       return NextResponse.json(
