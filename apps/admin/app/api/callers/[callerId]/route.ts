@@ -496,7 +496,7 @@ export async function GET(
             key: { in: assessmentGoalIds.map((id: string) => `goal_completion_signal:${id}`) },
             booleanValue: null, // pending only
           },
-          select: { id: true, key: true, textValue: true, createdAt: true },
+          select: { id: true, key: true, stringValue: true, createdAt: true },
         })
       : [];
     const signalByGoalId = new Map(
@@ -505,7 +505,7 @@ export async function GET(
     const goalsWithSignals = goals.map((g: any) => {
       const signal = signalByGoalId.get(g.id);
       return signal
-        ? { ...g, pendingSignal: { id: signal.id, evidence: signal.textValue, createdAt: signal.createdAt } }
+        ? { ...g, pendingSignal: { id: signal.id, evidence: signal.stringValue, createdAt: signal.createdAt } }
         : g;
     });
 

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   Users2, TrendingUp, Phone, Target,
   Copy, RefreshCw, Send, RotateCcw, ExternalLink, FlaskConical,
@@ -87,7 +86,6 @@ export function CourseLearnersTab({ courseId, initialJoinToken, studentProgress 
   const [search, setSearch] = useState('');
   const [creatingTestLearner, setCreatingTestLearner] = useState(false);
   const [testLearnerError, setTestLearnerError] = useState<string | null>(null);
-  const router = useRouter();
 
   // ── Proof-points data for aggregate cards + progress table ──
   const [proofData, setProofData] = useState<{
@@ -195,16 +193,18 @@ export function CourseLearnersTab({ courseId, initialJoinToken, studentProgress 
       });
       const data = await res.json();
       if (data.ok) {
-        router.push(`/x/callers/${data.callerId}?section=ai-call`);
+        // Open in a new tab so the educator can keep the course config tab
+        // open and watch the sim run side-by-side.
+        window.open(`/x/callers/${data.callerId}?section=ai-call`, '_blank', 'noopener');
       } else {
         setTestLearnerError(data.error || 'Failed to create test learner');
-        setCreatingTestLearner(false);
       }
     } catch {
       setTestLearnerError('Network error');
+    } finally {
       setCreatingTestLearner(false);
     }
-  }, [courseId, creatingTestLearner, router]);
+  }, [courseId, creatingTestLearner]);
 
   // ── Send invites ──
 
