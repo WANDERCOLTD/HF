@@ -121,6 +121,12 @@ export async function POST(
       );
     }
 
+    // Resolve discipline name up-front — used both for the Curriculum row
+    // name (if we create one) and for the extractor prompt below. Prefer
+    // playbook.config.subjectDiscipline over subject.name for AI prompt.
+    const pbConfig = (playbook.config as Record<string, unknown>) || {};
+    const disciplineName = (pbConfig.subjectDiscipline as string) || primarySubject.name;
+
     // 3. Find or create curriculum for this subject
     const existingCurr = await prisma.curriculum.findFirst({
       where: { subjectId: primarySubject.id },
@@ -156,9 +162,6 @@ export async function POST(
     assertions.forEach((a, i) => assertionIdByIndex.set(i + 1, a.id));
 
     // 5. Call the curriculum extractor (A3-hardened prompt)
-    // Prefer playbook.config.subjectDiscipline over subject.name for AI prompt
-    const pbConfig = (playbook.config as Record<string, unknown>) || {};
-    const disciplineName = (pbConfig.subjectDiscipline as string) || primarySubject.name;
     const extracted = await extractCurriculumFromAssertions(
       assertions,
       disciplineName,
