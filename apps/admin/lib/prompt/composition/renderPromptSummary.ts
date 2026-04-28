@@ -37,6 +37,8 @@ interface LLMPrompt {
       silence_wait?: string;
     };
     offboarding_guidance?: string | null;
+    /** #212: instructions to AI on whether/how to discover learner via welcome questions. */
+    discovery_guidance?: string | null;
   };
   caller?: {
     id?: string;
@@ -270,6 +272,17 @@ export function renderVoicePrompt(llmPrompt: LLMPrompt): string {
     parts.push(`Adapt: ${targetList.join(". ")}`);
   }
   parts.push("");
+
+  // --- WELCOME / DISCOVERY (#212) ---
+  // Tells the AI how to handle the very start of the call: ask for goals/
+  // motivation/prior knowledge, OR skip those questions entirely. Driven
+  // by the educator's welcome.* toggles. When null, the AI follows the
+  // default (Session Plan steps).
+  if (qs?.discovery_guidance) {
+    parts.push("[WELCOME]");
+    parts.push(qs.discovery_guidance);
+    parts.push("");
+  }
 
   // --- SESSION PLAN ---
   parts.push("[SESSION PLAN]");
@@ -524,6 +537,14 @@ export function renderPromptSummary(llmPrompt: LLMPrompt): string {
       const cv = qs.critical_voice;
       parts.push(`**Voice Rules**: ${cv.sentences_per_turn || "2-3"} sentences, max ${cv.max_seconds || 15}s, silence wait ${cv.silence_wait || "3s"}`);
     }
+    parts.push("");
+  }
+
+  // Welcome Flow / Discovery — opt-out instructions (#212).
+  // Place before Teaching Style so the AI sees discovery rules early.
+  if (qs?.discovery_guidance) {
+    parts.push("## Welcome Flow\n");
+    parts.push(qs.discovery_guidance);
     parts.push("");
   }
 

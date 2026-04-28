@@ -296,4 +296,44 @@ describe("renderVoicePrompt — post-coverage guidance", () => {
 
     expect(result).toContain("6. If all points are covered and understood, follow the post-coverage flow");
   });
+
+  // #212: welcome flow / discovery_guidance must reach the AI
+  describe("discovery_guidance (#212)", () => {
+    it("renderVoicePrompt emits a [WELCOME] section when discovery_guidance is set", () => {
+      const result = renderVoicePrompt({
+        _quickStart: {
+          this_caller: "Alice",
+          discovery_guidance:
+            "The educator has opted out of all welcome-flow questions. Do NOT ask the learner for their name, goals, motivation, confidence, or prior knowledge.",
+        },
+      });
+      expect(result).toContain("[WELCOME]");
+      expect(result).toContain("Do NOT ask the learner for their name");
+    });
+
+    it("renderVoicePrompt skips the [WELCOME] section when discovery_guidance is null/absent", () => {
+      const result = renderVoicePrompt({
+        _quickStart: { this_caller: "Alice" },
+      });
+      expect(result).not.toContain("[WELCOME]");
+    });
+
+    it("renderPromptSummary emits a ## Welcome Flow section when discovery_guidance is set", () => {
+      const result = renderPromptSummary({
+        _quickStart: {
+          this_caller: "Bob",
+          discovery_guidance: "Start with a warm welcome, then discover their name, goals, and prior experience before teaching.",
+        },
+      });
+      expect(result).toContain("## Welcome Flow");
+      expect(result).toContain("discover their name, goals, and prior experience");
+    });
+
+    it("renderPromptSummary skips the ## Welcome Flow section when discovery_guidance is null/absent", () => {
+      const result = renderPromptSummary({
+        _quickStart: { this_caller: "Bob" },
+      });
+      expect(result).not.toContain("## Welcome Flow");
+    });
+  });
 });
