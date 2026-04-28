@@ -321,7 +321,7 @@ function buildFlowContext(crumb: EntityBreadcrumb): string | null {
  */
 async function getSystemOverview(): Promise<string | null> {
   try {
-    const [domains, playbooks, specCount, behaviorParams] = await Promise.all([
+    const [domains, playbooks, specCount, behaviorParams, playbookSubjectCounts, playbookSourceCounts] = await Promise.all([
       prisma.domain.findMany({
         include: {
           playbooks: {
@@ -348,7 +348,18 @@ async function getSystemOverview(): Promise<string | null> {
         select: { parameterId: true, name: true, domainGroup: true },
         orderBy: { domainGroup: "asc" },
       }),
+      prisma.playbookSubject.groupBy({
+        by: ["playbookId"],
+        _count: { _all: true },
+      }),
+      prisma.playbookSource.groupBy({
+        by: ["playbookId"],
+        _count: { _all: true },
+      }),
     ]);
+
+    const subjectsByPlaybook = new Map(playbookSubjectCounts.map((g) => [g.playbookId, g._count._all]));
+    const sourcesByPlaybook = new Map(playbookSourceCounts.map((g) => [g.playbookId, g._count._all]));
 
     const parts: string[] = ["### System Overview"];
 
@@ -366,7 +377,12 @@ async function getSystemOverview(): Promise<string | null> {
           const goalSummary = Array.isArray(goals) && goals.length > 0
             ? ` — Goals: ${goals.map((g: any) => g.name).join(", ")}`
             : "";
-          parts.push(`  - Playbook: **${pb.name}** [${pb.status}] v${pb.version || "1"}${goalSummary}`);
+          const linkedSubjects = subjectsByPlaybook.get(pb.id) ?? 0;
+          const linkedSources = sourcesByPlaybook.get(pb.id) ?? 0;
+          const linkageWarning = linkedSubjects === 0 && linkedSources === 0
+            ? " ⚠️ NO course-scoped content (runtime falls back to ALL domain Subjects → cross-course contamination risk)"
+            : "";
+          parts.push(`  - Playbook: **${pb.name}** [${pb.status}] v${pb.version || "1"} — ${linkedSubjects} subject(s), ${linkedSources} source(s)${linkageWarning}${goalSummary}`);
         }
       }
     }
@@ -449,10 +465,11 @@ async function getCallerContext(callerId: string): Promise<string | null> {
           triggerType: true,
         },
       }),
-      // Get most recent call with the prompt that was used
-      prisma.call.findFirst({
+      // Get up to 20 most recent calls (id/date for all, transcript preview for top 3 only)
+      prisma.call.findMany({
         where: { callerId },
         orderBy: { createdAt: "desc" },
+        take: 20,
         select: {
           id: true,
           createdAt: true,
@@ -524,22 +541,28 @@ async function getCallerContext(callerId: string): Promise<string | null> {
       }
     }
 
-    // Recent Call
-    if (recentCall) {
-      parts.push("\n**Most Recent Call:**");
-      parts.push(`- Call #${recentCall.callSequence || "?"} on ${recentCall.createdAt.toLocaleDateString()}`);
-      parts.push(`- Status: completed`);
-      if (recentCall.transcript) {
-        const preview = recentCall.transcript.slice(0, 300).replace(/\n/g, " ");
-        parts.push(`- Transcript preview: "${preview}${recentCall.transcript.length > 300 ? "..." : ""}"`);
+    // Recent Calls (up to 20 ids/dates; transcripts only for top 3 to save tokens)
+    if (recentCall.length > 0) {
+      const moreNote = caller._count.calls > recentCall.length
+        ? ` — ${caller._count.calls - recentCall.length} older call(s) not shown`
+        : "";
+      parts.push(`\n**Recent Calls (showing ${recentCall.length} of ${caller._count.calls}${moreNote}):**`);
+      for (let i = 0; i < recentCall.length; i++) {
+        const call = recentCall[i];
+        parts.push(`- Call #${call.callSequence || "?"} on ${call.createdAt.toLocaleString()} (id: ${call.id})`);
+        if (i < 3 && call.transcript) {
+          const preview = call.transcript.slice(0, 200).replace(/\n/g, " ");
+          parts.push(`  Transcript: "${preview}${call.transcript.length > 200 ? "..." : ""}"`);
+        }
       }
 
-      // Show the prompt that was used FOR this call
-      if (recentCall.usedPrompt) {
-        parts.push("\n**Prompt Used FOR This Call:**");
-        if (recentCall.usedPrompt.composedAt) parts.push(`- Composed: ${recentCall.usedPrompt.composedAt.toLocaleString()}`);
-        if (recentCall.usedPrompt.llmPrompt) {
-          const llm = recentCall.usedPrompt.llmPrompt as Record<string, unknown>;
+      // Show the prompt used FOR the most recent call only (full detail)
+      const mostRecent = recentCall[0];
+      if (mostRecent.usedPrompt) {
+        parts.push("\n**Prompt Used FOR Most Recent Call:**");
+        if (mostRecent.usedPrompt.composedAt) parts.push(`- Composed: ${mostRecent.usedPrompt.composedAt.toLocaleString()}`);
+        if (mostRecent.usedPrompt.llmPrompt) {
+          const llm = mostRecent.usedPrompt.llmPrompt as Record<string, unknown>;
           parts.push("```json");
           const summary: Record<string, unknown> = {};
           if (llm._quickStart) summary._quickStart = llm._quickStart;
@@ -549,14 +572,14 @@ async function getCallerContext(callerId: string): Promise<string | null> {
           if (llm.behavior_targets) summary.behavior_targets = llm.behavior_targets;
           parts.push(JSON.stringify(summary, null, 2).slice(0, 1500));
           parts.push("```");
-        } else if (recentCall.usedPrompt.prompt) {
+        } else if (mostRecent.usedPrompt.prompt) {
           parts.push("```");
-          parts.push(recentCall.usedPrompt.prompt.slice(0, 800));
-          if (recentCall.usedPrompt.prompt.length > 800) parts.push("... (truncated)");
+          parts.push(mostRecent.usedPrompt.prompt.slice(0, 800));
+          if (mostRecent.usedPrompt.prompt.length > 800) parts.push("... (truncated)");
           parts.push("```");
         }
       } else {
-        parts.push("\n_No prompt was tracked for this call (usedPromptId not set)_");
+        parts.push("\n_No prompt was tracked for the most recent call (usedPromptId not set)_");
       }
     }
 
@@ -677,17 +700,28 @@ async function getCallContext(callId: string): Promise<string | null> {
 
 async function getPlaybookContext(playbookId: string): Promise<string | null> {
   try {
-    const playbook = await prisma.playbook.findUnique({
-      where: { id: playbookId },
-      include: {
-        items: {
-          include: {
-            spec: true,
-            promptTemplate: true,
+    const [playbook, playbookSubjects, playbookSources] = await Promise.all([
+      prisma.playbook.findUnique({
+        where: { id: playbookId },
+        include: {
+          items: {
+            include: {
+              spec: true,
+              promptTemplate: true,
+            },
           },
+          domain: { select: { id: true, name: true } },
         },
-      },
-    });
+      }),
+      prisma.playbookSubject.findMany({
+        where: { playbookId },
+        select: { subject: { select: { id: true, name: true, slug: true } } },
+      }),
+      prisma.playbookSource.findMany({
+        where: { playbookId },
+        select: { sourceId: true, source: { select: { name: true, documentType: true } } },
+      }),
+    ]);
 
     if (!playbook) return null;
 
@@ -696,6 +730,7 @@ async function getPlaybookContext(playbookId: string): Promise<string | null> {
       `- **ID:** ${playbook.id}`,
       `- **Status:** ${playbook.status}`,
       ...(playbook.version ? [`- **Version:** ${playbook.version}`] : []),
+      ...(playbook.domain ? [`- **Domain:** ${playbook.domain.name} (${playbook.domain.id})`] : []),
     ];
 
     // Domain specs (items)
@@ -716,6 +751,32 @@ async function getPlaybookContext(playbookId: string): Promise<string | null> {
     // Prompt templates
     const templates = playbook.items?.filter((i: any) => i.promptTemplate) || [];
     parts.push(`\n**Prompt Templates:** ${templates.length}`);
+
+    // Course-scoped content linkage (PlaybookSubject + PlaybookSource)
+    parts.push(`\n**Linked Subjects (PlaybookSubject):** ${playbookSubjects.length}`);
+    for (const ps of playbookSubjects.slice(0, 10)) {
+      parts.push(`- ${ps.subject.name} (${ps.subject.slug})`);
+    }
+
+    parts.push(`\n**Linked Sources (PlaybookSource):** ${playbookSources.length}`);
+    for (const ps of playbookSources.slice(0, 10)) {
+      parts.push(`- ${ps.source?.name ?? ps.sourceId}${ps.source?.documentType ? ` [${ps.source.documentType}]` : ""}`);
+    }
+
+    // Teaching point (ContentAssertion) count from linked sources
+    const sourceIds = playbookSources.map((ps) => ps.sourceId);
+    const assertionCount = sourceIds.length > 0
+      ? await prisma.contentAssertion.count({ where: { sourceId: { in: sourceIds } } })
+      : 0;
+    parts.push(`\n**Teaching Points (course-scoped):** ${assertionCount}`);
+
+    // CRITICAL: warn about runtime fallback contamination risk
+    if (playbookSubjects.length === 0 && playbookSources.length === 0) {
+      parts.push(
+        `\n**⚠️ NO course-scoped content linkage.**`,
+        `At runtime, \`getSourceIdsForPlaybook\` falls back to ALL Subjects in the domain — including content from sibling courses on the same domain. This causes cross-course contamination (e.g. Writing content appearing in a Speaking session). Tracked: issue #180/#181 Phase 6.`,
+      );
+    }
 
     return parts.join("\n");
   } catch (e) {
