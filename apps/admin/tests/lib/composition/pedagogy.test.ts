@@ -458,6 +458,93 @@ describe("computeSessionPedagogy transform", () => {
       expect(result.firstCallPhases).toHaveLength(3);
       expect(result.firstCallPhases!.some((p: { phase: string }) => p.phase === "discovery")).toBe(true);
     });
+
+    // ── Hardcoded-fallback gating (#212) ─────────────────────────────
+    // When the cascade resolves nothing (no playbookFlow / domainFlow / initFlow),
+    // the transform falls back to a 5-step hardcoded array. Step 2 is the
+    // "Probe existing knowledge" step. Pre-#212 this fallback ignored welcome
+    // toggles entirely.
+
+    it("hardcoded fallback drops 'Probe existing knowledge' step when ALL welcome phases disabled", () => {
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: [{
+            id: "pb-1",
+            name: "Course",
+            status: "PUBLISHED",
+            domain: null,
+            items: [],
+            config: {
+              welcome: {
+                goals: { enabled: false },
+                aboutYou: { enabled: false },
+                knowledgeCheck: { enabled: false },
+              },
+            },
+          }],
+          // No onboardingSpec, no domain.onboardingFlowPhases — falls through to hardcoded
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: true,
+        },
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.flow).toHaveLength(4);
+      expect(result.flow.some((s: string) => s.toLowerCase().includes("probe existing knowledge"))).toBe(false);
+      expect(result.flow[0]).toContain("Welcome");
+      expect(result.flow[1]).toContain("Introduce foundation");
+    });
+
+    it("hardcoded fallback KEEPS 'Probe existing knowledge' when welcome phases default-enabled", () => {
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: [],
+          // No welcome config at all → defaults true
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: true,
+        },
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.flow).toHaveLength(5);
+      expect(result.flow.some((s: string) => s.toLowerCase().includes("probe existing knowledge"))).toBe(true);
+    });
+
+    it("hardcoded fallback KEEPS 'Probe existing knowledge' on partial opt-out (only goals off)", () => {
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: [{
+            id: "pb-1",
+            name: "Course",
+            status: "PUBLISHED",
+            domain: null,
+            items: [],
+            config: {
+              welcome: {
+                goals: { enabled: false },
+                aboutYou: { enabled: true },
+                knowledgeCheck: { enabled: true },
+              },
+            },
+          }],
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: true,
+        },
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.flow).toHaveLength(5);
+      expect(result.flow.some((s: string) => s.toLowerCase().includes("probe existing knowledge"))).toBe(true);
+    });
   });
 
   describe("SCHEDULER MODE flows", () => {
