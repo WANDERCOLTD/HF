@@ -648,6 +648,38 @@ const stepExecutors: Record<string, StepExecutor> = {
       select: { slug: true, name: true },
     });
 
+    // #208: Create curriculum + modules in a single nested Prisma write.
+    // Prisma wraps nested creates in an implicit transaction, so we never
+    // commit a Curriculum row without its modules.
+    const moduleData = skeleton.modules.map((mod: any, i: number) => ({
+      slug: mod.slug || mod.id || `module-${i + 1}`,
+      title: mod.title || mod.name || `Module ${i + 1}`,
+      description: mod.description || null,
+      sortOrder: mod.sortOrder ?? i,
+      estimatedDurationMinutes: mod.estimatedDurationMinutes ?? null,
+      learningObjectives: {
+        // Use parseLoLine to handle the "LOn: description" string format produced by the
+        // curriculum-extraction prompt. Falls back to (string-as-description, synthesised ref)
+        // for legacy callers that pass raw descriptions, but rejects bare refs like "LO1".
+        create: (mod.learningOutcomes || [])
+          .map((lo: any, j: number) => {
+            if (typeof lo === "string") {
+              const parsed = parseLoLine(lo);
+              if (parsed) return { ref: parsed.ref, description: parsed.description, sortOrder: j };
+              // Bare ref like "LO1" — descriptionMatchesRef garbage. Reject.
+              if (/^LO-?\d+$/i.test(lo.trim())) return null;
+              // Plain description with no ref — synthesise a ref.
+              return { ref: `LO${j + 1}`, description: lo, sortOrder: j };
+            }
+            if (lo && typeof lo === "object" && lo.description) {
+              return { ref: lo.ref || `LO${j + 1}`, description: lo.description, sortOrder: j };
+            }
+            return null;
+          })
+          .filter((x: any): x is { ref: string; description: string; sortOrder: number } => x !== null),
+      },
+    }));
+
     const curriculum = await p.curriculum.create({
       data: {
         slug: `${domain!.slug}-curriculum`,
@@ -656,44 +688,9 @@ const stepExecutors: Record<string, StepExecutor> = {
         subjectId,
         playbookId: ctx.results.playbookId ?? null,
         deliveryConfig: {},
+        modules: { create: moduleData },
       },
     });
-
-    // Create modules
-    for (let i = 0; i < skeleton.modules.length; i++) {
-      const mod = skeleton.modules[i];
-      await p.curriculumModule.create({
-        data: {
-          curriculumId: curriculum.id,
-          slug: mod.slug || mod.id || `module-${i + 1}`,
-          title: mod.title || mod.name || `Module ${i + 1}`,
-          description: mod.description || null,
-          sortOrder: mod.sortOrder ?? i,
-          estimatedDurationMinutes: mod.estimatedDurationMinutes ?? null,
-          learningObjectives: {
-            // Use parseLoLine to handle the "LOn: description" string format produced by the
-            // curriculum-extraction prompt. Falls back to (string-as-description, synthesised ref)
-            // for legacy callers that pass raw descriptions, but rejects bare refs like "LO1".
-            create: (mod.learningOutcomes || [])
-              .map((lo: any, j: number) => {
-                if (typeof lo === "string") {
-                  const parsed = parseLoLine(lo);
-                  if (parsed) return { ref: parsed.ref, description: parsed.description, sortOrder: j };
-                  // Bare ref like "LO1" — descriptionMatchesRef garbage. Reject.
-                  if (/^LO-?\d+$/i.test(lo.trim())) return null;
-                  // Plain description with no ref — synthesise a ref.
-                  return { ref: `LO${j + 1}`, description: lo, sortOrder: j };
-                }
-                if (lo && typeof lo === "object" && lo.description) {
-                  return { ref: lo.ref || `LO${j + 1}`, description: lo.description, sortOrder: j };
-                }
-                return null;
-              })
-              .filter((x: any): x is { ref: string; description: string; sortOrder: number } => x !== null),
-          },
-        },
-      });
-    }
 
     ctx.results.curriculumId = curriculum.id;
     ctx.results.moduleCount = skeleton.modules.length;

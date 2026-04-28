@@ -566,7 +566,23 @@ export async function executeWizardTool(
         }
         const courseName = input.courseName as string;
         const interactionPattern = input.interactionPattern as string;
-        const subjectDiscipline = (input.subjectDiscipline as string) || courseName;
+        // Discipline guard (#207): never let a placeholder name (e.g. "Course")
+        // become a Subject. If the AI calls create_course before the discipline
+        // is set and courseName is also generic, refuse to scaffold rather than
+        // create an orphan Subject row.
+        const { isPlaceholderSubjectName } = await import("@/lib/knowledge/cleanup-placeholder-subjects");
+        const rawSubjectDiscipline = (input.subjectDiscipline as string) || courseName;
+        if (!rawSubjectDiscipline || isPlaceholderSubjectName(rawSubjectDiscipline)) {
+          return {
+            ...base,
+            content: JSON.stringify({
+              ok: false,
+              error: "Subject discipline is required. Ask the user what subject this course teaches (e.g. 'IELTS Speaking', 'Year 5 Maths', 'Food Safety') and pass it as subjectDiscipline.",
+            }),
+            is_error: true,
+          };
+        }
+        const subjectDiscipline = rawSubjectDiscipline;
         const packSubjectIds = (input.packSubjectIds as string[] | undefined)
           || (setupData?.packSubjectIds as string[] | undefined);
         // Phase 5: prefer sourceIds for direct PlaybookSource creation
@@ -978,6 +994,12 @@ export async function executeWizardTool(
           update: {},
           create: { playbookId, subjectId: subject.id },
         });
+
+        // Remove any placeholder PlaybookSubjects accumulated on this playbook
+        // from earlier wizard turns (e.g. a Subject named "Course" created when
+        // subjectDiscipline fell back to courseName). See #207.
+        const { removePlaceholderPlaybookSubjects } = await import("@/lib/knowledge/cleanup-placeholder-subjects");
+        await removePlaceholderPlaybookSubjects(playbookId, subject.id);
 
         // Dual-write: sync PlaybookSource from primary subject
         // Skip when uploadSourceIds provided — Phase 5 (step 7c) creates PlaybookSource

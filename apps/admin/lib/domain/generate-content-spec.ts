@@ -285,8 +285,21 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
       console.log(
         `[generate-content-spec] persisted curriculum: ${syncResult.count} modules → ${curriculumRecord.id}`,
       );
+
+      // #208: refuse to commit a Curriculum row with zero modules. Earlier
+      // versions swallowed sync failures and left orphans that surfaced as
+      // "Curriculum has no modules" errors in the lesson plan view.
+      if (syncResult.count === 0 && curriculum.modules.length > 0) {
+        throw new Error(
+          `Curriculum sync produced 0 modules from ${curriculum.modules.length} input modules — refusing to commit orphan curriculum row ${curriculumRecord.id}`,
+        );
+      }
     } catch (err) {
-      console.error("[generate-content-spec] curriculum persist failed (non-fatal):", (err as Error).message);
+      // #208: re-throw so the caller (and any wrapping transaction) sees the
+      // failure and can roll back, rather than silently leaving a Curriculum
+      // row without modules.
+      console.error("[generate-content-spec] curriculum persist failed:", (err as Error).message);
+      throw err;
     }
   }
 

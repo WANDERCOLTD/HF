@@ -359,7 +359,11 @@ export async function computeCourseLinkageScorecard(courseId: string): Promise<C
   const questionsLinkedPct = totalQuestions > 0 ? Math.round((linkedQuestions / totalQuestions) * 100) : 0;
 
   // ── Educator-facing warnings ───────────────────────────
-  if (los.length === 0 && primaryCurriculumId) {
+  // #208: surface the 0-modules state explicitly so the lesson-plan view
+  // doesn't fail with a cryptic "Curriculum has no modules" error.
+  if (primaryCurriculumId && activeModules.length === 0) {
+    warnings.push("Your curriculum has no modules yet. Click Regenerate to build them from your content.");
+  } else if (los.length === 0 && primaryCurriculumId) {
     warnings.push("Your curriculum has no learning outcomes yet. Click Regenerate to build them from your content.");
   } else if (los.length > 0 && garbageDescriptions === los.length) {
     warnings.push("Your learning outcomes are placeholders. Click Regenerate to have the AI write proper descriptions from your content.");
