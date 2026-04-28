@@ -110,14 +110,33 @@ registerTransform("computeSessionPedagogy", (
         console.log(`[pedagogy] Filtered ${removedCount} discovery phase(s) — welcome flow fully disabled`);
       }
     } else {
-      // Fallback to default first-call flow
-      plan.flow = [
-        "1. Welcome & set expectations",
-        "2. Probe existing knowledge with open questions",
-        `3. Introduce foundation: ${firstModule?.name || "first concept"}`,
-        "4. Check understanding with application question",
-        "5. Summarize & preview next session",
-      ];
+      // Fallback to default first-call flow.
+      // #212: also gate the hardcoded "Probe existing knowledge" step on
+      // welcome.* flags. Without this guard, courses with no fcFlow
+      // configured (no playbook/domain/INIT-001 override) ignore the
+      // educator's welcome-flow opt-out and always probe.
+      const fbWelcome = primaryPlaybook?.config?.welcome;
+      const fbAskGoals = fbWelcome?.goals?.enabled ?? true;
+      const fbAskAboutYou = fbWelcome?.aboutYou?.enabled ?? true;
+      const fbAskKnowledge = fbWelcome?.knowledgeCheck?.enabled ?? true;
+      const fbDropDiscovery = !fbAskGoals && !fbAskAboutYou && !fbAskKnowledge;
+
+      if (fbDropDiscovery) {
+        plan.flow = [
+          "1. Welcome & set expectations",
+          `2. Introduce foundation: ${firstModule?.name || "first concept"}`,
+          "3. Check understanding with application question",
+          "4. Summarize & preview next session",
+        ];
+      } else {
+        plan.flow = [
+          "1. Welcome & set expectations",
+          "2. Probe existing knowledge with open questions",
+          `3. Introduce foundation: ${firstModule?.name || "first concept"}`,
+          "4. Check understanding with application question",
+          "5. Summarize & preview next session",
+        ];
+      }
     }
 
     if (firstModule) {
