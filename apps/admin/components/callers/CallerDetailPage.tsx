@@ -1088,6 +1088,7 @@ export default function CallerDetailPage() {
             callerId={callerId}
             callerName={data.caller.name || "Caller"}
             domainName={data.caller.domain?.name}
+            playbookId={selectedPlaybookId === "all" ? undefined : selectedPlaybookId}
             mode="embedded"
             onCallEnd={() => {
               fetch(`/api/callers/${callerId}`)
@@ -1133,7 +1134,11 @@ export default function CallerDetailPage() {
             llmPrompt={composedPrompts[composedPrompts.length - 1]?.llmPrompt ?? null}
             callerId={callerId}
             callerName={data.caller.name || "Learner"}
-            playbookId={data.publishedPlaybookId ?? null}
+            playbookId={
+              selectedPlaybookId !== "all"
+                ? selectedPlaybookId
+                : (data.publishedPlaybookId ?? null)
+            }
             onApplied={(changes) => {
               setAppliedChanges(changes.map((c) => ({
                 label: c.label,

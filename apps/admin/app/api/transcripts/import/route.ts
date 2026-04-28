@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { prisma } from "@/lib/prisma";
+import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 
 // =============================================================
 // TYPES
@@ -947,6 +948,11 @@ export async function POST(request: NextRequest) {
           select: { id: true },
         });
 
+        // Stamp playbookId from caller's default enrollment so the import
+        // is attributed to a course (otherwise UI filters hide it). null is
+        // tolerated here — imports may legitimately predate enrollment.
+        const importedPlaybookId = await resolvePlaybookId(caller!.id);
+
         const createdCall = await prisma.call.create({
           data: {
             source: "import",
@@ -959,6 +965,7 @@ export async function POST(request: NextRequest) {
             previousCallId,
             createdAt: callStartTime,
             usedPromptId: activePrompt?.id || null,
+            ...(importedPlaybookId ? { playbookId: importedPlaybookId } : {}),
           },
         });
 

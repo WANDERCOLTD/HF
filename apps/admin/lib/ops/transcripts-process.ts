@@ -22,6 +22,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { PrismaClient, FileType, ProcessingStatus, FailedCallErrorType } from "@prisma/client";
 import { getKbRoot, resolveDataNodePath, clearManifestCache } from "../data-paths";
+import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 
 const prisma = new PrismaClient();
 
@@ -379,6 +380,10 @@ async function processFile(
           }
         }
 
+        // Stamp playbookId from caller's default enrollment (skip if no callerId).
+        // Tolerates null — VAPI imports can legitimately predate enrollment.
+        const importedPlaybookId = callerId ? await resolvePlaybookId(callerId) : null;
+
         // Create Call record
         await prisma.call.create({
           data: {
@@ -386,6 +391,7 @@ async function processFile(
             externalId: externalId || null,
             transcript,
             callerId: callerId || null,
+            ...(importedPlaybookId ? { playbookId: importedPlaybookId } : {}),
           }
         });
 

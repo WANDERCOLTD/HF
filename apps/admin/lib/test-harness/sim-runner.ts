@@ -15,6 +15,7 @@ import { executeComposition, loadComposeConfig, persistComposedPrompt } from "@/
 import { renderPromptSummary } from "@/lib/prompt/composition/renderPromptSummary";
 import { getPromptTemplate } from "@/lib/prompts/prompt-settings";
 import { interpolateTemplate } from "@/lib/prompts/interpolate";
+import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 
 // =============================================================================
 // TYPES
@@ -136,6 +137,11 @@ export async function runSimulation(options: SimRunnerOptions): Promise<SimRunne
   });
   const nextSequence = (lastCall?.callSequence ?? 0) + 1;
 
+  // Stamp playbookId from caller's default enrollment so the sim is
+  // attributed to the correct course (otherwise UI filters hide it). Null
+  // is tolerated for harness flows where the caller has no enrollment yet.
+  const harnessPlaybookId = await resolvePlaybookId(callerId);
+
   const call = await prisma.call.create({
     data: {
       callerId,
@@ -143,6 +149,7 @@ export async function runSimulation(options: SimRunnerOptions): Promise<SimRunne
       callSequence: nextSequence,
       transcript: "",
       previousCallId: lastCall?.id || null,
+      ...(harnessPlaybookId ? { playbookId: harnessPlaybookId } : {}),
     },
   });
 
