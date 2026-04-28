@@ -66,6 +66,28 @@ When the user says anything matching these patterns, **STOP and run the BA + Tec
 
 ---
 
+## ⚠️ MANDATORY: Branch Hygiene — never work on `main`
+
+**Before the first edit of any non-trivial change, create a feature branch.** Working directly on `main` causes clashes with `/vm-cp`, breaks deploy flows, and pollutes history with mid-task state.
+
+```bash
+git checkout -b fix/<issue#>-<slug>      # bug fix
+git checkout -b feat/<issue#>-<slug>     # feature
+git checkout -b chore/<slug>             # tooling, docs, deps
+```
+
+Naming: include the GitHub issue number when one exists (e.g. `fix/202-call-playbook-stamping`). PR title and commit body reference the issue with `Closes #N`.
+
+**Trivial changes that may stay on main:**
+- A single-line typo fix
+- README/CLAUDE.md edits with no code
+
+**Everything else gets a branch.** That includes "small" bug fixes touching one file — they often grow.
+
+If you discover work has started on `main`, stop and move it: `git checkout -b <name>` carries uncommitted changes onto the new branch and leaves `main` clean. Do this before continuing.
+
+---
+
 ## ⚠️ MANDATORY: Use qmd and hf-graph — NOT grep, NOT glob
 
 **This is non-negotiable. Before searching, reading, or navigating any code in this repo:**
