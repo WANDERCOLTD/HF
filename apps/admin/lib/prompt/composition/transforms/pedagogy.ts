@@ -111,17 +111,15 @@ registerTransform("computeSessionPedagogy", (
       }
     } else {
       // Fallback to default first-call flow.
-      // #212: also gate the hardcoded "Probe existing knowledge" step on
-      // welcome.* flags. Without this guard, courses with no fcFlow
-      // configured (no playbook/domain/INIT-001 override) ignore the
-      // educator's welcome-flow opt-out and always probe.
-      const fbWelcome = primaryPlaybook?.config?.welcome;
-      const fbAskGoals = fbWelcome?.goals?.enabled ?? true;
-      const fbAskAboutYou = fbWelcome?.aboutYou?.enabled ?? true;
-      const fbAskKnowledge = fbWelcome?.knowledgeCheck?.enabled ?? true;
-      const fbDropDiscovery = !fbAskGoals && !fbAskAboutYou && !fbAskKnowledge;
+      // The "Probe existing knowledge" step is the open-conversation cousin
+      // of the Knowledge Check welcome-flow flag — both gauge prior knowledge,
+      // just different formats (probe = Socratic Q, knowledgeCheck = MCQ).
+      // Gate the probe step on welcome.knowledgeCheck specifically so educators
+      // who turn off Knowledge Check on Course Design don't get probed anyway.
+      const fbAskKnowledge =
+        primaryPlaybook?.config?.welcome?.knowledgeCheck?.enabled ?? true;
 
-      if (fbDropDiscovery) {
+      if (!fbAskKnowledge) {
         plan.flow = [
           "1. Welcome & set expectations",
           `2. Introduce foundation: ${firstModule?.name || "first concept"}`,

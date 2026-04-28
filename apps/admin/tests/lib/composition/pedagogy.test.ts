@@ -545,6 +545,39 @@ describe("computeSessionPedagogy transform", () => {
       expect(result.flow).toHaveLength(5);
       expect(result.flow.some((s: string) => s.toLowerCase().includes("probe existing knowledge"))).toBe(true);
     });
+
+    it("hardcoded fallback drops 'Probe' when ONLY Knowledge Check is OFF (probe gated by knowledgeCheck)", () => {
+      // The probe step is conceptually a Socratic version of Knowledge Check.
+      // Educator turning OFF Knowledge Check should turn off probe too — even
+      // if Goals/AboutYou are still ON.
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: [{
+            id: "pb-1",
+            name: "Course",
+            status: "PUBLISHED",
+            domain: null,
+            items: [],
+            config: {
+              welcome: {
+                goals: { enabled: true },
+                aboutYou: { enabled: true },
+                knowledgeCheck: { enabled: false },
+              },
+            },
+          }],
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: true,
+        },
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.flow).toHaveLength(4);
+      expect(result.flow.some((s: string) => s.toLowerCase().includes("probe existing knowledge"))).toBe(false);
+    });
   });
 
   describe("SCHEDULER MODE flows", () => {
