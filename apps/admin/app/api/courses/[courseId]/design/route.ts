@@ -5,8 +5,10 @@
  * @auth session (OPERATOR+)
  * @tags course, design, welcome, nps
  * @description Save student experience design config (welcome flow phases + NPS settings).
- *   Writes to Playbook.config.welcome and Playbook.config.nps. Also updates
- *   legacy surveys config for backward compat with applyAutoIncludeStops.
+ *   Writes to Playbook.config.welcome and Playbook.config.nps. Pre-survey gating
+ *   is now computed from welcome.* via isPreSurveyEnabled — no surveys.pre write.
+ *   surveys.post.enabled is mirrored from nps.enabled (post-survey has no
+ *   welcome-side mirror yet).
  * @request { welcome?: WelcomeConfig, nps?: NpsConfig }
  * @response 200 { ok: true }
  * @response 404 { ok: false, error: "Course not found" }
@@ -50,13 +52,14 @@ export async function PUT(
       pbConfig.nps = body.nps;
     }
 
-    // Sync legacy surveys config for backward compat with applyAutoIncludeStops
-    if (body.welcome || body.nps) {
-      const w = pbConfig.welcome;
+    // surveys.pre.enabled is now COMPUTED-ONLY from welcome.* (see isPreSurveyEnabled);
+    // do NOT write it. surveys.post.enabled has no welcome-side mirror yet, so
+    // mirror from nps.enabled when nps is being saved.
+    if (body.nps) {
       const n = pbConfig.nps;
       pbConfig.surveys = {
-        pre: { enabled: !!(w?.aboutYou?.enabled || w?.knowledgeCheck?.enabled), questions: [] },
-        post: { enabled: !!n?.enabled, questions: [] },
+        ...pbConfig.surveys,
+        post: { enabled: !!n?.enabled, questions: pbConfig.surveys?.post?.questions ?? [] },
       };
     }
 

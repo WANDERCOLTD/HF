@@ -298,6 +298,166 @@ describe("computeSessionPedagogy transform", () => {
         expect(step).not.toContain("[Content:");
       });
     });
+
+    // ── Welcome-flow opt-out (issue #205) ─────────────────────────────
+
+    it("filters discovery phase when ALL welcome phases disabled (Playbook flow)", () => {
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: [{
+            id: "pb-1",
+            name: "Course",
+            status: "PUBLISHED",
+            domain: null,
+            items: [],
+            config: {
+              welcome: {
+                goals: { enabled: false },
+                aboutYou: { enabled: false },
+                knowledgeCheck: { enabled: false },
+              },
+              onboardingFlowPhases: {
+                phases: [
+                  { phase: "welcome", duration: "2 min", goals: ["Greet"] },
+                  { phase: "discovery", duration: "5 min", goals: ["Find name"] },
+                  { phase: "first-topic", duration: "5 min", goals: ["Teach"] },
+                ],
+              },
+            },
+          }],
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: true,
+        },
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.firstCallPhases).toHaveLength(2);
+      expect(result.firstCallPhases!.some((p: { phase: string }) => p.phase === "discovery")).toBe(false);
+      expect(result.flow.some((s: string) => s.toLowerCase().includes("discovery"))).toBe(false);
+    });
+
+    it("filters discovery phase when ALL welcome phases disabled (INIT-001 fallback)", () => {
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: [{
+            id: "pb-1",
+            name: "Course",
+            status: "PUBLISHED",
+            domain: null,
+            items: [],
+            config: {
+              welcome: {
+                goals: { enabled: false },
+                aboutYou: { enabled: false },
+                knowledgeCheck: { enabled: false },
+              },
+            },
+          }],
+          onboardingSpec: {
+            id: "init-1",
+            slug: "INIT-001",
+            name: "Onboarding",
+            config: {
+              firstCallFlow: {
+                phases: [
+                  { phase: "welcome", duration: "2 min", priority: "HIGH", goals: ["Greet"], avoid: [] },
+                  { phase: "Discovery", duration: "5 min", priority: "HIGH", goals: ["Find name"], avoid: [] }, // capitalised — case-insensitive match
+                  { phase: "wrap-up", duration: "2 min", priority: "MEDIUM", goals: ["Summarise"], avoid: [] },
+                ],
+              },
+            },
+          },
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: true,
+        },
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.firstCallPhases).toHaveLength(2);
+      expect(result.firstCallPhases!.some((p: { phase: string }) => p.phase.toLowerCase() === "discovery")).toBe(false);
+      expect(result.flow.some((s: string) => s.toLowerCase().includes("discovery"))).toBe(false);
+    });
+
+    it("keeps discovery phase when welcome phases are enabled (regression)", () => {
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: [{
+            id: "pb-1",
+            name: "Course",
+            status: "PUBLISHED",
+            domain: null,
+            items: [],
+            config: {
+              welcome: {
+                goals: { enabled: true },
+                aboutYou: { enabled: true },
+                knowledgeCheck: { enabled: true },
+              },
+              onboardingFlowPhases: {
+                phases: [
+                  { phase: "welcome", duration: "2 min", goals: ["Greet"] },
+                  { phase: "discovery", duration: "5 min", goals: ["Find name"] },
+                ],
+              },
+            },
+          }],
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: true,
+        },
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.firstCallPhases).toHaveLength(2);
+      expect(result.firstCallPhases!.some((p: { phase: string }) => p.phase === "discovery")).toBe(true);
+    });
+
+    it("KEEPS discovery phase on partial opt-out (only aboutYou off)", () => {
+      // Coarse-grained block: discovery survives unless ALL three toggles are off.
+      // Per-phase guidance in `discovery_guidance` tells the AI what to skip.
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: [{
+            id: "pb-1",
+            name: "Course",
+            status: "PUBLISHED",
+            domain: null,
+            items: [],
+            config: {
+              welcome: {
+                goals: { enabled: true },
+                aboutYou: { enabled: false },
+                knowledgeCheck: { enabled: true },
+              },
+              onboardingFlowPhases: {
+                phases: [
+                  { phase: "welcome", duration: "2 min", goals: ["Greet"] },
+                  { phase: "discovery", duration: "5 min", goals: ["Find name"] },
+                  { phase: "first-topic", duration: "5 min", goals: ["Teach"] },
+                ],
+              },
+            },
+          }],
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: true,
+        },
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.firstCallPhases).toHaveLength(3);
+      expect(result.firstCallPhases!.some((p: { phase: string }) => p.phase === "discovery")).toBe(true);
+    });
   });
 
   describe("SCHEDULER MODE flows", () => {

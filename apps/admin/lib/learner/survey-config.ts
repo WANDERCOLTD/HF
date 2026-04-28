@@ -1,6 +1,32 @@
-import type { SurveyStepConfig } from "@/lib/types/json-fields";
+import type { PlaybookConfig, SurveyStepConfig } from "@/lib/types/json-fields";
 import { config } from "@/lib/config";
 import { ContractRegistry } from "@/lib/contracts/registry";
+
+// ---------------------------------------------------------------------------
+// Pre-survey enabled — derived from welcome flow toggles
+// ---------------------------------------------------------------------------
+
+/**
+ * True iff at least one Welcome-flow phase is enabled.
+ *
+ * Source of truth: `playbook.config.welcome.*` (written by the Course Design tab).
+ * Replaces the legacy `playbook.config.surveys.pre.enabled` field — that field is
+ * no longer written, and any stale value left on existing playbooks is ignored.
+ *
+ * Defaults match DEFAULT_WELCOME_CONFIG in `lib/types/json-fields.ts`:
+ *   - goals: true
+ *   - aboutYou: true
+ *   - knowledgeCheck: false
+ *
+ * `welcome.aiIntroCall` is intentionally excluded — it gates a separate intro
+ * call, not the in-call discovery / pre-survey scaffolding.
+ */
+export function isPreSurveyEnabled(pbConfig: PlaybookConfig | null | undefined): boolean {
+  const w = pbConfig?.welcome;
+  return (w?.goals?.enabled ?? true)
+      || (w?.aboutYou?.enabled ?? true)
+      || (w?.knowledgeCheck?.enabled ?? false);
+}
 
 // ---------------------------------------------------------------------------
 // Survey end action — what happens after a survey is submitted

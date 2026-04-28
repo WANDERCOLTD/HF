@@ -20,15 +20,44 @@ const PRE_LOADED_KEYS: readonly string[] = [
   PRE_SURVEY_KEYS.SUBMITTED_AT,
 ];
 
-export type PersonalisationMode = "PRE_LOADED" | "COLD_START";
+export type PersonalisationMode = "PRE_LOADED" | "COLD_START" | "OPT_OUT";
+
+/**
+ * Welcome-flow toggles read from `playbook.config.welcome.*.enabled`.
+ * Each flag mirrors a phase the educator can switch off in the Course Design tab:
+ * - `askGoals`     ← `welcome.goals.enabled`         (learning goals)
+ * - `askAboutYou`  ← `welcome.aboutYou.enabled`      (motivation / confidence)
+ * - `askKnowledge` ← `welcome.knowledgeCheck.enabled` (prior knowledge probe)
+ *
+ * `welcome.aiIntroCall.enabled` is a separate concern (intro call) and is NOT included.
+ */
+export interface WelcomeToggles {
+  askGoals: boolean;
+  askAboutYou: boolean;
+  askKnowledge: boolean;
+}
+
+const DEFAULT_TOGGLES: WelcomeToggles = {
+  askGoals: true,
+  askAboutYou: true,
+  askKnowledge: true,
+};
 
 /**
  * Determine whether the caller already has pre-survey data.
  * PRE_LOADED → name/goals known, skip discovery questions.
- * COLD_START → no prior data, use discovery phase.
+ * COLD_START → no prior data, use discovery phase (per-toggle guidance refines what to ask).
+ * OPT_OUT    → educator turned off ALL three welcome phases AND no answers exist; skip discovery entirely.
+ *
+ * Pre-loaded answers always win — if they exist (e.g. a learner submitted before the
+ * educator disabled the welcome phases) we still personalise from them.
+ *
+ * Partial opt-outs return COLD_START — the per-phase guidance in `discovery_guidance`
+ * tells the AI which specific questions to skip.
  */
 export function detectPersonalisationMode(
   callerAttributes: CallerAttributeData[],
+  toggles: WelcomeToggles = DEFAULT_TOGGLES,
 ): PersonalisationMode {
   const hasPreData = callerAttributes.some(
     (a) =>
@@ -38,7 +67,10 @@ export function detectPersonalisationMode(
   const hasPersonality = callerAttributes.some(
     (a) => a.scope === SURVEY_SCOPES.PERSONALITY,
   );
-  return hasPreData || hasPersonality ? "PRE_LOADED" : "COLD_START";
+  if (hasPreData || hasPersonality) return "PRE_LOADED";
+  const allOff = !toggles.askGoals && !toggles.askAboutYou && !toggles.askKnowledge;
+  if (allOff) return "OPT_OUT";
+  return "COLD_START";
 }
 
 registerTransform("computeQuickStart", (
@@ -409,7 +441,16 @@ registerTransform("computeQuickStart", (
     discovery_guidance: (() => {
       if (!isFirstCall) return null;
 
-      const mode = detectPersonalisationMode(loadedData.callerAttributes);
+      // Multi-playbook callers: using playbooks?.[0] is an existing assumption — not changed here.
+      // Source of truth is `playbook.config.welcome.*.enabled` — what the educator toggles
+      // on the Course Design tab. Each flag defaults to `true` for legacy playbooks
+      // that were created before the welcome config existed.
+      const askGoals = pbConfig.welcome?.goals?.enabled ?? true;
+      const askAboutYou = pbConfig.welcome?.aboutYou?.enabled ?? true;
+      const askKnowledge = pbConfig.welcome?.knowledgeCheck?.enabled ?? true;
+      const toggles: WelcomeToggles = { askGoals, askAboutYou, askKnowledge };
+      const mode = detectPersonalisationMode(loadedData.callerAttributes, toggles);
+
       if (mode === "PRE_LOADED") {
         const getName = (): string | null => {
           const attr = loadedData.callerAttributes.find(
@@ -425,8 +466,18 @@ registerTransform("computeQuickStart", (
         return parts.join(" ");
       }
 
-      // COLD_START — make discovery explicit
-      return "This is a new learner with no prior data. Start with a warm welcome, then discover their name, goals, and prior experience before teaching.";
+      if (mode === "OPT_OUT") {
+        return "The educator has opted out of all welcome-flow questions. Do NOT ask the learner for their name, goals, motivation, confidence, or prior knowledge. Begin with a warm welcome and move directly into teaching.";
+      }
+
+      // COLD_START — discovery is on. Append granular skips for partial opt-outs.
+      const parts: string[] = [
+        "This is a new learner with no prior data. Start with a warm welcome, then discover their name, goals, and prior experience before teaching.",
+      ];
+      if (!askGoals) parts.push("Do NOT ask about their learning goals — the educator has captured these elsewhere.");
+      if (!askAboutYou) parts.push("Do NOT ask about their motivation or confidence.");
+      if (!askKnowledge) parts.push("Do NOT probe their prior knowledge level.");
+      return parts.join(" ");
     })(),
 
     offboarding_guidance: (() => {
