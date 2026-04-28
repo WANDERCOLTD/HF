@@ -55,12 +55,16 @@ First, check locally what changed in the commit:
 ```bash
 git diff --name-only HEAD~1 HEAD -- 'apps/admin/prisma/seed*.ts' 'apps/admin/prisma/schema.prisma'
 git diff --name-only HEAD~1 HEAD -- 'apps/admin/lib/**/*.ts' 'apps/admin/prisma/schema.prisma'
+git diff --name-only HEAD~1 HEAD -- 'apps/admin/docs-archive/bdd-specs/PROMPT-*.spec.json'
 ```
 
 **Cache decision:** If `lib/**/*.ts` or `schema.prisma` changed, use `rm -rf .next` (full nuke — Turbopack caches stale module refs causing RSC payload leaks). Otherwise use `rm -rf .next/dev/lock` (lock only).
 
+**Spec-sync decision:** If any `apps/admin/docs-archive/bdd-specs/PROMPT-*.spec.json` changed, include the prompt-spec sync block. The DB-seeded spec content takes priority over TS fallbacks at runtime — without spec-sync, prompt-file changes ship to the binary but never reach the AI.
+
 Then run **everything in ONE SSH connection** using a heredoc (NOT `bash -c '...'` — single quotes get mangled by IAP tunnel). Build the script dynamically:
 - Include the seed block only if seed files changed
+- Include the prompt-spec sync block only if PROMPT-*.spec.json changed
 - Include `rm -rf .next` if lib/schema changed, otherwise `rm -rf .next/dev/lock`
 
 ```bash
@@ -80,6 +84,10 @@ gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash <<'
   # ONLY if seed files changed — include this block:
   # echo "==> Seeding..."
   # npx tsx prisma/seed-full.ts
+
+  # ONLY if PROMPT-*.spec.json changed — include this block:
+  # echo "==> Syncing prompt specs to DB..."
+  # npx tsx scripts/sync-prompt-specs.ts
 
   echo "==> Restarting dev server..."
   killall -9 node 2>/dev/null || true
