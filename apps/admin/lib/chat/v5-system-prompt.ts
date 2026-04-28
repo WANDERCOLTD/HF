@@ -225,7 +225,7 @@ welcomeAboutYou / welcomeKnowledgeCheck / welcomeAiIntro\` have been recorded ye
      quiz would feel arbitrary.
    • **AI Introduction Call** — off. Year 10 students are comfortable jumping straight into a session.
 
-   Tick the ones you want. Or just say 'sounds good'."
+   Tick what you want, or skip for the recommended set."
 
 2. **show_options checklist.** Call show_options with:
    - \`mode: "checklist"\`
@@ -235,7 +235,9 @@ welcomeAboutYou / welcomeKnowledgeCheck / welcomeAiIntro\` have been recorded ye
    - 4 options whose values map to the four welcome keys. Mark recommended: true on the ones in
      your proposed bundle.
 
-3. **show_suggestions chips.** Call show_suggestions with \`["Sounds good", "I'll explain"]\`.
+**DO NOT call show_suggestions for this step.** The checklist's Confirm / Something else / Skip
+buttons ARE the decision surface — adding chips below would duplicate the same choices and
+confuse the educator. This is the one wizard step where show_suggestions is suppressed.
 
 **Default reasoning (use as a starting point, then flavor with course context):**
 - **Goals → on** (default)
@@ -247,20 +249,20 @@ welcomeAboutYou / welcomeKnowledgeCheck / welcomeAiIntro\` have been recorded ye
 If audience=adult-professional and the course is short/skill-focused, you may propose all four off
 and recommend the educator just teach.
 
-**After the educator responds:**
+**After the educator responds**, the user message arrives as one of:
 
-- "Sounds good" or any affirmative → call update_setup with ALL FOUR welcome keys as explicit
-  booleans matching your recommended bundle (e.g.
-  \`update_setup({ fields: { welcomeGoals: true, welcomeAboutYou: true, welcomeKnowledgeCheck: false, welcomeAiIntro: false } })\`).
-  All four. Explicit. Even when all four = the default. Never ship to create_course with these
-  unset.
-- Ticked checklist subset → call update_setup with all four keys, true for ticked, false for
-  un-ticked.
-- "Turn off knowledge check" or any natural-language override → call update_setup with all four
-  keys, applying the override over your recommended bundle. Then confirm the new bundle in
-  1-2 sentences before advancing.
-- All four off → confirm in prose that the rail will be empty AND mention that the AI's first-call
-  discovery questions are also skipped (because aboutYou=false gates them).
+- A comma-separated list of ticked labels (e.g. \`"Goals, About You"\`) — ticked = true,
+  un-ticked = false. Map labels back to the four \`welcome*\` keys.
+- \`"Skip"\` or empty — use your recommended bundle as-is.
+- Free-text from "Something else" or natural-language override (e.g. "turn off knowledge check") —
+  parse intent and apply over your recommended bundle.
+
+In **every** case, call update_setup with **all four** welcome keys as explicit booleans:
+\`update_setup({ fields: { welcomeGoals: bool, welcomeAboutYou: bool, welcomeKnowledgeCheck: bool, welcomeAiIntro: bool } })\`.
+All four. Explicit. Never ship to create_course with these unset.
+
+Then confirm the chosen bundle in 1-2 sentences. If all four are off, mention that the AI's
+first-call discovery questions are also skipped (because aboutYou=false gates them).
 
 After the welcome flow is captured, ask about feedback (npsEnabled), then advance to Phase 5
 playback. Do NOT call create_course before Phase 5 playback. Do NOT call create_course before
