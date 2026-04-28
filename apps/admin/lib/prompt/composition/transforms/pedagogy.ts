@@ -72,11 +72,28 @@ registerTransform("computeSessionPedagogy", (
     const source = playbookFlow ? `Playbook ${primaryPlaybook?.name}` : domainFlow ? `Domain ${domain?.slug}` : config.specs.onboarding;
 
     if (fcFlow?.phases) {
-      plan.firstCallPhases = fcFlow.phases;
+      // The discovery phase is a coarse-grained block that probes name / goals /
+      // prior knowledge. Drop it from the flow ONLY when the educator has switched
+      // off ALL THREE welcome phases (`welcome.goals`, `welcome.aboutYou`,
+      // `welcome.knowledgeCheck`) — there is nothing left to discover. Partial
+      // opt-outs are handled by per-phase guidance in `discovery_guidance`.
+      // Each toggle defaults to `true` for legacy playbooks with no welcome config.
+      const pbWelcome = primaryPlaybook?.config?.welcome;
+      const askGoals = pbWelcome?.goals?.enabled ?? true;
+      const askAboutYou = pbWelcome?.aboutYou?.enabled ?? true;
+      const askKnowledge = pbWelcome?.knowledgeCheck?.enabled ?? true;
+      const dropDiscovery = !askGoals && !askAboutYou && !askKnowledge;
+      const allPhases = fcFlow.phases as any[];
+      const filteredPhases = dropDiscovery
+        ? allPhases.filter((p: any) => p?.phase?.toLowerCase?.() !== "discovery")
+        : allPhases;
+      const removedCount = allPhases.length - filteredPhases.length;
+
+      plan.firstCallPhases = filteredPhases;
       plan.successMetrics = fcFlow.successMetrics;
 
       // Convert phases to flow steps, including content references
-      plan.flow = fcFlow.phases.map((phase: any, i: number) => {
+      plan.flow = filteredPhases.map((phase: any, i: number) => {
         const label = `${i + 1}. ${phase.phase.charAt(0).toUpperCase() + phase.phase.slice(1)} (${phase.duration}) - ${phase.goals[0]}`;
         const contentRefs = phase.content as Array<{ mediaId: string; instruction?: string }> | undefined;
         if (contentRefs?.length) {
@@ -88,7 +105,10 @@ registerTransform("computeSessionPedagogy", (
         return label;
       });
 
-      console.log(`[pedagogy] Using ${source} first-call flow with ${fcFlow.phases.length} phases`);
+      console.log(`[pedagogy] Using ${source} first-call flow with ${filteredPhases.length} phases`);
+      if (removedCount > 0) {
+        console.log(`[pedagogy] Filtered ${removedCount} discovery phase(s) — welcome flow fully disabled`);
+      }
     } else {
       // Fallback to default first-call flow
       plan.flow = [

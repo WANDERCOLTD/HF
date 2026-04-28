@@ -163,12 +163,21 @@ export async function PUT(
     const { curriculumId } = await params;
     const body = await request.json();
     let { entries } = body;
-    const { surveys } = body as { surveys?: import("@/lib/lesson-plan/apply-auto-include-stops").SurveyConfig };
+    // `surveys` is accepted as a flag — its presence (truthy) indicates the
+    // client wants the auto-include stops re-applied. The actual gating is
+    // now derived from playbook.config.welcome.* (pre) + surveys.post.enabled,
+    // so we fetch the playbook config fresh rather than trusting the body.
+    const { surveys } = body as { surveys?: unknown };
 
-    // If surveys config provided, re-apply auto-include stops to reflect toggle changes
+    // If client signalled a toggle change, re-apply auto-include stops to reflect it
     if (surveys) {
+      const playbookForSurvey = await prisma.playbook.findFirst({
+        where: { subjects: { some: { subject: { curricula: { some: { id: curriculumId } } } } } },
+        select: { config: true },
+      });
+      const pbConfig = (playbookForSurvey?.config ?? {}) as import("@/lib/types/json-fields").PlaybookConfig;
       const { applyAutoIncludeStops } = await import("@/lib/lesson-plan/apply-auto-include-stops");
-      entries = await applyAutoIncludeStops(entries, surveys);
+      entries = await applyAutoIncludeStops(entries, pbConfig);
     }
 
     // Validate
@@ -484,11 +493,10 @@ Total modules: ${modules.length}`;
       where: { subjects: { some: { subject: { curricula: { some: { id: curriculumId } } } } } },
       select: { config: true },
     });
-    const pbSurveys = (playbookForSurvey?.config as Record<string, any>)?.surveys as
-      import("@/lib/lesson-plan/apply-auto-include-stops").SurveyConfig | undefined;
+    const pbConfig = (playbookForSurvey?.config ?? {}) as import("@/lib/types/json-fields").PlaybookConfig;
 
     const { applyAutoIncludeStops } = await import("@/lib/lesson-plan/apply-auto-include-stops");
-    const expandedEntries = await applyAutoIncludeStops(entries, pbSurveys);
+    const expandedEntries = await applyAutoIncludeStops(entries, pbConfig);
     // Replace entries in-place so downstream code (assertion distribution) uses expanded list
     entries.length = 0;
     entries.push(...expandedEntries);

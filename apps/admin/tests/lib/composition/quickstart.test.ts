@@ -535,6 +535,110 @@ describe("computeQuickStart transform", () => {
     const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
     expect(result.discovery_guidance).toContain("Do NOT ask for name or goals");
   });
+
+  it("returns OPT_OUT guidance when all welcome phases are disabled (issue #205)", () => {
+    const ctx = makeContext({
+      sharedState: { ...makeContext().sharedState, isFirstCall: true },
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: [{
+          id: "pb-1",
+          name: "Course",
+          status: "PUBLISHED",
+          domain: null,
+          items: [],
+          config: {
+            welcome: {
+              goals: { enabled: false },
+              aboutYou: { enabled: false },
+              knowledgeCheck: { enabled: false },
+            },
+          },
+        }],
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.discovery_guidance).toContain("Do NOT ask");
+    expect(result.discovery_guidance).toContain("opted out of all welcome-flow questions");
+    expect(result.discovery_guidance).not.toContain("discover their name");
+  });
+
+  it("returns COLD_START + per-phase skip when only aboutYou is disabled (partial opt-out)", () => {
+    const ctx = makeContext({
+      sharedState: { ...makeContext().sharedState, isFirstCall: true },
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: [{
+          id: "pb-1",
+          name: "Course",
+          status: "PUBLISHED",
+          domain: null,
+          items: [],
+          config: {
+            welcome: {
+              goals: { enabled: true },
+              aboutYou: { enabled: false },
+              knowledgeCheck: { enabled: true },
+            },
+          },
+        }],
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    // Still does discovery — just skips motivation/confidence
+    expect(result.discovery_guidance).toContain("discover their name");
+    expect(result.discovery_guidance).toContain("Do NOT ask about their motivation");
+    // Did NOT switch into full opt-out copy
+    expect(result.discovery_guidance).not.toContain("opted out of all welcome-flow questions");
+  });
+
+  it("returns COLD_START + per-phase skips when goals + knowledgeCheck disabled (still partial)", () => {
+    const ctx = makeContext({
+      sharedState: { ...makeContext().sharedState, isFirstCall: true },
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: [{
+          id: "pb-1",
+          name: "Course",
+          status: "PUBLISHED",
+          domain: null,
+          items: [],
+          config: {
+            welcome: {
+              goals: { enabled: false },
+              aboutYou: { enabled: true },
+              knowledgeCheck: { enabled: false },
+            },
+          },
+        }],
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.discovery_guidance).toContain("Do NOT ask about their learning goals");
+    expect(result.discovery_guidance).toContain("Do NOT probe their prior knowledge level");
+    expect(result.discovery_guidance).not.toContain("opted out of all welcome-flow questions");
+  });
+
+  it("emits standard COLD_START guidance for legacy playbook (no welcome config)", () => {
+    const ctx = makeContext({
+      sharedState: { ...makeContext().sharedState, isFirstCall: true },
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: [{
+          id: "pb-1",
+          name: "Legacy",
+          status: "PUBLISHED",
+          domain: null,
+          items: [],
+          config: {},
+        }],
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.discovery_guidance).toContain("discover their name");
+    expect(result.discovery_guidance).not.toContain("Do NOT ask about");
+    expect(result.discovery_guidance).not.toContain("opted out");
+  });
 });
 
 // ── channel_note (text vs voice) ─────────────────────────────────────
@@ -594,5 +698,44 @@ describe("detectPersonalisationMode", () => {
     expect(detectPersonalisationMode([
       makeAttr(SURVEY_SCOPES.PERSONALITY, "type"),
     ])).toBe("PRE_LOADED");
+  });
+
+  // ── welcome toggles (issue #205) ────────────────────────────────────
+
+  const allOff = { askGoals: false, askAboutYou: false, askKnowledge: false };
+  const allOn = { askGoals: true, askAboutYou: true, askKnowledge: true };
+
+  it("returns OPT_OUT when all three welcome phases are off and no attributes", () => {
+    expect(detectPersonalisationMode([], allOff)).toBe("OPT_OUT");
+  });
+
+  it("returns COLD_START when all welcome phases are on and no attributes (regression)", () => {
+    expect(detectPersonalisationMode([], allOn)).toBe("COLD_START");
+  });
+
+  it("returns PRE_LOADED when all phases are off but pre-survey answers exist (answers win)", () => {
+    expect(detectPersonalisationMode(
+      [makeAttr(SURVEY_SCOPES.PRE, PRE_SURVEY_KEYS.GOAL_TEXT)],
+      allOff,
+    )).toBe("PRE_LOADED");
+  });
+
+  it("returns COLD_START on partial opt-out (only aboutYou off)", () => {
+    expect(detectPersonalisationMode(
+      [],
+      { askGoals: true, askAboutYou: false, askKnowledge: true },
+    )).toBe("COLD_START");
+  });
+
+  it("returns COLD_START on partial opt-out (goals + knowledgeCheck off, aboutYou on)", () => {
+    expect(detectPersonalisationMode(
+      [],
+      { askGoals: false, askAboutYou: true, askKnowledge: false },
+    )).toBe("COLD_START");
+  });
+
+  it("defaults to COLD_START when toggles arg is omitted (legacy callers)", () => {
+    // No toggles arg → defaults to all-on → COLD_START with no attrs
+    expect(detectPersonalisationMode([])).toBe("COLD_START");
   });
 });

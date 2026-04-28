@@ -682,10 +682,11 @@ export async function executeWizardTool(
                 threshold: 80,
               };
             }
-            // Legacy surveys config — kept for backward compat with applyAutoIncludeStops
+            // surveys.pre.enabled is now COMPUTED-ONLY from welcome.* (see
+            // isPreSurveyEnabled). surveys.post.enabled has no welcome-side
+            // mirror yet, so we still seed it from nps.enabled for the rail.
             if (!configUpdate.surveys) {
               configUpdate.surveys = {
-                pre: { enabled: configUpdate.welcome.aboutYou.enabled || configUpdate.welcome.knowledgeCheck.enabled },
                 post: { enabled: configUpdate.nps.enabled },
               };
             }
@@ -1083,10 +1084,11 @@ export async function executeWizardTool(
             threshold: 80,
           };
         }
-        // Legacy surveys config — kept for backward compat with applyAutoIncludeStops
+        // surveys.pre.enabled is now COMPUTED-ONLY from welcome.* (see
+        // isPreSurveyEnabled). surveys.post.enabled has no welcome-side
+        // mirror yet, so we still seed it from nps.enabled for the rail.
         if (!configUpdate.surveys) {
           configUpdate.surveys = {
-            pre: { enabled: configUpdate.welcome.aboutYou.enabled || configUpdate.welcome.knowledgeCheck.enabled },
             post: { enabled: configUpdate.nps.enabled },
           };
         }

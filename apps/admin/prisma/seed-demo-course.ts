@@ -500,7 +500,9 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
               aiIntroCall: { enabled: false },
             },
             nps: { enabled: true, trigger: "mastery", threshold: 80 },
-            surveys: { pre: { enabled: true }, post: { enabled: true } },
+            // surveys.pre.enabled is computed from welcome.* via isPreSurveyEnabled.
+            // Only post is persisted (no welcome-side mirror for post yet).
+            surveys: { post: { enabled: true } },
             assessment: { preTest: { enabled: true }, postTest: { enabled: true } },
             goals: [
               { type: "LEARN", name: "Master core psychological concepts", isDefault: true, priority: 1 },

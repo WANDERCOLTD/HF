@@ -7,6 +7,8 @@
  * Idempotent: strips existing auto-include stops before re-inserting.
  */
 
+import type { PlaybookConfig } from "@/lib/types/json-fields";
+import { isPreSurveyEnabled } from "@/lib/learner/survey-config";
 import { getSessionTypeConfig, type SessionTypeEntry } from "./session-ui";
 
 /** Minimal entry shape — compatible with both wizard and PUT route entry types. */
@@ -19,11 +21,6 @@ export interface PlanEntry {
   estimatedDurationMins?: number;
   isOptional?: boolean;
   [key: string]: any;
-}
-
-export interface SurveyConfig {
-  pre?: { enabled: boolean };
-  post?: { enabled: boolean };
 }
 
 /** Create a structural/survey stop entry. */
@@ -43,13 +40,20 @@ function makeStop(typeDef: SessionTypeEntry, overrides?: Partial<PlanEntry>): Pl
 /**
  * Inject auto-include stops into a lesson plan.
  *
+ * Survey gating:
+ *   - pre_survey  → derived from `welcome.{goals,aboutYou,knowledgeCheck}` via
+ *     `isPreSurveyEnabled`. The legacy `surveys.pre.enabled` field is no longer
+ *     consulted (it is computed-only and any stored value is ignored).
+ *   - post_survey → still gated by the legacy `surveys.post.enabled` field.
+ *     There is no welcome-side mirror for post-survey at present.
+ *
  * @param entries - Teaching session entries (may already contain structural stops)
- * @param surveys - Playbook survey config (controls which surveys are enabled)
+ * @param pbConfig - Playbook config (welcome + surveys.post drive gating)
  * @returns New array with structural + survey stops injected, renumbered sequentially
  */
 export async function applyAutoIncludeStops(
   entries: PlanEntry[],
-  surveys?: SurveyConfig | null,
+  pbConfig?: PlaybookConfig | null,
 ): Promise<PlanEntry[]> {
   const config = await getSessionTypeConfig();
   const typeMap = new Map(config.types.map((t) => [t.value, t]));
@@ -67,12 +71,14 @@ export async function applyAutoIncludeStops(
   const last: PlanEntry[] = [];
   const afterLast: PlanEntry[] = [];
 
+  const preEnabled = isPreSurveyEnabled(pbConfig ?? null);
+  const postEnabled = pbConfig?.surveys?.post?.enabled ?? false;
+
   for (const typeDef of autoTypes) {
     // Survey stops are gated by playbook config
     if (typeDef.category === "survey") {
-      if (!surveys) continue;
-      if (typeDef.value === "pre_survey" && !surveys.pre?.enabled) continue;
-      if (typeDef.value === "post_survey" && !surveys.post?.enabled) continue;
+      if (typeDef.value === "pre_survey" && !preEnabled) continue;
+      if (typeDef.value === "post_survey" && !postEnabled) continue;
     }
 
     switch (typeDef.autoInclude) {

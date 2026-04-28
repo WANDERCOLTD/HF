@@ -22,7 +22,8 @@ import { CourseLearnersTab } from './CourseLearnersTab';
 import { CourseProofTab } from './CourseProofTab';
 import { SessionDetailPanel } from '@/components/shared/SessionDetailPanel';
 import { SurveyStopDetail } from '@/components/shared/SurveyStopDetail';
-import type { SurveyStepConfig } from '@/lib/types/json-fields';
+import type { PlaybookConfig, SurveyStepConfig } from '@/lib/types/json-fields';
+import { isPreSurveyEnabled } from '@/lib/learner/survey-config';
 import { isFormStop } from '@/lib/lesson-plan/session-ui';
 import { useSession } from 'next-auth/react';
 import { useEntityContext } from '@/contexts/EntityContext';
@@ -1261,14 +1262,25 @@ export default function CourseDetailPage() {
                 body: JSON.stringify({ entries: updated }),
               }).catch(() => {});
             } : undefined}
-            assessmentsEnabled={(detail.config as any)?.surveys?.pre?.enabled ?? true}
+            assessmentsEnabled={isPreSurveyEnabled((detail.config ?? {}) as PlaybookConfig)}
             onToggleAssessments={isOperator ? (enabled) => {
+              // Master toggle: pre-survey is derived from welcome.* (set all
+              // three welcome phases together); post-survey still uses the
+              // legacy surveys.post.enabled field (no welcome-side mirror).
               const cfg = (detail.config ?? {}) as Record<string, any>;
-              const surveys = {
-                pre: { ...cfg.surveys?.pre, enabled },
-                post: { ...cfg.surveys?.post, enabled },
+              const newConfig = {
+                ...cfg,
+                welcome: {
+                  ...cfg.welcome,
+                  goals: { ...cfg.welcome?.goals, enabled },
+                  aboutYou: { ...cfg.welcome?.aboutYou, enabled },
+                  knowledgeCheck: { ...cfg.welcome?.knowledgeCheck, enabled },
+                },
+                surveys: {
+                  ...cfg.surveys,
+                  post: { ...cfg.surveys?.post, enabled },
+                },
               };
-              const newConfig = { ...cfg, surveys };
               setDetail((prev) => prev ? { ...prev, config: newConfig } : prev);
 
               fetch(`/api/playbooks/${detail.id}`, {
@@ -1276,9 +1288,11 @@ export default function CourseDetailPage() {
                 body: JSON.stringify({ config: newConfig }),
               }).then(() => {
                 if (sessions?.curriculumId && sessions?.plan?.entries) {
+                  // Body just needs to flag "config changed, re-apply stops" — the
+                  // route fetches the playbook from DB to gate the stops.
                   fetch(`/api/curricula/${sessions.curriculumId}/lesson-plan`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ entries: sessions.plan.entries, surveys }),
+                    body: JSON.stringify({ entries: sessions.plan.entries, surveys: true }),
                   }).then((r) => r.json()).then((data) => {
                     if (data.ok && data.entries) {
                       setSessions((prev) => prev ? { ...prev, plan: prev.plan ? { ...prev.plan, entries: data.entries } : null } : null);
