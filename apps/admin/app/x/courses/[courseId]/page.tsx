@@ -18,7 +18,7 @@ import { CourseIntelligenceTab } from './CourseIntelligenceTab';
 import { CourseWhoTab } from './CourseWhoTab';
 import { CourseGoalsTab } from './CourseGoalsTab';
 import { CourseDesignTab } from './CourseDesignTab';
-import { SessionFlowTimeline } from '@/components/session-flow/SessionFlowTimeline';
+import { SessionFlowEditor } from '@/components/session-flow/SessionFlowEditor';
 import { CourseLearnersTab } from './CourseLearnersTab';
 import { CourseProofTab } from './CourseProofTab';
 import { SessionDetailPanel } from '@/components/shared/SessionDetailPanel';
@@ -1444,7 +1444,7 @@ export default function CourseDetailPage() {
       {/* ═══════════════════════════════════════════════ */}
       {activeTab === 'session-flow' && (
         <div className="hf-mt-lg">
-          <SessionFlowTimeline courseId={courseId} />
+          <SessionFlowEditor courseId={courseId} />
         </div>
       )}
 

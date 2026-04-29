@@ -9530,6 +9530,29 @@ List all classrooms (cohort groups) assigned to a course (playbook).
 
 ---
 
+### `PUT` /api/courses/[courseId]/session-flow
+
+Partial update of Playbook.config — accepts a sessionFlow
+
+**Auth**: session (OPERATOR+) · **Scope**: `course:write`
+
+**Response** `200`
+```json
+{ ok, sessionFlow: SessionFlowResolved, mode, ... }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "Invalid body" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+---
+
 ### `GET` /api/courses/[courseId]/students
 
 List all students (callers) enrolled in a course (playbook).

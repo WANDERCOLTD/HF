@@ -21,8 +21,14 @@ import { resolveSessionFlow } from "@/lib/session-flow/resolver";
 import type {
   PlaybookConfig,
   OnboardingFlowPhases,
+  SessionFlowConfig,
   SessionFlowResolved,
 } from "@/lib/types/json-fields";
+
+interface PutBody {
+  sessionFlow?: SessionFlowConfig;
+  lessonPlanMode?: "continuous" | "structured";
+}
 
 export async function GET(
   _req: NextRequest,
@@ -79,6 +85,112 @@ export async function GET(
     });
   } catch (err) {
     console.error("[courses/[courseId]/session-flow GET]", err);
+    return NextResponse.json(
+      { ok: false, error: (err as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * @api PUT /api/courses/[courseId]/session-flow
+ * @visibility internal
+ * @scope course:write
+ * @auth session (OPERATOR+)
+ * @description Partial update of Playbook.config — accepts a sessionFlow
+ *   shape and/or a lessonPlanMode. Other Playbook.config fields are left
+ *   untouched. Used by the Course page Session Flow editor (#225).
+ * @request { sessionFlow?: SessionFlowConfig, lessonPlanMode?: "continuous" | "structured" }
+ * @response 200 { ok, sessionFlow: SessionFlowResolved, mode, ... }
+ * @response 400 { ok: false, error: "Invalid body" }
+ * @response 404 { ok: false, error: "Course not found" }
+ */
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ courseId: string }> },
+): Promise<NextResponse> {
+  const auth = await requireAuth("OPERATOR");
+  if (isAuthError(auth)) return auth.error;
+
+  try {
+    const { courseId } = await params;
+    const body = (await req.json()) as PutBody;
+
+    if (
+      body.lessonPlanMode !== undefined
+      && body.lessonPlanMode !== "continuous"
+      && body.lessonPlanMode !== "structured"
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid lessonPlanMode" },
+        { status: 400 },
+      );
+    }
+
+    const playbook = await prisma.playbook.findUnique({
+      where: { id: courseId },
+      select: {
+        id: true,
+        config: true,
+      },
+    });
+    if (!playbook) {
+      return NextResponse.json(
+        { ok: false, error: "Course not found" },
+        { status: 404 },
+      );
+    }
+
+    const existing = (playbook.config ?? {}) as PlaybookConfig;
+    const merged: PlaybookConfig = {
+      ...existing,
+      ...(body.lessonPlanMode !== undefined ? { lessonPlanMode: body.lessonPlanMode } : {}),
+      ...(body.sessionFlow !== undefined
+        ? { sessionFlow: { ...(existing.sessionFlow ?? {}), ...body.sessionFlow } }
+        : {}),
+    };
+
+    await prisma.playbook.update({
+      where: { id: courseId },
+      data: { config: merged as object },
+    });
+
+    // Re-resolve and return so the client can update without a second fetch.
+    const updated = await prisma.playbook.findUnique({
+      where: { id: courseId },
+      select: {
+        name: true,
+        config: true,
+        domain: {
+          select: {
+            slug: true,
+            onboardingWelcome: true,
+            onboardingFlowPhases: true,
+          },
+        },
+      },
+    });
+    const onboardingSpec = await prisma.analysisSpec.findUnique({
+      where: { slug: config.specs.onboarding },
+      select: { config: true },
+    });
+    const updatedConfig = (updated?.config ?? {}) as PlaybookConfig;
+    const resolved: SessionFlowResolved = resolveSessionFlow({
+      playbook: { name: updated?.name ?? null, config: updatedConfig },
+      domain: updated?.domain ?? null,
+      onboardingSpec: (onboardingSpec ?? null) as { config: { firstCallFlow?: OnboardingFlowPhases } } | null,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      sessionFlow: resolved,
+      mode: updatedConfig.lessonPlanMode ?? "structured",
+      teachingMode: updatedConfig.teachingMode ?? null,
+      sessionCount: updatedConfig.sessionCount ?? null,
+      courseName: updated?.name ?? "",
+    });
+  } catch (err) {
+    console.error("[courses/[courseId]/session-flow PUT]", err);
     return NextResponse.json(
       { ok: false, error: (err as Error).message },
       { status: 500 },
