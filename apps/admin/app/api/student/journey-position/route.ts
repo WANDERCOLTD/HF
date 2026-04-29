@@ -211,6 +211,64 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       });
     }
 
+    // ── Default (structured mode): onboarding gate, then optionally NPS ──
+    // Structured-mode courses today never deliver NPS through this route —
+    // the legacy path falls straight to teaching. When SESSION_FLOW_RESOLVER_ENABLED,
+    // evaluate event-triggered stops (mastery_reached / session_count / course_complete)
+    // for structured courses too. This is the structured-mode NPS gap closure
+    // that #218 promises. Position-anchored stops (pre/mid/post-test) remain
+    // owned by applyAutoIncludeStops in the lesson-plan rail (Track A hybrid).
+    if (config.features.sessionFlowResolverEnabled && onboardingComplete && curriculum?.slug) {
+      const resolved = resolveSessionFlow({
+        playbook: { name: null, config: pbConfig },
+      });
+      const eventStops = resolved.stops.filter(
+        s => s.trigger.type === "mastery_reached"
+          || s.trigger.type === "session_count"
+          || s.trigger.type === "course_complete",
+      );
+      if (eventStops.length > 0) {
+        const [summary, surveyAttrs, callCount] = await Promise.all([
+          import("@/lib/curriculum/track-progress").then(m => m.getTpProgressSummary(callerId, curriculum!.slug!)),
+          prisma.callerAttribute.findMany({
+            where: {
+              callerId,
+              scope: { in: [SURVEY_SCOPES.POST] },
+              key: "submitted_at",
+            },
+            select: { scope: true },
+          }),
+          prisma.call.count({ where: { callerId, endedAt: { not: null } } }),
+        ]);
+        const pct = summary.totalTps > 0
+          ? Math.round((summary.mastered / summary.totalTps) * 100)
+          : 0;
+        const completedStopIds = new Set<string>();
+        if (surveyAttrs.length > 0) {
+          completedStopIds.add("nps");
+          completedStopIds.add("post-test");
+        }
+        const verdict = evaluateStops(
+          {
+            currentSession: callCount + 1,
+            masteryPct: pct,
+            callCount,
+            onboardingComplete,
+            completedStopIds,
+            courseComplete: pct >= 100,
+          },
+          eventStops,
+        );
+        if (verdict.fire) {
+          return NextResponse.json({
+            ok: true,
+            nextStop: stopToNextStop(verdict.stop, { preTestCompleted: false }),
+            journey: { totalStops: 1, completedStops: 0, currentPosition: 1, progressPercentage: pct },
+          });
+        }
+      }
+    }
+
     // ── Default: onboarding gate then teaching ──
     return NextResponse.json({
       ok: true,
