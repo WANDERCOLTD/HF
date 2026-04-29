@@ -24,6 +24,12 @@
 #     what's being deployed — without this, a stale VM reports "up to date"
 #     even when new migrations exist locally (2026-04-19 incident).
 #
+#   Gate 6 is the count-cap ratchet (#227). It compares tsc errors, lint
+#     errors/warnings, and quarantined-test count against `.ratchet.json`
+#     at the repo root. The pool of known debt can shrink (and we hint at
+#     locking the win) but never grow. Tightens by deliberate human commit
+#     via `npm run ratchet:lock`.
+#
 # Usage:
 #   ./scripts/deploy-gate.sh <env>
 #     env: dev | test | prod
@@ -81,7 +87,7 @@ gate_fail() {
 # ─── Gate 1: next build ──────────────────────────────────────
 # Matches what CI/Cloud Build actually runs. If `npm run build` passes here
 # it will pass on Cloud Build. If it fails, the deploy would fail too.
-section "Gate 1/5 — Next.js production build"
+section "Gate 1/6 — Next.js production build"
 if npm run build >/tmp/deploy-gate-build.$$ 2>&1; then
   echo "  PASS  build succeeded"
 else
@@ -92,7 +98,7 @@ fi
 rm -f /tmp/deploy-gate-build.$$
 
 # ─── Gate 2: lint ────────────────────────────────────────────
-section "Gate 2/5 — ESLint"
+section "Gate 2/6 — ESLint"
 if npm run lint 2>&1 | tail -10 | grep -qE "error" ; then
   echo "  FAIL  lint errors detected" >&2
   gate_fail "lint"
@@ -103,7 +109,7 @@ fi
 # ─── Gate 3: unit tests ──────────────────────────────────────
 # Quarantined pre-existing failing test files live in vitest.config.ts exclude.
 # Run them via `npm run test:debt` during triage.
-section "Gate 3/5 — Unit tests (vitest, excl quarantined)"
+section "Gate 3/6 — Unit tests (vitest, excl quarantined)"
 if npm run test >/tmp/deploy-gate-test.$$ 2>&1; then
   if tail -20 /tmp/deploy-gate-test.$$ | grep -qE "failed" ; then
     echo "  FAIL  unit tests red — tail:" >&2
@@ -126,7 +132,7 @@ rm -f /tmp/deploy-gate-test.$$
 # private IPs are reachable. From a developer laptop, the private IP is not
 # routable, so we can't run this locally — that was the reason gate 4 kept
 # failing on first-pass.
-section "Gate 4/5 — Prisma migration status vs $ENV Cloud SQL (via hf-dev)"
+section "Gate 4/6 — Prisma migration status vs $ENV Cloud SQL (via hf-dev)"
 
 if ! command -v gcloud >/dev/null 2>&1; then
   echo "  FAIL  gcloud not installed — cannot reach hf-dev VM" >&2
@@ -174,7 +180,7 @@ fi
 rm -f /tmp/deploy-gate-migrate.$$
 
 # ─── Gate 5: smoke against current live env ──────────────────
-section "Gate 5/5 — Smoke-env against $BASE_URL"
+section "Gate 5/6 — Smoke-env against $BASE_URL"
 if bash "$SCRIPT_DIR/smoke-env.sh" "$BASE_URL"; then
   echo "  PASS  live env responding to all critical endpoints"
 else
@@ -182,9 +188,22 @@ else
   gate_fail "smoke-env"
 fi
 
+# ─── Gate 6: ratchet (count-cap) ─────────────────────────────
+# Fails if any of tsc errors / lint errors / lint warnings / quarantined
+# tests has grown above its baseline in `.ratchet.json` at repo root.
+# Hints at "lock the win" when a count drops below baseline. See
+# scripts/check-ratchet.sh for measurement details.
+section "Gate 6/6 — Ratchet (count-cap)"
+if bash "$SCRIPT_DIR/check-ratchet.sh"; then
+  echo "  PASS  no metric over baseline"
+else
+  echo "  FAIL  ratchet exceeded — see counts above" >&2
+  gate_fail "ratchet"
+fi
+
 # ─── Summary ────────────────────────────────────────────────
 section "Summary"
-total=5
+total=6
 if [[ ${#failed_gates[@]} -eq 0 ]]; then
   echo "  ✅ All $total gates PASSED — safe to deploy to $ENV"
   exit 0
