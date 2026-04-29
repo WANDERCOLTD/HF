@@ -32,6 +32,8 @@
     "registry:validate": "tsx scripts/validate-registry.ts",
     "generate:constants": "tsx scripts/generate-constants-manifest.ts",
     "cleanup:orphaned-slugs": "tsx scripts/cleanup-orphaned-slugs.ts",
+    "session-flow:drift": "tsx scripts/session-flow-drift.ts",
+    "session-flow:drift:json": "tsx scripts/session-flow-drift.ts --json",
     "test": "vitest run",
     "tests": "npm run test && npm run build",
     "test:watch": "vitest",
