@@ -142,11 +142,33 @@ export async function PUT(
     }
 
     const existing = (playbook.config ?? {}) as PlaybookConfig;
+
+    // ── Mirror sessionFlow.intake → legacy `welcome` during dual-read window ──
+    // The runtime transforms (and journey-position route, when the flag is OFF)
+    // read `playbook.config.welcome.*.enabled`. Without this mirror, edits in
+    // the Session Flow editor would silently fail when SESSION_FLOW_RESOLVER_ENABLED
+    // is false (currently the case in test/prod). Same pattern the wizard
+    // already uses for `nps.enabled` → `surveys.post.enabled`. Removed in
+    // Phase 5 (#220) once legacy fields are dropped.
+    let mirroredWelcome = existing.welcome;
+    if (body.sessionFlow?.intake) {
+      const i = body.sessionFlow.intake;
+      mirroredWelcome = {
+        goals: { enabled: i.goals.enabled },
+        aboutYou: { enabled: i.aboutYou.enabled },
+        knowledgeCheck: { enabled: i.knowledgeCheck.enabled },
+        aiIntroCall: { enabled: i.aiIntroCall.enabled },
+      };
+    }
+
     const merged: PlaybookConfig = {
       ...existing,
       ...(body.lessonPlanMode !== undefined ? { lessonPlanMode: body.lessonPlanMode } : {}),
       ...(body.sessionFlow !== undefined
-        ? { sessionFlow: { ...(existing.sessionFlow ?? {}), ...body.sessionFlow } }
+        ? {
+            sessionFlow: { ...(existing.sessionFlow ?? {}), ...body.sessionFlow },
+            ...(mirroredWelcome !== existing.welcome ? { welcome: mirroredWelcome } : {}),
+          }
         : {}),
     };
 
