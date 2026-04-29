@@ -459,8 +459,8 @@ export const CALL_POINTS: CallPointDef[] = [
   },
   {
     id: "workflow.classify",
-    label: "Workflow - Discovery & Planning",
-    description: "Multi-turn discovery conversation that understands user intent and generates guided workflow plans",
+    label: "Workflow - Course Intake",
+    description: "Multi-turn intake conversation that understands user intent and generates guided workflow plans",
     category: "admin-ai",
     defaults: { provider: "claude", model: config.ai.claude.model },
   },
