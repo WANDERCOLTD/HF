@@ -23,11 +23,16 @@ import type {
   OnboardingFlowPhases,
   SessionFlowConfig,
   SessionFlowResolved,
+  NpsConfig,
 } from "@/lib/types/json-fields";
 
 interface PutBody {
   sessionFlow?: SessionFlowConfig;
   lessonPlanMode?: "continuous" | "structured";
+  /** Top-level welcome message — read by quickstart greeting cascade. */
+  welcomeMessage?: string | null;
+  /** NPS configuration — kept top-level for back-compat with continuous-mode delivery path. */
+  nps?: NpsConfig;
 }
 
 export async function GET(
@@ -161,9 +166,22 @@ export async function PUT(
       };
     }
 
+    // ── Mirror nps.enabled → surveys.post.enabled (existing wizard pattern) ──
+    let mirroredSurveys = existing.surveys;
+    if (body.nps !== undefined) {
+      mirroredSurveys = {
+        ...(existing.surveys ?? {}),
+        post: { ...(existing.surveys?.post ?? {}), enabled: body.nps.enabled },
+      };
+    }
+
     const merged: PlaybookConfig = {
       ...existing,
       ...(body.lessonPlanMode !== undefined ? { lessonPlanMode: body.lessonPlanMode } : {}),
+      ...(body.welcomeMessage !== undefined ? { welcomeMessage: body.welcomeMessage ?? undefined } : {}),
+      ...(body.nps !== undefined
+        ? { nps: body.nps, ...(mirroredSurveys !== existing.surveys ? { surveys: mirroredSurveys } : {}) }
+        : {}),
       ...(body.sessionFlow !== undefined
         ? {
             sessionFlow: { ...(existing.sessionFlow ?? {}), ...body.sessionFlow },

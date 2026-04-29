@@ -231,6 +231,70 @@
   margin-top: 2px;
 }
 
+/* Form fields used inside drawers */
+.sfe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sfe-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.sfe-field-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  align-self: flex-end;
+}
+.sfe-fieldset {
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface-secondary);
+}
+.sfe-fieldset:disabled {
+  opacity: 0.5;
+}
+.sfe-fieldset legend {
+  padding: 0 6px;
+}
+.sfe-input-num {
+  padding: 8px 10px;
+  font-size: 14px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  width: 120px;
+}
+.sfe-input-num:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+.sfe-textarea {
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+  min-height: 80px;
+}
+.sfe-textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
 /* Warning banner (mode change implications) */
 .sfe-warning {
   display: flex;

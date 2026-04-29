@@ -37,6 +37,7 @@ import type {
   JourneyStop,
   OnboardingPhase,
   SessionFlowConfig,
+  NpsConfig,
 } from "@/lib/types/json-fields";
 import {
   sourceLabel,
@@ -78,7 +79,7 @@ interface RowSpec {
   };
 }
 
-type DrawerKind = null | "mode";
+type DrawerKind = null | "mode" | "kc-delivery" | "nps" | "welcome-msg";
 
 export type SessionFlowEditorProps = {
   courseId: string;
@@ -123,6 +124,48 @@ export function SessionFlowEditor({ courseId }: SessionFlowEditorProps) {
    * Toggle one intake flag. Sends the FULL intake object so the resolver
    * doesn't drop sibling toggles during merge.
    */
+  /**
+   * Toggle NPS enabled flag. Lives at top-level pbConfig.nps, not inside
+   * sessionFlow — the runtime delivery path reads it directly.
+   */
+  const toggleNps = useCallback(
+    async (next: boolean, rowId: string) => {
+      if (!data || !data.ok) return;
+      // Find the existing NPS shape from the synthesised stop. The resolver
+      // exposes nps via stops[id="nps"]; reconstruct trigger + threshold.
+      const npsStop = data.sessionFlow.stops.find(s => s.id === "nps");
+      const currentTrigger = npsStop && npsStop.trigger.type === "session_count"
+        ? "session_count" as const
+        : "mastery" as const;
+      const currentThreshold = (npsStop && (npsStop.trigger.type === "session_count"
+        ? npsStop.trigger.count
+        : npsStop.trigger.type === "mastery_reached"
+          ? npsStop.trigger.threshold
+          : 80)) ?? 80;
+      const nextNps: NpsConfig = {
+        enabled: next,
+        trigger: currentTrigger,
+        threshold: currentThreshold,
+      };
+      setSavingToggle(rowId);
+      try {
+        const res = await fetch(`/api/courses/${courseId}/session-flow`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nps: nextNps }),
+        });
+        const json = (await res.json()) as ApiResponse;
+        if (!json.ok) setError(json.error);
+        else setData(json);
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        setSavingToggle(null);
+      }
+    },
+    [data, courseId],
+  );
+
   const toggleIntake = useCallback(
     async (key: "goals" | "aboutYou" | "knowledgeCheck" | "aiIntroCall", next: boolean, rowId: string) => {
       if (!data || !data.ok) return;
@@ -200,7 +243,7 @@ export function SessionFlowEditor({ courseId }: SessionFlowEditorProps) {
       summary: sessionFlow.welcomeMessage ? truncate(sessionFlow.welcomeMessage, 60) : "Generic fallback",
       status: sessionFlow.welcomeMessage ? "enabled" : "default",
       details: welcomeMessageDetails(sessionFlow),
-      editable: false,
+      editable: true,
     },
     {
       id: "goals",
@@ -243,7 +286,7 @@ export function SessionFlowEditor({ courseId }: SessionFlowEditorProps) {
       summary: kcSummary(sessionFlow.intake.knowledgeCheck),
       status: sessionFlow.intake.knowledgeCheck.enabled ? "enabled" : "disabled",
       details: knowledgeCheckDetails(sessionFlow),
-      editable: false,
+      editable: sessionFlow.intake.knowledgeCheck.enabled,
       toggle: {
         on: sessionFlow.intake.knowledgeCheck.enabled,
         onChange: (next) => toggleIntake("knowledgeCheck", next, "knowledge-check"),
@@ -310,15 +353,7 @@ export function SessionFlowEditor({ courseId }: SessionFlowEditorProps) {
       details: stopDetails(s),
       editable: false,
     })),
-    ...sessionFlow.stops.filter(s => s.kind === "nps").map((s): RowSpec => ({
-      id: s.id,
-      icon: <ThumbsUp size={16} />,
-      label: "NPS",
-      summary: stopSummary(s),
-      status: "enabled",
-      details: stopDetails(s),
-      editable: false,
-    })),
+    npsRow(sessionFlow, toggleNps),
     {
       id: "offboarding",
       icon: <Minus size={16} />,
@@ -332,6 +367,9 @@ export function SessionFlowEditor({ courseId }: SessionFlowEditorProps) {
 
   const handleEdit = (rowId: string) => {
     if (rowId === "sessions") setDrawer("mode");
+    else if (rowId === "knowledge-check") setDrawer("kc-delivery");
+    else if (rowId === "nps") setDrawer("nps");
+    else if (rowId === "welcome-message") setDrawer("welcome-msg");
   };
 
   const toggleRow = (id: string) => setExpandedId(prev => (prev === id ? null : id));
@@ -360,6 +398,30 @@ export function SessionFlowEditor({ courseId }: SessionFlowEditorProps) {
           courseId={courseId}
           currentMode={mode}
           sessionCount={sessionCount}
+          onClose={() => setDrawer(null)}
+          onSaved={onUpdated}
+        />
+      )}
+      {drawer === "kc-delivery" && (
+        <KcDeliveryDrawer
+          courseId={courseId}
+          sessionFlow={sessionFlow}
+          onClose={() => setDrawer(null)}
+          onSaved={onUpdated}
+        />
+      )}
+      {drawer === "nps" && (
+        <NpsDrawer
+          courseId={courseId}
+          sessionFlow={sessionFlow}
+          onClose={() => setDrawer(null)}
+          onSaved={onUpdated}
+        />
+      )}
+      {drawer === "welcome-msg" && (
+        <WelcomeMessageDrawer
+          courseId={courseId}
+          current={sessionFlow.welcomeMessage ?? ""}
           onClose={() => setDrawer(null)}
           onSaved={onUpdated}
         />
@@ -620,6 +682,256 @@ function ModeOption({
   );
 }
 
+// ── KC delivery mode drawer ──────────────────────────────────────────────
+
+function KcDeliveryDrawer({
+  courseId, sessionFlow, onClose, onSaved,
+}: {
+  courseId: string;
+  sessionFlow: SessionFlowResolved;
+  onClose: () => void;
+  onSaved: (next: ApiResponse) => void;
+}) {
+  const current = sessionFlow.intake.knowledgeCheck.deliveryMode ?? "mcq";
+  const [picked, setPicked] = useState<"mcq" | "socratic">(current);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const dirty = picked !== current;
+
+  const save = async () => {
+    setSaving(true); setErr(null);
+    try {
+      const updatedIntake = {
+        goals: { enabled: sessionFlow.intake.goals.enabled },
+        aboutYou: { enabled: sessionFlow.intake.aboutYou.enabled },
+        knowledgeCheck: {
+          enabled: sessionFlow.intake.knowledgeCheck.enabled,
+          deliveryMode: picked,
+        },
+        aiIntroCall: { enabled: sessionFlow.intake.aiIntroCall.enabled },
+      };
+      const res = await fetch(`/api/courses/${courseId}/session-flow`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionFlow: { intake: updatedIntake } }),
+      });
+      const json = (await res.json()) as ApiResponse;
+      if (!json.ok) setErr(json.error);
+      else onSaved(json);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Drawer title="Knowledge Check delivery" onClose={onClose}>
+      <p className="sfe-drawer-desc">
+        Choose how the educator probes prior knowledge in the first call. One mode only — no double-quizzing.
+      </p>
+      <div className="sfe-radio-group">
+        <ModeOption
+          value="mcq"
+          checked={picked === "mcq"}
+          onSelect={() => setPicked("mcq")}
+          title="MCQ batch"
+          subtitle="5 multiple-choice questions delivered after the first call ends."
+          hint="Best for: knowledge subjects with measurable answers (history, science, languages with vocab)."
+        />
+        <ModeOption
+          value="socratic"
+          checked={picked === "socratic"}
+          onSelect={() => setPicked("socratic")}
+          title="Socratic probe"
+          subtitle="AI asks open prior-knowledge questions during the discovery phase of the first call."
+          hint="Best for: comprehension, reflection, courses where conversational depth matters more than score."
+        />
+      </div>
+      {err && <div className="sfe-error">Save failed: {err}</div>}
+      <footer className="sfe-drawer-footer">
+        <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+        <button type="button" className="sfe-btn-primary" onClick={save} disabled={!dirty || saving}>
+          {saving ? "Saving…" : "Save delivery mode"}
+        </button>
+      </footer>
+    </Drawer>
+  );
+}
+
+// ── NPS drawer ──────────────────────────────────────────────
+
+function NpsDrawer({
+  courseId, sessionFlow, onClose, onSaved,
+}: {
+  courseId: string;
+  sessionFlow: SessionFlowResolved;
+  onClose: () => void;
+  onSaved: (next: ApiResponse) => void;
+}) {
+  const stop = sessionFlow.stops.find(s => s.kind === "nps");
+  const initialEnabled = !!stop;
+  const initialTrigger: "mastery" | "session_count" =
+    stop?.trigger.type === "session_count" ? "session_count" : "mastery";
+  const initialThreshold =
+    stop?.trigger.type === "session_count"
+      ? stop.trigger.count
+      : stop?.trigger.type === "mastery_reached"
+        ? stop.trigger.threshold
+        : 80;
+
+  const [enabled, setEnabled] = useState(initialEnabled);
+  const [trigger, setTrigger] = useState<"mastery" | "session_count">(initialTrigger);
+  const [threshold, setThreshold] = useState<number>(initialThreshold);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const dirty =
+    enabled !== initialEnabled
+    || trigger !== initialTrigger
+    || threshold !== initialThreshold;
+
+  const save = async () => {
+    setSaving(true); setErr(null);
+    try {
+      const nextNps: NpsConfig = { enabled, trigger, threshold };
+      const res = await fetch(`/api/courses/${courseId}/session-flow`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nps: nextNps }),
+      });
+      const json = (await res.json()) as ApiResponse;
+      if (!json.ok) setErr(json.error);
+      else onSaved(json);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Drawer title="NPS satisfaction survey" onClose={onClose}>
+      <p className="sfe-drawer-desc">
+        Pick when the post-course NPS survey fires. Mastery triggers respect the learner's actual progress; session count triggers fire on a fixed call number.
+      </p>
+
+      <label className="sfe-field">
+        <span className="sfe-field-label">Enabled</span>
+        <Toggle on={enabled} onChange={setEnabled} saving={false} ariaLabel="NPS enabled" />
+      </label>
+
+      <fieldset className="sfe-fieldset" disabled={!enabled}>
+        <legend className="sfe-field-label">Trigger</legend>
+        <div className="sfe-radio-group">
+          <ModeOption
+            value="mastery"
+            checked={trigger === "mastery"}
+            onSelect={() => setTrigger("mastery")}
+            title="Mastery threshold"
+            subtitle="Fire when the learner reaches this mastery percentage."
+            hint="Default 80%. Higher = wait longer; lower = ask earlier."
+          />
+          <ModeOption
+            value="session_count"
+            checked={trigger === "session_count"}
+            onSelect={() => setTrigger("session_count")}
+            title="Session count"
+            subtitle="Fire after the learner completes this many calls."
+            hint="Use when course length matters more than mastery (e.g. trial cohorts)."
+          />
+        </div>
+
+        <label className="sfe-field">
+          <span className="sfe-field-label">
+            {trigger === "mastery" ? "Mastery threshold (%)" : "Session count"}
+          </span>
+          <input
+            className="sfe-input-num"
+            type="number"
+            min={1}
+            max={trigger === "mastery" ? 100 : 100}
+            value={threshold}
+            onChange={(e) => setThreshold(Number(e.target.value) || 0)}
+          />
+        </label>
+      </fieldset>
+
+      {err && <div className="sfe-error">Save failed: {err}</div>}
+      <footer className="sfe-drawer-footer">
+        <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+        <button type="button" className="sfe-btn-primary" onClick={save} disabled={!dirty || saving}>
+          {saving ? "Saving…" : "Save NPS"}
+        </button>
+      </footer>
+    </Drawer>
+  );
+}
+
+// ── Welcome message drawer ──────────────────────────────────────────────
+
+function WelcomeMessageDrawer({
+  courseId, current, onClose, onSaved,
+}: {
+  courseId: string;
+  current: string;
+  onClose: () => void;
+  onSaved: (next: ApiResponse) => void;
+}) {
+  const [text, setText] = useState(current);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const dirty = text !== current;
+  const trimmed = text.trim();
+
+  const save = async () => {
+    setSaving(true); setErr(null);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/session-flow`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ welcomeMessage: trimmed.length > 0 ? trimmed : null }),
+      });
+      const json = (await res.json()) as ApiResponse;
+      if (!json.ok) setErr(json.error);
+      else onSaved(json);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Drawer title="Welcome message" onClose={onClose}>
+      <p className="sfe-drawer-desc">
+        First-line greeting the AI uses on the learner's first call. Leave blank to fall back to the domain default or a generic greeting.
+      </p>
+      <label className="sfe-field">
+        <span className="sfe-field-label">Message</span>
+        <textarea
+          className="sfe-textarea"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={4}
+          maxLength={500}
+          placeholder="Welcome to the course! Let's get started…"
+        />
+        <span className="sfe-field-hint">{text.length} / 500 characters</span>
+      </label>
+      {err && <div className="sfe-error">Save failed: {err}</div>}
+      <footer className="sfe-drawer-footer">
+        <button type="button" className="sfe-btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+        <button type="button" className="sfe-btn-primary" onClick={save} disabled={!dirty || saving}>
+          {saving ? "Saving…" : (trimmed.length === 0 && current.length > 0 ? "Clear message" : "Save message")}
+        </button>
+      </footer>
+    </Drawer>
+  );
+}
+
 function Drawer({
   title, onClose, children,
 }: {
@@ -644,6 +956,29 @@ function Drawer({
 }
 
 // ── Helpers ──────────────────────────────────────────────
+
+function npsRow(
+  sf: SessionFlowResolved,
+  toggle: (next: boolean, rowId: string) => void,
+): RowSpec {
+  const stop = sf.stops.find(s => s.kind === "nps");
+  const enabled = !!stop;
+  return {
+    id: "nps",
+    icon: <ThumbsUp size={16} />,
+    label: "NPS",
+    summary: enabled && stop ? stopSummary(stop) : "Disabled — no end-of-course satisfaction survey",
+    status: enabled ? "enabled" : "disabled",
+    details: enabled && stop ? stopDetails(stop) : [
+      { label: "State", value: "Disabled — toggle ON to configure trigger and threshold." },
+    ],
+    editable: enabled,
+    toggle: {
+      on: enabled,
+      onChange: (next) => toggle(next, "nps"),
+    },
+  };
+}
 
 function onboardingDetails(sf: SessionFlowResolved) {
   return [
