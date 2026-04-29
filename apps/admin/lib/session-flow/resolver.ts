@@ -62,7 +62,7 @@ export function resolveSessionFlow(input: ResolveSessionFlowInput): SessionFlowR
 
   const intake = resolveIntake(sf, pbConfig);
   const onboarding = resolveOnboarding(sf, pbConfig, input.domain, input.onboardingSpec);
-  const stops = resolveStops(sf, pbConfig);
+  const stops = resolveStops(sf, pbConfig, intake.value);
   const offboarding = resolveOffboarding(sf, pbConfig);
   const welcomeMessage = resolveWelcomeMessage(input.playbook, input.domain);
 
@@ -159,25 +159,44 @@ function resolveOnboarding(
 function resolveStops(
   sf: SessionFlowConfig,
   pbConfig: PlaybookConfig,
+  intake: IntakeConfig,
 ): { value: JourneyStop[]; source: SessionFlowResolved["source"]["stops"] } {
   if (sf.stops?.length) {
     return { value: sf.stops, source: "new-shape" };
   }
-  return { value: synthesizeStopsFromLegacy(pbConfig), source: "synthesized-from-legacy" };
+  return { value: synthesizeStopsFromLegacy(pbConfig, intake), source: "synthesized-from-legacy" };
 }
 
 /**
  * Build a JourneyStop[] from legacy field shapes so transforms can read
  * one model regardless of source. Used only when sessionFlow.stops is empty.
+ *
+ * The resolved IntakeConfig is consulted so the Knowledge Check
+ * deliveryMode (mcq | socratic) gates whether the MCQ pre-test stop
+ * is created — Socratic-only courses skip the MCQ batch (#222).
  */
-function synthesizeStopsFromLegacy(pbConfig: PlaybookConfig): JourneyStop[] {
+function synthesizeStopsFromLegacy(
+  pbConfig: PlaybookConfig,
+  intake: IntakeConfig,
+): JourneyStop[] {
   const stops: JourneyStop[] = [];
 
-  // Pre-test — three-source precedence after sessionFlow.stops.
-  const welcomeKc = pbConfig.welcome?.knowledgeCheck?.enabled;
-  const assessmentPre = pbConfig.assessment?.preTest?.enabled;
-  const preTestEnabled = welcomeKc ?? assessmentPre ?? false;
-  if (preTestEnabled) {
+  // Pre-test — three-source precedence after sessionFlow.stops:
+  //   sessionFlow.intake > welcome.knowledgeCheck > assessment.preTest
+  // (matches the legacy `welcomeKc ?? assessmentPre ?? false` semantics:
+  // an explicit `false` from welcome is respected, not overridden by
+  // legacy assessment.preTest.)
+  // Knowledge Check deliveryMode (mcq | socratic) gates the MCQ batch.
+  // Socratic mode means the probe lives in the in-call discovery phase,
+  // not as a separate MCQ stop.
+  const hasIntakeSource =
+    pbConfig.sessionFlow?.intake !== undefined
+    || pbConfig.welcome !== undefined;
+  const preTestEnabled = hasIntakeSource
+    ? intake.knowledgeCheck.enabled
+    : (pbConfig.assessment?.preTest?.enabled ?? false);
+  const deliveryMode = intake.knowledgeCheck.deliveryMode ?? "mcq";
+  if (preTestEnabled && deliveryMode === "mcq") {
     const count = pbConfig.assessment?.preTest?.questionCount ?? 5;
     stops.push({
       id: "pre-test",

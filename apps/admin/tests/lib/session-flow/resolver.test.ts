@@ -288,6 +288,61 @@ describe("resolveSessionFlow — stops synthesis from legacy", () => {
   });
 });
 
+describe("resolveSessionFlow — Knowledge Check deliveryMode (#222)", () => {
+  // The deliveryMode split ends the double-gating: educator picks MCQ
+  // batch OR Socratic probe, not both. Default is "mcq" for back-compat.
+
+  it("MCQ delivery (default) → synthesises pre-test stop", () => {
+    const config: PlaybookConfig = {
+      welcome: {
+        goals: { enabled: false },
+        aboutYou: { enabled: false },
+        knowledgeCheck: { enabled: true },
+        aiIntroCall: { enabled: false },
+      },
+    };
+    const r = resolveSessionFlow({ playbook: { config } });
+    expect(r.stops.find(s => s.id === "pre-test")).toBeDefined();
+  });
+
+  it("Socratic delivery → does NOT synthesise pre-test stop", () => {
+    const config: PlaybookConfig = {
+      sessionFlow: {
+        intake: {
+          goals: { enabled: false },
+          aboutYou: { enabled: false },
+          knowledgeCheck: { enabled: true, deliveryMode: "socratic" },
+          aiIntroCall: { enabled: false },
+        },
+      },
+      // legacy fields say enabled=true, but new sessionFlow says socratic
+      welcome: {
+        goals: { enabled: false },
+        aboutYou: { enabled: false },
+        knowledgeCheck: { enabled: true },
+        aiIntroCall: { enabled: false },
+      },
+    };
+    const r = resolveSessionFlow({ playbook: { config } });
+    expect(r.stops.find(s => s.id === "pre-test")).toBeUndefined();
+  });
+
+  it("MCQ delivery via sessionFlow.intake → synthesises pre-test stop", () => {
+    const config: PlaybookConfig = {
+      sessionFlow: {
+        intake: {
+          goals: { enabled: false },
+          aboutYou: { enabled: false },
+          knowledgeCheck: { enabled: true, deliveryMode: "mcq" },
+          aiIntroCall: { enabled: false },
+        },
+      },
+    };
+    const r = resolveSessionFlow({ playbook: { config } });
+    expect(r.stops.find(s => s.id === "pre-test")).toBeDefined();
+  });
+});
+
 describe("resolveSessionFlow — offboarding cascade", () => {
   it("does NOT reference domain.offboarding (which does not exist)", () => {
     // Sanity check: Domain has no offboarding field per Prisma schema.
