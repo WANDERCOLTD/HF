@@ -1,6 +1,6 @@
 {
   "name": "admin",
-  "version": "0.7.272",
+  "version": "0.7.274",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -23,6 +23,9 @@
     "prisma:status": "npx prisma migrate status",
     "smoke:env": "./scripts/smoke-env.sh",
     "deploy:gate": "./scripts/deploy-gate.sh",
+    "ratchet:check": "./scripts/check-ratchet.sh",
+    "ratchet:init": "./scripts/check-ratchet.sh init",
+    "ratchet:lock": "./scripts/check-ratchet.sh lock",
     "test:debt": "vitest run --config vitest.debt.config.ts",
     "prisma:dev": "npx prisma migrate dev",
     "prisma:generate": "npx prisma generate",
