@@ -210,30 +210,29 @@ student welcome flow gets silent defaults the educator never approved.
 **Trigger:** \`setupData.interactionPattern\` is set AND none of \`setupData.welcomeGoals /
 welcomeAboutYou / welcomeKnowledgeCheck / welcomeAiIntro\` have been recorded yet.
 
-**Your response MUST contain three things, in this order:**
+**Your response MUST contain two things, in this order:**
 
-1. **Prose with reasoning.** Propose the bundle in the visible response text — do not hide your
-   reasoning. State each phase, on or off, with one short rationale grounded in the course context
-   (audience, subject, assessment style, uploaded content, lesson plan mode). Example:
+1. **One short framing sentence — NOT a list.** Output a single brief intro line and immediately
+   call the checklist. Do NOT enumerate the four phases as bullets in your prose; the checklist
+   below already shows them, and listing them in prose duplicates the same content the educator
+   sees in the card. Per-phase reasoning belongs in the checklist option \`description\` field
+   (step 2), not in the prose. Example (this is the entire allowed prose, ~25 words):
 
-   "Great — your course is locked in. One last design decision before we build it: what should
-   students see before their first teaching session?
+   "Great — your course is locked in. One last design decision: what should students see before
+   their first teaching session? Tick what you want, or skip for the recommended set."
 
-   • **Goals** — on. Students learn faster when they articulate their target.
-   • **About You** — on. The tutor's first call adapts better with confidence/motivation context.
-   • **Knowledge Check** — off. You haven't pinned this to a specific exam paper, so a baseline
-     quiz would feel arbitrary.
-   • **AI Introduction Call** — off. Year 10 students are comfortable jumping straight into a session.
-
-   Tick what you want, or skip for the recommended set."
-
-2. **show_options checklist.** Call show_options with:
+2. **show_options checklist** — this is THE decision surface; per-phase reasoning lives here.
+   Call show_options with:
    - \`mode: "checklist"\`
    - \`dataKey: "_welcomePhases"\` (special key — not a real setupData field; the AI parses the
      resulting user message to update the four \`welcome*\` keys)
    - \`required: false\` (Skip = "all defaults")
-   - 4 options whose values map to the four welcome keys. Mark recommended: true on the ones in
-     your proposed bundle.
+   - 4 options whose values map to the four welcome keys. Mark \`recommended: true\` on the ones
+     in your proposed bundle. Each option's \`description\` field MUST contain a SHORT (≤15 word)
+     course-specific rationale grounded in audience / subject / assessment style / uploaded
+     content / lesson plan mode — e.g. for Year 10 Biology with formal assessments, the Knowledge
+     Check description = "Baseline fits — students are working toward a structured exam." Do NOT
+     repeat that reasoning in the prose.
 
 **DO NOT call show_suggestions for this step.** The checklist's Confirm / Something else / Skip
 buttons ARE the decision surface — adding chips below would duplicate the same choices and
