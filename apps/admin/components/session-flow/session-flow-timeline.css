@@ -1,114 +1,235 @@
-/* Session Flow Timeline — read-only view */
+/* SessionFlowTimeline — sft-* prefix
+   Matches the design system used in course-design-tab.css */
 
-.hf-sft {
+.sft {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  padding: 1rem;
-  background: var(--hf-color-surface, color-mix(in srgb, currentColor 4%, transparent));
-  border-radius: 8px;
+  gap: 24px;
+  padding: 20px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
 }
 
-.hf-sft-loading,
-.hf-sft-error {
-  padding: 1rem;
-  border-radius: 8px;
-  background: color-mix(in srgb, currentColor 4%, transparent);
+.sft-loading,
+.sft-error {
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 14px;
 }
-.hf-sft-error {
-  color: var(--hf-color-danger, #c0392b);
+.sft-error {
+  color: var(--status-error-text, #dc2626);
+  background: var(--status-error-bg, color-mix(in srgb, #dc2626 8%, transparent));
 }
 
-/* Header */
-.hf-sft-header {
+/* ── Header ─────────────────────────────── */
+
+.sft-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent);
-  padding-bottom: 0.5rem;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
 }
-.hf-sft-header-title {
+.sft-header-title {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
+  font-size: 15px;
   font-weight: 600;
+  color: var(--text-primary);
 }
-.hf-sft-header-meta {
+.sft-header-meta {
   display: flex;
-  gap: 0.375rem;
+  gap: 6px;
 }
-.hf-sft-pill {
-  padding: 0.125rem 0.5rem;
-  font-size: 0.75rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, currentColor 8%, transparent);
+.sft-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   text-transform: capitalize;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  color: var(--accent-primary);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 20%, transparent);
 }
 
-/* Section */
-.hf-sft-section {
+/* ── Section ─────────────────────────────── */
+
+.sft-section {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: 6px;
 }
-.hf-sft-section-title {
+.sft-section-title {
   margin: 0;
-  font-size: 0.6875rem;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  color: color-mix(in srgb, currentColor 60%, transparent);
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
 }
 
-/* Rows */
-.hf-sft-rows {
+/* ── Rows ─────────────────────────────── */
+
+.sft-rows {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 4px;
 }
-.hf-sft-row {
+.sft-row {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-secondary);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.sft-row:hover {
+  border-color: var(--border-default);
+}
+.sft-row--disabled {
+  opacity: 0.6;
+}
+.sft-row--expandable {
+  cursor: pointer;
+}
+.sft-row--expanded {
+  background: var(--surface-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--border-default));
+}
+
+.sft-row-head {
   display: grid;
-  grid-template-columns: 1.5rem auto 1fr auto;
-  gap: 0.625rem;
+  grid-template-columns: 24px auto 1fr auto auto;
+  gap: 12px;
   align-items: center;
-  padding: 0.5rem 0.625rem;
-  border-radius: 6px;
-  background: color-mix(in srgb, currentColor 3%, transparent);
+  padding: 10px 12px;
 }
-.hf-sft-row-disabled {
-  opacity: 0.55;
-}
-.hf-sft-row-icon {
+
+.sft-row-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--text-secondary);
 }
-.hf-sft-row-label {
-  font-weight: 500;
+.sft-row--enabled .sft-row-icon {
+  color: var(--status-success-text, #059669);
 }
-.hf-sft-row-summary {
-  font-size: 0.875rem;
-  color: color-mix(in srgb, currentColor 70%, transparent);
+.sft-row--disabled .sft-row-icon {
+  color: var(--text-muted);
 }
-.hf-sft-row-badge {
-  font-size: 0.6875rem;
-  padding: 0.125rem 0.5rem;
+
+.sft-row-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.sft-row-summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.sft-row-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   border-radius: 999px;
+  border: 1px solid transparent;
+}
+.sft-row-badge--enabled {
+  background: var(--status-success-bg, #ecfdf5);
+  color: var(--status-success-text, #059669);
+  border-color: color-mix(in srgb, var(--status-success-text, #059669) 25%, transparent);
+}
+.sft-row-badge--disabled {
+  background: var(--surface-tertiary);
+  color: var(--text-muted);
+  border-color: var(--border-default);
+}
+.sft-row-badge--default {
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  color: var(--accent-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+}
+
+.sft-row-chevron {
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease;
+}
+.sft-row--expanded .sft-row-chevron {
+  transform: rotate(90deg);
+  color: var(--accent-primary);
+}
+
+/* ── Row body (expanded detail) ─────────────────────────────── */
+
+.sft-row-body {
+  padding: 8px 14px 14px 48px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-primary);
+}
+.sft-detail-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.sft-detail-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+.sft-detail-key {
+  color: var(--text-muted);
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding-top: 2px;
 }
-.hf-sft-row-badge-enabled {
-  background: color-mix(in srgb, var(--hf-color-success, #16a34a) 14%, transparent);
-  color: var(--hf-color-success, #16a34a);
+.sft-detail-value {
+  color: var(--text-primary);
 }
-.hf-sft-row-badge-disabled {
-  background: color-mix(in srgb, currentColor 8%, transparent);
-  color: color-mix(in srgb, currentColor 50%, transparent);
+
+/* Phases as compact list */
+.sft-phase-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
-.hf-sft-row-badge-default {
-  background: color-mix(in srgb, currentColor 6%, transparent);
-  color: color-mix(in srgb, currentColor 60%, transparent);
+.sft-phase-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  background: var(--surface-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+.sft-phase-chip-num {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
 }
