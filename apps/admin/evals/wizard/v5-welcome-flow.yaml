@@ -29,7 +29,7 @@ prompts:
       **Trigger:** `setupData.interactionPattern` is set AND none of `setupData.welcomeGoals /
       welcomeAboutYou / welcomeKnowledgeCheck / welcomeAiIntro` have been recorded yet.
 
-      **Your response MUST contain three things, in this order:**
+      **Your response MUST contain TWO things, in this order:**
 
       1. Prose with reasoning. Propose the bundle in the visible response text. State each phase, on or
          off, with one short rationale grounded in the course context (audience, subject, assessment
@@ -42,7 +42,10 @@ prompts:
          - 4 options whose values map to welcomeGoals / welcomeAboutYou / welcomeKnowledgeCheck /
            welcomeAiIntro. Mark recommended: true on the ones in your proposed bundle.
 
-      3. show_suggestions chips. Call show_suggestions with ["Sounds good", "I'll explain"].
+      **DO NOT call show_suggestions on this turn.** The checklist's Confirm / Something else /
+      Skip buttons are the decision surface — adding chips below would duplicate the same
+      choices and confuse the educator. This is the one wizard step where show_suggestions is
+      suppressed.
 
       **Default reasoning (use as a starting point, then flavor with course context):**
       - Goals → on (default)
@@ -176,9 +179,12 @@ tests:
           if (opts.length !== 4) return { pass: false, score: 0, reason: `Expected 4 options (Goals/AboutYou/KC/AIIntro), got ${opts.length}` };
           const create = _tc.find(t => t.name === 'create_course');
           if (create) return { pass: false, score: 0, reason: 'create_course called BEFORE welcome flow choice — banned by rule 5c' };
+          // Welcome-flow checklist is the decision surface — show_suggestions must NOT be called on this turn
+          const sugg = _tc.find(t => t.name === 'show_suggestions');
+          if (sugg) return { pass: false, score: 0, reason: 'show_suggestions called alongside _welcomePhases checklist — banned (checklist owns decision surface)' };
           return true;
 
-  - description: "Test 1b — Welcome flow proposal has reasoning text and chips"
+  - description: "Test 1b — Welcome flow proposal has reasoning text but NO show_suggestions chips"
     vars:
       conversationContext: |
         Last turn the user said "Sounds right" to the full configuration proposal. The AI saved
@@ -187,7 +193,9 @@ tests:
       userMessage: "What's next?"
     assert:
       - type: llm-rubric
-        value: "Response includes prose proposing the four welcome flow phases (Goals, About You, Knowledge Check, AI Introduction) with at least one rationale grounded in the course context (Year 10, GCSE, Biology, Socratic). Ends with show_suggestions chips like 'Sounds good' / 'I'll explain'. Does NOT call create_course."
+        value: "Response includes prose proposing the four welcome flow phases (Goals, About You, Knowledge Check, AI Introduction) with at least one rationale grounded in the course context (Year 10, GCSE, Biology, Socratic). Does NOT call create_course. Does NOT call show_suggestions on this turn — the checklist's Confirm / Something else / Skip buttons are the decision surface."
+      - type: not-icontains
+        value: "show_suggestions"
 
   # ── Test 2 — Sounds good → all four welcome keys saved as explicit booleans ──
 

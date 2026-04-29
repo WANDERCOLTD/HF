@@ -432,6 +432,16 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       const extras: Message[] = [];
       setSuggestions({ items: [] });
 
+      // Belt-and-braces: when the AI emits the welcome-flow checklist
+      // (dataKey="_welcomePhases"), the checklist's Confirm / Something else / Skip
+      // buttons own the decision surface. Drop any redundant show_suggestions chips
+      // on the same turn even if the prompt-layer guard is ignored by the model.
+      const hasWelcomePhasesChecklist = toolCalls.some(
+        (t) => t.name === "show_options"
+          && (t.input as { mode?: string; dataKey?: string })?.mode === "checklist"
+          && (t.input as { mode?: string; dataKey?: string })?.dataKey === "_welcomePhases",
+      );
+
       for (const tc of toolCalls) {
         switch (tc.name) {
           case "update_setup": {
@@ -470,6 +480,8 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           }
 
           case "show_suggestions": {
+            // welcome-flow checklist owns the decision surface — drop redundant chips
+            if (hasWelcomePhasesChecklist) break;
             const items = tc.input.suggestions as string[];
             const question = tc.input.question as string | undefined;
             if (items?.length) setSuggestions({ question, items });
@@ -1341,6 +1353,14 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           <div className="cv4-messages-spacer" />
           {(() => {
             const lastAssistantId = [...messages].reverse().find(m => m.role === "assistant")?.id;
+            // If the welcome-flow checklist is currently unresolved, suppress
+            // fallback chips on the last assistant message — the checklist
+            // owns the decision surface.
+            const welcomeChecklistActive = messages.some(
+              (m) => m.systemType === "options"
+                && !m.resolved
+                && (m.optionsPanel as { dataKey?: string } | undefined)?.dataKey === "_welcomePhases",
+            );
             return messages.map((msg) => {
             // Options card — skip if resolved (user already made a selection)
             if (msg.systemType === "options" && !msg.resolved && msg.optionsPanel) {
@@ -1484,7 +1504,10 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
               // Fallback: if no chips from show_suggestions or text parsing,
               // ALWAYS show default chips on the last assistant message.
               // The AI must never leave the user with no visible next action.
-              const needsFallback = isLast && parsed.length === 0;
+              // Exception: when the welcome-flow checklist is the active decision
+              // surface, fallback chips would be redundant (checklist already has
+              // Confirm / Something else / Skip).
+              const needsFallback = isLast && parsed.length === 0 && !welcomeChecklistActive;
               const inlineOptions = parsed.length > 0
                 ? parsed
                 : needsFallback

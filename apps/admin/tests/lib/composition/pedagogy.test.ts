@@ -420,6 +420,82 @@ describe("computeSessionPedagogy transform", () => {
       expect(result.firstCallPhases!.some((p: { phase: string }) => p.phase === "discovery")).toBe(true);
     });
 
+    it("filters \"discover\" phase (no -y) when ALL welcome phases disabled — INIT-001/COACH-001 seed shape", () => {
+      // The live INIT-001 + COACH-001 seed JSONs use "discover" (verb), not "discovery".
+      // Filter must catch both forms.
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: [{
+            id: "pb-1",
+            name: "Course",
+            status: "PUBLISHED",
+            domain: null,
+            items: [],
+            config: {
+              welcome: {
+                goals: { enabled: false },
+                aboutYou: { enabled: false },
+                knowledgeCheck: { enabled: false },
+              },
+              onboardingFlowPhases: {
+                phases: [
+                  { phase: "welcome", duration: "2 min", goals: ["Greet"] },
+                  { phase: "discover", duration: "5 min", goals: ["Find name"] },
+                  { phase: "first-topic", duration: "5 min", goals: ["Teach"] },
+                ],
+              },
+            },
+          }],
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: true,
+        },
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.firstCallPhases).toHaveLength(2);
+      expect(result.firstCallPhases!.some((p: { phase: string }) => p.phase === "discover")).toBe(false);
+      expect(result.flow.some((s: string) => s.toLowerCase().includes("discover"))).toBe(false);
+    });
+
+    it("KEEPS \"discover\" phase (no -y) when welcome phases enabled (regression)", () => {
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: [{
+            id: "pb-1",
+            name: "Course",
+            status: "PUBLISHED",
+            domain: null,
+            items: [],
+            config: {
+              welcome: {
+                goals: { enabled: true },
+                aboutYou: { enabled: true },
+                knowledgeCheck: { enabled: true },
+              },
+              onboardingFlowPhases: {
+                phases: [
+                  { phase: "welcome", duration: "2 min", goals: ["Greet"] },
+                  { phase: "discover", duration: "5 min", goals: ["Find name"] },
+                ],
+              },
+            },
+          }],
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: true,
+        },
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.firstCallPhases).toHaveLength(2);
+      expect(result.firstCallPhases!.some((p: { phase: string }) => p.phase === "discover")).toBe(true);
+    });
+
     it("KEEPS discovery phase on partial opt-out (only aboutYou off)", () => {
       // Coarse-grained block: discovery survives unless ALL three toggles are off.
       // Per-phase guidance in `discovery_guidance` tells the AI what to skip.

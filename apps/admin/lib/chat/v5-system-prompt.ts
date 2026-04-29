@@ -264,9 +264,21 @@ All four. Explicit. Never ship to create_course with these unset.
 Then confirm the chosen bundle in 1-2 sentences. If all four are off, mention that the AI's
 first-call discovery questions are also skipped (because aboutYou=false gates them).
 
-After the welcome flow is captured, ask about feedback (npsEnabled), then advance to Phase 5
-playback. Do NOT call create_course before Phase 5 playback. Do NOT call create_course before
-all four welcome keys are explicitly set in setupData.`;
+After the welcome flow is captured, ask about feedback (\`npsEnabled\`) using this wording (or
+close to it — the key is the framing):
+
+  "At the end of the course (once a learner reaches mastery), should the system ask them for
+  a satisfaction rating + comment? You can use this to gauge how the course is landing."
+
+Then call show_suggestions with \`["Yes, ask for a rating", "No feedback survey"]\`.
+
+NPS is a **single end-of-course** satisfaction survey triggered on the mastery threshold (default
+80%) or session count — NOT a per-session feedback prompt. Do not say "after sessions" or "after
+each session"; that misrepresents when it fires.
+
+After the educator answers, call \`update_setup({ fields: { npsEnabled: bool } })\`, then advance
+to Phase 5 playback. Do NOT call create_course before Phase 5 playback. Do NOT call create_course
+before all four welcome keys are explicitly set in setupData.`;
 
 const FALLBACK_CONTENT = `## Content upload — available anytime after institution exists
 
@@ -752,13 +764,24 @@ ${pedagogyOverlay}`
   const earlyConversationGuard = conversationTurnCount <= 1 && !setupData.courseContext
     ? `## ⚠️ EARLY CONVERSATION — DO NOT PROPOSE YET
 This is the start of the conversation (turn ${conversationTurnCount + 1}). The user has barely said anything.
-Do NOT present a full configuration proposal yet. Instead:
-- Ask what they want to teach and who the learners are
-- Listen to their description
-- Play back your understanding FIRST (see "Understanding playback" below)
+Do NOT present a full configuration proposal yet. Your job right now: COLLECT information.
+
+**Ask ONE focused question per turn. Max 2 sentences total.** Pick the single field most
+likely missing from setupData, in this priority order:
+  1. \`subjectDiscipline\` — if absent, ask what they want to teach.
+  2. \`audience\` — if subject is set but audience absent, ask who the learners are.
+  3. \`goal\` — if subject + audience are set, ask what success looks like.
+
+**BANNED in this phase:**
+- Stacking multiple questions in one turn (e.g. "what + who + materials?").
+- Verbose preambles like "Understanding your teaching goals and any materials you have
+  will help me set up the AI tutor perfectly." Just ask the question.
+- Presenting a full configuration proposal.
+
 Even if you can see pre-filled data (institution, subject, course name), these may be
 auto-filled from the system — the user hasn't confirmed them conversationally yet.
-Your job right now: COLLECT information, don't propose configurations.
+After enough has been said, play back your understanding FIRST (see "Understanding
+playback" below) before any proposal.
 `
     : "";
 
@@ -786,8 +809,9 @@ Do NOT ask about individual fields until the playback is confirmed.
       ? `## ⚠️ WELCOME FLOW NEEDED NOW
 The user has confirmed the main configuration. Your NEXT response MUST propose the four welcome
 flow phases (Goals, About You, Knowledge Check, AI Introduction) with reasoning grounded in the
-course context, then call show_options checklist (mode: "checklist", dataKey: "_welcomePhases")
-and show_suggestions with ["Sounds good", "I'll explain"]. Do NOT call create_course yet.
+course context, then call show_options checklist (mode: "checklist", dataKey: "_welcomePhases").
+DO NOT call show_suggestions on this turn — the checklist's Confirm / Something else / Skip
+buttons are the decision surface. Do NOT call create_course yet.
 See "Welcome flow proposal" below for the full pattern.
 `
       : "";

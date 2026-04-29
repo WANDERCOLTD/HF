@@ -78,14 +78,19 @@ registerTransform("computeSessionPedagogy", (
       // `welcome.knowledgeCheck`) — there is nothing left to discover. Partial
       // opt-outs are handled by per-phase guidance in `discovery_guidance`.
       // Each toggle defaults to `true` for legacy playbooks with no welcome config.
+      //
+      // Match BOTH "discover" (verb, used in INIT-001 + COACH-001 seed JSONs) and
+      // "discovery" (noun, used in fallback-settings.ts DEFAULT_FLOW_PHASES). The
+      // regex avoids accidental hits on hypothetical names like "discoverable-state".
       const pbWelcome = primaryPlaybook?.config?.welcome;
       const askGoals = pbWelcome?.goals?.enabled ?? true;
       const askAboutYou = pbWelcome?.aboutYou?.enabled ?? true;
       const askKnowledge = pbWelcome?.knowledgeCheck?.enabled ?? true;
       const dropDiscovery = !askGoals && !askAboutYou && !askKnowledge;
+      const DISCOVERY_PHASE_RE = /^discover(y)?$/i;
       const allPhases = fcFlow.phases as any[];
       const filteredPhases = dropDiscovery
-        ? allPhases.filter((p: any) => p?.phase?.toLowerCase?.() !== "discovery")
+        ? allPhases.filter((p: any) => !DISCOVERY_PHASE_RE.test(p?.phase ?? ""))
         : allPhases;
       const removedCount = allPhases.length - filteredPhases.length;
 
