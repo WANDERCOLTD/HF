@@ -121,11 +121,30 @@ registerTransform("computeSessionPedagogy", (
         : allPhases;
       const removedCount = allPhases.length - filteredPhases.length;
 
-      plan.firstCallPhases = filteredPhases;
+      // Per-goal filtering: when Knowledge Check is OFF but discovery phase
+      // survives (Goals or About You still on), strip goals that reference
+      // probing prior knowledge. Resolves the contradiction between phase-
+      // listed goals (e.g. "Assess existing knowledge level") and the
+      // "Do NOT probe their prior knowledge level" directive that
+      // quickstart.ts injects into discovery_guidance.
+      const KNOWLEDGE_GOAL_RE = /\b(prior\s+knowledge|existing\s+knowledge|knowledge\s+level|assess.*knowledge|probe.*knowledge)\b/i;
+      let goalDropCount = 0;
+      const phasesAfterGoalFilter = !toggles.askKnowledge
+        ? filteredPhases.map((p: any) => {
+            if (!DISCOVERY_PHASE_RE.test(p?.phase ?? "")) return p;
+            const originalGoals = (p.goals ?? []) as string[];
+            const keptGoals = originalGoals.filter(g => !KNOWLEDGE_GOAL_RE.test(g));
+            if (keptGoals.length === originalGoals.length) return p;
+            goalDropCount += originalGoals.length - keptGoals.length;
+            return { ...p, goals: keptGoals };
+          })
+        : filteredPhases;
+
+      plan.firstCallPhases = phasesAfterGoalFilter;
       plan.successMetrics = fcFlow.successMetrics;
 
       // Convert phases to flow steps, including content references
-      plan.flow = filteredPhases.map((phase: any, i: number) => {
+      plan.flow = phasesAfterGoalFilter.map((phase: any, i: number) => {
         const label = `${i + 1}. ${phase.phase.charAt(0).toUpperCase() + phase.phase.slice(1)} (${phase.duration}) - ${phase.goals[0]}`;
         const contentRefs = phase.content as Array<{ mediaId: string; instruction?: string }> | undefined;
         if (contentRefs?.length) {
@@ -137,9 +156,12 @@ registerTransform("computeSessionPedagogy", (
         return label;
       });
 
-      console.log(`[pedagogy] Using ${source} first-call flow with ${filteredPhases.length} phases`);
+      console.log(`[pedagogy] Using ${source} first-call flow with ${phasesAfterGoalFilter.length} phases`);
       if (removedCount > 0) {
         console.log(`[pedagogy] Filtered ${removedCount} discovery phase(s) — personalisation mode = ${mode}`);
+      }
+      if (goalDropCount > 0) {
+        console.log(`[pedagogy] Dropped ${goalDropCount} prior-knowledge goal(s) from discovery phase — Knowledge Check off`);
       }
     } else {
       // Fallback to default first-call flow.

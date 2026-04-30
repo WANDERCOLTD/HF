@@ -384,6 +384,134 @@ describe("computeSessionPedagogy transform", () => {
       expect(result.flow.some((s: string) => s.toLowerCase().includes("discovery"))).toBe(false);
     });
 
+    // ── KC-off partial-skip (#225 followup) ───────────────────────────
+    it("strips prior-knowledge goals from discovery phase when only KC is off", () => {
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: [{
+            id: "pb-1",
+            name: "Course",
+            status: "PUBLISHED",
+            domain: null,
+            items: [],
+            config: {
+              welcome: {
+                goals: { enabled: true },
+                aboutYou: { enabled: true },
+                knowledgeCheck: { enabled: false }, // OFF — but discovery phase must stay (Goals/AboutYou still on)
+              },
+              onboardingFlowPhases: {
+                phases: [
+                  { phase: "welcome", duration: "2 min", goals: ["Greet"] },
+                  {
+                    phase: "discovery",
+                    duration: "5 min",
+                    goals: [
+                      "Learn about the caller's background",
+                      "Understand their goals and motivations",
+                      "Assess existing knowledge level",
+                    ],
+                  },
+                  { phase: "first-topic", duration: "5 min", goals: ["Teach"] },
+                ],
+              },
+            },
+          }],
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: true,
+        },
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+
+      // Discovery phase still present (goals + about-you still on)
+      const discovery = result.firstCallPhases!.find((p: { phase: string }) => p.phase === "discovery");
+      expect(discovery).toBeDefined();
+      // The "Assess existing knowledge level" goal is filtered out
+      expect(discovery!.goals).toEqual([
+        "Learn about the caller's background",
+        "Understand their goals and motivations",
+      ]);
+    });
+
+    it("keeps prior-knowledge goals when KC is on", () => {
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: [{
+            id: "pb-1",
+            name: "Course",
+            status: "PUBLISHED",
+            domain: null,
+            items: [],
+            config: {
+              welcome: {
+                goals: { enabled: true },
+                aboutYou: { enabled: true },
+                knowledgeCheck: { enabled: true },
+              },
+              onboardingFlowPhases: {
+                phases: [
+                  {
+                    phase: "discovery",
+                    duration: "5 min",
+                    goals: ["Find name", "Assess existing knowledge level"],
+                  },
+                ],
+              },
+            },
+          }],
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: true,
+        },
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      const discovery = result.firstCallPhases!.find((p: { phase: string }) => p.phase === "discovery");
+      expect(discovery!.goals).toContain("Assess existing knowledge level");
+    });
+
+    it("does not touch goals on non-discovery phases", () => {
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: [{
+            id: "pb-1",
+            name: "Course",
+            status: "PUBLISHED",
+            domain: null,
+            items: [],
+            config: {
+              welcome: {
+                goals: { enabled: true },
+                aboutYou: { enabled: true },
+                knowledgeCheck: { enabled: false },
+              },
+              onboardingFlowPhases: {
+                phases: [
+                  // first-topic phase happens to mention knowledge — must be left alone.
+                  { phase: "first-topic", duration: "5 min", goals: ["Foundations of knowledge work"] },
+                ],
+              },
+            },
+          }],
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: true,
+        },
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      const firstTopic = result.firstCallPhases!.find((p: { phase: string }) => p.phase === "first-topic");
+      expect(firstTopic!.goals).toEqual(["Foundations of knowledge work"]);
+    });
+
     it("keeps discovery phase when welcome phases are enabled (regression)", () => {
       const ctx = makeContext({
         loadedData: {
