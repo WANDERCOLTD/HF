@@ -48,6 +48,7 @@ import {
   stopSummary,
   formatTrigger,
 } from "./timeline-helpers";
+import { OnboardingEditor } from "@/components/shared/OnboardingEditor";
 import "./session-flow-timeline.css";
 import "./session-flow-editor.css";
 
@@ -60,6 +61,8 @@ type ApiResponse = {
   teachingMode: string | null;
   sessionCount: number | null;
   courseName: string;
+  domainId: string | null;
+  domainName: string | null;
 } | { ok: false; error: string };
 
 type Status = "enabled" | "disabled" | "default";
@@ -79,7 +82,7 @@ interface RowSpec {
   };
 }
 
-type DrawerKind = null | "mode" | "kc-delivery" | "nps" | "welcome-msg";
+type DrawerKind = null | "mode" | "kc-delivery" | "nps" | "welcome-msg" | "onboarding-phases" | "offboarding-phases";
 
 export type SessionFlowEditorProps = {
   courseId: string;
@@ -234,7 +237,7 @@ export function SessionFlowEditor({ courseId }: SessionFlowEditorProps) {
       summary: `${sessionFlow.onboarding.phases.length} phases · source: ${sourceLabel(sessionFlow.source.onboarding)}`,
       status: "enabled",
       details: onboardingDetails(sessionFlow),
-      editable: false,
+      editable: true,
     },
     {
       id: "welcome-message",
@@ -361,7 +364,7 @@ export function SessionFlowEditor({ courseId }: SessionFlowEditorProps) {
       summary: `${sessionFlow.offboarding.phases.length} phases · trigger after ${sessionFlow.offboarding.triggerAfterCalls} calls`,
       status: sessionFlow.offboarding.phases.length > 0 ? "enabled" : "default",
       details: offboardingDetails(sessionFlow),
-      editable: false,
+      editable: true,
     },
   ];
 
@@ -370,6 +373,8 @@ export function SessionFlowEditor({ courseId }: SessionFlowEditorProps) {
     else if (rowId === "knowledge-check") setDrawer("kc-delivery");
     else if (rowId === "nps") setDrawer("nps");
     else if (rowId === "welcome-message") setDrawer("welcome-msg");
+    else if (rowId === "onboarding") setDrawer("onboarding-phases");
+    else if (rowId === "offboarding") setDrawer("offboarding-phases");
   };
 
   const toggleRow = (id: string) => setExpandedId(prev => (prev === id ? null : id));
@@ -426,7 +431,64 @@ export function SessionFlowEditor({ courseId }: SessionFlowEditorProps) {
           onSaved={onUpdated}
         />
       )}
+      {drawer === "onboarding-phases" && data.domainId && (
+        <PhaseListDrawer
+          title="Onboarding flow phases"
+          courseId={courseId}
+          domainId={data.domainId}
+          domainName={data.domainName}
+          mode="onboarding"
+          onClose={() => { setDrawer(null); refetch(); }}
+        />
+      )}
+      {drawer === "offboarding-phases" && data.domainId && (
+        <PhaseListDrawer
+          title="Offboarding flow phases"
+          courseId={courseId}
+          domainId={data.domainId}
+          domainName={data.domainName}
+          mode="offboarding"
+          onClose={() => { setDrawer(null); refetch(); }}
+        />
+      )}
     </>
+  );
+}
+
+// ── Phase list drawer (#225 part 4) ──────────────────────────────────────────
+
+function PhaseListDrawer({
+  title, courseId, domainId, domainName, mode, onClose,
+}: {
+  title: string;
+  courseId: string;
+  domainId: string;
+  domainName: string | null;
+  mode: "onboarding" | "offboarding";
+  onClose: () => void;
+}) {
+  return (
+    <Drawer title={title} onClose={onClose}>
+      <p className="sfe-drawer-desc">
+        Drag phases to reorder. Click a phase to edit its goals, duration, content, and survey steps.
+        Changes save automatically — close when done.
+      </p>
+      <div className="sfe-phase-host">
+        <OnboardingEditor
+          courseId={courseId}
+          domainId={domainId}
+          domainName={domainName}
+          isOperator
+          compact
+          mode={mode}
+        />
+      </div>
+      <footer className="sfe-drawer-footer">
+        <button type="button" className="sfe-btn-primary" onClick={onClose}>
+          Done
+        </button>
+      </footer>
+    </Drawer>
   );
 }
 

@@ -101,6 +101,15 @@
   display: flex;
   flex-direction: column;
 }
+
+/* Phase-list drawer wraps the full OnboardingEditor — needs wider canvas. */
+.sfe-drawer:has(.sfe-phase-host) {
+  width: 720px;
+}
+.sfe-phase-host {
+  margin-bottom: 12px;
+}
+
 .sfe-drawer-header {
   display: flex;
   align-items: center;

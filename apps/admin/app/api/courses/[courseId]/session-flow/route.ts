@@ -53,6 +53,8 @@ export async function GET(
         config: true,
         domain: {
           select: {
+            id: true,
+            name: true,
             slug: true,
             onboardingWelcome: true,
             onboardingFlowPhases: true,
@@ -87,6 +89,8 @@ export async function GET(
       teachingMode: pbConfig.teachingMode ?? null,
       sessionCount: pbConfig.sessionCount ?? null,
       courseName: playbook.name,
+      domainId: playbook.domain?.id ?? null,
+      domainName: playbook.domain?.name ?? null,
     });
   } catch (err) {
     console.error("[courses/[courseId]/session-flow GET]", err);
@@ -203,6 +207,8 @@ export async function PUT(
         config: true,
         domain: {
           select: {
+            id: true,
+            name: true,
             slug: true,
             onboardingWelcome: true,
             onboardingFlowPhases: true,
@@ -228,6 +234,8 @@ export async function PUT(
       teachingMode: updatedConfig.teachingMode ?? null,
       sessionCount: updatedConfig.sessionCount ?? null,
       courseName: updated?.name ?? "",
+      domainId: updated?.domain?.id ?? null,
+      domainName: updated?.domain?.name ?? null,
     });
   } catch (err) {
     console.error("[courses/[courseId]/session-flow PUT]", err);
