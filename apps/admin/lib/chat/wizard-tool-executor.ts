@@ -8,6 +8,85 @@
 
 // ── Helpers ─────────────────────────────────────────────
 
+/**
+ * Build the student-experience portion of a Playbook.config from wizard
+ * setupData. Writes BOTH the legacy shape (`welcome` / `nps` / `surveys`)
+ * AND the new canonical `sessionFlow.intake` shape (#216 mirror pattern).
+ *
+ * Mutates `configUpdate` in place. Skips fields already present (idempotent).
+ *
+ * Bag keys (stable contract):
+ *   welcomeGoals / welcomeAboutYou / welcomeKnowledgeCheck / welcomeAiIntro: boolean
+ *   welcomeKnowledgeCheckMode: "mcq" | "socratic"  (NEW for #222)
+ *   npsEnabled: boolean
+ *
+ * @param setupData wizard flow-bag (record of values keyed by bag key)
+ * @param configUpdate mutable Playbook.config working copy
+ * @param contextLabel string used in observability warnings ("create_course (existing)" etc.)
+ * @param entityId    playbookId / courseId for observability
+ */
+export function applyStudentExperienceConfig(
+  setupData: Record<string, unknown> | undefined,
+  configUpdate: Record<string, unknown>,
+  contextLabel: string,
+  entityId: string,
+): void {
+  // ── Welcome (legacy) — always written by wizard until Phase 5 cleanup. ──
+  if (!configUpdate.welcome) {
+    const welcomeKeysSet = ["welcomeGoals", "welcomeAboutYou", "welcomeKnowledgeCheck", "welcomeAiIntro"]
+      .filter((k) => setupData?.[k] !== undefined).length;
+    if (welcomeKeysSet === 0) {
+      console.warn(
+        `[wizard-tool-executor] ${contextLabel} called without explicit welcome flags — falling back to DEFAULT_WELCOME_CONFIG. id=${entityId}`,
+      );
+    }
+    configUpdate.welcome = {
+      goals: { enabled: setupData?.welcomeGoals !== false },
+      aboutYou: { enabled: setupData?.welcomeAboutYou !== false },
+      knowledgeCheck: { enabled: setupData?.welcomeKnowledgeCheck === true },
+      aiIntroCall: { enabled: setupData?.welcomeAiIntro === true },
+    };
+  }
+
+  // ── sessionFlow.intake (new shape) — mirror of welcome plus deliveryMode. ──
+  // Always set so the resolver / editor see the same source of truth. The
+  // mirror layer is removed in Phase 5 (#220) once legacy fields are dropped.
+  const existingSessionFlow = (configUpdate.sessionFlow as Record<string, unknown> | undefined) ?? {};
+  const welcome = configUpdate.welcome as {
+    goals: { enabled: boolean };
+    aboutYou: { enabled: boolean };
+    knowledgeCheck: { enabled: boolean };
+    aiIntroCall: { enabled: boolean };
+  };
+  const deliveryMode: "mcq" | "socratic" =
+    setupData?.welcomeKnowledgeCheckMode === "socratic" ? "socratic" : "mcq";
+  configUpdate.sessionFlow = {
+    ...existingSessionFlow,
+    intake: {
+      goals: { enabled: welcome.goals.enabled },
+      aboutYou: { enabled: welcome.aboutYou.enabled },
+      knowledgeCheck: { enabled: welcome.knowledgeCheck.enabled, deliveryMode },
+      aiIntroCall: { enabled: welcome.aiIntroCall.enabled },
+    },
+  };
+
+  // ── NPS — top-level config field, mirrored to surveys.post.enabled for
+  // structured-mode rail compatibility (existing pattern). ──
+  if (!configUpdate.nps) {
+    configUpdate.nps = {
+      enabled: setupData?.npsEnabled !== false,
+      trigger: "mastery" as const,
+      threshold: 80,
+    };
+  }
+  if (!configUpdate.surveys) {
+    const nps = configUpdate.nps as { enabled: boolean };
+    configUpdate.surveys = {
+      post: { enabled: nps.enabled },
+    };
+  }
+}
+
 /** Return the string only if it looks like a real UUID (v4). Rejects slugs, made-up prefixed IDs, etc. */
 function validUuid(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -682,39 +761,13 @@ export async function executeWizardTool(
               configUpdate.sessionCount = pedagogy.suggestedSessionCount;
             }
 
-            // Student experience config — from wizard or defaults
-            if (!configUpdate.welcome) {
-              // Observability (#210) — detect AI shipping create_course without explicit welcome flags.
-              // When 0 keys are set, the wizard is silently falling back to DEFAULT_WELCOME_CONFIG.
-              const welcomeKeysSet = ["welcomeGoals", "welcomeAboutYou", "welcomeKnowledgeCheck", "welcomeAiIntro"]
-                .filter((k) => (setupData as Record<string, unknown> | undefined)?.[k] !== undefined).length;
-              if (welcomeKeysSet === 0) {
-                console.warn(
-                  `[wizard-tool-executor] create_course (existing path) called without explicit welcome flags — falling back to DEFAULT_WELCOME_CONFIG. playbookId=${existingPlaybookId}`,
-                );
-              }
-              configUpdate.welcome = {
-                goals: { enabled: setupData?.welcomeGoals !== false },
-                aboutYou: { enabled: setupData?.welcomeAboutYou !== false },
-                knowledgeCheck: { enabled: setupData?.welcomeKnowledgeCheck === true },
-                aiIntroCall: { enabled: setupData?.welcomeAiIntro === true },
-              };
-            }
-            if (!configUpdate.nps) {
-              configUpdate.nps = {
-                enabled: setupData?.npsEnabled !== false,
-                trigger: "mastery" as const,
-                threshold: 80,
-              };
-            }
-            // surveys.pre.enabled is now COMPUTED-ONLY from welcome.* (see
-            // isPreSurveyEnabled). surveys.post.enabled has no welcome-side
-            // mirror yet, so we still seed it from nps.enabled for the rail.
-            if (!configUpdate.surveys) {
-              configUpdate.surveys = {
-                post: { enabled: configUpdate.nps.enabled },
-              };
-            }
+            // Student experience config — welcome + sessionFlow.intake mirror + nps
+            applyStudentExperienceConfig(
+              setupData as Record<string, unknown> | undefined,
+              configUpdate,
+              "create_course (existing path)",
+              existingPlaybookId,
+            );
 
             await prisma.playbook.update({
               where: { id: existingPlaybookId },
@@ -1099,39 +1152,13 @@ export async function executeWizardTool(
           }
         }
 
-        // Student experience config — from wizard or defaults
-        if (!configUpdate.welcome) {
-          // Observability (#210) — detect AI shipping create_course without explicit welcome flags.
-          // When 0 keys are set, the wizard is silently falling back to DEFAULT_WELCOME_CONFIG.
-          const welcomeKeysSet = ["welcomeGoals", "welcomeAboutYou", "welcomeKnowledgeCheck", "welcomeAiIntro"]
-            .filter((k) => (setupData as Record<string, unknown> | undefined)?.[k] !== undefined).length;
-          if (welcomeKeysSet === 0) {
-            console.warn(
-              `[wizard-tool-executor] create_course (new path) called without explicit welcome flags — falling back to DEFAULT_WELCOME_CONFIG. playbookId=${playbookId}`,
-            );
-          }
-          configUpdate.welcome = {
-            goals: { enabled: setupData?.welcomeGoals !== false },
-            aboutYou: { enabled: setupData?.welcomeAboutYou !== false },
-            knowledgeCheck: { enabled: setupData?.welcomeKnowledgeCheck === true },
-            aiIntroCall: { enabled: setupData?.welcomeAiIntro === true },
-          };
-        }
-        if (!configUpdate.nps) {
-          configUpdate.nps = {
-            enabled: setupData?.npsEnabled !== false,
-            trigger: "mastery" as const,
-            threshold: 80,
-          };
-        }
-        // surveys.pre.enabled is now COMPUTED-ONLY from welcome.* (see
-        // isPreSurveyEnabled). surveys.post.enabled has no welcome-side
-        // mirror yet, so we still seed it from nps.enabled for the rail.
-        if (!configUpdate.surveys) {
-          configUpdate.surveys = {
-            post: { enabled: configUpdate.nps.enabled },
-          };
-        }
+        // Student experience config — welcome + sessionFlow.intake mirror + nps
+        applyStudentExperienceConfig(
+          setupData as Record<string, unknown> | undefined,
+          configUpdate,
+          "create_course (new path)",
+          playbookId,
+        );
 
         await prisma.playbook.update({
           where: { id: playbookId },

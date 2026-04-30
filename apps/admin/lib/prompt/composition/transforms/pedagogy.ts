@@ -9,6 +9,7 @@ import { registerTransform } from "../TransformRegistry";
 import type { AssembledContext } from "../types";
 import { config } from "@/lib/config";
 import { detectPersonalisationMode } from "./quickstart";
+import { resolveSessionFlow } from "@/lib/session-flow/resolver";
 
 /**
  * Compute session pedagogy plan (flow, review, new material, principles).
@@ -65,12 +66,32 @@ registerTransform("computeSessionPedagogy", (
     // === ONBOARDING MODE ===
     const firstModule = modules[0];
 
-    // Priority: Playbook (course) override > Domain > INIT-001 fallback
-    const playbookFlow = primaryPlaybook?.config?.onboardingFlowPhases as { phases: any[]; successMetrics?: string[] } | undefined;
-    const domainFlow = domain?.onboardingFlowPhases as { phases: any[]; successMetrics?: string[] } | null;
-    const initFlow = onboardingSpec?.config?.firstCallFlow;
-    const fcFlow = playbookFlow || domainFlow || initFlow;
-    const source = playbookFlow ? `Playbook ${primaryPlaybook?.name}` : domainFlow ? `Domain ${domain?.slug}` : config.specs.onboarding;
+    // Priority: Playbook (course) override > Domain > INIT-001 fallback.
+    // When SESSION_FLOW_RESOLVER_ENABLED, delegate to resolveSessionFlow().
+    // Both paths must produce byte-equal output during the dual-read window
+    // (epic #221, story #217).
+    let fcFlow: { phases: any[]; successMetrics?: string[] } | undefined;
+    let source: string;
+    if (config.features.sessionFlowResolverEnabled) {
+      const resolved = resolveSessionFlow({
+        playbook: primaryPlaybook,
+        domain,
+        onboardingSpec,
+      });
+      fcFlow = resolved.onboarding;
+      source =
+        resolved.source.onboarding === "new-shape" || resolved.source.onboarding === "playbook-legacy"
+          ? `Playbook ${primaryPlaybook?.name}`
+          : resolved.source.onboarding === "domain"
+            ? `Domain ${domain?.slug}`
+            : config.specs.onboarding;
+    } else {
+      const playbookFlow = primaryPlaybook?.config?.onboardingFlowPhases as { phases: any[]; successMetrics?: string[] } | undefined;
+      const domainFlow = domain?.onboardingFlowPhases as { phases: any[]; successMetrics?: string[] } | null;
+      const initFlow = onboardingSpec?.config?.firstCallFlow;
+      fcFlow = playbookFlow || domainFlow || initFlow;
+      source = playbookFlow ? `Playbook ${primaryPlaybook?.name}` : domainFlow ? `Domain ${domain?.slug}` : config.specs.onboarding;
+    }
 
     if (fcFlow?.phases) {
       // Drop the discovery phase from the first-call flow when in-call

@@ -39,6 +39,9 @@ import type { CallerData, CallerProfile, CallerRole, Domain, ComposedPrompt, Sec
 // Journey progress hook
 import { useEnrollmentJourney } from "@/hooks/useEnrollmentJourney";
 
+// Session Flow learner-state overlay
+import { SessionFlowProgress } from "@/components/session-flow/SessionFlowProgress";
+
 
 export default function CallerDetailPage() {
   const params = useParams();
@@ -497,6 +500,7 @@ export default function CallerDetailPage() {
     { id: "what", label: "What", icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
     { id: "artifacts", label: "Artifacts", icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
     { id: "uplift", label: "Uplift", icon: <TrendingUp size={13} />, group: "shared" },
+    { id: "session-flow", label: "Session Flow", icon: <SlidersHorizontal size={13} />, group: "shared" },
     { id: "ai-call", label: "Call", icon: <PlayCircle size={13} />, special: true, group: "action" },
   ];
 
@@ -1079,6 +1083,12 @@ export default function CallerDetailPage() {
 
       {activeSection === "artifacts" && (
         <ArtifactsSection callerId={callerId} isProcessing={isProcessing} />
+      )}
+
+      {activeSection === "session-flow" && (
+        <div className="hf-mt-lg">
+          <SessionFlowProgress callerId={callerId} />
+        </div>
       )}
 
       {simChatMounted && (

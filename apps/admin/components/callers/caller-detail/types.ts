@@ -199,7 +199,7 @@ export type CallerData = {
   };
 };
 
-export type SectionId = "overview" | "uplift" | "calls-prompts" | "how" | "what" | "artifacts" | "ai-call";
+export type SectionId = "overview" | "uplift" | "calls-prompts" | "how" | "what" | "artifacts" | "ai-call" | "session-flow";
 
 // ---------------------------------------------------------------------------
 // Uplift tab types — computed from existing models, no new DB tables

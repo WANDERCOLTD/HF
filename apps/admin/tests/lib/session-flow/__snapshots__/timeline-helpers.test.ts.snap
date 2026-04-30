@@ -1,0 +1,54 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`timelineSnapshot — course-type fixtures (#223) > continuous knowledge course (welcome toggles + NPS) 1`] = `
+"HEADER mode=continuous type=recall
+BEFORE
+  Onboarding: 0 phases (system default)
+  WelcomeMessage: Welcome to GCSE Biology
+  Goals: ON
+  AboutYou: ON
+  KnowledgeCheck: MCQ batch fires after Call 1
+  AIIntroCall: OFF
+  Pre-test: 5 MCQs · after session 1
+DURING
+  Sessions: scheduler-driven
+AFTER
+  NPS: mastery ≥ 80%
+  Offboarding: 0 phases, trigger after 5 calls"
+`;
+
+exports[`timelineSnapshot — course-type fixtures (#223) > structured comprehension course (mid + post test, NPS) 1`] = `
+"HEADER mode=structured type=comprehension
+BEFORE
+  Onboarding: 0 phases (system default)
+  WelcomeMessage: <generic>
+  Goals: ON
+  AboutYou: ON
+  KnowledgeCheck: Disabled — no probe, no MCQ
+  AIIntroCall: OFF
+DURING
+  Sessions: 6 sessions
+  Mid-test: 5 MCQs · midpoint
+AFTER
+  Post-test: 5 MCQs · course complete
+  NPS: course complete
+  Offboarding: 0 phases, trigger after 5 calls"
+`;
+
+exports[`timelineSnapshot — course-type fixtures (#223) > structured exam-prep course (pre + mid + post + NPS, all in) 1`] = `
+"HEADER mode=structured type=syllabus
+BEFORE
+  Onboarding: 0 phases (system default)
+  WelcomeMessage: <generic>
+  Goals: ON
+  AboutYou: OFF
+  KnowledgeCheck: MCQ batch fires after Call 1
+  AIIntroCall: OFF
+  Pre-test: 5 MCQs · after session 1
+DURING
+  Sessions: 10 sessions
+AFTER
+  Post-test: 5 MCQs · course complete
+  NPS: mastery ≥ 80%
+  Offboarding: 0 phases, trigger after 5 calls"
+`;

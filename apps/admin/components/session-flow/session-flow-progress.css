@@ -1,0 +1,67 @@
+/* SessionFlowProgress — sfp-* prefix, extends sft-* */
+
+.sfp-pill-progress {
+  background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+}
+
+/* Row borders by learner status */
+.sfp-row--completed {
+  background: color-mix(in srgb, var(--status-success-text, #059669) 4%, var(--surface-secondary));
+}
+.sfp-row--in-progress {
+  background: color-mix(in srgb, var(--accent-primary) 4%, var(--surface-secondary));
+}
+.sfp-row--not-yet {
+  background: var(--surface-secondary);
+  opacity: 0.85;
+}
+.sfp-row--skipped {
+  background: var(--surface-tertiary);
+  opacity: 0.6;
+}
+.sfp-row--n-a {
+  background: var(--surface-tertiary);
+  opacity: 0.5;
+}
+
+/* Status icons coloured to match */
+.sfp-row--completed .sft-row-icon {
+  color: var(--status-success-text, #059669);
+}
+.sfp-row--in-progress .sft-row-icon {
+  color: var(--accent-primary);
+}
+.sfp-row--not-yet .sft-row-icon {
+  color: var(--text-muted);
+}
+.sfp-row--skipped .sft-row-icon,
+.sfp-row--n-a .sft-row-icon {
+  color: var(--text-muted);
+}
+
+/* Status pill colours */
+.sfp-row-badge--completed {
+  background: var(--status-success-bg, #ecfdf5);
+  color: var(--status-success-text, #059669);
+  border: 1px solid color-mix(in srgb, var(--status-success-text, #059669) 25%, transparent);
+}
+.sfp-row-badge--in-progress {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 25%, transparent);
+}
+.sfp-row-badge--not-yet {
+  background: var(--surface-tertiary);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+}
+.sfp-row-badge--skipped {
+  background: var(--surface-tertiary);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+}
+.sfp-row-badge--n-a {
+  background: var(--surface-tertiary);
+  color: var(--text-muted);
+  border: 1px dashed var(--border-default);
+}

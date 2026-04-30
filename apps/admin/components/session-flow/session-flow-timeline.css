@@ -1,0 +1,235 @@
+/* SessionFlowTimeline — sft-* prefix
+   Matches the design system used in course-design-tab.css */
+
+.sft {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 20px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+}
+
+.sft-loading,
+.sft-error {
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.sft-error {
+  color: var(--status-error-text, #dc2626);
+  background: var(--status-error-bg, color-mix(in srgb, #dc2626 8%, transparent));
+}
+
+/* ── Header ─────────────────────────────── */
+
+.sft-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sft-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.sft-header-meta {
+  display: flex;
+  gap: 6px;
+}
+.sft-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: capitalize;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  color: var(--accent-primary);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 20%, transparent);
+}
+
+/* ── Section ─────────────────────────────── */
+
+.sft-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sft-section-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+/* ── Rows ─────────────────────────────── */
+
+.sft-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sft-row {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-secondary);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.sft-row:hover {
+  border-color: var(--border-default);
+}
+.sft-row--disabled {
+  opacity: 0.6;
+}
+.sft-row--expandable {
+  cursor: pointer;
+}
+.sft-row--expanded {
+  background: var(--surface-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--border-default));
+}
+
+.sft-row-head {
+  display: grid;
+  grid-template-columns: 24px auto 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+}
+
+.sft-row-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+.sft-row--enabled .sft-row-icon {
+  color: var(--status-success-text, #059669);
+}
+.sft-row--disabled .sft-row-icon {
+  color: var(--text-muted);
+}
+
+.sft-row-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.sft-row-summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.sft-row-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.sft-row-badge--enabled {
+  background: var(--status-success-bg, #ecfdf5);
+  color: var(--status-success-text, #059669);
+  border-color: color-mix(in srgb, var(--status-success-text, #059669) 25%, transparent);
+}
+.sft-row-badge--disabled {
+  background: var(--surface-tertiary);
+  color: var(--text-muted);
+  border-color: var(--border-default);
+}
+.sft-row-badge--default {
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  color: var(--accent-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+}
+
+.sft-row-chevron {
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease;
+}
+.sft-row--expanded .sft-row-chevron {
+  transform: rotate(90deg);
+  color: var(--accent-primary);
+}
+
+/* ── Row body (expanded detail) ─────────────────────────────── */
+
+.sft-row-body {
+  padding: 8px 14px 14px 48px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-primary);
+}
+.sft-detail-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.sft-detail-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+.sft-detail-key {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+.sft-detail-value {
+  color: var(--text-primary);
+}
+
+/* Phases as compact list */
+.sft-phase-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.sft-phase-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  background: var(--surface-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+.sft-phase-chip-num {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+}

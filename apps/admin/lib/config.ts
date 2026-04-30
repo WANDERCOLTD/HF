@@ -189,6 +189,15 @@ export const config = {
     get opsEnabled(): boolean {
       return process.env.HF_OPS_ENABLED === "true";
     },
+    /**
+     * Session Flow resolver — when true, transforms read learner-flow config
+     * via resolveSessionFlow(); when false they read legacy Playbook.config
+     * fields directly. Default false. Flipped per-environment as the epic
+     * (#221) ships through the phases. ADR 2026-04-29.
+     */
+    get sessionFlowResolverEnabled(): boolean {
+      return optionalBool("SESSION_FLOW_RESOLVER_ENABLED", false);
+    },
   },
 
   // ---------------------------------------------------------------------------

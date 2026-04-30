@@ -154,6 +154,120 @@ export const DEFAULT_NPS_CONFIG: NpsConfig = {
   threshold: 80,
 };
 
+// ---------------------------------------------------------------------------
+// Session Flow — canonical model (ADR 2026-04-29)
+// Consolidates: welcome, surveys, assessment, nps, onboardingFlowPhases.
+// During dual-read window the resolver reads new shape if present, else legacy.
+// ---------------------------------------------------------------------------
+
+/**
+ * Educator-facing toggles that shape what happens around teaching.
+ * Same surface as the deprecated WelcomeConfig — renamed to match the
+ * canonical "Session Flow / Course Intake" vocabulary.
+ *
+ * Knowledge Check supports two delivery modes:
+ *   - "mcq": batch of multiple-choice questions (post call 1)
+ *   - "socratic": open Socratic probe in first call
+ * (Split implemented in #222; field accepted here so resolver is forward-compatible.)
+ */
+export interface IntakeConfig {
+  goals: { enabled: boolean };
+  aboutYou: { enabled: boolean };
+  knowledgeCheck: {
+    enabled: boolean;
+    deliveryMode?: "mcq" | "socratic";
+  };
+  aiIntroCall: { enabled: boolean };
+}
+
+/**
+ * Trigger condition for a journey stop. Evaluated against pipeline state
+ * (call count, mastery, course completion) at journey-position time.
+ */
+export type JourneyStopTrigger =
+  | { type: "first_session" }
+  | { type: "before_session"; index: number }
+  | { type: "after_session"; index: number }
+  | { type: "midpoint" }
+  | { type: "mastery_reached"; threshold: number }
+  | { type: "session_count"; count: number }
+  | { type: "course_complete" };
+
+export type JourneyStopKind = "assessment" | "survey" | "nps" | "reflection";
+
+/**
+ * A single gated insertion in the learner journey (pre-test, mid-test,
+ * post-test, NPS, etc). Replaces the parallel surfaces:
+ * `surveys.pre/post`, `assessment.preTest/postTest`, `nps`.
+ */
+export interface JourneyStop {
+  id: string;
+  kind: JourneyStopKind;
+  trigger: JourneyStopTrigger;
+  delivery: { mode: "voice" | "chat" | "either"; component?: string };
+  payload?:
+    | SurveyStepConfig[]
+    | { source: "mcq-pool"; count: number };
+  enabled: boolean;
+}
+
+/**
+ * Canonical Session Flow shape. Lives at `Playbook.config.sessionFlow`.
+ * Replaces five parallel surfaces (welcome / surveys / assessment / nps /
+ * onboardingFlowPhases) under a single field.
+ *
+ * NOTE: Domain has no `offboarding` field — the resolver fallback chain
+ * for offboarding is `playbook.sessionFlow.offboarding` →
+ * `playbook.config.offboarding` (legacy) → defaults. No domain layer.
+ */
+export interface SessionFlowConfig {
+  intake?: IntakeConfig;
+  onboarding?: { phases?: OnboardingPhase[] };
+  stops?: JourneyStop[];
+  offboarding?: OffboardingConfig;
+}
+
+/**
+ * The shape returned by `resolveSessionFlow()`. Always fully populated
+ * (defaults applied for any missing layer). Transforms read this, not
+ * raw `Playbook.config`.
+ */
+export interface SessionFlowResolved {
+  intake: IntakeConfig;
+  onboarding: OnboardingFlowPhases;
+  stops: JourneyStop[];
+  offboarding: OffboardingConfig;
+  /** Greeting cascade winner: identity-spec / playbook / domain / generic */
+  welcomeMessage: string | null;
+  /** Provenance — for debug panel + tests */
+  source: {
+    intake: "new-shape" | "legacy-welcome" | "defaults";
+    onboarding: "new-shape" | "playbook-legacy" | "domain" | "init001";
+    stops: "new-shape" | "synthesized-from-legacy";
+    offboarding: "new-shape" | "playbook-legacy" | "defaults";
+    welcomeMessage: "playbook" | "domain" | "generic";
+  };
+}
+
+export const DEFAULT_INTAKE_CONFIG: IntakeConfig = {
+  goals: { enabled: true },
+  aboutYou: { enabled: true },
+  knowledgeCheck: { enabled: false, deliveryMode: "mcq" },
+  aiIntroCall: { enabled: false },
+};
+
+export const DEFAULT_OFFBOARDING_CONFIG: OffboardingConfig = {
+  triggerAfterCalls: 5,
+  phases: [],
+};
+
+/**
+ * @deprecated Use `IntakeConfig` instead. Kept as alias during the dual-read
+ * window so existing wizard / quickstart code compiles unchanged. Will be
+ * removed in Phase 5 (#220).
+ */
+export type WelcomeToggles = IntakeConfig;
+
 export interface PlaybookConfig {
   systemSpecToggles?: Record<string, { isEnabled: boolean }>;
   goals?: GoalTemplate[];
@@ -183,6 +297,12 @@ export interface PlaybookConfig {
   welcome?: WelcomeConfig;
   /** NPS / satisfaction feedback configuration */
   nps?: NpsConfig;
+  /**
+   * Canonical Session Flow shape (ADR 2026-04-29).
+   * When present, the resolver prefers this over legacy fields below.
+   * Phase 1 reads it back-compat; Phase 5 removes the legacy fields.
+   */
+  sessionFlow?: SessionFlowConfig;
   /** Survey configuration — legacy, kept for backward compat with applyAutoIncludeStops */
   surveys?: {
     pre?: { enabled: boolean; questions?: SurveyStepConfig[] };

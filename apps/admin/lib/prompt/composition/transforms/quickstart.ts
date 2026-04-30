@@ -13,6 +13,8 @@ import type { AssembledContext, CallerAttributeData } from "../types";
 import { PARAMS } from "@/lib/registry";
 import { getAudienceOption } from "./audience";
 import { SURVEY_SCOPES, PRE_SURVEY_KEYS } from "@/lib/learner/survey-keys";
+import { config } from "@/lib/config";
+import { resolveSessionFlow } from "@/lib/session-flow/resolver";
 
 /** Keys whose presence (scope PRE) signals the learner already submitted onboarding data */
 const PRE_LOADED_KEYS: readonly string[] = [
@@ -89,10 +91,11 @@ registerTransform("computeQuickStart", (
 
   // Get role statement
   const getRoleStatement = (): string => {
-    const config = identitySpec?.config as SpecConfig;
-    if (!config) return "A helpful voice assistant";
-    if (config.tutor_role?.roleStatement) return config.tutor_role.roleStatement;
-    if (config.roleStatement) return config.roleStatement;
+    // Renamed from `config` to avoid shadowing the imported config (TDZ rule).
+    const specConfig = identitySpec?.config as SpecConfig;
+    if (!specConfig) return "A helpful voice assistant";
+    if (specConfig.tutor_role?.roleStatement) return specConfig.tutor_role.roleStatement;
+    if (specConfig.roleStatement) return specConfig.roleStatement;
     return identitySpec?.description || "A helpful voice assistant";
   };
 
@@ -424,9 +427,22 @@ registerTransform("computeQuickStart", (
       // 1. Identity spec instruction (highest priority — persona spec)
       const identityOpening = (identitySpec?.config as SpecConfig)?.sessionStructure?.opening?.instruction;
       if (identityOpening) return injectSubject(identityOpening);
-      // 2. Course-scoped welcome (playbook.config) > Domain welcome (institution default)
-      if (isFirstCall && pbConfig.welcomeMessage) return injectSubject(pbConfig.welcomeMessage);
-      if (isFirstCall && callerDomain?.onboardingWelcome) return injectSubject(callerDomain.onboardingWelcome);
+      // 2. Course-scoped welcome (playbook.config) > Domain welcome (institution default).
+      // When SESSION_FLOW_RESOLVER_ENABLED, delegate to resolveSessionFlow().
+      // Both paths must produce byte-equal output (epic #221, story #217).
+      if (isFirstCall) {
+        let welcomeMsg: string | null = null;
+        if (config.features.sessionFlowResolverEnabled) {
+          welcomeMsg = resolveSessionFlow({
+            playbook,
+            domain: callerDomain,
+            onboardingSpec: loadedData.onboardingSpec,
+          }).welcomeMessage;
+        } else {
+          welcomeMsg = pbConfig.welcomeMessage ?? callerDomain?.onboardingWelcome ?? null;
+        }
+        if (welcomeMsg) return injectSubject(welcomeMsg);
+      }
       // 3. Generic fallback
       if (isFirstCall) {
         return subjectRef
@@ -443,11 +459,24 @@ registerTransform("computeQuickStart", (
 
       // Multi-playbook callers: using playbooks?.[0] is an existing assumption — not changed here.
       // Source of truth is `playbook.config.welcome.*.enabled` — what the educator toggles
-      // on the Course Design tab. Each flag defaults to `true` for legacy playbooks
-      // that were created before the welcome config existed.
-      const askGoals = pbConfig.welcome?.goals?.enabled ?? true;
-      const askAboutYou = pbConfig.welcome?.aboutYou?.enabled ?? true;
-      const askKnowledge = pbConfig.welcome?.knowledgeCheck?.enabled ?? true;
+      // on the Course Design tab. When SESSION_FLOW_RESOLVER_ENABLED, delegate to
+      // resolveSessionFlow().intake. The legacy path keeps `?? true` defaults for
+      // pre-welcome-config playbooks (epic #221, story #217).
+      let askGoals: boolean, askAboutYou: boolean, askKnowledge: boolean;
+      if (config.features.sessionFlowResolverEnabled) {
+        const resolved = resolveSessionFlow({
+          playbook,
+          domain: callerDomain,
+          onboardingSpec: loadedData.onboardingSpec,
+        });
+        askGoals = resolved.intake.goals.enabled;
+        askAboutYou = resolved.intake.aboutYou.enabled;
+        askKnowledge = resolved.intake.knowledgeCheck.enabled;
+      } else {
+        askGoals = pbConfig.welcome?.goals?.enabled ?? true;
+        askAboutYou = pbConfig.welcome?.aboutYou?.enabled ?? true;
+        askKnowledge = pbConfig.welcome?.knowledgeCheck?.enabled ?? true;
+      }
       const toggles: WelcomeToggles = { askGoals, askAboutYou, askKnowledge };
       const mode = detectPersonalisationMode(loadedData.callerAttributes, toggles);
 

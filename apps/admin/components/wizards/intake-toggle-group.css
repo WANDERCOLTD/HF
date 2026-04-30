@@ -1,0 +1,130 @@
+/* IntakeToggleGroup — itg-* prefix */
+
+.itg {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+}
+
+.itg-help {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.itg-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.itg-item {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-primary);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.itg-item--on {
+  border-color: color-mix(in srgb, var(--accent-primary) 25%, var(--border-default));
+  background: color-mix(in srgb, var(--accent-primary) 4%, var(--surface-primary));
+}
+.itg-item--off {
+  opacity: 0.85;
+}
+
+.itg-row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+}
+
+.itg-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+.itg-item--on .itg-icon {
+  color: var(--accent-primary);
+}
+
+.itg-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.itg-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.itg-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Sub-section (KC delivery mode picker) */
+.itg-sub {
+  padding: 8px 14px 14px 50px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.itg-sub-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.itg-radio-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.itg-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--surface-primary);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.itg-radio:hover {
+  border-color: var(--accent-primary);
+}
+.itg-radio--checked {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-primary));
+}
+.itg-radio input[type="radio"] {
+  margin-top: 3px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+.itg-radio span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.itg-radio-hint {
+  font-size: 12px !important;
+  color: var(--text-muted) !important;
+  font-weight: normal !important;
+}

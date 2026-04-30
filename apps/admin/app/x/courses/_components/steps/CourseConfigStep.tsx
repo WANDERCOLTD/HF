@@ -8,6 +8,7 @@ import type { AgentTunerOutput, AgentTunerPill } from '@/lib/agent-tuner/types';
 import { FieldHint } from '@/components/shared/FieldHint';
 import { WIZARD_HINTS } from '@/lib/wizard-hints';
 import type { StepProps } from '../CourseSetupWizard';
+import { IntakeToggleGroup, type IntakeValues } from '@/components/wizards/IntakeToggleGroup';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -35,6 +36,22 @@ export function CourseConfigStep({ setData, getData, onNext, onPrev }: StepProps
   const personaSlug = getData<string>('persona');
   const personaName = getData<string>('personaName');
   const courseName = getData<string>('courseName');
+
+  // First-call intake toggles (#219). Bag keys are stable contract.
+  const initialIntake: IntakeValues = {
+    goals: getData<boolean>('welcomeGoals') ?? true,
+    aboutYou: getData<boolean>('welcomeAboutYou') ?? true,
+    knowledgeCheck: getData<boolean>('welcomeKnowledgeCheck') ?? false,
+    knowledgeCheckMode: getData<"mcq" | "socratic">('welcomeKnowledgeCheckMode') ?? 'mcq',
+    aiIntroCall: getData<boolean>('welcomeAiIntro') ?? false,
+  };
+  const handleIntakeChange = (next: IntakeValues) => {
+    setData('welcomeGoals', next.goals);
+    setData('welcomeAboutYou', next.aboutYou);
+    setData('welcomeKnowledgeCheck', next.knowledgeCheck);
+    setData('welcomeKnowledgeCheckMode', next.knowledgeCheckMode);
+    setData('welcomeAiIntro', next.aiIntroCall);
+  };
 
   // Load saved welcome message + phases (from previous visit to this step)
   useEffect(() => {
@@ -172,6 +189,11 @@ export function CourseConfigStep({ setData, getData, onNext, onPrev }: StepProps
               <p className="hf-hint hf-mt-xs">Leave blank to use the default above</p>
             </div>
           )}
+        </div>
+
+        {/* ── First-call intake (#219) ── */}
+        <div className="hf-mb-lg">
+          <IntakeToggleGroup initial={initialIntake} onChange={handleIntakeChange} />
         </div>
 
         {/* ── Call Flow Phases ── */}

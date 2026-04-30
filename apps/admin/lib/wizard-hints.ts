@@ -180,6 +180,16 @@ export const WIZARD_HINTS: Record<string, FieldHintContent> = {
     examples: ["Hi! I'm your biology tutor...", "Welcome to Leadership Essentials..."],
   },
 
+  "course.firstCallIntake": {
+    why: "Each toggle controls one question the AI asks the learner on Call 1.",
+    effect: "Independent — leave defaults on for new educators, switch off only what doesn't fit your course.",
+    examples: [
+      "Goals + About You on, Knowledge Check off — soft start, no quizzing",
+      "All on with MCQ Knowledge Check — formal baseline before teaching",
+      "All off — AI dives straight into the curriculum",
+    ],
+  },
+
   "course.callFlow": {
     why: "The call flow defines the structure of a student's first lesson.",
     effect: "Each phase guides the AI through a sequence — greeting, orientation, discovery, teaching, and wrap-up.",
