@@ -876,7 +876,7 @@ function NpsDrawer({
   return (
     <Drawer title="NPS satisfaction survey" onClose={onClose}>
       <p className="sfe-drawer-desc">
-        Pick when the post-course NPS survey fires. Mastery triggers respect the learner's actual progress; session count triggers fire on a fixed call number.
+        Pick when the post-course NPS survey fires. Mastery triggers respect the learner&rsquo;s actual progress; session count triggers fire on a fixed call number.
       </p>
 
       <label className="sfe-field">
@@ -969,7 +969,7 @@ function WelcomeMessageDrawer({
   return (
     <Drawer title="Welcome message" onClose={onClose}>
       <p className="sfe-drawer-desc">
-        First-line greeting the AI uses on the learner's first call. Leave blank to fall back to the domain default or a generic greeting.
+        First-line greeting the AI uses on the learner&rsquo;s first call. Leave blank to fall back to the domain default or a generic greeting.
       </p>
       <label className="sfe-field">
         <span className="sfe-field-label">Message</span>

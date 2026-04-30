@@ -83,6 +83,9 @@ export function SessionFlowTimeline({ courseId }: SessionFlowTimelineProps) {
 
   useEffect(() => {
     let cancelled = false;
+    // Synchronous setState in effect is the standard fetch-on-mount pattern
+    // used elsewhere in the admin (CourseDetail, etc.) — disable for parity.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
     fetch(`/api/courses/${courseId}/session-flow`)

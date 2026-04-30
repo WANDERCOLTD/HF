@@ -96,7 +96,6 @@ async function seedFixture(opts: {
   });
 
   const totalModules = opts.totalModules ?? 1;
-  const masteredModules = opts.modulesMastered ?? 0;
 
   for (let i = 0; i < totalModules; i++) {
     await prisma.curriculumModule.create({

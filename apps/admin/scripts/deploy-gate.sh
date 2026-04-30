@@ -71,6 +71,30 @@ APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$APP_DIR"
 
+# ─── Auto-route to VM when run from non-Linux ────────────────
+# Linux is the canonical platform — `.ratchet.json` baseline is locked there,
+# and tests (esp. vitest worker pool) are stable there. macOS reports +1
+# lint_warnings vs Linux due to platform-specific @types resolution, and
+# vitest workers occasionally crash with `Closing rpc while "fetch" was
+# pending` on Mac. Both are tooling flakes that mask real gate signal.
+#
+# Solution: when run on macOS, SSH the entire gate to hf-dev and exec it
+# there with `__GATE_RUNNING_ON_VM=1` so gate 4 knows not to recurse.
+# When run from Linux (VM or CI) we just run locally.
+if [[ "${__GATE_RUNNING_ON_VM:-}" != "1" && "$(uname -s)" == "Darwin" ]]; then
+  if ! command -v gcloud >/dev/null 2>&1; then
+    echo "error: macOS detected but gcloud not installed — cannot route to VM" >&2
+    exit 2
+  fi
+  echo "→ macOS detected; routing gate to hf-dev (Linux canonical platform)"
+  # Sync VM to current local branch before running. Use fetch + reset --hard
+  # rather than pull --rebase so VM-side auto-generated files (constants-
+  # manifest timestamp, etc.) don't block sync. The branch lives in origin.
+  CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+  exec gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap \
+    --command="set -e; export __GATE_RUNNING_ON_VM=1; cd ~/HF; git fetch origin --quiet; git reset --hard origin/$CURRENT_BRANCH 2>&1 | tail -1; cd apps/admin; bash scripts/deploy-gate.sh $ENV"
+fi
+
 failed_gates=()
 
 section() {
@@ -126,55 +150,79 @@ else
 fi
 rm -f /tmp/deploy-gate-test.$$
 
-# ─── Gate 4: migration diff vs target env (via VM) ──────────
-# Runs `prisma migrate status` INSIDE the VPC via gcloud ssh to hf-dev. The
-# VM has its own Secret Manager access AND is inside the VPC where Cloud SQL
-# private IPs are reachable. From a developer laptop, the private IP is not
-# routable, so we can't run this locally — that was the reason gate 4 kept
-# failing on first-pass.
-section "Gate 4/6 — Prisma migration status vs $ENV Cloud SQL (via hf-dev)"
+# ─── Gate 4: migration diff vs target env ───────────────────
+# Cloud SQL private IPs are only reachable from inside the VPC, so this
+# gate must run on hf-dev (or in CI inside the same VPC). Two paths:
+#
+#   • If we're already on the VM (auto-routed from Mac, or running in CI
+#     on Linux): fetch the secret + run prisma migrate status locally.
+#   • If we're on Linux but NOT on the VM (rare — manual run from CI
+#     elsewhere): SSH to hf-dev. Same logic as before.
+#
+# When run from macOS the script auto-routes itself to the VM at the top,
+# so this branch always lands in the "on-VM" path.
+section "Gate 4/6 — Prisma migration status vs $ENV Cloud SQL"
 
-if ! command -v gcloud >/dev/null 2>&1; then
-  echo "  FAIL  gcloud not installed — cannot reach hf-dev VM" >&2
-  gate_fail "migration-no-gcloud"
-else
-  # Run the subshell on the VM. Fetches secret, overrides DATABASE_URL,
-  # cds into the app dir, runs migrate status. Output is piped back here
-  # over SSH so we can parse it locally.
-  # `prisma migrate status` exits 1 when migrations are pending — which
-  # is a valid state we want to parse, not treat as a transport failure.
-  # `|| true` ensures the SSH subshell always exits 0 so the outer parser
-  # runs against the actual stdout.
-  ssh_cmd='set -e
-    cd ~/HF && git pull --rebase --quiet 2>&1 || { echo "__GATE_PULL_FAILED__"; exit 12; }
-    export DATABASE_URL="$(gcloud secrets versions access latest --secret='"$DB_SECRET"' --project=hf-admin-prod 2>/dev/null)"
-    if [ -z "$DATABASE_URL" ]; then
-      echo "__GATE_NO_SECRET__"
-      exit 11
-    fi
-    cd apps/admin && (npx prisma migrate status 2>&1 || true)'
-
-  if gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap \
-       --command="$ssh_cmd" 2>&1 | tee /tmp/deploy-gate-migrate.$$; then
-
-    if grep -q "__GATE_PULL_FAILED__" /tmp/deploy-gate-migrate.$$; then
-      echo "  FAIL  git pull on hf-dev failed — VM may have uncommitted changes or be on a different branch" >&2
-      gate_fail "migration-vm-pull"
-    elif grep -q "__GATE_NO_SECRET__" /tmp/deploy-gate-migrate.$$; then
+if [[ "${__GATE_RUNNING_ON_VM:-}" == "1" ]] || [[ -f /etc/google_compute_engine_metadata ]] || hostname | grep -qE '^hf-dev'; then
+  # On the VM — run migrate status locally
+  if ! command -v gcloud >/dev/null 2>&1; then
+    echo "  FAIL  gcloud not installed on VM — cannot fetch DB secret" >&2
+    gate_fail "migration-no-gcloud"
+  else
+    DB_URL="$(gcloud secrets versions access latest --secret="$DB_SECRET" --project=hf-admin-prod 2>/dev/null || true)"
+    if [[ -z "$DB_URL" ]]; then
       echo "  FAIL  VM could not read $DB_SECRET from Secret Manager" >&2
       gate_fail "migration-vm-secret"
-    elif grep -qE "Database schema is up to date" /tmp/deploy-gate-migrate.$$; then
-      echo "  PASS  schema up to date on $ENV"
-    elif grep -qE "Following migrations have not yet been applied|Drift detected" /tmp/deploy-gate-migrate.$$; then
-      echo "  FAIL  pending migrations on $ENV — /deploy must run Full deploy to apply them" >&2
-      gate_fail "migration-pending"
     else
-      echo "  FAIL  migrate status output unrecognised" >&2
-      gate_fail "migration-unknown"
+      # `prisma migrate status` exits 1 when migrations are pending — valid state to parse, not a transport failure.
+      DATABASE_URL="$DB_URL" npx prisma migrate status 2>&1 | tee /tmp/deploy-gate-migrate.$$ || true
+      if grep -qE "Database schema is up to date" /tmp/deploy-gate-migrate.$$; then
+        echo "  PASS  schema up to date on $ENV"
+      elif grep -qE "Following migrations have not yet been applied|Drift detected" /tmp/deploy-gate-migrate.$$; then
+        echo "  FAIL  pending migrations on $ENV — /deploy must run Full deploy to apply them" >&2
+        gate_fail "migration-pending"
+      else
+        echo "  FAIL  migrate status output unrecognised" >&2
+        gate_fail "migration-unknown"
+      fi
     fi
+  fi
+else
+  # Off-VM Linux (rare — manual CI elsewhere). SSH to VM.
+  if ! command -v gcloud >/dev/null 2>&1; then
+    echo "  FAIL  gcloud not installed — cannot reach hf-dev VM" >&2
+    gate_fail "migration-no-gcloud"
   else
-    echo "  FAIL  gcloud ssh to hf-dev failed (network? IAP? auth?)" >&2
-    gate_fail "migration-ssh"
+    ssh_cmd='set -e
+      cd ~/HF && git pull --rebase --quiet 2>&1 || { echo "__GATE_PULL_FAILED__"; exit 12; }
+      export DATABASE_URL="$(gcloud secrets versions access latest --secret='"$DB_SECRET"' --project=hf-admin-prod 2>/dev/null)"
+      if [ -z "$DATABASE_URL" ]; then
+        echo "__GATE_NO_SECRET__"
+        exit 11
+      fi
+      cd apps/admin && (npx prisma migrate status 2>&1 || true)'
+
+    if gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap \
+         --command="$ssh_cmd" 2>&1 | tee /tmp/deploy-gate-migrate.$$; then
+      if grep -q "__GATE_PULL_FAILED__" /tmp/deploy-gate-migrate.$$; then
+        echo "  FAIL  git pull on hf-dev failed — VM may have uncommitted changes or be on a different branch" >&2
+        gate_fail "migration-vm-pull"
+      elif grep -q "__GATE_NO_SECRET__" /tmp/deploy-gate-migrate.$$; then
+        echo "  FAIL  VM could not read $DB_SECRET from Secret Manager" >&2
+        gate_fail "migration-vm-secret"
+      elif grep -qE "Database schema is up to date" /tmp/deploy-gate-migrate.$$; then
+        echo "  PASS  schema up to date on $ENV"
+      elif grep -qE "Following migrations have not yet been applied|Drift detected" /tmp/deploy-gate-migrate.$$; then
+        echo "  FAIL  pending migrations on $ENV — /deploy must run Full deploy to apply them" >&2
+        gate_fail "migration-pending"
+      else
+        echo "  FAIL  migrate status output unrecognised" >&2
+        gate_fail "migration-unknown"
+      fi
+    else
+      echo "  FAIL  gcloud ssh to hf-dev failed (network? IAP? auth?)" >&2
+      gate_fail "migration-ssh"
+    fi
   fi
 fi
 rm -f /tmp/deploy-gate-migrate.$$

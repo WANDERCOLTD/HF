@@ -106,7 +106,10 @@ export function triggerSatisfied(
       return state.courseComplete;
 
     default: {
-      // Exhaustiveness check — TypeScript catches missing cases.
+      // Exhaustiveness check — TS fails compile if a new trigger type
+      // is added without a matching case. eslint-disable is intentional:
+      // the variable is the typecheck assertion, never read at runtime.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _exhaustive: never = trigger;
       return false;
     }

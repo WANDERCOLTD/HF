@@ -108,6 +108,8 @@ export function SessionFlowProgress({ callerId }: SessionFlowProgressProps) {
 
   useEffect(() => {
     let cancelled = false;
+    // Standard fetch-on-mount pattern — see SessionFlowTimeline for matching note.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
     fetch(`/api/callers/${callerId}/session-flow-progress`)
