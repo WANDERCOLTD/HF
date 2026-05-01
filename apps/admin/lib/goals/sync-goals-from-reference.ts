@@ -12,6 +12,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import type { GoalTemplate, PlaybookConfig } from "@/lib/types/json-fields";
 
 export interface SyncGoalsResult {
@@ -124,7 +125,7 @@ export async function syncGoalsFromReference(
     await prisma.playbook.update({
       where: { id: playbook.id },
       data: {
-        config: { ...config, goals: mergedGoals },
+        config: { ...config, goals: mergedGoals } as Prisma.InputJsonValue,
       },
     });
 
