@@ -119,6 +119,28 @@ function resolveIntake(
 //           domain.onboardingFlowPhases > INIT-001 spec
 // ---------------------------------------------------------------------------
 
+/**
+ * Normalize legacy onboardingFlowPhases values to the canonical
+ * `{ phases: [...] }` shape. Legacy data stores the raw array on
+ * Domain.onboardingFlowPhases (and occasionally on playbook config) — this
+ * caused undefined-access crashes in SessionFlowEditor when the resolver
+ * passed the raw array through unwrapped.
+ *
+ * Returns null when input is not coercible.
+ */
+function normalizeOnboardingFlowPhases(
+  raw: unknown,
+): OnboardingFlowPhases | null {
+  if (!raw) return null;
+  if (Array.isArray(raw)) {
+    return { phases: raw as OnboardingFlowPhases["phases"] };
+  }
+  if (typeof raw === "object" && Array.isArray((raw as { phases?: unknown }).phases)) {
+    return raw as OnboardingFlowPhases;
+  }
+  return null;
+}
+
 function resolveOnboarding(
   sf: SessionFlowConfig,
   pbConfig: PlaybookConfig,
@@ -134,14 +156,15 @@ function resolveOnboarding(
       source: "new-shape",
     };
   }
-  if (pbConfig.onboardingFlowPhases) {
-    return { value: pbConfig.onboardingFlowPhases, source: "playbook-legacy" };
+  const playbookNormalized = normalizeOnboardingFlowPhases(pbConfig.onboardingFlowPhases);
+  if (playbookNormalized) {
+    return { value: playbookNormalized, source: "playbook-legacy" };
   }
-  const domainPhases = domain?.onboardingFlowPhases as OnboardingFlowPhases | null | undefined;
-  if (domainPhases) {
-    return { value: domainPhases, source: "domain" };
+  const domainNormalized = normalizeOnboardingFlowPhases(domain?.onboardingFlowPhases);
+  if (domainNormalized) {
+    return { value: domainNormalized, source: "domain" };
   }
-  const initFlow = onboardingSpec?.config?.firstCallFlow;
+  const initFlow = normalizeOnboardingFlowPhases(onboardingSpec?.config?.firstCallFlow);
   if (initFlow) {
     return { value: initFlow, source: "init001" };
   }
