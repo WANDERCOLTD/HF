@@ -340,6 +340,13 @@ export interface PlaybookConfig {
    * defaults. See per-field-defaults-with-warnings policy in spec #236.
    */
   moduleDefaults?: Partial<ModuleDefaults>;
+  /**
+   * Outcome statements parsed from `**OUT-NN: <statement>.**` bold headings
+   * in the Course Reference. Keyed by outcome ID. Used to render the
+   * AuthoredModulesPanel detail view with full text instead of bare IDs.
+   * Issue #258.
+   */
+  outcomes?: Record<string, string>;
   pickerLayout?: PickerLayout;
   validationWarnings?: ValidationWarning[];
   [key: string]: any;

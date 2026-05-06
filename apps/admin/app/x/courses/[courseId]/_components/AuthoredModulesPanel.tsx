@@ -69,6 +69,7 @@ const EMPTY_STATE: AuthoredModulesState = {
   moduleDefaults: {},
   moduleSource: null,
   moduleSourceRef: null,
+  outcomes: {},
   validationWarnings: [],
   hasErrors: false,
   lessonPlanMode: null,
@@ -99,6 +100,7 @@ export function AuthoredModulesPanel({
         moduleDefaults: data.moduleDefaults,
         moduleSource: data.moduleSource,
         moduleSourceRef: data.moduleSourceRef,
+        outcomes: data.outcomes ?? {},
         validationWarnings: data.validationWarnings,
         hasErrors: data.hasErrors,
         lessonPlanMode: data.lessonPlanMode,
@@ -162,7 +164,7 @@ export function AuthoredModulesPanel({
 
       {state.modules.length > 0 && (
         <>
-          <CatalogueTable modules={state.modules} />
+          <CatalogueTable modules={state.modules} outcomes={state.outcomes} />
           <StatusStrip
             warnings={state.validationWarnings}
             hasErrors={state.hasErrors}
@@ -234,7 +236,13 @@ function EmptyState({
 
 // ── Catalogue table (expandable rows) ──────────────────────────────
 
-function CatalogueTable({ modules }: { modules: AuthoredModule[] }) {
+function CatalogueTable({
+  modules,
+  outcomes,
+}: {
+  modules: AuthoredModule[];
+  outcomes: Record<string, string>;
+}) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const toggle = (id: string) =>
     setExpandedId((prev) => (prev === id ? null : id));
@@ -261,6 +269,7 @@ function CatalogueTable({ modules }: { modules: AuthoredModule[] }) {
               <CatalogueRow
                 key={m.id}
                 module={m}
+                outcomes={outcomes}
                 isExpanded={isExpanded}
                 onToggle={() => toggle(m.id)}
               />
@@ -274,10 +283,12 @@ function CatalogueTable({ modules }: { modules: AuthoredModule[] }) {
 
 function CatalogueRow({
   module: m,
+  outcomes,
   isExpanded,
   onToggle,
 }: {
   module: AuthoredModule;
+  outcomes: Record<string, string>;
   isExpanded: boolean;
   onToggle: () => void;
 }) {
@@ -324,7 +335,7 @@ function CatalogueRow({
       {isExpanded && (
         <tr className="authored-modules-table__detail-row">
           <td colSpan={8} className="authored-modules-table__detail-cell">
-            <ModuleDetail module={m} />
+            <ModuleDetail module={m} outcomes={outcomes} />
           </td>
         </tr>
       )}
@@ -361,7 +372,13 @@ function FrequencyPill({ frequency }: { frequency: AuthoredModule["frequency"] }
   );
 }
 
-function ModuleDetail({ module: m }: { module: AuthoredModule }) {
+function ModuleDetail({
+  module: m,
+  outcomes,
+}: {
+  module: AuthoredModule;
+  outcomes: Record<string, string>;
+}) {
   return (
     <div className="authored-modules-detail">
       {/* Top metadata strip */}
@@ -391,11 +408,19 @@ function ModuleDetail({ module: m }: { module: AuthoredModule }) {
             <p className="hf-text-sm hf-text-muted">None declared.</p>
           ) : (
             <ul className="authored-modules-detail__list">
-              {m.outcomesPrimary.map((id) => (
-                <li key={id} className="authored-modules-detail__list-item">
-                  <code className="authored-modules-detail__outcome-id">{id}</code>
-                </li>
-              ))}
+              {m.outcomesPrimary.map((id) => {
+                const statement = outcomes[id];
+                return (
+                  <li key={id} className="authored-modules-detail__list-item">
+                    <code className="authored-modules-detail__outcome-id">{id}</code>
+                    {statement && (
+                      <span className="authored-modules-detail__outcome-text">
+                        {statement}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

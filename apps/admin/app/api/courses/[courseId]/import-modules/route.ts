@@ -82,6 +82,8 @@ export async function GET(
     moduleDefaults: cfg.moduleDefaults ?? {},
     moduleSource: cfg.moduleSource ?? null,
     moduleSourceRef: cfg.moduleSourceRef ?? null,
+    // #258: outcome statements parsed from `**OUT-NN: <statement>.**` headings.
+    outcomes: cfg.outcomes ?? {},
     validationWarnings: warnings,
     hasErrors: warnings.some((w) => w.severity === "error"),
     // Surfaced so the learner-preview component can pick the right layout
@@ -178,6 +180,7 @@ export async function POST(
     modulesAuthored: detected.modulesAuthored,
     modules: detected.modules,
     moduleDefaults: detected.moduleDefaults,
+    outcomes: detected.outcomes,
     validationWarnings: detected.validationWarnings,
     detectedFrom: detected.detectedFrom,
     hasErrors: hasBlockingErrors(detected),

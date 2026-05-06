@@ -45,10 +45,34 @@ export interface DetectedAuthoredModules {
   modules: AuthoredModule[];
   /** Defaults block parsed from the document; empty object when none present. */
   moduleDefaults: Partial<ModuleDefaults>;
+  /**
+   * Outcome statements parsed from `**OUT-NN: <statement>.**` bold headings.
+   * Keyed by outcome ID. Empty object when no such headings present.
+   * #258.
+   */
+  outcomes: Record<string, string>;
   /** Warnings + errors raised during parsing. Drives the publish gate. */
   validationWarnings: ValidationWarning[];
   /** Raw text snippets that triggered each detection — surfaced for debug. */
   detectedFrom: string[];
+}
+
+// ── Outcome statement extraction (#258) ──────────────────────────────
+// Matches a line like `**OUT-01: Extends every answer to ... .**`. Tolerates
+// trailing whitespace, optional trailing period, and outcome ID widths.
+const OUTCOME_STATEMENT_LINE = /^\s*\*\*\s*(OUT-\d+)\s*:\s*([^*]+?)\s*\*\*\s*$/;
+
+export function extractOutcomeStatements(bodyText: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of bodyText.split(/\r?\n/)) {
+    const m = line.match(OUTCOME_STATEMENT_LINE);
+    if (!m) continue;
+    const [, id, statement] = m;
+    // Strip a single trailing period to keep the value tidy when re-rendered.
+    const cleaned = statement.replace(/\.$/, "").trim();
+    if (cleaned) out[id] = cleaned;
+  }
+  return out;
 }
 
 // ── Module ID validation ──────────────────────────────────────────────
@@ -465,9 +489,14 @@ export function detectAuthoredModules(bodyText: string): DetectedAuthoredModules
     modulesAuthored: null,
     modules: [],
     moduleDefaults: {},
+    outcomes: {},
     validationWarnings: [],
     detectedFrom: [],
   };
+
+  // ── 0. Outcome statements (#258) — runs unconditionally so we never lose
+  // the data even when the modules-authored signal is missing or partial.
+  result.outcomes = extractOutcomeStatements(bodyText);
 
   // ── 1. Header declaration
   const headerMatch = bodyText.match(MODULES_AUTHORED_HEADER);

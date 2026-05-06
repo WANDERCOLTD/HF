@@ -69,12 +69,21 @@ export function applyAuthoredModules(
   }
 
   // Authored = true. Merge in.
+  // #258: outcome statements are merged from the parse so they survive a
+  // re-import that drops a previously-declared OUT-NN heading. If the parse
+  // produced no outcomes, the existing map is preserved unchanged — keeps
+  // backward-compat for courses imported before #258 landed.
+  const mergedOutcomes = Object.keys(parsed.outcomes ?? {}).length > 0
+    ? { ...(existing.outcomes ?? {}), ...parsed.outcomes }
+    : existing.outcomes;
+
   const next: PlaybookConfig = {
     ...existing,
     modulesAuthored: true,
     moduleSource: "authored",
     modules: parsed.modules,
     moduleDefaults: { ...(existing.moduleDefaults ?? {}), ...parsed.moduleDefaults },
+    ...(mergedOutcomes ? { outcomes: mergedOutcomes } : {}),
     validationWarnings: parsed.validationWarnings,
     ...(options.sourceRef ? { moduleSourceRef: options.sourceRef } : {}),
   };
