@@ -1,0 +1,123 @@
+/**
+ * POST /api/courses/[courseId]/import-modules
+ *
+ * Parses a Course Reference markdown body for an author-declared Module
+ * Catalogue (Issue #236, PR2/4) and persists the result to PlaybookConfig.
+ *
+ * The route is a thin wrapper around the deterministic detectAuthoredModules
+ * parser (PR1) and the applyAuthoredModules merge helper. It:
+ *   1. Authenticates the request (OPERATOR+).
+ *   2. Validates the body shape with zod.
+ *   3. Loads the Playbook (Course = Playbook in this codebase).
+ *   4. Runs the parser, then merges the result into the existing config.
+ *   5. Persists when the parser produced a definitive signal; warnings are
+ *      preserved alongside the modules so the publish gate (PR4) can read
+ *      them. Errors are also persisted but reported in the response so the
+ *      caller can decide whether to surface them as blockers.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { requireAuth, isAuthError } from "@/lib/permissions";
+import type { PlaybookConfig } from "@/lib/types/json-fields";
+import { detectAuthoredModules } from "@/lib/wizard/detect-authored-modules";
+import {
+  applyAuthoredModules,
+  hasBlockingErrors,
+} from "@/lib/wizard/persist-authored-modules";
+
+// ── Body schema ──────────────────────────────────────────────────────
+
+const BodySchema = z.object({
+  markdown: z.string().min(1, "markdown is required"),
+  sourceRef: z
+    .object({
+      docId: z.string().min(1),
+      version: z.string().min(1),
+    })
+    .optional(),
+});
+
+type Body = z.infer<typeof BodySchema>;
+
+/**
+ * @api POST /api/courses/[courseId]/import-modules
+ * @visibility internal
+ * @scope course:write
+ * @auth session (OPERATOR+)
+ * @description Parse a Course Reference markdown body for an author-declared
+ *   Module Catalogue and persist the result to PlaybookConfig. Idempotent —
+ *   re-importing the same markdown yields the same result. Per-field-defaults-
+ *   with-warnings policy: warnings are persisted; errors are reported in the
+ *   response (`hasErrors: true`) but do not block persistence — the production
+ *   publish gate is a separate concern.
+ * @request { markdown: string, sourceRef?: { docId: string, version: string } }
+ * @response 200 { ok, modulesAuthored, modules, validationWarnings, detectedFrom, hasErrors, persisted }
+ * @response 400 { ok: false, error: "Invalid body", issues: ZodIssue[] }
+ * @response 404 { ok: false, error: "Course not found" }
+ */
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ courseId: string }> },
+): Promise<NextResponse> {
+  const auth = await requireAuth("OPERATOR");
+  if (isAuthError(auth)) return auth.error;
+
+  let body: Body;
+  try {
+    const raw = await req.json();
+    const parsed = BodySchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid body", issues: parsed.error.issues },
+        { status: 400 },
+      );
+    }
+    body = parsed.data;
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "Invalid JSON body" },
+      { status: 400 },
+    );
+  }
+
+  const { courseId } = await params;
+
+  const playbook = await prisma.playbook.findUnique({
+    where: { id: courseId },
+    select: { id: true, config: true },
+  });
+  if (!playbook) {
+    return NextResponse.json(
+      { ok: false, error: "Course not found" },
+      { status: 404 },
+    );
+  }
+
+  const detected = detectAuthoredModules(body.markdown);
+  const existingConfig = (playbook.config ?? {}) as PlaybookConfig;
+  const { config: nextConfig, changed } = applyAuthoredModules(
+    existingConfig,
+    detected,
+    { sourceRef: body.sourceRef },
+  );
+
+  if (changed) {
+    await prisma.playbook.update({
+      where: { id: courseId },
+      data: { config: nextConfig as object },
+    });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    modulesAuthored: detected.modulesAuthored,
+    modules: detected.modules,
+    moduleDefaults: detected.moduleDefaults,
+    validationWarnings: detected.validationWarnings,
+    detectedFrom: detected.detectedFrom,
+    hasErrors: hasBlockingErrors(detected),
+    persisted: changed,
+  });
+}
