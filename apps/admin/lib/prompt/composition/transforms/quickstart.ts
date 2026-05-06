@@ -373,9 +373,33 @@ registerTransform("computeQuickStart", (
       return `Progress: ${completed}/${total} modules mastered${currentModuleName ? ` | Current: ${currentModuleName}` : ""}`;
     })() : null,
 
-    key_memories: deduplicated.length > 0
-      ? deduplicated.slice(0, 3).map((m: any) => `${m.key}: ${m.value}`)
-      : null,
+    key_memories: (() => {
+      // Identity-critical keys must always surface so the tutor knows what
+      // to call the learner. Promote them ahead of the slice cap; fill the
+      // remaining slots with the most-recent / highest-ranked memories.
+      // (Bug: a learner stated their name in call 1 and the call-2 tutor
+      // asked again — name was in CallerMemory but never made it into the
+      // composed prompt's Key Memories line.)
+      if (deduplicated.length === 0) return null;
+      const IDENTITY_KEYS = new Set([
+        "name",
+        "first_name",
+        "firstName",
+        "surname",
+        "last_name",
+        "lastName",
+        "nickname",
+        "preferred_name",
+        "preferredName",
+      ]);
+      const identity = deduplicated.filter((m: any) => IDENTITY_KEYS.has(m.key));
+      const others = deduplicated.filter((m: any) => !IDENTITY_KEYS.has(m.key));
+      // Cap at 4 (was 3) so an identity hit doesn't push out a relevant
+      // non-identity fact.
+      return [...identity, ...others]
+        .slice(0, 4)
+        .map((m: any) => `${m.key}: ${m.value}`);
+    })(),
 
     voice_style: (() => {
       const warmth = mergedTargets.find((t: any) => t.parameterId === PARAMS.BEH_WARMTH);
