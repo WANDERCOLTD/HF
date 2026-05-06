@@ -740,6 +740,17 @@ export async function executeWizardTool(
             const constraints = (input.constraints as string[]) || (setupData?.constraints as string[]);
             if (constraints) configUpdate.constraints = constraints;
 
+            // #253: progressionMode — wizard's mandatory choice between
+            // AI-led teaching (scheduler picks each call) and learner-picks
+            // (picker shows authored modules). Maps to PlaybookConfig.modulesAuthored.
+            const progressionMode =
+              (input.progressionMode as string) || (setupData?.progressionMode as string);
+            if (progressionMode === "learner-picks") {
+              configUpdate.modulesAuthored = true;
+            } else if (progressionMode === "ai-led") {
+              configUpdate.modulesAuthored = false;
+            }
+
             // #167 — Carry through pedagogy detected from an uploaded course
             // reference. These values override the system defaults:
             //   - lessonPlanMode: "continuous" means the scheduler decides
@@ -1962,6 +1973,16 @@ export async function executeWizardTool(
         if (input.lessonPlanModel) configUpdate.lessonPlanModel = input.lessonPlanModel;
         if (welcomeMessage) configUpdate.welcomeMessage = welcomeMessage;
         if (input.courseContext) configUpdate.courseContext = input.courseContext;
+
+        // #253: progressionMode → modulesAuthored mapping (also handled at
+        // create_course; mirror here for update_course_config paths).
+        const updateProgressionMode =
+          (input.progressionMode as string) || (setupData?.progressionMode as string);
+        if (updateProgressionMode === "learner-picks") {
+          configUpdate.modulesAuthored = true;
+        } else if (updateProgressionMode === "ai-led") {
+          configUpdate.modulesAuthored = false;
+        }
 
         await prisma.playbook.update({
           where: { id: playbookId },

@@ -67,7 +67,10 @@ export type OptionsKey =
   | "durations"
   | "planEmphases"
   | "lessonModels"
-  | "subjectsCatalog";
+  | "subjectsCatalog"
+  // #253: how learners progress — AI scheduler-led vs learner-picks-from-menu.
+  // Maps to PlaybookConfig.modulesAuthored (true = learner picks).
+  | "progressionModes";
 
 // ── Graph node definition ─────────────────────────────────
 

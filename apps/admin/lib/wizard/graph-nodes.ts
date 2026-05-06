@@ -101,6 +101,29 @@ export const WIZARD_GRAPH_NODES: WizardGraphNode[] = [
     affinityTags: ["course"],
   },
   {
+    // #253: mandatory choice between AI-scheduler-led teaching and
+    // learner-picks-from-menu. Maps to PlaybookConfig.modulesAuthored
+    // (true = learner picks; false = AI scheduler decides each call).
+    // Required and EARLY in the graph so downstream nodes (modules, picker
+    // wiring, journey-position routing) can branch on it cleanly.
+    key: "progressionMode",
+    label: "Module progression",
+    group: "course",
+    inputType: "options",
+    required: true,
+    priority: 1,
+    dependsOn: ["courseName"],
+    resolvedBy: ["course-lookup"],
+    optionsKey: "progressionModes",
+    promptHint:
+      "How do learners progress through the course? Two options:\n" +
+      "- 'AI-led' (modulesAuthored=false): the scheduler picks what to cover each call. Learner just calls in.\n" +
+      "- 'Learner picks' (modulesAuthored=true): learner sees a module menu before each session and picks. REQUIRES a Module Catalogue table in the Course Reference markdown — surface a friendly error if 'Learner picks' is chosen but courseRefDigest is missing or has no Module Catalogue.\n" +
+      "PROPOSE based on evidence: if Course Reference has a Module Catalogue table, propose 'Learner picks'. If the user described the course as 'adaptive' or 'AI decides each call', propose 'AI-led'. State your reasoning. Save as 'ai-led' or 'learner-picks' (string), then mirror to PlaybookConfig.modulesAuthored when persisting.",
+    mutablePostScaffold: true,
+    affinityTags: ["course", "progression"],
+  },
+  {
     key: "interactionPattern",
     label: "Teaching approach",
     group: "course",

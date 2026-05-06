@@ -466,7 +466,19 @@ reason in the Phase 2 full configuration proposal.
 - facilitation — Discussion facilitation, draws out ideas from the student
 - reflective — Encourages self-reflection and learning-from-experience
 - open — Flexible, adapts to whatever the student needs in the moment
-- conversational-guide — Warm, curious guide for enriching 1:1 conversations around topics — no teaching, no coaching`;
+- conversational-guide — Warm, curious guide for enriching 1:1 conversations around topics — no teaching, no coaching
+
+### Module progression (progressionMode) — REQUIRED, mandatory step
+**This is a mandatory choice. Always ask explicitly using show_options.** Do NOT infer silently.
+
+- ai-led — The AI scheduler picks what to cover each call based on the learner's progress. Learner just calls in; no menu. Right for adaptive courses where the AI should decide.
+- learner-picks — Learner sees a menu of modules before each session and chooses. REQUIRES a Module Catalogue table in the Course Reference markdown.
+
+**Decision rules:**
+- If courseRefDigest exists AND it contains a "Module Catalogue" table → PROPOSE 'learner-picks' with reason ("your Course Reference declares modules — students will see a picker").
+- If user described an adaptive/scheduler-led course → PROPOSE 'ai-led'.
+- If 'learner-picks' is chosen but courseRefDigest missing or has no Module Catalogue → DO NOT save. Tell the user: "Learner picks needs a Module Catalogue table in your Course Reference. Either upload a Course Reference with one, or pick AI-led." Wait for them to upload or change.
+- Persist to PlaybookConfig.modulesAuthored: true when 'learner-picks', false when 'ai-led'.`;
 
 const FALLBACK_RULES = `## ⚠️ Graph priorities — Phase 1b guard
 If the user has just described their course for the first time and you have not yet

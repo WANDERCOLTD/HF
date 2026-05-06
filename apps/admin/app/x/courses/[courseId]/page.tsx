@@ -994,6 +994,10 @@ export default function CourseDetailPage() {
                 {setupReadiness.allComplete ? 'Ready' : `${setupReadiness.completedCount}/6`}
               </span>
             )}
+            <ProgressionModePill
+              modulesAuthored={(detail.config as Record<string, unknown> | null | undefined)?.modulesAuthored as boolean | null | undefined}
+              onClickWhenUnset={() => router.push(`/x/courses/${detail.id}?tab=curriculum`)}
+            />
           </div>
           <div className="hf-flex hf-gap-sm hf-items-center">
             <DomainPill label={detail.domain.name} href={`/x/domains?id=${detail.domain.id}`} size="compact" />
@@ -1650,5 +1654,52 @@ export default function CourseDetailPage() {
         />
       )}
     </div>
+  );
+}
+
+// ── Module progression mode badge (#253) ─────────────────────────────
+//
+// Surfaces the course's `modulesAuthored` choice next to the title so
+// educators can see at a glance whether learners will be presented with a
+// picker (true) or fall through to scheduler-led teaching (false). When
+// unset, renders a clickable warning pill that routes to the Curriculum tab
+// so the educator can resolve it via Re-import.
+function ProgressionModePill({
+  modulesAuthored,
+  onClickWhenUnset,
+}: {
+  modulesAuthored: boolean | null | undefined;
+  onClickWhenUnset: () => void;
+}) {
+  if (modulesAuthored === true) {
+    return (
+      <span
+        className="cd-progression-pill cd-progression-pill--learner"
+        title="Learners pick from a module menu before each session"
+      >
+        Learner picks
+      </span>
+    );
+  }
+  if (modulesAuthored === false) {
+    return (
+      <span
+        className="cd-progression-pill cd-progression-pill--ai"
+        title="AI scheduler decides which module to cover each call"
+      >
+        AI-led
+      </span>
+    );
+  }
+  // null / undefined — never set
+  return (
+    <button
+      type="button"
+      className="cd-progression-pill cd-progression-pill--unset"
+      onClick={onClickWhenUnset}
+      title="Click to choose how learners progress (AI-led or learner-picks)"
+    >
+      Mode not set
+    </button>
   );
 }
