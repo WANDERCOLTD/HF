@@ -185,6 +185,12 @@ export function CourseLearnersTab({ courseId, initialJoinToken, studentProgress 
 
   const handleCreateTestLearner = useCallback(async () => {
     if (creatingTestLearner) return;
+    // Open the tab SYNCHRONOUSLY in the click handler so popup blockers accept
+    // it as user-initiated — `await fetch` later breaks that gesture context.
+    // `noopener` is dropped because Chromium returns null from window.open when
+    // it's set, and we need the handle to redirect once the fetch resolves.
+    // Admin-only tooling — opener access is acceptable here.
+    const newTab = window.open('about:blank', '_blank');
     setCreatingTestLearner(true);
     setTestLearnerError(null);
     try {
@@ -193,13 +199,20 @@ export function CourseLearnersTab({ courseId, initialJoinToken, studentProgress 
       });
       const data = await res.json();
       if (data.ok) {
-        // Open in a new tab so the educator can keep the course config tab
-        // open and watch the sim run side-by-side.
-        window.open(`/x/callers/${data.callerId}?section=ai-call`, '_blank', 'noopener');
+        const url = `/x/callers/${data.callerId}?section=ai-call`;
+        if (newTab && !newTab.closed) {
+          newTab.location.href = url;
+        } else {
+          // Popup blocker swallowed the open() despite the gesture context, or
+          // the user closed it. Fall back to in-place navigation.
+          window.location.href = url;
+        }
       } else {
+        if (newTab && !newTab.closed) newTab.close();
         setTestLearnerError(data.error || 'Failed to create test learner');
       }
     } catch {
+      if (newTab && !newTab.closed) newTab.close();
       setTestLearnerError('Network error');
     } finally {
       setCreatingTestLearner(false);

@@ -126,6 +126,18 @@ export default function SimConversationPage() {
     // Journey onCallEnd is now called directly inside SimChat
   }, [router, isStudent]);
 
+  // #242 Slice 2: must live ABOVE the early returns or React's hook order
+  // changes between renders (Rules of Hooks violation).
+  const handlePickModule = useCallback(() => {
+    if (!playbookId) return;
+    const sp = new URLSearchParams();
+    // Strip requestedModuleId so the banner doesn't keep firing on re-pick.
+    const carryParams = new URLSearchParams(searchParams.toString());
+    carryParams.delete('requestedModuleId');
+    sp.set('returnTo', `/x/sim/${callerId}${carryParams.toString() ? `?${carryParams.toString()}` : ''}`);
+    router.push(`/x/student/${playbookId}/modules?${sp.toString()}`);
+  }, [callerId, playbookId, router, searchParams]);
+
   if (error) {
     return (
       <>
@@ -148,16 +160,6 @@ export default function SimConversationPage() {
       </>
     );
   }
-
-  const handlePickModule = useCallback(() => {
-    if (!playbookId) return;
-    const sp = new URLSearchParams();
-    // Strip requestedModuleId so the banner doesn't keep firing on re-pick.
-    const carryParams = new URLSearchParams(searchParams.toString());
-    carryParams.delete('requestedModuleId');
-    sp.set('returnTo', `/x/sim/${callerId}${carryParams.toString() ? `?${carryParams.toString()}` : ''}`);
-    router.push(`/x/student/${playbookId}/modules?${sp.toString()}`);
-  }, [callerId, playbookId, router, searchParams]);
 
   return (
     <>
