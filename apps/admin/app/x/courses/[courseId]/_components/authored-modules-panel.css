@@ -199,3 +199,236 @@
 .authored-modules-dialog__actions {
   justify-content: flex-end;
 }
+
+/* ── Learner picker preview wrapper (admin) ─────────────── */
+
+.authored-modules-preview {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-default);
+}
+
+.authored-modules-preview__header {
+  margin-bottom: 4px;
+}
+
+.authored-modules-preview__title {
+  margin: 0;
+}
+
+.authored-modules-preview__caption {
+  margin: 0 0 8px 0;
+}
+
+/* ── Learner picker (reusable) ──────────────────────────── */
+
+.learner-picker {
+  margin-top: 12px;
+}
+
+.learner-picker__empty {
+  margin: 0;
+}
+
+.learner-picker__icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.learner-picker__sep {
+  color: var(--text-muted);
+}
+
+.learner-picker__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.learner-picker__badge--warn {
+  background: color-mix(in srgb, var(--status-error-text) 12%, transparent);
+  color: var(--status-error-text);
+}
+
+.learner-picker__badge--ok {
+  background: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+  color: var(--status-success-text);
+}
+
+.learner-picker__badge--info {
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  color: var(--accent-primary);
+}
+
+/* Tiles (continuous) */
+
+.learner-picker__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.learner-picker__tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface-primary);
+  text-align: left;
+  cursor: default;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+button.learner-picker__tile {
+  cursor: pointer;
+}
+
+button.learner-picker__tile:hover {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 4%, var(--surface-primary));
+}
+
+.learner-picker__tile[data-terminal] {
+  border-style: dashed;
+}
+
+.learner-picker__tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.learner-picker__tile-label {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.learner-picker__tile-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.learner-picker__tile-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+/* Rail (structured) */
+
+.learner-picker__rail {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.learner-picker__rail-item {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.learner-picker__rail-marker {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12px;
+}
+
+.learner-picker__rail-position {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.learner-picker__rail-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface-primary);
+  text-align: left;
+  cursor: default;
+  width: 100%;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+button.learner-picker__rail-card {
+  cursor: pointer;
+}
+
+button.learner-picker__rail-card:hover {
+  border-color: var(--accent-primary);
+}
+
+.learner-picker__rail-card[data-complete] {
+  background: color-mix(in srgb, var(--status-success-text) 4%, var(--surface-primary));
+}
+
+.learner-picker__rail-card[data-terminal] {
+  border-style: dashed;
+}
+
+.learner-picker__rail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.learner-picker__rail-label {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.learner-picker__rail-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.learner-picker__rail-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}

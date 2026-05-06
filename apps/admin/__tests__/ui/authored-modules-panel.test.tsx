@@ -110,18 +110,23 @@ describe("AuthoredModulesPanel — populated catalogue", () => {
     });
 
     render(<AuthoredModulesPanel courseId="c1" isOperator={true} />);
+    // ID code cell appears only in the catalogue table, so single match
     await waitFor(() => {
       expect(screen.getByText("baseline")).toBeInTheDocument();
     });
-    expect(screen.getByText("Baseline Assessment")).toBeInTheDocument();
     expect(screen.getByText("part1")).toBeInTheDocument();
-    expect(screen.getByText("Part 1: Familiar Topics")).toBeInTheDocument();
+    // Labels appear in BOTH the catalogue table and the picker preview now
+    // (PR4 mounted the picker as a preview); use getAllByText for them.
+    expect(screen.getAllByText("Baseline Assessment").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Part 1: Familiar Topics").length).toBeGreaterThanOrEqual(1);
     // Status strip
     expect(screen.getByText(/Production publish ready/i)).toBeInTheDocument();
     // Source ref
     expect(screen.getByText(/doc doc-9/i)).toBeInTheDocument();
     // "Re-import" wording when modules already exist
     expect(screen.getByRole("button", { name: /Re-import/i })).toBeInTheDocument();
+    // PR4: picker preview header is present
+    expect(screen.getByText(/Learner Picker Preview/i)).toBeInTheDocument();
   });
 });
 
