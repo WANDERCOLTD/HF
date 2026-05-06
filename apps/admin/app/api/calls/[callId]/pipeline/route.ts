@@ -63,7 +63,23 @@ import type { SpecConfig } from "@/lib/types/json-fields";
  */
 async function loadCurrentModuleContext(
   callerId: string,
-  log: PipelineLogger
+  log: PipelineLogger,
+  opts?: {
+    /**
+     * #242 Slice 2: explicit module pick from the picker, persisted on
+     * Call.requestedModuleId. When provided AND found in
+     * Playbook.config.modules, we build a moduleContext from it directly
+     * rather than running the scheduler — guarantees mastery is emitted
+     * against the learner's choice.
+     */
+    requestedModuleId?: string | null;
+    /**
+     * Fallback playbookId from the call record itself, used when the caller
+     * has no CallerPlaybook enrollment (common for SIM testers). Must NOT
+     * shadow a real enrollment.
+     */
+    callPlaybookId?: string | null;
+  }
 ): Promise<{
   specSlug: string;
   moduleId: string;
@@ -72,11 +88,64 @@ async function loadCurrentModuleContext(
   masteryThreshold: number;
   allModuleIds: string[];
 } | null> {
-  // Resolve the caller's actual enrolment (CallerPlaybook) instead of picking
-  // a random playbook in the domain. Prior findFirst-by-domain was silently
-  // binding to the wrong course in any multi-course domain.
-  const resolvedPlaybookId = await resolvePlaybookId(callerId);
+  // Resolve the caller's actual enrolment (CallerPlaybook) first.
+  // Fall back to the call's own playbookId for SIM testers without
+  // an explicit CallerPlaybook row.
+  let resolvedPlaybookId = await resolvePlaybookId(callerId);
+  if (!resolvedPlaybookId && opts?.callPlaybookId) {
+    log.info("No enrollment; using call.playbookId as fallback", {
+      callPlaybookId: opts.callPlaybookId,
+    });
+    resolvedPlaybookId = opts.callPlaybookId;
+  }
   if (!resolvedPlaybookId) return null;
+
+  // ── #242 Slice 2: requestedModuleId override ──
+  // When the learner picked a module via the picker, build the moduleContext
+  // directly from Playbook.config.modules (the authored shape). The override
+  // bypasses the scheduler so mastery fires against the learner's choice
+  // even if scheduler logic would have selected a different module.
+  if (opts?.requestedModuleId) {
+    const pb = await prisma.playbook.findUnique({
+      where: { id: resolvedPlaybookId },
+      select: {
+        name: true,
+        config: true,
+        curricula: {
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: { slug: true },
+        },
+      },
+    });
+    const cfg = (pb?.config ?? {}) as Record<string, any>;
+    const authored = Array.isArray(cfg.modules) ? cfg.modules : [];
+    const match = authored.find((m: any) => m?.id === opts.requestedModuleId);
+    if (match) {
+      const specSlug =
+        pb?.curricula[0]?.slug ??
+        `playbook-${resolvedPlaybookId.slice(0, 8)}-modules`;
+      log.info("Module context override from picker", {
+        requestedModuleId: opts.requestedModuleId,
+        specSlug,
+        loCount: (match.outcomesPrimary || []).length,
+      });
+      return {
+        specSlug,
+        moduleId: match.id,
+        moduleName: match.label || match.id,
+        learningOutcomes: Array.isArray(match.outcomesPrimary)
+          ? match.outcomesPrimary
+          : [],
+        masteryThreshold: 0.7,
+        allModuleIds: authored.map((m: any) => m?.id).filter(Boolean),
+      };
+    }
+    log.warn("requestedModuleId not found in Playbook.config.modules — falling back to scheduler", {
+      requestedModuleId: opts.requestedModuleId,
+      playbookId: resolvedPlaybookId,
+    });
+  }
 
   // Path 1: CONTENT spec via the caller's enrolled playbook
   const playbook = await prisma.playbook.findUnique({
@@ -263,7 +332,12 @@ Return compact JSON:
  * Run batched caller analysis (MEASURE + LEARN)
  */
 async function runBatchedCallerAnalysis(
-  call: { id: string; transcript: string | null },
+  call: {
+    id: string;
+    transcript: string | null;
+    playbookId?: string | null;
+    requestedModuleId?: string | null;
+  },
   callerId: string,
   engine: AIEngine,
   log: PipelineLogger,
@@ -405,7 +479,10 @@ async function runBatchedCallerAnalysis(
   if (assessmentSpec) {
     const assessConfig = assessmentSpec.config as Record<string, any>;
     try {
-      moduleContext = await loadCurrentModuleContext(callerId, log);
+      moduleContext = await loadCurrentModuleContext(callerId, log, {
+        requestedModuleId: call.requestedModuleId ?? null,
+        callPlaybookId: call.playbookId ?? null,
+      });
       if (moduleContext) {
         // Use mastery threshold from spec config (overrides default)
         moduleContext.masteryThreshold = assessConfig.masteryThreshold ?? moduleContext.masteryThreshold;
@@ -1940,7 +2017,7 @@ async function updateTpMasteryAfterCall(
 interface PipelineContext {
   callId: string;
   callerId: string;
-  call: { id: string; transcript: string | null; playbookId: string | null };
+  call: { id: string; transcript: string | null; playbookId: string | null; requestedModuleId: string | null };
   engine: AIEngine;
   guardrails: GuardrailsConfig;
   pipelineStages: PipelineStage[];
@@ -2498,7 +2575,7 @@ export async function POST(
     // Load call
     const call = await prisma.call.findUnique({
       where: { id: callId },
-      select: { id: true, transcript: true, playbookId: true },
+      select: { id: true, transcript: true, playbookId: true, requestedModuleId: true },
     });
 
     if (!call) {

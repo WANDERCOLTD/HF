@@ -88,7 +88,7 @@ export async function POST(
 
     const { callerId } = await params;
     const body = await request.json();
-    const { source = "ai-simulation", callSequence, transcript = "", usedPromptId, playbookId } = body;
+    const { source = "ai-simulation", callSequence, transcript = "", usedPromptId, playbookId, requestedModuleId } = body;
 
     // Verify caller exists
     const caller = await prisma.caller.findUnique({
@@ -146,6 +146,11 @@ export async function POST(
         externalId: source === "playground-upload" ? `upload-${Date.now()}` : `ai-sim-${Date.now()}`,
         playbookId: resolvedPlaybookId,
         ...(usedPromptId ? { usedPromptId } : {}),
+        // #242 Slice 2: learner's pre-call module pick from the picker.
+        // Read by the pipeline's loadCurrentModuleContext to override the
+        // scheduler-selected module so mastery is emitted against the
+        // learner's choice.
+        ...(requestedModuleId ? { requestedModuleId } : {}),
       },
     });
 
