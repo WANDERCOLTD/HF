@@ -165,8 +165,16 @@ function PickerContent() {
 
   const launchSelected = useCallback(
     (moduleId: string) => {
-      // Slice 1 stub: log + toast. Slice 2 wires this into the call-launch flow.
-      console.info("[picker] selected moduleId=%s for course=%s", moduleId, courseId);
+      // TODO(#242 Slice 2): wire this into the real VAPI call-init flow once
+      // the dial path is identified. `useJourneyChat` is NOT a call-creator
+      // (per tech-lead review). For now, the picker logs the pick and bounces
+      // back to the SIM with `?requestedModuleId=<id>`; the SIM renders a
+      // placeholder banner so devs can verify end-to-end module routing.
+      console.info(
+        "[picker] selected moduleId=%s for course=%s — placeholder, no VAPI dial yet",
+        moduleId,
+        courseId,
+      );
       setLaunching(true);
       setTimeout(() => {
         setLaunching(false);
@@ -260,7 +268,8 @@ function PickerContent() {
             className="hf-banner"
             style={{ marginTop: 16 }}
           >
-            Starting session…
+            <strong>Placeholder:</strong> VAPI call would start now —
+            returning to the simulator with the selected module.
           </div>
         )}
       </div>

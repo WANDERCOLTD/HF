@@ -34,6 +34,9 @@ export default function SimConversationPage() {
   const playbookId = searchParams.get('playbookId') || undefined;
   const communityName = searchParams.get('communityName') || undefined;
   const forceFirstCall = searchParams.get('forceFirstCall') === 'true';
+  // #242 Slice 2 placeholder: surface the moduleId chosen in the picker.
+  // No real VAPI dial wiring yet — the banner just confirms the round-trip.
+  const requestedModuleId = searchParams.get('requestedModuleId') || undefined;
 
   const targetOverrides = useMemo(() => {
     const raw = searchParams.get('tunerPills');
@@ -149,27 +152,76 @@ export default function SimConversationPage() {
   const handlePickModule = useCallback(() => {
     if (!playbookId) return;
     const sp = new URLSearchParams();
-    sp.set('returnTo', `/x/sim/${callerId}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`);
+    // Strip requestedModuleId so the banner doesn't keep firing on re-pick.
+    const carryParams = new URLSearchParams(searchParams.toString());
+    carryParams.delete('requestedModuleId');
+    sp.set('returnTo', `/x/sim/${callerId}${carryParams.toString() ? `?${carryParams.toString()}` : ''}`);
     router.push(`/x/student/${playbookId}/modules?${sp.toString()}`);
   }, [callerId, playbookId, router, searchParams]);
 
   return (
-    <SimChat
-      callerId={callerId}
-      callerName={caller.name}
-      domainName={caller.domain?.name}
-      playbookId={playbookId}
-      playbookName={communityName ?? playbookName}
-      subjectDiscipline={subjectDiscipline}
-      pastCalls={caller.pastCalls}
-      mode="standalone"
-      sessionGoal={sessionGoal}
-      targetOverrides={targetOverrides}
-      forceFirstCall={forceFirstCall || undefined}
-      onBack={isDesktop ? undefined : () => router.push('/x/sim')}
-      onCallEnd={isStudent ? handleStudentCallEnd : undefined}
-      onPickModule={modulesAuthored && playbookId ? handlePickModule : undefined}
-      journey={journey}
-    />
+    <>
+      {requestedModuleId && (
+        <ModulePickerPlaceholderBanner moduleId={requestedModuleId} />
+      )}
+      <SimChat
+        callerId={callerId}
+        callerName={caller.name}
+        domainName={caller.domain?.name}
+        playbookId={playbookId}
+        playbookName={communityName ?? playbookName}
+        subjectDiscipline={subjectDiscipline}
+        pastCalls={caller.pastCalls}
+        mode="standalone"
+        sessionGoal={sessionGoal}
+        targetOverrides={targetOverrides}
+        forceFirstCall={forceFirstCall || undefined}
+        onBack={isDesktop ? undefined : () => router.push('/x/sim')}
+        onCallEnd={isStudent ? handleStudentCallEnd : undefined}
+        onPickModule={modulesAuthored && playbookId ? handlePickModule : undefined}
+        journey={journey}
+      />
+    </>
+  );
+}
+
+/**
+ * Placeholder banner — Slice 2 of #242. Renders when the SIM is hit with
+ * `?requestedModuleId=<id>` (from the picker → SIM round-trip). The real
+ * VAPI dial wiring happens once the call-init path is identified by recon
+ * (see TODO in launchSelected at /x/student/[courseId]/modules/page.tsx).
+ */
+function ModulePickerPlaceholderBanner({ moduleId }: { moduleId: string }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        padding: '10px 16px',
+        borderBottom: '1px solid var(--border-default)',
+        background: 'color-mix(in srgb, var(--accent-primary) 8%, var(--surface-primary))',
+        fontSize: 13,
+        color: 'var(--text-primary)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+      }}
+    >
+      <strong>Placeholder:</strong>
+      <span>
+        VAPI call would now start with module{' '}
+        <code
+          style={{
+            padding: '2px 6px',
+            borderRadius: 4,
+            background: 'var(--surface-secondary)',
+            fontSize: 12,
+          }}
+        >
+          {moduleId}
+        </code>
+        {' '}— wiring pending recon (#242 Slice 2).
+      </span>
+    </div>
   );
 }

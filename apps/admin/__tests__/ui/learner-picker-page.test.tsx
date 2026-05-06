@@ -147,7 +147,7 @@ describe("StudentModulePickerPage", () => {
     const tile = await screen.findByText("Part 1");
     fireEvent.click(tile);
 
-    expect(screen.getByText("Starting session…")).toBeInTheDocument();
+    expect(screen.getByText(/VAPI call would start/i)).toBeInTheDocument();
 
     await waitFor(
       () => {
