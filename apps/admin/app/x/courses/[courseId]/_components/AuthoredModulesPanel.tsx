@@ -20,6 +20,14 @@ import {
   CheckCircle2,
   Upload,
   Eye,
+  ChevronDown,
+  ChevronRight,
+  GraduationCap,
+  Pencil,
+  Mic,
+  AlertOctagon,
+  Target,
+  Link as LinkIcon,
 } from "lucide-react";
 import type {
   AuthoredModule,
@@ -224,14 +232,19 @@ function EmptyState({
   );
 }
 
-// ── Catalogue table ────────────────────────────────────────────────
+// ── Catalogue table (expandable rows) ──────────────────────────────
 
 function CatalogueTable({ modules }: { modules: AuthoredModule[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const toggle = (id: string) =>
+    setExpandedId((prev) => (prev === id ? null : id));
+
   return (
     <div className="authored-modules-table-wrap">
       <table className="authored-modules-table">
         <thead>
           <tr>
+            <th aria-label="Expand" />
             <th>ID</th>
             <th>Label</th>
             <th>Mode</th>
@@ -242,25 +255,200 @@ function CatalogueTable({ modules }: { modules: AuthoredModule[] }) {
           </tr>
         </thead>
         <tbody>
-          {modules.map((m) => (
-            <tr key={m.id}>
-              <td>
-                <code>{m.id}</code>
-              </td>
-              <td>{m.label}</td>
-              <td>{m.mode}</td>
-              <td>{m.duration}</td>
-              <td>{m.frequency}</td>
-              <td className="authored-modules-table__center">
-                {m.sessionTerminal ? "●" : "—"}
-              </td>
-              <td className="authored-modules-table__center">
-                {m.learnerSelectable ? "●" : "—"}
-              </td>
-            </tr>
-          ))}
+          {modules.map((m) => {
+            const isExpanded = expandedId === m.id;
+            return (
+              <CatalogueRow
+                key={m.id}
+                module={m}
+                isExpanded={isExpanded}
+                onToggle={() => toggle(m.id)}
+              />
+            );
+          })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function CatalogueRow({
+  module: m,
+  isExpanded,
+  onToggle,
+}: {
+  module: AuthoredModule;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <tr
+        className="authored-modules-table__row authored-modules-table__row--clickable"
+        onClick={onToggle}
+        aria-expanded={isExpanded}
+      >
+        <td className="authored-modules-table__center">
+          {isExpanded ? (
+            <ChevronDown size={14} className="hf-text-muted" aria-hidden="true" />
+          ) : (
+            <ChevronRight size={14} className="hf-text-muted" aria-hidden="true" />
+          )}
+        </td>
+        <td>
+          <code>{m.id}</code>
+        </td>
+        <td>{m.label}</td>
+        <td>
+          <ModePill mode={m.mode} />
+        </td>
+        <td>{m.duration}</td>
+        <td>
+          <FrequencyPill frequency={m.frequency} />
+        </td>
+        <td className="authored-modules-table__center">
+          {m.sessionTerminal ? (
+            <span className="hf-badge hf-badge-xs hf-badge-warning">Ends session</span>
+          ) : (
+            <span className="hf-text-muted">—</span>
+          )}
+        </td>
+        <td className="authored-modules-table__center">
+          {m.learnerSelectable ? (
+            <span className="hf-badge hf-badge-xs hf-badge-success">Visible</span>
+          ) : (
+            <span className="hf-badge hf-badge-xs hf-badge-muted">Hidden</span>
+          )}
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr className="authored-modules-table__detail-row">
+          <td colSpan={8} className="authored-modules-table__detail-cell">
+            <ModuleDetail module={m} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function ModePill({ mode }: { mode: AuthoredModule["mode"] }) {
+  const Icon =
+    mode === "examiner" ? GraduationCap : mode === "mixed" ? Layers : Pencil;
+  const tone =
+    mode === "examiner"
+      ? "hf-badge-info"
+      : mode === "mixed"
+        ? "hf-badge-accent"
+        : "hf-badge-muted";
+  return (
+    <span className={`hf-badge hf-badge-xs ${tone}`}>
+      <Icon size={10} aria-hidden="true" />
+      {mode}
+    </span>
+  );
+}
+
+function FrequencyPill({ frequency }: { frequency: AuthoredModule["frequency"] }) {
+  const tone =
+    frequency === "once"
+      ? "hf-badge-warning"
+      : frequency === "cooldown"
+        ? "hf-badge-info"
+        : "hf-badge-muted";
+  return (
+    <span className={`hf-badge hf-badge-xs ${tone}`}>{frequency}</span>
+  );
+}
+
+function ModuleDetail({ module: m }: { module: AuthoredModule }) {
+  return (
+    <div className="authored-modules-detail">
+      {/* Top metadata strip */}
+      <div className="authored-modules-detail__strip">
+        {m.position != null && (
+          <span className="hf-badge hf-badge-sm hf-badge-muted">
+            Position {m.position}
+          </span>
+        )}
+        <span className="hf-badge hf-badge-sm hf-badge-muted">
+          <Target size={11} aria-hidden="true" /> Scoring: {m.scoringFired}
+        </span>
+        {m.voiceBandReadout && (
+          <span className="hf-badge hf-badge-sm hf-badge-info">
+            <Mic size={11} aria-hidden="true" /> Spoken bands
+          </span>
+        )}
+      </div>
+
+      <div className="authored-modules-detail__grid">
+        {/* Outcomes (primary) */}
+        <section className="authored-modules-detail__section">
+          <h4 className="authored-modules-detail__section-title">
+            Primary outcomes
+          </h4>
+          {m.outcomesPrimary.length === 0 ? (
+            <p className="hf-text-sm hf-text-muted">None declared.</p>
+          ) : (
+            <ul className="authored-modules-detail__list">
+              {m.outcomesPrimary.map((id) => (
+                <li key={id} className="authored-modules-detail__list-item">
+                  <code className="authored-modules-detail__outcome-id">{id}</code>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* Prerequisites */}
+        <section className="authored-modules-detail__section">
+          <h4 className="authored-modules-detail__section-title">
+            Prerequisites
+          </h4>
+          {m.prerequisites.length === 0 ? (
+            <p className="hf-text-sm hf-text-muted">None — open from session 1.</p>
+          ) : (
+            <div className="authored-modules-detail__chips">
+              {m.prerequisites.map((id) => (
+                <span
+                  key={id}
+                  className="hf-badge hf-badge-sm hf-badge-muted"
+                  title="Advisory only — picker shows 'Recommended after' but does not gate"
+                >
+                  {id}
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Content source */}
+        {m.contentSourceRef && (
+          <section className="authored-modules-detail__section">
+            <h4 className="authored-modules-detail__section-title">
+              Content source
+            </h4>
+            <p className="hf-text-sm">
+              <LinkIcon size={11} aria-hidden="true" className="hf-text-muted" />{" "}
+              {m.contentSourceRef}
+            </p>
+          </section>
+        )}
+      </div>
+
+      {/* Behaviour notes — derived from flags */}
+      {(m.sessionTerminal || m.frequency === "once") && (
+        <div className="authored-modules-detail__note">
+          <AlertOctagon size={12} aria-hidden="true" className="hf-text-muted" />
+          <span className="hf-text-xs hf-text-muted">
+            {m.sessionTerminal && m.frequency === "once"
+              ? "Single-session module that ends the call when started. Disappears from the picker after completion."
+              : m.sessionTerminal
+                ? "Starting this module ends the current session — picker will show a confirm dialog."
+                : "Single-session module — disappears from the picker after completion."}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
