@@ -26,6 +26,7 @@ import {
   applyAuthoredModules,
   hasBlockingErrors,
 } from "@/lib/wizard/persist-authored-modules";
+import { syncAuthoredModulesToCurriculum } from "@/lib/wizard/sync-authored-modules-to-curriculum";
 
 // ── Body schema ──────────────────────────────────────────────────────
 
@@ -151,10 +152,24 @@ export async function POST(
     { sourceRef: body.sourceRef },
   );
 
+  // #245: when modules were persisted, also upsert CurriculumModule rows so
+  // the pipeline's slug-based `updateModuleMastery` can write progress for
+  // authored modules. Wrapped in a transaction so the playbook and module
+  // tables stay in sync if either write fails.
+  let syncResult: Awaited<ReturnType<typeof syncAuthoredModulesToCurriculum>> | null = null;
   if (changed) {
-    await prisma.playbook.update({
-      where: { id: courseId },
-      data: { config: nextConfig as object },
+    await prisma.$transaction(async (tx) => {
+      await tx.playbook.update({
+        where: { id: courseId },
+        data: { config: nextConfig as object },
+      });
+      if (detected.modulesAuthored === true && detected.modules.length > 0) {
+        syncResult = await syncAuthoredModulesToCurriculum(
+          tx,
+          courseId,
+          detected.modules,
+        );
+      }
     });
   }
 
@@ -167,5 +182,6 @@ export async function POST(
     detectedFrom: detected.detectedFrom,
     hasErrors: hasBlockingErrors(detected),
     persisted: changed,
+    curriculumSync: syncResult,
   });
 }
