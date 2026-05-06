@@ -49,6 +49,8 @@ export interface SimChatProps {
   onCallEnd?: () => void;
   onNewCall?: () => void;
   onBack?: () => void;
+  /** When set, renders a "Pick module" header button (Issue #242 SIM-first mount) */
+  onPickModule?: () => void;
   /** Journey chat integration — items rendered before call history */
   journey?: UseJourneyChatResult;
 }
@@ -120,6 +122,7 @@ export function SimChat({
   onCallEnd,
   onNewCall,
   onBack,
+  onPickModule,
   journey,
 }: SimChatProps) {
   const router = useRouter();
@@ -776,6 +779,7 @@ export function SimChat({
           setShowMediaLibrary(false);
         }}
         progressPanelActive={showProgressPanel}
+        onPickModule={onPickModule}
         onAdminPanel={isOperator ? () => { setShowAdminPanel(prev => !prev); setShowProgressPanel(false); } : undefined}
         adminPanelActive={showAdminPanel}
       />

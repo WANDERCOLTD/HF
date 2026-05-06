@@ -51,6 +51,7 @@ export default function SimConversationPage() {
   const [caller, setCaller] = useState<CallerInfo | null>(null);
   const [playbookName, setPlaybookName] = useState<string | undefined>(undefined);
   const [subjectDiscipline, setSubjectDiscipline] = useState<string | undefined>(undefined);
+  const [modulesAuthored, setModulesAuthored] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // Journey chat — unified WhatsApp-style survey/onboarding/teaching flow
@@ -96,8 +97,11 @@ export default function SimConversationPage() {
               .then(pbData => {
                 if (!cancelled && pbData.ok) {
                   setPlaybookName(pbData.playbook?.name);
-                  const disc = (pbData.playbook?.config as any)?.subjectDiscipline;
-                  if (disc) setSubjectDiscipline(disc);
+                  const cfg = (pbData.playbook?.config as any) || {};
+                  if (cfg.subjectDiscipline) setSubjectDiscipline(cfg.subjectDiscipline);
+                  // Issue #242: gate the "Pick module" header button on authored modules.
+                  // Treat both `null` (never imported) and `false` (opted out) as off.
+                  setModulesAuthored(cfg.modulesAuthored === true);
                 }
               })
               .catch(() => {});
@@ -142,6 +146,13 @@ export default function SimConversationPage() {
     );
   }
 
+  const handlePickModule = useCallback(() => {
+    if (!playbookId) return;
+    const sp = new URLSearchParams();
+    sp.set('returnTo', `/x/sim/${callerId}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`);
+    router.push(`/x/student/${playbookId}/modules?${sp.toString()}`);
+  }, [callerId, playbookId, router, searchParams]);
+
   return (
     <SimChat
       callerId={callerId}
@@ -157,6 +168,7 @@ export default function SimConversationPage() {
       forceFirstCall={forceFirstCall || undefined}
       onBack={isDesktop ? undefined : () => router.push('/x/sim')}
       onCallEnd={isStudent ? handleStudentCallEnd : undefined}
+      onPickModule={modulesAuthored && playbookId ? handlePickModule : undefined}
       journey={journey}
     />
   );
