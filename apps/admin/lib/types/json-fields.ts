@@ -333,7 +333,13 @@ export interface PlaybookConfig {
   moduleSource?: ModuleSource;
   moduleSourceRef?: { docId: string; version: string };
   modules?: AuthoredModule[];
-  moduleDefaults?: ModuleDefaults;
+  /**
+   * Defaults that apply to every Module unless that Module overrides. Stored
+   * as Partial because authors may declare only some fields in their Module
+   * Defaults block; the runtime fills any remaining fields from template
+   * defaults. See per-field-defaults-with-warnings policy in spec #236.
+   */
+  moduleDefaults?: Partial<ModuleDefaults>;
   pickerLayout?: PickerLayout;
   validationWarnings?: ValidationWarning[];
   [key: string]: any;
