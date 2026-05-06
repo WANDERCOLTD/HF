@@ -283,6 +283,8 @@ describe("GET /api/courses/[courseId]/import-modules", () => {
     expect(body.moduleSource).toBeNull();
     expect(body.moduleSourceRef).toBeNull();
     expect(body.hasErrors).toBe(false);
+    // PR4: lessonPlanMode surfaced for the learner-picker preview
+    expect(body.lessonPlanMode).toBe("continuous");
   });
 
   it("returns persisted modules + warnings + hasErrors", async () => {

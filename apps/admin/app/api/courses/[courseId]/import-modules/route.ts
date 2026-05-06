@@ -50,7 +50,7 @@ type Body = z.infer<typeof BodySchema>;
  *   Used by the Authored Modules panel in the Curriculum tab to render the
  *   catalogue without re-parsing the source document. Returns nulls/empties
  *   when no authored modules exist yet (derived path is in use).
- * @response 200 { ok, modulesAuthored, modules, moduleDefaults, moduleSource, moduleSourceRef, validationWarnings, hasErrors }
+ * @response 200 { ok, modulesAuthored, modules, moduleDefaults, moduleSource, moduleSourceRef, validationWarnings, hasErrors, lessonPlanMode }
  * @response 404 { ok: false, error: "Course not found" }
  */
 export async function GET(
@@ -83,6 +83,9 @@ export async function GET(
     moduleSourceRef: cfg.moduleSourceRef ?? null,
     validationWarnings: warnings,
     hasErrors: warnings.some((w) => w.severity === "error"),
+    // Surfaced so the learner-preview component can pick the right layout
+    // (tiles for continuous, rail for structured) without a second fetch.
+    lessonPlanMode: cfg.lessonPlanMode ?? null,
   });
 }
 

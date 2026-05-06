@@ -9526,7 +9526,7 @@ Read the current authored-modules state from PlaybookConfig.
 
 **Response** `200`
 ```json
-{ ok, modulesAuthored, modules, moduleDefaults, moduleSource, moduleSourceRef, validationWarnings, hasErrors }
+{ ok, modulesAuthored, modules, moduleDefaults, moduleSource, moduleSourceRef, validationWarnings, hasErrors, lessonPlanMode }
 ```
 
 **Response** `404`

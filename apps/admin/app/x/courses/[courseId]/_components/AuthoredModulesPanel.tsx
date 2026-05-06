@@ -14,7 +14,13 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { Layers, AlertTriangle, CheckCircle2, Upload } from "lucide-react";
+import {
+  Layers,
+  AlertTriangle,
+  CheckCircle2,
+  Upload,
+  Eye,
+} from "lucide-react";
 import type {
   AuthoredModule,
   ModuleDefaults,
@@ -22,6 +28,7 @@ import type {
   ValidationWarning,
 } from "@/lib/types/json-fields";
 import { ImportModulesDialog } from "./ImportModulesDialog";
+import { LearnerModulePicker } from "./LearnerModulePicker";
 import "./authored-modules-panel.css";
 
 interface AuthoredModulesState {
@@ -32,6 +39,7 @@ interface AuthoredModulesState {
   moduleSourceRef: { docId: string; version: string } | null;
   validationWarnings: ValidationWarning[];
   hasErrors: boolean;
+  lessonPlanMode: "structured" | "continuous" | null;
 }
 
 interface AuthoredModulesPanelProps {
@@ -47,6 +55,7 @@ const EMPTY_STATE: AuthoredModulesState = {
   moduleSourceRef: null,
   validationWarnings: [],
   hasErrors: false,
+  lessonPlanMode: null,
 };
 
 export function AuthoredModulesPanel({
@@ -75,6 +84,7 @@ export function AuthoredModulesPanel({
         moduleSourceRef: data.moduleSourceRef,
         validationWarnings: data.validationWarnings,
         hasErrors: data.hasErrors,
+        lessonPlanMode: data.lessonPlanMode,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
@@ -145,6 +155,10 @@ export function AuthoredModulesPanel({
           {state.validationWarnings.length > 0 && (
             <ValidationList warnings={state.validationWarnings} />
           )}
+          <LearnerPickerPreview
+            modules={state.modules}
+            lessonPlanMode={state.lessonPlanMode}
+          />
           {state.moduleSourceRef && (
             <p className="hf-text-xs hf-text-muted hf-mt-sm">
               Source: doc {state.moduleSourceRef.docId} (v{state.moduleSourceRef.version})
@@ -324,5 +338,36 @@ function ValidationList({ warnings }: { warnings: ValidationWarning[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+// ── Learner picker preview ────────────────────────────────────────
+
+function LearnerPickerPreview({
+  modules,
+  lessonPlanMode,
+}: {
+  modules: AuthoredModule[];
+  lessonPlanMode: "structured" | "continuous" | null;
+}) {
+  return (
+    <div className="authored-modules-preview">
+      <div className="hf-flex hf-items-center hf-gap-sm authored-modules-preview__header">
+        <Eye size={14} className="hf-text-muted" />
+        <span className="hf-section-title authored-modules-preview__title">
+          Learner Picker Preview
+        </span>
+        <span className="hf-text-xs hf-text-muted">
+          {lessonPlanMode === "structured"
+            ? "Sequenced rail (structured course)"
+            : "Free-pick tiles (continuous course)"}
+        </span>
+      </div>
+      <p className="hf-text-xs hf-text-muted authored-modules-preview__caption">
+        This is what learners will see when the picker is wired into the
+        student portal. Read-only here.
+      </p>
+      <LearnerModulePicker modules={modules} lessonPlanMode={lessonPlanMode} />
+    </div>
   );
 }

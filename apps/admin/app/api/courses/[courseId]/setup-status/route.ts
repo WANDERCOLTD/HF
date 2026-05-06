@@ -61,7 +61,23 @@ export async function GET(
 
     let lessonPlanBuilt = false;
     if (isContinuous) {
-      lessonPlanBuilt = true;
+      // Continuous courses normally have no fixed lesson plan — but if the
+      // author opted in to authored modules (Issue #236), the catalogue
+      // becomes the structure, and we require it to exist with no blocking
+      // errors before we mark "Lesson Plan Built". Authors who haven't
+      // imported their catalogue yet will see this stage stay open.
+      const modules = Array.isArray(pbConfig.modules) ? pbConfig.modules : [];
+      const warnings = Array.isArray(pbConfig.validationWarnings)
+        ? pbConfig.validationWarnings
+        : [];
+      const hasBlockingErrors = warnings.some(
+        (w: { severity?: string }) => w?.severity === "error",
+      );
+      if (pbConfig.modulesAuthored === true) {
+        lessonPlanBuilt = modules.length > 0 && !hasBlockingErrors;
+      } else {
+        lessonPlanBuilt = true;
+      }
     } else {
       // Structured courses: check for lesson plan entries in curriculum
       const subjectIds = await prisma.playbookSubject.findMany({
