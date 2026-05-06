@@ -162,7 +162,7 @@ export default function SimConversationPage() {
   return (
     <>
       {requestedModuleId && (
-        <ModulePickerPlaceholderBanner moduleId={requestedModuleId} />
+        <ModulePickerSelectionBanner moduleId={requestedModuleId} />
       )}
       <SimChat
         callerId={callerId}
@@ -179,6 +179,7 @@ export default function SimConversationPage() {
         onBack={isDesktop ? undefined : () => router.push('/x/sim')}
         onCallEnd={isStudent ? handleStudentCallEnd : undefined}
         onPickModule={modulesAuthored && playbookId ? handlePickModule : undefined}
+        requestedModuleId={requestedModuleId}
         journey={journey}
       />
     </>
@@ -186,12 +187,12 @@ export default function SimConversationPage() {
 }
 
 /**
- * Placeholder banner — Slice 2 of #242. Renders when the SIM is hit with
- * `?requestedModuleId=<id>` (from the picker → SIM round-trip). The real
- * VAPI dial wiring happens once the call-init path is identified by recon
- * (see TODO in launchSelected at /x/student/[courseId]/modules/page.tsx).
+ * Selection banner — confirms which module the learner picked. The id is
+ * forwarded to POST /api/callers/[id]/calls and persisted as
+ * Call.requestedModuleId so the pipeline overrides the scheduler-selected
+ * module when computing mastery (#242 Slice 2).
  */
-function ModulePickerPlaceholderBanner({ moduleId }: { moduleId: string }) {
+function ModulePickerSelectionBanner({ moduleId }: { moduleId: string }) {
   return (
     <div
       role="status"
@@ -207,9 +208,9 @@ function ModulePickerPlaceholderBanner({ moduleId }: { moduleId: string }) {
         gap: 8,
       }}
     >
-      <strong>Placeholder:</strong>
+      <strong>Module selected:</strong>
       <span>
-        VAPI call would now start with module{' '}
+        Next session will focus on{' '}
         <code
           style={{
             padding: '2px 6px',
@@ -220,7 +221,7 @@ function ModulePickerPlaceholderBanner({ moduleId }: { moduleId: string }) {
         >
           {moduleId}
         </code>
-        {' '}— wiring pending recon (#242 Slice 2).
+        . Mastery will be tracked against this module after the call.
       </span>
     </div>
   );

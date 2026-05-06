@@ -1295,6 +1295,14 @@ model Call {
   curriculumModuleId String?
   curriculumModule   CurriculumModule? @relation(fields: [curriculumModuleId], references: [id], onDelete: SetNull)
 
+  // Learner's pre-call module pick from the picker (#242 Slice 2). Stored as a
+  // hint for the prompt composer to override the scheduler-selected module
+  // when set. Distinct from curriculumModuleId, which is set by the pipeline
+  // post-call to record what the call actually covered.
+  // Slug only — no FK because the picker may target authored modules whose
+  // sync into CurriculumModule is on a separate write path (#245).
+  requestedModuleId String?
+
   // Call sequencing for delta calculations
   // Links to the previous call for this caller (for computing ADAPT parameters)
   previousCallId String?
@@ -1344,6 +1352,7 @@ model Call {
   @@index([usedPromptId])
   @@index([playbookId])
   @@index([curriculumModuleId])
+  @@index([requestedModuleId])
 }
 
 model CallMessage {

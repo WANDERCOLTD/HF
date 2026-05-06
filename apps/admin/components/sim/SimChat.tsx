@@ -51,6 +51,12 @@ export interface SimChatProps {
   onBack?: () => void;
   /** When set, renders a "Pick module" header button (Issue #242 SIM-first mount) */
   onPickModule?: () => void;
+  /**
+   * #242 Slice 2: learner's pre-call module pick from the picker. When set,
+   * forwarded to POST /api/callers/[id]/calls so the pipeline's module
+   * context loader overrides the scheduler-selected module.
+   */
+  requestedModuleId?: string;
   /** Journey chat integration — items rendered before call history */
   journey?: UseJourneyChatResult;
 }
@@ -123,6 +129,7 @@ export function SimChat({
   onNewCall,
   onBack,
   onPickModule,
+  requestedModuleId,
   journey,
 }: SimChatProps) {
   const router = useRouter();
@@ -388,7 +395,12 @@ export function SimChat({
       const callRes = await fetch(`/api/callers/${callerId}/calls`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: 'sim', usedPromptId, ...(playbookId ? { playbookId } : {}) }),
+        body: JSON.stringify({
+          source: 'sim',
+          usedPromptId,
+          ...(playbookId ? { playbookId } : {}),
+          ...(requestedModuleId ? { requestedModuleId } : {}),
+        }),
       });
       const callData = await callRes.json();
       if (callData.ok) {
