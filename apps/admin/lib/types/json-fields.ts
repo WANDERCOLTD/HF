@@ -324,6 +324,18 @@ export interface PlaybookConfig {
    * @see https://github.com/WANDERCOLTD/HF/issues/234
    */
   shareMaterials?: boolean;
+  /**
+   * Author-declared module catalogue (Issue #236). Populated from a Course
+   * Reference document with `**Modules authored:** Yes`. When `moduleSource`
+   * is "derived" or unset, today's transform-derived path runs unchanged.
+   */
+  modulesAuthored?: boolean;
+  moduleSource?: ModuleSource;
+  moduleSourceRef?: { docId: string; version: string };
+  modules?: AuthoredModule[];
+  moduleDefaults?: ModuleDefaults;
+  pickerLayout?: PickerLayout;
+  validationWarnings?: ValidationWarning[];
   [key: string]: any;
 }
 
@@ -364,4 +376,81 @@ export interface LegacyCurriculumModuleJSON {
   keyTerms?: string[];
   estimatedDurationMinutes?: number;
   sortOrder: number;
+}
+
+// ---------------------------------------------------------------------------
+// Authored Modules — declared by course author in the Course Reference markdown
+// (template v5.1+, `**Modules authored:** Yes` + `## Modules` section).
+//
+// Distinct from CurriculumModule: AuthoredModule is playbook-scoped, governs
+// per-module tutor behaviour (mode, scoring, frequency, picker visibility),
+// and is the source of truth for the learner-facing module picker. Persisted
+// as JSON on Playbook.config.modules. Issue #236.
+// ---------------------------------------------------------------------------
+
+export type AuthoredModuleMode = "examiner" | "tutor" | "mixed";
+export type AuthoredModuleFrequency = "once" | "repeatable" | "cooldown";
+export type ModuleSource = "authored" | "derived";
+export type PickerLayout = "tiles" | "rail";
+
+/**
+ * One author-declared module. Stable `id` is critical: learner progress and
+ * dashboard rollups reference it across playbook republishes. Must match
+ * /^[a-z][a-z0-9_]*$/ — enforced by the parser and the editor UI.
+ */
+export interface AuthoredModule {
+  id: string;
+  label: string;
+  /** Whether this module appears in the learner's picker. Defaults to true. */
+  learnerSelectable: boolean;
+  mode: AuthoredModuleMode;
+  /** Free-form duration string from the catalogue, e.g. "20 min fixed", "Student-led". */
+  duration: string;
+  /** Free-form scoring description from the catalogue, e.g. "All four", "LR + GRA only". */
+  scoringFired: string;
+  /** True when bands are spoken aloud (Mock Exam pattern). */
+  voiceBandReadout: boolean;
+  /** True when entering this module ends the current session (Baseline / Mock pattern). */
+  sessionTerminal: boolean;
+  frequency: AuthoredModuleFrequency;
+  /**
+   * Free-form reference into ## Content Sources, e.g.
+   * "Source 4 — Baseline topic pool". Resolved later by the runtime.
+   */
+  contentSourceRef?: string;
+  /** Outcome IDs this module primarily drills, e.g. ["OUT-01", "OUT-24"]. */
+  outcomesPrimary: string[];
+  /**
+   * Sibling module IDs that should be completed before this one is offered.
+   * Advisory only — the picker surfaces a "Recommended after X" hint but
+   * never gates. Empty array when no prerequisites.
+   */
+  prerequisites: string[];
+  /** Ordinal position in a structured course's lesson plan. Optional in continuous mode. */
+  position?: number;
+}
+
+export interface ModuleDefaults {
+  mode: AuthoredModuleMode;
+  /** Inline single-issue correction loop is the default for tutor-mode practice. */
+  correctionStyle: "single_issue_loop" | "freeform" | "none";
+  /** "embedded_only" = no standalone theory turns; theory is interleaved with practice. */
+  theoryDelivery: "embedded_only" | "standalone_permitted";
+  bandVisibility: "hidden_mid_module" | "indicative_only" | "full";
+  intake: "none" | "required" | "skippable";
+}
+
+/**
+ * Validation finding from parsing a Course Reference. Drafts publish with
+ * warnings present; production publish is blocked until warnings resolved.
+ * See per-field-defaults-with-warnings policy in the spec.
+ */
+export interface ValidationWarning {
+  /** Stable code for grouping/filtering, e.g. "MODULE_FIELD_DEFAULTED". */
+  code: string;
+  /** Human-readable message surfaced to authors. */
+  message: string;
+  /** Optional pointer to the offending entity, e.g. "modules.part2.mode". */
+  path?: string;
+  severity: "warning" | "error";
 }

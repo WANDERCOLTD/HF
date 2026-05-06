@@ -198,6 +198,17 @@ export const config = {
     get sessionFlowResolverEnabled(): boolean {
       return optionalBool("SESSION_FLOW_RESOLVER_ENABLED", false);
     },
+    /**
+     * Author-declared module catalogue (Issue #236). When true, the wizard
+     * collects authored modules and the runtime surfaces a learner picker
+     * driven by `PlaybookConfig.modules`. When false (default), the existing
+     * derived-modules path runs unchanged. Flag is read by the wizard step,
+     * the Module Catalogue editor, and the picker — but NOT by the parser
+     * itself, which is always safe to run (additive, no side effects).
+     */
+    get authoredModulesEnabled(): boolean {
+      return optionalBool("AUTHORED_MODULES_ENABLED", false);
+    },
   },
 
   // ---------------------------------------------------------------------------
