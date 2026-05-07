@@ -3445,10 +3445,10 @@ model Ticket {
   tags String[]
 
   // Feedback context (captured on submit)
-  pageContext        String?   // Auto-captured URL + breadcrumbs
-  screenshotUrl      String?   // GCS URL if screenshot attached
-  githubIssueUrl     String?   // Linked GitHub issue URL
-  githubIssueNumber  Int?      // Linked GitHub issue number
+  pageContext       String? // Auto-captured URL + breadcrumbs
+  screenshotUrl     String? // GCS URL if screenshot attached
+  githubIssueUrl    String? // Linked GitHub issue URL
+  githubIssueNumber Int? // Linked GitHub issue number
 
   // Timestamps
   createdAt  DateTime  @default(now())
@@ -3767,6 +3767,12 @@ model ContentQuestion {
   bloomLevel         BloomLevel?
   assessmentUse      AssessmentUse?
   embedding          Unsupported("vector(1536)")?
+  // #276 Slice 3: provenance signal for questions. AI_ASSISTED for
+  // generator-default MCQs; higher tiers (EXPERT_CURATED, ACCREDITED_MATERIAL,
+  // REGULATORY_STANDARD) for imported educator question banks. Drives a
+  // trust badge in the curriculum admin UI; future pre-test queries can
+  // gate on this.
+  trustLevel         ContentTrustLevel?           @default(AI_ASSISTED)
 
   // Type-specific metadata (tiered responses, tutor moves, text references for TUTOR_QUESTION)
   metadata Json?

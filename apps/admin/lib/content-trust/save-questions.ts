@@ -8,15 +8,59 @@
 import { prisma } from "@/lib/prisma";
 import type { ExtractedQuestion } from "./extractors/base-extractor";
 import { sanitiseLORef } from "./validate-lo-linkage";
+import { computeWordOverlap } from "@/lib/assessment/validate-mcqs";
 
 export interface SaveQuestionsResult {
   created: number;
   duplicatesSkipped: number;
+  /** #276 Slice 2: questions dropped by the cross-question semantic dedup pass. */
+  semanticDuplicatesSkipped?: number;
+}
+
+/**
+ * #276 Slice 2: word-overlap threshold for cross-question dedup.
+ * Two questions whose stopword-stripped Jaccard similarity ≥ this value
+ * are treated as duplicates. Tuned to catch the kind of paraphrased
+ * duplicate seen in the IELTS Speaking course:
+ *   "How many assessment criteria are used to evaluate IELTS Speaking?"
+ *   "How many assessment criteria are used in IELTS Speaking evaluation?"
+ * Without stopword stripping these score ~0.6 (TL's suggested 0.85 misses
+ * them). With stopwords stripped + 0.65, the pair collapses while
+ * genuinely different questions about the same topic stay separate.
+ */
+const SEMANTIC_DUPLICATE_THRESHOLD = 0.65;
+
+/**
+ * Stopwords that inflate the union without adding signal — strip before
+ * computing similarity so paraphrased dupes (different connectives) score
+ * higher.
+ */
+const SIMILARITY_STOPWORDS = new Set([
+  "a", "an", "the",
+  "is", "are", "was", "were", "be", "been",
+  "to", "of", "in", "on", "at", "for", "with", "by", "from",
+  "and", "or", "but",
+  "do", "does", "did",
+  "this", "that", "these", "those",
+  "it", "its",
+  "?",
+]);
+
+function normalisedQuestionWords(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[?.!,;:]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w && !SIMILARITY_STOPWORDS.has(w))
+    .join(" ");
 }
 
 /**
  * Save extracted questions for a content source.
- * Deduplicates by contentHash (skips existing).
+ * Two-pass dedup:
+ *   1. contentHash exact match (catches re-runs of identical AI output)
+ *   2. cross-question Jaccard overlap (catches paraphrased duplicates that
+ *      have different hashes — see #276 where Q1 and Q2 were near-identical)
  */
 export async function saveQuestions(
   sourceId: string,
@@ -25,23 +69,50 @@ export async function saveQuestions(
 ): Promise<SaveQuestionsResult> {
   if (questions.length === 0) return { created: 0, duplicatesSkipped: 0 };
 
-  // Fetch existing hashes for this source (scoped by subjectSourceId when available)
+  // Fetch existing hashes + question text for this source (scoped by
+  // subjectSourceId when available). Question text feeds the semantic
+  // dedup pass below.
   const existing = await prisma.contentQuestion.findMany({
     where: { sourceId, ...(subjectSourceId ? { subjectSourceId } : {}) },
-    select: { contentHash: true },
+    select: { contentHash: true, questionText: true },
   });
   const existingHashes = new Set(existing.map((e) => e.contentHash).filter(Boolean));
+  const existingTexts: string[] = existing.map((e) => e.questionText).filter(Boolean) as string[];
 
   const seen = new Set<string>();
-  const toCreate = questions.filter((q) => {
+  // Pass 1: contentHash dedup
+  const hashUnique = questions.filter((q) => {
     if (existingHashes.has(q.contentHash) || seen.has(q.contentHash)) return false;
     seen.add(q.contentHash);
     return true;
   });
-  const duplicatesSkipped = questions.length - toCreate.length;
+
+  // Pass 2: cross-question semantic dedup — Jaccard overlap ≥ 0.85.
+  // Compares each new question against (a) already-persisted questions and
+  // (b) other new questions accepted earlier in this batch. Catches near-
+  // identical paraphrases that contentHash misses.
+  const acceptedTexts: string[] = [...existingTexts];
+  const toCreate: ExtractedQuestion[] = [];
+  let semanticDuplicatesSkipped = 0;
+  for (const q of hashUnique) {
+    const qNorm = normalisedQuestionWords(q.questionText);
+    const dupe = acceptedTexts.find(
+      (existingText) => computeWordOverlap(qNorm, normalisedQuestionWords(existingText)) >= SEMANTIC_DUPLICATE_THRESHOLD,
+    );
+    if (dupe) {
+      semanticDuplicatesSkipped++;
+      console.log(
+        `[save-questions] #276 Slice 2: dropped near-duplicate "${q.questionText.slice(0, 60)}..." (overlap with "${dupe.slice(0, 60)}...")`,
+      );
+      continue;
+    }
+    acceptedTexts.push(q.questionText);
+    toCreate.push(q);
+  }
+  const duplicatesSkipped = questions.length - hashUnique.length;
 
   if (toCreate.length === 0) {
-    return { created: 0, duplicatesSkipped };
+    return { created: 0, duplicatesSkipped, semanticDuplicatesSkipped };
   }
 
   await prisma.contentQuestion.createMany({
@@ -68,11 +139,14 @@ export async function saveQuestions(
       contentHash: q.contentHash,
       bloomLevel: q.bloomLevel || null,
       assessmentUse: q.assessmentUse || null,
+      // #276 Slice 3: stamp generator-output as AI_ASSISTED. Educator-
+      // imported question banks may set a higher tier downstream.
+      trustLevel: "AI_ASSISTED",
     })),
     skipDuplicates: true,
   });
 
-  return { created: toCreate.length, duplicatesSkipped };
+  return { created: toCreate.length, duplicatesSkipped, semanticDuplicatesSkipped };
 }
 
 /**
