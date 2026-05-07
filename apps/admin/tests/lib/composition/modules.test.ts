@@ -360,6 +360,96 @@ describe("computeModuleProgress transform", () => {
     expect(transform).toBeDefined();
     expect(typeof transform).toBe("function");
   });
+
+  // ── #266 Slice 1: per-learner attempt counts ──
+
+  function makeContext(
+    modules: ModuleData[],
+    moduleAttemptCounts: SharedComputedState["moduleAttemptCounts"] = undefined,
+    hasAttemptData = false,
+  ): any {
+    const sharedState = {
+      channel: "text" as const,
+      modules,
+      isFirstCall: false,
+      daysSinceLastCall: 0,
+      completedModules: new Set<string>(),
+      estimatedProgress: 0,
+      lastCompletedIndex: 0,
+      moduleToReview: null,
+      nextModule: null,
+      reviewType: "quick_recall",
+      reviewReason: "",
+      thresholds: { high: 0.65, low: 0.35 },
+      curriculumName: "Test Curriculum",
+      isFinalSession: false,
+      callNumber: 2,
+      moduleAttemptCounts,
+      hasAttemptData,
+    };
+    return {
+      sharedState,
+      loadedData: makeLoadedData({ callCount: 1 }),
+      resolvedSpecs: makeResolvedSpecs(),
+      sections: {},
+      specConfig: {},
+    };
+  }
+
+  it("surfaces hasAttemptData top-level on transform output", () => {
+    const ctx = makeContext(
+      [{ id: "m-1", slug: "baseline", name: "Baseline" }],
+      { "m-1": { callCount: 2, status: "COMPLETED", completedAt: new Date() } },
+      true,
+    );
+    const out: any = transform({}, ctx, {} as any);
+    expect(out.hasAttemptData).toBe(true);
+  });
+
+  it("hasAttemptData is false when no attempts have been recorded", () => {
+    const ctx = makeContext(
+      [{ id: "m-1", slug: "baseline", name: "Baseline" }],
+      undefined,
+      false,
+    );
+    const out: any = transform({}, ctx, {} as any);
+    expect(out.hasAttemptData).toBe(false);
+  });
+
+  it("populates per-module callCount, status, statusLabel from moduleAttemptCounts", () => {
+    const modules: ModuleData[] = [
+      { id: "m-1", slug: "baseline", name: "Baseline" },
+      { id: "m-2", slug: "part-1", name: "Part 1" },
+      { id: "m-3", slug: "part-2", name: "Part 2" },
+    ];
+    const ctx = makeContext(
+      modules,
+      {
+        "m-1": { callCount: 2, status: "COMPLETED", completedAt: new Date() },
+        "m-2": { callCount: 1, status: "IN_PROGRESS", completedAt: null },
+        // m-3 deliberately missing — never attempted
+      },
+      true,
+    );
+    const out: any = transform({}, ctx, {} as any);
+    expect(out.modules).toHaveLength(3);
+    expect(out.modules[0]).toMatchObject({ id: "m-1", callCount: 2, status: "completed", statusLabel: "done", isCompleted: true });
+    expect(out.modules[1]).toMatchObject({ id: "m-2", callCount: 1, status: "in_progress", statusLabel: "in progress", isCompleted: false });
+    expect(out.modules[2]).toMatchObject({ id: "m-3", callCount: 0, statusLabel: "not started", isCompleted: false });
+  });
+
+  it("falls back to attribute-derived status when moduleAttemptCounts is undefined", () => {
+    const modules: ModuleData[] = [{ id: "m-1", slug: "baseline", name: "Baseline" }];
+    const ctx = makeContext(modules, undefined, false);
+    // Override loadedData callCount=0 + lastCompletedIndex=-1 so the legacy
+    // attribute-based getModuleStatus path returns "not_started" (no progress signal).
+    ctx.loadedData = makeLoadedData({ callCount: 0 });
+    ctx.sharedState.lastCompletedIndex = -1;
+    const out: any = transform({}, ctx, {} as any);
+    expect(out.modules[0].callCount).toBe(0);
+    expect(out.modules[0].status).toBe("not_started");
+    expect(out.modules[0].statusLabel).toBe("not started");
+  });
 });
 
 // resolveLessonPlanMode tests removed — function deleted.

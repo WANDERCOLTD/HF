@@ -260,6 +260,21 @@ export interface SharedComputedState {
   isFirstCallInDomain?: boolean;
   /** Whether this is the learner's final teaching session (by budget, scheduler mastery, or module completion) */
   isFinalSession: boolean;
+  /**
+   * Per-module learner progress, keyed by `CurriculumModule.id`. Populated only
+   * when the playbook has `modulesAuthored === true`. First place
+   * `CallerModuleProgress` reads land in the COMPOSE stage — the per-learner
+   * dimension entering a section that has been per-module-only until now.
+   * Used by the tutor opening narrative ("you've done Baseline twice") and
+   * future in-chat module selection (Slice 2 of #266).
+   */
+  moduleAttemptCounts?: Record<string, {
+    callCount: number;
+    status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+    completedAt: Date | null;
+  }>;
+  /** True when at least one module has callCount > 0. Gates the tutor's module-aware opening line. */
+  hasAttemptData?: boolean;
   /** Call number (1-based) — this is the Nth call for this learner */
   callNumber: number;
   /** Synthetic lesson plan entry built from scheduler working set (for downstream transform compat) */
