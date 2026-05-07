@@ -65,6 +65,15 @@ const FILENAME_TYPE_HINTS: Array<{
   { pattern: /tutor[_-]?(guide|instruction|playbook|handbook|manual)/i, type: "COURSE_REFERENCE", role: "pedagogy" },
   { pattern: /teaching[_-]?(guide|approach|method(ology)?)/i, type: "COURSE_REFERENCE", role: "pedagogy" },
   { pattern: /delivery[_-]?(guide|handbook)/i, type: "COURSE_REFERENCE", role: "pedagogy" },
+  // #276 Slice 1: assessment rubric / band descriptor docs are tutor-facing
+  // scoring criteria — NOT learner content. Misclassified as TEXTBOOK they
+  // leak into MCQ generation and produce questions ABOUT the rubric ("How
+  // many assessment criteria are there?", "Why do Band 9 speakers hesitate?")
+  // instead of testing actual skill. Anchor them to COURSE_REFERENCE.
+  { pattern: /band[_-]?descriptor/i, type: "COURSE_REFERENCE", role: "pedagogy" },
+  { pattern: /(assessment|scoring|marking)[_-]?(rubric|criteria|descriptor)/i, type: "COURSE_REFERENCE", role: "pedagogy" },
+  { pattern: /band[_-]?score(s)?/i, type: "COURSE_REFERENCE", role: "pedagogy" },
+  { pattern: /(ielts|cefr|toefl|toeic)[_-]?(rubric|descriptor|band|score)/i, type: "COURSE_REFERENCE", role: "pedagogy" },
   { pattern: /question[_-]?bank/i, type: "QUESTION_BANK", role: "questions" },
   { pattern: /reading[_-]?passage/i, type: "READING_PASSAGE", role: "passage" },
   { pattern: /lesson[_-]?plan/i, type: "LESSON_PLAN", role: "pedagogy" },
@@ -94,6 +103,63 @@ export function filenameTypeHint(
     }
   }
   return null;
+}
+
+// ------------------------------------------------------------------
+// Content-based classification hints (#276 Slice 1)
+// ------------------------------------------------------------------
+
+/**
+ * Strong content-shape signals that indicate a doc is a tutor-facing rubric
+ * even when the filename is generic. Rubric content has a distinctive shape:
+ * scoring bands (Band 9, Band 8, ...), criterion names (Fluency and Coherence,
+ * Pronunciation, Grammatical Range), and descriptive phrasing about HOW
+ * speakers behave at each band.
+ *
+ * If the text sample has 2+ of these markers, route to COURSE_REFERENCE so the
+ * downstream MCQ generator's exclusion gate fires (otherwise the rubric leaks
+ * into MCQ generation and produces meta-questions about the scoring system —
+ * see #276).
+ *
+ * Conservative threshold (2+) avoids false positives on student-facing docs
+ * that happen to mention a band score in passing.
+ */
+const RUBRIC_CONTENT_MARKERS: RegExp[] = [
+  // Band/level rubric markers — must use word boundaries to avoid matching e.g. "Banda"
+  /\bband\s+[0-9](?:\.\d)?\b/i,
+  /\bband\s+descriptor/i,
+  /\bassessment\s+criteri(a|on)/i,
+  /\bmarking\s+criteri(a|on)/i,
+  /\bscoring\s+rubric/i,
+  /\bband\s+score/i,
+  // IELTS/CEFR specific rubric phrasing
+  /\bfluency\s+and\s+coherence/i,
+  /\blexical\s+resource/i,
+  /\bgrammatical\s+range\s+and\s+accuracy/i,
+  /\bpronunciation\s+(features|criteria)/i,
+  // CEFR levels in rubric context (A1, B2, C1 + descriptor language)
+  /\b[ABC][12]\s+(level|descriptor|user)/i,
+  // "describes how a Band X speaker..." phrasing
+  /(speakers?|candidates?)\s+(at|in)\s+(this|band)/i,
+];
+
+/**
+ * Returns true when the text sample matches enough rubric markers to be
+ * confidently classified as COURSE_REFERENCE rather than learner content.
+ *
+ * Counts each OCCURRENCE not just unique markers — a sample with two CEFR
+ * descriptors (C1, B2) is rubric content even if all hits come from one regex.
+ */
+export function isRubricContent(textSample: string): boolean {
+  let matches = 0;
+  for (const marker of RUBRIC_CONTENT_MARKERS) {
+    // Use a global flag clone so we count each occurrence, not just one hit.
+    const global = new RegExp(marker.source, marker.flags.includes("g") ? marker.flags : marker.flags + "g");
+    const hits = textSample.match(global);
+    if (hits) matches += hits.length;
+    if (matches >= 2) return true;
+  }
+  return false;
 }
 
 // ------------------------------------------------------------------
@@ -355,6 +421,30 @@ export async function classifyDocument(
       };
       logAI("content-trust.classify:result", `Classify ${fileName}`, JSON.stringify(overriddenResult), {
         fileName, documentType: hint.type, confidence: overriddenResult.confidence, filenameOverride: true,
+      });
+      return overriddenResult;
+    }
+
+    // #276 Slice 1: content-based rubric override. When the text sample is
+    // unmistakably a tutor-facing rubric (band descriptors, scoring criteria)
+    // but the AI returned a generic learner-facing type (TEXTBOOK / REFERENCE
+    // / CURRICULUM), force COURSE_REFERENCE so the MCQ exclusion gate fires.
+    // Filename-hint already ran above; this catches the generic-filename case.
+    if (
+      documentType !== "COURSE_REFERENCE" &&
+      ["TEXTBOOK", "REFERENCE", "CURRICULUM"].includes(documentType) &&
+      isRubricContent(sample)
+    ) {
+      console.log(
+        `[classify-document] Rubric content override: ${fileName} AI=${documentType} → COURSE_REFERENCE (rubric markers detected in sample)`,
+      );
+      const overriddenResult = {
+        documentType: "COURSE_REFERENCE" as DocumentType,
+        confidence: Math.max(confidence, 0.85),
+        reasoning: `${parsed.reasoning || "No reasoning provided"} [Content signal: rubric markers detected (band descriptors / scoring criteria) → COURSE_REFERENCE]`,
+      };
+      logAI("content-trust.classify:result", `Classify ${fileName}`, JSON.stringify(overriddenResult), {
+        fileName, documentType: "COURSE_REFERENCE", confidence: overriddenResult.confidence, contentOverride: true,
       });
       return overriddenResult;
     }

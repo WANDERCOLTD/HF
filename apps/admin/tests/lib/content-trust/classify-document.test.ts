@@ -7,7 +7,7 @@
  * - Labels are correctly inserted
  */
 import { describe, it, expect } from "vitest";
-import { buildMultiPointSample, filenameTypeHint } from "@/lib/content-trust/classify-document";
+import { buildMultiPointSample, filenameTypeHint, isRubricContent } from "@/lib/content-trust/classify-document";
 
 describe("buildMultiPointSample", () => {
   it("returns full text when shorter than totalSize", () => {
@@ -140,5 +140,72 @@ describe("filenameTypeHint", () => {
     expect(filenameTypeHint("COURSE-REFERENCE.PDF")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
     expect(filenameTypeHint("Tutor-Guide.docx")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
     expect(filenameTypeHint("QUESTION_BANK.pdf")).toEqual({ type: "QUESTION_BANK", role: "questions" });
+  });
+
+  // ── #276 Slice 1: rubric / band-descriptor filename hints ──
+
+  it("detects band-descriptor filenames", () => {
+    expect(filenameTypeHint("IELTS-Band-Descriptors.pdf")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(filenameTypeHint("speaking_band_descriptor.docx")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+  });
+
+  it("detects assessment / scoring / marking rubric filenames", () => {
+    expect(filenameTypeHint("assessment-rubric.pdf")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(filenameTypeHint("scoring_criteria.docx")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(filenameTypeHint("marking-criteria-2024.pdf")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+  });
+
+  it("detects exam-specific rubric filenames (IELTS / CEFR / TOEFL)", () => {
+    expect(filenameTypeHint("ielts-rubric.pdf")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(filenameTypeHint("CEFR-descriptor.docx")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(filenameTypeHint("toefl_band.pdf")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+  });
+
+  it("detects band-score filenames", () => {
+    expect(filenameTypeHint("band-scores.pdf")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+  });
+});
+
+// ── #276 Slice 1: content-based rubric detection ──
+
+describe("isRubricContent", () => {
+  it("detects IELTS Band Descriptors content (multiple markers)", () => {
+    const sample = `
+      IELTS Speaking Band Descriptors
+      Band 9 — Fluency and Coherence: Speakers at this band speak fluently with rare hesitation.
+      Band 7 — Lexical Resource: Uses vocabulary with flexibility.
+      Band 5 — Grammatical Range and Accuracy: Uses a limited range of structures.
+      Pronunciation features assessed across all bands.
+    `;
+    expect(isRubricContent(sample)).toBe(true);
+  });
+
+  it("detects content with assessment criteria + band score markers", () => {
+    const sample = `Assessment criteria are applied across band scores from 1 to 9.`;
+    expect(isRubricContent(sample)).toBe(true);
+  });
+
+  it("rejects student-facing content that incidentally mentions a band score", () => {
+    const sample = `
+      Welcome to your IELTS prep course! Many students aim for band 7 in speaking,
+      which requires regular practice. Let's work through some common topics together.
+    `;
+    expect(isRubricContent(sample)).toBe(false);
+  });
+
+  it("rejects pure teaching content with no rubric markers", () => {
+    const sample = `
+      Today we'll practice describing your hometown. Try to talk for 1-2 minutes
+      using these prompts: where it is, what you like about it, what changes you've seen.
+    `;
+    expect(isRubricContent(sample)).toBe(false);
+  });
+
+  it("detects CEFR-style descriptor content", () => {
+    const sample = `
+      C1 level descriptor: Can understand a wide range of demanding, longer texts.
+      B2 level user: Can interact with a degree of fluency and spontaneity.
+    `;
+    expect(isRubricContent(sample)).toBe(true);
   });
 });
