@@ -64,7 +64,7 @@ describe("saveQuestions", () => {
     mocks.createMany.mockResolvedValue({ count: 2 });
 
     const result = await saveQuestions("src-1", questions);
-    expect(result).toEqual({ created: 2, duplicatesSkipped: 0 });
+    expect(result).toEqual({ created: 2, duplicatesSkipped: 0, semanticDuplicatesSkipped: 0 });
     expect(mocks.createMany).toHaveBeenCalledOnce();
 
     const createData = mocks.createMany.mock.calls[0][0].data;
@@ -84,7 +84,7 @@ describe("saveQuestions", () => {
     mocks.createMany.mockResolvedValue({ count: 1 });
 
     const result = await saveQuestions("src-1", questions);
-    expect(result).toEqual({ created: 1, duplicatesSkipped: 1 });
+    expect(result).toEqual({ created: 1, duplicatesSkipped: 1, semanticDuplicatesSkipped: 0 });
 
     const createData = mocks.createMany.mock.calls[0][0].data;
     expect(createData).toHaveLength(1);
@@ -100,8 +100,73 @@ describe("saveQuestions", () => {
     ];
 
     const result = await saveQuestions("src-1", questions);
-    expect(result).toEqual({ created: 0, duplicatesSkipped: 2 });
+    expect(result).toEqual({ created: 0, duplicatesSkipped: 2, semanticDuplicatesSkipped: 0 });
     expect(mocks.createMany).not.toHaveBeenCalled();
+  });
+
+  // ── #276 Slice 2: cross-question semantic dedup ──
+
+  it("drops near-duplicate questions in the same batch (different hashes, ≥ 0.85 word overlap)", async () => {
+    const questions = [
+      makeQuestion({
+        contentHash: "h1",
+        questionText: "How many assessment criteria are used to evaluate IELTS Speaking performance",
+      }),
+      makeQuestion({
+        contentHash: "h2",
+        questionText: "How many assessment criteria are used in IELTS Speaking evaluation",
+      }),
+      makeQuestion({
+        contentHash: "h3",
+        questionText: "Why does speaking too slowly negatively impact fluency in IELTS Speaking",
+      }),
+    ];
+    mocks.createMany.mockResolvedValue({ count: 2 });
+
+    const result = await saveQuestions("src-1", questions);
+    // h1 + h3 keep, h2 dropped as semantic dupe of h1
+    expect(result.created).toBe(2);
+    expect(result.duplicatesSkipped).toBe(0);
+    expect(result.semanticDuplicatesSkipped).toBe(1);
+    const createData = mocks.createMany.mock.calls[0][0].data;
+    expect(createData.map((d: any) => d.contentHash)).toEqual(["h1", "h3"]);
+  });
+
+  it("drops a new question that's a semantic duplicate of one already persisted", async () => {
+    mocks.findMany.mockResolvedValue([
+      { contentHash: "old1", questionText: "How many assessment criteria are used to evaluate IELTS Speaking" },
+    ]);
+    const questions = [
+      makeQuestion({
+        contentHash: "h1",
+        questionText: "How many assessment criteria are used in IELTS Speaking evaluation",
+      }),
+    ];
+    const result = await saveQuestions("src-1", questions);
+    expect(result.created).toBe(0);
+    expect(result.semanticDuplicatesSkipped).toBe(1);
+    expect(mocks.createMany).not.toHaveBeenCalled();
+  });
+
+  it("keeps two genuinely different questions about the same topic", async () => {
+    const questions = [
+      makeQuestion({ contentHash: "h1", questionText: "What does Band 9 indicate in IELTS Speaking" }),
+      makeQuestion({ contentHash: "h2", questionText: "Why is fluency assessed in IELTS Speaking" }),
+    ];
+    mocks.createMany.mockResolvedValue({ count: 2 });
+    const result = await saveQuestions("src-1", questions);
+    expect(result.created).toBe(2);
+    expect(result.semanticDuplicatesSkipped).toBe(0);
+  });
+
+  // ── #276 Slice 3: trustLevel stamping ──
+
+  it("stamps trustLevel: AI_ASSISTED on every persisted question", async () => {
+    const questions = [makeQuestion({ contentHash: "h1" })];
+    mocks.createMany.mockResolvedValue({ count: 1 });
+    await saveQuestions("src-1", questions);
+    const data = mocks.createMany.mock.calls[0][0].data[0];
+    expect(data.trustLevel).toBe("AI_ASSISTED");
   });
 
   it("maps optional fields correctly", async () => {

@@ -123,8 +123,14 @@ function checkDistractorSimilarity(q: ExtractedQuestion, idx: number): McqIssue[
   return issues;
 }
 
-/** Word-level Jaccard similarity */
-function computeWordOverlap(a: string, b: string): number {
+/**
+ * Word-level Jaccard similarity.
+ * Exported so cross-question dedup (#276 Slice 2) can reuse it without
+ * duplicating the implementation. Used:
+ *  - inside this file for distractor-similarity checks (within a question)
+ *  - in save-questions.ts for cross-question dedup (across the source)
+ */
+export function computeWordOverlap(a: string, b: string): number {
   const wordsA = new Set(a.toLowerCase().split(/\s+/).filter(Boolean));
   const wordsB = new Set(b.toLowerCase().split(/\s+/).filter(Boolean));
   if (wordsA.size === 0 || wordsB.size === 0) return 0;
