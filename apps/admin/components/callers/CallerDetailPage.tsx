@@ -420,6 +420,11 @@ export default function CallerDetailPage() {
   const handlePickModule = useCallback(() => {
     if (selectedPlaybookId === "all" || !selectedPlaybookId) return;
     const sp = new URLSearchParams();
+    // #270: pass callerId so the picker (admin context) can include it on
+    // GET /api/student/module-progress — without it the route returns 400
+    // because requireStudentOrAdmin demands explicit caller selection for
+    // non-STUDENT users.
+    sp.set("callerId", callerId);
     // Strip requestedModuleId from the carry-over so the banner doesn't
     // double-fire when the learner returns from the picker.
     const carryParams = new URLSearchParams(searchParams.toString());
