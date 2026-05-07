@@ -97,7 +97,9 @@ export function CallerRoster({ routePrefix = "/x", institutionId }: CallerRoster
   };
 
   const handleNavigate = (callerId: string) => {
-    router.push(`${routePrefix}/callers/${callerId}`);
+    // Deep-link to the AI Call tab so educators land on the actionable
+    // chat/call surface, not the read-only overview.
+    router.push(`${routePrefix}/callers/${callerId}?tab=ai-call`);
   };
 
   const handleObserve = (callId: string) => {
