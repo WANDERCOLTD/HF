@@ -416,6 +416,36 @@ describe("buildGraphFallback", () => {
     expect(fallback.length).toBeGreaterThan(10);
   });
 
+  it("returns full-sentence questions verbatim (no 'Choose your … below.' wrapping)", () => {
+    const board = boardWith({ institutionName: "PAW", interactionPattern: "socratic" });
+    const eval1 = evaluateGraph(board);
+    const toolCalls = [
+      {
+        name: "show_options",
+        input: { question: "What should students see before their first teaching session?" },
+      },
+    ];
+    const fallback = buildGraphFallback(eval1, board, toolCalls);
+    expect(fallback).toBe("What should students see before their first teaching session?");
+    expect(fallback).not.toContain("Choose your");
+  });
+
+  it("wraps short noun-phrase show_options labels with 'Choose your … below.'", () => {
+    const board = boardWith({ institutionName: "PAW" });
+    const eval1 = evaluateGraph(board);
+    const toolCalls = [{ name: "show_options", input: { question: "audience" } }];
+    const fallback = buildGraphFallback(eval1, board, toolCalls);
+    expect(fallback).toBe("Choose your **audience** below.");
+  });
+
+  it("falls back to 'Pick an option below.' when show_options has no question", () => {
+    const board = boardWith({ institutionName: "PAW" });
+    const eval1 = evaluateGraph(board);
+    const toolCalls = [{ name: "show_options", input: {} }];
+    const fallback = buildGraphFallback(eval1, board, toolCalls);
+    expect(fallback).toBe("Pick an option below.");
+  });
+
   it("offers launch when all fields collected", () => {
     const board = boardWith({
       institutionName: "PAW",

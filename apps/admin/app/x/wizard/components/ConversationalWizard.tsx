@@ -1369,14 +1369,23 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           <div className="cv4-messages-spacer" />
           {(() => {
             const lastAssistantId = [...messages].reverse().find(m => m.role === "assistant")?.id;
-            // If the welcome-flow checklist is currently unresolved, suppress
-            // fallback chips on the last assistant message — the checklist
-            // owns the decision surface.
-            const welcomeChecklistActive = messages.some(
+            // Suppress fallback chips when Phase 4c is effectively unresolved.
+            // Two cases: (a) checklist visible and unresolved on screen, or
+            // (b) checklist has been shown at any point in history but the four
+            // welcome keys are still not all recorded — a stale chip like
+            // "create the course" emitted on a later turn would otherwise route
+            // through "Skip = recommended bundle" and silently flip flags on.
+            const welcomeChecklistEverShown = messages.some(
               (m) => m.systemType === "options"
-                && !m.resolved
                 && (m.optionsPanel as { dataKey?: string } | undefined)?.dataKey === "_welcomePhases",
             );
+            const welcomeKeysAllSet =
+              getData("welcomeGoals") !== undefined
+              && getData("welcomeAboutYou") !== undefined
+              && getData("welcomeKnowledgeCheck") !== undefined
+              && getData("welcomeAiIntro") !== undefined;
+            const welcomeChecklistActive =
+              welcomeChecklistEverShown && !welcomeKeysAllSet;
             return messages.map((msg) => {
             // Options card — skip if resolved (user already made a selection)
             if (msg.systemType === "options" && !msg.resolved && msg.optionsPanel) {

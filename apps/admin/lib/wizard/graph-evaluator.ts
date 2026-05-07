@@ -448,9 +448,12 @@ export function buildGraphFallback(
   if (names.has("show_options")) {
     const optionCall = toolCalls.find((tc) => tc.name === "show_options");
     const question = optionCall?.input?.question as string | undefined;
-    return question
-      ? `Choose your **${question.toLowerCase()}** below.`
-      : "Pick an option below.";
+    if (!question) return "Pick an option below.";
+    // Full-sentence interrogatives (e.g. "What should students see…?") are returned
+    // verbatim — wrapping them in "Choose your … below." produces broken grammar.
+    // Short noun-phrase labels (e.g. "audience") still get the wrapping.
+    if (question.trim().endsWith("?")) return question;
+    return `Choose your **${question.toLowerCase()}** below.`;
   }
   if (names.has("show_suggestions")) {
     const suggCall = toolCalls.find((tc) => tc.name === "show_suggestions");

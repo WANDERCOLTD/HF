@@ -66,14 +66,24 @@ export function OptionsCard({ panel, onSelect, onSkip, onSomethingElse }: Option
     [onSelect],
   );
 
+  // _welcomePhases is the only checklist where "zero ticked" carries meaning
+  // (= "all four welcome flags off"). Skip on _welcomePhases means "use defaults"
+  // per the system prompt, so the only path to all-off is Confirm-at-zero → "None".
+  const isWelcomePhases = panel.dataKey === "_welcomePhases";
+
   const handleChecklistConfirm = useCallback(() => {
-    if (selected.size === 0) return;
+    if (selected.size === 0) {
+      if (isWelcomePhases) {
+        onSelect([], "None");
+      }
+      return;
+    }
     const values = Array.from(selected);
     const labels = values
       .map((v) => options.find((o) => o.value === v)?.label ?? v)
       .join(", ");
     onSelect(values, labels);
-  }, [selected, options, onSelect]);
+  }, [selected, options, onSelect, isWelcomePhases]);
 
   const toggleSelected = useCallback((value: string) => {
     setSelected((prev) => {
@@ -247,10 +257,12 @@ export function OptionsCard({ panel, onSelect, onSkip, onSomethingElse }: Option
               <button
                 type="button"
                 className="cv4-options-confirm-btn"
-                disabled={selected.size === 0}
+                disabled={selected.size === 0 && !isWelcomePhases}
                 onClick={handleChecklistConfirm}
               >
-                Confirm{selected.size > 0 ? ` (${selected.size})` : ""}
+                {selected.size === 0 && isWelcomePhases
+                  ? "None of these"
+                  : `Confirm${selected.size > 0 ? ` (${selected.size})` : ""}`}
               </button>
             )}
             <button

@@ -258,6 +258,8 @@ and recommend the educator just teach.
 
 - A comma-separated list of ticked labels (e.g. \`"Goals, About You"\`) — ticked = true,
   un-ticked = false. Map labels back to the four \`welcome*\` keys.
+- \`"None"\` — the educator clicked "None of these" on the checklist (zero ticks confirmed).
+  Set ALL FOUR \`welcome*\` keys to \`false\` and acknowledge that the welcome flow is fully off.
 - \`"Skip"\` or empty — use your recommended bundle as-is.
 - Free-text from "Something else" or natural-language override (e.g. "turn off knowledge check") —
   parse intent and apply over your recommended bundle.
@@ -266,8 +268,9 @@ In **every** case, call update_setup with **all four** welcome keys as explicit 
 \`update_setup({ fields: { welcomeGoals: bool, welcomeAboutYou: bool, welcomeKnowledgeCheck: bool, welcomeAiIntro: bool } })\`.
 All four. Explicit. Never ship to create_course with these unset.
 
-Then confirm the chosen bundle in 1-2 sentences. If all four are off, mention that the AI's
-first-call discovery questions are also skipped (because aboutYou=false gates them).
+Then confirm the chosen bundle in 1-2 sentences. If all four are off (including the \`"None"\` path),
+mention that the AI's first-call discovery questions are also skipped (because aboutYou=false
+gates them).
 
 After the welcome flow is captured, ask about feedback (\`npsEnabled\`) using this wording (or
 close to it — the key is the framing):

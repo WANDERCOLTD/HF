@@ -262,6 +262,33 @@ tests:
       - type: llm-rubric
         value: "Response text mentions that the AI's first-call discovery questions are also skipped (because welcome.aboutYou is off, which gates them). The educator should not be surprised by call-1 behaviour."
 
+  # ── Test 4b — V4 "None" payload (zero-tick Confirm) → all four off ──
+
+  - description: "Test 4b — V4 userMessage 'None' (educator clicked 'None of these' on _welcomePhases checklist) → all four welcome keys = false"
+    vars:
+      conversationContext: |
+        Last turn YOU (the AI) proposed the four welcome flow phases with the recommended bundle:
+        Goals on, About You on, Knowledge Check off, AI Introduction Call off. You called
+        show_options checklist with dataKey "_welcomePhases". The educator clicked "None of these"
+        on the checklist (zero ticks confirmed) — the wizard converts this to the literal user
+        message "None".
+      userMessage: "None"
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return { pass: false, score: 0, reason: 'No update_setup after None — welcome keys not saved' };
+          const fields = update.args?.fields || update.args || {};
+          if (fields.welcomeGoals !== false) return { pass: false, score: 0, reason: `welcomeGoals must be false ('None' = all-off), got ${JSON.stringify(fields.welcomeGoals)}` };
+          if (fields.welcomeAboutYou !== false) return { pass: false, score: 0, reason: `welcomeAboutYou must be false` };
+          if (fields.welcomeKnowledgeCheck !== false) return { pass: false, score: 0, reason: `welcomeKnowledgeCheck must be false` };
+          if (fields.welcomeAiIntro !== false) return { pass: false, score: 0, reason: `welcomeAiIntro must be false` };
+          return true;
+      - type: llm-rubric
+        value: "Response text mentions that the AI's first-call discovery questions are also skipped (because welcome.aboutYou is off)."
+
   # ── Test 5 — Phase 5 summary line format (after welcome flow captured) ──
 
   - description: "Test 5 — V4 When asked for the summary, AI uses human bundle format for Welcome flow line"
