@@ -532,6 +532,7 @@ When all required fields are collected (Can launch: YES):
   - **Personality:** [preset + description]
   - **Welcome:** [first ~20 words, or 'default']
   - **Welcome flow:** [human bundle of enabled phases joined with " + ", with disabled phases in parentheses; e.g. "Goals + About You (Knowledge Check off, AI Intro off)". When all four are off, write "none — direct entry to teaching".]
+  - **Curriculum:** [If setupData.curriculumPath === "authored": "module catalogue declared in your teaching guide — I'll parse it during course creation". If "generated" or missing: "AI-generated from your outcomes and content".]
   - **Feedback (NPS):** [on/off]
 
   Ready to create your course?"
@@ -698,6 +699,40 @@ export async function buildV5SystemPrompt(
     pedagogyOverlay = lines.join("\n");
   }
 
+  // ── Curriculum path overlay (#262) ──────────────────────
+  // Wizard-time signal of whether the post-creation curriculum will use the
+  // educator's authored module catalogue or be AI-generated. Detected from
+  // the COURSE_REFERENCE doc's textSample header. Soft language — we record
+  // the *declaration*, not a guarantee the catalogue will parse cleanly.
+  let curriculumPathOverlay = "";
+  const curriculumPath = setupData.curriculumPath as "authored" | "generated" | undefined;
+  if (curriculumPath === "authored") {
+    curriculumPathOverlay = [
+      "",
+      "### Curriculum path — authored",
+      "",
+      "The educator's course reference declares an authored module catalogue (`**Modules authored: Yes**` or `Partial`).",
+      "When you narrate the course-ref deep reflection, include a line such as:",
+      `  "Your module catalogue is declared — I'll parse it during course creation and use your modules as the learning sequence."`,
+      "Do NOT promise specific module counts or names — the full table parses post-creation.",
+      "In the Phase 5 summary, the **Curriculum:** line MUST read:",
+      `  "module catalogue declared in your teaching guide — I'll parse it during course creation"`,
+      "",
+    ].join("\n");
+  } else if (curriculumPath === "generated") {
+    curriculumPathOverlay = [
+      "",
+      "### Curriculum path — generated",
+      "",
+      "The educator's course reference does NOT declare an authored module catalogue.",
+      "When you narrate the course-ref deep reflection, include a line such as:",
+      `  "I didn't see a module catalogue, so I'll generate modules from your learning outcomes and uploaded content after creation."`,
+      "In the Phase 5 summary, the **Curriculum:** line MUST read:",
+      `  "AI-generated from your outcomes and content"`,
+      "",
+    ].join("\n");
+  }
+
   const nonCommunityValues = !isCommunity
     ? `### Teaching emphasis (teachingMode)
 - recall, comprehension (default), practice, syllabus
@@ -841,6 +876,7 @@ See "Welcome flow proposal" below for the full pattern.
     playback,
     proposal,
     content,
+    curriculumPathOverlay,
     pedagogySection,
     values,
     rules,

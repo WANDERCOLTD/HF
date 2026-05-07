@@ -1,0 +1,210 @@
+description: "Wizard V5 — curriculum path signal (authored vs generated, #262)"
+
+# Run with: npx promptfoo eval -c evals/wizard/v5-curriculum-path.yaml --no-cache
+#
+# Tests the wizard-time signal of whether the post-creation curriculum will use
+# the educator's authored module catalogue OR be AI-generated. The signal is
+# set in setupData.curriculumPath ("authored" | "generated") by
+# ConversationalWizard.tsx after detecting the "**Modules authored:**
+# Yes|No|Partial" header in the COURSE_REFERENCE doc's textSample.
+#
+# The system prompt's curriculumPathOverlay (v5-system-prompt.ts) injects
+# guidance for the deep-reflection turn AND the Phase 5 summary "Curriculum:"
+# line.
+#
+# Soft language requirement (TL review): the wizard reads only the header in
+# the first ~1000 chars; the catalogue table almost always falls beyond that.
+# So the AI must record the educator's *declaration*, not promise specific
+# module counts or names.
+
+prompts:
+  - id: v5-curriculum-path-prompt
+    label: "V5 — curriculum path overlay + Phase 5 summary"
+    raw: |
+      You are the HumanFirst Studio setup assistant.
+
+      ## How you communicate
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER expose internal field names like `curriculumPath` or `setupData.*`.
+      - NEVER output XML tags in your text responses.
+
+      ## Course reference deep reflection
+
+      When you receive "Teaching guide analyzed", synthesize what you found in 5-8 sentences
+      with one topic per paragraph (bold lead). End with: "Does that capture how you want me
+      to teach?" then call show_suggestions with EXACTLY ["That's exactly right", "I'd change something"].
+
+      ## Summary and launch
+
+      When all required fields are collected:
+
+        "Here's what we've set up:
+        - **Organisation:** [name]
+        - **Subject:** [discipline]
+        - **Course:** [name]
+        - **Approach:** [description]
+        - **Sessions:** [count] × [duration] min
+        - **Coverage:** [emphasis]
+        - **Teaching materials:** [count]
+        - **Personality:** [preset]
+        - **Welcome:** [first ~20 words]
+        - **Welcome flow:** [human bundle]
+        - **Curriculum:** [If setupData.curriculumPath === "authored": "module catalogue declared in your teaching guide — I'll parse it during course creation". If "generated" or missing: "AI-generated from your outcomes and content".]
+        - **Feedback (NPS):** [on/off]
+
+        Ready to create your course?"
+
+      ## Curriculum path overlay (injected dynamically based on setupData.curriculumPath)
+
+      {{curriculumPathOverlay}}
+
+      ---
+      Setup state: {{setupState}}
+      Conversation so far: {{conversationContext}}
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1500
+      tools:
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+        - name: update_setup
+          description: "Save collected setup fields"
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                additionalProperties: true
+            required: [fields]
+
+tests:
+
+  # ── Test 1 — Deep reflection, authored path mentions module catalogue ──
+
+  - description: "Test 1 — Deep reflection (curriculumPath=authored) mentions module catalogue declared, not AI generation"
+    vars:
+      curriculumPathOverlay: |
+        ### Curriculum path — authored
+
+        The educator's course reference declares an authored module catalogue
+        (`**Modules authored: Yes**` or `Partial`).
+        When you narrate the course-ref deep reflection, include a line such as:
+          "Your module catalogue is declared — I'll parse it during course creation
+          and use your modules as the learning sequence."
+        Do NOT promise specific module counts or names — the full table parses
+        post-creation.
+      setupState: "courseRefDigest: present, curriculumPath: authored, courseName: 'GCSE Biology', subjectDiscipline: 'Biology'"
+      conversationContext: |
+        The educator just uploaded a COURSE_REFERENCE doc that declares
+        "**Modules authored: Yes**" in its header. The wizard set
+        setupData.curriculumPath = "authored".
+      userMessage: "Teaching guide analyzed"
+    assert:
+      - type: llm-rubric
+        value: "Response prose mentions that the educator's module catalogue / authored modules are declared, will be parsed, or will be used during course creation. Does NOT say modules will be 'AI-generated' or 'I'll generate modules'. Does NOT promise specific module counts or names."
+      - type: not-icontains
+        value: "AI-generated"
+      - type: not-icontains
+        value: "I'll generate modules"
+
+  # ── Test 2 — Deep reflection, generated path mentions AI generation ──
+
+  - description: "Test 2 — Deep reflection (curriculumPath=generated) mentions AI generation, not authored"
+    vars:
+      curriculumPathOverlay: |
+        ### Curriculum path — generated
+
+        The educator's course reference does NOT declare an authored module
+        catalogue. When you narrate the course-ref deep reflection, include a
+        line such as:
+          "I didn't see a module catalogue, so I'll generate modules from your
+          learning outcomes and uploaded content after creation."
+      setupState: "courseRefDigest: present, curriculumPath: generated, courseName: 'IELTS Speaking', subjectDiscipline: 'ESL'"
+      conversationContext: |
+        The educator just uploaded a COURSE_REFERENCE doc that does NOT declare
+        a module catalogue. The wizard set setupData.curriculumPath = "generated".
+      userMessage: "Teaching guide analyzed"
+    assert:
+      - type: llm-rubric
+        value: "Response prose mentions modules will be generated from learning outcomes and uploaded content (or AI-generated). Does NOT claim authored modules will be used or that a module catalogue is declared."
+      - type: not-icontains
+        value: "module catalogue declared"
+
+  # ── Test 3 — Phase 5 summary, authored path includes Curriculum: declared line ──
+
+  - description: "Test 3 — Phase 5 summary with curriculumPath=authored has Curriculum: 'declared' line"
+    vars:
+      curriculumPathOverlay: |
+        ### Curriculum path — authored
+
+        In the Phase 5 summary, the **Curriculum:** line MUST read:
+          "module catalogue declared in your teaching guide — I'll parse it during course creation"
+      setupState: |
+        All required fields collected. setupData.curriculumPath = "authored".
+        Organisation: Highfield Academy. Subject: Financial Services.
+        Course: R04 Investment Principles. Approach: Structured. Sessions: 8 × 20 min.
+        Welcome flow: Goals + About You. NPS: on.
+      conversationContext: "The user has confirmed everything and asked for the summary."
+      userMessage: "Show me the summary now"
+    assert:
+      - type: icontains
+        value: "Curriculum:"
+      - type: llm-rubric
+        value: "The 'Curriculum:' line in the summary explicitly states the module catalogue is declared (in the teaching guide / course reference) and will be parsed during course creation. Does NOT say 'AI-generated'."
+      - type: not-icontains
+        value: "AI-generated from your outcomes"
+
+  # ── Test 4 — Phase 5 summary, generated path includes Curriculum: AI-generated line ──
+
+  - description: "Test 4 — Phase 5 summary with curriculumPath=generated has Curriculum: 'AI-generated' line"
+    vars:
+      curriculumPathOverlay: |
+        ### Curriculum path — generated
+
+        In the Phase 5 summary, the **Curriculum:** line MUST read:
+          "AI-generated from your outcomes and content"
+      setupState: |
+        All required fields collected. setupData.curriculumPath = "generated".
+        Organisation: Westfield. Subject: ESL. Course: IELTS Speaking. Approach: Practice.
+        Sessions: continuous. Welcome flow: Goals + About You + Knowledge Check.
+      conversationContext: "The user has confirmed everything and asked for the summary."
+      userMessage: "Show me the summary now"
+    assert:
+      - type: icontains
+        value: "Curriculum:"
+      - type: llm-rubric
+        value: "The 'Curriculum:' line in the summary states modules will be AI-generated from the educator's outcomes and content. Does NOT claim a module catalogue is declared, parsed, or coming from the teaching guide."
+      - type: not-icontains
+        value: "module catalogue declared"
+
+  # ── Test 5 — Soft language guard: authored path doesn't promise module counts ──
+
+  - description: "Test 5 — Authored path uses soft language; never promises specific module counts or names"
+    vars:
+      curriculumPathOverlay: |
+        ### Curriculum path — authored
+
+        The educator's course reference declares an authored module catalogue.
+        Do NOT promise specific module counts or names — the full table parses
+        post-creation. Use language like "I'll parse it during course creation"
+        or "module catalogue declared", NOT "I'll use your 8 modules" or
+        "I see modules called X, Y, Z".
+      setupState: "curriculumPath: authored, courseRefDigest: present"
+      conversationContext: |
+        The educator uploaded a COURSE_REFERENCE doc declaring authored modules.
+        The wizard read only the header (first 1000 chars). The catalogue table
+        is beyond the textSample limit — exact module count and names are NOT
+        available wizard-time.
+      userMessage: "Teaching guide analyzed"
+    assert:
+      - type: llm-rubric
+        value: "Response avoids stating specific module counts (e.g. 'your 8 modules', '12-module curriculum', 'modules 1 through N') or specific module names. Uses softer language acknowledging the declaration without promising parsed details."

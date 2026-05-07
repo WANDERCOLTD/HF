@@ -349,7 +349,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       "draftCallerName", "draftDemoCallerId", "draftDemoCallerName",
       "launched", "sourceId", "packSubjectIds", "uploadSourceIds", "extractionTotals", "categoryCounts", "contentSkipped",
       "lastUploadClassifications", "courseContext",
-      "coursePedagogy", "courseRefDigest", "courseRefEnabled", "_docConfigKeys",
+      "coursePedagogy", "courseRefDigest", "courseRefEnabled", "_docConfigKeys", "curriculumPath",
       "welcomeSkipped", "tuneSkipped",
       "communityMode", "draftCohortGroupId", "communityJoinToken", "communityHubUrl",
     ];
@@ -961,6 +961,22 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             ? `${rawSourceText}\n---\n${joinedAssertions}`
             : joinedAssertions;
           const pedagogy = detectPedagogy(combinedText);
+
+          // #262 — wizard-time curriculum path signal (authored vs generated).
+          // Header-based only: textSample (1000 chars) reliably contains the
+          // "**Modules authored:** Yes|No|Partial" declaration but rarely the
+          // full Module Catalogue table. Soft language reflects this — we
+          // record the educator's *declaration*, not a guarantee the catalogue
+          // will parse. The full parse runs post-creation in import-modules.
+          try {
+            const { detectAuthoredModules } = await import("@/lib/wizard/detect-authored-modules");
+            const detected = detectAuthoredModules(combinedText);
+            const curriculumPath = detected.modulesAuthored === true ? "authored" : "generated";
+            setData("curriculumPath", curriculumPath);
+            console.log("[wizard] curriculumPath:", curriculumPath, "detectedFrom:", detected.detectedFrom);
+          } catch (err) {
+            console.warn("[wizard] detectAuthoredModules failed:", err);
+          }
           if (hasPedagogy(pedagogy)) {
             setData("coursePedagogy", pedagogy);
             console.log("[wizard] detected pedagogy from course ref:", pedagogy);
