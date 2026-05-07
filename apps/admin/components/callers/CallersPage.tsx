@@ -376,7 +376,7 @@ export function CallersPage({ routePrefix = "" }: CallersPageProps) {
     if (target.closest("button") || target.closest("a")) {
       return;
     }
-    router.push(`${routePrefix}/callers/${caller.id}`);
+    router.push(`${routePrefix}/callers/${caller.id}?tab=ai-call`);
   };
 
   const handleCreateCaller = async () => {
