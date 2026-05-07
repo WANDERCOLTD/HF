@@ -224,6 +224,81 @@ describe("computeQuickStart transform", () => {
     expect(result.first_line).toContain("reconnect");
   });
 
+  // ── #268: name-question stripping when caller.name is known ──
+
+  function makeContextWithWelcome(welcomeMessage: string, callerName: string | null): AssembledContext {
+    return makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        caller: { id: "c1", name: callerName, email: null, phone: null, externalId: null, domain: null },
+        playbooks: [{ id: "pb-1", name: "C", isActive: true, isLatest: true, config: { welcomeMessage } } as any],
+      },
+      sharedState: {
+        ...makeContext().sharedState,
+        isFirstCall: true,
+      },
+    });
+  }
+
+  it("strips 'could you tell me your name?' when caller.name is known", () => {
+    const ctx = makeContextWithWelcome(
+      "Welcome! So, first things first - could you tell me your name?",
+      "Wyatt Diallo",
+    );
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).not.toContain("tell me your name");
+    expect(result.first_line).not.toContain("name?");
+  });
+
+  it("preserves trailing subject question after stripping name question (multi-question welcome)", () => {
+    const ctx = makeContextWithWelcome(
+      "Welcome! So, first things first - could you tell me your name? And what brings you to IELTS preparation today?",
+      "Wyatt Diallo",
+    );
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).not.toContain("tell me your name");
+    expect(result.first_line).toContain("what brings you to IELTS preparation today");
+  });
+
+  it("does NOT strip the name question when caller.name is null/empty (anonymous caller still gets asked)", () => {
+    const ctx = makeContextWithWelcome(
+      "Welcome! So, first things first - could you tell me your name? And what brings you here?",
+      null,
+    );
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).toContain("tell me your name");
+  });
+
+  it("strips 'what's your name?' variant when name is known", () => {
+    const ctx = makeContextWithWelcome(
+      "Hi! What's your name? I'm here to help.",
+      "Wyatt",
+    );
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).not.toMatch(/what's your name/i);
+    expect(result.first_line).toContain("here to help");
+  });
+
+  it("does not match declarative prose containing the word 'name' (no false positives)", () => {
+    const ctx = makeContextWithWelcome(
+      "Welcome — I'll learn your name as we go.",
+      "Wyatt",
+    );
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).toContain("learn your name as we go");
+  });
+
+  it("strips name question while preserving subject substitution (both helpers compose)", () => {
+    const ctx = makeContextWithWelcome(
+      "Welcome! Could you tell me your name? And what topic or subject brought you here today?",
+      "Wyatt",
+    );
+    // No subjectRef set in default ctx, so just check name strip happens cleanly.
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).not.toContain("tell me your name");
+    expect(result.first_line.toLowerCase()).toContain("what topic");
+  });
+
   // ── #266 Slice 1: authored-module narrative + module-aware first_line ──
 
   it("renders multi-line module-status block when modulesAuthored=true and attempt data exists", () => {
