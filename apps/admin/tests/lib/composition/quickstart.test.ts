@@ -650,13 +650,37 @@ describe("computeQuickStart transform", () => {
     expect(result.discovery_guidance).toBeNull();
   });
 
-  it("returns COLD_START guidance when no pre-survey attributes exist", () => {
+  it("returns COLD_START guidance when no pre-survey attributes AND no caller.name", () => {
     const ctx = makeContext({
       sharedState: { ...makeContext().sharedState, isFirstCall: true },
+      loadedData: {
+        ...makeContext().loadedData,
+        caller: { id: "c1", name: null, email: null, phone: null, externalId: null, domain: null },
+      },
     });
     const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
     expect(result.discovery_guidance).toContain("new learner");
     expect(result.discovery_guidance).toContain("discover their name");
+  });
+
+  // ── #268 follow-up: COLD_START with caller.name on file ──
+
+  it("COLD_START: when caller.name is on file, instructs greet-by-name and skips name discovery", () => {
+    const ctx = makeContext({
+      sharedState: { ...makeContext().sharedState, isFirstCall: true },
+      loadedData: {
+        ...makeContext().loadedData,
+        caller: { id: "c1", name: "Wyatt Diallo", email: null, phone: null, externalId: null, domain: null },
+        // No PRE-survey or personality data → still COLD_START
+        callerAttributes: [],
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.discovery_guidance).toContain("Wyatt Diallo");
+    expect(result.discovery_guidance).toContain("Do NOT ask for their name");
+    expect(result.discovery_guidance).not.toContain("discover their name");
+    // Still discovers goals + experience (not yet known)
+    expect(result.discovery_guidance).toContain("goals");
   });
 
   it("returns PRE_LOADED guidance when caller has pre-survey goal", () => {
@@ -746,6 +770,8 @@ describe("computeQuickStart transform", () => {
       sharedState: { ...makeContext().sharedState, isFirstCall: true },
       loadedData: {
         ...makeContext().loadedData,
+        // Anonymous learner so the COLD_START "discover their name" branch fires.
+        caller: { id: "c1", name: null, email: null, phone: null, externalId: null, domain: null },
         playbooks: [{
           id: "pb-1",
           name: "Course",
@@ -802,6 +828,8 @@ describe("computeQuickStart transform", () => {
       sharedState: { ...makeContext().sharedState, isFirstCall: true },
       loadedData: {
         ...makeContext().loadedData,
+        // Anonymous learner so the COLD_START "discover their name" branch fires.
+        caller: { id: "c1", name: null, email: null, phone: null, externalId: null, domain: null },
         playbooks: [{
           id: "pb-1",
           name: "Legacy",

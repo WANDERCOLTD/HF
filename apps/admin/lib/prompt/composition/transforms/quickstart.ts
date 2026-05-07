@@ -601,9 +601,15 @@ registerTransform("computeQuickStart", (
       }
 
       // COLD_START — discovery is on. Append granular skips for partial opt-outs.
-      const parts: string[] = [
-        "This is a new learner with no prior data. Start with a warm welcome, then discover their name, goals, and prior experience before teaching.",
-      ];
+      // #268 follow-up: when caller.name is already on file (joined via magic
+      // link, prior session, or admin-created), drop the "discover their name"
+      // instruction and direct the tutor to use it. The welcome-message strip
+      // alone wasn't enough — this guidance was re-prompting the AI to ask.
+      const knownName = caller?.name;
+      const opener = knownName
+        ? `This is a new learner — their name is already on file as ${knownName}. Greet them by name. Do NOT ask for their name. Discover their goals and prior experience before teaching.`
+        : "This is a new learner with no prior data. Start with a warm welcome, then discover their name, goals, and prior experience before teaching.";
+      const parts: string[] = [opener];
       if (!askGoals) parts.push("Do NOT ask about their learning goals — the educator has captured these elsewhere.");
       if (!askAboutYou) parts.push("Do NOT ask about their motivation or confidence.");
       if (!askKnowledge) parts.push("Do NOT probe their prior knowledge level.");
