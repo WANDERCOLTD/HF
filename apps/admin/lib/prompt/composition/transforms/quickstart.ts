@@ -449,27 +449,64 @@ registerTransform("computeQuickStart", (
     })(),
 
     first_line: (() => {
-      // Helper: if a welcome message asks "what topic/subject" but we already know the subject,
-      // replace the generic question with subject-specific context
-      const injectSubject = (msg: string): string => {
-        if (!subjectRef) return msg;
-        // Detect generic subject-asking patterns at the end of the welcome
-        const genericPatterns = [
-          /what topic or subject brought you here today\??$/i,
-          /what subject are we drilling today\??$/i,
-          /what are you preparing for\??$/i,
-          /what world shall we explore today\??$/i,
-          /what are we working on today\??$/i,
-          /what situation would you like to practice\??$/i,
-          /what process or journey are we tackling together\??$/i,
-        ];
-        for (const pattern of genericPatterns) {
-          if (pattern.test(msg.trim())) {
-            return msg.trim().replace(pattern, `We're going to be working on ${subjectRef} together.`);
+      // Helper: sanitise an educator-authored welcome message so the tutor
+      // doesn't ask for things the system already knows. Two passes:
+      //   1. Strip name questions when caller.name is known (#268)
+      //   2. Replace generic subject questions when subjectRef is known
+      // Patterns are anchored to interrogative phrasing (terminal `?`) to
+      // avoid stripping declarative prose like "I'll learn your name as we go".
+      const sanitiseWelcome = (msg: string): string => {
+        let out = msg;
+
+        // ── #268: strip name questions when name is known ──
+        // Educator-edited welcome templates often contain literal "could you
+        // tell me your name?" — redundant when caller.name is in the prompt
+        // header (and surfaced via key_memories per #263). Match the question
+        // sentence + optional " And " connector so multi-question welcomes
+        // ("...your name? And what brings you here?") preserve the tail.
+        if (caller?.name) {
+          const namePatterns: RegExp[] = [
+            /(?:[Aa]nd\s+)?[Cc]ould you tell me your name\?\s*(?:[Aa]nd\s+)?/g,
+            /(?:[Aa]nd\s+)?[Ww]hat(?:'s| is) your name\?\s*(?:[Aa]nd\s+)?/g,
+            /(?:[Aa]nd\s+)?[Tt]ell me your name\?\s*(?:[Aa]nd\s+)?/g,
+            /(?:[Aa]nd\s+)?[Ll]et me know your name\?\s*(?:[Aa]nd\s+)?/g,
+            /(?:[Aa]nd\s+)?[Ss]hare your name\?\s*(?:[Aa]nd\s+)?/g,
+            /(?:[Aa]nd\s+)?[Tt]o start,?\s*what should I call you\?\s*(?:[Aa]nd\s+)?/g,
+            /(?:[Aa]nd\s+)?[Ww]hat should I call you\?\s*(?:[Aa]nd\s+)?/g,
+            /[Pp]lease introduce yourself\?\s*/g,
+          ];
+          for (const pattern of namePatterns) {
+            out = out.replace(pattern, "");
+          }
+          // Tidy up dangling separators left by the strip (e.g. "first things first - ").
+          out = out.replace(/\s*-\s*$/g, "").replace(/\s+/g, " ").trimEnd();
+        }
+
+        // ── existing: subject-specific replacement (#171 era) ──
+        if (subjectRef) {
+          const genericPatterns = [
+            /what topic or subject brought you here today\??$/i,
+            /what subject are we drilling today\??$/i,
+            /what are you preparing for\??$/i,
+            /what world shall we explore today\??$/i,
+            /what are we working on today\??$/i,
+            /what situation would you like to practice\??$/i,
+            /what process or journey are we tackling together\??$/i,
+          ];
+          for (const pattern of genericPatterns) {
+            if (pattern.test(out.trim())) {
+              out = out.trim().replace(pattern, `We're going to be working on ${subjectRef} together.`);
+              break;
+            }
           }
         }
-        return msg;
+
+        return out;
       };
+      // Backward-compat alias — earlier branches called this `injectSubject`
+      // before the name-strip extension. Keeping the old name local to avoid
+      // touching unrelated callers in this file.
+      const injectSubject = sanitiseWelcome;
 
       // 0. #266 Slice 1: module-aware opening for authored courses with
       // attempt history. Soft instruction (data section + intent), not a
