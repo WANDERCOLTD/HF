@@ -224,6 +224,109 @@ describe("computeQuickStart transform", () => {
     expect(result.first_line).toContain("reconnect");
   });
 
+  // ── #266 Slice 1: authored-module narrative + module-aware first_line ──
+
+  it("renders multi-line module-status block when modulesAuthored=true and attempt data exists", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: [{ id: "pb-1", name: "C", isActive: true, isLatest: true, config: { modulesAuthored: true } } as any],
+      },
+      sharedState: {
+        ...makeContext().sharedState,
+        modules: [
+          { id: "m-1", slug: "baseline", name: "Baseline" },
+          { id: "m-2", slug: "part-1", name: "Part 1" },
+          { id: "m-3", slug: "part-2", name: "Part 2" },
+        ],
+        moduleAttemptCounts: {
+          "m-1": { callCount: 2, status: "COMPLETED", completedAt: new Date() },
+          "m-2": { callCount: 1, status: "IN_PROGRESS", completedAt: null },
+        },
+        hasAttemptData: true,
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.curriculum_progress).toContain("Module progress");
+    expect(result.curriculum_progress).toContain("Baseline");
+    expect(result.curriculum_progress).toContain("2 sessions, done");
+    expect(result.curriculum_progress).toContain("Part 1");
+    expect(result.curriculum_progress).toContain("1 session, in progress");
+    expect(result.curriculum_progress).toContain("Part 2");
+    expect(result.curriculum_progress).toContain("not started");
+  });
+
+  it("falls back to single-line summary when modulesAuthored is not true (regression)", () => {
+    const ctx = makeContext({
+      // playbooks empty by default → modulesAuthored undefined
+      sharedState: {
+        ...makeContext().sharedState,
+        moduleAttemptCounts: {
+          "m1": { callCount: 5, status: "COMPLETED", completedAt: new Date() },
+        },
+        hasAttemptData: true,
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.curriculum_progress).not.toContain("Module progress");
+    expect(result.curriculum_progress).toMatch(/modules mastered|Starting curriculum/);
+  });
+
+  it("first_line emits module-aware opening instruction when modulesAuthored=true and hasAttemptData", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: [{ id: "pb-1", name: "C", isActive: true, isLatest: true, config: { modulesAuthored: true, subjectDiscipline: "Biology" } } as any],
+      },
+      sharedState: {
+        ...makeContext().sharedState,
+        isFirstCall: false,
+        modules: [{ id: "m-1", slug: "baseline", name: "Baseline" }],
+        moduleAttemptCounts: { "m-1": { callCount: 2, status: "COMPLETED", completedAt: new Date() } },
+        hasAttemptData: true,
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).toContain("module progress");
+    expect(result.first_line).toContain("Biology");
+    expect(result.first_line).not.toContain("reconnect"); // overrides the legacy reconnect line
+  });
+
+  it("first_line uses legacy reconnect line when modulesAuthored=true but hasAttemptData is false (first-ever attempt)", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: [{ id: "pb-1", name: "C", isActive: true, isLatest: true, config: { modulesAuthored: true } } as any],
+      },
+      sharedState: {
+        ...makeContext().sharedState,
+        isFirstCall: false,
+        moduleAttemptCounts: {},
+        hasAttemptData: false,
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).toContain("reconnect");
+    expect(result.first_line).not.toContain("module progress");
+  });
+
+  it("first_line uses legacy first-call line when isFirstCall (regression)", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: [{ id: "pb-1", name: "C", isActive: true, isLatest: true, config: { modulesAuthored: true } } as any],
+      },
+      sharedState: {
+        ...makeContext().sharedState,
+        isFirstCall: true,
+        hasAttemptData: false,
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).toContain("ease into this");
+    expect(result.first_line).not.toContain("module progress");
+  });
+
   it("returns first-call first_line for new caller", () => {
     const ctx = makeContext({
       sharedState: { ...makeContext().sharedState, isFirstCall: true },

@@ -1,0 +1,125 @@
+description: "Tutor opening — module-status narrative for authored courses (#266)"
+
+# Run with: npx promptfoo eval -c evals/tutor/module-status-narrative.yaml --no-cache
+#
+# Tests the AI tutor's opening turn when the playbook has authored modules AND
+# per-learner attempt data exists. The composed system prompt should include:
+#   - _quickStart.curriculum_progress: multi-line module status block
+#   - _quickStart.first_line: soft instruction to open by referencing progress
+#
+# The tutor's first utterance should:
+#   - Reference the learner's module history in plain language (not enum names)
+#   - Use the right vocabulary ("done", "in progress", "not started")
+#   - NOT read the list verbatim
+#   - Transition naturally into the active module
+#
+# When modulesAuthored is NOT set, the legacy reconnect line is preserved
+# (regression check).
+
+prompts:
+  - id: tutor-module-status-prompt
+    label: "Tutor opening — module-status injection"
+    raw: |
+      You are an AI tutor running a 1-to-1 voice/text teaching session.
+
+      ## How you communicate
+      - Warm, brief, conversational. 1-2 sentences for the opening.
+      - NEVER read lists verbatim. NEVER expose internal field names.
+      - Use plain language: "done", "in progress", "not started".
+
+      ## _quickStart context (instant orientation)
+
+      {{quickStartContext}}
+
+      ## Opening instruction
+
+      {{firstLineInstruction}}
+
+      ---
+      The learner has just joined the session. Speak first — your opening line.
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 400
+
+defaultTest:
+  vars: {}
+
+tests:
+
+  # ── Test 1 — Authored + attempt data: tutor narrates progress ──
+
+  - description: "Test 1 — Authored course with attempt data: tutor opening references module progress"
+    vars:
+      quickStartContext: |
+        Module progress (3 authored modules):
+          - Baseline: 2 sessions, done
+          - Part 1: 1 session, in progress
+          - Part 2: not started
+      firstLineInstruction: |
+        Open by referencing the learner's module progress (see Module progress above) in plain language —
+        name what they've done and how many times, then transition naturally into IELTS Speaking.
+        Keep it warm and brief; do NOT read the list verbatim.
+      userMessage: ""
+    assert:
+      - type: llm-rubric
+        value: "The opening line references the learner's module history in plain language — at minimum mentions Baseline (with 'done' or 'twice' or '2 sessions') OR Part 1 (with 'in progress' or 'continue'). Does NOT read the bullet list verbatim. Transitions toward today's session naturally."
+      - type: not-icontains
+        value: "NOT_STARTED"
+      - type: not-icontains
+        value: "IN_PROGRESS"
+      - type: not-icontains
+        value: "COMPLETED"
+
+  # ── Test 2 — Authored, no attempts (first session): no progress narrative ──
+
+  - description: "Test 2 — Authored course, no attempts yet: tutor uses warm reconnect line, no module status reference"
+    vars:
+      quickStartContext: |
+        Module progress (3 authored modules):
+          - Baseline: not started
+          - Part 1: not started
+          - Part 2: not started
+      firstLineInstruction: |
+        Good to reconnect. Ready to pick up where we left off?
+      userMessage: ""
+    assert:
+      - type: llm-rubric
+        value: "The opening line is a warm greeting. Does NOT mention specific modules by name (Baseline, Part 1, Part 2) since there's no progress to reference. Does NOT claim the learner has done anything yet."
+
+  # ── Test 3 — Non-authored course: no module status block, legacy opening ──
+
+  - description: "Test 3 — Non-authored course: tutor opens with generic reconnect line"
+    vars:
+      quickStartContext: |
+        Progress: 2/5 modules mastered | Current: Module 3
+      firstLineInstruction: |
+        Good to reconnect. Ready to pick up where we left off with Biology?
+      userMessage: ""
+    assert:
+      - type: llm-rubric
+        value: "The opening line is a warm reconnect greeting referencing Biology. Does NOT claim specific authored module names (Baseline, Part 1, etc) since the context only shows aggregate progress."
+      - type: not-icontains
+        value: "Module progress"
+      - type: not-icontains
+        value: "Baseline"
+
+  # ── Test 4 — Soft language: tutor doesn't promise specific assertion details ──
+
+  - description: "Test 4 — Authored with attempt data: opening stays warm and brief, no list dump"
+    vars:
+      quickStartContext: |
+        Module progress (4 authored modules):
+          - Vocabulary: 3 sessions, done
+          - Listening: 2 sessions, in progress
+          - Speaking: 1 session, in progress
+          - Writing: not started
+      firstLineInstruction: |
+        Open by referencing the learner's module progress in plain language —
+        name what they've done and how many times, then transition naturally into IELTS prep.
+        Keep it warm and brief; do NOT read the list verbatim.
+      userMessage: ""
+    assert:
+      - type: llm-rubric
+        value: "The opening line is BRIEF (one or two sentences max). Does NOT enumerate all four modules in a list. Does reference at least one specific module by name with a count or status indicator."

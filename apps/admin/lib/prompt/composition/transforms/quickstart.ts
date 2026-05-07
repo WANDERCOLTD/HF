@@ -80,7 +80,7 @@ registerTransform("computeQuickStart", (
   context: AssembledContext,
 ) => {
   const { sharedState, loadedData, resolvedSpecs, sections } = context;
-  const { modules, isFirstCall, completedModules, moduleToReview, nextModule, thresholds, callNumber, schedulerDecision, schedulerPolicy } = sharedState;
+  const { modules, isFirstCall, completedModules, moduleToReview, nextModule, thresholds, callNumber, schedulerDecision, schedulerPolicy, moduleAttemptCounts, hasAttemptData } = sharedState;
   const caller = loadedData.caller;
   const learnerGoals = loadedData.goals;
   const identitySpec = resolvedSpecs.identitySpec;
@@ -361,6 +361,29 @@ registerTransform("computeQuickStart", (
       : null,
 
     curriculum_progress: modules.length > 0 ? (() => {
+      // #266 Slice 1: when the playbook has authored modules AND we have
+      // per-learner attempt data, render a multi-line block the tutor can
+      // narrate (e.g. "Baseline — 2 sessions, done"). Falls back to the
+      // single-line summary for non-authored or never-attempted courses.
+      const isAuthoredWithData =
+        pbConfig.modulesAuthored === true && !!moduleAttemptCounts;
+      if (isAuthoredWithData) {
+        const STATUS_LABEL: Record<"NOT_STARTED" | "IN_PROGRESS" | "COMPLETED", string> = {
+          NOT_STARTED: "not started",
+          IN_PROGRESS: "in progress",
+          COMPLETED: "done",
+        };
+        const lines = modules.map((m) => {
+          const id = m.id || m.slug || "";
+          const progress = id ? moduleAttemptCounts?.[id] : undefined;
+          const status = (progress?.status ?? "NOT_STARTED") as "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+          const count = progress?.callCount ?? 0;
+          const sessions =
+            count === 0 ? "not started" : `${count} ${count === 1 ? "session" : "sessions"}, ${STATUS_LABEL[status]}`;
+          return `  - ${m.name || m.slug || id}: ${sessions}`;
+        });
+        return [`Module progress (${modules.length} authored modules):`, ...lines].join("\n");
+      }
       const completed = completedModules.size;
       const total = modules.length;
       const currentModuleName = moduleToReview?.name || nextModule?.name;
@@ -447,6 +470,23 @@ registerTransform("computeQuickStart", (
         }
         return msg;
       };
+
+      // 0. #266 Slice 1: module-aware opening for authored courses with
+      // attempt history. Soft instruction (data section + intent), not a
+      // scripted line — TUT-001 persona drives wording.
+      if (
+        !isFirstCall &&
+        pbConfig.modulesAuthored === true &&
+        hasAttemptData === true &&
+        modules.length > 0
+      ) {
+        return [
+          "Open by referencing the learner's module progress (see Module progress above) in plain language —",
+          "name what they've done and how many times, then transition naturally into",
+          subjectRef ? `${subjectRef}. ` : "today's teaching. ",
+          "Keep it warm and brief; do NOT read the list verbatim.",
+        ].join(" ");
+      }
 
       // 1. Identity spec instruction (highest priority — persona spec)
       const identityOpening = (identitySpec?.config as SpecConfig)?.sessionStructure?.opening?.instruction;

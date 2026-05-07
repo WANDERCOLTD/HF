@@ -626,6 +626,46 @@ export async function computeSharedState(
   // Determine if this is the final teaching session
   const pbConfig = (data.playbooks?.[0]?.config || {}) as Record<string, any>;
   const sessionCount = pbConfig.sessionCount as number | undefined;
+
+  // ── #266 Slice 1: per-learner module progress (authored courses only) ──
+  // Source of truth for "you've done Baseline twice" narratives. Reads
+  // CallerModuleProgress, which is incremented inside updateModuleMastery
+  // (track-progress.ts) at session end — so the count the tutor sees at the
+  // start of a session reflects completed sessions only. Indexed on
+  // [callerId, status] (schema.prisma) → cheap.
+  let moduleAttemptCounts: SharedComputedState["moduleAttemptCounts"] = undefined;
+  let hasAttemptData = false;
+  if (pbConfig.modulesAuthored === true && curriculumId && data.caller?.id) {
+    try {
+      const rows = await prisma.callerModuleProgress.findMany({
+        where: {
+          callerId: data.caller.id,
+          module: { curriculumId },
+        },
+        select: {
+          moduleId: true,
+          callCount: true,
+          status: true,
+          completedAt: true,
+        },
+      });
+      moduleAttemptCounts = {};
+      for (const row of rows) {
+        moduleAttemptCounts[row.moduleId] = {
+          callCount: row.callCount,
+          status: (row.status as "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED") ?? "NOT_STARTED",
+          completedAt: row.completedAt,
+        };
+        if (row.callCount > 0) hasAttemptData = true;
+      }
+      console.log(
+        `[modules] #266: loaded ${rows.length} CallerModuleProgress rows; hasAttemptData=${hasAttemptData}`,
+      );
+    } catch (err) {
+      console.warn("[modules] #266: callerModuleProgress query failed (non-blocking):", err);
+    }
+  }
+
   const callNumber = data.recentCalls.length + 1; // 1-based: this is the Nth call
   const isFinalByBudget = !!(sessionCount && sessionCount > 0 && callNumber >= sessionCount);
   const isFinalByScheduler = schedulerTotalLOs > 0 && schedulerTotalMastered >= schedulerTotalLOs;
@@ -659,6 +699,9 @@ export async function computeSharedState(
     // #155 + #164: scheduler decision + policy for downstream transforms
     schedulerDecision,
     schedulerPolicy,
+    // #266 Slice 1: per-learner module progress (authored courses only)
+    moduleAttemptCounts,
+    hasAttemptData,
   };
 }
 
@@ -707,6 +750,15 @@ registerTransform("computeModuleProgress", (
     return "not_started";
   };
 
+  // #266 Slice 1: per-learner attempt counts, when available
+  const moduleAttemptCounts = sharedState.moduleAttemptCounts;
+  const hasAttemptData = sharedState.hasAttemptData === true;
+  const STATUS_LABEL: Record<"NOT_STARTED" | "IN_PROGRESS" | "COMPLETED", string> = {
+    NOT_STARTED: "not started",
+    IN_PROGRESS: "in progress",
+    COMPLETED: "done",
+  };
+
   return {
     name: (sharedState as Record<string, any>).curriculumName || null,
     hasData: curriculumAttrs.length > 0 || modules.length > 0,
@@ -716,19 +768,39 @@ registerTransform("computeModuleProgress", (
     completedCount: completedModules.size,
     estimatedProgress,
     masteryThreshold,
-    modules: modules.map((m: ModuleData, idx: number) => ({
-      id: m.id,
-      slug: m.slug || m.id || '',
-      name: m.name,
-      description: m.description,
-      order: m.sortOrder ?? m.sequence,
-      prerequisites: m.prerequisites,
-      masteryThreshold: m.masteryThreshold ?? masteryThreshold,
-      isCompleted: completedModules.has(getModuleKey(m)),
-      status: getModuleStatus(m, idx),
-      // Include module content for LLM context
-      content: m.content,
-    })),
+    // #266 Slice 1: gates module-aware opening line in _quickStart.first_line
+    hasAttemptData,
+    modules: modules.map((m: ModuleData, idx: number) => {
+      const learnerProgress = m.id ? moduleAttemptCounts?.[m.id] : undefined;
+      const callCount = learnerProgress?.callCount ?? 0;
+      const learnerStatus = learnerProgress?.status;
+      // Prefer authored learner status when present; otherwise fall back to the
+      // attribute-derived status used by every existing course.
+      const renderedStatus: "completed" | "in_progress" | "not_started" =
+        learnerStatus === "COMPLETED" ? "completed"
+          : learnerStatus === "IN_PROGRESS" ? "in_progress"
+          : learnerStatus === "NOT_STARTED" ? "not_started"
+          : getModuleStatus(m, idx);
+      return {
+        id: m.id,
+        slug: m.slug || m.id || '',
+        name: m.name,
+        description: m.description,
+        order: m.sortOrder ?? m.sequence,
+        prerequisites: m.prerequisites,
+        masteryThreshold: m.masteryThreshold ?? masteryThreshold,
+        isCompleted: renderedStatus === "completed",
+        status: renderedStatus,
+        // #266 Slice 1: per-learner attempt count (0 when no progress row, or when modulesAuthored !== true)
+        callCount,
+        statusLabel: STATUS_LABEL[
+          learnerStatus
+            ?? (renderedStatus === "completed" ? "COMPLETED" : renderedStatus === "in_progress" ? "IN_PROGRESS" : "NOT_STARTED")
+        ],
+        // Include module content for LLM context
+        content: m.content,
+      };
+    }),
     nextModule: nextModule ? {
       id: nextModule.id,
       slug: nextModule.slug || nextModule.id,
