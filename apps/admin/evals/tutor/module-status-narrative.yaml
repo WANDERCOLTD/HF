@@ -123,3 +123,45 @@ tests:
     assert:
       - type: llm-rubric
         value: "The opening line is BRIEF (one or two sentences max). Does NOT enumerate all four modules in a list. Does reference at least one specific module by name with a count or status indicator."
+
+  # ── #274 Slice B — Locked-module path takes priority over narrative ──
+
+  - description: "Test 5 — Locked module + no prior attempts: tutor opens focused on the picked module, no discovery question"
+    vars:
+      quickStartContext: |
+        this_session: Locked focus — Part 1: Familiar Topics
+        Module progress (3 authored modules):
+          - Baseline: not started
+          - Part 1: not started
+          - Part 2: not started
+      firstLineInstruction: |
+        The learner has picked the "Part 1: Familiar Topics" module — open by acknowledging their pick
+        and transition naturally into teaching it. Do NOT ask 'what brings you here' or 'what would you
+        like to work on' — that decision is already made. Keep it warm and brief.
+      userMessage: ""
+    assert:
+      - type: llm-rubric
+        value: "The opening references 'Part 1' or 'Familiar Topics' specifically and acknowledges the learner's pick. Does NOT ask 'what would you like to work on' or 'what brings you here'."
+      - type: not-icontains
+        value: "what would you like to work on"
+      - type: not-icontains
+        value: "what brings you"
+
+  - description: "Test 6 — Locked module + attempt data: locked branch wins over progress narrative"
+    vars:
+      quickStartContext: |
+        this_session: Locked focus — Part 1: Familiar Topics
+        Module progress (3 authored modules):
+          - Baseline: 2 sessions, done
+          - Part 1: 1 session, in progress
+          - Part 2: not started
+      firstLineInstruction: |
+        The learner has picked the "Part 1: Familiar Topics" module — open by acknowledging their pick
+        and transition naturally into teaching it. Do NOT ask 'what brings you here' or 'what would you
+        like to work on' — that decision is already made. Keep it warm and brief.
+      userMessage: ""
+    assert:
+      - type: llm-rubric
+        value: "Opening focuses on Part 1 / Familiar Topics. Does NOT recap the learner's full module history (no 'you've done Baseline twice' enumeration)."
+      - type: not-icontains
+        value: "what would you like to work on"

@@ -58,10 +58,17 @@ export async function POST(
       playbookIds,
       forceFirstCall = false,
       skipIfFreshMs = 0,
+      // #274 Slice A: when the learner picked a specific module via the
+      // picker, the tutor's prompt must reflect that choice. We bypass the
+      // freshness cache in this case — a cached prompt composed before the
+      // pick would silently win and the tutor wouldn't know.
+      requestedModuleId,
     } = body;
 
     // Skip composition if a fresh active prompt already exists (avoids duplicate on sim start)
-    if (skipIfFreshMs > 0) {
+    // #274: skip the skip when requestedModuleId is set — the locked module
+    // changes the prompt content, so cached freshness is irrelevant.
+    if (skipIfFreshMs > 0 && !requestedModuleId) {
       const cutoff = new Date(Date.now() - skipIfFreshMs);
       const fresh = await prisma.composedPrompt.findFirst({
         where: { callerId, status: "active", createdAt: { gte: cutoff } },
@@ -78,6 +85,7 @@ export async function POST(
       targetOverrides,
       playbookIds,
       forceFirstCall,
+      requestedModuleId,
     });
 
     // Execute composition pipeline

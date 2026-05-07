@@ -30,6 +30,13 @@ export async function loadComposeConfig(overrides?: {
   targetOverrides?: Record<string, number>;
   playbookIds?: string[];
   forceFirstCall?: boolean;
+  /**
+   * #274 Slice A: when set, the tutor's prompt is composed for a session
+   * locked to a specific authored module. Bypasses scheduler in
+   * computeSharedState; populates SharedComputedState.lockedModule.
+   * Read by the picker → SimChat → compose-prompt flow.
+   */
+  requestedModuleId?: string;
 }): Promise<ComposeConfig> {
   // Try exact slug first (from config), then fallback to any active COMPOSE/SYSTEM spec
   const composeSpec = await prisma.analysisSpec.findFirst({
@@ -94,6 +101,7 @@ export async function loadComposeConfig(overrides?: {
       targetOverrides: overrides?.targetOverrides || {},
       playbookIds: overrides?.playbookIds || undefined,
       forceFirstCall: overrides?.forceFirstCall || false,
+      requestedModuleId: overrides?.requestedModuleId || undefined,
     },
     sections: sections && sections.length > 0 ? sections : getDefaultSections(),
   };
