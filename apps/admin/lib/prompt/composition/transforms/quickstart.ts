@@ -80,7 +80,7 @@ registerTransform("computeQuickStart", (
   context: AssembledContext,
 ) => {
   const { sharedState, loadedData, resolvedSpecs, sections } = context;
-  const { modules, isFirstCall, completedModules, moduleToReview, nextModule, thresholds, callNumber, schedulerDecision, schedulerPolicy, moduleAttemptCounts, hasAttemptData } = sharedState;
+  const { modules, isFirstCall, completedModules, moduleToReview, nextModule, thresholds, callNumber, schedulerDecision, schedulerPolicy, moduleAttemptCounts, hasAttemptData, lockedModule } = sharedState;
   const caller = loadedData.caller;
   const learnerGoals = loadedData.goals;
   const identitySpec = resolvedSpecs.identitySpec;
@@ -311,6 +311,12 @@ registerTransform("computeQuickStart", (
     })(),
 
     this_session: (() => {
+      // #274 Slice B: when the learner picked a specific module via the
+      // Module Picker, the session is locked to that module — overrides
+      // scheduler/review derivation so this_session reflects the choice.
+      if (lockedModule) {
+        return `Locked focus — ${lockedModule.name}${lockedModule.description ? ` (${lockedModule.description})` : ""}`;
+      }
       let session: string;
       if (isFirstCall && modules[0]) {
         session = `First session - introduce ${modules[0].name}`;
@@ -508,7 +514,19 @@ registerTransform("computeQuickStart", (
       // touching unrelated callers in this file.
       const injectSubject = sanitiseWelcome;
 
-      // 0. #266 Slice 1: module-aware opening for authored courses with
+      // 0a. #274 Slice B: locked-module opening — highest priority.
+      // The learner has explicitly picked a module via the Module Picker;
+      // honour that and open the session focused on it. Wins over both the
+      // identity spec opening and #266's module-status narrative.
+      if (lockedModule) {
+        return [
+          `The learner has picked the "${lockedModule.name}" module — open by acknowledging their pick`,
+          "and transition naturally into teaching it. Do NOT ask 'what brings you here' or 'what would you like to work on'",
+          "— that decision is already made. Keep it warm and brief.",
+        ].join(" ");
+      }
+
+      // 0b. #266 Slice 1: module-aware opening for authored courses with
       // attempt history. Soft instruction (data section + intent), not a
       // scripted line — TUT-001 persona drives wording.
       if (
@@ -557,6 +575,13 @@ registerTransform("computeQuickStart", (
 
     discovery_guidance: (() => {
       if (!isFirstCall) return null;
+      // #274 Slice B: when the learner has picked a specific module, the
+      // discovery flow ("what brings you here / what to work on") is moot —
+      // they already chose. Welcome-flow surveys (Goals/AboutYou/KC) are
+      // gated separately by their own toggles and unaffected here.
+      if (lockedModule) {
+        return `The learner has picked "${lockedModule.name}" — do NOT ask 'what brings you here' or 'what to work on today'. That decision is already made. Welcome them by name (if known), confirm the focus, and move into teaching.`;
+      }
 
       // Multi-playbook callers: using playbooks?.[0] is an existing assumption — not changed here.
       // Source of truth is `playbook.config.welcome.*.enabled` — what the educator toggles

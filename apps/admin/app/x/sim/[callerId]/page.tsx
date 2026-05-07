@@ -55,6 +55,9 @@ export default function SimConversationPage() {
   const [playbookName, setPlaybookName] = useState<string | undefined>(undefined);
   const [subjectDiscipline, setSubjectDiscipline] = useState<string | undefined>(undefined);
   const [modulesAuthored, setModulesAuthored] = useState<boolean>(false);
+  // #274 Slice C: hold the authored module list so the picker-selection
+  // banner can display a human label instead of the raw id.
+  const [authoredModules, setAuthoredModules] = useState<Array<{ id: string; label?: string }>>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Journey chat — unified WhatsApp-style survey/onboarding/teaching flow
@@ -105,6 +108,11 @@ export default function SimConversationPage() {
                   // Issue #242: gate the "Pick module" header button on authored modules.
                   // Treat both `null` (never imported) and `false` (opted out) as off.
                   setModulesAuthored(cfg.modulesAuthored === true);
+                  // #274 Slice C: capture authored modules so the banner can
+                  // resolve the picked module's label (not just the id).
+                  if (Array.isArray(cfg.modules)) {
+                    setAuthoredModules(cfg.modules);
+                  }
                 }
               })
               .catch(() => {});
@@ -164,7 +172,10 @@ export default function SimConversationPage() {
   return (
     <>
       {requestedModuleId && (
-        <ModulePickerSelectionBanner moduleId={requestedModuleId} />
+        <ModulePickerSelectionBanner
+          moduleId={requestedModuleId}
+          modules={authoredModules}
+        />
       )}
       <SimChat
         callerId={callerId}
@@ -192,38 +203,34 @@ export default function SimConversationPage() {
  * Selection banner — confirms which module the learner picked. The id is
  * forwarded to POST /api/callers/[id]/calls and persisted as
  * Call.requestedModuleId so the pipeline overrides the scheduler-selected
- * module when computing mastery (#242 Slice 2).
+ * module when computing mastery (#242 Slice 2). The compose-prompt route
+ * also reads it (#274 Slice A) to drive the tutor's opening narrative.
+ *
+ * #274 Slice C:
+ * - Replaced inline styles with `hf-banner hf-banner-info` classes
+ *   (Guard 6, ui-design-system rule).
+ * - Copy: "Next session" → "This session" (the picker's choice IS for
+ *   THIS session, not the next one).
+ * - Resolves module label from authored config; falls back to id.
  */
-function ModulePickerSelectionBanner({ moduleId }: { moduleId: string }) {
+function ModulePickerSelectionBanner({
+  moduleId,
+  modules,
+}: {
+  moduleId: string;
+  modules: Array<{ id: string; label?: string }>;
+}) {
+  const matched = modules.find((m) => m.id === moduleId);
+  const label = matched?.label || moduleId;
   return (
     <div
       role="status"
       aria-live="polite"
-      style={{
-        padding: '10px 16px',
-        borderBottom: '1px solid var(--border-default)',
-        background: 'color-mix(in srgb, var(--accent-primary) 8%, var(--surface-primary))',
-        fontSize: 13,
-        color: 'var(--text-primary)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-      }}
+      className="hf-banner hf-banner-info hf-flex hf-items-center hf-gap-8"
     >
       <strong>Module selected:</strong>
       <span>
-        Next session will focus on{' '}
-        <code
-          style={{
-            padding: '2px 6px',
-            borderRadius: 4,
-            background: 'var(--surface-secondary)',
-            fontSize: 12,
-          }}
-        >
-          {moduleId}
-        </code>
-        . Mastery will be tracked against this module after the call.
+        This session will focus on <strong>{label}</strong>. Mastery will be tracked against this module.
       </span>
     </div>
   );

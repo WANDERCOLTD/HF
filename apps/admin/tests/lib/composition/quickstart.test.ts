@@ -299,6 +299,78 @@ describe("computeQuickStart transform", () => {
     expect(result.first_line.toLowerCase()).toContain("what topic");
   });
 
+  // ── #274 Slice B: locked-module overrides this_session, first_line, discovery_guidance ──
+
+  it("this_session reads 'Locked focus — <label>' when lockedModule is set (overrides scheduler)", () => {
+    const ctx = makeContext({
+      sharedState: {
+        ...makeContext().sharedState,
+        lockedModule: { id: "part1", slug: "part1", name: "Part 1: Familiar Topics" },
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.this_session).toContain("Locked focus");
+    expect(result.this_session).toContain("Part 1: Familiar Topics");
+    // Did NOT fall through to "Continue with" / "Review/Introduce" branch
+    expect(result.this_session).not.toContain("Review Introduction");
+    expect(result.this_session).not.toContain("Introduce Advanced");
+  });
+
+  it("first_line emits locked-module instruction when lockedModule is set (highest priority)", () => {
+    const ctx = makeContext({
+      sharedState: {
+        ...makeContext().sharedState,
+        isFirstCall: false,
+        lockedModule: { id: "part1", slug: "part1", name: "Part 1: Familiar Topics" },
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.first_line).toContain("Part 1: Familiar Topics");
+    expect(result.first_line).toContain("picked");
+    expect(result.first_line).toContain("acknowledg"); // "acknowledging"
+    expect(result.first_line).not.toContain("reconnect"); // legacy fallback
+  });
+
+  it("first_line locked-module wins over #266 narrative when both apply", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: [{ id: "pb-1", name: "C", isActive: true, isLatest: true, config: { modulesAuthored: true } } as any],
+      },
+      sharedState: {
+        ...makeContext().sharedState,
+        isFirstCall: false,
+        modules: [{ id: "m-1", slug: "baseline", name: "Baseline" }],
+        moduleAttemptCounts: { "m-1": { callCount: 2, status: "COMPLETED", completedAt: new Date() } },
+        hasAttemptData: true,
+        // locked module also set
+        lockedModule: { id: "part1", slug: "part1", name: "Part 1: Familiar Topics" },
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    // Locked branch wins — does NOT mention progress narrative
+    expect(result.first_line).toContain("Part 1: Familiar Topics");
+    expect(result.first_line).not.toContain("module progress");
+  });
+
+  it("discovery_guidance suppresses 'discover their goals' when lockedModule is set", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        caller: { id: "c1", name: null, email: null, phone: null, externalId: null, domain: null },
+      },
+      sharedState: {
+        ...makeContext().sharedState,
+        isFirstCall: true,
+        lockedModule: { id: "part1", slug: "part1", name: "Part 1: Familiar Topics" },
+      },
+    });
+    const result = getTransform("computeQuickStart")!(null, ctx, makeSectionDef());
+    expect(result.discovery_guidance).toContain("Part 1: Familiar Topics");
+    expect(result.discovery_guidance).toContain("do NOT ask");
+    expect(result.discovery_guidance).not.toContain("discover their name");
+  });
+
   // ── #266 Slice 1: authored-module narrative + module-aware first_line ──
 
   it("renders multi-line module-status block when modulesAuthored=true and attempt data exists", () => {

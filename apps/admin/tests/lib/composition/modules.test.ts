@@ -438,6 +438,58 @@ describe("computeModuleProgress transform", () => {
     expect(out.modules[2]).toMatchObject({ id: "m-3", callCount: 0, statusLabel: "not started", isCompleted: false });
   });
 
+  // ── #274 Slice A: locked-module via specConfig.requestedModuleId ──
+
+  it("populates lockedModule when specConfig.requestedModuleId matches Playbook.config.modules", async () => {
+    const data = makeLoadedData({
+      playbooks: [{
+        id: "pb-1", name: "C", isActive: true, isLatest: true,
+        config: {
+          modulesAuthored: true,
+          modules: [
+            { id: "baseline", label: "Baseline Assessment", outcomesPrimary: ["LO-1", "LO-2"] },
+            { id: "part1", label: "Part 1: Familiar Topics" },
+          ],
+        } as any,
+      } as any],
+    });
+    const specs = makeResolvedSpecs();
+    const result = await computeSharedState(data, specs, { requestedModuleId: "part1" });
+    expect(result.lockedModule).not.toBeNull();
+    expect(result.lockedModule?.id).toBe("part1");
+    expect(result.lockedModule?.name).toBe("Part 1: Familiar Topics");
+    // nextModule is forced to the locked choice (downstream transforms narrate it)
+    expect(result.nextModule?.id).toBe("part1");
+  });
+
+  it("locks via id-based match — slug-based requestedModuleId falls back gracefully", async () => {
+    const data = makeLoadedData({
+      playbooks: [{
+        id: "pb-1", name: "C", isActive: true, isLatest: true,
+        config: {
+          modulesAuthored: true,
+          modules: [{ id: "baseline", label: "Baseline" }],
+        } as any,
+      } as any],
+    });
+    const specs = makeResolvedSpecs();
+    // requestedModuleId doesn't match any module.id → silent fallback
+    const result = await computeSharedState(data, specs, { requestedModuleId: "nonexistent" });
+    expect(result.lockedModule).toBeNull();
+  });
+
+  it("does NOT populate lockedModule when requestedModuleId is absent (regression)", async () => {
+    const data = makeLoadedData({
+      playbooks: [{
+        id: "pb-1", name: "C", isActive: true, isLatest: true,
+        config: { modulesAuthored: true, modules: [{ id: "baseline", label: "Baseline" }] } as any,
+      } as any],
+    });
+    const specs = makeResolvedSpecs();
+    const result = await computeSharedState(data, specs, {});
+    expect(result.lockedModule).toBeNull();
+  });
+
   it("falls back to attribute-derived status when moduleAttemptCounts is undefined", () => {
     const modules: ModuleData[] = [{ id: "m-1", slug: "baseline", name: "Baseline" }];
     const ctx = makeContext(modules, undefined, false);

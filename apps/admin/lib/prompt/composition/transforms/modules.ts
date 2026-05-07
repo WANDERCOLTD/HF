@@ -430,7 +430,55 @@ export async function computeSharedState(
   let schedulerTotalMastered = 0;
   let schedulerTotalLOs = 0;
 
-  if (modules.length > 0 && specSlug && curriculumId) {
+  // ── #274 Slice A: locked-module resolution ────────────────────────────
+  // When the learner picked a specific module via the Module Picker, the
+  // scheduler MUST be bypassed at compose time — otherwise selectNextExchange
+  // overwrites `nextModule` with its frontier choice and downstream transforms
+  // narrate the wrong module. Symmetric to the pipeline-side override at
+  // pipeline/route.ts:108 (mastery scoring for end-of-call).
+  let lockedModule: ModuleData | null = null;
+  const requestedModuleId = (specConfig.requestedModuleId as string | undefined) || undefined;
+  if (requestedModuleId) {
+    // Match against Playbook.config.modules (the authored shape). The picker
+    // emits the AuthoredModule.id as ?requestedModuleId=… so we match on id.
+    // pbConfig is declared further down (line ~672) for the isFinalSession
+    // logic — read directly here to avoid temporal-dead-zone gymnastics.
+    const lockedPbConfig = (data.playbooks?.[0]?.config || {}) as Record<string, unknown>;
+    const authored = (Array.isArray(lockedPbConfig.modules) ? lockedPbConfig.modules : []) as Array<{
+      id?: string;
+      label?: string;
+      outcomesPrimary?: unknown;
+      prerequisites?: unknown;
+      content?: Record<string, unknown>;
+    }>;
+    const match = authored.find((m) => m?.id === requestedModuleId);
+    if (match) {
+      lockedModule = {
+        id: match.id,
+        slug: match.id || "",
+        // AuthoredModule has `label` not `name`; map for downstream `ModuleData` consumers.
+        name: match.label || match.id || requestedModuleId,
+        description: null,
+        learningOutcomes: Array.isArray(match.outcomesPrimary) ? (match.outcomesPrimary as string[]) : undefined,
+        prerequisites: Array.isArray(match.prerequisites) ? (match.prerequisites as string[]) : undefined,
+        content: match.content,
+      };
+      // Force `nextModule` so quickstart's existing this_session / first_line
+      // logic narrates the locked choice (Slice B will add explicit branches).
+      nextModule = lockedModule;
+      console.log(
+        `[modules] #274 Slice A: locked to module "${requestedModuleId}" (label="${lockedModule.name}") — scheduler BYPASSED.`,
+      );
+    } else {
+      // Fallback to scheduler — same behaviour as pipeline route's miss path.
+      console.warn(
+        `[modules] #274: requestedModuleId "${requestedModuleId}" not found in Playbook.config.modules — falling back to scheduler.`,
+      );
+    }
+  }
+
+  // Run scheduler ONLY when no locked module is in effect.
+  if (modules.length > 0 && specSlug && curriculumId && !lockedModule) {
     try {
       const { getTpProgressBatch } = await import("@/lib/curriculum/track-progress");
       const { selectNextExchange } = await import("@/lib/pipeline/scheduler");
@@ -702,6 +750,8 @@ export async function computeSharedState(
     // #266 Slice 1: per-learner module progress (authored courses only)
     moduleAttemptCounts,
     hasAttemptData,
+    // #274 Slice A: locked module from picker (null when not picked or unmatched)
+    lockedModule,
   };
 }
 

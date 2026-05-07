@@ -370,10 +370,15 @@ export function SimChat({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           triggerType: 'sim',
+          // #274 Slice A: when a module was picked, the prompt content
+          // depends on it; the route bypasses the freshness cache when
+          // requestedModuleId is set so we don't return a stale prompt
+          // composed before the pick.
           skipIfFreshMs: 24 * 60 * 60 * 1000, // reuse any prompt from last 24h — effectively "use enrolled prompt"
           ...(playbookId ? { playbookIds: [playbookId] } : {}),
           ...(targetOverrides ? { targetOverrides } : {}),
           ...(forceFirstCall ? { forceFirstCall: true } : {}),
+          ...(requestedModuleId ? { requestedModuleId } : {}),
         }),
       });
       if (composeRes.ok) {

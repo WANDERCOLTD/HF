@@ -275,6 +275,18 @@ export interface SharedComputedState {
   }>;
   /** True when at least one module has callCount > 0. Gates the tutor's module-aware opening line. */
   hasAttemptData?: boolean;
+  /**
+   * #274 Slice A: the authored module the learner explicitly picked via the
+   * Module Picker. When set, the scheduler is BYPASSED — `nextModule` is
+   * forced to the locked choice. _quickStart.this_session and first_line
+   * narrate the locked focus, and discovery_guidance suppresses
+   * "what to work on" prompts.
+   *
+   * Resolution: matched by id from `Playbook.config.modules`. If
+   * `specConfig.requestedModuleId` doesn't resolve, this stays null and
+   * the scheduler runs as today (silent fallback, warn log).
+   */
+  lockedModule?: ModuleData | null;
   /** Call number (1-based) — this is the Nth call for this learner */
   callNumber: number;
   /** Synthetic lesson plan entry built from scheduler working set (for downstream transform compat) */
