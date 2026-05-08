@@ -192,8 +192,13 @@ export function CourseCurriculumTab({
   // #208: Curriculum exists but has zero modules — surface a recovery CTA
   // before the rest of the scorecard renders, so educators don't see a
   // health card with no actionable next step.
+  // Authored-modules courses are excluded: their structure is educator-
+  // authored and "Regenerate curriculum" would clobber it. The
+  // AuthoredModules panel (above) is the right surface for them.
   const hasZeroModules =
-    !!curriculumId && (scorecard?.structure?.activeModules ?? 0) === 0;
+    !!curriculumId
+    && (scorecard?.structure?.activeModules ?? 0) === 0
+    && modulesAuthored !== true;
 
   return (
     <div className="hf-stack-md">
