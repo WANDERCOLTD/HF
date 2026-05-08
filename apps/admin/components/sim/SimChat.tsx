@@ -965,6 +965,27 @@ export function SimChat({
               </div>
               );
             })()}
+            {/* #284 (b): authored-module hint — shown when the course has a
+                picker available and the learner has not yet picked a module
+                for this session. Mastery still writes via the Path 0.5
+                fallback when skipped, but picking gives a focused session. */}
+            {onPickModule && !requestedModuleId && (
+              <div
+                role="status"
+                className="hf-banner hf-banner-info wa-lobby-picker-hint"
+              >
+                <span className="wa-lobby-picker-hint-text">
+                  This course has modules — pick one to focus your session, or start without and let the tutor decide.
+                </span>
+                <button
+                  type="button"
+                  className="hf-btn hf-btn-secondary wa-lobby-picker-hint-btn"
+                  onClick={onPickModule}
+                >
+                  Pick module
+                </button>
+              </div>
+            )}
             <p style={{
               fontSize: 14,
               color: 'var(--wa-text-secondary)',

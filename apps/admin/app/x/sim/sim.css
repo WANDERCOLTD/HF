@@ -185,6 +185,28 @@
   background: var(--wa-green-darker);
 }
 
+/* #284 (b): authored-module pick hint — sits between journey progress and
+   the green phone CTA in the lobby. Compact info banner with an inline
+   "Pick module" secondary action. */
+.wa-lobby-picker-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
+  max-width: 320px;
+  width: 100%;
+}
+
+.wa-lobby-picker-hint-text {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.wa-lobby-picker-hint-btn {
+  align-self: center;
+}
+
 /* Chat background with subtle pattern */
 .wa-chat-bg {
   background-color: var(--wa-bg);
