@@ -31,7 +31,7 @@ export default function SimConversationPage() {
   const isStudent = session?.user?.role === 'STUDENT';
   const sessionGoal = searchParams.get('goal') || undefined;
   const expectedDomainId = searchParams.get('domainId') || undefined;
-  const playbookId = searchParams.get('playbookId') || undefined;
+  const urlPlaybookId = searchParams.get('playbookId') || undefined;
   const communityName = searchParams.get('communityName') || undefined;
   const forceFirstCall = searchParams.get('forceFirstCall') === 'true';
   // #242 Slice 2 placeholder: surface the moduleId chosen in the picker.
@@ -55,6 +55,11 @@ export default function SimConversationPage() {
   const [playbookName, setPlaybookName] = useState<string | undefined>(undefined);
   const [subjectDiscipline, setSubjectDiscipline] = useState<string | undefined>(undefined);
   const [modulesAuthored, setModulesAuthored] = useState<boolean>(false);
+  // #284 follow-up: when ?playbookId is missing, fall back to the caller's
+  // active enrolment. The SIM should follow the caller's course; nobody
+  // should have to know about Playbook ids in URLs.
+  const [resolvedPlaybookId, setResolvedPlaybookId] = useState<string | undefined>(undefined);
+  const playbookId = urlPlaybookId ?? resolvedPlaybookId;
   // #274 Slice C: hold the authored module list so the picker-selection
   // banner can display a human label instead of the raw id.
   const [authoredModules, setAuthoredModules] = useState<Array<{ id: string; label?: string }>>([]);
@@ -97,8 +102,28 @@ export default function SimConversationPage() {
             pastCalls: calls,
           });
 
-          if (playbookId) {
-            fetch(`/api/playbooks/${playbookId}`)
+          // #284 follow-up: derive the caller's active course playbook when
+          // the URL didn't pin one. Priority mirrors lib/enrollment/resolve-playbook.ts:
+          // explicit URL → default enrolment → single active enrolment.
+          let pbIdToLoad = urlPlaybookId;
+          if (!pbIdToLoad) {
+            try {
+              const enrRes = await fetch(`/api/callers/${callerId}/enrollments`);
+              const enrData = await enrRes.json();
+              if (enrData?.ok && Array.isArray(enrData.enrollments)) {
+                const active = enrData.enrollments.filter((e: any) => e.status === "ACTIVE");
+                const defaultActive = active.find((e: any) => e.isDefault);
+                if (defaultActive) pbIdToLoad = defaultActive.playbookId;
+                else if (active.length === 1) pbIdToLoad = active[0].playbookId;
+              }
+            } catch {
+              // non-blocking — picker simply won't appear
+            }
+            if (!cancelled && pbIdToLoad) setResolvedPlaybookId(pbIdToLoad);
+          }
+
+          if (pbIdToLoad) {
+            fetch(`/api/playbooks/${pbIdToLoad}`)
               .then(r => r.json())
               .then(pbData => {
                 if (!cancelled && pbData.ok) {
@@ -125,7 +150,7 @@ export default function SimConversationPage() {
 
     fetchCaller();
     return () => { cancelled = true; };
-  }, [callerId, expectedDomainId, playbookId]);
+  }, [callerId, expectedDomainId, urlPlaybookId]);
 
   const handleStudentCallEnd = useCallback(() => {
     if (isStudent) {
@@ -139,6 +164,11 @@ export default function SimConversationPage() {
   const handlePickModule = useCallback(() => {
     if (!playbookId) return;
     const sp = new URLSearchParams();
+    // #284 follow-up: pass callerId so the picker page (admin context)
+    // pre-selects the correct learner. Without this, the "Viewing learner"
+    // dropdown is empty and the picker can't write progress / launch.
+    // Mirrors CallerDetailPage.handlePickModule (#270 follow-up).
+    sp.set("callerId", callerId);
     // Strip requestedModuleId so the banner doesn't keep firing on re-pick.
     const carryParams = new URLSearchParams(searchParams.toString());
     carryParams.delete('requestedModuleId');
