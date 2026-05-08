@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Wand2, ArrowRight, Check, MessageSquare, Target, Brain, ClipboardCheck, Sparkles, ThumbsUp } from 'lucide-react';
-import type { WelcomeConfig, NpsConfig } from '@/lib/types/json-fields';
-import { DEFAULT_WELCOME_CONFIG, DEFAULT_NPS_CONFIG } from '@/lib/types/json-fields';
+import { Wand2, ArrowRight, Check, Brain, Sparkles, ThumbsUp } from 'lucide-react';
+import type { IntakeConfig, NpsConfig } from '@/lib/types/json-fields';
+import { DEFAULT_INTAKE_CONFIG, DEFAULT_NPS_CONFIG } from '@/lib/types/json-fields';
+import { IntakeToggleGroup, type IntakeValues } from '@/components/wizards/IntakeToggleGroup';
 import { CourseSetupTracker } from '@/components/shared/CourseSetupTracker';
 import { CourseSummaryCard } from './CourseSummaryCard';
 import { archetypeLabel } from '@/lib/course/group-specs';
@@ -77,21 +78,31 @@ const FLOW_STATES: FlowStateConfig[] = [
   { key: 'COMPLETE', label: 'Complete', icon: <Check size={16} />, description: 'Course finished' },
 ];
 
-// ── Welcome Phase Toggles ──────────────────────────────
+// ── Intake ↔ IntakeValues mapping ───────────────────────
+//
+// `IntakeConfig` is the canonical persistence shape under
+// `Playbook.config.sessionFlow.intake`. `IntakeValues` is the flat shape used
+// by the shared `<IntakeToggleGroup>` (single source of truth across wizard
+// and Design tab). Convert at the UI boundary.
 
-interface WelcomePhase {
-  key: keyof WelcomeConfig;
-  label: string;
-  description: string;
-  icon: React.ReactNode;
+function intakeToValues(i: IntakeConfig): IntakeValues {
+  return {
+    goals: i.goals.enabled,
+    aboutYou: i.aboutYou.enabled,
+    knowledgeCheck: i.knowledgeCheck.enabled,
+    knowledgeCheckMode: i.knowledgeCheck.deliveryMode ?? 'mcq',
+    aiIntroCall: i.aiIntroCall.enabled,
+  };
 }
 
-const WELCOME_PHASES: WelcomePhase[] = [
-  { key: 'goals', label: 'Goals', description: 'Students set their learning goals', icon: <Target size={14} /> },
-  { key: 'aboutYou', label: 'About You', description: 'Confidence + motivation check', icon: <MessageSquare size={14} /> },
-  { key: 'knowledgeCheck', label: 'Knowledge Check', description: 'Baseline MCQs from curriculum. Also gates the open-ended "what do you already know?" probe in the first call.', icon: <ClipboardCheck size={14} /> },
-  { key: 'aiIntroCall', label: 'AI Introduction', description: 'Warm-up voice/chat call', icon: <Sparkles size={14} /> },
-];
+function valuesToIntake(v: IntakeValues): IntakeConfig {
+  return {
+    goals: { enabled: v.goals },
+    aboutYou: { enabled: v.aboutYou },
+    knowledgeCheck: { enabled: v.knowledgeCheck, deliveryMode: v.knowledgeCheckMode },
+    aiIntroCall: { enabled: v.aiIntroCall },
+  };
+}
 
 // ── Main Component ─────────────────────────────────────
 
@@ -101,49 +112,84 @@ export function CourseDesignTab({
   onSimCall, instructionTotal, categoryCounts, contentMethods, onNavigate,
   onReadinessChange,
 }: CourseDesignTabProps): React.ReactElement {
-  const [welcome, setWelcome] = useState<WelcomeConfig>(DEFAULT_WELCOME_CONFIG);
+  const [intake, setIntake] = useState<IntakeConfig>(DEFAULT_INTAKE_CONFIG);
   const [nps, setNps] = useState<NpsConfig>(DEFAULT_NPS_CONFIG);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [activeState, setActiveState] = useState<FlowState>('WELCOME');
 
-  // Load config from playbook
+  // Load config from playbook — prefer canonical sessionFlow.intake, fall back
+  // to legacy `welcome` shape (matches resolveSessionFlow precedence).
   useEffect(() => {
-    if (playbookConfig?.welcome) {
-      setWelcome({ ...DEFAULT_WELCOME_CONFIG, ...(playbookConfig.welcome as Partial<WelcomeConfig>) });
+    if (!playbookConfig) return;
+    const sf = (playbookConfig.sessionFlow as { intake?: Partial<IntakeConfig> } | undefined);
+    if (sf?.intake) {
+      setIntake({ ...DEFAULT_INTAKE_CONFIG, ...sf.intake } as IntakeConfig);
+    } else if (playbookConfig.welcome) {
+      const w = playbookConfig.welcome as {
+        goals?: { enabled?: boolean };
+        aboutYou?: { enabled?: boolean };
+        knowledgeCheck?: { enabled?: boolean };
+        aiIntroCall?: { enabled?: boolean };
+      };
+      setIntake({
+        goals: { enabled: w.goals?.enabled ?? DEFAULT_INTAKE_CONFIG.goals.enabled },
+        aboutYou: { enabled: w.aboutYou?.enabled ?? DEFAULT_INTAKE_CONFIG.aboutYou.enabled },
+        knowledgeCheck: {
+          enabled: w.knowledgeCheck?.enabled ?? DEFAULT_INTAKE_CONFIG.knowledgeCheck.enabled,
+          deliveryMode: DEFAULT_INTAKE_CONFIG.knowledgeCheck.deliveryMode,
+        },
+        aiIntroCall: { enabled: w.aiIntroCall?.enabled ?? DEFAULT_INTAKE_CONFIG.aiIntroCall.enabled },
+      });
     }
-    if (playbookConfig?.nps) {
+    if (playbookConfig.nps) {
       setNps({ ...DEFAULT_NPS_CONFIG, ...(playbookConfig.nps as Partial<NpsConfig>) });
     }
   }, [playbookConfig]);
 
-  const saveConfig = useCallback(async (newWelcome: WelcomeConfig, newNps: NpsConfig) => {
+  // Persist via the session-flow route. That route writes both
+  // `sessionFlow.intake` (canonical) and mirrors to legacy `welcome` for the
+  // dual-read window — same pattern the wizard uses. Single write path means
+  // every reader (resolveSessionFlow, isPreSurveyEnabled, pedagogy.ts) sees
+  // the same shape regardless of where the educator made the change.
+  const saveConfig = useCallback(async (newIntake: IntakeConfig, newNps: NpsConfig) => {
     setSaving(true);
     setSaved(false);
+    setSaveError(null);
     try {
-      await fetch(`/api/courses/${courseId}/design`, {
+      const res = await fetch(`/api/courses/${courseId}/session-flow`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ welcome: newWelcome, nps: newNps }),
+        body: JSON.stringify({ sessionFlow: { intake: newIntake }, nps: newNps }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Save failed (${res.status})`);
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setSaveError((err as Error).message);
     } finally {
       setSaving(false);
     }
   }, [courseId]);
 
-  const toggleWelcomePhase = useCallback((key: keyof WelcomeConfig) => {
-    const updated = { ...welcome, [key]: { enabled: !welcome[key].enabled } };
-    setWelcome(updated);
+  const handleIntakeChange = useCallback((next: IntakeValues) => {
+    const updated = valuesToIntake(next);
+    // Skip the redundant initial onChange that fires from IntakeToggleGroup's
+    // mount effect — only persist when values actually differ.
+    if (JSON.stringify(updated) === JSON.stringify(intake)) return;
+    setIntake(updated);
     saveConfig(updated, nps);
-  }, [welcome, nps, saveConfig]);
+  }, [intake, nps, saveConfig]);
 
   const toggleNps = useCallback(() => {
     const updated = { ...nps, enabled: !nps.enabled };
     setNps(updated);
-    saveConfig(welcome, updated);
-  }, [welcome, nps, saveConfig]);
+    saveConfig(intake, updated);
+  }, [intake, nps, saveConfig]);
 
   // Duration from playbook config (sessionCount is now just a budget, not pacing)
   const durationMins = (playbookConfig?.durationMins as number) || null;
@@ -200,6 +246,11 @@ export function CourseDesignTab({
           <span className="hf-section-title" style={{ margin: 0 }}>Student Experience Flow</span>
           {saving && <span className="hf-text-xs hf-text-muted">Saving...</span>}
           {saved && <span className="hf-text-xs" style={{ color: 'var(--status-success-text)' }}>Saved</span>}
+          {saveError && (
+            <span className="hf-text-xs" style={{ color: 'var(--status-error-text)' }}>
+              Save failed — {saveError}
+            </span>
+          )}
         </div>
 
         {/* Tab strip */}
@@ -233,25 +284,11 @@ export function CourseDesignTab({
             <p className="hf-text-xs hf-text-muted hf-mb-md">
               Configure what students see before their first learning session. Toggle phases on or off.
             </p>
-            <div className="cdt-phase-list">
-              {WELCOME_PHASES.map((phase) => (
-                <label key={phase.key} className="cdt-phase-row">
-                  <div className="cdt-phase-toggle">
-                    <input
-                      type="checkbox"
-                      checked={welcome[phase.key].enabled}
-                      onChange={() => toggleWelcomePhase(phase.key)}
-                      className="hf-checkbox"
-                    />
-                  </div>
-                  <div className="cdt-phase-icon">{phase.icon}</div>
-                  <div className="cdt-phase-info">
-                    <span className="cdt-phase-name">{phase.label}</span>
-                    <span className="cdt-phase-desc">{phase.description}</span>
-                  </div>
-                </label>
-              ))}
-            </div>
+            <IntakeToggleGroup
+              initial={intakeToValues(intake)}
+              onChange={handleIntakeChange}
+              showHeader={false}
+            />
 
             {/* Welcome message preview */}
             {typeof playbookConfig?.welcomeMessage === 'string' && playbookConfig.welcomeMessage && (
