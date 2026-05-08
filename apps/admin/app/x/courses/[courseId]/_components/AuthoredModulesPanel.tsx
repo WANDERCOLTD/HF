@@ -48,6 +48,15 @@ interface AuthoredModulesState {
   validationWarnings: ValidationWarning[];
   hasErrors: boolean;
   lessonPlanMode: "structured" | "continuous" | null;
+  /** Outcome statements parsed from `**OUT-NN: <statement>.**` headings (#258). */
+  outcomes: Record<string, string>;
+  /**
+   * #281 Slice 3b: per-module MCQ count. Drives the "no learner-facing
+   * content" banner — modules with 0 here have nothing for the pre-test
+   * to draw from, so the tutor falls back to conversational discovery.
+   * Empty object = endpoint pre-#281 (banner suppressed for safety).
+   */
+  mcqCountsByModule: Record<string, number>;
 }
 
 interface AuthoredModulesPanelProps {
@@ -73,6 +82,7 @@ const EMPTY_STATE: AuthoredModulesState = {
   validationWarnings: [],
   hasErrors: false,
   lessonPlanMode: null,
+  mcqCountsByModule: {},
 };
 
 export function AuthoredModulesPanel({
@@ -104,6 +114,7 @@ export function AuthoredModulesPanel({
         validationWarnings: data.validationWarnings,
         hasErrors: data.hasErrors,
         lessonPlanMode: data.lessonPlanMode,
+        mcqCountsByModule: data.mcqCountsByModule ?? {},
       });
       onModulesAuthoredChange?.(data.modulesAuthored);
     } catch (e) {
@@ -164,7 +175,11 @@ export function AuthoredModulesPanel({
 
       {state.modules.length > 0 && (
         <>
-          <CatalogueTable modules={state.modules} outcomes={state.outcomes} />
+          <CatalogueTable
+            modules={state.modules}
+            outcomes={state.outcomes}
+            mcqCountsByModule={state.mcqCountsByModule}
+          />
           <StatusStrip
             warnings={state.validationWarnings}
             hasErrors={state.hasErrors}
@@ -239,9 +254,11 @@ function EmptyState({
 function CatalogueTable({
   modules,
   outcomes,
+  mcqCountsByModule,
 }: {
   modules: AuthoredModule[];
   outcomes: Record<string, string>;
+  mcqCountsByModule: Record<string, number>;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const toggle = (id: string) =>
@@ -265,6 +282,7 @@ function CatalogueTable({
         <tbody>
           {modules.map((m) => {
             const isExpanded = expandedId === m.id;
+            const mcqCount = mcqCountsByModule[m.id] ?? 0;
             return (
               <CatalogueRow
                 key={m.id}
@@ -272,6 +290,7 @@ function CatalogueTable({
                 outcomes={outcomes}
                 isExpanded={isExpanded}
                 onToggle={() => toggle(m.id)}
+                mcqCount={mcqCount}
               />
             );
           })}
@@ -286,11 +305,14 @@ function CatalogueRow({
   outcomes,
   isExpanded,
   onToggle,
+  mcqCount,
 }: {
   module: AuthoredModule;
   outcomes: Record<string, string>;
   isExpanded: boolean;
   onToggle: () => void;
+  /** #281 Slice 3b: number of ContentQuestion rows whose learningOutcomeRef ∈ this module's outcomesPrimary. 0 = render the "no learner-facing content" banner inside ModuleDetail. */
+  mcqCount: number;
 }) {
   return (
     <>
@@ -335,7 +357,7 @@ function CatalogueRow({
       {isExpanded && (
         <tr className="authored-modules-table__detail-row">
           <td colSpan={8} className="authored-modules-table__detail-cell">
-            <ModuleDetail module={m} outcomes={outcomes} />
+            <ModuleDetail module={m} outcomes={outcomes} mcqCount={mcqCount} />
           </td>
         </tr>
       )}
@@ -375,12 +397,33 @@ function FrequencyPill({ frequency }: { frequency: AuthoredModule["frequency"] }
 function ModuleDetail({
   module: m,
   outcomes,
+  mcqCount,
 }: {
   module: AuthoredModule;
   outcomes: Record<string, string>;
+  /** #281 Slice 3b: 0 → render "no learner-facing content" banner. */
+  mcqCount: number;
 }) {
   return (
     <div className="authored-modules-detail">
+      {/* #281 Slice 3b: surface insufficient-content state for this module.
+          Educator only sees this when a module's outcomes have zero MCQs —
+          tells them why pre-tests aren't firing and what to upload to fix it. */}
+      {mcqCount === 0 && (m.outcomesPrimary?.length ?? 0) > 0 && (
+        <div
+          role="status"
+          className="hf-banner hf-banner-info hf-flex hf-items-center hf-gap-8"
+          style={{ marginBottom: 12 }}
+        >
+          <AlertOctagon size={14} aria-hidden="true" />
+          <span>
+            <strong>No learner-facing content for this module yet.</strong>{" "}
+            The pre-test will be skipped and the tutor will fall back to conversational discovery.
+            Upload student-facing material (sample answers, vocabulary, practice cue cards,
+            reading passages) to populate MCQs.
+          </span>
+        </div>
+      )}
       {/* Top metadata strip */}
       <div className="authored-modules-detail__strip">
         {m.position != null && (

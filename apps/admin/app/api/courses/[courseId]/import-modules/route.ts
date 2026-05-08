@@ -75,6 +75,35 @@ export async function GET(
 
   const cfg = (playbook.config ?? {}) as PlaybookConfig;
   const warnings = cfg.validationWarnings ?? [];
+
+  // #281 Slice 3b: per-module ContentQuestion count so the AuthoredModules
+  // panel can show a "no learner-facing content" banner for modules whose
+  // outcomes have zero MCQs. Single groupBy across all module outcomes —
+  // not a per-module loop. Keys outcomeRef → count, then we spread into
+  // moduleId → count by summing each module's outcomesPrimary memberships.
+  const modulesArr = (cfg.modules ?? []) as Array<{ id: string; outcomesPrimary?: string[] }>;
+  const allOutcomeRefs = Array.from(
+    new Set(modulesArr.flatMap((m) => Array.isArray(m.outcomesPrimary) ? m.outcomesPrimary : [])),
+  );
+  let mcqCountsByModule: Record<string, number> = {};
+  if (allOutcomeRefs.length > 0) {
+    const grouped = await prisma.contentQuestion.groupBy({
+      by: ["learningOutcomeRef"],
+      where: { learningOutcomeRef: { in: allOutcomeRefs } },
+      _count: { _all: true },
+    });
+    const countByRef: Record<string, number> = {};
+    for (const g of grouped) {
+      if (g.learningOutcomeRef) countByRef[g.learningOutcomeRef] = g._count._all;
+    }
+    mcqCountsByModule = Object.fromEntries(
+      modulesArr.map((m) => [
+        m.id,
+        (m.outcomesPrimary ?? []).reduce((sum, ref) => sum + (countByRef[ref] ?? 0), 0),
+      ]),
+    );
+  }
+
   return NextResponse.json({
     ok: true,
     modulesAuthored: cfg.modulesAuthored ?? null,
@@ -89,6 +118,9 @@ export async function GET(
     // Surfaced so the learner-preview component can pick the right layout
     // (tiles for continuous, rail for structured) without a second fetch.
     lessonPlanMode: cfg.lessonPlanMode ?? null,
+    // #281 Slice 3b: per-module MCQ counts so the panel can render the
+    // "no learner-facing content" banner where mcqCountsByModule[id] === 0.
+    mcqCountsByModule,
   });
 }
 
