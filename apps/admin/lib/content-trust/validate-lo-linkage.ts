@@ -23,13 +23,15 @@
  */
 
 /**
- * Matches structured LO refs: LO1, LO-1, LO12, AC2.3, R04-LO2-AC2.3, etc.
- * Case-insensitive. Hyphen between LO and the number is optional — both "LO1"
- * and "LO-1" are accepted because the legacy `parseLORef` synthesiser wrote
- * the hyphenated form into the DB. Rejects free-text values like
- * "Character analysis".
+ * Matches structured LO refs across both naming schemes:
+ *   - Legacy: `LO1`, `LO-1`, `LO12`, `AC2.3`, `R04-LO2-AC2.3` (auto-extractor era)
+ *   - Authored (#258): `OUT-01`, `OUT-1`, `OUT12` (parsed from `**OUT-NN: ...**`
+ *     headings in course-reference markdown; carried into `Playbook.config.modules`
+ *     `outcomesPrimary` and synced into LearningObjective rows by #292)
+ * Case-insensitive. Hyphen between prefix and the number is optional. Rejects
+ * free-text values like "Character analysis".
  */
-export const STRUCTURED_LO_REF_PATTERN = /^(LO-?\d+|AC[\d.]+|R\d+-LO-?\d+(?:-AC[\d.]+)?)$/i;
+export const STRUCTURED_LO_REF_PATTERN = /^(LO-?\d+|OUT-?\d+|AC[\d.]+|R\d+-LO-?\d+(?:-AC[\d.]+)?)$/i;
 
 /**
  * Normalise a raw LO ref string to its canonical form, or return null if it

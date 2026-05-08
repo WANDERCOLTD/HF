@@ -36,6 +36,15 @@ describe("validate-lo-linkage", () => {
       expect(STRUCTURED_LO_REF_PATTERN.test("LO")).toBe(false);
       expect(STRUCTURED_LO_REF_PATTERN.test("1")).toBe(false);
     });
+
+    // ── #292/#293: authored OUT-NN refs (course-reference markdown #258) ──
+
+    it("matches OUT-01, OUT-12, OUT123 (authored scheme)", () => {
+      expect(STRUCTURED_LO_REF_PATTERN.test("OUT-01")).toBe(true);
+      expect(STRUCTURED_LO_REF_PATTERN.test("OUT-1")).toBe(true);
+      expect(STRUCTURED_LO_REF_PATTERN.test("OUT12")).toBe(true);
+      expect(STRUCTURED_LO_REF_PATTERN.test("out-27")).toBe(true);
+    });
   });
 
   describe("sanitiseLORef", () => {
@@ -61,6 +70,12 @@ describe("validate-lo-linkage", () => {
       expect(sanitiseLORef(undefined)).toBe(null);
       expect(sanitiseLORef("")).toBe(null);
       expect(sanitiseLORef("   ")).toBe(null);
+    });
+
+    it("preserves OUT-NN authored refs through sanitisation", () => {
+      expect(sanitiseLORef("OUT-01")).toBe("OUT-01");
+      expect(sanitiseLORef("out-27")).toBe("OUT-27");
+      expect(sanitiseLORef("  OUT-12  ")).toBe("OUT-12");
     });
   });
 
