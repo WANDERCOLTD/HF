@@ -171,6 +171,10 @@ Teachers never see Playbooks, Specs, or Roles. All UI is organized by educator i
 
 See `.claude/rules/pipeline-and-prompt.md` (auto-loaded for pipeline/prompt files).
 
+### Curriculum vs Content data model
+
+Two parallel hierarchies bridged by the scheduler — **not** joined by FK at query time. The 16 loaders read the content layer (`ContentSource` / `ContentAssertion` / `ContentQuestion`); the curriculum layer (`Curriculum` / `CurriculumModule` / `LearningObjective`) drives module picker, mastery, and working-set selection. See `docs/05-data/curriculum-content-split.md` before adding loaders or filters that touch curriculum metadata.
+
 ---
 
 ## Commands

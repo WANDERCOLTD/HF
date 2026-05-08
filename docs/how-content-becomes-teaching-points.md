@@ -101,10 +101,12 @@ After the curriculum is generated, a **reconciler** runs two passes to connect e
 
 | Pass | Method | Example |
 |---|---|---|
-| **1. Structured ref** | Matches the assertion's `learningOutcomeRef` (e.g. "LO2") to an LO's ref | Assertion tagged "LO2" during extraction links to LO2 |
-| **2. Semantic match** | Keyword overlap between assertion text and LO description | An assertion about "factory working conditions" matches LO2 about "impact of industrialisation" |
+| **1. Structured ref** | Matches the assertion's `learningOutcomeRef` (e.g. "LO2") to an LO's ref. Deterministic, free, runs first. | Assertion tagged "LO2" during extraction links to LO2 |
+| **2. AI retag** | For Pass-1 orphans, batch the assertion text + full LO list into a single AI call that returns the best LO ref per assertion. Replaces an earlier Jaccard keyword pass that scored 0 matches in practice. | An untagged assertion about "factory working conditions" is reclassified to LO2 by AI |
 
-This creates a direct database link (`learningObjectiveId`) from every assertion to its LO. The link is the single source of truth — if the curriculum is updated, the reconciler re-runs automatically.
+This creates a direct database link (`learningObjectiveId`) from every assertion to its LO. **Once reconciliation has run**, the FK is the canonical join — UI and analytics queries should use it. Before reconciliation runs, only the `learningOutcomeRef` string is reliable. The reconciler re-runs automatically when the curriculum is updated.
+
+> See [`05-data/curriculum-content-split.md`](./05-data/curriculum-content-split.md) for the full data-model split between the curriculum layer (modules + LOs) and the content layer (sources + assertions + questions), and how the prompt-composition scheduler bridges them.
 
 ---
 

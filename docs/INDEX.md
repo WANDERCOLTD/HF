@@ -70,6 +70,8 @@ Complete guide to all HF documentation.
 | Document | Description |
 |----------|-------------|
 | [05-data/MEM-001-memory-taxonomy.md](05-data/MEM-001-memory-taxonomy.md) | Memory categorization system |
+| [05-data/curriculum-content-split.md](05-data/curriculum-content-split.md) | **Curriculum vs content data-model split** — how the scheduler bridges modules/LOs to assertions/questions |
+| [how-content-becomes-teaching-points.md](how-content-becomes-teaching-points.md) | Upload-to-prompt pipeline narrative (read with the split doc above) |
 | [taxonomy/prompt-slugs.md](../apps/admin/docs/taxonomy/prompt-slugs.md) | Prompt slug taxonomy |
 | [PROMPT_SLUG_TAXONOMY.md](../apps/admin/PROMPT_SLUG_TAXONOMY.md) | Prompt slug taxonomy reference |
 
