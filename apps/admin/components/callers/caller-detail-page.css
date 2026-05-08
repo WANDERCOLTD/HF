@@ -21,6 +21,24 @@
   min-height: 50vh;
 }
 
+/* #284 (c): persistent module-pick strip above the embedded SimChat. */
+.cdp-module-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cdp-module-strip-text {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.cdp-module-strip-btn {
+  flex-shrink: 0;
+}
+
 /* ── Tuning slide-out panel (sits beside content) ── */
 .cdp-tuning-panel {
   width: 420px;
