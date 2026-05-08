@@ -1,16 +1,21 @@
 /**
  * Domain / Playbook → Content Source Resolution
  *
- * Resolves content source IDs via two join paths:
+ * Resolves content source IDs:
  *
- * Domain-wide:  Domain → SubjectDomain → Subject → SubjectSource → ContentSource
- * Course-scoped: Playbook → PlaybookSubject → Subject → SubjectSource → ContentSource
+ * Course-scoped:  Playbook → PlaybookSource → ContentSource    (Phase 6: authoritative)
+ * Domain-wide:    Domain   → SubjectDomain → Subject → SubjectSource → ContentSource
  *
  * Used by VAPI knowledge endpoint, call sim, prompt composition, and
  * content-breakdown API to scope content retrieval.
  *
- * Playbook-scoped functions fall back to domain-wide when no
- * PlaybookSubject records exist (backward compat for older courses).
+ * Phase 6 (this file): Course-scoped resolution uses PlaybookSource only.
+ * No fallback to the legacy PlaybookSubject → Subject → SubjectSource chain
+ * and no fallback to domain-wide. A course without PlaybookSource rows is
+ * treated as having no content scope (returns empty).
+ *
+ * Domain-wide resolution still uses the Subject taxonomy chain — that is
+ * the only way to express "all sources in this domain regardless of course".
  */
 
 import { prisma } from "@/lib/prisma";
@@ -91,55 +96,39 @@ export async function getSourceIdsForDomain(domainId: string): Promise<string[]>
 }
 
 /**
- * Get all ContentSource IDs linked to a playbook (course) via PlaybookSubject.
- * Falls back to domain-wide sources if no PlaybookSubject records exist.
- * Returns deduplicated array. Returns empty array if no sources found.
+ * Get all ContentSource IDs linked to a playbook (course) via PlaybookSource.
+ * Returns deduplicated array. Returns empty array if the course has no
+ * PlaybookSource rows — no fallback to Subject chain or domain-wide.
  */
 export async function getSourceIdsForPlaybook(playbookId: string): Promise<string[]> {
-  // 1. PRIMARY: PlaybookSource (direct link — Phase 3a)
   const playbookSources = await prisma.playbookSource.findMany({
     where: { playbookId },
     select: { sourceId: true },
   });
 
-  if (playbookSources.length > 0) {
-    return [...new Set(playbookSources.map((ps) => ps.sourceId))];
-  }
-
-  // 2. FALLBACK: Legacy Subject chain (pre-migration courses without PlaybookSource rows)
-  const playbookSubjects = await prisma.playbookSubject.findMany({
-    where: { playbookId },
-    select: {
-      subject: {
-        select: {
-          sources: { select: { sourceId: true } },
-        },
-      },
-    },
-  });
-
-  if (playbookSubjects.length > 0) {
-    const sourceIds = playbookSubjects.flatMap((ps) =>
-      ps.subject.sources.map((s) => s.sourceId)
-    );
-    return [...new Set(sourceIds)];
-  }
-
-  // 3. Fallback: domain-wide (backward compat for pre-scoping courses)
-  const playbook = await prisma.playbook.findUnique({
-    where: { id: playbookId },
-    select: { domainId: true },
-  });
-  if (!playbook?.domainId) return [];
-
-  return getSourceIdsForDomain(playbook.domainId);
+  return [...new Set(playbookSources.map((ps) => ps.sourceId))];
 }
 
 /**
- * Resolve subject scope for a playbook: course-scoped with domain fallback.
- * Returns subject data with sources, teachingDepth, and whether scoping was applied.
+ * Resolve subject scope for a playbook.
+ *
+ * Phase 6: PlaybookSource is the authoritative content scope. PlaybookSubject
+ * is read only for taxonomy metadata (subject.id, teachingDepth). No fallback
+ * to the legacy Subject → SubjectSource chain and no fallback to domain-wide.
+ * A course without PlaybookSource rows returns no sources.
+ *
+ * Returns:
+ *   - subjects: taxonomy entries from PlaybookSubject; sources are attached
+ *     to the first subject for backward compat with transforms that read
+ *     subjects[0].sources. If a course has PlaybookSource but no
+ *     PlaybookSubject, a synthetic empty-id subject carries the sources.
+ *   - scoped: always true when sources exist (kept in the return shape for
+ *     compatibility with callers that check it).
  */
-export async function getSubjectsForPlaybook(playbookId: string, domainId: string): Promise<{
+export async function getSubjectsForPlaybook(
+  playbookId: string,
+  _domainId: string,
+): Promise<{
   subjects: Array<{
     id: string;
     teachingDepth: number | null;
@@ -153,129 +142,50 @@ export async function getSubjectsForPlaybook(playbookId: string, domainId: strin
   }>;
   scoped: boolean;
 }> {
-  // 1. PRIMARY: PlaybookSource for content + PlaybookSubject for metadata
-  const playbookSources = await prisma.playbookSource.findMany({
-    where: { playbookId },
-    select: {
-      sourceId: true,
-      sortOrder: true,
-      tags: true,
-      source: { select: { documentType: true } },
-    },
-    orderBy: { sortOrder: "asc" },
-  });
-
-  if (playbookSources.length > 0) {
-    // Get subject metadata from PlaybookSubject (taxonomy, teachingDepth)
-    const playbookSubjects = await prisma.playbookSubject.findMany({
+  const [playbookSources, playbookSubjects] = await Promise.all([
+    prisma.playbookSource.findMany({
+      where: { playbookId },
+      select: {
+        sourceId: true,
+        sortOrder: true,
+        tags: true,
+        source: { select: { documentType: true } },
+      },
+      orderBy: { sortOrder: "asc" },
+    }),
+    prisma.playbookSubject.findMany({
       where: { playbookId },
       select: { subject: { select: { id: true, teachingDepth: true } } },
-    });
+    }),
+  ]);
 
-    // Build subjects with sources from PlaybookSource, metadata from PlaybookSubject
-    // All sources belong to the playbook (not a specific subject), so we attach them
-    // to the first subject for backward compat with transforms that read subjects[0].sources
-    const subjects = playbookSubjects.map((ps, idx) => ({
-      ...ps.subject,
-      sources: idx === 0
-        ? playbookSources.map((s) => ({
-            subjectSourceId: "", // Not applicable for PlaybookSource path
-            sourceId: s.sourceId,
-            documentType: s.source?.documentType ?? null,
-            sortOrder: s.sortOrder,
-            tags: s.tags,
-          }))
-        : [], // Only first subject carries sources (content is course-scoped, not subject-scoped)
-    }));
-
-    // If no PlaybookSubject exists (edge case), synthesize a minimal subject entry
-    if (subjects.length === 0) {
-      return {
-        subjects: [{
-          id: "",
-          teachingDepth: null,
-          sources: playbookSources.map((s) => ({
-            subjectSourceId: "",
-            sourceId: s.sourceId,
-            documentType: s.source?.documentType ?? null,
-            sortOrder: s.sortOrder,
-            tags: s.tags,
-          })),
-        }],
-        scoped: true,
-      };
-    }
-
-    return { subjects, scoped: true };
+  if (playbookSources.length === 0 && playbookSubjects.length === 0) {
+    return { subjects: [], scoped: true };
   }
 
-  // 2. FALLBACK: Legacy Subject chain (pre-migration courses)
-  const sourceSelect = {
-    select: {
-      id: true,
-      sourceId: true,
-      sortOrder: true,
-      tags: true,
-      source: { select: { documentType: true } },
-    },
-    orderBy: { sortOrder: "asc" as const },
-  } as const;
+  const sources = playbookSources.map((s) => ({
+    subjectSourceId: "", // No SubjectSource hop in Phase 6
+    sourceId: s.sourceId,
+    documentType: s.source?.documentType ?? null,
+    sortOrder: s.sortOrder,
+    tags: s.tags,
+  }));
 
-  const playbookSubjectsLegacy = await prisma.playbookSubject.findMany({
-    where: { playbookId },
-    select: {
-      subject: {
-        select: {
-          id: true,
-          teachingDepth: true,
-          sources: sourceSelect,
-        },
-      },
-    },
-  });
-
-  if (playbookSubjectsLegacy.length > 0) {
+  // Attach all sources to the first subject for backward compat with
+  // transforms that read subjects[0].sources. If no PlaybookSubject, synthesize one.
+  if (playbookSubjects.length === 0) {
     return {
-      subjects: playbookSubjectsLegacy.map((ps) => ({
-        ...ps.subject,
-        sources: ps.subject.sources.map((s) => ({
-          subjectSourceId: s.id,
-          sourceId: s.sourceId,
-          documentType: s.source?.documentType ?? null,
-          sortOrder: s.sortOrder,
-          tags: s.tags,
-        })),
-      })),
+      subjects: [{ id: "", teachingDepth: null, sources }],
       scoped: true,
     };
   }
 
-  // 3. Fallback: domain-wide
-  const subjectDomains = await prisma.subjectDomain.findMany({
-    where: { domainId },
-    select: {
-      subject: {
-        select: {
-          id: true,
-          teachingDepth: true,
-          sources: sourceSelect,
-        },
-      },
-    },
-  });
-
   return {
-    subjects: subjectDomains.map((sd) => ({
-      ...sd.subject,
-      sources: sd.subject.sources.map((s) => ({
-        subjectSourceId: s.id,
-        sourceId: s.sourceId,
-        documentType: s.source?.documentType ?? null,
-        sortOrder: s.sortOrder,
-        tags: s.tags,
-      })),
+    subjects: playbookSubjects.map((ps, idx) => ({
+      ...ps.subject,
+      sources: idx === 0 ? sources : [],
     })),
-    scoped: false,
+    scoped: true,
   };
 }
 

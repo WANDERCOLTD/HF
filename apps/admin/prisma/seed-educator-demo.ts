@@ -1704,7 +1704,8 @@ const SPAG_ASSERTIONS = [
 
 async function createContentSources(
   schoolMap: Map<string, string>,
-  subjectMap: Map<string, string>
+  subjectMap: Map<string, string>,
+  playbookMap: Map<string, string>
 ): Promise<Map<string, string>> {
   console.log("  Creating content sources...");
   const sourceMap = new Map<string, string>(); // "schoolSlug/subjectSlug" → sourceId
@@ -1713,6 +1714,8 @@ async function createContentSources(
   const spagSubjectId = subjectMap.get("spag")!;
 
   for (const school of SCHOOLS) {
+    const playbookId = playbookMap.get(school.slug);
+
     // CC syllabus
     const ccSource = await prisma.contentSource.create({
       data: {
@@ -1730,10 +1733,16 @@ async function createContentSources(
     });
     sourceMap.set(`${school.slug}/creative-comprehension`, ccSource.id);
 
-    // Link CC source to CC subject
+    // Link CC source to CC subject (taxonomy)
     await prisma.subjectSource.create({
       data: { subjectId: ccSubjectId, sourceId: ccSource.id },
     });
+    // Link CC source to school's playbook (Phase 6: authoritative content scope)
+    if (playbookId) {
+      await prisma.playbookSource.create({
+        data: { playbookId, sourceId: ccSource.id, tags: ["content"] },
+      });
+    }
 
     // SPAG syllabus
     const spagSource = await prisma.contentSource.create({
@@ -1752,10 +1761,16 @@ async function createContentSources(
     });
     sourceMap.set(`${school.slug}/spag`, spagSource.id);
 
-    // Link SPAG source to SPAG subject
+    // Link SPAG source to SPAG subject (taxonomy)
     await prisma.subjectSource.create({
       data: { subjectId: spagSubjectId, sourceId: spagSource.id },
     });
+    // Link SPAG source to school's playbook (Phase 6: authoritative content scope)
+    if (playbookId) {
+      await prisma.playbookSource.create({
+        data: { playbookId, sourceId: spagSource.id, tags: ["content"] },
+      });
+    }
 
     console.log(`    ${school.name}: CC syllabus + SPAG guide`);
   }
@@ -2164,7 +2179,7 @@ export async function main(externalPrisma?: PrismaClient) {
 
   // Playbooks, content, onboarding, enrollments (makes schools "Ready for learners")
   const playbookMap = await createPlaybooks(schoolMap);
-  const sourceMap = await createContentSources(schoolMap, subjectMap);
+  const sourceMap = await createContentSources(schoolMap, subjectMap, playbookMap);
   const totalAssertions = await createContentAssertions(sourceMap);
   await createOnboarding(schoolMap, subjectMap, teacherMap);
   const { callerEnrollments, cohortEnrollments } = await createEnrollments(pupils, playbookMap, classroomMap);

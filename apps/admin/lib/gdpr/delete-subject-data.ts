@@ -26,7 +26,12 @@ export interface SubjectDeletionCounts {
 
 /**
  * Find ContentSource IDs that are only linked to the given subject(s)
- * and no others. These become orphaned after subject deletion.
+ * and not retained by any other subject or playbook. These become orphaned
+ * after subject deletion.
+ *
+ * A source is NOT orphaned if it is linked to:
+ *   - any subject not in `subjectIds` (via SubjectSource), OR
+ *   - any playbook (via PlaybookSource — Phase 6 authoritative content scope).
  */
 export async function findOrphanedSources(
   subjectIds: string[]
@@ -40,18 +45,28 @@ export async function findOrphanedSources(
 
   if (sourceIds.length === 0) return [];
 
-  // Find which of those sources are also linked to other subjects
-  const sharedSources = await prisma.subjectSource.findMany({
-    where: {
-      sourceId: { in: sourceIds },
-      subjectId: { notIn: subjectIds },
-    },
-    select: { sourceId: true },
-  });
-  const sharedSet = new Set(sharedSources.map((s) => s.sourceId));
+  // Find which of those sources are retained elsewhere — by other subjects
+  // OR by any playbook directly via PlaybookSource (Phase 6).
+  const [sharedBySubject, sharedByPlaybook] = await Promise.all([
+    prisma.subjectSource.findMany({
+      where: {
+        sourceId: { in: sourceIds },
+        subjectId: { notIn: subjectIds },
+      },
+      select: { sourceId: true },
+    }),
+    prisma.playbookSource.findMany({
+      where: { sourceId: { in: sourceIds } },
+      select: { sourceId: true },
+    }),
+  ]);
+  const retainedSet = new Set([
+    ...sharedBySubject.map((s) => s.sourceId),
+    ...sharedByPlaybook.map((s) => s.sourceId),
+  ]);
 
-  // Return sources NOT shared with other subjects
-  return sourceIds.filter((id) => !sharedSet.has(id));
+  // Return sources NOT retained by another subject or any playbook
+  return sourceIds.filter((id) => !retainedSet.has(id));
 }
 
 /**

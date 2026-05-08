@@ -315,7 +315,7 @@ async function seedIsolationFixtures(): Promise<IsolationFixtures> {
     });
   }
 
-  // 7. PlaybookSubject links
+  // 7. PlaybookSubject links (taxonomy)
   await prisma.playbookSubject.upsert({
     where: { playbookId_subjectId: { playbookId: playbookA.id, subjectId: subjectA.id } },
     create: { playbookId: playbookA.id, subjectId: subjectA.id },
@@ -327,6 +327,22 @@ async function seedIsolationFixtures(): Promise<IsolationFixtures> {
     create: { playbookId: playbookB.id, subjectId: subjectB.id },
     update: {},
   });
+
+  // 7b. PlaybookSource links (content scoping — Phase 6 authoritative path)
+  // Course A: sourceAOnly + sharedSource
+  // Course B: sharedSource + sourceBOnly
+  for (const [pbId, srcId, sortOrder] of [
+    [playbookA.id, sourceAOnly.id, 0],
+    [playbookA.id, sharedSource.id, 1],
+    [playbookB.id, sharedSource.id, 0],
+    [playbookB.id, sourceBOnly.id, 1],
+  ] as const) {
+    await prisma.playbookSource.upsert({
+      where: { playbookId_sourceId: { playbookId: pbId, sourceId: srcId } },
+      create: { playbookId: pbId, sourceId: srcId, tags: ["content"], sortOrder },
+      update: {},
+    });
+  }
 
   // 8. Two callers, each enrolled in one course
   const callerA = await prisma.caller.upsert({

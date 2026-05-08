@@ -254,96 +254,17 @@ async function resolveContentScope(callerId: string): Promise<ContentScope> {
       };
     }
 
-    // FALLBACK: Legacy Subject chain (pre-migration courses without PlaybookSource)
-    const sourceSelect = {
-      select: {
-        id: true,
-        sourceId: true,
-        sortOrder: true,
-        tags: true,
-        source: { select: { documentType: true } },
-      },
-      orderBy: { sortOrder: "asc" as const },
-    } as const;
-
-    const legacySubjects = await prisma.playbookSubject.findMany({
-      where: { playbookId: { in: playbookIds } },
-      select: {
-        subject: {
-          select: {
-            id: true,
-            teachingDepth: true,
-            sources: sourceSelect,
-          },
-        },
-      },
-    });
-
-    const seenLegacy = new Set<string>();
-    const subjects = legacySubjects
-      .filter((ps) => {
-        if (seenLegacy.has(ps.subject.id)) return false;
-        seenLegacy.add(ps.subject.id);
-        return true;
-      })
-      .map((ps) => ({
-        ...ps.subject,
-        sources: ps.subject.sources.map((s) => ({
-          subjectSourceId: s.id,
-          sourceId: s.sourceId,
-          documentType: s.source?.documentType ?? null,
-          sortOrder: s.sortOrder,
-          tags: s.tags,
-        })),
-      }));
-
-    if (subjects.length > 0) {
-      return {
-        domainId: caller.domainId,
-        subjectIds: subjects.map((s) => s.id),
-        subjects,
-        scoped: true,
-      };
-    }
   }
 
-  // Last resort: domain-wide (no enrollments, or enrollments have no subjects)
-  const subjectDomains = await prisma.subjectDomain.findMany({
-    where: { domainId: caller.domainId },
-    select: {
-      subject: {
-        select: {
-          id: true,
-          teachingDepth: true,
-          sources: {
-            select: {
-              id: true,
-              sourceId: true,
-              sortOrder: true,
-              tags: true,
-              source: { select: { documentType: true } },
-            },
-            orderBy: { sortOrder: "asc" },
-          },
-        },
-      },
-    },
-  });
-
+  // Phase 6: PlaybookSource is the only content-scoping path. A caller with
+  // no resolvable playbook + no enrolled-course PlaybookSource gets no
+  // content scope. Domain-wide Subject fallback is intentionally removed —
+  // unenrolled callers see no course content.
   return {
     domainId: caller.domainId,
-    subjectIds: subjectDomains.map((sd) => sd.subject.id),
-    subjects: subjectDomains.map((sd) => ({
-      ...sd.subject,
-      sources: sd.subject.sources.map((s) => ({
-        subjectSourceId: s.id,
-        sourceId: s.sourceId,
-        documentType: s.source?.documentType ?? null,
-        sortOrder: s.sortOrder,
-        tags: s.tags,
-      })),
-    })),
-    scoped: false,
+    subjectIds: [],
+    subjects: [],
+    scoped: true,
   };
 }
 

@@ -30,13 +30,13 @@ export async function GET(
   const limit = rawLimit !== null ? Math.min(Math.max(Number(rawLimit), 0), 200) : 50;
   const offset = Number(url.searchParams.get("offset")) || 0;
 
-  // Verify course exists and get linked subjects
+  // Verify course exists and get linked sources (Phase 6: PlaybookSource is authoritative)
   const playbook = await prisma.playbook.findUnique({
     where: { id: courseId },
     select: {
       id: true,
-      subjects: {
-        select: { subjectId: true },
+      sources: {
+        select: { sourceId: true },
       },
     },
   });
@@ -45,9 +45,9 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "Course not found" }, { status: 404 });
   }
 
-  const subjectIds = playbook.subjects.map((s) => s.subjectId);
+  const sourceIds = playbook.sources.map((s) => s.sourceId);
 
-  if (subjectIds.length === 0) {
+  if (sourceIds.length === 0) {
     return NextResponse.json({ ok: true, media: [], total: 0 });
   }
 
@@ -59,9 +59,9 @@ export async function GET(
   };
   const mimePrefix = typeFilter ? mimeFilter[typeFilter] : undefined;
 
-  // Query MediaAssets through SubjectMedia junction
+  // Query MediaAssets directly via sourceId (no SubjectMedia hop)
   const where = {
-    subjects: { some: { subjectId: { in: subjectIds } } },
+    sourceId: { in: sourceIds },
     ...(mimePrefix
       ? mimePrefix.endsWith("/")
         ? { mimeType: { startsWith: mimePrefix } }
@@ -96,12 +96,6 @@ export async function GET(
         source: {
           select: { id: true, name: true },
         },
-        subjects: {
-          where: { subjectId: { in: subjectIds } },
-          select: {
-            subject: { select: { id: true, name: true } },
-          },
-        },
       },
     }),
     prisma.mediaAsset.count({ where }),
@@ -121,7 +115,7 @@ export async function GET(
     createdAt: m.createdAt.toISOString(),
     sourceName: m.source?.name || null,
     sourceId: m.source?.id || null,
-    subjectName: m.subjects[0]?.subject?.name || null,
+    subjectName: null,
   }));
 
   return NextResponse.json({ ok: true, media: result, total });

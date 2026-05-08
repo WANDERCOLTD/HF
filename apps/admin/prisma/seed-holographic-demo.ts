@@ -1138,6 +1138,34 @@ async function createPeople(
 // ORCHESTRATE ONE DOMAIN
 // ══════════════════════════════════════════════════════════
 
+// Phase 6: PlaybookSource is the authoritative content scope. After playbook
+// + SubjectSource creation, mirror SubjectSource rows into PlaybookSource so
+// loaders that no longer fall back through Subject still see this seed's content.
+async function syncPlaybookSourcesForDomain(
+  playbookId: string,
+  subjectMap: Map<string, string>,
+): Promise<void> {
+  for (const subjectId of subjectMap.values()) {
+    const subjectSources = await prisma.subjectSource.findMany({
+      where: { subjectId },
+      select: { sourceId: true, sortOrder: true, tags: true, trustLevelOverride: true },
+    });
+    for (const ss of subjectSources) {
+      await prisma.playbookSource.upsert({
+        where: { playbookId_sourceId: { playbookId, sourceId: ss.sourceId } },
+        create: {
+          playbookId,
+          sourceId: ss.sourceId,
+          sortOrder: ss.sortOrder,
+          tags: ss.tags,
+          trustLevelOverride: ss.trustLevelOverride,
+        },
+        update: {},
+      });
+    }
+  }
+}
+
 async function seedDomain(cfg: DomainConfig): Promise<{
   assertions: number;
   teachers: number;
@@ -1152,6 +1180,7 @@ async function seedDomain(cfg: DomainConfig): Promise<{
   const sourceMap = await createSources(cfg, subjectMap);
   const assertions = await createAssertions(cfg, sourceMap);
   const playbookId = await createPlaybook(cfg, domainId, subjectMap);
+  await syncPlaybookSourcesForDomain(playbookId, subjectMap);
   await createChannels(cfg, domainId);
   const people = await createPeople(cfg, domainId, playbookId);
 

@@ -29,14 +29,6 @@ export async function GET(request: NextRequest) {
           domain: {
             select: { name: true },
           },
-          subjects: {
-            take: 1,
-            select: {
-              subject: {
-                select: { name: true },
-              },
-            },
-          },
         },
       },
     },
@@ -68,7 +60,7 @@ export async function GET(request: NextRequest) {
   const result = enrollments.map((e) => ({
     id: e.id,
     playbookId: e.playbookId,
-    courseName: e.playbook.name || e.playbook.subjects[0]?.subject?.name || "Untitled Course",
+    courseName: e.playbook.name || "Untitled Course",
     institutionName: e.playbook.domain?.name || null,
     status: e.status,
     isDefault: e.isDefault,

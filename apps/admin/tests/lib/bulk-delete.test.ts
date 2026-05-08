@@ -35,6 +35,7 @@ const MODEL_NAMES = [
   "playbook",
   "playbookItem",
   "playbookSubject",
+  "playbookSource",
   "curriculum",
   "subjectSource",
   "subjectDomain",
