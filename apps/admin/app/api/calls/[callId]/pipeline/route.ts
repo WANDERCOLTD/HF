@@ -100,51 +100,135 @@ async function loadCurrentModuleContext(
   }
   if (!resolvedPlaybookId) return null;
 
+  // Single fetch for the resolved playbook — shared between Path 0 (picker
+  // override) and Path 0.5 (authored fallback). Both read Playbook.config.modules.
+  const pb = await prisma.playbook.findUnique({
+    where: { id: resolvedPlaybookId },
+    select: {
+      name: true,
+      config: true,
+      curricula: {
+        orderBy: { createdAt: "asc" },
+        take: 1,
+        select: { id: true, slug: true },
+      },
+    },
+  });
+  const cfg = (pb?.config ?? {}) as Record<string, any>;
+  const authored: any[] = Array.isArray(cfg.modules) ? cfg.modules : [];
+  const knownOutcomes: Record<string, string> =
+    cfg.outcomes && typeof cfg.outcomes === "object" && !Array.isArray(cfg.outcomes)
+      ? (cfg.outcomes as Record<string, string>)
+      : {};
+  const fallbackSpecSlug = `playbook-${resolvedPlaybookId.slice(0, 8)}-modules`;
+
+  function buildAuthoredModuleContext(
+    chosen: any,
+    source: "picker" | "prev-call" | "first-incomplete" | "first-authored",
+  ) {
+    const rawRefs: string[] = Array.isArray(chosen?.outcomesPrimary) ? chosen.outcomesPrimary : [];
+    const validRefs = Object.keys(knownOutcomes).length > 0
+      ? rawRefs.filter((ref) => ref in knownOutcomes)
+      : rawRefs;
+    const dropped = rawRefs.length - validRefs.length;
+    if (dropped > 0) {
+      log.warn(`Authored module ${chosen.id}: dropped ${dropped} unknown outcome ref(s) — not present in Playbook.config.outcomes`);
+    }
+    const specSlug = pb?.curricula[0]?.slug ?? fallbackSpecSlug;
+    log.info(`Module context from authored modules (${source})`, {
+      moduleId: chosen.id,
+      specSlug,
+      loCount: validRefs.length,
+      droppedRefs: dropped,
+    });
+    return {
+      specSlug,
+      moduleId: chosen.id,
+      moduleName: chosen.label || chosen.id,
+      learningOutcomes: validRefs,
+      masteryThreshold: 0.7,
+      allModuleIds: authored.map((m: any) => m?.id).filter(Boolean),
+    };
+  }
+
   // ── #242 Slice 2: requestedModuleId override ──
   // When the learner picked a module via the picker, build the moduleContext
   // directly from Playbook.config.modules (the authored shape). The override
   // bypasses the scheduler so mastery fires against the learner's choice
   // even if scheduler logic would have selected a different module.
   if (opts?.requestedModuleId) {
-    const pb = await prisma.playbook.findUnique({
-      where: { id: resolvedPlaybookId },
-      select: {
-        name: true,
-        config: true,
-        curricula: {
-          orderBy: { createdAt: "asc" },
-          take: 1,
-          select: { slug: true },
-        },
-      },
-    });
-    const cfg = (pb?.config ?? {}) as Record<string, any>;
-    const authored = Array.isArray(cfg.modules) ? cfg.modules : [];
     const match = authored.find((m: any) => m?.id === opts.requestedModuleId);
     if (match) {
-      const specSlug =
-        pb?.curricula[0]?.slug ??
-        `playbook-${resolvedPlaybookId.slice(0, 8)}-modules`;
-      log.info("Module context override from picker", {
-        requestedModuleId: opts.requestedModuleId,
-        specSlug,
-        loCount: (match.outcomesPrimary || []).length,
-      });
-      return {
-        specSlug,
-        moduleId: match.id,
-        moduleName: match.label || match.id,
-        learningOutcomes: Array.isArray(match.outcomesPrimary)
-          ? match.outcomesPrimary
-          : [],
-        masteryThreshold: 0.7,
-        allModuleIds: authored.map((m: any) => m?.id).filter(Boolean),
-      };
+      return buildAuthoredModuleContext(match, "picker");
     }
     log.warn("requestedModuleId not found in Playbook.config.modules — falling back to scheduler", {
       requestedModuleId: opts.requestedModuleId,
       playbookId: resolvedPlaybookId,
     });
+  }
+
+  // ── #284 Path 0.5: authored modules without picker ──
+  // Free-form sim/voice calls on authored courses (modulesAuthored=true,
+  // no requestedModuleId) need a module context too — otherwise mastery
+  // never writes for the dominant non-picker flow. Selection priority:
+  //   1. Previous call's curriculumModuleId (continuous-mode anchor — keep
+  //      learner on the same module across consecutive calls until completed).
+  //   2. First non-completed authored module by `position` / array order.
+  //   3. Last resort: first authored module.
+  if (!opts?.requestedModuleId && cfg.modulesAuthored === true && authored.length > 0) {
+    const curriculumId = pb?.curricula[0]?.id ?? null;
+    let chosen: any = null;
+    let source: "prev-call" | "first-incomplete" | "first-authored" = "first-incomplete";
+
+    if (curriculumId) {
+      const prevCall = await prisma.call.findFirst({
+        where: { callerId, curriculumModuleId: { not: null } },
+        orderBy: { createdAt: "desc" },
+        select: { curriculumModuleId: true },
+      });
+      if (prevCall?.curriculumModuleId) {
+        const prevMod = await prisma.curriculumModule.findUnique({
+          where: { id: prevCall.curriculumModuleId },
+          select: { slug: true, curriculumId: true },
+        });
+        if (prevMod && prevMod.curriculumId === curriculumId) {
+          const match = authored.find((m: any) => m?.id === prevMod.slug);
+          // Only resume on the same module if it isn't already complete.
+          if (match) {
+            const completed = await prisma.callerModuleProgress.findFirst({
+              where: { callerId, moduleId: prevCall.curriculumModuleId, status: "COMPLETED" },
+              select: { id: true },
+            });
+            if (!completed) {
+              chosen = match;
+              source = "prev-call";
+            }
+          }
+        }
+      }
+
+      if (!chosen) {
+        const completedRows = await prisma.callerModuleProgress.findMany({
+          where: { callerId, status: "COMPLETED", module: { curriculumId } },
+          select: { module: { select: { slug: true } } },
+        });
+        const completedSlugs = new Set(completedRows.map((r) => r.module.slug));
+        const ordered = [...authored].sort(
+          (a: any, b: any) => (a?.position ?? 0) - (b?.position ?? 0),
+        );
+        chosen = ordered.find((m: any) => m?.id && !completedSlugs.has(m.id)) ?? null;
+        source = "first-incomplete";
+      }
+    }
+
+    if (!chosen) {
+      chosen = authored[0];
+      source = "first-authored";
+    }
+
+    if (chosen?.id) {
+      return buildAuthoredModuleContext(chosen, source);
+    }
   }
 
   // Path 1: CONTENT spec via the caller's enrolled playbook
