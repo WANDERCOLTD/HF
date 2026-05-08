@@ -13,7 +13,6 @@
  */
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   BookMarked, AlertTriangle, Zap, RefreshCw,
@@ -368,7 +367,6 @@ export function CourseIntelligenceTab({
   // Bind uploads to the course's primary subject — that's what the
   // backend expects (see /api/subjects/[subjectId]/upload). When the
   // course has no subjects yet, the affordance hides.
-  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -403,14 +401,16 @@ export function CourseIntelligenceTab({
         // appear with their classified type; user can hit the "Extract" icon
         // per row to run extraction (intentionally NOT auto-fired here so the
         // educator can correct misclassification first).
-        router.refresh();
+        // Hard reload — the parent's client-side useEffect doesn't re-run
+        // on router signals; need a fresh page load to refetch courseSources.
+        window.location.reload();
       } catch (e) {
         setOpError(e instanceof Error ? e.message : "Upload failed");
       } finally {
         setUploading(false);
       }
     },
-    [courseId, primarySubjectId, router],
+    [courseId, primarySubjectId],
   );
 
   const handleExtract = useCallback(
@@ -427,14 +427,16 @@ export function CourseIntelligenceTab({
         if (!res.ok || data.ok === false) {
           throw new Error(data.error || `Extract failed (${res.status})`);
         }
-        router.refresh();
+        // Hard reload — the parent's client-side useEffect doesn't re-run
+        // on router signals; need a fresh page load to refetch courseSources.
+        window.location.reload();
       } catch (e) {
         setOpError(e instanceof Error ? e.message : "Extract failed");
       } finally {
         setBusySourceId(null);
       }
     },
-    [router],
+    [],
   );
 
   const handleDelete = useCallback(
@@ -466,14 +468,16 @@ export function CourseIntelligenceTab({
           const data = await permRes.json().catch(() => ({}));
           throw new Error(data.error || `Permanent delete failed (${permRes.status})`);
         }
-        router.refresh();
+        // Hard reload — the parent's client-side useEffect doesn't re-run
+        // on router signals; need a fresh page load to refetch courseSources.
+        window.location.reload();
       } catch (e) {
         setOpError(e instanceof Error ? e.message : "Delete failed");
       } finally {
         setBusySourceId(null);
       }
     },
-    [router],
+    [],
   );
 
   // ── Lazy fetch assertions when switching to points ──
@@ -564,37 +568,48 @@ export function CourseIntelligenceTab({
   }, []);
 
   // ── Sources ──────────────────────────────────────────
+  // Show the UNION of two link paths so adding a new course-scoped source
+  // doesn't hide existing subject-scoped ones:
+  //   - PlaybookSource (direct course → source link, populated by today's
+  //     upload flow)
+  //   - SubjectSource (course → subject → source, populated by older
+  //     wizard flows)
+  // Pre-#288 this branched: if courseSources had ANY entries it ignored
+  // the subject sources entirely. Result: the first PlaybookSource added
+  // to a previously-subject-only course made all the subject sources
+  // disappear from view.
   const { courseGuideSources, otherSources, allSources } = useMemo(() => {
     const guides: SourceItem[] = [];
     const others: SourceItem[] = [];
+    const seen = new Set<string>();
 
-    if (courseSources && courseSources.length > 0) {
-      for (const src of courseSources) {
-        if (src.documentType === 'COURSE_REFERENCE') {
-          guides.push(src);
-        } else {
-          others.push(src);
-        }
+    const push = (item: SourceItem) => {
+      if (seen.has(item.id)) return;
+      seen.add(item.id);
+      if (item.documentType === 'COURSE_REFERENCE') {
+        guides.push(item);
+      } else {
+        others.push(item);
       }
-    } else {
-      const seen = new Set<string>();
-      for (const sub of subjects) {
-        for (const src of sub.sources || []) {
-          if (seen.has(src.id)) continue;
-          seen.add(src.id);
-          const item: SourceItem = {
-            ...src,
-            contentAssertionCount: 0,
-            instructionAssertionCount: 0,
-            sortOrder: 0,
-            tags: [],
-          };
-          if (src.documentType === 'COURSE_REFERENCE') {
-            guides.push(item);
-          } else {
-            others.push(item);
-          }
-        }
+    };
+
+    // PlaybookSource entries first — they carry the full SourceItem shape
+    // (assertion counts split content vs instruction). Take precedence on
+    // dedup so we don't downgrade their counts to 0.
+    if (courseSources) {
+      for (const src of courseSources) push(src);
+    }
+    // Subject sources fill in anything not directly linked to the playbook.
+    // Their shape is lighter (no contentAssertion split), so pad zeros.
+    for (const sub of subjects) {
+      for (const src of sub.sources || []) {
+        push({
+          ...src,
+          contentAssertionCount: 0,
+          instructionAssertionCount: 0,
+          sortOrder: 0,
+          tags: [],
+        });
       }
     }
     return { courseGuideSources: guides, otherSources: others, allSources: [...guides, ...others] };

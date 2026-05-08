@@ -144,22 +144,63 @@ const RUBRIC_CONTENT_MARKERS: RegExp[] = [
 ];
 
 /**
+ * Counter-signals that this is LEARNER-FACING content even if it mentions
+ * the rubric. Sample answers with first-person prose, practice cue cards,
+ * vocabulary lists, and pronunciation drills all skew toward this.
+ *
+ * If the doc has substantial student-content shape, we suppress the rubric
+ * override even when rubric markers appear (e.g. a learner-facing prep doc
+ * that explains the rubric for context but is mostly practice material).
+ */
+const LEARNER_CONTENT_MARKERS: RegExp[] = [
+  // Sample answer markers — first-person prose with quote markers
+  /["'"]I\s+(?:like|love|enjoy|live|think|feel|grew|cycle|travel|usually|always|often)\b/i,
+  /["'"](?:Honestly|Actually|To be honest|For me|In my view)\b/i,
+  // Practice / drill / exercise framing
+  /\bpractice\s+(?:cue\s+card|session|drill|exercise|answer)\b/i,
+  /\b(?:cue\s+card|prompt|exercise|drill)\s*[:#-]/i,
+  /\bsample\s+(?:answer|response|sentence)\b/i,
+  /\b(?:try\s+this|read\s+aloud|repeat|practise)\b/i,
+  // Vocabulary list markers
+  /\b(?:collocations?|phrasal\s+verbs?|vocabulary\s+list|word\s+bank)\b/i,
+  /^\s*[-*•]\s+to\s+\w+/im, // bulleted infinitive verbs (vocab lists)
+  // Pronunciation drill markers
+  /\bminimal\s+pairs?\b/i,
+  /\bsentence\s+stress\b/i,
+  /\bschwa\b/i,
+];
+
+function countMarkerOccurrences(text: string, markers: RegExp[], stopAt: number): number {
+  let total = 0;
+  for (const marker of markers) {
+    const global = new RegExp(marker.source, marker.flags.includes("g") ? marker.flags : marker.flags + "g");
+    const hits = text.match(global);
+    if (hits) total += hits.length;
+    if (total >= stopAt) return total;
+  }
+  return total;
+}
+
+/**
  * Returns true when the text sample matches enough rubric markers to be
  * confidently classified as COURSE_REFERENCE rather than learner content.
  *
  * Counts each OCCURRENCE not just unique markers — a sample with two CEFR
  * descriptors (C1, B2) is rubric content even if all hits come from one regex.
+ *
+ * Counter-signal: if learner-content markers (sample answers, practice
+ * framing, vocab lists, pronunciation drills) outnumber rubric markers,
+ * the doc is learner-facing despite mentioning rubric concepts. Without
+ * this guard the IELTS Speaking practice doc (which references the rubric
+ * for context) gets misclassified as COURSE_REFERENCE and excluded from
+ * MCQ generation.
  */
 export function isRubricContent(textSample: string): boolean {
-  let matches = 0;
-  for (const marker of RUBRIC_CONTENT_MARKERS) {
-    // Use a global flag clone so we count each occurrence, not just one hit.
-    const global = new RegExp(marker.source, marker.flags.includes("g") ? marker.flags : marker.flags + "g");
-    const hits = textSample.match(global);
-    if (hits) matches += hits.length;
-    if (matches >= 2) return true;
-  }
-  return false;
+  const rubricHits = countMarkerOccurrences(textSample, RUBRIC_CONTENT_MARKERS, 6);
+  if (rubricHits < 2) return false;
+  const learnerHits = countMarkerOccurrences(textSample, LEARNER_CONTENT_MARKERS, rubricHits + 1);
+  // Tie or learner-leaning → not rubric.
+  return rubricHits > learnerHits;
 }
 
 // ------------------------------------------------------------------
