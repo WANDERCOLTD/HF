@@ -845,12 +845,13 @@ async function generateFromAssertions(
 
   // #308: For authored-modules courses with at least one module-matching
   // assertion, use the module-balanced prompt and an outcome-spread budget.
-  // Otherwise fall through to comprehension/bloom paths unchanged.
+  // Applies to both knowledge and comprehension subjects when modules are
+  // authored — module balance is orthogonal to teaching profile.
   let useModuleBalanced = false;
   let effectiveCount = count;
   let moduleBudgets: number[] = [];
   let prunedGroups: ModuleGroup[] = [];
-  if (source === "assertion" && moduleGroups && moduleGroups.length > 0) {
+  if (moduleGroups && moduleGroups.length > 0) {
     // Drop modules that have zero matching assertions in this source — asking
     // the AI to fabricate questions for an empty group wastes tokens.
     prunedGroups = moduleGroups.filter((g) => {
@@ -867,10 +868,13 @@ async function generateFromAssertions(
     }
   }
 
-  const systemPrompt = source === "comprehension"
-    ? buildComprehensionSkillPrompt(assertionText, count, audience, assessmentIntent)
-    : useModuleBalanced
-      ? buildModuleDistributedPrompt(assertionText, prunedGroups, moduleBudgets, audience, assessmentIntent)
+  // #308: module-balanced prompt wins over both comprehension and bloom paths
+  // when authored modules are defined — module spread is the higher-priority
+  // distribution constraint. The within-module Bloom hint covers cognitive mix.
+  const systemPrompt = useModuleBalanced
+    ? buildModuleDistributedPrompt(assertionText, prunedGroups, moduleBudgets, audience, assessmentIntent)
+    : source === "comprehension"
+      ? buildComprehensionSkillPrompt(assertionText, count, audience, assessmentIntent)
       : buildBloomDistributedPrompt(assertionText, count, audience, assessmentIntent);
 
   const callPoint = source === "comprehension" ? COMPREHENSION_CALL_POINT : CALL_POINT;
