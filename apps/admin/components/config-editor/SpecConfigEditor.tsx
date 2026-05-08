@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { ConfigEditorToolbar } from "./ConfigEditorToolbar";
 import { ConfigSection } from "./ConfigSection";
 import { ConfigField } from "./ConfigField";
@@ -34,17 +34,20 @@ export function SpecConfigEditor({
   const [jsonError, setJsonError] = useState<string | null>(null);
   const sectionKeyRef = useRef(0);
 
-  // Parse config from JSON string
-  const parsed = useMemo(() => {
+  // Parse config from JSON string. Returns either the parsed object or an
+  // error message — never sets state directly inside the memo (would risk an
+  // infinite render loop). Errors are surfaced via the effect below.
+  const parseResult = useMemo<{ value: Record<string, unknown> | null; error: string | null }>(() => {
     try {
-      const obj = JSON.parse(configText || "{}");
-      setJsonError(null);
-      return obj as Record<string, unknown>;
-    } catch (e: any) {
-      setJsonError(e.message);
-      return null;
+      return { value: JSON.parse(configText || "{}") as Record<string, unknown>, error: null };
+    } catch (e) {
+      return { value: null, error: (e as Error).message };
     }
   }, [configText]);
+  const parsed = parseResult.value;
+  useEffect(() => {
+    setJsonError(parseResult.error);
+  }, [parseResult.error]);
 
   // Group fields into Essential / Advanced sections
   const groups = useMemo(() => {

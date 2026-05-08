@@ -163,13 +163,16 @@ export function useApi<T>(
     }
   }, [url, transform, onSuccess, onError, cacheTtl]);
 
-  // Initial fetch and refetch on dependency changes
+  // Initial fetch and refetch on dependency changes. Spread expressions in
+  // dep arrays are rejected by the new react-hooks rule — stringify the
+  // user-supplied deps so the array shape stays static.
+  const initialDepsKey = JSON.stringify(deps);
   useEffect(() => {
     if (!skip && url) {
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, skip, ...deps]);
+  }, [url, skip, initialDepsKey]);
 
   return {
     data,
@@ -224,6 +227,12 @@ export function useApiParallel<T extends Record<string, unknown>>(
     };
   }, []);
 
+  // Stable dep key for the endpoints map — the new react-hooks rule rejects
+  // function calls in dep arrays. Stringifying gives us the same invalidation
+  // semantics with a static expression.
+  const endpointsKey = JSON.stringify(
+    keys.map((k) => [k, endpoints[k].url]),
+  );
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -260,12 +269,16 @@ export function useApiParallel<T extends Record<string, unknown>>(
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(endpoints)]);
+  }, [endpointsKey]);
 
+  // Stable dep key — the new react-hooks rule rejects function calls in
+  // dep arrays. Stringifying preserves the original semantics: re-run when
+  // the deps array contents change.
+  const depsKey = JSON.stringify(deps);
   useEffect(() => {
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps]);
+  }, [depsKey]);
 
   return { data, loading, error, refetch: fetchAll };
 }
