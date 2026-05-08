@@ -80,6 +80,14 @@ async function loadCurrentModuleContext(
   moduleId: string;
   moduleName: string;
   learningOutcomes: string[];
+  /**
+   * Original outcome refs (e.g. ["OUT-01", "OUT-02"]) parallel to
+   * `learningOutcomes` (which carry resolved statement text). The prompt
+   * uses BOTH so the AI scores against refs the DB can find — without this
+   * `updateTpMasteryAfterCall` couldn't match LO rows and silently wrote
+   * to the wrong curriculum.
+   */
+  outcomeRefs: string[];
   masteryThreshold: number;
   allModuleIds: string[];
 } | null> {
@@ -95,6 +103,7 @@ async function loadCurrentModuleContext(
     moduleId: resolved.moduleId,
     moduleName: resolved.moduleName,
     learningOutcomes: resolved.learningOutcomes,
+    outcomeRefs: resolved.outcomeRefs,
     masteryThreshold: resolved.masteryThreshold,
     allModuleIds: resolved.allModuleIds,
   };
@@ -105,7 +114,12 @@ function buildBatchedCallerPrompt(
   measureParams: Array<{ parameterId: string; name: string; definition: string | null }>,
   learnActions: Array<{ category: string; keyPrefix: string; keyHint: string; description: string }>,
   transcriptLimit: number = 4000,
-  moduleContext?: { moduleId: string; moduleName: string; learningOutcomes: string[] } | null,
+  moduleContext?: {
+    moduleId: string;
+    moduleName: string;
+    learningOutcomes: string[];
+    outcomeRefs?: string[];
+  } | null,
   assessmentPromptInstructions?: string | null,
 ): string {
   const paramList = measureParams.map(p => `${p.parameterId}:${p.name}`).join("|");
@@ -117,11 +131,22 @@ function buildBatchedCallerPrompt(
   let learningSection = "";
   let learningJsonHint = "";
   if (moduleContext?.learningOutcomes?.length) {
-    const loList = moduleContext.learningOutcomes.map((lo, i) => `LO${i + 1}:${lo}`).join("|");
+    // Use the canonical outcome refs as keys when we have them (authored
+    // courses provide OUT-NN refs from Playbook.config.outcomes). Fall back
+    // to LO1, LO2, … for legacy/DB-curriculum modules where refs aren't
+    // surfaced. The DB lookup in updateTpMasteryAfterCall keys on these
+    // exact strings, so the format MUST round-trip.
+    const text = moduleContext.learningOutcomes;
+    const refs = moduleContext.outcomeRefs ?? [];
+    const useRefs = refs.length === text.length;
+    const loList = text
+      .map((stmt, i) => `${useRefs ? refs[i] : `LO${i + 1}`}:${stmt}`)
+      .join("|");
+    const exampleKey = useRefs ? refs[0] : "LO1";
     const instructions = assessmentPromptInstructions
-      || "Score caller's demonstrated understanding of each outcome 0-1 (0=no evidence, 0.5=partial, 1=full mastery).";
+      || `Score caller's demonstrated understanding of each outcome 0-1 (0=no evidence, 0.5=partial, 1=full mastery). Key your outcomes object with the exact ref before the colon (e.g. "${exampleKey}").`;
     learningSection = `\n\nLEARNING OUTCOMES TO ASSESS (module "${moduleContext.moduleName}"):\n${loList}\n${instructions}`;
-    learningJsonHint = `,"learning":{"moduleId":"${moduleContext.moduleId}","outcomes":{"LO1":0.6},"overallMastery":0.7}`;
+    learningJsonHint = `,"learning":{"moduleId":"${moduleContext.moduleId}","outcomes":{"${exampleKey}":0.6},"overallMastery":0.7}`;
   }
 
   return `Analyze transcript. Score caller 0-1 on params, extract ALL personal facts.
@@ -1741,41 +1766,64 @@ async function updateTpMasteryAfterCall(
   });
   if (!caller?.domainId) return false;
 
-  // Try playbook curriculum first (direct link)
-  const enrolledPbForAssess = await resolvePlaybookId(callerId);
-  if (enrolledPbForAssess) {
-    const pbCurr = await prisma.curriculum.findFirst({
-      where: { playbookId: enrolledPbForAssess },
-      orderBy: { updatedAt: "desc" },
-      select: { slug: true },
+  // #284 follow-up: anchor TP-mastery writes on the specSlug the resolver
+  // already chose. The previous shape re-derived the curriculum via
+  // `resolvePlaybookId` + `findFirst({ orderBy: updatedAt })`, which could
+  // land on a different curriculum than the module was assessed against.
+  // When ref-lookup then returned 0 LO rows (e.g. authored OUT-NN keys
+  // didn't exist on a stale curriculum) the SubjectDomain fallback below
+  // wrote TP mastery to a completely unrelated course on the same domain.
+  // Now: try the named curriculum directly. If it doesn't match any LO
+  // refs, log + return false instead of falling through.
+  const targetCurriculum = await prisma.curriculum.findFirst({
+    where: { slug: learningAssessment.specSlug },
+    select: { id: true, slug: true },
+  });
+  if (targetCurriculum) {
+    const threshold = learningAssessment.masteryThreshold || 0.7;
+    const assessedLoRefs = Object.keys(learningAssessment.outcomes);
+    const loRows = await prisma.learningObjective.findMany({
+      where: {
+        ref: { in: assessedLoRefs },
+        module: { curriculum: { id: targetCurriculum.id }, isActive: true },
+      },
+      select: { id: true, ref: true },
     });
-    if (pbCurr) {
-      const threshold = learningAssessment.masteryThreshold || 0.7;
-      const assessedLoRefs = Object.keys(learningAssessment.outcomes);
-      const loRows = await prisma.learningObjective.findMany({
-        where: {
-          ref: { in: assessedLoRefs },
-          module: { curriculum: { slug: pbCurr.slug }, isActive: true },
-        },
-        select: { id: true, ref: true },
-      });
-      if (loRows.length > 0) {
-        for (const lo of loRows) {
-          const score = learningAssessment.outcomes[lo.ref];
-          if (score !== undefined) {
-            await prisma.callerAttribute.upsert({
-              where: { callerId_key: { callerId, key: `curriculum:${pbCurr.slug}:lo:${lo.ref}` } },
-              update: { value: String(score), updatedAt: new Date() },
-              create: { callerId, key: `curriculum:${pbCurr.slug}:lo:${lo.ref}`, value: String(score) },
-            });
-          }
-        }
-        return true;
-      }
+    if (loRows.length === 0) {
+      log.warn(
+        `TP mastery skipped — assessed refs [${assessedLoRefs.join(",")}] don't match any LearningObjective on ${targetCurriculum.slug}. Refusing to fall through to SubjectDomain to avoid cross-course pollution.`,
+      );
+      return false;
     }
+
+    const assessedLoIds = loRows.map((lo) => lo.id);
+    const assessedTps = await prisma.contentAssertion.findMany({
+      where: { learningObjectiveId: { in: assessedLoIds } },
+      select: { id: true, learningObjectiveId: true },
+    });
+    const loIdToRef = new Map(loRows.map((lo) => [lo.id, lo.ref]));
+
+    const updates: Record<string, { mastery: number; status: "not_started" | "in_progress" | "mastered" }> = {};
+    for (const tp of assessedTps) {
+      const loRef = tp.learningObjectiveId ? loIdToRef.get(tp.learningObjectiveId) : null;
+      const loScore = loRef ? learningAssessment.outcomes[loRef] ?? 0 : 0;
+      updates[tp.id] = {
+        mastery: loScore,
+        status: loScore >= threshold ? "mastered" : loScore > 0 ? "in_progress" : "not_started",
+      };
+    }
+    if (Object.keys(updates).length > 0) {
+      await updateTpMasteryBatch(callerId, targetCurriculum.slug, updates);
+      log.info(`Updated ${Object.keys(updates).length} TP mastery scores on ${targetCurriculum.slug}`);
+      return true;
+    }
+    return false;
   }
 
-  // Fallback: domain-wide Subject curriculum (legacy)
+  // Last-resort fallback: no curriculum matches the helper's specSlug
+  // (legacy / data drift). Try domain-wide Subject curriculum lookup.
+  // This ONLY runs when the helper-provided specSlug isn't a real
+  // curriculum — keeping cross-course pollution out of the common path.
   const subjectDomains = await prisma.subjectDomain.findMany({
     where: { domainId: caller.domainId },
     include: {
