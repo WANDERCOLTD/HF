@@ -82,6 +82,12 @@ export interface SelectedLO {
   moduleId: string;
   status: "review" | "new";
   childTpIds: string[];
+  /**
+   * LO description text, propagated from `LORef.description`. Surfaced as
+   * session context in the runtime prompt's `curriculum_guidance` section
+   * (#306). May be empty for legacy LOs that pre-date description capture.
+   */
+  description: string;
 }
 
 // ── Budget calculation ──────────────────────────────────
@@ -302,6 +308,7 @@ export function selectWorkingSet(input: WorkingSetInput): WorkingSetResult {
       moduleId: reviewLO.moduleId,
       status: "review",
       childTpIds: reviewTpIds,
+      description: reviewLO.description ?? "",
     });
   }
   for (const lo of newLOs) {
@@ -311,6 +318,7 @@ export function selectWorkingSet(input: WorkingSetInput): WorkingSetResult {
       moduleId: lo.moduleId,
       status: "new",
       childTpIds: lo.childTps.map((tp) => tp.id),
+      description: lo.description ?? "",
     });
   }
 

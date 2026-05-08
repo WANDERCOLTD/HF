@@ -623,10 +623,6 @@ export async function POST(
       let sourceTitle: string | null = null;
       let sourceYear: number | null = null;
       let notableInfo: any = null;
-      let coreArgument: any = null;
-      let caseStudies: any = null;
-      let discussionQuestions: any = null;
-      let critiques: any = null;
       let deliveryConfig: any = null;
 
       if (isModuleCurriculum) {
@@ -638,23 +634,14 @@ export async function POST(
           learningOutcomes: rawSpecData.learningOutcomes,
           assessment: rawSpecData.assessment,
         };
-        coreArgument = {
-          modules: rawSpecData.modules,
-          totalModules: rawSpecData.modules.length,
-          estimatedDuration: rawSpecData.modules.reduce((sum: number, m: any) => sum + (m.durationMinutes || 0), 0),
-        };
-        critiques = rawSpecData.misconceptionBank || null;
         deliveryConfig = {
           sessionStructure: rawSpecData.sessionStructure,
           assessmentStrategy: rawSpecData.assessmentStrategy,
         };
-        const allExamTopics: string[] = [];
-        for (const mod of rawSpecData.modules) {
-          if (mod.examTopics) allExamTopics.push(...mod.examTopics);
-        }
-        if (allExamTopics.length > 0) {
-          discussionQuestions = { examTopics: allExamTopics };
-        }
+        // #306: dropped fields — coreArgument (modules JSON), critiques
+        // (misconceptionBank), discussionQuestions (examTopics) — written
+        // here but read by nothing. Module structure is held in first-class
+        // CurriculumModule rows via lib/curriculum/sync-modules.
       } else {
         for (const param of compiledParams) {
           const cfg = param.config || {};
@@ -664,21 +651,12 @@ export async function POST(
             sourceYear = cfg.year || null;
             notableInfo = cfg.notableInfo || null;
           }
-          if (param.id === "core_argument" || param.name?.includes("Core Argument") || param.name?.includes("Thesis")) {
-            coreArgument = cfg;
-          }
-          if (param.id === "case_studies" || param.name?.includes("Case Studies")) {
-            caseStudies = cfg.studies || cfg;
-          }
-          if (param.id === "discussion_questions" || param.name?.includes("Discussion")) {
-            discussionQuestions = cfg.questions || cfg;
-          }
-          if (param.id === "critiques" || param.name?.includes("Critiques")) {
-            critiques = cfg.critiques || cfg;
-          }
           if (param.id === "delivery_config" || param.name?.includes("Delivery")) {
             deliveryConfig = cfg;
           }
+          // #306: previously also captured core_argument / case_studies /
+          // discussion_questions / critiques; columns dropped because the
+          // prompt pipeline never read them.
         }
       }
 
@@ -693,10 +671,6 @@ export async function POST(
         sourceTitle,
         sourceYear,
         notableInfo,
-        coreArgument,
-        caseStudies,
-        discussionQuestions,
-        critiques,
         deliveryConfig,
         constraints: compiledConstraints,
         sourceSpecId: spec.id,
