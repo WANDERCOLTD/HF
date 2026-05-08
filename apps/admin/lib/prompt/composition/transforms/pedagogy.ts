@@ -24,7 +24,7 @@ registerTransform("computeSessionPedagogy", (
   const {
     isFirstCall, isFirstCallInDomain,
     modules, moduleToReview, nextModule, reviewType, reviewReason,
-    schedulerDecision, callNumber,
+    schedulerDecision, callNumber, hasPriorMastery,
   } = context.sharedState;
   const domain = context.loadedData.caller?.domain;
   const onboardingSpec = context.loadedData.onboardingSpec;
@@ -287,17 +287,21 @@ registerTransform("computeSessionPedagogy", (
     console.log(`[pedagogy] Scheduler call ${callNumber}: ${mode}`);
   } else if (hasCurriculum) {
     // === GENERIC RETURNING CALLER MODE (with curriculum) ===
-    plan.flow = [
-      "1. Reconnect - reference last session specifically",
-      `2. Spaced retrieval (${reviewType}) - recall question on ${moduleToReview?.name || "previous concept"}`,
-      "3. Reinforce or correct based on their recall",
-      `4. Bridge - connect ${moduleToReview?.name || "old"} to ${nextModule?.name || "new material"}`,
-      `5. New material - introduce ${nextModule?.name || "next concept"}`,
-      "6. Integrate - question using both old and new",
-      "7. Close with summary and preview",
-    ];
-
-    if (moduleToReview) {
+    // #288: split this branch on `hasPriorMastery`. A returning caller with
+    // no prior progress (e.g. their first authored-course session, even if
+    // they made a discovery call before) must NOT be told to do spaced
+    // retrieval — there's nothing to retrieve. Without this gate the AI
+    // hallucinates "review of last session" / "baseline work".
+    if (hasPriorMastery && moduleToReview) {
+      plan.flow = [
+        "1. Reconnect - reference last session specifically",
+        `2. Spaced retrieval (${reviewType}) - recall question on ${moduleToReview.name}`,
+        "3. Reinforce or correct based on their recall",
+        `4. Bridge - connect ${moduleToReview.name} to ${nextModule?.name || "new material"}`,
+        `5. New material - introduce ${nextModule?.name || "next concept"}`,
+        "6. Integrate - question using both old and new",
+        "7. Close with summary and preview",
+      ];
       plan.reviewFirst = {
         module: moduleToReview.name,
         reason: reviewReason,
@@ -307,12 +311,24 @@ registerTransform("computeSessionPedagogy", (
             ? "Give a scenario requiring them to apply the concept"
             : "Walk through the concept again with a fresh example",
       };
+    } else {
+      // First session on this curriculum — no priors to review.
+      plan.sessionType = "FIRST_CURRICULUM_SESSION";
+      plan.flow = [
+        "1. Welcome and orient - acknowledge this is the start of focused work on this material",
+        `2. Set goal - what ${nextModule?.name || "this session"} covers and why it matters`,
+        "3. Introduce - lead with examples or a concrete situation, then surface the concept",
+        "4. Practice - learner attempts; tutor coaches and corrects",
+        "5. Wrap - summarise what was covered, preview next session",
+      ];
     }
 
     if (nextModule) {
       plan.newMaterial = {
         module: nextModule.name,
-        approach: `After confirming ${moduleToReview?.name || "previous"} understanding, introduce ${nextModule.description || "new concepts"}`,
+        approach: hasPriorMastery && moduleToReview
+          ? `After confirming ${moduleToReview.name} understanding, introduce ${nextModule.description || "new concepts"}`
+          : `Introduce ${nextModule.description || "new concepts"} — lead with examples before definitions.`,
       };
     }
   } else {

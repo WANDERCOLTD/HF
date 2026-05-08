@@ -34,6 +34,7 @@ import { deliverArtifacts } from "@/lib/artifacts/deliver-artifacts";
 import { extractActions } from "@/lib/actions/extract-actions";
 import { config as appConfig } from "@/lib/config";
 import { updateCurriculumProgress, getCurriculumProgress, completeModule, updateTpMasteryBatch } from "@/lib/curriculum/track-progress";
+import { resolveCurrentModule } from "@/lib/curriculum/resolve-current-module";
 // initializeLessonPlanSession removed — scheduler replaces session tracking
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { ContractRegistry } from "@/lib/contracts/registry";
@@ -59,26 +60,20 @@ import type { SpecConfig } from "@/lib/types/json-fields";
  */
 /**
  * Load current module context for learning assessment.
- * Tries CONTENT spec path first, then falls back to Subject curriculum.
+ *
+ * Thin adapter over `resolveCurrentModule` (lib/curriculum/resolve-current-module.ts)
+ * — the EXTRACT pipeline only needs the prompt-facing subset (specSlug,
+ * moduleId, name, outcome text, threshold, allModuleIds). The shared helper
+ * also handles picker override, authored fallback, and the deprecated
+ * CONTENT-spec / notableInfo / SubjectDomain paths in one place.
  */
 async function loadCurrentModuleContext(
   callerId: string,
   log: PipelineLogger,
   opts?: {
-    /**
-     * #242 Slice 2: explicit module pick from the picker, persisted on
-     * Call.requestedModuleId. When provided AND found in
-     * Playbook.config.modules, we build a moduleContext from it directly
-     * rather than running the scheduler — guarantees mastery is emitted
-     * against the learner's choice.
-     */
     requestedModuleId?: string | null;
-    /**
-     * Fallback playbookId from the call record itself, used when the caller
-     * has no CallerPlaybook enrollment (common for SIM testers). Must NOT
-     * shadow a real enrollment.
-     */
     callPlaybookId?: string | null;
+    callerDomainId?: string | null;
   }
 ): Promise<{
   specSlug: string;
@@ -88,184 +83,21 @@ async function loadCurrentModuleContext(
   masteryThreshold: number;
   allModuleIds: string[];
 } | null> {
-  // Resolve the caller's actual enrolment (CallerPlaybook) first.
-  // Fall back to the call's own playbookId for SIM testers without
-  // an explicit CallerPlaybook row.
-  let resolvedPlaybookId = await resolvePlaybookId(callerId);
-  if (!resolvedPlaybookId && opts?.callPlaybookId) {
-    log.info("No enrollment; using call.playbookId as fallback", {
-      callPlaybookId: opts.callPlaybookId,
-    });
-    resolvedPlaybookId = opts.callPlaybookId;
-  }
-  if (!resolvedPlaybookId) return null;
-
-  // ── #242 Slice 2: requestedModuleId override ──
-  // When the learner picked a module via the picker, build the moduleContext
-  // directly from Playbook.config.modules (the authored shape). The override
-  // bypasses the scheduler so mastery fires against the learner's choice
-  // even if scheduler logic would have selected a different module.
-  if (opts?.requestedModuleId) {
-    const pb = await prisma.playbook.findUnique({
-      where: { id: resolvedPlaybookId },
-      select: {
-        name: true,
-        config: true,
-        curricula: {
-          orderBy: { createdAt: "asc" },
-          take: 1,
-          select: { slug: true },
-        },
-      },
-    });
-    const cfg = (pb?.config ?? {}) as Record<string, any>;
-    const authored = Array.isArray(cfg.modules) ? cfg.modules : [];
-    const match = authored.find((m: any) => m?.id === opts.requestedModuleId);
-    if (match) {
-      const specSlug =
-        pb?.curricula[0]?.slug ??
-        `playbook-${resolvedPlaybookId.slice(0, 8)}-modules`;
-      log.info("Module context override from picker", {
-        requestedModuleId: opts.requestedModuleId,
-        specSlug,
-        loCount: (match.outcomesPrimary || []).length,
-      });
-      return {
-        specSlug,
-        moduleId: match.id,
-        moduleName: match.label || match.id,
-        learningOutcomes: Array.isArray(match.outcomesPrimary)
-          ? match.outcomesPrimary
-          : [],
-        masteryThreshold: 0.7,
-        allModuleIds: authored.map((m: any) => m?.id).filter(Boolean),
-      };
-    }
-    log.warn("requestedModuleId not found in Playbook.config.modules — falling back to scheduler", {
-      requestedModuleId: opts.requestedModuleId,
-      playbookId: resolvedPlaybookId,
-    });
-  }
-
-  // Path 1: CONTENT spec via the caller's enrolled playbook
-  const playbook = await prisma.playbook.findUnique({
-    where: { id: resolvedPlaybookId },
-    select: {
-      items: {
-        where: {
-          itemType: "SPEC",
-          isEnabled: true,
-          spec: { specRole: "CONTENT", isActive: true },
-        },
-        select: {
-          spec: { select: { slug: true, config: true } },
-        },
-      },
-    },
+  const resolved = await resolveCurrentModule(callerId, {
+    requestedModuleId: opts?.requestedModuleId ?? null,
+    callPlaybookId: opts?.callPlaybookId ?? null,
+    callerDomainId: opts?.callerDomainId ?? null,
+    log,
   });
-
-  if (playbook?.items?.length) {
-    for (const item of playbook.items) {
-      const spec = item.spec;
-      if (!spec) continue;
-      const specConfig = spec.config as Record<string, any> | null;
-      if (!specConfig) continue;
-
-      const modules = specConfig.modules || specConfig.curriculum?.modules || [];
-      if (modules.length === 0) continue;
-
-      const progress = await getCurriculumProgress(callerId, spec.slug);
-      const currentModuleId = progress.currentModuleId || modules[0]?.id || modules[0]?.slug;
-      const currentModule = modules.find((m: any) => (m.id || m.slug) === currentModuleId) || modules[0];
-
-      if (currentModule) {
-        return {
-          specSlug: spec.slug,
-          moduleId: currentModule.id || currentModule.slug,
-          moduleName: currentModule.name || currentModule.title || currentModule.id,
-          learningOutcomes: currentModule.learningOutcomes || [],
-          masteryThreshold: specConfig.metadata?.curriculum?.masteryThreshold ?? 0.7,
-          allModuleIds: modules.map((m: any) => m.id || m.slug),
-        };
-      }
-    }
-  }
-
-  // Path 2: Playbook curriculum (direct link via playbookId)
-  if (resolvedPlaybookId) {
-    const pbCurriculum = await prisma.curriculum.findFirst({
-      where: { playbookId: resolvedPlaybookId },
-      orderBy: { updatedAt: "desc" },
-      select: { slug: true, notableInfo: true },
-    });
-    if (pbCurriculum?.notableInfo) {
-      const rawModules = (pbCurriculum.notableInfo as Record<string, any>)?.modules;
-      if (Array.isArray(rawModules) && rawModules.length > 0) {
-        const progress = await getCurriculumProgress(callerId, pbCurriculum.slug);
-        const currentModuleId = progress.currentModuleId || rawModules[0]?.id;
-        const currentModule = rawModules.find((m: any) => m.id === currentModuleId) || rawModules[0];
-        if (currentModule) {
-          return {
-            specSlug: pbCurriculum.slug,
-            moduleId: currentModule.id,
-            moduleName: currentModule.name || currentModule.title || currentModule.id,
-            learningOutcomes: currentModule.learningOutcomes || [],
-            masteryThreshold: 0.7,
-            allModuleIds: rawModules.map((m: any) => m.id),
-          };
-        }
-      }
-    }
-  }
-
-  // Path 3: Domain-wide Subject curriculum fallback (legacy)
-  const subjectDomains = await prisma.subjectDomain.findMany({
-    where: { domainId: caller.domainId },
-    include: {
-      subject: {
-        include: {
-          curricula: {
-            orderBy: { updatedAt: "desc" },
-            take: 1,
-            select: {
-              slug: true,
-              notableInfo: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  for (const sd of subjectDomains) {
-    const curriculum = sd.subject.curricula[0];
-    if (!curriculum?.notableInfo) continue;
-
-    const rawModules = (curriculum.notableInfo as Record<string, any>)?.modules;
-    if (!Array.isArray(rawModules) || rawModules.length === 0) continue;
-
-    const progress = await getCurriculumProgress(callerId, curriculum.slug);
-    const currentModuleId = progress.currentModuleId || rawModules[0]?.id;
-    const currentModule = rawModules.find((m: any) => m.id === currentModuleId) || rawModules[0];
-
-    if (currentModule) {
-      log.info(`Module context from Subject curriculum`, {
-        specSlug: curriculum.slug,
-        moduleId: currentModule.id,
-        loCount: (currentModule.learningOutcomes || []).length,
-      });
-      return {
-        specSlug: curriculum.slug,
-        moduleId: currentModule.id,
-        moduleName: currentModule.title || currentModule.name || currentModule.id,
-        learningOutcomes: currentModule.learningOutcomes || [],
-        masteryThreshold: (await ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1'))?.masteryComplete ?? 0.7,
-        allModuleIds: rawModules.map((m: any) => m.id),
-      };
-    }
-  }
-
-  return null;
+  if (!resolved) return null;
+  return {
+    specSlug: resolved.specSlug,
+    moduleId: resolved.moduleId,
+    moduleName: resolved.moduleName,
+    learningOutcomes: resolved.learningOutcomes,
+    masteryThreshold: resolved.masteryThreshold,
+    allModuleIds: resolved.allModuleIds,
+  };
 }
 
 function buildBatchedCallerPrompt(

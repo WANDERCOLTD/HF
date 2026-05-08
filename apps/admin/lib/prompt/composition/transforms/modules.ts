@@ -412,8 +412,22 @@ export async function computeSharedState(
       ))
     : Math.max(0, estimatedProgress - 1);
 
-  // Module to review = last completed (or first if no progress)
-  const moduleToReview = modules[lastCompletedIndex] || modules[0] || null;
+  // #288: any LO mastery attribute counts as prior progress, even if the
+  // caller has zero CallerModuleProgress rows yet (continuous mode writes
+  // attrs first, rows on completion).
+  const hasLoMasteryAttr = data.callerAttributes.some(
+    (a) => a.scope === "CURRICULUM" && a.key.includes(":lo_mastery:") && a.numberValue != null,
+  );
+
+  // #288: Module to review = last completed module — or null when the learner
+  // has no prior progress at all. The previous fallback to `modules[0]`
+  // produced "review of baseline work" hallucinations on first-call learners
+  // because pedagogy.ts rendered a retrieval block against a module the
+  // learner had never seen.
+  const moduleToReview =
+    completedModules.size > 0 || hasLoMasteryAttr
+      ? (modules[lastCompletedIndex] || modules[0] || null)
+      : null;
 
   // Next module = one after last completed
   const nextModuleIndex = lastCompletedIndex + 1;
@@ -435,44 +449,41 @@ export async function computeSharedState(
   // scheduler MUST be bypassed at compose time — otherwise selectNextExchange
   // overwrites `nextModule` with its frontier choice and downstream transforms
   // narrate the wrong module. Symmetric to the pipeline-side override at
-  // pipeline/route.ts:108 (mastery scoring for end-of-call).
+  // pipeline/route.ts:loadCurrentModuleContext (mastery scoring for end-of-call).
+  // #288: outcome refs are resolved to text inside resolveCurrentModule so the
+  // tutor opener doesn't see opaque "OUT-01" strings and hallucinate a quiz.
   let lockedModule: ModuleData | null = null;
+  let lockedOutcomeRefs: string[] = [];
   const requestedModuleId = (specConfig.requestedModuleId as string | undefined) || undefined;
-  if (requestedModuleId) {
-    // Match against Playbook.config.modules (the authored shape). The picker
-    // emits the AuthoredModule.id as ?requestedModuleId=… so we match on id.
-    // pbConfig is declared further down (line ~672) for the isFinalSession
-    // logic — read directly here to avoid temporal-dead-zone gymnastics.
-    const lockedPbConfig = (data.playbooks?.[0]?.config || {}) as Record<string, unknown>;
-    const authored = (Array.isArray(lockedPbConfig.modules) ? lockedPbConfig.modules : []) as Array<{
-      id?: string;
-      label?: string;
-      outcomesPrimary?: unknown;
-      prerequisites?: unknown;
-      content?: Record<string, unknown>;
-    }>;
-    const match = authored.find((m) => m?.id === requestedModuleId);
-    if (match) {
+  if (requestedModuleId && data.caller?.id) {
+    const { resolveCurrentModule } = await import("@/lib/curriculum/resolve-current-module");
+    const resolved = await resolveCurrentModule(data.caller.id, {
+      requestedModuleId,
+      log: {
+        info: (msg, meta) => console.log(`[modules] ${msg}`, meta ?? ""),
+        warn: (msg, meta) => console.warn(`[modules] ${msg}`, meta ?? ""),
+      },
+    });
+    if (resolved && resolved.source === "picker") {
       lockedModule = {
-        id: match.id,
-        slug: match.id || "",
-        // AuthoredModule has `label` not `name`; map for downstream `ModuleData` consumers.
-        name: match.label || match.id || requestedModuleId,
-        description: null,
-        learningOutcomes: Array.isArray(match.outcomesPrimary) ? (match.outcomesPrimary as string[]) : undefined,
-        prerequisites: Array.isArray(match.prerequisites) ? (match.prerequisites as string[]) : undefined,
-        content: match.content,
+        id: resolved.moduleId,
+        slug: resolved.moduleId,
+        name: resolved.moduleName,
+        description: resolved.description ?? null,
+        learningOutcomes: resolved.learningOutcomes,
+        prerequisites: resolved.prerequisites,
+        content: resolved.content,
       };
+      lockedOutcomeRefs = resolved.outcomeRefs;
       // Force `nextModule` so quickstart's existing this_session / first_line
-      // logic narrates the locked choice (Slice B will add explicit branches).
+      // logic narrates the locked choice.
       nextModule = lockedModule;
       console.log(
-        `[modules] #274 Slice A: locked to module "${requestedModuleId}" (label="${lockedModule.name}") — scheduler BYPASSED.`,
+        `[modules] Locked to module "${requestedModuleId}" (label="${lockedModule.name}", ${resolved.learningOutcomes.length} outcomes resolved) — scheduler BYPASSED.`,
       );
     } else {
-      // Fallback to scheduler — same behaviour as pipeline route's miss path.
       console.warn(
-        `[modules] #274: requestedModuleId "${requestedModuleId}" not found in Playbook.config.modules — falling back to scheduler.`,
+        `[modules] requestedModuleId "${requestedModuleId}" did not resolve to picker source — falling back to scheduler.`,
       );
     }
   }
@@ -752,6 +763,12 @@ export async function computeSharedState(
     hasAttemptData,
     // #274 Slice A: locked module from picker (null when not picked or unmatched)
     lockedModule,
+    // #288: raw outcome refs accompanying the locked module's resolved-text
+    // outcomes — preserved for FK lookup in teaching-content.
+    lockedOutcomeRefs: lockedOutcomeRefs.length > 0 ? lockedOutcomeRefs : undefined,
+    // #288: gate for retrieval/review pedagogy — true when any prior progress
+    // exists (CallerModuleProgress with callCount > 0 OR :lo_mastery: attr).
+    hasPriorMastery: hasAttemptData || hasLoMasteryAttr,
   };
 }
 
