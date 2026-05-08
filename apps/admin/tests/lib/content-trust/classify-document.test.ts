@@ -208,4 +208,51 @@ describe("isRubricContent", () => {
     `;
     expect(isRubricContent(sample)).toBe(true);
   });
+
+  // ── Counter-signal: learner content that REFERENCES the rubric ──
+
+  it("rejects learner-facing practice content that references rubric concepts in passing", () => {
+    const sample = `
+      ## Sample answers
+
+      "I live in a small flat in the city centre. It's only a one-bedroom place,
+      but it suits me because I'm out a lot for work."
+
+      "Honestly, it depends on my mood. On weeknights I usually throw something
+      quick together — pasta, a stir-fry, that kind of thing."
+
+      ## Practice cue cards
+
+      Cue card A: Describe a teacher who influenced you. You should say who the
+      teacher was, what subject they taught, and explain how they shaped your
+      approach to learning.
+
+      ## Topic-area vocabulary
+      - to grow up in / to put down roots / to be born and bred in
+      - a bustling city / a sleepy town
+
+      ## Pronunciation drills
+      Minimal pairs and sentence stress practice for IELTS speaking.
+      Try this: read aloud and aim for natural connected speech.
+
+      Note: aim for Band 7 in your responses.
+    `;
+    expect(isRubricContent(sample)).toBe(false);
+  });
+
+  it("still detects rubric content even with one sample-answer-like quote present", () => {
+    const sample = `
+      IELTS Speaking Band Descriptors
+
+      Band 9: Speakers at this band speak fluently with rare hesitation.
+      Band 7: Lexical Resource — uses vocabulary with flexibility.
+      Band 5: Grammatical Range and Accuracy — uses a limited range.
+
+      The four assessment criteria are weighted equally. Pronunciation features
+      are assessed on band score consistency.
+
+      "I live in London" — does NOT count as Band 9 alone; coherence required.
+    `;
+    expect(isRubricContent(sample)).toBe(true);
+  });
 });
