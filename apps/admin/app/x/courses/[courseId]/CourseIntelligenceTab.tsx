@@ -12,11 +12,13 @@
  *   4. Single AssertionDetailDrawer shared across all views
  */
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   BookMarked, AlertTriangle, Zap, RefreshCw,
   Map as MapIcon, ChevronDown,
+  Plus, Trash2, Upload,
 } from 'lucide-react';
 import { getDocTypeInfo } from '@/lib/doc-type-icons';
 import { CONTENT_CATEGORIES, getCategoryStyle } from '@/lib/content-categories';
@@ -271,6 +273,69 @@ function GroupedAssertionList({ items, groupBy, drawerAssertionId, onSelect }: {
   );
 }
 
+/**
+ * Single row in the Sources list. Renders the doc-type icon, source name,
+ * type badge, and assertion count link to the source detail page. For
+ * operators, shows two icon-only action buttons:
+ *  - Extract: re-runs assertion extraction on the source (POST /content-sources/[id]/extract)
+ *  - Delete: hard cascade delete (DELETE /content-sources/[id]/permanent)
+ *
+ * The Link wraps name + counts so the row stays clickable; action buttons
+ * stopPropagation so they don't trigger navigation.
+ */
+function SourceRow({
+  src,
+  isOperator,
+  busy,
+  onExtract,
+  onDelete,
+}: {
+  src: SourceItem;
+  isOperator: boolean;
+  busy: boolean;
+  onExtract: () => void;
+  onDelete: () => void;
+}) {
+  const info = getDocTypeInfo(src.documentType);
+  const Icon = info.icon;
+  return (
+    <div className="ci-source-row ci-source-row--with-actions">
+      <Link href={`/x/content-sources/${src.id}`} className="ci-source-row-link">
+        <Icon size={14} style={{ color: info.color, flexShrink: 0 }} />
+        <span className="ci-source-name">{src.name}</span>
+        <span className="hf-badge hf-badge-sm" style={{ color: info.color, borderColor: info.color }}>
+          {info.label}
+        </span>
+        {src.assertionCount > 0 && (
+          <span className="ci-source-count">{src.assertionCount}</span>
+        )}
+      </Link>
+      {isOperator && (
+        <div className="ci-source-actions">
+          <button
+            className="hf-btn hf-btn-xs hf-btn-icon"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onExtract(); }}
+            disabled={busy}
+            title="Re-extract assertions from this source"
+            aria-label={`Extract ${src.name}`}
+          >
+            <RefreshCw size={12} />
+          </button>
+          <button
+            className="hf-btn hf-btn-xs hf-btn-icon hf-btn-danger"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
+            disabled={busy}
+            title="Delete this source and all its extracted content (cascade)"
+            aria-label={`Delete ${src.name}`}
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────
 
 export function CourseIntelligenceTab({
@@ -298,6 +363,118 @@ export function CourseIntelligenceTab({
   const [drawerAssertionId, setDrawerAssertionId] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
   const [showReExtract, setShowReExtract] = useState(false);
+
+  // ── #284: course-level upload / extract / delete ──
+  // Bind uploads to the course's primary subject — that's what the
+  // backend expects (see /api/subjects/[subjectId]/upload). When the
+  // course has no subjects yet, the affordance hides.
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [opError, setOpError] = useState<string | null>(null);
+  const [busySourceId, setBusySourceId] = useState<string | null>(null);
+  const primarySubjectId = subjects[0]?.id ?? null;
+
+  const handleFiles = useCallback(
+    async (filesToUpload: File[]) => {
+      if (!primarySubjectId) {
+        setOpError("This course has no subject — can't upload yet.");
+        return;
+      }
+      if (filesToUpload.length === 0) return;
+      setUploading(true);
+      setOpError(null);
+      try {
+        for (const file of filesToUpload) {
+          const fd = new FormData();
+          fd.append("file", file);
+          fd.append("playbookId", courseId);
+          const res = await fetch(`/api/subjects/${primarySubjectId}/upload`, {
+            method: "POST",
+            body: fd,
+          });
+          const data = await res.json();
+          if (!res.ok || data.ok === false) {
+            throw new Error(data.error || `Upload failed (${res.status})`);
+          }
+        }
+        // Reload to pick up the new sources. Once-extracted-by-default sources
+        // appear with their classified type; user can hit the "Extract" icon
+        // per row to run extraction (intentionally NOT auto-fired here so the
+        // educator can correct misclassification first).
+        router.refresh();
+      } catch (e) {
+        setOpError(e instanceof Error ? e.message : "Upload failed");
+      } finally {
+        setUploading(false);
+      }
+    },
+    [courseId, primarySubjectId, router],
+  );
+
+  const handleExtract = useCallback(
+    async (sourceId: string) => {
+      setBusySourceId(sourceId);
+      setOpError(null);
+      try {
+        const res = await fetch(`/api/content-sources/${sourceId}/extract`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        if (!res.ok || data.ok === false) {
+          throw new Error(data.error || `Extract failed (${res.status})`);
+        }
+        router.refresh();
+      } catch (e) {
+        setOpError(e instanceof Error ? e.message : "Extract failed");
+      } finally {
+        setBusySourceId(null);
+      }
+    },
+    [router],
+  );
+
+  const handleDelete = useCallback(
+    async (sourceId: string, name: string) => {
+      // Two-step hard delete (per safety rule on /permanent route):
+      //   1. DELETE /[sourceId]            — archive (soft delete)
+      //   2. DELETE /[sourceId]/permanent  — cascade hard delete
+      // Cascade drops assertions, questions, vocabulary, SubjectSource and
+      // PlaybookSource links via Prisma's onDelete: Cascade relations.
+      if (!confirm(`Delete "${name}" and all its extracted assertions / questions? This cannot be undone.`)) {
+        return;
+      }
+      setBusySourceId(sourceId);
+      setOpError(null);
+      try {
+        // Step 1: archive
+        const archiveRes = await fetch(`/api/content-sources/${sourceId}`, {
+          method: "DELETE",
+        });
+        if (!archiveRes.ok) {
+          const data = await archiveRes.json().catch(() => ({}));
+          throw new Error(data.error || `Archive failed (${archiveRes.status})`);
+        }
+        // Step 2: permanent delete
+        const permRes = await fetch(`/api/content-sources/${sourceId}/permanent`, {
+          method: "DELETE",
+        });
+        if (!permRes.ok) {
+          const data = await permRes.json().catch(() => ({}));
+          throw new Error(data.error || `Permanent delete failed (${permRes.status})`);
+        }
+        router.refresh();
+      } catch (e) {
+        setOpError(e instanceof Error ? e.message : "Delete failed");
+      } finally {
+        setBusySourceId(null);
+      }
+    },
+    [router],
+  );
 
   // ── Lazy fetch assertions when switching to points ──
   const needsAssertions = segment === 'points';
@@ -483,54 +660,99 @@ export function CourseIntelligenceTab({
 
       {/* ── ROW 2: Sources + Categories (2-col) ──────── */}
       <div className="ci-two-col">
-        <div className="ci-sources-panel">
+        <div
+          className={`ci-sources-panel${dragOver ? " ci-sources-panel--dragover" : ""}`}
+          onDragOver={(e) => {
+            if (!isOperator || !primarySubjectId) return;
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            if (!isOperator || !primarySubjectId) return;
+            e.preventDefault();
+            setDragOver(false);
+            const dropped = Array.from(e.dataTransfer.files);
+            if (dropped.length > 0) handleFiles(dropped);
+          }}
+        >
           <div className="ci-panel-header">
             <span className="ci-panel-title">
               <BookMarked size={14} /> Sources ({allSources.length})
             </span>
-            {isOperator && allSources.length > 0 && (
-              <button
-                className="hf-btn hf-btn-xs hf-btn-secondary hf-flex hf-items-center hf-gap-xs"
-                onClick={() => setShowReExtract(true)}
-              >
-                <RefreshCw size={12} />
-                Re-extract
-              </button>
+            {isOperator && (
+              <div className="hf-flex hf-items-center hf-gap-xs">
+                {/* Hidden file input — opened by the + button. */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.docx,.txt,.md,.markdown,.json"
+                  className="hf-hidden"
+                  onChange={(e) => {
+                    const picked = Array.from(e.target.files ?? []);
+                    if (picked.length > 0) handleFiles(picked);
+                    e.target.value = ""; // allow re-picking the same file
+                  }}
+                />
+                <button
+                  className="hf-btn hf-btn-xs hf-btn-primary hf-flex hf-items-center hf-gap-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || !primarySubjectId}
+                  title={primarySubjectId ? "Upload a file to this course" : "No subject linked yet"}
+                >
+                  <Plus size={12} />
+                  Add
+                </button>
+                {allSources.length > 0 && (
+                  <button
+                    className="hf-btn hf-btn-xs hf-btn-secondary hf-flex hf-items-center hf-gap-xs"
+                    onClick={() => setShowReExtract(true)}
+                  >
+                    <RefreshCw size={12} />
+                    Re-extract
+                  </button>
+                )}
+              </div>
             )}
           </div>
+          {opError && (
+            <div className="hf-banner hf-banner-error hf-text-xs" role="alert">
+              {opError}
+            </div>
+          )}
+          {uploading && (
+            <div className="hf-text-xs hf-text-muted hf-flex hf-items-center hf-gap-xs" style={{ padding: "4px 8px" }}>
+              <Upload size={12} /> Uploading…
+            </div>
+          )}
           <div className="ci-source-list">
-            {courseGuideSources.map((src) => {
-              const info = getDocTypeInfo(src.documentType);
-              const Icon = info.icon;
-              return (
-                <Link key={src.id} href={`/x/content-sources/${src.id}`} className="ci-source-row">
-                  <Icon size={14} style={{ color: info.color, flexShrink: 0 }} />
-                  <span className="ci-source-name">{src.name}</span>
-                  <span className="hf-badge hf-badge-sm" style={{ color: info.color, borderColor: info.color }}>
-                    {info.label}
-                  </span>
-                  <span className="ci-source-count">{src.assertionCount}</span>
-                </Link>
-              );
-            })}
-            {otherSources.map((src) => {
-              const info = getDocTypeInfo(src.documentType);
-              const Icon = info.icon;
-              return (
-                <Link key={src.id} href={`/x/content-sources/${src.id}`} className="ci-source-row">
-                  <Icon size={14} style={{ color: info.color, flexShrink: 0 }} />
-                  <span className="ci-source-name">{src.name}</span>
-                  <span className="hf-badge hf-badge-sm" style={{ color: info.color, borderColor: info.color }}>
-                    {info.label}
-                  </span>
-                  {src.assertionCount > 0 && (
-                    <span className="ci-source-count">{src.assertionCount}</span>
-                  )}
-                </Link>
-              );
-            })}
+            {courseGuideSources.map((src) => (
+              <SourceRow
+                key={src.id}
+                src={src}
+                isOperator={isOperator}
+                busy={busySourceId === src.id}
+                onExtract={() => handleExtract(src.id)}
+                onDelete={() => handleDelete(src.id, src.name)}
+              />
+            ))}
+            {otherSources.map((src) => (
+              <SourceRow
+                key={src.id}
+                src={src}
+                isOperator={isOperator}
+                busy={busySourceId === src.id}
+                onExtract={() => handleExtract(src.id)}
+                onDelete={() => handleDelete(src.id, src.name)}
+              />
+            ))}
             {allSources.length === 0 && (
-              <div className="hf-empty hf-text-sm">No sources uploaded yet</div>
+              <div className="hf-empty hf-text-sm">
+                {primarySubjectId
+                  ? "No sources uploaded yet — drop files here or click + Add."
+                  : "No subject linked to this course yet."}
+              </div>
             )}
           </div>
         </div>
