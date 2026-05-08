@@ -677,13 +677,17 @@ async function generateFromAssertions(
   audience: AudienceContext | null = null,
   assessmentIntent: "PRE_TEST" | "POST_TEST" | "BOTH" = "BOTH",
 ): Promise<GenerateMcqsResult> {
-  // Load assertions for this source (scoped by subjectSourceId when available)
+  // Load assertions for this source (scoped by subjectSourceId when available).
+  // Include learningOutcomeRef so MCQs can inherit the outcome tag from the
+  // assertion they were generated from — otherwise every question lands with
+  // null learningOutcomeRef and no module-level mcqCount aggregation works.
   const assertionSelect = {
     id: true,
     assertion: true,
     category: true,
     chapter: true,
     section: true,
+    learningOutcomeRef: true,
   } as const;
 
   let assertions = await prisma.contentAssertion.findMany({
@@ -711,10 +715,21 @@ async function generateFromAssertions(
     return { created: 0, duplicatesSkipped: 0, skipped: true, skipReason: "too_few_assertions" };
   }
 
-  // Build assertion summary for prompt
+  // Build assertion summary for prompt — include the LO ref tag in brackets
+  // when present so the AI can carry it into the generated MCQ output.
   const assertionText = assertions
-    .map((a, i) => `${i + 1}. [${a.category}] ${a.assertion}${a.chapter ? ` (${a.chapter})` : ""}`)
+    .map((a, i) => {
+      const tag = a.learningOutcomeRef ? `[LO:${a.learningOutcomeRef}] ` : "";
+      return `${i + 1}. ${tag}[${a.category}] ${a.assertion}${a.chapter ? ` (${a.chapter})` : ""}`;
+    })
     .join("\n");
+
+  // Index for downstream tagging fallback. Lookup by 1-based position so the
+  // generator can still stamp learningOutcomeRef on each saved MCQ even if the
+  // AI didn't return it in JSON (some prompt variants don't ask for it).
+  const sourceAssertionLoByIndex: Map<number, string | null> = new Map(
+    assertions.map((a, i) => [i + 1, a.learningOutcomeRef ?? null]),
+  );
 
   const systemPrompt = source === "comprehension"
     ? buildComprehensionSkillPrompt(assertionText, count, audience, assessmentIntent)
@@ -727,7 +742,7 @@ async function generateFromAssertions(
       callPoint,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Content assertions:\n\n${assertionText}` },
+        { role: "user", content: `Content assertions:\n\n${assertionText}\n\nIMPORTANT — when an assertion is tagged [LO:OUT-NN] above, include "learningOutcomeRef": "OUT-NN" on the generated question so it links to the right module outcome.` },
       ],
     },
     { userId: options?.userId, sourceOp: callPoint },
@@ -737,7 +752,7 @@ async function generateFromAssertions(
     return { created: 0, duplicatesSkipped: 0, skipped: true, skipReason: "ai_no_response" };
   }
 
-  return parseAndSaveMcqs(sourceId, result.content, options, source, assessmentIntent);
+  return parseAndSaveMcqs(sourceId, result.content, options, source, assessmentIntent, sourceAssertionLoByIndex);
 }
 
 // ---------------------------------------------------------------------------
@@ -750,6 +765,13 @@ async function parseAndSaveMcqs(
   options?: { userId?: string; subjectSourceId?: string },
   source: "comprehension" | "assertion" = "assertion",
   assessmentIntent: "PRE_TEST" | "POST_TEST" | "BOTH" = "BOTH",
+  /**
+   * Mapping of 1-based assertion index → its `learningOutcomeRef`. Lets the
+   * generator tag each saved MCQ with the source assertion's LO ref even
+   * when the AI doesn't echo it in its JSON. Without this fallback, the
+   * MCQs land with null `learningOutcomeRef` and module banners count zero.
+   */
+  sourceAssertionLoByIndex?: Map<number, string | null>,
 ): Promise<GenerateMcqsResult> {
   let mcqs: GeneratedMcq[];
   try {
@@ -769,9 +791,28 @@ async function parseAndSaveMcqs(
     .map((m) => {
       const qType = m.questionType === "TRUE_FALSE" ? "TRUE_FALSE" as const : "MCQ" as const;
       const bloomLevel = normalizeBloomLevel(m.bloomLevel);
+      // Resolve learningOutcomeRef in priority order:
+      //   1. Explicit `learningOutcomeRef` from the AI's JSON output (preferred)
+      //   2. Source assertion's LO ref via the index map (fallback when the
+      //      AI didn't echo it but did reference an assertion number)
+      // Saves don't strip null/undefined — sanitiseLORef in save-questions.ts
+      // does the final whitelist guard.
+      let learningOutcomeRef: string | undefined;
+      const mAny = m as unknown as Record<string, unknown>;
+      const aiRef = mAny.learningOutcomeRef;
+      if (typeof aiRef === "string" && aiRef.trim().length > 0) {
+        learningOutcomeRef = aiRef.trim();
+      } else if (sourceAssertionLoByIndex) {
+        const fromIdx = mAny.sourceAssertionIndex;
+        if (typeof fromIdx === "number") {
+          const ref = sourceAssertionLoByIndex.get(fromIdx);
+          if (ref) learningOutcomeRef = ref;
+        }
+      }
       return {
         questionText: m.question,
         questionType: qType,
+        learningOutcomeRef,
         options: m.options.map((o) => ({
           label: o.label,
           text: o.text,

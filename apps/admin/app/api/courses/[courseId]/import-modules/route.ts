@@ -202,6 +202,11 @@ export async function POST(
           tx,
           courseId,
           detected.modules,
+          // Pass the outcome statements map so authored OUT-NN refs become
+          // first-class LearningObjective rows. Without this, the extractor's
+          // fetchCurriculumLoRefs returns whatever legacy refs exist (LO8..LO17)
+          // and MCQs end up untagged because no whitelist match is possible.
+          detected.outcomes,
         );
       }
     });

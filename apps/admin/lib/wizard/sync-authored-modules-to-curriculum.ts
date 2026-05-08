@@ -42,6 +42,17 @@ export async function syncAuthoredModulesToCurriculum(
   tx: Tx,
   playbookId: string,
   modules: AuthoredModule[],
+  /**
+   * Outcome statements map (Playbook.config.outcomes) keyed by ref —
+   * e.g. { "OUT-01": "Extends every answer to the minimum length...", ... }.
+   * When provided, this function ALSO syncs LearningObjective rows so the
+   * authored OUT-NN refs become first-class curriculum objectives. Without
+   * this, the extractor's `fetchCurriculumLoRefs` returns whatever the
+   * legacy extractor created (e.g. LO8..LO17) which never aligns with
+   * `module.outcomesPrimary` — and MCQs end up with null `learningOutcomeRef`
+   * because no whitelist match is possible.
+   */
+  outcomes?: Record<string, string>,
 ): Promise<SyncResult> {
   // Pick or create the primary curriculum for this course. "Primary" =
   // earliest by createdAt; explicit primary-curriculum support is a
@@ -89,7 +100,7 @@ export async function syncAuthoredModulesToCurriculum(
   let created = 0;
   let updated = 0;
 
-  for (const m of modules) {
+  for (const [idx, m] of modules.entries()) {
     const result = await tx.curriculumModule.upsert({
       where: {
         curriculumId_slug: { curriculumId, slug: m.id },
@@ -98,7 +109,7 @@ export async function syncAuthoredModulesToCurriculum(
         curriculumId,
         slug: m.id,
         title: m.label,
-        sortOrder: m.position ?? 0,
+        sortOrder: m.position ?? idx,
         prerequisites: m.prerequisites,
       },
       update: {
@@ -107,7 +118,7 @@ export async function syncAuthoredModulesToCurriculum(
         // those may have been set elsewhere and aren't part of the authored
         // shape today.
         title: m.label,
-        sortOrder: m.position ?? 0,
+        sortOrder: m.position ?? idx,
         prerequisites: m.prerequisites,
       },
       select: { id: true, createdAt: true, updatedAt: true },
@@ -115,6 +126,32 @@ export async function syncAuthoredModulesToCurriculum(
     // Heuristic: createdAt === updatedAt → freshly created; else updated.
     if (result.createdAt.getTime() === result.updatedAt.getTime()) created++;
     else updated++;
+
+    // Sync LearningObjective rows from authored outcomesPrimary refs.
+    // When outcomes map is provided, the LO description is the authored
+    // statement; otherwise we fall back to the ref string (so the row
+    // exists for downstream tagging but lacks a friendly description —
+    // the extractor's garbage-guard will warn).
+    if (Array.isArray(m.outcomesPrimary) && m.outcomesPrimary.length > 0) {
+      for (const [loIdx, ref] of m.outcomesPrimary.entries()) {
+        const description = outcomes?.[ref] ?? ref;
+        await tx.learningObjective.upsert({
+          where: { moduleId_ref: { moduleId: result.id, ref } },
+          create: {
+            moduleId: result.id,
+            ref,
+            description,
+            sortOrder: loIdx,
+          },
+          update: {
+            // Refresh description if outcomes map changed; preserve sortOrder
+            // adjustments only when not authoritatively reset by the import.
+            description,
+            sortOrder: loIdx,
+          },
+        });
+      }
+    }
   }
 
   return { curriculumId, created, updated, orphaned };
