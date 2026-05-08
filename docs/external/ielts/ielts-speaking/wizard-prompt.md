@@ -40,7 +40,9 @@ Assessment targets:
 
 Assessment style: formal — track band scores per criterion across calls.
 
-I have teaching documents to upload — the official assessment criteria, the band descriptors, and a course reference with the teaching approach and skills framework.
+Voice rule for Call 1 (onboarding): the tutor must NOT name the four criteria, explain the band scale, or score explicitly. Call 1 is a Part-1-only topic warm-up (work / study / hometown / hobbies). The four criteria are introduced one per call across Calls 2–5 per the Disclosure Schedule in `course-ref.md`. Please extract the "First Call (Onboarding) — Special Rules" section and the "Disclosure Schedule" as `sessionOverrides` entries with `section: "1"` and `section: "2+"` respectively, so that the per-call filtering in `course-instructions.ts:matchesSessionRange()` honours the call-number scope at runtime. The "What This Course Is" and "Skills Framework" sections in `course-ref.md` are tagged `**Session scope:** 2+` — extract those as `session_override` with `section: "2+"`, not as always-on `session_flow` / `skill_framework`.
+
+I have teaching documents to upload — the official assessment criteria, the band descriptors, and a course reference with the teaching approach, skills framework, and call-numbered disclosure schedule.
 ```
 
 ---
@@ -51,7 +53,7 @@ Upload all files from this folder during the wizard content step.
 
 | # | File | Document Type | What it provides |
 |---|------|---------------|------------------|
-| 1 | `course-ref.md` | COURSE_REFERENCE | Skills framework (4 IELTS criteria with tiers), Socratic teaching approach, call flow, scoring rules, scaffolding techniques, L1 interference patterns, Part structure, edge cases |
+| 1 | `course-ref.md` | COURSE_REFERENCE | Skills framework (4 IELTS criteria with tiers, session-scoped to Calls 2+), Socratic teaching approach, call flow (Call 2 onwards), **First Call (Onboarding) — Special Rules** (session scope: 1 — no criteria names, topic-led warm-up only), **Disclosure Schedule** (criteria introduced one per call across Calls 2–5), scoring rules, scaffolding techniques, L1 interference patterns, Part structure, edge cases |
 | 2 | `speaking-key-assessment-criteria.pdf` | COURSE_REFERENCE | What each of the 4 criteria measures — the official scoring rubric definitions |
 | 3 | `speaking-band-descriptors-cdn.pdf` | COURSE_REFERENCE | Band-by-band detail for all 4 criteria (Band 9 down to Band 1) |
 | 4 | `cambridge-speaking-band-descriptors.pdf` | COURSE_REFERENCE | Cambridge public version of band descriptors (alternative format) |
