@@ -317,16 +317,28 @@ export default function CourseDetailPage() {
   }, [specGroups]);
 
   // Prefer PlaybookSource-based counts (no double-counting)
-  const totalTPs = courseSources.length > 0
-    ? courseSources.reduce((sum, s) => sum + s.assertionCount, 0)
-    : subjects.reduce((sum, s) => sum + s.assertionCount, 0);
-  const totalSources = courseSources.length > 0
-    ? courseSources.length
-    : (() => {
-        const seen = new Set<string>();
-        for (const s of subjects) { for (const src of (s.sources ?? [])) seen.add(src.id); }
-        return seen.size || subjects.reduce((sum, s) => sum + s.sourceCount, 0);
-      })();
+  // Count the deduped UNION of PlaybookSource + SubjectSource — same fix
+  // pattern as CourseIntelligenceTab's source list (#289). Pre-fix this
+  // branched: if courseSources had ANY entries it ignored subject sources
+  // entirely, so the Content tab pill dropped to 1 the moment the first
+  // playbook-direct source was added to a previously-subject-only course.
+  const { totalSources, totalTPs } = useMemo(() => {
+    const seen = new Set<string>();
+    let tps = 0;
+    for (const s of courseSources) {
+      if (seen.has(s.id)) continue;
+      seen.add(s.id);
+      tps += s.assertionCount;
+    }
+    for (const sub of subjects) {
+      for (const src of sub.sources ?? []) {
+        if (seen.has(src.id)) continue;
+        seen.add(src.id);
+        tps += src.assertionCount;
+      }
+    }
+    return { totalSources: seen.size, totalTPs: tps };
+  }, [courseSources, subjects]);
   const contentOnlyCount = contentTotal - instructionTotal;
 
   const totalSessionDuration = useMemo(() => {
