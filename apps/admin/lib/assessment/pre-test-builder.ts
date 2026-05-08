@@ -361,23 +361,42 @@ export interface PreTestResult {
   sourceId?: string;
 }
 
+export interface BuildPreTestOptions {
+  /**
+   * When the learner has picked a specific authored module (#302), restrict the
+   * pre-test pool to MCQs whose `learningOutcomeRef` is in this set. If the
+   * resulting pool is empty, the builder falls back to the full course pool with
+   * a server-side warning so the pre-test is never silently skipped.
+   */
+  lockedOutcomeRefs?: string[];
+}
+
 /**
  * Build a pre-test question set for a given curriculum.
  * Returns questions as SurveyStepConfig[] ready for ChatSurvey rendering.
  */
-export async function buildPreTest(curriculumId: string): Promise<PreTestResult> {
-  return buildFromSourceIds(await getSourceIdsForCurriculum(curriculumId));
+export async function buildPreTest(
+  curriculumId: string,
+  opts?: BuildPreTestOptions,
+): Promise<PreTestResult> {
+  return buildFromSourceIds(await getSourceIdsForCurriculum(curriculumId), opts);
 }
 
 /**
  * Build a pre-test by searching all subjects linked to a playbook (course).
  * Broader search — finds questions across all content sources in the course.
  */
-export async function buildPreTestForPlaybook(playbookId: string): Promise<PreTestResult> {
-  return buildFromSourceIds(await getSourceIdsForPlaybook(playbookId));
+export async function buildPreTestForPlaybook(
+  playbookId: string,
+  opts?: BuildPreTestOptions,
+): Promise<PreTestResult> {
+  return buildFromSourceIds(await getSourceIdsForPlaybook(playbookId), opts);
 }
 
-async function buildFromSourceIds(sourceIds: string[]): Promise<PreTestResult> {
+async function buildFromSourceIds(
+  sourceIds: string[],
+  opts?: BuildPreTestOptions,
+): Promise<PreTestResult> {
   if (sourceIds.length === 0) {
     return { questions: [], questionIds: [], skipped: true, skipReason: "no_content_source" };
   }
@@ -388,16 +407,40 @@ async function buildFromSourceIds(sourceIds: string[]): Promise<PreTestResult> {
     return { questions: [], questionIds: [], skipped: true, skipReason: "no_questions", sourceId: sourceIds[0] };
   }
 
+  // #302: When a learner has locked a module, restrict the primary pool to
+  // questions tagged with that module's outcomesPrimary. Empty match falls back
+  // to the full pool (logged) so the pre-test is never silently skipped.
+  const lockedRefs = opts?.lockedOutcomeRefs;
+  let pool = allQuestions;
+  if (lockedRefs && lockedRefs.length > 0) {
+    const refSet = new Set(lockedRefs);
+    const lockedPool = allQuestions.filter(
+      (q) => q.learningOutcomeRef && refSet.has(q.learningOutcomeRef),
+    );
+    if (lockedPool.length > 0) {
+      pool = lockedPool;
+    } else {
+      console.warn(
+        `[pre-test] Locked module pool empty for refs [${lockedRefs.join(", ")}] — falling back to full course pool (${allQuestions.length} MCQs)`,
+      );
+    }
+  }
+
   const strategy = assessmentCfg.selectionStrategy;
 
   const primary =
     strategy === "bloom_spread"
-      ? selectByBloomSpread(allQuestions, assessmentCfg.questionCount)
+      ? selectByBloomSpread(pool, assessmentCfg.questionCount)
       : strategy === "one_per_module"
-        ? selectOnePerModule(allQuestions, assessmentCfg.questionCount)
-        : selectRandom(allQuestions, assessmentCfg.questionCount);
+        ? selectOnePerModule(pool, assessmentCfg.questionCount)
+        : selectRandom(pool, assessmentCfg.questionCount);
 
-  const selected = fillUp(primary, allQuestions, assessmentCfg.questionCount);
+  // fillUp first from the locked pool, then from the full pool so a thin lock
+  // still delivers questionCount questions overall.
+  const filledFromLocked = fillUp(primary, pool, assessmentCfg.questionCount);
+  const selected = pool === allQuestions
+    ? filledFromLocked
+    : fillUp(filledFromLocked, allQuestions, assessmentCfg.questionCount);
 
   // Convert to SurveyStepConfig
   const steps = selected.map(toSurveyStep).filter((s): s is SurveyStepConfig => s !== null);

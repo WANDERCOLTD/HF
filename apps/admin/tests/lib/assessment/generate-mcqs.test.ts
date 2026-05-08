@@ -41,6 +41,15 @@ vi.mock("@/lib/assessment/validate-mcqs", () => ({
   aiReviewMcqs: vi.fn(async (questions) => ({ reviewed: questions, issues: [] })),
 }));
 
+// #308: Default existing tests to non-authored path. The module-balanced path
+// is covered separately in tests/lib/assessment/module-groups.test.ts.
+vi.mock("@/lib/assessment/module-groups", () => ({
+  resolveModuleGroupsForSource: vi.fn(async () => null),
+  computeModuleBudget: vi.fn(),
+  TARGET_PER_MODULE: 5,
+  MAX_TOTAL_COUNT: 40,
+}));
+
 import { prisma } from "@/lib/prisma";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { saveQuestions } from "@/lib/content-trust/save-questions";

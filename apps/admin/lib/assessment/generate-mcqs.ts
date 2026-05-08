@@ -19,6 +19,11 @@ import { createHash } from "crypto";
 import { jsonrepair } from "jsonrepair";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 import { validateMcqBatch, aiReviewMcqs } from "./validate-mcqs";
+import {
+  resolveModuleGroupsForSource,
+  computeModuleBudget,
+  type ModuleGroup,
+} from "./module-groups";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -585,6 +590,98 @@ Return ONLY a JSON array:
 }
 
 // ---------------------------------------------------------------------------
+// #308: Module-balanced MCQ prompt (authored-modules courses only)
+// ---------------------------------------------------------------------------
+
+function buildModuleDistributedPrompt(
+  assertionText: string,
+  groups: ModuleGroup[],
+  budgets: number[],
+  audience: AudienceContext | null = null,
+  assessmentIntent: "PRE_TEST" | "POST_TEST" | "BOTH" = "BOTH",
+): string {
+  const totalCount = budgets.reduce((s, n) => s + n, 0);
+  const moduleLines = groups
+    .map(
+      (g, i) =>
+        `- module "${g.moduleId}" (${g.moduleLabel}) → generate ${budgets[i]} questions tagged with one of [${g.outcomeRefs.join(", ")}]`,
+    )
+    .join("\n");
+
+  const distractorStrategy = assessmentIntent === "PRE_TEST"
+    ? `DISTRACTOR STRATEGY (PRE-TEST — diagnose baseline knowledge):
+Each MCQ must have 3 distractors, each with a typed purpose:
+- One "misconception": a common wrong belief about the topic
+- One "partial_truth": partly correct but missing key detail
+- One "surface_lure": uses familiar words from the content but misapplies them
+Pre-test distractors should be clearly wrong to someone who has studied, but tempting to someone who hasn't.`
+    : assessmentIntent === "POST_TEST"
+    ? `DISTRACTOR STRATEGY (POST-TEST — test mastery with subtle distractors):
+Each MCQ must have 3 distractors:
+- One "partial_truth": almost correct but missing a crucial nuance
+- One "related_concept": a similar but distinct concept
+- One "misconception": a persistent wrong belief that survives study`
+    : `DISTRACTOR STRATEGY (GENERAL):
+Each MCQ must have 3 distractors covering "misconception", "partial_truth", and one of "related_concept" / "surface_lure".`;
+
+  const audienceSection = formatAudienceSection(audience);
+
+  return `You are an assessment question generator for a multi-module course.
+Each module owns specific outcomes. Your job is to generate MCQs that cover EVERY module so a per-module pre-test has at least one diagnostic question per module.
+${audienceSection}
+
+Generate exactly ${totalCount} questions distributed across modules:
+${moduleLines}
+
+For EACH question, set "learningOutcomeRef" to the OUT-NN code (from the bracketed list for that module) most relevant to the assertion you used. Pick assertions tagged [LO:OUT-NN] in the source list when possible. If no tagged assertion fits a module's slot, use an untagged assertion that covers the same topic and stamp the appropriate OUT-NN ref.
+
+Within each module, mix Bloom levels: ~50% REMEMBER + UNDERSTAND, ~50% APPLY + ANALYZE.
+
+${distractorStrategy}
+
+Each question can be MCQ (4 options A/B/C/D, one correct) or TRUE_FALSE (~75/25 mix).
+
+MCQ rules:
+- 4 options labeled A, B, C, D, exactly one correct
+- Each INCORRECT option includes a "distractorType" field: "misconception" | "partial_truth" | "related_concept" | "surface_lure"
+- Correct option must NOT have a distractorType field
+- Options similar in length and structure (no giveaways)
+
+TRUE_FALSE rules:
+- Statement clearly true or false
+- Options [{ "label": "True", "text": "True" }, { "label": "False", "text": "False" }]
+- correctAnswer is "True" or "False"
+
+General rules:
+- Test useful, actionable knowledge from the LEARNER'S perspective
+- NEVER test acronyms, rubric/criterion names, jargon definitions
+- VARY question stems — diverse formats, scenarios, "A student says X — is this correct?"
+- Frame each question so it diagnoses what THIS module is supposed to teach
+
+NEVER generate questions about:
+- Assessment frameworks, rubrics, or skill levels
+- Curriculum design or how students are graded
+- Internal skill codes (SKILL-01, etc.) or acronym definitions
+
+Return ONLY a JSON array:
+[{
+  "questionType": "MCQ",
+  "question": "...",
+  "bloomLevel": "REMEMBER",
+  "learningOutcomeRef": "OUT-NN",
+  "options": [
+    { "label": "A", "text": "...", "isCorrect": false, "distractorType": "misconception" },
+    { "label": "B", "text": "...", "isCorrect": true },
+    { "label": "C", "text": "...", "isCorrect": false, "distractorType": "partial_truth" },
+    { "label": "D", "text": "...", "isCorrect": false, "distractorType": "related_concept" }
+  ],
+  "correctAnswer": "B",
+  "chapter": "module label or chapter ref",
+  "explanation": "Brief explanation"
+}]`;
+}
+
+// ---------------------------------------------------------------------------
 // Generate MCQs from assertions or TUTOR_QUESTIONs
 // ---------------------------------------------------------------------------
 
@@ -629,8 +726,22 @@ export async function generateMcqsForSource(
     // Fall through to assertion-based path if too few TUTOR_QUESTIONs
   }
 
-  // Default path: generate from assertions (bloom-distributed)
-  return generateFromAssertions(sourceId, count, options, isComprehension ? "comprehension" : "assertion", audience, assessmentIntent);
+  // #308: Authored-modules courses get the module-balanced prompt path. The
+  // string-ref grouping (Playbook.config.modules[].outcomesPrimary against
+  // ContentAssertion.learningOutcomeRef) covers more data than the FK path
+  // until the learningObjectiveId backfill story lands.
+  const moduleGroups = await resolveModuleGroupsForSource(sourceId);
+
+  // Default path: generate from assertions
+  return generateFromAssertions(
+    sourceId,
+    count,
+    options,
+    isComprehension ? "comprehension" : "assertion",
+    audience,
+    assessmentIntent,
+    moduleGroups,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -676,6 +787,7 @@ async function generateFromAssertions(
   source: "comprehension" | "assertion" = "assertion",
   audience: AudienceContext | null = null,
   assessmentIntent: "PRE_TEST" | "POST_TEST" | "BOTH" = "BOTH",
+  moduleGroups: ModuleGroup[] | null = null,
 ): Promise<GenerateMcqsResult> {
   // Load assertions for this source (scoped by subjectSourceId when available).
   // Include learningOutcomeRef so MCQs can inherit the outcome tag from the
@@ -731,9 +843,39 @@ async function generateFromAssertions(
     assertions.map((a, i) => [i + 1, a.learningOutcomeRef ?? null]),
   );
 
-  const systemPrompt = source === "comprehension"
-    ? buildComprehensionSkillPrompt(assertionText, count, audience, assessmentIntent)
-    : buildBloomDistributedPrompt(assertionText, count, audience, assessmentIntent);
+  // #308: For authored-modules courses with at least one module-matching
+  // assertion, use the module-balanced prompt and an outcome-spread budget.
+  // Applies to both knowledge and comprehension subjects when modules are
+  // authored — module balance is orthogonal to teaching profile.
+  let useModuleBalanced = false;
+  let effectiveCount = count;
+  let moduleBudgets: number[] = [];
+  let prunedGroups: ModuleGroup[] = [];
+  if (moduleGroups && moduleGroups.length > 0) {
+    // Drop modules that have zero matching assertions in this source — asking
+    // the AI to fabricate questions for an empty group wastes tokens.
+    prunedGroups = moduleGroups.filter((g) => {
+      const refSet = new Set(g.outcomeRefs);
+      return assertions.some((a) => a.learningOutcomeRef && refSet.has(a.learningOutcomeRef));
+    });
+    if (prunedGroups.length > 0) {
+      moduleBudgets = computeModuleBudget(prunedGroups.length);
+      effectiveCount = moduleBudgets.reduce((s, n) => s + n, 0);
+      useModuleBalanced = true;
+      console.log(
+        `[generate-mcqs] #308 module-balanced: ${prunedGroups.length} module(s), budget [${moduleBudgets.join(", ")}], total=${effectiveCount} (vs DEFAULT_COUNT=${count})`,
+      );
+    }
+  }
+
+  // #308: module-balanced prompt wins over both comprehension and bloom paths
+  // when authored modules are defined — module spread is the higher-priority
+  // distribution constraint. The within-module Bloom hint covers cognitive mix.
+  const systemPrompt = useModuleBalanced
+    ? buildModuleDistributedPrompt(assertionText, prunedGroups, moduleBudgets, audience, assessmentIntent)
+    : source === "comprehension"
+      ? buildComprehensionSkillPrompt(assertionText, count, audience, assessmentIntent)
+      : buildBloomDistributedPrompt(assertionText, count, audience, assessmentIntent);
 
   const callPoint = source === "comprehension" ? COMPREHENSION_CALL_POINT : CALL_POINT;
 
@@ -752,7 +894,31 @@ async function generateFromAssertions(
     return { created: 0, duplicatesSkipped: 0, skipped: true, skipReason: "ai_no_response" };
   }
 
-  return parseAndSaveMcqs(sourceId, result.content, options, source, assessmentIntent, sourceAssertionLoByIndex);
+  const saveResult = await parseAndSaveMcqs(sourceId, result.content, options, source, assessmentIntent, sourceAssertionLoByIndex);
+
+  // #308 post-generation guard: if any module that had matching assertions
+  // ended up with zero MCQs in the final saved set, log a warning. This is
+  // the AI-to-DB structural guard required by .claude/rules/ai-to-db-guard.md.
+  if (useModuleBalanced && prunedGroups.length > 0 && !saveResult.skipped) {
+    const savedQs = await prisma.contentQuestion.findMany({
+      where: { sourceId },
+      select: { learningOutcomeRef: true },
+    });
+    const savedRefs = new Set(savedQs.map((q) => q.learningOutcomeRef).filter(Boolean) as string[]);
+    const missing: string[] = [];
+    for (const g of prunedGroups) {
+      const hasAny = g.outcomeRefs.some((ref) => savedRefs.has(ref));
+      if (!hasAny) missing.push(g.moduleId);
+    }
+    if (missing.length > 0) {
+      console.warn(
+        `[generate-mcqs] #308 guard: modules with assertions but zero MCQs after save: ${missing.join(", ")}. ` +
+          `AI may have ignored module-balance instruction or dedup pruned every candidate.`,
+      );
+    }
+  }
+
+  return saveResult;
 }
 
 // ---------------------------------------------------------------------------

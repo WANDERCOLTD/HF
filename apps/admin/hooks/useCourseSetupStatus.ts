@@ -76,14 +76,22 @@ export interface SetupStatusInput {
 // ── Hook ──────────────────────────────────────────────
 
 export function useCourseSetupStatus(input: SetupStatusInput): CourseSetupStatus {
+  // Source-keys snapshot lifted out of the dep array — the new react-hooks
+  // rule rejects function calls in dep lists. Same semantics: invalidate when
+  // the set of source IDs changes.
+  const sourceKeysSnapshot = Object.keys(input.sourceStatusMap).join("|");
   return useMemo(() => deriveStages(input), [
     input.detail?.id,
     input.detail?.status,
     input.subjects.length,
-    JSON.stringify(Object.keys(input.sourceStatusMap)),
+    sourceKeysSnapshot,
     input.sessions?.plan?.estimatedSessions,
     input.readiness?.lessonPlanBuilt,
     input.readiness?.allCriticalPass,
+    // input is referenced inside the memo body but its identity-changing fields
+    // are tracked via the explicit deps above; a full input dep would
+    // invalidate on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
 }
 
