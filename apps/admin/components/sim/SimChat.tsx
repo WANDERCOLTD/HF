@@ -965,24 +965,27 @@ export function SimChat({
               </div>
               );
             })()}
-            {/* #284 (b): authored-module hint — shown when the course has a
-                picker available and the learner has not yet picked a module
-                for this session. Mastery still writes via the Path 0.5
-                fallback when skipped, but picking gives a focused session. */}
-            {onPickModule && !requestedModuleId && (
+            {/* #284 (b): authored-module pick / switch hint — visible in
+                BOTH states. Without a switch affordance in the lobby once
+                a module is locked, the only way to change focus was the
+                small Layers header icon (easy to miss). */}
+            {onPickModule && (
               <div
                 role="status"
-                className="hf-banner hf-banner-info wa-lobby-picker-hint"
+                className={`hf-banner ${requestedModuleId ? "hf-banner-success" : "hf-banner-info"} wa-lobby-picker-hint`}
               >
                 <span className="wa-lobby-picker-hint-text">
-                  This course has modules — pick one to focus your session, or start without and let the tutor decide.
+                  {requestedModuleId
+                    ? <>Focused on <strong>{requestedModuleId}</strong> — switch if you want a different module.</>
+                    : <>This course has modules — pick one to focus your session, or start without and let the tutor decide.</>
+                  }
                 </span>
                 <button
                   type="button"
                   className="hf-btn hf-btn-secondary wa-lobby-picker-hint-btn"
                   onClick={onPickModule}
                 >
-                  Pick module
+                  {requestedModuleId ? "Switch module" : "Pick module"}
                 </button>
               </div>
             )}
