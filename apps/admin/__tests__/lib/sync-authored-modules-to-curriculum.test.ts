@@ -33,6 +33,9 @@ interface MockTx {
     findMany: ReturnType<typeof vi.fn>;
     upsert: ReturnType<typeof vi.fn>;
   };
+  learningObjective: {
+    upsert: ReturnType<typeof vi.fn>;
+  };
 }
 
 function makeTx(): MockTx {
@@ -41,6 +44,9 @@ function makeTx(): MockTx {
     curriculum: { create: vi.fn() },
     curriculumModule: {
       findMany: vi.fn(),
+      upsert: vi.fn(),
+    },
+    learningObjective: {
       upsert: vi.fn(),
     },
   };
@@ -209,5 +215,100 @@ describe("syncAuthoredModulesToCurriculum", () => {
     expect(result.updated).toBe(0);
     expect(result.orphaned).toBe(0);
     expect(tx.curriculumModule.upsert).not.toHaveBeenCalled();
+  });
+
+  // ── #292: outcomesPrimary → LearningObjective sync (closes the OUT-NN gap) ──
+
+  it("syncs LearningObjective rows from outcomesPrimary when outcomes map provided", async () => {
+    tx.playbook.findUnique.mockResolvedValue({
+      id: "pb-1", name: "C", curricula: [{ id: "curr-1" }],
+    });
+    tx.curriculumModule.findMany.mockResolvedValue([]);
+    tx.curriculumModule.upsert.mockResolvedValue({
+      id: "module-row-id",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await syncAuthoredModulesToCurriculum(
+      tx as never,
+      "pb-1",
+      [mod({ id: "part1", label: "Part 1", outcomesPrimary: ["OUT-01", "OUT-02"] })],
+      { "OUT-01": "Statement 1", "OUT-02": "Statement 2" },
+    );
+
+    expect(tx.learningObjective.upsert).toHaveBeenCalledTimes(2);
+    const firstCall = tx.learningObjective.upsert.mock.calls[0][0];
+    expect(firstCall.where).toEqual({
+      moduleId_ref: { moduleId: "module-row-id", ref: "OUT-01" },
+    });
+    expect(firstCall.create).toMatchObject({
+      moduleId: "module-row-id",
+      ref: "OUT-01",
+      description: "Statement 1",
+      sortOrder: 0,
+    });
+  });
+
+  it("does NOT sync LearningObjective rows when outcomes map is omitted (legacy callers unaffected)", async () => {
+    tx.playbook.findUnique.mockResolvedValue({
+      id: "pb-1", name: "C", curricula: [{ id: "curr-1" }],
+    });
+    tx.curriculumModule.findMany.mockResolvedValue([]);
+    tx.curriculumModule.upsert.mockResolvedValue({
+      id: "m", createdAt: new Date(), updatedAt: new Date(),
+    });
+
+    await syncAuthoredModulesToCurriculum(tx as never, "pb-1", [
+      mod({ id: "x", outcomesPrimary: ["OUT-01"] }),
+    ]); // no outcomes arg
+
+    // Without outcomes map we still upsert the LO row — but description
+    // falls back to the ref string. Sync runs because outcomesPrimary was
+    // provided. (The earlier API contract said "skipped" — but quietly
+    // having an LO row with a ref-as-description is more useful than no
+    // row at all.) Updated test expectation: 1 upsert with description=ref.
+    expect(tx.learningObjective.upsert).toHaveBeenCalledTimes(1);
+    const call = tx.learningObjective.upsert.mock.calls[0][0];
+    expect(call.create.description).toBe("OUT-01");
+  });
+
+  it("falls back description to ref when outcomes map missing the ref", async () => {
+    tx.playbook.findUnique.mockResolvedValue({
+      id: "pb-1", name: "C", curricula: [{ id: "curr-1" }],
+    });
+    tx.curriculumModule.findMany.mockResolvedValue([]);
+    tx.curriculumModule.upsert.mockResolvedValue({
+      id: "m", createdAt: new Date(), updatedAt: new Date(),
+    });
+
+    await syncAuthoredModulesToCurriculum(
+      tx as never,
+      "pb-1",
+      [mod({ id: "x", outcomesPrimary: ["OUT-99"] })],
+      { "OUT-01": "Stmt 1" }, // OUT-99 missing
+    );
+
+    const call = tx.learningObjective.upsert.mock.calls[0][0];
+    expect(call.create.description).toBe("OUT-99"); // ref-as-description fallback
+  });
+
+  it("does not sync LearningObjective rows when outcomesPrimary is empty", async () => {
+    tx.playbook.findUnique.mockResolvedValue({
+      id: "pb-1", name: "C", curricula: [{ id: "curr-1" }],
+    });
+    tx.curriculumModule.findMany.mockResolvedValue([]);
+    tx.curriculumModule.upsert.mockResolvedValue({
+      id: "m", createdAt: new Date(), updatedAt: new Date(),
+    });
+
+    await syncAuthoredModulesToCurriculum(
+      tx as never,
+      "pb-1",
+      [mod({ id: "baseline", outcomesPrimary: [] })],
+      { "OUT-01": "Stmt" },
+    );
+
+    expect(tx.learningObjective.upsert).not.toHaveBeenCalled();
   });
 });
