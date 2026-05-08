@@ -308,7 +308,7 @@ export interface SharedComputedState {
     assertionIds: string[];
     reviewIds: string[];
     newIds: string[];
-    selectedLOs?: Array<{ id: string; ref: string; moduleId: string; status: string }>;
+    selectedLOs?: Array<{ id: string; ref: string; moduleId: string; status: string; description?: string }>;
   } | null;
   /** Map of LO ref → LO id for FK-based filtering (#142) */
   loRefToIdMap?: Map<string, string>;

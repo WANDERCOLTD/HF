@@ -998,10 +998,6 @@ async function activateFeatureSet(featureSetId: string): Promise<SeedSpecResult>
     let sourceTitle: string | null = null;
     let sourceYear: number | null = null;
     let notableInfo: any = null;
-    let coreArgument: any = null;
-    let caseStudies: any = null;
-    let discussionQuestions: any = null;
-    let critiques: any = null;
     let deliveryConfig: any = null;
 
     // Check if this is a module-based curriculum (has modules array in rawSpec)
@@ -1023,32 +1019,16 @@ async function activateFeatureSet(featureSetId: string): Promise<SeedSpecResult>
         assessment: rawSpecData.assessment,
       };
 
-      // Store modules as core content
-      coreArgument = {
-        modules: rawSpecData.modules,
-        totalModules: rawSpecData.modules.length,
-        estimatedDuration: rawSpecData.modules.reduce((sum: number, m: any) => sum + (m.durationMinutes || 0), 0),
-      };
-
-      // Store misconception bank as critiques (things to watch for)
-      critiques = rawSpecData.misconceptionBank || null;
-
       // Store session structure and assessment strategy in delivery config
       deliveryConfig = {
         sessionStructure: rawSpecData.sessionStructure,
         assessmentStrategy: rawSpecData.assessmentStrategy,
       };
 
-      // Discussion questions can be extracted from modules' examTopics
-      const allExamTopics: string[] = [];
-      for (const mod of rawSpecData.modules) {
-        if (mod.examTopics) {
-          allExamTopics.push(...mod.examTopics);
-        }
-      }
-      if (allExamTopics.length > 0) {
-        discussionQuestions = { examTopics: allExamTopics };
-      }
+      // #306: dropped fields — coreArgument (modules JSON), critiques
+      // (misconceptionBank), discussionQuestions (examTopics) — were
+      // written here but read by nothing. Module structure now lives in
+      // first-class CurriculumModule rows via lib/curriculum/sync-modules.
 
     } else {
       // Book-based curriculum (e.g., Why Nations Fail)
@@ -1060,21 +1040,12 @@ async function activateFeatureSet(featureSetId: string): Promise<SeedSpecResult>
           sourceYear = cfg.year || null;
           notableInfo = cfg.notableInfo || null;
         }
-        if (param.id === "core_argument" || param.name?.includes("Core Argument") || param.name?.includes("Thesis")) {
-          coreArgument = cfg;
-        }
-        if (param.id === "case_studies" || param.name?.includes("Case Studies")) {
-          caseStudies = cfg.studies || cfg;
-        }
-        if (param.id === "discussion_questions" || param.name?.includes("Discussion")) {
-          discussionQuestions = cfg.questions || cfg;
-        }
-        if (param.id === "critiques" || param.name?.includes("Critiques")) {
-          critiques = cfg.critiques || cfg;
-        }
         if (param.id === "delivery_config" || param.name?.includes("Delivery")) {
           deliveryConfig = cfg;
         }
+        // #306: previously also captured core_argument / case_studies /
+        // discussion_questions / critiques; the columns are dropped because
+        // nothing in the prompt pipeline read them.
       }
     }
 
@@ -1093,10 +1064,6 @@ async function activateFeatureSet(featureSetId: string): Promise<SeedSpecResult>
           sourceTitle,
           sourceYear,
           notableInfo,
-          coreArgument,
-          caseStudies,
-          discussionQuestions,
-          critiques,
           deliveryConfig,
           constraints: compiledConstraints,
           sourceSpecId: spec.id,
@@ -1114,10 +1081,6 @@ async function activateFeatureSet(featureSetId: string): Promise<SeedSpecResult>
           sourceTitle,
           sourceYear,
           notableInfo,
-          coreArgument,
-          caseStudies,
-          discussionQuestions,
-          critiques,
           deliveryConfig,
           constraints: compiledConstraints,
           sourceSpecId: spec.id,

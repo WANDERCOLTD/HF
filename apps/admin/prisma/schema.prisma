@@ -2165,10 +2165,6 @@ model Curriculum {
 
   // Content structure (JSON)
   notableInfo         Json? // Notable information about the source
-  coreArgument        Json? // Main thesis and key insights
-  caseStudies         Json? // Case studies and examples
-  discussionQuestions Json? // Discussion questions for teaching
-  critiques           Json? // Scholarly critiques and counterpoints
   deliveryConfig      Json? // How to deliver this content (timing, pacing, etc.)
 
   // Constraints from spec

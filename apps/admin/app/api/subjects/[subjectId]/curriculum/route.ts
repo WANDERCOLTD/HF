@@ -194,7 +194,6 @@ export async function POST(req: NextRequest, { params }: Params) {
           qualificationNumber: subject.qualificationRef,
           qualificationLevel: subject.qualificationLevel,
           notableInfo: { modules: result.modules } as unknown as Prisma.InputJsonValue,
-          coreArgument: Prisma.JsonNull,
           deliveryConfig: result.deliveryConfig as unknown as Prisma.InputJsonValue,
           version: "1.0",
         },

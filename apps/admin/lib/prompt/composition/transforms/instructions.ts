@@ -108,7 +108,7 @@ registerTransform("computeInstructions", (
   context: AssembledContext,
 ) => {
   const { sections, loadedData, sharedState, resolvedSpecs } = context;
-  const { thresholds, modules, isFirstCall, moduleToReview, nextModule, completedModules } = sharedState;
+  const { thresholds, modules, isFirstCall, moduleToReview, nextModule, completedModules, lockedModule, workingSet } = sharedState;
   const personality = loadedData.personality;
   const callerAttributes = loadedData.callerAttributes;
   const learnerGoals = loadedData.goals;
@@ -244,7 +244,10 @@ registerTransform("computeInstructions", (
         parts.push(`Curriculum: ${curriculumName || "Learning"} (${modules.length} modules)`);
         parts.push(`Progress: ${completedModules.size}/${modules.length} completed`);
 
-        if (isFirstCall && modules[0]) {
+        if (lockedModule) {
+          // Module Picker override — scheduler frontier is bypassed
+          parts.push(`LEARNER SELECTED MODULE: "${lockedModule.name}" — focus this session entirely on it.`);
+        } else if (isFirstCall && modules[0]) {
           parts.push(`THIS SESSION: First call - introduce "${modules[0].name}"`);
         } else if (moduleToReview && nextModule && moduleToReview.slug !== nextModule.slug) {
           parts.push(`THIS SESSION: Review "${moduleToReview.name}" → Introduce "${nextModule.name}"`);
@@ -252,6 +255,18 @@ registerTransform("computeInstructions", (
           parts.push(`THIS SESSION: Continue with "${nextModule.name}"`);
         } else if (moduleToReview) {
           parts.push(`THIS SESSION: Deepen mastery of "${moduleToReview.name}"`);
+        }
+
+        // Today's selected learning outcomes (#306) — surfaced from scheduler
+        // working set. Skipped silently when working set is empty (e.g. courses
+        // without curriculum structure produce no selectedLOs).
+        const selectedLOs = workingSet?.selectedLOs ?? [];
+        if (selectedLOs.length > 0) {
+          const loLines = selectedLOs.map((lo) => {
+            const desc = lo.description?.trim();
+            return desc ? `${lo.ref} — ${desc}` : lo.ref;
+          });
+          parts.push(`Today's learning outcomes: ${loLines.join("; ")}`);
         }
       }
 
