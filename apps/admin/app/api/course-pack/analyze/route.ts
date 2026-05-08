@@ -9,6 +9,7 @@ import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { interpolateTemplate } from "@/lib/prompts/interpolate";
 import { config } from "@/lib/config";
 import { logAI } from "@/lib/logger";
+import { jsonrepair } from "jsonrepair";
 
 /**
  * @api POST /api/course-pack/analyze
@@ -304,15 +305,16 @@ Analyze these files and group them by subject. Return JSON only.`;
       { sourceOp: "course-pack:analyze" },
     );
 
-    // Parse AI response
+    // Parse AI response — wrap with jsonrepair to handle truncated strings,
+    // trailing commas, single quotes, etc. Mirrors the established pattern in
+    // base-extractor.ts:475 and generate-mcqs.ts:945.
     const raw = typeof result === "string" ? result : result?.content || "";
     const responseText = raw.trim();
-    let jsonStr = responseText.startsWith("{")
+    const jsonStr = responseText.startsWith("{")
       ? responseText
       : responseText.replace(/^```json?\n?/, "").replace(/\n?```$/, "");
-    jsonStr = jsonStr.replace(/,\s*([}\]])/g, "$1");
 
-    const parsed = JSON.parse(jsonStr) as PackManifest;
+    const parsed = JSON.parse(jsonrepair(jsonStr)) as PackManifest;
 
     // Validate and sanitize the manifest
     const manifest: PackManifest = {
