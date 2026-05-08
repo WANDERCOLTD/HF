@@ -165,13 +165,18 @@ function PickerContent() {
 
   const launchSelected = useCallback(
     (moduleId: string) => {
-      // TODO(#242 Slice 2): wire this into the real VAPI call-init flow once
-      // the dial path is identified. `useJourneyChat` is NOT a call-creator
-      // (per tech-lead review). For now, the picker logs the pick and bounces
-      // back to the SIM with `?requestedModuleId=<id>`; the SIM renders a
-      // placeholder banner so devs can verify end-to-end module routing.
+      // Status (2026-05-08):
+      //   ✅ SIM path is wired end-to-end via #250 (compose-prompt + Call.requestedModuleId
+      //      pickup #274 + tutor lockedModule narrative #266) — when returnTo points at
+      //      /x/sim/[id] the picker rewrites the URL with ?requestedModuleId and SimChat
+      //      forwards it on call init.
+      //   ⏳ VAPI / real voice dial path: NOT YET wired. The picker still bounces back to
+      //      a SIM session for voice scenarios; voice FOH integration would consume the
+      //      same /api/student/module-status data and pass requestedModuleId to the dial.
+      //      Tracked under #242 Slice 3 (in-chat picker — voice). Do not remove this
+      //      comment until Slice 3 lands.
       console.info(
-        "[picker] selected moduleId=%s for course=%s — placeholder, no VAPI dial yet",
+        "[picker] selected moduleId=%s for course=%s — SIM path active, VAPI dial deferred to #242 Slice 3",
         moduleId,
         courseId,
       );
