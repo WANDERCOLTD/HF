@@ -983,8 +983,14 @@ function McqTrustBadge({ level }: { level: string | null }) {
 }
 
 // ── MCQ panel ────────────────────────────────────────────
+//
+// Exported so authored-modules courses (which hide the parent
+// CurriculumHealthTabs to suppress the scorecard + regenerate affordances)
+// can still render this panel directly. Without this, educators on
+// authored courses had no path to see their generated MCQs in the
+// curriculum tab — the questions existed but weren't surfaced.
 
-function McqPanel({ courseId }: { courseId: string }) {
+export function McqPanel({ courseId }: { courseId: string }) {
   const [items, setItems] = useState<McqItem[]>([]);
   const [loading, setLoading] = useState(false);
 

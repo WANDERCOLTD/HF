@@ -19,7 +19,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import type { CourseLinkageScorecard } from "@/lib/content-trust/validate-lo-linkage";
-import { CurriculumHealthTabs, type RegenerateActions } from "./CurriculumHealthTabs";
+import { CurriculumHealthTabs, McqPanel, type RegenerateActions } from "./CurriculumHealthTabs";
 import { AuthoredModulesPanel } from "./_components/AuthoredModulesPanel";
 import "./course-curriculum-tab.css";
 
@@ -226,7 +226,12 @@ export function CourseCurriculumTab({
         </div>
       )}
 
-      {/* Derived/regen view — hidden when authored modules are the source */}
+      {/* Derived/regen view — hidden when authored modules are the source.
+          The scorecard + regenerate affordances are meaningless for authored
+          courses (the educator authored the structure; auto-regen would
+          clobber it). #256 originally hid the entire CurriculumHealthTabs,
+          which inadvertently hid the MCQ list too — educators on authored
+          courses had no path to view their generated questions. */}
       {scorecard && modulesAuthored !== true && (
         <CurriculumHealthTabs
           scorecard={scorecard}
@@ -237,6 +242,21 @@ export function CourseCurriculumTab({
           regenerating={regenerating}
           onScorecardRefresh={loadScorecard}
         />
+      )}
+
+      {/* For authored-modules courses: show ONLY the MCQ list (the part
+          educators actually need to see) without the scorecard / regen
+          affordances. Renders standalone via the exported McqPanel. */}
+      {modulesAuthored === true && (
+        <section className="hf-card" style={{ marginTop: 16 }}>
+          <header className="hf-flex hf-items-center hf-gap-8" style={{ marginBottom: 12 }}>
+            <h3 className="hf-section-title" style={{ margin: 0 }}>Generated questions</h3>
+            <span className="hf-text-xs hf-text-muted">
+              MCQs created from your uploaded learner-facing content. Trust badge per row indicates provenance.
+            </span>
+          </header>
+          <McqPanel courseId={courseId} />
+        </section>
       )}
 
       {/* Regeneration result */}
