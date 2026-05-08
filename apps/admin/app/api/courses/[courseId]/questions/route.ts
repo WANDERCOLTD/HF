@@ -48,6 +48,10 @@ export async function GET(
           id: true,
           questionText: true,
           questionType: true,
+          // #281 Slice 3b: provenance signal so the McqPanel can render
+          // a trust badge per question. AI_ASSISTED for generator output;
+          // higher tiers reserved for educator-imported question banks.
+          trustLevel: true,
           assertionId: true,
           assertion: {
             select: { id: true, assertion: true, category: true, learningOutcomeRef: true },
@@ -69,6 +73,7 @@ export async function GET(
         id: q.id,
         questionText: q.questionText,
         questionType: q.questionType,
+        trustLevel: q.trustLevel ?? null,
         assertion: q.assertion
           ? {
               id: q.assertion.id,

@@ -59,6 +59,10 @@ type McqItem = {
   id: string;
   questionText: string;
   questionType: string;
+  /** #281 Slice 3b: provenance signal. AI_ASSISTED for generator-output;
+   *  higher tiers (EXPERT_CURATED, ACCREDITED_MATERIAL, REGULATORY_STANDARD)
+   *  for educator-imported question banks. Null = legacy row pre-migration. */
+  trustLevel: string | null;
   assertion: { id: string; text: string; category: string; learningOutcomeRef: string | null } | null;
   sourceName: string | null;
   linkedToTp: boolean;
@@ -936,6 +940,48 @@ function TrustBadge({ level }: { level: string | null }) {
   );
 }
 
+// ── MCQ trust badge (#281 Slice 3b) ──────────────────────
+//
+// Maps ContentQuestion.trustLevel → a small inline badge shown next to each
+// MCQ in the curriculum admin view. Provides educators a visual signal of
+// where each question came from. AI_ASSISTED is the default and visually
+// the least loud (muted); imported / accredited content gets a louder tone.
+// UNVERIFIED and null render NOTHING so the panel doesn't get cluttered
+// with badges on legacy rows that haven't been re-imported yet.
+
+function McqTrustBadge({ level }: { level: string | null }) {
+  if (!level || level === "UNVERIFIED") return null;
+  const config: Record<string, { label: string; tone: string; title: string }> = {
+    AI_ASSISTED: {
+      label: "AI",
+      tone: "hf-badge-muted",
+      title: "AI-assisted: generated from extracted assertions. Lowest trust tier among populated rows.",
+    },
+    EXPERT_CURATED: {
+      label: "Curated",
+      tone: "hf-badge-info",
+      title: "Expert-curated: imported from a question bank reviewed by a subject expert.",
+    },
+    ACCREDITED_MATERIAL: {
+      label: "Accredited",
+      tone: "hf-badge-success",
+      title: "Accredited material: imported from an accrediting body's question bank.",
+    },
+    REGULATORY_STANDARD: {
+      label: "Regulatory",
+      tone: "hf-badge-success",
+      title: "Regulatory standard: imported from an official regulatory body source.",
+    },
+  };
+  const c = config[level];
+  if (!c) return null;
+  return (
+    <span className={`hf-badge hf-badge-xs ${c.tone}`} title={c.title}>
+      {c.label}
+    </span>
+  );
+}
+
 // ── MCQ panel ────────────────────────────────────────────
 
 function McqPanel({ courseId }: { courseId: string }) {
@@ -985,6 +1031,7 @@ function McqPanel({ courseId }: { courseId: string }) {
       {items.map((q) => (
         <div key={q.id} className="curriculum-mcq-row">
           <span className="hf-micro-badge-sm curriculum-mcq-type">{q.questionType}</span>
+          <McqTrustBadge level={q.trustLevel} />
           <span className="hf-flex-1 hf-text-secondary hf-text-xs">{q.questionText}</span>
           {q.assertion?.learningOutcomeRef && (
             <span className="hf-micro-badge-sm curriculum-mcq-lo">
