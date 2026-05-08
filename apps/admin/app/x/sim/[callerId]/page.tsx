@@ -164,6 +164,11 @@ export default function SimConversationPage() {
   const handlePickModule = useCallback(() => {
     if (!playbookId) return;
     const sp = new URLSearchParams();
+    // #284 follow-up: pass callerId so the picker page (admin context)
+    // pre-selects the correct learner. Without this, the "Viewing learner"
+    // dropdown is empty and the picker can't write progress / launch.
+    // Mirrors CallerDetailPage.handlePickModule (#270 follow-up).
+    sp.set("callerId", callerId);
     // Strip requestedModuleId so the banner doesn't keep firing on re-pick.
     const carryParams = new URLSearchParams(searchParams.toString());
     carryParams.delete('requestedModuleId');
