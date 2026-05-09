@@ -142,12 +142,26 @@ export function CourseCurriculumTab({
     }
     setRegenerating(true);
     setRegenResult(null);
+    setError(null);
     try {
       const refRes = await fetch(`/api/courses/${courseId}/course-reference`);
       const refData = await refRes.json();
-      if (!refData.ok || !refData.reference?.markdown) {
+      if (!refData.ok) {
+        setError(`Could not fetch Course Reference: ${refData.error || refRes.status}`);
+        return;
+      }
+      if (!refData.reference) {
         setError(
-          "No Course Reference markdown found for this course. Upload one on the Content tab first.",
+          "No source classified as COURSE_REFERENCE is linked to this course. " +
+            "Check the Content tab — your reference document may have been classified " +
+            "as CURRICULUM, LESSON_PLAN, or something else. Re-classify it as COURSE_REFERENCE first.",
+        );
+        return;
+      }
+      if (!refData.reference.markdown) {
+        setError(
+          `Course Reference "${refData.reference.name}" was found but its extracted text is empty. ` +
+            "The upload may have failed silently — try re-uploading the file.",
         );
         return;
       }
@@ -263,6 +277,12 @@ export function CourseCurriculumTab({
     // "no curriculum" empty state lives below the panel.
     return (
       <div className="hf-stack-md">
+        {error && <div className="hf-banner hf-banner-error">{error}</div>}
+        {regenResult?.ok && (
+          <div className="hf-banner hf-banner-success">
+            Re-imported successfully{regenResult.moduleCount != null ? ` (${regenResult.moduleCount} modules)` : ""}.
+          </div>
+        )}
         <RegenerateBar />
         <AuthoredModulesPanel
           courseId={playbookId ?? courseId}
