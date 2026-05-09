@@ -20,6 +20,7 @@ import { getPromptSpecs } from "@/lib/prompts/spec-prompts";
 import { interpolateTemplate } from "@/lib/prompts/interpolate";
 import { config } from "@/lib/config";
 import { getVisibilitySummary, getDocTypePlainLanguageMapping } from "@/lib/doc-type-icons";
+import { getEnumDescription } from "@/lib/wizard/field-enums";
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -453,21 +454,11 @@ Choose based on EVIDENCE from the uploaded content and user description — not 
 Read the courseRefDigest and uploaded materials before proposing. If the content shows
 question-based scaffolding, propose socratic. If it shows step-by-step instruction, propose
 directive. Do NOT assume exam prep = directive.
-- socratic — Question-based discovery, guides through questioning
-- directive — Structured, step-by-step instruction
-- advisory — Coaching style, offers guidance
-- coaching — Reflective dialogue, metacognition
-- companion — Supportive peer
-- facilitation — Discussion facilitation
-- reflective — Self-reflection and learning-from-experience
-- open — Flexible, adapts to need
-- conversational-guide — Warm, curious guide for 1:1 conversations
+${getEnumDescription("interactionPatterns")}
 
 ### Module progression (progressionMode) — REQUIRED
-Mandatory choice. Always ask explicitly via show_options. Two values, NO others.
-- ai-led — Scheduler picks each call based on learner progress. Default for adaptive courses.
-- learner-picks — Learner sees a module menu before each session. Requires a Module Catalogue
-  table in the Course Reference markdown.
+Mandatory choice. Always ask explicitly via show_options. Values listed below are the ONLY accepted ones.
+${getEnumDescription("progressionModes")}
 
 ### CROSS-FIELD GUARD — DO NOT CONFUSE THESE FIELDS
 **\`interactionPattern\` and \`progressionMode\` are different fields with non-overlapping enums.**

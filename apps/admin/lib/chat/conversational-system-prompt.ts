@@ -18,6 +18,7 @@ import { buildGraphPromptSection } from "@/lib/wizard/graph-evaluator";
 import { AGENT_TUNING_DEFAULTS } from "@/lib/domain/agent-tuning";
 import { config } from "@/lib/config";
 import { getPromptSpecs } from "@/lib/prompts/spec-prompts";
+import { getEnumDescription } from "@/lib/wizard/field-enums";
 import { getVisibilitySummary, getDocTypePlainLanguageMapping } from "@/lib/doc-type-icons";
 import { interpolateTemplate } from "@/lib/prompts/interpolate";
 
@@ -458,21 +459,12 @@ const FALLBACK_VALUES = `## Valid values (internal reference — describe in pla
 Always infer the best fit from the subject + level, propose it with a
 reason in the Phase 2 full configuration proposal.
 
-- socratic — Question-based discovery, guides students to find answers themselves
-- directive — Structured, step-by-step explanations with clear instruction
-- advisory — Coaching style, offers guidance when the student asks
-- coaching — Reflective dialogue, builds self-awareness and metacognition
-- companion — Supportive peer, learns alongside the student
-- facilitation — Discussion facilitation, draws out ideas from the student
-- reflective — Encourages self-reflection and learning-from-experience
-- open — Flexible, adapts to whatever the student needs in the moment
-- conversational-guide — Warm, curious guide for enriching 1:1 conversations around topics — no teaching, no coaching
+${getEnumDescription("interactionPatterns")}
 
 ### Module progression (progressionMode) — REQUIRED, mandatory step
 **This is a mandatory choice. Always ask explicitly using show_options.** Do NOT infer silently.
 
-- ai-led — The AI scheduler picks what to cover each call based on the learner's progress. Learner just calls in; no menu. Right for adaptive courses where the AI should decide.
-- learner-picks — Learner sees a menu of modules before each session and chooses. REQUIRES a Module Catalogue table in the Course Reference markdown.
+${getEnumDescription("progressionModes")}
 
 **Decision rules:**
 - If courseRefDigest exists AND it contains a "Module Catalogue" table → PROPOSE 'learner-picks' with reason ("your Course Reference declares modules — students will see a picker").

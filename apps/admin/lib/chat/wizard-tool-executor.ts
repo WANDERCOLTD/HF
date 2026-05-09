@@ -6,55 +6,30 @@
  * institutions/courses, and returning results to the AI loop.
  */
 
-// ── Helpers ─────────────────────────────────────────────
+import { FIELD_ENUMS } from "@/lib/wizard/field-enums";
 
-/**
- * Per-field value enums for `update_setup` validation (#315).
- *
- * Today's bug: AI mis-routed value `"learner-picks"` (a `progressionMode`
- * option) into the `interactionPattern` field. `interactionPattern` only
- * accepts socratic/directive/advisory/coaching/etc. — silently accepted,
- * `progressionMode` left unset, `create_course` BLOCKED, success card lied.
- *
- * This map is the validator source of truth. Add fields here as they are
- * confirmed enum-typed and at risk of cross-field confusion. Fields not in
- * this map pass through unchanged (free-text, computed bag keys, etc.).
- *
- * Values must match the `optionsKey` value list in `lib/wizard/graph-nodes.ts`
- * AND the FALLBACK_VALUES section of the v5/conversational system prompts.
- */
-const UPDATE_SETUP_FIELD_ENUMS: Record<string, readonly string[]> = {
-  interactionPattern: [
-    "socratic",
-    "directive",
-    "advisory",
-    "coaching",
-    "companion",
-    "facilitation",
-    "reflective",
-    "open",
-    "conversational-guide",
-  ],
-  progressionMode: ["ai-led", "learner-picks"],
-  // teachingMode is intentionally NOT included until its enum is stable
-  // and prompt coverage matches.
-};
+// ── Helpers ─────────────────────────────────────────────
 
 /**
  * Validate that values written via `update_setup` belong to their field's
  * enum. Returns the first invalid pair found, or null if all valid.
  * Fields without an enum entry pass through.
+ *
+ * The enum source-of-truth is `lib/wizard/field-enums.ts` (#316). That file
+ * is itself derived from `WIZARD_GRAPH_NODES` + `OPTIONS_VALUES` — one
+ * registry feeds the validator, the system prompts, and any future
+ * UI-side option rendering.
  */
 export function validateUpdateSetupFields(
   fields: Record<string, unknown>,
 ): { field: string; value: unknown; allowed: readonly string[]; suggestedField?: string } | null {
   for (const [field, value] of Object.entries(fields)) {
-    const allowed = UPDATE_SETUP_FIELD_ENUMS[field];
+    const allowed = FIELD_ENUMS[field];
     if (!allowed || typeof value !== "string") continue;
     if (!allowed.includes(value)) {
       // Try to suggest which field this value SHOULD have gone to.
-      const suggestedField = Object.entries(UPDATE_SETUP_FIELD_ENUMS).find(
-        ([k, vs]) => k !== field && vs.includes(value),
+      const suggestedField = Object.entries(FIELD_ENUMS).find(
+        ([k, vs]) => k !== field && (vs as readonly string[]).includes(value),
       )?.[0];
       return { field, value, allowed, suggestedField };
     }
@@ -2126,6 +2101,59 @@ export async function executeWizardTool(
     }
 
     case "mark_complete": {
+      // #316: server-side gate against Playbook existence. The wizard's
+      // success card is rendered the moment mark_complete is called, so
+      // mark_complete must refuse if there is no actual Playbook in the
+      // database. Without this, any tool error before mark_complete (e.g.
+      // a `create_course` BLOCKED that the AI ignored) still renders
+      // "Your AI tutor is ready" — the silent-failure mode that triggered
+      // #315.
+      const draftPlaybookId =
+        typeof setupData?.draftPlaybookId === "string" ? setupData.draftPlaybookId : null;
+
+      if (!draftPlaybookId) {
+        const errorMsg =
+          "Cannot mark wizard complete — no draftPlaybookId in setupData. " +
+          "create_course must succeed BEFORE mark_complete. " +
+          "Re-call create_course; if it returns is_error, fix the missing fields and try again.";
+        console.warn(`[wizard-tools] mark_complete REJECTED — ${errorMsg}`);
+        return {
+          ...base,
+          content: JSON.stringify({ ok: false, error: errorMsg }),
+          is_error: true,
+        };
+      }
+
+      // Don't trust the blackboard — verify the row actually exists in the DB.
+      try {
+        const { prisma } = await import("@/lib/prisma");
+        const playbook = await prisma.playbook.findUnique({
+          where: { id: draftPlaybookId },
+          select: { id: true, status: true },
+        });
+        if (!playbook) {
+          const errorMsg =
+            `Cannot mark wizard complete — Playbook ${draftPlaybookId} not found in database. ` +
+            `setupData.draftPlaybookId is stale. Re-call create_course to create the Playbook.`;
+          console.warn(`[wizard-tools] mark_complete REJECTED — ${errorMsg}`);
+          return {
+            ...base,
+            content: JSON.stringify({ ok: false, error: errorMsg }),
+            is_error: true,
+          };
+        }
+      } catch (err) {
+        console.error(`[wizard-tools] mark_complete DB check failed:`, err);
+        return {
+          ...base,
+          content: JSON.stringify({
+            ok: false,
+            error: `Could not verify Playbook existence: ${String(err)}`,
+          }),
+          is_error: true,
+        };
+      }
+
       return { ...base, content: "Setup complete. The user can now try a sim call." };
     }
 
