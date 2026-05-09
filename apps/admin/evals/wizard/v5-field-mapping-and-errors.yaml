@@ -66,6 +66,59 @@ prompts:
 
       {{userMessage}}
 
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1200
+      tools:
+        - name: update_setup
+          description: "Save extracted fields to setupData. Returns is_error if a value is invalid for its field."
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                additionalProperties: true
+            required: [fields]
+        - name: show_options
+          description: "Show structured option card"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              dataKey: { type: string }
+              mode: { type: string, enum: [radio, checklist] }
+              options:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    value: { type: string }
+                    label: { type: string }
+                    description: { type: string }
+            required: [question, dataKey, mode, options]
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+        - name: create_course
+          description: "Create the course. Returns is_error with missingRequired list if the graph blocks launch."
+          input_schema:
+            type: object
+            properties:
+              courseName: { type: string }
+              interactionPattern: { type: string }
+            required: []
+        - name: mark_complete
+          description: "Close the wizard and render the success card. Refuses if no Playbook exists."
+          input_schema:
+            type: object
+            properties: {}
+
 tests:
   # ── CROSS-FIELD GUARD ───────────────────────────────────────────────────
 
@@ -139,5 +192,25 @@ tests:
             return { pass: false, score: 0, reason: 'mark_complete called after a create_course is_error result — exactly the silent-failure path from #315' };
           }
           return true;
+      # Hard assertions covering the actual incident: the response must
+      # acknowledge the failure, must NOT claim success, must NOT trigger
+      # the success-card render path. Specific phrasing is left to the AI.
+      - type: icontains
+        value: "Module progression"
+      - type: not-icontains
+        value: "course is live"
+      - type: not-icontains
+        value: "course was created"
+      - type: not-icontains
+        value: "AI tutor is ready"
       - type: llm-rubric
-        value: "The response acknowledges the create_course failure (e.g. mentions 'Module progression' is missing) and asks the user to choose between ai-led and learner-picks. Does NOT claim the course was created."
+        # The user said "Let learners choose" in the prior turn, so any of
+        # these recovery paths is correct:
+        #   (a) Set progressionMode='learner-picks' from that prior answer
+        #       and re-try create_course.
+        #   (b) Re-present the show_options or chip choice for the user to
+        #       confirm.
+        #   (c) Ask the user verbally to pick ai-led vs learner-picks.
+        # Failing the rubric only when the AI claims success or ignores
+        # the missing field entirely.
+        value: "The response acknowledges create_course failed due to missing 'Module progression' / progressionMode and takes a recovery action: either (a) writes progressionMode='learner-picks' itself based on the user's earlier 'Let learners choose' answer, (b) re-presents the ai-led/learner-picks choice, or (c) asks the user to pick. ANY of those is acceptable. The response must NOT claim the course was created."

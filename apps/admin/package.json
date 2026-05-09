@@ -89,6 +89,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "3d-force-graph": "^1.79.1",
     "@anthropic-ai/sdk": "^0.71.2",
     "@auth/prisma-adapter": "^2.11.1",
     "@emotion/react": "^11.14.0",
@@ -99,7 +100,6 @@
     "@prisma/client": "^6.19.1",
     "@radix-ui/react-dialog": "^1.1.15",
     "@types/bcryptjs": "^2.4.6",
-    "3d-force-graph": "^1.79.1",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.2.0",
     "diff": "^8.0.4",
@@ -148,7 +148,7 @@
     "eslint-config-next": "16.1.0",
     "jsdom": "^27.4.0",
     "postcss": "^8.5.6",
-    "promptfoo": "^0.120.19",
+    "promptfoo": "^0.120.27",
     "tailwindcss": "^4.1.18",
     "tsx": "^4.21.0",
     "typescript": "^5",
