@@ -79,7 +79,8 @@
     "eval:wizard:welcome": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-welcome-flow.yaml --no-cache",
     "eval:wizard:v5:welcome": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-welcome-flow.yaml --no-cache",
     "eval:wizard:v4:welcome": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v4-welcome-flow.yaml --no-cache",
-    "eval:wizard:all": "npm run eval:wizard && npm run eval:wizard:intake && npm run eval:wizard:proposal && npm run eval:wizard:content && npm run eval:wizard:community && npm run eval:wizard:amendment && npm run eval:wizard:tone && npm run eval:wizard:welcome",
+    "eval:wizard:field-mapping": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-field-mapping-and-errors.yaml --no-cache",
+    "eval:wizard:all": "npm run eval:wizard && npm run eval:wizard:intake && npm run eval:wizard:proposal && npm run eval:wizard:content && npm run eval:wizard:community && npm run eval:wizard:amendment && npm run eval:wizard:tone && npm run eval:wizard:welcome && npm run eval:wizard:field-mapping",
     "eval:classify": "dotenv -e .env.local -- promptfoo eval -c evals/wizard/v5-document-classification.yaml --no-cache",
     "eval:all": "npm run eval:wizard:all && npm run eval:classify",
     "eval:view": "promptfoo view"

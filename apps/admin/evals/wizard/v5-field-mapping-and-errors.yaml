@@ -1,0 +1,143 @@
+description: "Wizard V5 — cross-field enum guard + tool-error handling (#315 + #316)"
+
+# Run with: npm run eval:wizard:v5:field-mapping
+# View:      npm run eval:view
+#
+# Snapshot: AI is at the module-progression step. The user has just answered.
+# Tests:
+#   1. AI writes to the correct field (`progressionMode`), not the
+#      sibling `interactionPattern`.
+#   2. AI never emits a `learner-picks` / `ai-led` value into the
+#      `interactionPattern` field.
+#   3. AI surfaces tool errors and does NOT call mark_complete after one.
+#
+# These are regression coverage for the live silent-failure incident on
+# 2026-05-09 where the AI mis-routed `learner-picks` into
+# `interactionPattern`, `progressionMode` was never set, `create_course`
+# returned BLOCKED, and the wizard claimed success regardless.
+
+prompts:
+  - id: v5-progression-mode-step
+    label: "V5 — Module progression options offered, user answered"
+    raw: |
+      You are the HumanFirst Studio setup assistant. The wizard is at the
+      module-progression step. The user has just answered "Let learners choose"
+      to a `show_options` question with `dataKey: "progressionMode"`.
+
+      ## Field reference (REGISTRY-DERIVED, do not improvise)
+
+      ### interactionPattern (HOW the AI talks)
+      Allowed values:
+      - socratic
+      - directive
+      - advisory
+      - coaching
+      - companion
+      - facilitation
+      - reflective
+      - open
+      - conversational-guide
+
+      ### progressionMode (WHO picks the next module)
+      Allowed values:
+      - ai-led
+      - learner-picks
+
+      ## CROSS-FIELD GUARD — DO NOT CONFUSE THESE FIELDS
+      `interactionPattern` and `progressionMode` are different fields with non-overlapping enums.
+      - `learner-picks` and `ai-led` are ONLY valid for `progressionMode`. NEVER write them to `interactionPattern`.
+      - The 9 interactionPattern values are ONLY valid for `interactionPattern`. NEVER write them to `progressionMode`.
+      - The server REJECTS mis-routed writes with `is_error: true`. If you see that error, re-issue `update_setup` with the corrected field name.
+
+      ## Tool-result error handling — MANDATORY
+      If ANY tool call returns `ok: false` or `is_error: true`:
+      1. Surface the error text to the user verbatim.
+      2. Do NOT call `mark_complete`.
+      3. Do NOT tell the user the operation succeeded.
+      4. Address what the error reports and re-call the tool.
+      A `create_course` BLOCKED result means the course was NOT created.
+
+      ## Tools you can call
+      - update_setup(fields: object) — write fields to setupData. Returns is_error if a value is invalid for its field.
+      - create_course() — create the course. Returns is_error with missingRequired list if the graph blocks launch.
+      - mark_complete() — close the wizard and render the success card.
+
+      User just chose "Let learners choose" for module progression.
+
+      {{userMessage}}
+
+tests:
+  # ── CROSS-FIELD GUARD ───────────────────────────────────────────────────
+
+  - description: "FIELD-MAPPING: writes 'learner-picks' to progressionMode, NOT interactionPattern"
+    vars:
+      userMessage: "Save my choice."
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) {
+            return { pass: false, score: 0, reason: 'No update_setup call after the user confirmed their progressionMode answer' };
+          }
+          const fields = update.args?.fields || {};
+          if (fields.interactionPattern === 'learner-picks' || fields.interactionPattern === 'ai-led') {
+            return { pass: false, score: 0, reason: `progressionMode value "${fields.interactionPattern}" was mis-routed into interactionPattern — exactly the bug from #315` };
+          }
+          if (fields.progressionMode !== 'learner-picks') {
+            return { pass: false, score: 0, reason: `Expected progressionMode='learner-picks'; got ${JSON.stringify(fields.progressionMode)}` };
+          }
+          return true;
+
+  - description: "FIELD-MAPPING: never sends interactionPattern values to progressionMode"
+    vars:
+      userMessage: "Actually let's go with socratic instead."
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const update = _tc.find(t => t.name === 'update_setup');
+          if (!update) return true; // no write is acceptable for this turn
+          const fields = update.args?.fields || {};
+          const nineApproaches = ['socratic','directive','advisory','coaching','companion','facilitation','reflective','open','conversational-guide'];
+          if (nineApproaches.includes(fields.progressionMode)) {
+            return { pass: false, score: 0, reason: `interactionPattern value "${fields.progressionMode}" was mis-routed into progressionMode` };
+          }
+          return true;
+
+  # ── TOOL ERROR HANDLING ────────────────────────────────────────────────
+
+  - description: "ERROR-HANDLING: never claims course creation success in plain text without confirmation"
+    vars:
+      userMessage: "Create my course now."
+    assert:
+      # The AI should NOT preemptively say "your course is live" before
+      # observing a successful create_course response. (Plain-text hallucinated
+      # success was the live-incident symptom on 2026-05-09.)
+      - type: not-icontains
+        value: "your course is live"
+      - type: not-icontains
+        value: "course is created"
+      - type: not-icontains
+        value: "your AI tutor is ready"
+
+  - description: "ERROR-HANDLING: surfaces is_error tool result instead of advancing"
+    vars:
+      userMessage: |
+        I just clicked Create. Here is the tool result you received from create_course:
+        { "ok": false, "error": "Cannot create course yet — still missing required fields: Module progression. Collect these from the user FIRST, then call create_course again. Do NOT call mark_complete.", "missingRequired": ["Module progression"] }
+        Respond appropriately.
+    assert:
+      - type: javascript
+        value: |
+          const _out = typeof output === 'string' ? output : JSON.stringify(output);
+          const _tc = output.tool_calls || _out.split('\n').flatMap(l => { try { const b = JSON.parse(l.trim()); return b.type === 'tool_use' ? [{name: b.name, args: b.input || {}}] : []; } catch(e) { return []; } });
+          const markComplete = _tc.find(t => t.name === 'mark_complete');
+          if (markComplete) {
+            return { pass: false, score: 0, reason: 'mark_complete called after a create_course is_error result — exactly the silent-failure path from #315' };
+          }
+          return true;
+      - type: llm-rubric
+        value: "The response acknowledges the create_course failure (e.g. mentions 'Module progression' is missing) and asks the user to choose between ai-led and learner-picks. Does NOT claim the course was created."
