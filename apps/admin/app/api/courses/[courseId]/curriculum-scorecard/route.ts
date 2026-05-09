@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { computeCourseLinkageScorecard } from "@/lib/content-trust/validate-lo-linkage";
+import { prisma } from "@/lib/prisma";
 
 type Params = { params: Promise<{ courseId: string }> };
 
@@ -28,7 +29,16 @@ export async function GET(
     if (isAuthError(auth)) return auth.error;
 
     const { courseId } = await params;
-    const scorecard = await computeCourseLinkageScorecard(courseId);
+    const [scorecard, playbook] = await Promise.all([
+      computeCourseLinkageScorecard(courseId),
+      // #318: surface persisted curriculum-gen failure state so the
+      // Curriculum tab can warn educators about silent-failed background
+      // jobs (no more "no curriculum yet" with no explanation).
+      prisma.playbook.findUnique({
+        where: { id: courseId },
+        select: { config: true },
+      }),
+    ]);
     if (!scorecard) {
       return NextResponse.json(
         { ok: false, error: "Course not found" },
@@ -36,7 +46,15 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ ok: true, scorecard });
+    const cfg = (playbook?.config as Record<string, unknown> | null) ?? {};
+    const lastCurriculumGenError =
+      cfg.lastCurriculumGenError as { reason: string; at: string } | undefined;
+
+    return NextResponse.json({
+      ok: true,
+      scorecard,
+      ...(lastCurriculumGenError && { lastCurriculumGenError }),
+    });
   } catch (error) {
     console.error("[courses/:id/curriculum-scorecard] GET error:", error);
     const message = error instanceof Error ? error.message : "Internal error";

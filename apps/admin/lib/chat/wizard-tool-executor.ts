@@ -38,6 +38,59 @@ export function validateUpdateSetupFields(
 }
 
 /**
+ * Cross-field validation — values that are individually valid but
+ * combined produce an inconsistent course state. Returns a rejection
+ * reason or null.
+ *
+ * Today's rule (#318):
+ *   `progressionMode: "learner-picks"` requires a parseable Module
+ *   Catalogue in the Course Reference. Otherwise the course is
+ *   structurally broken — `import-modules` will have nothing to
+ *   parse, and the educator gets a "no curriculum yet" dead end.
+ *
+ *   Signal: `setupData.curriculumPath` is set to "authored" or
+ *   "generated" by `detectAuthoredModules` at upload time
+ *   (ConversationalWizard.tsx → wizard-tools.ts upload handler).
+ *
+ *   Decision matrix:
+ *     - curriculumPath === "authored"  → ALLOW (catalogue detected)
+ *     - curriculumPath === "generated" → REJECT (header says No or
+ *       no Module Catalogue header found in textSample)
+ *     - curriculumPath undefined       → ALLOW (no upload yet — let
+ *       the wizard proceed; the rule fires once content lands)
+ *
+ * Mirrors the wizard system prompt's rule that the AI was instructed
+ * to enforce but didn't. Server-side validation backstops the prompt.
+ */
+export function validateUpdateSetupCrossField(
+  fields: Record<string, unknown>,
+  setupData: Record<string, unknown> | undefined,
+): { field: string; value: unknown; reason: string } | null {
+  // Compute the post-write state: existing setupData merged with the
+  // incoming fields, so we catch the case where progressionMode +
+  // upload state arrive in the same call.
+  const merged = { ...(setupData ?? {}), ...fields };
+
+  if (merged.progressionMode === "learner-picks") {
+    const curriculumPath = merged.curriculumPath;
+    if (curriculumPath === "generated") {
+      return {
+        field: "progressionMode",
+        value: "learner-picks",
+        reason:
+          'Cannot set progressionMode="learner-picks" — your Course Reference has no parseable Module Catalogue. ' +
+          "detectAuthoredModules classified the upload as 'generated' (no `**Modules authored: Yes**` header or " +
+          "`## Modules` section). Either: (a) set progressionMode='ai-led' so the scheduler picks modules from " +
+          "extracted assertions, OR (b) re-upload a Course Reference markdown that contains a Module Catalogue " +
+          "table per the v5.1+ template, then retry.",
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
  * Build the student-experience portion of a Playbook.config from wizard
  * setupData. Writes BOTH the legacy shape (`welcome` / `nps` / `surveys`)
  * AND the new canonical `sessionFlow.intake` shape (#216 mirror pattern).
@@ -235,6 +288,20 @@ export async function executeWizardTool(
         return {
           ...base,
           content: JSON.stringify({ ok: false, error: errorMsg }),
+          is_error: true,
+        };
+      }
+
+      // ── Cross-field validation (#318) ──────────────────
+      // Catches inconsistent combinations (e.g. progressionMode=learner-picks
+      // when the uploaded course-ref has no Module Catalogue). Backstops
+      // wizard prompt rules that the AI sometimes ignores.
+      const crossInvalid = validateUpdateSetupCrossField(fields, setupData);
+      if (crossInvalid) {
+        console.warn(`[wizard-tools] update_setup REJECTED (cross-field) — ${crossInvalid.reason}`);
+        return {
+          ...base,
+          content: JSON.stringify({ ok: false, error: crossInvalid.reason }),
           is_error: true,
         };
       }
@@ -936,7 +1003,32 @@ export async function executeWizardTool(
                 durationMins: input.durationMins ? Number(input.durationMins) : undefined,
                 emphasis: input.planEmphasis as string | undefined,
               },
-            }).catch(err => console.error("[wizard] Instant curriculum (existing) failed (non-fatal):", err.message));
+            }).catch(async (err) => {
+              // #318: persist failure state so the educator sees "curriculum gen
+              // failed: <reason>" on the Curriculum tab instead of a silent
+              // empty-state lie. Today's coreArgument schema-drift error was
+              // hidden by this very catch — that's the bug we're closing.
+              const reason = err instanceof Error ? err.message : String(err);
+              console.error("[wizard] Instant curriculum (existing) failed:", reason);
+              try {
+                const pb = await prisma.playbook.findUnique({
+                  where: { id: existingPlaybookId },
+                  select: { config: true },
+                });
+                const cfg = (pb?.config as Record<string, unknown> | null) ?? {};
+                await prisma.playbook.update({
+                  where: { id: existingPlaybookId },
+                  data: {
+                    config: {
+                      ...cfg,
+                      lastCurriculumGenError: { reason, at: new Date().toISOString() },
+                    },
+                  },
+                });
+              } catch (persistErr) {
+                console.error("[wizard] could not persist curriculum-gen error:", persistErr);
+              }
+            });
 
             // Bridge COURSE_REFERENCE sources to the primary subject (existing course path)
             if (existingPbSubject && packSubjectIds?.length) {
@@ -1674,7 +1766,29 @@ export async function executeWizardTool(
               },
             });
           } catch (err: any) {
-            console.error("[wizard] Instant curriculum failed (non-fatal):", err.message);
+            // #318: persist failure state on Playbook.config so the
+            // Curriculum tab can surface "curriculum gen failed: <reason>"
+            // instead of leaving the educator at a silent empty-state.
+            const reason = err instanceof Error ? err.message : String(err);
+            console.error("[wizard] Instant curriculum failed:", reason);
+            try {
+              const pb = await prisma.playbook.findUnique({
+                where: { id: playbookId },
+                select: { config: true },
+              });
+              const cfg = (pb?.config as Record<string, unknown> | null) ?? {};
+              await prisma.playbook.update({
+                where: { id: playbookId },
+                data: {
+                  config: {
+                    ...cfg,
+                    lastCurriculumGenError: { reason, at: new Date().toISOString() },
+                  },
+                },
+              });
+            } catch (persistErr) {
+              console.error("[wizard] could not persist curriculum-gen error:", persistErr);
+            }
           }
 
           // Lesson plan generation removed — scheduler handles pacing

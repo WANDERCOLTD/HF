@@ -12,7 +12,10 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { validateUpdateSetupFields } from "@/lib/chat/wizard-tool-executor";
+import {
+  validateUpdateSetupFields,
+  validateUpdateSetupCrossField,
+} from "@/lib/chat/wizard-tool-executor";
 
 describe("validateUpdateSetupFields — interactionPattern", () => {
   it("rejects a progressionMode value written to interactionPattern", () => {
@@ -101,5 +104,75 @@ describe("validateUpdateSetupFields — pass-through fields", () => {
 describe("validateUpdateSetupFields — empty input", () => {
   it("returns null for an empty fields object", () => {
     expect(validateUpdateSetupFields({})).toBeNull();
+  });
+});
+
+// ── Cross-field rules (#318) ─────────────────────────────────────
+
+describe("validateUpdateSetupCrossField — progressionMode + curriculumPath", () => {
+  it("REJECTS learner-picks when curriculumPath='generated'", () => {
+    const result = validateUpdateSetupCrossField(
+      { progressionMode: "learner-picks" },
+      { curriculumPath: "generated" },
+    );
+    expect(result).not.toBeNull();
+    expect(result?.field).toBe("progressionMode");
+    expect(result?.value).toBe("learner-picks");
+    expect(result?.reason).toContain("Module Catalogue");
+  });
+
+  it("ALLOWS learner-picks when curriculumPath='authored'", () => {
+    const result = validateUpdateSetupCrossField(
+      { progressionMode: "learner-picks" },
+      { curriculumPath: "authored" },
+    );
+    expect(result).toBeNull();
+  });
+
+  it("ALLOWS learner-picks when curriculumPath is undefined (no upload yet)", () => {
+    const result = validateUpdateSetupCrossField(
+      { progressionMode: "learner-picks" },
+      {},
+    );
+    expect(result).toBeNull();
+  });
+
+  it("ALLOWS ai-led regardless of curriculumPath", () => {
+    expect(
+      validateUpdateSetupCrossField(
+        { progressionMode: "ai-led" },
+        { curriculumPath: "generated" },
+      ),
+    ).toBeNull();
+    expect(
+      validateUpdateSetupCrossField(
+        { progressionMode: "ai-led" },
+        { curriculumPath: "authored" },
+      ),
+    ).toBeNull();
+  });
+
+  it("REJECTS when progressionMode + curriculumPath arrive in the SAME update_setup call", () => {
+    // Edge case: AI sends both fields together. The merged-state check
+    // catches it without needing the existing setupData to already have
+    // curriculumPath populated.
+    const result = validateUpdateSetupCrossField(
+      { progressionMode: "learner-picks", curriculumPath: "generated" },
+      {},
+    );
+    expect(result?.field).toBe("progressionMode");
+  });
+
+  it("ALLOWS when fields object is empty", () => {
+    expect(validateUpdateSetupCrossField({}, { curriculumPath: "generated" })).toBeNull();
+  });
+
+  it("ALLOWS when only non-progressionMode fields are set", () => {
+    expect(
+      validateUpdateSetupCrossField(
+        { courseName: "IELTS" },
+        { curriculumPath: "generated" },
+      ),
+    ).toBeNull();
   });
 });

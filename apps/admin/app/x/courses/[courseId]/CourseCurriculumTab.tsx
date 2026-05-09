@@ -63,6 +63,12 @@ export function CourseCurriculumTab({
   const [regenerating, setRegenerating] = useState(false);
   const [regenResult, setRegenResult] = useState<RegenerateResponse | null>(null);
 
+  // #318: persisted curriculum-gen failure surfaced from the scorecard
+  // endpoint. Set by the wizard's fire-and-forget catch handler when
+  // generateInstantCurriculum fails — used to show "the wizard tried but
+  // failed: <reason>" instead of a silent empty-state.
+  const [lastGenError, setLastGenError] = useState<{ reason: string; at: string } | null>(null);
+
   // #253-follow-up: when authored modules are the source of truth, the
   // derived/regen catalogue is noise — hide it. AuthoredModulesPanel signals
   // its loaded state so we know which view to render.
@@ -83,6 +89,7 @@ export function CourseCurriculumTab({
         setError(data.error || "Failed to load scorecard");
       } else {
         setScorecard(data.scorecard);
+        setLastGenError(data.lastCurriculumGenError ?? null);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
@@ -305,6 +312,13 @@ export function CourseCurriculumTab({
             )}
           </div>
         )}
+        {lastGenError && (
+          <div className="hf-banner hf-banner-warning">
+            <strong>Wizard background curriculum generation failed</strong> at{" "}
+            {new Date(lastGenError.at).toLocaleString()}: {lastGenError.reason}.
+            Click {isAuthored ? '"Re-import modules"' : '"Regenerate curriculum"'} below to retry.
+          </div>
+        )}
         <RegenerateBar />
         <AuthoredModulesPanel
           courseId={playbookId ?? courseId}
@@ -337,6 +351,14 @@ export function CourseCurriculumTab({
       {error && <div className="hf-banner hf-banner-error">{error}</div>}
 
       <RegenerateBar />
+
+      {lastGenError && (
+        <div className="hf-banner hf-banner-warning">
+          <strong>Wizard background curriculum generation failed</strong> at{" "}
+          {new Date(lastGenError.at).toLocaleString()}: {lastGenError.reason}.
+          Click {isAuthored ? '"Re-import modules"' : '"Regenerate curriculum"'} above to retry.
+        </div>
+      )}
 
       <AuthoredModulesPanel
         courseId={playbookId ?? courseId}
