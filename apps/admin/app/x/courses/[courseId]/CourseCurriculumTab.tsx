@@ -123,6 +123,53 @@ export function CourseCurriculumTab({
     }
   }, [courseId, regenerating, loadScorecard]);
 
+  // ── Re-import handler for authored-modules courses ────────
+  // Fetches the latest Course Reference markdown and POSTs it to
+  // import-modules so educators don't need to keep the markdown handy.
+  // Mirrors what `generateInstantCurriculum` does post-wizard, but
+  // synchronous + observable (returns ok / error).
+  const handleReimportAuthored = useCallback(async () => {
+    if (regenerating) return;
+    if (
+      !window.confirm(
+        "Re-import authored modules from the latest Course Reference?\n\n" +
+          "Existing module rows are preserved (idempotent upsert by slug). " +
+          "Removed modules become orphans rather than being deleted, so " +
+          "learner progress is never lost.",
+      )
+    ) {
+      return;
+    }
+    setRegenerating(true);
+    setRegenResult(null);
+    try {
+      const refRes = await fetch(`/api/courses/${courseId}/course-reference`);
+      const refData = await refRes.json();
+      if (!refData.ok || !refData.reference?.markdown) {
+        setError(
+          "No Course Reference markdown found for this course. Upload one on the Content tab first.",
+        );
+        return;
+      }
+      const res = await fetch(`/api/courses/${courseId}/import-modules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markdown: refData.reference.markdown }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        await loadScorecard();
+        setRegenResult({ ok: true, moduleCount: data.modulesImported ?? data.created });
+      } else {
+        setError(data.error || "Re-import failed");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setRegenerating(false);
+    }
+  }, [courseId, regenerating, loadScorecard]);
+
   // ── Reconcile TPs handler ─────────────────────────────────
   const handleReconcileTPs = useCallback(async () => {
     if (!curriculumId) return;
@@ -158,6 +205,46 @@ export function CourseCurriculumTab({
     onReExtractInstructions: handleReExtractInstructions,
   } : undefined;
 
+  // ── Always-visible regenerate bar ─────────────────────────
+  // Mode badge + Regenerate button, routed by `modulesAuthored`. Lives
+  // at the top of EVERY render path so educators can recover from any
+  // state (no curriculum yet, partial curriculum, healthy curriculum,
+  // post-failure state from a fire-and-forget wizard generation, etc.).
+  const isAuthored = modulesAuthored === true;
+  const modeLabel = modulesAuthored === null
+    ? "Detecting…"
+    : isAuthored
+      ? "Authored modules"
+      : "AI-led";
+  const regenLabel = isAuthored ? "Re-import modules" : "Regenerate curriculum";
+  const regenHelper = isAuthored
+    ? "Re-parses the latest Course Reference markdown to refresh modules + LOs. Idempotent — preserves learner progress."
+    : "AI re-runs module + LO extraction from your existing assertions. Lesson plan assignments are preserved but may go stale.";
+  const regenHandler = isAuthored ? handleReimportAuthored : handleRegenerate;
+
+  const RegenerateBar = () => (
+    <div className="hf-card hf-card-compact hf-curriculum-regen-bar">
+      <div className="hf-curriculum-regen-row">
+        <div className="hf-curriculum-regen-info">
+          <span className={`hf-badge ${isAuthored ? "hf-badge-info" : "hf-badge-muted"}`}>
+            Mode: {modeLabel}
+          </span>
+          <p className="hf-text-sm hf-text-muted hf-curriculum-regen-help">{regenHelper}</p>
+        </div>
+        {isOperator && (
+          <button
+            type="button"
+            className="hf-btn hf-btn-secondary"
+            onClick={regenHandler}
+            disabled={regenerating || modulesAuthored === null}
+          >
+            {regenerating ? "Working…" : regenLabel}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   // ── Render ─────────────────────────────────────────────────
   // Wait for the scorecard fetch before deciding whether a curriculum exists —
   // the scorecard response is the authoritative source. If the scorecard
@@ -176,13 +263,16 @@ export function CourseCurriculumTab({
     // "no curriculum" empty state lives below the panel.
     return (
       <div className="hf-stack-md">
+        <RegenerateBar />
         <AuthoredModulesPanel
           courseId={playbookId ?? courseId}
           isOperator={isOperator}
+          onModulesAuthoredChange={setModulesAuthored}
         />
         <div className="hf-empty">
           <p className="hf-text-sm hf-text-muted">
-            No curriculum yet. Upload content on the Content tab to generate one.
+            No curriculum yet. Upload content on the Content tab to generate one,
+            {isAuthored ? " or re-import authored modules above." : " or click Regenerate above."}
           </p>
         </div>
       </div>
@@ -203,6 +293,8 @@ export function CourseCurriculumTab({
   return (
     <div className="hf-stack-md">
       {error && <div className="hf-banner hf-banner-error">{error}</div>}
+
+      <RegenerateBar />
 
       <AuthoredModulesPanel
         courseId={playbookId ?? courseId}

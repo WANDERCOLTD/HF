@@ -3,6 +3,37 @@
    Epic #131 #138
    ═══════════════════════════════════════════════════════ */
 
+/* Always-visible mode badge + regenerate bar.
+   Lives at the top of the Curriculum tab so educators can recover
+   from any state — including silent failures of the post-wizard
+   curriculum builder. Routes by `modulesAuthored`:
+     - true  → POST /api/courses/[id]/import-modules (with course-ref md)
+     - false → POST /api/courses/[id]/regenerate-curriculum
+*/
+.hf-curriculum-regen-bar {
+  margin-bottom: 4px;
+}
+
+.hf-curriculum-regen-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.hf-curriculum-regen-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hf-curriculum-regen-help {
+  margin: 0;
+}
+
 .hf-stack-md {
   display: flex;
   flex-direction: column;
