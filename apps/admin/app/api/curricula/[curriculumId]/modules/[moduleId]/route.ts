@@ -7,7 +7,7 @@
  * @api PATCH /api/curricula/:curriculumId/modules/:moduleId
  * @scope curricula:write
  * @auth session (OPERATOR+)
- * @desc Update module fields. When learningObjectives[] is provided, full-replaces LOs in transaction.
+ * @desc Update module fields. When learningObjectives[] is provided, upserts LOs by ref (preserving classifier-owned columns: originalText, learnerVisible, performanceStatement, systemRole, humanOverriddenAt). Refs absent from the payload are deleted.
  *
  * @api DELETE /api/curricula/:curriculumId/modules/:moduleId
  * @scope curricula:write
@@ -134,17 +134,46 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       });
 
       if (learningObjectives !== undefined) {
-        // Full-replace: delete all existing, re-create from array
-        await tx.learningObjective.deleteMany({ where: { moduleId } });
+        // #317 — upsert-by-ref instead of deleteMany+create. The author UI edits
+        // `description` only; classifier-owned columns (originalText,
+        // learnerVisible, performanceStatement, systemRole, humanOverriddenAt)
+        // and per-LO mastery overrides MUST survive a re-save. Refs absent from
+        // the incoming array are still deleted — the author is authoritative
+        // about presence, the classifier is authoritative about audience split.
+        const incomingRefs = new Set(
+          learningObjectives.map((lo) => sanitiseLORef(lo.ref) ?? lo.ref),
+        );
+        const existingRows = await tx.learningObjective.findMany({
+          where: { moduleId },
+          select: { id: true, ref: true },
+        });
+        const removedIds = existingRows
+          .filter((row) => !incomingRefs.has(row.ref))
+          .map((row) => row.id);
+        if (removedIds.length > 0) {
+          await tx.learningObjective.deleteMany({ where: { id: { in: removedIds } } });
+        }
 
         for (let i = 0; i < learningObjectives.length; i++) {
           const lo = learningObjectives[i];
-          await tx.learningObjective.create({
-            data: {
+          const ref = sanitiseLORef(lo.ref) ?? lo.ref;
+          const description = lo.description.trim();
+          await tx.learningObjective.upsert({
+            where: { moduleId_ref: { moduleId, ref } },
+            create: {
               moduleId,
-              ref: sanitiseLORef(lo.ref) ?? lo.ref,
-              description: lo.description.trim(),
+              ref,
+              description,
+              // Capture originalText on first create so future author edits can
+              // overwrite `description` without losing the verbatim source.
+              originalText: description,
               sortOrder: i,
+            },
+            update: {
+              description,
+              sortOrder: i,
+              // Intentionally NOT updating originalText, learnerVisible,
+              // performanceStatement, systemRole, humanOverriddenAt, masteryThreshold.
             },
           });
         }

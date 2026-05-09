@@ -85,6 +85,15 @@ enum AssessmentUse {
   TUTOR_ONLY // Tutor reference only (never shown to student as MCQ)
 }
 
+// LO audience role (#317). NONE = learner-facing teaching point. Other values =
+// system-only LO that surfaces in the named context but NOT on the learner curriculum.
+enum LoSystemRole {
+  ASSESSOR_RUBRIC // Rubric criteria / band descriptors — surface only in scoring prompt
+  ITEM_GENERATOR_SPEC // Boundary spec for question generator (e.g. "Band 6 vs 7 distinguishing features")
+  SCORE_EXPLAINER // "How is this calculated?" disclosure on score reveal
+  NONE // Default — LO is a learner-facing teaching point
+}
+
 // Conversation artifact types - content worth sharing from a call
 enum ConversationArtifactType {
   SUMMARY // Call summary / key takeaways
@@ -2264,15 +2273,69 @@ model LearningObjective {
   // thresholds per outcome without touching the parent module.
   masteryThreshold Float?
 
+  // === Audience split (#317) ===
+  // Verbatim source text. Captured once on first import; immutable across re-imports
+  // (the authored-markdown sync overwrites `description`, this preserves the original).
+  originalText String? @db.Text
+
+  // True (default) → render on learner curriculum page using `performanceStatement ?? description`.
+  // False → hide from learner UI; surface elsewhere per `systemRole`.
+  learnerVisible Boolean @default(true)
+
+  // Learner-facing rewrite ("Speak for 90 seconds without stalling on word-search").
+  // Only set when learnerVisible=true. When null + learnerVisible=true, fall back to description.
+  performanceStatement String? @db.Text
+
+  // Where a non-learner-visible LO surfaces (assessor prompt, item gen, score reveal).
+  // Defaults NONE → LO is a learner teaching point with no system-prompt role.
+  systemRole LoSystemRole @default(NONE)
+
+  // Sentinel: set when an OPERATOR has reviewed/edited the audience-split fields above.
+  // Once set, the classifier MUST NOT overwrite originalText, learnerVisible,
+  // performanceStatement, or systemRole on this row. Re-runs still write history rows.
+  humanOverriddenAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Linked assertions
-  assertions ContentAssertion[]
+  assertions      ContentAssertion[]
+  classifications LoClassification[]
 
   @@unique([moduleId, ref])
   @@index([moduleId, sortOrder])
   @@index([ref])
+  @@index([learnerVisible, systemRole])
+}
+
+// Per-run classifier history for an LO (#317). One row per classifier execution.
+// Lets us diff across runs, surface low-confidence rows for review, and restore
+// a prior classification if a re-run goes wrong.
+model LoClassification {
+  id   String            @id @default(uuid())
+  loId String
+  lo   LearningObjective @relation(fields: [loId], references: [id], onDelete: Cascade)
+
+  // model + prompt hash, e.g. "claude-sonnet-4-6@2026-05-09:abc123"
+  classifierVersion String
+  runAt             DateTime @default(now())
+
+  // What the classifier proposed (NOT necessarily what got applied to the LO row)
+  proposedLearnerVisible       Boolean
+  proposedPerformanceStatement String?      @db.Text
+  proposedSystemRole           LoSystemRole
+  confidence                   Float // 0.0-1.0; <0.8 routes to review queue
+  rationale                    String?      @db.Text
+
+  // Did the guard auto-apply this run to the LO row?
+  // false + LO.humanOverriddenAt IS NULL → review queue candidate.
+  applied   Boolean   @default(false)
+  appliedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([loId, runAt])
+  @@index([applied, confidence]) // queue: applied=false ORDER BY confidence ASC
 }
 
 // Per-caller mastery tracking for a specific module

@@ -141,6 +141,10 @@ export async function syncAuthoredModulesToCurriculum(
             moduleId: result.id,
             ref,
             description,
+            // #317 — pin verbatim source on first create. Future re-imports
+            // refresh `description` but `originalText` stays as the first
+            // value we saw, so classifier diffs and provenance UI keep working.
+            originalText: description,
             sortOrder: loIdx,
           },
           update: {
@@ -148,6 +152,9 @@ export async function syncAuthoredModulesToCurriculum(
             // adjustments only when not authoritatively reset by the import.
             description,
             sortOrder: loIdx,
+            // #317 — classifier-owned columns (originalText, learnerVisible,
+            // performanceStatement, systemRole, humanOverriddenAt) intentionally
+            // not touched on re-import.
           },
         });
       }

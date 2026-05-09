@@ -160,15 +160,37 @@ export async function POST(req: NextRequest, { params }: Params) {
             );
           }
 
-          await tx.learningObjective.deleteMany({ where: { moduleId: upserted.id } });
+          // #317 — upsert-by-ref instead of deleteMany+create. Preserves
+          // classifier-owned columns (originalText, learnerVisible,
+          // performanceStatement, systemRole, humanOverriddenAt) and per-LO
+          // mastery overrides across re-imports. Refs absent from the new
+          // payload are still removed.
+          const incomingRefs = new Set(parsed.map((lo) => lo.ref));
+          const existingRows = await tx.learningObjective.findMany({
+            where: { moduleId: upserted.id },
+            select: { id: true, ref: true },
+          });
+          const removedIds = existingRows
+            .filter((row) => !incomingRefs.has(row.ref))
+            .map((row) => row.id);
+          if (removedIds.length > 0) {
+            await tx.learningObjective.deleteMany({ where: { id: { in: removedIds } } });
+          }
 
           for (const lo of parsed) {
-            await tx.learningObjective.create({
-              data: {
+            await tx.learningObjective.upsert({
+              where: { moduleId_ref: { moduleId: upserted.id, ref: lo.ref } },
+              create: {
                 moduleId: upserted.id,
                 ref: lo.ref,
                 description: lo.description,
+                originalText: lo.description, // capture verbatim once
                 sortOrder: lo.sortOrder,
+              },
+              update: {
+                description: lo.description,
+                sortOrder: lo.sortOrder,
+                // Classifier-owned columns intentionally not touched.
               },
             });
           }
