@@ -42,6 +42,9 @@ export interface IntakeToggleGroupProps {
   initial: IntakeValues;
   /** Called every time any toggle changes — caller persists via setData */
   onChange: (next: IntakeValues) => void;
+  /** When false, suppress the section header + help paragraph. Used by the
+   * Course Design tab where the parent panel already provides framing. */
+  showHeader?: boolean;
 }
 
 const DEFAULTS: IntakeValues = {
@@ -52,7 +55,7 @@ const DEFAULTS: IntakeValues = {
   aiIntroCall: false,
 };
 
-export function IntakeToggleGroup({ initial, onChange }: IntakeToggleGroupProps) {
+export function IntakeToggleGroup({ initial, onChange, showHeader = true }: IntakeToggleGroupProps) {
   const [values, setValues] = useState<IntakeValues>({ ...DEFAULTS, ...initial });
 
   // Push to caller whenever values change.
@@ -66,14 +69,18 @@ export function IntakeToggleGroup({ initial, onChange }: IntakeToggleGroupProps)
 
   return (
     <section className="itg">
-      <FieldHint
-        label="First-call intake"
-        hint={WIZARD_HINTS["course.firstCallIntake"]}
-        labelClass="hf-section-title"
-      />
-      <p className="itg-help">
-        What should the AI ask the learner on Call 1? Each toggle is independent.
-      </p>
+      {showHeader && (
+        <>
+          <FieldHint
+            label="First-call intake"
+            hint={WIZARD_HINTS["course.firstCallIntake"]}
+            labelClass="hf-section-title"
+          />
+          <p className="itg-help">
+            What should the AI ask the learner on Call 1? Each toggle is independent.
+          </p>
+        </>
+      )}
 
       <ul className="itg-list">
         <ToggleItem

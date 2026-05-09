@@ -7,21 +7,23 @@ import { ContractRegistry } from "@/lib/contracts/registry";
 // ---------------------------------------------------------------------------
 
 /**
- * True iff at least one Welcome-flow phase is enabled.
+ * True iff at least one Welcome-flow / Intake phase is enabled.
  *
- * Source of truth: `playbook.config.welcome.*` (written by the Course Design tab).
- * Replaces the legacy `playbook.config.surveys.pre.enabled` field — that field is
- * no longer written, and any stale value left on existing playbooks is ignored.
+ * Read precedence (matches resolveSessionFlow().intake):
+ *   1. `playbook.config.sessionFlow.intake.*` — canonical shape (#221)
+ *   2. `playbook.config.welcome.*`             — legacy mirror (Course Design tab + wizard)
+ *   3. DEFAULT_INTAKE_CONFIG                   — empty playbook config
  *
- * Defaults match DEFAULT_WELCOME_CONFIG in `lib/types/json-fields.ts`:
- *   - goals: true
- *   - aboutYou: true
- *   - knowledgeCheck: false
- *
- * `welcome.aiIntroCall` is intentionally excluded — it gates a separate intro
- * call, not the in-call discovery / pre-survey scaffolding.
+ * `aiIntroCall` is intentionally excluded — it gates a separate intro call,
+ * not the in-call discovery / pre-survey scaffolding.
  */
 export function isPreSurveyEnabled(pbConfig: PlaybookConfig | null | undefined): boolean {
+  const intake = pbConfig?.sessionFlow?.intake;
+  if (intake) {
+    return intake.goals.enabled
+        || intake.aboutYou.enabled
+        || intake.knowledgeCheck.enabled;
+  }
   const w = pbConfig?.welcome;
   return (w?.goals?.enabled ?? true)
       || (w?.aboutYou?.enabled ?? true)
