@@ -9,6 +9,60 @@
 // ── Helpers ─────────────────────────────────────────────
 
 /**
+ * Per-field value enums for `update_setup` validation (#315).
+ *
+ * Today's bug: AI mis-routed value `"learner-picks"` (a `progressionMode`
+ * option) into the `interactionPattern` field. `interactionPattern` only
+ * accepts socratic/directive/advisory/coaching/etc. — silently accepted,
+ * `progressionMode` left unset, `create_course` BLOCKED, success card lied.
+ *
+ * This map is the validator source of truth. Add fields here as they are
+ * confirmed enum-typed and at risk of cross-field confusion. Fields not in
+ * this map pass through unchanged (free-text, computed bag keys, etc.).
+ *
+ * Values must match the `optionsKey` value list in `lib/wizard/graph-nodes.ts`
+ * AND the FALLBACK_VALUES section of the v5/conversational system prompts.
+ */
+const UPDATE_SETUP_FIELD_ENUMS: Record<string, readonly string[]> = {
+  interactionPattern: [
+    "socratic",
+    "directive",
+    "advisory",
+    "coaching",
+    "companion",
+    "facilitation",
+    "reflective",
+    "open",
+    "conversational-guide",
+  ],
+  progressionMode: ["ai-led", "learner-picks"],
+  // teachingMode is intentionally NOT included until its enum is stable
+  // and prompt coverage matches.
+};
+
+/**
+ * Validate that values written via `update_setup` belong to their field's
+ * enum. Returns the first invalid pair found, or null if all valid.
+ * Fields without an enum entry pass through.
+ */
+export function validateUpdateSetupFields(
+  fields: Record<string, unknown>,
+): { field: string; value: unknown; allowed: readonly string[]; suggestedField?: string } | null {
+  for (const [field, value] of Object.entries(fields)) {
+    const allowed = UPDATE_SETUP_FIELD_ENUMS[field];
+    if (!allowed || typeof value !== "string") continue;
+    if (!allowed.includes(value)) {
+      // Try to suggest which field this value SHOULD have gone to.
+      const suggestedField = Object.entries(UPDATE_SETUP_FIELD_ENUMS).find(
+        ([k, vs]) => k !== field && vs.includes(value),
+      )?.[0];
+      return { field, value, allowed, suggestedField };
+    }
+  }
+  return null;
+}
+
+/**
  * Build the student-experience portion of a Playbook.config from wizard
  * setupData. Writes BOTH the legacy shape (`welcome` / `nps` / `surveys`)
  * AND the new canonical `sessionFlow.intake` shape (#216 mirror pattern).
@@ -188,6 +242,27 @@ export async function executeWizardTool(
     case "update_setup": {
       const fields = input.fields as Record<string, unknown>;
       const keys = Object.keys(fields);
+
+      // ── Per-field enum validation (#315) ────────────────
+      // Reject mis-routed values BEFORE any side-effects fire below.
+      // Only runs against fields with a registered enum; everything else
+      // (UUIDs, computed bag keys, free-text) passes through.
+      const invalid = validateUpdateSetupFields(fields);
+      if (invalid) {
+        const suggestion = invalid.suggestedField
+          ? ` "${invalid.value}" looks like a value for "${invalid.suggestedField}" — did you mean to write to that field instead?`
+          : "";
+        const errorMsg =
+          `Invalid value "${invalid.value}" for field "${invalid.field}". ` +
+          `Allowed values: ${invalid.allowed.join(", ")}.${suggestion} ` +
+          `setupData was NOT updated. Re-issue update_setup with the correct field/value.`;
+        console.warn(`[wizard-tools] update_setup REJECTED — ${errorMsg}`);
+        return {
+          ...base,
+          content: JSON.stringify({ ok: false, error: errorMsg }),
+          is_error: true,
+        };
+      }
 
       // ── Institution resolution ──────────────────────────
       if (fields.institutionName && typeof fields.institutionName === "string") {
@@ -604,8 +679,22 @@ export async function executeWizardTool(
       const graphCheck = evaluateGraph(setupData ?? {});
       if (!graphCheck.canLaunch) {
         const labels = graphCheck.missingRequired.map((n) => n.label);
+        const errorMsg =
+          `Cannot create course yet — still missing required fields: ${labels.join(", ")}. ` +
+          `Collect these from the user FIRST, then call create_course again. ` +
+          `Do NOT call mark_complete. Do NOT tell the user the course was created.`;
         console.log(`[wizard-tools] create_course BLOCKED — missing required: ${labels.join(", ")}`);
-        return { ack: `Cannot create course yet — still missing: ${labels.join(", ")}. Collect these first, then try again.` };
+        // #315: must use the loud {ok:false, is_error:true} shape so the AI
+        // surfaces the failure to the user instead of hallucinating success.
+        return {
+          ...base,
+          content: JSON.stringify({
+            ok: false,
+            error: errorMsg,
+            missingRequired: labels,
+          }),
+          is_error: true,
+        };
       }
       // Server-side: full course creation with scaffolding (identity spec, playbook, system specs, publish, onboarding)
       try {

@@ -124,6 +124,26 @@ describe("evaluateGraph — progressive fill", () => {
   });
 
   it("all required fields → canLaunch", () => {
+    // #315: progressionMode (#253) is required; without it the previous
+    // version of this test asserted canLaunch:true on a structurally
+    // invalid board, masking the silent-failure bug we hit on hf-dev.
+    const board = boardWith({
+      institutionName: "PAW Campus",
+      existingDomainId: "dom-1",
+      courseName: "GCSE English",
+      interactionPattern: "socratic",
+      progressionMode: "ai-led",
+    });
+    const result = evaluateGraph(board);
+
+    expect(result.canLaunch).toBe(true);
+    expect(result.missingRequired).toHaveLength(0);
+  });
+
+  it("missing progressionMode → canLaunch=false (regression for #315)", () => {
+    // Same board as the canLaunch happy path, with progressionMode removed.
+    // Before #315 the wizard would still proceed; now the graph check must
+    // refuse so create_course can return a loud is_error to the AI.
     const board = boardWith({
       institutionName: "PAW Campus",
       existingDomainId: "dom-1",
@@ -132,8 +152,9 @@ describe("evaluateGraph — progressive fill", () => {
     });
     const result = evaluateGraph(board);
 
-    expect(result.canLaunch).toBe(true);
-    expect(result.missingRequired).toHaveLength(0);
+    expect(result.canLaunch).toBe(false);
+    const missingKeys = result.missingRequired.map((n) => n.key);
+    expect(missingKeys).toContain("progressionMode");
   });
 
   it("readiness increases as fields are filled", () => {

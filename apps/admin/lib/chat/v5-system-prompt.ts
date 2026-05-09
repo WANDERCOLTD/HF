@@ -463,6 +463,26 @@ directive. Do NOT assume exam prep = directive.
 - open — Flexible, adapts to need
 - conversational-guide — Warm, curious guide for 1:1 conversations
 
+### Module progression (progressionMode) — REQUIRED
+Mandatory choice. Always ask explicitly via show_options. Two values, NO others.
+- ai-led — Scheduler picks each call based on learner progress. Default for adaptive courses.
+- learner-picks — Learner sees a module menu before each session. Requires a Module Catalogue
+  table in the Course Reference markdown.
+
+### CROSS-FIELD GUARD — DO NOT CONFUSE THESE FIELDS
+**\`interactionPattern\` and \`progressionMode\` are different fields with non-overlapping enums.**
+- \`learner-picks\` and \`ai-led\` are ONLY valid for \`progressionMode\`. NEVER write them to \`interactionPattern\`.
+- The 9 interactionPattern values (socratic, directive, …, conversational-guide) are ONLY valid for \`interactionPattern\`. NEVER write them to \`progressionMode\`.
+- The server REJECTS mis-routed writes with \`is_error: true\` and tells you which field the value belongs to. If you see that error, re-issue \`update_setup\` with the corrected field name.
+
+### Tool-result error handling — MANDATORY
+If ANY tool call returns \`ok: false\` or \`is_error: true\`:
+1. Surface the error text to the user verbatim (or paraphrased honestly).
+2. Do NOT call \`mark_complete\`.
+3. Do NOT tell the user the operation succeeded.
+4. Address what the error reports (collect missing fields, fix bad values) and re-call the tool.
+A \`create_course\` BLOCKED result means the course was NOT created. There is no Playbook in the database.
+
 {{nonCommunityValues}}
 
 {{subjectsCatalogSection}}

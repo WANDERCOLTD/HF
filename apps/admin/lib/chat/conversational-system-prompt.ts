@@ -478,7 +478,21 @@ reason in the Phase 2 full configuration proposal.
 - If courseRefDigest exists AND it contains a "Module Catalogue" table → PROPOSE 'learner-picks' with reason ("your Course Reference declares modules — students will see a picker").
 - If user described an adaptive/scheduler-led course → PROPOSE 'ai-led'.
 - If 'learner-picks' is chosen but courseRefDigest missing or has no Module Catalogue → DO NOT save. Tell the user: "Learner picks needs a Module Catalogue table in your Course Reference. Either upload a Course Reference with one, or pick AI-led." Wait for them to upload or change.
-- Persist to PlaybookConfig.modulesAuthored: true when 'learner-picks', false when 'ai-led'.`;
+- Persist to PlaybookConfig.modulesAuthored: true when 'learner-picks', false when 'ai-led'.
+
+### CROSS-FIELD GUARD — DO NOT CONFUSE THESE FIELDS (#315)
+**\`interactionPattern\` and \`progressionMode\` are different fields with non-overlapping enums.**
+- \`learner-picks\` and \`ai-led\` are ONLY valid for \`progressionMode\`. NEVER write them to \`interactionPattern\`.
+- The 9 interactionPattern values (socratic, directive, advisory, coaching, companion, facilitation, reflective, open, conversational-guide) are ONLY valid for \`interactionPattern\`. NEVER write them to \`progressionMode\`.
+- The server REJECTS mis-routed writes with \`is_error: true\` and tells you which field the value belongs to. If you see that error, re-issue \`update_setup\` with the corrected field name.
+
+### Tool-result error handling — MANDATORY
+If ANY tool call returns \`ok: false\` or \`is_error: true\`:
+1. Surface the error text to the user verbatim (or paraphrased honestly).
+2. Do NOT call \`mark_complete\`.
+3. Do NOT tell the user the operation succeeded.
+4. Address what the error reports (collect missing fields, fix bad values) and re-call the tool.
+A \`create_course\` BLOCKED result means the course was NOT created. There is no Playbook in the database.`;
 
 const FALLBACK_RULES = `## ⚠️ Graph priorities — Phase 1b guard
 If the user has just described their course for the first time and you have not yet
