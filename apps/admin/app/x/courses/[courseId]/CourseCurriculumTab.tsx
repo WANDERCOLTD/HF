@@ -152,15 +152,15 @@ export function CourseCurriculumTab({
       }
       if (!refData.reference) {
         setError(
-          "No source classified as COURSE_REFERENCE is linked to this course. " +
-            "Check the Content tab — your reference document may have been classified " +
-            "as CURRICULUM, LESSON_PLAN, or something else. Re-classify it as COURSE_REFERENCE first.",
+          "No reference-like source (COURSE_REFERENCE / CURRICULUM / REFERENCE / LESSON_PLAN / POLICY_DOCUMENT) " +
+            "is linked to this course, and no uploaded markdown contains a parseable Module Catalogue. " +
+            "Upload a Course Reference document on the Content tab first.",
         );
         return;
       }
       if (!refData.reference.markdown) {
         setError(
-          `Course Reference "${refData.reference.name}" was found but its extracted text is empty. ` +
+          `Source "${refData.reference.name}" was found but its extracted text is empty. ` +
             "The upload may have failed silently — try re-uploading the file.",
         );
         return;
@@ -173,7 +173,21 @@ export function CourseCurriculumTab({
       const data = await res.json();
       if (data.ok) {
         await loadScorecard();
-        setRegenResult({ ok: true, moduleCount: data.modulesImported ?? data.created });
+        const warnings = [];
+        if (refData.reference.documentType !== "COURSE_REFERENCE") {
+          warnings.push(
+            `Re-imported from a "${refData.reference.documentType}" source — the AI classifier didn't tag your reference as COURSE_REFERENCE. ` +
+              `Re-classifying it on the Content tab will make this routing more reliable.`,
+          );
+        }
+        if (refData.reference.inferredFromContent) {
+          warnings.push("Source was matched by Module Catalogue table detection rather than its declared doctype.");
+        }
+        setRegenResult({
+          ok: true,
+          moduleCount: data.modulesImported ?? data.created,
+          warnings,
+        });
       } else {
         setError(data.error || "Re-import failed");
       }
@@ -280,7 +294,15 @@ export function CourseCurriculumTab({
         {error && <div className="hf-banner hf-banner-error">{error}</div>}
         {regenResult?.ok && (
           <div className="hf-banner hf-banner-success">
-            Re-imported successfully{regenResult.moduleCount != null ? ` (${regenResult.moduleCount} modules)` : ""}.
+            <div>
+              Re-imported successfully
+              {regenResult.moduleCount != null ? ` (${regenResult.moduleCount} modules)` : ""}.
+            </div>
+            {regenResult.warnings && regenResult.warnings.length > 0 && (
+              <ul className="hf-text-sm hf-text-muted">
+                {regenResult.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            )}
           </div>
         )}
         <RegenerateBar />
