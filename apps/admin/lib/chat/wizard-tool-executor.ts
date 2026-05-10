@@ -1156,6 +1156,19 @@ export async function executeWizardTool(
         if (newAudience) configUpdate.audience = newAudience;
         const newLessonPlanModel = (input.lessonPlanModel as string) || (setupData?.lessonPlanModel as string);
         if (newLessonPlanModel) configUpdate.lessonPlanModel = newLessonPlanModel;
+
+        // #253 follow-up: progressionMode → modulesAuthored mirror.
+        // The existing-path branch above (line ~796) already does this, but
+        // the new-path branch was missing it — net effect: brand-new courses
+        // landed with modulesAuthored=null, surfacing a "Mode not set" pill on
+        // the course page even when the wizard had collected a clear answer.
+        const newProgressionMode =
+          (input.progressionMode as string) || (setupData?.progressionMode as string);
+        if (newProgressionMode === "learner-picks") {
+          configUpdate.modulesAuthored = true;
+        } else if (newProgressionMode === "ai-led") {
+          configUpdate.modulesAuthored = false;
+        }
         const newPhysicalMaterials = (input.physicalMaterials as string) || (setupData?.physicalMaterials as string);
         if (newPhysicalMaterials) configUpdate.physicalMaterials = newPhysicalMaterials;
         const newCourseContext = (input.courseContext as string) || (setupData?.courseContext as string);
