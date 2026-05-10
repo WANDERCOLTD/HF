@@ -21,6 +21,7 @@
  */
 
 import pLimit from "p-limit";
+import { jsonrepair } from "jsonrepair";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { getAITimeoutSettings } from "@/lib/system-settings";
 import { getPromptTemplate } from "@/lib/prompts/prompt-settings";
@@ -244,8 +245,16 @@ export async function classifyLoLlm(input: ClassifyLoInput): Promise<ClassifyLoR
 
     const raw = result.content.trim();
     let jsonStr = raw.startsWith("{") ? raw : raw.replace(/^```json?\n?/, "").replace(/\n?```$/, "");
-    jsonStr = jsonStr.replace(/,\s*([}\]])/g, "$1");
-    const parsed = JSON.parse(jsonStr) as LlmRawOutput;
+    // LLM outputs sometimes contain embedded slashes, IPA notation, smart
+    // quotes, or trailing commas that break JSON.parse. jsonrepair fixes
+    // these without losing data — same pattern used elsewhere in the
+    // codebase (#314 / generate-mcqs.ts).
+    let parsed: LlmRawOutput;
+    try {
+      parsed = JSON.parse(jsonStr) as LlmRawOutput;
+    } catch {
+      parsed = JSON.parse(jsonrepair(jsonStr)) as LlmRawOutput;
+    }
 
     const systemRole = (parsed.systemRole ?? "NONE") as LoSystemRole;
     const learnerVisible =
