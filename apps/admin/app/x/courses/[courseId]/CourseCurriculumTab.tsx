@@ -47,6 +47,8 @@ interface RegenerateResponse {
   lessonPlanStaleWarning?: boolean;
   orphanedProgressSlugs?: string[];
   error?: string;
+  /** #317 — reclassify-los free-form summary; appears in the success banner. */
+  message?: string;
 }
 
 export function CourseCurriculumTab({
@@ -150,12 +152,34 @@ export function CourseCurriculumTab({
     if (data.ok) await loadScorecard();
   }, [courseId, loadScorecard]);
 
+  // ── Reclassify LO audiences handler (#317) ────────────────
+  const handleReclassifyLos = useCallback(async () => {
+    if (!curriculumId) return;
+    const res = await fetch(`/api/curricula/${curriculumId}/reclassify-los`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      // Surface a quick summary so the operator sees the audience-split impact.
+      setRegenResult({
+        ok: true,
+        message: `Reclassified ${data.total} LOs — ${data.applied} applied, ${data.queued} queued for review${data.skipped ? `, ${data.skipped} skipped (human-overridden)` : ""}.`,
+      });
+      await loadScorecard();
+    } else {
+      setRegenResult({ ok: false, error: data.error ?? "Reclassify failed" });
+    }
+  }, [curriculumId, loadScorecard]);
+
   // ── Regenerate actions bundle ─────────────────────────────
   const regenerateActions: RegenerateActions | undefined = isOperator ? {
     onRegenerateModules: handleRegenerate,
     onReconcileTPs: handleReconcileTPs,
     onRegenerateMcqs: handleRegenerateMcqs,
     onReExtractInstructions: handleReExtractInstructions,
+    onReclassifyLos: handleReclassifyLos,
   } : undefined;
 
   // ── Render ─────────────────────────────────────────────────
@@ -285,6 +309,19 @@ function RegenerateResult({
     return (
       <div className="hf-banner hf-banner-error">
         <AlertTriangle size={14} /> Regeneration failed: {result.error}
+      </div>
+    );
+  }
+
+  // #317 — when the action came from "Reclassify LO audiences", we get a
+  // bespoke `message` field instead of moduleCount. Show that verbatim.
+  if (result.message) {
+    return (
+      <div className="hf-banner hf-banner-success">
+        <div>
+          <CheckCircle2 size={14} />
+          <strong> Reclassified.</strong> {result.message}
+        </div>
       </div>
     );
   }

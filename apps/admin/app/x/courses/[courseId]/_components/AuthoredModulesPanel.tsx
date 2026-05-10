@@ -39,6 +39,13 @@ import { ImportModulesDialog } from "./ImportModulesDialog";
 import { LearnerModulePicker } from "./LearnerModulePicker";
 import "./authored-modules-panel.css";
 
+interface LoAudienceInfo {
+  learnerVisible: boolean;
+  systemRole: string;
+  performanceStatement: string | null;
+  humanOverridden: boolean;
+}
+
 interface AuthoredModulesState {
   modulesAuthored: boolean | null;
   modules: AuthoredModule[];
@@ -57,6 +64,12 @@ interface AuthoredModulesState {
    * Empty object = endpoint pre-#281 (banner suppressed for safety).
    */
   mcqCountsByModule: Record<string, number>;
+  /**
+   * #317 — audience-split per outcome ref. Drives the [hidden:
+   * ASSESSOR_RUBRIC] / etc. badges next to each LO. Empty object means
+   * either the classifier hasn't run yet or the API is pre-#317.
+   */
+  loAudienceByRef: Record<string, LoAudienceInfo>;
 }
 
 interface AuthoredModulesPanelProps {
@@ -83,6 +96,7 @@ const EMPTY_STATE: AuthoredModulesState = {
   hasErrors: false,
   lessonPlanMode: null,
   mcqCountsByModule: {},
+  loAudienceByRef: {},
 };
 
 export function AuthoredModulesPanel({
@@ -115,6 +129,8 @@ export function AuthoredModulesPanel({
         hasErrors: data.hasErrors,
         lessonPlanMode: data.lessonPlanMode,
         mcqCountsByModule: data.mcqCountsByModule ?? {},
+        loAudienceByRef: (data as unknown as { loAudienceByRef?: Record<string, LoAudienceInfo> })
+          .loAudienceByRef ?? {},
       });
       onModulesAuthoredChange?.(data.modulesAuthored);
     } catch (e) {
@@ -179,6 +195,7 @@ export function AuthoredModulesPanel({
             modules={state.modules}
             outcomes={state.outcomes}
             mcqCountsByModule={state.mcqCountsByModule}
+            loAudienceByRef={state.loAudienceByRef}
           />
           <StatusStrip
             warnings={state.validationWarnings}
@@ -255,10 +272,12 @@ function CatalogueTable({
   modules,
   outcomes,
   mcqCountsByModule,
+  loAudienceByRef,
 }: {
   modules: AuthoredModule[];
   outcomes: Record<string, string>;
   mcqCountsByModule: Record<string, number>;
+  loAudienceByRef: Record<string, LoAudienceInfo>;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const toggle = (id: string) =>
@@ -291,6 +310,7 @@ function CatalogueTable({
                 isExpanded={isExpanded}
                 onToggle={() => toggle(m.id)}
                 mcqCount={mcqCount}
+                loAudienceByRef={loAudienceByRef}
               />
             );
           })}
@@ -306,11 +326,13 @@ function CatalogueRow({
   isExpanded,
   onToggle,
   mcqCount,
+  loAudienceByRef,
 }: {
   module: AuthoredModule;
   outcomes: Record<string, string>;
   isExpanded: boolean;
   onToggle: () => void;
+  loAudienceByRef: Record<string, LoAudienceInfo>;
   /** #281 Slice 3b: number of ContentQuestion rows whose learningOutcomeRef ∈ this module's outcomesPrimary. 0 = render the "no learner-facing content" banner inside ModuleDetail. */
   mcqCount: number;
 }) {
@@ -357,7 +379,7 @@ function CatalogueRow({
       {isExpanded && (
         <tr className="authored-modules-table__detail-row">
           <td colSpan={8} className="authored-modules-table__detail-cell">
-            <ModuleDetail module={m} outcomes={outcomes} mcqCount={mcqCount} />
+            <ModuleDetail module={m} outcomes={outcomes} mcqCount={mcqCount} loAudienceByRef={loAudienceByRef} />
           </td>
         </tr>
       )}
@@ -398,12 +420,20 @@ function ModuleDetail({
   module: m,
   outcomes,
   mcqCount,
+  loAudienceByRef,
 }: {
   module: AuthoredModule;
   outcomes: Record<string, string>;
   /** #281 Slice 3b: 0 → render "no learner-facing content" banner. */
   mcqCount: number;
+  /** #317 — audience-split per outcome ref so we can render hidden badges. */
+  loAudienceByRef: Record<string, LoAudienceInfo>;
 }) {
+  // Tally so we can show a "X hidden from learners" summary on the section header.
+  const hiddenRefs = m.outcomesPrimary.filter((ref) => {
+    const info = loAudienceByRef[ref];
+    return info && !info.learnerVisible;
+  });
   return (
     <div className="authored-modules-detail">
       {/* #281 Slice 3b: surface insufficient-content state for this module.
@@ -446,6 +476,15 @@ function ModuleDetail({
         <section className="authored-modules-detail__section">
           <h4 className="authored-modules-detail__section-title">
             Primary outcomes
+            {hiddenRefs.length > 0 && (
+              <span
+                className="hf-badge hf-badge-xs hf-badge-muted"
+                style={{ marginLeft: 8 }}
+                title="LOs flagged by the audience classifier as system-only — assessor / item-generator / score-explainer content the learner doesn't study directly."
+              >
+                {hiddenRefs.length} hidden from learners
+              </span>
+            )}
           </h4>
           {m.outcomesPrimary.length === 0 ? (
             <p className="hf-text-sm hf-text-muted">None declared.</p>
@@ -453,6 +492,7 @@ function ModuleDetail({
             <ul className="authored-modules-detail__list">
               {m.outcomesPrimary.map((id) => {
                 const statement = outcomes[id];
+                const audience = loAudienceByRef[id];
                 return (
                   <li key={id} className="authored-modules-detail__list-item">
                     <code className="authored-modules-detail__outcome-id">{id}</code>
@@ -461,6 +501,7 @@ function ModuleDetail({
                         {statement}
                       </span>
                     )}
+                    {audience && <LoAudienceBadge audience={audience} />}
                   </li>
                 );
               })}
@@ -635,5 +676,61 @@ function LearnerPickerPreview({
       </p>
       <LearnerModulePicker modules={modules} lessonPlanMode={lessonPlanMode} />
     </div>
+  );
+}
+
+// ── #317 — LO audience badge ──────────────────────────────────
+//
+// Renders next to each outcome ref to communicate why some LOs are not on
+// the learner curriculum page. Badge maps systemRole → tone:
+//   ASSESSOR_RUBRIC      → muted "rubric" (assessor-only)
+//   ITEM_GENERATOR_SPEC  → info "item gen"
+//   SCORE_EXPLAINER      → muted "score explainer"
+//   NONE / learner-visible → success "learner" (only when classified)
+// `humanOverridden=true` adds a 🔒 affix so reviewers know not to re-classify.
+function LoAudienceBadge({ audience }: { audience: LoAudienceInfo }) {
+  if (audience.learnerVisible && audience.systemRole === "NONE") {
+    return (
+      <span
+        className="hf-badge hf-badge-xs hf-badge-success"
+        style={{ marginLeft: 8 }}
+        title={
+          (audience.performanceStatement
+            ? `Learner-facing. Performance statement: "${audience.performanceStatement}"`
+            : "Learner-facing teaching point.") +
+          (audience.humanOverridden ? " (Human-reviewed.)" : "")
+        }
+      >
+        learner{audience.humanOverridden ? " 🔒" : ""}
+      </span>
+    );
+  }
+  const role = audience.systemRole;
+  const tone =
+    role === "ITEM_GENERATOR_SPEC" ? "hf-badge-info" : "hf-badge-muted";
+  const label =
+    role === "ASSESSOR_RUBRIC"
+      ? "hidden · rubric"
+      : role === "ITEM_GENERATOR_SPEC"
+      ? "hidden · item gen"
+      : role === "SCORE_EXPLAINER"
+      ? "hidden · score explainer"
+      : "hidden";
+  const tooltip =
+    role === "ASSESSOR_RUBRIC"
+      ? "Hidden from learners. Surfaces in the assessor's grading prompt as rubric criteria."
+      : role === "ITEM_GENERATOR_SPEC"
+      ? "Hidden from learners. Used by the question generator as a boundary spec."
+      : role === "SCORE_EXPLAINER"
+      ? 'Hidden from learners. Surfaces only in the "How is this calculated?" tooltip on the score reveal.'
+      : "Hidden from learners.";
+  return (
+    <span
+      className={`hf-badge hf-badge-xs ${tone}`}
+      style={{ marginLeft: 8 }}
+      title={tooltip + (audience.humanOverridden ? " (Human-reviewed.)" : "")}
+    >
+      {label}{audience.humanOverridden ? " 🔒" : ""}
+    </span>
   );
 }

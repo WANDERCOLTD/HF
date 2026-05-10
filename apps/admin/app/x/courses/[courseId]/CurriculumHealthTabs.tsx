@@ -74,6 +74,8 @@ export interface RegenerateActions {
   onReconcileTPs?: () => Promise<void>;
   onRegenerateMcqs?: () => Promise<void>;
   onReExtractInstructions?: () => Promise<void>;
+  /** #317 — re-run the LO audience classifier on this curriculum. */
+  onReclassifyLos?: () => Promise<void>;
 }
 
 interface Props {
@@ -143,6 +145,7 @@ function RegenerateDropdown({
       { key: "tps", fn: actions?.onReconcileTPs },
       { key: "mcqs", fn: actions?.onRegenerateMcqs },
       { key: "instructions", fn: actions?.onReExtractInstructions },
+      { key: "reclassifyLos", fn: actions?.onReclassifyLos },
     ].filter((s) => s.fn);
     for (const step of steps) {
       setRunningItem(step.key);
@@ -166,6 +169,7 @@ function RegenerateDropdown({
     { key: "tps", icon: "🔗", label: "Teaching Point linking", badge: tpBadgeText, warn: tpLinked < tpTotal, fn: actions?.onReconcileTPs },
     { key: "mcqs", icon: "❓", label: "Questions & MCQs", badge: mcqBadgeText, warn: scorecard.questions.total === 0, fn: actions?.onRegenerateMcqs },
     { key: "instructions", icon: "📏", label: "Tutor Instructions", badge: instrBadgeText, warn: false, fn: actions?.onReExtractInstructions },
+    { key: "reclassifyLos", icon: "👁", label: "Reclassify LO audiences", badge: "learner ↔ system", warn: false, fn: actions?.onReclassifyLos },
   ];
 
   // Fallback: if no actions provided, use the old single button
