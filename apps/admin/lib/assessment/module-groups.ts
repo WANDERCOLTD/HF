@@ -43,7 +43,10 @@ export async function resolveModuleGroupsForSource(
     where: { sourceId },
     select: {
       playbook: {
-        select: { config: true },
+        select: {
+          config: true,
+          curricula: { select: { id: true }, orderBy: { createdAt: "asc" }, take: 1 },
+        },
       },
     },
   });
@@ -54,17 +57,47 @@ export async function resolveModuleGroupsForSource(
   const modules = Array.isArray(cfg?.modules) ? cfg!.modules : [];
   if (modules.length === 0) return null;
 
+  // #317 — load systemRole for each ref in this curriculum so we can drop
+  // refs that point to system-only LOs (rubric or score-explainer). They
+  // describe how the assessor scores, not what the learner should answer
+  // questions about. ITEM_GENERATOR_SPEC refs stay included — they're
+  // boundary specs the question generator legitimately consumes.
+  const curriculumId = playbookSource.playbook.curricula[0]?.id ?? null;
+  const excludedRefs = new Set<string>();
+  if (curriculumId) {
+    const allRefs = modules.flatMap((m) => (Array.isArray(m?.outcomesPrimary) ? (m.outcomesPrimary as string[]) : []));
+    if (allRefs.length > 0) {
+      const excluded = await prisma.learningObjective.findMany({
+        where: {
+          module: { curriculumId },
+          ref: { in: allRefs },
+          systemRole: { in: ["ASSESSOR_RUBRIC", "SCORE_EXPLAINER"] },
+        },
+        select: { ref: true },
+      });
+      for (const lo of excluded) excludedRefs.add(lo.ref);
+    }
+  }
+
   const groups: ModuleGroup[] = [];
   for (const m of modules) {
-    const outcomeRefs = Array.isArray(m?.outcomesPrimary)
+    const allRefs: string[] = Array.isArray(m?.outcomesPrimary)
       ? (m.outcomesPrimary as string[]).filter((r) => typeof r === "string" && r.length > 0)
       : [];
-    if (outcomeRefs.length === 0) continue; // skip baseline-style modules
+    // Drop ASSESSOR_RUBRIC + SCORE_EXPLAINER refs (Q2 decision per #317).
+    const outcomeRefs = allRefs.filter((r) => !excludedRefs.has(r));
+    if (outcomeRefs.length === 0) continue; // skip modules where every ref is system-only
     groups.push({
       moduleId: m.id,
       moduleLabel: m.label || m.id,
       outcomeRefs,
     });
+  }
+
+  if (excludedRefs.size > 0) {
+    console.log(
+      `[module-groups] #317 excluded ${excludedRefs.size} system-only LO ref(s) from MCQ pool: ${[...excludedRefs].join(", ")}`,
+    );
   }
 
   return groups.length > 0 ? groups : null;
