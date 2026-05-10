@@ -144,7 +144,11 @@ export async function generateInstantCurriculum(
 
   // ── Path 1: Assertion-based (content uploaded) ──
   if (subjectIds && subjectIds.length > 0) {
-    const result = await generateContentSpec(domainId, { subjectIds, intents });
+    // #317 follow-up: pass playbookId explicitly so the persisted curriculum
+    // attaches to the wizard's chosen course (the caller knows which one)
+    // instead of resolving to a sibling/old playbook via the
+    // playbookSubject.findFirst race when subjects are shared.
+    const result = await generateContentSpec(domainId, { subjectIds, intents, playbookId });
 
     // ADR-002: contentSpec is always null (AnalysisSpec removed).
     // Curriculum data now lives in Curriculum/Module/LO tables,
