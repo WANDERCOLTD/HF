@@ -555,7 +555,9 @@ ITEM_GENERATOR_SPEC (learnerVisible=false) — boundary spec for question genera
 
 SCORE_EXPLAINER (learnerVisible=false) — meta-knowledge about how scores are mechanically calculated: averaging, weighting, aggregation, criterion-to-band math. Surfaces only as "How is this calculated?" disclosure on the score-reveal screen.
 
-TEACHING_INSTRUCTION (learnerVisible=false) — tutor-strategic facts that change HOW the tutor teaches: where learners typically plateau, what diagnostic signals to watch for, which interventions raise a band, which patterns cap progression. The tutor consumes these as moves to make / things to notice during the session — not as rubric and not as score math. Joins the courseInstructions channel.
+TEACHING_INSTRUCTION (learnerVisible=false) — content the tutor either KNOWS (to inform their moves) or DELIVERS (to brief the learner), but never quizzes the learner on. Two flavours:
+  (a) Tutor-strategic facts that change HOW the tutor teaches: where learners typically plateau, what diagnostic signals to watch for, which interventions raise a band, which patterns cap progression. The tutor consumes these as moves to make / things to notice.
+  (b) Briefing facts the tutor delivers to the learner: test format, exam timing, what an examiner does, course structure, what to expect on test day, definitions of test parts. The tutor states these once and moves on — they are NOT skills to develop and a Socratic "guess how many parts the test has?" is the wrong move for this content. Joins the courseInstructions channel either way.
 
 DECISION HEURISTICS
 
@@ -568,6 +570,9 @@ If the LO is mechanical math / aggregation about HOW a final score is computed �
 If the LO is a tutor-strategic / diagnostic / intervention statement — telling the tutor where learners plateau, what behaviours to watch for, which moves break a plateau, which patterns cap a band → TEACHING_INSTRUCTION.
   Examples: "Recognize that Part 3 is where Band 6 plateaus most often", "Explain why short minimal answers plateau a candidate at Band 5", "Recognize that the discriminator between Band 6 and Band 7 is rarely range alone — it is the candidate's hedging", "Explain that a weak Part 2 typically caps the band at 6"
 
+If the LO is a BRIEFING FACT — test format, exam timing, what an examiner does, course structure, what the learner can expect on test day — content delivered ONCE by the tutor, not a skill the learner practises → TEACHING_INSTRUCTION. (A Socratic "guess how many parts the test has" is the wrong move; the tutor just states the fact.)
+  Examples: "Identify the three parts of the IELTS Speaking test and their durations", "Describe the structure and timing of Part 1", "Explain the examiner's role in Part 1 and the constraints on question rephrasing", "Identify the cue card template for Part 2 with its four-bullet structure", "Identify Part 3 as abstract, opinion-driven discussion thematically linked to Part 2"
+
 If the LO is a boundary spec the question generator would consume → ITEM_GENERATOR_SPEC.
   Examples: "Distinguish Band 5/6/7/8 features", "Map topic categories to MCQ stem types"
 
@@ -577,10 +582,11 @@ If the LO names a measurable thing the learner can DO, practise, or produce → 
 DISAMBIGUATION (apply in order)
 
 1. "Recognize that..." / "Explain that..." + a fact about plateau / discriminator / progression / common error → TEACHING_INSTRUCTION (not SCORE_EXPLAINER, even when bands are mentioned). SCORE_EXPLAINER is reserved for the math.
-2. Descriptive features of a Band-X response that a question generator would use as a target shape → ITEM_GENERATOR_SPEC.
-3. Static rubric criteria the assessor consults to grade → ASSESSOR_RUBRIC.
-4. Score math (averaging / weighting / aggregation / final-band derivation) → SCORE_EXPLAINER.
-5. Otherwise, if it's a learner skill → NONE.
+2. "Identify [N] parts / structure / format / duration / timing" of the test, exam, or session → TEACHING_INSTRUCTION (briefing fact, not a learner skill — Socratic quizzing on test structure is harmful).
+3. Descriptive features of a Band-X response that a question generator would use as a target shape → ITEM_GENERATOR_SPEC.
+4. Static rubric criteria the assessor consults to grade → ASSESSOR_RUBRIC.
+5. Score math (averaging / weighting / aggregation / final-band derivation) → SCORE_EXPLAINER.
+6. Otherwise, if it's a learner skill (performance verb + measurable target) → NONE.
 
 PERFORMANCE STATEMENT (only when systemRole=NONE)
 

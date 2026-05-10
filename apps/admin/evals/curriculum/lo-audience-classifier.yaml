@@ -234,9 +234,16 @@ tests:
           if (p.systemRole !== 'NONE') return { pass: false, reason: `expected NONE, got ${p.systemRole}` };
           return true;
 
-  # ── Boundary case — knowledge verb on test format → NONE ─────────────
+  # ── Test-format briefing → TEACHING_INSTRUCTION (not NONE) ───────────
+  #
+  # Updated 2026-05-10: "Identify the three parts of the test" was previously
+  # classified as NONE on the grounds that the learner needs to know test
+  # format. But: it is a BRIEFING fact the tutor delivers — not a skill the
+  # learner develops. Socratically quizzing the learner with "guess how many
+  # parts the test has" is the wrong move. The role widened to include
+  # briefing facts, so this kind of LO now belongs in TEACHING_INSTRUCTION.
 
-  - description: "Knowledge verb on test-format basics → NONE (learner-relevant)"
+  - description: "Test-format briefing fact → TEACHING_INSTRUCTION (not NONE — tutor delivers, doesn't quiz)"
     vars:
       userMessage: |
         Course: IELTS Speaking
@@ -249,7 +256,21 @@ tests:
           const raw = typeof output === 'string' ? output : JSON.stringify(output);
           const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
           const p = JSON.parse(stripped);
-          // Test-format basics ARE learner content (the learner needs to know
-          // what they're walking into). Should be NONE.
-          if (p.systemRole !== 'NONE') return { pass: false, reason: `expected NONE for test-format basics, got ${p.systemRole}: ${p.rationale}` };
+          if (p.systemRole !== 'TEACHING_INSTRUCTION') return { pass: false, reason: `expected TEACHING_INSTRUCTION (briefing fact, not skill), got ${p.systemRole}: ${p.rationale}` };
+          return true;
+
+  - description: "Examiner-role briefing → TEACHING_INSTRUCTION"
+    vars:
+      userMessage: |
+        Course: IELTS Speaking
+        Module: Part 1: Familiar Topics
+
+        LO LO6: Explain the examiner's role in Part 1 and the constraints on question rephrasing and follow-ups.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          const p = JSON.parse(stripped);
+          if (p.systemRole !== 'TEACHING_INSTRUCTION') return { pass: false, reason: `expected TEACHING_INSTRUCTION (examiner-role briefing), got ${p.systemRole}: ${p.rationale}` };
           return true;
