@@ -79,7 +79,10 @@ const HEURISTIC_RULES: ReadonlyArray<HeuristicRule> = [
     reason: "describes characteristics of a specific band — rubric criteria",
   },
   {
-    pattern: /\bidentify\s+the\s+(four|three|five|six|seven|two|\d+)\s+(criteri(a|on)|categories|features|criteria)\b/i,
+    // "Identify the four criteria" / "Identify the four assessment criteria"
+    // / "Identify the three core criteria of fluency". Allows up to 2
+    // intermediate adjectives between the count word and the head noun.
+    pattern: /\bidentify\s+the\s+(?:four|three|five|six|seven|two|\d+)\s+(?:\w+\s+){0,2}(?:criteri(?:a|on)|standards|rubrics?)\b/i,
     systemRole: "ASSESSOR_RUBRIC",
     confidence: 0.95,
     reason: "identifies the N rubric criteria — assessor knowledge",
