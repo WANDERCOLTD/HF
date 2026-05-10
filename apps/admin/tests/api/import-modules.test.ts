@@ -23,12 +23,16 @@ const { mockPrisma, mockRequireAuth, mockIsAuthError, mockSyncAuthored } = vi.ho
       findUnique: vi.fn(),
       update: vi.fn(),
     },
-    // #245: import-modules POST now wraps the playbook update + module sync
-    // in a transaction. The mock invokes the callback with a tx that proxies
-    // playbook.update so existing assertions still see the call.
+    // #245 + #318 follow-up: import-modules POST now delegates to the shared
+    // importAuthoredModulesIntoPlaybook helper, which itself calls
+    // tx.playbook.findUnique + tx.playbook.update. The mock proxies BOTH so
+    // existing assertions (on playbook.update + mockSyncAuthored) still pass.
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
       const tx = {
-        playbook: { update: mockPrisma.playbook.update },
+        playbook: {
+          findUnique: mockPrisma.playbook.findUnique,
+          update: mockPrisma.playbook.update,
+        },
       };
       return fn(tx);
     }),

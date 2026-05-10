@@ -54,6 +54,34 @@ const FIELD_NAME_CORRECTIONS: Record<string, string> = {
 };
 
 /**
+ * Known-cosmetic field names the AI tries to set that are NOT real wizard
+ * bag fields and have no equivalent canonical key — typically because they
+ * are derived elsewhere (e.g. `modulesAuthored` is set by the course-ref
+ * parser, never by the wizard chat) or because they require evidence we
+ * don't have to safely map (e.g. `constraints` could plausibly mean
+ * `assessmentBoundaries` or `voiceRules` — guessing breeds bugs).
+ *
+ * Auto-drop policy:
+ *   - log a one-line `[wizard-tools] auto-drop` warning for visibility
+ *   - DO NOT return an is_error (keeps the wizard moving)
+ *   - DO NOT auto-correct (no evidence supports a specific mapping)
+ *
+ * Add to this list only when a key is observed in production logs AND
+ * mapping it to a canonical field would require guesswork. Otherwise prefer
+ * FIELD_NAME_CORRECTIONS (mapped) or the errors path (loud, AI retries).
+ */
+const KNOWN_AUTO_DROP: ReadonlySet<string> = new Set([
+  // Set by detectAuthoredModules / persist-authored-modules, never by the
+  // wizard chat. The AI tried to write it directly in #318 logs.
+  "modulesAuthored",
+  // The AI used "constraints" as a free-form slot for "things the tutor must
+  // never do". The canonical home is split across assessmentBoundaries +
+  // voiceRules + scope-of-course assertions — guessing which one would set
+  // off the same magnet-bait we just spent #316/#318 stamping out.
+  "constraints",
+]);
+
+/**
  * Value-shape hints for fields the AI confuses by VALUE rather than NAME.
  * Specifically: when the AI writes `interactionPattern: "ai-led"` it should
  * be `progressionMode: "ai-led"` — the value range identifies the right
@@ -68,6 +96,12 @@ export interface ValidateSetupFieldsResult {
   corrections: { from: string; to: string; reason: string }[];
   /** Genuinely unknown keys that should be rejected with is_error. */
   errors: { key: string; suggestion: string | null }[];
+  /**
+   * Cosmetic / known-junk keys silently dropped (KNOWN_AUTO_DROP). Logged
+   * but NOT surfaced as is_error — the wizard keeps moving. Returned so
+   * callers can log a single combined line.
+   */
+  dropped: { key: string; reason: string }[];
 }
 
 /**
@@ -95,6 +129,7 @@ export function validateSetupFields(
   const validated: Record<string, unknown> = {};
   const corrections: ValidateSetupFieldsResult["corrections"] = [];
   const errors: ValidateSetupFieldsResult["errors"] = [];
+  const dropped: ValidateSetupFieldsResult["dropped"] = [];
 
   for (const [origKey, value] of Object.entries(fields)) {
     // 1. Underscore-prefixed internal keys pass through without validation.
@@ -137,9 +172,18 @@ export function validateSetupFields(
       continue;
     }
 
-    // 4. Unknown key — record an error with a suggestion.
+    // 4. Known-cosmetic auto-drop. Logged-and-dropped, not error.
+    if (KNOWN_AUTO_DROP.has(origKey)) {
+      dropped.push({
+        key: origKey,
+        reason: `"${origKey}" is set elsewhere in the pipeline; AI must not write it via update_setup`,
+      });
+      continue;
+    }
+
+    // 5. Unknown key — record an error with a suggestion.
     errors.push({ key: origKey, suggestion: suggestKey(origKey) });
   }
 
-  return { validated, corrections, errors };
+  return { validated, corrections, errors, dropped };
 }

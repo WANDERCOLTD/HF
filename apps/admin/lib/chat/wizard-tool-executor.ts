@@ -193,10 +193,19 @@ export async function executeWizardTool(
       // boundary so the data bag stays canonical.
       const { validateSetupFields } = await import("@/lib/wizard/validate-setup-fields");
       const rawFields = input.fields as Record<string, unknown>;
-      const { validated: fields, corrections, errors: fieldErrors } = validateSetupFields(rawFields);
+      const { validated: fields, corrections, errors: fieldErrors, dropped } = validateSetupFields(rawFields);
       if (corrections.length > 0) {
         for (const c of corrections) {
           console.log(`[wizard-tools] update_setup auto-corrected: ${c.from} → ${c.to} (${c.reason})`);
+        }
+      }
+      if (dropped.length > 0) {
+        // #318 follow-up: known-cosmetic keys (modulesAuthored, constraints)
+        // are logged-and-dropped, NOT surfaced to the AI. Mapping them to a
+        // canonical field would require evidence we don't have — silent drop
+        // keeps the wizard moving without growing the corrections magnet.
+        for (const d of dropped) {
+          console.warn(`[wizard-tools] update_setup auto-dropped "${d.key}": ${d.reason}`);
         }
       }
       if (fieldErrors.length > 0) {
@@ -222,6 +231,58 @@ export async function executeWizardTool(
         };
       }
       const keys = Object.keys(fields);
+
+      // #318 follow-up: early progressionMode gate.
+      // The wizard graph marks progressionMode as `required, priority: 1`,
+      // but the create_course gate is the only place that currently checks
+      // it — which means the AI can run several update_setup turns happily
+      // setting interactionPattern, sessionCount, durationMins etc. without
+      // ever picking progressionMode, then fall over at create_course time.
+      //
+      // Fail loud earlier: the FIRST "non-trivial" update_setup (one that
+      // touches more than just identity bag fields) must include
+      // progressionMode OR find it already in setupData. If neither, demand
+      // show_options for progressionMode before proceeding.
+      const IDENTITY_KEYS = new Set([
+        "institutionName",
+        "typeSlug",
+        "subjectDiscipline",
+        "courseName",
+        "websiteUrl",
+        "existingInstitutionId",
+        "existingDomainId",
+        "draftInstitutionId",
+        "draftDomainId",
+        "defaultDomainKind",
+        "domainId",
+        "playbookId",
+        "draftPlaybookId",
+        "draftSubjectId",
+      ]);
+      const nonIdentityFieldsThisCall = keys.filter((k) => !IDENTITY_KEYS.has(k) && !k.startsWith("_"));
+      const progressionModeKnown =
+        typeof fields.progressionMode === "string" ||
+        typeof setupData?.progressionMode === "string";
+      if (nonIdentityFieldsThisCall.length > 0 && !progressionModeKnown) {
+        console.warn(
+          `[wizard-tools] update_setup BLOCKED: non-trivial call (${nonIdentityFieldsThisCall.join(", ")}) ` +
+            `without progressionMode set. Demanding show_options for progressionMode first.`,
+        );
+        return {
+          ...base,
+          content: JSON.stringify({
+            ok: false,
+            error:
+              "Module progression (`progressionMode`) is required before saving other course fields. " +
+              "Call show_options with optionsKey: \"progressionModes\" so the user can pick " +
+              "between AI-led (modulesAuthored=false) and Learner-picks (modulesAuthored=true). " +
+              "After the user answers, call update_setup again with progressionMode plus the fields you wanted to save.",
+            missingRequired: ["progressionMode"],
+            nextAction: { tool: "show_options", optionsKey: "progressionModes", fieldKey: "progressionMode" },
+          }),
+          is_error: true,
+        };
+      }
 
       // ── Institution resolution ──────────────────────────
       if (fields.institutionName && typeof fields.institutionName === "string") {
