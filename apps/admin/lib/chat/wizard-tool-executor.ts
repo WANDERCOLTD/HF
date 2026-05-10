@@ -1436,26 +1436,52 @@ export async function executeWizardTool(
           });
           const flowConfig = domainRow?.onboardingFlowPhases as { phases?: Array<{ phase: string; duration: string; goals: string[]; content?: Array<{ mediaId: string; instruction?: string }> }> } | null;
           if (flowConfig?.phases?.length) {
-            // Find the first content-bearing phase
+            // Find the first content-bearing phase by name. Widened from the
+            // previous regex (topic|teach|content|practice|reading) which
+            // failed for domains whose phase names use other vocabulary
+            // (welcome / orient / discover / sample / close — the IELTS
+            // domain), causing the fallback to dump all media into
+            // phase[0] (welcome) with identical placeholder instructions.
             const contentIdx = flowConfig.phases.findIndex(
-              (p) => /topic|teach|content|practice|reading/i.test(p.phase),
+              (p) =>
+                /topic|teach|content|practice|reading|discover|sample|share|present|introduce|explore/i.test(
+                  p.phase,
+                ),
             );
-            const targetIdx = contentIdx >= 0 ? contentIdx : 0;
-            const updatedPhases = flowConfig.phases.map((phase, i) => {
-              if (i !== targetIdx) return phase;
-              return {
-                ...phase,
-                content: visibleMedia.map((sm) => ({
-                  mediaId: sm.media.id,
-                  instruction: "Share this with the learner when introducing the topic",
-                })),
-              };
-            });
-            finalFlowPhases = { phases: updatedPhases };
-            await prisma.domain.update({
-              where: { id: domainId },
-              data: { onboardingFlowPhases: finalFlowPhases },
-            });
+
+            if (contentIdx < 0) {
+              // No content-bearing phase. Skip media attachment rather than
+              // dumping into phase[0] (typically "welcome" — a greeting,
+              // not a content slot). The operator can attach manually if
+              // they want, and the warning surfaces the missing phase
+              // pattern in production traces.
+              console.warn(
+                `[wizard-tools] create_course: no content phase found in onboarding flow ` +
+                  `(phases: ${flowConfig.phases.map((p) => p.phase).join(", ")}); ` +
+                  `skipping media attachment for ${visibleMedia.length} item(s).`,
+              );
+            } else {
+              const updatedPhases = flowConfig.phases.map((phase, i) => {
+                if (i !== contentIdx) return phase;
+                return {
+                  ...phase,
+                  content: visibleMedia.map((sm) => ({
+                    mediaId: sm.media.id,
+                    // Empty instruction — operator fills in something
+                    // specific per media. Previously hardcoded
+                    // "Share this with the learner when introducing the topic"
+                    // for every row, which produced visually-duplicate UI
+                    // rows that confused educators.
+                    instruction: "",
+                  })),
+                };
+              });
+              finalFlowPhases = { phases: updatedPhases };
+              await prisma.domain.update({
+                where: { id: domainId },
+                data: { onboardingFlowPhases: finalFlowPhases },
+              });
+            }
           }
         }
 
