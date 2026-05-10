@@ -4447,7 +4447,7 @@ Returns lightweight counts for the content review queue.
 
 **Response** `200`
 ```json
-{ ok: true, counts: { unreviewed: number, dirty: number, errors: number, total: number } }
+{ ok: true, counts: { unreviewed: number, dirty: number, errors: number, loReviewQueue: number, total: number } }
 ```
 
 **Response** `401`
@@ -5949,6 +5949,27 @@ Returns the full module → LO → TP hierarchy for a continuous-mode course.
 ```json
 { ok: false, error: "..." }
 ```
+
+---
+
+### `GET` /api/curricula/lo-review-queue
+
+Returns LO classification rows that the AI-to-DB guard
+
+**Auth**: OPERATOR · **Scope**: `curricula:read`
+
+**Response** `200`
+```json
+{ ok, items: [{ classificationId, lo: { id, ref, description, originalText, learnerVisible, performanceStatement, systemRole }, proposal: { proposedLearnerVisible, proposedPerformanceStatement, proposedSystemRole, confidence, rationale, classifierVersion, runAt }, module: { id, slug, title }, curriculum: { id, name } }] }
+```
+
+---
+
+### `POST` /api/curricula/lo-review-queue/:classificationId/decide
+
+Finalise a queued LO classification (#317). Two outcomes:
+
+**Auth**: OPERATOR · **Scope**: `curricula:write`
 
 ---
 
@@ -14280,8 +14301,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 440 |
-| Files with annotations | 439 |
+| Route files found | 442 |
+| Files with annotations | 441 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 
