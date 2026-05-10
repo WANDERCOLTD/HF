@@ -16,6 +16,7 @@ import { parseLoLine } from "@/lib/content-trust/validate-lo-linkage";
 import { reconcileAssertionLOs, type ReconcileResult } from "@/lib/content-trust/reconcile-lo-linkage";
 import { sanitizeModuleTitle } from "@/lib/content-trust/sanitize-module";
 import type { AssertionTag } from "@/lib/content-trust/extract-curriculum";
+import { reclassifyLearningObjectives, type ReclassifyLosResult } from "@/lib/curriculum/reclassify-los";
 
 export type SyncModulesMode = "merge" | "replace";
 
@@ -115,7 +116,7 @@ export async function syncModulesToDB(
   curriculumId: string,
   modules: LegacyCurriculumModuleJSON[],
   options?: SyncModulesOptions,
-): Promise<{ count: number; reconcile: ReconcileResult | null; warnings: string[] }> {
+): Promise<{ count: number; reconcile: ReconcileResult | null; warnings: string[]; classification: ReclassifyLosResult | null }> {
   if (!modules || modules.length === 0) return { count: 0, reconcile: null, warnings: [] };
 
   const mode: SyncModulesMode = options?.mode ?? "merge";
@@ -225,15 +226,37 @@ export async function syncModulesToDB(
           );
         }
 
-        await tx.learningObjective.deleteMany({ where: { moduleId: upserted.id } });
+        // #317 — upsert-by-ref instead of deleteMany+create. Preserves
+        // classifier-owned columns (originalText, learnerVisible,
+        // performanceStatement, systemRole, humanOverriddenAt) and per-LO
+        // mastery overrides across re-runs of curriculum extraction. Refs
+        // absent from the new payload are still removed.
+        const incomingRefs = new Set(parsed.map((lo) => lo.ref));
+        const existingRows = await tx.learningObjective.findMany({
+          where: { moduleId: upserted.id },
+          select: { id: true, ref: true },
+        });
+        const removedIds = existingRows
+          .filter((row) => !incomingRefs.has(row.ref))
+          .map((row) => row.id);
+        if (removedIds.length > 0) {
+          await tx.learningObjective.deleteMany({ where: { id: { in: removedIds } } });
+        }
 
         for (const lo of parsed) {
-          await tx.learningObjective.create({
-            data: {
+          await tx.learningObjective.upsert({
+            where: { moduleId_ref: { moduleId: upserted.id, ref: lo.ref } },
+            create: {
               moduleId: upserted.id,
               ref: lo.ref,
               description: lo.description,
+              originalText: lo.description, // capture verbatim source on first create
               sortOrder: lo.sortOrder,
+            },
+            update: {
+              description: lo.description,
+              sortOrder: lo.sortOrder,
+              // Classifier-owned columns intentionally not touched.
             },
           });
         }
@@ -299,5 +322,21 @@ export async function syncModulesToDB(
     console.warn(`[sync-modules] curriculum ${curriculumId} warnings:\n  - ${warnings.join("\n  - ")}`);
   }
 
-  return { count: result.length, reconcile, warnings };
+  // #317 — auto-classify LO audience after the LOs are persisted. Best-effort;
+  // failure here doesn't fail the curriculum save (curriculum content is
+  // still valid, classification can be re-run from the curriculum tab's
+  // "Reclassify LOs" button or the POST /reclassify-los endpoint).
+  let classification: ReclassifyLosResult | null = null;
+  try {
+    classification = await reclassifyLearningObjectives(curriculumId);
+    console.log(
+      `[sync-modules] curriculum ${curriculumId} classification: ` +
+        `applied=${classification.applied} queued=${classification.queued} skipped=${classification.skipped} failed=${classification.failed}`,
+    );
+  } catch (err: any) {
+    console.error(`[sync-modules] reclassifyLearningObjectives failed for ${curriculumId}:`, err?.message);
+    warnings.push(`LO audience classification skipped: ${err?.message ?? "unknown error"}`);
+  }
+
+  return { count: result.length, reconcile, warnings, classification };
 }

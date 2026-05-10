@@ -27,6 +27,7 @@ import {
   hasBlockingErrors,
 } from "@/lib/wizard/persist-authored-modules";
 import { syncAuthoredModulesToCurriculum } from "@/lib/wizard/sync-authored-modules-to-curriculum";
+import { reclassifyLearningObjectives } from "@/lib/curriculum/reclassify-los";
 
 // ── Body schema ──────────────────────────────────────────────────────
 
@@ -212,6 +213,25 @@ export async function POST(
     });
   }
 
+  // #317 — after the curriculum modules + LOs have been committed, run the
+  // audience-split classifier so freshly-imported LOs get learnerVisible /
+  // performanceStatement / systemRole set before the user sees the
+  // curriculum tab. Best-effort: classification failures don't fail the
+  // import (the curriculum is still valid; classification can be re-run
+  // from the curriculum tab's "Reclassify LOs" button).
+  let classification: Awaited<ReturnType<typeof reclassifyLearningObjectives>> | null = null;
+  if (syncResult?.curriculumId) {
+    try {
+      classification = await reclassifyLearningObjectives(syncResult.curriculumId);
+      console.log(
+        `[import-modules] curriculum ${syncResult.curriculumId} classification: ` +
+          `applied=${classification.applied} queued=${classification.queued} skipped=${classification.skipped} failed=${classification.failed}`,
+      );
+    } catch (err: any) {
+      console.error(`[import-modules] reclassifyLearningObjectives failed for ${syncResult.curriculumId}:`, err?.message);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     modulesAuthored: detected.modulesAuthored,
@@ -223,5 +243,6 @@ export async function POST(
     hasErrors: hasBlockingErrors(detected),
     persisted: changed,
     curriculumSync: syncResult,
+    classification, // #317 — { applied, queued, skipped, failed, byOutcome } or null
   });
 }

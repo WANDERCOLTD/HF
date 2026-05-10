@@ -28,6 +28,12 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { AuthoredModule } from "@/lib/types/json-fields";
 
+// #317 — LO audience classification is NOT run from this helper because it
+// receives an open transaction (`tx`) and the classifier runs its own
+// `prisma.$transaction()` calls. The caller is responsible for invoking
+// `reclassifyLearningObjectives(curriculumId)` AFTER the outer transaction
+// commits. Today that caller is /api/courses/[courseId]/import-modules.
+
 type Tx = PrismaClient | Prisma.TransactionClient;
 
 export interface SyncResult {
