@@ -252,8 +252,17 @@ export async function classifyLoLlm(input: ClassifyLoInput): Promise<ClassifyLoR
     let parsed: LlmRawOutput;
     try {
       parsed = JSON.parse(jsonStr) as LlmRawOutput;
-    } catch {
-      parsed = JSON.parse(jsonrepair(jsonStr)) as LlmRawOutput;
+    } catch (firstErr) {
+      try {
+        parsed = JSON.parse(jsonrepair(jsonStr)) as LlmRawOutput;
+      } catch (repairErr: any) {
+        // Both parsers failed — log the raw so we can see what the LLM actually
+        // returned (truncated / refusal / non-JSON freeform text).
+        console.error(
+          `[classify-lo] JSON parse failed for LO ${input.ref}; raw=${JSON.stringify(raw).slice(0, 400)}; firstErr=${(firstErr as Error)?.message}; repairErr=${repairErr?.message}`,
+        );
+        throw repairErr;
+      }
     }
 
     const systemRole = (parsed.systemRole ?? "NONE") as LoSystemRole;
