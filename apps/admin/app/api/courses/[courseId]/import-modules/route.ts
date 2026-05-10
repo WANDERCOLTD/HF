@@ -21,12 +21,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
-import { detectAuthoredModules } from "@/lib/wizard/detect-authored-modules";
-import {
-  applyAuthoredModules,
-  hasBlockingErrors,
-} from "@/lib/wizard/persist-authored-modules";
-import { syncAuthoredModulesToCurriculum } from "@/lib/wizard/sync-authored-modules-to-curriculum";
+import { importAuthoredModulesIntoPlaybook } from "@/lib/wizard/import-modules-helper";
 import { reclassifyLearningObjectives } from "@/lib/curriculum/reclassify-los";
 
 // ── Body schema ──────────────────────────────────────────────────────
@@ -224,39 +219,17 @@ export async function POST(
     );
   }
 
-  const detected = detectAuthoredModules(body.markdown);
-  const existingConfig = (playbook.config ?? {}) as PlaybookConfig;
-  const { config: nextConfig, changed } = applyAuthoredModules(
-    existingConfig,
-    detected,
-    { sourceRef: body.sourceRef },
-  );
-
-  // #245: when modules were persisted, also upsert CurriculumModule rows so
-  // the pipeline's slug-based `updateModuleMastery` can write progress for
-  // authored modules. Wrapped in a transaction so the playbook and module
-  // tables stay in sync if either write fails.
-  let syncResult: Awaited<ReturnType<typeof syncAuthoredModulesToCurriculum>> | null = null;
-  if (changed) {
-    await prisma.$transaction(async (tx) => {
-      await tx.playbook.update({
-        where: { id: courseId },
-        data: { config: nextConfig as object },
-      });
-      if (detected.modulesAuthored === true && detected.modules.length > 0) {
-        syncResult = await syncAuthoredModulesToCurriculum(
-          tx,
-          courseId,
-          detected.modules,
-          // Pass the outcome statements map so authored OUT-NN refs become
-          // first-class LearningObjective rows. Without this, the extractor's
-          // fetchCurriculumLoRefs returns whatever legacy refs exist (LO8..LO17)
-          // and MCQs end up untagged because no whitelist match is possible.
-          detected.outcomes,
-        );
-      }
+  // #318 follow-up: route now delegates the merge to the shared helper so
+  // create_course can call the exact same pipeline at course-creation time.
+  // The helper writes inside the transaction; classifier runs outside it.
+  const imported = await prisma.$transaction(async (tx) => {
+    return importAuthoredModulesIntoPlaybook(tx, courseId, body.markdown, {
+      sourceRef: body.sourceRef,
     });
-  }
+  });
+  const detected = imported.detected;
+  const changed = imported.persisted;
+  const syncResult = imported.curriculumSync;
 
   // #317 — after the curriculum modules + LOs have been committed, run the
   // audience-split classifier so freshly-imported LOs get learnerVisible /
@@ -285,7 +258,7 @@ export async function POST(
     outcomes: detected.outcomes,
     validationWarnings: detected.validationWarnings,
     detectedFrom: detected.detectedFrom,
-    hasErrors: hasBlockingErrors(detected),
+    hasErrors: imported.hasErrors,
     persisted: changed,
     curriculumSync: syncResult,
     classification, // #317 — { applied, queued, skipped, failed, byOutcome } or null

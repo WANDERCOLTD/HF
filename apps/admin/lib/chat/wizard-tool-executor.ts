@@ -1671,6 +1671,101 @@ export async function executeWizardTool(
         syncInstructionsToIdentitySpec(playbookId).catch(err =>
           console.error("[wizard] instruction spec sync failed (non-fatal):", err.message));
 
+        // 10d. Auto-import authored modules from any Course Reference source.
+        //
+        // Why: before this block, the wizard left config.modules empty even when
+        // the uploaded course-ref had `**Modules authored:** Yes` plus a Module
+        // Catalogue table. The user had to manually invoke detect + sync after
+        // creation. Run the same pipeline the /import-modules POST endpoint
+        // uses, so the moment create_course returns success the playbook is
+        // either correctly authored OR correctly derived — never half-built.
+        //
+        // Course-ref discovery: pull PlaybookSource rows whose source has
+        // documentType=COURSE_REFERENCE OR a name matching /course[-_ ]?ref/i.
+        // The COURSE_REFERENCE classifier is the canonical signal but uploaded
+        // files arrive with arbitrary names too (e.g. "course-ref.md"), so the
+        // name regex catches those before classification commits.
+        let authoredModulesResult: {
+          modulesAuthored: boolean | null;
+          modulesCount: number;
+          modulesSource: "authored" | "derived" | null;
+          curriculumId: string | null;
+        } = { modulesAuthored: null, modulesCount: 0, modulesSource: null, curriculumId: null };
+        let modulesAuthoredDeclared = false;
+        try {
+          const playbookSources = await prisma.playbookSource.findMany({
+            where: { playbookId },
+            include: {
+              source: {
+                select: { id: true, name: true, documentType: true, textSample: true },
+              },
+            },
+          });
+          const courseRefSource = playbookSources.find((ps) =>
+            ps.source.documentType === "COURSE_REFERENCE" ||
+            /course[-_ ]?ref/i.test(ps.source.name),
+          )?.source;
+          if (courseRefSource?.textSample) {
+            modulesAuthoredDeclared =
+              /\*\*Modules authored:\*\*\s*Yes\b/i.test(courseRefSource.textSample);
+            const { importAuthoredModulesIntoPlaybook } = await import(
+              "@/lib/wizard/import-modules-helper"
+            );
+            const imported = await prisma.$transaction(async (tx) => {
+              return importAuthoredModulesIntoPlaybook(
+                tx,
+                playbookId,
+                courseRefSource.textSample!,
+                { sourceRef: { docId: courseRefSource.id, version: "auto-import" } },
+              );
+            });
+            authoredModulesResult = {
+              modulesAuthored: imported.detected.modulesAuthored,
+              modulesCount: imported.detected.modules.length,
+              modulesSource:
+                imported.detected.modulesAuthored === true
+                  ? "authored"
+                  : imported.detected.modulesAuthored === false
+                    ? "derived"
+                    : null,
+              curriculumId: imported.curriculumSync?.curriculumId ?? null,
+            };
+            if (imported.curriculumSync?.curriculumId) {
+              // Audience-split classification — fire and forget; can be re-run
+              // from the curriculum tab if it fails here.
+              const { reclassifyLearningObjectives } = await import(
+                "@/lib/curriculum/reclassify-los"
+              );
+              reclassifyLearningObjectives(imported.curriculumSync.curriculumId).catch(
+                (err) =>
+                  console.error(
+                    `[wizard] reclassifyLearningObjectives failed for ${imported.curriculumSync?.curriculumId}:`,
+                    err?.message,
+                  ),
+              );
+            }
+            if (imported.detected.modulesAuthored === true && imported.detected.modules.length === 0) {
+              console.warn(
+                `[wizard-tools] create_course auto-import: course-ref declared Modules authored: Yes ` +
+                  `but parser returned 0 modules. playbookId=${playbookId} sourceId=${courseRefSource.id} ` +
+                  `warnings=${JSON.stringify(imported.detected.validationWarnings)}`,
+              );
+            } else {
+              console.log(
+                `[wizard-tools] create_course auto-import: playbookId=${playbookId} ` +
+                  `modulesAuthored=${imported.detected.modulesAuthored} modules=${imported.detected.modules.length} ` +
+                  `persisted=${imported.persisted}`,
+              );
+            }
+          }
+        } catch (err: any) {
+          // Non-fatal: log and continue. The hard gate below decides whether
+          // the resulting state is acceptable.
+          console.warn(
+            `[wizard-tools] create_course auto-import failed (continuing): playbookId=${playbookId} err=${err?.message}`,
+          );
+        }
+
         // 11. Auto-generate curriculum + lesson plan (background, chained)
         //
         // Both steps run in the background so the wizard response returns fast, but
@@ -1682,28 +1777,84 @@ export async function executeWizardTool(
         // and fell through to goals-based generation.
         // Always include the primary subject — after bridging (step 7b),
         // content sources live on subject.id, not just packSubjectIds.
+        //
+        // #318 follow-up: SKIP curriculum gen when authored modules were
+        // successfully imported above. Otherwise generateInstantCurriculum
+        // races against the authored modules and produces meta-modules
+        // ("IELTS Speaking Test Format and Structure") that the tutor then
+        // quizzes the learner on — exactly the disaster we are fixing.
+        const skipCurriculumGen =
+          authoredModulesResult.modulesAuthored === true && authoredModulesResult.modulesCount > 0;
         const curriculumSubjectIds = [subject.id, ...(subjectIdsToLink.length > 0 ? subjectIdsToLink : (packSubjectIds ?? []))];
-        const { generateInstantCurriculum } = await import("@/lib/domain/instant-curriculum");
-        (async () => {
-          try {
-            await generateInstantCurriculum({
-              domainId,
-              playbookId,
-              subjectName: subjectDiscipline,
-              persona: interactionPattern,
-              subjectIds: curriculumSubjectIds,
-              intents: {
-                sessionCount: input.sessionCount ? Number(input.sessionCount) : undefined,
-                durationMins: input.durationMins ? Number(input.durationMins) : undefined,
-                emphasis: input.planEmphasis as string | undefined,
-              },
-            });
-          } catch (err: any) {
-            console.error("[wizard] Instant curriculum failed (non-fatal):", err.message);
-          }
+        if (!skipCurriculumGen) {
+          const { generateInstantCurriculum } = await import("@/lib/domain/instant-curriculum");
+          (async () => {
+            try {
+              await generateInstantCurriculum({
+                domainId,
+                playbookId,
+                subjectName: subjectDiscipline,
+                persona: interactionPattern,
+                subjectIds: curriculumSubjectIds,
+                intents: {
+                  sessionCount: input.sessionCount ? Number(input.sessionCount) : undefined,
+                  durationMins: input.durationMins ? Number(input.durationMins) : undefined,
+                  emphasis: input.planEmphasis as string | undefined,
+                },
+              });
+            } catch (err: any) {
+              console.error("[wizard] Instant curriculum failed (non-fatal):", err.message);
+            }
 
-          // Lesson plan generation removed — scheduler handles pacing
-        })();
+            // Lesson plan generation removed — scheduler handles pacing
+          })();
+        } else {
+          console.log(
+            `[wizard-tools] create_course: skipping AI curriculum gen — authored modules in use (count=${authoredModulesResult.modulesCount})`,
+          );
+        }
+
+        // 11b. Hard gate — assert the post-creation state is coherent.
+        // Failure modes we have lived through:
+        //   (a) modulesAuthored: Yes declared but parser produced 0 modules
+        //       → user thinks course is built, learner gets quizzed on
+        //         AI-generated meta-modules.
+        //   (b) Nothing was authored and no AI curriculum will ever start
+        //       (no sources, no subject content) → empty curriculum forever.
+        // For (a) we know synchronously and we MUST fail loud.
+        // For (b) the AI curriculum gen is async — we can only assert the
+        //  Playbook + intended path; we cannot block on completion here.
+        const gateModulesAuthored = authoredModulesResult.modulesAuthored;
+        const gateModulesCount = authoredModulesResult.modulesCount;
+        if (modulesAuthoredDeclared && (gateModulesAuthored !== true || gateModulesCount < 1)) {
+          const missing: string[] = [];
+          if (gateModulesAuthored !== true) missing.push("modulesAuthored=true");
+          if (gateModulesCount < 1) missing.push("config.modules[].length>=1");
+          console.error(
+            `[wizard-tools] create_course HARD GATE FAILED: playbookId=${playbookId} ` +
+              `modulesAuthored declared in course-ref but missing=${missing.join(", ")}`,
+          );
+          return {
+            ...base,
+            content: JSON.stringify({
+              ok: false,
+              error: {
+                code: "CREATE_COURSE_INCOMPLETE",
+                message:
+                  "Course Reference declared `Modules authored: Yes` but no modules were parsed. " +
+                  "The Module Catalogue table in the course-ref is missing or malformed — " +
+                  "tell the user to fix the table format and retry, or remove the `Modules authored: Yes` declaration.",
+                missing,
+                playbookId,
+                details: {
+                  modulesAuthored: gateModulesAuthored,
+                  modulesCount: gateModulesCount,
+                },
+              },
+            }),
+            is_error: true,
+          };
+        }
 
         // Build first call preview data (phases + resolved media filenames)
         const previewDomain = await prisma.domain.findUnique({
@@ -1742,6 +1893,16 @@ export async function executeWizardTool(
           distinct: ["sourceId"],
         });
 
+        // #318 follow-up: explicit COMPLETED line so half-creations are
+        // spottable in logs. Pair with the HARD GATE log line above.
+        console.log(
+          `[wizard-tools] create_course COMPLETED playbookId=${playbookId} ` +
+            `curriculumId=${authoredModulesResult.curriculumId ?? "(async)"} ` +
+            `modulesCount=${authoredModulesResult.modulesCount} ` +
+            `modulesAuthored=${authoredModulesResult.modulesAuthored} ` +
+            `modulesSource=${authoredModulesResult.modulesSource ?? "(none)"}`,
+        );
+
         return {
           ...base,
           content: JSON.stringify({
@@ -1759,6 +1920,9 @@ export async function executeWizardTool(
               subjectCount: linkedSubjects.length,
               subjectNames: linkedSubjects.map(ls => ls.subject.name),
               documentCount: linkedSources.length,
+              modulesAuthored: authoredModulesResult.modulesAuthored,
+              modulesCount: authoredModulesResult.modulesCount,
+              modulesSource: authoredModulesResult.modulesSource,
             },
           }),
         };
