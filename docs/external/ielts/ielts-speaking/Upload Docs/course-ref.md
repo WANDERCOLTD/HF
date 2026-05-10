@@ -252,6 +252,37 @@ Watch for these and name them explicitly when they appear:
 
 ---
 
+**Modules authored:** Yes
+
+## Modules
+
+> Machine-readable: the four user-facing modules learners pick from. The picker shows the `Label`; the AI scoring loop uses `Outcomes (primary)` to scope per-module assessment. `Mode: examiner` modules run in formal-exam style (no scaffolding); `Mode: mixed` modules combine practice with exam-style scoring. `Frequency: cooldown` blocks repeats until other modules have been completed.
+
+| ID    | Label                          | Learner-selectable | Mode     | Duration  | Scoring fired | Session-terminal | Frequency  | Outcomes (primary)              | Position |
+|-------|--------------------------------|--------------------|----------|-----------|---------------|------------------|------------|---------------------------------|----------|
+| part1 | Part 1: Familiar Topics        | Yes                | mixed    | 4–5 min   | every-call    | No               | repeatable | OUT-01, OUT-02                  | 1        |
+| part2 | Part 2: Long Turn (Cue Card)   | Yes                | mixed    | 3–4 min   | every-call    | No               | repeatable | OUT-03, OUT-04, OUT-05          | 2        |
+| part3 | Part 3: Abstract Discussion    | Yes                | mixed    | 4–5 min   | every-call    | No               | repeatable | OUT-06, OUT-07                  | 3        |
+| mock  | Full Mock Exam                 | Yes                | examiner | 11–14 min | every-call    | Yes              | cooldown   | OUT-01, OUT-03, OUT-06, OUT-08  | 4        |
+
+**OUT-01: Speak naturally about familiar topics for 4–5 minutes without long pauses or repeated self-correction.**
+
+**OUT-02: Extend Part 1 answers with one supporting detail or example beyond the direct answer.**
+
+**OUT-03: Speak for 90 seconds on a Part 2 cue card without stalling on word-search.**
+
+**OUT-04: Cover all four cue-card bullets in a structured Part 2 monologue.**
+
+**OUT-05: Vary sentence structure across a Part 2 monologue (simple → complex → conditional or hypothetical).**
+
+**OUT-06: Sustain abstract Part 3 discussion with hedging, paraphrase, and concession-then-reassertion.**
+
+**OUT-07: Compare across time, generalise, and speculate using conditional structures in Part 3.**
+
+**OUT-08: Maintain clear pronunciation with appropriate stress, rhythm, and intonation throughout the call.**
+
+---
+
 ## Document Version
 
 **Version:** 1.2
