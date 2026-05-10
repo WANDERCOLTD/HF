@@ -1075,7 +1075,7 @@ registerLoader("courseInstructions", async (_callerId, loaderConfig) => {
     },
   });
 
-  return assertions.map((a) => ({
+  const fromAssertions = assertions.map((a) => ({
     id: a.id,
     assertion: a.assertion,
     category: a.category,
@@ -1087,6 +1087,48 @@ registerLoader("courseInstructions", async (_callerId, loaderConfig) => {
     parentId: a.parentId,
     orderIndex: a.orderIndex,
   }));
+
+  // #317 — also pull LearningObjective rows the audience classifier marked
+  // as TEACHING_INSTRUCTION. They join the same channel as the
+  // ContentAssertion-sourced rules above, render under the TEACHING RULES
+  // section, and never reach the learner. Reuses category="teaching_rule"
+  // so the existing render path handles them without changes.
+  if (scope.playbookId) {
+    const tiLOs = await prisma.learningObjective.findMany({
+      where: {
+        systemRole: "TEACHING_INSTRUCTION",
+        module: {
+          isActive: true,
+          curriculum: { playbookId: scope.playbookId },
+        },
+      },
+      orderBy: [{ module: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+      select: {
+        id: true,
+        ref: true,
+        description: true,
+        module: { select: { title: true } },
+      },
+    });
+    if (tiLOs.length > 0) {
+      for (const lo of tiLOs) {
+        fromAssertions.push({
+          id: `lo:${lo.id}`,
+          assertion: lo.description,
+          category: "teaching_rule",
+          chapter: lo.module?.title ?? null,
+          section: lo.ref,
+          tags: [],
+          sourceName: `LO ${lo.ref}`,
+          depth: 0,
+          parentId: null,
+          orderIndex: 0,
+        });
+      }
+    }
+  }
+
+  return fromAssertions;
 });
 
 /**

@@ -140,6 +140,40 @@ tests:
           if (p.systemRole !== 'SCORE_EXPLAINER') return { pass: false, reason: `expected SCORE_EXPLAINER, got ${p.systemRole}: ${p.rationale}` };
           return true;
 
+  # ── TEACHING_INSTRUCTION ─────────────────────────────────────────────
+
+  - description: "Tutor diagnostic / plateau awareness → TEACHING_INSTRUCTION"
+    vars:
+      userMessage: |
+        Course: IELTS Speaking
+        Module: Common Band Plateaus and Strategic Interventions
+
+        LO LO95: Recognize that Part 3 is where Band 6 plateaus most often.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          const p = JSON.parse(stripped);
+          if (p.systemRole !== 'TEACHING_INSTRUCTION') return { pass: false, reason: `expected TEACHING_INSTRUCTION (tutor strategic awareness), got ${p.systemRole}: ${p.rationale}` };
+          return true;
+
+  - description: "Tutor intervention rule → TEACHING_INSTRUCTION (not SCORE_EXPLAINER)"
+    vars:
+      userMessage: |
+        Course: IELTS Speaking
+        Module: Common Band Plateaus and Strategic Interventions
+
+        LO LO101: Explain that overuse of "In my opinion" (four+ times in Part 3) plateaus a candidate at Band 6.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          const p = JSON.parse(stripped);
+          if (p.systemRole !== 'TEACHING_INSTRUCTION') return { pass: false, reason: `expected TEACHING_INSTRUCTION (tutor diagnostic move, not score-math), got ${p.systemRole}: ${p.rationale}` };
+          return true;
+
   # ── ITEM_GENERATOR_SPEC ──────────────────────────────────────────────
 
   - description: "Band-vs-band distinguisher → ITEM_GENERATOR_SPEC"

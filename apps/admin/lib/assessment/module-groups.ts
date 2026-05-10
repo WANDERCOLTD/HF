@@ -58,10 +58,11 @@ export async function resolveModuleGroupsForSource(
   if (modules.length === 0) return null;
 
   // #317 — load systemRole for each ref in this curriculum so we can drop
-  // refs that point to system-only LOs (rubric or score-explainer). They
-  // describe how the assessor scores, not what the learner should answer
-  // questions about. ITEM_GENERATOR_SPEC refs stay included — they're
-  // boundary specs the question generator legitimately consumes.
+  // refs that point to system-only LOs (rubric / score-explainer / teaching-
+  // instruction). They describe how the assessor scores or how the tutor
+  // teaches, not what the learner should answer questions about.
+  // ITEM_GENERATOR_SPEC refs stay included — they're boundary specs the
+  // question generator legitimately consumes.
   const curriculumId = playbookSource.playbook.curricula[0]?.id ?? null;
   const excludedRefs = new Set<string>();
   if (curriculumId) {
@@ -71,7 +72,7 @@ export async function resolveModuleGroupsForSource(
         where: {
           module: { curriculumId },
           ref: { in: allRefs },
-          systemRole: { in: ["ASSESSOR_RUBRIC", "SCORE_EXPLAINER"] },
+          systemRole: { in: ["ASSESSOR_RUBRIC", "SCORE_EXPLAINER", "TEACHING_INSTRUCTION"] },
         },
         select: { ref: true },
       });

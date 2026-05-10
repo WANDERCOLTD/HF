@@ -103,6 +103,7 @@ const VALID_SYSTEM_ROLES: ReadonlySet<string> = new Set([
   "ASSESSOR_RUBRIC",
   "ITEM_GENERATOR_SPEC",
   "SCORE_EXPLAINER",
+  "TEACHING_INSTRUCTION",
   "NONE",
 ]);
 

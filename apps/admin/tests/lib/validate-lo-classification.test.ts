@@ -172,6 +172,36 @@ describe("validateLoClassification", () => {
       expect(decision.loRowUpdates?.systemRole).toBe("NONE");
       expect(decision.fixes.some((f) => f.action === "coerced-system-role")).toBe(true);
     });
+
+    it("accepts TEACHING_INSTRUCTION as a valid system role", () => {
+      const decision = validateLoClassification(
+        proposal({
+          systemRole: "TEACHING_INSTRUCTION",
+          learnerVisible: false,
+          performanceStatement: null,
+        }),
+        target({ ref: "LO95", description: "Recognize that Part 3 is where Band 6 plateaus most often" }),
+      );
+      expect(decision.outcome).toBe("apply");
+      expect(decision.loRowUpdates?.systemRole).toBe("TEACHING_INSTRUCTION");
+      expect(decision.loRowUpdates?.learnerVisible).toBe(false);
+      // Coercion fixes should NOT have fired — TEACHING_INSTRUCTION is valid.
+      expect(decision.fixes.some((f) => f.action === "coerced-system-role")).toBe(false);
+    });
+
+    it("forces learnerVisible=false when classifier proposes learner-visible TEACHING_INSTRUCTION", () => {
+      const decision = validateLoClassification(
+        proposal({
+          systemRole: "TEACHING_INSTRUCTION",
+          learnerVisible: true,
+          performanceStatement: "should not survive",
+        }),
+        target(),
+      );
+      expect(decision.loRowUpdates?.learnerVisible).toBe(false);
+      expect(decision.loRowUpdates?.performanceStatement).toBeNull();
+      expect(decision.fixes.some((f) => f.action === "forced-hidden-when-system-role")).toBe(true);
+    });
   });
 
   describe("confidence clamping", () => {

@@ -707,7 +707,9 @@ function LoAudienceBadge({ audience }: { audience: LoAudienceInfo }) {
   }
   const role = audience.systemRole;
   const tone =
-    role === "ITEM_GENERATOR_SPEC" ? "hf-badge-info" : "hf-badge-muted";
+    role === "ITEM_GENERATOR_SPEC" || role === "TEACHING_INSTRUCTION"
+      ? "hf-badge-info"
+      : "hf-badge-muted";
   const label =
     role === "ASSESSOR_RUBRIC"
       ? "hidden · rubric"
@@ -715,6 +717,8 @@ function LoAudienceBadge({ audience }: { audience: LoAudienceInfo }) {
       ? "hidden · item gen"
       : role === "SCORE_EXPLAINER"
       ? "hidden · score explainer"
+      : role === "TEACHING_INSTRUCTION"
+      ? "tutor · instruction"
       : "hidden";
   const tooltip =
     role === "ASSESSOR_RUBRIC"
@@ -723,6 +727,8 @@ function LoAudienceBadge({ audience }: { audience: LoAudienceInfo }) {
       ? "Hidden from learners. Used by the question generator as a boundary spec."
       : role === "SCORE_EXPLAINER"
       ? 'Hidden from learners. Surfaces only in the "How is this calculated?" tooltip on the score reveal.'
+      : role === "TEACHING_INSTRUCTION"
+      ? "Hidden from learners. Joins the tutor's course-instructions channel as a strategic move / diagnostic / intervention rule."
       : "Hidden from learners.";
   return (
     <span

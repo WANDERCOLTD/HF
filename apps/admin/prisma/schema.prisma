@@ -91,6 +91,7 @@ enum LoSystemRole {
   ASSESSOR_RUBRIC // Rubric criteria / band descriptors — surface only in scoring prompt
   ITEM_GENERATOR_SPEC // Boundary spec for question generator (e.g. "Band 6 vs 7 distinguishing features")
   SCORE_EXPLAINER // "How is this calculated?" disclosure on score reveal
+  TEACHING_INSTRUCTION // Tutor-strategic move / diagnostic / intervention rule — joins the courseInstructions channel, not the rubric or score-explainer
   NONE // Default — LO is a learner-facing teaching point
 }
 

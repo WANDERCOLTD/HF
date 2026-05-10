@@ -362,16 +362,20 @@ export interface ModuleData {
   learningOutcomes?: string[];
   /**
    * #317 — system-only LOs grouped by role for the assessor / scoring /
-   * item-generator prompts. NEVER surfaced in the learner conversation.
+   * item-generator / tutor-instruction prompts. NEVER surfaced in the
+   * learner conversation.
    *
    *   - ASSESSOR_RUBRIC: rubric criteria the assessor uses to grade.
    *   - ITEM_GENERATOR_SPEC: boundary specs the item generator consumes.
    *   - SCORE_EXPLAINER: meta-knowledge for the score-reveal disclosure.
+   *   - TEACHING_INSTRUCTION: tutor-strategic moves / diagnostics — joins
+   *     the courseInstructions channel rather than the rubric.
    */
   assessorOutcomes?: {
-    rubric: string[];        // ASSESSOR_RUBRIC
-    itemGenSpec: string[];   // ITEM_GENERATOR_SPEC
-    scoreExplainer: string[];// SCORE_EXPLAINER
+    rubric: string[];              // ASSESSOR_RUBRIC
+    itemGenSpec: string[];         // ITEM_GENERATOR_SPEC
+    scoreExplainer: string[];      // SCORE_EXPLAINER
+    teachingInstruction: string[]; // TEACHING_INSTRUCTION
   };
   /** Module content from spec config - the actual curriculum material */
   content?: Record<string, any>;

@@ -58,6 +58,7 @@ async function loadModulesFromDB(curriculumId: string): Promise<{ modules: Modul
       const rubric: string[] = [];
       const itemGenSpec: string[] = [];
       const scoreExplainer: string[] = [];
+      const teachingInstruction: string[] = [];
       for (const lo of m.learningObjectives) {
         if (lo.learnerVisible) {
           // performanceStatement (when present) is the polished learner-facing
@@ -68,6 +69,7 @@ async function loadModulesFromDB(curriculumId: string): Promise<{ modules: Modul
             case "ASSESSOR_RUBRIC": rubric.push(lo.description); break;
             case "ITEM_GENERATOR_SPEC": itemGenSpec.push(lo.description); break;
             case "SCORE_EXPLAINER": scoreExplainer.push(lo.description); break;
+            case "TEACHING_INSTRUCTION": teachingInstruction.push(lo.description); break;
             default: /* NONE on a hidden row is incoherent — drop silently */ break;
           }
         }
@@ -83,7 +85,7 @@ async function loadModulesFromDB(curriculumId: string): Promise<{ modules: Modul
         prerequisites: m.prerequisites,
         concepts: m.keyTerms,
         learningOutcomes: learnerOutcomes,
-        assessorOutcomes: { rubric, itemGenSpec, scoreExplainer },
+        assessorOutcomes: { rubric, itemGenSpec, scoreExplainer, teachingInstruction },
       };
     });
     return { modules, loRefToIdMap };

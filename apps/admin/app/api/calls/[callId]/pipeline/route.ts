@@ -126,10 +126,12 @@ async function loadCurrentModuleContext(
         pb?.curricula[0]?.slug ??
         `playbook-${resolvedPlaybookId.slice(0, 8)}-modules`;
 
-      // #317 — drop system-only refs (ASSESSOR_RUBRIC + SCORE_EXPLAINER) from
-      // the pipeline's learningOutcomes so the assessor scoring loop never
-      // assesses the learner ON the rubric. Rubric content surfaces in the
-      // assessor system prompt via assessorOutcomes, not here.
+      // #317 — drop system-only refs (ASSESSOR_RUBRIC / SCORE_EXPLAINER /
+      // TEACHING_INSTRUCTION) from the pipeline's learningOutcomes so the
+      // assessor scoring loop never assesses the learner ON the rubric or on
+      // tutor-strategic content. Those surface via assessorOutcomes (rubric
+      // / scoreExplainer / teachingInstruction) in the appropriate system
+      // prompts instead.
       const allRefs: string[] = Array.isArray(match.outcomesPrimary)
         ? match.outcomesPrimary
         : [];
@@ -146,7 +148,7 @@ async function loadCurrentModuleContext(
               where: {
                 module: { curriculumId },
                 ref: { in: allRefs },
-                systemRole: { in: ["ASSESSOR_RUBRIC", "SCORE_EXPLAINER"] },
+                systemRole: { in: ["ASSESSOR_RUBRIC", "SCORE_EXPLAINER", "TEACHING_INSTRUCTION"] },
               },
               select: { ref: true },
             });

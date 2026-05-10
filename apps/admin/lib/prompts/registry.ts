@@ -549,25 +549,38 @@ AUDIENCE TAXONOMY
 
 NONE (learnerVisible=true) — student-facing teaching point. Knowledge or skills the student should build. Performance verbs: speak / write / read / paraphrase / apply / compare / identify-when-doing. The learner is the audience.
 
-ASSESSOR_RUBRIC (learnerVisible=false) — rubric criteria, band descriptors, "this is what scoring looks like at Band X". The grader uses these; the learner does not study them as content. Hidden from the learner. Surfaces in the assessor system prompt.
+ASSESSOR_RUBRIC (learnerVisible=false) — rubric criteria, band descriptors, "this is what scoring looks like at Band X". The grader uses these to assign a score. Static reference material for grading. Surfaces in the assessor system prompt.
 
-ITEM_GENERATOR_SPEC (learnerVisible=false) — boundary spec for question generation. "Distinguishing features of Band 6 vs 7 answers" / "topic shapes that map to MCQ Y". Used by the question generator, not the learner. Hidden from the learner.
+ITEM_GENERATOR_SPEC (learnerVisible=false) — boundary spec for question generation. "Distinguishing features of Band 6 vs 7 answers" / "topic shapes that map to MCQ Y". Used by the question generator, not the learner.
 
-SCORE_EXPLAINER (learnerVisible=false) — meta-knowledge about how scores are calculated, averaged, weighted, or aggregated. Surfaces only as "How is this calculated?" disclosure on the score-reveal screen. Hidden from the curriculum page.
+SCORE_EXPLAINER (learnerVisible=false) — meta-knowledge about how scores are mechanically calculated: averaging, weighting, aggregation, criterion-to-band math. Surfaces only as "How is this calculated?" disclosure on the score-reveal screen.
+
+TEACHING_INSTRUCTION (learnerVisible=false) — tutor-strategic facts that change HOW the tutor teaches: where learners typically plateau, what diagnostic signals to watch for, which interventions raise a band, which patterns cap progression. The tutor consumes these as moves to make / things to notice during the session — not as rubric and not as score math. Joins the courseInstructions channel.
 
 DECISION HEURISTICS
 
 If the LO names rubric criteria, band characteristics, or descriptors of HOW the assessor scores → ASSESSOR_RUBRIC.
   Examples: "Identify Band 5 pronunciation characteristics: ...", "Identify the four assessment criteria"
 
-If the LO is meta-knowledge ABOUT the scoring system, calculation, or band-to-band progression rules used by the algorithm → SCORE_EXPLAINER.
-  Examples: "Explain averaging across criteria", "Recognize that Band 6 plateaus on Part 3", "Describe the band descriptor structure"
+If the LO is mechanical math / aggregation about HOW a final score is computed → SCORE_EXPLAINER.
+  Examples: "Explain averaging across criteria", "Describe how the four criterion scores are weighted", "Describe the band descriptor structure"
+
+If the LO is a tutor-strategic / diagnostic / intervention statement — telling the tutor where learners plateau, what behaviours to watch for, which moves break a plateau, which patterns cap a band → TEACHING_INSTRUCTION.
+  Examples: "Recognize that Part 3 is where Band 6 plateaus most often", "Explain why short minimal answers plateau a candidate at Band 5", "Recognize that the discriminator between Band 6 and Band 7 is rarely range alone — it is the candidate's hedging", "Explain that a weak Part 2 typically caps the band at 6"
 
 If the LO is a boundary spec the question generator would consume → ITEM_GENERATOR_SPEC.
   Examples: "Distinguish Band 5/6/7/8 features", "Map topic categories to MCQ stem types"
 
 If the LO names a measurable thing the learner can DO, practise, or produce → NONE.
   Examples: "Speak for 90 seconds without stalling", "Paraphrase any answer three ways", "Apply close-reading techniques"
+
+DISAMBIGUATION (apply in order)
+
+1. "Recognize that..." / "Explain that..." + a fact about plateau / discriminator / progression / common error → TEACHING_INSTRUCTION (not SCORE_EXPLAINER, even when bands are mentioned). SCORE_EXPLAINER is reserved for the math.
+2. Descriptive features of a Band-X response that a question generator would use as a target shape → ITEM_GENERATOR_SPEC.
+3. Static rubric criteria the assessor consults to grade → ASSESSOR_RUBRIC.
+4. Score math (averaging / weighting / aggregation / final-band derivation) → SCORE_EXPLAINER.
+5. Otherwise, if it's a learner skill → NONE.
 
 PERFORMANCE STATEMENT (only when systemRole=NONE)
 
@@ -591,7 +604,7 @@ OUTPUT — STRICT JSON
 Return JSON only, no markdown fences, no commentary outside the JSON:
 
 {
-  "systemRole": "ASSESSOR_RUBRIC" | "ITEM_GENERATOR_SPEC" | "SCORE_EXPLAINER" | "NONE",
+  "systemRole": "ASSESSOR_RUBRIC" | "ITEM_GENERATOR_SPEC" | "SCORE_EXPLAINER" | "TEACHING_INSTRUCTION" | "NONE",
   "learnerVisible": true | false,
   "performanceStatement": string | null,
   "confidence": 0.0-1.0,
