@@ -2,7 +2,8 @@
  * @api GET /api/curricula/:curriculumId/modules
  * @scope curricula:read
  * @auth session (VIEWER+)
- * @desc List all modules for a curriculum, with learning objectives
+ * @desc List all modules for a curriculum, with learning objectives. Use ?audience=learner to filter to learner-visible LOs and project performanceStatement into description; default is the full author view (every LO + classifier columns).
+ * @query audience "learner" | "author" (default: "author")
  *
  * @api POST /api/curricula/:curriculumId/modules
  * @scope curricula:write
@@ -20,6 +21,12 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { parseLoLine } from "@/lib/content-trust/validate-lo-linkage";
 import { reconcileAssertionLOs } from "@/lib/content-trust/reconcile-lo-linkage";
+import {
+  AUDIENCE_AWARE_LO_SELECT,
+  filterLOsForAudience,
+  parseAudience,
+  projectLoForAudience,
+} from "@/lib/curriculum/lo-audience";
 
 type Params = { params: Promise<{ curriculumId: string }> };
 
@@ -27,23 +34,37 @@ type Params = { params: Promise<{ curriculumId: string }> };
 // GET — list modules with LOs
 // ---------------------------------------------------------------------------
 
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
   try {
     const authResult = await requireAuth("VIEWER");
     if (isAuthError(authResult)) return authResult.error;
 
     const { curriculumId } = await params;
+    const audience = parseAudience(req.nextUrl.searchParams.get("audience"));
 
     const modules = await prisma.curriculumModule.findMany({
       where: { curriculumId, isActive: true },
       include: {
-        learningObjectives: { orderBy: { sortOrder: "asc" } },
+        learningObjectives: {
+          orderBy: { sortOrder: "asc" },
+          select: AUDIENCE_AWARE_LO_SELECT,
+        },
         _count: { select: { callerProgress: true, calls: true } },
       },
       orderBy: { sortOrder: "asc" },
     });
 
-    return NextResponse.json({ ok: true, modules });
+    // #317 — shape per audience: learner sees only learnerVisible LOs
+    // with performanceStatement projected into description; author sees
+    // every LO with all classifier columns intact.
+    const shaped = modules.map((m) => ({
+      ...m,
+      learningObjectives: filterLOsForAudience(m.learningObjectives, audience).map((lo) =>
+        projectLoForAudience(lo, audience),
+      ),
+    }));
+
+    return NextResponse.json({ ok: true, audience, modules: shaped });
   } catch (error: any) {
     console.error("[curricula/:id/modules] GET error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

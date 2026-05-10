@@ -2,7 +2,8 @@
  * @api GET /api/curricula/:curriculumId/modules/:moduleId
  * @scope curricula:read
  * @auth session (VIEWER+)
- * @desc Single module detail with learning objectives and assertion count
+ * @desc Single module detail with learning objectives and assertion count. Use ?audience=learner to filter to learner-visible LOs and project performanceStatement into description; default is the full author view.
+ * @query audience "learner" | "author" (default: "author")
  *
  * @api PATCH /api/curricula/:curriculumId/modules/:moduleId
  * @scope curricula:write
@@ -20,6 +21,12 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { isValidLoPair, sanitiseLORef } from "@/lib/content-trust/validate-lo-linkage";
 import { reconcileAssertionLOs } from "@/lib/content-trust/reconcile-lo-linkage";
+import {
+  AUDIENCE_AWARE_LO_SELECT,
+  filterLOsForAudience,
+  parseAudience,
+  projectLoForAudience,
+} from "@/lib/curriculum/lo-audience";
 
 type Params = { params: Promise<{ curriculumId: string; moduleId: string }> };
 
@@ -27,19 +34,21 @@ type Params = { params: Promise<{ curriculumId: string; moduleId: string }> };
 // GET — single module detail
 // ---------------------------------------------------------------------------
 
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
   try {
     const authResult = await requireAuth("VIEWER");
     if (isAuthError(authResult)) return authResult.error;
 
     const { curriculumId, moduleId } = await params;
+    const audience = parseAudience(req.nextUrl.searchParams.get("audience"));
 
     const mod = await prisma.curriculumModule.findFirst({
       where: { id: moduleId, curriculumId },
       include: {
         learningObjectives: {
           orderBy: { sortOrder: "asc" },
-          include: {
+          select: {
+            ...AUDIENCE_AWARE_LO_SELECT,
             _count: { select: { assertions: true } },
           },
         },
@@ -51,7 +60,19 @@ export async function GET(_req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Module not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ ok: true, module: mod });
+    // #317 — audience-aware shaping. learner view drops hidden LOs and
+    // projects performanceStatement; author view returns the full record.
+    const shaped = {
+      ...mod,
+      learningObjectives: filterLOsForAudience(mod.learningObjectives as never[], audience).map(
+        (lo: any) => ({
+          ...projectLoForAudience(lo, audience),
+          _count: lo._count,
+        }),
+      ),
+    };
+
+    return NextResponse.json({ ok: true, audience, module: shaped });
   } catch (error: any) {
     console.error("[curricula/:id/modules/:id] GET error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
