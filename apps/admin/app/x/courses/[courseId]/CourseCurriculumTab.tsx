@@ -101,7 +101,7 @@ export function CourseCurriculumTab({
   const handleRegenerate = useCallback(async () => {
     if (regenerating) return;
     const confirmMsg =
-      "Regenerate the curriculum from extracted content?\n\n" +
+      "Reconcile the curriculum from extracted content?\n\n" +
       "This will rewrite modules and learning objectives using the A3-hardened AI prompt. " +
       "Existing lesson plan session assignments will be preserved but may go stale if modules change.\n\n" +
       "This makes one AI call.";
@@ -249,7 +249,7 @@ export function CourseCurriculumTab({
               onClick={handleRegenerate}
               disabled={regenerating}
             >
-              {regenerating ? "Regenerating…" : "Regenerate curriculum"}
+              {regenerating ? "Reconciling…" : "Reconcile curriculum"}
             </button>
           )}
         </div>
