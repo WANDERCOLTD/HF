@@ -49,18 +49,43 @@ async function loadModulesFromDB(curriculumId: string): Promise<{ modules: Modul
         if (!loRefToIdMap.has(lo.ref)) loRefToIdMap.set(lo.ref, lo.id);
       }
     }
-    const modules = dbModules.map((m) => ({
-      id: m.id,
-      slug: m.slug,
-      name: m.title,
-      description: m.description,
-      sortOrder: m.sortOrder,
-      sequence: m.sortOrder,
-      masteryThreshold: m.masteryThreshold ?? 0.7,
-      prerequisites: m.prerequisites,
-      concepts: m.keyTerms,
-      learningOutcomes: m.learningObjectives.map((lo) => lo.description),
-    }));
+    const modules = dbModules.map((m) => {
+      // #317 — split LOs by audience. learnerOutcomes feeds the learner
+      // conversation; assessorOutcomes feeds the scoring / item-gen prompts.
+      // The split here is what keeps rubric content out of the student chat
+      // and what surfaces it inside the assessor system prompt.
+      const learnerOutcomes: string[] = [];
+      const rubric: string[] = [];
+      const itemGenSpec: string[] = [];
+      const scoreExplainer: string[] = [];
+      for (const lo of m.learningObjectives) {
+        if (lo.learnerVisible) {
+          // performanceStatement (when present) is the polished learner-facing
+          // version; description is the verbatim authoring text.
+          learnerOutcomes.push(lo.performanceStatement ?? lo.description);
+        } else {
+          switch (lo.systemRole) {
+            case "ASSESSOR_RUBRIC": rubric.push(lo.description); break;
+            case "ITEM_GENERATOR_SPEC": itemGenSpec.push(lo.description); break;
+            case "SCORE_EXPLAINER": scoreExplainer.push(lo.description); break;
+            default: /* NONE on a hidden row is incoherent — drop silently */ break;
+          }
+        }
+      }
+      return {
+        id: m.id,
+        slug: m.slug,
+        name: m.title,
+        description: m.description,
+        sortOrder: m.sortOrder,
+        sequence: m.sortOrder,
+        masteryThreshold: m.masteryThreshold ?? 0.7,
+        prerequisites: m.prerequisites,
+        concepts: m.keyTerms,
+        learningOutcomes: learnerOutcomes,
+        assessorOutcomes: { rubric, itemGenSpec, scoreExplainer },
+      };
+    });
     return { modules, loRefToIdMap };
   } catch (err: any) {
     console.warn("[modules] DB module load failed, falling back to JSON:", err.message);

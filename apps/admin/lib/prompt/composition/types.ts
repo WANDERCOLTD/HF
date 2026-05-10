@@ -352,7 +352,27 @@ export interface ModuleData {
   masteryThreshold?: number | null;
   prerequisites?: string[];
   concepts?: string[];
+  /**
+   * Learner-facing outcomes — the LO descriptions safe to surface in the
+   * student conversation. After #317 these are sourced from
+   * `performanceStatement ?? description` for `learnerVisible=true` rows
+   * only. System-only LOs (rubric / score-explainer / item-gen-spec)
+   * are excluded — they live on `assessorOutcomes` instead.
+   */
   learningOutcomes?: string[];
+  /**
+   * #317 — system-only LOs grouped by role for the assessor / scoring /
+   * item-generator prompts. NEVER surfaced in the learner conversation.
+   *
+   *   - ASSESSOR_RUBRIC: rubric criteria the assessor uses to grade.
+   *   - ITEM_GENERATOR_SPEC: boundary specs the item generator consumes.
+   *   - SCORE_EXPLAINER: meta-knowledge for the score-reveal disclosure.
+   */
+  assessorOutcomes?: {
+    rubric: string[];        // ASSESSOR_RUBRIC
+    itemGenSpec: string[];   // ITEM_GENERATOR_SPEC
+    scoreExplainer: string[];// SCORE_EXPLAINER
+  };
   /** Module content from spec config - the actual curriculum material */
   content?: Record<string, any>;
   [key: string]: any;
