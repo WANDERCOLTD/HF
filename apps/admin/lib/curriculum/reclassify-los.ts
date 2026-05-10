@@ -35,7 +35,13 @@ import {
 // ── Types ──────────────────────────────────────────────
 
 export interface ReclassifyLosOptions {
-  /** Limit concurrency of the LLM batch. Defaults to 4. */
+  /**
+   * Limit concurrency of the LLM batch. Defaults to 3 — a 104-LO bulk run
+   * on IELTS Speaking dropped from 17/104 LOs queued at confidence=0 down
+   * to 2/104 when concurrency moved from 6 → 3, suggesting the LLM
+   * provider returns truncated/malformed responses under provider-side
+   * pressure. Stick to ≤3 unless you know the rate limits headroom.
+   */
   concurrency?: number;
   /**
    * When true, also re-classify rows where humanOverriddenAt IS NOT NULL.
@@ -74,7 +80,7 @@ export async function reclassifyLearningObjectives(
   curriculumId: string,
   options: ReclassifyLosOptions = {},
 ): Promise<ReclassifyLosResult> {
-  const { concurrency = 4, includeHumanOverridden = false, maxLOs } = options;
+  const { concurrency = 3, includeHumanOverridden = false, maxLOs } = options;
 
   // 1. Load LOs scoped to the curriculum, with module + course context for the LLM.
   const curriculum = await prisma.curriculum.findUnique({
