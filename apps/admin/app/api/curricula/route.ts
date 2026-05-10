@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     if (isAuthError(authResult)) return authResult.error;
 
     const body = await req.json();
-    const { name, subjectId } = body;
+    const { name, subjectId, playbookId: explicitPlaybookId } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json(
@@ -80,14 +80,26 @@ export async function POST(req: NextRequest) {
       .slice(0, 60);
     const slug = `${baseSlug}-${Date.now().toString(36)}`;
 
-    // Resolve playbookId from subjectId if available
+    // Resolve playbookId — prefer caller-supplied, fall back to most-recent
+    // PlaybookSubject link. See #317 follow-up: the prior `findFirst` with no
+    // ordering would return the oldest link, attaching new curricula to a
+    // sibling playbook that happens to share the subject.
     let playbookId: string | null = null;
-    if (subjectId) {
-      const pbLink = await prisma.playbookSubject.findFirst({
+    if (typeof explicitPlaybookId === "string" && explicitPlaybookId.length > 0) {
+      playbookId = explicitPlaybookId;
+    } else if (subjectId) {
+      const links = await prisma.playbookSubject.findMany({
         where: { subjectId },
-        select: { playbookId: true },
+        select: { playbookId: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
       });
-      playbookId = pbLink?.playbookId ?? null;
+      playbookId = links[0]?.playbookId ?? null;
+      if (links.length > 1) {
+        console.warn(
+          `[curricula POST] subject ${subjectId} is linked to ${links.length} playbooks — ` +
+            `picked most recent ${playbookId}. Caller should pass explicit playbookId.`,
+        );
+      }
     }
 
     const curriculum = await prisma.curriculum.create({
