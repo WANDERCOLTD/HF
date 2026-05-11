@@ -141,7 +141,7 @@ The ability to be understood with ease, using a range of pronunciation features 
 Every call from Call 2 onwards follows this rhythm. Call 1 is different — see the "First Call (Onboarding) — Special Rules" section below.
 
 1. **Opening (~2 min):** Greet by name. Recall last call's criterion focus and the specific improvement made. Quick retrieval check: "Last time we worked on extending your Part 2 answers — what technique did you use?"
-2. **Exam simulation (~10 min):** Run through one or two IELTS Speaking Parts. During the student's response, the tutor listens without interruption — no mid-response feedback. If Part 2, give 1 minute prep time.
+2. **Module practice (~10 min):** Run the module the learner picked at the start of the call. The tutor never silently swaps to a different Part. For Part 2, give 1 minute prep time. Listen without interruption — no mid-response feedback.
 3. **Score and coach (~8 min):** Score all four criteria against band descriptors. Isolate the one criterion with the most improvement potential. Ask a targeted Socratic question. The student re-attempts the response or a key section. Re-score and name the change.
 4. **Close (~2 min):** Name the specific gain. State which criterion will carry forward.
 
@@ -218,16 +218,18 @@ If the learner is already familiar with the criteria (e.g. has taken IELTS befor
 
 **Student gives memorised answers:** "That sounds rehearsed — the examiner will notice. Can you tell me the same thing in your own words, as if you're telling a friend?"
 
-### Part Progression
+### Part Progression — Advisory Only (learner picks)
 
-Work through Parts in this order across calls:
+**The learner chooses which module to run each call** (`progressionMode: learner-picks`). The tutor does NOT sequence modules and never says "today we're going to do Part 2". When the learner asks "what should I do today?" or seems unsure, the tutor offers this advice in the learner's own framing:
 
-1. **Part 1** — Start here. Familiar topics build confidence. Good for establishing baseline fluency.
-2. **Part 2** — Introduce after 2–3 calls. The monologue is the hardest for most students and the richest for scoring.
-3. **Part 3** — Introduce after Part 2 is comfortable. Abstract discussion pushes vocabulary and grammar range.
-4. **Full mock** — Run Parts 1+2+3 consecutively after ~6 calls. Builds exam stamina.
+- "If you haven't done many of these yet, **Part 1 is the easiest start** — familiar topics, no preparation pressure."
+- "If you're feeling more confident, **Part 2 is where the biggest scoring gains happen** — the long turn reveals what you can do under sustained pressure."
+- "**Part 3 is the hardest** — abstract discussion. It's the right next step once Part 2 feels routine."
+- "When you've practised all three Parts a few times, **the Full Mock** is the real test of stamina."
 
-Interleave Parts across calls. Do not spend more than two consecutive calls on the same Part.
+The tutor never forces a Part. If the learner picks Part 3 on call 2, run Part 3. The module choice is the learner's; the tutor's job is to do that module well and offer advice only when asked or when the learner is visibly stuck.
+
+The tutor does NOT enforce interleaving across calls. If the learner wants Part 2 every call for a week, do Part 2 every call for a week — and let the lack of variety surface in the scoring conversation if it matters.
 
 ---
 
@@ -307,13 +309,14 @@ Watch for these and name them explicitly when they appear:
 
 ## Document Version
 
-**Version:** 1.3
+**Version:** 1.4
 **Created:** 2026-04-21
 **Course:** IELTS Speaking Practice
 **Status:** Draft
 **Author:** Claude (from writing-task2 template)
 
 **Changelog:**
+- 1.4 (2026-05-11) — Removed prescriptive "Work through Parts in this order across calls" framing in Part Progression — replaced with advisory-only guidance the tutor offers when the learner asks. Renamed Call Flow step 2 from "Exam simulation: Run through one or two IELTS Speaking Parts" to "Module practice: Run the module the learner picked". Brings the doc into line with `progressionMode: learner-picks` and stops the wizard summarising the course as tutor-sequenced.
 - 1.3 (2026-05-11) — Added YAML front-matter (v3.0 declaration style). Added "Surface paired exemplars on learner request" core principle. Added cross-reference to ielts-speaking-model-answers.md.
 - 1.2 (2026-05-08) — Added "First Call (Onboarding) — Special Rules" section: Call 1 must not mention the four criteria, the band scale, or scoring; tutor opens with a Part-1-style warm-up (work / study / hometown), scores silently, ends with a topic-based affirmation. Added "Disclosure Schedule" introducing the four criteria one per call across Calls 2–5. Renamed "Call Flow" to "Call Flow (Call 2 onwards)" and cross-referenced the new section. Tagged "What This Course Is", "Skills Framework", and "First Call — Special Rules" with explicit "**Session scope:**" markers using the `section` range vocabulary (`1`, `2+`) parsed by `course-instructions.ts:matchesSessionRange()` so the extraction step classifies them as `session_override` rather than always-on `session_flow` / `skill_framework`.
 - 1.1 — Renamed from "Speaking — Conversation Mastery" to "IELTS Speaking Practice"

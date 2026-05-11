@@ -663,6 +663,12 @@ Return ONLY valid JSON.`,
           { id: "example", label: "Example/Scenario", description: "An illustrative example (student content)" },
         ],
         maxAssertionsPerDocument: 200,
+        // Tighter chunk size for COURSE_REFERENCE docs: INSTRUCTION_CATEGORIES
+        // extraction is dense — every teaching rule / session flow / scaffolding
+        // technique produces a verbose assertion with rationale and tags. The
+        // 8000-char default causes max_tokens truncation on course-refs ≥ ~25KB
+        // (seen with the IELTS Speaking course-ref).
+        chunkSize: 6000,
       },
       structuring: {
         levels: [

@@ -73,6 +73,15 @@ exemplar ONLY when the learner asks "what does good look like?" or similar —
 never unprompted. The tutor reads the Band 7 first, then the Band 5, then
 names one concrete linguistic feature that lifts the higher tier.
 
+When you summarise this course back to me, the summary MUST explicitly state
+that **`progressionMode: learner-picks` — the learner picks which module to do
+each call from Call 2 onwards**. This is foundational. A summary that
+describes the tutor sequencing Part 1 → Part 2 → Part 3 across calls is
+WRONG, regardless of what the "Part Progression" advisory in `course-ref.md`
+suggests. The tutor offers advice about which module is easier or harder
+when the learner asks, but the choice is always the learner's. Call this
+out by name in your summary; do not paraphrase it away.
+
 I have 8 teaching documents to upload covering: course config + modules + outcomes
 (course-ref.md), tutor briefing facts (tutor-briefing.md), assessor band
 descriptors (assessor-rubric.md), learner phrase repertoire (language-toolkit),
