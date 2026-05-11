@@ -496,11 +496,18 @@ registerTransform("renderTeachingContent", (
   } else if (currentModule?.learningOutcomes?.length && allAssertions.length > 0) {
     // Fallback: no scheduler working set (no modules, or scheduler failed).
     // Filter to current module LOs. #142: Prefer FK path, fall back to string-ref.
-    const moduleLOs = currentModule.learningOutcomes as string[];
+    // #288: When the picker locked an authored module, `learningOutcomes` now
+    // carries resolved STATEMENT TEXT (so the AI sees grounded outcomes), and
+    // the raw refs sit on `sharedState.lockedOutcomeRefs`. Prefer those for
+    // ref-based filtering — text won't match the LO\d+ regex.
+    const lockedRefs = context.sharedState?.lockedOutcomeRefs as string[] | undefined;
+    const refsForLookup = lockedRefs && lockedRefs.length > 0
+      ? lockedRefs
+      : (currentModule.learningOutcomes as string[]);
     const loRefToId = context.sharedState?.loRefToIdMap as Map<string, string> | undefined;
 
     if (loRefToId) {
-      const moduleLoIds = moduleLOs
+      const moduleLoIds = refsForLookup
         .map((lo) => {
           const match = lo.match(/^(LO\d+|AC[\d.]+)/i);
           const ref = match ? match[1] : lo;
@@ -521,7 +528,7 @@ registerTransform("renderTeachingContent", (
 
     // Fallback: string-ref matching
     if (assertions === allAssertions) {
-      const loIds = moduleLOs.map((lo) => {
+      const loIds = refsForLookup.map((lo) => {
         const match = lo.match(/^(LO\d+|AC[\d.]+)/i);
         return match ? match[1] : lo;
       });

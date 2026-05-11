@@ -287,6 +287,21 @@ export interface SharedComputedState {
    * the scheduler runs as today (silent fallback, warn log).
    */
   lockedModule?: ModuleData | null;
+  /**
+   * #288: Raw outcome refs from the locked authored module (e.g.
+   * `["OUT-01","OUT-02"]`). `lockedModule.learningOutcomes` carries resolved
+   * statement TEXT (so the AI sees grounded outcomes instead of opaque IDs);
+   * this companion field carries the original refs so consumers that need to
+   * resolve back to LO FKs (teaching-content.ts) keep working.
+   */
+  lockedOutcomeRefs?: string[];
+  /**
+   * #288: True when this learner has any prior progress on this curriculum —
+   * either a `CallerModuleProgress.callCount > 0` OR a `:lo_mastery:` attribute.
+   * Pedagogy uses this to gate retrieval/review instructions so first-time
+   * learners don't get hallucinated "review of baseline work" openers.
+   */
+  hasPriorMastery?: boolean;
   /** Call number (1-based) — this is the Nth call for this learner */
   callNumber: number;
   /** Synthetic lesson plan entry built from scheduler working set (for downstream transform compat) */
