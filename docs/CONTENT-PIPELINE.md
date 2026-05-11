@@ -3,6 +3,12 @@
 > **Read this before you change anything that affects how content is uploaded, classified, extracted, surfaced in the tutor prompt, or filtered by audience.**
 >
 > Owner: this document is the single source of truth for the classification taxonomy and data flow. When you introduce a new dimension (e.g. the Module picker introduced `progressionMode` + `modulesAuthored`), update this doc in the same PR.
+>
+> Companion docs (4-pillar architecture canon):
+> - [`docs/ENTITIES.md`](./ENTITIES.md) — the data model + content-boundary rules (who owns what, who can see what)
+> - [`docs/WIZARD-DATA-BAG.md`](./WIZARD-DATA-BAG.md) — wizard inputs (educator intent → `Playbook.config`)
+> - [`docs/PROMPT-COMPOSITION.md`](./PROMPT-COMPOSITION.md) — assembly (loaders → transforms → `ComposedPrompt`)
+> - **This doc** — classification, extraction, compose-time filters
 
 ---
 

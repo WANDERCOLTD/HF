@@ -20,6 +20,17 @@ When writing the story:
 
 **This is non-negotiable. Skipping this rule has caused production incidents.**
 
+## ⚠️ HARD RULE — Prompt composition awareness
+
+**Before writing any story that touches loaders, transforms, `getDefaultSections()`, `contentScope`, the dry-run prompt endpoint, the ComposedPrompt diff viewer, or anything in `lib/prompt/composition/` — you MUST read [`docs/PROMPT-COMPOSITION.md`](../../docs/PROMPT-COMPOSITION.md) first.** It is the single source of truth for the 21 loaders, the ~24 transforms, the section topological order, `buildComposeTrace`, and the known landmines (`__teachingDepth` hack, isolated `PrismaClient`, `filterSpecsByToggles` silent drops, onboarding-flow override precedence).
+
+When writing the story:
+- Cite the relevant PROMPT-COMPOSITION.md section(s) the story affects.
+- If the story adds or changes a loader, transform, or section definition, the story MUST include "Update `docs/PROMPT-COMPOSITION.md`" AND "Sync `docs-archive/bdd-specs/COMP-001-prompt-composition.spec.json` (seed-sync test)" as acceptance criteria.
+- Surface any landmines from §9 that the story could re-trigger — especially L1 (`__teachingDepth`) when changing `curriculumAssertions` output.
+
+**This is non-negotiable. The compose layer is the hottest surface in the codebase.**
+
 ## Step 1 — Search before writing
 
 Use qmd and hf-graph tools to find what already exists:

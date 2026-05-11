@@ -20,6 +20,18 @@ During technical review:
 
 The user has explicitly mandated this as a HARD RULE. Skipping causes outages.
 
+## ⚠️ HARD RULE — Prompt composition awareness
+
+**Before validating any story that touches loaders, transforms, `getDefaultSections()`, `contentScope`, the dry-run prompt endpoint, the ComposedPrompt diff viewer, or anything in `lib/prompt/composition/` — you MUST read [`docs/PROMPT-COMPOSITION.md`](../../docs/PROMPT-COMPOSITION.md) first.** That doc is the single source of truth for the 21 loaders (§3), the ~24 transforms (§4), the data-contract gates (§5), `buildComposeTrace` observability (§6), and the known landmines (§9).
+
+During technical review:
+- **Verify §3.1 `resolveContentScope` resolution order isn't broken** — PlaybookSource → legacy SubjectSource → domain-wide. Re-introducing a `subjectSourceId IS NULL` fallback in any content loader is an immediate block (ENTITIES.md §9 E2).
+- **Verify the COMP-001 seed-sync rule (§5)** — every change to `getDefaultSections()` MUST update `docs-archive/bdd-specs/COMP-001-prompt-composition.spec.json` or `tests/lib/prompt/composition/seed-sync.test.ts` will fail.
+- **Flag any landmine from §9** the story could re-trigger — especially L1 (`__teachingDepth` array hack), L2 (`PromptTemplateCompiler` isolated `PrismaClient`), and L5 (`filterSpecsByToggles` silent drops).
+- **Block the story if it adds a loader / transform / section without updating PROMPT-COMPOSITION.md in the same PR.** Non-negotiable.
+
+The compose layer is the hottest surface in the codebase. Skipping causes the kind of incidents documented in §1.
+
 ## Step 1 — Read the story
 
 ```bash
