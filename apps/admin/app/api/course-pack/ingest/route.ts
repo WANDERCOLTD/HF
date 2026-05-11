@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { DocumentType } from "@prisma/client";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { extractTextFromBuffer } from "@/lib/content-trust/extract-assertions";
+import { parseContentDeclaration } from "@/lib/content-trust/parse-content-declaration";
 import { getStorageAdapter, computeContentHash } from "@/lib/storage";
 import { config } from "@/lib/config";
 import type { InteractionPattern, TeachingMode } from "@/lib/content-trust/resolve-config";
@@ -665,15 +666,26 @@ async function createSource(
     const sourceSlug = `${domainSlug}-${baseSlug}-${Date.now()}`;
     const displayName = file.name.replace(/\.[^/.]+$/, "");
 
+    // Parse front-matter declarations from the markdown body (if present).
+    // The manifest path doesn't go through classifyDocument, so we parse
+    // directly here so declared `audience` / `loSystemRole` / `defaultCategory`
+    // are persisted alongside the manifest-supplied documentType.
+    const declaration = parseContentDeclaration(text);
+    const declaredDocType = declaration.documentType ?? finalDocType;
+    const declaredDocSource = declaration.documentType
+      ? "declared:by-doc"
+      : "pack-manifest";
+
     source = await prisma.contentSource.create({
       data: {
         slug: sourceSlug,
         name: displayName,
         trustLevel: "UNVERIFIED",
-        documentType: finalDocType,
-        documentTypeSource: "pack-manifest",
+        documentType: declaredDocType,
+        documentTypeSource: declaredDocSource,
         textSample: text.substring(0, 2000),
         contentHash,
+        contentDeclaration: (declaration.hasDeclaration ? declaration : null) as any,
       },
     });
   } else if (!deduplicated) {
@@ -769,11 +781,23 @@ async function extractSource(
     const { linkContentForSource } = await import("@/lib/content-trust/link-content");
     const { embedAssertionsForSource } = await import("@/lib/embeddings");
 
-    // Extraction cache gate: skip if source already has current-version assertions
+    // Extraction cache gate: skip if source already has current-version assertions.
+    // Also load `contentDeclaration` so we can forward declared defaults
+    // (hf-default-category, hf-question-assessment-use) to the extractor +
+    // question save path. See parse-content-declaration.ts.
     const existing = await prisma.contentSource.findUnique({
       where: { id: source.id },
-      select: { extractorVersion: true, _count: { select: { assertions: true, questions: true, vocabulary: true, mediaAssets: true } } },
+      select: {
+        extractorVersion: true,
+        contentDeclaration: true,
+        _count: { select: { assertions: true, questions: true, vocabulary: true, mediaAssets: true } },
+      },
     });
+    const sourceDeclaration = (existing?.contentDeclaration ?? null) as
+      | import("@/lib/content-trust/parse-content-declaration").ContentDeclaration
+      | null;
+    const declaredDefaultCategory = sourceDeclaration?.defaultCategory ?? undefined;
+    const declaredAssessmentUse = sourceDeclaration?.questionAssessmentUse ?? null;
     if (existing && existing._count.assertions > 0 && !isExtractionOutdated(existing.extractorVersion)) {
       console.log(`[course-pack/ingest] Extraction cache hit for ${fileName} (v${existing.extractorVersion}, ${existing._count.assertions} assertions) — skipping`);
       send({
@@ -816,6 +840,7 @@ async function extractSource(
       documentType,
       teachingMode,
       maxAssertions: extractionConfig.extraction.maxAssertionsPerDocument,
+      declaredDefaultCategory,
     }, extractionConfig, async (data) => {
       // Per-chunk save: assertions + questions + vocabulary appear in DB progressively
       try {
@@ -824,7 +849,7 @@ async function extractSource(
           totalCreated += created;
         }
         if (data.questions.length > 0) {
-          const qResult = await saveQuestions(source.id, data.questions);
+          const qResult = await saveQuestions(source.id, data.questions, undefined, declaredAssessmentUse);
           totalQuestionsCreated += qResult.created;
         }
         if (data.vocabulary.length > 0) {
@@ -890,7 +915,7 @@ async function extractSource(
         const { created } = await saveAssertions(source.id, result.assertions);
         totalCreated += created;
         if (result.questions?.length) {
-          const qResult = await saveQuestions(source.id, result.questions);
+          const qResult = await saveQuestions(source.id, result.questions, undefined, declaredAssessmentUse);
           totalQuestionsCreated += qResult.created;
         }
         if (result.vocabulary?.length) {
