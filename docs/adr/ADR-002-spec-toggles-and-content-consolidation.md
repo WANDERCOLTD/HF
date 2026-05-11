@@ -1,7 +1,12 @@
 # ADR-002 — Spec Toggles & Content Spec Consolidation
 
 ## Status
-Accepted (Decision 1), Proposed (Decision 2)
+**Partially superseded by [`docs/SPEC-SYSTEM.md`](../SPEC-SYSTEM.md) §4 (toggle resolution chain) and §10 (supersession notes).**
+
+- Decision 1 (selective spec toggles) — **Accepted**; the expanded canonical map (8-step scaffold, toggle reader, 4-layer `extendsAgent` chain) now lives in `docs/SPEC-SYSTEM.md` §3-§5. Read that doc for current behaviour.
+- Decision 2 (Content Spec consolidation) — **Phase 1 + Phase 2 shipped** (`extractContentSpec` transform removed; `CONTENT` role retained for back-compat). Phase 3 unscheduled.
+
+The original Context / Decision text below is preserved for historical reference.
 
 ## Context
 

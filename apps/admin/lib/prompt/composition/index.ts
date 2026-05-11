@@ -11,3 +11,5 @@ export { persistComposedPrompt } from "./persist";
 export type { PersistOptions, PersistedPrompt } from "./persist";
 export { loadComposeConfig } from "./loadComposeConfig";
 export type { ComposeConfig } from "./loadComposeConfig";
+export { buildComposeTrace, renderComposeTraceLog } from "./buildComposeTrace";
+export type { ComposeTrace } from "./types";

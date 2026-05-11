@@ -1,0 +1,276 @@
+description: "LO audience classifier — learner vs system-only routing (#317)"
+
+# Run with: npx promptfoo eval -c evals/curriculum/lo-audience-classifier.yaml
+#
+# Tests the lo-audience-classifier prompt from PROMPT_REGISTRY in
+# apps/admin/lib/prompts/registry.ts. The classifier returns:
+#   { systemRole, learnerVisible, performanceStatement, confidence, rationale }
+# The validate-lo-classification guard enforces coherence at runtime —
+# this eval gates the LLM behaviour the guard relies on.
+
+prompts:
+  - id: lo-audience-classifier
+    raw: |
+      You are a curriculum auditor. Decide whether a Learning Objective is for the LEARNER to study (visible on the curriculum page) or for the SYSTEM to use during teaching/scoring (hidden from the learner).
+
+      AUDIENCE TAXONOMY
+
+      NONE (learnerVisible=true) — student-facing teaching point. Knowledge or skills the student should build. Performance verbs: speak / write / read / paraphrase / apply / compare / identify-when-doing. The learner is the audience.
+
+      ASSESSOR_RUBRIC (learnerVisible=false) — rubric criteria, band descriptors, "this is what scoring looks like at Band X". The grader uses these; the learner does not study them as content. Hidden from the learner. Surfaces in the assessor system prompt.
+
+      ITEM_GENERATOR_SPEC (learnerVisible=false) — boundary spec for question generation. "Distinguishing features of Band 6 vs 7 answers" / "topic shapes that map to MCQ Y". Used by the question generator, not the learner. Hidden from the learner.
+
+      SCORE_EXPLAINER (learnerVisible=false) — meta-knowledge about how scores are calculated, averaged, weighted, or aggregated. Surfaces only as "How is this calculated?" disclosure on the score-reveal screen. Hidden from the curriculum page.
+
+      DECISION HEURISTICS
+
+      If the LO names rubric criteria, band characteristics, or descriptors of HOW the assessor scores → ASSESSOR_RUBRIC.
+
+      If the LO is meta-knowledge ABOUT the scoring system, calculation, or band-to-band progression rules used by the algorithm → SCORE_EXPLAINER.
+
+      If the LO is a boundary spec the question generator would consume → ITEM_GENERATOR_SPEC.
+
+      If the LO names a measurable thing the learner can DO, practise, or produce → NONE.
+
+      PERFORMANCE STATEMENT (only when systemRole=NONE)
+
+      Rewrite the LO as a single sentence in plain learner-facing language describing what the learner can DO. Under 120 chars. Avoid knowledge verbs (Identify, Explain, Describe, Recognize) — use action/performance verbs (Speak, Apply, Paraphrase, Compare, Practise). If the original is already a clean performance statement, return it unchanged.
+
+      OUTPUT — STRICT JSON
+
+      {
+        "systemRole": "ASSESSOR_RUBRIC" | "ITEM_GENERATOR_SPEC" | "SCORE_EXPLAINER" | "NONE",
+        "learnerVisible": true | false,
+        "performanceStatement": string | null,
+        "confidence": 0.0-1.0,
+        "rationale": "one short sentence"
+      }
+
+      Invariants:
+      - learnerVisible MUST be true iff systemRole === "NONE"
+      - performanceStatement MUST be a non-empty string iff learnerVisible === true; otherwise null
+    config:
+      temperature: 0.1
+      max_tokens: 400
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      temperature: 0.1
+      max_tokens: 400
+
+# Shared output-shape assertion. Each test extends with role-specific checks.
+defaultTest:
+  assert:
+    - type: javascript
+      value: |
+        const raw = typeof output === 'string' ? output : JSON.stringify(output);
+        const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+        let parsed;
+        try { parsed = JSON.parse(stripped); }
+        catch(e) { return { pass: false, reason: `Output is not valid JSON: ${e.message}` }; }
+        // Coherence — learnerVisible iff systemRole=NONE.
+        const isNone = parsed.systemRole === 'NONE';
+        if (parsed.learnerVisible !== isNone) {
+          return { pass: false, reason: `Coherence break: systemRole=${parsed.systemRole} but learnerVisible=${parsed.learnerVisible}` };
+        }
+        // Coherence — performanceStatement only on learner-visible rows.
+        if (!parsed.learnerVisible && parsed.performanceStatement) {
+          return { pass: false, reason: `performanceStatement set on hidden LO: ${parsed.performanceStatement}` };
+        }
+        if (parsed.learnerVisible && (typeof parsed.performanceStatement !== 'string' || parsed.performanceStatement.length === 0)) {
+          return { pass: false, reason: `learnerVisible=true requires non-empty performanceStatement; got ${JSON.stringify(parsed.performanceStatement)}` };
+        }
+        if (typeof parsed.confidence !== 'number' || parsed.confidence < 0 || parsed.confidence > 1) {
+          return { pass: false, reason: `confidence out of range: ${parsed.confidence}` };
+        }
+        return true;
+
+tests:
+  # ── ASSESSOR_RUBRIC ──────────────────────────────────────────────────
+
+  - description: "Band-characteristic LO → ASSESSOR_RUBRIC"
+    vars:
+      userMessage: |
+        Course: IELTS Speaking
+        Module: Pronunciation: Intelligibility, Stress, Intonation, and Connected Speech
+
+        LO LO76: Identify Band 5 pronunciation characteristics: pronunciation of a limited repertoire is generally clear, with some sounds and word stress causing strain.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          const p = JSON.parse(stripped);
+          if (p.systemRole !== 'ASSESSOR_RUBRIC') return { pass: false, reason: `expected ASSESSOR_RUBRIC, got ${p.systemRole}: ${p.rationale}` };
+          return true;
+
+  - description: "Naming the assessment criteria → ASSESSOR_RUBRIC"
+    vars:
+      userMessage: |
+        Course: IELTS Speaking
+        Module: IELTS Speaking Assessment Criteria and Band Descriptors
+
+        LO LO8: Identify the four assessment criteria used in the IELTS Speaking test.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          const p = JSON.parse(stripped);
+          if (p.systemRole !== 'ASSESSOR_RUBRIC') return { pass: false, reason: `expected ASSESSOR_RUBRIC, got ${p.systemRole}: ${p.rationale}` };
+          return true;
+
+  # ── SCORE_EXPLAINER ──────────────────────────────────────────────────
+
+  - description: "Score-aggregation explanation → SCORE_EXPLAINER"
+    vars:
+      userMessage: |
+        Course: IELTS Speaking
+        Module: IELTS Speaking Assessment Criteria and Band Descriptors
+
+        LO LO15: Explain how the four criterion scores are averaged into the candidate's overall band.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          const p = JSON.parse(stripped);
+          if (p.systemRole !== 'SCORE_EXPLAINER') return { pass: false, reason: `expected SCORE_EXPLAINER, got ${p.systemRole}: ${p.rationale}` };
+          return true;
+
+  # ── TEACHING_INSTRUCTION ─────────────────────────────────────────────
+
+  - description: "Tutor diagnostic / plateau awareness → TEACHING_INSTRUCTION"
+    vars:
+      userMessage: |
+        Course: IELTS Speaking
+        Module: Common Band Plateaus and Strategic Interventions
+
+        LO LO95: Recognize that Part 3 is where Band 6 plateaus most often.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          const p = JSON.parse(stripped);
+          if (p.systemRole !== 'TEACHING_INSTRUCTION') return { pass: false, reason: `expected TEACHING_INSTRUCTION (tutor strategic awareness), got ${p.systemRole}: ${p.rationale}` };
+          return true;
+
+  - description: "Tutor intervention rule → TEACHING_INSTRUCTION (not SCORE_EXPLAINER)"
+    vars:
+      userMessage: |
+        Course: IELTS Speaking
+        Module: Common Band Plateaus and Strategic Interventions
+
+        LO LO101: Explain that overuse of "In my opinion" (four+ times in Part 3) plateaus a candidate at Band 6.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          const p = JSON.parse(stripped);
+          if (p.systemRole !== 'TEACHING_INSTRUCTION') return { pass: false, reason: `expected TEACHING_INSTRUCTION (tutor diagnostic move, not score-math), got ${p.systemRole}: ${p.rationale}` };
+          return true;
+
+  # ── ITEM_GENERATOR_SPEC ──────────────────────────────────────────────
+
+  - description: "Band-vs-band distinguisher → ITEM_GENERATOR_SPEC"
+    vars:
+      userMessage: |
+        Course: IELTS Speaking
+        Module: Common Band Plateaus and Strategic Interventions
+
+        LO LO97: Distinguish Band 6 vs Band 7 features in candidate responses to Part 3 abstract questions.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          const p = JSON.parse(stripped);
+          if (p.systemRole !== 'ITEM_GENERATOR_SPEC') return { pass: false, reason: `expected ITEM_GENERATOR_SPEC, got ${p.systemRole}: ${p.rationale}` };
+          return true;
+
+  # ── NONE / learner-facing ────────────────────────────────────────────
+
+  - description: "Performance verb + measurable target → NONE with performanceStatement"
+    vars:
+      userMessage: |
+        Course: IELTS Speaking
+        Module: Fluency and Coherence: Speech Flow and Discourse Organisation
+
+        LO LO51: Speak for 90 seconds in Part 2 without stalling on word-search.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          const p = JSON.parse(stripped);
+          if (p.systemRole !== 'NONE') return { pass: false, reason: `expected NONE, got ${p.systemRole}: ${p.rationale}` };
+          if (!p.learnerVisible) return { pass: false, reason: `learnerVisible should be true` };
+          if (typeof p.performanceStatement !== 'string' || p.performanceStatement.length === 0) {
+            return { pass: false, reason: `expected non-empty performanceStatement, got ${JSON.stringify(p.performanceStatement)}` };
+          }
+          // performanceStatement should be reasonably short and use action language.
+          if (p.performanceStatement.length > 200) {
+            return { pass: false, reason: `performanceStatement too long (${p.performanceStatement.length} chars): ${p.performanceStatement}` };
+          }
+          return true;
+
+  - description: "Skill practice LO → NONE"
+    vars:
+      userMessage: |
+        Course: IELTS Speaking
+        Module: Lexical Resource: Vocabulary Range, Precision, and Paraphrase
+
+        LO LO61: Paraphrase any answer three ways without repeating key nouns.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          const p = JSON.parse(stripped);
+          if (p.systemRole !== 'NONE') return { pass: false, reason: `expected NONE, got ${p.systemRole}` };
+          return true;
+
+  # ── Test-format briefing → TEACHING_INSTRUCTION (not NONE) ───────────
+  #
+  # Updated 2026-05-10: "Identify the three parts of the test" was previously
+  # classified as NONE on the grounds that the learner needs to know test
+  # format. But: it is a BRIEFING fact the tutor delivers — not a skill the
+  # learner develops. Socratically quizzing the learner with "guess how many
+  # parts the test has" is the wrong move. The role widened to include
+  # briefing facts, so this kind of LO now belongs in TEACHING_INSTRUCTION.
+
+  - description: "Test-format briefing fact → TEACHING_INSTRUCTION (not NONE — tutor delivers, doesn't quiz)"
+    vars:
+      userMessage: |
+        Course: IELTS Speaking
+        Module: IELTS Speaking Test Structure and Format
+
+        LO LO1: Identify the three parts of the IELTS Speaking test and their respective durations and task types.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          const p = JSON.parse(stripped);
+          if (p.systemRole !== 'TEACHING_INSTRUCTION') return { pass: false, reason: `expected TEACHING_INSTRUCTION (briefing fact, not skill), got ${p.systemRole}: ${p.rationale}` };
+          return true;
+
+  - description: "Examiner-role briefing → TEACHING_INSTRUCTION"
+    vars:
+      userMessage: |
+        Course: IELTS Speaking
+        Module: Part 1: Familiar Topics
+
+        LO LO6: Explain the examiner's role in Part 1 and the constraints on question rephrasing and follow-ups.
+    assert:
+      - type: javascript
+        value: |
+          const raw = typeof output === 'string' ? output : JSON.stringify(output);
+          const stripped = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```\s*$/,'').trim();
+          const p = JSON.parse(stripped);
+          if (p.systemRole !== 'TEACHING_INSTRUCTION') return { pass: false, reason: `expected TEACHING_INSTRUCTION (examiner-role briefing), got ${p.systemRole}: ${p.rationale}` };
+          return true;

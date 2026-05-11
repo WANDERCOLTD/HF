@@ -571,8 +571,15 @@ const stepExecutors: Record<string, StepExecutor> = {
     const domainId = ctx.results.domainId!;
     const p = db(ctx.tx);
 
-    // Try assertion-based generation first (upload mode)
-    const result = await generateContentSpec(domainId, undefined, ctx.tx);
+    // Try assertion-based generation first (upload mode).
+    // #317 follow-up: pass playbookId explicitly so the curriculum attaches
+    // to this caller's playbook, not whichever PlaybookSubject link the
+    // resolution race picks first.
+    const result = await generateContentSpec(
+      domainId,
+      ctx.results.playbookId ? { playbookId: ctx.results.playbookId } : undefined,
+      ctx.tx,
+    );
 
     ctx.results.moduleCount = result.moduleCount;
     if (result.moduleCount > 0) {

@@ -1,6 +1,9 @@
 /**
  * Wizard Tool Executor — server-side execution of wizard tool calls.
  *
+ * @canonical-doc docs/WIZARD-DATA-BAG.md §5
+ * @canonical-doc docs/CONTENT-PIPELINE.md §4
+ *
  * Tool definitions live in conversational-wizard-tools.ts (CONVERSATIONAL_TOOLS).
  * This file handles the server-side execution: resolving entities, creating
  * institutions/courses, and returning results to the AI loop.
@@ -186,7 +189,41 @@ export async function executeWizardTool(
 
   switch (toolName) {
     case "update_setup": {
-      const fields = input.fields as Record<string, unknown>;
+      // #316 follow-up: validate field NAMES against the canonical wizard
+      // graph keys. The AI repeatedly hallucinates keys from the label
+      // ("moduleProgression" vs the canonical "progressionMode"), or writes
+      // a progressionMode value to interactionPattern. Catch both at the
+      // boundary so the data bag stays canonical.
+      const { validateSetupFields } = await import("@/lib/wizard/validate-setup-fields");
+      const rawFields = input.fields as Record<string, unknown>;
+      const { validated: fields, corrections, errors: fieldErrors } = validateSetupFields(rawFields);
+      if (corrections.length > 0) {
+        for (const c of corrections) {
+          console.log(`[wizard-tools] update_setup auto-corrected: ${c.from} → ${c.to} (${c.reason})`);
+        }
+      }
+      if (fieldErrors.length > 0) {
+        const summary = fieldErrors
+          .map((e) => `"${e.key}"${e.suggestion ? ` (did you mean "${e.suggestion}"?)` : ""}`)
+          .join(", ");
+        console.warn(`[wizard-tools] update_setup REJECTED unknown fields: ${summary}`);
+        return {
+          ...base,
+          content: JSON.stringify({
+            ok: false,
+            error:
+              `Unknown setup field(s): ${summary}. ` +
+              `Use canonical wizard keys only — read the field's "key" property in the graph, not its label. ` +
+              `Retry update_setup with the corrected key name.`,
+            unknownKeys: fieldErrors.map((e) => e.key),
+            suggestions: fieldErrors.reduce<Record<string, string | null>>((acc, e) => {
+              acc[e.key] = e.suggestion;
+              return acc;
+            }, {}),
+          }),
+          is_error: true,
+        };
+      }
       const keys = Object.keys(fields);
 
       // ── Institution resolution ──────────────────────────
@@ -604,8 +641,24 @@ export async function executeWizardTool(
       const graphCheck = evaluateGraph(setupData ?? {});
       if (!graphCheck.canLaunch) {
         const labels = graphCheck.missingRequired.map((n) => n.label);
+        const keys = graphCheck.missingRequired.map((n) => n.key);
         console.log(`[wizard-tools] create_course BLOCKED — missing required: ${labels.join(", ")}`);
-        return { ack: `Cannot create course yet — still missing: ${labels.join(", ")}. Collect these first, then try again.` };
+        // #317 follow-up: previously this returned a soft ack — the chat AI
+        // saw it as success and called mark_complete next, leaving the user
+        // on a fake "course created" card. Hard-fail so the AI must collect
+        // the missing fields and retry create_course.
+        return {
+          ...base,
+          content: JSON.stringify({
+            ok: false,
+            error:
+              `Cannot create course yet — still missing required fields: ${labels.join(", ")}. ` +
+              `Collect these first, then call create_course again. Do NOT call mark_complete until create_course succeeds.`,
+            missingKeys: keys,
+            missingLabels: labels,
+          }),
+          is_error: true,
+        };
       }
       // Server-side: full course creation with scaffolding (identity spec, playbook, system specs, publish, onboarding)
       try {
@@ -1106,6 +1159,19 @@ export async function executeWizardTool(
         if (newAudience) configUpdate.audience = newAudience;
         const newLessonPlanModel = (input.lessonPlanModel as string) || (setupData?.lessonPlanModel as string);
         if (newLessonPlanModel) configUpdate.lessonPlanModel = newLessonPlanModel;
+
+        // #253 follow-up: progressionMode → modulesAuthored mirror.
+        // The existing-path branch above (line ~796) already does this, but
+        // the new-path branch was missing it — net effect: brand-new courses
+        // landed with modulesAuthored=null, surfacing a "Mode not set" pill on
+        // the course page even when the wizard had collected a clear answer.
+        const newProgressionMode =
+          (input.progressionMode as string) || (setupData?.progressionMode as string);
+        if (newProgressionMode === "learner-picks") {
+          configUpdate.modulesAuthored = true;
+        } else if (newProgressionMode === "ai-led") {
+          configUpdate.modulesAuthored = false;
+        }
         const newPhysicalMaterials = (input.physicalMaterials as string) || (setupData?.physicalMaterials as string);
         if (newPhysicalMaterials) configUpdate.physicalMaterials = newPhysicalMaterials;
         const newCourseContext = (input.courseContext as string) || (setupData?.courseContext as string);
@@ -1373,26 +1439,52 @@ export async function executeWizardTool(
           });
           const flowConfig = domainRow?.onboardingFlowPhases as { phases?: Array<{ phase: string; duration: string; goals: string[]; content?: Array<{ mediaId: string; instruction?: string }> }> } | null;
           if (flowConfig?.phases?.length) {
-            // Find the first content-bearing phase
+            // Find the first content-bearing phase by name. Widened from the
+            // previous regex (topic|teach|content|practice|reading) which
+            // failed for domains whose phase names use other vocabulary
+            // (welcome / orient / discover / sample / close — the IELTS
+            // domain), causing the fallback to dump all media into
+            // phase[0] (welcome) with identical placeholder instructions.
             const contentIdx = flowConfig.phases.findIndex(
-              (p) => /topic|teach|content|practice|reading/i.test(p.phase),
+              (p) =>
+                /topic|teach|content|practice|reading|discover|sample|share|present|introduce|explore/i.test(
+                  p.phase,
+                ),
             );
-            const targetIdx = contentIdx >= 0 ? contentIdx : 0;
-            const updatedPhases = flowConfig.phases.map((phase, i) => {
-              if (i !== targetIdx) return phase;
-              return {
-                ...phase,
-                content: visibleMedia.map((sm) => ({
-                  mediaId: sm.media.id,
-                  instruction: "Share this with the learner when introducing the topic",
-                })),
-              };
-            });
-            finalFlowPhases = { phases: updatedPhases };
-            await prisma.domain.update({
-              where: { id: domainId },
-              data: { onboardingFlowPhases: finalFlowPhases },
-            });
+
+            if (contentIdx < 0) {
+              // No content-bearing phase. Skip media attachment rather than
+              // dumping into phase[0] (typically "welcome" — a greeting,
+              // not a content slot). The operator can attach manually if
+              // they want, and the warning surfaces the missing phase
+              // pattern in production traces.
+              console.warn(
+                `[wizard-tools] create_course: no content phase found in onboarding flow ` +
+                  `(phases: ${flowConfig.phases.map((p) => p.phase).join(", ")}); ` +
+                  `skipping media attachment for ${visibleMedia.length} item(s).`,
+              );
+            } else {
+              const updatedPhases = flowConfig.phases.map((phase, i) => {
+                if (i !== contentIdx) return phase;
+                return {
+                  ...phase,
+                  content: visibleMedia.map((sm) => ({
+                    mediaId: sm.media.id,
+                    // Empty instruction — operator fills in something
+                    // specific per media. Previously hardcoded
+                    // "Share this with the learner when introducing the topic"
+                    // for every row, which produced visually-duplicate UI
+                    // rows that confused educators.
+                    instruction: "",
+                  })),
+                };
+              });
+              finalFlowPhases = { phases: updatedPhases };
+              await prisma.domain.update({
+                where: { id: domainId },
+                data: { onboardingFlowPhases: finalFlowPhases },
+              });
+            }
           }
         }
 
@@ -2037,6 +2129,62 @@ export async function executeWizardTool(
     }
 
     case "mark_complete": {
+      // #317 follow-up: previously this returned "Setup complete" with no
+      // precondition checks. If create_course had failed (e.g. BLOCKED on
+      // missing fields, or backgrounded curriculum-gen task didn't persist),
+      // the user was shown a misleading success card. Now: must have a real
+      // Playbook AND a real Curriculum with modules in the DB before we
+      // declare setup complete.
+      const draftPbId = (setupData?.draftPlaybookId as string | undefined) ?? null;
+      if (!draftPbId) {
+        console.warn(`[wizard-tools] mark_complete BLOCKED — no draftPlaybookId in setupData`);
+        return {
+          ...base,
+          content: JSON.stringify({
+            ok: false,
+            error:
+              "Cannot mark complete — no course has been created yet. Call create_course first; check the response includes a playbook ID.",
+          }),
+          is_error: true,
+        };
+      }
+      const { prisma } = await import("@/lib/prisma");
+      const pb = await prisma.playbook.findUnique({
+        where: { id: draftPbId },
+        select: {
+          id: true,
+          name: true,
+          curricula: {
+            select: { id: true, _count: { select: { modules: true } } },
+            orderBy: { createdAt: "asc" },
+            take: 1,
+          },
+        },
+      });
+      if (!pb) {
+        console.warn(`[wizard-tools] mark_complete BLOCKED — playbook ${draftPbId} not found in DB`);
+        return {
+          ...base,
+          content: JSON.stringify({
+            ok: false,
+            error: `Cannot mark complete — playbook ${draftPbId} is referenced in setupData but doesn't exist in the database. Re-run create_course.`,
+          }),
+          is_error: true,
+        };
+      }
+      const cur = pb.curricula[0];
+      if (!cur || cur._count.modules === 0) {
+        console.warn(`[wizard-tools] mark_complete BLOCKED — playbook ${draftPbId} has no curriculum modules`);
+        return {
+          ...base,
+          content: JSON.stringify({
+            ok: false,
+            error: `Cannot mark complete — course "${pb.name}" exists but has no curriculum modules yet. Curriculum generation may still be running, or it failed silently. Check the curriculum-generation UserTask, or invoke generate_curriculum.`,
+          }),
+          is_error: true,
+        };
+      }
+      console.log(`[wizard-tools] mark_complete: playbook ${draftPbId} verified — ${cur._count.modules} modules persisted`);
       return { ...base, content: "Setup complete. The user can now try a sim call." };
     }
 

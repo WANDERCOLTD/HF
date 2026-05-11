@@ -27,6 +27,7 @@ import {
   hasBlockingErrors,
 } from "@/lib/wizard/persist-authored-modules";
 import { syncAuthoredModulesToCurriculum } from "@/lib/wizard/sync-authored-modules-to-curriculum";
+import { reclassifyLearningObjectives } from "@/lib/curriculum/reclassify-los";
 
 // ── Body schema ──────────────────────────────────────────────────────
 
@@ -104,6 +105,47 @@ export async function GET(
     );
   }
 
+  // #317 — surface the audience-split fields per outcome ref so the
+  // AuthoredModulesPanel can render a [hidden: ASSESSOR_RUBRIC] / etc.
+  // badge alongside each LO. Same Set of refs we already collected for
+  // mcqCountsByModule, so this is one extra DB hit, not N.
+  let loAudienceByRef: Record<string, {
+    learnerVisible: boolean;
+    systemRole: string;
+    performanceStatement: string | null;
+    humanOverridden: boolean;
+  }> = {};
+  if (allOutcomeRefs.length > 0) {
+    const curriculumRow = await prisma.curriculum.findFirst({
+      where: { playbookId: courseId },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (curriculumRow) {
+      const los = await prisma.learningObjective.findMany({
+        where: {
+          module: { curriculumId: curriculumRow.id },
+          ref: { in: allOutcomeRefs },
+        },
+        select: {
+          ref: true,
+          learnerVisible: true,
+          systemRole: true,
+          performanceStatement: true,
+          humanOverriddenAt: true,
+        },
+      });
+      for (const lo of los) {
+        loAudienceByRef[lo.ref] = {
+          learnerVisible: lo.learnerVisible,
+          systemRole: lo.systemRole,
+          performanceStatement: lo.performanceStatement,
+          humanOverridden: lo.humanOverriddenAt !== null,
+        };
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     modulesAuthored: cfg.modulesAuthored ?? null,
@@ -121,6 +163,10 @@ export async function GET(
     // #281 Slice 3b: per-module MCQ counts so the panel can render the
     // "no learner-facing content" banner where mcqCountsByModule[id] === 0.
     mcqCountsByModule,
+    // #317 — audience-split per outcome ref ({ learnerVisible, systemRole,
+    // performanceStatement, humanOverridden }). Empty when no curriculum
+    // exists yet (cold-start before classifier first runs).
+    loAudienceByRef,
   });
 }
 
@@ -212,6 +258,25 @@ export async function POST(
     });
   }
 
+  // #317 — after the curriculum modules + LOs have been committed, run the
+  // audience-split classifier so freshly-imported LOs get learnerVisible /
+  // performanceStatement / systemRole set before the user sees the
+  // curriculum tab. Best-effort: classification failures don't fail the
+  // import (the curriculum is still valid; classification can be re-run
+  // from the curriculum tab's "Reclassify LOs" button).
+  let classification: Awaited<ReturnType<typeof reclassifyLearningObjectives>> | null = null;
+  if (syncResult?.curriculumId) {
+    try {
+      classification = await reclassifyLearningObjectives(syncResult.curriculumId);
+      console.log(
+        `[import-modules] curriculum ${syncResult.curriculumId} classification: ` +
+          `applied=${classification.applied} queued=${classification.queued} skipped=${classification.skipped} failed=${classification.failed}`,
+      );
+    } catch (err: any) {
+      console.error(`[import-modules] reclassifyLearningObjectives failed for ${syncResult.curriculumId}:`, err?.message);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     modulesAuthored: detected.modulesAuthored,
@@ -223,5 +288,6 @@ export async function POST(
     hasErrors: hasBlockingErrors(detected),
     persisted: changed,
     curriculumSync: syncResult,
+    classification, // #317 — { applied, queued, skipped, failed, byOutcome } or null
   });
 }

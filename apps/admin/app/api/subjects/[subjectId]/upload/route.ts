@@ -207,6 +207,17 @@ export async function POST(
     const displayName = sourceName || file.name.replace(/\.[^/.]+$/, "");
 
     const trustLevel = trustLevelOverride || subject.defaultTrustLevel;
+    // Declared front-matter → stamp "declared:by-doc" provenance; AI inference
+    // keeps the existing `ai:<confidence>` format. See parse-content-declaration.ts.
+    const documentTypeSource =
+      classification.source === "declared:by-doc"
+        ? "declared:by-doc"
+        : `ai:${classification.confidence.toFixed(2)}`;
+    const aiClassification =
+      classification.source === "declared:by-doc"
+        ? null
+        : `${classification.documentType}:${classification.confidence.toFixed(2)}`;
+    const contentDeclaration = (classification.declaration ?? null) as any;
     let source;
     try {
       source = await prisma.contentSource.create({
@@ -215,10 +226,11 @@ export async function POST(
           name: displayName,
           trustLevel: trustLevel as any,
           documentType: classification.documentType as any,
-          documentTypeSource: `ai:${classification.confidence.toFixed(2)}`,
+          documentTypeSource,
           textSample: text.substring(0, 1000),
-          aiClassification: `${classification.documentType}:${classification.confidence.toFixed(2)}`,
+          aiClassification,
           contentHash,
+          contentDeclaration,
         },
       });
     } catch (err: any) {
@@ -229,10 +241,11 @@ export async function POST(
             name: displayName,
             trustLevel: trustLevel as any,
             documentType: classification.documentType as any,
-            documentTypeSource: `ai:${classification.confidence.toFixed(2)}`,
+            documentTypeSource,
             textSample: text.substring(0, 1000),
-            aiClassification: `${classification.documentType}:${classification.confidence.toFixed(2)}`,
+            aiClassification,
             contentHash,
+            contentDeclaration,
           },
         });
       } else {

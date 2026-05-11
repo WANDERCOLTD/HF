@@ -571,11 +571,23 @@ async function handleGenerateCurriculum(input: Record<string, any>, userId: stri
 
   const taskId = await startCurriculumGeneration(subject_id, subject.name, userId);
 
+  // #317 follow-up — bug #3: previously this returned `ok: true` with a
+  // happy "started" message. The chat AI read it as success and could
+  // proceed to mark_complete even though the background task might
+  // subsequently TIMEOUT. Now: signal status="pending" + persisted=false
+  // explicitly + spell out the consumer's obligation to verify the
+  // Curriculum exists before declaring success.
   return {
     ok: true,
+    status: "pending",
+    persisted: false,
     task_id: taskId,
     subject_name: subject.name,
     assertion_count: assertionCount,
-    message: `Curriculum generation started for "${subject.name}" (${assertionCount} assertions). Task ID: ${taskId}. The user can check progress on the subject page.`,
+    message:
+      `Curriculum generation STARTED (not complete) for "${subject.name}" (${assertionCount} assertions). ` +
+      `Task ID: ${taskId}. This kicks off a background AI call that may TIMEOUT or fail silently. ` +
+      `Do NOT call mark_complete or claim the course is created based on this response. ` +
+      `Persistence to DB only happens via create_course / curriculum-commit endpoints — verify Playbook + Curriculum exist in the DB before declaring success.`,
   };
 }

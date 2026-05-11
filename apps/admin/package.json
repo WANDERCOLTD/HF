@@ -1,6 +1,6 @@
 {
   "name": "admin",
-  "version": "0.7.295",
+  "version": "0.7.305",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -62,6 +62,9 @@
     "docs:health": "tsx scripts/doc-health.ts",
     "docs:health:ci": "tsx scripts/doc-health.ts --ci",
     "docs:health:json": "tsx scripts/doc-health.ts --json",
+    "docs:citations": "tsx scripts/check-doc-citations.ts",
+    "docs:citations:ci": "tsx scripts/check-doc-citations.ts --ci",
+    "docs:citations:check": "tsx scripts/check-doc-citations.ts --warn",
     "snap": "tsx scripts/capture-demo-screenshots.ts",
     "seed:demo": "tsx prisma/seed-demo-fixtures.ts",
     "db:seed:full": "tsx prisma/seed-full.ts",

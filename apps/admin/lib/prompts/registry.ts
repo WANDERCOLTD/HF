@@ -542,6 +542,84 @@ Return valid JSON matching this schema:
 }
 
 Return ONLY valid JSON (no markdown code fences, no explanation outside the JSON).`,
+
+  "lo-audience-classifier": `You are a curriculum auditor. Decide whether a Learning Objective is for the LEARNER to study (visible on the curriculum page) or for the SYSTEM to use during teaching/scoring (hidden from the learner).
+
+AUDIENCE TAXONOMY
+
+NONE (learnerVisible=true) — student-facing teaching point. Knowledge or skills the student should build. Performance verbs: speak / write / read / paraphrase / apply / compare / identify-when-doing. The learner is the audience.
+
+ASSESSOR_RUBRIC (learnerVisible=false) — rubric criteria, band descriptors, "this is what scoring looks like at Band X". The grader uses these to assign a score. Static reference material for grading. Surfaces in the assessor system prompt.
+
+ITEM_GENERATOR_SPEC (learnerVisible=false) — boundary spec for question generation. "Distinguishing features of Band 6 vs 7 answers" / "topic shapes that map to MCQ Y". Used by the question generator, not the learner.
+
+SCORE_EXPLAINER (learnerVisible=false) — meta-knowledge about how scores are mechanically calculated: averaging, weighting, aggregation, criterion-to-band math. Surfaces only as "How is this calculated?" disclosure on the score-reveal screen.
+
+TEACHING_INSTRUCTION (learnerVisible=false) — content the tutor either KNOWS (to inform their moves) or DELIVERS (to brief the learner), but never quizzes the learner on. Two flavours:
+  (a) Tutor-strategic facts that change HOW the tutor teaches: where learners typically plateau, what diagnostic signals to watch for, which interventions raise a band, which patterns cap progression. The tutor consumes these as moves to make / things to notice.
+  (b) Briefing facts the tutor delivers to the learner: test format, exam timing, what an examiner does, course structure, what to expect on test day, definitions of test parts. The tutor states these once and moves on — they are NOT skills to develop and a Socratic "guess how many parts the test has?" is the wrong move for this content. Joins the courseInstructions channel either way.
+
+DECISION HEURISTICS
+
+If the LO names rubric criteria, band characteristics, or descriptors of HOW the assessor scores → ASSESSOR_RUBRIC.
+  Examples: "Identify Band 5 pronunciation characteristics: ...", "Identify the four assessment criteria"
+
+If the LO is mechanical math / aggregation about HOW a final score is computed → SCORE_EXPLAINER.
+  Examples: "Explain averaging across criteria", "Describe how the four criterion scores are weighted", "Describe the band descriptor structure"
+
+If the LO is a tutor-strategic / diagnostic / intervention statement — telling the tutor where learners plateau, what behaviours to watch for, which moves break a plateau, which patterns cap a band → TEACHING_INSTRUCTION.
+  Examples: "Recognize that Part 3 is where Band 6 plateaus most often", "Explain why short minimal answers plateau a candidate at Band 5", "Recognize that the discriminator between Band 6 and Band 7 is rarely range alone — it is the candidate's hedging", "Explain that a weak Part 2 typically caps the band at 6"
+
+If the LO is a BRIEFING FACT — test format, exam timing, what an examiner does, course structure, what the learner can expect on test day — content delivered ONCE by the tutor, not a skill the learner practises → TEACHING_INSTRUCTION. (A Socratic "guess how many parts the test has" is the wrong move; the tutor just states the fact.)
+  Examples: "Identify the three parts of the IELTS Speaking test and their durations", "Describe the structure and timing of Part 1", "Explain the examiner's role in Part 1 and the constraints on question rephrasing", "Identify the cue card template for Part 2 with its four-bullet structure", "Identify Part 3 as abstract, opinion-driven discussion thematically linked to Part 2"
+
+If the LO is a boundary spec the question generator would consume → ITEM_GENERATOR_SPEC.
+  Examples: "Distinguish Band 5/6/7/8 features", "Map topic categories to MCQ stem types"
+
+If the LO names a measurable thing the learner can DO, practise, or produce → NONE.
+  Examples: "Speak for 90 seconds without stalling", "Paraphrase any answer three ways", "Apply close-reading techniques"
+
+DISAMBIGUATION (apply in order)
+
+1. "Recognize that..." / "Explain that..." + a fact about plateau / discriminator / progression / common error → TEACHING_INSTRUCTION (not SCORE_EXPLAINER, even when bands are mentioned). SCORE_EXPLAINER is reserved for the math.
+2. "Identify [N] parts / structure / format / duration / timing" of the test, exam, or session → TEACHING_INSTRUCTION (briefing fact, not a learner skill — Socratic quizzing on test structure is harmful).
+3. Descriptive features of a Band-X response that a question generator would use as a target shape → ITEM_GENERATOR_SPEC.
+4. Static rubric criteria the assessor consults to grade → ASSESSOR_RUBRIC.
+5. Score math (averaging / weighting / aggregation / final-band derivation) → SCORE_EXPLAINER.
+6. Otherwise, if it's a learner skill (performance verb + measurable target) → NONE.
+
+PERFORMANCE STATEMENT (only when systemRole=NONE)
+
+Rewrite the LO as a single sentence in plain learner-facing language describing what the learner can DO. Under 120 chars. Avoid knowledge verbs (Identify, Explain, Describe, Recognize) — use action/performance verbs (Speak, Apply, Paraphrase, Compare, Practise). If the original is already a clean performance statement, return it unchanged.
+
+CONFIDENCE
+
+Return 0.95 when the LO is unambiguously one category (clear rubric markers, clear performance verb).
+Return 0.7-0.85 when reasonable but the call requires judgement.
+Return < 0.7 when truly ambiguous — the system will queue this for human review.
+
+INPUT
+
+You will be given:
+- The LO ref + description
+- Optional module title and description (for context)
+- Optional course title
+
+OUTPUT — STRICT JSON
+
+Return JSON only, no markdown fences, no commentary outside the JSON:
+
+{
+  "systemRole": "ASSESSOR_RUBRIC" | "ITEM_GENERATOR_SPEC" | "SCORE_EXPLAINER" | "TEACHING_INSTRUCTION" | "NONE",
+  "learnerVisible": true | false,
+  "performanceStatement": string | null,
+  "confidence": 0.0-1.0,
+  "rationale": "one short sentence"
+}
+
+Invariants the caller will enforce (so be coherent):
+- learnerVisible MUST be true iff systemRole === "NONE"
+- performanceStatement MUST be a non-empty string iff learnerVisible === true; otherwise null`,
 } as const;
 
 export type PromptSlug = keyof typeof DEFAULTS;
@@ -689,6 +767,20 @@ register({
   isEditable: true,
   defaultValue: DEFAULTS["curriculum-from-goals"],
   editGuidance: "Same output format as Curriculum Extraction. Rule #1 may be dynamically modified at runtime when session count is set.",
+});
+
+register({
+  slug: "lo-audience-classifier",
+  label: "LO Audience Classifier",
+  description: "Decides whether a Learning Objective is learner-facing (NONE) or system-only (ASSESSOR_RUBRIC / ITEM_GENERATOR_SPEC / SCORE_EXPLAINER) and rewrites learner-facing LOs as performance statements.",
+  category: "extraction",
+  icon: "Filter",
+  sourceFile: "lib/content-trust/classify-lo.ts",
+  sourceLines: "1-200",
+  templateVars: [],
+  isEditable: true,
+  defaultValue: DEFAULTS["lo-audience-classifier"],
+  editGuidance: "Output must be valid JSON: { systemRole, learnerVisible, performanceStatement, confidence, rationale }. The validate-lo-classification guard enforces coherence so the prompt only needs to make a sensible call — invalid combinations get coerced rather than rejected.",
 });
 
 register({

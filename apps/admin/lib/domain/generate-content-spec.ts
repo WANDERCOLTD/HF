@@ -31,6 +31,14 @@ export interface GenerateContentSpecOptions {
   regenerate?: boolean;
   /** Scope to specific subjects (by ID). When provided, only assertions from these subjects are loaded. */
   subjectIds?: string[];
+  /**
+   * #317 follow-up: explicit playbook to attach the persisted curriculum to.
+   * When omitted the function falls back to the most recent PlaybookSubject
+   * link, but callers that know the target playbook should pass it directly
+   * to avoid the resolution race when a Subject is shared across multiple
+   * Playbooks (e.g. course renamed and a new course shares the same subject).
+   */
+  playbookId?: string;
 }
 
 // ── Load domain assertions (shared between skeleton + full generation) ──
@@ -245,17 +253,47 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
       });
       const slugify = (await import("slugify")).default;
       const currSlug = `${slugify(subjectName, { lower: true, strict: true })}-content-${Date.now()}`;
-      // Resolve playbookId from subject → PlaybookSubject
-      const pbLink = await p.playbookSubject.findFirst({
-        where: { subjectId },
-        select: { playbookId: true },
-      });
+
+      // #317 follow-up: a Subject can be linked to MULTIPLE Playbooks (e.g.
+      // course renamed → new course shares the same subject). The previous
+      // `findFirst` with no ordering picked the OLDEST link, causing freshly
+      // generated curricula to land on a sibling/old playbook. Prefer the
+      // explicit `options.playbookId` when present; otherwise pick the
+      // MOST RECENT link; warn when multiple links exist so the drift
+      // surfaces in production traces.
+      let resolvedPlaybookId: string | null = null;
+      if (typeof options?.playbookId === "string" && options.playbookId.length > 0) {
+        const exists = await p.playbookSubject.findFirst({
+          where: { subjectId, playbookId: options.playbookId },
+          select: { playbookId: true },
+        });
+        if (!exists) {
+          throw new Error(
+            `[generate-content-spec] explicit playbookId ${options.playbookId} is not linked to subject ${subjectId}`,
+          );
+        }
+        resolvedPlaybookId = options.playbookId;
+      } else {
+        const links = await p.playbookSubject.findMany({
+          where: { subjectId },
+          select: { playbookId: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+        });
+        resolvedPlaybookId = links[0]?.playbookId ?? null;
+        if (links.length > 1) {
+          console.warn(
+            `[generate-content-spec] subject ${subjectId} is linked to ${links.length} playbooks; ` +
+              `picked most recent ${resolvedPlaybookId}. Caller should pass options.playbookId explicitly. ` +
+              `Links: ${links.map((l) => `${l.playbookId} (${l.createdAt.toISOString()})`).join(", ")}`,
+          );
+        }
+      }
 
       const curriculumRecord = existingCurr ?? await p.curriculum.create({
         data: {
           slug: currSlug,
           subjectId,
-          playbookId: pbLink?.playbookId ?? null,
+          playbookId: resolvedPlaybookId,
           name: curriculum.name || subjectName,
           description: curriculum.description || "",
           deliveryConfig: curriculum.deliveryConfig || {},

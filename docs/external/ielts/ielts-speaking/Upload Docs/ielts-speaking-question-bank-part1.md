@@ -1,8 +1,10 @@
 # IELTS Speaking Question Bank — Part 1
 
-Source: HFF-authored question sets in the style of published IELTS Part 1 frames. Topic clusters and question forms are modelled on `speaking-sample-tasks-2023.pdf`, takeielts.britishcouncil.org Part 1 samples, ielts.idp.com Part 1 samples, and Cambridge IELTS volumes 1–19.
+> **Document type:** QUESTION_BANK · **Intended classification:** practice prompts for the Part 1 (Familiar Topics) module · **Question type:** TUTOR_QUESTION · **Assessment use:** FORMATIVE · **Bloom:** APPLY
 
-This bank contains 50 topic frames, each with 4–6 questions, in the standard Part 1 form. Questions are HFF-authored to mirror the style and difficulty of published Cambridge tasks without reproducing copyrighted exam content. Where a topic frame appears in an officially published source, the source is tagged.
+Source: HFF-authored question sets in the style of published IELTS Part 1 frames. Topic clusters and question forms are modelled on published IELTS Part 1 samples and Cambridge IELTS volumes 1–19.
+
+This bank contains 50 topic frames, each with 4–6 questions, in the standard Part 1 form. Questions are HFF-authored to mirror the style and difficulty of published Cambridge tasks without reproducing copyrighted exam content. The tutor uses these frames directly as conversational prompts in the Part 1: Familiar Topics module — these are NOT comprehension or knowledge-check questions about the test itself.
 
 **Format note:** Each frame begins with a signposting line ("Let's talk about ..." or "Now I'd like to ask you about ..."), followed by 4–6 questions. Questions cluster around: identity, frequency, preference, past experience, future / hypothetical, and reason.
 

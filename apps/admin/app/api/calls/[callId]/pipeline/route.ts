@@ -125,18 +125,58 @@ async function loadCurrentModuleContext(
       const specSlug =
         pb?.curricula[0]?.slug ??
         `playbook-${resolvedPlaybookId.slice(0, 8)}-modules`;
+
+      // #317 — drop system-only refs (ASSESSOR_RUBRIC / SCORE_EXPLAINER /
+      // TEACHING_INSTRUCTION) from the pipeline's learningOutcomes so the
+      // assessor scoring loop never assesses the learner ON the rubric or on
+      // tutor-strategic content. Those surface via assessorOutcomes (rubric
+      // / scoreExplainer / teachingInstruction) in the appropriate system
+      // prompts instead.
+      const allRefs: string[] = Array.isArray(match.outcomesPrimary)
+        ? match.outcomesPrimary
+        : [];
+      let filteredRefs = allRefs;
+      if (allRefs.length > 0) {
+        try {
+          const curriculumId = (await prisma.curriculum.findFirst({
+            where: { playbookId: resolvedPlaybookId },
+            orderBy: { createdAt: "asc" },
+            select: { id: true },
+          }))?.id;
+          if (curriculumId) {
+            const excluded = await prisma.learningObjective.findMany({
+              where: {
+                module: { curriculumId },
+                ref: { in: allRefs },
+                systemRole: { in: ["ASSESSOR_RUBRIC", "SCORE_EXPLAINER", "TEACHING_INSTRUCTION"] },
+              },
+              select: { ref: true },
+            });
+            const drop = new Set(excluded.map((lo) => lo.ref));
+            if (drop.size > 0) {
+              filteredRefs = allRefs.filter((r) => !drop.has(r));
+              log.info("#317 filtered system-only LO refs from pipeline", {
+                moduleId: match.id,
+                droppedCount: drop.size,
+                droppedRefs: [...drop],
+              });
+            }
+          }
+        } catch (err: any) {
+          log.warn("#317 systemRole filter failed; passing all refs", { error: err?.message });
+        }
+      }
+
       log.info("Module context override from picker", {
         requestedModuleId: opts.requestedModuleId,
         specSlug,
-        loCount: (match.outcomesPrimary || []).length,
+        loCount: filteredRefs.length,
       });
       return {
         specSlug,
         moduleId: match.id,
         moduleName: match.label || match.id,
-        learningOutcomes: Array.isArray(match.outcomesPrimary)
-          ? match.outcomesPrimary
-          : [],
+        learningOutcomes: filteredRefs,
         masteryThreshold: 0.7,
         allModuleIds: authored.map((m: any) => m?.id).filter(Boolean),
       };

@@ -174,11 +174,46 @@ export async function POST(req: NextRequest, { params }: Params) {
 
       const slug = `${subject.slug}-curriculum`;
 
-      // Resolve playbookId from subject → PlaybookSubject
-      const pbLink = await prisma.playbookSubject.findFirst({
+      // Resolve playbookId from subject → PlaybookSubject.
+      //
+      // ⚠️ #317 follow-up — playbook-resolution race: a Subject can be
+      // linked to MULTIPLE Playbooks (e.g. course renamed and a new
+      // course shares the same subject). `findFirst` without ordering
+      // returns the OLDEST link, attaching the new curriculum to the
+      // wrong (older) playbook — observed on the IELTS Speaking
+      // Practice 2026-05-10 wizard run.
+      //
+      // Fix: prefer the explicit `playbookId` from the request body if
+      // the caller supplied one. Otherwise pick the MOST RECENT
+      // PlaybookSubject link (newer = the playbook this subject was
+      // most recently attached to). Log a warning when ambiguity exists
+      // so we can audit.
+      const explicitPlaybookId = typeof body.playbookId === "string" ? body.playbookId : null;
+      const allLinks = await prisma.playbookSubject.findMany({
         where: { subjectId },
-        select: { playbookId: true },
+        select: { playbookId: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
       });
+      let resolvedPlaybookId: string | null = null;
+      if (explicitPlaybookId) {
+        const match = allLinks.find((l) => l.playbookId === explicitPlaybookId);
+        if (!match) {
+          return NextResponse.json(
+            { ok: false, error: `Subject ${subjectId} is not linked to playbook ${explicitPlaybookId}.` },
+            { status: 400 },
+          );
+        }
+        resolvedPlaybookId = explicitPlaybookId;
+      } else {
+        resolvedPlaybookId = allLinks[0]?.playbookId ?? null;
+        if (allLinks.length > 1) {
+          console.warn(
+            `[curriculum POST] subject ${subjectId} is linked to ${allLinks.length} playbooks; ` +
+              `picked most recent ${resolvedPlaybookId} but caller should pass explicit playbookId. ` +
+              `Links: ${allLinks.map((l) => `${l.playbookId} (${l.createdAt.toISOString()})`).join(", ")}`,
+          );
+        }
+      }
 
       const curriculum = await prisma.curriculum.upsert({
         where: { slug },
@@ -187,7 +222,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           name: result.name,
           description: result.description,
           subjectId,
-          playbookId: pbLink?.playbookId ?? null,
+          playbookId: resolvedPlaybookId,
           primarySourceId,
           trustLevel: subject.defaultTrustLevel,
           qualificationBody: subject.qualificationBody,

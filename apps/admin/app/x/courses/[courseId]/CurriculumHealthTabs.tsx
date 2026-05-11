@@ -74,6 +74,8 @@ export interface RegenerateActions {
   onReconcileTPs?: () => Promise<void>;
   onRegenerateMcqs?: () => Promise<void>;
   onReExtractInstructions?: () => Promise<void>;
+  /** #317 — re-run the LO audience classifier on this curriculum. */
+  onReclassifyLos?: () => Promise<void>;
 }
 
 interface Props {
@@ -143,6 +145,7 @@ function RegenerateDropdown({
       { key: "tps", fn: actions?.onReconcileTPs },
       { key: "mcqs", fn: actions?.onRegenerateMcqs },
       { key: "instructions", fn: actions?.onReExtractInstructions },
+      { key: "reclassifyLos", fn: actions?.onReclassifyLos },
     ].filter((s) => s.fn);
     for (const step of steps) {
       setRunningItem(step.key);
@@ -166,6 +169,7 @@ function RegenerateDropdown({
     { key: "tps", icon: "🔗", label: "Teaching Point linking", badge: tpBadgeText, warn: tpLinked < tpTotal, fn: actions?.onReconcileTPs },
     { key: "mcqs", icon: "❓", label: "Questions & MCQs", badge: mcqBadgeText, warn: scorecard.questions.total === 0, fn: actions?.onRegenerateMcqs },
     { key: "instructions", icon: "📏", label: "Tutor Instructions", badge: instrBadgeText, warn: false, fn: actions?.onReExtractInstructions },
+    { key: "reclassifyLos", icon: "👁", label: "Reclassify LO audiences", badge: "learner ↔ system", warn: false, fn: actions?.onReclassifyLos },
   ];
 
   // Fallback: if no actions provided, use the old single button
@@ -179,9 +183,9 @@ function RegenerateDropdown({
         title="Rebuild the curriculum from your uploaded content"
       >
         {regenerating ? (
-          <><RefreshCw size={13} className="hf-glow-active" /> Regenerating…</>
+          <><RefreshCw size={13} className="hf-glow-active" /> Reconciling…</>
         ) : (
-          <><Sparkles size={13} /> Regenerate</>
+          <><Sparkles size={13} /> Reconcile</>
         )}
       </button>
     );
@@ -196,9 +200,9 @@ function RegenerateDropdown({
         disabled={isRunning}
       >
         {isRunning ? (
-          <><RefreshCw size={13} className="hf-glow-active" /> Regenerating…</>
+          <><RefreshCw size={13} className="hf-glow-active" /> Reconciling…</>
         ) : (
-          <><Sparkles size={13} /> Regenerate… <ChevronDown size={12} /></>
+          <><Sparkles size={13} /> Reconcile… <ChevronDown size={12} /></>
         )}
       </button>
       {open && !isRunning && (
@@ -223,7 +227,7 @@ function RegenerateDropdown({
             onClick={() => { setOpen(false); runAll(); }}
           >
             <span className="regen-dropdown-icon">🔄</span>
-            <span className="regen-dropdown-label">Regenerate All</span>
+            <span className="regen-dropdown-label">Reconcile All</span>
           </button>
         </div>
       )}
@@ -356,7 +360,7 @@ export function CurriculumHealthTabs({
         if (matched === 0) {
           setReconcileBanner(
             invalid > 0
-              ? `No matches applied. AI returned ${invalid} invalid LO reference${invalid !== 1 ? "s" : ""}. Try regenerating the curriculum.`
+              ? `No matches applied. AI returned ${invalid} invalid LO reference${invalid !== 1 ? "s" : ""}. Try reconciling the curriculum.`
               : `No additional matches found. Orphans may need manual linkage or new source content.`,
           );
         } else {

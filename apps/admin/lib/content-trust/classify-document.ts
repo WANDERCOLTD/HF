@@ -1,6 +1,8 @@
 /**
  * Document Type Classification
  *
+ * @canonical-doc docs/CONTENT-PIPELINE.md §4
+ *
  * Classifies uploaded documents into pedagogical types before extraction.
  * Uses multi-point sampling (start + middle + end) for better coverage
  * of composite documents.
@@ -19,6 +21,7 @@ import { prisma } from "@/lib/prisma";
 import { getAITimeoutSettings } from "@/lib/system-settings";
 import { logAI } from "@/lib/logger";
 import type { ExtractionConfig, DocumentType } from "./resolve-config";
+import { parseContentDeclaration, type ContentDeclaration } from "./parse-content-declaration";
 
 // ------------------------------------------------------------------
 // Types
@@ -30,6 +33,15 @@ export interface ClassificationResult {
   reasoning: string;
   /** True when the AI call failed and the type is a fallback default */
   classificationFailed?: boolean;
+  /**
+   * When the documentType came from an in-document front-matter declaration
+   * (parseContentDeclaration), this is `"declared:by-doc"`. Callers should
+   * stamp this directly into `ContentSource.documentTypeSource` instead of
+   * the usual `ai:<confidence>` format. Absent otherwise.
+   */
+  source?: "declared:by-doc";
+  /** Parsed declaration when present (passed through so callers can stash it). */
+  declaration?: ContentDeclaration;
 }
 
 export interface ClassificationExample {
@@ -376,6 +388,30 @@ export async function classifyDocument(
   extractionConfig: ExtractionConfig,
   fewShotExamples?: ClassificationExample[],
 ): Promise<ClassificationResult> {
+  // Declared front-matter overrides AI inference. The educator's declaration
+  // is the authoritative classification when present. See docs/CONTENT-PIPELINE.md §3.x
+  // and the conflict matrix in §5 — declared wins, AI is fallback.
+  const declaration = parseContentDeclaration(textSample);
+  if (declaration.documentType) {
+    console.log(
+      `[classify-document] Declared document type override: ${fileName} → ${declaration.documentType} (skipped AI inference)`,
+    );
+    const declaredResult: ClassificationResult = {
+      documentType: declaration.documentType,
+      confidence: 1.0,
+      reasoning: `Declared by document front-matter (${declaration.format ?? "unknown"} form). AI classification skipped.`,
+      source: "declared:by-doc",
+      declaration,
+    };
+    logAI("content-trust.classify:result", `Classify ${fileName}`, JSON.stringify(declaredResult), {
+      fileName,
+      documentType: declaration.documentType,
+      declaredOverride: true,
+      format: declaration.format,
+    });
+    return declaredResult;
+  }
+
   const { classification } = extractionConfig;
   const sample = buildMultiPointSample(textSample, classification.sampleSize);
 
@@ -455,10 +491,11 @@ export async function classifyDocument(
       console.log(
         `[classify-document] Filename hint override: ${fileName} AI=${documentType} → ${hint.type}`,
       );
-      const overriddenResult = {
+      const overriddenResult: ClassificationResult = {
         documentType: hint.type,
         confidence: Math.max(confidence, 0.85),
         reasoning: `${parsed.reasoning || "No reasoning provided"} [Filename signal: "${fileName}" → ${hint.type}]`,
+        declaration: declaration.hasDeclaration ? declaration : undefined,
       };
       logAI("content-trust.classify:result", `Classify ${fileName}`, JSON.stringify(overriddenResult), {
         fileName, documentType: hint.type, confidence: overriddenResult.confidence, filenameOverride: true,
@@ -479,10 +516,11 @@ export async function classifyDocument(
       console.log(
         `[classify-document] Rubric content override: ${fileName} AI=${documentType} → COURSE_REFERENCE (rubric markers detected in sample)`,
       );
-      const overriddenResult = {
+      const overriddenResult: ClassificationResult = {
         documentType: "COURSE_REFERENCE" as DocumentType,
         confidence: Math.max(confidence, 0.85),
         reasoning: `${parsed.reasoning || "No reasoning provided"} [Content signal: rubric markers detected (band descriptors / scoring criteria) → COURSE_REFERENCE]`,
+        declaration: declaration.hasDeclaration ? declaration : undefined,
       };
       logAI("content-trust.classify:result", `Classify ${fileName}`, JSON.stringify(overriddenResult), {
         fileName, documentType: "COURSE_REFERENCE", confidence: overriddenResult.confidence, contentOverride: true,
@@ -490,10 +528,14 @@ export async function classifyDocument(
       return overriddenResult;
     }
 
-    const classifiedResult = {
+    const classifiedResult: ClassificationResult = {
       documentType,
       confidence,
       reasoning: parsed.reasoning || "No reasoning provided",
+      // Pass the declaration through even when documentType wasn't declared —
+      // downstream consumers (extractor, classifyLo, save-questions) still
+      // honour `audience` / `loSystemRole` / `defaultCategory` / `questionAssessmentUse`.
+      declaration: declaration.hasDeclaration ? declaration : undefined,
     };
     logAI("content-trust.classify:result", `Classify ${fileName}`, JSON.stringify(classifiedResult), {
       fileName, documentType, confidence,

@@ -4,6 +4,11 @@
  * Registry of named data loader functions that fetch from Prisma.
  * Each loader mirrors exactly one query from the original compose-prompt route.
  * Spec sections reference loaders by name: "dataSource": "memories"
+ *
+ * @canonical-doc docs/CONTENT-PIPELINE.md §3.1
+ * @canonical-doc docs/CONTENT-PIPELINE.md §4
+ * @canonical-doc docs/CONTENT-PIPELINE.md §6
+ * @canonical-doc docs/ENTITIES.md §4
  */
 
 import { prisma } from "@/lib/prisma";
@@ -12,8 +17,27 @@ import { getLearnerProfile } from "@/lib/learner/profile";
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { getSubjectsForPlaybook } from "@/lib/knowledge/domain-sources";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
+import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import type { LoadedDataContext, SystemSpecData } from "./types";
+
+/**
+ * Document types that must NEVER appear in a learner-facing media palette or
+ * share_content tool catalog. COURSE_REFERENCE carries tutor-config + rubric;
+ * LESSON_PLAN / QUESTION_BANK / POLICY_DOCUMENT are tutor-facing methodology.
+ *
+ * Aligned with `TEACHER_ONLY_DOC_TYPES` in `lib/doc-type-icons.ts` (single
+ * source of truth via `isStudentVisibleDefault`). The check below uses an
+ * allow-list rather than a block-list so new tutor-only DocumentType values
+ * are excluded by default.
+ *
+ * Refs CONTENT-PIPELINE.md §8 landmine L1 — "AI tutor sent course-ref.md to
+ * learner" incident (2026-05-10).
+ */
+function isTutorOnlyDocumentType(documentType: string | null | undefined): boolean {
+  if (!documentType) return false;
+  return !isStudentVisibleDefault(documentType);
+}
 
 /** Pre-resolved content scope passed to content loaders via config. */
 type ContentScope = {
@@ -755,6 +779,7 @@ registerLoader("subjectSources", async (callerId, loaderConfig) => {
               id: true,
               slug: true,
               name: true,
+              documentType: true,
               trustLevel: true,
               publisherOrg: true,
               accreditingBody: true,
@@ -819,6 +844,11 @@ registerLoader("subjectSources", async (callerId, loaderConfig) => {
       sources: subject.sources.map((ss) => ({
         slug: ss.source.slug,
         name: ss.source.name,
+        documentType: ss.source.documentType ?? null,
+        // Tutor-only documents must not be surfaced as shareable media to the
+        // learner. Consumers building "share with learner" catalogs MUST honour
+        // this flag. CONTENT-PIPELINE.md §8 L1.
+        tutorOnly: isTutorOnlyDocumentType(ss.source.documentType),
         trustLevel: ss.trustLevelOverride || ss.source.trustLevel,
         tags: ss.tags || ["content"],
         publisherOrg: ss.source.publisherOrg,
@@ -1075,7 +1105,7 @@ registerLoader("courseInstructions", async (_callerId, loaderConfig) => {
     },
   });
 
-  return assertions.map((a) => ({
+  const fromAssertions = assertions.map((a) => ({
     id: a.id,
     assertion: a.assertion,
     category: a.category,
@@ -1087,6 +1117,48 @@ registerLoader("courseInstructions", async (_callerId, loaderConfig) => {
     parentId: a.parentId,
     orderIndex: a.orderIndex,
   }));
+
+  // #317 — also pull LearningObjective rows the audience classifier marked
+  // as TEACHING_INSTRUCTION. They join the same channel as the
+  // ContentAssertion-sourced rules above, render under the TEACHING RULES
+  // section, and never reach the learner. Reuses category="teaching_rule"
+  // so the existing render path handles them without changes.
+  if (scope.playbookId) {
+    const tiLOs = await prisma.learningObjective.findMany({
+      where: {
+        systemRole: "TEACHING_INSTRUCTION",
+        module: {
+          isActive: true,
+          curriculum: { playbookId: scope.playbookId },
+        },
+      },
+      orderBy: [{ module: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+      select: {
+        id: true,
+        ref: true,
+        description: true,
+        module: { select: { title: true } },
+      },
+    });
+    if (tiLOs.length > 0) {
+      for (const lo of tiLOs) {
+        fromAssertions.push({
+          id: `lo:${lo.id}`,
+          assertion: lo.description,
+          category: "teaching_rule",
+          chapter: lo.module?.title ?? null,
+          section: lo.ref,
+          tags: [],
+          sourceName: `LO ${lo.ref}`,
+          depth: 0,
+          parentId: null,
+          orderIndex: 0,
+        });
+      }
+    }
+  }
+
+  return fromAssertions;
 });
 
 /**
@@ -1138,6 +1210,7 @@ registerLoader("visualAids", async (_callerId, loaderConfig) => {
           figureRef: true,
           mimeType: true,
           pageNumber: true,
+          source: { select: { documentType: true } },
         },
       },
     },
@@ -1145,8 +1218,23 @@ registerLoader("visualAids", async (_callerId, loaderConfig) => {
     orderBy: { sortOrder: "asc" },
   });
 
+  // Exclude tutor-only docs (COURSE_REFERENCE, LESSON_PLAN, QUESTION_BANK,
+  // POLICY_DOCUMENT) from the media palette. See L1 in CONTENT-PIPELINE.md §8:
+  // the AI tutor sent course-ref.md to a learner because nothing filtered the
+  // palette by documentType. Media with no source (manual upload) is allowed.
+  const filtered = subjectMedia.filter((sm) => {
+    const dt = sm.media.source?.documentType;
+    return !isTutorOnlyDocumentType(dt);
+  });
+  const excludedCount = subjectMedia.length - filtered.length;
+  if (excludedCount > 0) {
+    console.log(
+      `[visualAids] Filtered ${excludedCount} tutor-only media item(s) from palette (COURSE_REFERENCE / LESSON_PLAN / etc.)`,
+    );
+  }
+
   // Resolve chapter from AssertionMedia link if available
-  const mediaIds = subjectMedia.map((sm) => sm.media.id);
+  const mediaIds = filtered.map((sm) => sm.media.id);
   const assertionLinks = mediaIds.length > 0
     ? await prisma.assertionMedia.findMany({
         where: { mediaId: { in: mediaIds } },
@@ -1161,7 +1249,7 @@ registerLoader("visualAids", async (_callerId, loaderConfig) => {
     assertionLinks.map((al) => [al.mediaId, al.assertion.chapter]),
   );
 
-  return subjectMedia.map((sm) => ({
+  return filtered.map((sm) => ({
     mediaId: sm.media.id,
     fileName: sm.media.fileName,
     captionText: sm.media.captionText,

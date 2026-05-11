@@ -125,12 +125,19 @@ export async function getSourceIdsForPlaybook(playbookId: string): Promise<strin
     return [...new Set(sourceIds)];
   }
 
-  // 3. Fallback: domain-wide (backward compat for pre-scoping courses)
+  // 3. Fallback: domain-wide (backward compat for pre-scoping courses).
+  // ⚠️ See the matching warning in getSubjectsForPlaybook below — this
+  // path is unbounded and should only fire for legacy/un-scoped playbooks.
   const playbook = await prisma.playbook.findUnique({
     where: { id: playbookId },
     select: { domainId: true },
   });
   if (!playbook?.domainId) return [];
+
+  console.error(
+    `[domain-sources] ⚠️ DOMAIN-WIDE FALLBACK fired for getSourceIdsForPlaybook(${playbookId}) ` +
+      `(domain ${playbook.domainId}). Scope unbounded — backfill PlaybookSource to lock scope.`,
+  );
 
   return getSourceIdsForDomain(playbook.domainId);
 }
@@ -250,7 +257,20 @@ export async function getSubjectsForPlaybook(playbookId: string, domainId: strin
     };
   }
 
-  // 3. Fallback: domain-wide
+  // 3. Fallback: domain-wide.
+  // ⚠️ This path is the source-bleed risk identified in #317 follow-up
+  // investigation. It pulls EVERY source attached to ANY subject in the
+  // domain — which means sibling courses sharing the domain cross-pollute
+  // every prompt the pipeline composes. Log loudly so this surfaces in
+  // production traces; the right fix is to populate PlaybookSource for
+  // every playbook (see scripts/audit-playbook-scope.ts).
+  console.error(
+    `[domain-sources] ⚠️ DOMAIN-WIDE FALLBACK fired for playbook ${playbookId} ` +
+      `(domain ${domainId}). Scope is unbounded — all subjects in this domain ` +
+      `will contribute sources to the prompt pipeline. Backfill PlaybookSource ` +
+      `or PlaybookSubject to lock scope. See lib/knowledge/domain-sources.ts.`,
+  );
+
   const subjectDomains = await prisma.subjectDomain.findMany({
     where: { domainId },
     select: {

@@ -1,6 +1,8 @@
 # IELTS Speaking Language Toolkit
 
-Source: HFF-authored phrase banks distilled from `speaking-key-assessment-criteria.pdf`, `speaking-band-descriptors-cdn.pdf`, `cambridge-speaking-band-descriptors.pdf`, `ielts-guide-for-teachers.pdf`, takeielts.britishcouncil.org preparation pages, ielts.idp.com preparation pages, and CEFR Companion Volume B2/C1/C2 spoken-interaction descriptors.
+> **Document type:** TEXTBOOK · **Intended classification:** learner-facing phrase repertoire · **Default assertion category:** `concept` / `vocabulary` / `key_term` · **Audience:** learner
+
+Source: HFF-authored phrase banks distilled from published IELTS Speaking band descriptors, Cambridge / British Council / IDP preparation guidance, and CEFR Companion Volume B2/C1/C2 spoken-interaction descriptors.
 
 This is a working toolkit, not an exhaustive list. Each section identifies the language move, gives a phrase bank, and ties it back to the criterion (FC / LR / GRA / P) it most directly lifts. The discriminator between Band 6 and Band 7 is rarely range alone — it is the candidate's ability to deploy the right move at the right moment. The discriminator between Band 7 and Band 8 is naturalness and precision under spontaneous conditions.
 

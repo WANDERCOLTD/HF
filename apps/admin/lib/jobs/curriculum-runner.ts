@@ -125,6 +125,13 @@ async function runCurriculumGeneration(
   // Step 3: Complete — store preview + summary + assertion index map in
   // context. Maps don't JSON-serialise, so we keep the map as a plain object
   // keyed by stringified index; the commit route rebuilds the Map.
+  //
+  // #317 follow-up — bug #5: previously this task hit `completed` when the
+  // AI returned a parseable preview, which is NOT the same as "course created".
+  // Add explicit `persisted: false` and `outputKind: "preview-only"` markers
+  // so consumers can't misread `status === "completed"` as "course persisted".
+  // Anything that ratifies a course as ready (e.g. mark_complete) must also
+  // verify Playbook + Curriculum + modules in the DB, not just task status.
   await updateTaskProgress(taskId, {
     currentStep: 3,
     context: {
@@ -132,6 +139,11 @@ async function runCurriculumGeneration(
       assertionIdByIndexObj,
       moduleCount: result.modules?.length ?? 0,
       warnings: result.warnings,
+      // Disambiguates "completed" — required reading for any consumer that
+      // gates UI / tool flow on task status.
+      outputKind: "preview-only",
+      persisted: false,
+      persistedAt: null,
       summary: {
         subject: { id: subjectId, name: subjectName },
         counts: {
@@ -141,6 +153,11 @@ async function runCurriculumGeneration(
       },
     },
   });
+
+  console.log(
+    `[curriculum-runner] Task ${taskId} preview ready (outputKind=preview-only, modules=${result.modules?.length ?? 0}). ` +
+      `Course is NOT yet persisted — caller must invoke create_course / commit endpoint to write Playbook + Curriculum to DB.`,
+  );
 
   await completeTask(taskId);
 }

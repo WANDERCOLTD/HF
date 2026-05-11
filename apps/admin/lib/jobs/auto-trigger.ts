@@ -73,5 +73,50 @@ export async function checkAutoTriggerCurriculum(
   );
 
   const taskId = await startCurriculumGeneration(subjectId, subject.name, userId);
+
+  // #317 follow-up — bug #4: auto-trigger fires curriculum-gen as a fully
+  // detached background task. Failures are recorded on the UserTask record
+  // but no in-flight surface (chat AI, wizard, scorecard) polls it. Attach
+  // an out-of-band failure observer that LOG-LOUDLY surfaces the failure so
+  // it appears in production traces, even when no UI is watching.
+  void (async () => {
+    try {
+      // Wait a short interval for the runner to finish or fail.
+      // The runner timeouts are bounded by AI-call settings (~3 min);
+      // poll for up to 5 min.
+      const deadline = Date.now() + 5 * 60_000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 5_000));
+        const task = await prisma.userTask.findUnique({
+          where: { id: taskId },
+          select: { status: true, blockers: true, context: true },
+        });
+        if (!task) break;
+        if (task.status === "completed") {
+          const ctx = task.context as Record<string, unknown> | null;
+          const persisted = (ctx?.persisted as boolean | undefined) ?? false;
+          if (!persisted) {
+            console.warn(
+              `[auto-trigger] ⚠️ task ${taskId} (subject ${subjectId}) completed with persisted=false — ` +
+                `the AI generated a curriculum preview but no Playbook+Curriculum was written to DB. ` +
+                `The user must call create_course / commit endpoint to persist.`,
+            );
+          }
+          break;
+        }
+        if (task.status === "abandoned" || task.status === "failed") {
+          console.error(
+            `[auto-trigger] 🚨 task ${taskId} (subject ${subjectId}) ${task.status}. ` +
+              `Blockers: ${JSON.stringify(task.blockers)}. ` +
+              `Curriculum will NOT be available until the user retries generation.`,
+          );
+          break;
+        }
+      }
+    } catch (err: any) {
+      console.error(`[auto-trigger] failure observer for task ${taskId} crashed:`, err?.message);
+    }
+  })();
+
   return taskId;
 }
