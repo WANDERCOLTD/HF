@@ -8,13 +8,19 @@ paths:
 
 # Pipeline & Prompt Composition
 
+## ⚠️ HARD RULE — read the canonical map first
+
+**Before adding a stage, runner, cross-stage DB write, guardrail, or ADAPT sub-op, read [`docs/PIPELINE.md`](../../docs/PIPELINE.md) first.** It is the single source of truth for the 7-stage table, the executor map, the parallel-batch hardcode, the SUPERVISE clamp surface, and the landmines (including: stage name ≠ `AnalysisOutputType`, `pipeline-run.ts` is legacy CLI, non-blocking `stageErrors`).
+
+**Never cite `route.ts` by line number** — use symbol form (`route.ts::stageExecutors.<STAGE>`, `route.ts::runSpecDrivenPipeline`). The file is 2700+ lines and actively edited.
+
 ## The Adaptive Loop
 
 ```
-Call -> Transcript -> Pipeline (EXTRACT -> AGGREGATE -> REWARD -> ADAPT -> SUPERVISE -> COMPOSE) -> Next Prompt
+Call -> Transcript -> Pipeline (EXTRACT -> SCORE_AGENT -> AGGREGATE -> REWARD -> ADAPT -> SUPERVISE -> COMPOSE) -> Next Prompt
 ```
 
-Every feature must respect this loop. Pipeline stages are spec-driven from `PIPELINE-001` in the DB.
+Every feature must respect this loop. Pipeline stages are spec-driven from `PIPELINE-001` in the DB. Note that `SCORE_AGENT` is the **stage name** — its outputType in `AnalysisSpec` is `MEASURE_AGENT` (the two strings deliberately differ).
 
 ## SpecRole Taxonomy
 
