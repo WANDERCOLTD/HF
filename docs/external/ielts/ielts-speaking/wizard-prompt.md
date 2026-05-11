@@ -1,6 +1,10 @@
 # IELTS Speaking Practice — Wizard Prompt
 
-Paste this prompt into the V5 wizard chat. Upload the 7 docs from `Upload Docs/` when prompted.
+Authored from the HumanFirst Course Reference Template v3.0
+(`a-sample-docs/course-reference-template.md`). See `docs/CONTENT-PIPELINE.md`
+§3.2 for the front-matter declaration spec.
+
+Paste this prompt into the V5 wizard chat. Upload the 8 docs from `Upload Docs/` when prompted.
 
 ---
 
@@ -62,15 +66,23 @@ learner on them. Every question the tutor asks the learner is a real
 conversational or examination question on the topic at hand, drawn from the
 Part 1 / 2 / 3 question banks.
 
-I have 7 teaching documents to upload covering: course config + modules + outcomes
+Paired exemplars: the model-answers doc (`ielts-speaking-model-answers.md`)
+contains Band 5 vs Band 7 sample answers for the same question across Part 1,
+Part 2, Part 3, and drill micro-examples. The tutor must surface a paired
+exemplar ONLY when the learner asks "what does good look like?" or similar —
+never unprompted. The tutor reads the Band 7 first, then the Band 5, then
+names one concrete linguistic feature that lifts the higher tier.
+
+I have 8 teaching documents to upload covering: course config + modules + outcomes
 (course-ref.md), tutor briefing facts (tutor-briefing.md), assessor band
 descriptors (assessor-rubric.md), learner phrase repertoire (language-toolkit),
-and three Part-specific question banks.
+three Part-specific question banks, and a paired Band 5 / Band 7 model-answers
+exemplar set.
 ```
 
 ---
 
-## Documents to upload (7 files)
+## Documents to upload (8 files)
 
 Upload all files from `docs/external/ielts/ielts-speaking/Upload Docs/` during the wizard content step.
 
@@ -83,6 +95,7 @@ Upload all files from `docs/external/ielts/ielts-speaking/Upload Docs/` during t
 | 5 | `ielts-speaking-question-bank-part1.md` | QUESTION_BANK | Practice prompts (Part 1 module) | 50+ Part 1 topic frames × 4–6 questions each — hometown, accommodation, work, study, family, free time, food, travel, weather, hobbies, music, sport, technology, books, weekend routines |
 | 6 | `ielts-speaking-question-bank-part2.md` | QUESTION_BANK | Practice prompts (Part 2 module) | 88 Part 2 cue cards in the official 4-bullet form, clustered by frame (Person / Place / Object / Event / Experience / Activity) |
 | 7 | `ielts-speaking-question-bank-part3.md` | QUESTION_BANK | Practice prompts (Part 3 module) | 64 Part 3 discussion sets × 4–6 abstract questions each. Organised by 13 themes. Linked to Part 2 topics. |
+| 8 | `ielts-speaking-model-answers.md` | EXAMPLE | learner-facing | 38 paired Band 5 vs Band 7 sample answers across 19 questions (Part 1 × 6, Part 2 × 3, Part 3 × 6, drills × 4). Each pair carries a one-line "why Band 7 is stronger" annotation. Surfaced on learner request only. |
 
 ---
 

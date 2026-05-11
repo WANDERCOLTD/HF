@@ -1,3 +1,11 @@
+---
+hf-document-type: COURSE_REFERENCE
+hf-default-category: assessment_guidance
+hf-audience: tutor-only
+hf-lo-system-role: ASSESSOR_RUBRIC
+hf-question-assessment-use: TUTOR_ONLY
+---
+
 # IELTS Speaking — Assessor Rubric
 
 > **Document type:** COURSE_REFERENCE · **Intended assertion category:** `assessment_guidance` / `assessment_approach` (INSTRUCTION_CATEGORIES) · **LO systemRole if generated:** `ASSESSOR_RUBRIC` · **Question assessmentUse if generated:** `TUTOR_ONLY` · **Audience: assessor / scoring loop only**

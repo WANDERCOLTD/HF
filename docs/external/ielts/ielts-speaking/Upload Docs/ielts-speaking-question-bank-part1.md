@@ -1,3 +1,11 @@
+---
+hf-document-type: QUESTION_BANK
+# fallback: "question" is not in ASSERTION_CATEGORIES; using "concept" per learner-facing fallback rule
+hf-default-category: concept
+hf-audience: learner
+hf-question-assessment-use: FORMATIVE
+---
+
 # IELTS Speaking Question Bank — Part 1
 
 > **Document type:** QUESTION_BANK · **Intended classification:** practice prompts for the Part 1 (Familiar Topics) module · **Question type:** TUTOR_QUESTION · **Assessment use:** FORMATIVE · **Bloom:** APPLY

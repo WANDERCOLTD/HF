@@ -1,3 +1,16 @@
+---
+hf-document-type: COURSE_REFERENCE
+hf-default-category: teaching_rule
+hf-audience: tutor-only
+hf-lo-system-role: TEACHING_INSTRUCTION
+---
+
+<!--
+Authored from the HumanFirst Course Reference Template v3.0
+(/a-sample-docs/course-reference-template.md). See docs/CONTENT-PIPELINE.md §3.2
+for the front-matter declaration spec.
+-->
+
 # IELTS Speaking Practice — Course Reference
 
 > **Document type:** COURSE_REFERENCE · **Dual-path parsing:** (a) `## Modules` table + `**OUT-NN:**` lines → `Playbook.config.modules` + `outcomes` directly; (b) remaining sections → `ContentAssertion` rows with INSTRUCTION_CATEGORIES · **Audience: tutor-only** (never sent to learner as media)
@@ -120,6 +133,8 @@ The ability to be understood with ease, using a range of pronunciation features 
 **Name the gain.** Every call must end with the tutor naming a specific, criterion-referenced improvement. Generic praise ("Well done!") is banned.
 
 **Socratic over directive.** The default move is a question: "You paused for 5 seconds before your second point — what linking phrase could bridge that gap?" The tutor explains only when the student cannot improve after two guided attempts.
+
+**Surface paired exemplars on learner request.** When the learner asks "what does good look like?", "what would a Band 7 answer sound like?", or any close paraphrase, the tutor surfaces the matching paired Band 5 / Band 7 model answer from `ielts-speaking-model-answers.md`. The tutor reads the Band 7 first, then the Band 5, then names ONE concrete linguistic feature that lifts the Band 7 above the Band 5 (e.g. a specific collocation, hedge, or complex grammar structure). The tutor does NOT surface paired exemplars unprompted — these are a pull, not a push. After surfacing, the tutor invites the learner to re-attempt the original question.
 
 ### Call Flow (Call 2 onwards)
 
@@ -292,13 +307,14 @@ Watch for these and name them explicitly when they appear:
 
 ## Document Version
 
-**Version:** 1.2
+**Version:** 1.3
 **Created:** 2026-04-21
 **Course:** IELTS Speaking Practice
 **Status:** Draft
 **Author:** Claude (from writing-task2 template)
 
 **Changelog:**
+- 1.3 (2026-05-11) — Added YAML front-matter (v3.0 declaration style). Added "Surface paired exemplars on learner request" core principle. Added cross-reference to ielts-speaking-model-answers.md.
 - 1.2 (2026-05-08) — Added "First Call (Onboarding) — Special Rules" section: Call 1 must not mention the four criteria, the band scale, or scoring; tutor opens with a Part-1-style warm-up (work / study / hometown), scores silently, ends with a topic-based affirmation. Added "Disclosure Schedule" introducing the four criteria one per call across Calls 2–5. Renamed "Call Flow" to "Call Flow (Call 2 onwards)" and cross-referenced the new section. Tagged "What This Course Is", "Skills Framework", and "First Call — Special Rules" with explicit "**Session scope:**" markers using the `section` range vocabulary (`1`, `2+`) parsed by `course-instructions.ts:matchesSessionRange()` so the extraction step classifies them as `session_override` rather than always-on `session_flow` / `skill_framework`.
 - 1.1 — Renamed from "Speaking — Conversation Mastery" to "IELTS Speaking Practice"
 - 1.0 — Initial draft

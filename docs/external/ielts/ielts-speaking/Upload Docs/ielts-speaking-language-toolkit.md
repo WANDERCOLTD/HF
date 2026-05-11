@@ -1,3 +1,9 @@
+---
+hf-document-type: TEXTBOOK
+hf-default-category: vocabulary
+hf-audience: learner
+---
+
 # IELTS Speaking Language Toolkit
 
 > **Document type:** TEXTBOOK · **Intended classification:** learner-facing phrase repertoire · **Default assertion category:** `concept` / `vocabulary` / `key_term` · **Audience:** learner

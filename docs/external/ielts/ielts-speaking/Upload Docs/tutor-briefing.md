@@ -1,3 +1,10 @@
+---
+hf-document-type: COURSE_REFERENCE
+hf-default-category: session_flow
+hf-audience: tutor-only
+hf-lo-system-role: TEACHING_INSTRUCTION
+---
+
 # IELTS Speaking — Tutor Briefing
 
 > **Document type:** COURSE_REFERENCE · **Intended assertion category:** `session_flow` / `session_metadata` / `skill_framework` (INSTRUCTION_CATEGORIES) · **LO systemRole if generated:** `TEACHING_INSTRUCTION` · **Audience: tutor-only**
