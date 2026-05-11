@@ -329,6 +329,9 @@ Before merging a PR that touches any classification dimension, confirm:
 | Curriculum on wrong playbook | `CallerPlaybook` enrollment correct? | L5 — already fixed but check the 3 patched sites |
 | MCQ asking meta-questions | LOs that feed MCQ pool — any `TEACHING_INSTRUCTION` slipping in? | `lib/assessment/module-groups.ts` filter must exclude all `systemRole != NONE` |
 | AI sent a doc to learner | `visualAids` / `subjectSources` loader filtering | L1 — currently no filter |
+| I want to see what the tutor will say before the call | Click **Test First Call** on the course page (`/x/courses/:id`) | Opens the dry-run modal: composed prompt, section breakdown, and `compose-trace` (loaders fired, media palette, onboarding-flow source). No call is created. |
+| Why did the tutor's prompt change after I edited course-ref.md? | Open the latest ComposedPrompt at `/x/composed-prompts/:id` | "Compare with previous" dropdown — diff against the prior prompt for the same course (uses `diff` lib, inline highlighting). |
+| What did each loader actually pull? | Look at `[compose-trace]` block in server logs, or the **Trace** tab in the dry-run modal / ComposedPrompt viewer | Shows: loaders fired vs empty, assertion warnings, onboarding-flow source (Playbook / Domain / Spec), final media palette filenames + documentType. |
 
 ---
 
@@ -337,3 +340,4 @@ Before merging a PR that touches any classification dimension, confirm:
 | Date | Change |
 |------|--------|
 | 2026-05-11 | Initial canonical version. |
+| 2026-05-10 | §11 expanded with three tuning-velocity entries: **Test First Call** dry-run button on the course page (`POST /api/courses/:id/dry-run-prompt`), ComposedPrompt diff viewer at `/x/composed-prompts/:id`, and the `[compose-trace]` observability block emitted by `CompositionExecutor`. No schema or veto-precedence changes. Closes #319. |
