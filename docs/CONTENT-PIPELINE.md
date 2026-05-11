@@ -83,7 +83,47 @@ All values authoritative as of 2026-05-11. Cite the file:line in any PR that cha
 
 The split is enforced at `lib/prompt/composition/SectionDataLoader.ts:548` (excludes INSTRUCTION_CATEGORIES from learner content) and `:568` (includes them in courseInstructions).
 
-### 3.2 Pipeline stage spec slugs (canonicals)
+### 3.2 Front-matter content declarations (tune-by-doc)
+
+Educators can declare classification intent at the head of an uploaded markdown doc. Declared values **override AI inference** when the document is classified, extracted, and persisted. Implemented in `lib/content-trust/parse-content-declaration.ts`; stored on `ContentSource.contentDeclaration` (JSONB).
+
+Two supported surface forms:
+
+**YAML front-matter (preferred):**
+
+```yaml
+---
+hf-document-type: COURSE_REFERENCE
+hf-default-category: session_flow
+hf-audience: tutor-only
+hf-lo-system-role: TEACHING_INSTRUCTION
+hf-question-assessment-use: TUTOR_ONLY
+---
+```
+
+**Blockquote header (matches existing IELTS-style docs):**
+
+```
+# Title
+
+> **Document type:** COURSE_REFERENCE · **Intended assertion category:** `session_flow` · **LO systemRole:** TEACHING_INSTRUCTION · **Audience: tutor-only**
+```
+
+Supported keys + the enum they map to:
+
+| Declaration key | Maps to | Allowed values |
+|-----------------|---------|----------------|
+| `hf-document-type` | `ContentSource.documentType` | `DocumentType` enum (§3) — invalid values rejected, AI fallback |
+| `hf-default-category` | `ContentAssertion.category` fallback | INSTRUCTION_CATEGORIES + learner-facing categories (§3.1) |
+| `hf-audience` | (informational; future filter) | `learner` / `tutor-only` / `assessor-only` |
+| `hf-lo-system-role` | `LearningObjective.systemRole` | `LoSystemRole` enum — every LO from the doc gets this role |
+| `hf-question-assessment-use` | `ContentQuestion.assessmentUse` | `AssessmentUse` enum — every question from the doc gets this value |
+
+**AI-to-DB guard:** declared values are validated against the canonical enum surface in `parse-content-declaration.ts`. Unknown values produce a warning and the consumer falls back to AI inference for that field. Declarations CANNOT inject arbitrary values into DB enums (see `.claude/rules/ai-to-db-guard.md`).
+
+**Stamping:** when the educator declared `hf-document-type`, `ContentSource.documentTypeSource` becomes `"declared:by-doc"` (instead of `ai:<confidence>`). When the educator declared `hf-lo-system-role`, the LO's `LoClassification.classifierVersion` becomes `"declared-by-doc-v1"` so re-runs can tell which decisions came from the doc.
+
+### 3.3 Pipeline stage spec slugs (canonicals)
 
 Specs in `docs-archive/bdd-specs/` are seed data — they become `AnalysisSpec` rows after seed. Slugs in `lib/config.specs.*` are env-overridable. The 16 active spec slugs gate which spec the runner uses for each stage.
 
@@ -172,6 +212,19 @@ When two dimensions both classify the same thing, this is the resolution rule.
 | **Module** | `learnerSelectable=false` | **YES — at module picker render** |
 | Source | `documentType=COURSE_REFERENCE` | **NO — hint only, does NOT filter loaders** |
 
+### 5.1a "Declared override vs AI inference" (§3.2)
+
+When a doc carries a front-matter declaration (`hf-document-type`, `hf-lo-system-role`, `hf-default-category`, `hf-question-assessment-use`), the declared value **always wins** over AI inference. AI runs only as fallback when the field is absent or the declared value fails enum validation.
+
+| Layer | Declared override | AI fallback |
+|-------|-------------------|-------------|
+| `ContentSource.documentType` | `hf-document-type` → `documentTypeSource: "declared:by-doc"` | `classifyDocument()` → `documentTypeSource: "ai:<conf>"` |
+| `ContentAssertion.category` | `hf-default-category` fills invalid AI categories | AI category from extraction prompt |
+| `LearningObjective.systemRole` | `hf-lo-system-role` → `classifierVersion: "declared-by-doc-v1"` | heuristic-v1 → llm:<model> |
+| `ContentQuestion.assessmentUse` | `hf-question-assessment-use` → forced on every row | extractor's per-question value |
+
+Educators can therefore tune classification by editing the doc, not the code. See `lib/content-trust/parse-content-declaration.ts`.
+
 **Rule:** `documentType=COURSE_REFERENCE` does NOT automatically hide content from the learner. The per-row classification (`category`, `systemRole`, `assessmentUse`) is the authoritative gate. **If you upload a COURSE_REFERENCE doc and its content is mis-categorised as `factual_claim` instead of `teaching_rule`, it WILL leak to the learner.**
 
 ### 5.2 "This is assessment / scoring content"
@@ -214,6 +267,7 @@ Walk **top to bottom**. First veto wins.
 
 | # | Layer | Veto condition | Where |
 |---|-------|----------------|-------|
+| 0 | Source declaration | `hf-audience: tutor-only` (or `assessor-only`) in `ContentSource.contentDeclaration` | parse-content-declaration.ts — informational today; future loader filters will read this before assertion/LO/question gates |
 | 1 | Assertion | `category IN INSTRUCTION_CATEGORIES` | `SectionDataLoader.ts::registerLoader("curriculumAssertions")` excludes; `::registerLoader("courseInstructions")` includes |
 | 2 | LO | `systemRole != NONE` → `learnerVisible=false` | `validate-lo-classification.ts:70` |
 | 3 | Question | `assessmentUse=TUTOR_ONLY` | `pre-test-builder.ts:82` |
@@ -285,6 +339,7 @@ Before merging a PR that touches any classification dimension, confirm:
 - [ ] If the type should be tutor-only by default, update `INSTRUCTION_CATEGORIES` or document why it isn't.
 - [ ] Update `classifyDocument` few-shot examples in `lib/content-trust/classify-document.ts`.
 - [ ] Update `visualAids` filter once L1 is fixed (filter by allow-list, not block-list).
+- [ ] **Update `DOCUMENT_TYPES` allow-list in `lib/content-trust/parse-content-declaration.ts` (§3.2 declaration parser).**
 - [ ] Update §3 in this doc.
 
 ### Adding a new `ContentAssertion.category`
@@ -292,6 +347,7 @@ Before merging a PR that touches any classification dimension, confirm:
 - [ ] Add to the enum surface in `resolve-config.ts`.
 - [ ] Decide: tutor-only or learner-facing? Add to `INSTRUCTION_CATEGORIES` if tutor-only.
 - [ ] Add a loader filter in `SectionDataLoader.ts` if the category needs its own prompt section.
+- [ ] **Update `ASSERTION_CATEGORIES` allow-list in `lib/content-trust/parse-content-declaration.ts` so educators can declare it as `hf-default-category`.**
 - [ ] Update §3.1.
 
 ### Adding a new `LoSystemRole`
@@ -300,7 +356,15 @@ Before merging a PR that touches any classification dimension, confirm:
 - [ ] Update `lib/content-trust/classify-lo.ts` heuristics + LLM prompt.
 - [ ] Update `validate-lo-classification.ts` invariants.
 - [ ] Decide which prompt channel the new role surfaces in. Wire the consumer.
+- [ ] **Update `LO_SYSTEM_ROLES` allow-list in `lib/content-trust/parse-content-declaration.ts` so educators can declare it as `hf-lo-system-role`.**
 - [ ] Update §6 veto table.
+
+### Adding a new `AssessmentUse`
+
+- [ ] Update enum in `prisma/schema.prisma` and migrate.
+- [ ] Update consumers (pre-test-builder, MCQ selector).
+- [ ] **Update `ASSESSMENT_USES` allow-list in `lib/content-trust/parse-content-declaration.ts` so educators can declare it as `hf-question-assessment-use`.**
+- [ ] Update §5.2.
 
 ### Adding a new audience or scope dimension
 
@@ -344,5 +408,6 @@ Before merging a PR that touches any classification dimension, confirm:
 | Date | Change |
 |------|--------|
 | 2026-05-11 | Initial canonical version. |
-| 2026-05-10 | L1 fixed — `visualAids` + `subjectSources` filter / flag tutor-only docs. §11 row updated. New row added: "Generic welcome fires instead of course-ref First-Call rules" — compose-time `session_override` REPLACES `onboardingFlowPhases` for matching `callNumber`. Helpers: `isTutorOnlyDocumentType` (`SectionDataLoader.ts`), `deriveSessionOverridePhases` (`transforms/pedagogy.ts`). |
+| 2026-05-10 | L1 fixed — `visualAids` + `subjectSources` filter / flag tutor-only docs. §11 row updated. New row added: "Generic welcome fires instead of course-ref First-Call rules" — compose-time `session_override` REPLACES `onboardingFlowPhases` for matching `callNumber`. Helpers: `isTutorOnlyDocumentType` (`SectionDataLoader.ts`), `deriveSessionOverridePhases` (`transforms/pedagogy.ts`). Closes #323, #324. |
 | 2026-05-10 | §11 expanded with three tuning-velocity entries: **Test First Call** dry-run button on the course page (`POST /api/courses/:id/dry-run-prompt`), ComposedPrompt diff viewer at `/x/composed-prompts/:id`, and the `[compose-trace]` observability block emitted by `CompositionExecutor`. No schema or veto-precedence changes. Closes #319. |
+| 2026-05-11 | Front-matter content declarations (`ContentSource.contentDeclaration`) override AI classification across documentType, defaultCategory, loSystemRole, questionAssessmentUse. New §3.2 + §5.1a + §6 row 0 + §10 pre-change items. Parser: `lib/content-trust/parse-content-declaration.ts`. Stamping: `documentTypeSource: "declared:by-doc"`, `LoClassification.classifierVersion: "declared-by-doc-v1"`. Closes #325. |

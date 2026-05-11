@@ -73,6 +73,15 @@ export interface ExtractionOptions {
   /** Teaching mode for auto-assigning teachMethod to extracted assertions */
   teachingMode?: import("./resolve-config").TeachingMode;
   /**
+   * Default ContentAssertion.category supplied by an in-doc declaration
+   * (hf-default-category). Used as the fallback for assertions where the
+   * extractor's per-row category lookup didn't match a known value. The
+   * extractor's own AI-classified category still wins when it's valid —
+   * the declared default ONLY fills in for invalid / missing categories.
+   * See docs/CONTENT-PIPELINE.md §3.x and parse-content-declaration.ts.
+   */
+  declaredDefaultCategory?: string;
+  /**
    * Curriculum-aware extraction: list of LO refs the AI may tag assertions with.
    * When provided, the prompt constrains `learningOutcomeRef` to this enum and
    * `sanitiseLORef` rejects any free-text value the AI returns. Populated by the
@@ -425,10 +434,24 @@ async function extractFromChunk(
         ? new Set(options.curriculumLoRefs.map((lo) => lo.ref.toUpperCase()))
         : null;
 
+      // Precedence for assertion category:
+      //   1. AI-supplied category — wins when it's in the validCategoryIds set
+      //      (extraction-config categories OR an INSTRUCTION_CATEGORY).
+      //   2. Declared default (hf-default-category) — fills in when the AI
+      //      returned a value but it didn't match the allow-list.
+      //   3. Hard fallback to "fact" — preserved for back-compat.
+      // The declared default never overrides a valid AI category; it only
+      // rescues invalid ones. See parse-content-declaration.ts.
+      const declaredFallback =
+        options.declaredDefaultCategory &&
+        validCategoryIds.has(options.declaredDefaultCategory)
+          ? options.declaredDefaultCategory
+          : "fact";
+
       return raw
         .filter((item: any) => item.assertion && String(item.assertion).trim())
         .map((item: any) => {
-        const category = validCategoryIds.has(item.category) ? item.category : "fact";
+        const category = validCategoryIds.has(item.category) ? item.category : declaredFallback;
         // Sanitise learningOutcomeRef: free-text topic names ("Character analysis")
         // become null, only structured refs (LO1, AC2.3) survive. If the curriculum
         // has a whitelist, also enforce that the ref is in the allowed set.
