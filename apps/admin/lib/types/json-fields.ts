@@ -118,6 +118,11 @@ export interface GoalTemplate {
     threshold?: number; // readiness threshold for "passed" (0-1, default 0.8)
     readinessSpecSlug?: string; // CONTENT spec slug for mastery tracking
   };
+  // Projection provenance (#338). Tags goal templates written by
+  // applyProjection() so re-runs can dedup by sourceContentId + ref.
+  // Hand-authored / wizard / legacy templates omit these.
+  sourceContentId?: string;
+  ref?: string; // "OUT-01" / "SKILL-02" — stable ref back to the source doc
 }
 
 // ---------------------------------------------------------------------------
