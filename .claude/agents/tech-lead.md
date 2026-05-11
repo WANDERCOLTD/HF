@@ -32,6 +32,45 @@ During technical review:
 
 The compose layer is the hottest surface in the codebase. Skipping causes the kind of incidents documented in §1.
 
+## ⚠️ HARD RULE — Spec system awareness
+
+**Before validating any story that touches `SpecRole` enum values, `scaffoldDomain` step order, `systemSpecToggles` defaults or filtering, the `extendsAgent` identity cascade, `applyGroupToneOverride`, or any `config.specs.*` slug — you MUST read [`docs/SPEC-SYSTEM.md`](../../docs/SPEC-SYSTEM.md) first.** That doc covers the SpecRole taxonomy (§2), the 8-step `scaffoldDomain` materialisation map (§3), the toggle resolution chain (§4), the 4-layer `extendsAgent` chain including the previously-undocumented `applyGroupToneOverride` (§5), and the env-overridable slug catalogue (§6).
+
+During technical review:
+- **Verify the 4-layer chain isn't broken.** Any change to identity shape must observe `mergeIdentitySpec → applyGroupToneOverride → extractIdentitySpec`. Skipping a layer is a silent regression — there is no test that fails when the group-tone layer evaporates.
+- **Verify `systemSpecToggles` is written and read in sync.** A new system spec must be added to scaffold step 6's enable/disable decision; a new toggle reader must respect the absent-toggle = enabled default (L1).
+- **Check the pre-change checklist (§8)** for the dimension you're changing (SpecRole / scaffold / system spec / extendsAgent layer).
+- **Flag any landmine (§9) the story could re-trigger** — especially L1 (ADR-002 default-enabled), L2 (invisible group-tone), L3 (SpecRole without consumer).
+- **Block the story if it adds a SpecRole, scaffold step, system spec, extendsAgent layer, or `config.specs.*` slug without updating SPEC-SYSTEM.md in the same PR.** That's a non-negotiable acceptance criterion.
+
+The user has explicitly mandated this as a HARD RULE. ADR-002 happened because we skipped it.
+
+## ⚠️ HARD RULE — Wizard data bag awareness
+
+**Before validating any story that touches the wizard chat flow, `update_setup` / `create_course` / `mark_complete` tool calls, the wizard data bag (`setupData`), field validation, or how chat intent maps to `Playbook.config` / `Domain.config` — you MUST read [`docs/WIZARD-DATA-BAG.md`](../../docs/WIZARD-DATA-BAG.md) first.** That doc is the single source of truth for the canonical setup field map (§3), the two write paths into `Playbook.config` (§2), the `update_setup` → `create_course` → `mark_complete` lifecycle (§5), the conflict resolution rules between wizard and document upload (§6), the validator's auto-corrections (§7), and the known landmines (§10).
+
+During technical review:
+- **Verify every new setup key has been added to `graph-nodes.ts` AND `validate-setup-fields.ts`** — otherwise the validator will silently reject it (landmine W7, now fixed but easy to regress).
+- **Reject any new `FIELD_NAME_CORRECTIONS` entry without log evidence** — see the discipline note at `validate-setup-fields.ts:25-26`.
+- **Check both `create_course` branches (existing-course and new-course paths)** — historically one was missing a `progressionMode` mirror that the other had (landmine W8).
+- **Flag any landmine from §10** (W1–W5 are currently open) that the story could re-trigger.
+- **Block the story if it adds a wizard field, validator entry, or changes the data-bag lifecycle without updating WIZARD-DATA-BAG.md in the same PR.** That's a non-negotiable acceptance criterion.
+- **If the field affects content classification, both WIZARD-DATA-BAG.md AND CONTENT-PIPELINE.md must be updated in the same PR.**
+
+The user has explicitly mandated this as a HARD RULE. Skipping causes outages.
+
+## ⚠️ HARD RULE — Entity hierarchy + content-boundary awareness
+
+**Before validating any story that touches a model, an FK, a content-scoping query, the `Subject` / `Playbook` / `PlaybookSource` / `SubjectSource` chain, cross-course content isolation, or anything that joins through `Subject` to `ContentAssertion` — you MUST read [`docs/ENTITIES.md`](../../docs/ENTITIES.md) first.** That doc is the single source of truth for the hierarchy (§2), the content-boundary walk (§4), the cross-entity invariants (§6), and the known leak vectors (§9).
+
+During technical review:
+- **Verify content-scoping queries use `PlaybookSource` (new path) not `Subject → SubjectSource` (legacy).** Legacy is still alive as a fallback — flag any new code that depends on it.
+- **Verify invariant I1 (§6):** new code that creates `ContentAssertion` MUST set `subjectSourceId`. The schema allows null for legacy rows only. `import/route.ts` and `course-pack/ingest/route.ts` currently violate this — don't add a third site.
+- **Verify the story doesn't re-trigger Leaks E1 / E2 / E3 (§9):** shared-Subject bleed, null-scope assertion, pipeline fan-out.
+- **Block the story if it adds a model / FK / scoping query without updating ENTITIES.md in the same PR.**
+
+The user has explicitly mandated this as a HARD RULE. Skipping causes silent cross-course leaks.
+
 ## Step 1 — Read the story
 
 ```bash

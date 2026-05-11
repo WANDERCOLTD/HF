@@ -1,6 +1,8 @@
 /**
  * Session Pedagogy Transform
- * Extracted from route.ts lines 2158-2229
+ *
+ * @canonical-doc docs/CONTENT-PIPELINE.md §4
+ * @canonical-doc docs/CONTENT-PIPELINE.md §11
  *
  * Uses Domain onboarding flow for first-call, falls back to INIT-001.
  */
