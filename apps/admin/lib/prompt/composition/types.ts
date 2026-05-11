@@ -615,7 +615,40 @@ export interface CompositionResult {
     transformTimeMs: number;
     /** Merged behavior targets (for backward compat with template rendering) */
     mergedTargetCount: number;
+    /**
+     * Lightweight observability trace describing loader decisions, exclusion
+     * counts, onboarding flow source, and the final media palette. Useful for
+     * tuning velocity — see CONTENT-PIPELINE.md §11.
+     */
+    composeTrace?: ComposeTrace;
   };
+}
+
+// === COMPOSE TRACE ===
+
+export interface ComposeTrace {
+  /** Loaders that produced any data, keyed by loader name → row count */
+  loadersFired: Record<string, number>;
+  /** Loaders that returned empty (with reason). */
+  loadersEmpty: Record<string, string>;
+  /** Assertions excluded during loading + first few reasons. */
+  assertionsExcluded: {
+    count: number;
+    firstReasons: string[];
+  };
+  /** Where the onboarding flow came from (playbook / domain / spec / none). */
+  onboardingFlowSource: string | null;
+  /** Whether Domain.onboardingFlowPhases was overridden by playbook session_override / welcome. */
+  onboardingOverriddenByPlaybook: boolean;
+  /** Final media palette (filenames + documentType). */
+  mediaPalette: Array<{
+    fileName: string;
+    documentType: string | null;
+    sourceName?: string | null;
+  }>;
+  /** Sections activated vs skipped (mirrors metadata fields for compact rendering). */
+  sectionsActivatedCount: number;
+  sectionsSkippedCount: number;
 }
 
 // === UTILITY ===

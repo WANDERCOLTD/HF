@@ -15,6 +15,7 @@ import { loadAllData } from "./SectionDataLoader";
 import { getTransform } from "./TransformRegistry";
 import { resolveSpecs, resolveVoiceSpecFallback, mergeIdentitySpec, applyGroupToneOverride } from "./transforms/identity";
 import { computeSharedState } from "./transforms/modules";
+import { buildComposeTrace, renderComposeTraceLog } from "./buildComposeTrace";
 import type {
   AssembledContext,
   CompositionResult,
@@ -201,6 +202,17 @@ export async function executeComposition(
   // 8. Build callerContext markdown (for LLM prompt and storage)
   const callerContext = buildCallerContext(context);
 
+  // Build observability trace + log it for grep-ability
+  let composeTrace;
+  try {
+    composeTrace = await buildComposeTrace(
+      { loadedData, resolvedSpecs, sectionsActivated, sectionsSkipped },
+    );
+    console.log(renderComposeTraceLog(composeTrace));
+  } catch (err) {
+    console.warn("[compose-trace] failed to build trace:", err);
+  }
+
   return {
     llmPrompt,
     callerContext,
@@ -214,6 +226,7 @@ export async function executeComposition(
       loadTimeMs,
       transformTimeMs,
       mergedTargetCount: context.sections.behaviorTargets?.all?.length || 0,
+      composeTrace,
     },
   };
 }
