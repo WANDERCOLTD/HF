@@ -3,6 +3,8 @@
 > **Read this before you change anything that affects how content is uploaded, classified, extracted, surfaced in the tutor prompt, or filtered by audience.**
 >
 > Owner: this document is the single source of truth for the classification taxonomy and data flow. When you introduce a new dimension (e.g. the Module picker introduced `progressionMode` + `modulesAuthored`), update this doc in the same PR.
+>
+> Companion: [`docs/WIZARD-DATA-BAG.md`](./WIZARD-DATA-BAG.md) is the inputs-side map — how educator intent collected by the wizard becomes the `Playbook.config` / `Domain.*` rows that the loaders below read. Update both docs in the same PR when changing how a wizard field maps to content classification.
 
 ---
 
@@ -337,3 +339,4 @@ Before merging a PR that touches any classification dimension, confirm:
 | Date | Change |
 |------|--------|
 | 2026-05-11 | Initial canonical version. |
+| 2026-05-11 | Cross-linked to `WIZARD-DATA-BAG.md` (the inputs-side companion). |
