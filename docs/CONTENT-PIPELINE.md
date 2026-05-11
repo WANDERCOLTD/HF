@@ -8,7 +8,7 @@
 > - [`docs/ENTITIES.md`](./ENTITIES.md) — data model + content-boundary rules
 > - [`docs/WIZARD-DATA-BAG.md`](./WIZARD-DATA-BAG.md) — wizard inputs → `Playbook.config`
 > - **This doc** — classification, extraction, compose-time filters
-> - `docs/PROMPT-COMPOSITION.md` (roadmap; `memory/flow-prompt-composition.md` today) — loader → transform → assembly
+> - [`docs/PROMPT-COMPOSITION.md`](./PROMPT-COMPOSITION.md) — loader → transform → assembly
 > - [`docs/SPEC-SYSTEM.md`](./SPEC-SYSTEM.md) — SpecRole, scaffold, systemSpecToggles, extendsAgent chain
 >
 > Update peer canon docs in the same PR when changing how a wizard field maps to content classification or how content is scoped to a course.
