@@ -3,6 +3,13 @@
 > **Read this before you change anything that affects how content is uploaded, classified, extracted, surfaced in the tutor prompt, or filtered by audience.**
 >
 > Owner: this document is the single source of truth for the classification taxonomy and data flow. When you introduce a new dimension (e.g. the Module picker introduced `progressionMode` + `modulesAuthored`), update this doc in the same PR.
+>
+> Five-pillar architecture canon:
+> - [`docs/ENTITIES.md`](./ENTITIES.md) — data model + content-boundary rules
+> - [`docs/WIZARD-DATA-BAG.md`](./WIZARD-DATA-BAG.md) — wizard inputs → `Playbook.config`
+> - **This doc** — classification, extraction, compose-time filters
+> - `docs/PROMPT-COMPOSITION.md` (roadmap; `memory/flow-prompt-composition.md` today) — loader → transform → assembly
+> - [`docs/SPEC-SYSTEM.md`](./SPEC-SYSTEM.md) — SpecRole, scaffold, systemSpecToggles, extendsAgent chain
 
 ---
 
@@ -289,6 +296,8 @@ Walk **top to bottom**. First veto wins.
 - Tutor session phases (`tut-*`)
 
 **Spec slugs** (env-overridable) in `lib/config.ts` under `config.specs.*`.
+
+> **Canonical expansion:** [`docs/SPEC-SYSTEM.md`](./SPEC-SYSTEM.md) is the authoritative map for `SpecRole` taxonomy (§2), `scaffoldDomain` materialisation (§3), `systemSpecToggles` resolution (§4), the 4-layer `extendsAgent` chain (§5), and the full `config.specs.*` catalogue (§6). Read it before changing any spec slug or scaffold behaviour.
 
 **DataContracts** registry at `lib/contracts/registry.ts` — 30s TTL cache. Contracts gate which composition sections fire. No registered DataContract has a missing consumer at last audit (May 2026), but no validation enforces this — if you add a contract, also add a consumer.
 

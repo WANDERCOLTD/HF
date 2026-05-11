@@ -20,6 +20,18 @@ When writing the story:
 
 **This is non-negotiable. Skipping this rule has caused production incidents.**
 
+## ⚠️ HARD RULE — Spec system awareness
+
+**If the requirement touches ANY of: `SpecRole` enum values, `scaffoldDomain` step order, `systemSpecToggles` defaults or filtering, `extendsAgent` identity resolution, `applyGroupToneOverride`, or any `config.specs.*` slug — you MUST read [`docs/SPEC-SYSTEM.md`](../../docs/SPEC-SYSTEM.md) first.** It is the canonical map for the spec layer: §2 SpecRole taxonomy (9 active + 5 deprecated), §3 scaffold materialisation, §4 toggle resolution chain, §5 4-layer extendsAgent chain (including the previously-undocumented group-tone override), §6 slug catalogue, §9 landmines.
+
+When writing the story:
+- Cite the relevant SPEC-SYSTEM.md section(s) the story affects.
+- If the story adds a `SpecRole` value, scaffold step, system spec, `extendsAgent` layer, or `config.specs.*` slug, the story MUST include "Update `docs/SPEC-SYSTEM.md`" as an acceptance criterion.
+- Surface any landmines from §9 that the story could re-trigger (especially L1 ADR-002 default-enabled and L3 SpecRole-without-consumer).
+- Check the pre-change checklist in §8 — every checkbox there is an AC candidate.
+
+**This is non-negotiable. ADR-002 was a post-incident write because we skipped this rule.**
+
 ## Step 1 — Search before writing
 
 Use qmd and hf-graph tools to find what already exists:
