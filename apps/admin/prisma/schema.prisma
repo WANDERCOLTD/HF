@@ -547,6 +547,13 @@ model BehaviorTarget {
   observationCount Int       @default(0) // How many observations informed this
   lastLearnedAt    DateTime?
 
+  // Projection provenance (#338, NEW courses since 2026-05-12). When this row
+  // was written by applyProjection() from a COURSE_REFERENCE doc, points to the
+  // source. NULL for legacy rows and for non-projected (admin / seed) rows.
+  // See docs/CONTENT-PIPELINE.md §4 Phase 2.5 + docs/ENTITIES.md §6 I7.
+  sourceContentId String?
+  sourceContent   ContentSource? @relation("BehaviorTargetProjection", fields: [sourceContentId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -557,6 +564,7 @@ model BehaviorTarget {
   @@index([callerIdentityId], map: "BehaviorTarget_callerId_idx")
   @@index([effectiveFrom])
   @@index([effectiveUntil])
+  @@index([sourceContentId])
 }
 
 // =========================
@@ -1190,11 +1198,20 @@ model Goal {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Projection provenance (#338, NEW courses since 2026-05-12). When this row
+  // was written by applyProjection() from a COURSE_REFERENCE doc, points to
+  // the source. NULL for caller-expressed goals, ADAPT-suggested goals, legacy
+  // playbook-template goals, and admin / seed rows.
+  // See docs/CONTENT-PIPELINE.md §4 Phase 2.5 + docs/ENTITIES.md §6 I7.
+  sourceContentId String?
+  sourceContent   ContentSource? @relation("GoalProjection", fields: [sourceContentId], references: [id], onDelete: SetNull)
+
   @@index([callerId, status])
   @@index([callerId, isAssessmentTarget, status])
   @@index([type])
   @@index([status])
   @@index([playbookId])
+  @@index([sourceContentId])
 }
 
 // CallerPlaybook — Explicit enrollment of a caller in a specific playbook.
@@ -2257,9 +2274,18 @@ model CurriculumModule {
   callerProgress     CallerModuleProgress[]
   calls              Call[]
 
+  // Projection provenance (#338, NEW courses since 2026-05-12). When this
+  // module row was written by applyProjection() from a COURSE_REFERENCE doc's
+  // Modules table, points to the source. NULL for legacy modules and for
+  // modules derived from CURRICULUM extraction.
+  // See docs/CONTENT-PIPELINE.md §4 Phase 2.5 + docs/ENTITIES.md §6 I7.
+  sourceContentId String?
+  sourceContent   ContentSource? @relation("CurriculumModuleProjection", fields: [sourceContentId], references: [id], onDelete: SetNull)
+
   @@unique([curriculumId, slug])
   @@index([curriculumId, sortOrder])
   @@index([isActive])
+  @@index([sourceContentId])
 }
 
 // A measurable learning outcome within a module (e.g., "LO1: Understand mitosis")
@@ -3697,6 +3723,16 @@ model ContentSource {
   subjects        SubjectSource[] // Subjects this source belongs to (legacy scoping)
   playbookSources PlaybookSource[] // Direct course → source link (replaces Subject chain)
   mediaAssets     MediaAsset[] // Media files from this content source
+
+  // Inverse relations for projection provenance (#338, NEW courses since 2026-05-12).
+  // Populated when this source is a COURSE_REFERENCE doc and applyProjection() has
+  // written derived rows. onDelete: SetNull on each FK so direct source-delete
+  // leaves projected rows with null provenance (treat as legacy). The applier
+  // owns the explicit deletion path on doc replace/edit.
+  // See docs/CONTENT-PIPELINE.md §4 Phase 2.5 + docs/ENTITIES.md §6 I7.
+  projectedGoals             Goal[]             @relation("GoalProjection")
+  projectedBehaviorTargets   BehaviorTarget[]   @relation("BehaviorTargetProjection")
+  projectedCurriculumModules CurriculumModule[] @relation("CurriculumModuleProjection")
 
   @@index([trustLevel])
   @@index([documentType])
