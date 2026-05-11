@@ -77,6 +77,18 @@ export function applyAuthoredModules(
     ? { ...(existing.outcomes ?? {}), ...parsed.outcomes }
     : existing.outcomes;
 
+  // When the parsed modules table contains any learner-selectable module,
+  // the course is by design a learner-picks course — the picker UI must
+  // render that menu at session start. The doc is the authoritative source,
+  // so this overrides any prior "ai-led" default that the wizard or scheduler
+  // may have written. Only honour an existing non-default value when the
+  // parse has zero learner-selectable modules (an unusual but legal shape:
+  // authored modules that are all silent / scheduler-only).
+  const hasLearnerSelectableModules = parsed.modules.some((m) => m.learnerSelectable !== false);
+  const inferredProgressionMode = hasLearnerSelectableModules
+    ? "learner-picks"
+    : existing.progressionMode;
+
   const next: PlaybookConfig = {
     ...existing,
     modulesAuthored: true,
@@ -84,6 +96,7 @@ export function applyAuthoredModules(
     modules: parsed.modules,
     moduleDefaults: { ...(existing.moduleDefaults ?? {}), ...parsed.moduleDefaults },
     ...(mergedOutcomes ? { outcomes: mergedOutcomes } : {}),
+    ...(inferredProgressionMode ? { progressionMode: inferredProgressionMode } : {}),
     validationWarnings: parsed.validationWarnings,
     ...(options.sourceRef ? { moduleSourceRef: options.sourceRef } : {}),
   };

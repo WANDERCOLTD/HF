@@ -59,7 +59,7 @@ All values authoritative as of 2026-05-11. Cite the file:line in any PR that cha
 | `ContentQuestion.bloomLevel` | REMEMBER / UNDERSTAND / APPLY / ANALYZE / EVALUATE / CREATE | `prisma/schema.prisma:65-71` | Difficulty band |
 | `Playbook.config.teachingMode` (TM) | recall / comprehension / practice / syllabus | `lib/types/json-fields.ts:145` | Scheduler preset, extraction weights |
 | `Playbook.config.interactionPattern` | 8 values listed above | `lib/types/json-fields.ts:153` | Tutor voice |
-| `Playbook.config.progressionMode` | ai-led / learner-picks | `lib/wizard/graph-nodes.ts` | Module selection: scheduler vs picker |
+| `Playbook.config.progressionMode` | ai-led / learner-picks | `lib/wizard/graph-nodes.ts` | Module selection: scheduler vs picker. **Written by `applyAuthoredModules`** (lib/wizard/persist-authored-modules.ts) when the course-ref's Modules table contains any learner-selectable module → set to `learner-picks`. Wizard `update_setup` may set it explicitly. ⚠ **Bug fixed 2026-05-11** — previously left unset by the parser, defaulting to `ai-led` and silently disabling the picker (see Change Log). |
 | `Playbook.config.modulesAuthored` | true / false / null | `lib/types/json-fields.ts` | Whether authored modules exist; null = derived from curriculum |
 | `AuthoredModule.mode` | examiner / tutor / mixed | `lib/types/json-fields.ts:406` | Per-module behaviour (silent during answer vs supportive) |
 | `AuthoredModule.frequency` | once / repeatable / cooldown | `lib/types/json-fields.ts:407` | Module picker filter |
@@ -172,7 +172,17 @@ Router at `lib/content-trust/resolve-config.ts` picks the extractor by `document
 | ASSESSMENT | Question + rubric | `ContentQuestion` + `ContentAssertion` |
 
 **COURSE_REFERENCE dual-path:**
-1. `lib/wizard/detect-authored-modules.ts` — parses `**Modules authored:** Yes` + `## Modules` table + `**OUT-NN: …**` lines → writes directly to `Playbook.config.modules` and `Playbook.config.outcomes`. **Bypasses extraction entirely.**
+1. `lib/wizard/detect-authored-modules.ts` — parses `**Modules authored:** Yes` + `## Modules` table + `**OUT-NN: …**` lines. `applyAuthoredModules` (lib/wizard/persist-authored-modules.ts) merges the parse result into `Playbook.config`, writing:
+   - `modulesAuthored: true`
+   - `moduleSource: "authored"`
+   - `modules: [...]` (the row objects)
+   - `moduleDefaults: {...}` (per-row defaults)
+   - `outcomes: { OUT-01: "...", ... }`
+   - `progressionMode: "learner-picks"` — **iff any parsed module has `learnerSelectable !== false`** (added 2026-05-11; previously unset, which silently disabled the picker)
+   - `validationWarnings: [...]`
+   - `moduleSourceRef: { docId, version }` (when caller passes it)
+
+   **Bypasses extraction entirely** for the structural fields above.
 2. Remaining markdown flows through standard extraction → `ContentAssertion` rows with `category IN INSTRUCTION_CATEGORIES`.
 
 ### Phase 3: Classification (LO audience)
@@ -435,3 +445,4 @@ The marker is informational — `§N` section refs are NOT machine-checked. The 
 | 2026-05-10 | §11 expanded with three tuning-velocity entries: **Test First Call** dry-run button on the course page (`POST /api/courses/:id/dry-run-prompt`), ComposedPrompt diff viewer at `/x/composed-prompts/:id`, and the `[compose-trace]` observability block emitted by `CompositionExecutor`. No schema or veto-precedence changes. Closes #319. |
 | 2026-05-11 | Front-matter content declarations (`ContentSource.contentDeclaration`) override AI classification across documentType, defaultCategory, loSystemRole, questionAssessmentUse. New §3.2 + §5.1a + §6 row 0 + §10 pre-change items. Parser: `lib/content-trust/parse-content-declaration.ts`. Stamping: `documentTypeSource: "declared:by-doc"`, `LoClassification.classifierVersion: "declared-by-doc-v1"`. Closes #325. |
 | 2026-05-11 | Cross-linked to `ENTITIES.md` (data model + boundary). Switched loader citations in §3.1, §4 and §6 to symbol form (`::registerLoader("<name>")`) — line refs had drifted (e.g. visualAids 1071 → actual 1163). Symbols survive refactors. Closes #322. |
+| 2026-05-11 | **§3 + §4 — `applyAuthoredModules` now writes `Playbook.config.progressionMode`.** Previously the parser merged `modulesAuthored`, `modules`, `moduleDefaults`, and `outcomes` into Playbook.config but **never set `progressionMode`** — courses with a Modules table full of learner-selectable rows still had `progressionMode: ai-led` (the default), so the picker UI never rendered. Found during the IELTS Speaking wizard run (#336). Per-row contract: when any parsed module has `learnerSelectable !== false`, set `progressionMode: "learner-picks"`; the doc is the authoritative source. §3 + §4 now spell out who writes each `Playbook.config` field — the prior version listed reader gates but not writer contracts, which is how this slipped through review. |

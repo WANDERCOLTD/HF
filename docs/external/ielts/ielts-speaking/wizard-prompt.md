@@ -36,7 +36,9 @@ eight OUT-NN learner outcomes are authored in course-ref.md — the Module
 Catalogue parser will pick them up automatically when course-ref.md is uploaded.
 Do **not** call update_setup with `modulesAuthored` or `constraints` — those
 are not setupData fields. Authored-module status is set by the course-ref.md
-parser; voice rules and tutor principles flow in via course-ref.md sections
+parser. **DO** call update_setup with `progressionMode: "learner-picks"`
+explicitly — belt-and-braces in case the parser leaves it unset. Voice rules
+and tutor principles flow in via course-ref.md sections
 (Teaching Approach, First Call Special Rules, Disclosure Schedule).
 
 Coverage: depth — better to master two Speaking Parts than skim all three.
