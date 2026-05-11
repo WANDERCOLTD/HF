@@ -20,6 +20,19 @@ When writing the story:
 
 **This is non-negotiable. Skipping this rule has caused production incidents.**
 
+## ⚠️ HARD RULE — Pipeline awareness
+
+**Before writing any story that touches a pipeline stage, runner, cross-stage DB write, guardrail, ADAPT sub-op (goals, targets, completion signals), SUPERVISE clamp, or any code path that depends on a stage having already run — you MUST read [`docs/PIPELINE.md`](../../docs/PIPELINE.md) first.** That doc is the single source of truth for the 7-stage table (§1), per-stage reads/writes (§2), the non-blocking `stageErrors` semantics (§3), the ordering invariant + `parallelStages` hardcode (§4), modes + auth (§5), ADAPT's 7 sub-ops (§7), the SUPERVISE surface (§8), and the landmines (§9).
+
+When writing the story:
+- Cite the relevant `docs/PIPELINE.md` section(s).
+- If the story adds, removes, or reorders a stage, the story MUST include "Update `docs/PIPELINE.md` stage table (§1) and cross-stage data flow (§4.2)" as an acceptance criterion.
+- **Never quote `route.ts` by line number** — use symbol form (`route.ts::stageExecutors.<STAGE>`, `route.ts::runSpecDrivenPipeline`). Line numbers drift fast (`route.ts` is 2700+ lines and actively edited).
+- If the story touches `lib/ops/pipeline-run.ts`, **stop** — that file is a legacy CLI, not the runtime orchestrator (§9 L2). Verify the live route at `app/api/calls/[callId]/pipeline/route.ts` first.
+- Flag any landmine from §9 the story could re-trigger.
+
+**This is non-negotiable. Skipping this rule has caused silent downstream breakage.**
+
 ## ⚠️ HARD RULE — Prompt composition awareness
 
 **Before writing any story that touches loaders, transforms, `getDefaultSections()`, `contentScope`, the dry-run prompt endpoint, the ComposedPrompt diff viewer, or anything in `lib/prompt/composition/` — you MUST read [`docs/PROMPT-COMPOSITION.md`](../../docs/PROMPT-COMPOSITION.md) first.** It is the single source of truth for the 21 loaders, the ~24 transforms, the section topological order, `buildComposeTrace`, and the known landmines (`__teachingDepth` hack, isolated `PrismaClient`, `filterSpecsByToggles` silent drops, onboarding-flow override precedence).

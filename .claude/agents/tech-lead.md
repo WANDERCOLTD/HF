@@ -20,6 +20,20 @@ During technical review:
 
 The user has explicitly mandated this as a HARD RULE. Skipping causes outages.
 
+## ⚠️ HARD RULE — Pipeline awareness
+
+**Before validating any story that touches a pipeline stage, runner, cross-stage DB write, guardrail, ADAPT sub-op (goals, targets, completion signals), SUPERVISE clamp, or any code path that depends on a stage having already run — you MUST read [`docs/PIPELINE.md`](../../docs/PIPELINE.md) first.** It is the single source of truth for stage ordering, the executor map, ADAPT's 7 sub-ops, SUPERVISE's clamp surface, and the documented landmines.
+
+During technical review:
+- **Verify ordering invariant.** Walk §4.2 (cross-stage data flow). If the story's new write is read by a stage upstream of where it writes, block — that's a silent breakage.
+- **Verify the executor key matches the stage name** (not the `outputType`). `SCORE_AGENT` (stage) processes `MEASURE_AGENT` (outputType) — see §1.1 and §9 L1.
+- **Reject `route.ts` line-number citations.** `route.ts` is 2700+ lines and actively edited — citations must be symbol form.
+- **Catch parallel-batch hazards.** §4 — the `parallelStages` set is hardcoded; new parallel pairs need an explicit edit AND zero cross-batch DB dependency.
+- **Catch the `pipeline-run.ts` confusion.** §9 L2 — that file is a legacy CLI, NOT the runtime orchestrator. If the story modifies it, ask whether the live route at `app/api/calls/[callId]/pipeline/route.ts` is actually what should change.
+- **Block the story if it changes a stage / runner / guardrail without updating `docs/PIPELINE.md` in the same PR.**
+
+The user has explicitly mandated this as a HARD RULE. Skipping causes silent downstream breakage.
+
 ## ⚠️ HARD RULE — Prompt composition awareness
 
 **Before validating any story that touches loaders, transforms, `getDefaultSections()`, `contentScope`, the dry-run prompt endpoint, the ComposedPrompt diff viewer, or anything in `lib/prompt/composition/` — you MUST read [`docs/PROMPT-COMPOSITION.md`](../../docs/PROMPT-COMPOSITION.md) first.** That doc is the single source of truth for the 21 loaders (§3), the ~24 transforms (§4), the data-contract gates (§5), `buildComposeTrace` observability (§6), and the known landmines (§9).

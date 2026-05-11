@@ -36,6 +36,8 @@ Complete guide to all HF documentation.
 | [ARCHITECTURE.md](../apps/admin/ARCHITECTURE.md) | **Comprehensive system architecture** (pipelines, memory, reward loop, DB schema) |
 | [Admin ARCHITECTURE.md](../apps/admin/docs/ARCHITECTURE.md) | Admin app architecture (pipelines, playbooks, specs) |
 | [DATA-DRIVEN-ARCHITECTURE.md](../apps/admin/docs/DATA-DRIVEN-ARCHITECTURE.md) | Data-driven spec system |
+| [CONTENT-PIPELINE.md](CONTENT-PIPELINE.md) | **Classification taxonomy + data flow** (5-pillar canon) |
+| [PIPELINE.md](PIPELINE.md) | **7-stage post-call adaptive loop** — stage table, ordering invariant, runner map, landmines (5-pillar canon) |
 
 ---
 

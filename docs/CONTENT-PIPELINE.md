@@ -4,12 +4,16 @@
 >
 > Owner: this document is the single source of truth for the classification taxonomy and data flow. When you introduce a new dimension (e.g. the Module picker introduced `progressionMode` + `modulesAuthored`), update this doc in the same PR.
 >
-> Five-pillar architecture canon:
-> - [`docs/ENTITIES.md`](./ENTITIES.md) — data model + content-boundary rules
-> - [`docs/WIZARD-DATA-BAG.md`](./WIZARD-DATA-BAG.md) — wizard inputs → `Playbook.config`
-> - **This doc** — classification, extraction, compose-time filters
-> - [`docs/PROMPT-COMPOSITION.md`](./PROMPT-COMPOSITION.md) — loader → transform → assembly
-> - [`docs/SPEC-SYSTEM.md`](./SPEC-SYSTEM.md) — SpecRole, scaffold, systemSpecToggles, extendsAgent chain
+> **Five-pillar canon — read the right doc before changing related code:**
+>
+> | Pillar | Doc | Covers |
+> |--------|-----|--------|
+> | Inputs | [`docs/WIZARD-DATA-BAG.md`](./WIZARD-DATA-BAG.md) | educator intent → `Playbook.config` |
+> | **Classification** | **this doc** | **extraction, audience filters, compose-time gates** |
+> | Model | [`docs/ENTITIES.md`](./ENTITIES.md) | hierarchy + content-boundary path |
+> | Composition | [`docs/PROMPT-COMPOSITION.md`](./PROMPT-COMPOSITION.md) | loaders → transforms → assembly |
+> | Specs | [`docs/SPEC-SYSTEM.md`](./SPEC-SYSTEM.md) | SpecRole, scaffold, systemSpecToggles, extendsAgent chain |
+> | Adaptive loop | [`docs/PIPELINE.md`](./PIPELINE.md) | 7-stage post-call pipeline |
 >
 > Update peer canon docs in the same PR when changing how a wizard field maps to content classification or how content is scoped to a course.
 
@@ -136,8 +140,9 @@ Supported keys + the enum they map to:
 
 Specs in `docs-archive/bdd-specs/` are seed data — they become `AnalysisSpec` rows after seed. Slugs in `lib/config.specs.*` are env-overridable. The 16 active spec slugs gate which spec the runner uses for each stage.
 
-Key canonicals:
-- `pipeline-001-pipeline-configuration-spec` — stage ordering (`EXTRACT < AGGREGATE < REWARD < ADAPT < SUPERVISE < COMPOSE`)
+**Canonical pipeline stage table, ordering invariant, parallel rules, per-stage reads/writes, ADAPT sub-ops, and SUPERVISE clamp behaviour live in [`docs/PIPELINE.md`](./PIPELINE.md).** Read it before adding a stage, runner, or cross-stage DB write — `route.ts` line numbers drift and the executor key names (e.g. `SCORE_AGENT`) differ from `AnalysisOutputType` enum values (`MEASURE_AGENT`).
+
+Other spec families:
 - `composition-*` specs — section loader configuration
 - `extraction-*` specs — per-DocumentType extraction strategy
 - `init-001` — welcome flow phases
