@@ -185,20 +185,20 @@
       ],
       "scoringAnchors": [
         {
-          "scenario": "Caller correctly defines 'danger zone' temperature range and explains why bacteria multiply rapidly in that range",
-          "expectedScore": 0.85,
+          "example": "Caller correctly defines 'danger zone' temperature range and explains why bacteria multiply rapidly in that range",
+          "score": 0.85,
           "isGold": true,
           "rationale": "Demonstrates both recall (specific temperatures) and understanding (why it matters)"
         },
         {
-          "scenario": "Caller says 'I think it's something about keeping food hot' but cannot give specific temperatures",
-          "expectedScore": 0.3,
+          "example": "Caller says 'I think it's something about keeping food hot' but cannot give specific temperatures",
+          "score": 0.3,
           "isGold": true,
           "rationale": "Vague awareness but no specific recall — partial understanding at best"
         },
         {
-          "scenario": "Caller correctly answers a scenario: 'I would check the delivery temperature and reject if above 8°C'",
-          "expectedScore": 0.9,
+          "example": "Caller correctly answers a scenario: 'I would check the delivery temperature and reject if above 8°C'",
+          "score": 0.9,
           "isGold": true,
           "rationale": "Demonstrates practical application with specific threshold knowledge"
         }
