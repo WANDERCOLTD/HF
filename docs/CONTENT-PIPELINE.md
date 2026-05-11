@@ -145,12 +145,14 @@ Each classification stored in `LoClassification` history; applied to `LearningOb
 
 | Loader (file:line) | Pulls | Filter | Lands in prompt as |
 |--------------------|-------|--------|---------------------|
-| `subjectSources` (814) | Source metadata | course-scoped | Reference list (⚠ also feeds media palette — see leak §8) |
-| `curriculumAssertions` (865) | Learner-facing TPs | `category NOT IN INSTRUCTION_CATEGORIES` + subject-scoped | Module teaching content |
-| `courseInstructions` (997) | Tutor-only TPs + TEACHING_INSTRUCTION LOs | `category IN INSTRUCTION_CATEGORIES` OR `sourceId IS COURSE_REFERENCE` + `systemRole=TEACHING_INSTRUCTION` LOs | TEACHING RULES (tutor-only) |
-| `curriculumQuestions` (952) | MCQs | course-scoped | Assessment section |
-| `curriculumVocabulary` (976) | Vocab | course-scoped | Vocabulary section |
-| `visualAids` (1071) | Media (images) | `subjectId + mimeType` only — **⚠ no documentType filter** | Media palette (LEAKS — see §8) |
+| `::registerLoader("subjectSources")` | Source metadata | subject-scoped — NO `playbookId` filter (metadata only; see L4) | Reference list |
+| `::registerLoader("curriculumAssertions")` | Learner-facing TPs | `subjectSourceId IN (course's SubjectSources)` + `category NOT IN INSTRUCTION_CATEGORIES` (strict — no null fallback) | Module teaching content |
+| `::registerLoader("courseInstructions")` | Tutor-only TPs + TEACHING_INSTRUCTION LOs | `category IN INSTRUCTION_CATEGORIES` OR `sourceId IS COURSE_REFERENCE` + `systemRole=TEACHING_INSTRUCTION` LOs | TEACHING RULES (tutor-only) |
+| `::registerLoader("curriculumQuestions")` | MCQs | course-scoped | Assessment section |
+| `::registerLoader("curriculumVocabulary")` | Vocab | course-scoped | Vocabulary section |
+| `::registerLoader("visualAids")` | Media (images) | `subjectId + mimeType` + `documentType NOT IN TEACHER_ONLY_DOC_TYPES` (since 2026-05-10) | Media palette |
+
+All cells reference `lib/prompt/composition/SectionDataLoader.ts`. Citations use symbol form (`::registerLoader("<name>")`) — line numbers move; symbols don't.
 
 Modules and learner-visible LOs (`systemRole=NONE`) flow into the prompt via the **transforms** layer (`lib/prompt/composition/transforms/modules.ts`), not a dedicated loader. They're derived from `CurriculumModule` + `LearningObjective` filtered by `learnerVisible=true`.
 
@@ -212,7 +214,7 @@ Walk **top to bottom**. First veto wins.
 
 | # | Layer | Veto condition | Where |
 |---|-------|----------------|-------|
-| 1 | Assertion | `category IN INSTRUCTION_CATEGORIES` | `SectionDataLoader.ts:568` (routes to courseInstructions, never to learner content) |
+| 1 | Assertion | `category IN INSTRUCTION_CATEGORIES` | `SectionDataLoader.ts::registerLoader("curriculumAssertions")` excludes; `::registerLoader("courseInstructions")` includes |
 | 2 | LO | `systemRole != NONE` → `learnerVisible=false` | `validate-lo-classification.ts:70` |
 | 3 | Question | `assessmentUse=TUTOR_ONLY` | `pre-test-builder.ts:82` |
 | 4 | Module | `learnerSelectable=false` | Picker render |
@@ -331,6 +333,9 @@ Before merging a PR that touches any classification dimension, confirm:
 | MCQ asking meta-questions | LOs that feed MCQ pool — any `TEACHING_INSTRUCTION` slipping in? | `lib/assessment/module-groups.ts` filter must exclude all `systemRole != NONE` |
 | AI sent a doc to learner | `visualAids` / `subjectSources` loader filtering | L1 — fixed 2026-05-10. `visualAids` filters tutor-only docs; `subjectSources` now exposes `tutorOnly`; `share_content` tool (`app/api/chat/tools.ts`) still gates by `isStudentVisibleDefault`. If a leak recurs, check the documentType classification on the source — `COURSE_REFERENCE` misclassified as `TEXTBOOK` will pass through. |
 | Generic welcome fires instead of course-ref First-Call rules | Does `course-ref.md` have `**Session scope:** 1` markers? | Extractor produces `category=session_override` `section="1"` rows; compose-time `pedagogy.ts` REPLACES `onboardingFlowPhases` when a `session_override` matches the current `callNumber`. Watch for the `[compose] course-ref First-Call rules override …` log line — its absence means either no override is parsed or the call number doesn't match. Fixed 2026-05-10. |
+| I want to see what the tutor will say before the call | Click **Test First Call** on the course page (`/x/courses/:id`) | Opens the dry-run modal: composed prompt, section breakdown, and `compose-trace` (loaders fired, media palette, onboarding-flow source). No call is created. |
+| Why did the tutor's prompt change after I edited course-ref.md? | Open the latest ComposedPrompt at `/x/composed-prompts/:id` | "Compare with previous" dropdown — diff against the prior prompt for the same course (uses `diff` lib, inline highlighting). |
+| What did each loader actually pull? | Look at `[compose-trace]` block in server logs, or the **Trace** tab in the dry-run modal / ComposedPrompt viewer | Shows: loaders fired vs empty, assertion warnings, onboarding-flow source (Playbook / Domain / Spec), final media palette filenames + documentType. |
 
 ---
 
@@ -340,3 +345,4 @@ Before merging a PR that touches any classification dimension, confirm:
 |------|--------|
 | 2026-05-11 | Initial canonical version. |
 | 2026-05-10 | L1 fixed — `visualAids` + `subjectSources` filter / flag tutor-only docs. §11 row updated. New row added: "Generic welcome fires instead of course-ref First-Call rules" — compose-time `session_override` REPLACES `onboardingFlowPhases` for matching `callNumber`. Helpers: `isTutorOnlyDocumentType` (`SectionDataLoader.ts`), `deriveSessionOverridePhases` (`transforms/pedagogy.ts`). |
+| 2026-05-10 | §11 expanded with three tuning-velocity entries: **Test First Call** dry-run button on the course page (`POST /api/courses/:id/dry-run-prompt`), ComposedPrompt diff viewer at `/x/composed-prompts/:id`, and the `[compose-trace]` observability block emitted by `CompositionExecutor`. No schema or veto-precedence changes. Closes #319. |
