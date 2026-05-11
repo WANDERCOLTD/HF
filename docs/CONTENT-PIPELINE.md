@@ -3,6 +3,8 @@
 > **Read this before you change anything that affects how content is uploaded, classified, extracted, surfaced in the tutor prompt, or filtered by audience.**
 >
 > Owner: this document is the single source of truth for the classification taxonomy and data flow. When you introduce a new dimension (e.g. the Module picker introduced `progressionMode` + `modulesAuthored`), update this doc in the same PR.
+>
+> Companion: [`docs/WIZARD-DATA-BAG.md`](./WIZARD-DATA-BAG.md) is the inputs-side map — how educator intent collected by the wizard becomes the `Playbook.config` / `Domain.*` rows that the loaders below read. Update both docs in the same PR when changing how a wizard field maps to content classification.
 
 ---
 
@@ -427,3 +429,4 @@ The marker is informational — `§N` section refs are NOT machine-checked. The 
 | 2026-05-10 | L1 fixed — `visualAids` + `subjectSources` filter / flag tutor-only docs. §11 row updated. New row added: "Generic welcome fires instead of course-ref First-Call rules" — compose-time `session_override` REPLACES `onboardingFlowPhases` for matching `callNumber`. Helpers: `isTutorOnlyDocumentType` (`SectionDataLoader.ts`), `deriveSessionOverridePhases` (`transforms/pedagogy.ts`). Closes #323, #324. |
 | 2026-05-10 | §11 expanded with three tuning-velocity entries: **Test First Call** dry-run button on the course page (`POST /api/courses/:id/dry-run-prompt`), ComposedPrompt diff viewer at `/x/composed-prompts/:id`, and the `[compose-trace]` observability block emitted by `CompositionExecutor`. No schema or veto-precedence changes. Closes #319. |
 | 2026-05-11 | Front-matter content declarations (`ContentSource.contentDeclaration`) override AI classification across documentType, defaultCategory, loSystemRole, questionAssessmentUse. New §3.2 + §5.1a + §6 row 0 + §10 pre-change items. Parser: `lib/content-trust/parse-content-declaration.ts`. Stamping: `documentTypeSource: "declared:by-doc"`, `LoClassification.classifierVersion: "declared-by-doc-v1"`. Closes #325. |
+| 2026-05-11 | Cross-linked to `WIZARD-DATA-BAG.md` (the inputs-side companion). |
