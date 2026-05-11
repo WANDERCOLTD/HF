@@ -12,8 +12,27 @@ import { getLearnerProfile } from "@/lib/learner/profile";
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { getSubjectsForPlaybook } from "@/lib/knowledge/domain-sources";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
+import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import type { LoadedDataContext, SystemSpecData } from "./types";
+
+/**
+ * Document types that must NEVER appear in a learner-facing media palette or
+ * share_content tool catalog. COURSE_REFERENCE carries tutor-config + rubric;
+ * LESSON_PLAN / QUESTION_BANK / POLICY_DOCUMENT are tutor-facing methodology.
+ *
+ * Aligned with `TEACHER_ONLY_DOC_TYPES` in `lib/doc-type-icons.ts` (single
+ * source of truth via `isStudentVisibleDefault`). The check below uses an
+ * allow-list rather than a block-list so new tutor-only DocumentType values
+ * are excluded by default.
+ *
+ * Refs CONTENT-PIPELINE.md §8 landmine L1 — "AI tutor sent course-ref.md to
+ * learner" incident (2026-05-10).
+ */
+function isTutorOnlyDocumentType(documentType: string | null | undefined): boolean {
+  if (!documentType) return false;
+  return !isStudentVisibleDefault(documentType);
+}
 
 /** Pre-resolved content scope passed to content loaders via config. */
 type ContentScope = {
@@ -755,6 +774,7 @@ registerLoader("subjectSources", async (callerId, loaderConfig) => {
               id: true,
               slug: true,
               name: true,
+              documentType: true,
               trustLevel: true,
               publisherOrg: true,
               accreditingBody: true,
@@ -819,6 +839,11 @@ registerLoader("subjectSources", async (callerId, loaderConfig) => {
       sources: subject.sources.map((ss) => ({
         slug: ss.source.slug,
         name: ss.source.name,
+        documentType: ss.source.documentType ?? null,
+        // Tutor-only documents must not be surfaced as shareable media to the
+        // learner. Consumers building "share with learner" catalogs MUST honour
+        // this flag. CONTENT-PIPELINE.md §8 L1.
+        tutorOnly: isTutorOnlyDocumentType(ss.source.documentType),
         trustLevel: ss.trustLevelOverride || ss.source.trustLevel,
         tags: ss.tags || ["content"],
         publisherOrg: ss.source.publisherOrg,
@@ -1180,6 +1205,7 @@ registerLoader("visualAids", async (_callerId, loaderConfig) => {
           figureRef: true,
           mimeType: true,
           pageNumber: true,
+          source: { select: { documentType: true } },
         },
       },
     },
@@ -1187,8 +1213,23 @@ registerLoader("visualAids", async (_callerId, loaderConfig) => {
     orderBy: { sortOrder: "asc" },
   });
 
+  // Exclude tutor-only docs (COURSE_REFERENCE, LESSON_PLAN, QUESTION_BANK,
+  // POLICY_DOCUMENT) from the media palette. See L1 in CONTENT-PIPELINE.md §8:
+  // the AI tutor sent course-ref.md to a learner because nothing filtered the
+  // palette by documentType. Media with no source (manual upload) is allowed.
+  const filtered = subjectMedia.filter((sm) => {
+    const dt = sm.media.source?.documentType;
+    return !isTutorOnlyDocumentType(dt);
+  });
+  const excludedCount = subjectMedia.length - filtered.length;
+  if (excludedCount > 0) {
+    console.log(
+      `[visualAids] Filtered ${excludedCount} tutor-only media item(s) from palette (COURSE_REFERENCE / LESSON_PLAN / etc.)`,
+    );
+  }
+
   // Resolve chapter from AssertionMedia link if available
-  const mediaIds = subjectMedia.map((sm) => sm.media.id);
+  const mediaIds = filtered.map((sm) => sm.media.id);
   const assertionLinks = mediaIds.length > 0
     ? await prisma.assertionMedia.findMany({
         where: { mediaId: { in: mediaIds } },
@@ -1203,7 +1244,7 @@ registerLoader("visualAids", async (_callerId, loaderConfig) => {
     assertionLinks.map((al) => [al.mediaId, al.assertion.chapter]),
   );
 
-  return subjectMedia.map((sm) => ({
+  return filtered.map((sm) => ({
     mediaId: sm.media.id,
     fileName: sm.media.fileName,
     captionText: sm.media.captionText,

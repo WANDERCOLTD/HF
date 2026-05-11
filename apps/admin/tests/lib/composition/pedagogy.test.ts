@@ -1008,4 +1008,150 @@ describe("computeSessionPedagogy transform", () => {
       expect(result.sessionType).toBe("RETURNING_CALLER");
     });
   });
+
+  // =====================================================
+  // course-ref session_override OVERRIDE of onboardingFlowPhases
+  // (Bug fix: Call 1 generic welcome fired instead of First-Call rules)
+  // =====================================================
+  describe("course-ref session_override on first call", () => {
+    function makeOverrideCtx(opts: {
+      callNumber: number;
+      isFirstCall?: boolean;
+      isFirstCallInDomain?: boolean;
+      sessionOverrides: Array<{ section: string; assertion: string }>;
+      includeDomainFlow?: boolean;
+    }) {
+      const courseInstructions = opts.sessionOverrides.map((o, i) => ({
+        id: `co-${i}`,
+        assertion: o.assertion,
+        category: "session_override",
+        chapter: "Session Overrides",
+        section: o.section,
+        tags: ["session-override", `range:${o.section}`],
+        sourceName: "course-ref",
+        depth: 0,
+        parentId: null,
+        orderIndex: i,
+      }));
+
+      const base = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          courseInstructions,
+          ...(opts.includeDomainFlow
+            ? {
+                caller: {
+                  id: "c1", name: "Paul", email: null, phone: null, externalId: null,
+                  domain: {
+                    id: "d1", slug: "ielts", name: "IELTS", description: null,
+                    onboardingFlowPhases: {
+                      phases: [
+                        { phase: "welcome", duration: "2 min", goals: ["Greet"] },
+                        { phase: "discovery", duration: "3 min", goals: ["Find name"] },
+                      ],
+                    },
+                  },
+                },
+              }
+            : {}),
+        },
+        sharedState: {
+          ...makeContext().sharedState,
+          isFirstCall: opts.isFirstCall ?? (opts.callNumber === 1),
+          isFirstCallInDomain: opts.isFirstCallInDomain ?? (opts.callNumber === 1),
+          callNumber: opts.callNumber,
+        },
+      });
+      return base;
+    }
+
+    it("REPLACES onboardingFlowPhases when a session_override matches callNumber=1", () => {
+      const ctx = makeOverrideCtx({
+        callNumber: 1,
+        sessionOverrides: [
+          {
+            section: "1",
+            assertion:
+              "Open with a warm Part-1 question about hometown or work. Score silently. Do not name the criteria.",
+          },
+        ],
+        includeDomainFlow: true,
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+
+      // Override fired — synthetic phase, not the domain's welcome+discovery
+      expect(result.firstCallPhases).toHaveLength(1);
+      expect(result.firstCallPhases![0].phase).toBe("course-ref-special-rules");
+      expect(result.firstCallPhases![0].goals.length).toBeGreaterThan(0);
+      expect(result.firstCallPhases![0].goals.join(" ")).toContain("Part-1");
+      // None of the override goals should leak the original domain phase names
+      expect(result.flow.some((s: string) => s.toLowerCase().includes("welcome"))).toBe(false);
+    });
+
+    it("falls back to onboardingFlowPhases when no session_override matches", () => {
+      const ctx = makeOverrideCtx({
+        callNumber: 2,
+        // Only Call 1 override; Call 2 shouldn't match.
+        sessionOverrides: [{ section: "1", assertion: "Call 1 only special rules." }],
+        isFirstCall: true,
+        isFirstCallInDomain: true,
+        includeDomainFlow: true,
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+
+      // Original domain flow wins
+      expect(result.firstCallPhases).toBeDefined();
+      expect(result.firstCallPhases!.some((p: any) => p.phase === "welcome")).toBe(true);
+      expect(result.firstCallPhases!.some((p: any) => p.phase === "course-ref-special-rules")).toBe(false);
+    });
+
+    it("falls back to onboardingFlowPhases when course-ref has zero session_override rows", () => {
+      const ctx = makeOverrideCtx({
+        callNumber: 1,
+        sessionOverrides: [],
+        includeDomainFlow: true,
+      });
+
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.firstCallPhases!.some((p: any) => p.phase === "welcome")).toBe(true);
+      expect(result.firstCallPhases!.some((p: any) => p.phase === "course-ref-special-rules")).toBe(false);
+    });
+
+    it("matches a range section like '1-3' on call 2", () => {
+      const ctx = makeOverrideCtx({
+        callNumber: 2,
+        isFirstCall: true,
+        isFirstCallInDomain: true,
+        sessionOverrides: [{ section: "1-3", assertion: "Calls 1 through 3 are warm-up rounds." }],
+        includeDomainFlow: true,
+      });
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.firstCallPhases![0].phase).toBe("course-ref-special-rules");
+    });
+
+    it("matches a '2+' section on call 5 (open-ended range)", () => {
+      const ctx = makeOverrideCtx({
+        callNumber: 5,
+        isFirstCall: true,
+        isFirstCallInDomain: true,
+        sessionOverrides: [{ section: "2+", assertion: "From call 2 onwards apply criterion-referenced coaching." }],
+        includeDomainFlow: true,
+      });
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.firstCallPhases![0].phase).toBe("course-ref-special-rules");
+    });
+
+    it("does not match section '2+' on call 1", () => {
+      const ctx = makeOverrideCtx({
+        callNumber: 1,
+        sessionOverrides: [{ section: "2+", assertion: "Only from call 2 onwards." }],
+        includeDomainFlow: true,
+      });
+      const result = getTransform("computeSessionPedagogy")!(null, ctx, makeSectionDef());
+      expect(result.firstCallPhases!.some((p: any) => p.phase === "welcome")).toBe(true);
+      expect(result.firstCallPhases!.some((p: any) => p.phase === "course-ref-special-rules")).toBe(false);
+    });
+  });
 });

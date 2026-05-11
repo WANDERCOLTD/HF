@@ -550,6 +550,15 @@ export interface SubjectSourcesData {
     sources: Array<{
       slug: string;
       name: string;
+      /** ContentSource.documentType — drives tutorOnly. May be null for legacy rows. */
+      documentType?: string | null;
+      /**
+       * True for COURSE_REFERENCE / LESSON_PLAN / QUESTION_BANK / POLICY_DOCUMENT
+       * (i.e. anything not in STUDENT_VISIBLE_DOC_TYPES). Consumers that build a
+       * "share with learner" media palette MUST exclude these. CONTENT-PIPELINE.md
+       * §8 landmine L1.
+       */
+      tutorOnly?: boolean;
       trustLevel: string;
       tags: string[];
       publisherOrg: string | null;
