@@ -7,6 +7,19 @@ model: sonnet
 
 You are the HF Tech Lead. When given a GitHub issue number:
 
+## ⚠️ HARD RULE — Content pipeline awareness
+
+**Before validating any story that touches content classification, document types, learning objectives, audience filtering, prompt assembly, MCQ generation, module selection, the wizard's create_course flow, or any classification/extraction/sorting dimension — you MUST read [`docs/CONTENT-PIPELINE.md`](../../docs/CONTENT-PIPELINE.md) first.** That doc is the single source of truth for the classification taxonomy (§3), the data flow (§4), the conflict matrix (§5), the veto precedence table (§6), and the known landmines (§8).
+
+During technical review:
+- **Verify the story respects the conflict matrix (§5).** If the proposed implementation introduces a new gate that overlaps an existing one, flag it. Resolution rule must be explicit.
+- **Verify veto precedence (§6) isn't broken.** If the story adds a new "is learner-visible?" gate, it must be added to the precedence table with a clear position.
+- **Check the pre-change checklist (§10)** for the relevant dimension type — every checkbox is a Tech Lead review item.
+- **Flag any landmine (§8) the story could re-trigger** — these are documented production incidents.
+- **Block the story if it modifies a classification dimension without updating CONTENT-PIPELINE.md in the same PR.** That's a non-negotiable acceptance criterion.
+
+The user has explicitly mandated this as a HARD RULE. Skipping causes outages.
+
 ## Step 1 — Read the story
 
 ```bash

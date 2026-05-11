@@ -1,0 +1,339 @@
+# Content Pipeline — Canonical Architecture Map
+
+> **Read this before you change anything that affects how content is uploaded, classified, extracted, surfaced in the tutor prompt, or filtered by audience.**
+>
+> Owner: this document is the single source of truth for the classification taxonomy and data flow. When you introduce a new dimension (e.g. the Module picker introduced `progressionMode` + `modulesAuthored`), update this doc in the same PR.
+
+---
+
+## 1. Why this doc exists
+
+Real incidents this doc would have prevented:
+
+| Incident | Sprint | What broke |
+|----------|--------|-----------|
+| Module picker introduction (#242, May 6–7) | M5 | Code assumed all module selection was scheduler-driven. `progressionMode=learner-picks` bypassed `loadCurrentModuleContext`, silently breaking downstream consumers. |
+| Curriculum-on-wrong-playbook race | M5 | Playbook resolution returned the wrong playbook when a subject was linked to 2+ playbooks. 3 sites had to be patched. |
+| `progressionMode=learner-picks` + no Module Catalogue (#318, May 9) | M5 | Educator hit unrecoverable empty-picker state. Cross-field validator added. |
+| AI tutor sent course-ref.md to learner (May 10) | M5 | `visualAids` loader had no `documentType` filter. Course-ref leaked as media attachment. |
+| Wizard validator drops unknown keys silently | M5 | AI hallucinated `modulesAuthored` / `constraints` fields; validator rejected silently; wizard moved on as if writes succeeded. |
+
+**Rule of thumb:** *if you're adding a column, an enum value, a filter, or a new audience, check the matrices in §5 and §6 first — and update them in the same PR.*
+
+---
+
+## 2. Entity glossary
+
+| Acronym | DB model | Definition | Lives in |
+|---------|----------|-----------|----------|
+| **TP** Teaching Point | `ContentAssertion` | Atomic fact / rule / procedure pulled from a doc; pyramid-structured (parent/child) via `parentId` | Tutor's teaching content OR tutor's instructions, depending on `category` |
+| **LO** Learning Objective | `LearningObjective` | "Learner should be able to X." Bound to a module. Audience controlled by `systemRole` | Module outcomes; some surface in courseInstructions |
+| **LI** Learning Item | `ContentQuestion` | An MCQ / short-answer / open question. Maps to LO via `learningOutcomeRef` | Pre-test / post-test / formative / tutor-only |
+| **TM** TeachingMode | `Playbook.config.teachingMode` | recall / comprehension / practice / syllabus — content emphasis | Scheduler preset selection, extraction weights |
+| **InteractionPattern** | `Playbook.config.interactionPattern` | socratic / directive / advisory / coaching / companion / facilitation / reflective / open — conversational style | Tutor voice injection in prompt |
+| **TeachingMaterial** | `ContentSource` + `MediaAsset` | Uploaded doc + rendered files. `documentType` classifies it | Source palette, media palette, extraction routing |
+
+---
+
+## 3. Classification dimensions — master table
+
+All values authoritative as of 2026-05-11. Cite the file:line in any PR that changes them.
+
+| Dimension | Values | Defined at | What it gates |
+|-----------|--------|-----------|---------------|
+| `ContentSource.documentType` | CURRICULUM / TEXTBOOK / WORKSHEET / EXAMPLE / ASSESSMENT / REFERENCE / COMPREHENSION / LESSON_PLAN / POLICY_DOCUMENT / READING_PASSAGE / QUESTION_BANK / COURSE_REFERENCE | `prisma/schema.prisma:38-54` | Extraction strategy. **Only hints — does NOT gate learner visibility on its own** (see §6) |
+| `ContentSource.trustLevel` | REGULATORY_STANDARD / ACCREDITED_MATERIAL / PUBLISHED_REFERENCE / EXPERT_CURATED / AI_ASSISTED / UNVERIFIED | `prisma/schema.prisma:15-21` | Tutor cites authority; some loaders prefer higher-trust sources |
+| `ContentAssertion.category` | 24 values (see §3.1) | `lib/content-trust/resolve-config.ts:41-56` | Routes assertion to courseInstructions vs learner content |
+| `INSTRUCTION_CATEGORIES` (subset) | 14 of the 24 above | `lib/content-trust/resolve-config.ts:41-56` | **Authoritative gate for tutor-only assertions** |
+| `LearningObjective.systemRole` | NONE / ASSESSOR_RUBRIC / ITEM_GENERATOR_SPEC / SCORE_EXPLAINER / TEACHING_INSTRUCTION | `prisma/schema.prisma:80-87` | LO audience. `NONE` = learner-visible; rest = tutor/scoring channels |
+| `ContentQuestion.questionType` | MCQ / TRUE_FALSE / MATCHING / FILL_BLANK / SHORT_ANSWER / OPEN / UNSCRAMBLE / ORDERING / TUTOR_QUESTION | `prisma/schema.prisma:55-63` | Renderer selection. ⚠ **MATCHING / UNSCRAMBLE / ORDERING are extracted but never rendered** — see landmines §8 |
+| `ContentQuestion.assessmentUse` | PRE_TEST / POST_TEST / BOTH / FORMATIVE / TUTOR_ONLY | `prisma/schema.prisma:73-78` | Test eligibility filter |
+| `ContentQuestion.bloomLevel` | REMEMBER / UNDERSTAND / APPLY / ANALYZE / EVALUATE / CREATE | `prisma/schema.prisma:65-71` | Difficulty band |
+| `Playbook.config.teachingMode` (TM) | recall / comprehension / practice / syllabus | `lib/types/json-fields.ts:145` | Scheduler preset, extraction weights |
+| `Playbook.config.interactionPattern` | 8 values listed above | `lib/types/json-fields.ts:153` | Tutor voice |
+| `Playbook.config.progressionMode` | ai-led / learner-picks | `lib/wizard/graph-nodes.ts` | Module selection: scheduler vs picker |
+| `Playbook.config.modulesAuthored` | true / false / null | `lib/types/json-fields.ts` | Whether authored modules exist; null = derived from curriculum |
+| `AuthoredModule.mode` | examiner / tutor / mixed | `lib/types/json-fields.ts:406` | Per-module behaviour (silent during answer vs supportive) |
+| `AuthoredModule.frequency` | once / repeatable / cooldown | `lib/types/json-fields.ts:407` | Module picker filter |
+| `AuthoredModule.learnerSelectable` | true / false | `lib/wizard/detect-authored-modules.ts` | Hide module from picker |
+| `AuthoredModule.sessionTerminal` | true / false | `lib/wizard/detect-authored-modules.ts` | End session after module |
+| `Playbook.audience` | string — higher-ed / k12-learner / k12-instructor / adult-learner / corporate / etc. | `prisma/schema.prisma:3090` | ⚠ **Currently stored, never filtered. Dead unless wired.** |
+| `Caller.role` | LEARNER / TEACHER / TUTOR / PARENT / MENTOR | `prisma/schema.prisma:522-528` | Permission scoping. NOT used for content filtering. |
+| `User.role` | SUPERADMIN / ADMIN / OPERATOR / EDUCATOR / SUPER_TESTER / TESTER / STUDENT / DEMO | `prisma/schema.prisma:653-661` | Admin RBAC. `VIEWER` is deprecated alias for TESTER. |
+| `MemoryCategory` | FACT / PREFERENCE / CONTEXT / EVENT / TOPIC / RELATIONSHIP | `prisma/schema.prisma:1705-1711` | Routes caller memories into composition sections |
+| `ConversationArtifactType` | SUMMARY / KEY_FACT / FORMULA / EXERCISE / RESOURCE_LINK / STUDY_NOTE / REMINDER / MEDIA | `prisma/schema.prisma:100-109` | Artifact delivery channel |
+| `ParameterType` | TRAIT / STATE / ADAPT / GOAL / CONFIG / EXTERNAL / BEHAVIOR | `prisma/schema.prisma:4-10` | Measurement strategy |
+| `AnalysisSpec.outputType` (pipeline stage) | EXTRACT / SCORE_AGENT / AGGREGATE / REWARD / ADAPT / SUPERVISE / COMPOSE | `prisma/schema.prisma` + `pipeline-001-pipeline-configuration-spec.json:15-18` | Canonical pipeline ordering |
+| `BehaviorTargetScope` | SYSTEM / PLAYBOOK / SEGMENT / CALLER | `prisma/schema.prisma:337-344` | Cascade override (lower wins) |
+| `GoalType` | LEARN / ACHIEVE / CHANGE / CONNECT / SUPPORT / CREATE | `prisma/schema.prisma:141-147` | Goal classification |
+| `DomainKind` | INSTITUTION / COMMUNITY | `prisma/schema.prisma:541-544` | Terminology + wizard defaults |
+| `SegmentType` | COMPANY / COMMUNITY / DOMAIN / COHORT | `prisma/schema.prisma:513-518` | Multi-tenant scoping |
+| `GroupType` | DEPARTMENT / YEAR_GROUP / DIVISION / TRACK / CUSTOM | `prisma/schema.prisma:546-551` | Org chart |
+
+### 3.1 ContentAssertion.category — full taxonomy
+
+**Tutor-only (`INSTRUCTION_CATEGORIES`, 14 values):**
+
+`teaching_rule` · `session_flow` · `scaffolding_technique` · `skill_framework` · `communication_rule` · `assessment_approach` · `differentiation` · `edge_case` · `learner_model` · `session_override` · `content_strategy` · `session_metadata` · `skill_description` · `assessment_guidance`
+
+**Learner-facing (10 values):**
+
+`factual_claim` · `definition` · `rule` · `procedure` · `vocabulary` · `key_term` · `concept` · `threshold` · `reading_passage` · `example`
+
+The split is enforced at `lib/prompt/composition/SectionDataLoader.ts:548` (excludes INSTRUCTION_CATEGORIES from learner content) and `:568` (includes them in courseInstructions).
+
+### 3.2 Pipeline stage spec slugs (canonicals)
+
+Specs in `docs-archive/bdd-specs/` are seed data — they become `AnalysisSpec` rows after seed. Slugs in `lib/config.specs.*` are env-overridable. The 16 active spec slugs gate which spec the runner uses for each stage.
+
+Key canonicals:
+- `pipeline-001-pipeline-configuration-spec` — stage ordering (`EXTRACT < AGGREGATE < REWARD < ADAPT < SUPERVISE < COMPOSE`)
+- `composition-*` specs — section loader configuration
+- `extraction-*` specs — per-DocumentType extraction strategy
+- `init-001` — welcome flow phases
+- `tut-*` — tutor session phases
+
+---
+
+## 4. Data flow — full path
+
+### Phase 1: Upload
+
+| Route | Trigger | Persists |
+|-------|---------|----------|
+| `POST /api/course-pack/ingest` | Wizard bulk ingest | N × `ContentSource` (+ AI documentType), `MediaAsset`, `SubjectSource`, `PlaybookSource` |
+| `POST /api/subjects/:id/upload` | Single-file upload | Same models, single row each |
+| `POST /api/content-sources/:id/import` | Manual extraction trigger | Re-runs extraction on existing source |
+
+**AI documentType classification** at `lib/content-trust/classify-document.ts` — first 8KB → `{ documentType, confidence }`. Stored on `ContentSource.documentType` + `documentTypeSource: "ai:<conf>"`. Admin override sets `classificationCorrected: true`.
+
+**Dedup** by SHA-256 of bytes within institution scope (`lib/content-trust/dedup-source.ts`). If hit, links new `SubjectSource` / `PlaybookSource` to existing `ContentSource`.
+
+### Phase 2: Extraction
+
+Router at `lib/content-trust/resolve-config.ts` picks the extractor by `documentType`:
+
+| documentType | Extractor | Produces |
+|--------------|-----------|----------|
+| CURRICULUM | Heading parser | `CurriculumModule`, `LearningObjective` |
+| **COURSE_REFERENCE** | **Dual-path** ↓ | `Playbook.config.modules` + `ContentAssertion` |
+| TEXTBOOK | Chunked LLM | `ContentAssertion` pyramid |
+| QUESTION_BANK | Q/A pair extractor | `ContentQuestion` |
+| WORKSHEET / EXAMPLE / etc. | Variant of TEXTBOOK | `ContentAssertion` |
+| LESSON_PLAN | Activity-by-activity | `ContentAssertion` per activity |
+| ASSESSMENT | Question + rubric | `ContentQuestion` + `ContentAssertion` |
+
+**COURSE_REFERENCE dual-path:**
+1. `lib/wizard/detect-authored-modules.ts` — parses `**Modules authored:** Yes` + `## Modules` table + `**OUT-NN: …**` lines → writes directly to `Playbook.config.modules` and `Playbook.config.outcomes`. **Bypasses extraction entirely.**
+2. Remaining markdown flows through standard extraction → `ContentAssertion` rows with `category IN INSTRUCTION_CATEGORIES`.
+
+### Phase 3: Classification (LO audience)
+
+`lib/content-trust/classify-lo.ts` — heuristic regex first, LLM fallback. Each LO gets a `systemRole` from `LoSystemRole` enum.
+
+Triggered by:
+- During extraction (initial)
+- `POST /api/curricula/:id/reclassify-los` (manual or post-edit)
+- `reconcileOrphans` (background)
+
+Each classification stored in `LoClassification` history; applied to `LearningObjective.systemRole` unless `humanOverriddenAt` is set.
+
+### Phase 4: Prompt assembly
+
+`lib/prompt/composition/SectionDataLoader.ts` runs 20 parallel loaders. Content-relevant ones:
+
+| Loader (file:line) | Pulls | Filter | Lands in prompt as |
+|--------------------|-------|--------|---------------------|
+| `subjectSources` (814) | Source metadata | course-scoped | Reference list (⚠ also feeds media palette — see leak §8) |
+| `curriculumAssertions` (865) | Learner-facing TPs | `category NOT IN INSTRUCTION_CATEGORIES` + subject-scoped | Module teaching content |
+| `courseInstructions` (997) | Tutor-only TPs + TEACHING_INSTRUCTION LOs | `category IN INSTRUCTION_CATEGORIES` OR `sourceId IS COURSE_REFERENCE` + `systemRole=TEACHING_INSTRUCTION` LOs | TEACHING RULES (tutor-only) |
+| `curriculumQuestions` (952) | MCQs | course-scoped | Assessment section |
+| `curriculumVocabulary` (976) | Vocab | course-scoped | Vocabulary section |
+| `visualAids` (1071) | Media (images) | `subjectId + mimeType` only — **⚠ no documentType filter** | Media palette (LEAKS — see §8) |
+
+Modules and learner-visible LOs (`systemRole=NONE`) flow into the prompt via the **transforms** layer (`lib/prompt/composition/transforms/modules.ts`), not a dedicated loader. They're derived from `CurriculumModule` + `LearningObjective` filtered by `learnerVisible=true`.
+
+---
+
+## 5. Conflict matrix — overlapping classifications
+
+When two dimensions both classify the same thing, this is the resolution rule.
+
+### 5.1 "This is tutor-only / not learner-facing"
+
+| Layer | Gate | Authoritative? |
+|-------|------|----------------|
+| **Assertion** | `category IN INSTRUCTION_CATEGORIES` | **YES — at `SectionDataLoader.ts:568`** |
+| **LO** | `systemRole != NONE` → `learnerVisible=false` | **YES — at `lib/curriculum/lo-audience.ts:28-31`** |
+| **Question** | `assessmentUse=TUTOR_ONLY` | **YES — at `lib/assessment/pre-test-builder.ts:82`** |
+| **Module** | `learnerSelectable=false` | **YES — at module picker render** |
+| Source | `documentType=COURSE_REFERENCE` | **NO — hint only, does NOT filter loaders** |
+
+**Rule:** `documentType=COURSE_REFERENCE` does NOT automatically hide content from the learner. The per-row classification (`category`, `systemRole`, `assessmentUse`) is the authoritative gate. **If you upload a COURSE_REFERENCE doc and its content is mis-categorised as `factual_claim` instead of `teaching_rule`, it WILL leak to the learner.**
+
+### 5.2 "This is assessment / scoring content"
+
+| Layer | Gate | What it does |
+|-------|------|--------------|
+| Source | `documentType IN (ASSESSMENT, QUESTION_BANK)` | Routes extraction to question parser |
+| Assertion | `category IN (assessment_approach, assessment_guidance)` | Tutor-only assessment instructions |
+| LO | `systemRole=ASSESSOR_RUBRIC` | Lands in scoring rubric prompt |
+| LO | `systemRole=ITEM_GENERATOR_SPEC` | Boundary spec for MCQ generator |
+| Question | `assessmentUse IN (PRE_TEST, POST_TEST)` | Test eligibility |
+
+**Resolution rule:** Document type drives extraction shape; per-row classification drives runtime visibility. They are NOT redundant — they operate at different phases.
+
+### 5.3 "Teaching style"
+
+| Dimension | Orthogonal to | Composed by |
+|-----------|---------------|-------------|
+| `teachingMode` (recall/comprehension/practice/syllabus) | `interactionPattern` | Scheduler preset selection |
+| `interactionPattern` (socratic/directive/…) | `teachingMode` | Voice prompt injection |
+| `schedulerPresetName` | both | Adaptive loop weights |
+
+**No conflict** — these are intentionally orthogonal. `teachingMode=syllabus` + `interactionPattern=socratic` is valid (the AI asks Socratic questions to drive learner through a syllabus). Both flow into the prompt simultaneously.
+
+### 5.4 "Audience"
+
+| Layer | Value | Used? |
+|-------|-------|-------|
+| `Playbook.audience` | string (higher-ed / k12-…) | ⚠ **NOT used as a content filter anywhere**. Stored, possibly displayed, never gates a query. |
+| `Caller.role` | LEARNER / TEACHER / … | Permission scoping only. NOT content filter. |
+| `LearningObjective.learnerVisible` | true / false | **Authoritative content visibility gate**, at `lo-audience.ts:28-31` |
+
+**Rule:** for learner-visibility, only `learnerVisible` (derived from `systemRole`) matters. The other two dimensions are stored but inert.
+
+---
+
+## 6. Veto precedence — "is this content shown to the learner?"
+
+Walk **top to bottom**. First veto wins.
+
+| # | Layer | Veto condition | Where |
+|---|-------|----------------|-------|
+| 1 | Assertion | `category IN INSTRUCTION_CATEGORIES` | `SectionDataLoader.ts:568` (routes to courseInstructions, never to learner content) |
+| 2 | LO | `systemRole != NONE` → `learnerVisible=false` | `validate-lo-classification.ts:70` |
+| 3 | Question | `assessmentUse=TUTOR_ONLY` | `pre-test-builder.ts:82` |
+| 4 | Module | `learnerSelectable=false` | Picker render |
+| 5 | Module | `frequency=once` AND module in `completedModuleIds` | Picker render |
+| 6 | (DEAD) | `Playbook.audience`, `Caller.role` | Currently not used as filters |
+
+**Important:** there's NO veto at the document/source level. `documentType=COURSE_REFERENCE` is a hint, not a gate. If a row inside that document is categorised as a `factual_claim`, it WILL appear to the learner.
+
+---
+
+## 7. Specs / canonicals
+
+**Specs in DB** (seeded from `docs-archive/bdd-specs/`):
+- Pipeline stage configuration (`pipeline-001-pipeline-configuration-spec.json`)
+- Composition section loaders (`composition-*`)
+- Extraction strategies (`extraction-*`)
+- Welcome flow phases (`init-001`)
+- Tutor session phases (`tut-*`)
+
+**Spec slugs** (env-overridable) in `lib/config.ts` under `config.specs.*`.
+
+**DataContracts** registry at `lib/contracts/registry.ts` — 30s TTL cache. Contracts gate which composition sections fire. No registered DataContract has a missing consumer at last audit (May 2026), but no validation enforces this — if you add a contract, also add a consumer.
+
+**Pipeline order is strict:** `EXTRACT < SCORE_AGENT < AGGREGATE < REWARD < ADAPT < SUPERVISE < COMPOSE`. Specs register `outputType`; the runner enforces ordering. Inserting a new stage anywhere other than between existing stages requires changing the canonical ordering in `pipeline-001`.
+
+---
+
+## 8. Known landmines (and the fix or workaround)
+
+| # | Landmine | Where | Status / fix |
+|---|----------|-------|--------------|
+| L1 | **`visualAids` loader has no `documentType` filter** — COURSE_REFERENCE-typed sources' media leak to learner | `SectionDataLoader.ts:1071-1107` | ⚠ OPEN — needs filter |
+| L2 | **MCQ types `MATCHING` / `UNSCRAMBLE` / `ORDERING`** extracted but never rendered | `retrieval-question-selector.ts:33` | ⚠ Either render them or remove from extractor output |
+| L3 | **`Playbook.audience` stored but never filtered** | `prisma/schema.prisma:3090` | ⚠ Either wire as a filter or drop the field |
+| L4 | **`Caller.role` not used for content visibility** — only access control | `lib/permissions.ts` | Intentional but easy to misread |
+| L5 | **Multiple playbooks per subject race** — pipeline can pick the wrong one if `CallerPlaybook` enrollment missing | `lib/domain/generate-content-spec.ts:249` | ✓ FIXED in #318 (May 9) — 3 sites patched, `playbookId` threaded |
+| L6 | **`progressionMode=learner-picks` + no Module Catalogue** = unrecoverable empty picker | `wizard-tool-executor.ts` | ✓ FIXED in #318 (May 9) — cross-field validator |
+| L7 | **`loadCurrentModuleContext` bypassed when `requestedModuleId` provided** — code that assumed scheduler ran fails silently | `lib/ops/pipeline-run.ts` | Partial fix in #242 Slice 2; no formal guard |
+| L8 | **Wizard validator drops unknown keys silently** (`modulesAuthored`, `constraints`) | `validate-setup-fields.ts` | ✓ FIXED in current PR (May 10) — now returns `is_error` to AI |
+| L9 | **`create_course` returns 200 with empty curriculum** — silent success when Module Catalogue parse fails | `wizard-tool-executor.ts` create_course handler | ✓ FIXED in current PR — hard gate added |
+| L10 | **Dead extraction categories** `plenary`, `starter` in LESSON_PLAN config | `lib/content-trust/resolve-config.ts:~535` | ⚠ Remove or wire |
+
+---
+
+## 9. Dead enum cleanup queue
+
+| Value | Defined at | Status |
+|-------|-----------|--------|
+| `User.role=VIEWER` | `schema.prisma:295` | Deprecated alias for TESTER — kept for back-compat |
+| `QuestionType.MATCHING` | `schema.prisma:55-63` | Extracted but not rendered (L2) |
+| `QuestionType.UNSCRAMBLE` | `schema.prisma:55-63` | Extracted but not rendered (L2) |
+| `QuestionType.ORDERING` | `schema.prisma:55-63` | Extracted but not rendered (L2) |
+| `ContentAssertion.category` `plenary`, `starter` | `resolve-config.ts:~535` | Defined for LESSON_PLAN, never read elsewhere (L10) |
+| `Playbook.audience` | `schema.prisma:3090` | Inert field (L3) |
+
+Don't delete without doing a final grep across `apps/`, `tests/`, and `docs-archive/bdd-specs/` — some appear only in spec JSON.
+
+---
+
+## 10. Pre-change checklist
+
+Before merging a PR that touches any classification dimension, confirm:
+
+### Adding a new `documentType`
+
+- [ ] Add enum value to `prisma/schema.prisma` and migrate.
+- [ ] Add extractor entry in `lib/content-trust/resolve-config.ts` (which categories does it produce?).
+- [ ] If the type should be tutor-only by default, update `INSTRUCTION_CATEGORIES` or document why it isn't.
+- [ ] Update `classifyDocument` few-shot examples in `lib/content-trust/classify-document.ts`.
+- [ ] Update `visualAids` filter once L1 is fixed (filter by allow-list, not block-list).
+- [ ] Update §3 in this doc.
+
+### Adding a new `ContentAssertion.category`
+
+- [ ] Add to the enum surface in `resolve-config.ts`.
+- [ ] Decide: tutor-only or learner-facing? Add to `INSTRUCTION_CATEGORIES` if tutor-only.
+- [ ] Add a loader filter in `SectionDataLoader.ts` if the category needs its own prompt section.
+- [ ] Update §3.1.
+
+### Adding a new `LoSystemRole`
+
+- [ ] Update enum in `prisma/schema.prisma` and migrate.
+- [ ] Update `lib/content-trust/classify-lo.ts` heuristics + LLM prompt.
+- [ ] Update `validate-lo-classification.ts` invariants.
+- [ ] Decide which prompt channel the new role surfaces in. Wire the consumer.
+- [ ] Update §6 veto table.
+
+### Adding a new audience or scope dimension
+
+- [ ] Don't add to `Playbook.audience` — it's dead. Either wire it up first, or create a different field.
+- [ ] If wiring a new audience filter, add it to the §6 veto table AND `lo-audience.ts`.
+- [ ] If a scope (segment / cohort / etc.), check the `BehaviorTargetScope` cascade for precedent.
+
+### Adding a new Module mode / frequency / behaviour
+
+- [ ] If the new behaviour can run silently (i.e. AI auto-selects), confirm `loadCurrentModuleContext` handles it. L7.
+- [ ] Add `requestedModuleId` guard if you allow learner-picks-style direct selection.
+- [ ] Update `AuthoredModulesPanel` empty-state — it must show an action button for the new state. (May 10 incident.)
+
+### Adding a new pipeline stage
+
+- [ ] Update `pipeline-001-pipeline-configuration-spec.json` canonical ordering.
+- [ ] Add spec runner.
+- [ ] Confirm no consumer downstream depends on a stage that no longer runs first.
+
+---
+
+## 11. Where to intervene for common problems
+
+| Problem | First check | Then |
+|---------|-------------|------|
+| Tutor is quizzing on test mechanics | LO classifier — is the LO `TEACHING_INSTRUCTION`? | Run reclassify-los; or edit course-ref.md to add the rule explicitly |
+| Wrong content surfacing to learner | §6 veto table — which dimension should be blocking? | Add filter at that layer |
+| Module picker empty | `Playbook.config.modules` populated? `modulesAuthored=true`? | Re-import course-ref.md OR run `import-modules` POST |
+| Curriculum on wrong playbook | `CallerPlaybook` enrollment correct? | L5 — already fixed but check the 3 patched sites |
+| MCQ asking meta-questions | LOs that feed MCQ pool — any `TEACHING_INSTRUCTION` slipping in? | `lib/assessment/module-groups.ts` filter must exclude all `systemRole != NONE` |
+| AI sent a doc to learner | `visualAids` / `subjectSources` loader filtering | L1 — currently no filter |
+
+---
+
+## 12. Change log
+
+| Date | Change |
+|------|--------|
+| 2026-05-11 | Initial canonical version. |

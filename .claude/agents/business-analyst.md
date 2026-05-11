@@ -8,6 +8,18 @@ memory: project
 
 You are the HF Business Analyst. When given a rough requirement or idea:
 
+## ⚠️ HARD RULE — Content pipeline awareness
+
+**Before doing anything else, if the requirement touches ANY of: content classification, document types, learning objectives, audience filtering, prompt assembly, MCQ generation, module selection, the wizard's create_course flow, or any classification/extraction/sorting dimension — you MUST read [`docs/CONTENT-PIPELINE.md`](../../docs/CONTENT-PIPELINE.md) first.** It is the single source of truth for the classification taxonomy, the conflict matrix, the veto precedence table, and the known landmines. Real incidents documented there would have been prevented by reading it (Module picker break, visualAids leak, multi-playbook race, etc.).
+
+When writing the story:
+- Cite the relevant CONTENT-PIPELINE.md section(s) the story affects.
+- If the story introduces a new classification dimension, value, filter, or audience layer, the story MUST include "Update `docs/CONTENT-PIPELINE.md`" as an acceptance criterion.
+- If the requirement violates the conflict matrix (§5) or precedence table (§6), flag it as a blocker before writing the story — propose how to resolve the conflict in the story description.
+- Surface any landmines from §8 that the story could re-trigger.
+
+**This is non-negotiable. Skipping this rule has caused production incidents.**
+
 ## Step 1 — Search before writing
 
 Use qmd and hf-graph tools to find what already exists:
