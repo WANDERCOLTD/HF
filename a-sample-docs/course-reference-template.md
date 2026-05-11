@@ -20,6 +20,30 @@ WHAT THE PIPELINE READS FROM IT
                          onboardingFlowPhases for call N (pedagogy.ts)
 6. "Call duration: …"  → cadence regex in detect-pedagogy.ts
 7. "decides call-by-call" / "soft cap" / preset checkboxes → detect-pedagogy.ts
+8. ### SKILL-NN headings with Emerging/Developing/Secure tiers
+                       → parsed by parseSkillsFramework() (planned, epic #338)
+
+WHAT THE PROJECTION WRITES TO THE DB (epic #338, NEW courses only since 2026-05-12)
+
+A pure function `projectCourseReference()` reads this doc, and an idempotent
+applier `applyProjection()` writes derived rows. Each row carries `sourceContentId`
+so re-runs diff cleanly and removing the doc removes its derived rows.
+
+| Section in this template | Becomes |
+|---|---|
+| `## Modules` table             | `CurriculumModule` row per module (ALL modes incl. `examiner` with `sessionTerminal: true`) + `Playbook.config.{modules, moduleDefaults, modulesAuthored, moduleSource, progressionMode}` |
+| `## Outcomes` (`**OUT-NN: …**`) | `Goal` row per outcome (`type: LEARN`) + `Playbook.config.outcomes` |
+| `## Skills Framework` (`### SKILL-NN` + Emerging/Developing/Secure) | `Goal` row per skill (`type: ACHIEVE`, `isAssessmentTarget: true`) + `BehaviorTarget` row per skill (scope: PLAYBOOK) + `Parameter` upsert by skill name |
+| Linked `assessor-rubric.md` LOs with `systemRole: ASSESSOR_RUBRIC` | Same as Skills Framework — one ACHIEVE Goal + BehaviorTarget per rubric criterion |
+| `**Session scope:** N` blocks  | `Playbook.config.sessionOverrides` (consumed by compose-time `pedagogy.ts` to REPLACE `onboardingFlowPhases` for call N) |
+
+The wizard's own setupData (welcome flags, NPS, post-call survey, scheduler
+preset) is a DISJOINT subset of `Playbook.config` — written by the wizard, not
+by the projection. There is no field both sides write to.
+
+The wizard does NOT author a course-ref doc; it only ingests one. A course
+created without a COURSE_REFERENCE source attached is degenerate by design —
+no Goals, no BehaviorTargets, no CurriculumModule rows are produced.
 
 SEE ALSO
 - docs/CONTENT-PIPELINE.md §3 (taxonomy), §3.1 (categories), §3.2 (front-matter),
@@ -108,6 +132,12 @@ VALUES (use these exact spellings — anything else is rejected or warned about)
 - Frequency:          once | repeatable | cooldown
 - Learner-selectable: Yes | No (defaults to Yes)
 - Session-terminal:   Yes | No (defaults to No)
+
+PROJECTION: every row in this table produces a `CurriculumModule` DB row
+(including `mode: examiner` and `sessionTerminal: true` modules — they appear
+in the rail like any other module; runtime behaviour differs based on `mode`).
+If any row has `Learner-selectable: Yes`, `Playbook.config.progressionMode`
+becomes `learner-picks`; otherwise it stays `ai-led`.
 - Voice band readout: Yes | No (defaults to No)
 
 REPLACE the two `[example — replace]` rows below with your real modules.
@@ -157,6 +187,11 @@ The IDs referenced under each module's "Outcomes (primary)" column above must
 appear as `OUT-NN` lines below.
 
 REPLACE the three `[example]` lines with your real outcomes.
+
+PROJECTION: each `**OUT-NN: …**` line produces a `Goal` row with `type: LEARN`
+and the statement as the goal name. The projection writes one Goal per OUT-NN,
+keyed by `(playbookId, sourceContentId, name)` — re-running the projection
+against the same doc is a no-op.
 -->
 
 **OUT-01: [example] The learner can describe their goal and confidence level for the course in their own words.**
@@ -175,6 +210,19 @@ tiers per skill: Emerging, Developing, Secure. Tier descriptions should be
 behavioural ("the learner does X") not affective ("the learner enjoys X").
 
 REPLACE the two `[example]` blocks with your real skills.
+
+PROJECTION: each `### SKILL-NN: <name>` block produces three DB rows together:
+  1. A `Parameter` row (upserted by skill name) — measurable dimension for
+     the pipeline's REWARD/ADAPT stages.
+  2. A `Goal` row with `type: ACHIEVE` and `isAssessmentTarget: true` —
+     the learner's measurable target on this skill.
+  3. A `BehaviorTarget` row scoped to this Playbook — what value of the
+     parameter counts as "Secure".
+If the course separately uploads an `assessor-rubric.md` whose `LearningObjective`
+rows are classified `systemRole: ASSESSOR_RUBRIC`, those rubric LOs ALSO project
+to ACHIEVE Goals + BehaviorTargets (e.g. the four IELTS Speaking criteria with
+their Band 0–9 descriptors). The two paths are equivalent — use whichever fits
+your domain.
 -->
 
 ### SKILL-01: [example] [Skill name]

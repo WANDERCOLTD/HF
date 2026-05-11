@@ -171,16 +171,61 @@ Router at `lib/content-trust/resolve-config.ts` picks the extractor by `document
 | documentType | Extractor | Produces |
 |--------------|-----------|----------|
 | CURRICULUM | Heading parser | `CurriculumModule`, `LearningObjective` |
-| **COURSE_REFERENCE** | **Dual-path** ↓ | `Playbook.config.modules` + `ContentAssertion` |
+| **COURSE_REFERENCE** | **Projection (Phase 2.5) + standard extraction** ↓ | `Playbook.config.{modules, outcomes, progressionMode, sessionOverrides}` + `Goal` (LEARN + ACHIEVE) + `BehaviorTarget` + `CurriculumModule` + `ContentAssertion` |
 | TEXTBOOK | Chunked LLM | `ContentAssertion` pyramid |
 | QUESTION_BANK | Q/A pair extractor | `ContentQuestion` |
 | WORKSHEET / EXAMPLE / etc. | Variant of TEXTBOOK | `ContentAssertion` |
 | LESSON_PLAN | Activity-by-activity | `ContentAssertion` per activity |
 | ASSESSMENT | Question + rubric | `ContentQuestion` + `ContentAssertion` |
 
-**COURSE_REFERENCE dual-path:**
-1. `lib/wizard/detect-authored-modules.ts` — parses `**Modules authored:** Yes` + `## Modules` table + `**OUT-NN: …**` lines → writes directly to `Playbook.config.modules` and `Playbook.config.outcomes`. **Bypasses extraction entirely.**
-2. Remaining markdown flows through standard extraction → `ContentAssertion` rows with `category IN INSTRUCTION_CATEGORIES`.
+**COURSE_REFERENCE — two-path treatment:**
+
+1. **Phase 2.5 Projection** — Path A below; deterministic doc → DB rows, bypasses LLM extraction.
+2. **Standard extraction** — Path B below; remaining markdown flows through the TEXTBOOK-style extractor → `ContentAssertion` rows with `category IN INSTRUCTION_CATEGORIES`.
+
+### Phase 2.5: Projection (COURSE_REFERENCE → derived rows)
+
+**Since epic #338 (2026-05-12).** The COURSE_REFERENCE doc is the deterministic source-of-truth for a course's pedagogy config. One pure function + one idempotent applier replaces the scattered hand-coded writes that previously left courses with missing Goals, BehaviorTargets, and CurriculumModule rows.
+
+```
+projectCourseReference(courseRefContent, opts) ─▶ CourseProjection (pure, no side effects)
+applyProjection(playbookId, projection)         ─▶ idempotent diff, keyed by (playbookId, sourceContentId, slug/name)
+```
+
+Planned files: `lib/wizard/project-course-reference.ts`, `lib/wizard/apply-projection.ts`. The projection composes existing helpers (`detect-authored-modules.ts`, `detect-pedagogy.ts`, `parse-content-declaration.ts`) and adds two new parsers (`parseSkillsFramework`, `parseOutcomesToGoals`).
+
+**Projection contract — doc structure → derived rows:**
+
+| Course-ref section | Parsed by | Writes |
+|---|---|---|
+| Front-matter (`hf-*`) | `parse-content-declaration.ts` | `ContentSource.contentDeclaration` (already shipped) |
+| `**Modules authored:** Yes` + `## Modules` table | `detect-authored-modules.ts` | `Playbook.config.{modulesAuthored, moduleSource, modules[], moduleDefaults, moduleSourceRef}` **plus `CurriculumModule` row per module (all modes incl. `examiner` and `sessionTerminal: true`)** |
+| Any module with `learnerSelectable !== false` | `detect-authored-modules.ts` | `Playbook.config.progressionMode: "learner-picks"` |
+| `**OUT-NN: …**` lines | `parseOutcomesToGoals()` (new) | `Playbook.config.outcomes` (already) **plus `Goal` row (type: LEARN) per OUT-NN** |
+| `### SKILL-NN: …` + Emerging/Developing/Secure tiers | `parseSkillsFramework()` (new) | **`Goal` rows (type: ACHIEVE, `isAssessmentTarget: true`) + `BehaviorTarget` rows (scope: PLAYBOOK) + `Parameter` upsert by name** |
+| `LearningObjective` rows with `systemRole = ASSESSOR_RUBRIC` (extracted from `assessor-rubric.md` etc.) | post-classification projection re-run | Same as SKILL-NN when criteria-shaped — produces an ACHIEVE Goal per criterion |
+| `**Session scope:** N` headers (extracted assertions) | compose-time `pedagogy.ts` reader | `Playbook.config.sessionOverrides` (already; read by `pedagogy.ts` to REPLACE `onboardingFlowPhases` for matching `callNumber`) |
+| `Call duration: …`, `decides call-by-call`, `soft cap N calls` | `detect-pedagogy.ts` | `Playbook.config` pedagogy hints (already shipped) |
+
+**Provenance:** every row written by `applyProjection` carries `sourceContentId` (nullable FK on `Goal`, `BehaviorTarget`, `CurriculumModule`). Re-running the projection diffs by `(playbookId, sourceContentId, slug/name)` — re-runs are no-ops, and removing the source removes its derived rows cleanly.
+
+**Triggers:**
+- Wizard `create_course` — directly after the wizard subset is written, IF a `PlaybookSource` links to a COURSE_REFERENCE source. Else log `[projection] no COURSE_REFERENCE source on playbook=…` and skip Path A (a course with no course-ref is degenerate by design).
+- Re-process trigger — on doc replace/edit (manual button on source page).
+- Post-`reclassifyLearningObjectives` — catches late-arriving `ASSESSOR_RUBRIC` LOs so an updated rubric flows into ACHIEVE goals without manual intervention.
+
+**Race safety:** projection skips gracefully when `ContentSource.textSample` is null (extraction not yet complete). The re-process trigger picks it up later.
+
+**Disjoint write paths into Playbook.config:**
+
+| Subset | Written by | Fields |
+|---|---|---|
+| Wizard subset | `applyStudentExperienceConfig()` (`lib/chat/wizard-tool-executor.ts`) | `welcome`, `nps`, `surveys`, `schedulerPresetName` |
+| Projection subset | `applyProjection()` (planned `lib/wizard/apply-projection.ts`) | `modules`, `moduleDefaults`, `modulesAuthored`, `moduleSource`, `outcomes`, `progressionMode`, `moduleSourceRef` |
+
+The two subsets are disjoint — no field is written by both. **Wizard never authors a course-ref doc; it only ingests one.**
+
+**Scope:** projection applies only to courses **created on or after 2026-05-12**. The `sourceContentId` FKs ship as nullable; existing rows are not backfilled. Legacy courses retain whatever Goals / BehaviorTargets / CurriculumModule rows they have (typically: none from this path).
 
 ### Phase 3: Classification (LO audience)
 
@@ -432,6 +477,9 @@ The marker is informational — `§N` section refs are NOT machine-checked. The 
 | I want to see what the tutor will say before the call | Click **Test First Call** on the course page (`/x/courses/:id`) | Opens the dry-run modal: composed prompt, section breakdown, and `compose-trace` (loaders fired, media palette, onboarding-flow source). No call is created. |
 | Why did the tutor's prompt change after I edited course-ref.md? | Open the latest ComposedPrompt at `/x/composed-prompts/:id` | "Compare with previous" dropdown — diff against the prior prompt for the same course (uses `diff` lib, inline highlighting). |
 | What did each loader actually pull? | Look at `[compose-trace]` block in server logs, or the **Trace** tab in the dry-run modal / ComposedPrompt viewer | Shows: loaders fired vs empty, assertion warnings, onboarding-flow source (Playbook / Domain / Spec), final media palette filenames + documentType. |
+| Course has no ACHIEVE goals or BehaviorTargets after wizard ran | Was a COURSE_REFERENCE source linked via `PlaybookSource` at `create_course` time? Does the course-ref doc have a `## Skills Framework` section (`SKILL-NN` with Emerging/Developing/Secure tiers) or any `LearningObjective.systemRole = ASSESSOR_RUBRIC` rows? | Re-process the source (admin button) — re-runs `projectCourseReference()` → `applyProjection()`. Look for `[projection] applied N rows for playbook=…` in server logs. Absence usually means no COURSE_REFERENCE source linked (course is degenerate) or `textSample` was null (extraction race — re-process resolves it). |
+| Course has duplicate goals after re-running the wizard | `Goal` rows for this playbook with same `(name, type)` and different `sourceContentId` (or null)? | Pre-projection legacy duplicates can't auto-dedup. Projection writes are idempotent for NEW courses (since 2026-05-12) — re-runs against the same `sourceContentId` produce no-op diffs. For legacy duplicates, edit the DB manually. |
+| Module table has fewer rows than `Playbook.config.modules` | `CurriculumModule` rows for this playbook — any `mode: examiner` rows missing? | The projection writes ALL modes incl. `examiner` + `sessionTerminal: true`. If missing, the projection didn't run — re-process the source. |
 
 ---
 
@@ -444,3 +492,4 @@ The marker is informational — `§N` section refs are NOT machine-checked. The 
 | 2026-05-10 | §11 expanded with three tuning-velocity entries: **Test First Call** dry-run button on the course page (`POST /api/courses/:id/dry-run-prompt`), ComposedPrompt diff viewer at `/x/composed-prompts/:id`, and the `[compose-trace]` observability block emitted by `CompositionExecutor`. No schema or veto-precedence changes. Closes #319. |
 | 2026-05-11 | Front-matter content declarations (`ContentSource.contentDeclaration`) override AI classification across documentType, defaultCategory, loSystemRole, questionAssessmentUse. New §3.2 + §5.1a + §6 row 0 + §10 pre-change items. Parser: `lib/content-trust/parse-content-declaration.ts`. Stamping: `documentTypeSource: "declared:by-doc"`, `LoClassification.classifierVersion: "declared-by-doc-v1"`. Closes #325. |
 | 2026-05-11 | Cross-linked to `ENTITIES.md` (data model + boundary). Switched loader citations in §3.1, §4 and §6 to symbol form (`::registerLoader("<name>")`) — line refs had drifted (e.g. visualAids 1071 → actual 1163). Symbols survive refactors. Closes #322. |
+| 2026-05-12 | **§4 — COURSE_REFERENCE projection contract (Phase 2.5).** Replaces the prior "dual-path" description. One pure `projectCourseReference()` + one idempotent `applyProjection()` covers the full doc→DB mapping: Modules → `CurriculumModule` (all modes incl. examiner); OUT-NN → LEARN `Goal` rows; SKILL-NN tiers and `ASSESSOR_RUBRIC` LOs → ACHIEVE `Goal` rows + `BehaviorTarget` rows + `Parameter` upsert; pedagogy hints → `Playbook.config`. Disjoint from the wizard's subset (`welcome` / `nps` / `surveys` / `schedulerPresetName`). Provenance via `sourceContentId` (nullable FK on `Goal`, `BehaviorTarget`, `CurriculumModule`). Re-runs idempotent for NEW courses (created on/after 2026-05-12); no backfill. Wizard never authors a course-ref — only ingests. §11 expanded with troubleshooting rows for missing ACHIEVE goals / BehaviorTargets / examiner-mode CurriculumModule. Epic #338. Supersedes #337. Originating defects from IELTS Speaking pack #336. |

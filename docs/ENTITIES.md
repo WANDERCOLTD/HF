@@ -93,9 +93,12 @@ Authoritative source: `apps/admin/prisma/schema.prisma`. Line refs in §3.
 | `ContentVocabulary` | `schema.prisma::model ContentVocabulary` (line 3867) | Extracted vocab term | — | `term`, `definition`, `subjectSourceId?` |
 | `AssertionMedia` | `schema.prisma::model AssertionMedia` (line 4229) | Assertion ↔ MediaAsset | — | — |
 | `Curriculum` | `schema.prisma::model Curriculum` (line 2165) | Owned by Playbook (since #181) | CurriculumModules | `playbookId` |
-| `CurriculumModule` | `schema.prisma::model CurriculumModule` (line 2230) | Sub-unit of Curriculum | LearningObjectives | `slug` ("MOD-1"…), `sortOrder` |
+| `CurriculumModule` | `schema.prisma::model CurriculumModule` (line 2230) | Sub-unit of Curriculum | LearningObjectives | `slug` ("MOD-1"…), `sortOrder`, `sourceContentId?` (since #338) |
 | `LearningObjective` | `schema.prisma::model LearningObjective` (line 2263) | "Learner should be able to X." | LoClassifications | `systemRole: LoSystemRole (line 90)`, `learnerVisible: Boolean @default(true)` |
 | `LoClassification` | `schema.prisma::model LoClassification` (line 2315) | Classification history per LO (#317) | — | `systemRole`, `confidence`, `humanOverriddenAt?` |
+| `Goal` | `schema.prisma::model Goal` | Course-level objective per Playbook | — | `type: GoalType` (LEARN/ACHIEVE/...), `isAssessmentTarget: Boolean`, `sourceContentId?` (since #338) |
+| `BehaviorTarget` | `schema.prisma::model BehaviorTarget` | Per-parameter target at SYSTEM/PLAYBOOK/SEGMENT/CALLER scope | — | `scope: BehaviorTargetScope`, `parameterId`, `targetValue`, `sourceContentId?` (since #338) |
+| `Parameter` | `schema.prisma::model Parameter` | Measurable dimension (TRAIT/STATE/ADAPT/GOAL/CONFIG/EXTERNAL/BEHAVIOR) | BehaviorTargets, CallScores | `type: ParameterType`, `name @unique` |
 
 ---
 
@@ -160,6 +163,7 @@ Verify in every write path that touches content scoping.
 | I4 | `SubjectSource @@unique([subjectId, sourceId])` (`schema.prisma:3977`) — **NOT playbook-scoped**. Sharing a Subject means sharing every `SubjectSource` row on it. | DB constraint. This is the structural root of Leak A. |
 | I5 | Audience filtering uses `LearningObjective.learnerVisible` only (derived from `systemRole`). `Playbook.audience` and `Caller.role` are NOT content filters (CONTENT-PIPELINE §5.4). | `lib/curriculum/lo-audience.ts::deriveLearnerVisible`. |
 | I6 | A `Curriculum` belongs to a `Playbook` (since #181). Old code that joined `Subject → Curriculum` directly is dead. | `Curriculum.playbookId` in schema. |
+| I7 | **Projection provenance (since #338, NEW courses only).** Every `Goal`, `BehaviorTarget`, and `CurriculumModule` row written by `applyProjection()` MUST carry `sourceContentId` pointing to the COURSE_REFERENCE `ContentSource` that produced it. Re-running the projection diffs by `(playbookId, sourceContentId, slug/name)` — re-runs are no-ops. **Scope:** rows for courses created on/after 2026-05-12. Pre-existing rows have `sourceContentId: null` and are NOT backfilled. Wizard's own writes to `Goal` (caller-expressed, ADAPT-suggested) do not set `sourceContentId` — null is the marker for "not derived from a doc". | Application: `lib/wizard/apply-projection.ts` (planned). Schema: nullable FK on each of the three models. |
 
 ---
 
@@ -240,3 +244,4 @@ Mirrors CONTENT-PIPELINE.md §8 format. "E" prefix = entity / content-boundary.
 | Date | Change |
 |------|--------|
 | 2026-05-11 | Initial canonical version. Third pillar alongside CONTENT-PIPELINE.md (outputs) and WIZARD-DATA-BAG.md (inputs). Landmines E1–E3 inherited from the 2026-04-16 ADR; status verified by current Tech Lead pre-review. |
+| 2026-05-12 | **§3 + §6 — projection provenance (epic #338).** Added `Goal`, `BehaviorTarget`, `Parameter` rows to §3 model table. Added `sourceContentId?` nullable FK on `Goal`, `BehaviorTarget`, `CurriculumModule`. New invariant I7: rows written by `applyProjection()` MUST carry `sourceContentId`; scope is NEW courses only (created on/after 2026-05-12); no backfill of pre-existing rows. Companion contract spec in `CONTENT-PIPELINE.md §4 Phase 2.5`. Supersedes #337; originating defects from IELTS Speaking pack #336. |
