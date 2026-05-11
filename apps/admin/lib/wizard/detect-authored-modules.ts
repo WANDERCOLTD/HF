@@ -1,6 +1,10 @@
 /**
  * detect-authored-modules.ts
  *
+ * @canonical-doc docs/CONTENT-PIPELINE.md §3
+ * @canonical-doc docs/CONTENT-PIPELINE.md §4
+ * @canonical-doc docs/WIZARD-DATA-BAG.md §2
+ *
  * Parse a Course Reference markdown body for an author-declared Module
  * Catalogue. Sibling to `detect-pedagogy.ts` — deterministic regex/markdown
  * parsing, no AI calls.

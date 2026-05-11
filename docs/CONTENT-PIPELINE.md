@@ -10,9 +10,12 @@
 > |--------|-----|--------|
 > | Inputs | [`docs/WIZARD-DATA-BAG.md`](./WIZARD-DATA-BAG.md) | educator intent → `Playbook.config` |
 > | **Classification** | **this doc** | **extraction, audience filters, compose-time gates** |
-> | Model | `docs/ENTITIES.md` *(in flight)* | hierarchy + content-boundary path |
-> | Composition | `docs/PROMPT-COMPOSITION.md` *(in flight — #327)* | loaders → transforms → assembly |
+> | Model | [`docs/ENTITIES.md`](./ENTITIES.md) | hierarchy + content-boundary path |
+> | Composition | [`docs/PROMPT-COMPOSITION.md`](./PROMPT-COMPOSITION.md) | loaders → transforms → assembly |
+> | Specs | [`docs/SPEC-SYSTEM.md`](./SPEC-SYSTEM.md) | SpecRole, scaffold, systemSpecToggles, extendsAgent chain |
 > | Adaptive loop | [`docs/PIPELINE.md`](./PIPELINE.md) | 7-stage post-call pipeline |
+>
+> Update peer canon docs in the same PR when changing how a wizard field maps to content classification or how content is scoped to a course.
 
 ---
 
@@ -301,6 +304,8 @@ Walk **top to bottom**. First veto wins.
 
 **Spec slugs** (env-overridable) in `lib/config.ts` under `config.specs.*`.
 
+> **Canonical expansion:** [`docs/SPEC-SYSTEM.md`](./SPEC-SYSTEM.md) is the authoritative map for `SpecRole` taxonomy (§2), `scaffoldDomain` materialisation (§3), `systemSpecToggles` resolution (§4), the 4-layer `extendsAgent` chain (§5), and the full `config.specs.*` catalogue (§6). Read it before changing any spec slug or scaffold behaviour.
+
 **DataContracts** registry at `lib/contracts/registry.ts` — 30s TTL cache. Contracts gate which composition sections fire. No registered DataContract has a missing consumer at last audit (May 2026), but no validation enforces this — if you add a contract, also add a consumer.
 
 **Pipeline order is strict:** `EXTRACT < SCORE_AGENT < AGGREGATE < REWARD < ADAPT < SUPERVISE < COMPOSE`. Specs register `outputType`; the runner enforces ordering. Inserting a new stage anywhere other than between existing stages requires changing the canonical ordering in `pipeline-001`.
@@ -342,6 +347,22 @@ Don't delete without doing a final grep across `apps/`, `tests/`, and `docs-arch
 ## 10. Pre-change checklist
 
 Before merging a PR that touches any classification dimension, confirm:
+
+### Adding a `@canonical-doc` marker to a new file
+
+Files cited by canonical docs carry a `@canonical-doc` JSDoc marker so the drift checker (`apps/admin/scripts/check-doc-citations.ts`, issue #329) can detect rot at commit time. To add the marker:
+
+1. Add the JSDoc at the top of the file (or a `//` comment for `.prisma`):
+   ```ts
+   /**
+    * @canonical-doc docs/CONTENT-PIPELINE.md §4
+    * @canonical-doc docs/ENTITIES.md §3
+    */
+   ```
+2. Run `npm run docs:citations` (from `apps/admin/`) to confirm the doc you named exists and your `file::symbol` refs resolve.
+3. The pre-commit hook will warn on future commits to that file if citations break.
+
+The marker is informational — `§N` section refs are NOT machine-checked. The script only validates that `file::symbol` references in canonical docs resolve.
 
 ### Adding a new `documentType`
 
@@ -422,3 +443,4 @@ Before merging a PR that touches any classification dimension, confirm:
 | 2026-05-10 | L1 fixed — `visualAids` + `subjectSources` filter / flag tutor-only docs. §11 row updated. New row added: "Generic welcome fires instead of course-ref First-Call rules" — compose-time `session_override` REPLACES `onboardingFlowPhases` for matching `callNumber`. Helpers: `isTutorOnlyDocumentType` (`SectionDataLoader.ts`), `deriveSessionOverridePhases` (`transforms/pedagogy.ts`). Closes #323, #324. |
 | 2026-05-10 | §11 expanded with three tuning-velocity entries: **Test First Call** dry-run button on the course page (`POST /api/courses/:id/dry-run-prompt`), ComposedPrompt diff viewer at `/x/composed-prompts/:id`, and the `[compose-trace]` observability block emitted by `CompositionExecutor`. No schema or veto-precedence changes. Closes #319. |
 | 2026-05-11 | Front-matter content declarations (`ContentSource.contentDeclaration`) override AI classification across documentType, defaultCategory, loSystemRole, questionAssessmentUse. New §3.2 + §5.1a + §6 row 0 + §10 pre-change items. Parser: `lib/content-trust/parse-content-declaration.ts`. Stamping: `documentTypeSource: "declared:by-doc"`, `LoClassification.classifierVersion: "declared-by-doc-v1"`. Closes #325. |
+| 2026-05-11 | Cross-linked to `ENTITIES.md` (data model + boundary). Switched loader citations in §3.1, §4 and §6 to symbol form (`::registerLoader("<name>")`) — line refs had drifted (e.g. visualAids 1071 → actual 1163). Symbols survive refactors. Closes #322. |
