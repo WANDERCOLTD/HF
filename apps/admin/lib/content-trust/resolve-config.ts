@@ -1,6 +1,9 @@
 /**
  * Content Extraction Config Resolver
  *
+ * @canonical-doc docs/CONTENT-PIPELINE.md §3
+ * @canonical-doc docs/CONTENT-PIPELINE.md §4
+ *
  * Resolves extraction and structuring configuration by merging:
  * 1. System-level CONTENT-EXTRACT-001 spec (global defaults)
  * 2. Domain-level override spec (per-domain customization)

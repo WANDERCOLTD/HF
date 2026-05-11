@@ -1,6 +1,9 @@
 /**
  * Typed interfaces for Prisma Json? fields.
  *
+ * @canonical-doc docs/CONTENT-PIPELINE.md §3
+ * @canonical-doc docs/WIZARD-DATA-BAG.md §3
+ *
  * Prisma types all `Json?` columns as `Prisma.JsonValue` which loses
  * structure. These types let us cast once at the access site and get
  * autocompletion + safety downstream.

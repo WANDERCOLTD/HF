@@ -4,6 +4,11 @@
  * Registry of named data loader functions that fetch from Prisma.
  * Each loader mirrors exactly one query from the original compose-prompt route.
  * Spec sections reference loaders by name: "dataSource": "memories"
+ *
+ * @canonical-doc docs/CONTENT-PIPELINE.md §3.1
+ * @canonical-doc docs/CONTENT-PIPELINE.md §4
+ * @canonical-doc docs/CONTENT-PIPELINE.md §6
+ * @canonical-doc docs/ENTITIES.md §4
  */
 
 import { prisma } from "@/lib/prisma";
