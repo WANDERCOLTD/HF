@@ -1,3 +1,7 @@
+/**
+ * @canonical-doc docs/CONTENT-PIPELINE.md §4
+ * @canonical-doc docs/ENTITIES.md §6
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { DocumentType } from "@prisma/client";

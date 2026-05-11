@@ -1,6 +1,8 @@
 /**
  * LO Audience Classifier (#317)
  *
+ * @canonical-doc docs/CONTENT-PIPELINE.md §4
+ *
  * Decides whether a Learning Objective is for the LEARNER (visible on the
  * curriculum page) or for the SYSTEM (assessor prompt / item generator /
  * score reveal). Hybrid: a heuristic regex pass catches the unambiguous

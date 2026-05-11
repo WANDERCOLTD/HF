@@ -1,6 +1,9 @@
 /**
  * Wizard Tool Executor — server-side execution of wizard tool calls.
  *
+ * @canonical-doc docs/WIZARD-DATA-BAG.md §5
+ * @canonical-doc docs/CONTENT-PIPELINE.md §4
+ *
  * Tool definitions live in conversational-wizard-tools.ts (CONVERSATIONAL_TOOLS).
  * This file handles the server-side execution: resolving entities, creating
  * institutions/courses, and returning results to the AI loop.

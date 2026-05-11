@@ -1,3 +1,6 @@
+// @canonical-doc docs/CONTENT-PIPELINE.md §3
+// @canonical-doc docs/ENTITIES.md §2
+
 generator client {
   provider = "prisma-client-js"
 }
