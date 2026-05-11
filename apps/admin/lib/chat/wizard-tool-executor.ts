@@ -35,21 +35,45 @@ export function applyStudentExperienceConfig(
   entityId: string,
 ): void {
   // ── Welcome (legacy) — always written by wizard until Phase 5 cleanup. ──
-  if (!configUpdate.welcome) {
-    const welcomeKeysSet = ["welcomeGoals", "welcomeAboutYou", "welcomeKnowledgeCheck", "welcomeAiIntro"]
-      .filter((k) => setupData?.[k] !== undefined).length;
-    if (welcomeKeysSet === 0) {
-      console.warn(
-        `[wizard-tool-executor] ${contextLabel} called without explicit welcome flags — falling back to DEFAULT_WELCOME_CONFIG. id=${entityId}`,
-      );
-    }
+  //
+  // Bug history: this previously short-circuited via `if (!configUpdate.welcome)`,
+  // which silently dropped explicit setupData overrides whenever configUpdate
+  // had been seeded from an existing playbook config (the spread on the
+  // create_course path). The wizard's `update_setup` could correctly stage
+  // `welcomeGoals: false` but the commit would skip it because the default
+  // welcome object already sat in the spread. Fix: if setupData carries any
+  // welcome flag, REBUILD welcome from setupData (explicit choice wins). If
+  // no setupData flags are present, fall back to existing welcome, then to
+  // defaults.
+  const setupHasWelcomeFlags = !!setupData && (
+    setupData.welcomeGoals !== undefined ||
+    setupData.welcomeAboutYou !== undefined ||
+    setupData.welcomeKnowledgeCheck !== undefined ||
+    setupData.welcomeAiIntro !== undefined
+  );
+
+  if (setupHasWelcomeFlags) {
+    // Explicit wizard choice wins. Default per field:
+    //   goals / aboutYou — ON unless explicitly false
+    //   knowledgeCheck / aiIntroCall — OFF unless explicitly true
     configUpdate.welcome = {
       goals: { enabled: setupData?.welcomeGoals !== false },
       aboutYou: { enabled: setupData?.welcomeAboutYou !== false },
       knowledgeCheck: { enabled: setupData?.welcomeKnowledgeCheck === true },
       aiIntroCall: { enabled: setupData?.welcomeAiIntro === true },
     };
+  } else if (!configUpdate.welcome) {
+    console.warn(
+      `[wizard-tool-executor] ${contextLabel} called without explicit welcome flags — falling back to DEFAULT_WELCOME_CONFIG. id=${entityId}`,
+    );
+    configUpdate.welcome = {
+      goals: { enabled: true },
+      aboutYou: { enabled: true },
+      knowledgeCheck: { enabled: false },
+      aiIntroCall: { enabled: false },
+    };
   }
+  // else: keep configUpdate.welcome as already spread from existing config
 
   // ── sessionFlow.intake (new shape) — mirror of welcome plus deliveryMode. ──
   // Always set so the resolver / editor see the same source of truth. The
@@ -75,19 +99,27 @@ export function applyStudentExperienceConfig(
 
   // ── NPS — top-level config field, mirrored to surveys.post.enabled for
   // structured-mode rail compatibility (existing pattern). ──
-  if (!configUpdate.nps) {
+  // Same fix pattern: if setupData has npsEnabled, override; otherwise honour
+  // existing or fall back to defaults.
+  if (setupData?.npsEnabled !== undefined) {
     configUpdate.nps = {
-      enabled: setupData?.npsEnabled !== false,
+      enabled: setupData.npsEnabled !== false,
+      trigger: "mastery" as const,
+      threshold: 80,
+    };
+  } else if (!configUpdate.nps) {
+    configUpdate.nps = {
+      enabled: true,
       trigger: "mastery" as const,
       threshold: 80,
     };
   }
-  if (!configUpdate.surveys) {
-    const nps = configUpdate.nps as { enabled: boolean };
-    configUpdate.surveys = {
-      post: { enabled: nps.enabled },
-    };
-  }
+  // Always re-mirror surveys.post from current nps state.
+  const nps = configUpdate.nps as { enabled: boolean };
+  configUpdate.surveys = {
+    ...(configUpdate.surveys as Record<string, unknown> | undefined ?? {}),
+    post: { enabled: nps.enabled },
+  };
 }
 
 /** Return the string only if it looks like a real UUID (v4). Rejects slugs, made-up prefixed IDs, etc. */
@@ -1241,6 +1273,18 @@ export async function executeWizardTool(
           where: { id: playbookId },
           data: { config: JSON.parse(JSON.stringify(configUpdate)) },
         });
+
+        // TODO(#336-followup, defect 5 in handoff): auto-import authored modules
+        // from any COURSE_REFERENCE source attached to this playbook. CONTENT-
+        // PIPELINE.md §4 describes the dual-path (modules table →
+        // Playbook.config.modules + outcomes + progressionMode) as automatic,
+        // but no code wires it up — every wizard-created course lands with
+        // modules: 0 / outcomes: 0 / progressionMode unset until manually
+        // backfilled via POST /api/courses/:id/import-modules.
+        // Helper should: (1) find ContentSource rows where documentType=
+        // COURSE_REFERENCE linked to this playbook, (2) read their content,
+        // (3) run detectAuthoredModules + applyAuthoredModules, (4) merge
+        // into Playbook.config, (5) call syncAuthoredModulesToCurriculum.
 
         // 6. Link Subject → Playbook
         await prisma.playbookSubject.upsert({
