@@ -844,6 +844,20 @@ export async function executeWizardTool(
               await applyBehaviorTargets(existingPlaybookId, behaviorTargets);
             }
 
+            // COURSE_REFERENCE projection (#338) — same as the new-course
+            // branch (step 7d below). Re-applying the projection on an
+            // already-set-up playbook is idempotent, so this is safe even
+            // when the user is just tweaking config on an existing course.
+            try {
+              const { runProjectionForPlaybook } = await import("@/lib/wizard/run-projection-for-playbook");
+              await runProjectionForPlaybook(existingPlaybookId);
+            } catch (err) {
+              console.error(
+                `[projection] create_course (existing path): projection failed for playbook=${existingPlaybookId} — config update still applied. Error:`,
+                err instanceof Error ? err.message : err,
+              );
+            }
+
             // Apply welcome message to domain
             const resolvedDomainId = existingPb.domainId || domainId;
             if (input.welcomeMessage && resolvedDomainId) {
@@ -1372,6 +1386,23 @@ export async function executeWizardTool(
           for (const srcId of uploadSourceIds) {
             await upsertPlaybookSource(playbookId, srcId);
           }
+        }
+
+        // 7d. COURSE_REFERENCE projection (#338) — derive CurriculumModule,
+        //     BehaviorTargets, Parameters, and Goal templates from any linked
+        //     COURSE_REFERENCE source. Race-safe (skips sources whose
+        //     extraction isn't ready), best-effort (does not fail
+        //     create_course on projection errors — the projection can be
+        //     re-run later from a re-process button). See
+        //     docs/CONTENT-PIPELINE.md §4 Phase 2.5.
+        try {
+          const { runProjectionForPlaybook } = await import("@/lib/wizard/run-projection-for-playbook");
+          await runProjectionForPlaybook(playbookId);
+        } catch (err) {
+          console.error(
+            `[projection] create_course: projection failed for playbook=${playbookId} — course still created. Error:`,
+            err instanceof Error ? err.message : err,
+          );
         }
 
         // 8. Configure onboarding (welcome message + behavior targets)
