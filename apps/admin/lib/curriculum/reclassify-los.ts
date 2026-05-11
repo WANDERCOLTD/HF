@@ -31,6 +31,8 @@ import {
   validateLoClassification,
   type LoClassificationDecision,
 } from "@/lib/content-trust/validate-lo-classification";
+import type { ContentDeclaration } from "@/lib/content-trust/parse-content-declaration";
+import type { LoSystemRole } from "@prisma/client";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -83,11 +85,15 @@ export async function reclassifyLearningObjectives(
   const { concurrency = 3, includeHumanOverridden = false, maxLOs } = options;
 
   // 1. Load LOs scoped to the curriculum, with module + course context for the LLM.
+  //    Also load the primary source's contentDeclaration so we can short-circuit
+  //    to a declared systemRole when the educator declared `hf-lo-system-role`
+  //    in the source doc's front-matter.
   const curriculum = await prisma.curriculum.findUnique({
     where: { id: curriculumId },
     select: {
       id: true,
       name: true,
+      primarySource: { select: { contentDeclaration: true } },
       modules: {
         select: {
           id: true,
@@ -112,6 +118,14 @@ export async function reclassifyLearningObjectives(
     throw new Error(`Curriculum not found: ${curriculumId}`);
   }
 
+  // Read the primary source declaration once. When the educator declared
+  // `hf-lo-system-role`, every LO derived from that source short-circuits to
+  // the declared role with classifierVersion="declared-by-doc-v1". The guard
+  // still runs (so human overrides remain sticky), but the heuristic + LLM
+  // are bypassed.
+  const declaration = (curriculum.primarySource?.contentDeclaration ?? null) as ContentDeclaration | null;
+  const declaredSystemRole: LoSystemRole | undefined = declaration?.loSystemRole ?? undefined;
+
   // 2. Build the classifier inputs. Skip humanOverridden when not forced.
   const inputs = curriculum.modules.flatMap((m) =>
     m.learningObjectives
@@ -125,6 +139,9 @@ export async function reclassifyLearningObjectives(
         moduleTitle: m.title,
         moduleDescription: m.description,
         courseTitle: curriculum.name,
+        // Inject declared override (consulted in classifyLo) when the source
+        // doc declared it. Heuristic + LLM are skipped for these LOs.
+        declaredSystemRole,
       })),
   );
 

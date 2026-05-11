@@ -1,6 +1,9 @@
 /**
  * Domain Scaffold
  *
+ * @canonical-doc docs/ENTITIES.md §3
+ * @canonical-doc docs/ENTITIES.md §5
+ *
  * Auto-creates the minimum viable setup for a domain:
  * - Identity spec (IDENTITY / COMPOSE)
  * - Playbook with identity spec + system specs enabled

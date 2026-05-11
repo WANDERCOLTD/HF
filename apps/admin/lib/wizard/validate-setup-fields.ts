@@ -1,6 +1,9 @@
 /**
  * Validate `update_setup` field names against the canonical wizard graph keys.
  *
+ * @canonical-doc docs/WIZARD-DATA-BAG.md §7
+ * @canonical-doc docs/CONTENT-PIPELINE.md §8
+ *
  * Why this exists: the wizard data bag is loosely typed (Record<string, unknown>),
  * and the chat AI repeatedly hallucinates field names from the human-readable
  * label rather than the canonical `key` — e.g. writing `moduleProgression` or

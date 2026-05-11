@@ -20,6 +20,18 @@ When writing the story:
 
 **This is non-negotiable. Skipping this rule has caused production incidents.**
 
+## ⚠️ HARD RULE — Wizard data bag awareness
+
+**Before doing anything else, if the requirement touches ANY of: the wizard chat flow, `update_setup` / `create_course` / `mark_complete` tool calls, the wizard data bag (`setupData`), validation of educator-entered fields, or how chat intent maps to `Playbook.config` / `Domain.config` — you MUST read [`docs/WIZARD-DATA-BAG.md`](../../docs/WIZARD-DATA-BAG.md) first.** It is the single source of truth for the canonical setup field map (§3), the two write paths into `Playbook.config` (§2), the conflict resolution rules between wizard chat and document upload (§6), the validator's auto-corrections (§7), and the known landmines (§10).
+
+When writing the story:
+- Cite the relevant WIZARD-DATA-BAG.md section(s) the story affects.
+- If the story introduces a new wizard field, validator entry, or change to the `update_setup` → `create_course` lifecycle, the story MUST include "Update `docs/WIZARD-DATA-BAG.md`" as an acceptance criterion.
+- If the new field interacts with a content classification dimension, the story MUST cross-reference `docs/CONTENT-PIPELINE.md` AND update both docs in the same PR.
+- Surface any landmines from §10 that the story could re-trigger (in particular W1–W4, which are currently open).
+
+**This is non-negotiable. Skipping this rule has caused production incidents (silent field-drop incidents on May 9–10, 2026).**
+
 ## ⚠️ HARD RULE — Entity hierarchy + content-boundary awareness
 
 **Before doing anything else, if the requirement touches ANY of: adding a model / FK, content scoping queries, `Subject` / `Playbook` / `PlaybookSource` / `SubjectSource` / `ContentSource` / `ContentAssertion`, cross-course content isolation, or anything that joins through `Subject` to teaching content — you MUST read [`docs/ENTITIES.md`](../../docs/ENTITIES.md) first.** It is the single source of truth for the hierarchy (§2), the content-boundary walk (§4), the cross-entity invariants (§6), and the known leak vectors (§9).

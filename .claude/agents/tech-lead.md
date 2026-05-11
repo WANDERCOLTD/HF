@@ -20,6 +20,20 @@ During technical review:
 
 The user has explicitly mandated this as a HARD RULE. Skipping causes outages.
 
+## ⚠️ HARD RULE — Wizard data bag awareness
+
+**Before validating any story that touches the wizard chat flow, `update_setup` / `create_course` / `mark_complete` tool calls, the wizard data bag (`setupData`), field validation, or how chat intent maps to `Playbook.config` / `Domain.config` — you MUST read [`docs/WIZARD-DATA-BAG.md`](../../docs/WIZARD-DATA-BAG.md) first.** That doc is the single source of truth for the canonical setup field map (§3), the two write paths into `Playbook.config` (§2), the `update_setup` → `create_course` → `mark_complete` lifecycle (§5), the conflict resolution rules between wizard and document upload (§6), the validator's auto-corrections (§7), and the known landmines (§10).
+
+During technical review:
+- **Verify every new setup key has been added to `graph-nodes.ts` AND `validate-setup-fields.ts`** — otherwise the validator will silently reject it (landmine W7, now fixed but easy to regress).
+- **Reject any new `FIELD_NAME_CORRECTIONS` entry without log evidence** — see the discipline note at `validate-setup-fields.ts:25-26`.
+- **Check both `create_course` branches (existing-course and new-course paths)** — historically one was missing a `progressionMode` mirror that the other had (landmine W8).
+- **Flag any landmine from §10** (W1–W5 are currently open) that the story could re-trigger.
+- **Block the story if it adds a wizard field, validator entry, or changes the data-bag lifecycle without updating WIZARD-DATA-BAG.md in the same PR.** That's a non-negotiable acceptance criterion.
+- **If the field affects content classification, both WIZARD-DATA-BAG.md AND CONTENT-PIPELINE.md must be updated in the same PR.**
+
+The user has explicitly mandated this as a HARD RULE. Skipping causes outages.
+
 ## ⚠️ HARD RULE — Entity hierarchy + content-boundary awareness
 
 **Before validating any story that touches a model, an FK, a content-scoping query, the `Subject` / `Playbook` / `PlaybookSource` / `SubjectSource` chain, cross-course content isolation, or anything that joins through `Subject` to `ContentAssertion` — you MUST read [`docs/ENTITIES.md`](../../docs/ENTITIES.md) first.** That doc is the single source of truth for the hierarchy (§2), the content-boundary walk (§4), the cross-entity invariants (§6), and the known leak vectors (§9).
