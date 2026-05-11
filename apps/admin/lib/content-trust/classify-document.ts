@@ -1,6 +1,8 @@
 /**
  * Document Type Classification
  *
+ * @canonical-doc docs/CONTENT-PIPELINE.md §4
+ *
  * Classifies uploaded documents into pedagogical types before extraction.
  * Uses multi-point sampling (start + middle + end) for better coverage
  * of composite documents.

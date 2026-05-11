@@ -1,6 +1,10 @@
 /**
  * LO audience helpers (#317)
  *
+ * @canonical-doc docs/CONTENT-PIPELINE.md §5
+ * @canonical-doc docs/CONTENT-PIPELINE.md §6
+ * @canonical-doc docs/ENTITIES.md §6
+ *
  * Two consumers see different shapes of the same Learning Objective rows:
  *
  *   - LEARNER view — the student-facing curriculum page. Filters out

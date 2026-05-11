@@ -332,6 +332,22 @@ Don't delete without doing a final grep across `apps/`, `tests/`, and `docs-arch
 
 Before merging a PR that touches any classification dimension, confirm:
 
+### Adding a `@canonical-doc` marker to a new file
+
+Files cited by canonical docs carry a `@canonical-doc` JSDoc marker so the drift checker (`apps/admin/scripts/check-doc-citations.ts`, issue #329) can detect rot at commit time. To add the marker:
+
+1. Add the JSDoc at the top of the file (or a `//` comment for `.prisma`):
+   ```ts
+   /**
+    * @canonical-doc docs/CONTENT-PIPELINE.md §4
+    * @canonical-doc docs/ENTITIES.md §3
+    */
+   ```
+2. Run `npm run docs:citations` (from `apps/admin/`) to confirm the doc you named exists and your `file::symbol` refs resolve.
+3. The pre-commit hook will warn on future commits to that file if citations break.
+
+The marker is informational — `§N` section refs are NOT machine-checked. The script only validates that `file::symbol` references in canonical docs resolve.
+
 ### Adding a new `documentType`
 
 - [ ] Add enum value to `prisma/schema.prisma` and migrate.
