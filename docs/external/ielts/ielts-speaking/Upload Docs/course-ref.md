@@ -1,11 +1,14 @@
 # IELTS Speaking Practice — Course Reference
 
+> **Document type:** COURSE_REFERENCE · **Dual-path parsing:** (a) `## Modules` table + `**OUT-NN:**` lines → `Playbook.config.modules` + `outcomes` directly; (b) remaining sections → `ContentAssertion` rows with INSTRUCTION_CATEGORIES · **Audience: tutor-only** (never sent to learner as media)
+
 ## Course Configuration
 
 > Machine-readable fields — used by HumanFirst to configure the AI tutor automatically.
 
 **Course name:** IELTS Speaking Practice
 **Subject / qualification:** IELTS Speaking
+**Default mode:** learner-picks (the learner chooses which module to do each call from the four modules below; the tutor never silently sequences modules)
 
 ### Teaching approach
 - [x] **Socratic** — question-based discovery, guides through questioning
@@ -107,6 +110,8 @@ The ability to be understood with ease, using a range of pronunciation features 
 ### Core Principles
 
 **Speak to learn — never speak for the student.** The student does all the talking. The tutor may model a single phrase after two failed attempts, but never a full answer. The "generation effect" applies to speech as strongly as writing.
+
+**Brief, never quiz, on test mechanics.** Facts about the IELTS Speaking test itself — number of parts, timing, examiner role, what the examiner can or cannot do, how scoring works — are tutor briefing material. The tutor uses them silently to run the format and explains them in passing when relevant. The tutor **never asks the learner questions about these facts** ("How many parts does the test have?", "How long is Part 2?", "What does the examiner score?"). Every question the tutor asks the learner is a real conversational or examination question on the topic at hand, drawn from the Part 1 / Part 2 / Part 3 question banks — never a comprehension check on the course material.
 
 **Score against criteria, not against perfection.** Every score must reference a specific band descriptor. "Good answer" is meaningless. "Your Fluency & Coherence is Band 6 because you extended your answer well but the pauses between ideas broke the flow — at Band 7 the examiner expects ideas to flow without noticeable hesitation" — that is useful.
 
@@ -256,7 +261,7 @@ Watch for these and name them explicitly when they appear:
 
 ## Modules
 
-> Machine-readable: the four user-facing modules learners pick from. The picker shows the `Label`; the AI scoring loop uses `Outcomes (primary)` to scope per-module assessment. `Mode: examiner` modules run in formal-exam style (no scaffolding); `Mode: mixed` modules combine practice with exam-style scoring. `Frequency: cooldown` blocks repeats until other modules have been completed.
+> Machine-readable: the four learner-pickable modules. Course default is **learner-picks** — at the start of every call from Call 2 onwards the learner is offered these four and chooses one. The picker shows the `Label`; the AI scoring loop uses `Outcomes (primary)` to scope per-module assessment. `Mode: examiner` modules run in formal-exam style (no scaffolding); `Mode: mixed` modules combine practice with exam-style scoring. `Frequency: cooldown` blocks repeats until other modules have been completed.
 
 | ID    | Label                          | Learner-selectable | Mode     | Duration  | Scoring fired | Session-terminal | Frequency  | Outcomes (primary)              | Position |
 |-------|--------------------------------|--------------------|----------|-----------|---------------|------------------|------------|---------------------------------|----------|
@@ -268,6 +273,8 @@ Watch for these and name them explicitly when they appear:
 **OUT-01: Speak naturally about familiar topics for 4–5 minutes without long pauses or repeated self-correction.**
 
 **OUT-02: Extend Part 1 answers with one supporting detail or example beyond the direct answer.**
+
+> **Part 1 conversation rule (MUST):** When running the Familiar Topics module, the tutor draws topic frames from the Part 1 question bank (hometown, accommodation, work, study, family, free time, food, travel, weather, hobbies, music, sport, technology, books, weekend routines). The tutor asks real conversational questions about the learner's life — "What's your home town like?", "Tell me about your work", "What do you do at the weekend?". The tutor **never** quizzes the learner on the test format itself: questions like "How many parts does the Speaking test have?", "How long is Part 2?", "What does the examiner score?" are forbidden in this module. Test-format facts live in the Tutor Briefing — the tutor uses them silently to run the format, never as content the learner is questioned on.
 
 **OUT-03: Speak for 90 seconds on a Part 2 cue card without stalling on word-search.**
 

@@ -1,8 +1,10 @@
 # IELTS Speaking Question Bank — Part 2
 
-Source: HFF-authored cue cards in the style of published IELTS Part 2 tasks. Card structure and topical clusters are modelled on `speaking-sample-tasks-2023.pdf`, takeielts.britishcouncil.org Part 2 samples, ielts.idp.com Part 2 samples, and Cambridge IELTS volumes 1–19.
+> **Document type:** QUESTION_BANK · **Intended classification:** practice prompts for the Part 2 module · **Question type:** TUTOR_QUESTION · **Assessment use:** FORMATIVE · **Bloom:** APPLY/EVALUATE
 
-This bank contains 88 cue cards in the standard four-bullet form, clustered by the six Part 2 frames identified in `ielts-speaking-question-types-guide.md`: **Person, Place, Object, Event, Experience, Activity**. Cards are HFF-authored to mirror the style and difficulty of published Cambridge tasks without reproducing copyrighted exam content.
+Source: HFF-authored cue cards in the style of published IELTS Part 2 tasks. Card structure and topical clusters are modelled on published IELTS Part 2 samples and Cambridge IELTS volumes 1–19.
+
+This bank contains 88 cue cards in the standard four-bullet form, clustered by six Part 2 frames: **Person, Place, Object, Event, Experience, Activity**. Cards are HFF-authored to mirror the style and difficulty of published Cambridge tasks without reproducing copyrighted exam content. See `tutor-briefing.md` for the Part 2 format definition.
 
 **Format note:** Every card uses the official template:
 

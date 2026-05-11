@@ -1,8 +1,10 @@
 # IELTS Speaking Question Bank — Part 3
 
-Source: HFF-authored discussion question sets in the style of published IELTS Part 3 frames. Question patterns and themes are modelled on `speaking-sample-tasks-2023.pdf`, takeielts.britishcouncil.org Part 3 samples, ielts.idp.com Part 3 samples, and Cambridge IELTS volumes 1–19.
+> **Document type:** QUESTION_BANK · **Intended classification:** practice prompts for the Part 3 module · **Question type:** TUTOR_QUESTION · **Assessment use:** FORMATIVE · **Bloom:** ANALYZE/EVALUATE
 
-This bank contains 64 discussion question sets, each with 4–6 abstract questions, organised by the 13 themes identified in `ielts-speaking-question-types-guide.md`. Sets follow the seven Part 3 patterns: opinion, advantages/disadvantages, comparison, hypothetical, prediction, causes-and-effects, and problem-solution. Sets are HFF-authored to mirror the style and difficulty of published Cambridge tasks without reproducing copyrighted exam content.
+Source: HFF-authored discussion question sets in the style of published IELTS Part 3 frames. Question patterns and themes are modelled on published IELTS Part 3 samples and Cambridge IELTS volumes 1–19.
+
+This bank contains 64 discussion question sets, each with 4–6 abstract questions, organised by 13 themes. Sets follow seven Part 3 patterns: opinion, advantages/disadvantages, comparison, hypothetical, prediction, causes-and-effects, and problem-solution. Sets are HFF-authored to mirror the style and difficulty of published Cambridge tasks without reproducing copyrighted exam content. See `tutor-briefing.md` for the Part 3 format definition.
 
 **Format note:** Each set is introduced by a signposting line ("Let's consider ...") and follows the typical Part 3 progression — the examiner moves from concrete probes to abstract or future-oriented ones over 4–6 questions.
 
