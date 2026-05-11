@@ -1141,6 +1141,30 @@ export default function CallerDetailPage() {
 
       {simChatMounted && (
         <div className={activeSection === "ai-call" ? undefined : "hf-hidden"}>
+          {/* #284 (c): admin/educator deep-link — persistent module status
+              row above SimChat. Visible the moment the AI Call tab loads
+              (independent of SimChat lobby state) so an admin can pick a
+              module on behalf of the learner without scrolling into the chat. */}
+          {modulesAuthored && selectedPlaybookId && selectedPlaybookId !== "all" && (
+            <div
+              className={`hf-banner ${requestedModuleId ? "hf-banner-success" : "hf-banner-info"} cdp-module-strip`}
+              role="status"
+            >
+              <span className="cdp-module-strip-text">
+                {requestedModuleId
+                  ? <>Module locked for this session: <strong>{requestedModuleId}</strong>. Mastery will be tracked against it.</>
+                  : <>No module picked — the tutor will pick one automatically. Pick to focus this session on a specific module.</>
+                }
+              </span>
+              <button
+                type="button"
+                className="hf-btn hf-btn-secondary cdp-module-strip-btn"
+                onClick={handlePickModule}
+              >
+                {requestedModuleId ? "Switch module" : "Pick module"}
+              </button>
+            </div>
+          )}
           <SimChat
             key={callSession}
             callerId={callerId}
