@@ -3,6 +3,13 @@
 > **Read this before you change anything that affects how content is uploaded, classified, extracted, surfaced in the tutor prompt, or filtered by audience.**
 >
 > Owner: this document is the single source of truth for the classification taxonomy and data flow. When you introduce a new dimension (e.g. the Module picker introduced `progressionMode` + `modulesAuthored`), update this doc in the same PR.
+>
+> Companion docs (3-pillar architecture canon):
+> - [`docs/ENTITIES.md`](./ENTITIES.md) — the data model + content-boundary rules (who owns what, who can see what)
+> - [`docs/WIZARD-DATA-BAG.md`](./WIZARD-DATA-BAG.md) — wizard inputs (educator intent → `Playbook.config`)
+> - **This doc** — classification, extraction, compose-time filters
+>
+> Update ENTITIES.md and WIZARD-DATA-BAG.md in the same PR when changing how a wizard field maps to content classification or how content is scoped to a course.
 
 ---
 
@@ -346,3 +353,4 @@ Before merging a PR that touches any classification dimension, confirm:
 | 2026-05-11 | Initial canonical version. |
 | 2026-05-10 | L1 fixed — `visualAids` + `subjectSources` filter / flag tutor-only docs. §11 row updated. New row added: "Generic welcome fires instead of course-ref First-Call rules" — compose-time `session_override` REPLACES `onboardingFlowPhases` for matching `callNumber`. Helpers: `isTutorOnlyDocumentType` (`SectionDataLoader.ts`), `deriveSessionOverridePhases` (`transforms/pedagogy.ts`). |
 | 2026-05-10 | §11 expanded with three tuning-velocity entries: **Test First Call** dry-run button on the course page (`POST /api/courses/:id/dry-run-prompt`), ComposedPrompt diff viewer at `/x/composed-prompts/:id`, and the `[compose-trace]` observability block emitted by `CompositionExecutor`. No schema or veto-precedence changes. Closes #319. |
+| 2026-05-11 | Cross-linked to `ENTITIES.md` (data model + boundary) and `WIZARD-DATA-BAG.md` (wizard inputs). Switched loader citations in §3.1, §4 and §6 to symbol form (`::registerLoader("<name>")`) — line refs had drifted (e.g. visualAids 1071 → actual 1163). Symbols survive refactors. |

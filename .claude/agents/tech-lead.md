@@ -20,6 +20,18 @@ During technical review:
 
 The user has explicitly mandated this as a HARD RULE. Skipping causes outages.
 
+## ⚠️ HARD RULE — Entity hierarchy + content-boundary awareness
+
+**Before validating any story that touches a model, an FK, a content-scoping query, the `Subject` / `Playbook` / `PlaybookSource` / `SubjectSource` chain, cross-course content isolation, or anything that joins through `Subject` to `ContentAssertion` — you MUST read [`docs/ENTITIES.md`](../../docs/ENTITIES.md) first.** That doc is the single source of truth for the hierarchy (§2), the content-boundary walk (§4), the cross-entity invariants (§6), and the known leak vectors (§9).
+
+During technical review:
+- **Verify content-scoping queries use `PlaybookSource` (new path) not `Subject → SubjectSource` (legacy).** Legacy is still alive as a fallback — flag any new code that depends on it.
+- **Verify invariant I1 (§6):** new code that creates `ContentAssertion` MUST set `subjectSourceId`. The schema allows null for legacy rows only. `import/route.ts` and `course-pack/ingest/route.ts` currently violate this — don't add a third site.
+- **Verify the story doesn't re-trigger Leaks E1 / E2 / E3 (§9):** shared-Subject bleed, null-scope assertion, pipeline fan-out.
+- **Block the story if it adds a model / FK / scoping query without updating ENTITIES.md in the same PR.**
+
+The user has explicitly mandated this as a HARD RULE. Skipping causes silent cross-course leaks.
+
 ## Step 1 — Read the story
 
 ```bash

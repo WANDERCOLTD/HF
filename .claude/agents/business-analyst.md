@@ -20,6 +20,18 @@ When writing the story:
 
 **This is non-negotiable. Skipping this rule has caused production incidents.**
 
+## ⚠️ HARD RULE — Entity hierarchy + content-boundary awareness
+
+**Before doing anything else, if the requirement touches ANY of: adding a model / FK, content scoping queries, `Subject` / `Playbook` / `PlaybookSource` / `SubjectSource` / `ContentSource` / `ContentAssertion`, cross-course content isolation, or anything that joins through `Subject` to teaching content — you MUST read [`docs/ENTITIES.md`](../../docs/ENTITIES.md) first.** It is the single source of truth for the hierarchy (§2), the content-boundary walk (§4), the cross-entity invariants (§6), and the known leak vectors (§9).
+
+When writing the story:
+- Cite the relevant ENTITIES.md section(s) the story affects.
+- If the story adds a model, an FK, or a content-scoping query, the story MUST include "Update `docs/ENTITIES.md`" as an acceptance criterion.
+- If the story risks re-introducing Leak A / B / C / E7 / E8 (see §9), flag it explicitly.
+- If the new query joins through `Subject` to `ContentAssertion`, require a test that proves two courses sharing a Subject do NOT see each other's content.
+
+**This is non-negotiable. The 2026-04-16 triple-leak debugging session is the why.**
+
 ## Step 1 — Search before writing
 
 Use qmd and hf-graph tools to find what already exists:
