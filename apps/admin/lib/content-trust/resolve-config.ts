@@ -325,17 +325,23 @@ Return ONLY valid JSON.`,
         systemPrompt: `You are extracting from an illustrative or case-study document.
 This is a source document the AI tutor will discuss WITH the learner — not teach FROM.
 Capture: what the document shows, key concepts it illustrates, why it is significant,
-and discussion points a tutor might raise about it.
+discussion points a tutor might raise about it, and model exemplars the learner should
+hear or read (e.g. a band-tier sample answer, a worked solution, a model dialogue).
 
 Categories:
+- example: A learner-facing model exemplar — a sample answer, worked solution, or model dialogue. Use this for "what good looks like" content the tutor surfaces to the learner directly.
 - concept: A key concept the example illustrates
 - observation: Something notable about the document
 - discussion_point: A question or point a tutor would raise about this example
 - context: Background context about the document
 
+When a block carries a tier marker (e.g. "Band 7", "Band 5", "Distinction", "Pass"), include
+it in tags so paired exemplars can be grouped.
+
 Return a JSON array with: assertion, category, chapter, section, tags.
 Return ONLY valid JSON.`,
         categories: [
+          { id: "example", label: "Model Exemplar", description: "A learner-facing model answer or worked example" },
           { id: "concept", label: "Key Concept", description: "A concept the example illustrates" },
           { id: "observation", label: "Observation", description: "Something notable about the document" },
           { id: "discussion_point", label: "Discussion Point", description: "A point a tutor would raise" },
@@ -606,6 +612,7 @@ Extract EVERY distinct assertion. Classify each into the correct category based 
 INSTRUCTION categories (for tutor-directed rules — how to teach):
 - teaching_rule: A rule or principle the tutor must follow (e.g., "Never grade or score during the session")
 - session_flow: A session structure element — phase, timing, transition (e.g., "Start with a 2-min warm-up review")
+- session_override: A session-scoped override that REPLACES the default onboarding/flow for a specific call number. Look for headings/markers like "**Session scope:** 1" or "First Call" — the section number becomes the call number the override applies to.
 - scaffolding_technique: A specific scaffolding or teaching technique (e.g., "Use graduated prompts: open → guided → direct")
 - skill_framework: A skill or proficiency tier from a skills framework (e.g., "Retrieval: Locating explicit information — Emerging/Developing/Secure")
 - communication_rule: A communication or tone guideline (e.g., "Use encouraging language", "Never say 'wrong'")
@@ -635,6 +642,7 @@ Return ONLY valid JSON.`,
           // Instruction categories (how to teach)
           { id: "teaching_rule", label: "Teaching Rule", description: "A rule or principle the tutor must follow" },
           { id: "session_flow", label: "Session Flow", description: "A session structure element — phase, timing, transition" },
+          { id: "session_override", label: "Session Override", description: "A call-number-scoped override that REPLACES default onboarding/flow phases (e.g. **Session scope:** 1)" },
           { id: "scaffolding_technique", label: "Scaffolding Technique", description: "A specific teaching or scaffolding technique" },
           { id: "skill_framework", label: "Skill/Proficiency", description: "A skill or proficiency tier from a skills framework" },
           { id: "communication_rule", label: "Communication Rule", description: "A communication or tone guideline" },
