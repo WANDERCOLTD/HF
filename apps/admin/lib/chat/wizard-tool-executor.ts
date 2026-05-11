@@ -1797,6 +1797,14 @@ export async function executeWizardTool(
           }),
         };
       } catch (err) {
+        // #338 followup — log the error server-side so failed create_course
+        // calls are debuggable. Previously the error went only into the chat
+        // tool response, invisible in server logs. Includes stack so we can
+        // see where the throw originated.
+        console.error(
+          "[wizard-tools] create_course FAILED:",
+          err instanceof Error ? `${err.message}\n${err.stack}` : String(err),
+        );
         return {
           ...base,
           content: JSON.stringify({ ok: false, error: String(err) }),
