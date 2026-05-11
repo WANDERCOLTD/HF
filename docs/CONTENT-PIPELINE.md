@@ -15,7 +15,8 @@ Real incidents this doc would have prevented:
 | Module picker introduction (#242, May 6–7) | M5 | Code assumed all module selection was scheduler-driven. `progressionMode=learner-picks` bypassed `loadCurrentModuleContext`, silently breaking downstream consumers. |
 | Curriculum-on-wrong-playbook race | M5 | Playbook resolution returned the wrong playbook when a subject was linked to 2+ playbooks. 3 sites had to be patched. |
 | `progressionMode=learner-picks` + no Module Catalogue (#318, May 9) | M5 | Educator hit unrecoverable empty-picker state. Cross-field validator added. |
-| AI tutor sent course-ref.md to learner (May 10) | M5 | `visualAids` loader had no `documentType` filter. Course-ref leaked as media attachment. |
+| AI tutor sent course-ref.md to learner (May 10) | M5 | `visualAids` loader had no `documentType` filter. Course-ref leaked as media attachment. **Fixed same day** — see L1 in §8. |
+| Generic welcome fired instead of course-ref First-Call rules (May 10) | M5 | `course-ref.md` `**Session scope:** 1` sections extracted to `session_override` rows, but `pedagogy.ts` rendered them as an extra COURSE RULES block alongside `onboardingFlowPhases` — the welcome flow won the conversation. **Fixed same day** — `pedagogy.ts` now REPLACES `onboardingFlowPhases` when an override matches. |
 | Wizard validator drops unknown keys silently | M5 | AI hallucinated `modulesAuthored` / `constraints` fields; validator rejected silently; wizard moved on as if writes succeeded. |
 
 **Rule of thumb:** *if you're adding a column, an enum value, a filter, or a new audience, check the matrices in §5 and §6 first — and update them in the same PR.*
@@ -243,7 +244,7 @@ Walk **top to bottom**. First veto wins.
 
 | # | Landmine | Where | Status / fix |
 |---|----------|-------|--------------|
-| L1 | **`visualAids` loader has no `documentType` filter** — COURSE_REFERENCE-typed sources' media leak to learner | `SectionDataLoader.ts:1071-1107` | ⚠ OPEN — needs filter |
+| L1 | **`visualAids` loader has no `documentType` filter** — COURSE_REFERENCE-typed sources' media leak to learner | `SectionDataLoader.ts:1163-1230` | ✓ FIXED 2026-05-10 — `visualAids` now excludes tutor-only docs via `isTutorOnlyDocumentType` (aligned with `TEACHER_ONLY_DOC_TYPES` in `lib/doc-type-icons.ts`); `subjectSources` returns each source with a `tutorOnly` boolean so any future palette-building consumer can drop it deterministically. |
 | L2 | **MCQ types `MATCHING` / `UNSCRAMBLE` / `ORDERING`** extracted but never rendered | `retrieval-question-selector.ts:33` | ⚠ Either render them or remove from extractor output |
 | L3 | **`Playbook.audience` stored but never filtered** | `prisma/schema.prisma:3090` | ⚠ Either wire as a filter or drop the field |
 | L4 | **`Caller.role` not used for content visibility** — only access control | `lib/permissions.ts` | Intentional but easy to misread |
@@ -328,7 +329,8 @@ Before merging a PR that touches any classification dimension, confirm:
 | Module picker empty | `Playbook.config.modules` populated? `modulesAuthored=true`? | Re-import course-ref.md OR run `import-modules` POST |
 | Curriculum on wrong playbook | `CallerPlaybook` enrollment correct? | L5 — already fixed but check the 3 patched sites |
 | MCQ asking meta-questions | LOs that feed MCQ pool — any `TEACHING_INSTRUCTION` slipping in? | `lib/assessment/module-groups.ts` filter must exclude all `systemRole != NONE` |
-| AI sent a doc to learner | `visualAids` / `subjectSources` loader filtering | L1 — currently no filter |
+| AI sent a doc to learner | `visualAids` / `subjectSources` loader filtering | L1 — fixed 2026-05-10. `visualAids` filters tutor-only docs; `subjectSources` now exposes `tutorOnly`; `share_content` tool (`app/api/chat/tools.ts`) still gates by `isStudentVisibleDefault`. If a leak recurs, check the documentType classification on the source — `COURSE_REFERENCE` misclassified as `TEXTBOOK` will pass through. |
+| Generic welcome fires instead of course-ref First-Call rules | Does `course-ref.md` have `**Session scope:** 1` markers? | Extractor produces `category=session_override` `section="1"` rows; compose-time `pedagogy.ts` REPLACES `onboardingFlowPhases` when a `session_override` matches the current `callNumber`. Watch for the `[compose] course-ref First-Call rules override …` log line — its absence means either no override is parsed or the call number doesn't match. Fixed 2026-05-10. |
 
 ---
 
@@ -337,3 +339,4 @@ Before merging a PR that touches any classification dimension, confirm:
 | Date | Change |
 |------|--------|
 | 2026-05-11 | Initial canonical version. |
+| 2026-05-10 | L1 fixed — `visualAids` + `subjectSources` filter / flag tutor-only docs. §11 row updated. New row added: "Generic welcome fires instead of course-ref First-Call rules" — compose-time `session_override` REPLACES `onboardingFlowPhases` for matching `callNumber`. Helpers: `isTutorOnlyDocumentType` (`SectionDataLoader.ts`), `deriveSessionOverridePhases` (`transforms/pedagogy.ts`). |
