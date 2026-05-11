@@ -185,7 +185,7 @@ export function AuthoredModulesPanel({
 
       {error && <div className="hf-banner hf-banner-error hf-mb-md">{error}</div>}
 
-      {state.modulesAuthored === null && state.modules.length === 0 && (
+      {state.modulesAuthored !== false && state.modules.length === 0 && (
         <EmptyState onImport={() => setDialogOpen(true)} canImport={isOperator} />
       )}
 
