@@ -9,7 +9,15 @@ import { prisma } from "@/lib/prisma";
 import type { ExtractedQuestion } from "./extractors/base-extractor";
 import { sanitiseLORef } from "./validate-lo-linkage";
 import { computeWordOverlap } from "@/lib/assessment/validate-mcqs";
-import type { AssessmentUse } from "@prisma/client";
+import type { AssessmentUse, DocumentType } from "@prisma/client";
+
+/**
+ * DocumentTypes where the cross-question semantic dedup pass is skipped.
+ * These are author-curated banks where every entry is intentionally a frame
+ * variant (e.g. IELTS Part 2 cue cards all start "Describe a/an …"). Hash
+ * dedup still runs — only the Jaccard near-duplicate pass is bypassed.
+ */
+const DEDUP_SKIP_DOCTYPES = new Set<DocumentType>(["QUESTION_BANK"]);
 
 export interface SaveQuestionsResult {
   created: number;
@@ -77,6 +85,14 @@ export async function saveQuestions(
    * See docs/CONTENT-PIPELINE.md §3 + §6.
    */
   declaredAssessmentUse?: AssessmentUse | null,
+  /**
+   * The source's documentType. When set to a value in DEDUP_SKIP_DOCTYPES
+   * (currently QUESTION_BANK), the cross-question semantic dedup pass is
+   * skipped. Author-curated banks intentionally repeat frame language and
+   * the 0.65 Jaccard threshold drops legitimate frame variants. Hash dedup
+   * still runs.
+   */
+  sourceDocumentType?: DocumentType | null,
 ): Promise<SaveQuestionsResult> {
   if (questions.length === 0) return { created: 0, duplicatesSkipped: 0 };
 
@@ -98,27 +114,34 @@ export async function saveQuestions(
     return true;
   });
 
-  // Pass 2: cross-question semantic dedup — Jaccard overlap ≥ 0.85.
+  // Pass 2: cross-question semantic dedup — Jaccard overlap ≥ threshold.
   // Compares each new question against (a) already-persisted questions and
   // (b) other new questions accepted earlier in this batch. Catches near-
   // identical paraphrases that contentHash misses.
+  // Skipped for author-curated banks (QUESTION_BANK) where frame variants
+  // share many words by design — see DEDUP_SKIP_DOCTYPES.
+  const skipSemanticDedup = sourceDocumentType ? DEDUP_SKIP_DOCTYPES.has(sourceDocumentType) : false;
   const acceptedTexts: string[] = [...existingTexts];
   const toCreate: ExtractedQuestion[] = [];
   let semanticDuplicatesSkipped = 0;
-  for (const q of hashUnique) {
-    const qNorm = normalisedQuestionWords(q.questionText);
-    const dupe = acceptedTexts.find(
-      (existingText) => computeWordOverlap(qNorm, normalisedQuestionWords(existingText)) >= SEMANTIC_DUPLICATE_THRESHOLD,
-    );
-    if (dupe) {
-      semanticDuplicatesSkipped++;
-      console.log(
-        `[save-questions] #276 Slice 2: dropped near-duplicate "${q.questionText.slice(0, 60)}..." (overlap with "${dupe.slice(0, 60)}...")`,
+  if (skipSemanticDedup) {
+    toCreate.push(...hashUnique);
+  } else {
+    for (const q of hashUnique) {
+      const qNorm = normalisedQuestionWords(q.questionText);
+      const dupe = acceptedTexts.find(
+        (existingText) => computeWordOverlap(qNorm, normalisedQuestionWords(existingText)) >= SEMANTIC_DUPLICATE_THRESHOLD,
       );
-      continue;
+      if (dupe) {
+        semanticDuplicatesSkipped++;
+        console.log(
+          `[save-questions] #276 Slice 2: dropped near-duplicate "${q.questionText.slice(0, 60)}..." (overlap with "${dupe.slice(0, 60)}...")`,
+        );
+        continue;
+      }
+      acceptedTexts.push(q.questionText);
+      toCreate.push(q);
     }
-    acceptedTexts.push(q.questionText);
-    toCreate.push(q);
   }
   const duplicatesSkipped = questions.length - hashUnique.length;
 

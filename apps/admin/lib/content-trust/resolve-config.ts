@@ -594,6 +594,11 @@ Return ONLY valid JSON.`,
           { id: "assessment_guidance", label: "Assessment Guidance", description: "General assessment or teaching guidance" },
         ],
         maxAssertionsPerDocument: 200,
+        // Tighter chunk size for QB docs: each tutor_question expands into question +
+        // tiered model responses + tutor moves + assessment guidance — output JSON is
+        // the densest of any documentType. The 8000-char default causes max_tokens
+        // truncation on banks larger than ~15KB (e.g. IELTS Part 2 cue-card banks).
+        chunkSize: 4000,
       },
       structuring: {
         levels: [

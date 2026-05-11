@@ -853,7 +853,7 @@ async function extractSource(
           totalCreated += created;
         }
         if (data.questions.length > 0) {
-          const qResult = await saveQuestions(source.id, data.questions, undefined, declaredAssessmentUse);
+          const qResult = await saveQuestions(source.id, data.questions, undefined, declaredAssessmentUse, documentType as DocumentType);
           totalQuestionsCreated += qResult.created;
         }
         if (data.vocabulary.length > 0) {
@@ -919,7 +919,7 @@ async function extractSource(
         const { created } = await saveAssertions(source.id, result.assertions);
         totalCreated += created;
         if (result.questions?.length) {
-          const qResult = await saveQuestions(source.id, result.questions, undefined, declaredAssessmentUse);
+          const qResult = await saveQuestions(source.id, result.questions, undefined, declaredAssessmentUse, documentType as DocumentType);
           totalQuestionsCreated += qResult.created;
         }
         if (result.vocabulary?.length) {

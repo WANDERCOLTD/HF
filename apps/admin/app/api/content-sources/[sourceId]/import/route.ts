@@ -641,7 +641,7 @@ async function runBackgroundExtraction(
         totalDuplicatesSkipped += duplicatesSkipped;
       }
       if (data.questions.length > 0) {
-        const qResult = await saveQuestions(source.id, data.questions, undefined, opts.declaredAssessmentUse);
+        const qResult = await saveQuestions(source.id, data.questions, undefined, opts.declaredAssessmentUse, opts.documentType);
         totalQuestionsCreated += qResult.created;
       }
       if (data.vocabulary.length > 0) {
@@ -699,7 +699,7 @@ async function runBackgroundExtraction(
       totalCreated += created;
       totalDuplicatesSkipped += duplicatesSkipped;
       if (result.questions?.length) {
-        const qResult = await saveQuestions(source.id, result.questions, undefined, opts.declaredAssessmentUse);
+        const qResult = await saveQuestions(source.id, result.questions, undefined, opts.declaredAssessmentUse, opts.documentType);
         totalQuestionsCreated += qResult.created;
       }
       if (result.vocabulary?.length) {
