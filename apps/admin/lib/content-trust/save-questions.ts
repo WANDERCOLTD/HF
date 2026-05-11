@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import type { ExtractedQuestion } from "./extractors/base-extractor";
 import { sanitiseLORef } from "./validate-lo-linkage";
 import { computeWordOverlap } from "@/lib/assessment/validate-mcqs";
+import type { AssessmentUse } from "@prisma/client";
 
 export interface SaveQuestionsResult {
   created: number;
@@ -66,6 +67,16 @@ export async function saveQuestions(
   sourceId: string,
   questions: ExtractedQuestion[],
   subjectSourceId?: string,
+  /**
+   * Declared `hf-question-assessment-use` from the source's front-matter
+   * (parseContentDeclaration). When present, EVERY question row gets this
+   * value — the educator's declaration overrides the extractor's
+   * per-question inference (e.g. an entire QUESTION_BANK doc tagged
+   * TUTOR_ONLY should produce only tutor-reference questions, never
+   * pre-test items). When absent, per-question `assessmentUse` is honoured.
+   * See docs/CONTENT-PIPELINE.md §3 + §6.
+   */
+  declaredAssessmentUse?: AssessmentUse | null,
 ): Promise<SaveQuestionsResult> {
   if (questions.length === 0) return { created: 0, duplicatesSkipped: 0 };
 
@@ -138,7 +149,9 @@ export async function saveQuestions(
       sortOrder: i,
       contentHash: q.contentHash,
       bloomLevel: q.bloomLevel || null,
-      assessmentUse: q.assessmentUse || null,
+      // Declared override (hf-question-assessment-use) wins for every row in
+      // the doc. Otherwise honour the extractor's per-question value.
+      assessmentUse: declaredAssessmentUse ?? q.assessmentUse ?? null,
       // #276 Slice 3: stamp generator-output as AI_ASSISTED. Educator-
       // imported question banks may set a higher tier downstream.
       trustLevel: "AI_ASSISTED",

@@ -79,7 +79,9 @@ export async function POST(
 
     const { sourceId } = await params;
 
-    // Load source
+    // Load source. Also pull `contentDeclaration` so declared defaults
+    // (hf-default-category → extractor, hf-question-assessment-use → questions)
+    // are honoured here too. See parse-content-declaration.ts.
     const source = await prisma.contentSource.findUnique({
       where: { id: sourceId },
       select: {
@@ -88,6 +90,7 @@ export async function POST(
         name: true,
         documentType: true,
         extractorVersion: true,
+        contentDeclaration: true,
         subjects: {
           select: {
             id: true,
@@ -281,6 +284,11 @@ export async function POST(
     // Fire-and-forget background extraction with document type
     const fileName = source.mediaAssets[0]?.fileName || source.name;
     const mediaStorageKey = source.mediaAssets[0]?.storageKey;
+    // Pull declared defaults from the source's contentDeclaration.
+    // See parse-content-declaration.ts.
+    const sourceDeclaration = (source.contentDeclaration ?? null) as
+      | import("@/lib/content-trust/parse-content-declaration").ContentDeclaration
+      | null;
     runBackgroundExtraction(
       job.id,
       sourceId,
@@ -302,6 +310,8 @@ export async function POST(
         subjectDiscipline,
         subjectName,
         curriculumLoRefs,
+        declaredDefaultCategory: sourceDeclaration?.defaultCategory ?? undefined,
+        declaredAssessmentUse: sourceDeclaration?.questionAssessmentUse ?? null,
       },
     ).catch(async (err) => {
       console.error(`[content-sources/:id/extract] Background job ${job.id} error:`, err);
@@ -349,6 +359,10 @@ async function runBackgroundExtraction(
     subjectDiscipline?: string;
     subjectName?: string;
     curriculumLoRefs?: { ref: string; description: string }[];
+    /** Front-matter override: default category for assertions whose AI tag is invalid. */
+    declaredDefaultCategory?: string;
+    /** Front-matter override: assessmentUse forced onto every saved question. */
+    declaredAssessmentUse?: import("@prisma/client").AssessmentUse | null;
   },
 ) {
   // Replace mode: snapshot old IDs then purge existing content before re-extracting
@@ -393,7 +407,7 @@ async function runBackgroundExtraction(
         totalDuplicatesSkipped += duplicatesSkipped;
       }
       if (data.questions.length > 0) {
-        const qResult = await saveQuestions(sourceId, data.questions, subjectSourceId);
+        const qResult = await saveQuestions(sourceId, data.questions, subjectSourceId, opts.declaredAssessmentUse);
         totalQuestionsCreated += qResult.created;
       }
       if (data.vocabulary.length > 0) {
@@ -481,7 +495,7 @@ async function runBackgroundExtraction(
       totalDuplicatesSkipped += duplicatesSkipped;
 
       if (extractedQuestions.length > 0) {
-        const qResult = await saveQuestions(sourceId, extractedQuestions);
+        const qResult = await saveQuestions(sourceId, extractedQuestions, undefined, opts.declaredAssessmentUse);
         totalQuestionsCreated += qResult.created;
       }
       if (extractedVocabulary.length > 0) {

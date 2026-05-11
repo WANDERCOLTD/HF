@@ -1,16 +1,86 @@
 /**
  * Session Pedagogy Transform
- * Extracted from route.ts lines 2158-2229
+ *
+ * @canonical-doc docs/CONTENT-PIPELINE.md §4
+ * @canonical-doc docs/CONTENT-PIPELINE.md §11
  *
  * Uses Domain onboarding flow for first-call, falls back to INIT-001.
  */
 
 import { registerTransform } from "../TransformRegistry";
-import type { AssembledContext } from "../types";
+import type { AssembledContext, CourseInstructionData } from "../types";
 import { config } from "@/lib/config";
 import { detectPersonalisationMode } from "./quickstart";
 import { resolveSessionFlow } from "@/lib/session-flow/resolver";
 import type { OnboardingPhase } from "@/lib/types/json-fields";
+
+/**
+ * Match a session range string (e.g., "1", "1-3", "2+", "final") against a
+ * call number. Mirror of the helper in `transforms/course-instructions.ts` —
+ * kept local so pedagogy can decide whether course-ref `session_override`
+ * assertions apply to the current call without importing transform internals.
+ */
+function matchesSessionRange(range: unknown, callNumber: number): boolean {
+  if (typeof range !== "string") return false;
+  const trimmed = range.trim().toLowerCase();
+  if (!trimmed) return false;
+  if (trimmed === "final" || trimmed === "last") return false;
+  if (trimmed.endsWith("+")) {
+    const lower = parseInt(trimmed.slice(0, -1), 10);
+    if (!isNaN(lower)) return callNumber >= lower;
+  }
+  if (trimmed.includes("-")) {
+    const [startStr, endStr] = trimmed.split("-");
+    const start = parseInt(startStr, 10);
+    const end = parseInt(endStr, 10);
+    if (!isNaN(start) && !isNaN(end)) return callNumber >= start && callNumber <= end;
+  }
+  const exact = parseInt(trimmed, 10);
+  if (!isNaN(exact)) return callNumber === exact;
+  return false;
+}
+
+/**
+ * Pull `session_override` course-ref assertions that match the current call
+ * and turn them into a single synthetic OnboardingPhase. When this returns a
+ * non-empty result, the override REPLACES `onboardingFlowPhases` for this
+ * call — see comment in computeSessionPedagogy.
+ *
+ * Refs CONTENT-PIPELINE.md §11 — "Generic welcome fires instead of course-ref
+ * First-Call rules" (added 2026-05-10).
+ */
+export function deriveSessionOverridePhases(
+  courseInstructions: CourseInstructionData[] | undefined,
+  callNumber: number | undefined,
+): { phases: OnboardingPhase[]; matchedCount: number } | null {
+  if (!callNumber || !courseInstructions || courseInstructions.length === 0) return null;
+  const matched = courseInstructions.filter(
+    (inst) =>
+      inst.category === "session_override"
+      && matchesSessionRange(inst.section, callNumber),
+  );
+  if (matched.length === 0) return null;
+
+  // Render every matched override as a single phase. The assertion text is
+  // already a "Do X; Do Y; …" sentence (see course-ref-to-assertions.ts §424)
+  // — splitting it back into bullet goals preserves educator intent.
+  const goals: string[] = [];
+  for (const inst of matched) {
+    const sentences = inst.assertion
+      .split(/\.\s+(?=[A-Z])/)
+      .map((s) => s.trim().replace(/\.$/, ""))
+      .filter(Boolean);
+    goals.push(...sentences);
+  }
+
+  const phase: OnboardingPhase = {
+    phase: "course-ref-special-rules",
+    duration: "see course-ref",
+    goals: goals.length > 0 ? goals : ["Follow First-Call rules from course-ref.md"],
+  };
+
+  return { phases: [phase], matchedCount: matched.length };
+}
 
 /**
  * Compute session pedagogy plan (flow, review, new material, principles).
@@ -67,10 +137,22 @@ registerTransform("computeSessionPedagogy", (
     // === ONBOARDING MODE ===
     const firstModule = modules[0];
 
-    // Priority: Playbook (course) override > Domain > INIT-001 fallback.
+    // Priority for first-call flow (highest first):
+    //   0. course-ref `session_override` assertion matching current callNumber
+    //   1. Playbook (course) override
+    //   2. Domain
+    //   3. INIT-001 fallback
+    //
+    // Layer 0 is the answer to the "AI did a generic welcome instead of
+    // the course-ref First-Call rules" incident (2026-05-10). When the
+    // educator's course-ref.md has `**Session scope:** 1` sections, those
+    // become `category=session_override` `section="1"` assertions on
+    // extraction. When such assertions match the current call, they REPLACE
+    // `onboardingFlowPhases` entirely — not augment it.
+    //
     // When SESSION_FLOW_RESOLVER_ENABLED, delegate to resolveSessionFlow().
     // Both paths must produce byte-equal output during the dual-read window
-    // (epic #221, story #217).
+    // (epic #221, story #217) — the override layer applies AFTER resolution.
     let fcFlow: { phases: OnboardingPhase[]; successMetrics?: string[] } | undefined;
     let source: string;
     if (config.features.sessionFlowResolverEnabled) {
@@ -92,6 +174,32 @@ registerTransform("computeSessionPedagogy", (
       const initFlow = onboardingSpec?.config?.firstCallFlow;
       fcFlow = playbookFlow || domainFlow || initFlow;
       source = playbookFlow ? `Playbook ${primaryPlaybook?.name}` : domainFlow ? `Domain ${domain?.slug}` : config.specs.onboarding;
+    }
+
+    // Layer 0: course-ref session_override REPLACES whichever flow resolution
+    // chose. Logged so educators can see why the welcome flow they configured
+    // is not firing.
+    const overrideResult = deriveSessionOverridePhases(
+      context.loadedData.courseInstructions,
+      callNumber,
+    );
+    if (overrideResult) {
+      const previousSource = source;
+      fcFlow = { phases: overrideResult.phases };
+      source = "course-ref session_override";
+      console.log(
+        `[compose] course-ref First-Call rules override ${previousSource} for call ${callNumber} (${overrideResult.matchedCount} session_override assertion(s) matched)`,
+      );
+    } else if (callNumber) {
+      // Negative-path visibility: when overrides COULD fire but didn't.
+      const sessionOverrideCount = (context.loadedData.courseInstructions ?? []).filter(
+        (i) => i.category === "session_override",
+      ).length;
+      if (sessionOverrideCount > 0) {
+        console.log(
+          `[compose] No course-ref session_override applies to call ${callNumber} (${sessionOverrideCount} override(s) in course-ref, none matched); using ${source}`,
+        );
+      }
     }
 
     if (fcFlow?.phases) {

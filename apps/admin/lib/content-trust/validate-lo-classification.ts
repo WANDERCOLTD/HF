@@ -3,6 +3,9 @@
  * proposes audience-split fields, BEFORE any DB write to a LearningObjective row
  * or a LoClassification history row.
  *
+ * @canonical-doc docs/CONTENT-PIPELINE.md §5
+ * @canonical-doc docs/CONTENT-PIPELINE.md §6
+ *
  * Pattern: AI proposes → guard validates → caller writes (#317).
  *
  * The classifier itself is a hybrid heuristic + LLM step that returns a

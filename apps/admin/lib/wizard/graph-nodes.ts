@@ -1,6 +1,9 @@
 /**
  * Wizard Graph Nodes — static definitions for all wizard fields.
  *
+ * @canonical-doc docs/WIZARD-DATA-BAG.md §3
+ * @canonical-doc docs/CONTENT-PIPELINE.md §3
+ *
  * 21 user-facing nodes + 4 auto-resolved nodes.
  * These are the DAG vertices; dependsOn arrays are the edges.
  *

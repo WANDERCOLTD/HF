@@ -1,6 +1,8 @@
 /**
  * LO Audience Classifier (#317)
  *
+ * @canonical-doc docs/CONTENT-PIPELINE.md §4
+ *
  * Decides whether a Learning Objective is for the LEARNER (visible on the
  * curriculum page) or for the SYSTEM (assessor prompt / item generator /
  * score reveal). Hybrid: a heuristic regex pass catches the unambiguous
@@ -40,9 +42,19 @@ export interface ClassifyLoInput {
   moduleTitle?: string | null;
   moduleDescription?: string | null;
   courseTitle?: string | null;
+  /**
+   * Optional override from an in-doc front-matter declaration
+   * (`hf-lo-system-role`). When present, the classifier skips the heuristic
+   * and LLM pass and assigns this role directly with confidence 1.0 and
+   * classifierVersion `declared-by-doc-v1`. The educator vouched for this
+   * value; we trust it.
+   *
+   * See parse-content-declaration.ts and docs/CONTENT-PIPELINE.md §5.1.
+   */
+  declaredSystemRole?: LoSystemRole;
 }
 
-export type ClassifierSource = "heuristic" | "llm" | "fallback";
+export type ClassifierSource = "heuristic" | "llm" | "fallback" | "declared";
 
 export interface ClassifyLoResult {
   proposal: LoClassifierProposal;
@@ -337,11 +349,57 @@ function buildUserMessage(input: ClassifyLoInput): string {
 
 // ── Public entry points ────────────────────────────────
 
+/** Sentinel classifierVersion stamped on declared-by-doc decisions. */
+const DECLARED_VERSION = "declared-by-doc-v1";
+
 /**
- * Classify a single LO. Tries the heuristic first; falls through to the LLM
- * when no heuristic rule fires.
+ * Build a classifier result from a declared front-matter override. Skips
+ * both the heuristic regex pass and the LLM call. The educator's
+ * declaration is authoritative — confidence is fixed at 1.0 and the
+ * guard auto-applies the proposal.
+ */
+export function classifyLoDeclared(
+  input: ClassifyLoInput,
+  declaredSystemRole: LoSystemRole,
+): ClassifyLoResult {
+  const learnerVisible = declaredSystemRole === "NONE";
+  console.log(
+    `[classify-lo] Declared override: LO ${input.ref} → systemRole=${declaredSystemRole} (skipped heuristic + LLM)`,
+  );
+  logAI(
+    "content-trust.classify-lo:declared",
+    `Classify LO ${input.ref}`,
+    JSON.stringify({ declaredSystemRole }),
+    {
+      loId: input.loId,
+      ref: input.ref,
+      systemRole: declaredSystemRole,
+      declaredOverride: true,
+    },
+  );
+  return {
+    proposal: {
+      loId: input.loId,
+      classifierVersion: DECLARED_VERSION,
+      learnerVisible,
+      // No rewrite — the description carries the educator's wording.
+      performanceStatement: null,
+      systemRole: declaredSystemRole,
+      confidence: 1.0,
+      rationale: "Declared by document front-matter (hf-lo-system-role). Heuristic + LLM skipped.",
+    },
+    source: "declared",
+  };
+}
+
+/**
+ * Classify a single LO. Tries the declared override first (front-matter),
+ * then the heuristic regex pass, then falls through to the LLM.
  */
 export async function classifyLo(input: ClassifyLoInput): Promise<ClassifyLoResult> {
+  if (input.declaredSystemRole) {
+    return classifyLoDeclared(input, input.declaredSystemRole);
+  }
   const heuristic = classifyLoHeuristic(input);
   if (heuristic) return heuristic;
   return classifyLoLlm(input);

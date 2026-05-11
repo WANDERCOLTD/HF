@@ -8,7 +8,7 @@ import {
   Sparkles, AlertTriangle, RefreshCw,
   Settings as SettingsIcon, Users2,
   Zap, Target, BarChart3,
-  PlayCircle, Copy, Link2, GraduationCap, Wand2,
+  PlayCircle, Copy, Link2, GraduationCap, Wand2, FileSearch,
 } from 'lucide-react';
 import { useTerminology } from '@/contexts/TerminologyContext';
 import { INTERACTION_PATTERN_LABELS, TEACHING_MODE_LABELS } from '@/lib/content-trust/resolve-config';
@@ -47,6 +47,7 @@ import { PlanHeaderCard } from '@/components/shared/PlanHeaderCard';
 import { CollapsibleCard } from '@/components/shared/CollapsibleCard';
 import { SessionFlowPipeline, type InstructionItem } from './CourseHowTab';
 import { FullRegenerateModal } from './FullRegenerateModal';
+import { DryRunPromptModal } from './DryRunPromptModal';
 import { reorderItems } from '@/lib/sortable/reorder';
 import type { SessionEntry, SessionMediaRef as SessionMediaRefType, SessionMediaMap, StudentProgress } from '@/lib/lesson-plan/types';
 import './course-detail.css';
@@ -168,6 +169,7 @@ export default function CourseDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [showSimModal, setShowSimModal] = useState(false);
   const [showFullRegen, setShowFullRegen] = useState(false);
+  const [showDryRun, setShowDryRun] = useState(false);
   const [joinToken, setJoinToken] = useState<string | null>(null);
   const [joinCopied, setJoinCopied] = useState(false);
 
@@ -1031,6 +1033,14 @@ export default function CourseDetailPage() {
           )}
           <button
             className="hf-btn hf-btn-secondary hf-nowrap"
+            onClick={() => setShowDryRun(true)}
+            title="Compose the first-call prompt without running a sim — see what the tutor will say"
+          >
+            <FileSearch size={14} />
+            Test First Call
+          </button>
+          <button
+            className="hf-btn hf-btn-secondary hf-nowrap"
             onClick={() => setShowSimModal(true)}
           >
             <PlayCircle size={14} />
@@ -1649,6 +1659,19 @@ export default function CourseDetailPage() {
           domainId={detail.domain.id}
           domainName={detail.domain.name}
           onClose={() => setShowSimModal(false)}
+        />
+      )}
+
+      {showDryRun && detail && (
+        <DryRunPromptModal
+          courseId={detail.id}
+          authoredModules={(() => {
+            const cfg = (detail.config as Record<string, unknown> | null | undefined);
+            const mods = (cfg?.modules as Array<{ id?: string; title?: string }> | undefined) || [];
+            return mods
+              .filter((m): m is { id: string; title: string } => !!m.id && !!m.title);
+          })()}
+          onClose={() => setShowDryRun(false)}
         />
       )}
 

@@ -1,3 +1,6 @@
+// @canonical-doc docs/CONTENT-PIPELINE.md §3
+// @canonical-doc docs/ENTITIES.md §2
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -3630,11 +3633,17 @@ model ContentSource {
 
   // Document classification
   documentType            DocumentType @default(TEXTBOOK)
-  documentTypeSource      String? // "ai:0.92" or "admin:manual" — provenance of classification
+  documentTypeSource      String? // "ai:0.92", "admin:manual", "declared:by-doc", or "pack-manifest" — provenance of classification
   textSample              String?      @db.Text // First ~1000 chars for few-shot classification learning
   contentHash             String? // SHA-256 of raw file bytes — enables institution-scoped dedup on re-upload
   aiClassification        String? // Original AI guess "TYPE:confidence" (never mutated after set)
   classificationCorrected Boolean      @default(false) // True when admin overrode AI's classification
+  // Parsed markdown front-matter declarations. JSON object shaped like
+  // `ContentDeclaration` from lib/content-trust/parse-content-declaration.ts.
+  // When present, downstream classifiers (extractAssertions, classifyLo,
+  // save-questions) consult these declared fields before falling back to
+  // AI inference. See docs/CONTENT-PIPELINE.md §3 + §6.
+  contentDeclaration      Json?
 
   // Publisher / authority chain
   publisherOrg     String? // "Chartered Insurance Institute", "Highfield Publications"

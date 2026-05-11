@@ -82,14 +82,23 @@ async function runBackgroundClassification(
       examples,
     );
 
-    // Update source with classification
+    // Update source with classification. When the classifier saw a declared
+    // front-matter override, stamp `declared:by-doc` provenance instead of
+    // `ai:<conf>` — see parse-content-declaration.ts.
     await prisma.contentSource.update({
       where: { id: sourceId },
       data: {
         documentType: classification.documentType,
-        documentTypeSource: `ai:${classification.confidence.toFixed(2)}`,
+        documentTypeSource:
+          classification.source === "declared:by-doc"
+            ? "declared:by-doc"
+            : `ai:${classification.confidence.toFixed(2)}`,
         textSample: text.substring(0, 1000),
-        aiClassification: `${classification.documentType}:${classification.confidence.toFixed(2)}`,
+        aiClassification:
+          classification.source === "declared:by-doc"
+            ? null
+            : `${classification.documentType}:${classification.confidence.toFixed(2)}`,
+        contentDeclaration: (classification.declaration ?? null) as any,
       },
     });
 
@@ -179,10 +188,21 @@ export async function POST(
 
     const { sourceId } = await params;
 
-    // Verify source exists
+    // Verify source exists. Also load `contentDeclaration` so we can forward
+    // declared defaults (hf-default-category → extractor, hf-question-assessment-use
+    // → saveQuestions). See parse-content-declaration.ts.
     const source = await prisma.contentSource.findUnique({
       where: { id: sourceId },
-      select: { id: true, slug: true, name: true, trustLevel: true, qualificationRef: true, documentType: true, documentTypeSource: true },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        trustLevel: true,
+        qualificationRef: true,
+        documentType: true,
+        documentTypeSource: true,
+        contentDeclaration: true,
+      },
     });
 
     if (!source) {
@@ -269,12 +289,19 @@ export async function POST(
             where: { id: sourceId },
             data: {
               documentType: classification.documentType,
-              documentTypeSource: `ai:${classification.confidence.toFixed(2)}`,
+              documentTypeSource:
+                classification.source === "declared:by-doc"
+                  ? "declared:by-doc"
+                  : `ai:${classification.confidence.toFixed(2)}`,
               textSample: text.substring(0, 1000),
-              aiClassification: `${classification.documentType}:${classification.confidence.toFixed(2)}`,
+              aiClassification:
+                classification.source === "declared:by-doc"
+                  ? null
+                  : `${classification.documentType}:${classification.confidence.toFixed(2)}`,
+              contentDeclaration: (classification.declaration ?? null) as any,
             },
           });
-          console.log(`[import] Auto-classified "${file.name}" as ${classification.documentType} (confidence: ${classification.confidence}, examples: ${examples.length})`);
+          console.log(`[import] Auto-classified "${file.name}" as ${classification.documentType} (confidence: ${classification.confidence}, examples: ${examples.length}, source: ${classification.source ?? "ai"})`);
         } catch (classifyErr: any) {
           console.warn(`[import] Auto-classification failed, proceeding with default:`, classifyErr?.message);
         }
@@ -376,6 +403,13 @@ export async function POST(
       const job = await createExtractionTask(authResult.session.user.id, sourceId, file.name, subjectId);
       await updateJob(job.id, { status: "extracting", totalChunks: chunks.length });
 
+      // Resolve declared defaults from the source's contentDeclaration so
+      // hf-default-category lands on assertions and hf-question-assessment-use
+      // lands on every saved question. See parse-content-declaration.ts.
+      const sourceDeclaration = (source.contentDeclaration ?? null) as
+        | import("@/lib/content-trust/parse-content-declaration").ContentDeclaration
+        | null;
+
       // Fire-and-forget the extraction + import
       runBackgroundExtraction(job.id, source, text, file.name, {
         sourceSlug: source.slug,
@@ -389,6 +423,8 @@ export async function POST(
         mediaStorageKey,
         subjectId,
         userId: authResult.session.user.id,
+        declaredDefaultCategory: sourceDeclaration?.defaultCategory ?? undefined,
+        declaredAssessmentUse: sourceDeclaration?.questionAssessmentUse ?? null,
       }).catch(async (err) => {
         console.error(`[extraction-job] ${job.id} unhandled error:`, err);
         await updateJob(job.id, { status: "error", error: err.message || "Unknown error" });
@@ -429,9 +465,16 @@ export async function POST(
           where: { id: sourceId },
           data: {
             documentType: classification.documentType,
-            documentTypeSource: `ai:${classification.confidence.toFixed(2)}`,
+            documentTypeSource:
+              classification.source === "declared:by-doc"
+                ? "declared:by-doc"
+                : `ai:${classification.confidence.toFixed(2)}`,
             textSample: text.substring(0, 1000),
-            aiClassification: `${classification.documentType}:${classification.confidence.toFixed(2)}`,
+            aiClassification:
+              classification.source === "declared:by-doc"
+                ? null
+                : `${classification.documentType}:${classification.confidence.toFixed(2)}`,
+            contentDeclaration: (classification.declaration ?? null) as any,
           },
         });
       } catch {
@@ -439,8 +482,12 @@ export async function POST(
       }
     }
 
-    // Try section segmentation for composite documents
+    // Try section segmentation for composite documents. Pass declared
+    // default category from the source's contentDeclaration when present.
     const syncSegmentation = await segmentDocument(text, file.name);
+    const syncSourceDeclaration = (source.contentDeclaration ?? null) as
+      | import("@/lib/content-trust/parse-content-declaration").ContentDeclaration
+      | null;
     const extractionOptions = {
       sourceSlug: source.slug,
       sourceId: source.id,
@@ -449,6 +496,7 @@ export async function POST(
       focusChapters,
       maxAssertions,
       teachingMode,
+      declaredDefaultCategory: syncSourceDeclaration?.defaultCategory ?? undefined,
     };
 
     const result = syncSegmentation.isComposite && syncSegmentation.sections.length > 1
@@ -551,6 +599,10 @@ async function runBackgroundExtraction(
     mediaStorageKey?: string;
     subjectId?: string;
     userId: string;
+    /** Front-matter override: default category for assertions whose AI tag is invalid. */
+    declaredDefaultCategory?: string;
+    /** Front-matter override: assessmentUse forced onto every saved question. */
+    declaredAssessmentUse?: import("@prisma/client").AssessmentUse | null;
   },
 ) {
   // ── Phase 1: Quick pass (Haiku, ~3-8s) ──
@@ -589,7 +641,7 @@ async function runBackgroundExtraction(
         totalDuplicatesSkipped += duplicatesSkipped;
       }
       if (data.questions.length > 0) {
-        const qResult = await saveQuestions(source.id, data.questions);
+        const qResult = await saveQuestions(source.id, data.questions, undefined, opts.declaredAssessmentUse);
         totalQuestionsCreated += qResult.created;
       }
       if (data.vocabulary.length > 0) {
@@ -616,6 +668,7 @@ async function runBackgroundExtraction(
     focusChapters: opts.focusChapters,
     teachingMode: opts.teachingMode,
     maxAssertions: opts.maxAssertions || extractionConfig.extraction.maxAssertionsPerDocument,
+    declaredDefaultCategory: opts.declaredDefaultCategory,
     onChunkDone: (chunkIndex: number, totalChunks: number, extractedSoFar: number) => {
       updateJob(jobId, {
         currentChunk: chunkIndex + 1,
@@ -646,7 +699,7 @@ async function runBackgroundExtraction(
       totalCreated += created;
       totalDuplicatesSkipped += duplicatesSkipped;
       if (result.questions?.length) {
-        const qResult = await saveQuestions(source.id, result.questions);
+        const qResult = await saveQuestions(source.id, result.questions, undefined, opts.declaredAssessmentUse);
         totalQuestionsCreated += qResult.created;
       }
       if (result.vocabulary?.length) {
