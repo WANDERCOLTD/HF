@@ -173,13 +173,15 @@ Return the JSON mapping now.`;
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
-          maxTokens: 4000,
-          temperature: 0,
         },
         { sourceOp: opts.aiCallPoint },
       );
     } catch (err) {
-      console.error(`[${opts.aiCallPoint}] batch ${i / batchSize} failed:`, err);
+      const droppedIds = batch.map(opts.getChildId);
+      console.error(
+        `[${opts.aiCallPoint}] batch ${i / batchSize} failed — ${batch.length} item(s) left unmatched:`,
+        { droppedIds, err },
+      );
       result.unmatched += batch.length;
       continue;
     }

@@ -242,6 +242,20 @@ export const CALL_POINTS: CallPointDef[] = [
     defaults: { provider: "claude", model: config.ai.claude.model, temperature: 0.2, maxTokens: 8000, timeoutMs: 120_000 },
   },
   {
+    id: "content-trust.retag-orphans",
+    label: "Content Trust - Retag Orphan Assertions",
+    description: "Re-links orphaned ContentAssertions to LearningOutcomes via AI mapping (reconcile-child-parent generic util)",
+    category: "content-processing",
+    defaults: { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.1, maxTokens: 4000, timeoutMs: 90_000 },
+  },
+  {
+    id: "content-trust.retag-mcqs",
+    label: "Content Trust - Retag MCQ Questions",
+    description: "Re-links orphan MCQ Questions to LearningOutcomes via AI mapping (reconcile-child-parent generic util)",
+    category: "content-processing",
+    defaults: { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.1, maxTokens: 4000, timeoutMs: 90_000 },
+  },
+  {
     id: "content-sources.suggest",
     label: "Materials - Suggest",
     description: "Suggests content source metadata from document text",
