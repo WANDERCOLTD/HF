@@ -50,7 +50,6 @@ export default defineConfig({
       'tests/lib/curriculum-runner.test.ts',
       'tests/lib/domain-readiness.test.ts',
       'tests/lib/domain/course-setup.test.ts',
-      'tests/lib/embeddings.test.ts',
       'tests/lib/extraction-retry.test.ts',
       'tests/lib/issue-140-entity-hierarchy-consistency.test.ts',
       'tests/lib/route-auth-coverage.test.ts',

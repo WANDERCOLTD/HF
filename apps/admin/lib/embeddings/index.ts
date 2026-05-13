@@ -14,6 +14,15 @@ export async function openAiEmbed(
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error("OPENAI_API_KEY is not set");
 
+  // OpenAI 400s the entire batch if any element is empty/whitespace.
+  // Fail loudly here — callers must filter upstream.
+  const badIndex = texts.findIndex((t) => typeof t !== "string" || t.trim() === "");
+  if (badIndex !== -1) {
+    throw new Error(
+      `openAiEmbed: input[${badIndex}] is empty/whitespace — callers must filter before calling.`,
+    );
+  }
+
   const res = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: {
@@ -89,11 +98,22 @@ export async function embedAssertionsForSource(sourceId: string): Promise<{ embe
   const { Prisma } = await import("@prisma/client");
 
   // Find assertions without embeddings
-  const rows = await prisma.$queryRaw<Array<{ id: string; assertion: string }>>(
+  const allRows = await prisma.$queryRaw<Array<{ id: string; assertion: string }>>(
     Prisma.sql`SELECT id, assertion FROM "ContentAssertion" WHERE "sourceId" = ${sourceId} AND embedding IS NULL`
   );
 
-  if (rows.length === 0) return { embedded: 0, skipped: 0 };
+  if (allRows.length === 0) return { embedded: 0, skipped: 0 };
+
+  // Filter empty/whitespace assertions — OpenAI rejects the whole batch otherwise.
+  // Filter the rows array (not texts) to keep index alignment with row IDs.
+  const rows = allRows.filter((r) => typeof r.assertion === "string" && r.assertion.trim() !== "");
+  const skippedEmpty = allRows.length - rows.length;
+  if (skippedEmpty > 0) {
+    console.warn(
+      `[embeddings] embedAssertionsForSource(${sourceId}): skipped ${skippedEmpty} empty/whitespace assertion(s)`,
+    );
+  }
+  if (rows.length === 0) return { embedded: 0, skipped: skippedEmpty };
 
   const texts = rows.map((r) => r.assertion);
   const embeddings = await embedTexts(texts);
@@ -109,7 +129,7 @@ export async function embedAssertionsForSource(sourceId: string): Promise<{ embe
     embedded++;
   }
 
-  return { embedded, skipped: rows.length - embedded };
+  return { embedded, skipped: allRows.length - embedded };
 }
 
 /**
@@ -122,7 +142,7 @@ export async function embedChunksForDoc(docId: string): Promise<{ embedded: numb
   const { Prisma } = await import("@prisma/client");
 
   // Find chunks without vector embeddings
-  const rows = await prisma.$queryRaw<Array<{ id: string; content: string }>>(
+  const allRows = await prisma.$queryRaw<Array<{ id: string; content: string }>>(
     Prisma.sql`
       SELECT c.id, c.content FROM "KnowledgeChunk" c
       LEFT JOIN "VectorEmbedding" v ON c.id = v."chunkId" AND v.embedding IS NOT NULL
@@ -130,7 +150,18 @@ export async function embedChunksForDoc(docId: string): Promise<{ embedded: numb
     `
   );
 
-  if (rows.length === 0) return { embedded: 0, skipped: 0 };
+  if (allRows.length === 0) return { embedded: 0, skipped: 0 };
+
+  // Filter empty/whitespace chunks — OpenAI rejects the whole batch otherwise.
+  // Filter the rows array (not texts) to keep index alignment with chunk IDs.
+  const rows = allRows.filter((r) => typeof r.content === "string" && r.content.trim() !== "");
+  const skippedEmpty = allRows.length - rows.length;
+  if (skippedEmpty > 0) {
+    console.warn(
+      `[embeddings] embedChunksForDoc(${docId}): skipped ${skippedEmpty} empty/whitespace chunk(s)`,
+    );
+  }
+  if (rows.length === 0) return { embedded: 0, skipped: skippedEmpty };
 
   const texts = rows.map((r) => r.content);
   const embeddings = await embedTexts(texts);
@@ -163,5 +194,5 @@ export async function embedChunksForDoc(docId: string): Promise<{ embedded: numb
     embedded++;
   }
 
-  return { embedded, skipped: rows.length - embedded };
+  return { embedded, skipped: allRows.length - embedded };
 }

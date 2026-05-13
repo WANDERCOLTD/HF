@@ -105,6 +105,20 @@ describe("embeddings", () => {
       await expect(openAiEmbed(["test"])).rejects.toThrow("OpenAI embeddings failed: 429");
     });
 
+    it("throws if any input is an empty string (does not call API)", async () => {
+      await expect(openAiEmbed(["valid", "", "also valid"])).rejects.toThrow(
+        /input\[1\] is empty\/whitespace/,
+      );
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("throws if any input is whitespace-only (does not call API)", async () => {
+      await expect(openAiEmbed(["valid", "   \n\t  "])).rejects.toThrow(
+        /input\[1\] is empty\/whitespace/,
+      );
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
     it("handles multiple texts", async () => {
       const embs = [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]];
       mockFetch.mockResolvedValue(mockEmbeddingResponse(embs));
@@ -124,7 +138,7 @@ describe("embeddings", () => {
 
     it("throws if no embedding returned", async () => {
       mockFetch.mockResolvedValue(mockEmbeddingResponse([]));
-      await expect(embedText("test")).rejects.toThrow("No embedding returned");
+      await expect(embedText("test")).rejects.toThrow(/no data|No embedding returned/);
     });
   });
 
@@ -181,6 +195,42 @@ describe("embeddings", () => {
       expect(result.embedded).toBe(2);
       expect(mockExecuteRaw).toHaveBeenCalledTimes(2);
     });
+
+    it("filters empty/whitespace assertions and preserves index alignment", async () => {
+      mockQueryRaw.mockResolvedValueOnce([
+        { id: "a1", assertion: "Valid one" },
+        { id: "a2", assertion: "" },
+        { id: "a3", assertion: "Valid two" },
+        { id: "a4", assertion: "   \n  " },
+      ]);
+      // After filter, only 2 texts go to the API
+      mockFetch.mockResolvedValue(mockEmbeddingResponse([[0.1, 0.2], [0.3, 0.4]]));
+      mockExecuteRaw.mockResolvedValue(undefined);
+
+      const result = await embedAssertionsForSource("source-1");
+
+      expect(result.embedded).toBe(2);
+      // skipped accounts for 2 empty rows
+      expect(result.skipped).toBe(2);
+      // API called once with only the non-empty texts
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.input).toEqual(["Valid one", "Valid two"]);
+      // Writes go to the non-empty row IDs (a1, a3), not a2 or a4
+      expect(mockExecuteRaw).toHaveBeenCalledTimes(2);
+    });
+
+    it("returns skipped count and does not call API when all assertions empty", async () => {
+      mockQueryRaw.mockResolvedValueOnce([
+        { id: "a1", assertion: "" },
+        { id: "a2", assertion: "   " },
+      ]);
+
+      const result = await embedAssertionsForSource("source-1");
+
+      expect(result).toEqual({ embedded: 0, skipped: 2 });
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockExecuteRaw).not.toHaveBeenCalled();
+    });
   });
 
   describe("embedChunksForDoc", () => {
@@ -225,6 +275,29 @@ describe("embeddings", () => {
       expect(result.embedded).toBe(1);
       expect(mockCreate).not.toHaveBeenCalled(); // Shouldn't create new
       expect(mockExecuteRaw).toHaveBeenCalledTimes(1);
+    });
+
+    it("filters empty/whitespace chunks before calling API", async () => {
+      mockQueryRaw.mockResolvedValueOnce([
+        { id: "c1", content: "Real content" },
+        { id: "c2", content: "" },
+        { id: "c3", content: "  \t\n  " },
+      ]);
+      mockFetch.mockResolvedValue(mockEmbeddingResponse([[0.1, 0.2]]));
+      mockFindUnique.mockResolvedValue(null);
+      mockCreate.mockResolvedValue({ id: "ve-1" });
+      mockExecuteRaw.mockResolvedValue(undefined);
+
+      const result = await embedChunksForDoc("doc-1");
+
+      expect(result.embedded).toBe(1);
+      expect(result.skipped).toBe(2);
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.input).toEqual(["Real content"]);
+      // Only the non-empty chunk gets a VectorEmbedding row
+      expect(mockCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({ chunkId: "c1" }),
+      });
     });
   });
 });

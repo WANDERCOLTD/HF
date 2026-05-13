@@ -42,14 +42,25 @@ export async function saveAssertions(
   const toCreate: ExtractedAssertion[] = [];
   const seen = new Set<string>();
   let duplicatesSkipped = 0;
+  let emptySkipped = 0;
 
   for (const assertion of assertions) {
+    if (typeof assertion.assertion !== "string" || assertion.assertion.trim() === "") {
+      emptySkipped++;
+      continue;
+    }
     if (existingHashes.has(assertion.contentHash) || seen.has(assertion.contentHash)) {
       duplicatesSkipped++;
       continue;
     }
     seen.add(assertion.contentHash);
     toCreate.push(assertion);
+  }
+
+  if (emptySkipped > 0) {
+    console.warn(
+      `[save-assertions] source ${sourceId}: skipped ${emptySkipped} empty/whitespace assertion(s) — extractor returned blank text`,
+    );
   }
 
   if (toCreate.length > 0) {

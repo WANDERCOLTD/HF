@@ -195,4 +195,33 @@ describe("saveAssertions", () => {
     const data = mocks.createMany.mock.calls[0][0].data[0];
     expect(data.subjectSourceId).toBeNull();
   });
+
+  it("skips assertions with empty or whitespace-only text", async () => {
+    const assertions = [
+      makeAssertion({ contentHash: "h1", assertion: "Valid one" }),
+      makeAssertion({ contentHash: "h2", assertion: "" }),
+      makeAssertion({ contentHash: "h3", assertion: "   \n  \t" }),
+      makeAssertion({ contentHash: "h4", assertion: "Valid two" }),
+    ];
+    mocks.createMany.mockResolvedValue({ count: 2 });
+
+    const result = await saveAssertions("src-1", assertions);
+
+    expect(result.created).toBe(2);
+    const createData = mocks.createMany.mock.calls[0][0].data;
+    expect(createData).toHaveLength(2);
+    expect(createData.map((d: any) => d.contentHash)).toEqual(["h1", "h4"]);
+  });
+
+  it("does not call createMany when all assertions are empty", async () => {
+    const assertions = [
+      makeAssertion({ contentHash: "h1", assertion: "" }),
+      makeAssertion({ contentHash: "h2", assertion: "  " }),
+    ];
+
+    const result = await saveAssertions("src-1", assertions);
+
+    expect(result).toEqual({ created: 0, duplicatesSkipped: 0 });
+    expect(mocks.createMany).not.toHaveBeenCalled();
+  });
 });
