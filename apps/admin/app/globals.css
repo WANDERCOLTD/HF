@@ -1454,6 +1454,13 @@ html.light {
   border-color: color-mix(in srgb, var(--status-info-text) 30%, var(--border-default));
   color: var(--status-info-text);
 }
+/* Highlight the current pill so the Now/Next distinction is obvious */
+.hf-sim-breadcrumb-pill-current {
+  background: color-mix(in srgb, var(--status-success-bg) 60%, var(--surface-primary));
+  border-color: color-mix(in srgb, var(--status-success-text) 35%, var(--border-default));
+  color: var(--status-success-text);
+  font-weight: 600;
+}
 
 /* Hierarchy Breadcrumb */
 .hf-breadcrumb {
