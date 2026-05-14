@@ -17,6 +17,7 @@ import { getAILearningSettings } from "@/lib/system-settings";
 // schema but this knowledge-accumulation surface still references them. Cast lets the
 // runtime guard (`if (!prismaAny.aIInteractionLog)`) keep working without tsc errors —
 // see issue #375 follow-up.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prismaAny = prisma as any;
 
 // Local row shapes for the orphaned models. Used only to give downstream
