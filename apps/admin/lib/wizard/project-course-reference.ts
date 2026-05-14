@@ -54,12 +54,34 @@ export interface ProjectedBehaviorTarget {
   description?: string;
 }
 
+/**
+ * A LearningObjective the applier must write under a CurriculumModule. The
+ * `ref` matches the OUT-NN id from the Course Reference doc and is the
+ * stable key for diff (paired with moduleId). `description` is the OUT-NN
+ * statement text; falls back to the bare ref if no statement is present
+ * in the doc's outcomes dictionary.
+ *
+ * Issue #365.
+ */
+export interface ProjectedLearningObjective {
+  ref: string;
+  description: string;
+  sortOrder: number;
+}
+
 export interface ProjectedCurriculumModule {
   slug: string;
   title: string;
   description?: string;
   sortOrder: number;
   estimatedDurationMinutes?: number;
+  /**
+   * LearningObjective rows the applier must upsert under this module,
+   * derived from the module's `outcomesPrimary` cross-referenced against
+   * the doc-level `outcomes` dictionary. Empty when the module has no
+   * primary outcomes declared. Issue #365.
+   */
+  learningObjectives: ProjectedLearningObjective[];
 }
 
 export interface ProjectedParameter {
@@ -320,12 +342,23 @@ function parseDurationToMinutes(duration: string | undefined): number | undefine
   return undefined;
 }
 
-function mapAuthoredModulesToCurriculumModules(modules: AuthoredModule[]): ProjectedCurriculumModule[] {
+function mapAuthoredModulesToCurriculumModules(
+  modules: AuthoredModule[],
+  outcomes: Record<string, string>,
+): ProjectedCurriculumModule[] {
   return modules.map((m, idx) => ({
     slug: m.id,
     title: m.label,
     sortOrder: m.position ?? idx,
     estimatedDurationMinutes: parseDurationToMinutes(m.duration),
+    learningObjectives: m.outcomesPrimary.map((ref, loIdx) => ({
+      ref,
+      // Prefer the statement from the doc-level `**OUT-NN: ...**` heading.
+      // Fall back to the bare ref so the row is still well-formed when the
+      // statement is missing (a validation warning will already exist).
+      description: outcomes[ref]?.trim() || ref,
+      sortOrder: loIdx,
+    })),
   }));
 }
 
@@ -371,7 +404,7 @@ export function projectCourseReference(
   return {
     configPatch,
     behaviorTargets,
-    curriculumModules: mapAuthoredModulesToCurriculumModules(detected.modules),
+    curriculumModules: mapAuthoredModulesToCurriculumModules(detected.modules, outcomes),
     parameters,
     validationWarnings: [...detected.validationWarnings, ...skillWarnings],
     contentDeclaration: declaration,
