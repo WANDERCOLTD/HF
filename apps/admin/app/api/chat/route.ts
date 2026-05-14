@@ -710,13 +710,18 @@ async function handleWizardModeWithTools(
       // (don't rely on the AI remembering to call update_setup after creation/resolution)
       if (!result.is_error) {
         // 1. Entity resolution: autoInjectFields from update_setup (institution/course/subject resolution)
-        if (result.autoInjectFields && Object.keys(result.autoInjectFields).length > 0) {
+        //    Only WizardToolResult carries this — CourseRefToolResult never sets it.
+        const autoInjectFields =
+          mode !== "COURSE_REF"
+            ? (result as { autoInjectFields?: Record<string, unknown> }).autoInjectFields
+            : undefined;
+        if (autoInjectFields && Object.keys(autoInjectFields).length > 0) {
           allToolCalls.push({
             name: "update_setup",
-            input: { fields: result.autoInjectFields },
+            input: { fields: autoInjectFields },
           });
           // Also merge into running state for later tools in this iteration
-          Object.assign(mergedSetupData, result.autoInjectFields);
+          Object.assign(mergedSetupData, autoInjectFields);
         }
         // 2. Creation tools: extract IDs from JSON result
         try {
