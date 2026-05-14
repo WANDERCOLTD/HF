@@ -10,6 +10,7 @@ import { useJourneyChat } from '@/hooks/useJourneyChat';
 import { deriveParameterMap } from '@/lib/agent-tuner/derive';
 import type { AgentTunerPill } from '@/lib/agent-tuner/types';
 import { ModulePickerSelectionBanner, ModulePickerInviteBanner } from '@/components/sim/ModulePickerBanners';
+import { SimStateBreadcrumb } from '@/components/sim/SimStateBreadcrumb';
 
 interface PastCall {
   transcript: string;
@@ -180,6 +181,12 @@ export default function SimConversationPage() {
 
   return (
     <>
+      <SimStateBreadcrumb
+        pastCallCount={caller.pastCalls.length}
+        requestedModuleId={requestedModuleId ?? null}
+        modules={authoredModules}
+        onPickModule={modulesAuthored && playbookId ? handlePickModule : undefined}
+      />
       {requestedModuleId ? (
         <ModulePickerSelectionBanner
           moduleId={requestedModuleId}
