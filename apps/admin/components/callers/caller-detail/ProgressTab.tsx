@@ -560,8 +560,12 @@ export function LearningSection({
     not_started: { primary: "var(--text-muted)", glow: "var(--text-muted)" },
   };
 
-  const activeGoals = goals?.filter(g => g.status === 'ACTIVE' || g.status === 'PAUSED') || [];
-  const archivedGoals = goals?.filter(g => g.status === 'ARCHIVED' || g.status === 'COMPLETED') || [];
+  // #357 follow-up: goals where isAssessmentTarget=true are already rendered
+  // by AssessmentTargetsCard above this section. Filter them out here so the
+  // user doesn't see two copies of the same "Reach Secure on …" goal.
+  const nonAssessmentGoals = goals?.filter(g => !g.isAssessmentTarget) ?? [];
+  const activeGoals = nonAssessmentGoals.filter(g => g.status === 'ACTIVE' || g.status === 'PAUSED');
+  const archivedGoals = nonAssessmentGoals.filter(g => g.status === 'ARCHIVED' || g.status === 'COMPLETED');
 
   return (
     <div className="hf-flex-col hf-gap-20">
