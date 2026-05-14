@@ -25,7 +25,7 @@ vi.mock("@/lib/prisma", () => {
     },
   },
 };
-  return { ..._p, db: (tx) => tx ?? _p.prisma };
+  return { ..._p, db: (tx?: unknown) => tx ?? _p.prisma };
 });
 
 import { saveQuestions, deleteQuestionsForSource } from "@/lib/content-trust/save-questions";

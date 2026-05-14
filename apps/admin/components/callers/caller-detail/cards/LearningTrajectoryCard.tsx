@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type JSX } from 'react';
 import { Sparkline } from '@/components/shared/Sparkline';
 
 interface LearningScore {

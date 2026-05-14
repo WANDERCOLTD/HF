@@ -22,7 +22,7 @@ const mockPrisma = {
     findMany: vi.fn(),
   },
 };
-vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx) => tx ?? mockPrisma }));
+vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx?: unknown) => tx ?? mockPrisma }));
 
 // ── Helpers ────────────────────────────────────────────
 

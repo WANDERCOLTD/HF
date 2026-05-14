@@ -41,7 +41,7 @@ vi.mock("@/lib/prisma", () => {
     $queryRaw: (...args: any[]) => mockQueryRaw(...args),
   },
 };
-  return { ..._p, db: (tx) => tx ?? _p.prisma };
+  return { ..._p, db: (tx?: unknown) => tx ?? _p.prisma };
 });
 
 // ── Mock retriever ─────────────────────────────────

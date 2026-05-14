@@ -21,7 +21,7 @@ const mockPrisma = {
 
 vi.mock("@/lib/prisma", () => ({
   prisma: mockPrisma,
-  db: (tx) => tx ?? mockPrisma,
+  db: (tx?: unknown) => tx ?? mockPrisma,
 }));
 
 const mockAuditLog = vi.fn();

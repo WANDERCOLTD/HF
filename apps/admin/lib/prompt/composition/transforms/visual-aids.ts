@@ -18,7 +18,10 @@ registerTransform("formatVisualAids", (rawData, context) => {
   if (!aids || aids.length === 0) return null;
 
   // Collect session-specific media IDs from lesson plan entry
-  const sessionMedia = context.sharedState?.lessonPlanEntry?.media;
+  const sessionMedia = context.sharedState?.lessonPlanEntry?.media as
+    | Array<{ mediaId: string }>
+    | null
+    | undefined;
   const sessionMediaIds = new Set(sessionMedia?.map((m) => m.mediaId) || []);
 
   const available = aids.map((a) => ({

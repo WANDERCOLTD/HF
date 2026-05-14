@@ -9,7 +9,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     },
   },
 }));
-vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx) => tx ?? mockPrisma }));
+vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx?: unknown) => tx ?? mockPrisma }));
 
 import { resolveSpecs, resolveVoiceSpecFallback, mergeIdentitySpec } from "@/lib/prompt/composition/transforms/identity";
 import { getTransform } from "@/lib/prompt/composition/TransformRegistry";

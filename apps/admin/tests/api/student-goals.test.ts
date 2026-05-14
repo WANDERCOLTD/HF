@@ -10,7 +10,7 @@ const mockPrisma = {
   goal: { create: vi.fn() },
 };
 
-vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx) => tx ?? mockPrisma }));
+vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx?: unknown) => tx ?? mockPrisma }));
 
 vi.mock("@/lib/student-access", () => ({
   requireStudent: vi.fn().mockResolvedValue({

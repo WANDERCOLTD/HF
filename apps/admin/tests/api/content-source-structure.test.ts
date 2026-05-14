@@ -29,7 +29,7 @@ vi.mock("@/lib/prisma", () => {
     },
   },
 };
-  return { ..._p, db: (tx) => tx ?? _p.prisma };
+  return { ..._p, db: (tx?: unknown) => tx ?? _p.prisma };
 });
 
 vi.mock("@/lib/permissions", () => ({

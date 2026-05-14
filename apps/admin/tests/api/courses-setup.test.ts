@@ -13,7 +13,7 @@ const mockTaskGuidance = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: mockPrisma,
-  db: (tx) => tx ?? mockPrisma,
+  db: (tx?: unknown) => tx ?? mockPrisma,
 }));
 
 vi.mock("@/lib/ai/task-guidance", () => ({

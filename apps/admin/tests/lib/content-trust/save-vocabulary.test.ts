@@ -25,7 +25,7 @@ vi.mock("@/lib/prisma", () => {
     },
   },
 };
-  return { ..._p, db: (tx) => tx ?? _p.prisma };
+  return { ..._p, db: (tx?: unknown) => tx ?? _p.prisma };
 });
 
 import { saveVocabulary, deleteVocabularyForSource } from "@/lib/content-trust/save-vocabulary";

@@ -71,7 +71,7 @@ mockModels.$transaction = vi.fn(async (fn: any) => fn(mockModels));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: mockModels,
-  db: (tx) => tx ?? mockModels,
+  db: (tx?: unknown) => tx ?? mockModels,
 }));
 
 // Mock deleteCallerData used by bulk-delete.ts
