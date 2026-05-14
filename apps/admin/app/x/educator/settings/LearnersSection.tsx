@@ -13,7 +13,7 @@ export function LearnersSection({ domainId, canEdit }: Props) {
   const [audience, setAudience] = useState<AudienceId>("mixed");
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const loadDefaults = useCallback(async () => {
     if (!domainId) { setLoading(false); return; }

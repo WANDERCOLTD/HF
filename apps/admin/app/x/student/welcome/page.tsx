@@ -13,7 +13,7 @@ export default function WelcomeSurveyPage(): React.ReactElement {
 
   return (
     <WelcomeSurveyFlow
-      onComplete={() => router.replace(resolveRedirect())}
+      onComplete={() => router.replace(resolveRedirect(undefined))}
       onAlreadyDone={() => router.push("/x/student")}
     />
   );

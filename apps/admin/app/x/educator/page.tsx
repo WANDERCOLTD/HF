@@ -265,7 +265,7 @@ export default function EducatorDashboard() {
     );
   }
 
-  const stats = data?.stats ?? { classroomCount: 0, totalStudents: 0, activeThisWeek: 0 };
+  const stats = data?.stats ?? { departmentCount: 0, courseCount: 0, classroomCount: 0, totalStudents: 0, activeThisWeek: 0 };
   const hasClassrooms = stats.classroomCount > 0;
   const viewingSchoolName = selectedInstitutionId
     ? institutions.find((i) => i.id === selectedInstitutionId)?.name

@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { NextRequest } from "next/server";
 
 // =====================================================
 // MOCK SETUP
@@ -39,7 +40,7 @@ const { mockPrisma, mockRequireAuth } = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: mockPrisma,
-  db: (tx) => tx ?? mockPrisma,
+  db: (tx: unknown) => tx ?? mockPrisma,
 }));
 
 vi.mock("@/lib/permissions", () => ({
@@ -86,7 +87,7 @@ const mockIdentitySpecs = [
 ];
 
 /** Helper for Next.js 16 params pattern */
-const p = (obj: Record<string, string>) => ({ params: Promise.resolve(obj) });
+const p = <T extends Record<string, string>>(obj: T) => ({ params: Promise.resolve(obj) });
 
 // =====================================================
 // TESTS
@@ -106,7 +107,7 @@ describe("/api/communities", () => {
     it("lists all communities", async () => {
       mockPrisma.domain.findMany.mockResolvedValue([mockCommunity]);
 
-      const req = new Request("http://localhost/api/communities");
+      const req = new NextRequest("http://localhost/api/communities");
       const res = await getCommunitiesList(req);
       const body = await res.json();
 
@@ -117,7 +118,7 @@ describe("/api/communities", () => {
     });
 
     it("filters by kind=COMMUNITY", async () => {
-      await getCommunitiesList(new Request("http://localhost/api/communities"));
+      await getCommunitiesList(new NextRequest("http://localhost/api/communities"));
 
       expect(mockPrisma.domain.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -133,14 +134,14 @@ describe("/api/communities", () => {
       const { isAuthError } = await import("@/lib/permissions") as any;
       isAuthError.mockReturnValueOnce(true);
 
-      const res = await getCommunitiesList(new Request("http://localhost/api/communities"));
+      const res = await getCommunitiesList(new NextRequest("http://localhost/api/communities"));
       expect(res.status).toBe(403);
     });
 
     it("returns empty list when no communities exist", async () => {
       mockPrisma.domain.findMany.mockResolvedValue([]);
 
-      const req = new Request("http://localhost/api/communities");
+      const req = new NextRequest("http://localhost/api/communities");
       const res = await getCommunitiesList(req);
       const body = await res.json();
 
@@ -155,7 +156,7 @@ describe("/api/communities", () => {
       mockPrisma.domain.findUnique.mockResolvedValue(mockCommunity);
       mockPrisma.analysisSpec.findMany.mockResolvedValue(mockIdentitySpecs);
 
-      const req = new Request("http://localhost/api/communities/comm-1");
+      const req = new NextRequest("http://localhost/api/communities/comm-1");
       const res = await getCommunity(req, p({ communityId: "comm-1" }));
       const body = await res.json();
 
@@ -176,7 +177,7 @@ describe("/api/communities", () => {
     it("returns 404 if community not found", async () => {
       mockPrisma.domain.findUnique.mockResolvedValue(null);
 
-      const req = new Request("http://localhost/api/communities/nonexistent");
+      const req = new NextRequest("http://localhost/api/communities/nonexistent");
       const res = await getCommunity(req, p({ communityId: "nonexistent" }));
       const body = await res.json();
 
@@ -191,7 +192,7 @@ describe("/api/communities", () => {
         kind: "INSTITUTION",
       });
 
-      const req = new Request("http://localhost/api/communities/comm-1");
+      const req = new NextRequest("http://localhost/api/communities/comm-1");
       const res = await getCommunity(req, p({ communityId: "comm-1" }));
       const body = await res.json();
 
@@ -206,7 +207,7 @@ describe("/api/communities", () => {
       mockPrisma.domain.findUnique.mockResolvedValue(mockCommunity);
       mockPrisma.domain.update.mockResolvedValue(updated);
 
-      const req = new Request("http://localhost/api/communities/comm-1", {
+      const req = new NextRequest("http://localhost/api/communities/comm-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: "New Name" }),
@@ -229,7 +230,7 @@ describe("/api/communities", () => {
       mockPrisma.domain.findUnique.mockResolvedValue(mockCommunity);
       mockPrisma.domain.update.mockResolvedValue(updated);
 
-      const req = new Request("http://localhost/api/communities/comm-1", {
+      const req = new NextRequest("http://localhost/api/communities/comm-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ onboardingWelcome: "New Welcome" }),
@@ -256,7 +257,7 @@ describe("/api/communities", () => {
       mockPrisma.domain.findUnique.mockResolvedValue(mockCommunity);
       mockPrisma.domain.update.mockResolvedValue(updated);
 
-      const req = new Request("http://localhost/api/communities/comm-1", {
+      const req = new NextRequest("http://localhost/api/communities/comm-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -285,7 +286,7 @@ describe("/api/communities", () => {
       mockPrisma.domain.findUnique.mockResolvedValue(mockCommunity);
       mockPrisma.domain.update.mockResolvedValue(updated);
 
-      const req = new Request("http://localhost/api/communities/comm-1", {
+      const req = new NextRequest("http://localhost/api/communities/comm-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ onboardingFlowPhases: phases }),
@@ -305,7 +306,7 @@ describe("/api/communities", () => {
     it("returns 400 if no fields to update", async () => {
       mockPrisma.domain.findUnique.mockResolvedValue(mockCommunity);
 
-      const req = new Request("http://localhost/api/communities/comm-1", {
+      const req = new NextRequest("http://localhost/api/communities/comm-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -321,7 +322,7 @@ describe("/api/communities", () => {
     it("returns 404 if community not found", async () => {
       mockPrisma.domain.findUnique.mockResolvedValue(null);
 
-      const req = new Request("http://localhost/api/communities/nonexistent", {
+      const req = new NextRequest("http://localhost/api/communities/nonexistent", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: "New Name" }),
@@ -343,7 +344,7 @@ describe("/api/communities", () => {
         isActive: false,
       });
 
-      const req = new Request("http://localhost/api/communities/comm-1", {
+      const req = new NextRequest("http://localhost/api/communities/comm-1", {
         method: "DELETE",
       });
 
@@ -360,7 +361,7 @@ describe("/api/communities", () => {
     it("returns 404 if community not found", async () => {
       mockPrisma.domain.findUnique.mockResolvedValue(null);
 
-      const req = new Request("http://localhost/api/communities/nonexistent", {
+      const req = new NextRequest("http://localhost/api/communities/nonexistent", {
         method: "DELETE",
       });
 
@@ -379,7 +380,7 @@ describe("/api/communities", () => {
       isAuthError.mockReturnValueOnce(true);
 
       const res = await deleteCommunity(
-        new Request("http://localhost/api/communities/comm-1", { method: "DELETE" }),
+        new NextRequest("http://localhost/api/communities/comm-1", { method: "DELETE" }),
         p({ communityId: "comm-1" })
       );
 
@@ -406,7 +407,7 @@ describe("/api/communities", () => {
         email: "charlie@test.com",
       });
 
-      const req = new Request("http://localhost/api/communities/comm-1/members", {
+      const req = new NextRequest("http://localhost/api/communities/comm-1/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ callerId: "caller-3" }),
@@ -427,7 +428,7 @@ describe("/api/communities", () => {
     it("returns 400 if callerId missing", async () => {
       mockPrisma.domain.findUnique.mockResolvedValue({ kind: "COMMUNITY" });
 
-      const req = new Request("http://localhost/api/communities/comm-1/members", {
+      const req = new NextRequest("http://localhost/api/communities/comm-1/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -443,7 +444,7 @@ describe("/api/communities", () => {
     it("returns 404 if community not found", async () => {
       mockPrisma.domain.findUnique.mockResolvedValue(null);
 
-      const req = new Request("http://localhost/api/communities/nonexistent/members", {
+      const req = new NextRequest("http://localhost/api/communities/nonexistent/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ callerId: "caller-3" }),
@@ -460,7 +461,7 @@ describe("/api/communities", () => {
       mockPrisma.domain.findUnique.mockResolvedValue({ kind: "COMMUNITY" });
       mockPrisma.caller.findUnique.mockResolvedValue(null);
 
-      const req = new Request("http://localhost/api/communities/comm-1/members", {
+      const req = new NextRequest("http://localhost/api/communities/comm-1/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ callerId: "nonexistent" }),
@@ -482,7 +483,7 @@ describe("/api/communities", () => {
         domainId: "comm-1",
       });
 
-      const req = new Request("http://localhost/api/communities/comm-1/members", {
+      const req = new NextRequest("http://localhost/api/communities/comm-1/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ callerId: "caller-1" }),
@@ -504,7 +505,7 @@ describe("/api/communities", () => {
       });
       mockPrisma.caller.update.mockResolvedValue({});
 
-      const req = new Request("http://localhost/api/communities/comm-1/members/caller-1", {
+      const req = new NextRequest("http://localhost/api/communities/comm-1/members/caller-1", {
         method: "DELETE",
       });
 
@@ -521,7 +522,7 @@ describe("/api/communities", () => {
     it("returns 404 if community not found", async () => {
       mockPrisma.domain.findUnique.mockResolvedValue(null);
 
-      const req = new Request("http://localhost/api/communities/nonexistent/members/caller-1", {
+      const req = new NextRequest("http://localhost/api/communities/nonexistent/members/caller-1", {
         method: "DELETE",
       });
 
@@ -538,7 +539,7 @@ describe("/api/communities", () => {
         domainId: "other-domain",
       });
 
-      const req = new Request("http://localhost/api/communities/comm-1/members/caller-1", {
+      const req = new NextRequest("http://localhost/api/communities/comm-1/members/caller-1", {
         method: "DELETE",
       });
 

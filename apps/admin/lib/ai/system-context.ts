@@ -91,7 +91,7 @@ interface DomainContext {
 
 interface CallerContext {
   id: string;
-  name: string;
+  name: string | null;
   lastCallAt?: Date;
   totalCalls: number;
 }
@@ -124,7 +124,7 @@ interface PersonaContext {
 
 interface GoalContext {
   callerId: string;
-  callerName: string;
+  callerName: string | null;
   goalType: string;
   title: string;
   status: string;

@@ -1,4 +1,4 @@
-import { test, expect } from '../../fixtures';
+import { test, expect } from '../../../fixtures';
 
 test.describe('Course Setup Wizard', () => {
   test.beforeEach(async ({ page, loginAs }) => {

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 
 // Local mocks
 const mockPrisma = {
@@ -15,7 +16,7 @@ const mockPrisma = {
 const mockIsAllowedMimeType = vi.fn().mockReturnValue(true);
 const mockIsAllowedFileSize = vi.fn().mockReturnValue(true);
 
-vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx) => tx ?? mockPrisma }));
+vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx: unknown) => tx ?? mockPrisma }));
 
 vi.mock("@/lib/permissions", () => ({
   requireAuth: vi.fn().mockResolvedValue({
@@ -65,7 +66,7 @@ describe("POST /api/media/upload", () => {
     const formData = new FormData();
     formData.append("file", new File(["hello"], "test.png", { type: "image/png" }));
 
-    const request = new Request("http://localhost/api/media/upload", {
+    const request = new NextRequest("http://localhost/api/media/upload", {
       method: "POST",
       body: formData,
     });
@@ -93,7 +94,7 @@ describe("POST /api/media/upload", () => {
     const formData = new FormData();
     formData.append("file", new File(["hello"], "duplicate.png", { type: "image/png" }));
 
-    const request = new Request("http://localhost/api/media/upload", {
+    const request = new NextRequest("http://localhost/api/media/upload", {
       method: "POST",
       body: formData,
     });
@@ -111,7 +112,7 @@ describe("POST /api/media/upload", () => {
     const { POST } = await import("@/app/api/media/upload/route");
 
     const formData = new FormData();
-    const request = new Request("http://localhost/api/media/upload", {
+    const request = new NextRequest("http://localhost/api/media/upload", {
       method: "POST",
       body: formData,
     });
@@ -132,7 +133,7 @@ describe("POST /api/media/upload", () => {
     const formData = new FormData();
     formData.append("file", new File(["data"], "evil.exe", { type: "application/x-msdownload" }));
 
-    const request = new Request("http://localhost/api/media/upload", {
+    const request = new NextRequest("http://localhost/api/media/upload", {
       method: "POST",
       body: formData,
     });
@@ -153,7 +154,7 @@ describe("POST /api/media/upload", () => {
     const formData = new FormData();
     formData.append("file", new File(["data"], "big.png", { type: "image/png" }));
 
-    const request = new Request("http://localhost/api/media/upload", {
+    const request = new NextRequest("http://localhost/api/media/upload", {
       method: "POST",
       body: formData,
     });
@@ -182,7 +183,7 @@ describe("POST /api/media/upload", () => {
     formData.append("file", new File(["data"], "test.png", { type: "image/png" }));
     formData.append("subjectId", "subject-1");
 
-    const request = new Request("http://localhost/api/media/upload", {
+    const request = new NextRequest("http://localhost/api/media/upload", {
       method: "POST",
       body: formData,
     });

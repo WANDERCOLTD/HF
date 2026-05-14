@@ -1,5 +1,5 @@
-import { test, expect } from '../../fixtures';
-import { TeachPage } from '../../page-objects';
+import { test, expect } from '../../../fixtures';
+import { TeachPage } from '../../../page-objects';
 
 /**
  * Teach Page Tests

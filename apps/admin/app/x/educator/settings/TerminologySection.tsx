@@ -22,7 +22,7 @@ export function TerminologySection({ canEdit }: Props) {
   const [showCustomize, setShowCustomize] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const resolvedTerms = resolveTerminology({ preset: termPreset, overrides: termOverrides });
 

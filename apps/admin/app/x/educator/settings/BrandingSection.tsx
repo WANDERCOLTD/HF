@@ -30,8 +30,8 @@ export function BrandingSection({ institution, canEdit, onSaved }: Props) {
   const [welcomeMessage, setWelcomeMessage] = useState(institution.welcomeMessage || "");
 
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
-  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const save = async (body: Record<string, string | null>) => {
     setSaveStatus("saving");

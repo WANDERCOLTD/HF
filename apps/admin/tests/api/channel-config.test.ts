@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 
 const mockPrisma = {
   channelConfig: {
@@ -8,7 +9,7 @@ const mockPrisma = {
   },
 };
 
-vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx) => tx ?? mockPrisma }));
+vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx: unknown) => tx ?? mockPrisma }));
 
 vi.mock("@/lib/permissions", () => ({
   requireAuth: vi.fn().mockResolvedValue({
@@ -60,7 +61,7 @@ describe("/api/settings/channels", () => {
       });
 
       const { POST } = await import("@/app/api/settings/channels/route");
-      const request = new Request("http://localhost/api/settings/channels", {
+      const request = new NextRequest("http://localhost/api/settings/channels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -82,7 +83,7 @@ describe("/api/settings/channels", () => {
 
     it("returns 400 when channelType missing", async () => {
       const { POST } = await import("@/app/api/settings/channels/route");
-      const request = new Request("http://localhost/api/settings/channels", {
+      const request = new NextRequest("http://localhost/api/settings/channels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isEnabled: true }),
@@ -99,7 +100,7 @@ describe("/api/settings/channels", () => {
   describe("DELETE", () => {
     it("deletes a channel config by id", async () => {
       const { DELETE } = await import("@/app/api/settings/channels/route");
-      const request = new Request("http://localhost/api/settings/channels", {
+      const request = new NextRequest("http://localhost/api/settings/channels", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: "cc-1" }),
@@ -117,7 +118,7 @@ describe("/api/settings/channels", () => {
 
     it("returns 400 when id missing", async () => {
       const { DELETE } = await import("@/app/api/settings/channels/route");
-      const request = new Request("http://localhost/api/settings/channels", {
+      const request = new NextRequest("http://localhost/api/settings/channels", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
