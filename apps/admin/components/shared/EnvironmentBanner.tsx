@@ -19,9 +19,6 @@ import { useEffect } from 'react';
  */
 const ENV = process.env.NEXT_PUBLIC_APP_ENV || 'DEV';
 
-/** @deprecated Banner removed — kept at 0 for any remaining references */
-export const ENV_BANNER_HEIGHT = 0;
-
 const ENV_COLORS: Record<string, { sidebar: string; text?: string; sidebarWidth: number; label: string } | null> = {
   DEV:  { sidebar: 'var(--env-dev-color, #3b82f6)', sidebarWidth: 6, label: 'DEV' },                                     // Blue
   TEST: { sidebar: 'var(--env-test-color, #8b5cf6)', sidebarWidth: 6, label: 'TEST' },                                   // Purple
@@ -47,9 +44,6 @@ export const envSidebarColor = ENV_CONFIG?.sidebar ?? null;
 
 /** Environment text color override (null = white). Used for light backgrounds like gold LIVE badge. */
 export const envTextColor = ENV_CONFIG?.text ?? null;
-
-/** @deprecated Sidebar stripe removed — kept for backward compatibility */
-export const envSidebarWidth = ENV_CONFIG?.sidebarWidth ?? 0;
 
 /** Short label for the environment (null if unknown env) */
 export const envLabel = ENV_CONFIG?.label ?? null;

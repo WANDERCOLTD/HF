@@ -421,5 +421,3 @@ export function CallerPicker({
     </div>
   );
 }
-
-export default CallerPicker;

@@ -481,21 +481,3 @@ export function useChatContext(): ChatContextValue {
   }
   return context;
 }
-
-// Hook for keyboard shortcut to toggle chat
-export function useChatKeyboardShortcut() {
-  const { togglePanel } = useChatContext();
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+K or Ctrl+K to toggle chat
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        togglePanel();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [togglePanel]);
-}

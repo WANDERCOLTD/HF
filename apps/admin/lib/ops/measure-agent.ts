@@ -487,8 +487,5 @@ if (require.main === module) {
     .catch(err => {
       console.error("Fatal error:", err);
       process.exit(1);
-    })
-;
+    });
 }
-
-export default measureAgent;

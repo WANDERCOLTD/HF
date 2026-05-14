@@ -2,8 +2,6 @@
 
 import { TRUST_LEVELS } from "@/lib/content-categories";
 
-export const STATUSES = ["active", "inactive"] as const;
-
 export const statusColors: Record<string, { bg: string; text: string; icon: string; desc: string }> = {
   active: { bg: "var(--status-success-bg)", text: "var(--status-success-text)", icon: "✅", desc: "Currently active domains" },
   inactive: { bg: "var(--status-error-bg)", text: "var(--status-error-text)", icon: "⏸️", desc: "Inactive domains" },

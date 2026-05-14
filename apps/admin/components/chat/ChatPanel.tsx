@@ -301,5 +301,3 @@ export function ChatPanel() {
     </>
   );
 }
-
-export default ChatPanel;
