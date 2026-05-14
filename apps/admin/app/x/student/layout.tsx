@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useStudentNotifications } from "@/hooks/useStudentNotifications";
-import { AdminCallerBanner } from "@/components/student/AdminCallerBanner";
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
@@ -24,9 +23,6 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
   return (
     <>
-      <Suspense fallback={null}>
-        <AdminCallerBanner />
-      </Suspense>
       {children}
       {toastVisible && (
         <div

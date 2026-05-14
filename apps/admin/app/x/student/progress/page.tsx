@@ -121,7 +121,7 @@ function StudentProgressContent() {
     return (
       <div className="p-6">
         <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
-          Select a learner above to view their progress.
+          Open this page from a learner&apos;s profile to view their progress.
         </p>
       </div>
     );
