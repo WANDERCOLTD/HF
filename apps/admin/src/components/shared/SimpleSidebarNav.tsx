@@ -822,11 +822,13 @@ export default function SimpleSidebarNav({
                         )}
                         <span className="truncate">{item.label}</span>
                         {(rawItem as any).wizard && (
-                          <Sparkles
-                            className="w-[11px] h-[11px] flex-shrink-0 ml-0.5"
-                            style={{ color: "var(--status-warning-text)", opacity: 0.75 }}
-                            title="Guided flow"
-                          />
+                          <span title="Guided flow" className="inline-flex">
+                            <Sparkles
+                              className="w-[11px] h-[11px] flex-shrink-0 ml-0.5"
+                              style={{ color: "var(--status-warning-text)", opacity: 0.75 }}
+                              aria-label="Guided flow"
+                            />
+                          </span>
                         )}
                         {(rawItem as any).tag && (
                           <span

@@ -40,7 +40,7 @@ export function CourseDefaultsSection({ domainId, canEdit }: Props) {
   const [defaults, setDefaults] = useState<DefaultsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Form state
   const [sessionCount, setSessionCount] = useState<number | null>(null);

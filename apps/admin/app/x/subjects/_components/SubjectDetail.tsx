@@ -73,6 +73,7 @@ type SubjectSource = {
     trustLevel: string;
     documentType: string;
     documentTypeSource: string | null;
+    extractorVersion: number | null;
     _count: { assertions: number };
   };
 };

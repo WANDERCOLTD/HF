@@ -12,7 +12,7 @@ const mockPrisma = {
   },
 };
 
-vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx) => tx ?? mockPrisma }));
+vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx: unknown) => tx ?? mockPrisma }));
 
 vi.mock("@/lib/permissions", () => ({
   requireAuth: vi.fn().mockResolvedValue({
@@ -100,7 +100,7 @@ describe("/api/media/[id]", () => {
 
       const { DELETE } = await import("@/app/api/media/[id]/route");
 
-      const request = new Request("http://localhost/api/media/media-1", { method: "DELETE" });
+      const request = new NextRequest("http://localhost/api/media/media-1", { method: "DELETE" });
       const response = await DELETE(request, {
         params: Promise.resolve({ id: "media-1" }),
       });
@@ -117,7 +117,7 @@ describe("/api/media/[id]", () => {
 
       const { DELETE } = await import("@/app/api/media/[id]/route");
 
-      const request = new Request("http://localhost/api/media/nope", { method: "DELETE" });
+      const request = new NextRequest("http://localhost/api/media/nope", { method: "DELETE" });
       const response = await DELETE(request, {
         params: Promise.resolve({ id: "nope" }),
       });
@@ -160,7 +160,7 @@ describe("/api/media/[id]", () => {
       const formData = new FormData();
       formData.append("file", new File(["new content"], "new-photo.png", { type: "image/png" }));
 
-      const request = new Request("http://localhost/api/media/media-1", {
+      const request = new NextRequest("http://localhost/api/media/media-1", {
         method: "PATCH",
         body: formData,
       });
@@ -186,7 +186,7 @@ describe("/api/media/[id]", () => {
       const formData = new FormData();
       formData.append("file", new File(["data"], "test.png", { type: "image/png" }));
 
-      const request = new Request("http://localhost/api/media/nope", {
+      const request = new NextRequest("http://localhost/api/media/nope", {
         method: "PATCH",
         body: formData,
       });
@@ -206,7 +206,7 @@ describe("/api/media/[id]", () => {
       const { PATCH } = await import("@/app/api/media/[id]/route");
 
       const formData = new FormData();
-      const request = new Request("http://localhost/api/media/media-1", {
+      const request = new NextRequest("http://localhost/api/media/media-1", {
         method: "PATCH",
         body: formData,
       });
@@ -229,7 +229,7 @@ describe("/api/media/[id]", () => {
       const formData = new FormData();
       formData.append("file", new File(["data"], "evil.exe", { type: "application/x-msdownload" }));
 
-      const request = new Request("http://localhost/api/media/media-1", {
+      const request = new NextRequest("http://localhost/api/media/media-1", {
         method: "PATCH",
         body: formData,
       });
@@ -253,7 +253,7 @@ describe("/api/media/[id]", () => {
       const formData = new FormData();
       formData.append("file", new File(["same"], "same.png", { type: "image/png" }));
 
-      const request = new Request("http://localhost/api/media/media-1", {
+      const request = new NextRequest("http://localhost/api/media/media-1", {
         method: "PATCH",
         body: formData,
       });
@@ -278,7 +278,7 @@ describe("/api/media/[id]", () => {
       const formData = new FormData();
       formData.append("file", new File(["data"], "dup.png", { type: "image/png" }));
 
-      const request = new Request("http://localhost/api/media/media-1", {
+      const request = new NextRequest("http://localhost/api/media/media-1", {
         method: "PATCH",
         body: formData,
       });

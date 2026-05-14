@@ -15,6 +15,7 @@ import type { AssembledContext, SharedComputedState, CompositionSectionDef } fro
 /** Minimal shared state with overridable fields */
 function makeSharedState(overrides: Partial<SharedComputedState> = {}): SharedComputedState {
   return {
+    channel: "text",
     modules: [],
     isFirstCall: false,
     daysSinceLastCall: 0,
@@ -27,6 +28,7 @@ function makeSharedState(overrides: Partial<SharedComputedState> = {}): SharedCo
     reviewReason: "",
     thresholds: { high: 0.65, low: 0.35 },
     isFinalSession: false,
+    callNumber: 1,
     ...overrides,
   };
 }

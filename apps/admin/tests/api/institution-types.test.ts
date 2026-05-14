@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { NextRequest } from 'next/server';
 
 // Mock auth
 vi.mock('@/lib/permissions', () => ({
@@ -18,7 +19,7 @@ vi.mock('@/lib/prisma', () => {
     },
   },
 };
-  return { ..._p, db: (tx) => tx ?? _p.prisma };
+  return { ..._p, db: (tx: unknown) => tx ?? _p.prisma };
 });
 
 // Mock terminology cache
@@ -97,7 +98,7 @@ describe('POST /api/admin/institution-types', () => {
   });
 
   it('should require name', async () => {
-    const req = new Request('http://localhost/api/admin/institution-types', {
+    const req = new NextRequest('http://localhost/api/admin/institution-types', {
       method: 'POST',
       body: JSON.stringify({ slug: 'test', terminology: VALID_TERMINOLOGY }),
     });
@@ -110,7 +111,7 @@ describe('POST /api/admin/institution-types', () => {
   });
 
   it('should require slug', async () => {
-    const req = new Request('http://localhost/api/admin/institution-types', {
+    const req = new NextRequest('http://localhost/api/admin/institution-types', {
       method: 'POST',
       body: JSON.stringify({ name: 'Test', terminology: VALID_TERMINOLOGY }),
     });
@@ -123,7 +124,7 @@ describe('POST /api/admin/institution-types', () => {
   });
 
   it('should validate slug format', async () => {
-    const req = new Request('http://localhost/api/admin/institution-types', {
+    const req = new NextRequest('http://localhost/api/admin/institution-types', {
       method: 'POST',
       body: JSON.stringify({
         name: 'Test',
@@ -140,7 +141,7 @@ describe('POST /api/admin/institution-types', () => {
   });
 
   it('should require all 7 terminology keys', async () => {
-    const req = new Request('http://localhost/api/admin/institution-types', {
+    const req = new NextRequest('http://localhost/api/admin/institution-types', {
       method: 'POST',
       body: JSON.stringify({
         name: 'Test',
@@ -159,7 +160,7 @@ describe('POST /api/admin/institution-types', () => {
   it('should reject duplicate slug', async () => {
     vi.mocked(prisma.institutionType.findUnique).mockResolvedValue({ id: 'existing' } as any);
 
-    const req = new Request('http://localhost/api/admin/institution-types', {
+    const req = new NextRequest('http://localhost/api/admin/institution-types', {
       method: 'POST',
       body: JSON.stringify({
         name: 'Duplicate',
@@ -184,7 +185,7 @@ describe('POST /api/admin/institution-types', () => {
       terminology: VALID_TERMINOLOGY,
     } as any);
 
-    const req = new Request('http://localhost/api/admin/institution-types', {
+    const req = new NextRequest('http://localhost/api/admin/institution-types', {
       method: 'POST',
       body: JSON.stringify({
         name: 'University',

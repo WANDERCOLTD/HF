@@ -67,6 +67,7 @@ const BackgroundTaskQueueContext = createContext<BackgroundTaskQueueContextValue
   jobs: [],
   addExtractionJob: () => {},
   addCurriculumJob: () => {},
+  addCurriculumEnrichmentJob: () => {},
   addCourseSetupJob: () => {},
   addSnapshotJob: () => {},
   addBulkDeleteJob: () => {},
