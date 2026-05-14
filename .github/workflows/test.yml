@@ -32,13 +32,30 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
-      # tsc carries ~576 pre-existing errors from schema-rot in legacy code
-      # paths (renamed Prisma models, removed compound keys, etc.). Tracked
-      # for a focused cleanup epic. Surface as a warning in CI until the
-      # cleanup PR lands; do not block the merge gate on accumulated debt
+      # tsc carries hundreds of pre-existing errors from schema-rot in legacy
+      # code paths (renamed Prisma models, removed compound keys, etc.).
+      # Tracked for a focused cleanup epic. Surface as a warning in CI until
+      # the cleanup PR lands; do not block the merge gate on accumulated debt
       # unrelated to the change under review.
-      - name: TypeScript type check
+      - name: TypeScript type check (informational)
         run: npx tsc --noEmit
+        continue-on-error: true
+
+      # Ratchet gate (#227) — fails the build if any of tsc_errors,
+      # lint_errors, lint_warnings, or quarantined_tests goes UP vs the
+      # baseline in .ratchet.json. Decreasing counts pass with a "lock the
+      # win" hint. Started enforcing on 2026-05-14 after discovering that the
+      # ratchet existed but wasn't wired into CI — by then tsc_errors had
+      # drifted 574 → 625 silently. See PR for context.
+      - name: Ratchet check (blocking — no new tsc/lint debt)
+        run: npm run ratchet:check
+
+      # knip — dead-code detection. Informational for now; a future PR will
+      # add a ratchet on knip output to prevent regression. Surfaces unused
+      # files, exports, and types so refactor-orphans (the bug pattern that
+      # produced the #364 "0/0 modules" issue) are caught before merge.
+      - name: knip dead-code check (informational)
+        run: npm run knip:ci
         continue-on-error: true
 
       # API docs hygiene — currently fails on 1/439 missing annotation +
