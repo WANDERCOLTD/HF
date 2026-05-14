@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useState, useCallback, useMemo, Suspense } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams, usePathname } from "next/navigation";
 import { GraduationCap, ArrowLeft } from "lucide-react";
 import type {
   AuthoredModule,
@@ -66,10 +66,11 @@ function PickerLoading() {
 
 function PickerContent() {
   const router = useRouter();
+  const pathname = usePathname();
   const { courseId } = useParams<{ courseId: string }>();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
-  const { buildUrl } = useStudentCallerId();
+  const { isAdmin, hasSelection, buildUrl } = useStudentCallerId();
 
   const [data, setData] = useState<ModulesPayload | null>(null);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
@@ -78,7 +79,18 @@ function PickerContent() {
   const [pendingTerminal, setPendingTerminal] = useState<AuthoredModule | null>(null);
   const [launching, setLaunching] = useState(false);
 
+  // #356: Admins must reach this page with ?callerId= in the URL. If it's
+  // missing, redirect to the caller list so they can pick one and return.
+  // (Actual students short-circuit hasSelection=true in the hook.)
+  const needsCallerRedirect = isAdmin && !hasSelection;
   useEffect(() => {
+    if (!needsCallerRedirect) return;
+    const current = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    router.replace(`/x/callers?returnTo=${encodeURIComponent(current)}`);
+  }, [needsCallerRedirect, pathname, searchParams, router]);
+
+  useEffect(() => {
+    if (needsCallerRedirect) return;
     let cancelled = false;
     async function load() {
       try {
@@ -120,7 +132,7 @@ function PickerContent() {
     return () => {
       cancelled = true;
     };
-  }, [courseId, buildUrl]);
+  }, [courseId, buildUrl, needsCallerRedirect]);
 
   // Fall-through guard: course has no authored modules → bounce back.
   // `null` (never imported) and `false` (explicitly off) both hide the picker;
@@ -217,6 +229,9 @@ function PickerContent() {
   const handleTerminalCancel = useCallback(() => {
     setPendingTerminal(null);
   }, []);
+
+  // #356: While the missing-callerId redirect effect runs, render nothing.
+  if (needsCallerRedirect) return null;
 
   if (loading) return <PickerLoading />;
 

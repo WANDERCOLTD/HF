@@ -10,13 +10,20 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceMock, push: pushMock }),
   useParams: () => ({ courseId: "course-1" }),
   useSearchParams: () => new URLSearchParams("returnTo=/x/sim/caller-1"),
+  usePathname: () => "/x/student/course-1/modules",
 }));
+
+// Controllable mock for the caller-id hook so individual tests can simulate
+// admin-without-selection (the #356 redirect path) vs. student / admin-with-selection.
+const hookState: {
+  callerId: string | null;
+  isAdmin: boolean;
+  hasSelection: boolean;
+} = { callerId: null, isAdmin: false, hasSelection: true };
 
 vi.mock("@/hooks/useStudentCallerId", () => ({
   useStudentCallerId: () => ({
-    callerId: null,
-    isAdmin: false,
-    hasSelection: true,
+    ...hookState,
     buildUrl: (base: string) => base,
   }),
 }));
@@ -76,6 +83,34 @@ describe("StudentModulePickerPage", () => {
   beforeEach(() => {
     replaceMock.mockReset();
     pushMock.mockReset();
+    // Default: student-like behaviour (hook short-circuits, no redirect)
+    hookState.callerId = null;
+    hookState.isAdmin = false;
+    hookState.hasSelection = true;
+  });
+
+  it("redirects to /x/callers when admin has no callerId (#356)", async () => {
+    hookState.isAdmin = true;
+    hookState.hasSelection = false;
+    hookState.callerId = null;
+
+    global.fetch = mockFetch({
+      modulesPayload: {
+        modulesAuthored: true,
+        modules: MODULES,
+        lessonPlanMode: "continuous",
+        validationWarnings: [],
+        hasErrors: false,
+      },
+    }) as typeof fetch;
+
+    render(<StudentModulePickerPage />);
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/x\/callers\?returnTo=/),
+      );
+    });
   });
 
   it("renders the picker when modulesAuthored=true", async () => {
