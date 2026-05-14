@@ -1,12 +1,19 @@
 /**
  * Sim state breadcrumb — surfaces the call-state info that previously lived
- * only inside the composed system prompt (call number, module focus). Renders
- * above the chat area on both the standalone sim view and the admin caller
- * detail AI Call tab so the user always knows which call they are in and
- * which module is in focus.
+ * only inside the composed system prompt. Renders above the chat area on
+ * both the standalone sim view and the admin caller detail AI Call tab.
  *
- * Issue #357. Session / phase pills are intentionally deferred — they need
- * compose-prompt response wiring that doesn't exist yet on these surfaces.
+ * Three pills:
+ *
+ *   [ Now: Call #N (Pre-call|Active) ]  ·  [ Next: Call #N+1 ]  ·  [ Module: <name> | Pick a module → ]
+ *
+ * "Now" answers "which call am I in, and what's its state right now". "Next"
+ * tells the user what call is queued after this one. The Module pill is
+ * interactive when modulesAuthored=true.
+ *
+ * Issue #357. Session / phase sub-pills are intentionally deferred — they
+ * need compose-prompt response wiring that doesn't exist yet on these
+ * surfaces.
  */
 
 interface AuthoredModule {
@@ -15,9 +22,9 @@ interface AuthoredModule {
 }
 
 interface SimStateBreadcrumbProps {
-  /** Number of past calls (with transcript). The next call is this + 1. */
+  /** Number of past calls (with transcript). */
   pastCallCount: number;
-  /** True if a call is currently active (POST /calls returned, not ended). */
+  /** True if a call is currently active (not yet ended). */
   activeCall?: boolean;
   /** Module id chosen by the picker for this session, if any. */
   requestedModuleId?: string | null;
@@ -34,23 +41,24 @@ export function SimStateBreadcrumb({
   modules = [],
   onPickModule,
 }: SimStateBreadcrumbProps) {
-  const callLabel = activeCall
-    ? `Call #${pastCallCount + 1} (active)`
-    : pastCallCount === 0
-      ? "Call #1 (next)"
-      : `Call #${pastCallCount + 1} (next)`;
-
-  const stateLabel = activeCall ? "Active" : pastCallCount === 0 ? "Pre-call" : "Between calls";
+  // The "current" call is the one being conducted right now (active) OR the
+  // one the learner is about to start (pre-call). It's the same number in
+  // either case — what differs is the state label.
+  const currentCallNumber = pastCallCount + 1;
+  const nextCallNumber = currentCallNumber + 1;
+  const stateLabel = activeCall ? "Active" : "Pre-call";
 
   const matched = requestedModuleId ? modules.find((m) => m.id === requestedModuleId) : undefined;
-  const moduleLabel = matched?.label || requestedModuleId || "Pick a module →";
   const moduleHasFocus = Boolean(requestedModuleId);
+  const moduleLabel = matched?.label || requestedModuleId;
 
   return (
     <div className="hf-sim-breadcrumb" role="navigation" aria-label="Sim call state">
-      <span className="hf-sim-breadcrumb-pill">{callLabel}</span>
+      <span className="hf-sim-breadcrumb-pill hf-sim-breadcrumb-pill-current">
+        Now: Call #{currentCallNumber} ({stateLabel})
+      </span>
       <span className="hf-sim-breadcrumb-sep">·</span>
-      <span className="hf-sim-breadcrumb-pill">{stateLabel}</span>
+      <span className="hf-sim-breadcrumb-pill">Next: Call #{nextCallNumber}</span>
       <span className="hf-sim-breadcrumb-sep">·</span>
       {onPickModule ? (
         <button
@@ -59,11 +67,13 @@ export function SimStateBreadcrumb({
           className={`hf-sim-breadcrumb-pill hf-sim-breadcrumb-pill-action${moduleHasFocus ? " hf-sim-breadcrumb-pill-focus" : ""}`}
           aria-label={moduleHasFocus ? `Change module — currently ${moduleLabel}` : "Pick a module"}
         >
-          Module: {moduleLabel}
+          {moduleHasFocus ? `Module: ${moduleLabel}` : "Pick a module →"}
         </button>
-      ) : (
-        <span className="hf-sim-breadcrumb-pill">Module: {moduleLabel}</span>
-      )}
+      ) : moduleHasFocus ? (
+        <span className="hf-sim-breadcrumb-pill hf-sim-breadcrumb-pill-focus">
+          Module: {moduleLabel}
+        </span>
+      ) : null}
     </div>
   );
 }
