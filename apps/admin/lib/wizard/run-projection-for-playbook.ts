@@ -125,6 +125,7 @@ export async function runProjectionForPlaybook(playbookId: string): Promise<RunP
         `params=+${result.parametersUpserted} ` +
         `bt=+${result.behaviorTargetsCreated}/~${result.behaviorTargetsUpdated}/-${result.behaviorTargetsRemoved} ` +
         `cm=+${result.curriculumModulesCreated}/~${result.curriculumModulesUpdated}/-${result.curriculumModulesRemoved} ` +
+        `lo=+${result.learningObjectivesCreated}/~${result.learningObjectivesUpdated}/-${result.learningObjectivesRemoved} ` +
         `goals=${result.goalTemplatesWritten} ` +
         `noop=${result.noop}`,
     );

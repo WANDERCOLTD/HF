@@ -17,7 +17,14 @@
  *      this same source).
  *   3. Ensure a Curriculum exists for the playbook; diff + write
  *      CurriculumModule rows tagged with sourceContentId. Same add/update/
- *      remove logic, keyed by `slug`.
+ *      remove logic, keyed by `slug`. For each module, diff + write
+ *      LearningObjective rows keyed by (moduleId, ref), derived from the
+ *      module's `outcomesPrimary` × the doc's outcomes dictionary. The
+ *      classifier-managed audience-split fields (originalText,
+ *      learnerVisible, performanceStatement, systemRole, humanOverriddenAt)
+ *      are NEVER touched by the projection — only `ref`, `description`,
+ *      `sortOrder` are projection-owned. Module deletes cascade to LOs via
+ *      schema FK (#365).
  *   4. Merge the projection's configPatch into Playbook.config. Goal
  *      templates are scoped by sourceContentId so the applier replaces
  *      only its own prior templates — hand-authored / wizard / legacy
@@ -34,7 +41,7 @@
  * at enrolment time. Phase 5 (wizard wire-in) is responsible for calling
  * that after the projection lands, if needed.
  *
- * Issue #338 Phase 4.
+ * Issue #338 Phase 4. LearningObjective linkage added in #365.
  */
 
 import { Prisma } from "@prisma/client";
@@ -49,6 +56,7 @@ import type {
   ProjectedBehaviorTarget,
   ProjectedCurriculumModule,
   ProjectedGoalTemplate,
+  ProjectedLearningObjective,
   ProjectedParameter,
 } from "./project-course-reference";
 
@@ -67,6 +75,9 @@ export interface ApplyProjectionResult {
   curriculumModulesCreated: number;
   curriculumModulesUpdated: number;
   curriculumModulesRemoved: number;
+  learningObjectivesCreated: number;
+  learningObjectivesUpdated: number;
+  learningObjectivesRemoved: number;
   goalTemplatesWritten: number;
   curriculumId: string;
   warnings: ValidationWarning[];
@@ -213,6 +224,9 @@ interface CurriculumModuleDiff {
   created: number;
   updated: number;
   removed: number;
+  loCreated: number;
+  loUpdated: number;
+  loRemoved: number;
 }
 
 async function diffCurriculumModules(
@@ -231,7 +245,12 @@ async function diffCurriculumModules(
   let created = 0;
   let updated = 0;
   let removed = 0;
+  let loCreated = 0;
+  let loUpdated = 0;
+  let loRemoved = 0;
 
+  // Removed modules also delete their LOs via FK ON DELETE CASCADE (see
+  // schema.prisma model LearningObjective), so we only count modules here.
   for (const e of existing) {
     if (!desiredBySlug.has(e.slug)) {
       await tx.curriculumModule.delete({ where: { id: e.id } });
@@ -241,7 +260,9 @@ async function diffCurriculumModules(
 
   for (const m of desired) {
     const existingRow = existing.find((e) => e.slug === m.slug);
+    let moduleId: string;
     if (existingRow) {
+      moduleId = existingRow.id;
       const drift =
         existingRow.title !== m.title ||
         existingRow.sortOrder !== m.sortOrder ||
@@ -259,7 +280,7 @@ async function diffCurriculumModules(
         updated += 1;
       }
     } else {
-      await tx.curriculumModule.create({
+      const createdRow = await tx.curriculumModule.create({
         data: {
           curriculumId,
           slug: m.slug,
@@ -268,6 +289,85 @@ async function diffCurriculumModules(
           estimatedDurationMinutes: m.estimatedDurationMinutes,
           description: m.description,
           sourceContentId,
+        },
+        select: { id: true },
+      });
+      moduleId = createdRow.id;
+      created += 1;
+    }
+
+    // Sync LearningObjective rows for this module. Key: (moduleId, ref).
+    // Issue #365.
+    const loDiff = await diffLearningObjectives(tx, moduleId, m.learningObjectives);
+    loCreated += loDiff.created;
+    loUpdated += loDiff.updated;
+    loRemoved += loDiff.removed;
+  }
+
+  return { created, updated, removed, loCreated, loUpdated, loRemoved };
+}
+
+interface LearningObjectiveDiff {
+  created: number;
+  updated: number;
+  removed: number;
+}
+
+/**
+ * Diff LearningObjective rows under a single CurriculumModule. Keyed by
+ * `ref` (matches OUT-NN id from the COURSE_REFERENCE doc). LOs in the
+ * projection but missing → CREATE. LOs with drifted description or
+ * sortOrder → UPDATE. LOs present in DB but absent from the projection →
+ * DELETE (they came from a prior version of this module's outcomesPrimary).
+ *
+ * The classifier-managed audience-split fields (originalText,
+ * learnerVisible, performanceStatement, systemRole, humanOverriddenAt)
+ * are NOT touched here — only the projection-owned fields (ref,
+ * description, sortOrder). Issue #365.
+ */
+async function diffLearningObjectives(
+  tx: Tx,
+  moduleId: string,
+  desired: ProjectedLearningObjective[],
+): Promise<LearningObjectiveDiff> {
+  const existing = await tx.learningObjective.findMany({
+    where: { moduleId },
+    select: { id: true, ref: true, description: true, sortOrder: true },
+  });
+
+  const desiredByRef = new Map(desired.map((lo) => [lo.ref, lo]));
+
+  let created = 0;
+  let updated = 0;
+  let removed = 0;
+
+  for (const e of existing) {
+    if (!desiredByRef.has(e.ref)) {
+      await tx.learningObjective.delete({ where: { id: e.id } });
+      removed += 1;
+    }
+  }
+
+  for (const lo of desired) {
+    const existingRow = existing.find((e) => e.ref === lo.ref);
+    if (existingRow) {
+      const drift =
+        existingRow.description !== lo.description ||
+        existingRow.sortOrder !== lo.sortOrder;
+      if (drift) {
+        await tx.learningObjective.update({
+          where: { id: existingRow.id },
+          data: { description: lo.description, sortOrder: lo.sortOrder },
+        });
+        updated += 1;
+      }
+    } else {
+      await tx.learningObjective.create({
+        data: {
+          moduleId,
+          ref: lo.ref,
+          description: lo.description,
+          sortOrder: lo.sortOrder,
         },
       });
       created += 1;
@@ -379,6 +479,7 @@ export async function applyProjection(
       parametersUpserted === 0 &&
       btDiff.created + btDiff.updated + btDiff.removed === 0 &&
       cmDiff.created + cmDiff.updated + cmDiff.removed === 0 &&
+      cmDiff.loCreated + cmDiff.loUpdated + cmDiff.loRemoved === 0 &&
       // goal templates always re-written; treat unchanged template count
       // as no-op-ish but the JSON write itself is technically idempotent
       // in Prisma — we just bump updatedAt. Caller can ignore the bump.
@@ -394,6 +495,9 @@ export async function applyProjection(
       curriculumModulesCreated: cmDiff.created,
       curriculumModulesUpdated: cmDiff.updated,
       curriculumModulesRemoved: cmDiff.removed,
+      learningObjectivesCreated: cmDiff.loCreated,
+      learningObjectivesUpdated: cmDiff.loUpdated,
+      learningObjectivesRemoved: cmDiff.loRemoved,
       goalTemplatesWritten,
       curriculumId,
       warnings: projection.validationWarnings,

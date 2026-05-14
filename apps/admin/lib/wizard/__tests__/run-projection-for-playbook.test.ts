@@ -145,6 +145,9 @@ describe("runProjectionForPlaybook", () => {
       curriculumModulesCreated: 5,
       curriculumModulesUpdated: 0,
       curriculumModulesRemoved: 0,
+      learningObjectivesCreated: 27,
+      learningObjectivesUpdated: 0,
+      learningObjectivesRemoved: 0,
       goalTemplatesWritten: 25,
       curriculumId: "cur-1",
       warnings: [],
@@ -167,6 +170,50 @@ describe("runProjectionForPlaybook", () => {
     expect(projection.parameters.map((p: { name: string }) => p.name)).toContain(
       "skill_fluency_and_coherence",
     );
+  });
+
+  it("logs LO counts alongside params/bt/cm/goals in the applied line (#365)", async () => {
+    mockPrismaState.playbookSource.findMany.mockResolvedValue([
+      {
+        source: {
+          id: "src-ielts",
+          name: "IELTS Speaking course-ref",
+          mediaAssets: [{ storageKey: "key-ielts", fileName: "course-reference-ielts-v2.2.md" }],
+        },
+      },
+    ]);
+    mockStorageDownload.mockResolvedValue(Buffer.from(IELTS_V22));
+    mockExtractTextFromBuffer.mockResolvedValue({ text: IELTS_V22, fileType: "text" });
+    mockApplyProjection.mockResolvedValue({
+      parametersUpserted: 4,
+      behaviorTargetsCreated: 4,
+      behaviorTargetsUpdated: 0,
+      behaviorTargetsRemoved: 0,
+      curriculumModulesCreated: 5,
+      curriculumModulesUpdated: 0,
+      curriculumModulesRemoved: 0,
+      learningObjectivesCreated: 27,
+      learningObjectivesUpdated: 1,
+      learningObjectivesRemoved: 2,
+      goalTemplatesWritten: 25,
+      curriculumId: "cur-1",
+      warnings: [],
+      noop: false,
+    });
+
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const { runProjectionForPlaybook } = await import("../run-projection-for-playbook");
+      await runProjectionForPlaybook(PLAYBOOK_ID);
+      const lines = logSpy.mock.calls.map((c) => String(c[0]));
+      const applied = lines.find((l) => l.includes("[projection] applied"));
+      expect(applied).toBeDefined();
+      expect(applied).toContain("lo=+27/~1/-2");
+      // Existing counters still present and ordered before lo=
+      expect(applied).toMatch(/cm=\+5\/~0\/-0 lo=\+27\/~1\/-2 goals=25/);
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 
   it("applies multiple COURSE_REFERENCE sources in order, accumulating results", async () => {
@@ -196,6 +243,9 @@ describe("runProjectionForPlaybook", () => {
       curriculumModulesCreated: 0,
       curriculumModulesUpdated: 0,
       curriculumModulesRemoved: 0,
+      learningObjectivesCreated: 0,
+      learningObjectivesUpdated: 0,
+      learningObjectivesRemoved: 0,
       goalTemplatesWritten: 25,
       curriculumId: "cur-1",
       warnings: [],

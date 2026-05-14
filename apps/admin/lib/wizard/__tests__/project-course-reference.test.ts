@@ -173,6 +173,60 @@ describe("projectCourseReference — IELTS v2.2 fixture", () => {
     expect(slugs).toContain("mock");
   });
 
+  it("projects LearningObjectives onto every authored module from its outcomesPrimary (#365)", () => {
+    // Baseline declares no primary outcomes ("samples across all") → 0 LOs.
+    // Other modules: part1=6, part2=9, part3=9, mock=3.
+    const bySlug = new Map(result.curriculumModules.map((m) => [m.slug, m]));
+    expect(bySlug.get("baseline")!.learningObjectives).toHaveLength(0);
+    expect(bySlug.get("part1")!.learningObjectives).toHaveLength(6);
+    expect(bySlug.get("part2")!.learningObjectives).toHaveLength(9);
+    expect(bySlug.get("part3")!.learningObjectives).toHaveLength(9);
+    expect(bySlug.get("mock")!.learningObjectives).toHaveLength(3);
+
+    // Each LO must carry the OUT-NN ref and the statement text (not the
+    // bare ref fallback) — the IELTS fixture defines a statement for every
+    // OUT used in module rows.
+    const part1 = bySlug.get("part1")!;
+    expect(part1.learningObjectives.map((lo) => lo.ref)).toEqual([
+      "OUT-01",
+      "OUT-02",
+      "OUT-05",
+      "OUT-06",
+      "OUT-07",
+      "OUT-24",
+    ]);
+    const out01 = part1.learningObjectives.find((lo) => lo.ref === "OUT-01")!;
+    expect(out01.description).toContain("Extends every answer");
+    expect(out01.sortOrder).toBe(0);
+  });
+
+  it("falls back to the bare ref when a module's outcome has no statement in the doc", () => {
+    const onlyTableOutcomes = `# Course
+
+**Modules authored:** Yes
+
+## Modules
+
+**Modules authored:** Yes
+
+### Module Catalogue
+
+| ID | Label | Learner-selectable | Mode | Duration | Scoring fired | Voice band readout | Session-terminal | Frequency | Content source | Outcomes (primary) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| \`m1\` | Module One | Yes | Tutor | 10 min | LR only | No | No | Once | Source 1 | OUT-99 |
+`;
+    const minimal = projectCourseReference(onlyTableOutcomes, { sourceContentId: SOURCE_ID });
+    const m1 = minimal.curriculumModules.find((m) => m.slug === "m1");
+    expect(m1).toBeDefined();
+    expect(m1!.learningObjectives).toHaveLength(1);
+    // No `**OUT-99: ...**` statement in the doc → fallback to bare ref.
+    expect(m1!.learningObjectives[0]).toEqual({
+      ref: "OUT-99",
+      description: "OUT-99",
+      sortOrder: 0,
+    });
+  });
+
   it("sets progressionMode based on learnerSelectable across all modules", () => {
     // IELTS v2.2 has learner-selectable modules (Part 1/2/3) → learner-picks
     expect(result.configPatch.progressionMode).toBe("learner-picks");

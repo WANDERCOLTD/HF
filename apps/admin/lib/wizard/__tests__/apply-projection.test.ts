@@ -148,6 +148,16 @@ function buildMockPrisma() {
     },
     curriculumModule: {
       findMany: vi.fn().mockResolvedValue([]),
+      // Default newly-created module id: slug-based so test assertions can
+      // correlate moduleId → desired slug if needed.
+      create: vi.fn().mockImplementation(async ({ data }: { data: { slug: string } }) => ({
+        id: `cm-${data.slug}`,
+      })),
+      update: vi.fn().mockResolvedValue({}),
+      delete: vi.fn().mockResolvedValue({}),
+    },
+    learningObjective: {
+      findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue({}),
       update: vi.fn().mockResolvedValue({}),
       delete: vi.fn().mockResolvedValue({}),
@@ -184,15 +194,45 @@ describe("applyProjection — orchestrator smoke", () => {
       sourceContentId: SOURCE_ID_A,
     });
 
+    const expectedLoCount = projection.curriculumModules.reduce(
+      (sum, m) => sum + m.learningObjectives.length,
+      0,
+    );
+
     expect(mockTx.parameter.create).toHaveBeenCalledTimes(4);
     expect(mockTx.behaviorTarget.create).toHaveBeenCalledTimes(4);
     expect(mockTx.curriculumModule.create).toHaveBeenCalledTimes(5);
+    expect(mockTx.learningObjective.create).toHaveBeenCalledTimes(expectedLoCount);
     expect(mockTx.playbook.update).toHaveBeenCalledTimes(1);
 
     expect(result.parametersUpserted).toBe(4);
     expect(result.behaviorTargetsCreated).toBe(4);
     expect(result.curriculumModulesCreated).toBe(5);
+    expect(result.learningObjectivesCreated).toBe(expectedLoCount);
     expect(result.goalTemplatesWritten).toBe(projection.configPatch.goalTemplates.length);
+  });
+
+  it("links each new LearningObjective to its parent CurriculumModule via moduleId (#365)", async () => {
+    const { applyProjection } = await import("../apply-projection");
+    const projection = ieltsProjection();
+    await applyProjection(projection, {
+      playbookId: PLAYBOOK_ID,
+      sourceContentId: SOURCE_ID_A,
+    });
+
+    // Every LO create call must include a moduleId matching one of the
+    // CurriculumModule rows the mock pretended to insert (id="cm-${slug}").
+    const validModuleIds = new Set(
+      projection.curriculumModules.map((m) => `cm-${m.slug}`),
+    );
+    const loCreateCalls = mockTx.learningObjective.create.mock.calls;
+    expect(loCreateCalls.length).toBeGreaterThan(0);
+    for (const [arg] of loCreateCalls) {
+      const data = (arg as { data: { moduleId: string; ref: string; description: string } }).data;
+      expect(validModuleIds.has(data.moduleId)).toBe(true);
+      expect(data.ref).toMatch(/^OUT-\d+$/);
+      expect(data.description.length).toBeGreaterThan(0);
+    }
   });
 
   it("re-running with all DB rows already present is a no-op (no creates, no deletes)", async () => {
@@ -219,6 +259,21 @@ describe("applyProjection — orchestrator smoke", () => {
         sortOrder: m.sortOrder,
         estimatedDurationMinutes: m.estimatedDurationMinutes ?? null,
       })),
+    );
+    // Each module's LearningObjectives are already present in the DB.
+    // diffLearningObjectives queries by moduleId, so return per-module.
+    mockTx.learningObjective.findMany.mockImplementation(
+      async ({ where }: { where: { moduleId: string } }) => {
+        const slug = where.moduleId.replace(/^cm-/, "");
+        const mod = projection.curriculumModules.find((m) => m.slug === slug);
+        if (!mod) return [];
+        return mod.learningObjectives.map((lo) => ({
+          id: `lo-${slug}-${lo.ref}`,
+          ref: lo.ref,
+          description: lo.description,
+          sortOrder: lo.sortOrder,
+        }));
+      },
     );
     // Existing config already has the projection's goal templates tagged.
     mockTx.playbook.findUnique.mockResolvedValue({
@@ -247,9 +302,15 @@ describe("applyProjection — orchestrator smoke", () => {
     expect(mockTx.behaviorTarget.delete).not.toHaveBeenCalled();
     expect(mockTx.curriculumModule.create).not.toHaveBeenCalled();
     expect(mockTx.curriculumModule.delete).not.toHaveBeenCalled();
+    expect(mockTx.learningObjective.create).not.toHaveBeenCalled();
+    expect(mockTx.learningObjective.update).not.toHaveBeenCalled();
+    expect(mockTx.learningObjective.delete).not.toHaveBeenCalled();
     expect(result.parametersUpserted).toBe(0);
     expect(result.behaviorTargetsCreated).toBe(0);
     expect(result.curriculumModulesCreated).toBe(0);
+    expect(result.learningObjectivesCreated).toBe(0);
+    expect(result.learningObjectivesUpdated).toBe(0);
+    expect(result.learningObjectivesRemoved).toBe(0);
     expect(result.noop).toBe(true);
   });
 
