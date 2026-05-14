@@ -473,37 +473,111 @@ async function composeContentFromSubject(
   callerId: string,
   domainId: string
 ): Promise<ContentSection> {
-  // Try playbook curriculum first (direct link)
+  // Try playbook curriculum first (direct link). Source-of-truth precedence:
+  //   1. Relational CurriculumModule rows (populated by the projection layer
+  //      added in #338). When this branch fires, the UI no longer reports
+  //      "0/0 modules" on every goal card just because the legacy
+  //      notableInfo.modules blob hasn't been populated.
+  //   2. Legacy Curriculum.notableInfo.modules JSON (kept for back-compat
+  //      with seed data that pre-dates the relational model).
   const { resolvePlaybookId } = await import("@/lib/enrollment/resolve-playbook");
   const enrolledPbId = await resolvePlaybookId(callerId);
   if (enrolledPbId) {
     const pbCurr = await prisma.curriculum.findFirst({
       where: { playbookId: enrolledPbId },
       orderBy: { updatedAt: "desc" },
-      select: { slug: true, name: true, notableInfo: true },
+      select: {
+        slug: true,
+        name: true,
+        notableInfo: true,
+        modules: {
+          orderBy: { sortOrder: "asc" },
+          select: {
+            id: true,
+            slug: true,
+            title: true,
+            description: true,
+            sortOrder: true,
+          },
+        },
+      },
     });
-    if (pbCurr?.notableInfo) {
+
+    if (pbCurr) {
+      // Path 1 — relational CurriculumModule rows.
+      const relationalModules = pbCurr.modules ?? [];
+      if (relationalModules.length > 0) {
+        const modules: CurriculumModule[] = relationalModules.map((m, idx) => ({
+          id: m.id,
+          name: m.title || `Module ${idx + 1}`,
+          description: m.description ?? "",
+          content: m,
+          sequence: m.sortOrder ?? idx,
+          prerequisites: [],
+          status: "not_started" as const,
+          mastery: 0,
+        }));
+
+        const progress = await loadCallerProgress(callerId, pbCurr.slug, "current_module");
+        const contractThresholds = await ContractRegistry.getThresholds("CURRICULUM_PROGRESS_V1");
+        const masteryThreshold = contractThresholds?.masteryComplete ?? 0.7;
+        const enrichedModules = enrichModulesWithProgress(modules, progress, masteryThreshold);
+        const nextModule = enrichedModules.find((m) => m.status !== "completed") || null;
+        const nextContent = nextModule
+          ? [{ moduleId: nextModule.id, moduleName: nextModule.name, content: nextModule.content }]
+          : [];
+
+        return {
+          name: pbCurr.name,
+          hasData: true,
+          modules: enrichedModules,
+          nextModule: nextModule?.id || null,
+          nextContent,
+          totalModules: modules.length,
+          completedCount: enrichedModules.filter((m) => m.status === "completed").length,
+          coveredModules: enrichedModules.filter((m) => m.status !== "not_started").map((m) => m.id),
+          currentProgress: progress,
+          completedModules: enrichedModules.filter((m) => m.status === "completed").map((m) => m.id),
+          estimatedProgress: calculateProgress(enrichedModules),
+        };
+      }
+
+      // Path 2 — legacy notableInfo.modules JSON.
       const rawModules = (pbCurr.notableInfo as any)?.modules;
       if (Array.isArray(rawModules) && rawModules.length > 0) {
         const modules: CurriculumModule[] = rawModules.map((m: any, idx: number) => ({
           id: m.id,
-          slug: m.slug || m.id,
-          title: m.name || m.title || `Module ${idx + 1}`,
-          description: m.description,
-          sortOrder: idx,
-          keyTerms: m.keyTerms || [],
-          learningOutcomes: (m.learningOutcomes || []).map((lo: any) =>
-            typeof lo === "string" ? lo : lo.description || lo.ref || String(lo),
-          ),
+          name: m.title || m.name || m.id,
+          description: m.description || "",
+          content: m,
+          sequence: m.sortOrder ?? idx,
+          prerequisites: [],
+          status: "not_started" as const,
+          mastery: 0,
         }));
 
-        const progress = await getCurriculumProgress(callerId, pbCurr.slug);
-        return buildContentSection(
-          { slug: pbCurr.slug, name: pbCurr.name },
-          modules,
-          progress,
-          callerId,
-        );
+        const progress = await loadCallerProgress(callerId, pbCurr.slug, "current_module");
+        const contractThresholds = await ContractRegistry.getThresholds("CURRICULUM_PROGRESS_V1");
+        const masteryThreshold = contractThresholds?.masteryComplete ?? 0.7;
+        const enrichedModules = enrichModulesWithProgress(modules, progress, masteryThreshold);
+        const nextModule = enrichedModules.find((m) => m.status !== "completed") || null;
+        const nextContent = nextModule
+          ? [{ moduleId: nextModule.id, moduleName: nextModule.name, content: nextModule.content }]
+          : [];
+
+        return {
+          name: pbCurr.name,
+          hasData: true,
+          modules: enrichedModules,
+          nextModule: nextModule?.id || null,
+          nextContent,
+          totalModules: modules.length,
+          completedCount: enrichedModules.filter((m) => m.status === "completed").length,
+          coveredModules: enrichedModules.filter((m) => m.status !== "not_started").map((m) => m.id),
+          currentProgress: progress,
+          completedModules: enrichedModules.filter((m) => m.status === "completed").map((m) => m.id),
+          estimatedProgress: calculateProgress(enrichedModules),
+        };
       }
     }
   }
