@@ -149,18 +149,10 @@ export default function SimConversationPage() {
     router.push(`/x/student/${playbookId}/modules?${sp.toString()}`);
   }, [callerId, playbookId, router, searchParams]);
 
-  // #357: auto-route to picker on first entry when modulesAuthored=true and
-  // the learner hasn't yet picked a module for this session. Only fires once,
-  // before any past-call activity. Skip if the URL already has a
-  // requestedModuleId (picker round-trip) or no playbook.
-  const hasPastCalls = (caller?.pastCalls?.length ?? 0) > 0;
-  useEffect(() => {
-    if (!playbookId) return;
-    if (!modulesAuthored) return;
-    if (requestedModuleId) return;
-    if (hasPastCalls) return;
-    handlePickModule();
-  }, [playbookId, modulesAuthored, requestedModuleId, hasPastCalls, handlePickModule]);
+  // #357 NOTE: an earlier slice auto-routed to the picker on first entry
+  // when modulesAuthored=true. That created a trap — user couldn't get
+  // back to the sim without picking, even to test an undirected call.
+  // Reverted: the banner CTA below is the non-blocking entry instead.
 
   if (error) {
     return (
