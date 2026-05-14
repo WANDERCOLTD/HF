@@ -9,6 +9,7 @@ import { SimChat } from '@/components/sim/SimChat';
 import { useJourneyChat } from '@/hooks/useJourneyChat';
 import { deriveParameterMap } from '@/lib/agent-tuner/derive';
 import type { AgentTunerPill } from '@/lib/agent-tuner/types';
+import { ModulePickerSelectionBanner, ModulePickerInviteBanner } from '@/components/sim/ModulePickerBanners';
 
 interface PastCall {
   transcript: string;
@@ -212,76 +213,5 @@ export default function SimConversationPage() {
   );
 }
 
-/**
- * Selection banner — confirms which module the learner picked. The id is
- * forwarded to POST /api/callers/[id]/calls and persisted as
- * Call.requestedModuleId so the pipeline overrides the scheduler-selected
- * module when computing mastery (#242 Slice 2). The compose-prompt route
- * also reads it (#274 Slice A) to drive the tutor's opening narrative.
- *
- * #274 Slice C:
- * - Replaced inline styles with `hf-banner hf-banner-info` classes
- *   (Guard 6, ui-design-system rule).
- * - Copy: "Next session" → "This session" (the picker's choice IS for
- *   THIS session, not the next one).
- * - Resolves module label from authored config; falls back to id.
- */
-function ModulePickerSelectionBanner({
-  moduleId,
-  modules,
-}: {
-  moduleId: string;
-  modules: Array<{ id: string; label?: string }>;
-}) {
-  const matched = modules.find((m) => m.id === moduleId);
-  const label = matched?.label || moduleId;
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="hf-banner hf-banner-info hf-flex hf-items-center hf-gap-8"
-    >
-      <strong>Module selected:</strong>
-      <span>
-        This session will focus on <strong>{label}</strong>. Mastery will be tracked against this module.
-      </span>
-    </div>
-  );
-}
-
-/**
- * #357: invite banner — shown when the course has authored modules but the
- * learner hasn't picked one yet for this session. Entire row is a button
- * so the banner is itself the CTA (was the user's UX feedback: don't show
- * a passive banner alongside an obscure header icon — let the banner be
- * the picker entry).
- */
-function ModulePickerInviteBanner({
-  moduleCount,
-  onPick,
-}: {
-  moduleCount: number;
-  onPick: () => void;
-}) {
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onPick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onPick();
-        }
-      }}
-      className="hf-banner hf-banner-info hf-flex hf-items-center hf-gap-8 hf-banner-clickable"
-      aria-label="Pick a module to focus this session"
-    >
-      <strong>Pick a module →</strong>
-      <span>
-        Focus this session on one of {moduleCount > 0 ? `${moduleCount} ` : ''}
-        authored modules so mastery is tracked. Or continue and the system will choose.
-      </span>
-    </div>
-  );
-}
+// Banner components moved to components/sim/ModulePickerBanners.tsx (#357)
+// so the admin caller-detail surface can reuse them.
