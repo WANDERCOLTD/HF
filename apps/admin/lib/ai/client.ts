@@ -682,7 +682,7 @@ export async function getConfiguredAICompletion(
 
   // Use override if provided, otherwise use config.
   // When the engine is overridden to a different provider, the configured model
-  // (e.g. "claude-sonnet-4-20250514") won't work on the other provider (e.g. OpenAI).
+  // (e.g. "claude-sonnet-4-5-20250929") won't work on the other provider (e.g. OpenAI).
   // Fall back to the default model for the overridden engine.
   const engine = engineOverride ?? aiConfig.provider;
   const modelProviderMismatch = engineOverride && engineOverride !== aiConfig.provider;
@@ -725,7 +725,7 @@ export async function getConfiguredAICompletionStream(
 
   // Use override if provided, otherwise use config.
   // When the engine is overridden to a different provider, the configured model
-  // (e.g. "claude-sonnet-4-20250514") won't work on the other provider (e.g. OpenAI).
+  // (e.g. "claude-sonnet-4-5-20250929") won't work on the other provider (e.g. OpenAI).
   // Fall back to the default model for the overridden engine.
   const engine = engineOverride ?? aiConfig.provider;
   const modelProviderMismatch = engineOverride && engineOverride !== aiConfig.provider;

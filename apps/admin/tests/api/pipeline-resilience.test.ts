@@ -143,7 +143,7 @@ vi.mock("@/lib/goals/extract-goals", () => ({
 vi.mock("@/lib/config", () => ({
   config: {
     ai: {
-      claude: { model: "claude-sonnet-4-20250514", lightModel: "claude-haiku-4-5-20251001" },
+      claude: { model: "claude-sonnet-4-5-20250929", lightModel: "claude-haiku-4-5-20251001" },
       openai: { model: "gpt-4o", lightModel: "gpt-4o-mini" },
     },
     specs: {

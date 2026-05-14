@@ -33,7 +33,7 @@ async function generateStudentResponse(
   history: Message[],
 ): Promise<string> {
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-5-20250929',
     max_tokens: 200,
     temperature: 0.9,
     system: persona.systemPrompt,

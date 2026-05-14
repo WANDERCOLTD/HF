@@ -60,7 +60,7 @@ const createMockAIConfig = <T extends Record<string, unknown>>(overrides?: T) =>
   callPoint: "pipeline.measure",
   label: "Pipeline - MEASURE",
   provider: "claude",
-  model: "claude-sonnet-4-20250514",
+  model: "claude-sonnet-4-5-20250929",
   maxTokens: null,
   temperature: null,
   transcriptLimit: null,
@@ -73,7 +73,7 @@ const createMockAIConfig = <T extends Record<string, unknown>>(overrides?: T) =>
 
 const createMockAIModel = <T extends Record<string, unknown>>(overrides?: T) => ({
   id: "model-123",
-  modelId: "claude-sonnet-4-20250514",
+  modelId: "claude-sonnet-4-5-20250929",
   provider: "claude",
   label: "Claude Sonnet 4",
   tier: "flagship",
@@ -182,7 +182,7 @@ describe("/api/ai-config", () => {
         body: JSON.stringify({
           callPoint: "pipeline.measure",
           provider: "claude",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-5-20250929",
           transcriptLimit: 5000,
         }),
       });
@@ -219,7 +219,7 @@ describe("/api/ai-config", () => {
         body: JSON.stringify({
           callPoint: "pipeline.measure",
           provider: "claude",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-5-20250929",
           transcriptLimit: null,
         }),
       });
@@ -247,7 +247,7 @@ describe("/api/ai-config", () => {
         body: JSON.stringify({
           callPoint: "invalid.call.point",
           provider: "claude",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-5-20250929",
         }),
       });
 

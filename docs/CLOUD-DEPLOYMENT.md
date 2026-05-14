@@ -117,7 +117,7 @@ These are env-overridable but you should never need to change them unless runnin
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OPENAI_MODEL_ID` | `gpt-4o` | OpenAI model |
-| `CLAUDE_MODEL_ID` | `claude-sonnet-4-20250514` | Claude model |
+| `CLAUDE_MODEL_ID` | `claude-sonnet-4-5-20250929` | Claude model |
 | `AI_DEFAULT_MAX_TOKENS` | `1024` | Default max tokens |
 | `AI_DEFAULT_TEMPERATURE` | `0.7` | Default temperature |
 

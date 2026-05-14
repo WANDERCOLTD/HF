@@ -140,7 +140,7 @@ export const config = {
       },
       /** Claude model ID */
       get model(): string {
-        return optional("CLAUDE_MODEL_ID", "claude-sonnet-4-20250514");
+        return optional("CLAUDE_MODEL_ID", "claude-sonnet-4-5-20250929");
       },
       /** Claude lightweight model ID (for fast/cheap tasks) */
       get lightModel(): string {

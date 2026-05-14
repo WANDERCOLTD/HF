@@ -45,7 +45,7 @@ export const AI_CALL_POINTS = CALL_POINTS.map((cp) => ({
 // These are seeded to the AIModel table on first access via /api/ai-models
 export const AVAILABLE_MODELS = {
   claude: [
-    { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4", tier: "flagship", maxOutputTokens: 16384 },
+    { id: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5", tier: "flagship", maxOutputTokens: 64000 },
     { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", tier: "fast", maxOutputTokens: 8192 },
   ],
   openai: [
