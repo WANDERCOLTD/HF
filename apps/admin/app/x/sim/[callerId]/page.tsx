@@ -143,8 +143,24 @@ export default function SimConversationPage() {
     const carryParams = new URLSearchParams(searchParams.toString());
     carryParams.delete('requestedModuleId');
     sp.set('returnTo', `/x/sim/${callerId}${carryParams.toString() ? `?${carryParams.toString()}` : ''}`);
+    // #357: thread callerId so the picker page can use it instead of the
+    // (now-being-removed in #356) sessionStorage dropdown fallback.
+    sp.set('callerId', callerId);
     router.push(`/x/student/${playbookId}/modules?${sp.toString()}`);
   }, [callerId, playbookId, router, searchParams]);
+
+  // #357: auto-route to picker on first entry when modulesAuthored=true and
+  // the learner hasn't yet picked a module for this session. Only fires once,
+  // before any past-call activity. Skip if the URL already has a
+  // requestedModuleId (picker round-trip) or no playbook.
+  const hasPastCalls = (caller?.pastCalls?.length ?? 0) > 0;
+  useEffect(() => {
+    if (!playbookId) return;
+    if (!modulesAuthored) return;
+    if (requestedModuleId) return;
+    if (hasPastCalls) return;
+    handlePickModule();
+  }, [playbookId, modulesAuthored, requestedModuleId, hasPastCalls, handlePickModule]);
 
   if (error) {
     return (
@@ -171,12 +187,17 @@ export default function SimConversationPage() {
 
   return (
     <>
-      {requestedModuleId && (
+      {requestedModuleId ? (
         <ModulePickerSelectionBanner
           moduleId={requestedModuleId}
           modules={authoredModules}
         />
-      )}
+      ) : modulesAuthored && playbookId ? (
+        <ModulePickerInviteBanner
+          moduleCount={authoredModules.length}
+          onPick={handlePickModule}
+        />
+      ) : null}
       <SimChat
         callerId={callerId}
         callerName={caller.name}
@@ -231,6 +252,43 @@ function ModulePickerSelectionBanner({
       <strong>Module selected:</strong>
       <span>
         This session will focus on <strong>{label}</strong>. Mastery will be tracked against this module.
+      </span>
+    </div>
+  );
+}
+
+/**
+ * #357: invite banner — shown when the course has authored modules but the
+ * learner hasn't picked one yet for this session. Entire row is a button
+ * so the banner is itself the CTA (was the user's UX feedback: don't show
+ * a passive banner alongside an obscure header icon — let the banner be
+ * the picker entry).
+ */
+function ModulePickerInviteBanner({
+  moduleCount,
+  onPick,
+}: {
+  moduleCount: number;
+  onPick: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onPick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onPick();
+        }
+      }}
+      className="hf-banner hf-banner-info hf-flex hf-items-center hf-gap-8 hf-banner-clickable"
+      aria-label="Pick a module to focus this session"
+    >
+      <strong>Pick a module →</strong>
+      <span>
+        Focus this session on one of {moduleCount > 0 ? `${moduleCount} ` : ''}
+        authored modules so mastery is tracked. Or continue and the system will choose.
       </span>
     </div>
   );

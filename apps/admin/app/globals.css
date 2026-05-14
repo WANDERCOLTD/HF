@@ -1391,6 +1391,25 @@ html.light {
   margin-left: 12px;
 }
 
+/* Clickable banner (acts as a CTA) — used on the sim page module-picker invite */
+.hf-banner-clickable {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  transition: background 120ms ease, transform 120ms ease;
+}
+.hf-banner-clickable:hover {
+  background: color-mix(in srgb, var(--status-info-bg) 60%, var(--status-info-text) 8%);
+}
+.hf-banner-clickable:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+.hf-banner-clickable:active {
+  transform: translateY(1px);
+}
+
 /* Hierarchy Breadcrumb */
 .hf-breadcrumb {
   display: flex;
