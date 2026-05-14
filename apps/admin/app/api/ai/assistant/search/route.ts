@@ -61,9 +61,28 @@ export async function GET(request: NextRequest) {
       };
     }
 
+    // Guard: AIInteractionLog model is not in the current Prisma schema (it
+    // was the planned learning-accumulation log but never landed). Without
+    // this guard the route 500s on any query. Mirror the pattern used by
+    // lib/ai/knowledge-accumulation.ts which already detects the missing
+    // model and skips silently. Return empty results so the assistant UI's
+    // search input still works.
+    const prismaAny = prisma as any;
+    if (!prismaAny.aIInteractionLog) {
+      return NextResponse.json({
+        ok: true,
+        results: [],
+        total: 0,
+        limit,
+        offset,
+        query: searchTerm,
+        note: "AI interaction history is not enabled — schema model missing.",
+      });
+    }
+
     // Get matching interactions
     const [interactions, total] = await Promise.all([
-      prisma.aIInteractionLog.findMany({
+      prismaAny.aIInteractionLog.findMany({
         where,
         take: limit,
         skip: offset,
@@ -80,11 +99,11 @@ export async function GET(request: NextRequest) {
           createdAt: true,
         },
       }),
-      prisma.aIInteractionLog.count({ where }),
+      prismaAny.aIInteractionLog.count({ where }),
     ]);
 
     // Format results for display
-    const results = interactions.map((interaction) => ({
+    const results = interactions.map((interaction: any) => ({
       id: interaction.id,
       callPoint: interaction.callPoint,
       userMessage: interaction.userMessage,

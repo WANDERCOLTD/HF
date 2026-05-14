@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
 
       // Set as user's active institution
       await prisma.user.update({
-        where: { id: auth.userId },
+        where: { id: auth.session.user.id },
         data: { activeInstitutionId: newInstitution.id },
       });
 
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     // ── Mode 2: Resolve from user's active institution ───
     // Last resort when institutionName is not available (stale closure)
     const user = await prisma.user.findUnique({
-      where: { id: auth.userId },
+      where: { id: auth.session.user.id },
       select: {
         activeInstitutionId: true,
         activeInstitution: {
