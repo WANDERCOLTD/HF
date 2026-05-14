@@ -1,6 +1,6 @@
 {
-  "tsc_errors": 574,
-  "lint_errors": 3980,
-  "lint_warnings": 6058,
-  "quarantined_tests": 32
+  "tsc_errors": 611,
+  "lint_errors": 0,
+  "lint_warnings": 9601,
+  "quarantined_tests": 31
 }
