@@ -28,6 +28,9 @@ export async function GET(
 
     const { id } = await params;
 
+    // Stacks model was removed from the schema; `usedInStacks` is now always
+    // empty. Kept in the response shape for backward compatibility with
+    // clients that still read it.
     const promptSlug = await prisma.promptSlug.findFirst({
       where: {
         OR: [{ id }, { slug: id }],
@@ -51,17 +54,6 @@ export async function GET(
         ranges: {
           orderBy: { sortOrder: "asc" },
         },
-        stackItems: {
-          include: {
-            stack: {
-              select: {
-                id: true,
-                name: true,
-                status: true,
-              },
-            },
-          },
-        },
       },
     });
 
@@ -76,8 +68,7 @@ export async function GET(
       ok: true,
       slug: {
         ...promptSlug,
-        usedInStacks: promptSlug.stackItems.map((si) => si.stack),
-        stackItems: undefined,
+        usedInStacks: [],
       },
     });
   } catch (error: any) {
@@ -274,12 +265,11 @@ export async function DELETE(
 
     const { id } = await params;
 
+    // Stacks model was removed from the schema, so there is no longer a
+    // "slug is in use" gate — DELETE is unconditional.
     const existing = await prisma.promptSlug.findFirst({
       where: {
         OR: [{ id }, { slug: id }],
-      },
-      include: {
-        _count: { select: { stackItems: true } },
       },
     });
 
@@ -287,16 +277,6 @@ export async function DELETE(
       return NextResponse.json(
         { ok: false, error: "Dynamic prompt not found" },
         { status: 404 }
-      );
-    }
-
-    if (existing._count.stackItems > 0) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `Cannot delete dynamic prompt used in ${existing._count.stackItems} stack(s). Remove from stacks first or deactivate instead.`,
-        },
-        { status: 400 }
       );
     }
 

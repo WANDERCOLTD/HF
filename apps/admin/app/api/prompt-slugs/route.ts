@@ -63,9 +63,6 @@ export async function GET(req: Request) {
         ranges: {
           orderBy: { sortOrder: "asc" },
         },
-        _count: {
-          select: { stackItems: true },
-        },
       },
     });
 
@@ -79,14 +76,14 @@ export async function GET(req: Request) {
       orderBy: [{ domainGroup: "asc" }, { name: "asc" }],
     });
 
+    // Stacks model was removed from the schema; usageCount is always 0.
     return NextResponse.json({
       ok: true,
       slugs: slugs.map((s) => ({
         ...s,
-        usageCount: s._count.stackItems,
+        usageCount: 0,
         rangeCount: s.ranges.length,
         parameterCount: s.parameters.length,
-        _count: undefined,
       })),
       parameters,
     });

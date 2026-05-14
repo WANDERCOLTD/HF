@@ -48,7 +48,7 @@ function coerceNullableString(v: unknown): string | null | undefined {
 async function getParameterFlat(parameterId: string) {
   const p = await prisma.parameter.findUnique({
     where: { parameterId },
-    include: { tags: { include: { tag: true } }, mappings: true },
+    include: { tags: { include: { tag: true } } },
   });
   if (!p) return null;
 
@@ -224,7 +224,7 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
 
       const full = await tx.parameter.findUnique({
         where: { parameterId: id },
-        include: { tags: { include: { tag: true } }, mappings: true },
+        include: { tags: { include: { tag: true } } },
       });
       if (!full) throw Object.assign(new Error("Not found"), { status: 404 });
 

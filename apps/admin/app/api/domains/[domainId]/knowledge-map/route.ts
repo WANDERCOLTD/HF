@@ -51,19 +51,20 @@ export async function GET(
 
     // Get sources — prefer playbookId (PlaybookSource), fall back to subjectIds
     let sources: { id: string; name: string }[];
+    let playbookSourceIds: string[] | null = null;
+    const subjectFilter = subjectIds?.length
+      ? { subject: { id: { in: subjectIds }, domains: { some: { domainId } } } }
+      : { subject: { domains: { some: { domainId } } } };
     if (playbookId) {
       const { getSourceIdsForPlaybook } = await import("@/lib/knowledge/domain-sources");
-      const ids = await getSourceIdsForPlaybook(playbookId);
-      sources = ids.length > 0
+      playbookSourceIds = await getSourceIdsForPlaybook(playbookId);
+      sources = playbookSourceIds.length > 0
         ? await prisma.contentSource.findMany({
-            where: { id: { in: ids }, assertions: { some: { depth: { not: null } } } },
+            where: { id: { in: playbookSourceIds }, assertions: { some: { depth: { not: null } } } },
             select: { id: true, name: true },
           })
         : [];
     } else {
-      const subjectFilter = subjectIds?.length
-        ? { subject: { id: { in: subjectIds }, domains: { some: { domainId } } } }
-        : { subject: { domains: { some: { domainId } } } };
       sources = await prisma.contentSource.findMany({
         where: {
           subjects: { some: subjectFilter },
@@ -130,10 +131,12 @@ export async function GET(
       };
     });
 
-    // Get total source count for domain (including unstructured)
-    const totalSources = await prisma.contentSource.count({
-      where: { subjects: { some: subjectFilter } },
-    });
+    // Get total source count for the scope (including unstructured)
+    const totalSources = playbookSourceIds !== null
+      ? playbookSourceIds.length
+      : await prisma.contentSource.count({
+          where: { subjects: { some: subjectFilter } },
+        });
 
     return NextResponse.json({
       ok: true,

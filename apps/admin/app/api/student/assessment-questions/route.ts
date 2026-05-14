@@ -21,6 +21,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireStudentOrAdmin, isStudentAuthError } from "@/lib/student-access";
 import { buildPreTest, buildPreTestForPlaybook, buildPostTest, buildComprehensionPostTest } from "@/lib/assessment/pre-test-builder";
@@ -80,13 +81,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // pre_test — resolve enrolled playbook and curriculum
   const enrollment = await prisma.callerPlaybook.findFirst({
     where: { callerId, status: "ACTIVE" },
-    select: {
-      playbookId: true,
+    include: {
       playbook: {
         select: {
           config: true,
           curricula: {
-            where: { deliveryConfig: { not: null } },
+            where: { deliveryConfig: { not: Prisma.JsonNull } },
             select: { id: true },
             take: 1,
           },

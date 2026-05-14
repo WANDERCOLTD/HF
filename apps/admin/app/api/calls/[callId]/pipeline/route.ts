@@ -259,6 +259,11 @@ async function loadCurrentModuleContext(
   }
 
   // Path 3: Domain-wide Subject curriculum fallback (legacy)
+  const caller = await prisma.caller.findUnique({
+    where: { id: callerId },
+    select: { domainId: true },
+  });
+  if (!caller?.domainId) return null;
   const subjectDomains = await prisma.subjectDomain.findMany({
     where: { domainId: caller.domainId },
     include: {
@@ -1837,6 +1842,11 @@ async function trackCurriculumAfterCall(
   // Subject curriculum fallback — assign first module if no CONTENT spec found (legacy)
   if (!updated) {
     try {
+      const caller = await prisma.caller.findUnique({
+        where: { id: callerId },
+        select: { domainId: true },
+      });
+      if (!caller?.domainId) return false;
       const subjectDomains = await prisma.subjectDomain.findMany({
         where: { domainId: caller.domainId },
         include: {

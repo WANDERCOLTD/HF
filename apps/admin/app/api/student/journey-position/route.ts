@@ -12,6 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireStudentOrAdmin, isStudentAuthError } from "@/lib/student-access";
 import { DEFAULT_NPS_CONFIG } from "@/lib/types/json-fields";
@@ -57,13 +58,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const [enrollment, onboardingSession] = await Promise.all([
       prisma.callerPlaybook.findFirst({
         where: { callerId, status: "ACTIVE" },
-        select: {
+        include: {
           playbook: {
             select: {
               id: true,
               config: true,
               curricula: {
-                where: { deliveryConfig: { not: null } },
+                where: { deliveryConfig: { not: Prisma.JsonNull } },
                 select: { id: true, slug: true, deliveryConfig: true },
                 take: 1,
               },

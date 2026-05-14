@@ -280,6 +280,8 @@ async function runBackgroundLessonPlanGeneration(
         description: true,
         notableInfo: true,
         subjectId: true,
+        playbookId: true,
+        deliveryConfig: true,
       },
     });
 
@@ -676,7 +678,7 @@ export async function POST(
     // Verify curriculum exists
     const curriculum = await prisma.curriculum.findUnique({
       where: { id: curriculumId },
-      select: { id: true, notableInfo: true, deliveryConfig: true, subjectId: true },
+      select: { id: true, notableInfo: true, deliveryConfig: true, subjectId: true, playbookId: true },
     });
 
     if (!curriculum) {

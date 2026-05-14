@@ -236,15 +236,16 @@ export async function POST(
   // the pipeline's slug-based `updateModuleMastery` can write progress for
   // authored modules. Wrapped in a transaction so the playbook and module
   // tables stay in sync if either write fails.
-  let syncResult: Awaited<ReturnType<typeof syncAuthoredModulesToCurriculum>> | null = null;
+  type SyncResultT = Awaited<ReturnType<typeof syncAuthoredModulesToCurriculum>>;
+  let syncResult: SyncResultT | null = null;
   if (changed) {
-    await prisma.$transaction(async (tx) => {
+    syncResult = await prisma.$transaction(async (tx): Promise<SyncResultT | null> => {
       await tx.playbook.update({
         where: { id: courseId },
         data: { config: nextConfig as object },
       });
       if (detected.modulesAuthored === true && detected.modules.length > 0) {
-        syncResult = await syncAuthoredModulesToCurriculum(
+        return await syncAuthoredModulesToCurriculum(
           tx,
           courseId,
           detected.modules,
@@ -255,6 +256,7 @@ export async function POST(
           detected.outcomes,
         );
       }
+      return null;
     });
   }
 
