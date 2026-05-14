@@ -33,10 +33,17 @@ function makeEntry(overrides: Partial<{
 function makeAssertion(id: string, loRef: string | null = null): {
   id: string;
   learningOutcomeRef: string | null;
+  learningObjectiveId: string | null;
   topicSlug: string | null;
   chapter: string | null;
 } {
-  return { id, learningOutcomeRef: loRef, topicSlug: null, chapter: null };
+  return {
+    id,
+    learningOutcomeRef: loRef,
+    learningObjectiveId: null,
+    topicSlug: null,
+    chapter: null,
+  };
 }
 
 // ---------------------------------------------------------------------------

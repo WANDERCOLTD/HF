@@ -14,7 +14,7 @@
  * Profiles: full only
  */
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -812,19 +812,26 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
         const startedAt = daysAgo(60);
         const targetDate = daysFromNow(180);
         await prisma.goal.createMany({
-          data: goals.map((g) => ({
-            callerId: learner.id,
-            playbookId: playbook.id,
-            type: g.type,
-            name: g.name,
-            description: g.description,
-            status: g.status,
-            progress: g.progress,
-            priority: g.priority,
-            startedAt,
-            targetDate,
-            ...(g.status === "COMPLETED" ? { completedAt: daysAgo(5) } : {}),
-          })),
+          // Seed-time cast: goalsForArchetype() returns string discriminators that
+          // map to Prisma's GoalType/GoalStatus enums at runtime. Cast each
+          // payload to the generated input shape so tsc accepts the string→enum
+          // narrowing without falling back to `any`. See issue #375.
+          data: goals.map(
+            (g) =>
+              ({
+                callerId: learner.id,
+                playbookId: playbook.id,
+                type: g.type,
+                name: g.name,
+                description: g.description,
+                status: g.status,
+                progress: g.progress,
+                priority: g.priority,
+                startedAt,
+                targetDate,
+                ...(g.status === "COMPLETED" ? { completedAt: daysAgo(5) } : {}),
+              }) as Prisma.GoalCreateManyInput,
+          ),
         });
         totalGoals += goals.length;
       }

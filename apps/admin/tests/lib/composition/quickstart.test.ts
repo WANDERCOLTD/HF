@@ -156,7 +156,7 @@ describe("computeQuickStart transform", () => {
       loadedData: {
         ...makeContext().loadedData,
         goals: [
-          { id: "g1", type: "LEARN", name: "Master QM", description: null, status: "ACTIVE", priority: 8, progress: 0.5, playbookId: null, playbook: null, startedAt: null },
+          { id: "g1", type: "LEARN", name: "Master QM", description: null, status: "ACTIVE", priority: 8, progress: 0.5, playbookId: null, playbook: null, startedAt: null, isAssessmentTarget: false, assessmentConfig: null, contentSpec: null },
         ],
       },
     });
@@ -576,8 +576,8 @@ describe("computeQuickStart transform", () => {
       loadedData: {
         ...makeContext().loadedData,
         goals: [
-          { id: "g1", type: "LEARN", name: "Master Hebrew letters", description: null, status: "ACTIVE", priority: 5, progress: 0.4, playbookId: null, playbook: null, startedAt: null, isAssessmentTarget: false },
-          { id: "g2", type: "ACHIEVE", name: "Pass the Beit Din", description: null, status: "ACTIVE", priority: 8, progress: 0.6, playbookId: null, playbook: null, startedAt: null, isAssessmentTarget: true, assessmentConfig: { threshold: 0.8 } },
+          { id: "g1", type: "LEARN", name: "Master Hebrew letters", description: null, status: "ACTIVE", priority: 5, progress: 0.4, playbookId: null, playbook: null, startedAt: null, isAssessmentTarget: false, assessmentConfig: null, contentSpec: null },
+          { id: "g2", type: "ACHIEVE", name: "Pass the Beit Din", description: null, status: "ACTIVE", priority: 8, progress: 0.6, playbookId: null, playbook: null, startedAt: null, isAssessmentTarget: true, assessmentConfig: { threshold: 0.8 }, contentSpec: null },
         ],
       },
     });
@@ -598,7 +598,7 @@ describe("computeQuickStart transform", () => {
       loadedData: {
         ...makeContext().loadedData,
         goals: [
-          { id: "g1", type: "LEARN", name: "Intro to Biology", description: null, status: "ACTIVE", priority: 5, progress: 0.3, playbookId: null, playbook: null, startedAt: null, isAssessmentTarget: false },
+          { id: "g1", type: "LEARN", name: "Intro to Biology", description: null, status: "ACTIVE", priority: 5, progress: 0.3, playbookId: null, playbook: null, startedAt: null, isAssessmentTarget: false, assessmentConfig: null, contentSpec: null },
         ],
       },
     });
@@ -642,7 +642,7 @@ describe("computeQuickStart transform", () => {
       loadedData: {
         ...makeContext().loadedData,
         goals: [
-          { id: "g1", type: "ACHIEVE", name: "IELTS Band 7", description: null, status: "ACTIVE", priority: 8, progress: 0.75, playbookId: null, playbook: null, startedAt: null, isAssessmentTarget: true, assessmentConfig: { threshold: 0.8 } },
+          { id: "g1", type: "ACHIEVE", name: "IELTS Band 7", description: null, status: "ACTIVE", priority: 8, progress: 0.75, playbookId: null, playbook: null, startedAt: null, isAssessmentTarget: true, assessmentConfig: { threshold: 0.8 }, contentSpec: null },
         ],
       },
     });
@@ -683,7 +683,7 @@ describe("computeQuickStart transform", () => {
       loadedData: {
         ...makeContext().loadedData,
         goals: [
-          { id: "g1", type: "ACHIEVE", name: "Pass exam", description: null, status: "ACTIVE", priority: 8, progress: 0.3, playbookId: null, playbook: null, startedAt: null, isAssessmentTarget: true },
+          { id: "g1", type: "ACHIEVE", name: "Pass exam", description: null, status: "ACTIVE", priority: 8, progress: 0.3, playbookId: null, playbook: null, startedAt: null, isAssessmentTarget: true, assessmentConfig: null, contentSpec: null },
         ],
       },
     });

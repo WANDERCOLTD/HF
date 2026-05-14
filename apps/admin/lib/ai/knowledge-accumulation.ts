@@ -13,6 +13,36 @@
 import { prisma } from "@/lib/prisma";
 import { getAILearningSettings } from "@/lib/system-settings";
 
+// TODO(tier-4-orphan): aIInteractionLog + aILearnedPattern models were removed from the
+// schema but this knowledge-accumulation surface still references them. Cast lets the
+// runtime guard (`if (!prismaAny.aIInteractionLog)`) keep working without tsc errors —
+// see issue #375 follow-up.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const prismaAny = prisma as any;
+
+// Local row shapes for the orphaned models. Used only to give downstream
+// `.map()` / `.reduce()` / `.forEach()` callers explicit parameter types so we
+// don't introduce noImplicitAny noise into the ratchet.
+type AILearnedPatternRow = {
+  id: string;
+  pattern: string;
+  confidence: number;
+  occurrences: number;
+  examples: unknown;
+  domain: string | null;
+  callPoint: string;
+};
+
+type AIInteractionLogRow = {
+  id: string;
+  callPoint: string;
+  userMessage: string;
+  aiResponse: string;
+  outcome: string;
+  metadata: unknown;
+  createdAt: Date;
+};
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -63,7 +93,7 @@ let _aiLogWarned = false;
 
 export async function logAIInteraction(interaction: AIInteraction): Promise<void> {
   // Guard: AIInteractionLog model not yet in schema — skip silently
-  if (!prisma.aIInteractionLog) {
+  if (!prismaAny.aIInteractionLog) {
     if (!_aiLogWarned) {
       console.warn("[AI Learning] AIInteractionLog model not in schema — skipping interaction logging");
       _aiLogWarned = true;
@@ -72,7 +102,7 @@ export async function logAIInteraction(interaction: AIInteraction): Promise<void
   }
 
   try {
-    await prisma.aIInteractionLog.create({
+    await prismaAny.aIInteractionLog.create({
       data: {
         callPoint: interaction.callPoint,
         userMessage: interaction.userMessage,
@@ -110,7 +140,7 @@ async function analyzeForPatterns(interaction: AIInteraction): Promise<void> {
 
   for (const pattern of patterns) {
     // Check if we've seen this pattern before
-    const existing = await prisma.aILearnedPattern.findFirst({
+    const existing = await prismaAny.aILearnedPattern.findFirst({
       where: {
         pattern: pattern.pattern,
         callPoint: interaction.callPoint,
@@ -119,7 +149,7 @@ async function analyzeForPatterns(interaction: AIInteraction): Promise<void> {
 
     if (existing) {
       // Increment occurrences and update confidence
-      await prisma.aILearnedPattern.update({
+      await prismaAny.aILearnedPattern.update({
         where: { id: existing.id },
         data: {
           occurrences: existing.occurrences + 1,
@@ -132,7 +162,7 @@ async function analyzeForPatterns(interaction: AIInteraction): Promise<void> {
       });
     } else {
       // Create new learned pattern
-      await prisma.aILearnedPattern.create({
+      await prismaAny.aILearnedPattern.create({
         data: {
           pattern: pattern.pattern,
           callPoint: interaction.callPoint,
@@ -217,7 +247,7 @@ export async function getLearnedKnowledge(
   domain?: string
 ): Promise<LearnedPattern[]> {
   const aiSettings = await getAILearningSettings();
-  const patterns = await prisma.aILearnedPattern.findMany({
+  const patterns = await prismaAny.aILearnedPattern.findMany({
     where: {
       callPoint,
       ...(domain && { domain }),
@@ -231,7 +261,7 @@ export async function getLearnedKnowledge(
     take: 20,
   });
 
-  return patterns.map((p) => ({
+  return patterns.map((p: AILearnedPatternRow) => ({
     pattern: p.pattern,
     confidence: p.confidence,
     occurrences: p.occurrences,
@@ -252,7 +282,7 @@ export async function generateInsights(options?: {
 }): Promise<AIInsight[]> {
   const { domain, callPoint, minConfidence = 0.7 } = options || {};
 
-  const patterns = await prisma.aILearnedPattern.findMany({
+  const patterns = await prismaAny.aILearnedPattern.findMany({
     where: {
       ...(domain && { domain }),
       ...(callPoint && { callPoint }),
@@ -266,8 +296,8 @@ export async function generateInsights(options?: {
   const insights: AIInsight[] = [];
 
   // Group patterns by type
-  const patternsByType = new Map<string, typeof patterns>();
-  patterns.forEach((p) => {
+  const patternsByType = new Map<string, AILearnedPatternRow[]>();
+  patterns.forEach((p: AILearnedPatternRow) => {
     const type = p.pattern.split("_")[0];
     const list = patternsByType.get(type) || [];
     list.push(p);
@@ -281,8 +311,12 @@ export async function generateInsights(options?: {
         type: "pattern",
         domain: patternsOfType[0].domain || undefined,
         insight: `Frequent ${type} pattern observed (${patternsOfType.length} variations)`,
-        confidence: patternsOfType.reduce((sum, p) => sum + p.confidence, 0) / patternsOfType.length,
-        supportingData: patternsOfType.map((p) => p.pattern),
+        confidence:
+          patternsOfType.reduce(
+            (sum: number, p: AILearnedPatternRow) => sum + p.confidence,
+            0,
+          ) / patternsOfType.length,
+        supportingData: patternsOfType.map((p: AILearnedPatternRow) => p.pattern),
       });
     }
   });
@@ -377,16 +411,16 @@ export async function getRecentFailures(options: {
   };
 
   const [failures, total] = await Promise.all([
-    prisma.aIInteractionLog.findMany({
+    prismaAny.aIInteractionLog.findMany({
       where,
       orderBy: { createdAt: "desc" },
       take: limit,
     }),
-    prisma.aIInteractionLog.count({ where }),
+    prismaAny.aIInteractionLog.count({ where }),
   ]);
 
   return {
-    failures: failures.map((f) => ({
+    failures: (failures as AIInteractionLogRow[]).map((f) => ({
       id: f.id,
       callPoint: f.callPoint,
       userMessage: f.userMessage,
@@ -410,18 +444,24 @@ export async function getFailureStats(hours: number = 24): Promise<{
 }> {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
 
-  const interactions = await prisma.aIInteractionLog.findMany({
+  const interactions = await prismaAny.aIInteractionLog.findMany({
     where: { createdAt: { gte: since } },
     select: { callPoint: true, outcome: true },
   });
 
-  const totalInteractions = interactions.length;
-  const totalFailures = interactions.filter((i) => i.outcome === "failure").length;
+  const typedInteractions = interactions as Pick<
+    AIInteractionLogRow,
+    "callPoint" | "outcome"
+  >[];
+  const totalInteractions = typedInteractions.length;
+  const totalFailures = typedInteractions.filter(
+    (i) => i.outcome === "failure",
+  ).length;
   const failureRate = totalInteractions > 0 ? totalFailures / totalInteractions : 0;
 
   // Group by call point
   const grouped = new Map<string, { failures: number; total: number }>();
-  for (const i of interactions) {
+  for (const i of typedInteractions) {
     const entry = grouped.get(i.callPoint) || { failures: 0, total: 0 };
     entry.total++;
     if (i.outcome === "failure") entry.failures++;
@@ -464,11 +504,11 @@ export async function exportKnowledge(): Promise<{
 }> {
   const aiSettings = await getAILearningSettings();
   const [patterns, interactions] = await Promise.all([
-    prisma.aILearnedPattern.findMany({
+    prismaAny.aILearnedPattern.findMany({
       where: { confidence: { gte: aiSettings.initialConfidence } },
       orderBy: { confidence: "desc" },
     }),
-    prisma.aIInteractionLog.findMany({
+    prismaAny.aIInteractionLog.findMany({
       select: {
         callPoint: true,
         outcome: true,
@@ -477,12 +517,18 @@ export async function exportKnowledge(): Promise<{
     }),
   ]);
 
-  const totalInteractions = interactions.length;
-  const successCount = interactions.filter((i) => i.outcome === "success").length;
+  const typedInteractions = interactions as Pick<
+    AIInteractionLogRow,
+    "callPoint" | "outcome" | "metadata"
+  >[];
+  const totalInteractions = typedInteractions.length;
+  const successCount = typedInteractions.filter(
+    (i) => i.outcome === "success",
+  ).length;
   const successRate = totalInteractions > 0 ? successCount / totalInteractions : 0;
 
   const callPointCounts = new Map<string, number>();
-  interactions.forEach((i) => {
+  typedInteractions.forEach((i) => {
     callPointCounts.set(i.callPoint, (callPointCounts.get(i.callPoint) || 0) + 1);
   });
 
@@ -493,8 +539,8 @@ export async function exportKnowledge(): Promise<{
 
   // Extract unique models used
   const modelsSet = new Set<string>();
-  interactions.forEach((i) => {
-    const metadata = i.metadata as any;
+  typedInteractions.forEach((i) => {
+    const metadata = i.metadata as { model?: string } | null;
     if (metadata?.model) {
       modelsSet.add(metadata.model);
     }
@@ -504,7 +550,7 @@ export async function exportKnowledge(): Promise<{
   const insights = await generateInsights({ minConfidence: 0.6 });
 
   return {
-    patterns: patterns.map((p) => ({
+    patterns: (patterns as AILearnedPatternRow[]).map((p) => ({
       pattern: p.pattern,
       confidence: p.confidence,
       occurrences: p.occurrences,
