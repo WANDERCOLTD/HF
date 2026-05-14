@@ -90,7 +90,7 @@ export async function POST(
     console.log(`[reset-mcqs] Deleted ${deleted} questions for source ${sourceId}`);
 
     const result = await generateMcqsForSource(sourceId, {
-      userId: auth.userId,
+      userId: auth.session.user.id,
       subjectSourceId,
     });
     totalCreated += result.created;

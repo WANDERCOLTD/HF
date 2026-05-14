@@ -26,7 +26,6 @@
   - [Agent Tuning](#agent-tuning)
   - [Agents](#agents)
   - [AI](#ai)
-  - [Analysis](#analysis)
   - [Analysis Specs](#analysis-specs)
   - [Analytics](#analytics)
   - [Auth](#auth)
@@ -1624,44 +1623,6 @@ Export AI learned knowledge (patterns, interaction stats) for the knowledge dash
 **Response** `500`
 ```json
 { ok: false, error: string }
-```
-
----
-
-## Analysis
-
-### `POST` /api/analysis/run
-
-Unified analysis endpoint that handles both MEASURE and LEARN specs. Analyzes a transcript using active analysis specs, scores behavioral parameters, extracts learned facts, and optionally stores results. Also calculates ADAPT scores (deltas/goal progress) when storing.
-
-**Auth**: Session · **Scope**: `analysis:run`
-
-| Parameter | In | Type | Required | Description |
-|-----------|-----|------|----------|-------------|
-| transcript | body | string | No | The transcript text to analyze (required) |
-| callId | body | string | No | Call ID for storing results (optional) |
-| callerId | body | string | No | Caller ID for storing memories (optional) |
-| model | body | string | No | Claude model to use (default: from AI config system) |
-| storeResults | body | boolean | No | Whether to persist results to database (default: false) |
-
-**Response** `200`
-```json
-{ ok: true, callId, callerId, model, analysisTime, usage: {...}, measures: {...}, learned: [...], stored: {...}, adapt: {...}, summary: {...} }
-```
-
-**Response** `400`
-```json
-{ ok: false, error: "transcript is required" }
-```
-
-**Response** `404`
-```json
-{ ok: false, error: "No active analysis specs found matching criteria" }
-```
-
-**Response** `500`
-```json
-{ ok: false, error: "..." }
 ```
 
 ---
@@ -14382,8 +14343,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 445 |
-| Files with annotations | 444 |
+| Route files found | 444 |
+| Files with annotations | 443 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 
