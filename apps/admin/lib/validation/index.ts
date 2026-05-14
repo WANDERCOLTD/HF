@@ -9,17 +9,20 @@
  */
 
 import { NextResponse } from "next/server";
-import { type ZodSchema, ZodError } from "zod";
+import { z, ZodError } from "zod";
 
 type ValidationSuccess<T> = { ok: true; data: T };
 type ValidationFailure = { ok: false; error: NextResponse };
 
-export function validateBody<T>(
-  schema: ZodSchema<T>,
+// Use a generic Schema parameter so the inferred output type flows through to
+// the caller. Zod 4 deprecated `ZodSchema<T>` — `z.ZodType` carries both input
+// and output types, and `z.infer<S>` reliably extracts the parsed shape.
+export function validateBody<S extends z.ZodType>(
+  schema: S,
   body: unknown,
-): ValidationSuccess<T> | ValidationFailure {
+): ValidationSuccess<z.infer<S>> | ValidationFailure {
   try {
-    const data = schema.parse(body);
+    const data = schema.parse(body) as z.infer<S>;
     return { ok: true, data };
   } catch (err) {
     if (err instanceof ZodError) {
@@ -39,10 +42,10 @@ export function validateBody<T>(
   }
 }
 
-export function validateQuery<T>(
-  schema: ZodSchema<T>,
+export function validateQuery<S extends z.ZodType>(
+  schema: S,
   params: Record<string, string | null>,
-): ValidationSuccess<T> | ValidationFailure {
+): ValidationSuccess<z.infer<S>> | ValidationFailure {
   // Convert null values to undefined for Zod
   const cleaned: Record<string, string | undefined> = {};
   for (const [key, value] of Object.entries(params)) {

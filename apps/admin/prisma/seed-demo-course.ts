@@ -812,6 +812,10 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
         const startedAt = daysAgo(60);
         const targetDate = daysFromNow(180);
         await prisma.goal.createMany({
+          // Seed-time cast: goalsForArchetype() returns string discriminators that
+          // map to Prisma's GoalType/GoalStatus enums at runtime. The seed runs
+          // through ts-node which honours the enum strings, so an `any` cast here
+          // satisfies tsc without changing seed behaviour. See issue #375.
           data: goals.map((g) => ({
             callerId: learner.id,
             playbookId: playbook.id,
@@ -824,7 +828,7 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
             startedAt,
             targetDate,
             ...(g.status === "COMPLETED" ? { completedAt: daysAgo(5) } : {}),
-          })),
+          })) as any,
         });
         totalGoals += goals.length;
       }

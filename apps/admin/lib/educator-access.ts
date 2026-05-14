@@ -25,10 +25,21 @@ type EducatorAuthFailure = {
 
 export type EducatorAuthResult = EducatorAuthSuccess | EducatorAuthFailure;
 
+/**
+ * Type guard: any educator-access result variant (auth, cohort-ownership, or
+ * student-access) is a failure when it carries an `error` NextResponse.
+ * Accepts the broader union returned by helpers like
+ * `requireEducatorCohortOwnership` / `requireEducatorStudentAccess`.
+ */
 export function isEducatorAuthError(
-  result: EducatorAuthResult
-): result is EducatorAuthFailure {
-  return "error" in result;
+  result: unknown
+): result is { error: NextResponse } {
+  return (
+    typeof result === "object" &&
+    result !== null &&
+    "error" in result &&
+    (result as { error?: unknown }).error !== undefined
+  );
 }
 
 /**
