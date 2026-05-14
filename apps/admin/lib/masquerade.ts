@@ -49,14 +49,15 @@ export async function getMasqueradeState(): Promise<MasqueradeState | null> {
  * Check if a user role is ADMIN+ (allowed to masquerade).
  */
 export function canMasquerade(role: string): boolean {
-  return (ROLE_LEVEL[role] ?? 0) >= ROLE_LEVEL.ADMIN;
+  return ((ROLE_LEVEL as Record<string, number>)[role] ?? 0) >= ROLE_LEVEL.ADMIN;
 }
 
 /**
  * Check that a masqueraded role doesn't exceed the real user's role (prevent escalation).
  */
 export function isRoleEscalation(realRole: string, masqueradeRole: string): boolean {
-  return (ROLE_LEVEL[masqueradeRole] ?? 0) > (ROLE_LEVEL[realRole] ?? 0);
+  const lvl = ROLE_LEVEL as Record<string, number>;
+  return (lvl[masqueradeRole] ?? 0) > (lvl[realRole] ?? 0);
 }
 
 /**

@@ -30,7 +30,7 @@ vi.mock("@/lib/prisma", () => {
     composedPrompt: { findFirst: (...args: any[]) => mockComposedPromptFindFirst(...args) },
   },
 };
-  return { ..._p, db: (tx) => tx ?? _p.prisma };
+  return { ..._p, db: (tx?: unknown) => tx ?? _p.prisma };
 });
 
 // ── Mock config ────────────────────────────────────

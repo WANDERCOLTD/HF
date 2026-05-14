@@ -17,7 +17,7 @@ vi.mock("@/lib/prisma", () => {
     analysisSpec: { findFirst: vi.fn().mockResolvedValue(null) },
   },
 };
-  return { ..._p, db: (tx) => tx ?? _p.prisma };
+  return { ..._p, db: (tx?: unknown) => tx ?? _p.prisma };
 });
 
 // Mock resolve-config to return a predictable config

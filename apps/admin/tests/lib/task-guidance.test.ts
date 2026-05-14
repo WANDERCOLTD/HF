@@ -21,7 +21,7 @@ vi.mock("@/lib/prisma", () => {
     $transaction: (...args: any[]) => mockTransaction(...args),
   },
 };
-  return { ..._p, db: (tx) => tx ?? _p.prisma };
+  return { ..._p, db: (tx?: unknown) => tx ?? _p.prisma };
 });
 
 import {

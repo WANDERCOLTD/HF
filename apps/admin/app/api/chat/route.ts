@@ -77,8 +77,12 @@ export async function POST(request: NextRequest) {
     // Skip zod validation entirely — extract fields manually with type guards
     // (Turbopack cold-compile race prevents ANY zod usage on first request)
     const message = typeof rawBody?.message === "string" ? rawBody.message : "";
-    const entityContext = Array.isArray(rawBody?.entityContext) ? rawBody.entityContext : [];
-    const conversationHistory = Array.isArray(rawBody?.conversationHistory) ? rawBody.conversationHistory : [];
+    const entityContext: EntityBreadcrumb[] = Array.isArray(rawBody?.entityContext)
+      ? (rawBody.entityContext as EntityBreadcrumb[])
+      : [];
+    const conversationHistory: Array<{ role: string; content: string }> = Array.isArray(rawBody?.conversationHistory)
+      ? rawBody.conversationHistory
+      : [];
     const engine = typeof rawBody?.engine === "string" ? rawBody.engine : undefined;
     const requestCallId = typeof rawBody?.callId === "string" ? rawBody.callId : undefined;
     const bugContext = rawBody?.bugContext || undefined;

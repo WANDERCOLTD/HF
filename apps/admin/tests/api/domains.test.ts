@@ -34,7 +34,7 @@ const mockPrisma = {
 
 vi.mock('@/lib/prisma', () => ({
   prisma: mockPrisma,
-  db: (tx) => tx ?? mockPrisma,
+  db: (tx?: unknown) => tx ?? mockPrisma,
 }));
 
 // Mock auth — routes now call requireAuth() which calls auth()

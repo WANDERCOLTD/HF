@@ -33,7 +33,7 @@ const mockIsAuthError = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/prisma", () => ({
   prisma: mockPrisma,
-  db: (tx) => tx ?? mockPrisma,
+  db: (tx?: unknown) => tx ?? mockPrisma,
 }));
 
 vi.mock("@/lib/permissions", () => ({

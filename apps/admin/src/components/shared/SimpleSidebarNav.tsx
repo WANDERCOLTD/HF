@@ -176,7 +176,7 @@ export default function SimpleSidebarNav({
   const { isMasquerading, effectiveRole } = useMasquerade();
   const userRole = isMasquerading ? effectiveRole : realRole;
   const isAdmin = realIsAdmin; // Keep admin features (layout save, masquerade trigger) based on real role
-  const effectiveIsAdmin = (ROLE_LEVEL[effectiveRole] ?? 0) >= 4; // For API calls that go through requireAuth
+  const effectiveIsAdmin = ((ROLE_LEVEL as Record<string, number>)[effectiveRole] ?? 0) >= 4; // For API calls that go through requireAuth
   const { isAdvanced } = useViewMode();
 
   // ── DB-backed visibility rules (overrides manifest requiredRole/defaultHiddenFor) ──

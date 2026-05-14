@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => ({
   getContentLinkingSettings: vi.fn(),
 }));
 
-vi.mock("@/lib/prisma", () => ({ prisma: mocks.prisma, db: (tx) => tx ?? mocks.prisma }));
+vi.mock("@/lib/prisma", () => ({ prisma: mocks.prisma, db: (tx?: unknown) => tx ?? mocks.prisma }));
 vi.mock("@prisma/client", () => ({ Prisma: { sql: (strings: TemplateStringsArray, ...values: any[]) => ({ strings, values }) } }));
 vi.mock("@/lib/system-settings", () => ({
   getContentLinkingSettings: mocks.getContentLinkingSettings,

@@ -26,7 +26,7 @@ vi.mock("@/lib/prisma", () => {
     $queryRaw: vi.fn().mockResolvedValue([]),
   },
 };
-  return { ..._p, db: (tx) => tx ?? _p.prisma };
+  return { ..._p, db: (tx?: unknown) => tx ?? _p.prisma };
 });
 
 vi.mock("@/lib/embeddings", () => ({

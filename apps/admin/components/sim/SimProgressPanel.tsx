@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type JSX } from 'react';
 import { ArrowLeft, X, Target, BookOpen, Lightbulb, Phone, TrendingUp } from 'lucide-react';
 import { useStudentProgress } from '@/hooks/useStudentProgress';
 import { useJourneyPosition } from '@/hooks/useJourneyPosition';

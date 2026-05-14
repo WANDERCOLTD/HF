@@ -147,7 +147,11 @@ export async function extractTextFromPptx(buffer: Buffer): Promise<{ text: strin
  */
 export async function extractTextFromDoc(buffer: Buffer): Promise<{ text: string }> {
   // Dynamic import to avoid bundling issues
-  const WordExtractor = (await import("word-extractor")).default;
+  // word-extractor ships no type declarations — declare a minimal shape inline.
+  const mod = (await import("word-extractor")) as {
+    default: new () => { extract: (b: Buffer) => Promise<{ getBody: () => string }> };
+  };
+  const WordExtractor = mod.default;
   const extractor = new WordExtractor();
   const doc = await extractor.extract(buffer);
   return { text: doc.getBody() };

@@ -68,7 +68,7 @@ vi.mock("@/lib/prisma", () => {
     subjectMedia: { upsert: mocks.subjectMediaUpsert },
   },
 };
-  return { ..._p, db: (tx) => tx ?? _p.prisma };
+  return { ..._p, db: (tx?: unknown) => tx ?? _p.prisma };
 });
 
 import { POST } from "@/app/api/subjects/[subjectId]/upload/route";

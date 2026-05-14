@@ -38,7 +38,7 @@ vi.mock("@/lib/prisma", () => {
     },
   },
 };
-  return { ..._p, db: (tx) => tx ?? _p.prisma };
+  return { ..._p, db: (tx?: unknown) => tx ?? _p.prisma };
 });
 
 import { PATCH, DELETE } from "@/app/api/content-sources/[sourceId]/vocabulary/[vocabId]/route";

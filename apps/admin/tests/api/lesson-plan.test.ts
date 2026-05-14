@@ -18,7 +18,7 @@ const mockPrisma = {
     groupBy: vi.fn(),
   },
 };
-vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx) => tx ?? mockPrisma }));
+vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx?: unknown) => tx ?? mockPrisma }));
 
 const mockAICompletion = vi.fn();
 vi.mock("@/lib/metering/instrumented-ai", () => ({

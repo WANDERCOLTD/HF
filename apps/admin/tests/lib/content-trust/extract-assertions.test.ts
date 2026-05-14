@@ -33,7 +33,7 @@ vi.mock("@/lib/prisma", () => {
     analysisSpec: { findFirst: vi.fn().mockResolvedValue(null) },
   },
 };
-  return { ..._p, db: (tx) => tx ?? _p.prisma };
+  return { ..._p, db: (tx?: unknown) => tx ?? _p.prisma };
 });
 
 import { chunkText, extractTextFromDocx } from "@/lib/content-trust/extract-assertions";

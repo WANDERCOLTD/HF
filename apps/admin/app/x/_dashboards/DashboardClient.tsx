@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type JSX } from "react";
 import Link from "next/link";
 import { ChevronRight, Plus } from "lucide-react";
 import { useTerminology } from "@/contexts/TerminologyContext";

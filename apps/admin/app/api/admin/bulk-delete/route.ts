@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     if (isAuthError(authResult)) return authResult.error;
 
     const body = await request.json();
-    const { entityType, entityIds } = body;
+    const { entityType, entityIds } = body as { entityType: EntityType; entityIds: unknown };
 
     if (!entityType || !VALID_TYPES.includes(entityType)) {
       return NextResponse.json(

@@ -16,7 +16,7 @@ const mockPrisma = {
   },
 };
 
-vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx) => tx ?? mockPrisma }));
+vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma, db: (tx?: unknown) => tx ?? mockPrisma }));
 
 vi.mock("@/lib/permissions", () => ({
   requireAuth: vi.fn().mockResolvedValue({

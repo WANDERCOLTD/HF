@@ -31,7 +31,7 @@ vi.mock("@/lib/prisma", () => {
     },
   },
 };
-  return { ..._p, db: (tx) => tx ?? _p.prisma };
+  return { ..._p, db: (tx?: unknown) => tx ?? _p.prisma };
 });
 
 import { GET, POST } from "@/app/api/subjects/route";
