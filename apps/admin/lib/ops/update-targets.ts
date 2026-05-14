@@ -424,5 +424,3 @@ if (require.main === module) {
     })
     .finally(() => prisma.$disconnect());
 }
-
-export default updateTargets;

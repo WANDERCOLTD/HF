@@ -363,8 +363,3 @@ export function EntityIcon({ type, size = "default", title, className = "" }: En
   );
 }
 
-// =============================================================================
-// EXPORT ALL
-// =============================================================================
-
-export default EntityPill;

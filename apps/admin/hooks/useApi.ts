@@ -282,5 +282,3 @@ export function useApiParallel<T extends Record<string, unknown>>(
 
   return { data, loading, error, refetch: fetchAll };
 }
-
-export default useApi;

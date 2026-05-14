@@ -1,6 +1,7 @@
 {
-  "tsc_errors": 604,
+  "tsc_errors": 567,
   "lint_errors": 0,
-  "lint_warnings": 9591,
-  "quarantined_tests": 31
+  "lint_warnings": 9531,
+  "quarantined_tests": 31,
+  "_comment_knip": "knip baseline (post #369): 0 unused files, ~109 unused exports, 14 unused exported types, 2 duplicate exports. Run 'cd apps/admin && npm run knip:ci' to verify; lock new counts here when knip changes."
 }

@@ -430,5 +430,3 @@ export function SourcePageHeader({
     </div>
   );
 }
-
-export default SourcePageHeader;

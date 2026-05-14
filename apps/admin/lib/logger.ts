@@ -224,21 +224,6 @@ export function logAI(
 }
 
 /**
- * Log an API request
- */
-export function logAPI(
-  endpoint: string,
-  data?: {
-    method?: string;
-    status?: number;
-    durationMs?: number;
-    [key: string]: unknown;
-  }
-): void {
-  log("api", endpoint, data);
-}
-
-/**
  * Log a system event
  */
 export function logSystem(
@@ -250,53 +235,4 @@ export function logSystem(
   }
 ): void {
   log("system", event, data);
-}
-
-/**
- * Log a user action
- */
-export function logUser(
-  action: string,
-  data?: {
-    userId?: string;
-    [key: string]: unknown;
-  }
-): void {
-  log("user", action, data);
-}
-
-// =====================================================
-// BACKWARDS COMPATIBILITY
-// =====================================================
-
-/** @deprecated Use logAI instead */
-export const logAICall = logAI;
-
-/** @deprecated Use logAI instead */
-export function logFullPrompt(stage: string, prompt: string): void {
-  if (!isLoggingEnabled()) return;
-
-  if (IS_PRODUCTION) {
-    console.log(JSON.stringify({
-      timestamp: new Date().toISOString(),
-      type: "ai",
-      stage,
-      promptPreview: prompt,
-      promptLength: prompt.length,
-    }));
-  }
-
-  try {
-    prisma.appLog
-      .create({
-        data: {
-          type: "ai",
-          stage,
-          promptPreview: prompt.slice(0, PROMPT_PREVIEW_CAP),
-          promptLength: prompt.length,
-          metadata: { fullPrompt: true },
-        },
-      })
-      .catch((err) => console.error("[Logger] DB write failed:", err));
-  } catch { /* prisma.appLog may not exist if client not regenerated */ }
 }

@@ -5,18 +5,13 @@
     "app/**/layout.tsx",
     "app/**/route.ts",
     "app/api/**/route.ts",
-    "middleware.ts",
-    "next.config.ts",
     "next-env.d.ts",
     "scripts/*.{ts,sh}",
     "tests/**/*.test.{ts,tsx}",
-    "tests/**/*.spec.{ts,tsx}",
     "__tests__/**/*.test.{ts,tsx}",
     "e2e/**/*.spec.ts",
     "lib/wizard/__tests__/**/*.test.{ts,tsx}",
-    "prisma/seed*.ts",
-    "prisma/seed/**/*.ts",
-    "cli/control.ts"
+    "prisma/seed*.ts"
   ],
   "project": [
     "app/**/*.{ts,tsx}",
@@ -24,18 +19,20 @@
     "lib/**/*.{ts,tsx}",
     "hooks/**/*.{ts,tsx}",
     "contexts/**/*.{ts,tsx}",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "src/**/*.{ts,tsx}"
   ],
   "ignore": [
-    "**/.next/**",
-    "**/node_modules/**",
-    "**/_archived/**",
-    "**/*.bak",
-    "prisma/migrations/**",
-    "docs-archive/**"
+    "**/_archived/**"
   ],
   "ignoreDependencies": [
-    "@types/*"
+    "@types/*",
+    "tailwindcss",
+    "wait-on"
+  ],
+  "ignoreBinaries": [
+    "pkill",
+    "lsof"
   ],
   "ignoreExportsUsedInFile": true,
   "next": {
