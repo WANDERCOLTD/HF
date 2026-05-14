@@ -844,6 +844,21 @@ export async function executeWizardTool(
               await applyBehaviorTargets(existingPlaybookId, behaviorTargets);
             }
 
+            // PlaybookSource link (#352) — mirror step 7c from the new-course
+            // branch. Without this, fresh ContentSources uploaded during a
+            // wizard run that lands on the existing-path (duplicate-name reuse
+            // or explicit draftPlaybookId) never get linked to the reused
+            // playbook, so the projection below has no COURSE_REFERENCE to
+            // derive Goals / BehaviorTargets / CurriculumModule from and the
+            // course shows up as "degenerate". `upsertPlaybookSource` is
+            // idempotent so this is safe to call on already-linked sources.
+            if (uploadSourceIds?.length) {
+              const { upsertPlaybookSource } = await import("@/lib/knowledge/domain-sources");
+              for (const srcId of uploadSourceIds) {
+                await upsertPlaybookSource(existingPlaybookId, srcId);
+              }
+            }
+
             // COURSE_REFERENCE projection (#338) — same as the new-course
             // branch (step 7d below). Re-applying the projection on an
             // already-set-up playbook is idempotent, so this is safe even

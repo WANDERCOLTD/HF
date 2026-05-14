@@ -73,5 +73,28 @@ describe("PlaybookSource isolation guards", () => {
       const shouldSyncLegacy = !noSourceIds?.length;
       expect(shouldSyncLegacy).toBe(true);
     });
+
+    it("create_course existing-path must link uploadSourceIds (regression for #352)", async () => {
+      // Issue #352 — when create_course hits the playbook-reuse path
+      // (duplicate name in domain), fresh ContentSources uploaded in the
+      // same wizard run must still get linked to the reused playbook via
+      // upsertPlaybookSource. Without this, the projection (#338) sees no
+      // COURSE_REFERENCE and the course is "degenerate".
+      //
+      // Static check that the existing-path in wizard-tool-executor.ts
+      // contains the same upsertPlaybookSource loop the new-path has.
+      const fs = await import("fs/promises");
+      const path = await import("path");
+      const file = path.resolve(__dirname, "../../../lib/chat/wizard-tool-executor.ts");
+      const src = await fs.readFile(file, "utf8");
+
+      // The fix block in the existing-path uses existingPlaybookId as the
+      // target. Must appear before runProjectionForPlaybook(existingPlaybookId).
+      const projIdx = src.indexOf("await runProjectionForPlaybook(existingPlaybookId)");
+      expect(projIdx).toBeGreaterThan(-1);
+      const before = src.slice(0, projIdx);
+      expect(before).toMatch(/await upsertPlaybookSource\(existingPlaybookId,\s*srcId\)/);
+      expect(before).toMatch(/if \(uploadSourceIds\?\.length\)/);
+    });
   });
 });
