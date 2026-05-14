@@ -199,7 +199,7 @@ export function CourseLearnersTab({ courseId, initialJoinToken, studentProgress 
       });
       const data = await res.json();
       if (data.ok) {
-        const url = `/x/callers/${data.callerId}?section=ai-call`;
+        const url = `/x/callers/${data.callerId}?tab=ai-call`;
         if (newTab && !newTab.closed) {
           newTab.location.href = url;
         } else {
