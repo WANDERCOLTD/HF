@@ -11,6 +11,7 @@ import { FancySelect, type FancySelectOption } from "@/components/shared/FancySe
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
 import { CallerDomainSection } from "@/components/callers/CallerDomainSection";
 import { SimChat } from "@/components/sim/SimChat";
+import { ModulePickerSelectionBanner, ModulePickerInviteBanner } from "@/components/sim/ModulePickerBanners";
 import '@/app/x/sim/sim.css';
 import './caller-detail-page.css';
 import './caller-detail/lens.css';
@@ -110,6 +111,9 @@ export default function CallerDetailPage() {
   // #253-follow-up: surface "Pick module" header button when the active
   // playbook has authored modules. Mirrors /x/sim/[callerId] wiring.
   const [modulesAuthored, setModulesAuthored] = useState<boolean>(false);
+  // #357: authored modules — needed so the selection banner can resolve a
+  // human label for the module id rather than show the raw id.
+  const [authoredModules, setAuthoredModules] = useState<Array<{ id: string; label?: string }>>([]);
   const requestedModuleId = searchParams.get("requestedModuleId") || undefined;
   const [progressVis, toggleProgressVis] = useSectionVisibility("caller-progress", {
     scores: true, behaviour: true, goals: true, exam: true,
@@ -408,9 +412,18 @@ export default function CallerDetailPage() {
         if (cancelled || !pbData?.ok) return;
         const cfg = (pbData.playbook?.config as Record<string, unknown> | null) ?? {};
         setModulesAuthored(cfg.modulesAuthored === true);
+        // #357: also surface the authored module list for the banner label.
+        if (Array.isArray(cfg.modules)) {
+          setAuthoredModules(cfg.modules as Array<{ id: string; label?: string }>);
+        } else {
+          setAuthoredModules([]);
+        }
       })
       .catch(() => {
-        if (!cancelled) setModulesAuthored(false);
+        if (!cancelled) {
+          setModulesAuthored(false);
+          setAuthoredModules([]);
+        }
       });
     return () => {
       cancelled = true;
@@ -1141,6 +1154,19 @@ export default function CallerDetailPage() {
 
       {simChatMounted && (
         <div className={activeSection === "ai-call" ? undefined : "hf-hidden"}>
+          {/* #357: mirror the sim-view module-picker banners so the admin
+              caller-detail surface gives the same signals as /x/sim/[id]. */}
+          {requestedModuleId ? (
+            <ModulePickerSelectionBanner
+              moduleId={requestedModuleId}
+              modules={authoredModules}
+            />
+          ) : modulesAuthored && selectedPlaybookId && selectedPlaybookId !== "all" ? (
+            <ModulePickerInviteBanner
+              moduleCount={authoredModules.length}
+              onPick={handlePickModule}
+            />
+          ) : null}
           <SimChat
             key={callSession}
             callerId={callerId}
