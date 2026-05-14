@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 // Default models to seed if table is empty
 const DEFAULT_MODELS = [
   // Claude models (active as of Feb 2026 — see platform.claude.com/docs/en/about-claude/model-deprecations)
-  { modelId: "claude-sonnet-4-20250514", provider: "claude", label: "Claude Sonnet 4", tier: "flagship", sortOrder: 1, maxOutputTokens: 16384 },
+  { modelId: "claude-sonnet-4-5-20250929", provider: "claude", label: "Claude Sonnet 4.5", tier: "flagship", sortOrder: 1, maxOutputTokens: 64000 },
   { modelId: "claude-haiku-4-5-20251001", provider: "claude", label: "Claude Haiku 4.5", tier: "fast", sortOrder: 2, maxOutputTokens: 8192 },
   // OpenAI models
   { modelId: "gpt-4o", provider: "openai", label: "GPT-4o", tier: "flagship", sortOrder: 1, maxOutputTokens: 16384 },

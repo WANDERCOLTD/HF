@@ -39,7 +39,7 @@ The page shows all configurable call points with:
 ## Available Models
 
 ### Claude (Anthropic)
-- **claude-sonnet-4-20250514** - Standard tier, balanced performance
+- **claude-sonnet-4-5-20250929** - Standard tier, balanced performance
 - **claude-3-haiku-20240307** - Fast tier, cost-effective
 - **claude-3-5-sonnet-20241022** - Standard tier, previous generation
 - **claude-3-opus-20240229** - Premium tier, highest quality
@@ -67,10 +67,10 @@ Returns all configurations merged with defaults.
       "label": "Pipeline - MEASURE",
       "description": "Scores caller parameters...",
       "provider": "claude",
-      "model": "claude-sonnet-4-20250514",
+      "model": "claude-sonnet-4-5-20250929",
       "isCustomized": false,
       "defaultProvider": "claude",
-      "defaultModel": "claude-sonnet-4-20250514"
+      "defaultModel": "claude-sonnet-4-5-20250929"
     }
   ],
   "availableModels": { ... }
@@ -198,14 +198,14 @@ clearAIConfigCache();
      label: "Your New Feature",
      description: "What this AI call does",
      defaultProvider: "claude",
-     defaultModel: "claude-sonnet-4-20250514",
+     defaultModel: "claude-sonnet-4-5-20250929",
    },
    ```
 
 2. **Add the default config** in `/lib/ai/config-loader.ts`:
    ```typescript
    // In DEFAULT_CONFIGS:
-   "your.new.callpoint": { provider: "claude", model: "claude-sonnet-4-20250514" },
+   "your.new.callpoint": { provider: "claude", model: "claude-sonnet-4-5-20250929" },
    ```
 
 3. **Use the config-aware function** in your code:

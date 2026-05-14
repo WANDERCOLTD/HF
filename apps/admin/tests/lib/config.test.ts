@@ -155,9 +155,9 @@ describe("config.ai — AI service configuration", () => {
       expect(config.ai.claude.apiKey).toBe("sk-ant-test");
     });
 
-    it("defaults model to claude-sonnet-4-20250514", () => {
+    it("defaults model to claude-sonnet-4-5-20250929", () => {
       vi.stubEnv("CLAUDE_MODEL_ID", "");
-      expect(config.ai.claude.model).toBe("claude-sonnet-4-20250514");
+      expect(config.ai.claude.model).toBe("claude-sonnet-4-5-20250929");
     });
 
     it("overrides model via CLAUDE_MODEL_ID", () => {

@@ -203,7 +203,7 @@ export async function logAIUsage(params: {
 /**
  * Resolve a model ID to a cost tier prefix.
  * Maps model strings like "claude-haiku-4-5-20251001" → "claude-haiku",
- * "claude-sonnet-4-20250514" → "claude-sonnet", etc.
+ * "claude-sonnet-4-5-20250929" → "claude-sonnet", etc.
  * Falls back to the engine name when the tier can't be determined.
  */
 function resolveModelTier(engine: string, model: string): string {

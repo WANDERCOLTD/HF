@@ -50,7 +50,7 @@ const EXPECTED_CALL_POINTS = [
 const EXPECTED_PROVIDERS = ["claude", "openai", "mock"];
 
 const EXPECTED_CLAUDE_MODELS = [
-  "claude-sonnet-4-20250514",
+  "claude-sonnet-4-5-20250929",
   "claude-haiku-4-5-20251001",
 ];
 
@@ -85,7 +85,7 @@ describe("AI Config API", () => {
       );
       expect(pipelineMeasure).toBeDefined();
       expect(pipelineMeasure.provider).toBe("claude");
-      expect(pipelineMeasure.model).toBe("claude-sonnet-4-20250514");
+      expect(pipelineMeasure.model).toBe("claude-sonnet-4-5-20250929");
       expect(pipelineMeasure.isCustomized).toBe(false);
     });
 
@@ -173,7 +173,7 @@ describe("AI Config API", () => {
         json: vi.fn().mockResolvedValue({
           callPoint: "invalid.callpoint",
           provider: "claude",
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-5-20250929",
         }),
       } as any;
 
@@ -246,7 +246,7 @@ describe("AI Config API", () => {
         id: "config-1",
         callPoint: "pipeline.measure",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-5-20250929",
         maxTokens: 8000,
         isActive: true,
       });
@@ -256,7 +256,7 @@ describe("AI Config API", () => {
         json: vi.fn().mockResolvedValue({
           callPoint: "pipeline.measure",
           provider: "claude",
-          model: "claude-sonnet-4-20250514", // 16384 max output
+          model: "claude-sonnet-4-5-20250929", // 16384 max output
           maxTokens: 8000, // Within limit
         }),
       } as any;
@@ -425,8 +425,8 @@ describe("Available Models", () => {
 describe("AI Config Loader Logic", () => {
   // Default configurations per call point
   const DEFAULT_CONFIGS: Record<string, { provider: string; model: string }> = {
-    "pipeline.measure": { provider: "claude", model: "claude-sonnet-4-20250514" },
-    "pipeline.learn": { provider: "claude", model: "claude-sonnet-4-20250514" },
+    "pipeline.measure": { provider: "claude", model: "claude-sonnet-4-5-20250929" },
+    "pipeline.learn": { provider: "claude", model: "claude-sonnet-4-5-20250929" },
     "analysis.measure": { provider: "claude", model: "claude-haiku-4-5-20251001" },
   };
 
@@ -457,7 +457,7 @@ describe("AI Config Loader Logic", () => {
     // Ultimate fallback
     return {
       provider: "claude",
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-5-20250929",
       isCustomized: false,
     };
   }
@@ -466,7 +466,7 @@ describe("AI Config Loader Logic", () => {
     const config = simulateGetConfig("pipeline.measure", null);
 
     expect(config.provider).toBe("claude");
-    expect(config.model).toBe("claude-sonnet-4-20250514");
+    expect(config.model).toBe("claude-sonnet-4-5-20250929");
     expect(config.isCustomized).toBe(false);
   });
 
@@ -500,7 +500,7 @@ describe("AI Config Loader Logic", () => {
     const config = simulateGetConfig("unknown.callpoint", null);
 
     expect(config.provider).toBe("claude");
-    expect(config.model).toBe("claude-sonnet-4-20250514");
+    expect(config.model).toBe("claude-sonnet-4-5-20250929");
     expect(config.isCustomized).toBe(false);
   });
 
@@ -508,7 +508,7 @@ describe("AI Config Loader Logic", () => {
     const pipelineConfig = simulateGetConfig("pipeline.measure", null);
     const analysisConfig = simulateGetConfig("analysis.measure", null);
 
-    expect(pipelineConfig.model).toBe("claude-sonnet-4-20250514");
+    expect(pipelineConfig.model).toBe("claude-sonnet-4-5-20250929");
     expect(analysisConfig.model).toBe("claude-haiku-4-5-20251001");
   });
 });

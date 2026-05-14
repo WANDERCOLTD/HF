@@ -47,7 +47,7 @@ vi.mock("@/lib/config", () => ({
     },
     ai: {
       openai: { isConfigured: true, model: "gpt-4o" },
-      claude: { isConfigured: false, model: "claude-sonnet-4-20250514" },
+      claude: { isConfigured: false, model: "claude-sonnet-4-5-20250929" },
     },
     vapi: {
       apiKey: undefined,
