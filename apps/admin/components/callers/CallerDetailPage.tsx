@@ -12,6 +12,7 @@ import { SectionSelector, useSectionVisibility } from "@/components/shared/Secti
 import { CallerDomainSection } from "@/components/callers/CallerDomainSection";
 import { SimChat } from "@/components/sim/SimChat";
 import { ModulePickerSelectionBanner, ModulePickerInviteBanner } from "@/components/sim/ModulePickerBanners";
+import { SimStateBreadcrumb } from "@/components/sim/SimStateBreadcrumb";
 import '@/app/x/sim/sim.css';
 import './caller-detail-page.css';
 import './caller-detail/lens.css';
@@ -1154,8 +1155,19 @@ export default function CallerDetailPage() {
 
       {simChatMounted && (
         <div className={activeSection === "ai-call" ? undefined : "hf-hidden"}>
-          {/* #357: mirror the sim-view module-picker banners so the admin
-              caller-detail surface gives the same signals as /x/sim/[id]. */}
+          {/* #357: mirror the sim-view module-picker banners + state
+              breadcrumb so the admin caller-detail surface gives the same
+              signals as /x/sim/[id]. */}
+          <SimStateBreadcrumb
+            pastCallCount={(data?.calls ?? []).filter((c: { transcript?: string | null }) => c.transcript?.trim()).length}
+            requestedModuleId={requestedModuleId ?? null}
+            modules={authoredModules}
+            onPickModule={
+              modulesAuthored && selectedPlaybookId && selectedPlaybookId !== "all"
+                ? handlePickModule
+                : undefined
+            }
+          />
           {requestedModuleId ? (
             <ModulePickerSelectionBanner
               moduleId={requestedModuleId}
