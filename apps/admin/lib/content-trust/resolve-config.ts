@@ -33,7 +33,25 @@ export interface ExtractionCategory {
   description: string;
 }
 
-export type DocumentType = "CURRICULUM" | "TEXTBOOK" | "WORKSHEET" | "EXAMPLE" | "ASSESSMENT" | "REFERENCE" | "COMPREHENSION" | "LESSON_PLAN" | "POLICY_DOCUMENT" | "READING_PASSAGE" | "QUESTION_BANK" | "COURSE_REFERENCE";
+export type DocumentType =
+  | "CURRICULUM"
+  | "TEXTBOOK"
+  | "WORKSHEET"
+  | "EXAMPLE"
+  | "ASSESSMENT"
+  | "REFERENCE"
+  | "COMPREHENSION"
+  | "LESSON_PLAN"
+  | "POLICY_DOCUMENT"
+  | "READING_PASSAGE"
+  | "QUESTION_BANK"
+  | "COURSE_REFERENCE"
+  // #385 Slice 1 — audience-scoped subtypes; emitted by classify-document
+  // pattern overrides. Legacy COURSE_REFERENCE remains valid for AI output
+  // that doesn't trigger a deterministic subtype mapping.
+  | "COURSE_REFERENCE_CANONICAL"
+  | "COURSE_REFERENCE_TUTOR_BRIEFING"
+  | "COURSE_REFERENCE_ASSESSOR_RUBRIC";
 
 /**
  * Categories that represent tutor instructions (how to teach),
