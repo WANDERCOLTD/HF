@@ -336,13 +336,29 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
   // ── Setup data ────────────────────────────────────────
 
   const getSetupData = useCallback((): Record<string, unknown> => {
+    // #394 — This whitelist MUST stay in sync with GRAPH_KEYS ∪ INTERNAL_KEYS
+    // in lib/wizard/validate-setup-fields.ts. Any field the AI sets via
+    // update_setup that isn't in this list disappears on the next request
+    // (e.g. progressionMode and welcome* dropped silently, causing
+    // create_course to either block on "missing required" or fall back to
+    // DEFAULT_WELCOME_CONFIG and ignore the educator's choice). A
+    // structural fix that derives this from the validator's source of truth
+    // is tracked in #394 Slice 2.
     const keys = [
       "institutionName", "existingInstitutionId", "existingDomainId",
       "typeSlug", "defaultDomainKind", "websiteUrl",
       "courseName", "subjectDiscipline", "interactionPattern", "teachingMode",
       "teachingProfile", "audience", "learningOutcomes",
+      // #394 — progressionMode is a required GRAPH_KEY (evaluateGraph
+      // blocks create_course without it); was silently dropped pre-fix.
+      "progressionMode",
       "welcomeMessage", "sessionCount", "durationMins", "planEmphasis",
       "assessments", "assessmentTargets", "constraints",
+      // #394 — the four welcome flags drive applyStudentExperienceConfig's
+      // sessionFlow.onboarding write (#383). Dropping them caused silent
+      // fallback to DEFAULT_WELCOME_CONFIG.
+      "welcomeGoals", "welcomeAboutYou", "welcomeKnowledgeCheck", "welcomeAiIntro",
+      "welcomeKnowledgeCheckMode",
       "behaviorTargets", "lessonPlanModel", "personalityPreset", "personalityDescription",
       "physicalMaterials",
       "draftDomainId", "draftInstitutionId", "draftPlaybookId", "draftCallerId",
@@ -352,6 +368,11 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       "coursePedagogy", "courseRefDigest", "courseRefEnabled", "_docConfigKeys", "curriculumPath",
       "welcomeSkipped", "tuneSkipped",
       "communityMode", "draftCohortGroupId", "communityJoinToken", "communityHubUrl",
+      // #394 — NPS toggle is set via update_setup but was not propagated;
+      // landed correctly only because applyStudentExperienceConfig defaults
+      // it to true when missing. Include explicitly so educator's OFF
+      // choice now survives.
+      "npsEnabled",
     ];
     const data: Record<string, unknown> = {};
     for (const k of keys) {
