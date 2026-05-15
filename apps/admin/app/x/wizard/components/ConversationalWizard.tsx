@@ -1307,9 +1307,19 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
     if (!isActive || initialised.current) return;
     initialised.current = true;
 
-    // Always start fresh — stale sessionStorage causes more UX issues than it solves.
-    // The wizard is short enough that resuming mid-conversation is rarely needed.
-    sessionStorage.removeItem(storageKey(storageScope));
+    // #387 — preserve chat history across hard refresh. The previous behaviour
+    // unconditionally cleared sessionStorage here, which meant a user mid-
+    // wizard who hit refresh lost their transcript (the bag in
+    // hf.stepflow.state survived, but the chat key got overwritten with a
+    // bare greeting). The intentional reset path is handleStartOver, not
+    // this mount effect.
+    const restored = loadHistory(storageScope);
+    if (restored.length > 0) {
+      setMessages(restored);
+      scrollToBottom();
+      setTimeout(() => inputRef.current?.focus(), 150);
+      return;
+    }
 
     const hasContext = !!initialContext;
     const greeting: Message = {
