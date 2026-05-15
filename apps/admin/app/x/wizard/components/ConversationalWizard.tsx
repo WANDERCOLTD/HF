@@ -1737,8 +1737,10 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             )}
           </div>
 
-          {/* Start over — hidden when launched (moved into success card) */}
-          {messages.length > 1 && !launched && (
+          {/* Start over — always visible until launch (proper-refresh button per user request).
+              Calls handleStartOver which clears the chat key + the bag in hf.stepflow.state,
+              i.e. the opposite of hard refresh (which now preserves state after #390). */}
+          {!launched && (
             <div className="cv4-start-over-row">
               {confirmReset ? (
                 <>
