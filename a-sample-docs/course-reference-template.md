@@ -78,6 +78,28 @@ hf-lo-system-role: TEACHING_INSTRUCTION
 
 # [Course name] — Course Reference
 
+## Course Configuration
+
+<!-- READ THIS — declaration must live in the FIRST ~1000 CHARS of the doc.
+The wizard-time scan (ConversationalWizard.tsx → detectAuthoredModules)
+only sees the `textSample` first ~1000 chars when deciding whether
+curriculumPath is "authored" or "generated". The `## Modules` section
+below typically falls well past that window. To make sure the wizard
+recognises an authored module catalogue, set `**Modules authored:**` HERE,
+near the top of the doc, in addition to (and consistent with) the more
+detailed declaration inside `## Modules`. -->
+
+**Modules authored:** Yes
+<!-- Yes  — you have hand-curated the `## Modules` catalogue below.
+                Wizard treats curriculumPath as "authored" and offers the
+                "Let learners pick (recommended)" picker default.
+     No   — you have no module catalogue; the system will AI-generate
+                modules from your learning outcomes post-creation.
+     Partial — placeholder rows; treated as "authored" by the wizard,
+                but the publish gate will warn until rows are filled in. -->
+
+---
+
 ## Document Purpose
 
 This document tells the AI tutor **how to teach** this course — the principles,
@@ -116,9 +138,13 @@ educator from re-entering the same numbers in the wizard.
 ## Modules
 
 <!-- HOW THIS WORKS
-The line `**Modules authored:** Yes` below tells the wizard you have hand-curated
-the module list and to NOT auto-derive modules from extracted assertions. The
-Module Catalogue table is parsed deterministically by detect-authored-modules.ts.
+The line `**Modules authored:** Yes` below is the canonical declaration —
+detect-authored-modules.ts parses the full body and confirms the catalogue
+table. The SAME declaration is duplicated up in `## Course Configuration`
+so the wizard's 1000-char textSample scan sees it (the wizard runs in the
+browser before the full server-side parse). Keep both lines in sync.
+
+The Module Catalogue table is parsed deterministically by detect-authored-modules.ts.
 
 REQUIRED CONSTRAINTS (the parser enforces these):
 - The `id` column must match /^[a-z][a-z0-9_]*$/ and be ≤32 chars (e.g.
