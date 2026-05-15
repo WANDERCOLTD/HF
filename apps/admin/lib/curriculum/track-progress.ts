@@ -225,6 +225,36 @@ export type LoScoreState = { mastery: number; callCount: number };
 export type LoScoresMap = Record<string, LoScoreState>;
 
 /**
+ * #403 AI-to-DB guard. The AI returns `learning.outcomes` keyed by strings it
+ * chose; before those keys become DB state, validate them.
+ *
+ * Rejects:
+ * - Placeholder keys matching /^LO\d+$/ (e.g. "LO1", "LO2") — these are the
+ *   exact failure mode the prompt fix targets; any leftover slip-through from
+ *   the AI gets dropped here as a belt-and-braces guard.
+ *
+ * Returns the filtered map and the list of rejected keys for logging. Empty
+ * filtered map means the caller should fall back to the Phase 0 cap path
+ * rather than persist meaningless data.
+ */
+export function validateLoScores(loScores: Record<string, number>): {
+  filtered: Record<string, number>;
+  rejected: string[];
+} {
+  const filtered: Record<string, number> = {};
+  const rejected: string[] = [];
+  const PLACEHOLDER = /^LO\d+$/;
+  for (const [key, value] of Object.entries(loScores)) {
+    if (PLACEHOLDER.test(key)) {
+      rejected.push(key);
+      continue;
+    }
+    filtered[key] = value;
+  }
+  return { filtered, rejected };
+}
+
+/**
  * Merge fresh AI LO scores into an existing running-average map.
  * Each LO present in `newScores` updates with `(oldMastery * oldCount + newScore) / (oldCount + 1)`.
  * LOs absent from `newScores` keep their prior state untouched.
@@ -302,13 +332,24 @@ export async function updateModuleMastery(
   let finalMastery: number;
   let nextLoScoresJson: LoScoresMap | undefined;
 
-  if (loScores && Object.keys(loScores).length > 0) {
+  // #403: validate AI-supplied LO keys before they touch DB state.
+  // Rejects placeholder keys like "LO1"/"LO2" so the AI can't accidentally
+  // pollute the accumulation map with hallucinated refs.
+  const validated = loScores ? validateLoScores(loScores) : { filtered: {}, rejected: [] };
+  if (validated.rejected.length > 0) {
+    console.warn(
+      `[track-progress] Rejected ${validated.rejected.length} placeholder LO key(s) for module ${resolvedModuleId}:`,
+      validated.rejected,
+    );
+  }
+
+  if (Object.keys(validated.filtered).length > 0) {
     // Phase 1: derive mastery from accumulated LO running averages
     const prior = isLoScoresMap(existing?.loScoresJson) ? existing!.loScoresJson : null;
-    nextLoScoresJson = mergeLoScores(prior, loScores);
+    nextLoScoresJson = mergeLoScores(prior, validated.filtered);
     finalMastery = rollupModuleMastery(nextLoScoresJson) ?? 0;
   } else {
-    // No LO scores → fall back to AI snapshot with the Phase 0 safety cap
+    // No valid LO scores → fall back to AI snapshot with the Phase 0 safety cap
     finalMastery = capMasteryByCallCount(mastery, effectiveCallCount);
   }
 

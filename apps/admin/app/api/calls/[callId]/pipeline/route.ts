@@ -330,11 +330,16 @@ function buildBatchedCallerPrompt(
   let learningSection = "";
   let learningJsonHint = "";
   if (moduleContext?.learningOutcomes?.length) {
-    const loList = moduleContext.learningOutcomes.map((lo, i) => `LO${i + 1}:${lo}`).join("|");
+    // #403: emit the real LO refs (not positional placeholders) and ground the JSON
+    // example in the FIRST real ref. Previous "LO1:..." pattern + example baked into
+    // the prompt led the AI to return {"LO1": 0.6} regardless of curriculum content.
+    const loList = moduleContext.learningOutcomes.map((lo) => `- ${JSON.stringify(lo)}`).join("\n");
+    const exampleRef = moduleContext.learningOutcomes[0];
+    const exampleOutcomes = JSON.stringify({ [exampleRef]: 0.6 });
     const instructions = assessmentPromptInstructions
       || "Score caller's demonstrated understanding of each outcome 0-1 (0=no evidence, 0.5=partial, 1=full mastery).";
-    learningSection = `\n\nLEARNING OUTCOMES TO ASSESS (module "${moduleContext.moduleName}"):\n${loList}\n${instructions}`;
-    learningJsonHint = `,"learning":{"moduleId":"${moduleContext.moduleId}","outcomes":{"LO1":0.6},"overallMastery":0.7}`;
+    learningSection = `\n\nLEARNING OUTCOMES TO ASSESS (module "${moduleContext.moduleName}"):\n${loList}\n\nCRITICAL: Use the EXACT strings above as keys in "outcomes" — copy them verbatim. Do NOT invent placeholders like "LO1", "LO2".\n\n${instructions}`;
+    learningJsonHint = `,"learning":{"moduleId":"${moduleContext.moduleId}","outcomes":${exampleOutcomes},"overallMastery":0.7}`;
   }
 
   return `Analyze transcript. Score caller 0-1 on params, extract ALL personal facts.
