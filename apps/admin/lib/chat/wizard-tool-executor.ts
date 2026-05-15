@@ -262,7 +262,44 @@ export async function executeWizardTool(
           is_error: true,
         };
       }
-      const keys = Object.keys(fields);
+      let keys = Object.keys(fields);
+
+      // ── #398 — progressionMode chip-click enforcement ──
+      // The AI repeatedly slips `progressionMode` into bulk intake writes
+      // (alongside courseName, audience, interactionPattern, etc.) inferred
+      // from the educator's prose description. That silently satisfies the
+      // graph evaluator's `required: true` check before the picker (rule 5d
+      // + the BLOCKED directive in graph-evaluator.ts) can ever fire.
+      //
+      // Rule: progressionMode may only be written via a SINGLE-FIELD
+      // `update_setup({ progressionMode: "..." })` call — the shape that
+      // results from the educator clicking a `show_suggestions` chip after
+      // the BLOCKED directive forces the picker. Any bulk write that
+      // includes `progressionMode` alongside other fields gets the field
+      // stripped and a tool error returned so the AI corrects course.
+      if ("progressionMode" in fields && keys.length > 1) {
+        const stripped = fields.progressionMode;
+        delete fields.progressionMode;
+        keys = Object.keys(fields);
+        console.warn(
+          `[wizard-tools] update_setup STRIPPED progressionMode="${String(stripped)}" from bulk write (other fields: ${keys.join(", ")}). progressionMode requires a chip-click confirmation — surface show_suggestions with the picker per rule 5d.`,
+        );
+        return {
+          ...base,
+          content: JSON.stringify({
+            ok: false,
+            error:
+              `progressionMode CANNOT be set in a bulk update_setup call. ` +
+              `It is the educator's deliberate choice and must come from a chip click. ` +
+              `Surface show_suggestions with two options (e.g. ["Let learners pick (recommended)", "AI directs the sequence"] for authored, or ["AI directs the sequence", "Let learners pick from a menu"] otherwise). ` +
+              `When the educator clicks, call update_setup with ONLY { progressionMode: "ai-led" | "learner-picks" } — no other fields. ` +
+              `The other fields in this call were NOT saved either; retry them in a separate update_setup call.`,
+            stripped: { progressionMode: stripped },
+            otherFieldsNotSaved: keys,
+          }),
+          is_error: true,
+        };
+      }
 
       // ── Institution resolution ──────────────────────────
       if (fields.institutionName && typeof fields.institutionName === "string") {
