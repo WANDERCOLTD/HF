@@ -2387,6 +2387,12 @@ model CallerModuleProgress {
   lastCallId String? // Most recent call that updated this
   callCount  Int     @default(0) // How many calls touched this module
 
+  // #397 Phase 1 — per-LO running average. Shape:
+  //   { [loRef: string]: { mastery: number; callCount: number } }
+  // Module mastery is derived as mean(mastery) over LOs present in this map
+  // (unscored LOs are excluded so partial coverage doesn't drag the figure).
+  loScoresJson Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -59,6 +59,13 @@ const mockPrisma = {
   callerTarget: {
     upsert: vi.fn(),
   },
+  // #397 Phase 2: LEARN goal progress derived from CallerModuleProgress
+  curriculumModule: {
+    findMany: vi.fn(),
+  },
+  callerModuleProgress: {
+    findMany: vi.fn(),
+  },
 };
 
 vi.mock("@/lib/prisma", () => ({
@@ -137,6 +144,11 @@ describe("lib/goals/track-progress.ts", () => {
     mockPrisma.callScore.findMany.mockResolvedValue([]);
     mockPrisma.call.findUnique.mockResolvedValue(null);
     mockPrisma.callerTarget.upsert.mockResolvedValue({});
+    // Default: no curriculum modules linked → Phase 2 derivation returns null,
+    // letting individual tests fall through to legacy paths unless they
+    // explicitly set up CallerModuleProgress fixtures.
+    mockPrisma.curriculumModule.findMany.mockResolvedValue([]);
+    mockPrisma.callerModuleProgress.findMany.mockResolvedValue([]);
     mockComputeExamReadiness.mockResolvedValue({
       readinessScore: 0.6,
       level: "borderline",
@@ -284,6 +296,114 @@ describe("lib/goals/track-progress.ts", () => {
           progress: 1.0,
           status: "COMPLETED",
         }),
+      });
+    });
+  });
+
+  // -------------------------------------------------
+  // #397 Phase 2: LEARN goals derived from CallerModuleProgress
+  // -------------------------------------------------
+
+  describe("LEARN goals — Phase 2 derivation from CallerModuleProgress", () => {
+    it("derives progress from spec-level avg of module mastery", async () => {
+      const goal = {
+        ...makeGoal({
+          id: "learn-derived",
+          type: "LEARN",
+          progress: 0,
+          contentSpec: makeContentSpec("ielts"),
+        }),
+        contentSpecId: "spec-ielts-1",
+      };
+      mockPrisma.goal.findMany.mockResolvedValue([goal]);
+
+      // 4 modules linked to this spec; 2 have CallerModuleProgress rows
+      mockPrisma.curriculumModule.findMany.mockResolvedValue([
+        { id: "mod-a" }, { id: "mod-b" }, { id: "mod-c" }, { id: "mod-d" },
+      ]);
+      mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
+        { mastery: 0.6 }, // mod-a
+        { mastery: 0.4 }, // mod-b
+      ]);
+
+      const result = await trackGoalProgress("caller-1", "call-1");
+
+      // (0.6 + 0.4 + 0 + 0) / 4 = 0.25
+      expect(result.updated).toBe(1);
+      expect(mockPrisma.goal.update).toHaveBeenCalledWith({
+        where: { id: "learn-derived" },
+        data: expect.objectContaining({ progress: 0.25 }),
+      });
+    });
+
+    it("untouched modules contribute 0 (penalises partial coverage)", async () => {
+      const goal = {
+        ...makeGoal({ id: "learn-cov", type: "LEARN", progress: 0, contentSpec: makeContentSpec("ielts") }),
+        contentSpecId: "spec-ielts-1",
+      };
+      mockPrisma.goal.findMany.mockResolvedValue([goal]);
+
+      // 1 module fully mastered, 3 untouched
+      mockPrisma.curriculumModule.findMany.mockResolvedValue([
+        { id: "mod-a" }, { id: "mod-b" }, { id: "mod-c" }, { id: "mod-d" },
+      ]);
+      mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
+        { mastery: 1.0 }, // mod-a
+      ]);
+
+      const result = await trackGoalProgress("caller-1", "call-1");
+
+      // 1.0 / 4 = 0.25 — NOT 1.0 (would be wrong: 75% of course untouched)
+      expect(result.updated).toBe(1);
+      expect(mockPrisma.goal.update).toHaveBeenCalledWith({
+        where: { id: "learn-cov" },
+        data: expect.objectContaining({ progress: 0.25 }),
+      });
+    });
+
+    it("suppresses 5% engagement fallback when curriculum derivation has no progress to report", async () => {
+      // Goal already at 0.5; new derivation is also 0.5 → no delta → must NOT
+      // get a sneaky +0.05 from the engagement heuristic.
+      const goal = {
+        ...makeGoal({ id: "learn-stable", type: "LEARN", progress: 0.5, contentSpec: makeContentSpec("ielts") }),
+        contentSpecId: "spec-ielts-1",
+      };
+      mockPrisma.goal.findMany.mockResolvedValue([goal]);
+
+      mockPrisma.curriculumModule.findMany.mockResolvedValue([
+        { id: "mod-a" }, { id: "mod-b" },
+      ]);
+      mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
+        { mastery: 0.5 }, { mastery: 0.5 },
+      ]);
+
+      const result = await trackGoalProgress("caller-1", "call-1");
+
+      expect(result.updated).toBe(0);
+      expect(mockPrisma.goal.update).not.toHaveBeenCalled();
+    });
+
+    it("falls back to legacy attr path when no curriculum is linked to the spec", async () => {
+      // curriculumModule.findMany returns [] → derivation returns null → legacy
+      // callerAttribute path runs.
+      const goal = {
+        ...makeGoal({ id: "learn-legacy", type: "LEARN", progress: 0, contentSpec: makeContentSpec("legacy", ["m1", "m2"]) }),
+        contentSpecId: "spec-legacy-1",
+      };
+      mockPrisma.goal.findMany.mockResolvedValue([goal]);
+
+      mockPrisma.curriculumModule.findMany.mockResolvedValue([]); // no curriculum
+      mockPrisma.callerAttribute.findMany.mockResolvedValue([
+        { key: "module_1", stringValue: "completed" },
+      ]);
+
+      const result = await trackGoalProgress("caller-1", "call-1");
+
+      // 1/2 modules completed via legacy attr path
+      expect(result.updated).toBe(1);
+      expect(mockPrisma.goal.update).toHaveBeenCalledWith({
+        where: { id: "learn-legacy" },
+        data: expect.objectContaining({ progress: 0.5 }),
       });
     });
   });

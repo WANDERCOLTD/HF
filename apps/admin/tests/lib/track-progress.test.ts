@@ -313,4 +313,119 @@ describe('track-progress.ts', () => {
       expect(lastAccessedCall![0].create.stringValue).toBe('2026-02-16T12:00:00.000Z');
     });
   });
+
+  describe('capMasteryByCallCount (issue #397 Phase 0)', () => {
+    let capMasteryByCallCount: (m: number, n: number) => number;
+
+    beforeEach(async () => {
+      const mod = await import('@/lib/curriculum/track-progress');
+      capMasteryByCallCount = mod.capMasteryByCallCount;
+    });
+
+    it('caps AI snapshot to callCount/6 on first call', () => {
+      // AI returned 0.7 after a single call → capped to 1/6 ≈ 0.167
+      expect(capMasteryByCallCount(0.7, 1)).toBeCloseTo(1 / 6, 5);
+      expect(capMasteryByCallCount(0.25, 1)).toBeCloseTo(1 / 6, 5);
+    });
+
+    it('does not raise mastery below its raw value', () => {
+      // AI returned 0.05 — well below cap of 1/6 — should pass through unchanged
+      expect(capMasteryByCallCount(0.05, 1)).toBe(0.05);
+      expect(capMasteryByCallCount(0, 3)).toBe(0);
+    });
+
+    it('scales linearly with callCount up to 6', () => {
+      expect(capMasteryByCallCount(1.0, 2)).toBeCloseTo(2 / 6, 5);
+      expect(capMasteryByCallCount(1.0, 3)).toBeCloseTo(3 / 6, 5);
+      expect(capMasteryByCallCount(1.0, 5)).toBeCloseTo(5 / 6, 5);
+    });
+
+    it('lifts cap to 1.0 from call 6 onward', () => {
+      expect(capMasteryByCallCount(0.95, 6)).toBe(0.95);
+      expect(capMasteryByCallCount(1.0, 6)).toBe(1.0);
+      expect(capMasteryByCallCount(1.0, 12)).toBe(1.0);
+    });
+
+    it('never returns a value above 1.0', () => {
+      // Belt-and-braces in case an upstream caller passes an out-of-range AI value
+      expect(capMasteryByCallCount(1.5, 10)).toBe(1.0);
+    });
+  });
+
+  describe('mergeLoScores (issue #397 Phase 1)', () => {
+    let mergeLoScores: (existing: any, newScores: Record<string, number>) => any;
+
+    beforeEach(async () => {
+      const mod = await import('@/lib/curriculum/track-progress');
+      mergeLoScores = mod.mergeLoScores;
+    });
+
+    it('initialises an empty map with first-call scores', () => {
+      const merged = mergeLoScores(null, { lo1: 0.4, lo2: 0.6 });
+      expect(merged).toEqual({
+        lo1: { mastery: 0.4, callCount: 1 },
+        lo2: { mastery: 0.6, callCount: 1 },
+      });
+    });
+
+    it('running-averages existing LOs with new scores', () => {
+      const prior = { lo1: { mastery: 0.4, callCount: 1 } };
+      const merged = mergeLoScores(prior, { lo1: 0.8 });
+      expect(merged.lo1.mastery).toBeCloseTo(0.6, 5); // (0.4*1 + 0.8) / 2
+      expect(merged.lo1.callCount).toBe(2);
+    });
+
+    it('leaves LOs absent from the new batch untouched', () => {
+      const prior = {
+        lo1: { mastery: 0.4, callCount: 1 },
+        lo2: { mastery: 0.7, callCount: 1 },
+      };
+      const merged = mergeLoScores(prior, { lo1: 0.8 });
+      expect(merged.lo2).toEqual({ mastery: 0.7, callCount: 1 });
+    });
+
+    it('clamps out-of-range AI scores to [0, 1] before averaging', () => {
+      const merged = mergeLoScores(null, { lo1: 1.5, lo2: -0.3 });
+      expect(merged.lo1).toEqual({ mastery: 1.0, callCount: 1 });
+      expect(merged.lo2).toEqual({ mastery: 0.0, callCount: 1 });
+    });
+
+    it('converges toward the true score over multiple calls', () => {
+      let state: any = null;
+      for (let i = 0; i < 5; i++) {
+        state = mergeLoScores(state, { lo1: 0.6 });
+      }
+      expect(state.lo1.mastery).toBeCloseTo(0.6, 5);
+      expect(state.lo1.callCount).toBe(5);
+    });
+  });
+
+  describe('rollupModuleMastery (issue #397 Phase 1)', () => {
+    let rollupModuleMastery: (map: any) => number | null;
+
+    beforeEach(async () => {
+      const mod = await import('@/lib/curriculum/track-progress');
+      rollupModuleMastery = mod.rollupModuleMastery;
+    });
+
+    it('returns null when no LOs have been scored', () => {
+      expect(rollupModuleMastery(null)).toBeNull();
+      expect(rollupModuleMastery({})).toBeNull();
+    });
+
+    it('averages mastery over scored LOs only', () => {
+      const map = {
+        lo1: { mastery: 0.4, callCount: 2 },
+        lo2: { mastery: 0.8, callCount: 1 },
+      };
+      expect(rollupModuleMastery(map)).toBeCloseTo(0.6, 5);
+    });
+
+    it('does not penalise modules for unscored LOs (count = scored only)', () => {
+      // 1 LO scored at 0.5 → module mastery = 0.5, regardless of other LOs
+      // that exist in the spec but haven't been touched yet.
+      const map = { lo1: { mastery: 0.5, callCount: 1 } };
+      expect(rollupModuleMastery(map)).toBe(0.5);
+    });
+  });
 });
