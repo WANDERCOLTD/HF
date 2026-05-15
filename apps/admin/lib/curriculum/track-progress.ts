@@ -185,11 +185,17 @@ export async function updateCurriculumProgress(
 
   await Promise.all(writes);
 
-  // Dual-write: also update CallerModuleProgress if moduleId maps to a DB record
+  // Dual-write: also update CallerModuleProgress if moduleId maps to a DB record.
+  // When LO scores accompany this module's mastery, the dual-write derives mastery
+  // from accumulated LO running averages (Phase 1) rather than the AI snapshot.
   if (updates.moduleMastery) {
     for (const [moduleId, mastery] of Object.entries(updates.moduleMastery)) {
+      const loScoresForThisModule =
+        updates.loMastery && updates.loMastery.moduleId === moduleId
+          ? updates.loMastery.outcomes
+          : undefined;
       try {
-        await updateModuleMastery(callerId, moduleId, mastery);
+        await updateModuleMastery(callerId, moduleId, mastery, undefined, loScoresForThisModule);
       } catch {
         // Non-fatal — CallerModuleProgress is supplementary during transition
       }
@@ -200,7 +206,8 @@ export async function updateCurriculumProgress(
 /**
  * Phase 0 safety cap from issue #397: mastery cannot exceed `callCount / MASTERY_MIN_CALLS_TO_FULL`.
  * Caps a single-call AI snapshot of 0.7 to ~0.167 after call #1, ~0.333 after call #2, etc.
- * Phase 1 will replace this with LO-derived accumulation; the cap then becomes a no-op.
+ * Becomes a no-op once Phase 1 LO accumulation is active (because LO running averages
+ * can't outpace call evidence by construction).
  */
 const MASTERY_MIN_CALLS_TO_FULL = 6;
 
@@ -210,14 +217,69 @@ export function capMasteryByCallCount(rawMastery: number, callCountAfterThisCall
 }
 
 /**
+ * Per-LO running-average state stored in CallerModuleProgress.loScoresJson.
+ * Phase 1 of #397: module mastery is derived from this map, not overwritten
+ * by each call's AI snapshot.
+ */
+export type LoScoreState = { mastery: number; callCount: number };
+export type LoScoresMap = Record<string, LoScoreState>;
+
+/**
+ * Merge fresh AI LO scores into an existing running-average map.
+ * Each LO present in `newScores` updates with `(oldMastery * oldCount + newScore) / (oldCount + 1)`.
+ * LOs absent from `newScores` keep their prior state untouched.
+ */
+export function mergeLoScores(existing: LoScoresMap | null, newScores: Record<string, number>): LoScoresMap {
+  const merged: LoScoresMap = { ...(existing ?? {}) };
+  for (const [loRef, rawScore] of Object.entries(newScores)) {
+    const clamped = Math.max(0, Math.min(1, rawScore));
+    const prior = merged[loRef] ?? { mastery: 0, callCount: 0 };
+    const nextCount = prior.callCount + 1;
+    const nextMastery = (prior.mastery * prior.callCount + clamped) / nextCount;
+    merged[loRef] = { mastery: nextMastery, callCount: nextCount };
+  }
+  return merged;
+}
+
+/**
+ * Roll up module mastery from per-LO scores. Mean over scored LOs only —
+ * unscored LOs are excluded so partial coverage of a large module doesn't
+ * artificially drag the mastery figure toward zero.
+ * Returns null if no LOs have been scored yet (caller should fall back to
+ * the prior AI-snapshot value or 0).
+ */
+export function rollupModuleMastery(loScores: LoScoresMap | null): number | null {
+  if (!loScores) return null;
+  const values = Object.values(loScores);
+  if (values.length === 0) return null;
+  const sum = values.reduce((acc, v) => acc + v.mastery, 0);
+  return sum / values.length;
+}
+
+function isLoScoresMap(value: unknown): value is LoScoresMap {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  for (const entry of Object.values(value as Record<string, unknown>)) {
+    if (!entry || typeof entry !== "object") return false;
+    const e = entry as Record<string, unknown>;
+    if (typeof e.mastery !== "number" || typeof e.callCount !== "number") return false;
+  }
+  return true;
+}
+
+/**
  * Update mastery for a specific module using the first-class CallerModuleProgress model.
  * moduleId can be either a CurriculumModule.id (UUID) or a slug (e.g. "MOD-1").
+ *
+ * If `loScores` is provided, mastery is **derived** from the accumulated LO running
+ * averages (Phase 1). Otherwise the AI-snapshot `mastery` argument is used with the
+ * Phase 0 safety cap applied.
  */
 export async function updateModuleMastery(
   callerId: string,
   moduleId: string,
   mastery: number,
   callId?: string,
+  loScores?: Record<string, number>,
 ): Promise<void> {
   // Resolve slug to id if needed (slugs aren't UUIDs)
   let resolvedModuleId = moduleId;
@@ -232,12 +294,25 @@ export async function updateModuleMastery(
 
   const existing = await prisma.callerModuleProgress.findUnique({
     where: { callerId_moduleId: { callerId, moduleId: resolvedModuleId } },
-    select: { callCount: true },
+    select: { callCount: true, loScoresJson: true },
   });
-  const effectiveCallCount = (existing?.callCount ?? 0) + 1;
-  const cappedMastery = capMasteryByCallCount(mastery, effectiveCallCount);
 
-  const status = cappedMastery >= 1.0 ? "COMPLETED" : cappedMastery > 0 ? "IN_PROGRESS" : "NOT_STARTED";
+  const effectiveCallCount = (existing?.callCount ?? 0) + 1;
+
+  let finalMastery: number;
+  let nextLoScoresJson: LoScoresMap | undefined;
+
+  if (loScores && Object.keys(loScores).length > 0) {
+    // Phase 1: derive mastery from accumulated LO running averages
+    const prior = isLoScoresMap(existing?.loScoresJson) ? existing!.loScoresJson : null;
+    nextLoScoresJson = mergeLoScores(prior, loScores);
+    finalMastery = rollupModuleMastery(nextLoScoresJson) ?? 0;
+  } else {
+    // No LO scores → fall back to AI snapshot with the Phase 0 safety cap
+    finalMastery = capMasteryByCallCount(mastery, effectiveCallCount);
+  }
+
+  const status = finalMastery >= 1.0 ? "COMPLETED" : finalMastery > 0 ? "IN_PROGRESS" : "NOT_STARTED";
 
   await prisma.callerModuleProgress.upsert({
     where: {
@@ -246,19 +321,21 @@ export async function updateModuleMastery(
     create: {
       callerId,
       moduleId: resolvedModuleId,
-      mastery: cappedMastery,
+      mastery: finalMastery,
       status,
-      startedAt: cappedMastery > 0 ? new Date() : null,
-      completedAt: cappedMastery >= 1.0 ? new Date() : null,
+      startedAt: finalMastery > 0 ? new Date() : null,
+      completedAt: finalMastery >= 1.0 ? new Date() : null,
       lastCallId: callId || null,
       callCount: 1,
+      loScoresJson: nextLoScoresJson ?? undefined,
     },
     update: {
-      mastery: cappedMastery,
+      mastery: finalMastery,
       status,
-      completedAt: cappedMastery >= 1.0 ? new Date() : null,
+      completedAt: finalMastery >= 1.0 ? new Date() : null,
       lastCallId: callId || undefined,
       callCount: { increment: 1 },
+      ...(nextLoScoresJson ? { loScoresJson: nextLoScoresJson } : {}),
     },
   });
 }
