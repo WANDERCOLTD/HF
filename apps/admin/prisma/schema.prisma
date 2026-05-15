@@ -52,8 +52,11 @@ enum DocumentType {
   POLICY_DOCUMENT // Regulatory/compliance/safety procedure (Pest Control, HACCP)
   READING_PASSAGE // Standalone reading text — learner reads before/during session (no questions)
   QUESTION_BANK // Tutor reference: skill-mapped questions with tiered model responses + guidance
-  // --- Course Reference (1) ---
-  COURSE_REFERENCE // Tutor instruction doc: skills framework, session flow, scaffolding rules. NOT student content.
+  // --- Course Reference (1 legacy + 3 subtypes, #385 Slice 1) ---
+  COURSE_REFERENCE // Tutor instruction doc — legacy coarse type (kept for back-compat; new uploads should land in one of the subtypes below)
+  COURSE_REFERENCE_CANONICAL // Master course-reference doc: modules table + OUT-NN headings + skills framework. Mixed learner + tutor audience.
+  COURSE_REFERENCE_TUTOR_BRIEFING // Coaching strategy / edge cases / session-flow rules. Tutor-internal only — never reaches learner chat.
+  COURSE_REFERENCE_ASSESSOR_RUBRIC // Band descriptors / scoring criteria. Assessor + tutor-hidden — never reaches learner chat.
 }
 
 // Question types for ContentQuestion model

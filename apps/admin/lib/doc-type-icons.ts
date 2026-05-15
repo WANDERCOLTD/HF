@@ -182,12 +182,35 @@ const STUDENT_VISIBLE_DOC_TYPES = new Set([
 /**
  * Document types that stay teacher-only by default — these are for tutor
  * guidance and would confuse students. Teacher can still override per-file.
+ *
+ * #385 Slice 1: all three COURSE_REFERENCE_* subtypes inherit the teacher-
+ * only default. Forgetting any of them re-opens the visual-aids leak path
+ * (L1) where rubric content could surface in the learner chat.
  */
 const TEACHER_ONLY_DOC_TYPES = new Set([
-  "COURSE_REFERENCE",  // Tutor methodology / course delivery guide
-  "LESSON_PLAN",        // Teacher-facing plans
-  "QUESTION_BANK",      // Tutor playbook with tiered model answers
-  "POLICY_DOCUMENT",    // Regulatory / compliance reference
+  "COURSE_REFERENCE",                  // Legacy coarse type
+  "COURSE_REFERENCE_CANONICAL",        // Master course-reference doc
+  "COURSE_REFERENCE_TUTOR_BRIEFING",   // Coaching strategy / edge cases
+  "COURSE_REFERENCE_ASSESSOR_RUBRIC",  // Band descriptors / scoring criteria
+  "LESSON_PLAN",                       // Teacher-facing plans
+  "QUESTION_BANK",                     // Tutor playbook with tiered model answers
+  "POLICY_DOCUMENT",                   // Regulatory / compliance reference
+]);
+
+/**
+ * The full set of COURSE_REFERENCE-family document types. Use this helper
+ * anywhere code currently checks `documentType === "COURSE_REFERENCE"` to
+ * keep new subtypes in scope without re-listing them at every callsite.
+ *
+ * #385 Slice 1. The legacy flat `COURSE_REFERENCE` value is included for
+ * back-compat with existing ContentSource rows. New classifier output
+ * should produce a subtype, not the flat value.
+ */
+const COURSE_REFERENCE_TYPES = new Set([
+  "COURSE_REFERENCE",
+  "COURSE_REFERENCE_CANONICAL",
+  "COURSE_REFERENCE_TUTOR_BRIEFING",
+  "COURSE_REFERENCE_ASSESSOR_RUBRIC",
 ]);
 
 /** Should this document type be shared with students by default? */
@@ -198,6 +221,16 @@ export function isStudentVisibleDefault(documentType: string): boolean {
 /** Should this document type stay teacher-only? */
 export function isTeacherOnlyDocType(documentType: string): boolean {
   return TEACHER_ONLY_DOC_TYPES.has(documentType);
+}
+
+/**
+ * Is this document type any of the COURSE_REFERENCE family — legacy flat
+ * `COURSE_REFERENCE` or any of the three Slice-1 subtypes? Use in place
+ * of literal `documentType === "COURSE_REFERENCE"` checks at reader
+ * call sites to stay forward-compatible during the Slice 1 rollout.
+ */
+export function isCourseReferenceType(documentType: string | null | undefined): boolean {
+  return typeof documentType === "string" && COURSE_REFERENCE_TYPES.has(documentType);
 }
 
 /**
