@@ -198,6 +198,18 @@ export async function updateCurriculumProgress(
 }
 
 /**
+ * Phase 0 safety cap from issue #397: mastery cannot exceed `callCount / MASTERY_MIN_CALLS_TO_FULL`.
+ * Caps a single-call AI snapshot of 0.7 to ~0.167 after call #1, ~0.333 after call #2, etc.
+ * Phase 1 will replace this with LO-derived accumulation; the cap then becomes a no-op.
+ */
+const MASTERY_MIN_CALLS_TO_FULL = 6;
+
+export function capMasteryByCallCount(rawMastery: number, callCountAfterThisCall: number): number {
+  const cap = Math.min(1.0, callCountAfterThisCall / MASTERY_MIN_CALLS_TO_FULL);
+  return Math.min(rawMastery, cap);
+}
+
+/**
  * Update mastery for a specific module using the first-class CallerModuleProgress model.
  * moduleId can be either a CurriculumModule.id (UUID) or a slug (e.g. "MOD-1").
  */
@@ -218,7 +230,14 @@ export async function updateModuleMastery(
     resolvedModuleId = mod.id;
   }
 
-  const status = mastery >= 1.0 ? "COMPLETED" : mastery > 0 ? "IN_PROGRESS" : "NOT_STARTED";
+  const existing = await prisma.callerModuleProgress.findUnique({
+    where: { callerId_moduleId: { callerId, moduleId: resolvedModuleId } },
+    select: { callCount: true },
+  });
+  const effectiveCallCount = (existing?.callCount ?? 0) + 1;
+  const cappedMastery = capMasteryByCallCount(mastery, effectiveCallCount);
+
+  const status = cappedMastery >= 1.0 ? "COMPLETED" : cappedMastery > 0 ? "IN_PROGRESS" : "NOT_STARTED";
 
   await prisma.callerModuleProgress.upsert({
     where: {
@@ -227,17 +246,17 @@ export async function updateModuleMastery(
     create: {
       callerId,
       moduleId: resolvedModuleId,
-      mastery,
+      mastery: cappedMastery,
       status,
-      startedAt: mastery > 0 ? new Date() : null,
-      completedAt: mastery >= 1.0 ? new Date() : null,
+      startedAt: cappedMastery > 0 ? new Date() : null,
+      completedAt: cappedMastery >= 1.0 ? new Date() : null,
       lastCallId: callId || null,
       callCount: 1,
     },
     update: {
-      mastery,
+      mastery: cappedMastery,
       status,
-      completedAt: mastery >= 1.0 ? new Date() : null,
+      completedAt: cappedMastery >= 1.0 ? new Date() : null,
       lastCallId: callId || undefined,
       callCount: { increment: 1 },
     },

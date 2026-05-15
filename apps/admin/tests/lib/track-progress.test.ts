@@ -313,4 +313,42 @@ describe('track-progress.ts', () => {
       expect(lastAccessedCall![0].create.stringValue).toBe('2026-02-16T12:00:00.000Z');
     });
   });
+
+  describe('capMasteryByCallCount (issue #397 Phase 0)', () => {
+    let capMasteryByCallCount: (m: number, n: number) => number;
+
+    beforeEach(async () => {
+      const mod = await import('@/lib/curriculum/track-progress');
+      capMasteryByCallCount = mod.capMasteryByCallCount;
+    });
+
+    it('caps AI snapshot to callCount/6 on first call', () => {
+      // AI returned 0.7 after a single call → capped to 1/6 ≈ 0.167
+      expect(capMasteryByCallCount(0.7, 1)).toBeCloseTo(1 / 6, 5);
+      expect(capMasteryByCallCount(0.25, 1)).toBeCloseTo(1 / 6, 5);
+    });
+
+    it('does not raise mastery below its raw value', () => {
+      // AI returned 0.05 — well below cap of 1/6 — should pass through unchanged
+      expect(capMasteryByCallCount(0.05, 1)).toBe(0.05);
+      expect(capMasteryByCallCount(0, 3)).toBe(0);
+    });
+
+    it('scales linearly with callCount up to 6', () => {
+      expect(capMasteryByCallCount(1.0, 2)).toBeCloseTo(2 / 6, 5);
+      expect(capMasteryByCallCount(1.0, 3)).toBeCloseTo(3 / 6, 5);
+      expect(capMasteryByCallCount(1.0, 5)).toBeCloseTo(5 / 6, 5);
+    });
+
+    it('lifts cap to 1.0 from call 6 onward', () => {
+      expect(capMasteryByCallCount(0.95, 6)).toBe(0.95);
+      expect(capMasteryByCallCount(1.0, 6)).toBe(1.0);
+      expect(capMasteryByCallCount(1.0, 12)).toBe(1.0);
+    });
+
+    it('never returns a value above 1.0', () => {
+      // Belt-and-braces in case an upstream caller passes an out-of-range AI value
+      expect(capMasteryByCallCount(1.5, 10)).toBe(1.0);
+    });
+  });
 });
