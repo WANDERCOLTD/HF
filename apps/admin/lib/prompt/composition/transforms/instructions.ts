@@ -9,9 +9,9 @@
  */
 
 import { registerTransform } from "../TransformRegistry";
-import { classifyValue, getAttributeValue } from "../types";
+import { classifyValue } from "../types";
 import { computePersonalityAdaptation } from "./personality";
-import type { AssembledContext, CallerAttributeData, GoalData, SubjectSourcesData } from "../types";
+import type { AssembledContext, GoalData, SubjectSourcesData } from "../types";
 import type { SpecConfig } from "@/lib/types/json-fields";
 import { resolveTeachingProfile } from "@/lib/content-trust/teaching-profiles";
 
@@ -110,7 +110,10 @@ registerTransform("computeInstructions", (
   const { sections, loadedData, sharedState, resolvedSpecs } = context;
   const { thresholds, modules, isFirstCall, moduleToReview, nextModule, completedModules } = sharedState;
   const personality = loadedData.personality;
-  const callerAttributes = loadedData.callerAttributes;
+  // callerAttributes used to drive the legacy "next_module / mastery" string-
+  // match filter — removed per composition-transforms audit. If a richer
+  // per-attribute hint surface returns it should hydrate from
+  // CallerModuleProgress (relational) instead.
   const learnerGoals = loadedData.goals;
   const curriculumName = (sharedState as Record<string, any>).curriculumName as string | null;
 
@@ -255,24 +258,18 @@ registerTransform("computeInstructions", (
         }
       }
 
-      const nextContent = callerAttributes.filter((a: CallerAttributeData) =>
-        a.key.includes("next_") || a.key.includes("ready_for")
-      );
-      const currentModule = callerAttributes.find((a: CallerAttributeData) =>
-        a.key.includes("current_module") || a.key.includes("active_module")
-      );
-      const mastery = callerAttributes.find((a: CallerAttributeData) =>
-        a.key.includes("mastery") && !a.key.includes("mastery_")
-      );
-
-      if (currentModule) parts.push(`Current module: ${getAttributeValue(currentModule)}`);
-      if (mastery) {
-        const masteryVal = getAttributeValue(mastery);
-        parts.push(`Mastery level: ${typeof masteryVal === "number" ? (masteryVal * 100).toFixed(0) + "%" : masteryVal}`);
-      }
-      if (nextContent.length > 0) {
-        parts.push(`Next content to cover: ${nextContent.map((a: CallerAttributeData) => getAttributeValue(a)).join(", ")}`);
-      }
+      // Composition transforms audit follow-up: the original code here
+      // string-matched callerAttributes for `next_*`, `current_module`,
+      // `mastery` keys — that was the pre-projection extraction scheme.
+      // Projection-era courses store this data in CallerModuleProgress
+      // (relational), so the legacy filter returned empty for every new
+      // course. The sharedState.modules / completedModules / nextModule
+      // block above already renders the primary curriculum guidance from
+      // the canonical (DB-first) modules pipeline — so removing the legacy
+      // filter only loses decorative duplication, not real signal.
+      //
+      // TODO(follow-up): if richer per-attribute hints are desired, hydrate
+      // from CallerModuleProgress rows instead of CallerAttribute keys.
 
       if (parts.length === 0) return "No curriculum progress tracked yet - start with first module.";
       return parts.join(". ");

@@ -216,8 +216,34 @@ function buildSubjectTrustContext(subjectData: { subjects: any[] }) {
       if (w) freshnessWarnings.push({ ...w, message: `"${src.name}": ${w.message}` });
     }
 
-    // Include curriculum modules summary if available
-    if (subject.curriculum?.notableInfo?.modules) {
+    // Include curriculum modules summary if available.
+    //
+    // Source-of-truth precedence (mirrors #364):
+    //   1. Relational CurriculumModule rows (populated by the projection
+    //      layer, #338). The loader now hydrates these on
+    //      subject.curriculum.modules.
+    //   2. Legacy Curriculum.notableInfo.modules JSON blob — kept as a
+    //      fallback for seed-only / pre-projection courses.
+    //
+    // Without (1), every projection-created course silently dropped this
+    // CURRICULUM block from the AI's CONTENT AUTHORITY section.
+    const relationalModules =
+      (subject.curriculum as { modules?: Array<{ id: string; slug: string; title: string; learningObjectives: Array<{ ref: string; description: string | null }> }> } | null)?.modules ?? [];
+    if (relationalModules.length > 0) {
+      authorityLines.push(`\n  CURRICULUM (${relationalModules.length} modules):`);
+      for (const mod of relationalModules) {
+        authorityLines.push(`    ${mod.slug || mod.id}: ${mod.title}`);
+        const los = mod.learningObjectives;
+        if (los.length > 0) {
+          for (const lo of los.slice(0, 3)) {
+            authorityLines.push(`      - ${lo.description || lo.ref}`);
+          }
+          if (los.length > 3) {
+            authorityLines.push(`      ... and ${los.length - 3} more`);
+          }
+        }
+      }
+    } else if (subject.curriculum?.notableInfo?.modules) {
       const modules = subject.curriculum.notableInfo.modules;
       authorityLines.push(`\n  CURRICULUM (${modules.length} modules):`);
       for (const mod of modules) {
