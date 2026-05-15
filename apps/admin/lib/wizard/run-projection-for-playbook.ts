@@ -39,10 +39,18 @@ export interface RunProjectionResult {
  * Throws only on truly unexpected DB errors.
  */
 export async function runProjectionForPlaybook(playbookId: string): Promise<RunProjectionResult> {
+  // #385 Slice 1 Phase 3 — accept legacy COURSE_REFERENCE + the three
+  // subtypes emitted by the classifier in Phase 2. The projection logic
+  // itself is agnostic to which subtype the source carries; projection
+  // runs the same parsers against any course-reference-family doc.
   const links = await prisma.playbookSource.findMany({
     where: {
       playbookId,
-      source: { documentType: "COURSE_REFERENCE" },
+      source: {
+        documentType: {
+          in: ["COURSE_REFERENCE", "COURSE_REFERENCE_CANONICAL", "COURSE_REFERENCE_TUTOR_BRIEFING", "COURSE_REFERENCE_ASSESSOR_RUBRIC"],
+        },
+      },
     },
     select: {
       source: {

@@ -58,7 +58,12 @@ export async function findDuplicateSource(
   // COURSE_REFERENCE documents are course-specific by nature — their assertions
   // contain tutor instructions scoped to a single course. Never share them across
   // subjects, even within the same institution. Only dedup within the same subject.
-  const isCourseRef = documentType === "COURSE_REFERENCE";
+  // #385 Slice 1 Phase 3 — accept all four COURSE_REFERENCE* values.
+  const isCourseRef =
+    documentType === "COURSE_REFERENCE" ||
+    documentType === "COURSE_REFERENCE_CANONICAL" ||
+    documentType === "COURSE_REFERENCE_TUTOR_BRIEFING" ||
+    documentType === "COURSE_REFERENCE_ASSESSOR_RUBRIC";
 
   const institutionId = await resolveInstitutionId(subjectId);
 

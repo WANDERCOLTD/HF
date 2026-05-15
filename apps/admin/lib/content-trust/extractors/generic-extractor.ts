@@ -37,7 +37,12 @@ export class GenericExtractor extends DocumentExtractor {
     const { extraction } = config;
     const validCategoryIds = new Set(extraction.categories.map((c) => c.id));
 
-    const isCourseRef = this.documentType === "COURSE_REFERENCE";
+    // #385 Slice 1 Phase 3 — accept all four COURSE_REFERENCE* values.
+    const isCourseRef =
+      this.documentType === "COURSE_REFERENCE" ||
+      this.documentType === "COURSE_REFERENCE_CANONICAL" ||
+      this.documentType === "COURSE_REFERENCE_TUTOR_BRIEFING" ||
+      this.documentType === "COURSE_REFERENCE_ASSESSOR_RUBRIC";
     const qualRef = context.qualificationRef ? `${context.qualificationRef} ` : "";
 
     const openingLine = isCourseRef

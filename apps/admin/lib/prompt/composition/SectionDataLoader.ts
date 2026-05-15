@@ -1097,7 +1097,17 @@ registerLoader("courseInstructions", async (_callerId, loaderConfig) => {
   for (const s of scope.subjects) {
     for (const ss of s.sources) {
       sourceIds.push(ss.sourceId);
-      if (ss.documentType === "COURSE_REFERENCE") courseRefSourceIds.push(ss.sourceId);
+      // #385 Slice 1 Phase 3 — match the legacy literal + all three subtypes
+      // (CANONICAL / TUTOR_BRIEFING / ASSESSOR_RUBRIC) so newly-classified
+      // sources still receive the COURSE_REFERENCE-wide assertion path.
+      if (
+        ss.documentType === "COURSE_REFERENCE" ||
+        ss.documentType === "COURSE_REFERENCE_CANONICAL" ||
+        ss.documentType === "COURSE_REFERENCE_TUTOR_BRIEFING" ||
+        ss.documentType === "COURSE_REFERENCE_ASSESSOR_RUBRIC"
+      ) {
+        courseRefSourceIds.push(ss.sourceId);
+      }
     }
   }
   if (sourceIds.length === 0) return [];

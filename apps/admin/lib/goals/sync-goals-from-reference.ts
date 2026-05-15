@@ -39,7 +39,16 @@ export async function syncGoalsFromReference(
     where: { id: sourceId },
     select: { id: true, documentType: true },
   });
-  if (!source || source.documentType !== "COURSE_REFERENCE") return result;
+  // #385 Slice 1 Phase 3 — accept all four COURSE_REFERENCE* values.
+  if (
+    !source ||
+    !(
+      source.documentType === "COURSE_REFERENCE" ||
+      source.documentType === "COURSE_REFERENCE_CANONICAL" ||
+      source.documentType === "COURSE_REFERENCE_TUTOR_BRIEFING" ||
+      source.documentType === "COURSE_REFERENCE_ASSESSOR_RUBRIC"
+    )
+  ) return result;
 
   // 2. Get assessment_approach assertions from this source
   const assertions = await prisma.contentAssertion.findMany({

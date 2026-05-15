@@ -47,6 +47,10 @@ interface ValidationResult {
 /** Document types that are NEVER a subject — always pedagogy/supporting material */
 const PEDAGOGY_DOC_TYPES = new Set([
   "COURSE_REFERENCE",
+  // #385 Slice 1 Phase 3 — subtypes inherit pedagogy-not-subject status.
+  "COURSE_REFERENCE_CANONICAL",
+  "COURSE_REFERENCE_TUTOR_BRIEFING",
+  "COURSE_REFERENCE_ASSESSOR_RUBRIC",
   "LESSON_PLAN",
   "POLICY_DOCUMENT",
 ]);

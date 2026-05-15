@@ -343,7 +343,12 @@ async function extractFromChunk(
     ? options.documentType.replace(/_/g, " ").toLowerCase()
     : "training";
 
-  const isCourseRef = options.documentType === "COURSE_REFERENCE";
+  // #385 Slice 1 Phase 3 — accept all four COURSE_REFERENCE* values.
+  const isCourseRef =
+    options.documentType === "COURSE_REFERENCE" ||
+    options.documentType === "COURSE_REFERENCE_CANONICAL" ||
+    options.documentType === "COURSE_REFERENCE_TUTOR_BRIEFING" ||
+    options.documentType === "COURSE_REFERENCE_ASSESSOR_RUBRIC";
 
   // For non-COURSE_REFERENCE documents, hint that tutor instructions may be present
   const instructionHint = !isCourseRef
@@ -591,7 +596,13 @@ export async function extractAssertions(
   // Info: note if a COURSE_REFERENCE doc contains student-facing content.
   // These now flow through to curriculum loaders (no longer orphaned),
   // but we still surface the count as an informational note.
-  if (options.documentType === "COURSE_REFERENCE") {
+  // #385 Slice 1 Phase 3 — match legacy COURSE_REFERENCE + all three subtypes.
+  if (
+    options.documentType === "COURSE_REFERENCE" ||
+    options.documentType === "COURSE_REFERENCE_CANONICAL" ||
+    options.documentType === "COURSE_REFERENCE_TUTOR_BRIEFING" ||
+    options.documentType === "COURSE_REFERENCE_ASSESSOR_RUBRIC"
+  ) {
     const instructionCatSet = new Set<string>(INSTRUCTION_CATEGORIES);
     const contentAssertions = deduplicated.filter((a) => !instructionCatSet.has(a.category));
     if (contentAssertions.length > 0) {

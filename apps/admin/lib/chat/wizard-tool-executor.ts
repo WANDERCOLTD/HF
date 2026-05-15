@@ -1004,7 +1004,14 @@ export async function executeWizardTool(
                     select: { sourceId: true, source: { select: { documentType: true } } },
                   });
                   for (const ps of packSources) {
-                    if (ps.source.documentType === "COURSE_REFERENCE" || ps.source.documentType === "POLICY_DOCUMENT") {
+                    // #385 Slice 1 Phase 3 — bridge all four COURSE_REFERENCE* values.
+              if (
+                ps.source.documentType === "COURSE_REFERENCE" ||
+                ps.source.documentType === "COURSE_REFERENCE_CANONICAL" ||
+                ps.source.documentType === "COURSE_REFERENCE_TUTOR_BRIEFING" ||
+                ps.source.documentType === "COURSE_REFERENCE_ASSESSOR_RUBRIC" ||
+                ps.source.documentType === "POLICY_DOCUMENT"
+              ) {
                       const existingLink = await prisma.subjectSource.findFirst({
                         where: { subjectId: existingPbSubject.subjectId, sourceId: ps.sourceId },
                       });
@@ -1414,7 +1421,14 @@ export async function executeWizardTool(
               select: { sourceId: true, source: { select: { documentType: true } } },
             });
             for (const ps of packSources) {
-              if (ps.source.documentType === "COURSE_REFERENCE" || ps.source.documentType === "POLICY_DOCUMENT") {
+              // #385 Slice 1 Phase 3 — bridge all four COURSE_REFERENCE* values.
+              if (
+                ps.source.documentType === "COURSE_REFERENCE" ||
+                ps.source.documentType === "COURSE_REFERENCE_CANONICAL" ||
+                ps.source.documentType === "COURSE_REFERENCE_TUTOR_BRIEFING" ||
+                ps.source.documentType === "COURSE_REFERENCE_ASSESSOR_RUBRIC" ||
+                ps.source.documentType === "POLICY_DOCUMENT"
+              ) {
                 const existingLink = await prisma.subjectSource.findFirst({
                   where: { subjectId: subject.id, sourceId: ps.sourceId },
                 });

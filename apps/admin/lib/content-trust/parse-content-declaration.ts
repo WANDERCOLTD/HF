@@ -81,6 +81,11 @@ const DOCUMENT_TYPES: ReadonlySet<DocumentType> = new Set<DocumentType>([
   "READING_PASSAGE",
   "QUESTION_BANK",
   "COURSE_REFERENCE",
+  // #385 Slice 1 Phase 3 — accept the three subtypes from explicit
+  // hf-document-type front-matter declarations as well.
+  "COURSE_REFERENCE_CANONICAL",
+  "COURSE_REFERENCE_TUTOR_BRIEFING",
+  "COURSE_REFERENCE_ASSESSOR_RUBRIC",
 ]);
 
 const LO_SYSTEM_ROLES: ReadonlySet<LoSystemRole> = new Set<LoSystemRole>([
