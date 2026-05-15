@@ -288,17 +288,24 @@ export function buildGraphPromptSection(
     const question = authoredPath
       ? "Your course-ref doc declares a module catalogue. How should learners progress?"
       : "How should learners progress through this course?";
-    const suggestions = authoredPath
-      ? `["Let learners pick (recommended)", "AI directs the sequence"]`
-      : `["AI directs the sequence", "Let learners pick from a menu"]`;
+    // Recommended option ordering: authored → learner-picks first; otherwise → ai-led first.
+    const recAiLed = !authoredPath;
     lines.push("### 🚨 BLOCKED — progressionMode picker required");
     lines.push(
-      `progressionMode is REQUIRED and is currently missing. The ONLY valid next action is to call show_suggestions with:`,
+      `progressionMode is REQUIRED and currently missing. The ONLY valid next action is to call show_options (NOT show_suggestions) with this exact shape:`,
     );
-    lines.push(`  question: "${question}"`);
-    lines.push(`  suggestions: ${suggestions}`);
     lines.push(
-      "Do NOT narrate the choice in prose and then proceed. Do NOT call update_setup({progressionMode}) before the educator clicks a chip. Do NOT call show_suggestions with 'Create my course' or any create_course chip. Do NOT call create_course. The chip click is the only valid trigger for the update_setup write.",
+      `  show_options({ question: "${question}", dataKey: "progressionMode", mode: "radio", options: [`,
+    );
+    lines.push(
+      `    { value: "ai-led", label: "AI directs the sequence", description: "The scheduler picks what to teach each call.", recommended: ${recAiLed} },`,
+    );
+    lines.push(
+      `    { value: "learner-picks", label: "Let learners pick from a menu", description: "The learner chooses a module each call from the course's module catalogue.", recommended: ${!recAiLed} }`,
+    );
+    lines.push(`  ] })`);
+    lines.push(
+      "show_options with dataKey:\"progressionMode\" writes setupData.progressionMode DIRECTLY on chip click — no further update_setup needed. update_setup({progressionMode}) is REJECTED server-side; only the chip click can set this field. Do NOT call show_suggestions with 'Create my course' / 'Ready to launch' / 'Build' style chips — also rejected server-side while progressionMode is missing.",
     );
     lines.push("");
   }

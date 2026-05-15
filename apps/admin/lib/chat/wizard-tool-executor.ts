@@ -264,37 +264,32 @@ export async function executeWizardTool(
       }
       let keys = Object.keys(fields);
 
-      // ── #398 — progressionMode chip-click enforcement ──
-      // The AI repeatedly slips `progressionMode` into bulk intake writes
-      // (alongside courseName, audience, interactionPattern, etc.) inferred
-      // from the educator's prose description. That silently satisfies the
-      // graph evaluator's `required: true` check before the picker (rule 5d
-      // + the BLOCKED directive in graph-evaluator.ts) can ever fire.
-      //
-      // Rule: progressionMode may only be written via a SINGLE-FIELD
-      // `update_setup({ progressionMode: "..." })` call — the shape that
-      // results from the educator clicking a `show_suggestions` chip after
-      // the BLOCKED directive forces the picker. Any bulk write that
-      // includes `progressionMode` alongside other fields gets the field
-      // stripped and a tool error returned so the AI corrects course.
-      if ("progressionMode" in fields && keys.length > 1) {
-        const stripped = fields.progressionMode;
+      // ── #398 — progressionMode is NEVER writable via update_setup ──
+      // The AI silently writes progressionMode from prose inference, bypassing
+      // rule 5d AND the BLOCKED directive in graph-evaluator. The previous
+      // bulk-only strip was bypassed via solo writes. Final fix:
+      //   - update_setup({progressionMode: ...}) — always rejected, regardless of
+      //     other fields. The AI cannot set this field at all.
+      //   - The only path is show_options with dataKey:"progressionMode" — the
+      //     chip click in ConversationalWizard.tsx writes setData() directly
+      //     client-side, bypassing the AI entirely.
+      if ("progressionMode" in fields) {
+        const attempted = fields.progressionMode;
         delete fields.progressionMode;
         keys = Object.keys(fields);
         console.warn(
-          `[wizard-tools] update_setup STRIPPED progressionMode="${String(stripped)}" from bulk write (other fields: ${keys.join(", ")}). progressionMode requires a chip-click confirmation — surface show_suggestions with the picker per rule 5d.`,
+          `[wizard-tools] update_setup REJECTED progressionMode="${String(attempted)}" — AI cannot write this field. Must use show_options with dataKey:"progressionMode" so the chip click writes setData() client-side. (Other fields in this call were also not saved: ${keys.join(", ") || "(none)"}.)`,
         );
         return {
           ...base,
           content: JSON.stringify({
             ok: false,
             error:
-              `progressionMode CANNOT be set in a bulk update_setup call. ` +
-              `It is the educator's deliberate choice and must come from a chip click. ` +
-              `Surface show_suggestions with two options (e.g. ["Let learners pick (recommended)", "AI directs the sequence"] for authored, or ["AI directs the sequence", "Let learners pick from a menu"] otherwise). ` +
-              `When the educator clicks, call update_setup with ONLY { progressionMode: "ai-led" | "learner-picks" } — no other fields. ` +
-              `The other fields in this call were NOT saved either; retry them in a separate update_setup call.`,
-            stripped: { progressionMode: stripped },
+              `progressionMode CANNOT be set via update_setup. It is the educator's deliberate choice and must come from a chip click. ` +
+              `Call show_options instead: { question: "How should learners progress through this course?", dataKey: "progressionMode", mode: "radio", options: [ { value: "ai-led", label: "AI directs the sequence", recommended: <true if curriculumPath !== "authored"> }, { value: "learner-picks", label: "Let learners pick from a menu", recommended: <true if curriculumPath === "authored"> } ] }. ` +
+              `The chip click will write setupData.progressionMode directly client-side — no further update_setup needed for this field. ` +
+              `Any other fields in this call were NOT saved either; retry them in a separate update_setup call without progressionMode.`,
+            rejected: { progressionMode: attempted },
             otherFieldsNotSaved: keys,
           }),
           is_error: true,
@@ -610,6 +605,40 @@ export async function executeWizardTool(
     }
 
     case "show_suggestions": {
+      // #398 — reject "Create my course" / "Ready to launch" chip text while
+      // progressionMode (a required graph field) is still missing. The AI has
+      // repeatedly ignored rule 9 (HARD GATE) + the BLOCKED directive in
+      // graph-evaluator and offered create-course chips with required fields
+      // unset. This is the last server-side gate.
+      const suggestions = input.suggestions as unknown;
+      if (Array.isArray(suggestions) && setupData) {
+        const progressionMissing =
+          setupData.progressionMode === undefined ||
+          setupData.progressionMode === null ||
+          setupData.progressionMode === "";
+        if (progressionMissing) {
+          const CREATE_LIKE = /\b(create|launch|build|ready to (proceed|create|launch|go))\b/i;
+          const offending = suggestions.filter(
+            (s): s is string => typeof s === "string" && CREATE_LIKE.test(s),
+          );
+          if (offending.length > 0) {
+            console.warn(
+              `[wizard-tools] show_suggestions REJECTED — ${offending.length} create-course-style chip(s) (${offending.join(" / ")}) offered while progressionMode is missing. Surface show_options with dataKey:"progressionMode" instead.`,
+            );
+            return {
+              ...base,
+              content: JSON.stringify({
+                ok: false,
+                error:
+                  `Cannot offer "Create my course" / "Ready to launch" chips while required field progressionMode is missing. ` +
+                  `Call show_options with dataKey:"progressionMode" first — the educator's chip click writes the field directly. Once setupData.progressionMode is set, the launch chips become valid.`,
+                rejectedSuggestions: offending,
+              }),
+              is_error: true,
+            };
+          }
+        }
+      }
       return { ...base, content: `Suggestion chips displayed to user. Wait for their response.` };
     }
 

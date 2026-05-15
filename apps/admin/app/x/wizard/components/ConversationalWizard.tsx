@@ -1424,10 +1424,19 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
                 <div key={msg.id} className="cv4-row cv4-row--system">
                   <OptionsCard
                     panel={msg.optionsPanel}
-                    onSelect={(_value, displayText) => {
+                    onSelect={(value, displayText) => {
                       setMessages((prev) =>
                         prev.map((m) => m.id === msg.id ? { ...m, resolved: true } : m),
                       );
+                      // #398 — Direct-write fields. For options whose dataKey
+                      // is a real setupData field (currently just progressionMode),
+                      // the chip click writes setData() directly so the next AI
+                      // turn sees the value in setupData. The AI cannot write
+                      // these fields via update_setup — server-side blocks them.
+                      const dataKey = msg.optionsPanel!.dataKey;
+                      if (dataKey === "progressionMode" && typeof value === "string") {
+                        setData(dataKey, value);
+                      }
                       handleSend(displayText);
                     }}
                     onSkip={() => {
