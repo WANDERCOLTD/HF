@@ -137,6 +137,42 @@ async function calculateAssessmentProgress(
 }
 
 /**
+ * #397 Phase 2: derive LEARN goal progress from accumulated CallerModuleProgress
+ * mastery instead of the legacy flat 5%-per-engaged-call heuristic.
+ *
+ * Roll-up: sum(mastery for every CurriculumModule under any Curriculum linked
+ * to the goal's contentSpec) / count(those modules). Untouched modules
+ * contribute 0 so a goal can't claim near-completion after one call against
+ * one module of a four-module course.
+ */
+export async function deriveLearnGoalProgressFromMastery(
+  callerId: string,
+  contentSpecId: string,
+): Promise<{ progress: number; totalModules: number; touchedModules: number } | null> {
+  const modules = await prisma.curriculumModule.findMany({
+    where: {
+      isActive: true,
+      curriculum: { sourceSpecId: contentSpecId },
+    },
+    select: { id: true },
+  });
+  if (modules.length === 0) return null;
+
+  const moduleIds = modules.map((m) => m.id);
+  const progresses = await prisma.callerModuleProgress.findMany({
+    where: { callerId, moduleId: { in: moduleIds } },
+    select: { mastery: true },
+  });
+
+  const totalMastery = progresses.reduce((sum, p) => sum + p.mastery, 0);
+  return {
+    progress: totalMastery / modules.length,
+    totalModules: modules.length,
+    touchedModules: progresses.length,
+  };
+}
+
+/**
  * Calculate progress for LEARN goals based on curriculum completion
  */
 async function calculateLearnProgress(
@@ -144,9 +180,26 @@ async function calculateLearnProgress(
   callerId: string,
   callId: string
 ): Promise<GoalProgressUpdate | null> {
-  // If goal has a contentSpec, check curriculum progress
+  // Phase 2 path: spec-level avg of CallerModuleProgress.mastery.
+  // Falls through to the legacy paths only when no curriculum is linked
+  // to this goal's contentSpec.
   if (goal.contentSpec) {
-    // Get curriculum completion for this content
+    const derived = await deriveLearnGoalProgressFromMastery(callerId, goal.contentSpecId);
+    if (derived) {
+      if (derived.progress > goal.progress) {
+        return {
+          goalId: goal.id,
+          progressDelta: derived.progress - goal.progress,
+          evidence: `Curriculum mastery avg ${(derived.progress * 100).toFixed(0)}% across ${derived.touchedModules}/${derived.totalModules} modules`,
+        };
+      }
+      // No progress to report, but the goal IS curriculum-linked — do NOT
+      // fall through to the engagement heuristic, that would double-count.
+      return null;
+    }
+
+    // Legacy fallback for goals whose contentSpec has no Curriculum row yet
+    // (rare — only old data or specs that never instantiated a curriculum).
     const curriculumAttrs = await prisma.callerAttribute.findMany({
       where: {
         callerId,
@@ -155,24 +208,16 @@ async function calculateLearnProgress(
         key: { contains: 'module_' },
       },
     });
-
-    // Count completed modules
     const completedModules = curriculumAttrs.filter(
       attr => attr.stringValue === 'completed'
     ).length;
-
-    // Get total modules from spec config
     const totalModules = (goal.contentSpec.config as SpecConfig)?.curriculum?.modules?.length || 1;
-
-    // Calculate progress as percentage of modules completed
     const curriculumProgress = completedModules / totalModules;
-
-    // Only update if curriculum progress increased
     if (curriculumProgress > goal.progress) {
       return {
         goalId: goal.id,
         progressDelta: curriculumProgress - goal.progress,
-        evidence: `Completed ${completedModules}/${totalModules} modules`,
+        evidence: `Completed ${completedModules}/${totalModules} modules (legacy attr path)`,
       };
     }
   }
