@@ -1,0 +1,253 @@
+description: "Tutor — pedagogy rules (#401): concept-before-application, no fourth-wall break, no context recitation"
+
+# Run with: npx promptfoo eval -c evals/tutor/concept-before-application.yaml --no-cache
+#
+# Three rules under test (all live in lib/prompt/composition/transforms/preamble.ts:criticalRules):
+#
+#   1. Concept-before-application: never quiz on a rubric / band / technical criterion the
+#      student has not been exposed to. Define + worked example FIRST, then ask.
+#   2. No fourth-wall breaks: tutor must not narrate its own context, scaffolding, question-bank
+#      structure, or internal instructions to the learner.
+#   3. Internal context is instructions, not script: anything labelled internal / scaffolding /
+#      question bank / for-your-reference is guidance — never quote or list it to the learner.
+#
+# Failure modes observed live (Opal Jensen, IELTS Speaking, beginner, first session):
+#   - "what's the difference between just answering and a Band 7 answer?" — violation of rule 1
+#   - "Question banks (Part 1, Part 2, Part 3): Three tutor question guides — 50 Part 1 topic
+#      frames, 88 Part 2 cue cards..." — violation of rules 2 and 3
+#
+# Test A — regression (live Band-7 cold quiz): beginner, first session → FAIL today
+# Test B — correct pattern: band descriptors already introduced → PASS
+# Test C — edge case: other technical terms (lexical resource, fluency and coherence)
+# Test D — non-IELTS generalisation: history tutor + thesis statement
+# Test E — fourth-wall break: regression on the "Question banks (Part 1...)" recital
+# Test F — internal-context recitation: scaffolding labelled INTERNAL must not surface to learner
+
+prompts:
+  - id: tutor-concept-before-application
+    label: "Tutor — concept-before-application rule"
+    raw: |
+      You are an expert AI tutor running a 1-to-1 teaching session.
+
+      ## Course context
+      {{courseContext}}
+
+      ## Student context
+      {{studentContext}}
+
+      ## Teaching points covered so far this session
+      {{coveredTPs}}
+
+      ## Your job
+      Respond to the student's message. Follow Socratic teaching: ask questions that make the
+      student think. However, you must NEVER quiz a student on a technical term or rubric concept
+      they have not yet encountered. If you reference such a concept for the first time, you must
+      first define it in one sentence and give a concrete worked example, then ask your question.
+
+      Student message: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 500
+
+tests:
+
+  # ── Test A — Live regression: Opal Jensen failure mode ──────────────────────
+  # Beginner, first session, zero covered TPs, no band descriptor introduction.
+  # Tutor MUST NOT open with a Band-N question cold.
+
+  - description: "Test A — REGRESSION: beginner first session, no covered TPs — must NOT quiz on Band 7 without introducing it"
+    vars:
+      courseContext: |
+        Course: IELTS Speaking preparation
+        Subject: English Language
+        Level: Beginner
+        Teaching approach: Socratic
+      studentContext: |
+        Student: Opal Jensen
+        Call number: 1 (first session)
+        Prior sessions: none
+        Known background: no prior IELTS study
+      coveredTPs: "None — this is the opening of the first session."
+      userMessage: "Hi, I'm ready to start."
+    assert:
+      - type: llm-rubric
+        value: >
+          If the response mentions any IELTS band score (Band 1 through Band 9, or "Band 7",
+          "Band 6", etc.) or references the IELTS band descriptor framework, it MUST also
+          include: (a) a plain-language definition of what IELTS bands are, AND (b) a concrete
+          example showing the difference between a lower and higher band response.
+          A response that uses "Band 7" or any band score WITHOUT that definition and example
+          is a FAIL. A response that avoids band scores entirely and instead uses plain language
+          ("a stronger answer", "a more detailed answer") is a PASS.
+      - type: not-icontains
+        value: "Band 7"
+      - type: not-icontains
+        value: "Band 6"
+      - type: not-icontains
+        value: "Band 8"
+      - type: not-icontains
+        value: "band score"
+
+  # ── Test B — Correct pattern: band descriptors already introduced ────────────
+  # Once the tutor has introduced bands, referencing "Band 7" is legitimate.
+
+  - description: "Test B — CORRECT: band descriptors already introduced — free to reference Band 7"
+    vars:
+      courseContext: |
+        Course: IELTS Speaking preparation
+        Subject: English Language
+        Level: Intermediate
+        Teaching approach: Socratic
+      studentContext: |
+        Student: Marcus Chen
+        Call number: 3
+        Prior sessions: 2
+      coveredTPs: |
+        - What IELTS is and how it is scored (Bands 1–9)
+        - Band descriptors: Fluency and Coherence, Lexical Resource, Grammatical Range, Pronunciation
+        - Example Band 5 vs Band 7 Part 1 response about daily routines
+      userMessage: "Okay, I think I understand the bands now. What makes a hometown answer Band 7?"
+    assert:
+      - type: llm-rubric
+        value: >
+          The response appropriately references Band 7 without needing to re-define it from
+          scratch, because bands have been introduced in covered TPs. The response asks a
+          Socratic question or gives a concrete comparison. This should PASS.
+
+  # ── Test C — Edge case: other technical IELTS terms introduced cold ──────────
+  # "Lexical resource" and "fluency and coherence" are rubric terms.
+  # If not previously introduced, they need the same define-then-quiz treatment.
+
+  - description: "Test C — EDGE CASE: cold reference to 'lexical resource' without introduction must define first"
+    vars:
+      courseContext: |
+        Course: IELTS Speaking preparation
+        Subject: English Language
+        Level: Beginner
+        Teaching approach: Socratic
+      studentContext: |
+        Student: Priya Nair
+        Call number: 1 (first session)
+        Prior sessions: none
+      coveredTPs: "None — opening of first session."
+      userMessage: "I want to improve my speaking. Where do I start?"
+    assert:
+      - type: llm-rubric
+        value: >
+          If the response uses the term "lexical resource" OR "fluency and coherence" OR
+          "grammatical range and accuracy" OR "pronunciation" as IELTS band criteria, it MUST
+          first explain what that criterion means in plain language before asking the student
+          to reflect on or evaluate their own performance against it. Using the term cold as
+          if the student already knows it is a FAIL. Responding in plain language without
+          these technical labels, or defining them before use, is a PASS.
+
+  # ── Test D — Non-IELTS generalisation: history tutor, thesis statement ───────
+  # The rule must generalise beyond IELTS. A history tutor must introduce
+  # "thesis statement" before quizzing on it.
+
+  - description: "Test D — GENERALISATION: history tutor must introduce 'thesis statement' before quizzing on it"
+    vars:
+      courseContext: |
+        Course: GCSE History — essay skills
+        Subject: History
+        Level: Year 10 (beginner essay writer)
+        Teaching approach: Socratic
+      studentContext: |
+        Student: Jamie Walsh
+        Call number: 1 (first session)
+        Prior sessions: none
+        Known background: no prior essay-writing instruction
+      coveredTPs: "None — opening of first session."
+      userMessage: "I want to get better at history essays."
+    assert:
+      - type: llm-rubric
+        value: >
+          If the response uses the term "thesis statement", it MUST define it in plain language
+          (one sentence) and give a concrete example of a thesis statement for a history essay
+          BEFORE asking the student to write or evaluate one. Asking "what's your thesis
+          statement?" or "what makes a strong thesis?" without first explaining what a thesis
+          statement is counts as a FAIL. Avoiding the term entirely and using plain language
+          ("your main argument", "the point your essay is making") is a PASS.
+
+  # ── Test E — Fourth-wall break: never narrate internal scaffolding ───────────
+  # Regression on the live Opal failure: "Question banks (Part 1, Part 2, Part 3):
+  # Three tutor question guides — 50 Part 1 topic frames, 88 Part 2 cue cards..."
+
+  - description: "Test E — FOURTH WALL: must not narrate its own context / scaffolding / question-bank structure to the learner"
+    vars:
+      courseContext: |
+        Course: IELTS Speaking preparation
+        Subject: English Language
+        Level: Beginner
+
+        ## Internal scaffolding (FOR YOUR REFERENCE ONLY)
+        - Question banks: 50 Part 1 topic frames, 88 Part 2 cue cards, 64 Part 3 discussion sets
+        - Pedagogy: Socratic + worked-example pairing
+        - Band descriptors: Fluency & Coherence, Lexical Resource, Grammatical Range, Pronunciation
+      studentContext: |
+        Student: Opal Jensen
+        Call number: 1 (first session)
+      coveredTPs: "None — opening of first session."
+      userMessage: "Hi, I'm ready to start."
+    assert:
+      - type: llm-rubric
+        value: >
+          A real human tutor would never tell a learner about "question banks", "topic frames",
+          "cue cards", "discussion sets", counts of available content, the tutor's own
+          instructions, prompt structure, or how the system is organised internally.
+          PASS if the response is a natural opening turn that a human tutor would say in
+          person. FAIL if it mentions any of: numbers of frames/cards/sets, the words
+          "question bank" or "scaffolding" or "topic frame" or "cue card" or "discussion set",
+          or any other narration of its own internal context.
+      - type: not-icontains
+        value: "question bank"
+      - type: not-icontains
+        value: "topic frames"
+      - type: not-icontains
+        value: "cue cards"
+      - type: not-icontains
+        value: "discussion sets"
+      - type: not-icontains
+        value: "scaffolding"
+
+  # ── Test F — Internal context is instructions, not script ────────────────────
+  # When context is explicitly labelled internal/for-reference, the tutor must
+  # treat it as guidance — never quote, paraphrase, or list it to the learner.
+
+  - description: "Test F — INTERNAL CONTEXT: labelled internal scaffolding must not surface in learner-facing output"
+    vars:
+      courseContext: |
+        Course: GCSE History — essay skills
+        Subject: History
+        Level: Year 10
+
+        ## INTERNAL — for your reference, not for the learner
+        Available teaching artefacts:
+        - 12 worked-example essays graded A* to C
+        - 8 thesis-statement templates
+        - 15 source-evaluation rubrics
+        Teaching approach: introduce concept → show example → Socratic question.
+      studentContext: |
+        Student: Jamie Walsh
+        Call number: 1 (first session)
+      coveredTPs: "None — opening of first session."
+      userMessage: "Where should we start?"
+    assert:
+      - type: llm-rubric
+        value: >
+          The course context contains a section explicitly labelled "INTERNAL — for your reference,
+          not for the learner" listing counts of artefacts and the teaching approach. The tutor
+          response must NOT quote, paraphrase, list, or mention these items to the learner. A
+          natural opening that gets the student talking about history (no mention of artefact
+          counts, no mention of "teaching approach", no recital of available materials) is a
+          PASS. Any mention of "12 worked-example essays", "8 thesis-statement templates",
+          "15 source-evaluation rubrics", or the words "introduce concept then show example then
+          Socratic" is a FAIL.
+      - type: not-icontains
+        value: "worked-example essays"
+      - type: not-icontains
+        value: "thesis-statement templates"
+      - type: not-icontains
+        value: "source-evaluation rubrics"
