@@ -428,4 +428,49 @@ describe('track-progress.ts', () => {
       expect(rollupModuleMastery(map)).toBe(0.5);
     });
   });
+
+  describe('validateLoScores (issue #403 AI-to-DB guard)', () => {
+    let validateLoScores: (s: Record<string, number>) => { filtered: Record<string, number>; rejected: string[] };
+
+    beforeEach(async () => {
+      const mod = await import('@/lib/curriculum/track-progress');
+      validateLoScores = mod.validateLoScores;
+    });
+
+    it('rejects placeholder LO keys matching /^LO\\d+$/', () => {
+      const result = validateLoScores({ LO1: 0.5, LO2: 0.7 });
+      expect(result.filtered).toEqual({});
+      expect(result.rejected).toEqual(['LO1', 'LO2']);
+    });
+
+    it('preserves real LO refs (full strings, slugs, codes)', () => {
+      const real = {
+        'Band 6 GRA: Mix of short and complex structures': 0.6,
+        'OUT-01': 0.4,
+        'R04-LO2-AC2.3': 0.8,
+      };
+      const result = validateLoScores(real);
+      expect(result.filtered).toEqual(real);
+      expect(result.rejected).toEqual([]);
+    });
+
+    it('mixed input — passes real refs, drops placeholders', () => {
+      const result = validateLoScores({ LO1: 0.5, 'OUT-01': 0.7, LO99: 0.3 });
+      expect(result.filtered).toEqual({ 'OUT-01': 0.7 });
+      expect(result.rejected).toEqual(['LO1', 'LO99']);
+    });
+
+    it('returns empty filtered + empty rejected on empty input', () => {
+      const result = validateLoScores({});
+      expect(result.filtered).toEqual({});
+      expect(result.rejected).toEqual([]);
+    });
+
+    it('does not treat a ref that merely contains "LO" as a placeholder', () => {
+      // Refs like "LO1-AC2" (a hyphenated compound) must pass.
+      const result = validateLoScores({ 'LO1-AC2': 0.5, 'LO-1': 0.7 });
+      expect(result.filtered).toEqual({ 'LO1-AC2': 0.5, 'LO-1': 0.7 });
+      expect(result.rejected).toEqual([]);
+    });
+  });
 });
