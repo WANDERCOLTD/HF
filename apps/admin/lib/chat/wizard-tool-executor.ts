@@ -11,6 +11,25 @@
 
 // ── Helpers ─────────────────────────────────────────────
 
+// Canonical wizard phase-id mapping. Used to build sessionFlow.onboarding.phases
+// from the four welcome booleans (#383). Phase ids match the existing
+// sessionFlow.intake key names for consistency. The resolver at
+// session-flow/resolver.ts::resolveOnboarding reads sessionFlow.onboarding
+// first (Priority 1); pedagogy.ts::computeSessionPedagogy reads the legacy
+// Playbook.config.onboardingFlowPhases (Priority 2 in both paths). The wizard
+// mirrors both so it wins regardless of which resolver path runs.
+const WELCOME_PHASE_DEFINITIONS: Array<{
+  key: "welcomeAiIntro" | "welcomeGoals" | "welcomeAboutYou" | "welcomeKnowledgeCheck";
+  phase: string;
+  duration: string;
+  goals: string[];
+}> = [
+  { key: "welcomeAiIntro",        phase: "aiIntro",        duration: "1-2 min", goals: ["Tutor introduces itself and the session frame"] },
+  { key: "welcomeGoals",          phase: "goals",          duration: "2-3 min", goals: ["Share the course goals with the learner"] },
+  { key: "welcomeAboutYou",       phase: "aboutYou",       duration: "2-3 min", goals: ["Discover learner background, motivation, and context"] },
+  { key: "welcomeKnowledgeCheck", phase: "knowledgeCheck", duration: "3-5 min", goals: ["Brief diagnostic to gauge starting level"] },
+];
+
 /**
  * Build the student-experience portion of a Playbook.config from wizard
  * setupData. Writes BOTH the legacy shape (`welcome` / `nps` / `surveys`)
@@ -63,6 +82,23 @@ export function applyStudentExperienceConfig(
   };
   const deliveryMode: "mcq" | "socratic" =
     setupData?.welcomeKnowledgeCheckMode === "socratic" ? "socratic" : "mcq";
+
+  // ── sessionFlow.onboarding.phases + onboardingFlowPhases mirror (#383). ──
+  // The first-call structural template resolver reads sessionFlow.onboarding
+  // first (new path) or Playbook.config.onboardingFlowPhases (old path); both
+  // must be written so the educator's welcome-phase choice actually fires at
+  // runtime. Empty array when all four are off — the resolver's truthy-object
+  // check still wins Priority 1, so we don't fall through to INIT-001.
+  const welcomeEnabledMap: Record<string, boolean> = {
+    welcomeGoals: welcome.goals.enabled,
+    welcomeAboutYou: welcome.aboutYou.enabled,
+    welcomeKnowledgeCheck: welcome.knowledgeCheck.enabled,
+    welcomeAiIntro: welcome.aiIntroCall.enabled,
+  };
+  const onboardingPhases = WELCOME_PHASE_DEFINITIONS
+    .filter((def) => welcomeEnabledMap[def.key])
+    .map((def) => ({ phase: def.phase, duration: def.duration, goals: [...def.goals] }));
+
   configUpdate.sessionFlow = {
     ...existingSessionFlow,
     intake: {
@@ -71,7 +107,9 @@ export function applyStudentExperienceConfig(
       knowledgeCheck: { enabled: welcome.knowledgeCheck.enabled, deliveryMode },
       aiIntroCall: { enabled: welcome.aiIntroCall.enabled },
     },
+    onboarding: { phases: onboardingPhases },
   };
+  configUpdate.onboardingFlowPhases = { phases: onboardingPhases };
 
   // ── NPS — top-level config field, mirrored to surveys.post.enabled for
   // structured-mode rail compatibility (existing pattern). ──
