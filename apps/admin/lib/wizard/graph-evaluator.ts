@@ -273,6 +273,36 @@ export function buildGraphPromptSection(
   );
   lines.push("");
 
+  // #398 — Structural picker directive for progressionMode.
+  // When progressionMode is missing, the AI has historically (a) silently set
+  // it from prose-narrated inference of doc content, or (b) ignored rule 9
+  // HARD GATE and offered "Create my course" anyway. Emit a high-visibility
+  // directive here so the AI sees the EXACT tool call to make and what NOT
+  // to call. Picker default ordering keys off curriculumPath.
+  const progressionMissing = evaluation.missingRequired.some(
+    (n) => n.key === "progressionMode",
+  );
+  if (progressionMissing) {
+    const curriculumPath = blackboard.curriculumPath as string | undefined;
+    const authoredPath = curriculumPath === "authored";
+    const question = authoredPath
+      ? "Your course-ref doc declares a module catalogue. How should learners progress?"
+      : "How should learners progress through this course?";
+    const suggestions = authoredPath
+      ? `["Let learners pick (recommended)", "AI directs the sequence"]`
+      : `["AI directs the sequence", "Let learners pick from a menu"]`;
+    lines.push("### 🚨 BLOCKED — progressionMode picker required");
+    lines.push(
+      `progressionMode is REQUIRED and is currently missing. The ONLY valid next action is to call show_suggestions with:`,
+    );
+    lines.push(`  question: "${question}"`);
+    lines.push(`  suggestions: ${suggestions}`);
+    lines.push(
+      "Do NOT narrate the choice in prose and then proceed. Do NOT call update_setup({progressionMode}) before the educator clicks a chip. Do NOT call show_suggestions with 'Create my course' or any create_course chip. Do NOT call create_course. The chip click is the only valid trigger for the update_setup write.",
+    );
+    lines.push("");
+  }
+
   // Collected
   const docKeys = new Set((blackboard._docConfigKeys as string[] | undefined) || []);
   if (evaluation.satisfied.length > 0) {
@@ -392,6 +422,20 @@ export function buildGraphPromptSection(
       for (const s of digest.sampleAssertions) {
         lines.push(`  - [${LABELS[s.category] || s.category}] ${s.assertion}`);
       }
+    }
+    // #398 — Hallucination guard. When the deterministic parser found no
+    // module catalogue (curriculumPath === "generated"), the AI has been
+    // observed claiming "your course-ref declares a module catalogue" or
+    // inventing module counts. Ground the AI in the parser's verdict.
+    const curriculumPath = blackboard.curriculumPath as string | undefined;
+    if (curriculumPath === "generated") {
+      lines.push(
+        "**GROUND TRUTH:** The deterministic parser did NOT find a module catalogue in this doc (curriculumPath=generated). NEVER claim the doc declares modules, an authored module catalogue, a specific module count, or named modules. Modules will be AI-generated from learning outcomes post-creation.",
+      );
+    } else if (curriculumPath === "authored") {
+      lines.push(
+        "**GROUND TRUTH:** The deterministic parser found a module catalogue (curriculumPath=authored). The catalogue will be parsed during course creation — do NOT promise specific module counts or names; the full table parses post-creation.",
+      );
     }
     lines.push("");
   }
