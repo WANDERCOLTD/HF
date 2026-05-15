@@ -89,6 +89,9 @@ export default function CallerDetailPage() {
   };
   const [simChatMounted, setSimChatMounted] = useState(initialTab === "ai-call");
   const [callSession, setCallSession] = useState(0);
+  // #396: parent-owned "is a call live?" flag so the SimStateBreadcrumb pill
+  // reads "(Active)" while the user is mid-call instead of always "(Pre-call)".
+  const [isCallActive, setIsCallActive] = useState(false);
   if (activeSection === "ai-call" && !simChatMounted) setSimChatMounted(true);
 
   // Dynamic parameter display configuration (fetched from database)
@@ -1160,6 +1163,7 @@ export default function CallerDetailPage() {
               signals as /x/sim/[id]. */}
           <SimStateBreadcrumb
             pastCallCount={(data?.calls ?? []).filter((c: { transcript?: string | null }) => c.transcript?.trim()).length}
+            activeCall={isCallActive}
             requestedModuleId={requestedModuleId ?? null}
             modules={authoredModules}
             onPickModule={
@@ -1200,6 +1204,7 @@ export default function CallerDetailPage() {
               fetchPrompts();
             }}
             onNewCall={() => setCallSession(prev => prev + 1)}
+            onCallStateChange={setIsCallActive}
             onPickModule={
               modulesAuthored && selectedPlaybookId && selectedPlaybookId !== "all"
                 ? handlePickModule
