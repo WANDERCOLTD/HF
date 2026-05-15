@@ -704,8 +704,12 @@ async function handleWizardModeWithTools(
         ...(result.is_error ? { is_error: true } : {}),
       });
 
-      // Merge update_setup fields into running state so subsequent tools see them
-      if (toolUse.name === "update_setup") {
+      // Merge update_setup fields into running state so subsequent tools see them.
+      // #398 — gate on !result.is_error: when the executor rejected the call
+      // (e.g. progressionMode silently written, unknown field), do NOT merge
+      // raw input into setupData. Otherwise the AI's intended write lands in
+      // state even though the executor returned an error, defeating Fix B/D.
+      if (toolUse.name === "update_setup" && !result.is_error) {
         const fields = toolUse.input.fields as Record<string, unknown> | undefined;
         if (fields) Object.assign(mergedSetupData, fields);
       }
