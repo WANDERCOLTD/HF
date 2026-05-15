@@ -59,7 +59,7 @@ const entityBreadcrumbSchema = z.object({
   type: z.string(),
   id: z.string(),
   label: z.string(),
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
 });
 
 /** POST /api/chat */
@@ -88,5 +88,5 @@ export const chatRequestSchema = z.object({
     viewport: z.string(),
     timestamp: z.number(),
   }).optional(),
-  setupData: z.record(z.unknown()).optional(),
+  setupData: z.record(z.string(), z.unknown()).optional(),
 });

@@ -30,6 +30,7 @@ describe("applyAuthoredModules", () => {
       modulesAuthored: null,
       modules: [],
       moduleDefaults: {},
+      outcomes: {},
       validationWarnings: [],
       detectedFrom: [],
     };
@@ -50,6 +51,7 @@ describe("applyAuthoredModules", () => {
       modulesAuthored: false,
       modules: [],
       moduleDefaults: {},
+      outcomes: {},
       validationWarnings: [],
       detectedFrom: ['header: "Modules authored: No"'],
     };
@@ -68,6 +70,7 @@ describe("applyAuthoredModules", () => {
       modulesAuthored: true,
       modules: [sampleModule],
       moduleDefaults: { mode: "tutor", correctionStyle: "single_issue_loop" },
+      outcomes: {},
       validationWarnings: [],
       detectedFrom: ["parsed 1 module(s) from catalogue"],
     };
@@ -87,6 +90,7 @@ describe("applyAuthoredModules", () => {
       modulesAuthored: true,
       modules: [sampleModule],
       moduleDefaults: {},
+      outcomes: {},
       validationWarnings: [],
       detectedFrom: [],
     };
@@ -105,6 +109,7 @@ describe("applyAuthoredModules", () => {
       modulesAuthored: true,
       modules: [sampleModule],
       moduleDefaults: { mode: "tutor", correctionStyle: "single_issue_loop" },
+      outcomes: {},
       validationWarnings: [],
       detectedFrom: [],
     };
@@ -126,6 +131,7 @@ describe("applyAuthoredModules", () => {
       modulesAuthored: true,
       modules: [sampleModule],
       moduleDefaults: {},
+      outcomes: {},
       validationWarnings: [],
       detectedFrom: [],
     };
@@ -139,6 +145,7 @@ describe("applyAuthoredModules", () => {
       modulesAuthored: true,
       modules: [sampleModule],
       moduleDefaults: {},
+      outcomes: {},
       validationWarnings: [
         {
           code: "MODULE_FIELD_DEFAULTED",
@@ -162,6 +169,7 @@ describe("hasBlockingErrors", () => {
         modulesAuthored: true,
         modules: [],
         moduleDefaults: {},
+        outcomes: {},
         validationWarnings: [],
         detectedFrom: [],
       }),
@@ -174,6 +182,7 @@ describe("hasBlockingErrors", () => {
         modulesAuthored: true,
         modules: [],
         moduleDefaults: {},
+        outcomes: {},
         validationWarnings: [
           { code: "X", message: "x", severity: "warning" },
         ],
@@ -188,6 +197,7 @@ describe("hasBlockingErrors", () => {
         modulesAuthored: true,
         modules: [],
         moduleDefaults: {},
+        outcomes: {},
         validationWarnings: [
           { code: "X", message: "x", severity: "warning" },
           { code: "Y", message: "y", severity: "error" },
