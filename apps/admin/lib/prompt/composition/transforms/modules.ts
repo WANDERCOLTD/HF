@@ -382,6 +382,15 @@ export async function computeSharedState(
         };
       }
       console.log(`[modules] Subject curriculum fallback: ${modules.length} modules from "${specSlug}"`);
+    } else if (curriculumId) {
+      // Composition transforms audit follow-up: when a Curriculum row exists
+      // but BOTH the relational CurriculumModule rows AND the legacy
+      // notableInfo.modules JSON are empty, the prompt loses its module
+      // structure silently. Warn loudly so operators can spot half-projected
+      // courses instead of letting them ship a degraded learning experience.
+      console.warn(
+        `[modules] Curriculum ${curriculumId} has neither CurriculumModule rows nor notableInfo.modules — prompt will render without module structure. Likely a half-completed projection or seed.`,
+      );
     }
   }
 

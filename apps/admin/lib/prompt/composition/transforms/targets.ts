@@ -14,8 +14,13 @@ import type { AudienceId } from "./audience";
  * Keyed by parameterId → audienceId → { value, confidence }.
  * "default" is the fallback when audience is unset or unrecognized.
  *
- * TODO: Move to INIT-001 spec config (audience-keyed defaultTargets) so educators
- * can tune these via the admin UI instead of requiring a code change.
+ * TODO(composition-transforms-audit): Move to INIT-001 spec config
+ * (audience-keyed `defaultTargets`) so educators can tune these via the
+ * admin UI instead of requiring a code change. Currently educator-tuned
+ * `BEH-CHALLENGE-LEVEL` targets via projection/wizard get shadowed by
+ * these hardcoded numbers on first-call when no caller-scoped target
+ * exists yet. Filed as a separate follow-up — the audit found this is
+ * latent fragility, not a current user-visible bug.
  */
 const AUDIENCE_TARGET_DEFAULTS: Record<string, Partial<Record<AudienceId | "default", { value: number; confidence: number }>>> = {
   "BEH-CHALLENGE-LEVEL": {

@@ -805,6 +805,22 @@ registerLoader("subjectSources", async (callerId, loaderConfig) => {
           qualificationBody: true,
           qualificationNumber: true,
           qualificationLevel: true,
+          // #364 follow-up: relational CurriculumModule + LearningObjective
+          // rows so the trust transform's CONTENT AUTHORITY block reads from
+          // canonical source instead of the legacy notableInfo.modules JSON
+          // blob (which the projection layer never populates).
+          modules: {
+            orderBy: { sortOrder: "asc" },
+            select: {
+              id: true,
+              slug: true,
+              title: true,
+              learningObjectives: {
+                orderBy: { ref: "asc" },
+                select: { ref: true, description: true },
+              },
+            },
+          },
         },
       },
     },
@@ -828,6 +844,18 @@ registerLoader("subjectSources", async (callerId, loaderConfig) => {
           qualificationBody: true,
           qualificationNumber: true,
           qualificationLevel: true,
+          modules: {
+            orderBy: { sortOrder: "asc" },
+            select: {
+              id: true,
+              slug: true,
+              title: true,
+              learningObjectives: {
+                orderBy: { ref: "asc" },
+                select: { ref: true, description: true },
+              },
+            },
+          },
         },
       })
     : null;
