@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import type { ExtractedQuestion } from "./extractors/base-extractor";
 import { sanitiseLORef } from "./validate-lo-linkage";
 import { computeWordOverlap } from "@/lib/assessment/validate-mcqs";
-import type { AssessmentUse } from "@prisma/client";
+import { Prisma, type AssessmentUse } from "@prisma/client";
 
 export interface SaveQuestionsResult {
   created: number;
@@ -126,38 +126,62 @@ export async function saveQuestions(
     return { created: 0, duplicatesSkipped, semanticDuplicatesSkipped };
   }
 
+  // #385 Slice 3a — AI-to-DB guard: coerce incoherent assessmentUse values.
+  // TUTOR_QUESTION items are open-ended Socratic prompts with no machine-
+  // gradable answer key; PRE_TEST / POST_TEST / BOTH / FORMATIVE all imply
+  // a scored item. The only coherent values for TUTOR_QUESTION are null or
+  // TUTOR_ONLY. Anything else is auto-corrected to TUTOR_ONLY and logged.
+  let assessmentUseCoerced = 0;
   await prisma.contentQuestion.createMany({
-    data: toCreate.map((q, i) => ({
-      sourceId,
-      subjectSourceId: subjectSourceId ?? null,
-      questionText: q.questionText,
-      questionType: q.questionType,
-      options: q.options || undefined,
-      correctAnswer: q.correctAnswer || null,
-      answerExplanation: q.answerExplanation || null,
-      markScheme: q.markScheme || null,
-      // Defence-in-depth: even if an extractor slips a free-text ref through,
-      // sanitise at write time per epic #131 A2.
-      learningOutcomeRef: sanitiseLORef(q.learningOutcomeRef),
-      skillRef: q.skillRef || null,
-      metadata: q.metadata || undefined,
-      difficulty: q.difficulty || null,
-      pageRef: q.pageRef || null,
-      chapter: q.chapter || null,
-      section: q.section || null,
-      tags: q.tags || [],
-      sortOrder: i,
-      contentHash: q.contentHash,
-      bloomLevel: q.bloomLevel || null,
-      // Declared override (hf-question-assessment-use) wins for every row in
-      // the doc. Otherwise honour the extractor's per-question value.
-      assessmentUse: declaredAssessmentUse ?? q.assessmentUse ?? null,
-      // #276 Slice 3: stamp generator-output as AI_ASSISTED. Educator-
-      // imported question banks may set a higher tier downstream.
-      trustLevel: "AI_ASSISTED",
-    })),
+    data: toCreate.map((q, i) => {
+      const rawAssessmentUse = declaredAssessmentUse ?? q.assessmentUse ?? null;
+      let resolvedAssessmentUse: AssessmentUse | null = rawAssessmentUse;
+      if (
+        q.questionType === "TUTOR_QUESTION" &&
+        resolvedAssessmentUse !== null &&
+        resolvedAssessmentUse !== "TUTOR_ONLY"
+      ) {
+        resolvedAssessmentUse = "TUTOR_ONLY";
+        assessmentUseCoerced++;
+      }
+      return {
+        sourceId,
+        subjectSourceId: subjectSourceId ?? null,
+        questionText: q.questionText,
+        questionType: q.questionType,
+        options: (q.options || undefined) as unknown as Prisma.InputJsonValue | undefined,
+        correctAnswer: q.correctAnswer || null,
+        answerExplanation: q.answerExplanation || null,
+        markScheme: q.markScheme || null,
+        // Defence-in-depth: even if an extractor slips a free-text ref through,
+        // sanitise at write time per epic #131 A2.
+        learningOutcomeRef: sanitiseLORef(q.learningOutcomeRef),
+        skillRef: q.skillRef || null,
+        metadata: (q.metadata || undefined) as unknown as Prisma.InputJsonValue | undefined,
+        difficulty: q.difficulty || null,
+        pageRef: q.pageRef || null,
+        chapter: q.chapter || null,
+        section: q.section || null,
+        tags: q.tags || [],
+        sortOrder: i,
+        contentHash: q.contentHash,
+        bloomLevel: q.bloomLevel || null,
+        // Declared override (hf-question-assessment-use) wins for every row in
+        // the doc. Otherwise honour the extractor's per-question value.
+        // Coerced above when questionType=TUTOR_QUESTION demands TUTOR_ONLY.
+        assessmentUse: resolvedAssessmentUse,
+        // #276 Slice 3: stamp generator-output as AI_ASSISTED. Educator-
+        // imported question banks may set a higher tier downstream.
+        trustLevel: "AI_ASSISTED",
+      };
+    }),
     skipDuplicates: true,
   });
+  if (assessmentUseCoerced > 0) {
+    console.warn(
+      `[save-questions] source ${sourceId}: coerced ${assessmentUseCoerced} TUTOR_QUESTION row(s) from incompatible assessmentUse to TUTOR_ONLY (#385 Slice 3a guard)`,
+    );
+  }
 
   return { created: toCreate.length, duplicatesSkipped, semanticDuplicatesSkipped };
 }
