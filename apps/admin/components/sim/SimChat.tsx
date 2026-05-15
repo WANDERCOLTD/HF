@@ -49,6 +49,17 @@ export interface SimChatProps {
   onCallEnd?: () => void;
   onNewCall?: () => void;
   onBack?: () => void;
+  /**
+   * Notifies the parent when the call goes active or back to a non-active
+   * state. "Active" means `callPhase === 'active'` with at least one message
+   * exchanged (i.e. the greeting has streamed). Issue #396 — drives the
+   * SimStateBreadcrumb "(Active)" vs "(Pre-call)" pill.
+   *
+   * Race-safe: the `false` transition fires alongside `onCallEnd?.()` inside
+   * `handleEndCall` rather than tracking `callPhase === 'ended'` so the
+   * breadcrumb doesn't snap back to "Pre-call" before post-call UI settles.
+   */
+  onCallStateChange?: (active: boolean) => void;
   /** When set, renders a "Pick module" header button (Issue #242 SIM-first mount) */
   onPickModule?: () => void;
   /**
@@ -128,6 +139,7 @@ export function SimChat({
   onCallEnd,
   onNewCall,
   onBack,
+  onCallStateChange,
   onPickModule,
   requestedModuleId,
   journey,
@@ -180,6 +192,20 @@ export function SimChat({
   useEffect(() => {
     return () => { abortRef.current?.abort(); };
   }, []);
+
+  // #396: notify the parent when the call is truly "active" — i.e. the
+  // greeting has streamed and at least one message exists. Mirrors the same
+  // truth value the WhatsAppHeader uses on line below for `callActive`.
+  // The `false` transition for end-call is fired in handleEndCall alongside
+  // onCallEnd?.() so post-call UI doesn't flash through "Pre-call".
+  const lastCallActiveFiredRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!onCallStateChange) return;
+    const active = callPhase === 'active' && messages.length > 0;
+    if (lastCallActiveFiredRef.current === active) return;
+    lastCallActiveFiredRef.current = active;
+    onCallStateChange(active);
+  }, [callPhase, messages.length, onCallStateChange]);
 
   // Parse past calls into grouped history — one group per call, never merged
   const historyGroups: HistoryGroup[] = useMemo(() => {
@@ -751,7 +777,13 @@ export function SimChat({
       setCallEndedAt(new Date());
 
       // Notify parent (refresh data, etc.)
+      // #396: fire onCallStateChange(false) here — NOT on the raw `ended`
+      // phase transition — so the breadcrumb stays "Active" through any
+      // post-call UI settle and only flips back once the call is fully
+      // wrapped. Sync the ref so the watcher effect won't re-fire.
       onCallEnd?.();
+      lastCallActiveFiredRef.current = false;
+      onCallStateChange?.(false);
       journey?.onCallEnd();
 
       // Standalone mode with no pipeline: navigate back
@@ -762,7 +794,7 @@ export function SimChat({
       showToast('Failed to save call');
       setIsEnding(false);
     }
-  }, [callId, callerId, messages, runPipeline, showToast, onCallEnd, onBack, journey]);
+  }, [callId, callerId, messages, runPipeline, showToast, onCallEnd, onCallStateChange, onBack, journey]);
 
   const isEmbedded = mode === 'embedded';
 

@@ -61,6 +61,9 @@ export default function SimConversationPage() {
   // banner can display a human label instead of the raw id.
   const [authoredModules, setAuthoredModules] = useState<Array<{ id: string; label?: string }>>([]);
   const [error, setError] = useState<string | null>(null);
+  // #396: parent-owned "is a call live?" flag so the SimStateBreadcrumb pill
+  // reads "(Active)" while the user is mid-call instead of always "(Pre-call)".
+  const [isCallActive, setIsCallActive] = useState(false);
 
   // Journey chat — unified WhatsApp-style survey/onboarding/teaching flow
   // Only runs for LEARNER callers; waits for caller data before deciding.
@@ -183,6 +186,7 @@ export default function SimConversationPage() {
     <>
       <SimStateBreadcrumb
         pastCallCount={caller.pastCalls.length}
+        activeCall={isCallActive}
         requestedModuleId={requestedModuleId ?? null}
         modules={authoredModules}
         onPickModule={modulesAuthored && playbookId ? handlePickModule : undefined}
@@ -212,6 +216,7 @@ export default function SimConversationPage() {
         forceFirstCall={forceFirstCall || undefined}
         onBack={isDesktop ? undefined : () => router.push('/x/sim')}
         onCallEnd={isStudent ? handleStudentCallEnd : undefined}
+        onCallStateChange={setIsCallActive}
         onPickModule={modulesAuthored && playbookId ? handlePickModule : undefined}
         requestedModuleId={requestedModuleId}
         journey={journey}
