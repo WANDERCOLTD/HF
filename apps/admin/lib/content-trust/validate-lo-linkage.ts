@@ -257,7 +257,15 @@ export async function computeCourseLinkageScorecard(courseId: string): Promise<C
         select: { id: true, documentType: true },
       })
     : [];
-  const TUTOR_ONLY_DOC_TYPES = new Set(["COURSE_REFERENCE", "LESSON_PLAN", "POLICY_DOCUMENT"]);
+  // #385 Slice 1 Phase 3 — subtypes inherit tutor-only status.
+  const TUTOR_ONLY_DOC_TYPES = new Set([
+    "COURSE_REFERENCE",
+    "COURSE_REFERENCE_CANONICAL",
+    "COURSE_REFERENCE_TUTOR_BRIEFING",
+    "COURSE_REFERENCE_ASSESSOR_RUBRIC",
+    "LESSON_PLAN",
+    "POLICY_DOCUMENT",
+  ]);
   const ASSESSMENT_DOC_TYPES = new Set(["QUESTION_BANK", "ASSESSMENT"]);
   const tutorSourceIds = new Set(
     sources
