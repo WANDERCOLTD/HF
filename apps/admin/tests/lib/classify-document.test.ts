@@ -301,13 +301,19 @@ describe("classifyDocument", () => {
       makeConfig(),
     );
 
-    expect(result.documentType).toBe("COURSE_REFERENCE");
+    // #385 Slice 1 Phase 2: filename "course-reference" now maps to the
+    // CANONICAL subtype, not the legacy flat value. Override fires when AI
+    // returns legacy COURSE_REFERENCE because the filename gives us a more
+    // specific subtype — refining-the-class is the correct behaviour.
+    expect(result.documentType).toBe("COURSE_REFERENCE_CANONICAL");
     expect(result.confidence).toBeGreaterThanOrEqual(0.85);
     expect(result.reasoning).toContain("Filename signal");
   });
 
-  it("does NOT override when AI classification matches filename hint", async () => {
-    // AI correctly says COURSE_REFERENCE — no override needed
+  it("refines legacy COURSE_REFERENCE to the CANONICAL subtype when filename signals it", async () => {
+    // AI returns the legacy flat COURSE_REFERENCE; filename hint resolves
+    // to the CANONICAL subtype. Override fires to upgrade the class — the
+    // hint is strictly more specific than the AI output (#385 Slice 1 Phase 2).
     mockAIReturn({
       documentType: "COURSE_REFERENCE",
       confidence: 0.92,
@@ -320,11 +326,9 @@ describe("classifyDocument", () => {
       makeConfig(),
     );
 
-    expect(result.documentType).toBe("COURSE_REFERENCE");
-    expect(result.confidence).toBe(0.92);
-    expect(result.reasoning).toBe("tutor instruction document");
-    // No "[Filename signal" annotation since AI got it right
-    expect(result.reasoning).not.toContain("Filename signal");
+    expect(result.documentType).toBe("COURSE_REFERENCE_CANONICAL");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.85);
+    expect(result.reasoning).toContain("Filename signal");
   });
 
   it("overrides question-bank filename when AI says TEXTBOOK", async () => {

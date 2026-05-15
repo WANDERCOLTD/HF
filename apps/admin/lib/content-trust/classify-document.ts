@@ -73,19 +73,25 @@ const FILENAME_TYPE_HINTS: Array<{
   type: DocumentType;
   role: "passage" | "questions" | "reference" | "pedagogy";
 }> = [
-  { pattern: /course[_-]?ref(erence)?/i, type: "COURSE_REFERENCE", role: "pedagogy" },
-  { pattern: /tutor[_-]?(guide|instruction|playbook|handbook|manual)/i, type: "COURSE_REFERENCE", role: "pedagogy" },
-  { pattern: /teaching[_-]?(guide|approach|method(ology)?)/i, type: "COURSE_REFERENCE", role: "pedagogy" },
-  { pattern: /delivery[_-]?(guide|handbook)/i, type: "COURSE_REFERENCE", role: "pedagogy" },
-  // #276 Slice 1: assessment rubric / band descriptor docs are tutor-facing
-  // scoring criteria — NOT learner content. Misclassified as TEXTBOOK they
-  // leak into MCQ generation and produce questions ABOUT the rubric ("How
-  // many assessment criteria are there?", "Why do Band 9 speakers hesitate?")
-  // instead of testing actual skill. Anchor them to COURSE_REFERENCE.
-  { pattern: /band[_-]?descriptor/i, type: "COURSE_REFERENCE", role: "pedagogy" },
-  { pattern: /(assessment|scoring|marking)[_-]?(rubric|criteria|descriptor)/i, type: "COURSE_REFERENCE", role: "pedagogy" },
-  { pattern: /band[_-]?score(s)?/i, type: "COURSE_REFERENCE", role: "pedagogy" },
-  { pattern: /(ielts|cefr|toefl|toeic)[_-]?(rubric|descriptor|band|score)/i, type: "COURSE_REFERENCE", role: "pedagogy" },
+  // #385 Slice 1 Phase 2 — filename hints now resolve to subtypes when the
+  // pattern is specific enough to know the audience scope. The legacy flat
+  // COURSE_REFERENCE value is reserved for AI output that doesn't trigger
+  // any deterministic override; the reader sweep accepts both via
+  // isCourseReferenceType() helper.
+  { pattern: /course[_-]?ref(erence)?/i, type: "COURSE_REFERENCE_CANONICAL", role: "pedagogy" },
+  { pattern: /tutor[_-]?(guide|instruction|playbook|handbook|manual|briefing)/i, type: "COURSE_REFERENCE_TUTOR_BRIEFING", role: "pedagogy" },
+  { pattern: /teaching[_-]?(guide|approach|method(ology)?)/i, type: "COURSE_REFERENCE_TUTOR_BRIEFING", role: "pedagogy" },
+  { pattern: /delivery[_-]?(guide|handbook)/i, type: "COURSE_REFERENCE_TUTOR_BRIEFING", role: "pedagogy" },
+  // Assessment rubric / band descriptor docs are tutor-facing scoring criteria
+  // — NOT learner content. Misclassified as TEXTBOOK they leak into MCQ
+  // generation and produce questions ABOUT the rubric ("How many assessment
+  // criteria are there?", "Why do Band 9 speakers hesitate?") instead of
+  // testing actual skill. Anchor them to ASSESSOR_RUBRIC so audience-routing
+  // can hide them from learner chat (#317 + #385).
+  { pattern: /band[_-]?descriptor/i, type: "COURSE_REFERENCE_ASSESSOR_RUBRIC", role: "pedagogy" },
+  { pattern: /(assessment|scoring|marking)[_-]?(rubric|criteria|descriptor)/i, type: "COURSE_REFERENCE_ASSESSOR_RUBRIC", role: "pedagogy" },
+  { pattern: /band[_-]?score(s)?/i, type: "COURSE_REFERENCE_ASSESSOR_RUBRIC", role: "pedagogy" },
+  { pattern: /(ielts|cefr|toefl|toeic)[_-]?(rubric|descriptor|band|score)/i, type: "COURSE_REFERENCE_ASSESSOR_RUBRIC", role: "pedagogy" },
   { pattern: /question[_-]?bank/i, type: "QUESTION_BANK", role: "questions" },
   { pattern: /reading[_-]?passage/i, type: "READING_PASSAGE", role: "passage" },
   { pattern: /lesson[_-]?plan/i, type: "LESSON_PLAN", role: "pedagogy" },
@@ -503,27 +509,31 @@ export async function classifyDocument(
       return overriddenResult;
     }
 
-    // #276 Slice 1: content-based rubric override. When the text sample is
-    // unmistakably a tutor-facing rubric (band descriptors, scoring criteria)
-    // but the AI returned a generic learner-facing type (TEXTBOOK / REFERENCE
-    // / CURRICULUM), force COURSE_REFERENCE so the MCQ exclusion gate fires.
-    // Filename-hint already ran above; this catches the generic-filename case.
+    // #276 Slice 1 + #385 Slice 1 Phase 2 — content-based rubric override.
+    // When the text sample is unmistakably a tutor-facing rubric (band
+    // descriptors, scoring criteria) but the AI returned a generic learner-
+    // facing type (TEXTBOOK / REFERENCE / CURRICULUM), force the
+    // COURSE_REFERENCE_ASSESSOR_RUBRIC subtype so the MCQ exclusion gate
+    // fires AND the audience-routing layer can keep rubric out of learner
+    // chat. Filename-hint already ran above; this catches the
+    // generic-filename case.
     if (
       documentType !== "COURSE_REFERENCE" &&
+      documentType !== "COURSE_REFERENCE_ASSESSOR_RUBRIC" &&
       ["TEXTBOOK", "REFERENCE", "CURRICULUM"].includes(documentType) &&
       isRubricContent(sample)
     ) {
       console.log(
-        `[classify-document] Rubric content override: ${fileName} AI=${documentType} → COURSE_REFERENCE (rubric markers detected in sample)`,
+        `[classify-document] Rubric content override: ${fileName} AI=${documentType} → COURSE_REFERENCE_ASSESSOR_RUBRIC (rubric markers detected in sample)`,
       );
       const overriddenResult: ClassificationResult = {
-        documentType: "COURSE_REFERENCE" as DocumentType,
+        documentType: "COURSE_REFERENCE_ASSESSOR_RUBRIC" as DocumentType,
         confidence: Math.max(confidence, 0.85),
-        reasoning: `${parsed.reasoning || "No reasoning provided"} [Content signal: rubric markers detected (band descriptors / scoring criteria) → COURSE_REFERENCE]`,
+        reasoning: `${parsed.reasoning || "No reasoning provided"} [Content signal: rubric markers detected (band descriptors / scoring criteria) → COURSE_REFERENCE_ASSESSOR_RUBRIC]`,
         declaration: declaration.hasDeclaration ? declaration : undefined,
       };
       logAI("content-trust.classify:result", `Classify ${fileName}`, JSON.stringify(overriddenResult), {
-        fileName, documentType: "COURSE_REFERENCE", confidence: overriddenResult.confidence, contentOverride: true,
+        fileName, documentType: "COURSE_REFERENCE_ASSESSOR_RUBRIC", confidence: overriddenResult.confidence, contentOverride: true,
       });
       return overriddenResult;
     }

@@ -61,42 +61,42 @@ describe("buildMultiPointSample", () => {
 describe("filenameTypeHint", () => {
   it("detects course-reference in filename", () => {
     const hint = filenameTypeHint("11plus-english-course-reference.md");
-    expect(hint).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(hint).toEqual({ type: "COURSE_REFERENCE_CANONICAL", role: "pedagogy" });
   });
 
   it("detects course_reference with underscore", () => {
     const hint = filenameTypeHint("biology_course_reference.pdf");
-    expect(hint).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(hint).toEqual({ type: "COURSE_REFERENCE_CANONICAL", role: "pedagogy" });
   });
 
   it("detects course-ref shorthand", () => {
     const hint = filenameTypeHint("maths-course-ref.docx");
-    expect(hint).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(hint).toEqual({ type: "COURSE_REFERENCE_CANONICAL", role: "pedagogy" });
   });
 
   it("detects tutor-guide", () => {
     const hint = filenameTypeHint("english-tutor-guide.pdf");
-    expect(hint).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(hint).toEqual({ type: "COURSE_REFERENCE_TUTOR_BRIEFING", role: "pedagogy" });
   });
 
   it("detects tutor_handbook", () => {
     const hint = filenameTypeHint("science_tutor_handbook.md");
-    expect(hint).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(hint).toEqual({ type: "COURSE_REFERENCE_TUTOR_BRIEFING", role: "pedagogy" });
   });
 
   it("detects teaching-guide", () => {
     const hint = filenameTypeHint("Teaching-Guide-Year5.pdf");
-    expect(hint).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(hint).toEqual({ type: "COURSE_REFERENCE_TUTOR_BRIEFING", role: "pedagogy" });
   });
 
   it("detects teaching-methodology", () => {
     const hint = filenameTypeHint("reading-teaching-methodology.docx");
-    expect(hint).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(hint).toEqual({ type: "COURSE_REFERENCE_TUTOR_BRIEFING", role: "pedagogy" });
   });
 
   it("detects delivery-guide", () => {
     const hint = filenameTypeHint("11plus-delivery-guide.pdf");
-    expect(hint).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(hint).toEqual({ type: "COURSE_REFERENCE_TUTOR_BRIEFING", role: "pedagogy" });
   });
 
   it("detects question-bank", () => {
@@ -137,32 +137,32 @@ describe("filenameTypeHint", () => {
   });
 
   it("is case-insensitive", () => {
-    expect(filenameTypeHint("COURSE-REFERENCE.PDF")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
-    expect(filenameTypeHint("Tutor-Guide.docx")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(filenameTypeHint("COURSE-REFERENCE.PDF")).toEqual({ type: "COURSE_REFERENCE_CANONICAL", role: "pedagogy" });
+    expect(filenameTypeHint("Tutor-Guide.docx")).toEqual({ type: "COURSE_REFERENCE_TUTOR_BRIEFING", role: "pedagogy" });
     expect(filenameTypeHint("QUESTION_BANK.pdf")).toEqual({ type: "QUESTION_BANK", role: "questions" });
   });
 
-  // ── #276 Slice 1: rubric / band-descriptor filename hints ──
+  // ── #276 Slice 1 + #385 Slice 1 Phase 2: rubric / band-descriptor filename hints route to ASSESSOR_RUBRIC ──
 
   it("detects band-descriptor filenames", () => {
-    expect(filenameTypeHint("IELTS-Band-Descriptors.pdf")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
-    expect(filenameTypeHint("speaking_band_descriptor.docx")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(filenameTypeHint("IELTS-Band-Descriptors.pdf")).toEqual({ type: "COURSE_REFERENCE_ASSESSOR_RUBRIC", role: "pedagogy" });
+    expect(filenameTypeHint("speaking_band_descriptor.docx")).toEqual({ type: "COURSE_REFERENCE_ASSESSOR_RUBRIC", role: "pedagogy" });
   });
 
   it("detects assessment / scoring / marking rubric filenames", () => {
-    expect(filenameTypeHint("assessment-rubric.pdf")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
-    expect(filenameTypeHint("scoring_criteria.docx")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
-    expect(filenameTypeHint("marking-criteria-2024.pdf")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(filenameTypeHint("assessment-rubric.pdf")).toEqual({ type: "COURSE_REFERENCE_ASSESSOR_RUBRIC", role: "pedagogy" });
+    expect(filenameTypeHint("scoring_criteria.docx")).toEqual({ type: "COURSE_REFERENCE_ASSESSOR_RUBRIC", role: "pedagogy" });
+    expect(filenameTypeHint("marking-criteria-2024.pdf")).toEqual({ type: "COURSE_REFERENCE_ASSESSOR_RUBRIC", role: "pedagogy" });
   });
 
   it("detects exam-specific rubric filenames (IELTS / CEFR / TOEFL)", () => {
-    expect(filenameTypeHint("ielts-rubric.pdf")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
-    expect(filenameTypeHint("CEFR-descriptor.docx")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
-    expect(filenameTypeHint("toefl_band.pdf")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(filenameTypeHint("ielts-rubric.pdf")).toEqual({ type: "COURSE_REFERENCE_ASSESSOR_RUBRIC", role: "pedagogy" });
+    expect(filenameTypeHint("CEFR-descriptor.docx")).toEqual({ type: "COURSE_REFERENCE_ASSESSOR_RUBRIC", role: "pedagogy" });
+    expect(filenameTypeHint("toefl_band.pdf")).toEqual({ type: "COURSE_REFERENCE_ASSESSOR_RUBRIC", role: "pedagogy" });
   });
 
   it("detects band-score filenames", () => {
-    expect(filenameTypeHint("band-scores.pdf")).toEqual({ type: "COURSE_REFERENCE", role: "pedagogy" });
+    expect(filenameTypeHint("band-scores.pdf")).toEqual({ type: "COURSE_REFERENCE_ASSESSOR_RUBRIC", role: "pedagogy" });
   });
 });
 
