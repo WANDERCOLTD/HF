@@ -57,6 +57,7 @@ import type {
   ProjectedCurriculumModule,
   ProjectedGoalTemplate,
   ProjectedLearningObjective,
+  ProjectedMeasureSpec,
   ProjectedParameter,
 } from "./project-course-reference";
 
@@ -80,6 +81,10 @@ export interface ApplyProjectionResult {
   learningObjectivesRemoved: number;
   goalTemplatesWritten: number;
   curriculumId: string;
+  /** #417 — id of the upserted MEASURE spec, null when projection has no skills. */
+  measureSpecId: string | null;
+  /** #417 — count of trigger rows attached to the MEASURE spec after upsert. */
+  measureTriggerCount: number;
   warnings: ValidationWarning[];
   /** True when nothing changed beyond `updatedAt` bumps. */
   noop: boolean;
@@ -149,7 +154,7 @@ async function diffBehaviorTargets(
 ): Promise<BehaviorTargetDiff> {
   const existing = await tx.behaviorTarget.findMany({
     where: { playbookId, sourceContentId, scope: "PLAYBOOK" },
-    select: { id: true, parameterId: true, targetValue: true },
+    select: { id: true, parameterId: true, targetValue: true, skillRef: true },
   });
 
   const desiredByParam = new Map<string, ProjectedBehaviorTarget>();
@@ -174,10 +179,17 @@ async function diffBehaviorTargets(
   for (const [paramId, target] of desiredByParam) {
     const existingRow = existing.find((e) => e.parameterId === paramId);
     if (existingRow) {
-      if (existingRow.targetValue !== target.targetValue) {
+      // #417: persist skillRef even on updates (existing rows pre-#417 have NULL).
+      if (
+        existingRow.targetValue !== target.targetValue ||
+        existingRow.skillRef !== target.skillRef
+      ) {
         await tx.behaviorTarget.update({
           where: { id: existingRow.id },
-          data: { targetValue: target.targetValue },
+          data: {
+            targetValue: target.targetValue,
+            skillRef: target.skillRef,
+          },
         });
         updated += 1;
       }
@@ -190,6 +202,9 @@ async function diffBehaviorTargets(
           targetValue: target.targetValue,
           source: "SEED",
           sourceContentId,
+          // #417: persist skillRef so Goal.ref → BehaviorTarget.skillRef →
+          // parameterId resolution works at goal-progress time.
+          skillRef: target.skillRef,
         },
       });
       created += 1;
@@ -424,6 +439,154 @@ export function mergeConfig(
   return { merged, goalTemplatesWritten: newGoals.length };
 }
 
+/**
+ * #417 Phase B — upsert the per-playbook MEASURE spec that scores
+ * `skill_*` parameters on each call.
+ *
+ * Update-in-place by slug (`skill-measure-<playbookId-prefix>`). Triggers
+ * and actions are replaced wholesale on every projection — the spec row
+ * itself stays put so `CallScore.analysisSpecId` history is preserved
+ * (FK is `onDelete: SetNull` but we'd rather not churn it).
+ *
+ * Side effects:
+ *   • Spec is marked `isDirty: false` + `compiledAt: NOW()` so the
+ *     spec-loader includes it (`specs-loader.ts:147-152` filters on
+ *     `isDirty: false`).
+ *   • A `PlaybookItem` row is upserted linking the spec to the playbook
+ *     with `itemType: SPEC, isEnabled: true` — without this row the
+ *     spec-loader's playbook scope filter excludes the spec entirely.
+ *
+ * Returns null when the projection has no skills (no spec to write).
+ */
+async function upsertMeasureSpec(
+  tx: Tx,
+  measureSpec: ProjectedMeasureSpec | undefined,
+  parameterMap: Map<string, string>,
+  playbookId: string,
+  sourceContentId: string,
+): Promise<{ specId: string | null; triggerCount: number }> {
+  if (!measureSpec || measureSpec.triggers.length === 0) {
+    return { specId: null, triggerCount: 0 };
+  }
+
+  // Look up the playbook's domain so the spec is filterable by
+  // domain-scoped queries (the spec-loader path uses both PlaybookItem
+  // membership AND domain match).
+  const playbook = await tx.playbook.findUnique({
+    where: { id: playbookId },
+    select: { domainId: true },
+  });
+  if (!playbook) {
+    throw new Error(`upsertMeasureSpec: playbook ${playbookId} not found`);
+  }
+  const domain = await tx.domain.findUnique({
+    where: { id: playbook.domainId },
+    select: { slug: true },
+  });
+
+  const slug = `skill-measure-${playbookId.slice(0, 8)}`;
+  const now = new Date();
+
+  // Upsert the spec itself. Deterministic generation — mark clean.
+  const spec = await tx.analysisSpec.upsert({
+    where: { slug },
+    create: {
+      slug,
+      name: measureSpec.name,
+      description: measureSpec.description,
+      scope: "DOMAIN",
+      outputType: "MEASURE",
+      specType: "DOMAIN",
+      specRole: "MEASURE",
+      domain: domain?.slug ?? null,
+      priority: 10,
+      isActive: true,
+      isDirty: false,
+      compiledAt: now,
+    },
+    update: {
+      name: measureSpec.name,
+      description: measureSpec.description,
+      domain: domain?.slug ?? null,
+      isActive: true,
+      isDirty: false,
+      compiledAt: now,
+    },
+    select: { id: true },
+  });
+
+  // Replace triggers + actions wholesale. Cleaner than diffing per-skill;
+  // the spec is small (4 triggers for IELTS) so this is cheap.
+  await tx.analysisTrigger.deleteMany({ where: { specId: spec.id } });
+  for (let i = 0; i < measureSpec.triggers.length; i++) {
+    const trig = measureSpec.triggers[i];
+    await tx.analysisTrigger.create({
+      data: {
+        specId: spec.id,
+        name: trig.name,
+        given: trig.given,
+        when: trig.when,
+        then: trig.then,
+        sortOrder: i,
+        // Notes carry the skillRef so it's available without joining BehaviorTarget
+        // — useful for debugging and for any AI prompt that wants to surface it.
+        notes: `skillRef:${trig.skillRef} (#417)`,
+        actions: {
+          create: trig.actions.map((act, j) => {
+            const paramId = parameterMap.get(act.parameterName);
+            if (!paramId) {
+              throw new Error(
+                `upsertMeasureSpec: parameter "${act.parameterName}" not found in parameterMap. ` +
+                  `Did the projection emit a BehaviorTarget for it first?`,
+              );
+            }
+            return {
+              description: act.description,
+              parameterId: paramId,
+              weight: act.weight,
+              sortOrder: j,
+            };
+          }),
+        },
+      },
+    });
+  }
+
+  // Link the spec to the playbook so specs-loader picks it up. No
+  // composite unique on (playbookId, specId), so emulate upsert with a
+  // findFirst + create/update.
+  const existingLink = await tx.playbookItem.findFirst({
+    where: { playbookId, specId: spec.id },
+    select: { id: true, isEnabled: true },
+  });
+  if (existingLink) {
+    if (!existingLink.isEnabled) {
+      await tx.playbookItem.update({
+        where: { id: existingLink.id },
+        data: { isEnabled: true },
+      });
+    }
+  } else {
+    await tx.playbookItem.create({
+      data: {
+        playbookId,
+        specId: spec.id,
+        itemType: "SPEC",
+        isEnabled: true,
+        groupId: "SKILL_MEASURE",
+        groupLabel: "Per-skill scoring (#417)",
+        sortOrder: 100,
+      },
+    });
+  }
+
+  // (sourceContentId is intentionally unused here — the spec is shared
+  // per-playbook regardless of which source produced it; dedup is by slug.)
+  void sourceContentId;
+
+  return { specId: spec.id, triggerCount: measureSpec.triggers.length };
+}
+
 // ── Public entry point ─────────────────────────────────────────────────────
 
 export async function applyProjection(
@@ -442,6 +605,17 @@ export async function applyProjection(
     const btDiff = await diffBehaviorTargets(
       tx,
       projection.behaviorTargets,
+      parameterMap,
+      playbookId,
+      sourceContentId,
+    );
+
+    // #417 Phase B — upsert the per-playbook MEASURE spec for `skill_*`
+    // scoring. Must run AFTER BehaviorTarget diff so the parameterMap is
+    // populated; the spec's actions reference parameters by id.
+    const specUpsert = await upsertMeasureSpec(
+      tx,
+      projection.measureSpec,
       parameterMap,
       playbookId,
       sourceContentId,
@@ -500,6 +674,8 @@ export async function applyProjection(
       learningObjectivesRemoved: cmDiff.loRemoved,
       goalTemplatesWritten,
       curriculumId,
+      measureSpecId: specUpsert.specId,
+      measureTriggerCount: specUpsert.triggerCount,
       warnings: projection.validationWarnings,
       noop,
     };
