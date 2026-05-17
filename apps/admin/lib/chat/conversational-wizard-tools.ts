@@ -16,7 +16,7 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
       "courseName = specific course within that subject (GCSE Biology, 11+ Comprehension). " +
       "NEVER put a broad discipline into courseName or a specific course into subjectDiscipline. " +
       "Valid field keys: institutionName, typeSlug, websiteUrl, groupName, groupId, courseName, subjectDiscipline, " +
-      "interactionPattern, teachingMode, audience, learningOutcomes, " +
+      "interactionPattern, progressionMode, teachingMode, audience, learningOutcomes, " +
       "welcomeMessage, sessionCount, durationMins, " +
       "planEmphasis, assessments, behaviorTargets, " +
       "existingInstitutionId, existingDomainId, defaultDomainKind, " +
@@ -26,6 +26,7 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
       "contentSkipped, welcomeSkipped, tuneSkipped, " +
       "courseRefEnabled, skillsFramework, teachingPrinciples, coursePhases, " +
       "edgeCases, assessmentBoundaries. " +
+      "progressionMode = 'ai-led' (scheduler picks each call) or 'learner-picks' (learner picks from a menu). " +
       "courseRefEnabled = set to true when user wants detailed teaching guide. " +
       "skillsFramework = array of { id, name, description?, tiers: { emerging, developing, secure } }. " +
       "teachingPrinciples = { corePrinciples: string[], sessionStructure?: { phases: [] }, techniquesBySkill?: [] }. " +

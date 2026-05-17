@@ -119,10 +119,10 @@ export const WIZARD_GRAPH_NODES: WizardGraphNode[] = [
     resolvedBy: ["course-lookup"],
     optionsKey: "progressionModes",
     promptHint:
-      "How do learners progress through the course? Two options:\n" +
+      "How do learners progress through the course? REQUIRED — must be confirmed by the educator via a show_suggestions picker before create_course. Two options:\n" +
       "- 'AI-led' (modulesAuthored=false): the scheduler picks what to cover each call. Learner just calls in.\n" +
-      "- 'Learner picks' (modulesAuthored=true): learner sees a module menu before each session and picks. REQUIRES a Module Catalogue table in the Course Reference markdown — surface a friendly error if 'Learner picks' is chosen but courseRefDigest is missing or has no Module Catalogue.\n" +
-      "PROPOSE based on evidence: if Course Reference has a Module Catalogue table, propose 'Learner picks'. If the user described the course as 'adaptive' or 'AI decides each call', propose 'AI-led'. State your reasoning. Save as 'ai-led' or 'learner-picks' (string), then mirror to PlaybookConfig.modulesAuthored when persisting.",
+      "- 'Learner picks' (modulesAuthored=true): learner sees a module menu before each session and picks. REQUIRES a Module Catalogue in the Course Reference — if missing, surface a friendly error.\n" +
+      "DEFAULT: use setupData.curriculumPath as the signal — 'authored' → propose 'Learner picks', 'generated' or undefined → propose 'AI-led'. (Do NOT try to read courseRefDigest.modulesAuthored; that field is not present in the runtime digest shape.) Always surface a 2-option show_suggestions picker with the recommended option first. Save as 'ai-led' or 'learner-picks' (string); PlaybookConfig.modulesAuthored is mirrored server-side when persisting.",
     mutablePostScaffold: true,
     affinityTags: ["course", "progression"],
   },

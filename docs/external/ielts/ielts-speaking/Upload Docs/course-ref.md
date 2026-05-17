@@ -8,6 +8,7 @@
 
 **Course name:** IELTS Speaking Practice
 **Subject / qualification:** IELTS Speaking
+**Modules authored:** Yes
 **Default mode:** learner-picks (the learner chooses which module to do each call from the four modules below; the tutor never silently sequences modules)
 
 ### Teaching approach

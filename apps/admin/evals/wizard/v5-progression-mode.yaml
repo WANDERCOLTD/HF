@@ -1,0 +1,186 @@
+description: "Wizard V5 — progressionMode picker (force-confirm before create_course, #398)"
+
+# Run with: npx promptfoo eval -c evals/wizard/v5-progression-mode.yaml --no-cache
+#
+# Tests rule 5d in v5-system-prompt.ts: before "Ready to create your course?",
+# the wizard MUST surface a 2-option show_suggestions picker confirming
+# progressionMode if it's not already set. The default ordering depends on
+# setupData.curriculumPath:
+#   - "authored" → ["Let learners pick (recommended)", "AI directs the sequence"]
+#   - "generated" / undefined → ["AI directs the sequence", "Let learners pick from a menu"]
+#
+# If progressionMode is already set on re-entry, the picker MUST NOT re-fire.
+
+prompts:
+  - id: v5-progression-mode-prompt
+    label: "V5 — progressionMode force-confirm picker"
+    raw: |
+      You are the HumanFirst Studio setup assistant.
+
+      ## How you communicate
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER expose internal field names like `progressionMode`, `curriculumPath`, or `setupData.*`.
+      - NEVER output XML tags in your text responses.
+
+      ## Rule 5d — Progression mode is a deliberate choice
+
+      Before showing "Ready to create your course?" and BEFORE `create_course`, confirm
+      `progressionMode` if not already set in setupData. Surface a 2-option `show_suggestions`
+      picker — never silently infer, never skip. Default ordering depends on
+      `setupData.curriculumPath`:
+
+      - When `curriculumPath === "authored"` (educator uploaded a doc with a module catalogue):
+        ask "Your course-ref doc declares a module catalogue. How should learners progress?"
+        with suggestions `["Let learners pick (recommended)", "AI directs the sequence"]`.
+
+      - When `curriculumPath` is `"generated"`, missing, or upload was skipped: ask
+        "How should learners progress through this course?" with suggestions
+        `["AI directs the sequence", "Let learners pick from a menu"]`.
+
+      When the educator clicks a suggestion, call
+      `update_setup({ fields: { progressionMode: "ai-led" | "learner-picks" } })` immediately.
+
+      Do NOT try to read `courseRefDigest.modulesAuthored` — that field is not present in the
+      runtime digest shape; `curriculumPath` is the correct signal.
+
+      If `progressionMode` is already set on re-entry (e.g. amendment flow), do NOT re-ask;
+      proceed to Phase 5 playback.
+
+      ## HARD GATE
+
+      ONLY offer to create the course when "Can launch: YES". NEVER call `create_course` or
+      show "Create my course" chips while required fields are missing — including
+      `progressionMode`.
+
+      ---
+      Setup state: {{setupState}}
+      Conversation so far: {{conversationContext}}
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1500
+      tools:
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+        - name: update_setup
+          description: "Save collected setup fields"
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                additionalProperties: true
+            required: [fields]
+        - name: create_course
+          description: "Create the course"
+          input_schema:
+            type: object
+            properties: {}
+
+tests:
+
+  # ── Test A — curriculumPath=authored → picker with learner-picks default ──
+
+  - description: "Test A — curriculumPath=authored surfaces picker with 'Let learners pick (recommended)' first"
+    vars:
+      setupState: |
+        Can launch: NO. Still required for launch: Module progression.
+        curriculumPath: authored. courseRefDigest: present.
+        Organisation: Highfield Academy. Subject: Financial Services.
+        Course: R04 Investment Principles. Approach: Structured. Sessions: 8 × 20 min.
+        Welcome flow: Goals + About You. progressionMode: (unset).
+      conversationContext: |
+        The educator confirmed the welcome flow proposal and the main proposal.
+        All other required fields are set. Only progressionMode remains.
+      userMessage: "Looks good — what's next?"
+    assert:
+      - type: is-json
+        value:
+          required: [content]
+      - type: llm-rubric
+        value: |
+          Response calls show_suggestions with TWO suggestions related to learner progression.
+          The FIRST suggestion mentions "learners pick" / "let learners pick" (the recommended
+          option for authored module catalogues). The SECOND suggestion mentions "AI" directing
+          or driving the sequence. Response does NOT call create_course. Response does NOT show
+          "Ready to create your course?" or "Create my course" chips.
+      - type: not-icontains
+        value: "Create my course"
+
+  # ── Test B — curriculumPath=generated → picker with ai-led default ──
+
+  - description: "Test B — curriculumPath=generated surfaces picker with 'AI directs the sequence' first"
+    vars:
+      setupState: |
+        Can launch: NO. Still required for launch: Module progression.
+        curriculumPath: generated. courseRefDigest: (none — upload skipped).
+        Organisation: Westfield. Subject: ESL. Course: IELTS Speaking. Approach: Practice.
+        Sessions: continuous. Welcome flow: Goals + About You + Knowledge Check.
+        progressionMode: (unset).
+      conversationContext: |
+        The educator skipped the course-reference upload. All other required fields are set.
+        Only progressionMode remains.
+      userMessage: "Okay, let's wrap this up"
+    assert:
+      - type: llm-rubric
+        value: |
+          Response calls show_suggestions with TWO suggestions related to learner progression.
+          The FIRST suggestion mentions "AI" directing or driving the sequence (the recommended
+          option when no module catalogue was declared). The SECOND suggestion mentions
+          "learners pick" / "let learners pick". Response does NOT call create_course.
+      - type: not-icontains
+        value: "Create my course"
+
+  # ── Test C — chip click triggers update_setup({ progressionMode }) ──
+
+  - description: "Test C — educator clicks 'Let learners pick' → AI calls update_setup with progressionMode=learner-picks"
+    vars:
+      setupState: |
+        Can launch: NO. Still required for launch: Module progression.
+        curriculumPath: authored. progressionMode: (unset).
+        Organisation: Highfield Academy. Subject: Financial Services.
+        Course: R04 Investment Principles. Welcome flow: Goals + About You.
+      conversationContext: |
+        AI just asked "Your course-ref doc declares a module catalogue. How should learners
+        progress?" with suggestions ["Let learners pick (recommended)", "AI directs the sequence"].
+      userMessage: "Let learners pick (recommended)"
+    assert:
+      - type: llm-rubric
+        value: |
+          Response calls update_setup with a fields object that includes
+          progressionMode: "learner-picks". (The value MUST be the string "learner-picks", not
+          "learner_picks", not "Learner picks", not a sentence — the exact enum value.)
+          Response does NOT use the deprecated `interactionPattern` field for this value.
+
+  # ── Test D — idempotency: progressionMode already set → no re-ask ──
+
+  - description: "Test D — progressionMode already set → AI proceeds to Phase 5 summary without re-asking"
+    vars:
+      setupState: |
+        Can launch: YES. All required fields collected.
+        curriculumPath: authored. progressionMode: learner-picks.
+        Organisation: Highfield Academy. Subject: Financial Services.
+        Course: R04 Investment Principles. Approach: Structured. Sessions: 8 × 20 min.
+        Welcome flow: Goals + About You. NPS: on.
+      conversationContext: |
+        The educator returned to amend a different field, then confirmed. progressionMode
+        was set earlier in the conversation and has NOT been changed.
+      userMessage: "Okay show me the summary"
+    assert:
+      - type: llm-rubric
+        value: |
+          Response presents the Phase 5 summary block (with bold field labels like
+          **Organisation:**, **Course:**, etc.) and ends with "Ready to create your course?"
+          (or equivalent). Response does NOT call show_suggestions with progression-mode
+          options. Response does NOT re-ask whether learners pick or AI directs — that has
+          already been answered.
+      - type: icontains
+        value: "Ready to create"

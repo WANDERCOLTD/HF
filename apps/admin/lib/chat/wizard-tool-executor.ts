@@ -262,7 +262,42 @@ export async function executeWizardTool(
           is_error: true,
         };
       }
-      const keys = Object.keys(fields);
+      let keys = Object.keys(fields);
+
+      // ── #398 — progressionMode is NEVER writable via update_setup ──
+      // ...unless the field is ALREADY set in setupData (idempotent re-affirm).
+      // Without the idempotent gate the AI gets stuck in a loop: it tries
+      // update_setup({progressionMode}) → REJECTED → calls show_options →
+      // user clicks → setData writes value → next turn AI re-tries update_setup
+      // (verbose "confirmation") → REJECTED again → show_options refires →
+      // repeat. The reject's only purpose is to force the picker; once the
+      // chip click has set the field, redundant AI writes are harmless.
+      const alreadySet =
+        setupData?.progressionMode !== undefined &&
+        setupData?.progressionMode !== null &&
+        setupData?.progressionMode !== "";
+      if ("progressionMode" in fields && !alreadySet) {
+        const attempted = fields.progressionMode;
+        delete fields.progressionMode;
+        keys = Object.keys(fields);
+        console.warn(
+          `[wizard-tools] update_setup REJECTED progressionMode="${String(attempted)}" — AI cannot write this field. Must use show_options with dataKey:"progressionMode" so the chip click writes setData() client-side. (Other fields in this call were also not saved: ${keys.join(", ") || "(none)"}.)`,
+        );
+        return {
+          ...base,
+          content: JSON.stringify({
+            ok: false,
+            error:
+              `progressionMode CANNOT be set via update_setup. It is the educator's deliberate choice and must come from a chip click. ` +
+              `Call show_options instead: { question: "How should learners progress through this course?", dataKey: "progressionMode", mode: "radio", options: [ { value: "ai-led", label: "AI directs the sequence", recommended: <true if curriculumPath !== "authored"> }, { value: "learner-picks", label: "Let learners pick from a menu", recommended: <true if curriculumPath === "authored"> } ] }. ` +
+              `The chip click will write setupData.progressionMode directly client-side — no further update_setup needed for this field. ` +
+              `Any other fields in this call were NOT saved either; retry them in a separate update_setup call without progressionMode.`,
+            rejected: { progressionMode: attempted },
+            otherFieldsNotSaved: keys,
+          }),
+          is_error: true,
+        };
+      }
 
       // ── Institution resolution ──────────────────────────
       if (fields.institutionName && typeof fields.institutionName === "string") {
@@ -573,6 +608,40 @@ export async function executeWizardTool(
     }
 
     case "show_suggestions": {
+      // #398 — reject "Create my course" / "Ready to launch" chip text while
+      // progressionMode (a required graph field) is still missing. The AI has
+      // repeatedly ignored rule 9 (HARD GATE) + the BLOCKED directive in
+      // graph-evaluator and offered create-course chips with required fields
+      // unset. This is the last server-side gate.
+      const suggestions = input.suggestions as unknown;
+      if (Array.isArray(suggestions) && setupData) {
+        const progressionMissing =
+          setupData.progressionMode === undefined ||
+          setupData.progressionMode === null ||
+          setupData.progressionMode === "";
+        if (progressionMissing) {
+          const CREATE_LIKE = /\b(create|launch|build|ready to (proceed|create|launch|go))\b/i;
+          const offending = suggestions.filter(
+            (s): s is string => typeof s === "string" && CREATE_LIKE.test(s),
+          );
+          if (offending.length > 0) {
+            console.warn(
+              `[wizard-tools] show_suggestions REJECTED — ${offending.length} create-course-style chip(s) (${offending.join(" / ")}) offered while progressionMode is missing. Surface show_options with dataKey:"progressionMode" instead.`,
+            );
+            return {
+              ...base,
+              content: JSON.stringify({
+                ok: false,
+                error:
+                  `Cannot offer "Create my course" / "Ready to launch" chips while required field progressionMode is missing. ` +
+                  `Call show_options with dataKey:"progressionMode" first — the educator's chip click writes the field directly. Once setupData.progressionMode is set, the launch chips become valid.`,
+                rejectedSuggestions: offending,
+              }),
+              is_error: true,
+            };
+          }
+        }
+      }
       return { ...base, content: `Suggestion chips displayed to user. Wait for their response.` };
     }
 

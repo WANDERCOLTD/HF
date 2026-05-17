@@ -1424,11 +1424,46 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
                 <div key={msg.id} className="cv4-row cv4-row--system">
                   <OptionsCard
                     panel={msg.optionsPanel}
-                    onSelect={(_value, displayText) => {
+                    onSelect={(value, displayText) => {
                       setMessages((prev) =>
                         prev.map((m) => m.id === msg.id ? { ...m, resolved: true } : m),
                       );
-                      handleSend(displayText);
+                      // #398 — Direct-write fields. For options whose dataKey
+                      // is a real setupData field (currently just progressionMode),
+                      // the chip click writes setData() directly so the next AI
+                      // turn sees the value in setupData. The AI cannot write
+                      // these fields via update_setup — server-side blocks them.
+                      //
+                      // ALSO pass the value as an `overrides` arg to handleSend
+                      // so the immediate API request includes progressionMode in
+                      // its setupData snapshot — setData() is React state and
+                      // doesn't flush before the API call goes out, causing the
+                      // AI to re-fire the picker. The override bridges that race.
+                      const dataKey = msg.optionsPanel!.dataKey;
+                      if (dataKey === "progressionMode" && typeof value === "string") {
+                        // Primary: React state via StepFlowContext (best-effort —
+                        // may no-op if context's flow isn't active for some reason).
+                        setData(dataKey, value);
+                        // Defensive: also write directly to sessionStorage so
+                        // the value persists regardless of the React state path.
+                        // The next request reads from sessionStorage via the
+                        // wizard's getSetupData() snapshot.
+                        try {
+                          const raw = sessionStorage.getItem("hf.stepflow.state");
+                          if (raw) {
+                            const state = JSON.parse(raw);
+                            if (state && state.data) {
+                              state.data[dataKey] = value;
+                              sessionStorage.setItem("hf.stepflow.state", JSON.stringify(state));
+                            }
+                          }
+                        } catch { /* non-fatal */ }
+                        // Pass as override to bridge the React-batching race —
+                        // immediate API call sees the value before setData flushes.
+                        handleSend(displayText, { progressionMode: value });
+                      } else {
+                        handleSend(displayText);
+                      }
                     }}
                     onSkip={() => {
                       setMessages((prev) =>
