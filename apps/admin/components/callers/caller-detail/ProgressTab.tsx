@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { BookOpen, CheckSquare, Layers, Target, Check, X } from "lucide-react";
 import { VerticalSlider, SliderGroup } from "@/components/shared/VerticalSlider";
 import { GoalPill, PlaybookPill, StatusBadge } from "@/src/components/shared/EntityPill";
+import { BandPill } from "@/components/shared/BandPill";
 import { EXAM_LEVEL_CONFIG } from "@/lib/curriculum/constants";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { TwoColumnTargetsDisplay } from "./CallsTab";
@@ -641,6 +642,19 @@ export function LearningSection({
                       <span style={{ fontSize: 16 }}>{typeConfig.icon}</span>
                       <GoalPill label={typeConfig.label} size="compact" />
                       <StatusBadge status={goal.status === 'ACTIVE' ? 'active' : 'pending'} size="compact" />
+                      {/* #437 — SKILL-NN ACHIEVE goals show tier+band pill alongside progress ring */}
+                      {goal.type === "ACHIEVE"
+                        && typeof goal.ref === "string"
+                        && goal.ref.startsWith("SKILL-")
+                        && goal.progressMetrics?.progress?.tier
+                        && (
+                          <BandPill
+                            tier={goal.progressMetrics.progress.tier}
+                            band={goal.progressMetrics.progress.band}
+                            size="compact"
+                            title={goal.progressMetrics.progress.evidence}
+                          />
+                        )}
                     </div>
                     <div className="hf-section-title">{goal.name}</div>
                     {goal.description && (

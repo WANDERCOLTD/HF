@@ -142,6 +142,29 @@ export type LearnerProfile = {
   lastUpdated: string | null;
 };
 
+export type GoalProgressMetrics = {
+  // From extract-goals.ts (caller-expressed mention history)
+  extractionMethod?: string;
+  confidence?: number;
+  evidence?: string | string[];
+  sourceCallId?: string;
+  extractedAt?: string;
+  lastMentionedCallId?: string;
+  lastMentionedAt?: string;
+  mentionCount?: number;
+  // From track-progress.ts (#437 — banding metadata for SKILL-NN ACHIEVE)
+  progress?: {
+    evidence?: string;
+    tier?: string;
+    band?: number;
+    score?: number;
+    target?: number;
+    callId?: string;
+    at?: string;
+  };
+  [key: string]: unknown;
+};
+
 export type Goal = {
   id: string;
   type: string;
@@ -150,6 +173,8 @@ export type Goal = {
   status: string;
   priority: number;
   progress: number;
+  ref: string | null;
+  progressMetrics: GoalProgressMetrics | null;
   startedAt: string | null;
   completedAt: string | null;
   targetDate: string | null;

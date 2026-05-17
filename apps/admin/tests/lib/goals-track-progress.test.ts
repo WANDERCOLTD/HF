@@ -746,6 +746,70 @@ describe("lib/goals/track-progress.ts", () => {
       expect(mockPrisma.goal.update).toHaveBeenCalledTimes(1);
       expect(mockPrisma.goal.update.mock.calls[0][0].data.progress).toBeCloseTo(0.4, 5);
     });
+
+    // ── #437 — banding metadata persistence ───────────────────────────
+    it("#437 persists tier+band+score+target+evidence into progressMetrics.progress", async () => {
+      mockPrisma.goal.findMany.mockResolvedValue([skillGoal()]);
+      mockPrisma.behaviorTarget.findFirst.mockResolvedValue({
+        parameterId: "skill_xyz",
+        targetValue: 1.0,
+      });
+      mockPrisma.callerTarget.findUnique.mockResolvedValue({
+        currentScore: 0.62, // → "Developing", band 5.5
+        callsUsed: 4,
+      });
+
+      await trackGoalProgress("caller-1", "call-42");
+
+      expect(mockPrisma.goal.update).toHaveBeenCalledTimes(1);
+      const data = mockPrisma.goal.update.mock.calls[0][0].data;
+      expect(data.progressMetrics).toBeDefined();
+      expect(data.progressMetrics.progress).toMatchObject({
+        tier: "Developing",
+        band: 5.5,
+        score: 0.62,
+        target: 1.0,
+        callId: "call-42",
+      });
+      expect(data.progressMetrics.progress.evidence).toContain("Developing");
+      expect(data.progressMetrics.progress.evidence).toContain("5.5");
+      expect(typeof data.progressMetrics.progress.at).toBe("string");
+    });
+
+    it("#437 preserves existing progressMetrics keys when merging banding", async () => {
+      mockPrisma.goal.findMany.mockResolvedValue([
+        {
+          ...skillGoal(),
+          progressMetrics: {
+            extractionMethod: "EXPLICIT",
+            evidence: ["caller said 'I want to pass IELTS'"],
+            sourceCallId: "call-0",
+            mentionCount: 2,
+          },
+        },
+      ]);
+      mockPrisma.behaviorTarget.findFirst.mockResolvedValue({
+        parameterId: "skill_xyz",
+        targetValue: 1.0,
+      });
+      mockPrisma.callerTarget.findUnique.mockResolvedValue({
+        currentScore: 0.4, // → "Emerging", band 4
+        callsUsed: 2,
+      });
+
+      await trackGoalProgress("caller-1", "call-99");
+
+      const data = mockPrisma.goal.update.mock.calls[0][0].data;
+      // extract-goals.ts metadata preserved (top-level keys untouched)
+      expect(data.progressMetrics.extractionMethod).toBe("EXPLICIT");
+      expect(data.progressMetrics.evidence).toEqual([
+        "caller said 'I want to pass IELTS'",
+      ]);
+      expect(data.progressMetrics.mentionCount).toBe(2);
+      // banding write nested under .progress so it can't collide
+      expect(data.progressMetrics.progress.tier).toBe("Emerging");
+      expect(data.progressMetrics.progress.band).toBe(4);
+    });
   });
 
   describe("scoreToTier pure function (#417)", () => {

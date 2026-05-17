@@ -16,6 +16,11 @@ export interface GoalProgressUpdate {
   goalId: string;
   progressDelta: number; // Amount to increment progress (0-1)
   evidence?: string;
+  // #437 — banding metadata populated by SKILL-ACHIEVE; absent on other paths.
+  tier?: string;
+  band?: number;
+  score?: number;
+  target?: number;
 }
 
 // ── #417 Phase D — banding helper + ACHIEVE skill progress ────────────────
@@ -137,6 +142,10 @@ export async function calculateSkillAchieveProgress(
     goalId: goal.id,
     progressDelta: progress - goal.progress,
     evidence: `Skill score ${ct.currentScore.toFixed(2)} / target ${targetValue.toFixed(2)} — currently at ${tier} (band ~${band}), ${ct.callsUsed} call(s) weighted`,
+    tier,
+    band,
+    score: ct.currentScore,
+    target: targetValue,
   };
 }
 
@@ -175,10 +184,28 @@ export async function trackGoalProgress(
       // Assessment targets don't auto-complete — they need teacher confirmation (Story 4)
       const shouldAutoComplete = newProgress >= 1.0 && !goal.isAssessmentTarget;
 
+      // #437 — persist evidence + banding under `progress.*` namespace so
+      // we don't clobber extract-goals.ts metadata (extractionMethod,
+      // evidence[], mentionCount, etc).
+      const existingMetrics = (goal.progressMetrics as Record<string, unknown> | null) ?? {};
+      const nextProgressMetrics = {
+        ...existingMetrics,
+        progress: {
+          ...(progressUpdate.evidence !== undefined && { evidence: progressUpdate.evidence }),
+          ...(progressUpdate.tier !== undefined && { tier: progressUpdate.tier }),
+          ...(progressUpdate.band !== undefined && { band: progressUpdate.band }),
+          ...(progressUpdate.score !== undefined && { score: progressUpdate.score }),
+          ...(progressUpdate.target !== undefined && { target: progressUpdate.target }),
+          callId,
+          at: new Date().toISOString(),
+        },
+      };
+
       await prisma.goal.update({
         where: { id: goal.id },
         data: {
           progress: newProgress,
+          progressMetrics: nextProgressMetrics,
           updatedAt: new Date(),
           ...(shouldAutoComplete && {
             status: 'COMPLETED',
