@@ -2106,6 +2106,23 @@ const stageExecutors: Record<string, StageExecutor> = {
         ctx.log.info(`EXTRACT skipped: ${existingScores} scores already exist for call ${ctx.callId} (use force=true to re-run)`);
         return { scoresCreated: 0, memoriesCreated: 0, skippedReason: "existing_scores" };
       }
+    } else {
+      // #405: force re-run must clear prior writes for this call BEFORE recreating.
+      // CallScore has @@unique([callId, parameterId]); without this delete, the
+      // recreate inside runBatchedCallerAnalysis throws on the first duplicate
+      // pair and the error gets swallowed by the outer Promise.allSettled — the
+      // route reports 200 ok but no new state lands. CallerMemory has no unique
+      // constraint, so the symptom there is silent duplication instead. Clearing
+      // both keeps force semantics clean: "re-extract from scratch for this call".
+      const [scoreDel, memDel] = await Promise.all([
+        prisma.callScore.deleteMany({ where: { callId: ctx.callId } }),
+        prisma.callerMemory.deleteMany({ where: { callId: ctx.callId } }),
+      ]);
+      if (scoreDel.count > 0 || memDel.count > 0) {
+        ctx.log.info(
+          `EXTRACT force: cleared ${scoreDel.count} CallScore + ${memDel.count} CallerMemory row(s) for call ${ctx.callId} before re-extract`,
+        );
+      }
     }
 
     // Scheduler v1 Slice 1 (#154) + follow-up (#155 smoke test) — event-gate
@@ -2236,6 +2253,17 @@ const stageExecutors: Record<string, StageExecutor> = {
       if (existingMeasurements > 0) {
         ctx.log.info(`SCORE_AGENT skipped: ${existingMeasurements} measurements already exist for call ${ctx.callId} (use force=true to re-run)`);
         return { agentMeasurements: 0, skippedReason: "existing_measurements" };
+      }
+    } else {
+      // #405: force re-run clears prior measurements before re-scoring.
+      // BehaviorMeasurement has @@unique([callId, parameterId]); without this
+      // delete, the recreate would hit a unique-constraint violation and the
+      // re-score would silently fail. Matches the EXTRACT cleanup above.
+      const measDel = await prisma.behaviorMeasurement.deleteMany({ where: { callId: ctx.callId } });
+      if (measDel.count > 0) {
+        ctx.log.info(
+          `SCORE_AGENT force: cleared ${measDel.count} BehaviorMeasurement row(s) for call ${ctx.callId} before re-score`,
+        );
       }
     }
 
