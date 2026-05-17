@@ -502,11 +502,88 @@ export async function GET(
     const signalByGoalId = new Map(
       pendingSignals.map((s: any) => [s.key.replace("goal_completion_signal:", ""), s])
     );
+
+    // #417 follow-up — measurementStatus for SKILL-NN ACHIEVE goals.
+    // Three states:
+    //   "measured"          — BehaviorTarget exists AND caller has currentScore evidence
+    //   "awaiting_evidence" — BehaviorTarget exists but no CallerTarget.currentScore yet
+    //   "not_configured"    — Goal ref is SKILL-NN but no BehaviorTarget with that
+    //                         skillRef exists in this playbook (legacy course that
+    //                         hasn't been wizard-projected). Caller sees a
+    //                         "Re-project to enable skill scoring" affordance
+    //                         instead of a misleading engagement-heuristic value.
+    type MeasurementStatus = "measured" | "awaiting_evidence" | "not_configured";
+    const skillGoals = goals.filter(
+      (g: any) =>
+        g.type === "ACHIEVE" &&
+        typeof g.ref === "string" &&
+        g.ref.startsWith("SKILL-") &&
+        g.playbookId,
+    );
+    const measurementByGoalId = new Map<string, MeasurementStatus>();
+    if (skillGoals.length > 0) {
+      // Group by (playbookId, ref) — one BehaviorTarget lookup per pair.
+      const byPlaybook = new Map<string, Set<string>>();
+      for (const g of skillGoals) {
+        const set = byPlaybook.get(g.playbookId) ?? new Set<string>();
+        set.add(g.ref as string);
+        byPlaybook.set(g.playbookId, set);
+      }
+      // Resolve skillRef → parameterId per playbook.
+      const refToParam = new Map<string, string>(); // key = `${playbookId}::${ref}`
+      for (const [playbookId, refs] of byPlaybook) {
+        const bts = await prisma.behaviorTarget.findMany({
+          where: {
+            playbookId,
+            skillRef: { in: Array.from(refs) },
+            effectiveUntil: null,
+          },
+          select: { skillRef: true, parameterId: true },
+        });
+        for (const bt of bts) {
+          if (bt.skillRef) refToParam.set(`${playbookId}::${bt.skillRef}`, bt.parameterId);
+        }
+      }
+      // Pull CallerTarget for every resolved param.
+      const paramIds = Array.from(new Set(Array.from(refToParam.values())));
+      const cts = paramIds.length > 0
+        ? await prisma.callerTarget.findMany({
+            where: { callerId, parameterId: { in: paramIds } },
+            select: { parameterId: true, currentScore: true, callsUsed: true },
+          })
+        : [];
+      const measuredParams = new Set(
+        cts
+          .filter((ct) => ct.currentScore !== null && (ct.callsUsed ?? 0) > 0)
+          .map((ct) => ct.parameterId),
+      );
+      for (const g of skillGoals) {
+        const paramId = refToParam.get(`${g.playbookId}::${g.ref}`);
+        if (!paramId) {
+          measurementByGoalId.set(g.id, "not_configured");
+        } else if (measuredParams.has(paramId)) {
+          measurementByGoalId.set(g.id, "measured");
+        } else {
+          measurementByGoalId.set(g.id, "awaiting_evidence");
+        }
+      }
+    }
+
     const goalsWithSignals = goals.map((g: any) => {
       const signal = signalByGoalId.get(g.id);
-      return signal
-        ? { ...g, pendingSignal: { id: signal.id, evidence: signal.stringValue, createdAt: signal.createdAt } }
-        : g;
+      const measurementStatus = measurementByGoalId.get(g.id);
+      const enriched: any = { ...g };
+      if (signal) {
+        enriched.pendingSignal = {
+          id: signal.id,
+          evidence: signal.stringValue,
+          createdAt: signal.createdAt,
+        };
+      }
+      if (measurementStatus) {
+        enriched.measurementStatus = measurementStatus;
+      }
+      return enriched;
     });
 
     return NextResponse.json({

@@ -156,6 +156,17 @@ export type Goal = {
   isAssessmentTarget: boolean;
   assessmentConfig: { threshold?: number; [key: string]: any } | null;
   pendingSignal?: { id: string; evidence: string | null; createdAt: string } | null;
+  /** #417 — provenance ref ("SKILL-01", "OUT-02"); NULL for legacy goals. */
+  ref?: string | null;
+  /**
+   * #417 follow-up — measurement state for SKILL-NN ACHIEVE goals.
+   * "measured" — caller has CallerTarget.currentScore evidence
+   * "awaiting_evidence" — playbook has the BehaviorTarget but no scores yet
+   * "not_configured" — playbook has no BehaviorTarget for this skillRef
+   *                    (legacy course needs re-projection to enable scoring)
+   * undefined — goal is not a SKILL-NN ACHIEVE (engagement-heuristic territory)
+   */
+  measurementStatus?: "measured" | "awaiting_evidence" | "not_configured";
   playbook: {
     id: string;
     name: string;
