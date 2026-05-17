@@ -681,6 +681,15 @@ async function handleWizardModeWithTools(
         continue;
       }
       if (tu.name === "show_suggestions") hasShowTool = true;
+      // #398 — for tools that can be REJECTED by the executor (update_setup,
+      // show_suggestions), defer the push to AFTER the executor returns so we
+      // can gate on !result.is_error. The client iterates allToolCalls and
+      // writes update_setup fields directly to sessionStorage via setData() —
+      // pushing rejected calls here leaks them to the client even when the
+      // executor said no, bypassing Fix B/D.
+      if (tu.name === "update_setup" || tu.name === "show_suggestions") {
+        continue;
+      }
       allToolCalls.push({ name: tu.name, input: tu.input });
     }
 
@@ -712,6 +721,15 @@ async function handleWizardModeWithTools(
       if (toolUse.name === "update_setup" && !result.is_error) {
         const fields = toolUse.input.fields as Record<string, unknown> | undefined;
         if (fields) Object.assign(mergedSetupData, fields);
+      }
+
+      // #398 — Push update_setup and show_suggestions to allToolCalls AFTER
+      // the executor confirms !is_error. The early push site (above) skips
+      // these two tool names for this reason. Without this gate, rejected
+      // tool calls reach the client's processToolCalls() which writes the
+      // rejected fields to sessionStorage via setData() — defeating Fix D.
+      if ((toolUse.name === "update_setup" || toolUse.name === "show_suggestions") && !result.is_error) {
+        allToolCalls.push({ name: toolUse.name, input: toolUse.input });
       }
 
       // Auto-inject update_setup so the client always gets resolved IDs
@@ -857,9 +875,17 @@ async function handleWizardModeWithTools(
         if (["show_options", "show_sliders", "show_upload", "show_actions", "show_suggestions"].includes(tu.name)) {
           allToolCalls.push({ name: tu.name, input: tu.input });
         } else if (tu.name === "update_setup") {
-          allToolCalls.push({ name: tu.name, input: tu.input });
-          const fields = tu.input.fields as Record<string, unknown> | undefined;
-          if (fields) Object.assign(mergedSetupData, fields);
+          // #398 — continuation update_setup also bypassed the executor.
+          // Run it through executeWizardTool so Fix B/D's progressionMode
+          // strip applies. Only push + merge when !is_error.
+          const result = await executeWizardTool(tu.name, tu.input, userId, mergedSetupData);
+          if (!result.is_error) {
+            allToolCalls.push({ name: tu.name, input: tu.input });
+            const fields = tu.input.fields as Record<string, unknown> | undefined;
+            if (fields) Object.assign(mergedSetupData, fields);
+          } else {
+            console.warn(`[wizard-tools] continuation update_setup rejected: ${result.content.slice(0, 200)}`);
+          }
         }
       }
     }
