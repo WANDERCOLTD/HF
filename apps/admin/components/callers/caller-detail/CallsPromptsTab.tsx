@@ -739,6 +739,17 @@ export function CallsPromptsTab({
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
 
+    // #405 — bulk force re-runs are expensive (one EXTRACT + SCORE_AGENT AI
+    // pass per call). Above a threshold, surface the cost so the user can't
+    // burn tokens by accident.
+    const BULK_CONFIRM_THRESHOLD = 5;
+    if (sortedCalls.length > BULK_CONFIRM_THRESHOLD) {
+      const proceed = window.confirm(
+        `Run ${mode} on all ${sortedCalls.length} calls?\n\nEach call triggers a fresh AI extraction (≈40–90s). Total: ~${Math.ceil((sortedCalls.length * 60) / 60)} min and ~${sortedCalls.length * 2}–${sortedCalls.length * 4} AI requests.`,
+      );
+      if (!proceed) return;
+    }
+
     if (mode === "prompt") {
       const existing = sortedCalls.filter(c => pipelineStatus[c.id]?.prompt === "success").length;
       if (existing > 0) {
@@ -780,7 +791,7 @@ export function CallsPromptsTab({
   bulkActionsRef.current = { runBulkPipeline, bulkRunning, bulkProgress, hasCalls: entries.length > 0 };
   useEffect(() => {
     onBulkActionsReady?.(bulkActionsRef.current);
-  }, [onBulkActionsReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [onBulkActionsReady]);  
 
   // ---------------------------------------------------------------------------
   // Render
