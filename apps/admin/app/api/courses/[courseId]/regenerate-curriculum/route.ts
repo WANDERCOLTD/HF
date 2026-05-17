@@ -35,7 +35,7 @@ type Params = { params: Promise<{ courseId: string }> };
  *   Curriculum (wizard flow) and would produce orphan rows on each regen.
  *
  * @pathParam courseId string - Playbook UUID
- * @response 200 { ok, curriculumId, moduleCount, warnings, staleWarning }
+ * @response 200 { ok, curriculumId, moduleCount, warnings, reconcile, lessonPlanStaleWarning, orphanedProgressSlugs }
  * @response 404 { ok: false, error }
  * @response 500 { ok: false, error }
  */

@@ -30,7 +30,7 @@ function computeSettingsHash(settings: Record<string, unknown>): string {
  * @tags agents
  * @description Get agent details including published, draft, and history versions with path resolution info
  * @pathParam agentId string - The agent identifier
- * @response 200 { ok: true, agentId, published, draft, history, allVersions, paths }
+ * @response 200 { ok: true, agentId, published, draft, history, allVersions }
  * @response 500 { ok: false, error: "..." }
  */
 export async function GET(

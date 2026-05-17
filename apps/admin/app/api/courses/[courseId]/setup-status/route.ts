@@ -13,7 +13,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
  *   This endpoint checks: lesson plan existence, onboarding config, and prompt composability.
  *
  * @pathParam courseId string - Playbook UUID
- * @response 200 { ok, lessonPlanBuilt, onboardingConfigured, promptComposable, allCriticalPass, activeCurriculumMode, details }
+ * @response 200 { ok, lessonPlanBuilt, onboardingConfigured, promptComposable, allCriticalPass, activeCurriculumMode }
  */
 export async function GET(
   _req: NextRequest,

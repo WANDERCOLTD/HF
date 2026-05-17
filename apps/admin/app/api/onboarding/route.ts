@@ -12,7 +12,7 @@ import type { SpecConfig } from "@/lib/types/json-fields";
  * @tags onboarding
  * @description Fetch onboarding spec data for visualization. Returns persona-specific config including default targets, first-call flow, and welcome templates.
  * @query persona string - Persona slug to load config for (e.g., "tutor", "companion", "coach")
- * @response 200 { ok: true, source: "database" | "hardcoded", spec: object, selectedPersona: string, availablePersonas: string[], personasList: Array, personaName: string, defaultTargets: object, firstCallFlow: object, welcomeTemplate: string }
+ * @response 200 { ok: true, source: "database" | "hardcoded", spec: object, availablePersonas: string[], personasList: Array, personaDescription: string, personaIcon: string, personaColor: string, firstCallFlow: object, welcomeTemplate: string, welcomeSlug: string }
  * @response 500 { ok: false, error: string }
  */
 export async function GET(request: NextRequest) {
