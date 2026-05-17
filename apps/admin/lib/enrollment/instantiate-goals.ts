@@ -49,6 +49,11 @@ type GoalConfigEntry = {
   isAssessmentTarget?: boolean;
   assessmentConfig?: unknown;
   priority?: number;
+  // #413 provenance — preserved from the wizard projection (#338). Both
+  // were silently dropped at goal-create time before #413; restoring them
+  // unblocks per-LO/per-skill derivation in P5b (#414 LEARN, #417 ACHIEVE).
+  ref?: string;
+  sourceContentId?: string;
 };
 
 /**
@@ -154,6 +159,11 @@ async function instantiateForPlaybook(
         status: "ACTIVE",
         priority: goalConfig.priority || 5,
         startedAt: new Date(),
+        // #413 provenance: copy ref + sourceContentId verbatim from the
+        // projected GoalTemplate so P5b derivation can resolve back to
+        // the LO / skill / source doc.
+        ref: goalConfig.ref ?? null,
+        sourceContentId: goalConfig.sourceContentId ?? null,
       },
     });
 
