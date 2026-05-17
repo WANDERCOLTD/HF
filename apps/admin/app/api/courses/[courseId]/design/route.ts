@@ -31,6 +31,10 @@ export async function PUT(
     const body = (await req.json()) as {
       welcome?: WelcomeConfig;
       nps?: NpsConfig;
+      // #417 Story C — per-playbook banding override.
+      skillTierMapping?: PlaybookConfig["skillTierMapping"] | null;
+      skillScoringEmaHalfLifeDays?: number | null;
+      skillMinCallsToFull?: number | null;
     };
 
     const playbook = await prisma.playbook.findUnique({
@@ -50,6 +54,30 @@ export async function PUT(
 
     if (body.nps) {
       pbConfig.nps = body.nps;
+    }
+
+    // #417 Story C — banding override. Pass `null` to clear (fall back
+    // to the SKILL_MEASURE_V1 contract defaults).
+    if (body.skillTierMapping !== undefined) {
+      if (body.skillTierMapping === null) {
+        delete pbConfig.skillTierMapping;
+      } else {
+        pbConfig.skillTierMapping = body.skillTierMapping;
+      }
+    }
+    if (body.skillScoringEmaHalfLifeDays !== undefined) {
+      if (body.skillScoringEmaHalfLifeDays === null) {
+        delete pbConfig.skillScoringEmaHalfLifeDays;
+      } else {
+        pbConfig.skillScoringEmaHalfLifeDays = body.skillScoringEmaHalfLifeDays;
+      }
+    }
+    if (body.skillMinCallsToFull !== undefined) {
+      if (body.skillMinCallsToFull === null) {
+        delete pbConfig.skillMinCallsToFull;
+      } else {
+        pbConfig.skillMinCallsToFull = body.skillMinCallsToFull;
+      }
     }
 
     // surveys.pre.enabled is now COMPUTED-ONLY from welcome.* (see isPreSurveyEnabled);

@@ -6,6 +6,7 @@ import type { IntakeConfig, NpsConfig } from '@/lib/types/json-fields';
 import { DEFAULT_INTAKE_CONFIG, DEFAULT_NPS_CONFIG } from '@/lib/types/json-fields';
 import { IntakeToggleGroup, type IntakeValues } from '@/components/wizards/IntakeToggleGroup';
 import { CourseSetupTracker } from '@/components/shared/CourseSetupTracker';
+import { BandingPicker } from '@/components/shared/BandingPicker';
 import { CourseSummaryCard } from './CourseSummaryCard';
 import { archetypeLabel } from '@/lib/course/group-specs';
 import { INTERACTION_PATTERN_LABELS, type InteractionPattern } from '@/lib/content-trust/resolve-config';
@@ -367,6 +368,14 @@ export function CourseDesignTab({
             </p>
           </div>
         )}
+      </div>
+
+      {/* ── Skill Banding (#417 Story C — per-playbook tier mapping) ── */}
+      <div className="hf-card hf-mb-lg">
+        <BandingPicker
+          courseId={courseId}
+          current={playbookConfig?.skillTierMapping}
+        />
       </div>
 
       {/* ── Setup Tracker (bottom — readiness reported to hero via callback) ── */}

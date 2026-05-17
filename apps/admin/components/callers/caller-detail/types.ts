@@ -167,6 +167,30 @@ export type Goal = {
    * undefined — goal is not a SKILL-NN ACHIEVE (engagement-heuristic territory)
    */
   measurementStatus?: "measured" | "awaiting_evidence" | "not_configured";
+  /**
+   * #417 Story A — raw 0-1 running skill score, set only when
+   * `measurementStatus === "measured"`. Powers the BandChip tier+band
+   * display alongside the existing progress ring.
+   */
+  skillCurrentScore?: number;
+  /**
+   * #417 Story C — resolved per-playbook tier mapping. When present,
+   * BandChip uses these thresholds + band numbers instead of the
+   * IELTS defaults. Honoured for ACHIEVE skill goals.
+   */
+  tierMapping?: {
+    thresholds: { approachingEmerging: number; emerging: number; developing: number; secure: number };
+    tierBands: { approachingEmerging: number; emerging: number; developing: number; secure: number };
+  };
+  /**
+   * #417 Story B — for LEARN goals with `ref` set, the matching
+   * LearningObjective description and module-touch counts. Lets the
+   * caller-page render the outcome name alongside progress instead
+   * of bare "OUT-01".
+   */
+  loDescription?: string;
+  loTouchedModules?: number;
+  loTotalModules?: number;
   playbook: {
     id: string;
     name: string;

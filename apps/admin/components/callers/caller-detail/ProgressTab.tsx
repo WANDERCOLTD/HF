@@ -12,6 +12,8 @@ import type { CallScore, CurriculumProgress, LearnerProfile, Goal, Call, MemoryS
 import { CATEGORY_COLORS } from "./constants";
 import { GOAL_TYPE_CONFIG } from "@/lib/goals/goal-constants";
 import { getSessionTypeLabel, getSessionTypeColor } from "@/lib/lesson-plan/session-ui";
+import { BandChip } from "@/components/shared/BandChip";
+import { Acronym } from "@/components/shared/Acronym";
 
 // =====================================================
 // ScoresSection
@@ -521,8 +523,19 @@ export function AssessmentTargetsCard({ goals, callerId }: { goals: Goal[]; call
                   {isUnmeasured ? (
                     <SkillMeasurementAffordance status={skillStatus!} ref={goal.ref!} />
                   ) : (
-                    <div className="hf-text-xs hf-text-secondary">
-                      {pct}% ready — target: {thresholdPct}%
+                    <div className="hf-flex hf-gap-sm hf-items-center hf-flex-wrap">
+                      <div className="hf-text-xs hf-text-secondary">
+                        {pct}% ready — target: {thresholdPct}%
+                      </div>
+                      {isSkillGoal &&
+                        skillStatus === "measured" &&
+                        typeof goal.skillCurrentScore === "number" && (
+                          <BandChip
+                            score={goal.skillCurrentScore}
+                            mapping={goal.tierMapping}
+                            size="compact"
+                          />
+                        )}
                     </div>
                   )}
 
@@ -702,10 +715,25 @@ export function LearningSection({
                       <span style={{ fontSize: 16 }}>{typeConfig.icon}</span>
                       <GoalPill label={typeConfig.label} size="compact" />
                       <StatusBadge status={goal.status === 'ACTIVE' ? 'active' : 'pending'} size="compact" />
+                      {/* #417 Story B — ref + outcome name on LEARN goals
+                          carrying provenance from the wizard projection. */}
+                      {goal.type === "LEARN" && goal.ref && (
+                        <span className="hf-text-xs hf-text-muted">
+                          <Acronym>{goal.ref}</Acronym>
+                          {goal.loDescription ? ` — ${goal.loDescription}` : null}
+                        </span>
+                      )}
                     </div>
                     <div className="hf-section-title">{goal.name}</div>
                     {goal.description && (
                       <div className="hf-text-xs hf-text-muted hf-mt-xs">{goal.description}</div>
+                    )}
+                    {/* #417 Story B — module-touch summary for ref-linked LEARN goals. */}
+                    {goal.type === "LEARN" && goal.ref && typeof goal.loTotalModules === "number" && (
+                      <div className="hf-text-xs hf-text-muted hf-mt-xs">
+                        {goal.loTouchedModules ?? 0} of {goal.loTotalModules} module
+                        {goal.loTotalModules === 1 ? "" : "s"} carrying this outcome have evidence
+                      </div>
                     )}
                     <div className="hf-flex-wrap hf-text-xs hf-text-muted hf-gap-md hf-mt-sm hf-items-center">
                       {goal.playbook && <PlaybookPill label={`${goal.playbook.name} v${goal.playbook.version}`} size="compact" />}
