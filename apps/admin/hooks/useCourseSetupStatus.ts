@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import type { SourceStatusData } from '@/components/shared/SourceStatusDots';
+import type { SetupStatusResponse } from '@/app/api/courses/[courseId]/setup-status/types';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -64,21 +65,16 @@ export interface SetupStatusInput {
     } | null;
   } | null;
 
-  /** Readiness data from /api/courses/:id/setup-status or inline */
-  readiness: {
-    lessonPlanBuilt?: boolean;
-    onboardingConfigured: boolean;
-    promptComposable: boolean;
-    allCriticalPass: boolean;
-    /**
-     * Issue #418 — which curriculum source is in effect.
-     * "authored" = Course Reference module catalogue drives modules.
-     * "derived"  = AI extraction generates modules from uploaded content.
-     * Optional for backwards compatibility with older callers that
-     * synthesise their own readiness object.
-     */
-    activeCurriculumMode?: "authored" | "derived";
-  } | null;
+  /**
+   * Readiness data from /api/courses/:id/setup-status or synthesised inline.
+   *
+   * #428 — sourced from the route's exported `SetupStatusResponse` type
+   * (without the `ok` discriminator, since callers that synthesise readiness
+   * inline don't include it). Fields stay optional here because legacy callers
+   * may pass partial objects; the shared type guarantees field NAMES/TYPES
+   * match the server but doesn't force the consumer to handle every field.
+   */
+  readiness: Partial<Omit<SetupStatusResponse, "ok">> | null;
 }
 
 // ── Hook ──────────────────────────────────────────────

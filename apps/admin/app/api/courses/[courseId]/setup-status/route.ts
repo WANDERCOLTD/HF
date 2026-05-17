@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import type { SetupStatusResponse, SetupStatusErrorResponse } from "./types";
 
 /**
  * @api GET /api/courses/:courseId/setup-status
@@ -128,22 +129,27 @@ export async function GET(
     // Derived = AI extraction generates modules from uploaded content.
     // null/false `modulesAuthored` is treated as derived (matches the
     // existing behaviour in `CourseCurriculumTab` and the wizard default).
-    const activeCurriculumMode: "authored" | "derived" =
+    const activeCurriculumMode: SetupStatusResponse["activeCurriculumMode"] =
       pbConfig.modulesAuthored === true ? "authored" : "derived";
 
-    return NextResponse.json({
+    // Build the payload as a typed constant first so a missing/extra/renamed
+    // field becomes a tsc error here — not a silent runtime drift the way
+    // #418 silently shipped a broken chip. Pattern proposed in #428.
+    const payload: SetupStatusResponse = {
       ok: true,
       lessonPlanBuilt,
       onboardingConfigured,
       promptComposable,
       allCriticalPass,
       activeCurriculumMode,
-    });
+    };
+    return NextResponse.json(payload);
   } catch (err) {
     console.error("[setup-status] Error:", err);
-    return NextResponse.json(
-      { ok: false, error: "Failed to check setup status" },
-      { status: 500 },
-    );
+    const errorPayload: SetupStatusErrorResponse = {
+      ok: false,
+      error: "Failed to check setup status",
+    };
+    return NextResponse.json(errorPayload, { status: 500 });
   }
 }
