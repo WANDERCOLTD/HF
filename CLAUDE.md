@@ -180,7 +180,7 @@ All commands run from `apps/admin/` unless noted.
 ### Health & Status
 ```bash
 npm run ctl ok           # Quick health check (git, types, MCP, server)
-npm run ctl check        # Full checks (lint + types + tests + integration)
+npm run ctl check        # Full checks: lint → tsc → unit → integration → FK consistency (slug-scope #407 / #415)
 npm run ctl dev:status   # Dev server status
 ```
 

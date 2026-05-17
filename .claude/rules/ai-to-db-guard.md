@@ -24,6 +24,8 @@ Any code path where:
 | Parent-child relationships | FK exists in DB before write |
 | Parameter/key names | Validate against known set from DB |
 | Destructive operations (delete + rebuild) | Wrap in transaction, validate new data before deleting old |
+| Module / LO identity by slug / ref | Use `resolveModuleByLogicalId(curriculumId, slug)` from `lib/curriculum/resolve-module.ts` — never bare `findFirst({where:{slug}})`. Slugs are per-parent unique, not global (#407). |
+| Pipeline FK writes driven by AI output | `Call.curriculumModuleId` and `CallerModuleProgress.moduleId` are written from AI-returned slugs (`learningAssessment.moduleId`). Must scope by `playbookId → curriculumId` before resolving the slug. ESLint rule `hf-curriculum/no-unscoped-slug-lookup` blocks regressions. |
 
 ## Pattern: Validate-then-write
 
@@ -49,6 +51,9 @@ for (const group of validated.groups) {
 | Pipeline `callScore` | Numeric clamping `[0, 1]` | Score overflow |
 | Pipeline `callTarget` | `validateTargets()` guardrail pass | Target value outside safe range |
 | `generate-groups` | `validateGroupType()` whitelist | Invalid group type enum |
+| `lib/curriculum/resolve-module.ts` | `resolveModuleByLogicalId(curriculumId, slug)` — throws when curriculumId is empty | AI-returned slugs from `learningAssessment.moduleId` resolving to a cross-playbook CurriculumModule (#407 Opal/Freya/Tessa). |
+| `eslint-rules/no-unscoped-slug-lookup.mjs` | Custom ESLint rule, error severity | New `prisma.curriculumModule.find*({where:{slug,...}})` without `curriculumId`. Same for `learningObjective` + `ref` + `moduleId`. (#411) |
+| `scripts/check-fk-consistency.ts` (CI step 5) | SQL queries for cross-playbook leaks | Bad data reaching dev/staging from a slipped-through code path (#415). |
 
 ## Known Gaps (tech debt)
 
