@@ -265,15 +265,18 @@ export async function executeWizardTool(
       let keys = Object.keys(fields);
 
       // ── #398 — progressionMode is NEVER writable via update_setup ──
-      // The AI silently writes progressionMode from prose inference, bypassing
-      // rule 5d AND the BLOCKED directive in graph-evaluator. The previous
-      // bulk-only strip was bypassed via solo writes. Final fix:
-      //   - update_setup({progressionMode: ...}) — always rejected, regardless of
-      //     other fields. The AI cannot set this field at all.
-      //   - The only path is show_options with dataKey:"progressionMode" — the
-      //     chip click in ConversationalWizard.tsx writes setData() directly
-      //     client-side, bypassing the AI entirely.
-      if ("progressionMode" in fields) {
+      // ...unless the field is ALREADY set in setupData (idempotent re-affirm).
+      // Without the idempotent gate the AI gets stuck in a loop: it tries
+      // update_setup({progressionMode}) → REJECTED → calls show_options →
+      // user clicks → setData writes value → next turn AI re-tries update_setup
+      // (verbose "confirmation") → REJECTED again → show_options refires →
+      // repeat. The reject's only purpose is to force the picker; once the
+      // chip click has set the field, redundant AI writes are harmless.
+      const alreadySet =
+        setupData?.progressionMode !== undefined &&
+        setupData?.progressionMode !== null &&
+        setupData?.progressionMode !== "";
+      if ("progressionMode" in fields && !alreadySet) {
         const attempted = fields.progressionMode;
         delete fields.progressionMode;
         keys = Object.keys(fields);
