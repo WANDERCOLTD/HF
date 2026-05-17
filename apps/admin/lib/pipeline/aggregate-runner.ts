@@ -161,6 +161,9 @@ export async function accumulateSkillScores(
   if (typeof pbCfg.skillScoringEmaHalfLifeDays === "number") {
     halfLifeDays = pbCfg.skillScoringEmaHalfLifeDays as number;
   }
+  if (typeof pbCfg.skillMinCallsToFull === "number") {
+    minCallsToFull = pbCfg.skillMinCallsToFull as number;
+  }
   // Rule-level overrides (highest precedence; spec-driven config).
   if (typeof options.halfLifeDays === "number") halfLifeDays = options.halfLifeDays;
   if (typeof options.minCallsToFull === "number") minCallsToFull = options.minCallsToFull;

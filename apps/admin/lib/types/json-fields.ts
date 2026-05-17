@@ -333,6 +333,23 @@ export interface PlaybookConfig {
    */
   shareMaterials?: boolean;
   /**
+   * #417 per-playbook overrides for SKILL-AGG-001 scoring behavior.
+   * Both fall back to the SKILL_MEASURE_V1 contract when omitted; both
+   * take precedence over the contract when set.
+   *
+   * `skillScoringEmaHalfLifeDays` — time-decay half-life for the
+   *   per-skill EMA running score on CallerTarget.currentScore. Default
+   *   14 days (IELTS-style gradual progress). Coaching domains may want
+   *   shorter (~1-2 days). Testing/dev may want very short (~0.0035 =
+   *   5 minutes) so back-to-back same-day calls produce visible movement.
+   * `skillMinCallsToFull` — first-call cap factor. With value N, a
+   *   single-call score is capped at `min(rawScore, callsUsed/N)` until
+   *   `callsUsed >= N` calls have accumulated. Default 4 (matches IELTS
+   *   examiner observation budget). Lower for rapid-feedback courses.
+   */
+  skillScoringEmaHalfLifeDays?: number;
+  skillMinCallsToFull?: number;
+  /**
    * Author-declared module catalogue (Issue #236). Populated from a Course
    * Reference document with `**Modules authored:** Yes`. When `moduleSource`
    * is "derived" or unset, today's transform-derived path runs unchanged.
