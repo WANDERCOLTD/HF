@@ -520,6 +520,112 @@ export function AssessmentTargetsCard({ goals, callerId }: { goals: Goal[]; call
 // LearningSection
 // =====================================================
 
+/**
+ * #438 Story B — LEARN goal LO index. Built once per page from
+ * /api/callers/:callerId/lo-progress. Maps `Goal.ref` → outcome description
+ * + module coverage so per-outcome LEARN rows can show the educator
+ * what the caller has actually been observed on.
+ */
+type LoIndexEntry = {
+  description: string;
+  touchedModules: number;
+  totalModulesWithRef: number;
+};
+
+function buildLoIndex(modules: Array<{
+  learningObjectives: Array<{ ref: string; description: string; mastery: number | null }>;
+}>): Record<string, LoIndexEntry> {
+  const index: Record<string, LoIndexEntry> = {};
+  for (const mod of modules) {
+    const seenRefsInThisModule = new Set<string>();
+    for (const lo of mod.learningObjectives) {
+      if (!lo.ref || seenRefsInThisModule.has(lo.ref)) continue;
+      seenRefsInThisModule.add(lo.ref);
+      const entry = index[lo.ref] ?? {
+        description: lo.description,
+        touchedModules: 0,
+        totalModulesWithRef: 0,
+      };
+      entry.totalModulesWithRef += 1;
+      if (lo.mastery !== null) entry.touchedModules += 1;
+      // First non-empty description wins (multiple modules may carry the same ref).
+      if (!entry.description && lo.description) entry.description = lo.description;
+      index[lo.ref] = entry;
+    }
+  }
+  return index;
+}
+
+/**
+ * #438 — single-row view for a LEARN goal linked to a specific outcome
+ * (`Goal.ref` set, e.g. "OUT-01"). Replaces the curriculum-wide
+ * SliderGroup for per-LO goals because the educator needs to see *which*
+ * outcome is moving and across how many modules it has been observed.
+ *
+ * Exported so the component can be unit-tested directly without mounting
+ * the full ProgressTab. `loIndex={null}` simulates "still loading".
+ */
+export function LearnOutcomeRow({
+  goal,
+  loIndex,
+  typeColor,
+  typeIcon,
+  typeLabel,
+}: {
+  goal: Goal;
+  loIndex: Record<string, LoIndexEntry> | null;
+  typeColor: string;
+  typeIcon: string;
+  typeLabel: string;
+}) {
+  const ref = goal.ref ?? "";
+  const entry = loIndex?.[ref] ?? null;
+  const coverageReady = loIndex !== null;
+  const unobserved = coverageReady && (!entry || entry.touchedModules === 0);
+
+  return (
+    <div className="hf-gradient-card">
+      <div className="hf-flex hf-gap-lg">
+        <ProgressRing progress={goal.progress} size={64} color={typeColor} />
+        <div className="hf-flex-1">
+          <div className="hf-flex hf-gap-sm hf-mb-xs hf-items-center">
+            <span style={{ fontSize: 16 }}>{typeIcon}</span>
+            <GoalPill label={typeLabel} size="compact" />
+            <span className="hf-text-xs hf-text-muted" style={{ fontVariantNumeric: "tabular-nums" }}>
+              {ref}
+            </span>
+            <StatusBadge status={goal.status === "ACTIVE" ? "active" : "pending"} size="compact" />
+          </div>
+          <div className="hf-section-title">
+            {entry?.description || goal.name}
+          </div>
+          {goal.description && entry?.description && entry.description !== goal.description && (
+            <div className="hf-text-xs hf-text-muted hf-mt-xs">{goal.description}</div>
+          )}
+          <div className="hf-flex-wrap hf-text-xs hf-text-muted hf-gap-md hf-mt-sm hf-items-center">
+            {goal.playbook && (
+              <PlaybookPill label={`${goal.playbook.name} v${goal.playbook.version}`} size="compact" />
+            )}
+            {entry && entry.totalModulesWithRef > 0 && !unobserved && (
+              <span>
+                across {entry.touchedModules}/{entry.totalModulesWithRef} modules
+              </span>
+            )}
+            {unobserved && (
+              <span className="hf-text-warning">Not yet observed in calls</span>
+            )}
+            {goal.startedAt && (
+              <span className="hf-opacity-70">
+                Started {new Date(goal.startedAt).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LearningSection({
   curriculum,
   learnerProfile,
@@ -533,6 +639,26 @@ export function LearningSection({
 }) {
   const [showArchived, setShowArchived] = useState(false);
   const [selectedModule, setSelectedModule] = useState<{ id: string; name: string; mastery: number } | null>(null);
+  const [loIndex, setLoIndex] = useState<Record<string, LoIndexEntry> | null>(null);
+
+  // #438 — fetch LO descriptions + coverage once at mount. Reuses the
+  // existing /lo-progress route (lazy-loaded by ModuleDetailPanel as well,
+  // so the cache may be warm on subsequent navigations).
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/callers/${callerId}/lo-progress`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (!cancelled && res?.ok && Array.isArray(res.modules)) {
+          setLoIndex(buildLoIndex(res.modules));
+        }
+      })
+      .catch(() => {
+        // Best-effort — falls back to plain numeric display below.
+      });
+    return () => { cancelled = true; };
+  }, [callerId]);
+
   const hasCurriculum = curriculum && curriculum.hasData;
   const hasProfile = learnerProfile && (
     learnerProfile.learningStyle ||
@@ -568,12 +694,41 @@ export function LearningSection({
   const activeGoals = nonAssessmentGoals.filter(g => g.status === 'ACTIVE' || g.status === 'PAUSED');
   const archivedGoals = nonAssessmentGoals.filter(g => g.status === 'ARCHIVED' || g.status === 'COMPLETED');
 
+  // #438 — sort LEARN goals with refs ascending (OUT-01..OUT-08) so the
+  // educator scans them in a stable order. Non-LEARN and unref'd LEARN
+  // goals keep their existing relative order.
+  activeGoals.sort((a, b) => {
+    const aRef = a.type === "LEARN" && typeof a.ref === "string" ? a.ref : null;
+    const bRef = b.type === "LEARN" && typeof b.ref === "string" ? b.ref : null;
+    if (aRef && bRef) return aRef.localeCompare(bRef, undefined, { numeric: true });
+    if (aRef) return -1;
+    if (bRef) return 1;
+    return 0;
+  });
+
   return (
     <div className="hf-flex-col hf-gap-20">
       {/* Active Goals — each as a visual card */}
       {activeGoals.map((goal) => {
         const typeConfig = GOAL_TYPE_CONFIG[goal.type] || { label: goal.type, icon: "🎯", color: "var(--text-muted)", glow: "var(--text-muted)" };
-        const isLearn = goal.type === 'LEARN' && hasCurriculum && curriculum;
+        // #438 — per-outcome LEARN row: shown when Goal.ref is set
+        // (i.e. one goal per LO, derived via #414). The curriculum-wide
+        // SliderGroup view stays for unref'd LEARN goals.
+        const isPerOutcomeLearn = goal.type === "LEARN" && typeof goal.ref === "string";
+        const isLearn = goal.type === 'LEARN' && hasCurriculum && curriculum && !isPerOutcomeLearn;
+
+        if (isPerOutcomeLearn) {
+          return (
+            <LearnOutcomeRow
+              key={goal.id}
+              goal={goal}
+              loIndex={loIndex}
+              typeColor={typeConfig.color}
+              typeIcon={typeConfig.icon}
+              typeLabel={typeConfig.label}
+            />
+          );
+        }
 
         return (
           <div key={goal.id}>
