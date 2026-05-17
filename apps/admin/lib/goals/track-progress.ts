@@ -137,6 +137,67 @@ async function calculateAssessmentProgress(
 }
 
 /**
+ * #414 Phase 5b — derive a LEARN goal's progress from the specific LO it
+ * tracks (`goal.ref`). Mean of `CallerModuleProgress.loScoresJson[ref].mastery`
+ * across every module in the caller's playbook curricula that contains an LO
+ * with this ref. Modules where the caller has no progress row, or where the
+ * loScoresJson has no entry for `ref`, are skipped from the mean (matches
+ * the existing `rollupModuleMastery` semantics — partial coverage doesn't
+ * drag a goal toward zero).
+ *
+ * Returns null when:
+ *   - no LO with this ref exists in the playbook's curricula, or
+ *   - no caller progress has accumulated for any matching module's loScoresJson
+ *
+ * Mean-across-modules is the documented aggregation per #414 AC.
+ */
+export async function deriveLearnGoalProgressFromRef(
+  callerId: string,
+  goal: { ref: string; playbookId: string | null },
+): Promise<{
+  progress: number;
+  totalModulesWithRef: number;
+  touchedModules: number;
+} | null> {
+  if (!goal.ref || !goal.playbookId) return null;
+
+  const los = await prisma.learningObjective.findMany({
+    where: {
+      ref: goal.ref,
+      module: { curriculum: { playbookId: goal.playbookId } },
+    },
+    select: { moduleId: true },
+  });
+  if (los.length === 0) return null;
+
+  const moduleIds = Array.from(new Set(los.map((lo) => lo.moduleId)));
+  const progresses = await prisma.callerModuleProgress.findMany({
+    where: { callerId, moduleId: { in: moduleIds } },
+    select: { moduleId: true, loScoresJson: true },
+  });
+
+  const masteries: number[] = [];
+  for (const p of progresses) {
+    const scores = p.loScoresJson as Record<
+      string,
+      { mastery?: number; callCount?: number }
+    > | null;
+    const entry = scores?.[goal.ref];
+    if (entry && typeof entry.mastery === "number") {
+      masteries.push(entry.mastery);
+    }
+  }
+  if (masteries.length === 0) return null;
+
+  const progress = masteries.reduce((s, v) => s + v, 0) / masteries.length;
+  return {
+    progress,
+    totalModulesWithRef: moduleIds.length,
+    touchedModules: masteries.length,
+  };
+}
+
+/**
  * #397 Phase 2: derive LEARN goal progress from accumulated CallerModuleProgress
  * mastery instead of the legacy flat 5%-per-engaged-call heuristic.
  *
@@ -180,6 +241,30 @@ async function calculateLearnProgress(
   callerId: string,
   callId: string
 ): Promise<GoalProgressUpdate | null> {
+  // #414 P5b — per-goal LO derivation. When goal.ref is set (populated by
+  // #413), read the matching LO's mean-mastery across the playbook's
+  // modules. This is the path that gives 14 LEARN goals 14 distinct
+  // progress values instead of the single uniform engagement score.
+  if (goal.ref && goal.playbookId) {
+    const derived = await deriveLearnGoalProgressFromRef(callerId, {
+      ref: goal.ref,
+      playbookId: goal.playbookId,
+    });
+    if (derived) {
+      if (derived.progress > goal.progress) {
+        return {
+          goalId: goal.id,
+          progressDelta: derived.progress - goal.progress,
+          evidence: `LO ${goal.ref} mastery ${(derived.progress * 100).toFixed(0)}% across ${derived.touchedModules}/${derived.totalModulesWithRef} module(s)`,
+        };
+      }
+      // Goal IS ref-linked — do NOT fall through to engagement heuristic.
+      return null;
+    }
+    // No derivation possible (no LO match or no accumulated mastery yet).
+    // Fall through so brand-new goals can still earn engagement progress.
+  }
+
   // Phase 2 path: spec-level avg of CallerModuleProgress.mastery.
   // Falls through to the legacy paths only when no curriculum is linked
   // to this goal's contentSpec.
