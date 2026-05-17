@@ -16,6 +16,7 @@
 import { prisma } from "@/lib/prisma";
 import { ContractRegistry } from "@/lib/contracts/registry";
 import { getTrustSettings, TRUST_DEFAULTS } from "@/lib/system-settings";
+import { resolveModuleByLogicalId } from "@/lib/curriculum/resolve-module";
 
 interface ProgressUpdate {
   currentModuleId?: string;
@@ -188,16 +189,33 @@ export async function updateCurriculumProgress(
   // Dual-write: also update CallerModuleProgress if moduleId maps to a DB record.
   // When LO scores accompany this module's mastery, the dual-write derives mastery
   // from accumulated LO running averages (Phase 1) rather than the AI snapshot.
+  //
+  // Resolve curriculumId once via specSlug (Curriculum.slug is globally unique
+  // by schema) so per-module slug lookups inside updateModuleMastery are
+  // properly scoped — never global findFirst (#407).
   if (updates.moduleMastery) {
-    for (const [moduleId, mastery] of Object.entries(updates.moduleMastery)) {
-      const loScoresForThisModule =
-        updates.loMastery && updates.loMastery.moduleId === moduleId
-          ? updates.loMastery.outcomes
-          : undefined;
-      try {
-        await updateModuleMastery(callerId, moduleId, mastery, undefined, loScoresForThisModule);
-      } catch {
-        // Non-fatal — CallerModuleProgress is supplementary during transition
+    const curriculum = await prisma.curriculum.findFirst({
+      where: { slug: specSlug },
+      select: { id: true },
+    });
+    if (curriculum) {
+      for (const [moduleId, mastery] of Object.entries(updates.moduleMastery)) {
+        const loScoresForThisModule =
+          updates.loMastery && updates.loMastery.moduleId === moduleId
+            ? updates.loMastery.outcomes
+            : undefined;
+        try {
+          await updateModuleMastery(
+            callerId,
+            curriculum.id,
+            moduleId,
+            mastery,
+            undefined,
+            loScoresForThisModule,
+          );
+        } catch {
+          // Non-fatal — CallerModuleProgress is supplementary during transition
+        }
       }
     }
   }
@@ -298,7 +316,12 @@ function isLoScoresMap(value: unknown): value is LoScoresMap {
 
 /**
  * Update mastery for a specific module using the first-class CallerModuleProgress model.
- * moduleId can be either a CurriculumModule.id (UUID) or a slug (e.g. "MOD-1").
+ * `moduleId` can be either a CurriculumModule.id (UUID) or a slug (e.g. "MOD-1", "part1").
+ *
+ * Caller MUST supply `curriculumId` — the scope anchor for slug resolution.
+ * Slugs are per-curriculum, not globally unique; unscoped lookups corrupt
+ * FKs across playbooks (#407). Use `resolveCurriculumIdForPlaybook` at the
+ * call site to derive `curriculumId` from a caller's playbook.
  *
  * If `loScores` is provided, mastery is **derived** from the accumulated LO running
  * averages (Phase 1). Otherwise the AI-snapshot `mastery` argument is used with the
@@ -306,21 +329,16 @@ function isLoScoresMap(value: unknown): value is LoScoresMap {
  */
 export async function updateModuleMastery(
   callerId: string,
+  curriculumId: string,
   moduleId: string,
   mastery: number,
   callId?: string,
   loScores?: Record<string, number>,
 ): Promise<void> {
-  // Resolve slug to id if needed (slugs aren't UUIDs)
-  let resolvedModuleId = moduleId;
-  if (!moduleId.includes("-") || moduleId.startsWith("MOD-")) {
-    const mod = await prisma.curriculumModule.findFirst({
-      where: { slug: moduleId },
-      select: { id: true },
-    });
-    if (!mod) return; // Module not in DB yet — skip silently
-    resolvedModuleId = mod.id;
-  }
+  // Scoped slug → UUID resolution. Refuses unscoped lookup (#407).
+  const resolved = await resolveModuleByLogicalId(curriculumId, moduleId);
+  if (!resolved) return; // Module not in this curriculum — skip silently
+  const resolvedModuleId = resolved.id;
 
   const existing = await prisma.callerModuleProgress.findUnique({
     where: { callerId_moduleId: { callerId, moduleId: resolvedModuleId } },
