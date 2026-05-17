@@ -1433,11 +1433,19 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
                       // the chip click writes setData() directly so the next AI
                       // turn sees the value in setupData. The AI cannot write
                       // these fields via update_setup — server-side blocks them.
+                      //
+                      // ALSO pass the value as an `overrides` arg to handleSend
+                      // so the immediate API request includes progressionMode in
+                      // its setupData snapshot — setData() is React state and
+                      // doesn't flush before the API call goes out, causing the
+                      // AI to re-fire the picker. The override bridges that race.
                       const dataKey = msg.optionsPanel!.dataKey;
                       if (dataKey === "progressionMode" && typeof value === "string") {
                         setData(dataKey, value);
+                        handleSend(displayText, { progressionMode: value });
+                      } else {
+                        handleSend(displayText);
                       }
-                      handleSend(displayText);
                     }}
                     onSkip={() => {
                       setMessages((prev) =>
