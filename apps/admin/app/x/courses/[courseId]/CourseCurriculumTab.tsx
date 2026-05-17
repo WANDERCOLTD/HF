@@ -13,6 +13,11 @@
  * The scorecard + regenerate flow are the structural prevention for the
  * incident #137 root cause: the curriculum was invisible, so its rot went
  * unnoticed. Making it visible + fixable from one screen is the fix.
+ *
+ * #418: explicit viewMode toggle + flash fix. The page passes
+ * `activeCurriculumMode` (resolved from setup-status) and we gate the body
+ * on it — so the wrong panel never mounts first on Authored courses. A
+ * segmented toggle lets educators peek at the other view in read-only mode.
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -36,6 +41,13 @@ interface CourseCurriculumTabProps {
   curriculumId?: string | null;
   isOperator: boolean;
   onSwitchTab?: (tab: string) => void;
+  /**
+   * #418 — the source of truth for which curriculum mode is active.
+   * Resolved by the parent course page via the setup-status endpoint and
+   * passed down. While null we render only a spinner so the wrong panel
+   * never flashes on mount.
+   */
+  activeCurriculumMode: "authored" | "derived" | null;
 }
 
 interface RegenerateResponse {
@@ -57,6 +69,7 @@ export function CourseCurriculumTab({
   curriculumId: curriculumIdProp,
   isOperator,
   onSwitchTab,
+  activeCurriculumMode,
 }: CourseCurriculumTabProps) {
   const [scorecard, setScorecard] = useState<CourseLinkageScorecard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,10 +78,16 @@ export function CourseCurriculumTab({
   const [regenerating, setRegenerating] = useState(false);
   const [regenResult, setRegenResult] = useState<RegenerateResponse | null>(null);
 
-  // #253-follow-up: when authored modules are the source of truth, the
-  // derived/regen catalogue is noise — hide it. AuthoredModulesPanel signals
-  // its loaded state so we know which view to render.
-  const [modulesAuthored, setModulesAuthored] = useState<boolean | null>(null);
+  // #418 — explicit toggle between "authored" and "derived" views. Defaults
+  // to whatever the page reports as the active mode; educator can flip to
+  // preview the other view (read-only). Stays null while the parent is
+  // still resolving the mode.
+  const [viewMode, setViewMode] = useState<"authored" | "derived" | null>(null);
+  useEffect(() => {
+    if (activeCurriculumMode && viewMode === null) {
+      setViewMode(activeCurriculumMode);
+    }
+  }, [activeCurriculumMode, viewMode]);
 
   // Authoritative curriculum id comes from the scorecard response. Until that
   // loads, fall back to the hint passed in by the course page.
@@ -174,7 +193,7 @@ export function CourseCurriculumTab({
   }, [curriculumId, loadScorecard]);
 
   // ── Regenerate actions bundle ─────────────────────────────
-  const regenerateActions: RegenerateActions | undefined = isOperator ? {
+  const fullRegenerateActions: RegenerateActions | undefined = isOperator ? {
     onRegenerateModules: handleRegenerate,
     onReconcileTPs: handleReconcileTPs,
     onRegenerateMcqs: handleRegenerateMcqs,
@@ -182,10 +201,28 @@ export function CourseCurriculumTab({
     onReclassifyLos: handleReclassifyLos,
   } : undefined;
 
+  // In preview mode (peeking at the inactive view), expose only the
+  // link-only / idempotent actions — never the destructive regen/extract.
+  const previewRegenerateActions: RegenerateActions | undefined = isOperator ? {
+    onReconcileTPs: handleReconcileTPs,
+    onRegenerateMcqs: handleRegenerateMcqs,
+  } : undefined;
+
   // ── Render ─────────────────────────────────────────────────
-  // Wait for the scorecard fetch before deciding whether a curriculum exists —
-  // the scorecard response is the authoritative source. If the scorecard
-  // returns and curriculumId is still null, surface the empty state.
+  // #418 — gate on activeCurriculumMode before mounting any panel so the
+  // Authored view doesn't flash through Derived on mount. The old guard
+  // (`loading && !scorecard`) returned the spinner only briefly, then
+  // proceeded with `modulesAuthored === null`, which caused the flash.
+  if (activeCurriculumMode === null || viewMode === null) {
+    return (
+      <div className="hf-stack-md">
+        <div className="hf-spinner" />
+      </div>
+    );
+  }
+
+  // While the scorecard fetch is still in flight on a fresh mount, also
+  // show the spinner — the body needs both signals.
   if (loading && !scorecard) {
     return (
       <div className="hf-stack-md">
@@ -194,47 +231,89 @@ export function CourseCurriculumTab({
     );
   }
 
-  if (!curriculumId) {
-    // Authored modules live on Playbook.config and don't depend on a
-    // generated curriculum, so we still surface the panel here. The
-    // "no curriculum" empty state lives below the panel.
+  const isPreview = viewMode !== activeCurriculumMode;
+
+  // ── Header: segmented toggle + preview banner ─────────────
+  const header = (
+    <div className="curriculum-mode-toolbar">
+      <ModeToggle
+        viewMode={viewMode}
+        activeMode={activeCurriculumMode}
+        onChange={(m) => setViewMode(m)}
+      />
+      {isPreview && (
+        <div className="hf-banner hf-banner-info curriculum-mode-preview-banner">
+          <span>
+            Preview only — this is what {viewMode === "derived" ? "AI extraction" : "the Course Reference"} would produce.{" "}
+            <strong>{activeCurriculumMode === "authored" ? "Authored" : "Derived"} modules</strong> are in use for this course.
+          </span>
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Authored panel branch ─────────────────────────────────
+  if (viewMode === "authored") {
+    // Empty-state edge case: if activeMode is "authored" but
+    // PlaybookConfig.modules is empty (declared "Yes" with no valid table),
+    // AuthoredModulesPanel already renders its own empty state — we
+    // intentionally leave that path to the child.
     return (
       <div className="hf-stack-md">
+        {header}
+        {error && <div className="hf-banner hf-banner-error">{error}</div>}
         <AuthoredModulesPanel
           courseId={playbookId ?? courseId}
           isOperator={isOperator}
         />
+        {/* For authored-modules courses: show ONLY the MCQ list (the part
+            educators actually need to see) without the scorecard / regen
+            affordances. Renders standalone via the exported McqPanel.
+            Suppressed in preview mode — the derived view below has its
+            own MCQ panel inside CurriculumHealthTabs. */}
+        {!isPreview && (
+          <section className="hf-card curriculum-mode-mcq-section">
+            <header className="curriculum-mode-mcq-header">
+              <h3 className="hf-section-title curriculum-mode-mcq-title">
+                Generated questions
+              </h3>
+              <span className="hf-text-xs hf-text-muted">
+                MCQs created from your uploaded learner-facing content. Trust badge per row indicates provenance.
+              </span>
+            </header>
+            <McqPanel courseId={courseId} />
+          </section>
+        )}
+        {regenResult && (
+          <RegenerateResult result={regenResult} onSwitchTab={onSwitchTab} />
+        )}
+      </div>
+    );
+  }
+
+  // ── Derived panel branch ──────────────────────────────────
+  // Either Derived is the active mode (full actions) or the user is peeking
+  // at Derived on an Authored course (read-only, subset of actions).
+  return (
+    <div className="hf-stack-md">
+      {header}
+      {error && <div className="hf-banner hf-banner-error">{error}</div>}
+
+      {!curriculumId && (
         <div className="hf-empty">
           <p className="hf-text-sm hf-text-muted">
             No curriculum yet. Upload content on the Content tab to generate one.
           </p>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  // #208: Curriculum exists but has zero modules — surface a recovery CTA
-  // before the rest of the scorecard renders, so educators don't see a
-  // health card with no actionable next step.
-  // Authored-modules courses are excluded: their structure is educator-
-  // authored and "Regenerate curriculum" would clobber it. The
-  // AuthoredModules panel (above) is the right surface for them.
-  const hasZeroModules =
-    !!curriculumId
-    && (scorecard?.structure?.activeModules ?? 0) === 0
-    && modulesAuthored !== true;
-
-  return (
-    <div className="hf-stack-md">
-      {error && <div className="hf-banner hf-banner-error">{error}</div>}
-
-      <AuthoredModulesPanel
-        courseId={playbookId ?? courseId}
-        isOperator={isOperator}
-        onModulesAuthoredChange={setModulesAuthored}
-      />
-
-      {hasZeroModules && (
+      {/* #208: Curriculum exists but has zero modules — surface a recovery CTA
+          before the rest of the scorecard renders, so educators don't see a
+          health card with no actionable next step. Suppressed in preview
+          mode (the CTA would clobber the authored modules). */}
+      {!isPreview
+        && !!curriculumId
+        && (scorecard?.structure?.activeModules ?? 0) === 0 && (
         <div className="hf-banner hf-banner-warning">
           <div>
             <AlertTriangle size={14} />
@@ -255,43 +334,65 @@ export function CourseCurriculumTab({
         </div>
       )}
 
-      {/* Derived/regen view — hidden when authored modules are the source.
-          The scorecard + regenerate affordances are meaningless for authored
-          courses (the educator authored the structure; auto-regen would
-          clobber it). #256 originally hid the entire CurriculumHealthTabs,
-          which inadvertently hid the MCQ list too — educators on authored
-          courses had no path to view their generated questions. */}
-      {scorecard && modulesAuthored !== true && (
+      {scorecard && curriculumId && (
         <CurriculumHealthTabs
           scorecard={scorecard}
           courseId={courseId}
           curriculumId={curriculumId}
           isOperator={isOperator}
-          regenerateActions={regenerateActions}
+          regenerateActions={isPreview ? previewRegenerateActions : fullRegenerateActions}
           regenerating={regenerating}
           onScorecardRefresh={loadScorecard}
+          readOnly={isPreview}
         />
       )}
 
-      {/* For authored-modules courses: show ONLY the MCQ list (the part
-          educators actually need to see) without the scorecard / regen
-          affordances. Renders standalone via the exported McqPanel. */}
-      {modulesAuthored === true && (
-        <section className="hf-card" style={{ marginTop: 16 }}>
-          <header className="hf-flex hf-items-center hf-gap-8" style={{ marginBottom: 12 }}>
-            <h3 className="hf-section-title" style={{ margin: 0 }}>Generated questions</h3>
-            <span className="hf-text-xs hf-text-muted">
-              MCQs created from your uploaded learner-facing content. Trust badge per row indicates provenance.
-            </span>
-          </header>
-          <McqPanel courseId={courseId} />
-        </section>
-      )}
-
-      {/* Regeneration result */}
       {regenResult && (
         <RegenerateResult result={regenResult} onSwitchTab={onSwitchTab} />
       )}
+    </div>
+  );
+}
+
+// ── Mode toggle (#418) ───────────────────────────────────────
+//
+// Segmented control between Authored and Derived. The active mode (the
+// one driving the course at runtime) gets an "Active" tag so peeking at
+// the other mode never reads as a setting change.
+function ModeToggle({
+  viewMode,
+  activeMode,
+  onChange,
+}: {
+  viewMode: "authored" | "derived";
+  activeMode: "authored" | "derived";
+  onChange: (mode: "authored" | "derived") => void;
+}) {
+  return (
+    <div className="curriculum-mode-toggle" role="tablist" aria-label="Curriculum source">
+      {(["authored", "derived"] as const).map((mode) => {
+        const isActive = viewMode === mode;
+        const isRuntime = activeMode === mode;
+        return (
+          <button
+            key={mode}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            className={`curriculum-mode-toggle__btn${isActive ? " curriculum-mode-toggle__btn--selected" : ""}`}
+            onClick={() => onChange(mode)}
+          >
+            <span className="curriculum-mode-toggle__label">
+              {mode === "authored" ? "Authored" : "Derived"}
+            </span>
+            {isRuntime && (
+              <span className="curriculum-mode-toggle__tag" aria-label="active mode">
+                Active
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -1412,6 +1412,7 @@ export default function CourseDetailPage() {
           playbookId={courseId!}
           curriculumId={sessions?.curriculumId ?? null}
           isOperator={isOperator}
+          activeCurriculumMode={activeCurriculumMode}
           onSwitchTab={(tab) => {
             setActiveTab(tab);
             router.replace(`?tab=${tab}`, { scroll: false });
