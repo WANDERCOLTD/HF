@@ -228,6 +228,12 @@ export default function CourseDetailPage() {
     setSetupReadiness(prev => (prev?.completedCount === count && prev?.allComplete === all) ? prev : { completedCount: count, allComplete: all });
   }, []);
 
+  // #418 — which curriculum source is in effect (authored vs derived).
+  // Loaded once from setup-status so the header chip and the curriculum
+  // tab can resolve `activeMode` without a render flash. Null until first
+  // fetch resolves.
+  const [activeCurriculumMode, setActiveCurriculumMode] = useState<"authored" | "derived" | null>(null);
+
   // Settings actions
   const [publishing, setPublishing] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -298,6 +304,26 @@ export default function CourseDetailPage() {
       .catch(() => {})
       .finally(() => setSessionFlowLoaded(true));
   }, [courseId, activeTab, sessionFlowLoaded]);
+
+  // ── #418 — resolve active curriculum mode once, eagerly ──
+  // Fetches the same setup-status endpoint as CourseSetupTracker but only
+  // pulls the curriculum-mode flag. Drives the header chip and the
+  // Curriculum tab's initial view, so it must run before the tab mounts to
+  // avoid a flash of the wrong panel.
+  useEffect(() => {
+    if (!courseId) return;
+    let cancelled = false;
+    fetch(`/api/courses/${courseId}/setup-status`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data.ok && (data.activeCurriculumMode === "authored" || data.activeCurriculumMode === "derived")) {
+          setActiveCurriculumMode(data.activeCurriculumMode);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [courseId]);
 
   // ── Derived Data ─────────────────────────────────────
   const specGroups = useMemo(() => {
@@ -1011,6 +1037,10 @@ export default function CourseDetailPage() {
             <ProgressionModePill
               modulesAuthored={(detail.config as Record<string, unknown> | null | undefined)?.modulesAuthored as boolean | null | undefined}
               onClickWhenUnset={() => router.push(`/x/courses/${detail.id}?tab=curriculum`)}
+            />
+            <CurriculumSourcePill
+              mode={activeCurriculumMode}
+              onClick={() => router.push(`/x/courses/${detail.id}?tab=curriculum`)}
             />
           </div>
           <div className="hf-flex hf-gap-sm hf-items-center">
@@ -1735,6 +1765,41 @@ function ProgressionModePill({
       title="Click to choose how learners progress (AI-led or learner-picks)"
     >
       Mode not set
+    </button>
+  );
+}
+
+// ── Curriculum source pill (#418) ────────────────────────────────────
+//
+// Sits next to ProgressionModePill in the course header. Reads
+// `activeCurriculumMode` from the setup-status endpoint so educators can
+// see at a glance whether modules come from a Course Reference document
+// (Authored) or AI extraction from uploaded content (Derived). Clicking
+// routes to the Curriculum tab — same UX convention as ProgressionModePill.
+//
+// Rendering nothing while `mode` is null keeps the header stable until the
+// fetch resolves (no flash from Derived → Authored on slow networks).
+function CurriculumSourcePill({
+  mode,
+  onClick,
+}: {
+  mode: "authored" | "derived" | null;
+  onClick: () => void;
+}) {
+  if (mode === null) return null;
+  const label = mode === "authored" ? "Curriculum: Authored" : "Curriculum: Derived";
+  const title =
+    mode === "authored"
+      ? "Modules come from a Course Reference document. Click to view the catalogue."
+      : "Modules are derived by AI from your uploaded content. Click to view the curriculum.";
+  return (
+    <button
+      type="button"
+      className={`cd-progression-pill cd-progression-pill--${mode === "authored" ? "learner" : "ai"}`}
+      onClick={onClick}
+      title={title}
+    >
+      {label}
     </button>
   );
 }

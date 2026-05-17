@@ -613,6 +613,16 @@
   letter-spacing: 0.02em;
   white-space: nowrap;
   border: 1px solid var(--border-default);
+  /* When the pill is a <button> (e.g. CurriculumSourcePill / unset state),
+     normalise out the browser's native button styling so it matches the
+     <span> variants. Spans ignore these declarations harmlessly. */
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Non-clickable variants (rendered as <span>) drop the pointer cursor. */
+span.cd-progression-pill {
+  cursor: default;
 }
 
 .cd-progression-pill--learner {
@@ -636,4 +646,13 @@
 
 .cd-progression-pill--unset:hover {
   background: color-mix(in srgb, var(--status-warning-text, var(--accent-primary)) 18%, transparent);
+}
+
+/* Button-as-pill hover for the Curriculum source variants (#418). */
+button.cd-progression-pill--learner:hover {
+  background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+}
+
+button.cd-progression-pill--ai:hover {
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
 }
