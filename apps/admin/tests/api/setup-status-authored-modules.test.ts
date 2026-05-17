@@ -164,6 +164,40 @@ describe("setup-status — authored-modules branch (continuous course)", () => {
   });
 });
 
+describe("setup-status — activeCurriculumMode (issue #418)", () => {
+  it("returns 'authored' when modulesAuthored=true", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue(
+      basePlaybook({
+        modulesAuthored: true,
+        moduleSource: "authored",
+        modules: [{ id: "m1" }],
+      }),
+    );
+
+    const res = (await GET(makeReq(), { params })) as NextResponse;
+    const body = await res.json();
+    expect(body.activeCurriculumMode).toBe("authored");
+  });
+
+  it("returns 'derived' when modulesAuthored=false (author opted out)", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue(
+      basePlaybook({ modulesAuthored: false, moduleSource: "derived" }),
+    );
+
+    const res = (await GET(makeReq(), { params })) as NextResponse;
+    const body = await res.json();
+    expect(body.activeCurriculumMode).toBe("derived");
+  });
+
+  it("returns 'derived' when modulesAuthored is unset (default behaviour)", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue(basePlaybook());
+
+    const res = (await GET(makeReq(), { params })) as NextResponse;
+    const body = await res.json();
+    expect(body.activeCurriculumMode).toBe("derived");
+  });
+});
+
 describe("setup-status — auth and 404 still behave (regression)", () => {
   it("returns the auth error when requireAuth fails", async () => {
     const errorResponse = NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });

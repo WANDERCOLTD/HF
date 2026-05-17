@@ -70,6 +70,14 @@ export interface SetupStatusInput {
     onboardingConfigured: boolean;
     promptComposable: boolean;
     allCriticalPass: boolean;
+    /**
+     * Issue #418 — which curriculum source is in effect.
+     * "authored" = Course Reference module catalogue drives modules.
+     * "derived"  = AI extraction generates modules from uploaded content.
+     * Optional for backwards compatibility with older callers that
+     * synthesise their own readiness object.
+     */
+    activeCurriculumMode?: "authored" | "derived";
   } | null;
 }
 
