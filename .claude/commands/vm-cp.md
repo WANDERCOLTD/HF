@@ -6,6 +6,16 @@ Commit local changes, push to remote, then pull on the hf-dev VM.
 
 **NOTE:** This updates the hf-dev VM only (localhost:3000 via SSH tunnel). It does NOT deploy to Cloud Run environments (dev/test/prod). To deploy to `dev.humanfirstfoundation.com` etc., use `/deploy`.
 
+## 0. Pre-check — local branch health (#423)
+
+Before committing, verify the LOCAL repo's branch isn't in a drifted state — accidentally cherry-picked / rebased / merged commits from elsewhere can get pushed silently.
+
+```bash
+scripts/check-vm-branch.sh allow-ahead
+```
+
+`allow-ahead` permits local-ahead-of-origin (legitimate: we're about to push). The script still aborts on diverged history, detached HEAD, or behind-origin states. Surface its output verbatim and abort `/vm-cp` if non-zero.
+
 ## 1. Check local status
 
 **IMPORTANT — Working directory:** Always run git commands from the repo root (`/Users/paulwander/projects/HF`). Use absolute paths or `cd` explicitly. Relative paths from a wrong cwd cause silent pathspec failures.

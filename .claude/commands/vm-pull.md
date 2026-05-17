@@ -4,6 +4,21 @@ description: Pull latest code on hf-dev VM, optionally restart dev server
 
 Pull the latest code on the hf-dev GCP VM and optionally restart the dev server.
 
+## 0. Pre-check — local branch health (#423)
+
+Before touching the VM, verify the LOCAL repo isn't in a drifted state — local commits not on origin would push stray work to the VM. Run:
+
+```bash
+scripts/check-vm-branch.sh
+```
+
+If this exits non-zero, abort `/vm-pull` and surface the script's output to the user verbatim. Common cases the script catches:
+- Local HEAD has commits not on `origin/{branch}` (a stray cherry-pick / lost rebase)
+- Local is behind origin (need a `git pull --ff-only` first)
+- Detached HEAD
+
+Pass `allow-ahead` to the script only if the user has explicitly indicated they want to push local commits as part of this run (rare for `/vm-pull`).
+
 ## 1. Pull + install (single SSH call)
 
 ```bash
