@@ -1,0 +1,138 @@
+description: "Wizard V5 — welcomeMessage capture from chip click + typed text (#420)"
+
+# Run with: npx promptfoo eval -c evals/wizard/v5-welcome-message-capture.yaml --no-cache
+#
+# Tests rule 5e in v5-system-prompt.ts: when the educator either clicks "Use this"
+# on a suggested welcome message OR types their own custom greeting, the AI MUST
+# call update_setup({welcomeMessage: "..."}) to persist it. The chip click does NOT
+# auto-save; only update_setup writes the field.
+
+prompts:
+  - id: v5-welcome-message-capture-prompt
+    label: "V5 — welcomeMessage capture rule 5e"
+    raw: |
+      You are the HumanFirst Studio setup assistant.
+
+      ## How you communicate
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER expose internal field names like `welcomeMessage` or `setupData.*`.
+      - NEVER output XML tags in your text responses.
+
+      ## Rules
+
+      1. Call update_setup EVERY time you learn new information.
+
+      5e. **WELCOME MESSAGE CAPTURE (#420).** When you call `suggest_welcome_message`
+          and the educator clicks "Use this" (or any affirmative), you MUST immediately
+          call `update_setup({ fields: { welcomeMessage: "<the exact text you just suggested>" } })`
+          to persist it. The chip click does NOT auto-save the suggestion — only
+          `update_setup` writes the field. Similarly, when the educator TYPES a custom
+          welcome greeting (any sentence that reads like a learner-facing salutation —
+          "Welcome to my IELTS class...", "Hi there, I'm so glad you're here...",
+          "Hello and welcome..."), capture it via
+          `update_setup({ fields: { welcomeMessage: "<their text>" } })` on the SAME turn.
+          If the educator clicks "Skip welcome", call
+          `update_setup({ fields: { welcomeSkipped: true } })`.
+
+      ---
+      Setup state: {{setupState}}
+      Conversation so far: {{conversationContext}}
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1500
+      tools:
+        - name: update_setup
+          description: "Save collected setup fields"
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                additionalProperties: true
+            required: [fields]
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+
+tests:
+
+  # ── Test A — chip click "Use this" persists the suggested welcome ──
+
+  - description: "Test A — educator clicks 'Use this' → AI calls update_setup with welcomeMessage = the suggested text"
+    vars:
+      setupState: |
+        courseName: GCSE Biology. subjectDiscipline: Biology. audience: secondary.
+        interactionPattern: socratic. personalityPreset: socratic-mentor.
+        welcomeMessage: (unset)
+      conversationContext: |
+        AI just called suggest_welcome_message and offered:
+        "Welcome to GCSE Biology. I'm your AI tutor — we'll work through cells, genetics,
+        ecology, and evolution together. Ask me anything anytime."
+        Then surfaced chips ["Use this", "Tweak it", "Skip welcome"].
+      userMessage: "Use this"
+    assert:
+      - type: llm-rubric
+        value: |
+          Response calls update_setup with a fields object that includes welcomeMessage.
+          The welcomeMessage value matches (or is substantially the same as) the AI's
+          previously suggested text — i.e. it starts with "Welcome to GCSE Biology" and
+          mentions tutor / topics. Does NOT save a generic default.
+
+  # ── Test B — typed custom welcome captured ──
+
+  - description: "Test B — educator types a custom welcome → AI calls update_setup({welcomeMessage}) on the same turn"
+    vars:
+      setupState: |
+        courseName: IELTS Speaking Practice. subjectDiscipline: ESOL. audience: higher-ed.
+        interactionPattern: socratic. welcomeMessage: (unset)
+      conversationContext: |
+        AI suggested a default welcome and asked educator to confirm or change.
+        Educator clicked "Tweak it" and is now typing their preferred version.
+      userMessage: "Welcome to my IELTS class. I'm here to help you crush Band 7+ in Speaking. Let's get started."
+    assert:
+      - type: llm-rubric
+        value: |
+          Response calls update_setup with a fields object that contains a welcomeMessage
+          field whose value is "Welcome to my IELTS class. I'm here to help you crush
+          Band 7+ in Speaking. Let's get started." (or string-for-string equivalent —
+          the educator's exact text). Does NOT paraphrase, summarise, or replace the
+          educator's wording. Does NOT save welcomeMessage as a generic default.
+
+  # ── Test C — "Skip welcome" chip persists welcomeSkipped ──
+
+  - description: "Test C — educator clicks 'Skip welcome' → AI calls update_setup({welcomeSkipped: true})"
+    vars:
+      setupState: |
+        courseName: ESL Conversation. welcomeMessage: (unset). welcomeSkipped: (unset)
+      conversationContext: |
+        AI suggested a welcome and offered ["Use this", "Tweak it", "Skip welcome"].
+      userMessage: "Skip welcome"
+    assert:
+      - type: llm-rubric
+        value: |
+          Response calls update_setup with fields containing welcomeSkipped: true.
+          Does NOT save a welcomeMessage value (skip means no welcome, not a default).
+
+  # ── Test D — typed greeting WITHOUT explicit "welcome to" still captured ──
+
+  - description: "Test D — educator types a greeting in different phrasing → still captured as welcomeMessage"
+    vars:
+      setupState: |
+        courseName: KS2 SATs Maths. audience: primary. welcomeMessage: (unset)
+      conversationContext: |
+        AI just asked the educator for their preferred welcome greeting.
+      userMessage: "Hi there! I'm so glad you decided to practice maths with me today. We'll have fun with numbers."
+    assert:
+      - type: llm-rubric
+        value: |
+          Response calls update_setup with fields.welcomeMessage = the educator's exact
+          typed greeting (or near-identical string). Recognises the friendly greeting
+          shape ("Hi there! I'm so glad...") as a welcome message and captures it.
