@@ -6,6 +6,16 @@ Start the Next.js dev server on the hf-dev GCP VM with an SSH tunnel forwarding 
 
 **Uses a single SSH connection** — kill, start, wait for ready, then keep alive as the tunnel. No second IAP handshake.
 
+## Step 0: Pre-check — local branch health (#423)
+
+Before connecting to the VM, verify the LOCAL repo isn't in a drifted state. Run:
+
+```bash
+scripts/check-vm-branch.sh
+```
+
+If this exits non-zero, abort `/vm-dev` and surface the script's output to the user verbatim. The dev server reads the same branch state from the VM, so drift here usually means you'll be testing stale code (the #423 class of incident).
+
 ## Step 1: Kill stale local tunnels
 
 Kill any existing local SSH tunnels holding port 3000:
