@@ -9,6 +9,10 @@ vi.mock("@/lib/prisma", () => ({
     playbookSource: {
       findFirst: vi.fn(),
     },
+    learningObjective: {
+      // #317 exclusion query — default to empty (no system-only LOs filtered).
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -65,6 +69,7 @@ describe("resolveModuleGroupsForSource", () => {
             { id: "part2", label: "Part 2: Cue Card", outcomesPrimary: ["OUT-08", "OUT-10"] },
           ],
         },
+        curricula: [{ id: "curr-1" }],
       },
     } as never);
 
@@ -87,6 +92,7 @@ describe("resolveModuleGroupsForSource", () => {
             { id: "part1", label: "Part 1", outcomesPrimary: ["OUT-01"] },
           ],
         },
+        curricula: [{ id: "curr-1" }],
       },
     } as never);
 
@@ -103,7 +109,7 @@ describe("resolveModuleGroupsForSource", () => {
 
   it("returns null when playbook config has no modules array", async () => {
     vi.mocked(prisma.playbookSource.findFirst).mockResolvedValue({
-      playbook: { config: { modules: [] } },
+      playbook: { config: { modules: [] }, curricula: [{ id: "curr-1" }] },
     } as never);
 
     expect(await resolveModuleGroupsForSource("src-1")).toBeNull();
@@ -117,6 +123,7 @@ describe("resolveModuleGroupsForSource", () => {
             { id: "baseline", label: "Baseline", outcomesPrimary: [] },
           ],
         },
+        curricula: [{ id: "curr-1" }],
       },
     } as never);
 
@@ -131,6 +138,7 @@ describe("resolveModuleGroupsForSource", () => {
             { id: "part1", label: "Part 1", outcomesPrimary: ["OUT-01", null, undefined, ""] as unknown as string[] },
           ],
         },
+        curricula: [{ id: "curr-1" }],
       },
     } as never);
 
