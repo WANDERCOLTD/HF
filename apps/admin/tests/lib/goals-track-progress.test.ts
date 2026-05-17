@@ -566,6 +566,31 @@ describe("lib/goals/track-progress.ts", () => {
       });
     });
 
+    it("ref-linked goal with no accumulated mastery returns no update (no fall-through to engagement)", async () => {
+      // The exact bug #414 was meant to fix: previously, ref-linked goals
+      // with no mastery yet fell through to the session-embedded heuristic
+      // (COMP_/DISC_/COACH_ score average) which assigned every goal the
+      // same uniform value. Ref-linked goals must NEVER fall through.
+      mockPrisma.goal.findMany.mockResolvedValue([refGoal({ ref: "OUT-99" })]);
+
+      // No LO with this ref → derivation returns null
+      mockPrisma.learningObjective.findMany.mockResolvedValue([]);
+
+      // If the engagement path leaked in it would average these scores
+      mockPrisma.call.findUnique.mockResolvedValue({
+        transcript: "A".repeat(1200),
+      });
+      mockPrisma.callScore.findMany.mockResolvedValue([
+        { score: 0.7, parameter: { parameterId: "COMP_RECALL" } },
+        { score: 0.8, parameter: { parameterId: "DISC_ARGUMENT" } },
+      ]);
+
+      const result = await trackGoalProgress("caller-1", "call-1");
+
+      expect(result.updated).toBe(0);
+      expect(mockPrisma.goal.update).not.toHaveBeenCalled();
+    });
+
     it("does not double-apply: if derived progress equals current, no update", async () => {
       mockPrisma.goal.findMany.mockResolvedValue([
         refGoal({ progress: 0.7, ref: "OUT-01" }),

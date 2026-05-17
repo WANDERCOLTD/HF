@@ -242,27 +242,29 @@ async function calculateLearnProgress(
   callId: string
 ): Promise<GoalProgressUpdate | null> {
   // #414 P5b — per-goal LO derivation. When goal.ref is set (populated by
-  // #413), read the matching LO's mean-mastery across the playbook's
-  // modules. This is the path that gives 14 LEARN goals 14 distinct
-  // progress values instead of the single uniform engagement score.
+  // #413), the goal's progress IS the mastery of its specific LO. Read
+  // `CallerModuleProgress.loScoresJson[ref].mastery` averaged across every
+  // module that contains an LO with that ref.
+  //
+  // CRITICAL: if the goal is ref-linked we never fall through to the
+  // engagement / session-embedded paths, even when no mastery has
+  // accumulated yet. The engagement heuristic would assign every ref-linked
+  // goal the same uniform value (averaged from COMP_/DISC_/COACH_ scores),
+  // exactly the bug this story exists to fix. Absence of mastery means
+  // progress stays at 0 — that is the correct answer.
   if (goal.ref && goal.playbookId) {
     const derived = await deriveLearnGoalProgressFromRef(callerId, {
       ref: goal.ref,
       playbookId: goal.playbookId,
     });
-    if (derived) {
-      if (derived.progress > goal.progress) {
-        return {
-          goalId: goal.id,
-          progressDelta: derived.progress - goal.progress,
-          evidence: `LO ${goal.ref} mastery ${(derived.progress * 100).toFixed(0)}% across ${derived.touchedModules}/${derived.totalModulesWithRef} module(s)`,
-        };
-      }
-      // Goal IS ref-linked — do NOT fall through to engagement heuristic.
-      return null;
+    if (derived && derived.progress > goal.progress) {
+      return {
+        goalId: goal.id,
+        progressDelta: derived.progress - goal.progress,
+        evidence: `LO ${goal.ref} mastery ${(derived.progress * 100).toFixed(0)}% across ${derived.touchedModules}/${derived.totalModulesWithRef} module(s)`,
+      };
     }
-    // No derivation possible (no LO match or no accumulated mastery yet).
-    // Fall through so brand-new goals can still earn engagement progress.
+    return null;
   }
 
   // Phase 2 path: spec-level avg of CallerModuleProgress.mastery.
