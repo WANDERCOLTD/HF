@@ -1,0 +1,53 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "SKILL-AGG-001",
+  "title": "Per-Skill EMA Aggregation",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-05-17",
+  "domain": "skill-assessment",
+  "specType": "SYSTEM",
+  "outputType": "AGGREGATE",
+  "specRole": "SYNTHESISE",
+  "story": {
+    "asA": "personalization system",
+    "iWant": "to accumulate per-call `skill_*` CallScores into a stable running per-skill score on CallerTarget",
+    "soThat": "ACHIEVE goal progress (#417) reads a smoothed, idempotent value instead of the volatile last-call score"
+  },
+  "context": {
+    "applies": "After any MEASURE spec has scored a `skill_*` parameter",
+    "dependsOn": ["SKILL_MEASURE_V1 contract"],
+    "assumptions": [
+      "Wizard-generated MEASURE specs (`skill-measure-<playbook>`) emit CallScore rows with parameterId matching `skill_*`",
+      "CallerTarget.currentScore is the canonical 'where you are' value for the ACHIEVE goal derivation chain",
+      "Idempotency is preserved via CallerTarget.lastScoredAt high-water mark"
+    ]
+  },
+  "parameters": [
+    {
+      "id": "skill_ema_aggregate",
+      "name": "Per-Skill EMA Aggregation",
+      "description": "Folds every new `skill_*` CallScore into the matching CallerTarget.currentScore via time-decay EMA. Half-life and first-call cap come from the SKILL_MEASURE_V1 contract; per-playbook override via `playbook.config.skillScoringEmaHalfLifeDays`.",
+      "section": "aggregation",
+      "config": {
+        "minimumObservations": 1,
+        "aggregationRules": [
+          {
+            "sourceParameter": "skill_*",
+            "sourceParameterPattern": "skill_*",
+            "targetProfileKey": "_caller_target_current_score",
+            "method": "ema_to_caller_target",
+            "emaHalfLifeDays": 14,
+            "minCallsToFull": 4
+          }
+        ]
+      }
+    }
+  ],
+  "triggers": [],
+  "notes": [
+    "This spec has no triggers — `ema_to_caller_target` is purely an aggregation rule. The aggregate-runner picks the spec up by `outputType=AGGREGATE, isActive=true` like any other AGGREGATE spec.",
+    "Writes to CallerTarget rather than LearnerProfile / CallerAttribute because per-skill running scores are consumed by ACHIEVE goal progress (calculateSkillAchieveProgress), which expects a single `currentScore` per parameter.",
+    "Idempotency: each CallerTarget tracks `lastScoredAt` as a high-water mark. Re-running the pipeline with force=true (per #405) does not double-apply scores."
+  ]
+}

@@ -74,34 +74,55 @@ export function emaSkillScore(
 }
 
 /**
- * #417 Phase C — accumulate `skill_*` CallScores into
- * `CallerTarget.currentScore` (EMA-decayed running per-skill score).
+ * #417 Phase C — accumulate CallScores matching a parameter pattern into
+ * `CallerTarget.currentScore` (EMA-decayed running per-parameter score).
+ *
+ * Driven by AGGREGATE-spec rules with `method: "ema_to_caller_target"`
+ * (e.g. system spec `SKILL-AGG-001`). The pattern is matched against
+ * `CallScore.parameterId` via Prisma's `startsWith` if it ends in `*`,
+ * otherwise as an exact match.
  *
  * Idempotency guard: each parameter's CallScores after `lastScoredAt` are
  * applied in chronological order; CallScores already reflected are
  * skipped. Re-running the pipeline with `force=true` (per #405) does not
  * double-apply scores.
  *
- * Half-life is read from the SKILL_MEASURE_V1 contract; falls back to
- * the 14-day default when the contract isn't seeded.
- *
- * Per-playbook override:
- *   `playbook.config.skillScoringEmaHalfLifeDays`
- * (when the caller has a single active enrolment; otherwise contract).
+ * Half-life resolution (highest priority first):
+ *   1. `rule.emaHalfLifeDays` (per-spec override)
+ *   2. `playbook.config.skillScoringEmaHalfLifeDays` (per-playbook override)
+ *   3. SKILL_MEASURE_V1 contract `config.emaHalfLifeDays`
+ *   4. 14-day fallback
  */
-export async function accumulateSkillScores(callerId: string): Promise<{
+export async function accumulateSkillScores(
+  callerId: string,
+  options: {
+    parameterPattern?: string;
+    halfLifeDays?: number;
+    minCallsToFull?: number;
+  } = {},
+): Promise<{
   paramsProcessed: number;
   callerTargetsUpdated: number;
   scoresApplied: number;
 }> {
   const result = { paramsProcessed: 0, callerTargetsUpdated: 0, scoresApplied: 0 };
 
-  // Pull every CallScore on skill_* parameters for this caller, oldest-first.
+  // Resolve the parameterId filter from the (optional) pattern.
+  // "skill_*" → startsWith "skill_"
+  // "skill_fluency_and_coherence_fc" → exact match
+  // default (undefined) → startsWith "skill_"
+  const pattern = options.parameterPattern ?? "skill_*";
+  const isGlob = pattern.endsWith("*");
+  const paramFilter = isGlob
+    ? { startsWith: pattern.slice(0, -1) }
+    : { equals: pattern };
+
+  // Pull every matching CallScore for this caller, oldest-first.
   // Each is an independent observation to fold into the EMA.
   const callScores = await prisma.callScore.findMany({
     where: {
       callerId,
-      parameterId: { startsWith: "skill_" },
+      parameterId: paramFilter,
     },
     select: {
       id: true,
@@ -121,7 +142,7 @@ export async function accumulateSkillScores(callerId: string): Promise<{
     byParam.set(cs.parameterId, arr);
   }
 
-  // Resolve half-life: per-playbook override → contract → fallback
+  // Resolve config: rule-level override → playbook override → contract → fallback.
   let halfLifeDays = SKILL_DEFAULTS.emaHalfLifeDays;
   let minCallsToFull = SKILL_DEFAULTS.minCallsToFull;
   try {
@@ -140,6 +161,9 @@ export async function accumulateSkillScores(callerId: string): Promise<{
   if (typeof pbCfg.skillScoringEmaHalfLifeDays === "number") {
     halfLifeDays = pbCfg.skillScoringEmaHalfLifeDays as number;
   }
+  // Rule-level overrides (highest precedence; spec-driven config).
+  if (typeof options.halfLifeDays === "number") halfLifeDays = options.halfLifeDays;
+  if (typeof options.minCallsToFull === "number") minCallsToFull = options.minCallsToFull;
 
   const now = new Date();
 
@@ -203,9 +227,26 @@ export async function accumulateSkillScores(callerId: string): Promise<{
 }
 
 interface AggregationRule {
+  /**
+   * Source CallScore parameter. Exact parameterId for
+   * threshold_mapping / weighted_average / consensus.
+   * Ignored when method is ema_to_caller_target (use sourceParameterPattern).
+   */
   sourceParameter: string;
+  /**
+   * Target field on LearnerProfile (or other consumer). Required for
+   * threshold_mapping / weighted_average / consensus; ignored for
+   * ema_to_caller_target which writes to `CallerTarget.currentScore`
+   * directly.
+   */
   targetProfileKey: string;
-  method: 'threshold_mapping' | 'weighted_average' | 'consensus';
+  method:
+    | "threshold_mapping"
+    | "weighted_average"
+    | "consensus"
+    // #417: per-skill running score → CallerTarget.currentScore via
+    // time-decay EMA. Source params identified by glob/prefix match.
+    | "ema_to_caller_target";
   thresholds?: Array<{
     min?: number;
     max?: number;
@@ -214,6 +255,22 @@ interface AggregationRule {
   }>;
   windowSize?: number;
   recencyWeight?: number;
+  /**
+   * #417 — for `ema_to_caller_target`: glob (`skill_*`) or exact-prefix
+   * pattern matched against `CallScore.parameterId`. The rule fires on
+   * every matching parameter independently.
+   */
+  sourceParameterPattern?: string;
+  /**
+   * #417 — EMA half-life. Falls back to the SKILL_MEASURE_V1 contract
+   * `config.emaHalfLifeDays`, then to the 14-day hardcoded default.
+   */
+  emaHalfLifeDays?: number;
+  /**
+   * #417 — first-call cap factor. `min(rawScore, callsUsed / N)`.
+   * Falls back to the contract, then to 4.
+   */
+  minCallsToFull?: number;
 }
 
 interface AggregateConfig {
@@ -252,25 +309,6 @@ export async function runAggregateSpecs(callerId: string): Promise<{
   });
 
   console.log(`[aggregate-runner] Found ${aggregateSpecs.length} AGGREGATE specs`);
-
-  // #417 Phase C — per-skill EMA accumulation. Runs alongside AGGREGATE
-  // specs because it folds MEASURE-stage CallScores into a derived
-  // running value, same conceptual stage. Logged separately so reviewers
-  // can see the cross-stage CallerTarget writes documented in
-  // `docs/PIPELINE.md §4.2`.
-  try {
-    const skillResult = await accumulateSkillScores(callerId);
-    if (skillResult.scoresApplied > 0) {
-      console.log(
-        `[aggregate-runner] skill EMA: ${skillResult.scoresApplied} score(s) across ` +
-          `${skillResult.paramsProcessed} param(s); ${skillResult.callerTargetsUpdated} CallerTarget(s) updated`,
-      );
-    }
-  } catch (err: any) {
-    const msg = `Skill EMA failed: ${err?.message ?? String(err)}`;
-    console.error(`[aggregate-runner] ${msg}`);
-    results.errors.push(msg);
-  }
 
   for (const spec of aggregateSpecs) {
     try {
@@ -322,12 +360,32 @@ async function runAggregation(
 
   console.log(`[aggregate-runner] Processing ${aggregationRules.length} rules for ${specSlug}`);
 
+  // #417 — Separate out `ema_to_caller_target` rules. They write directly
+  // to `CallerTarget.currentScore`, bypassing the LearnerProfile /
+  // CallerAttribute aggregation surface (a different target store).
+  // Driven by SYSTEM-scope spec SKILL-AGG-001.
+  const emaRules = aggregationRules.filter((r) => r.method === "ema_to_caller_target");
+  const otherRules = aggregationRules.filter((r) => r.method !== "ema_to_caller_target");
+  for (const rule of emaRules) {
+    const emaResult = await accumulateSkillScores(callerId, {
+      parameterPattern: rule.sourceParameterPattern ?? rule.sourceParameter,
+      halfLifeDays: rule.emaHalfLifeDays,
+      minCallsToFull: rule.minCallsToFull,
+    });
+    if (emaResult.scoresApplied > 0) {
+      console.log(
+        `[aggregate-runner] ${specSlug} EMA: ${emaResult.scoresApplied} score(s) across ` +
+          `${emaResult.paramsProcessed} param(s); ${emaResult.callerTargetsUpdated} CallerTarget(s) updated`,
+      );
+    }
+  }
+
   // Collect all profile updates
   const profileUpdates: Record<string, any> = {};
   let overallConfidence = 0;
   let ruleCount = 0;
 
-  for (const rule of aggregationRules) {
+  for (const rule of otherRules) {
     try {
       const result = await applyAggregationRule(
         callerId,

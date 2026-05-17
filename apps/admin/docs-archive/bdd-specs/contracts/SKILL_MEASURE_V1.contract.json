@@ -1,0 +1,36 @@
+{
+  "contractId": "SKILL_MEASURE_V1",
+  "version": "1.0",
+  "status": "active",
+  "description": "Contract for per-skill EMA scoring + ACHIEVE goal banding (#417). Defines the running-score thresholds, tier→band mapping, EMA half-life, and first-call cap used to translate CallerTarget.currentScore into a tier label and an IELTS-style band number for ACHIEVE goal progress + tutor feedback.",
+
+  "appliesTo": {
+    "specRoles": ["MEASURE", "CONTENT"],
+    "domains": ["skill-assessment"]
+  },
+
+  "thresholds": {
+    "approachingEmerging": 0.3,
+    "emerging": 0.55,
+    "developing": 0.7,
+    "secure": 1.0
+  },
+
+  "tierBands": {
+    "approachingEmerging": 3,
+    "emerging": 4,
+    "developing": 5.5,
+    "secure": 7
+  },
+
+  "config": {
+    "emaHalfLifeDays": 14,
+    "minCallsToFull": 4,
+    "notes": [
+      "EMA half-life governs how quickly the per-skill running score adapts to new evidence. 14 days suits IELTS-style learning where improvement is gradual; coaching domains may want shorter half-lives via playbook.config.skillScoringEmaHalfLifeDays.",
+      "minCallsToFull caps the per-call contribution so a single 1.0 doesn't promote a learner to Secure on call #1. Same pattern as MASTERY_MIN_CALLS_TO_FULL in lib/curriculum/track-progress.ts.",
+      "Tier thresholds map onto IELTS Speaking band descriptors: Approaching Emerging ≈ Band 3, Emerging ≈ Band 4, Developing ≈ Band 5-6, Secure ≈ Band 7+. Playbook authors may override via playbook.config.skillTierMapping (not yet implemented).",
+      "The mandated tutor feedback format from the IELTS rubric ('Your [criterion] is around Band [X] because [evidence]') consumes this contract via scoreToTier()."
+    ]
+  }
+}

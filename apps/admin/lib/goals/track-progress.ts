@@ -10,11 +10,134 @@ import { GoalType, GoalStatus } from "@prisma/client";
 import { PARAMS } from "@/lib/registry";
 import type { SpecConfig } from "@/lib/types/json-fields";
 import { computeExamReadiness } from "@/lib/curriculum/exam-readiness";
+import { ContractRegistry } from "@/lib/contracts/registry";
 
 export interface GoalProgressUpdate {
   goalId: string;
   progressDelta: number; // Amount to increment progress (0-1)
   evidence?: string;
+}
+
+// ── #417 Phase D — banding helper + ACHIEVE skill progress ────────────────
+
+/** Default banding when SKILL_MEASURE_V1 contract isn't seeded yet. */
+const SKILL_TIER_DEFAULTS = {
+  thresholds: {
+    approachingEmerging: 0.3,
+    emerging: 0.55,
+    developing: 0.7,
+    secure: 1.0,
+  },
+  tierBands: {
+    approachingEmerging: 3,
+    emerging: 4,
+    developing: 5.5,
+    secure: 7,
+  },
+};
+
+export interface SkillTierMapping {
+  thresholds: {
+    approachingEmerging: number;
+    emerging: number;
+    developing: number;
+    secure: number;
+  };
+  tierBands: {
+    approachingEmerging: number;
+    emerging: number;
+    developing: number;
+    secure: number;
+  };
+}
+
+/**
+ * Pure-function tier classifier — exported for unit tests. Maps a 0-1
+ * running skill score to a named tier and an IELTS-style band number.
+ * Thresholds are inclusive at the upper end of each tier; see contract
+ * notes for the IELTS band correspondence.
+ */
+export function scoreToTier(
+  score: number,
+  mapping: SkillTierMapping = SKILL_TIER_DEFAULTS,
+): { tier: string; band: number } {
+  const s = Math.max(0, Math.min(1, score));
+  const t = mapping.thresholds;
+  if (s < t.approachingEmerging)
+    return { tier: "Approaching Emerging", band: mapping.tierBands.approachingEmerging };
+  if (s < t.emerging) return { tier: "Emerging", band: mapping.tierBands.emerging };
+  if (s < t.developing)
+    return { tier: "Developing", band: mapping.tierBands.developing };
+  return { tier: "Secure", band: mapping.tierBands.secure };
+}
+
+async function getSkillTierMapping(): Promise<SkillTierMapping> {
+  try {
+    const contract = await ContractRegistry.get("SKILL_MEASURE_V1");
+    const thresholds = (contract?.thresholds ?? null) as SkillTierMapping["thresholds"] | null;
+    const tierBands = ((contract as any)?.tierBands ?? null) as SkillTierMapping["tierBands"] | null;
+    if (thresholds && tierBands) return { thresholds, tierBands };
+  } catch {
+    // Contract not seeded yet — fall through to defaults.
+  }
+  return SKILL_TIER_DEFAULTS;
+}
+
+/**
+ * #417 Phase D — derive an ACHIEVE goal's progress from the running
+ * per-skill score in `CallerTarget.currentScore`.
+ *
+ * Chain:
+ *   `Goal.ref` ("SKILL-NN") + `Goal.playbookId`
+ *     → BehaviorTarget(skillRef, playbookId, effectiveUntil=null).parameterId
+ *     → CallerTarget(callerId, parameterId).currentScore + targetValue
+ *     → progress = min(1.0, currentScore / targetValue)
+ *
+ * Returns null when:
+ *   - no BehaviorTarget exists for the ref + playbook (skill not part of
+ *     this playbook's framework), or
+ *   - no CallerTarget exists yet (caller hasn't been scored on this skill),
+ *     or
+ *   - derived progress is not strictly greater than the goal's current
+ *     progress (no update needed; never goes backwards).
+ *
+ * Pure-function consumers should call `scoreToTier()` directly with the
+ * underlying score; the evidence string here is a convenience for
+ * `trackGoalProgress` callers.
+ */
+export async function calculateSkillAchieveProgress(
+  goal: { id: string; ref: string | null; playbookId: string | null; progress: number },
+  callerId: string,
+): Promise<GoalProgressUpdate | null> {
+  if (!goal.ref || !goal.playbookId) return null;
+
+  const bt = await prisma.behaviorTarget.findFirst({
+    where: {
+      skillRef: goal.ref,
+      playbookId: goal.playbookId,
+      effectiveUntil: null,
+    },
+    select: { parameterId: true, targetValue: true },
+  });
+  if (!bt) return null;
+
+  const ct = await prisma.callerTarget.findUnique({
+    where: { callerId_parameterId: { callerId, parameterId: bt.parameterId } },
+    select: { currentScore: true, callsUsed: true },
+  });
+  if (!ct || ct.currentScore === null || !ct.callsUsed) return null;
+
+  const targetValue = bt.targetValue || 1.0;
+  const progress = Math.min(1.0, ct.currentScore / targetValue);
+  if (progress <= goal.progress) return null;
+
+  const mapping = await getSkillTierMapping();
+  const { tier, band } = scoreToTier(ct.currentScore, mapping);
+  return {
+    goalId: goal.id,
+    progressDelta: progress - goal.progress,
+    evidence: `Skill score ${ct.currentScore.toFixed(2)} / target ${targetValue.toFixed(2)} — currently at ${tier} (band ~${band}), ${ct.callsUsed} call(s) weighted`,
+  };
 }
 
 /**
@@ -75,14 +198,31 @@ export async function trackGoalProgress(
 }
 
 /**
- * Calculate progress update for a specific goal based on call outcomes
+ * Calculate progress update for a specific goal based on call outcomes.
+ *
+ * Routing precedence (most specific first):
+ *   1. SKILL-based ACHIEVE → per-skill mastery (#417 P5b-ACHIEVE)
+ *      Answers "where are you on this criterion".
+ *   2. Assessment target with contentSpec → exam readiness (existing)
+ *      Answers "ready for the exam" — different question, different path.
+ *   3. Type-based dispatch (LEARN / CONNECT / engagement fallback)
+ *
+ * Skill-ACHIEVE is the FIRST branch because a goal with both
+ * `ref="SKILL-NN"` AND `isAssessmentTarget=true` is asking "how good is
+ * my Fluency & Coherence" — not "am I ready to take the exam".
  */
 async function calculateProgressUpdate(
   goal: any,
   callerId: string,
   callId: string
 ): Promise<GoalProgressUpdate | null> {
-  // Assessment targets with a contentSpec use exam readiness scoring
+  // 1. #417 — Skill-based ACHIEVE goals: per-skill mastery against the
+  //    learner's running CallerTarget.currentScore.
+  if (goal.type === "ACHIEVE" && typeof goal.ref === "string" && goal.ref.startsWith("SKILL-")) {
+    return await calculateSkillAchieveProgress(goal, callerId);
+  }
+
+  // 2. Assessment targets with a contentSpec use exam readiness scoring
   if (goal.isAssessmentTarget && goal.contentSpec) {
     return await calculateAssessmentProgress(goal, callerId);
   }
