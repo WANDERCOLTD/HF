@@ -163,7 +163,25 @@ function buildMockPrisma() {
       delete: vi.fn().mockResolvedValue({}),
     },
     playbook: {
-      findUnique: vi.fn().mockResolvedValue({ config: {} }),
+      // #417 — applyProjection now reads `domainId` from the playbook to
+      // scope the auto-generated MEASURE spec.
+      findUnique: vi.fn().mockResolvedValue({ config: {}, domainId: "dom-test" }),
+      update: vi.fn().mockResolvedValue({}),
+    },
+    // #417 — upsertMeasureSpec needs these tables.
+    domain: {
+      findUnique: vi.fn().mockResolvedValue({ slug: "test-domain" }),
+    },
+    analysisSpec: {
+      upsert: vi.fn().mockResolvedValue({ id: "skill-measure-spec-id" }),
+    },
+    analysisTrigger: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      create: vi.fn().mockResolvedValue({}),
+    },
+    playbookItem: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({}),
       update: vi.fn().mockResolvedValue({}),
     },
     $transaction: vi.fn(),
@@ -249,6 +267,9 @@ describe("applyProjection — orchestrator smoke", () => {
         id: `bt-${t.parameterName}`,
         parameterId: t.parameterName,
         targetValue: t.targetValue,
+        // #417 — diff includes skillRef. Pre-seeded rows must match the
+        // projection or the diff will mistake the seed for stale data.
+        skillRef: t.skillRef,
       })),
     );
     mockTx.curriculumModule.findMany.mockResolvedValue(
@@ -288,6 +309,8 @@ describe("applyProjection — orchestrator smoke", () => {
           ref: g.ref,
         })),
       },
+      // #417 — upsertMeasureSpec needs domainId for the spec's `domain` field.
+      domainId: "dom-test",
     });
 
     const { applyProjection } = await import("../apply-projection");

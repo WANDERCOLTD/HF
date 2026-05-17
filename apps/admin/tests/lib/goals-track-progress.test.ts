@@ -70,6 +70,14 @@ const mockPrisma = {
   learningObjective: {
     findMany: vi.fn(),
   },
+  // #417 P5b-ACHIEVE: skill-based progress via BehaviorTarget → CallerTarget
+  behaviorTarget: {
+    findFirst: vi.fn(),
+  },
+  callerTarget: {
+    findUnique: vi.fn(),
+    upsert: vi.fn(),
+  },
 };
 
 vi.mock("@/lib/prisma", () => ({
@@ -89,6 +97,14 @@ vi.mock("@/lib/registry", () => ({
 const mockComputeExamReadiness = vi.fn();
 vi.mock("@/lib/curriculum/exam-readiness", () => ({
   computeExamReadiness: (...args: any[]) => mockComputeExamReadiness(...args),
+}));
+
+// #417 — ContractRegistry stub. Returns null so getSkillTierMapping falls
+// back to the SKILL_TIER_DEFAULTS in track-progress.
+vi.mock("@/lib/contracts/registry", () => ({
+  ContractRegistry: {
+    get: vi.fn().mockResolvedValue(null),
+  },
 }));
 
 // =====================================================
@@ -609,6 +625,154 @@ describe("lib/goals/track-progress.ts", () => {
 
       expect(result.updated).toBe(0);
       expect(mockPrisma.goal.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------
+  // #417 P5b-ACHIEVE: skill-based ACHIEVE progress
+  // -------------------------------------------------
+
+  describe("ACHIEVE goals — #417 skill-based progress", () => {
+    function skillGoal(over: Partial<{
+      id: string;
+      ref: string;
+      progress: number;
+    }> = {}) {
+      return {
+        id: over.id ?? "skill-goal",
+        type: "ACHIEVE",
+        progress: over.progress ?? 0,
+        contentSpec: null,
+        contentSpecId: null,
+        callerId: "caller-1",
+        isAssessmentTarget: true,
+        assessmentConfig: null,
+        playbookId: "pb-1",
+        ref: over.ref ?? "SKILL-01",
+      };
+    }
+
+    it("derives progress from CallerTarget.currentScore / BehaviorTarget.targetValue", async () => {
+      mockPrisma.goal.findMany.mockResolvedValue([skillGoal()]);
+      mockPrisma.behaviorTarget.findFirst.mockResolvedValue({
+        parameterId: "skill_fluency_and_coherence_fc",
+        targetValue: 1.0,
+      });
+      mockPrisma.callerTarget.findUnique.mockResolvedValue({
+        currentScore: 0.62,
+        callsUsed: 3,
+      });
+
+      await trackGoalProgress("caller-1", "call-1");
+
+      expect(mockPrisma.goal.update).toHaveBeenCalledTimes(1);
+      const call = mockPrisma.goal.update.mock.calls[0][0];
+      expect(call.where.id).toBe("skill-goal");
+      expect(call.data.progress).toBeCloseTo(0.62, 5);
+    });
+
+    it("evidence string cites tier + band number", async () => {
+      mockPrisma.goal.findMany.mockResolvedValue([skillGoal()]);
+      mockPrisma.behaviorTarget.findFirst.mockResolvedValue({
+        parameterId: "skill_xyz",
+        targetValue: 1.0,
+      });
+      mockPrisma.callerTarget.findUnique.mockResolvedValue({
+        currentScore: 0.62,
+        callsUsed: 4,
+      });
+
+      const before = await import("@/lib/goals/track-progress");
+      const result = await before.calculateSkillAchieveProgress(
+        { id: "g-x", ref: "SKILL-01", playbookId: "pb-1", progress: 0 },
+        "caller-1",
+      );
+      expect(result).not.toBeNull();
+      // 0.62 falls in [0.55, 0.70) → "Developing" / band 5.5
+      expect(result!.evidence).toContain("Developing");
+      expect(result!.evidence).toContain("5.5");
+      expect(result!.evidence).toContain("0.62");
+    });
+
+    it("returns null when no BehaviorTarget matches the skillRef", async () => {
+      mockPrisma.goal.findMany.mockResolvedValue([skillGoal({ ref: "SKILL-99" })]);
+      mockPrisma.behaviorTarget.findFirst.mockResolvedValue(null);
+      mockPrisma.callerTarget.findUnique.mockResolvedValue(null);
+
+      const result = await trackGoalProgress("caller-1", "call-1");
+
+      expect(result.updated).toBe(0);
+      expect(mockPrisma.goal.update).not.toHaveBeenCalled();
+    });
+
+    it("returns null when CallerTarget has no currentScore yet", async () => {
+      mockPrisma.goal.findMany.mockResolvedValue([skillGoal()]);
+      mockPrisma.behaviorTarget.findFirst.mockResolvedValue({
+        parameterId: "skill_x",
+        targetValue: 1.0,
+      });
+      mockPrisma.callerTarget.findUnique.mockResolvedValue({
+        currentScore: null,
+        callsUsed: 0,
+      });
+
+      const result = await trackGoalProgress("caller-1", "call-1");
+      expect(result.updated).toBe(0);
+      expect(mockPrisma.goal.update).not.toHaveBeenCalled();
+    });
+
+    it("does NOT fall through to exam-readiness when isAssessmentTarget+contentSpec are both set", async () => {
+      // The whole point of the routing precedence: a SKILL-NN goal with
+      // contentSpec set still routes to skill mastery, not exam readiness.
+      const dualLinkedGoal = {
+        ...skillGoal(),
+        contentSpec: { id: "cs-1", slug: "ielts" },
+        contentSpecId: "cs-1",
+      };
+      mockPrisma.goal.findMany.mockResolvedValue([dualLinkedGoal]);
+      mockPrisma.behaviorTarget.findFirst.mockResolvedValue({
+        parameterId: "skill_x",
+        targetValue: 1.0,
+      });
+      mockPrisma.callerTarget.findUnique.mockResolvedValue({
+        currentScore: 0.4,
+        callsUsed: 2,
+      });
+
+      await trackGoalProgress("caller-1", "call-1");
+
+      // Skill path won — exam-readiness was never called
+      expect(mockComputeExamReadiness).not.toHaveBeenCalled();
+      expect(mockPrisma.goal.update).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.goal.update.mock.calls[0][0].data.progress).toBeCloseTo(0.4, 5);
+    });
+  });
+
+  describe("scoreToTier pure function (#417)", () => {
+    it("maps 0.0 → Approaching Emerging (band 3)", async () => {
+      const { scoreToTier } = await import("@/lib/goals/track-progress");
+      expect(scoreToTier(0.0)).toEqual({ tier: "Approaching Emerging", band: 3 });
+      expect(scoreToTier(0.29)).toEqual({ tier: "Approaching Emerging", band: 3 });
+    });
+    it("maps Emerging band (0.3-0.55)", async () => {
+      const { scoreToTier } = await import("@/lib/goals/track-progress");
+      expect(scoreToTier(0.3)).toEqual({ tier: "Emerging", band: 4 });
+      expect(scoreToTier(0.54)).toEqual({ tier: "Emerging", band: 4 });
+    });
+    it("maps Developing band (0.55-0.70)", async () => {
+      const { scoreToTier } = await import("@/lib/goals/track-progress");
+      expect(scoreToTier(0.55)).toEqual({ tier: "Developing", band: 5.5 });
+      expect(scoreToTier(0.69)).toEqual({ tier: "Developing", band: 5.5 });
+    });
+    it("maps Secure band (≥0.70)", async () => {
+      const { scoreToTier } = await import("@/lib/goals/track-progress");
+      expect(scoreToTier(0.7)).toEqual({ tier: "Secure", band: 7 });
+      expect(scoreToTier(1.0)).toEqual({ tier: "Secure", band: 7 });
+    });
+    it("clamps out-of-range input", async () => {
+      const { scoreToTier } = await import("@/lib/goals/track-progress");
+      expect(scoreToTier(-0.1)).toEqual({ tier: "Approaching Emerging", band: 3 });
+      expect(scoreToTier(1.5)).toEqual({ tier: "Secure", band: 7 });
     });
   });
 

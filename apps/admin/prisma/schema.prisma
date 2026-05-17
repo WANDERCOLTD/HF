@@ -535,6 +535,14 @@ model BehaviorTarget {
   // Target value (0.0 - 1.0 for most behavioral parameters)
   targetValue Float
 
+  // #417 — Skill provenance: stable ref from the source Course Reference
+  // doc ("SKILL-01", "SKILL-02"). Anchors the resolution chain
+  // `Goal.ref → BehaviorTarget.skillRef → parameterId → CallerTarget.currentScore`.
+  // Populated by `apply-projection.ts` when the BehaviorTarget originates
+  // from a Skills Framework section of a COURSE_REFERENCE doc. NULL for
+  // hand-authored / non-skill targets.
+  skillRef String?
+
   // Confidence in this target (higher = more certain, affects learning rate)
   confidence Float @default(0.5)
 
@@ -568,6 +576,7 @@ model BehaviorTarget {
   @@index([effectiveFrom])
   @@index([effectiveUntil])
   @@index([sourceContentId])
+  @@index([skillRef])
 }
 
 // =========================
@@ -1094,6 +1103,18 @@ model CallerTarget {
 
   // Target value for this behavior parameter (0.0 - 1.0)
   targetValue Float
+
+  // #417 — EMA-decayed running score the caller has DEMONSTRATED on this
+  // parameter. Separate from `targetValue` (where they should be) — this is
+  // where they are. Written by `aggregate-runner.ts` after each call's
+  // MEASURE pass for `skill_*` parameters. ACHIEVE goal progress is
+  // derived as `currentScore / targetValue`.
+  currentScore Float?
+
+  // Timestamp of the most recent CallScore reflected in currentScore. Used
+  // as a high-water mark to guard against double-application on force=true
+  // pipeline re-runs (#405 precedent).
+  lastScoredAt DateTime?
 
   // How many calls were used to compute this target
   callsUsed Int @default(0)
