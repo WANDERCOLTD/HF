@@ -13,12 +13,18 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock prisma
+// Mock prisma. `curriculum.findFirst` is the entry point for the
+// CallerModuleProgress dual-write in updateCurriculumProgress (#409). Returning
+// null here keeps the dual-write off — these tests assert the CallerAttribute
+// surface only.
 const mockPrisma = {
   callerAttribute: {
     upsert: vi.fn(),
     findMany: vi.fn(),
     deleteMany: vi.fn(),
+  },
+  curriculum: {
+    findFirst: vi.fn().mockResolvedValue(null),
   },
 };
 
@@ -89,6 +95,9 @@ describe('track-progress.ts', () => {
     mockPrisma.callerAttribute.upsert.mockResolvedValue({});
     mockPrisma.callerAttribute.findMany.mockResolvedValue([]);
     mockPrisma.callerAttribute.deleteMany.mockResolvedValue({ count: 0 });
+    // #409: CallerModuleProgress dual-write reads curriculum by specSlug.
+    // Return null so the dual-write branch is a no-op for these tests.
+    mockPrisma.curriculum.findFirst.mockResolvedValue(null);
 
     const mod = await import('@/lib/curriculum/track-progress');
     updateCurriculumProgress = mod.updateCurriculumProgress;
