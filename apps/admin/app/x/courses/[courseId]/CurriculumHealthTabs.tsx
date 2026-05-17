@@ -92,6 +92,15 @@ interface Props {
    * re-fetch the scorecard so coverage dots update.
    */
   onScorecardRefresh?: () => void;
+  /**
+   * Issue #418 — when true, suppress the silent auto-reconcile useEffects
+   * (orphans + MCQs). The parent uses this for preview-mode rendering on
+   * authored-modules courses so that opening the Curriculum tab can't
+   * mutate a curriculum that isn't the active source of truth. Manual
+   * reconcile handlers still work — only the on-mount background fires
+   * are gated.
+   */
+  readOnly?: boolean;
 }
 
 // ── Regenerate Dropdown ─────────────────────────────────
@@ -246,6 +255,7 @@ export function CurriculumHealthTabs({
   onRegenerate,
   regenerating,
   onScorecardRefresh,
+  readOnly = false,
 }: Props) {
   const defaultTab = pickDefaultTab(scorecard);
   const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
@@ -261,6 +271,9 @@ export function CurriculumHealthTabs({
   // already reconciled this curriculum within the 5-minute client window.
   // Fires once per curriculumId per 5 minutes via localStorage.
   useEffect(() => {
+    // #418 — skip in read-only/preview mode so peeking at derived-mode on
+    // an authored-modules course never mutates the curriculum.
+    if (readOnly) return;
     if (!curriculumId || scorecard.structure.outcomesWithoutContent === 0) return;
     const key = `reconcile:${curriculumId}:lastRunAt`;
     const lastRun = Number(localStorage.getItem(key) || "0");
@@ -276,11 +289,13 @@ export function CurriculumHealthTabs({
         }
       })
       .catch(() => {});
-  }, [curriculumId, scorecard.structure.outcomesWithoutContent, onScorecardRefresh]);
+  }, [curriculumId, scorecard.structure.outcomesWithoutContent, onScorecardRefresh, readOnly]);
 
   // #163 Phase 2 — silent background MCQ reconcile. Fires on mount when the
   // course has orphan MCQs and the 5-min client cooldown has expired.
   useEffect(() => {
+    // #418 — same read-only gate as the orphan reconcile above.
+    if (readOnly) return;
     if (!courseId || mcqOrphans === 0) return;
     const key = `reconcile-mcqs:${courseId}:lastRunAt`;
     const lastRun = Number(localStorage.getItem(key) || "0");
@@ -294,7 +309,7 @@ export function CurriculumHealthTabs({
         }
       })
       .catch(() => {});
-  }, [courseId, mcqOrphans, onScorecardRefresh]);
+  }, [courseId, mcqOrphans, onScorecardRefresh, readOnly]);
 
   const handleReconcileMcqs = async () => {
     if (reconcilingMcqs) return;

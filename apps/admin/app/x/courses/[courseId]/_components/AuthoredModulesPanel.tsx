@@ -75,14 +75,6 @@ interface AuthoredModulesState {
 interface AuthoredModulesPanelProps {
   courseId: string;
   isOperator: boolean;
-  /**
-   * Fires whenever the panel learns the value of `modulesAuthored` from the
-   * server (after fetch / re-import). Used by the parent CurriculumTab to
-   * hide the derived/regen view when authored modules are in play. `null` =
-   * never imported, `false` = explicitly opted out, `true` = authored modules
-   * are the source of truth for this course.
-   */
-  onModulesAuthoredChange?: (value: boolean | null) => void;
 }
 
 const EMPTY_STATE: AuthoredModulesState = {
@@ -102,7 +94,6 @@ const EMPTY_STATE: AuthoredModulesState = {
 export function AuthoredModulesPanel({
   courseId,
   isOperator,
-  onModulesAuthoredChange,
 }: AuthoredModulesPanelProps) {
   const [state, setState] = useState<AuthoredModulesState>(EMPTY_STATE);
   const [loading, setLoading] = useState(true);
@@ -132,13 +123,12 @@ export function AuthoredModulesPanel({
         loAudienceByRef: (data as unknown as { loAudienceByRef?: Record<string, LoAudienceInfo> })
           .loAudienceByRef ?? {},
       });
-      onModulesAuthoredChange?.(data.modulesAuthored);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setLoading(false);
     }
-  }, [courseId, onModulesAuthoredChange]);
+  }, [courseId]);
 
   useEffect(() => {
     load();

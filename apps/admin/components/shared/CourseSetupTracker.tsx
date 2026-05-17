@@ -68,6 +68,7 @@ export function CourseSetupTracker({
           onboardingConfigured: data.onboardingConfigured,
           promptComposable: data.promptComposable,
           allCriticalPass: data.allCriticalPass,
+          activeCurriculumMode: data.activeCurriculumMode,
         });
       }
     } catch (err) {

@@ -9,6 +9,89 @@
   gap: 16px;
 }
 
+/* ═══════════════════════════════════════════════════════
+   #418 — Curriculum mode toolbar (segmented toggle + preview)
+   ═══════════════════════════════════════════════════════ */
+
+.curriculum-mode-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.curriculum-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 2px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  align-self: flex-start;
+}
+
+.curriculum-mode-toggle__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.curriculum-mode-toggle__btn:hover {
+  color: var(--text-primary);
+}
+
+.curriculum-mode-toggle__btn--selected {
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.curriculum-mode-toggle__label {
+  letter-spacing: 0.02em;
+}
+
+.curriculum-mode-toggle__tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--status-success-text) 14%, transparent);
+  color: var(--status-success-text);
+}
+
+.curriculum-mode-preview-banner {
+  font-size: 12px;
+}
+
+.curriculum-mode-mcq-section {
+  margin-top: 16px;
+}
+
+.curriculum-mode-mcq-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.curriculum-mode-mcq-title {
+  margin: 0;
+}
+
 .curriculum-scorecard {
   display: flex;
   flex-direction: column;

@@ -5593,7 +5593,7 @@ Returns aggregated setup status for stages 4-6 of the Course Setup Tracker.
 
 **Response** `200`
 ```json
-{ ok, lessonPlanBuilt, onboardingConfigured, promptComposable, allCriticalPass, details }
+{ ok, lessonPlanBuilt, onboardingConfigured, promptComposable, allCriticalPass, activeCurriculumMode, details }
 ```
 
 ---

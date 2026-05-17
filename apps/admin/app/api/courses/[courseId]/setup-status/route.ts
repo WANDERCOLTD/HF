@@ -13,7 +13,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
  *   This endpoint checks: lesson plan existence, onboarding config, and prompt composability.
  *
  * @pathParam courseId string - Playbook UUID
- * @response 200 { ok, lessonPlanBuilt, onboardingConfigured, promptComposable, allCriticalPass, details }
+ * @response 200 { ok, lessonPlanBuilt, onboardingConfigured, promptComposable, allCriticalPass, activeCurriculumMode, details }
  */
 export async function GET(
   _req: NextRequest,
@@ -123,12 +123,21 @@ export async function GET(
     // Prompt composition happens on first call — not an educator-facing readiness gate
     const allCriticalPass = lessonPlanBuilt && onboardingConfigured;
 
+    // ── Curriculum mode (issue #418) ────────────────────
+    // Authored = Course Reference module catalogue is the source of truth.
+    // Derived = AI extraction generates modules from uploaded content.
+    // null/false `modulesAuthored` is treated as derived (matches the
+    // existing behaviour in `CourseCurriculumTab` and the wizard default).
+    const activeCurriculumMode: "authored" | "derived" =
+      pbConfig.modulesAuthored === true ? "authored" : "derived";
+
     return NextResponse.json({
       ok: true,
       lessonPlanBuilt,
       onboardingConfigured,
       promptComposable,
       allCriticalPass,
+      activeCurriculumMode,
     });
   } catch (err) {
     console.error("[setup-status] Error:", err);
