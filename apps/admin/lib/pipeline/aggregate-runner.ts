@@ -15,7 +15,192 @@
 
 import { prisma } from "@/lib/prisma";
 import { updateLearnerProfile } from "@/lib/learner/profile";
+import { ContractRegistry } from "@/lib/contracts/registry";
 import type { SpecConfig } from "@/lib/types/json-fields";
+
+// ── #417 Phase C — per-skill EMA accumulation ──────────────────────────────
+
+/**
+ * Default contract values used when SKILL_MEASURE_V1 isn't seeded yet.
+ * Phase D seeds the contract; this fallback keeps Phase C self-contained
+ * for tests.
+ */
+const SKILL_DEFAULTS = {
+  emaHalfLifeDays: 14,
+  minCallsToFull: 4,
+};
+
+/**
+ * #417 Phase 0 cap — mirrors `capMasteryByCallCount` in
+ * `lib/curriculum/track-progress.ts:212`. Prevents a single-call 1.0
+ * score from inflating CallerTarget.currentScore to Secure on call #1.
+ * Pure function — exported for unit tests.
+ */
+export function capSkillScoreByCallCount(
+  rawScore: number,
+  callsUsedAfterThisCall: number,
+  minCallsToFull: number = SKILL_DEFAULTS.minCallsToFull,
+): number {
+  const cap = Math.min(1.0, callsUsedAfterThisCall / minCallsToFull);
+  return Math.min(Math.max(0, rawScore), cap);
+}
+
+/**
+ * #417 EMA blend with time-decay half-life. Pure function.
+ *
+ * α = 1 - exp(-ln(2) · daysSinceLastScore / halfLifeDays)
+ * currentScore = α · newScore + (1 - α) · priorScore
+ *
+ * On first call (priorScore is null / lastScoredAt is null) returns
+ * newScore verbatim — there's nothing to blend with.
+ */
+export function emaSkillScore(
+  newScore: number,
+  priorScore: number | null,
+  lastScoredAt: Date | null,
+  now: Date,
+  halfLifeDays: number = SKILL_DEFAULTS.emaHalfLifeDays,
+): number {
+  if (priorScore === null || lastScoredAt === null) {
+    return Math.max(0, Math.min(1, newScore));
+  }
+  const days = Math.max(
+    0,
+    (now.getTime() - lastScoredAt.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  const alpha = 1 - Math.exp((-Math.LN2 * days) / halfLifeDays);
+  const blended = alpha * newScore + (1 - alpha) * priorScore;
+  return Math.max(0, Math.min(1, blended));
+}
+
+/**
+ * #417 Phase C — accumulate `skill_*` CallScores into
+ * `CallerTarget.currentScore` (EMA-decayed running per-skill score).
+ *
+ * Idempotency guard: each parameter's CallScores after `lastScoredAt` are
+ * applied in chronological order; CallScores already reflected are
+ * skipped. Re-running the pipeline with `force=true` (per #405) does not
+ * double-apply scores.
+ *
+ * Half-life is read from the SKILL_MEASURE_V1 contract; falls back to
+ * the 14-day default when the contract isn't seeded.
+ *
+ * Per-playbook override:
+ *   `playbook.config.skillScoringEmaHalfLifeDays`
+ * (when the caller has a single active enrolment; otherwise contract).
+ */
+export async function accumulateSkillScores(callerId: string): Promise<{
+  paramsProcessed: number;
+  callerTargetsUpdated: number;
+  scoresApplied: number;
+}> {
+  const result = { paramsProcessed: 0, callerTargetsUpdated: 0, scoresApplied: 0 };
+
+  // Pull every CallScore on skill_* parameters for this caller, oldest-first.
+  // Each is an independent observation to fold into the EMA.
+  const callScores = await prisma.callScore.findMany({
+    where: {
+      callerId,
+      parameterId: { startsWith: "skill_" },
+    },
+    select: {
+      id: true,
+      parameterId: true,
+      score: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+  if (callScores.length === 0) return result;
+
+  // Group by parameterId
+  const byParam = new Map<string, typeof callScores>();
+  for (const cs of callScores) {
+    const arr = byParam.get(cs.parameterId) ?? [];
+    arr.push(cs);
+    byParam.set(cs.parameterId, arr);
+  }
+
+  // Resolve half-life: per-playbook override → contract → fallback
+  let halfLifeDays = SKILL_DEFAULTS.emaHalfLifeDays;
+  let minCallsToFull = SKILL_DEFAULTS.minCallsToFull;
+  try {
+    const contract = await ContractRegistry.get("SKILL_MEASURE_V1");
+    const cfg = (contract?.config ?? {}) as Record<string, unknown>;
+    if (typeof cfg.emaHalfLifeDays === "number") halfLifeDays = cfg.emaHalfLifeDays;
+    if (typeof cfg.minCallsToFull === "number") minCallsToFull = cfg.minCallsToFull;
+  } catch {
+    // Contract not seeded yet — defaults are fine.
+  }
+  const playbookOverride = await prisma.callerPlaybook.findFirst({
+    where: { callerId, status: "ACTIVE" },
+    select: { playbook: { select: { config: true } } },
+  });
+  const pbCfg = (playbookOverride?.playbook?.config ?? {}) as Record<string, unknown>;
+  if (typeof pbCfg.skillScoringEmaHalfLifeDays === "number") {
+    halfLifeDays = pbCfg.skillScoringEmaHalfLifeDays as number;
+  }
+
+  const now = new Date();
+
+  for (const [parameterId, scoresForParam] of byParam) {
+    result.paramsProcessed += 1;
+
+    const existing = await prisma.callerTarget.findUnique({
+      where: { callerId_parameterId: { callerId, parameterId } },
+      select: {
+        currentScore: true,
+        lastScoredAt: true,
+        callsUsed: true,
+        targetValue: true,
+      },
+    });
+
+    // Apply CallScores strictly newer than the high-water mark.
+    const watermark = existing?.lastScoredAt ?? null;
+    const fresh = watermark
+      ? scoresForParam.filter((s) => s.createdAt > watermark)
+      : scoresForParam;
+    if (fresh.length === 0) continue;
+
+    let runningScore = existing?.currentScore ?? null;
+    let runningLast = existing?.lastScoredAt ?? null;
+    let callsUsed = existing?.callsUsed ?? 0;
+
+    for (const cs of fresh) {
+      callsUsed += 1;
+      const capped = capSkillScoreByCallCount(cs.score, callsUsed, minCallsToFull);
+      runningScore = emaSkillScore(capped, runningScore, runningLast, cs.createdAt, halfLifeDays);
+      runningLast = cs.createdAt;
+      result.scoresApplied += 1;
+    }
+
+    await prisma.callerTarget.upsert({
+      where: { callerId_parameterId: { callerId, parameterId } },
+      create: {
+        callerId,
+        parameterId,
+        // Default to Secure-target 1.0 — overridden by any later BehaviorTarget
+        // lookup if a different value is wanted.
+        targetValue: 1.0,
+        currentScore: runningScore,
+        lastScoredAt: runningLast,
+        callsUsed,
+      },
+      update: {
+        currentScore: runningScore,
+        lastScoredAt: runningLast,
+        callsUsed,
+      },
+    });
+    result.callerTargetsUpdated += 1;
+  }
+
+  // Update the now-mutable now timestamp (used only to suppress unused-var warning).
+  void now;
+
+  return result;
+}
 
 interface AggregationRule {
   sourceParameter: string;
@@ -67,6 +252,25 @@ export async function runAggregateSpecs(callerId: string): Promise<{
   });
 
   console.log(`[aggregate-runner] Found ${aggregateSpecs.length} AGGREGATE specs`);
+
+  // #417 Phase C — per-skill EMA accumulation. Runs alongside AGGREGATE
+  // specs because it folds MEASURE-stage CallScores into a derived
+  // running value, same conceptual stage. Logged separately so reviewers
+  // can see the cross-stage CallerTarget writes documented in
+  // `docs/PIPELINE.md §4.2`.
+  try {
+    const skillResult = await accumulateSkillScores(callerId);
+    if (skillResult.scoresApplied > 0) {
+      console.log(
+        `[aggregate-runner] skill EMA: ${skillResult.scoresApplied} score(s) across ` +
+          `${skillResult.paramsProcessed} param(s); ${skillResult.callerTargetsUpdated} CallerTarget(s) updated`,
+      );
+    }
+  } catch (err: any) {
+    const msg = `Skill EMA failed: ${err?.message ?? String(err)}`;
+    console.error(`[aggregate-runner] ${msg}`);
+    results.errors.push(msg);
+  }
 
   for (const spec of aggregateSpecs) {
     try {
