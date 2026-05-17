@@ -114,11 +114,13 @@ No runtime error in any of these cases. The only sentry is reviewer discipline.
 ### 4.2 Cross-stage data flow
 
 ```
-EXTRACT      writes: CallScore (MEASURE specs), CallerMemory (LEARN specs)
+EXTRACT      writes: CallScore (MEASURE specs), CallerMemory (LEARN specs),
+                     Call.curriculumModuleId, CallerModuleProgress (post-analysis branch, #409)
 SCORE_AGENT  writes: BehaviorMeasurement (MEASURE_AGENT specs)
 AGGREGATE    reads:  CallScore
              writes: PersonalityObservation, CallerPersonality,
-                     CallerPersonalityProfile, LearnerProfile
+                     CallerPersonalityProfile, LearnerProfile,
+                     CallerTarget.currentScore + lastScoredAt (skill_* params, #417 SKILL-AGG-001)
 REWARD       reads:  BehaviorMeasurement, BehaviorTarget
              writes: RewardScore
 ADAPT        reads:  CallerPersonalityProfile, transcript, Goal
@@ -128,6 +130,22 @@ SUPERVISE    reads:  CallTarget, CallerTarget
 COMPOSE      reads:  CallerMemory, CallerPersonalityProfile, Goal, CallerTarget
              writes: ComposedPrompt
 ```
+
+**#417 cross-stage AGGREGATE write — note for reviewers.** SKILL-AGG-001
+(SYSTEM-scope AGGREGATE spec) uses a new `AggregationRule.method =
+"ema_to_caller_target"` that writes `CallerTarget.currentScore` +
+`lastScoredAt` for any CallScore on a parameter matching the rule's
+`sourceParameterPattern` (defaults to `skill_*`). Idempotency guard:
+each CallScore is applied only when `CallScore.createdAt >
+CallerTarget.lastScoredAt`, defending against #405 force=true re-runs.
+
+**#409 EXTRACT FK writes — must use scoped resolver.** Both
+`Call.curriculumModuleId` and `CallerModuleProgress.moduleId` are
+written from AI-returned slugs (e.g. `learningAssessment.moduleId =
+"part1"`). All writes go through `lib/curriculum/resolve-module.ts::
+resolveModuleByLogicalId(curriculumId, slug)` — the helper throws on
+empty curriculumId. ESLint rule `hf-curriculum/no-unscoped-slug-lookup`
+(error severity) blocks regressions.
 
 Use this as the dependency map when adding a new write. If your new stage produces a row, the next stage that reads it must be downstream in `order`.
 

@@ -548,24 +548,27 @@ program
 
 program
   .command('check')
-  .description('Run all checks (lint + type check + tests)')
+  .description('Run all checks (lint + type check + tests + FK consistency)')
   .action(async () => {
     log('\n🔍 Running All Checks\n', colors.bright);
 
-    info('1/4: Linting...');
+    info('1/5: Linting...');
     exec('npm run lint');
 
-    info('2/4: Type checking...');
+    info('2/5: Type checking...');
     exec('npx tsc --noEmit');
 
-    info('3/4: Unit tests...');
+    info('3/5: Unit tests...');
     exec('npm run test');
 
-    info('4/4: Integration tests...');
+    info('4/5: Integration tests...');
     await runTestsWithServer(
       'npm run test:integration',
       'Running integration tests...'
     );
+
+    info('5/5: FK consistency (slug-scope #407 guard)...');
+    exec('npx tsx scripts/check-fk-consistency.ts');
 
     success('All checks passed!');
   });
