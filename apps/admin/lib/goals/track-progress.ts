@@ -76,7 +76,41 @@ export function scoreToTier(
   return { tier: "Secure", band: mapping.tierBands.secure };
 }
 
-async function getSkillTierMapping(): Promise<SkillTierMapping> {
+/**
+ * Resolve the tier mapping for a SKILL-NN ACHIEVE goal.
+ *
+ * Precedence (highest priority first):
+ *   1. `Playbook.config.skillTierMapping` — per-playbook override added
+ *      in #439 to allow non-IELTS courses (CEFR / 5-Level / Custom) to
+ *      replace the IELTS-shaped band labels.
+ *   2. `SKILL_MEASURE_V1` contract — the seeded default (IELTS-shaped).
+ *   3. `SKILL_TIER_DEFAULTS` — process-level fallback when the contract
+ *      isn't seeded.
+ *
+ * Exported for unit tests; production callers pass `playbookId` from the
+ * goal record.
+ */
+export async function getSkillTierMapping(
+  playbookId?: string | null,
+): Promise<SkillTierMapping> {
+  // 1. Per-playbook override (#439).
+  if (playbookId) {
+    try {
+      const playbook = await prisma.playbook.findUnique({
+        where: { id: playbookId },
+        select: { config: true },
+      });
+      const pbCfg = (playbook?.config ?? {}) as Record<string, unknown>;
+      const mapping = pbCfg.skillTierMapping as SkillTierMapping | undefined;
+      if (mapping?.thresholds && mapping?.tierBands) {
+        return { thresholds: mapping.thresholds, tierBands: mapping.tierBands };
+      }
+    } catch {
+      // Fall through to contract.
+    }
+  }
+
+  // 2. Contract.
   try {
     const contract = await ContractRegistry.get("SKILL_MEASURE_V1");
     const thresholds = (contract?.thresholds ?? null) as SkillTierMapping["thresholds"] | null;
@@ -85,6 +119,8 @@ async function getSkillTierMapping(): Promise<SkillTierMapping> {
   } catch {
     // Contract not seeded yet — fall through to defaults.
   }
+
+  // 3. Process-level defaults.
   return SKILL_TIER_DEFAULTS;
 }
 
@@ -136,7 +172,7 @@ export async function calculateSkillAchieveProgress(
   const progress = Math.min(1.0, ct.currentScore / targetValue);
   if (progress <= goal.progress) return null;
 
-  const mapping = await getSkillTierMapping();
+  const mapping = await getSkillTierMapping(goal.playbookId);
   const { tier, band } = scoreToTier(ct.currentScore, mapping);
   return {
     goalId: goal.id,

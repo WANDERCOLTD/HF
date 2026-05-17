@@ -9,6 +9,7 @@ import { FieldHint } from '@/components/shared/FieldHint';
 import { WIZARD_HINTS } from '@/lib/wizard-hints';
 import type { StepProps } from '../CourseSetupWizard';
 import { IntakeToggleGroup, type IntakeValues } from '@/components/wizards/IntakeToggleGroup';
+import { BandingPicker, type BandingMapping } from '@/components/shared/BandingPicker';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -30,6 +31,9 @@ export function CourseConfigStep({ setData, getData, onNext, onPrev }: StepProps
   const [greetingOpen, setGreetingOpen] = useState(false);
   const [tunerPills, setTunerPills] = useState<AgentTunerPill[]>(getData<AgentTunerPill[]>('tunerPills') ?? []);
   const [behaviorTargets, setBehaviorTargets] = useState<Record<string, number>>(getData<Record<string, number>>('behaviorTargets') ?? {});
+  const [skillTierMapping, setSkillTierMapping] = useState<BandingMapping | undefined>(
+    getData<BandingMapping | undefined>('skillTierMapping'),
+  );
   const [flowPhases, setFlowPhases] = useState<FlowPhase[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -101,10 +105,16 @@ export function CourseConfigStep({ setData, getData, onNext, onPrev }: StepProps
     setData('behaviorTargets', parameterMap);
   };
 
+  const handleBandingChange = (next: BandingMapping | undefined) => {
+    setSkillTierMapping(next);
+    setData('skillTierMapping', next);
+  };
+
   const handleNext = () => {
     setData('welcomeMessage', welcomeMessage || defaultWelcome);
     setData('tunerPills', tunerPills);
     setData('behaviorTargets', behaviorTargets);
+    setData('skillTierMapping', skillTierMapping);
     // Strip internal _id before saving
     setData('flowPhases', flowPhases.map(({ _id, ...rest }) => rest));
     onNext();
@@ -298,6 +308,19 @@ export function CourseConfigStep({ setData, getData, onNext, onPrev }: StepProps
             context={{ personaSlug: personaSlug || undefined, subjectName: courseName || undefined }}
             onChange={handleTunerChange}
           />
+        </div>
+
+        {/* ── Banding Model (#439) ── */}
+        <div className="hf-mt-lg">
+          <FieldHint
+            label="Skill banding model"
+            hint={WIZARD_HINTS["course.banding"] ?? "How per-skill ACHIEVE goals are labelled to learners and educators. Default is IELTS Speaking (4 bands: Approaching Emerging → Secure). Switch to CEFR for general language, 5-Level for non-language skills, or Custom to define your own."}
+            labelClass="hf-section-title"
+          />
+          <p className="hf-text-xs hf-text-muted hf-mb-sm">
+            Defaults to IELTS — override for non-IELTS courses so learners see meaningful tier names.
+          </p>
+          <BandingPicker value={skillTierMapping ?? undefined} onChange={handleBandingChange} />
         </div>
       </div>
 

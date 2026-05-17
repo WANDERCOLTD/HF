@@ -73,6 +73,32 @@ export interface CourseSetupInput {
     pre?: boolean;  // default true
     post?: boolean; // default true
   };
+  /**
+   * #439 — per-playbook tier mapping override for ACHIEVE-skill banding.
+   * Persisted to `Playbook.config.skillTierMapping`. When absent or
+   * `undefined`, `getSkillTierMapping()` falls back to `SKILL_MEASURE_V1`
+   * (IELTS default).
+   */
+  skillTierMapping?: {
+    thresholds: {
+      approachingEmerging: number;
+      emerging: number;
+      developing: number;
+      secure: number;
+    };
+    tierBands: {
+      approachingEmerging: number;
+      emerging: number;
+      developing: number;
+      secure: number;
+    };
+    tierLabels?: {
+      approachingEmerging?: string;
+      emerging?: string;
+      developing?: string;
+      secure?: string;
+    };
+  };
 }
 
 export interface CourseSetupResult {
@@ -414,6 +440,9 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
               ...(mergedGoals.length > 0 && { goals: mergedGoals }),
               // Audience segment — per-course override (falls back to domain/system default)
               ...(ctx.input.audience && { audience: ctx.input.audience }),
+              // #439 — per-playbook tier mapping override (CEFR / 5-Level / Custom).
+              // Absent ⇒ inherit SKILL_MEASURE_V1 contract (IELTS default).
+              ...(ctx.input.skillTierMapping && { skillTierMapping: ctx.input.skillTierMapping }),
             },
           },
         });

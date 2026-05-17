@@ -357,6 +357,46 @@ export interface PlaybookConfig {
   outcomes?: Record<string, string>;
   pickerLayout?: PickerLayout;
   validationWarnings?: ValidationWarning[];
+  /**
+   * Skill scoring half-life override (days). When set, takes precedence
+   * over `SKILL_MEASURE_V1.config.emaHalfLifeDays`. See aggregate-runner
+   * comment chain. Already honoured pre-#439; declared here so the type
+   * doesn't fall through to `any`.
+   */
+  skillScoringEmaHalfLifeDays?: number;
+  /**
+   * Calls-to-full-confidence override for skill EMA. Mirrors
+   * `skillScoringEmaHalfLifeDays` precedence — playbook > contract > defaults.
+   */
+  skillMinCallsToFull?: number;
+  /**
+   * #439 — per-playbook IELTS-vs-CEFR-vs-5-Level-vs-Custom tier mapping
+   * override for ACHIEVE-skill banding. When present, supersedes the
+   * `SKILL_MEASURE_V1` contract for callers whose active playbook carries
+   * this config. The shape mirrors the contract's `thresholds + tierBands`
+   * so `scoreToTier()` can consume it directly.
+   */
+  skillTierMapping?: {
+    thresholds: {
+      approachingEmerging: number;
+      emerging: number;
+      developing: number;
+      secure: number;
+    };
+    tierBands: {
+      approachingEmerging: number;
+      emerging: number;
+      developing: number;
+      secure: number;
+    };
+    /** Display labels — e.g. {Secure: "C2", Developing: "B1", …} for CEFR. */
+    tierLabels?: {
+      approachingEmerging?: string;
+      emerging?: string;
+      developing?: string;
+      secure?: string;
+    };
+  };
   [key: string]: any;
 }
 

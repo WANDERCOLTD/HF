@@ -72,6 +72,7 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
   const totalStudents = studentEmails.length + cohortGroupIds.length + selectedCallerIds.length;
   const behaviorTargets = getData<Record<string, number>>('behaviorTargets');
   const tunerPills = getData<AgentTunerPill[]>('tunerPills') || [];
+  const skillTierMapping = getData<Record<string, unknown> | undefined>('skillTierMapping');
   const lessonPlan = getData<{ session: number; type: string; label: string }[]>('lessonPlan') || [];
   const flowPhases = getData<Array<{ phase: string; duration: string; goals: string[] }>>('flowPhases') || [];
   const welcomeMsg = getData<string>('welcomeMessage') || '';
@@ -181,6 +182,7 @@ export function CourseDoneStep({ getData, setData, onPrev, endFlow }: StepProps)
           cohortGroupIds: cohortGroupIds.length > 0 ? cohortGroupIds : undefined,
           selectedCallerIds: selectedCallerIds.length > 0 ? selectedCallerIds : undefined,
           behaviorTargets: behaviorTargets && Object.keys(behaviorTargets).length > 0 ? behaviorTargets : undefined,
+          skillTierMapping: skillTierMapping ?? undefined,
           wizardTaskId: wizardTaskId || undefined,
           groupId: getData<string>('groupId') || undefined,
           onboardingFlowPhases: flowPhases && flowPhases.length > 0 ? flowPhases : undefined,

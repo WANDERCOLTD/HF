@@ -78,6 +78,10 @@ const mockPrisma = {
     findUnique: vi.fn(),
     upsert: vi.fn(),
   },
+  // #439: per-playbook skillTierMapping override lookup
+  playbook: {
+    findUnique: vi.fn(),
+  },
 };
 
 vi.mock("@/lib/prisma", () => ({
@@ -169,6 +173,8 @@ describe("lib/goals/track-progress.ts", () => {
     // explicitly set up CallerModuleProgress fixtures.
     mockPrisma.curriculumModule.findMany.mockResolvedValue([]);
     mockPrisma.callerModuleProgress.findMany.mockResolvedValue([]);
+    // #439 — default to no per-playbook override (falls back to contract/defaults)
+    mockPrisma.playbook.findUnique.mockResolvedValue(null);
     mockComputeExamReadiness.mockResolvedValue({
       readinessScore: 0.6,
       level: "borderline",
@@ -774,6 +780,33 @@ describe("lib/goals/track-progress.ts", () => {
       expect(data.progressMetrics.progress.evidence).toContain("Developing");
       expect(data.progressMetrics.progress.evidence).toContain("5.5");
       expect(typeof data.progressMetrics.progress.at).toBe("string");
+    });
+
+    // ── #439 — per-playbook tier mapping override ─────────────────────
+    it("#439 honours Playbook.config.skillTierMapping as a CEFR override", async () => {
+      // Custom CEFR-shaped mapping — note "Emerging" still slots in
+      // numerically but the band labels are CEFR.
+      const cefrMapping = {
+        thresholds: { approachingEmerging: 0.3, emerging: 0.5, developing: 0.75, secure: 1.0 },
+        tierBands: { approachingEmerging: 2, emerging: 3, developing: 4, secure: 6 },
+      };
+      mockPrisma.playbook.findUnique.mockResolvedValue({ config: { skillTierMapping: cefrMapping } });
+      mockPrisma.goal.findMany.mockResolvedValue([skillGoal()]);
+      mockPrisma.behaviorTarget.findFirst.mockResolvedValue({
+        parameterId: "skill_pres",
+        targetValue: 1.0,
+      });
+      mockPrisma.callerTarget.findUnique.mockResolvedValue({
+        // 0.6 falls in [0.5, 0.75) under CEFR → band 4 ("B2-equivalent")
+        currentScore: 0.6,
+        callsUsed: 3,
+      });
+
+      await trackGoalProgress("caller-1", "call-1");
+
+      const data = mockPrisma.goal.update.mock.calls[0][0].data;
+      expect(data.progressMetrics.progress.band).toBe(4); // CEFR band, NOT IELTS 5.5
+      expect(data.progressMetrics.progress.tier).toBe("Developing");
     });
 
     it("#437 preserves existing progressMetrics keys when merging banding", async () => {
