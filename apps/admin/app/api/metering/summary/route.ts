@@ -14,7 +14,7 @@ export const runtime = "nodejs";
  * @description Returns aggregated usage summary for the metering dashboard including category totals,
  *   top operations, daily trends, AI breakdown by call point/engine, and today/month-to-date totals
  * @query days number - Number of days to aggregate (default: 30)
- * @response 200 { ok: true, period, totals, today, monthToDate, byCategory, topOperations, dailyTrend, aiByCallPoint, aiByEngine, aiSummary }
+ * @response 200 { ok: true, period, totals, today, monthToDate, byCategory, topOperations, dailyTrend, aiByCallPoint, uncategorizedAI }
  * @response 500 { ok: false, error: "..." }
  */
 export async function GET(request: NextRequest) {

@@ -625,7 +625,7 @@ Returns all institution types with their terminology presets,
 
 **Response** `200`
 ```json
-{ ok: true, technicalTerms: TermMap, types: InstitutionTypeSummary[] }
+{ ok: true, technicalTerms: TermMap }
 ```
 
 ---
@@ -980,7 +980,7 @@ Get agent details including published, draft, and history versions with path res
 
 **Response** `200`
 ```json
-{ ok: true, agentId, published, draft, history, allVersions, paths }
+{ ok: true, agentId, published, draft, history, allVersions }
 ```
 
 **Response** `500`
@@ -5526,7 +5526,7 @@ Regenerates the curriculum structure (modules + learning objectives)
 
 **Response** `200`
 ```json
-{ ok, curriculumId, moduleCount, warnings, staleWarning }
+{ ok, curriculumId, moduleCount, warnings, reconcile, lessonPlanStaleWarning, orphanedProgressSlugs }
 ```
 
 **Response** `404`
@@ -5593,7 +5593,7 @@ Returns aggregated setup status for stages 4-6 of the Course Setup Tracker.
 
 **Response** `200`
 ```json
-{ ok, lessonPlanBuilt, onboardingConfigured, promptComposable, allCriticalPass, activeCurriculumMode, details }
+{ ok, lessonPlanBuilt, onboardingConfigured, promptComposable, allCriticalPass, activeCurriculumMode }
 ```
 
 ---
@@ -8957,7 +8957,7 @@ Returns aggregated usage summary for the metering dashboard including category t
 
 **Response** `200`
 ```json
-{ ok: true, period, totals, today, monthToDate, byCategory, topOperations, dailyTrend, aiByCallPoint, aiByEngine, aiSummary }
+{ ok: true, period, totals, today, monthToDate, byCategory, topOperations, dailyTrend, aiByCallPoint, uncategorizedAI }
 ```
 
 **Response** `500`
@@ -9004,7 +9004,7 @@ Fetch onboarding spec data for visualization. Returns persona-specific config in
 
 **Response** `200`
 ```json
-{ ok: true, source: "database" | "hardcoded", spec: object, selectedPersona: string, availablePersonas: string[], personasList: Array, personaName: string, defaultTargets: object, firstCallFlow: object, welcomeTemplate: string }
+{ ok: true, source: "database" | "hardcoded", spec: object, availablePersonas: string[], personasList: Array, personaDescription: string, personaIcon: string, personaColor: string, firstCallFlow: object, welcomeTemplate: string, welcomeSlug: string }
 ```
 
 **Response** `500`
@@ -9543,7 +9543,7 @@ Read the current authored-modules state from PlaybookConfig.
 
 **Response** `200`
 ```json
-{ ok, modulesAuthored, modules, moduleDefaults, moduleSource, moduleSourceRef, validationWarnings, hasErrors, lessonPlanMode }
+{ ok, modulesAuthored, modules, moduleDefaults, moduleSource, moduleSourceRef, validationWarnings, hasErrors, outcomes, detectedFrom, persisted, curriculumSync, classification }
 ```
 
 **Response** `404`
@@ -11293,7 +11293,7 @@ Get all active specs (by scope) and prompt templates available for building play
 
 **Response** `200`
 ```json
-{ ok: true, callerSpecs: [], domainSpecs: AnalysisSpec[], systemSpecs: AnalysisSpec[], promptTemplates: PromptTemplate[], counts: {...} }
+{ ok: true, callerSpecs: AnalysisSpec[], systemSpecs: AnalysisSpec[], promptTemplates: PromptTemplate[], counts: {...} }
 ```
 
 **Response** `500`

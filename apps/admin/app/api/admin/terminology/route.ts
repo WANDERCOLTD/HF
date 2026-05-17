@@ -11,7 +11,7 @@ import { TECHNICAL_TERMS } from "@/lib/terminology";
  * @tags admin
  * @description Returns all institution types with their terminology presets,
  *   plus the technical terms baseline. Used by the access-control page terminology tab.
- * @response 200 { ok: true, technicalTerms: TermMap, types: InstitutionTypeSummary[] }
+ * @response 200 { ok: true, technicalTerms: TermMap }
  */
 export async function GET() {
   const auth = await requireAuth("ADMIN");

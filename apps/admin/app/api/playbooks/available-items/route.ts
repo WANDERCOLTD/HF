@@ -9,7 +9,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
  * @auth session
  * @tags playbooks
  * @description Get all active specs (by scope) and prompt templates available for building playbooks
- * @response 200 { ok: true, callerSpecs: [], domainSpecs: AnalysisSpec[], systemSpecs: AnalysisSpec[], promptTemplates: PromptTemplate[], counts: {...} }
+ * @response 200 { ok: true, callerSpecs: AnalysisSpec[], systemSpecs: AnalysisSpec[], promptTemplates: PromptTemplate[], counts: {...} }
  * @response 500 { ok: false, error: "..." }
  */
 export async function GET(request: NextRequest) {

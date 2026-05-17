@@ -52,7 +52,7 @@ type Body = z.infer<typeof BodySchema>;
  *   Used by the Authored Modules panel in the Curriculum tab to render the
  *   catalogue without re-parsing the source document. Returns nulls/empties
  *   when no authored modules exist yet (derived path is in use).
- * @response 200 { ok, modulesAuthored, modules, moduleDefaults, moduleSource, moduleSourceRef, validationWarnings, hasErrors, lessonPlanMode }
+ * @response 200 { ok, modulesAuthored, modules, moduleDefaults, moduleSource, moduleSourceRef, validationWarnings, hasErrors, outcomes, detectedFrom, persisted, curriculumSync, classification }
  * @response 404 { ok: false, error: "Course not found" }
  */
 export async function GET(
