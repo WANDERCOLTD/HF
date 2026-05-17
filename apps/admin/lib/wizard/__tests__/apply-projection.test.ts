@@ -267,6 +267,9 @@ describe("applyProjection — orchestrator smoke", () => {
         id: `bt-${t.parameterName}`,
         parameterId: t.parameterName,
         targetValue: t.targetValue,
+        // #417 — diff includes skillRef. Pre-seeded rows must match the
+        // projection or the diff will mistake the seed for stale data.
+        skillRef: t.skillRef,
       })),
     );
     mockTx.curriculumModule.findMany.mockResolvedValue(
@@ -306,6 +309,8 @@ describe("applyProjection — orchestrator smoke", () => {
           ref: g.ref,
         })),
       },
+      // #417 — upsertMeasureSpec needs domainId for the spec's `domain` field.
+      domainId: "dom-test",
     });
 
     const { applyProjection } = await import("../apply-projection");
