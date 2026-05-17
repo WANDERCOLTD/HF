@@ -400,6 +400,48 @@ function ProgressRing({ progress, size = 64, strokeWidth = 5, color }: { progres
   );
 }
 
+/**
+ * #417 follow-up — affordance shown in place of the misleading raw-progress
+ * value when a SKILL-NN ACHIEVE goal has no real measurement evidence yet.
+ *
+ * Two states:
+ *  - "awaiting_evidence": BehaviorTarget exists, just no scores accumulated
+ *  - "not_configured":   playbook has no BehaviorTarget for this skillRef
+ *                        (legacy course pre-#417 — re-project to enable)
+ *
+ * Copy is educator-facing: tells them WHY the value is blank and WHAT to do.
+ */
+function SkillMeasurementAffordance({
+  status,
+  ref,
+}: {
+  status: "awaiting_evidence" | "not_configured";
+  ref: string;
+}) {
+  if (status === "awaiting_evidence") {
+    return (
+      <div className="hf-banner hf-banner-info hf-mt-xs">
+        <div className="hf-text-xs">
+          <strong>Awaiting first call evidence</strong> — this skill ({ref}) is
+          part of the course&apos;s framework but the learner hasn&apos;t been
+          scored on it yet. Progress will populate after their next call.
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="hf-banner hf-banner-warning hf-mt-xs">
+      <div className="hf-text-xs">
+        <strong>Skill scoring not configured</strong> — this goal references{" "}
+        {ref} but the course has no skills framework wired in. The previous
+        progress value reflected transcript keywords, not actual skill
+        measurement. <strong>Re-project the course through the wizard</strong>{" "}
+        with a Skills Framework section to enable per-call per-skill scoring.
+      </div>
+    </div>
+  );
+}
+
 // =====================================================
 // AssessmentTargetsCard
 // =====================================================
@@ -441,19 +483,31 @@ export function AssessmentTargetsCard({ goals, callerId }: { goals: Goal[]; call
           const isNearReady = goal.progress >= threshold * 0.85;
           const isCompleted = goal.status === "COMPLETED";
           const hasPending = !!goal.pendingSignal;
+          // #417 follow-up — SKILL-NN goals carry a measurementStatus so the
+          // UI can distinguish "real per-skill score" from "engagement-heuristic
+          // noise" for legacy / not-yet-projected courses.
+          const isSkillGoal = typeof goal.ref === "string" && goal.ref.startsWith("SKILL-");
+          const skillStatus = goal.measurementStatus;
+          const isUnmeasured = isSkillGoal && skillStatus && skillStatus !== "measured";
 
-          const progressColor = isCompleted
-            ? "var(--status-success-text)"
-            : isNearReady
-              ? "var(--accent-primary)"
-              : goal.progress < 0.3
-                ? "var(--status-error-text)"
-                : "var(--status-warning-text)";
+          const progressColor = isUnmeasured
+            ? "var(--text-muted)"
+            : isCompleted
+              ? "var(--status-success-text)"
+              : isNearReady
+                ? "var(--accent-primary)"
+                : goal.progress < 0.3
+                  ? "var(--status-error-text)"
+                  : "var(--status-warning-text)";
 
           return (
             <div key={goal.id} className="hf-card-compact">
               <div className="hf-flex hf-gap-lg">
-                <ProgressRing progress={goal.progress} size={64} color={progressColor} />
+                <ProgressRing
+                  progress={isUnmeasured ? 0 : goal.progress}
+                  size={64}
+                  color={progressColor}
+                />
                 <div className="hf-flex-1">
                   <div className="hf-flex hf-gap-sm hf-mb-xs hf-items-center">
                     <span className="hf-section-title">{goal.name}</span>
@@ -464,12 +518,18 @@ export function AssessmentTargetsCard({ goals, callerId }: { goals: Goal[]; call
                   {goal.description && (
                     <div className="hf-text-xs hf-text-muted hf-mb-xs">{goal.description}</div>
                   )}
-                  <div className="hf-text-xs hf-text-secondary">
-                    {pct}% ready — target: {thresholdPct}%
-                  </div>
+                  {isUnmeasured ? (
+                    <SkillMeasurementAffordance status={skillStatus!} ref={goal.ref!} />
+                  ) : (
+                    <div className="hf-text-xs hf-text-secondary">
+                      {pct}% ready — target: {thresholdPct}%
+                    </div>
+                  )}
 
-                  {/* Pending self-report signal */}
-                  {hasPending && !isCompleted && (
+                  {/* Pending self-report signal (suppressed when unmeasured —
+                      we don't want educators confirming a score they haven't
+                      actually seen real evidence for) */}
+                  {hasPending && !isCompleted && !isUnmeasured && (
                     <div className="hf-flex hf-gap-sm hf-mt-sm hf-items-center hf-p-sm hf-border-radius-md"
                       style={{ background: "var(--status-warning-bg)", border: "1px solid var(--status-warning-border)" }}>
                       <span className="hf-text-xs hf-text-warning hf-flex-1">
@@ -495,8 +555,9 @@ export function AssessmentTargetsCard({ goals, callerId }: { goals: Goal[]; call
                     </div>
                   )}
 
-                  {/* Manual completion for goals without self-report */}
-                  {!hasPending && !isCompleted && (
+                  {/* Manual completion for goals without self-report
+                      (suppressed when unmeasured) */}
+                  {!hasPending && !isCompleted && !isUnmeasured && (
                     <button
                       className="hf-btn hf-btn-sm hf-btn-outline hf-mt-sm"
                       onClick={() => handleAction(goal.id, "confirm")}
