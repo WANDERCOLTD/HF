@@ -1441,7 +1441,25 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
                       // AI to re-fire the picker. The override bridges that race.
                       const dataKey = msg.optionsPanel!.dataKey;
                       if (dataKey === "progressionMode" && typeof value === "string") {
+                        // Primary: React state via StepFlowContext (best-effort —
+                        // may no-op if context's flow isn't active for some reason).
                         setData(dataKey, value);
+                        // Defensive: also write directly to sessionStorage so
+                        // the value persists regardless of the React state path.
+                        // The next request reads from sessionStorage via the
+                        // wizard's getSetupData() snapshot.
+                        try {
+                          const raw = sessionStorage.getItem("hf.stepflow.state");
+                          if (raw) {
+                            const state = JSON.parse(raw);
+                            if (state && state.data) {
+                              state.data[dataKey] = value;
+                              sessionStorage.setItem("hf.stepflow.state", JSON.stringify(state));
+                            }
+                          }
+                        } catch { /* non-fatal */ }
+                        // Pass as override to bridge the React-batching race —
+                        // immediate API call sees the value before setData flushes.
                         handleSend(displayText, { progressionMode: value });
                       } else {
                         handleSend(displayText);
