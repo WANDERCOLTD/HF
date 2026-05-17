@@ -350,6 +350,35 @@ export interface PlaybookConfig {
   skillScoringEmaHalfLifeDays?: number;
   skillMinCallsToFull?: number;
   /**
+   * #417 Story C — per-playbook tier+band mapping for ACHIEVE skill goals.
+   * When set, overrides the SKILL_MEASURE_V1 contract thresholds + bands.
+   * Use `lib/banding/presets.ts::TIER_PRESETS` to set this from one of
+   * the canonical presets (IELTS Speaking / CEFR / 5-Level), or supply a
+   * fully custom shape. `tierLabels` is optional — when omitted, the
+   * default "Approaching Emerging / Emerging / Developing / Secure"
+   * tier names are used (CEFR / custom presets supply their own).
+   */
+  skillTierMapping?: {
+    thresholds: {
+      approachingEmerging: number;
+      emerging: number;
+      developing: number;
+      secure: number;
+    };
+    tierBands: {
+      approachingEmerging: number;
+      emerging: number;
+      developing: number;
+      secure: number;
+    };
+    tierLabels?: {
+      approachingEmerging: string;
+      emerging: string;
+      developing: string;
+      secure: string;
+    };
+  };
+  /**
    * Author-declared module catalogue (Issue #236). Populated from a Course
    * Reference document with `**Modules authored:** Yes`. When `moduleSource`
    * is "derived" or unset, today's transform-derived path runs unchanged.

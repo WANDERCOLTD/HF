@@ -71,7 +71,42 @@ export function scoreToTier(
   return { tier: "Secure", band: mapping.tierBands.secure };
 }
 
-async function getSkillTierMapping(): Promise<SkillTierMapping> {
+/**
+ * Resolve the tier mapping. Precedence (highest first):
+ *   1. Per-playbook `Playbook.config.skillTierMapping` (Story C)
+ *   2. SKILL_MEASURE_V1 contract thresholds + tierBands
+ *   3. Built-in IELTS defaults
+ *
+ * Exported so the caller-detail API can pass the resolved mapping to
+ * the front-end (BandChip needs it client-side for tier rendering).
+ */
+export async function getSkillTierMapping(
+  playbookId?: string | null,
+): Promise<SkillTierMapping> {
+  if (playbookId) {
+    try {
+      const playbook = await prisma.playbook.findUnique({
+        where: { id: playbookId },
+        select: { config: true },
+      });
+      const cfg = (playbook?.config ?? {}) as Record<string, any>;
+      const pbMapping = cfg.skillTierMapping;
+      if (
+        pbMapping &&
+        pbMapping.thresholds &&
+        pbMapping.tierBands &&
+        typeof pbMapping.thresholds.secure === "number" &&
+        typeof pbMapping.tierBands.secure === "number"
+      ) {
+        return {
+          thresholds: pbMapping.thresholds,
+          tierBands: pbMapping.tierBands,
+        };
+      }
+    } catch {
+      // Playbook lookup failed — fall through to contract.
+    }
+  }
   try {
     const contract = await ContractRegistry.get("SKILL_MEASURE_V1");
     const thresholds = (contract?.thresholds ?? null) as SkillTierMapping["thresholds"] | null;
@@ -131,7 +166,7 @@ export async function calculateSkillAchieveProgress(
   const progress = Math.min(1.0, ct.currentScore / targetValue);
   if (progress <= goal.progress) return null;
 
-  const mapping = await getSkillTierMapping();
+  const mapping = await getSkillTierMapping(goal.playbookId);
   const { tier, band } = scoreToTier(ct.currentScore, mapping);
   return {
     goalId: goal.id,

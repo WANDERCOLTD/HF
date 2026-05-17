@@ -7,6 +7,7 @@ import { deleteCallerData } from "@/lib/gdpr/delete-caller-data";
 import { auditLog, AuditAction } from "@/lib/audit";
 import type { CallerRole } from "@prisma/client";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
+import { getSkillTierMapping } from "@/lib/goals/track-progress";
 
 /**
  * @api GET /api/callers/:callerId
@@ -568,6 +569,92 @@ export async function GET(
         }
       }
     }
+    // Per-goal currentScore (only for `measured` SKILL-NN goals — BandChip
+    // consumer needs the raw 0-1 to render the tier label).
+    const skillScoreByGoalId = new Map<string, number>();
+    for (const g of skillGoals) {
+      if (measurementByGoalId.get(g.id) !== "measured") continue;
+      const paramId = (await prisma.behaviorTarget.findFirst({
+        where: { playbookId: g.playbookId, skillRef: g.ref, effectiveUntil: null },
+        select: { parameterId: true },
+      }))?.parameterId;
+      if (!paramId) continue;
+      const ct = await prisma.callerTarget.findUnique({
+        where: { callerId_parameterId: { callerId, parameterId: paramId } },
+        select: { currentScore: true },
+      });
+      if (typeof ct?.currentScore === "number") {
+        skillScoreByGoalId.set(g.id, ct.currentScore);
+      }
+    }
+
+    // #417 Story C — resolved tier mapping per playbook (per-goal lookup
+    // would duplicate; cache by playbookId).
+    const tierMappingByPlaybookId = new Map<string, any>();
+    const uniquePlaybookIds = Array.from(new Set(skillGoals.map((g: any) => g.playbookId).filter(Boolean)));
+    for (const pbId of uniquePlaybookIds) {
+      const mapping = await getSkillTierMapping(pbId);
+      tierMappingByPlaybookId.set(pbId, mapping);
+    }
+
+    // #417 Story B — LO ref → description map for LEARN goals so the
+    // caller-page can render outcome NAMES alongside the per-LO progress
+    // (not just bare "OUT-01"). Scoped per-playbook to respect the
+    // slug-scope invariants from #407.
+    const learnGoalsWithRef = goals.filter(
+      (g: any) => g.type === "LEARN" && typeof g.ref === "string" && g.playbookId,
+    );
+    const loDescriptionByRef = new Map<string, { description: string; touchedModules: number; totalModules: number }>();
+    if (learnGoalsWithRef.length > 0) {
+      const refsByPlaybook = new Map<string, Set<string>>();
+      for (const g of learnGoalsWithRef) {
+        const set = refsByPlaybook.get(g.playbookId) ?? new Set<string>();
+        set.add(g.ref as string);
+        refsByPlaybook.set(g.playbookId, set);
+      }
+      for (const [pbId, refs] of refsByPlaybook) {
+        const los = await prisma.learningObjective.findMany({
+          where: {
+            ref: { in: Array.from(refs) },
+            module: { curriculum: { playbookId: pbId } },
+          },
+          select: { ref: true, description: true, moduleId: true },
+        });
+        // group by ref → unique modules
+        const modulesByRef = new Map<string, Set<string>>();
+        const firstDescByRef = new Map<string, string>();
+        for (const lo of los) {
+          const set = modulesByRef.get(`${pbId}::${lo.ref}`) ?? new Set<string>();
+          set.add(lo.moduleId);
+          modulesByRef.set(`${pbId}::${lo.ref}`, set);
+          if (!firstDescByRef.has(`${pbId}::${lo.ref}`)) {
+            firstDescByRef.set(`${pbId}::${lo.ref}`, lo.description);
+          }
+        }
+        // touched modules per caller
+        const moduleIds = Array.from(new Set(los.map((lo) => lo.moduleId)));
+        const cmps = moduleIds.length
+          ? await prisma.callerModuleProgress.findMany({
+              where: { callerId, moduleId: { in: moduleIds } },
+              select: { moduleId: true, loScoresJson: true },
+            })
+          : [];
+        for (const [key, modSet] of modulesByRef) {
+          const ref = key.split("::")[1];
+          let touched = 0;
+          for (const cmp of cmps) {
+            if (!modSet.has(cmp.moduleId)) continue;
+            const scores = cmp.loScoresJson as Record<string, any> | null;
+            if (scores && scores[ref] && typeof scores[ref].mastery === "number") touched++;
+          }
+          loDescriptionByRef.set(key, {
+            description: firstDescByRef.get(key) ?? ref,
+            touchedModules: touched,
+            totalModules: modSet.size,
+          });
+        }
+      }
+    }
 
     const goalsWithSignals = goals.map((g: any) => {
       const signal = signalByGoalId.get(g.id);
@@ -582,6 +669,22 @@ export async function GET(
       }
       if (measurementStatus) {
         enriched.measurementStatus = measurementStatus;
+      }
+      const score = skillScoreByGoalId.get(g.id);
+      if (typeof score === "number") {
+        enriched.skillCurrentScore = score;
+      }
+      const tierMapping = g.playbookId ? tierMappingByPlaybookId.get(g.playbookId) : null;
+      if (tierMapping) {
+        enriched.tierMapping = tierMapping;
+      }
+      if (g.type === "LEARN" && g.ref && g.playbookId) {
+        const loInfo = loDescriptionByRef.get(`${g.playbookId}::${g.ref}`);
+        if (loInfo) {
+          enriched.loDescription = loInfo.description;
+          enriched.loTouchedModules = loInfo.touchedModules;
+          enriched.loTotalModules = loInfo.totalModules;
+        }
       }
       return enriched;
     });
