@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import noUnscopedSlugLookup from "./eslint-rules/no-unscoped-slug-lookup.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -13,11 +14,10 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
-  // Custom rules for design system consistency
+  // Catch hardcoded hex colors in inline styles - use CSS variables instead
+  // e.g., background: "#fff" → background: "var(--surface-primary)"
   {
     rules: {
-      // Catch hardcoded hex colors in inline styles - use CSS variables instead
-      // e.g., background: "#fff" → background: "var(--surface-primary)"
       "no-restricted-syntax": [
         "warn",
         {
@@ -25,6 +25,22 @@ const eslintConfig = defineConfig([
           message: "Avoid hardcoded hex colors in inline styles. Use CSS variables instead (e.g., var(--surface-primary), var(--text-primary)). See globals.css for available tokens.",
         },
       ],
+    },
+  },
+  // #407 slug-scope guard — error severity, lives in its own custom-rule
+  // plugin so it doesn't share `no-restricted-syntax` severity with the
+  // hex-color warning above. Block CI on any unscoped slug/ref lookup
+  // against per-parent-unique entities (CurriculumModule, LearningObjective).
+  {
+    plugins: {
+      "hf-curriculum": {
+        rules: {
+          "no-unscoped-slug-lookup": noUnscopedSlugLookup,
+        },
+      },
+    },
+    rules: {
+      "hf-curriculum/no-unscoped-slug-lookup": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)
