@@ -66,6 +66,10 @@ const mockPrisma = {
   callerModuleProgress: {
     findMany: vi.fn(),
   },
+  // #414 P5b: LEARN goal progress derived from a specific LO ref
+  learningObjective: {
+    findMany: vi.fn(),
+  },
 };
 
 vi.mock("@/lib/prisma", () => ({
@@ -405,6 +409,206 @@ describe("lib/goals/track-progress.ts", () => {
         where: { id: "learn-legacy" },
         data: expect.objectContaining({ progress: 0.5 }),
       });
+    });
+  });
+
+  // -------------------------------------------------
+  // #414 P5b: LEARN goals derived from Goal.ref (per-LO mastery)
+  // -------------------------------------------------
+
+  describe("LEARN goals — #414 derivation from Goal.ref", () => {
+    function refGoal(over: Partial<{
+      id: string;
+      ref: string;
+      progress: number;
+    }> = {}) {
+      return {
+        id: over.id ?? "goal-ref",
+        type: "LEARN",
+        progress: over.progress ?? 0,
+        contentSpec: null,
+        contentSpecId: null,
+        callerId: "caller-1",
+        isAssessmentTarget: false,
+        assessmentConfig: null,
+        playbookId: "pb-1",
+        ref: over.ref ?? "OUT-01",
+      };
+    }
+
+    it("returns distinct progress per goal — Opal-shaped, 14 goals with 14 refs", async () => {
+      // Eight OUT- refs + four SKILL- refs + two NULL-ref legacy → 14 goals
+      const goals = [
+        refGoal({ id: "g-1", ref: "OUT-01" }),
+        refGoal({ id: "g-2", ref: "OUT-02" }),
+        refGoal({ id: "g-3", ref: "OUT-03" }),
+        refGoal({ id: "g-4", ref: "OUT-04" }),
+      ];
+      mockPrisma.goal.findMany.mockResolvedValue(goals);
+
+      // Each ref lives in its own module.
+      mockPrisma.learningObjective.findMany.mockImplementation(
+        ({ where }: any) =>
+          Promise.resolve([{ moduleId: `mod-${where.ref}` }]),
+      );
+
+      // Caller has progress on every module, with a distinct mastery per ref.
+      mockPrisma.callerModuleProgress.findMany.mockImplementation(
+        ({ where }: any) => {
+          const moduleIds: string[] = where.moduleId.in;
+          return Promise.resolve(
+            moduleIds.map((id) => {
+              const ref = id.replace(/^mod-/, "");
+              // Build a deterministic per-ref mastery: OUT-01→0.1, OUT-02→0.2 …
+              const n = parseInt(ref.split("-")[1] ?? "0", 10);
+              return {
+                moduleId: id,
+                loScoresJson: { [ref]: { mastery: n / 10, callCount: 1 } },
+              };
+            }),
+          );
+        },
+      );
+
+      await trackGoalProgress("caller-1", "call-1");
+
+      const updates = mockPrisma.goal.update.mock.calls.map((c: any) => ({
+        id: c[0].where.id,
+        progress: c[0].data.progress,
+      }));
+
+      // Each goal updates to its own ref's mastery — NOT a single uniform value.
+      const byId = Object.fromEntries(updates.map((u: any) => [u.id, u.progress]));
+      expect(byId["g-1"]).toBeCloseTo(0.1, 5);
+      expect(byId["g-2"]).toBeCloseTo(0.2, 5);
+      expect(byId["g-3"]).toBeCloseTo(0.3, 5);
+      expect(byId["g-4"]).toBeCloseTo(0.4, 5);
+    });
+
+    it("aggregates a ref appearing in multiple modules via mean-across-modules", async () => {
+      // OUT-01 lives in BOTH part1 (mastery 0.4) AND mock (mastery 0.6).
+      mockPrisma.goal.findMany.mockResolvedValue([refGoal({ ref: "OUT-01" })]);
+
+      mockPrisma.learningObjective.findMany.mockResolvedValue([
+        { moduleId: "mod-part1" },
+        { moduleId: "mod-mock" },
+      ]);
+
+      mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
+        {
+          moduleId: "mod-part1",
+          loScoresJson: { "OUT-01": { mastery: 0.4, callCount: 2 } },
+        },
+        {
+          moduleId: "mod-mock",
+          loScoresJson: { "OUT-01": { mastery: 0.6, callCount: 1 } },
+        },
+      ]);
+
+      await trackGoalProgress("caller-1", "call-1");
+
+      // (0.4 + 0.6) / 2 = 0.5
+      expect(mockPrisma.goal.update).toHaveBeenCalledWith({
+        where: { id: "goal-ref" },
+        data: expect.objectContaining({ progress: 0.5 }),
+      });
+    });
+
+    it("skips modules where caller has no loScoresJson entry for the ref (partial coverage)", async () => {
+      // OUT-01 is in 2 modules, but caller only has progress on 1.
+      mockPrisma.goal.findMany.mockResolvedValue([refGoal({ ref: "OUT-01" })]);
+
+      mockPrisma.learningObjective.findMany.mockResolvedValue([
+        { moduleId: "mod-part1" },
+        { moduleId: "mod-mock" },
+      ]);
+
+      mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
+        {
+          moduleId: "mod-part1",
+          loScoresJson: { "OUT-01": { mastery: 0.8, callCount: 3 } },
+        },
+        // mod-mock has no progress row at all
+      ]);
+
+      await trackGoalProgress("caller-1", "call-1");
+
+      // Mean of the 1 touched module = 0.8 (NOT 0.4 = 0.8/2).
+      expect(mockPrisma.goal.update).toHaveBeenCalledWith({
+        where: { id: "goal-ref" },
+        data: expect.objectContaining({ progress: 0.8 }),
+      });
+    });
+
+    it("falls back to engagement when goal.ref is null", async () => {
+      // Legacy goal with no ref — should not enter the #414 path.
+      const legacyGoal = {
+        ...refGoal({ progress: 0 }),
+        ref: null,
+        playbookId: null,
+      };
+      mockPrisma.goal.findMany.mockResolvedValue([legacyGoal]);
+
+      // Engagement fallback needs a transcript
+      mockPrisma.call.findUnique.mockResolvedValue({
+        transcript: "A".repeat(1200),
+      });
+      mockPrisma.callScore.findMany.mockResolvedValue([]);
+
+      await trackGoalProgress("caller-1", "call-1");
+
+      // The #414 path should NOT have queried learningObjective at all.
+      expect(mockPrisma.learningObjective.findMany).not.toHaveBeenCalled();
+      // Engagement fallback gives 5% increment
+      expect(mockPrisma.goal.update).toHaveBeenCalledWith({
+        where: { id: "goal-ref" },
+        data: expect.objectContaining({ progress: 0.05 }),
+      });
+    });
+
+    it("ref-linked goal with no accumulated mastery returns no update (no fall-through to engagement)", async () => {
+      // The exact bug #414 was meant to fix: previously, ref-linked goals
+      // with no mastery yet fell through to the session-embedded heuristic
+      // (COMP_/DISC_/COACH_ score average) which assigned every goal the
+      // same uniform value. Ref-linked goals must NEVER fall through.
+      mockPrisma.goal.findMany.mockResolvedValue([refGoal({ ref: "OUT-99" })]);
+
+      // No LO with this ref → derivation returns null
+      mockPrisma.learningObjective.findMany.mockResolvedValue([]);
+
+      // If the engagement path leaked in it would average these scores
+      mockPrisma.call.findUnique.mockResolvedValue({
+        transcript: "A".repeat(1200),
+      });
+      mockPrisma.callScore.findMany.mockResolvedValue([
+        { score: 0.7, parameter: { parameterId: "COMP_RECALL" } },
+        { score: 0.8, parameter: { parameterId: "DISC_ARGUMENT" } },
+      ]);
+
+      const result = await trackGoalProgress("caller-1", "call-1");
+
+      expect(result.updated).toBe(0);
+      expect(mockPrisma.goal.update).not.toHaveBeenCalled();
+    });
+
+    it("does not double-apply: if derived progress equals current, no update", async () => {
+      mockPrisma.goal.findMany.mockResolvedValue([
+        refGoal({ progress: 0.7, ref: "OUT-01" }),
+      ]);
+      mockPrisma.learningObjective.findMany.mockResolvedValue([
+        { moduleId: "mod-1" },
+      ]);
+      mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
+        {
+          moduleId: "mod-1",
+          loScoresJson: { "OUT-01": { mastery: 0.7, callCount: 5 } },
+        },
+      ]);
+
+      const result = await trackGoalProgress("caller-1", "call-1");
+
+      expect(result.updated).toBe(0);
+      expect(mockPrisma.goal.update).not.toHaveBeenCalled();
     });
   });
 

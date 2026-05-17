@@ -24,6 +24,14 @@ const { mockPrisma, mockRequireStudentOrAdmin } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
+
+// Route imports `Prisma` from @prisma/client for Prisma.JsonNull — pass-through
+// the real export so the JSON-null sentinel works under mock.
+vi.mock("@prisma/client", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual };
+});
+
 vi.mock("@/lib/student-access", () => ({
   requireStudentOrAdmin: (...args: unknown[]) => mockRequireStudentOrAdmin(...args),
   isStudentAuthError: (result: unknown): boolean =>
