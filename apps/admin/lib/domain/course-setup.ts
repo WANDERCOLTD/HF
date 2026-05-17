@@ -260,7 +260,8 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
     // per-course subject instead of sharing. Prevents cross-course content leaking.
     if (!subject && ctx.input.subjectDiscipline) {
       const disciplineSlug = `${domainSlug}-${slugify(ctx.input.courseName, { lower: true, strict: true })}`;
-      const candidate = await prisma.subject.findFirst({ where: { slug: disciplineSlug } });
+      // Subject.slug is @unique — findUnique reflects the schema invariant.
+      const candidate = await prisma.subject.findUnique({ where: { slug: disciplineSlug } });
       if (candidate) {
         // Check if another playbook already owns this subject
         const ownedByOther = await prisma.playbookSubject.findFirst({
@@ -291,7 +292,8 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
     // If content was uploaded but no discipline set, create per-course Subject (prevents assertion leak)
     if (!subject && ctx.input.sourceId) {
       const courseSubjectSlug = `${domainSlug}-${slugify(ctx.input.courseName, { lower: true, strict: true })}`;
-      subject = await prisma.subject.findFirst({ where: { slug: courseSubjectSlug } });
+      // Subject.slug is @unique — findUnique reflects the schema invariant.
+      subject = await prisma.subject.findUnique({ where: { slug: courseSubjectSlug } });
       if (!subject) {
         subject = await prisma.subject.create({
           data: {

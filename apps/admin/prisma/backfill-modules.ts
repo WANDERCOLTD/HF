@@ -289,23 +289,38 @@ async function backfillProgress(): Promise<number> {
     },
   });
 
-  // Extract moduleId from key pattern: curriculum:{specSlug}:mastery:{moduleId}
-  // or mastery_{moduleId}
-  const MASTERY_PATTERN = /(?:mastery[_:])([\w-]+)$/i;
+  // Extract specSlug + moduleId from key pattern:
+  //   curriculum:{specSlug}:mastery:{moduleId}
+  //   curriculum:{specSlug}:mastery_{moduleId}  (legacy)
+  // Capturing specSlug too lets us scope the module lookup by curriculumId
+  // — slugs like "MOD-1"/"part1" are not globally unique (#407).
+  const MASTERY_PATTERN = /^curriculum:([\w-]+):mastery[_:]([\w-]+)$/i;
 
   for (const attr of attrs) {
     const match = attr.key.match(MASTERY_PATTERN);
     if (!match || attr.numberValue === null) continue;
 
-    const moduleSlug = match[1];
+    const specSlug = match[1];
+    const moduleSlug = match[2];
     const mastery = attr.numberValue;
 
-    // Find the CurriculumModule by slug (best-effort match)
+    // Curriculum.slug is globally unique by schema — scoping the module
+    // lookup by curriculumId prevents picking a module from a different
+    // curriculum that happens to share the slug.
+    const curriculum = await prisma.curriculum.findFirst({
+      where: { slug: specSlug },
+      select: { id: true },
+    });
+    if (!curriculum) {
+      console.warn(`  [skip] progress: no curriculum for slug "${specSlug}" (caller ${attr.callerId})`);
+      continue;
+    }
+
     const mod = await prisma.curriculumModule.findFirst({
-      where: { slug: moduleSlug },
+      where: { curriculumId: curriculum.id, slug: moduleSlug },
     });
     if (!mod) {
-      console.warn(`  [skip] progress: no module for slug "${moduleSlug}" (caller ${attr.callerId})`);
+      console.warn(`  [skip] progress: no module "${moduleSlug}" in curriculum "${specSlug}" (caller ${attr.callerId})`);
       continue;
     }
 

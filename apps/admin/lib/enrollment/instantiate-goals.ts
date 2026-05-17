@@ -128,14 +128,17 @@ async function instantiateForPlaybook(
   for (const goalConfig of goalConfigs) {
     let contentSpecId: string | null = null;
     if (goalConfig.type === "LEARN" && goalConfig.contentSpecSlug) {
-      const contentSpec = await prisma.analysisSpec.findFirst({
-        where: {
-          slug: { contains: goalConfig.contentSpecSlug.toLowerCase().replace(/_/g, "-") },
-          isActive: true,
-        },
-        select: { id: true },
+      // AnalysisSpec.slug is globally unique by schema. Exact-match lookup
+      // — the prior `slug: { contains: ... }` form was a fuzzy substring
+      // match that resolved to the wrong spec when one slug was a prefix
+      // of another (e.g. "ielts-speaking" vs "ielts-speaking-practice").
+      // #407 / #412.
+      const normalized = goalConfig.contentSpecSlug.toLowerCase().replace(/_/g, "-");
+      const contentSpec = await prisma.analysisSpec.findUnique({
+        where: { slug: normalized },
+        select: { id: true, isActive: true },
       });
-      contentSpecId = contentSpec?.id || null;
+      contentSpecId = contentSpec?.isActive ? contentSpec.id : null;
     }
 
     const goal = await prisma.goal.create({

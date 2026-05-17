@@ -727,17 +727,18 @@ export async function PATCH(
 
         // Create goal instances for caller
         for (const goalConfig of goals) {
-          // Find contentSpec if it's a LEARN goal
+          // Find contentSpec if it's a LEARN goal.
+          // AnalysisSpec.slug is globally unique — exact match avoids
+          // fuzzy substring confusion between prefix-overlapping slugs
+          // (#407 / #412).
           let contentSpecId = null;
           if (goalConfig.type === 'LEARN' && goalConfig.contentSpecSlug) {
-            const contentSpec = await prisma.analysisSpec.findFirst({
-              where: {
-                slug: { contains: goalConfig.contentSpecSlug.toLowerCase().replace(/_/g, '-') },
-                isActive: true,
-              },
-              select: { id: true },
+            const normalized = goalConfig.contentSpecSlug.toLowerCase().replace(/_/g, '-');
+            const contentSpec = await prisma.analysisSpec.findUnique({
+              where: { slug: normalized },
+              select: { id: true, isActive: true },
             });
-            contentSpecId = contentSpec?.id || null;
+            contentSpecId = contentSpec?.isActive ? contentSpec.id : null;
           }
 
           // Create goal

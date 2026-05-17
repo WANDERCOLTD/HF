@@ -1123,7 +1123,8 @@ export async function executeWizardTool(
         const courseSlug = slugify(courseName, { lower: true, strict: true });
         const disciplineSlug = slugify(subjectDiscipline, { lower: true, strict: true });
         const subjectSlug = `${domainRow!.slug}-${courseSlug}-${disciplineSlug}`;
-        let subject = await prisma.subject.findFirst({ where: { slug: subjectSlug } });
+        // Subject.slug is @unique — findUnique reflects the schema invariant.
+        let subject = await prisma.subject.findUnique({ where: { slug: subjectSlug } });
         if (!subject) {
           const { suggestTeachingProfile } = await import("@/lib/content-trust/teaching-profiles");
           subject = await prisma.subject.create({
