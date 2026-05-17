@@ -40,11 +40,20 @@ export async function GET(req: NextRequest, { params }: Params) {
       const moduleIds = Object.keys(progress.loMastery);
       if (moduleIds.length === 0) continue;
 
-      // Resolve module slugs to DB records with LOs and assertions
+      // Resolve module slugs to DB records with LOs and assertions.
+      // Scope by curriculumId derived from specSlug (Curriculum.slug is
+      // globally unique). Without this scope, slugs like "part1" or "MOD-1"
+      // would return modules from any curriculum sharing the slug — #407.
+      const curriculum = await prisma.curriculum.findFirst({
+        where: { slug: specSlug },
+        select: { id: true },
+      });
+      if (!curriculum) continue;
+
       const modules = await prisma.curriculumModule.findMany({
         where: moduleSlug
-          ? { slug: moduleSlug }
-          : { slug: { in: moduleIds } },
+          ? { curriculumId: curriculum.id, slug: moduleSlug }
+          : { curriculumId: curriculum.id, slug: { in: moduleIds } },
         select: {
           id: true,
           slug: true,

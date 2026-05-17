@@ -152,7 +152,8 @@ export async function POST(req: NextRequest) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
 
-    let subject = await prisma.subject.findFirst({ where: { slug: subjectSlug } });
+    // Subject.slug is @unique — findUnique reflects the schema invariant.
+    let subject = await prisma.subject.findUnique({ where: { slug: subjectSlug } });
     if (!subject) {
       subject = await prisma.subject.create({
         data: {
