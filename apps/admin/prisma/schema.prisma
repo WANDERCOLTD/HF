@@ -1209,12 +1209,19 @@ model Goal {
   sourceContentId String?
   sourceContent   ContentSource? @relation("GoalProjection", fields: [sourceContentId], references: [id], onDelete: SetNull)
 
+  // #413 LO/skill ref provenance — "OUT-01", "SKILL-02", etc. Copied verbatim
+  // from Playbook.config.goals[].ref at goal instantiation time. NULL for
+  // hand-authored or legacy goals. Read by P5b derivation (#414 LEARN, #417
+  // ACHIEVE) to look up per-LO mastery / per-skill score.
+  ref String?
+
   @@index([callerId, status])
   @@index([callerId, isAssessmentTarget, status])
   @@index([type])
   @@index([status])
   @@index([playbookId])
   @@index([sourceContentId])
+  @@index([callerId, ref])
 }
 
 // CallerPlaybook — Explicit enrollment of a caller in a specific playbook.
