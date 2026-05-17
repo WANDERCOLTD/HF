@@ -34,6 +34,13 @@ export interface SimRunnerOptions {
   turnCount: number;
   runPipeline: boolean;
   onProgress: (event: SimProgressEvent) => void;
+  /**
+   * Cookie header from the originating request. Forwarded to the internal
+   * pipeline call so it satisfies requireAuth() — without this, the in-process
+   * fetch goes out to the public app URL with no session and the response is
+   * the login HTML page, which then fails to JSON-parse.
+   */
+  forwardCookies?: string;
 }
 
 export interface SimRunnerResult {
@@ -87,7 +94,7 @@ function invertRoles(history: AIMessage[]): AIMessage[] {
 // =============================================================================
 
 export async function runSimulation(options: SimRunnerOptions): Promise<SimRunnerResult> {
-  const { callerId, turnCount, runPipeline, onProgress } = options;
+  const { callerId, turnCount, runPipeline, onProgress, forwardCookies } = options;
 
   // ─── Load caller ───
   const caller = await prisma.caller.findUnique({
@@ -246,11 +253,15 @@ export async function runSimulation(options: SimRunnerOptions): Promise<SimRunne
     onProgress({ phase: "pipeline", message: "Running analysis pipeline..." });
 
     try {
-      // Call the end-call pipeline endpoint internally
-      const baseUrl = config.app.url;
+      // Call the end-call pipeline endpoint internally. Use the loopback host
+      // so we don't bounce out through Cloudflare for in-process calls, and
+      // forward the originating request's cookies so requireAuth() succeeds.
+      const baseUrl = `http://127.0.0.1:${config.app.port}`;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (forwardCookies) headers.Cookie = forwardCookies;
       const pipelineRes = await fetch(`${baseUrl}/api/calls/${call.id}/pipeline`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           callerId,
           mode: "prompt",

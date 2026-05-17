@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
           turnCount: numTurns,
           runPipeline,
           onProgress: sendEvent,
+          forwardCookies: req.headers.get("cookie") ?? undefined,
         });
 
         sendEvent({
