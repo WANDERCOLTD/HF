@@ -36,6 +36,7 @@ import { config as appConfig } from "@/lib/config";
 import { updateCurriculumProgress, getCurriculumProgress, completeModule, updateTpMasteryBatch } from "@/lib/curriculum/track-progress";
 // initializeLessonPlanSession removed — scheduler replaces session tracking
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
+import { resolveCurriculumIdForPlaybook, resolveModuleByLogicalId } from "@/lib/curriculum/resolve-module";
 import { ContractRegistry } from "@/lib/contracts/registry";
 import { loadPipelineStages, PipelineStage } from "@/lib/pipeline/config";
 
@@ -2163,15 +2164,24 @@ const stageExecutors: Record<string, StageExecutor> = {
         trackCurriculumAfterCall(ctx.callerId, ctx.log, callerResult.learningAssessment)
           .then(async (updated) => {
             if (callerResult.learningAssessment?.moduleId) {
-              const mod = await prisma.curriculumModule.findFirst({
-                where: { slug: callerResult.learningAssessment.moduleId },
-                select: { id: true },
-              });
-              if (mod) {
-                await prisma.call.update({
-                  where: { id: ctx.callId },
-                  data: { curriculumModuleId: mod.id },
-                });
+              // Two-step scope chain (#407): caller → playbook → curriculum →
+              // module. Unscoped slug findFirst picked the wrong curriculum's
+              // part1 when slugs collide across playbooks — corrupted
+              // Call.curriculumModuleId on every pipeline run.
+              const playbookId =
+                callerResult.playbookUsed ?? (await resolvePlaybookId(ctx.callerId));
+              const curriculumId = await resolveCurriculumIdForPlaybook(playbookId);
+              if (curriculumId) {
+                const mod = await resolveModuleByLogicalId(
+                  curriculumId,
+                  callerResult.learningAssessment.moduleId,
+                );
+                if (mod) {
+                  await prisma.call.update({
+                    where: { id: ctx.callId },
+                    data: { curriculumModuleId: mod.id },
+                  });
+                }
               }
             }
             return updated;
