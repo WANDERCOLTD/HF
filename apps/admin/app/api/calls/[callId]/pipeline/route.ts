@@ -188,6 +188,89 @@ async function loadCurrentModuleContext(
     });
   }
 
+  // ── #284 Path 0b: authored-module fallback ──
+  // Authored-module playbooks (modulesAuthored=true) store the canonical
+  // module catalogue in `Playbook.config.modules[]`. When the caller has no
+  // `requestedModuleId` (every VAPI background call) we never used to look
+  // here — Path 1's CONTENT-spec lookup misses, Path 2's curriculum.notableInfo
+  // is empty, and the function returned null. Result: `learningAssessment`
+  // never fires and `CallerModuleProgress` never gets written. That's the
+  // bug Soren Guzmán surfaced (6 calls, 0 CMP rows, all 8 module bars at 0).
+  //
+  // Recipe: read the authored catalogue, find the caller's progress, pick
+  // the first non-completed module, and build the moduleContext from its
+  // `outcomesPrimary` refs (filtered the same way as the picker path).
+  {
+    const pb = await prisma.playbook.findUnique({
+      where: { id: resolvedPlaybookId },
+      select: {
+        config: true,
+        curricula: {
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: { id: true, slug: true },
+        },
+      },
+    });
+    const cfg = (pb?.config ?? {}) as Record<string, any>;
+    const modulesAuthored = cfg.modulesAuthored === true;
+    const authored = Array.isArray(cfg.modules) ? cfg.modules : [];
+
+    if (modulesAuthored && authored.length > 0) {
+      // Pick the first non-completed module via CMP; first authored entry if
+      // none seen yet. Order matches the curriculum's authored sequence.
+      const cmps = await prisma.callerModuleProgress.findMany({
+        where: { callerId },
+        select: { moduleId: true, mastery: true },
+      });
+      const masteryByModuleId = new Map(cmps.map((c) => [c.moduleId, c.mastery]));
+      const masteryThreshold = 0.7;
+      const next =
+        authored.find((m: any) => (masteryByModuleId.get(m?.id) ?? 0) < masteryThreshold) ??
+        authored[0];
+
+      const allRefs: string[] = Array.isArray(next?.outcomesPrimary)
+        ? next.outcomesPrimary
+        : [];
+      let filteredRefs = allRefs;
+      if (allRefs.length > 0 && pb?.curricula[0]?.id) {
+        try {
+          const excluded = await prisma.learningObjective.findMany({
+            where: {
+              module: { curriculumId: pb.curricula[0].id },
+              ref: { in: allRefs },
+              systemRole: { in: ["ASSESSOR_RUBRIC", "SCORE_EXPLAINER", "TEACHING_INSTRUCTION"] },
+            },
+            select: { ref: true },
+          });
+          const drop = new Set(excluded.map((lo) => lo.ref));
+          if (drop.size > 0) {
+            filteredRefs = allRefs.filter((r) => !drop.has(r));
+          }
+        } catch (err: any) {
+          log.warn("Path 0b: systemRole filter failed; passing all refs", { error: err?.message });
+        }
+      }
+
+      log.info("Module context from authored catalogue (#284 Path 0b)", {
+        playbookId: resolvedPlaybookId,
+        moduleId: next?.id,
+        loCount: filteredRefs.length,
+        seenModules: cmps.length,
+      });
+      return {
+        specSlug:
+          pb?.curricula[0]?.slug ??
+          `playbook-${resolvedPlaybookId.slice(0, 8)}-modules`,
+        moduleId: next?.id,
+        moduleName: next?.label || next?.id,
+        learningOutcomes: filteredRefs,
+        masteryThreshold,
+        allModuleIds: authored.map((m: any) => m?.id).filter(Boolean),
+      };
+    }
+  }
+
   // Path 1: CONTENT spec via the caller's enrolled playbook
   const playbook = await prisma.playbook.findUnique({
     where: { id: resolvedPlaybookId },

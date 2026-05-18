@@ -189,6 +189,85 @@ export async function main(prisma: PrismaClient): Promise<void> {
     }
   }
 
+  // ── 5. CONTENT-role spec for trust-weighted certification progress (#457) ──
+  // `computeTrustWeightedProgress` reads module trust levels off a CONTENT
+  // spec's `config.modules[].sourceRefs[].trustLevel`. Without this spec the
+  // certification card on the caller page shows "0 of 0 modules count toward
+  // L3+". The 4 IELTS Speaking modules are official Cambridge IELTS rubric
+  // content → `PUBLISHED_REFERENCE` (weight 1.0, above the 0.80 L3+ cert
+  // threshold). Single CONTENT spec scoped to this playbook, idempotent upsert.
+  const playbookForModules = await prisma.playbook.findUnique({
+    where: { id: playbook.id },
+    select: { config: true },
+  });
+  const authoredModules = Array.isArray(
+    (playbookForModules?.config as Record<string, any>)?.modules,
+  )
+    ? ((playbookForModules!.config as Record<string, any>).modules as Array<{ id: string }>)
+    : [];
+  if (authoredModules.length > 0) {
+    const contentSpecSlug = `ielts-speaking-content`;
+    const contentSpec = await prisma.analysisSpec.upsert({
+      where: { slug: contentSpecSlug },
+      update: {
+        config: {
+          modules: authoredModules.map((m) => ({
+            id: m.id,
+            sourceRefs: [{ trustLevel: "PUBLISHED_REFERENCE" }],
+          })),
+        },
+        isDirty: false,
+        compiledAt: new Date(),
+        isActive: true,
+      },
+      create: {
+        slug: contentSpecSlug,
+        name: "IELTS Speaking Practice — Content",
+        description:
+          "CONTENT-role spec listing curriculum modules and their source trust levels for L3+ certification progress (#457).",
+        scope: "DOMAIN",
+        specType: "DOMAIN",
+        specRole: "CONTENT",
+        outputType: "MEASURE",
+        domain: "ielts-speaking",
+        isActive: true,
+        isDirty: false,
+        compiledAt: new Date(),
+        config: {
+          modules: authoredModules.map((m) => ({
+            id: m.id,
+            sourceRefs: [{ trustLevel: "PUBLISHED_REFERENCE" }],
+          })),
+        },
+      },
+      select: { id: true, slug: true },
+    });
+    // PlaybookItem has no (playbookId, specId) unique constraint, so we
+    // pre-check before creating. Idempotent on re-seed.
+    const existingLink = await prisma.playbookItem.findFirst({
+      where: { playbookId: playbook.id, specId: contentSpec.id },
+      select: { id: true },
+    });
+    if (existingLink) {
+      await prisma.playbookItem.update({
+        where: { id: existingLink.id },
+        data: { isEnabled: true },
+      });
+    } else {
+      await prisma.playbookItem.create({
+        data: {
+          playbookId: playbook.id,
+          specId: contentSpec.id,
+          itemType: "SPEC",
+          isEnabled: true,
+        },
+      });
+    }
+    console.log(
+      `  Content spec: ${contentSpec.slug} (${authoredModules.length} modules @ PUBLISHED_REFERENCE)`,
+    );
+  }
+
   console.log("✓ IELTS Speaking Practice seeded");
 }
 
