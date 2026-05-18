@@ -57,7 +57,13 @@ export interface ProjectedGoalTemplate {
 export interface ProjectedBehaviorTarget {
   parameterName: string;
   scope: "PLAYBOOK";
-  /** Target value normalised to [0,1]. Skills Framework Secure = 1.0. */
+  /**
+   * Target value normalised to [0,1]. Resolution order:
+   *   1. Skill's `Target band: N.N` line in the fixture → `band / 10`
+   *      (e.g. Band 6.5 = 0.65, Band 9 = 0.9). The /10 convention leaves
+   *      headroom for "scored above target" feedback in the UI.
+   *   2. No target band declared → 1.0 (Secure tier ceiling, legacy default).
+   */
   targetValue: number;
   /** Stable reference back to the doc that produced it. */
   skillRef: string;
@@ -188,6 +194,12 @@ export interface ParsedSkill {
     developing?: string;
     secure?: string;
   };
+  /**
+   * Optional per-skill target band parsed from a `**Target band:** N.N`
+   * line inside the skill section. Converted to `targetValue = band / 10`
+   * by `mapSkillsToAchieveAndTargets`. Absent = aim for Secure (1.0).
+   */
+  targetBand?: number;
 }
 
 export interface SkillsFrameworkResult {
@@ -199,6 +211,13 @@ const SKILL_HEADING = /^###\s+(SKILL-\d+)\s*:\s*(.+?)\s*$/;
 // Tier format accepts both v3.0 (`**Emerging:**`) and v2.2 (`**Emerging.**`)
 // punctuation styles. The captured text follows the closing `**`.
 const TIER_LINE = /^\s*[-*]\s*\*\*\s*(Emerging|Developing|Secure)\s*[:.]\s*\*\*\s*(.+?)\s*$/i;
+// Per-skill target band declaration. Accepts punctuation/bold variants:
+//   `**Target band:** 6.5`     (colon inside bold)
+//   `**Target band**: 6.5`     (colon outside bold)
+//   `- **Target band:** 6.5`   (list-bullet form)
+//   `Target band: 6.5`         (unbolded)
+// Captured as a decimal number; consumed as `band / 10` downstream.
+const TARGET_BAND_LINE = /^\s*[-*]?\s*\*{0,2}\s*Target band\s*\*{0,2}\s*[:.]\s*\*{0,2}\s*(\d+(?:\.\d+)?)\s*$/i;
 const SECTION_BOUNDARY = /^##\s+/;
 
 export function parseSkillsFramework(bodyText: string): SkillsFrameworkResult {
@@ -261,6 +280,16 @@ export function parseSkillsFramework(bodyText: string): SkillsFrameworkResult {
       captureDescription = false;
       const tier = tierMatch[1].toLowerCase() as "emerging" | "developing" | "secure";
       current.tiers[tier] = tierMatch[2].trim();
+      continue;
+    }
+
+    const bandMatch = line.match(TARGET_BAND_LINE);
+    if (bandMatch) {
+      captureDescription = false;
+      const parsed = Number(bandMatch[1]);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        current.targetBand = parsed;
+      }
       continue;
     }
 
@@ -349,11 +378,16 @@ function mapSkillsToMeasureSpec(
   if (skills.length === 0) return undefined;
 
   const triggers: ProjectedMeasureSpecTrigger[] = skills.map((skill) => {
+    const hasTargetBand =
+      typeof skill.targetBand === "number" && skill.targetBand > 0;
+    const secureLabel = hasTargetBand
+      ? `Secure (ceiling = 1.0; this course targets Band ${skill.targetBand} = ${(skill.targetBand! / 10).toFixed(2)})`
+      : "Secure (target)";
     const tierLines: string[] = [];
     if (skill.tiers.emerging) tierLines.push(`Emerging: ${skill.tiers.emerging}`);
     if (skill.tiers.developing)
       tierLines.push(`Developing: ${skill.tiers.developing}`);
-    if (skill.tiers.secure) tierLines.push(`Secure (target): ${skill.tiers.secure}`);
+    if (skill.tiers.secure) tierLines.push(`${secureLabel}: ${skill.tiers.secure}`);
     const rubric =
       tierLines.length > 0
         ? `\n\nTier descriptors:\n${tierLines.join("\n")}`
@@ -364,7 +398,7 @@ function mapSkillsToMeasureSpec(
       name: `${skill.name} band assessment`,
       given: "The caller spoke on this call",
       when: "End-of-call analysis",
-      then: `Score the caller's ${skill.name} per the rubric tiers (Emerging → Developing → Secure, normalised 0-1, Secure = 1.0). Score this criterion INDEPENDENTLY of the other criteria — composite scores hide what needs work.`,
+      then: `Score the caller's ${skill.name} per the rubric tiers (Emerging → Developing → Secure, normalised 0-1 where 0.X corresponds to Band X; Band 6.5 = 0.65, Band 9 = 0.9, Secure tier ceiling = 1.0). Score this criterion INDEPENDENTLY of the other criteria — composite scores hide what needs work.`,
       actions: [
         {
           description: `Measure ${skill.name}: produce a 0-1 score against the tier descriptors below.${rubric}`,
@@ -398,6 +432,12 @@ function mapSkillsToAchieveAndTargets(skills: ParsedSkill[]): {
   for (const skill of skills) {
     const paramName = skillNameToParameterName(skill.name);
     const secureDescription = skill.tiers.secure ?? skill.description;
+    const hasTargetBand =
+      typeof skill.targetBand === "number" && skill.targetBand > 0;
+    const targetValue = hasTargetBand ? skill.targetBand! / 10 : 1.0;
+    const goalName = hasTargetBand
+      ? `Reach Band ${skill.targetBand} on ${skill.name}`
+      : `Reach Secure on ${skill.name}`;
 
     parameters.push({
       name: paramName,
@@ -407,7 +447,7 @@ function mapSkillsToAchieveAndTargets(skills: ParsedSkill[]): {
 
     achieveGoals.push({
       type: "ACHIEVE",
-      name: `Reach Secure on ${skill.name}`,
+      name: goalName,
       description: secureDescription,
       isAssessmentTarget: true,
       ref: skill.ref,
@@ -419,7 +459,7 @@ function mapSkillsToAchieveAndTargets(skills: ParsedSkill[]): {
     behaviorTargets.push({
       parameterName: paramName,
       scope: "PLAYBOOK",
-      targetValue: 1.0,
+      targetValue,
       skillRef: skill.ref,
       description: secureDescription,
     });

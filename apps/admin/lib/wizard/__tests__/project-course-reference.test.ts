@@ -71,6 +71,40 @@ A short description.
     expect(result.skills[0].tiers.secure).toBe("secure listening");
   });
 
+  it("parses an optional Target band line into targetBand", () => {
+    const withBand = `## Skills Framework
+
+### SKILL-01: Test Skill
+
+A short description.
+
+**Target band:** 6.5
+
+- **Emerging:** weak
+- **Developing:** mid
+- **Secure:** secure
+`;
+    const result = parseSkillsFramework(withBand);
+    expect(result.skills).toHaveLength(1);
+    expect(result.skills[0].targetBand).toBe(6.5);
+  });
+
+  it("leaves targetBand undefined when no Target band line is present", () => {
+    const noBand = `## Skills Framework
+
+### SKILL-01: Test Skill
+
+A short description.
+
+- **Emerging:** weak
+- **Developing:** mid
+- **Secure:** secure
+`;
+    const result = parseSkillsFramework(noBand);
+    expect(result.skills).toHaveLength(1);
+    expect(result.skills[0].targetBand).toBeUndefined();
+  });
+
   it("warns when a skill has no Secure tier", () => {
     const incomplete = `## Skills Framework
 
@@ -141,10 +175,41 @@ describe("projectCourseReference — IELTS v2.2 fixture", () => {
     expect(achieve.map((g) => g.ref)).toEqual(["SKILL-01", "SKILL-02", "SKILL-03", "SKILL-04"]);
   });
 
-  it("derives one BehaviorTarget per skill with PLAYBOOK scope and Secure target", () => {
+  it("derives one BehaviorTarget per skill with PLAYBOOK scope and Band 6.5 target (0.65)", () => {
     expect(result.behaviorTargets).toHaveLength(4);
     expect(result.behaviorTargets.every((t) => t.scope === "PLAYBOOK")).toBe(true);
-    expect(result.behaviorTargets.every((t) => t.targetValue === 1.0)).toBe(true);
+    // IELTS v2.2 fixture declares `Target band: 6.5` for every skill, so the
+    // applier projects 0.65 (band / 10) for all four. A fixture omitting the
+    // line would fall back to 1.0 (Secure ceiling) — see the no-band test below.
+    expect(result.behaviorTargets.every((t) => t.targetValue === 0.65)).toBe(true);
+  });
+
+  it("derives ACHIEVE goal names from target band when declared", () => {
+    const achieve = result.configPatch.goalTemplates.filter((g) => g.type === "ACHIEVE");
+    expect(achieve.map((g) => g.name)).toEqual([
+      "Reach Band 6.5 on Fluency and Coherence",
+      "Reach Band 6.5 on Lexical Resource",
+      "Reach Band 6.5 on Grammatical Range and Accuracy",
+      "Reach Band 6.5 on Pronunciation",
+    ]);
+  });
+
+  it("falls back to Secure target (1.0) when a skill has no Target band line", () => {
+    const noBand = `## Skills Framework
+
+### SKILL-01: Test Skill
+
+A short description.
+
+- **Emerging:** weak
+- **Developing:** mid
+- **Secure:** secure
+`;
+    const projection = projectCourseReference(noBand, { sourceContentId: SOURCE_ID });
+    expect(projection.behaviorTargets).toHaveLength(1);
+    expect(projection.behaviorTargets[0].targetValue).toBe(1.0);
+    const achieve = projection.configPatch.goalTemplates.filter((g) => g.type === "ACHIEVE");
+    expect(achieve[0].name).toBe("Reach Secure on Test Skill");
   });
 
   it("requests 4 Parameter upserts — one per skill, all type BEHAVIOR", () => {

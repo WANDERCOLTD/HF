@@ -42,10 +42,11 @@ describe("IELTS seed fixture", () => {
     }
   });
 
-  it("emits 4 BehaviorTargets — one per skill — with targetValue 1.0 (Secure) and skillRef", () => {
+  it("emits 4 BehaviorTargets — one per skill — at targetValue 0.65 (Band 6.5) and PLAYBOOK scope", () => {
     expect(projection.behaviorTargets).toHaveLength(4);
     for (const bt of projection.behaviorTargets) {
-      expect(bt.targetValue).toBe(1.0);
+      // Fixture declares `Target band: 6.5` per skill → 6.5 / 10 = 0.65.
+      expect(bt.targetValue).toBe(0.65);
       expect(bt.skillRef).toMatch(/^SKILL-0\d$/);
       expect(bt.parameterName).toMatch(/^skill_/);
       expect(bt.scope).toBe("PLAYBOOK");
