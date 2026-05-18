@@ -176,7 +176,7 @@ export const CALL_POINTS: CallPointDef[] = [
     label: "Content Trust - Extraction",
     description: "Extracts assertions from training materials (generic + curriculum extractor)",
     category: "content-processing",
-    defaults: { provider: "claude", model: config.ai.claude.model, temperature: 0.1, maxTokens: 4000, timeoutMs: 120_000 },
+    defaults: { provider: "claude", model: config.ai.claude.model, temperature: 0.1, maxTokens: 8192, timeoutMs: 120_000 },
   },
   {
     id: "content-trust.extract-comprehension",

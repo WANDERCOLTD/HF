@@ -164,10 +164,15 @@ export class CurriculumExtractor extends DocumentExtractor {
       },
     );
 
+    const warnings: string[] = [];
+    if (aiResult.stopReason === "max_tokens") {
+      warnings.push(`Curriculum chunk ${context.chunkIndex + 1}/${context.totalChunks} truncated at max_tokens — authored modules may be missing. Raise content-trust.extract maxTokens in /x/ai-config.`);
+    }
+
     const raw = parseJsonResponse(aiResult.content);
 
     if (!Array.isArray(raw)) {
-      return { assertions: [], questions: [], vocabulary: [], warnings: [] };
+      return { assertions: [], questions: [], vocabulary: [], warnings };
     }
 
     const assertions: ExtractedAssertion[] = raw.map((item: any) => ({
@@ -187,7 +192,7 @@ export class CurriculumExtractor extends DocumentExtractor {
     // Auto-generate implied questions from assessment criteria
     const questions = this.generateImpliedQuestions(assertions);
 
-    return { assertions, questions, vocabulary: [], warnings: [] };
+    return { assertions, questions, vocabulary: [], warnings };
   }
 
   /**

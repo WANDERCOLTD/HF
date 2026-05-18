@@ -86,11 +86,16 @@ export class GenericExtractor extends DocumentExtractor {
 
     console.log(`[GenericExtractor] AI response for chunk ${context.chunkIndex}: ${aiResult.content.length} chars, stopReason=${aiResult.stopReason}`);
 
+    const warnings: string[] = [];
+    if (aiResult.stopReason === "max_tokens") {
+      warnings.push(`Chunk ${context.chunkIndex + 1}/${context.totalChunks} truncated at max_tokens — output likely incomplete. Raise content-trust.extract maxTokens in /x/ai-config.`);
+    }
+
     const raw = parseJsonResponse(aiResult.content);
 
     if (!Array.isArray(raw)) {
       console.warn(`[GenericExtractor] Chunk ${context.chunkIndex} returned non-array:`, typeof raw, JSON.stringify(raw).substring(0, 200));
-      return { assertions: [], questions: [], vocabulary: [], warnings: [] };
+      return { assertions: [], questions: [], vocabulary: [], warnings };
     }
 
     console.log(`[GenericExtractor] Chunk ${context.chunkIndex}: parsed ${raw.length} assertions`);
@@ -120,6 +125,6 @@ export class GenericExtractor extends DocumentExtractor {
       };
     });
 
-    return { assertions, questions: [], vocabulary: [], warnings: [] };
+    return { assertions, questions: [], vocabulary: [], warnings };
   }
 }
