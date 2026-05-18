@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS "Domain" (
 
 CREATE UNIQUE INDEX IF NOT EXISTS "Domain_slug_key" ON "Domain"("slug");
 
+-- AnalysisSpec is a Prisma model name; the actual table is "BddFeature"
+-- (see `@@map("BddFeature")` on `model AnalysisSpec` in schema.prisma).
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -39,7 +41,7 @@ BEGIN
     WHERE constraint_name = 'Domain_onboardingIdentitySpecId_fkey'
   ) THEN
     ALTER TABLE "Domain" ADD CONSTRAINT "Domain_onboardingIdentitySpecId_fkey"
-      FOREIGN KEY ("onboardingIdentitySpecId") REFERENCES "AnalysisSpec"("id")
+      FOREIGN KEY ("onboardingIdentitySpecId") REFERENCES "BddFeature"("id")
       ON DELETE SET NULL ON UPDATE CASCADE;
   END IF;
 END $$;
