@@ -69,6 +69,7 @@
     "docs:citations:check": "tsx scripts/check-doc-citations.ts --warn",
     "snap": "tsx scripts/capture-demo-screenshots.ts",
     "seed:demo": "tsx prisma/seed-demo-fixtures.ts",
+    "seed:ielts": "tsx prisma/seed-ielts-course.ts",
     "db:seed:full": "tsx prisma/seed-full.ts",
     "db:seed:full:reset": "tsx prisma/seed-full.ts --reset",
     "version:bump": "tsx scripts/bump-version.ts",

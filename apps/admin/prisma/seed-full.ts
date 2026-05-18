@@ -43,6 +43,7 @@ import { main as seedDemoLogins } from "./seed-demo-logins";
 import { main as seedGolden } from "./seed-golden";
 import { main as seedIdentityArchetypes } from "./seed-identity-archetypes";
 import { main as seedDemoCourse } from "./seed-demo-course";
+import { main as seedIeltsCourse } from "./seed-ielts-course";
 
 type Profile = "core" | "demo" | "test" | "full" | "golden";
 
@@ -68,6 +69,11 @@ const ALL_STEPS: Step[] = [
 
   // ── Demo + Full (demo course with 8 learners) ──────────
   { name: "seed-demo-course", fn: seedDemoCourse, profiles: ["demo", "full"] },
+
+  // ── Demo + Full (IELTS playbook via live projection pipeline) ──
+  // Story B: demonstrates end-to-end course derivation from a Course
+  // Reference markdown — no hand-rolled rows, parser + applier only.
+  { name: "seed-ielts-course", fn: seedIeltsCourse, profiles: ["demo", "full"] },
 
   // ── Test + Full only (e2e fixtures — NOT in demo) ──────
   { name: "seed-e2e", fn: seedE2E, profiles: ["test", "full"] },
