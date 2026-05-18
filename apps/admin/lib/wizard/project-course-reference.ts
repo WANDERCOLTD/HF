@@ -42,6 +42,16 @@ export interface ProjectedGoalTemplate {
   ref: string;
   /** Priority hint 1–10 (higher = more important). ACHIEVE defaults higher. */
   priority: number;
+  /**
+   * #444 — progress measurement strategy resolved at projection time from
+   * the goal's shape. The applier writes this verbatim onto Goal rows so
+   * trackGoalProgress dispatches without re-resolving per call.
+   *   • LEARN + ref starting "OUT"/"LO"/"BAND"  → "lo_rollup"
+   *   • ACHIEVE + ref="SKILL-NN"                → "skill_ema"
+   *   • isAssessmentTarget + ASSESSOR_RUBRIC    → "assessment_readiness"
+   *   • Anything else (caller-expressed / etc.) → "manual_only"
+   */
+  progressStrategy: string;
 }
 
 export interface ProjectedBehaviorTarget {
@@ -317,6 +327,8 @@ function mapOutcomesToLearnGoals(outcomes: Record<string, string>): ProjectedGoa
     isAssessmentTarget: false,
     ref,
     priority: 5,
+    // #444 — authored LEARN goals are measured by LO mastery roll-up.
+    progressStrategy: "lo_rollup",
   }));
 }
 
@@ -400,6 +412,8 @@ function mapSkillsToAchieveAndTargets(skills: ParsedSkill[]): {
       isAssessmentTarget: true,
       ref: skill.ref,
       priority: 8,
+      // #444 — SKILL-NN ACHIEVE goals are measured by per-skill EMA (#417).
+      progressStrategy: "skill_ema",
     });
 
     behaviorTargets.push({

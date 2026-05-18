@@ -18,6 +18,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { GOAL_TYPE_VALUES, type GoalTypeLiteral, type PlaybookConfig } from "@/lib/types/json-fields";
+import { loadGoalProgressSpec, resolveStrategyKey } from "@/lib/goals/strategies";
 
 const LEGACY_GOAL_TYPE_MAP: Record<string, GoalTypeLiteral> = {
   TOPIC_MASTERED: "LEARN",
@@ -54,6 +55,9 @@ type GoalConfigEntry = {
   // unblocks per-LO/per-skill derivation in P5b (#414 LEARN, #417 ACHIEVE).
   ref?: string;
   sourceContentId?: string;
+  // #444 strategy provenance — authored courses write this at projection
+  // time; non-authored goals get it resolved via GOAL-PROGRESS-001 below.
+  progressStrategy?: string;
 };
 
 /**
@@ -130,6 +134,10 @@ async function instantiateForPlaybook(
 
   const created: string[] = [];
 
+  // #444 — load GOAL-PROGRESS-001 once per playbook so we don't re-fetch the
+  // spec inside the loop. Spec is cached for 30s in-process anyway.
+  const progressSpec = await loadGoalProgressSpec();
+
   for (const goalConfig of goalConfigs) {
     let contentSpecId: string | null = null;
     if (goalConfig.type === "LEARN" && goalConfig.contentSpecSlug) {
@@ -146,11 +154,26 @@ async function instantiateForPlaybook(
       contentSpecId = contentSpec?.isActive ? contentSpec.id : null;
     }
 
+    const coercedType = coerceGoalType(goalConfig.type);
+    // #444 — explicit strategy on the GoalTemplate (authored projection)
+    // wins; otherwise resolve via GOAL-PROGRESS-001 rules.
+    const progressStrategy =
+      goalConfig.progressStrategy ??
+      resolveStrategyKey(
+        {
+          type: coercedType,
+          ref: goalConfig.ref ?? null,
+          contentSpecId,
+          isAssessmentTarget: goalConfig.isAssessmentTarget ?? false,
+        },
+        progressSpec,
+      );
+
     const goal = await prisma.goal.create({
       data: {
         callerId,
         playbookId,
-        type: coerceGoalType(goalConfig.type),
+        type: coercedType,
         name: goalConfig.name,
         description: goalConfig.description || null,
         contentSpecId,
@@ -164,6 +187,8 @@ async function instantiateForPlaybook(
         // the LO / skill / source doc.
         ref: goalConfig.ref ?? null,
         sourceContentId: goalConfig.sourceContentId ?? null,
+        // #444 — strategy resolved above.
+        progressStrategy,
       },
     });
 

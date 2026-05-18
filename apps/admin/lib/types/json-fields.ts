@@ -123,6 +123,12 @@ export interface GoalTemplate {
   // Hand-authored / wizard / legacy templates omit these.
   sourceContentId?: string;
   ref?: string; // "OUT-01" / "SKILL-02" — stable ref back to the source doc
+  /**
+   * #444 — measurement strategy key. Authored projection writes this;
+   * non-authored / hand-seeded templates omit it and instantiate-goals.ts
+   * resolves via GOAL-PROGRESS-001 at goal-create time.
+   */
+  progressStrategy?: string;
 }
 
 // ---------------------------------------------------------------------------
