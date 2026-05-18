@@ -126,25 +126,33 @@ function makeGoal(overrides: Partial<{
   playbookId: string | null;
   contentSpecId: string | null;
 }> = {}) {
+  const type = overrides.type ?? "LEARN";
+  const ref = overrides.ref ?? null;
+  const hasContentSpec = !!(overrides.contentSpec || overrides.contentSpecId);
+  // #444 — default strategy mirrors GOAL-PROGRESS-001 resolution rules so
+  // every old test goal gets the right dispatch without explicit override.
+  let defaultStrategy = "manual_only";
+  if (type === "ACHIEVE" && typeof ref === "string" && /^SKILL-\d+$/.test(ref)) {
+    defaultStrategy = "skill_ema";
+  } else if (type === "LEARN" && (ref || hasContentSpec)) {
+    defaultStrategy = "lo_rollup";
+  } else if (overrides.isAssessmentTarget && hasContentSpec) {
+    defaultStrategy = "assessment_readiness";
+  } else if (type === "CONNECT") {
+    defaultStrategy = "connect_warmth_avg";
+  }
   return {
     id: overrides.id ?? "goal-1",
-    type: overrides.type ?? "LEARN",
+    type,
     progress: overrides.progress ?? 0,
     contentSpec: overrides.contentSpec ?? null,
     contentSpecId: overrides.contentSpecId ?? null,
     callerId: overrides.callerId ?? "caller-1",
     isAssessmentTarget: overrides.isAssessmentTarget ?? false,
     assessmentConfig: overrides.assessmentConfig ?? null,
-    // Defaults expressed to keep the existing tests aligned with new dispatch:
-    //   • LEARN goal with contentSpec → lo_rollup (matches old calculateLearnProgress)
-    //   • Anything else without explicit override → manual_only (returns null)
     progressStrategy:
-      overrides.progressStrategy !== undefined
-        ? overrides.progressStrategy
-        : overrides.contentSpec || overrides.contentSpecId
-          ? "lo_rollup"
-          : "manual_only",
-    ref: overrides.ref ?? null,
+      overrides.progressStrategy !== undefined ? overrides.progressStrategy : defaultStrategy,
+    ref,
     playbookId: overrides.playbookId ?? null,
   };
 }
@@ -435,6 +443,7 @@ describe("lib/goals/track-progress.ts", () => {
       id: string;
       ref: string;
       progress: number;
+      progressStrategy: string;
     }> = {}) {
       return {
         id: over.id ?? "goal-ref",
@@ -447,6 +456,8 @@ describe("lib/goals/track-progress.ts", () => {
         assessmentConfig: null,
         playbookId: "pb-1",
         ref: over.ref ?? "OUT-01",
+        // #444 — LEARN+ref dispatches to lo_rollup
+        progressStrategy: over.progressStrategy ?? "lo_rollup",
       };
     }
 
@@ -628,6 +639,7 @@ describe("lib/goals/track-progress.ts", () => {
       id: string;
       ref: string;
       progress: number;
+      progressStrategy: string;
     }> = {}) {
       return {
         id: over.id ?? "skill-goal",
@@ -640,6 +652,8 @@ describe("lib/goals/track-progress.ts", () => {
         assessmentConfig: null,
         playbookId: "pb-1",
         ref: over.ref ?? "SKILL-01",
+        // #444 — SKILL-NN ACHIEVE dispatches to skill_ema
+        progressStrategy: over.progressStrategy ?? "skill_ema",
       };
     }
 
@@ -878,12 +892,15 @@ describe("lib/goals/track-progress.ts", () => {
       expect(result.updated).toBe(0);
     });
 
-    it("queries callScore with correct parameter IDs", async () => {
+    it("queries callScore with default parameter IDs from spec config", async () => {
       const goal = makeGoal({ type: "CONNECT" });
       mockPrisma.goal.findMany.mockResolvedValue([goal]);
 
       await trackGoalProgress("caller-1", "call-1");
 
+      // #444 — connect_warmth_avg now queries with select:{score:true},
+      // not include:{parameter:true}. The PARAMS list is unchanged
+      // because the default config in strategyConfig falls back to it.
       expect(mockPrisma.callScore.findMany).toHaveBeenCalledWith({
         where: {
           callId: "call-1",
@@ -893,9 +910,7 @@ describe("lib/goals/track-progress.ts", () => {
             },
           },
         },
-        include: {
-          parameter: true,
-        },
+        select: { score: true },
       });
     });
   });
@@ -1110,14 +1125,29 @@ describe("lib/goals/track-progress.ts", () => {
   // -------------------------------------------------
 
   describe("goal completion", () => {
+    // #444 — these tests drive completion via lo_rollup since the old
+    // engagement bump is gone. We mock a LEARN goal with a ref and feed
+    // a high-mastery loScoresJson so deriveLearnGoalProgressFromRef pushes
+    // progress past 1.0.
+    function setupLoMastery(mastery: number) {
+      mockPrisma.learningObjective.findMany.mockResolvedValue([
+        { moduleId: "mod-1" },
+      ]);
+      mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
+        { moduleId: "mod-1", loScoresJson: { "OUT-01": { mastery } } },
+      ]);
+    }
+
     it("marks goal as COMPLETED when progress reaches 1.0", async () => {
       const goal = makeGoal({
         id: "almost-done",
         type: "LEARN",
         progress: 0.97,
-        contentSpec: null,
+        ref: "OUT-01",
+        playbookId: "pb-1",
       });
       mockPrisma.goal.findMany.mockResolvedValue([goal]);
+      setupLoMastery(1.0);
 
       const result = await trackGoalProgress("caller-1", "call-1");
 
@@ -1126,7 +1156,7 @@ describe("lib/goals/track-progress.ts", () => {
       expect(mockPrisma.goal.update).toHaveBeenCalledWith({
         where: { id: "almost-done" },
         data: expect.objectContaining({
-          progress: 1.0, // Math.min(1.0, 0.97 + 0.05)
+          progress: 1.0,
           status: "COMPLETED",
           completedAt: expect.any(Date),
         }),
@@ -1138,17 +1168,18 @@ describe("lib/goals/track-progress.ts", () => {
         id: "overflow",
         type: "LEARN",
         progress: 0.99,
-        contentSpec: null,
+        ref: "OUT-01",
+        playbookId: "pb-1",
       });
       mockPrisma.goal.findMany.mockResolvedValue([goal]);
+      // Mastery 1.0 — delta = 1.0 - 0.99 = 0.01; final = min(1.0, 0.99 + 0.01) = 1.0
+      setupLoMastery(1.0);
 
-      const result = await trackGoalProgress("caller-1", "call-1");
+      await trackGoalProgress("caller-1", "call-1");
 
       expect(mockPrisma.goal.update).toHaveBeenCalledWith({
         where: { id: "overflow" },
-        data: expect.objectContaining({
-          progress: 1.0, // Not 1.04
-        }),
+        data: expect.objectContaining({ progress: 1.0 }),
       });
     });
 
@@ -1157,14 +1188,16 @@ describe("lib/goals/track-progress.ts", () => {
         id: "in-progress",
         type: "LEARN",
         progress: 0.5,
-        contentSpec: null,
+        ref: "OUT-01",
+        playbookId: "pb-1",
       });
       mockPrisma.goal.findMany.mockResolvedValue([goal]);
+      setupLoMastery(0.55);
 
       await trackGoalProgress("caller-1", "call-1");
 
       const updateCall = mockPrisma.goal.update.mock.calls[0][0];
-      expect(updateCall.data.progress).toBe(0.55);
+      expect(updateCall.data.progress).toBeCloseTo(0.55, 2);
       expect(updateCall.data.status).toBeUndefined();
       expect(updateCall.data.completedAt).toBeUndefined();
     });
@@ -1196,25 +1229,45 @@ describe("lib/goals/track-progress.ts", () => {
 
   describe("multiple goals", () => {
     it("processes multiple goals independently", async () => {
+      // #444 — wire each goal to its measured strategy so the dispatcher
+      // exercises three distinct code paths in a single trackGoalProgress run.
       const goals = [
-        makeGoal({ id: "g1", type: "LEARN", progress: 0, contentSpec: null }),
+        makeGoal({ id: "g1", type: "LEARN", progress: 0, ref: "OUT-01", playbookId: "pb-1" }),
         makeGoal({ id: "g2", type: "CONNECT", progress: 0 }),
-        makeGoal({ id: "g3", type: "ACHIEVE", progress: 0 }),
+        makeGoal({
+          id: "g3",
+          type: "ACHIEVE",
+          progress: 0,
+          ref: "SKILL-01",
+          playbookId: "pb-1",
+        }),
       ];
-      mockPrisma.goal.findMany.mockResolvedValue(goals);
-
-      // LEARN fallback = 0.05
-      // CONNECT = no scores -> no update
-      mockPrisma.callScore.findMany.mockResolvedValue([]);
-      // ACHIEVE = long transcript -> 0.05
-      mockPrisma.call.findUnique.mockResolvedValue({
-        transcript: "D".repeat(2000),
+      // LO mastery for g1
+      mockPrisma.learningObjective.findMany.mockResolvedValue([{ moduleId: "mod-1" }]);
+      mockPrisma.callerModuleProgress.findMany.mockResolvedValue([
+        { moduleId: "mod-1", loScoresJson: { "OUT-01": { mastery: 0.5 } } },
+      ]);
+      // CONNECT signal for g2 (warmth/empathy/insight avg above highBumpThreshold)
+      mockPrisma.callScore.findMany.mockResolvedValue([
+        { score: 0.8 },
+        { score: 0.8 },
+        { score: 0.8 },
+      ]);
+      // SKILL EMA value for g3
+      mockPrisma.behaviorTarget.findFirst.mockResolvedValue({
+        parameterId: "skill_fluency_and_coherence_fc",
+        targetValue: 1.0,
       });
+      mockPrisma.callerTarget.findUnique.mockResolvedValue({
+        currentScore: 0.62,
+        callsUsed: 3,
+      });
+      mockPrisma.goal.findMany.mockResolvedValue(goals);
 
       const result = await trackGoalProgress("caller-1", "call-1");
 
-      // LEARN (0.05) + ACHIEVE (0.05) = 2 updated, CONNECT = 0
-      expect(result.updated).toBe(2);
+      // LEARN (lo_rollup 0.5), CONNECT (highBump 0.1), SKILL (0.62) → 3 updated
+      expect(result.updated).toBe(3);
       expect(result.completed).toBe(0);
     });
   });
@@ -1363,7 +1416,11 @@ describe("lib/goals/track-progress.ts", () => {
       expect(updateCall.data.status).toBeUndefined(); // No COMPLETED status
     });
 
-    it("falls back to conservative heuristic when exam readiness fails", async () => {
+    it("#444 — exam readiness failure returns null (no conservative-heuristic fallback)", async () => {
+      // Old behaviour: a +0.03 "conservative engagement" bump when
+      // computeExamReadiness threw. Under #444 the assessment_readiness
+      // strategy returns null on error and the goal stays at its current
+      // progress — broken contracts no longer leak progress.
       const goal = makeGoal({
         id: "assess-4",
         type: "ACHIEVE",
@@ -1372,15 +1429,12 @@ describe("lib/goals/track-progress.ts", () => {
         contentSpec: { slug: "broken-spec", domain: "test" },
       });
       mockPrisma.goal.findMany.mockResolvedValue([goal]);
-
       mockComputeExamReadiness.mockRejectedValue(new Error("Contract not seeded"));
 
       const result = await trackGoalProgress("caller-1", "call-1");
 
-      expect(result.updated).toBe(1);
-      const updateCall = mockPrisma.goal.update.mock.calls[0][0];
-      expect(updateCall.where.id).toBe("assess-4");
-      expect(updateCall.data.progress).toBeCloseTo(0.43, 10); // 0.4 + 0.03 conservative fallback
+      expect(result.updated).toBe(0);
+      expect(mockPrisma.goal.update).not.toHaveBeenCalled();
     });
 
     it("#444 — assessment target without contentSpec resolves to manual_only → no update", async () => {
