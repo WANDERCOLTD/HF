@@ -1,0 +1,85 @@
+{
+  "$schema": "./feature-spec-schema.json",
+  "id": "GOAL-PROGRESS-001",
+  "title": "Goal-Progress Strategy Resolution",
+  "version": "1.0",
+  "status": "Approved",
+  "date": "2026-05-18",
+  "domain": "goal-tracking",
+  "specType": "SYSTEM",
+  "outputType": "ORCHESTRATE",
+  "specRole": "ORCHESTRATE",
+  "story": {
+    "asA": "personalization system",
+    "iWant": "to resolve a measurement strategy for every Goal based on its shape (type / ref pattern / hasContentSpec / isAssessmentTarget)",
+    "soThat": "trackGoalProgress dispatches to the right per-call calculator (skill_ema | lo_rollup | assessment_readiness | connect_warmth_avg | manual_only) instead of a hardcoded if/else, and unmeasurable goals stay at 0 with an 'awaiting evidence' affordance instead of drifting up on engagement noise"
+  },
+  "context": {
+    "applies": "(1) At goal-creation time in apply-projection.ts (authored) and instantiate-goals.ts (non-authored). (2) At goal-progress time in trackGoalProgress (lookup once per pipeline run, pass down).",
+    "dependsOn": [],
+    "assumptions": [
+      "Goal.progressStrategy column has been added (#444 migration).",
+      "Authored courses (COURSE_REFERENCE projection) set progressStrategy directly per goal type at projection time — the spec is a fallback only.",
+      "Non-authored goals (caller-expressed via extractGoals, hand-seeded via Playbook.config.goals[*]) fall through to spec-rule resolution.",
+      "If no rule matches, the goal defaults to manual_only (progress stays 0, banner shows 'awaiting evidence' / 'attach a SKILL or LO to make measurable')."
+    ]
+  },
+  "parameters": [
+    {
+      "id": "goal_progress_strategies",
+      "name": "Strategy Resolution Rules",
+      "description": "Ordered list of {match, strategy} rules. First match (highest priority) wins. If none match, default = manual_only.",
+      "section": "orchestration",
+      "config": {
+        "defaultStrategy": "manual_only",
+        "rules": [
+          {
+            "priority": 100,
+            "match": { "goalType": "ACHIEVE", "refPattern": "^SKILL-\\d+$" },
+            "strategy": "skill_ema",
+            "rationale": "Per-skill ACHIEVE goals (#417) measured by SKILL-AGG-001 EMA → CallerTarget.currentScore → tier band via scoreToTier."
+          },
+          {
+            "priority": 90,
+            "match": { "goalType": "LEARN", "refPattern": "^(OUT|LO|BAND)-" },
+            "strategy": "lo_rollup",
+            "rationale": "LEARN goals tagged to a learning objective ref — derive mastery from accumulated LO scores across modules (#414)."
+          },
+          {
+            "priority": 80,
+            "match": { "isAssessmentTarget": true, "hasContentSpec": true },
+            "strategy": "assessment_readiness",
+            "rationale": "Assessment goals (e.g. 'IELTS Band 7') with a contentSpec for the rubric — computeExamReadiness against module coverage + score thresholds."
+          },
+          {
+            "priority": 70,
+            "match": { "goalType": "CONNECT" },
+            "strategy": "connect_warmth_avg",
+            "rationale": "CONNECT goals (rapport / trust) measured by avg(warmth, empathy, insight) parameter scores. Param keys + bump thresholds come from this rule's config block, NOT hardcoded."
+          }
+        ],
+        "strategyConfig": {
+          "connect_warmth_avg": {
+            "paramKeys": ["warmth", "empathy", "insight"],
+            "lowBumpThreshold": 0.5,
+            "lowBump": 0.05,
+            "highBumpThreshold": 0.7,
+            "highBump": 0.10
+          },
+          "lo_rollup": {
+            "masteryThreshold": 0.75,
+            "minLosForFullCredit": 1
+          }
+        }
+      }
+    }
+  ],
+  "triggers": [],
+  "notes": [
+    "This spec is consumed by lib/goals/strategies/resolve-strategy.ts. ContractRegistry-cached (30s TTL). Loaded ONCE at the top of trackGoalProgress and instantiate-goals; never re-fetched per goal.",
+    "Strategy keys are deliberately free-text strings (not enum) so we can ship new strategies (e.g. composite_measure) by registering a new file under lib/goals/strategies/* and adding a rule here — no schema migration required.",
+    "Authored courses (apply-projection.ts) write progressStrategy directly per goal type. They do not consult this spec at projection time; the spec is the fallback path for non-authored goals.",
+    "validateCourseStrategies(playbookId) — wizard readiness check — refuses to mark a course Ready while any Goal has progressStrategy=NULL. Resolution via this spec at instantiate-goals time guarantees every non-authored goal gets a value.",
+    "manual_only is the deliberate-not-measured terminal state. Used for caller-expressed ACHIEVE / CHANGE / SUPPORT / CREATE goals that have no ref and no contentSpec. UI must render the 'awaiting evidence — attach a SKILL or LO' banner for these (no engagement-heuristic fallback)."
+  ]
+}

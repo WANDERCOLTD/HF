@@ -29,6 +29,10 @@ const { mockPrisma, mockRequireAuth, mockIsAuthError } = vi.hoisted(() => ({
     composedPrompt: {
       findFirst: vi.fn(),
     },
+    // #444 — setup-status now counts unstrategised Goal rows.
+    goal: {
+      count: vi.fn(),
+    },
   },
   mockRequireAuth: vi.fn(),
   mockIsAuthError: vi.fn(),
@@ -60,6 +64,7 @@ beforeEach(() => {
   mockPrisma.playbookSubject.findMany.mockReset();
   mockPrisma.curriculum.findFirst.mockReset();
   mockPrisma.composedPrompt.findFirst.mockReset();
+  mockPrisma.goal.count.mockReset();
 
   mockRequireAuth.mockResolvedValue(passingAuth);
   mockIsAuthError.mockReturnValue(false);
@@ -67,6 +72,8 @@ beforeEach(() => {
   // Defaults that don't affect the lessonPlan branch — onboarding "configured"
   // varies per test via the playbook.findUnique mock.
   mockPrisma.composedPrompt.findFirst.mockResolvedValue(null);
+  // #444 — default: 0 unstrategised goals (course is strategy-clean).
+  mockPrisma.goal.count.mockResolvedValue(0);
 });
 
 function basePlaybook(configOverrides: Record<string, unknown> = {}) {

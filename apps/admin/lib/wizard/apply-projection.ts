@@ -418,6 +418,9 @@ export function mergeConfig(
       priority: g.priority,
       sourceContentId,
       ref: g.ref,
+      // #444 — pass authored strategy through to Playbook.config.goals[]
+      // so instantiate-goals.ts copies it onto the Goal row verbatim.
+      progressStrategy: g.progressStrategy,
     }),
   );
 
