@@ -69,6 +69,8 @@ The four IELTS Speaking band criteria map directly to the tutor's skill framewor
 
 The ability to speak at length without noticeable effort, with logical organisation and appropriate use of cohesive devices.
 
+**Target band:** 7.0
+
 - **Emerging:** Long pauses; frequent self-correction; ideas are disconnected; no use of discourse markers
 - **Developing:** Generally maintains flow with some hesitation; ideas are connected but sometimes jump; basic discourse markers used ("and", "but", "so")
 - **Secure:** Speaks fluently with rare hesitation; ideas are fully developed and logically sequenced; varied discourse markers used naturally ("having said that", "what I mean is", "on top of that")
@@ -76,6 +78,8 @@ The ability to speak at length without noticeable effort, with logical organisat
 ### SKILL-02: Lexical Resource (LR)
 
 The ability to use vocabulary with flexibility and precision, including less common and idiomatic items.
+
+**Target band:** 7.0
 
 - **Emerging:** Limited to high-frequency words; repetitive; word choice errors impede meaning; no paraphrasing
 - **Developing:** Some topic-specific vocabulary; attempts less common words with occasional inaccuracy; some effective paraphrasing
@@ -85,6 +89,8 @@ The ability to use vocabulary with flexibility and precision, including less com
 
 The ability to use a range of grammatical structures accurately and flexibly in speech.
 
+**Target band:** 7.0
+
 - **Emerging:** Mostly simple sentences; frequent errors in complex structures; errors impede understanding
 - **Developing:** Mix of simple and complex sentences; errors in complex structures but meaning is clear; some self-correction
 - **Secure:** Wide range of structures produced flexibly; majority of sentences are error-free; errors are rare and self-corrected
@@ -92,6 +98,8 @@ The ability to use a range of grammatical structures accurately and flexibly in 
 ### SKILL-04: Pronunciation (P)
 
 The ability to be understood with ease, using a range of pronunciation features (stress, rhythm, intonation, connected speech).
+
+**Target band:** 7.0
 
 - **Emerging:** Frequently unintelligible; limited control of phonological features; L1 interference causes communication breakdown
 - **Developing:** Generally intelligible; some mispronunciations but rarely impede understanding; some control of stress and intonation
