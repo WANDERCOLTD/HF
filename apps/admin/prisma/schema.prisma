@@ -1406,6 +1406,21 @@ model Call {
   endedAt  DateTime? // null = call may still be active (or pre-feature calls)
   messages CallMessage[]
 
+  // VAPI end-of-call payload capture (Phase 0 of plan-voice-analysis.md). Captured
+  // verbatim from VAPI's `end-of-call-report` message body — see
+  // https://docs.vapi.ai/server-url/events. All nullable so SIM, manual, and
+  // legacy paths continue to create Call rows with these fields unset.
+  // No consumer reads them today; AssemblyAI / voice-analysis pipeline (deferred)
+  // will be the first reader.
+  recordingUrl          String?
+  stereoRecordingUrl    String?
+  vapiDurationSeconds   Float?
+  vapiEndedReason       String?
+  vapiCostUsd           Float?
+  vapiAnalysisSummary   String?  @db.Text
+  vapiStructuredData    Json?
+  vapiSuccessEvaluation String?
+
   @@index([source])
   @@index([externalId])
   @@index([callerId], map: "Call_userId_idx")
