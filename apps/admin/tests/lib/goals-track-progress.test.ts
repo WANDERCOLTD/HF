@@ -56,9 +56,6 @@ const mockPrisma = {
   call: {
     findUnique: vi.fn(),
   },
-  callerTarget: {
-    upsert: vi.fn(),
-  },
   // #397 Phase 2: LEARN goal progress derived from CallerModuleProgress
   curriculumModule: {
     findMany: vi.fn(),
@@ -77,6 +74,10 @@ const mockPrisma = {
   callerTarget: {
     findUnique: vi.fn(),
     upsert: vi.fn(),
+  },
+  // #444 — GOAL-PROGRESS-001 spec lookup at top of trackGoalProgress
+  analysisSpec: {
+    findFirst: vi.fn(),
   },
 };
 
@@ -119,15 +120,32 @@ function makeGoal(overrides: Partial<{
   callerId: string;
   isAssessmentTarget: boolean;
   assessmentConfig: any;
+  /** #444 — explicit strategy or null (resolves via spec). */
+  progressStrategy: string | null;
+  ref: string | null;
+  playbookId: string | null;
+  contentSpecId: string | null;
 }> = {}) {
   return {
     id: overrides.id ?? "goal-1",
     type: overrides.type ?? "LEARN",
     progress: overrides.progress ?? 0,
     contentSpec: overrides.contentSpec ?? null,
+    contentSpecId: overrides.contentSpecId ?? null,
     callerId: overrides.callerId ?? "caller-1",
     isAssessmentTarget: overrides.isAssessmentTarget ?? false,
     assessmentConfig: overrides.assessmentConfig ?? null,
+    // Defaults expressed to keep the existing tests aligned with new dispatch:
+    //   • LEARN goal with contentSpec → lo_rollup (matches old calculateLearnProgress)
+    //   • Anything else without explicit override → manual_only (returns null)
+    progressStrategy:
+      overrides.progressStrategy !== undefined
+        ? overrides.progressStrategy
+        : overrides.contentSpec || overrides.contentSpecId
+          ? "lo_rollup"
+          : "manual_only",
+    ref: overrides.ref ?? null,
+    playbookId: overrides.playbookId ?? null,
   };
 }
 
@@ -169,6 +187,9 @@ describe("lib/goals/track-progress.ts", () => {
     // explicitly set up CallerModuleProgress fixtures.
     mockPrisma.curriculumModule.findMany.mockResolvedValue([]);
     mockPrisma.callerModuleProgress.findMany.mockResolvedValue([]);
+    // #444 — empty GOAL-PROGRESS-001 spec by default; tests that pin a
+    // specific strategy via makeGoal({progressStrategy}) bypass this anyway.
+    mockPrisma.analysisSpec.findFirst.mockResolvedValue(null);
     mockComputeExamReadiness.mockResolvedValue({
       readinessScore: 0.6,
       level: "borderline",
@@ -217,7 +238,7 @@ describe("lib/goals/track-progress.ts", () => {
   // LEARN goals with contentSpec
   // -------------------------------------------------
 
-  describe("LEARN goals with contentSpec", () => {
+  describe.skip("LEARN goals with contentSpec — legacy callerAttribute path (REMOVED in #444)", () => {
     it("calculates progress from curriculum module completion", async () => {
       const goal = makeGoal({
         id: "learn-1",
@@ -246,16 +267,14 @@ describe("lib/goals/track-progress.ts", () => {
       });
     });
 
-    it("does not update when curriculum progress has not increased", async () => {
+    it("#444 — does not update when curriculum progress has not increased (no engagement bump)", async () => {
       const goal = makeGoal({
         id: "learn-2",
         type: "LEARN",
-        progress: 0.75, // Already at 75%
+        progress: 0.75,
         contentSpec: makeContentSpec("quantum", ["mod1", "mod2", "mod3", "mod4"]),
       });
       mockPrisma.goal.findMany.mockResolvedValue([goal]);
-
-      // 2 out of 4 completed = 50%, less than current 75%
       mockPrisma.callerAttribute.findMany.mockResolvedValue([
         { key: "module_1", stringValue: "completed" },
         { key: "module_2", stringValue: "completed" },
@@ -263,14 +282,10 @@ describe("lib/goals/track-progress.ts", () => {
 
       const result = await trackGoalProgress("caller-1", "call-1");
 
-      // Falls through to fallback 0.05 engagement increment since curriculumProgress (0.5) <= goal.progress (0.75)
-      expect(result.updated).toBe(1);
-      expect(mockPrisma.goal.update).toHaveBeenCalledWith({
-        where: { id: "learn-2" },
-        data: expect.objectContaining({
-          progress: 0.8, // 0.75 + 0.05 fallback
-        }),
-      });
+      // Under #444 the lo_rollup strategy returns null when derived progress
+      // <= current progress, and there is no engagement-fallback path.
+      expect(result.updated).toBe(0);
+      expect(mockPrisma.goal.update).not.toHaveBeenCalled();
     });
 
     it("queries callerAttribute with correct domain and scope", async () => {
@@ -403,28 +418,11 @@ describe("lib/goals/track-progress.ts", () => {
       expect(mockPrisma.goal.update).not.toHaveBeenCalled();
     });
 
-    it("falls back to legacy attr path when no curriculum is linked to the spec", async () => {
-      // curriculumModule.findMany returns [] → derivation returns null → legacy
-      // callerAttribute path runs.
-      const goal = {
-        ...makeGoal({ id: "learn-legacy", type: "LEARN", progress: 0, contentSpec: makeContentSpec("legacy", ["m1", "m2"]) }),
-        contentSpecId: "spec-legacy-1",
-      };
-      mockPrisma.goal.findMany.mockResolvedValue([goal]);
-
-      mockPrisma.curriculumModule.findMany.mockResolvedValue([]); // no curriculum
-      mockPrisma.callerAttribute.findMany.mockResolvedValue([
-        { key: "module_1", stringValue: "completed" },
-      ]);
-
-      const result = await trackGoalProgress("caller-1", "call-1");
-
-      // 1/2 modules completed via legacy attr path
-      expect(result.updated).toBe(1);
-      expect(mockPrisma.goal.update).toHaveBeenCalledWith({
-        where: { id: "learn-legacy" },
-        data: expect.objectContaining({ progress: 0.5 }),
-      });
+    it.skip("#444 — legacy callerAttribute fallback path removed (only new courses supported)", async () => {
+      // The lo_rollup strategy no longer consults callerAttribute when
+      // curriculumModule.findMany returns []. Legacy data paths are not in
+      // scope per the fresh-start agreement; new courses always have a
+      // Curriculum row linked to their contentSpec.
     });
   });
 
@@ -556,30 +554,23 @@ describe("lib/goals/track-progress.ts", () => {
       });
     });
 
-    it("falls back to engagement when goal.ref is null", async () => {
-      // Legacy goal with no ref — should not enter the #414 path.
+    it("#444 — LEARN goal with no ref + manual_only strategy → no update (was engagement fallback)", async () => {
+      // Under #444, LEARN goals without a ref that resolve to manual_only
+      // strategy MUST NOT drift up on transcript noise. The dispatch returns
+      // null and the goal stays at its current progress.
       const legacyGoal = {
         ...refGoal({ progress: 0 }),
         ref: null,
         playbookId: null,
+        progressStrategy: "manual_only",
       };
       mockPrisma.goal.findMany.mockResolvedValue([legacyGoal]);
-
-      // Engagement fallback needs a transcript
-      mockPrisma.call.findUnique.mockResolvedValue({
-        transcript: "A".repeat(1200),
-      });
-      mockPrisma.callScore.findMany.mockResolvedValue([]);
+      mockPrisma.call.findUnique.mockResolvedValue({ transcript: "A".repeat(1200) });
 
       await trackGoalProgress("caller-1", "call-1");
 
-      // The #414 path should NOT have queried learningObjective at all.
-      expect(mockPrisma.learningObjective.findMany).not.toHaveBeenCalled();
-      // Engagement fallback gives 5% increment
-      expect(mockPrisma.goal.update).toHaveBeenCalledWith({
-        where: { id: "goal-ref" },
-        data: expect.objectContaining({ progress: 0.05 }),
-      });
+      // No engagement progress was applied — that's the whole point of #444.
+      expect(mockPrisma.goal.update).not.toHaveBeenCalled();
     });
 
     it("ref-linked goal with no accumulated mastery returns no update (no fall-through to engagement)", async () => {
@@ -780,7 +771,7 @@ describe("lib/goals/track-progress.ts", () => {
   // LEARN goals without contentSpec (fallback)
   // -------------------------------------------------
 
-  describe("LEARN goals without contentSpec", () => {
+  describe.skip("LEARN goals without contentSpec (DELETED in #444 — was engagement fallback)", () => {
     it("gives 5% progress increment as fallback", async () => {
       const goal = makeGoal({
         id: "learn-no-spec",
@@ -910,10 +901,13 @@ describe("lib/goals/track-progress.ts", () => {
   });
 
   // -------------------------------------------------
-  // Engagement-based goals (ACHIEVE, CHANGE, SUPPORT, CREATE)
+  // #444 — engagement-heuristic tests deleted. Strategy dispatch lives in
+  // tests/lib/goals-strategies.test.ts; manual_only behaviour is verified
+  // there. The "ACHIEVE/CHANGE/SUPPORT/CREATE → engagement bump" tests
+  // intentionally have NO equivalent — that behaviour is the bug #444 fixes.
   // -------------------------------------------------
 
-  describe("engagement-based goals", () => {
+  describe.skip("engagement-based goals (DELETED in #444)", () => {
     it("gives 5% progress for long transcripts (>1000 chars)", async () => {
       const goal = makeGoal({
         id: "achieve-1",
@@ -1389,31 +1383,27 @@ describe("lib/goals/track-progress.ts", () => {
       expect(updateCall.data.progress).toBeCloseTo(0.43, 10); // 0.4 + 0.03 conservative fallback
     });
 
-    it("routes assessment targets without contentSpec through engagement heuristic", async () => {
+    it("#444 — assessment target without contentSpec resolves to manual_only → no update", async () => {
+      // Under #444, an isAssessmentTarget ACHIEVE without a contentSpec has
+      // no readiness rubric to score against. The strategy resolver gives it
+      // manual_only and the goal stays at its current progress — no more
+      // engagement-bump leak from a half-configured course.
       const goal = makeGoal({
         id: "assess-no-spec",
         type: "ACHIEVE",
         progress: 0.2,
         isAssessmentTarget: true,
         contentSpec: null,
+        progressStrategy: "manual_only",
       });
       mockPrisma.goal.findMany.mockResolvedValue([goal]);
-
-      mockPrisma.call.findUnique.mockResolvedValue({
-        transcript: "A".repeat(1500),
-      });
+      mockPrisma.call.findUnique.mockResolvedValue({ transcript: "A".repeat(1500) });
 
       const result = await trackGoalProgress("caller-1", "call-1");
 
-      expect(result.updated).toBe(1);
+      expect(result.updated).toBe(0);
       expect(mockComputeExamReadiness).not.toHaveBeenCalled();
-      // Falls through to engagement-based progress (ACHIEVE type)
-      expect(mockPrisma.goal.update).toHaveBeenCalledWith({
-        where: { id: "assess-no-spec" },
-        data: expect.objectContaining({
-          progress: 0.25, // 0.2 + 0.05 engagement
-        }),
-      });
+      expect(mockPrisma.goal.update).not.toHaveBeenCalled();
     });
   });
 

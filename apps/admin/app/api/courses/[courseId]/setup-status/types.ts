@@ -28,6 +28,14 @@ export interface SetupStatusResponse {
    * `ModeToggle` in the Curriculum tab.
    */
   activeCurriculumMode: ActiveCurriculumMode;
+  /**
+   * #444 — every Goal in this playbook has a non-null progressStrategy.
+   * When false, dispatch falls back to manual_only at runtime; the wizard
+   * surfaces `unstrategisedGoalCount` so the educator can fix the offenders
+   * (typically caller-expressed goals that need a SKILL/LO link).
+   */
+  strategiesAssigned: boolean;
+  unstrategisedGoalCount: number;
 }
 
 /** 4xx/5xx error path — separate type so the success contract stays tight. */

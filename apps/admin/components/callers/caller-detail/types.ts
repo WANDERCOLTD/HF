@@ -191,6 +191,22 @@ export type Goal = {
   loDescription?: string;
   loTouchedModules?: number;
   loTotalModules?: number;
+  /**
+   * #444 — measurement strategy key set at projection / instantiate time
+   *   • skill_ema             — SKILL-NN ACHIEVE (per-skill EMA)
+   *   • lo_rollup             — LEARN with LO ref (mean LO mastery)
+   *   • assessment_readiness  — isAssessmentTarget + contentSpec rubric
+   *   • connect_warmth_avg    — CONNECT goals (warmth / empathy / insight)
+   *   • manual_only           — deliberately not measured (awaiting setup)
+   */
+  progressStrategy?: string | null;
+  /**
+   * #444 — `true` when the Goal row was written by extractGoals (caller
+   * expressed it in transcript) rather than authored projection or hand
+   * seed. Drives the "Expressed by learner on …" sub-label so teachers
+   * can distinguish authored from caller-expressed at a glance.
+   */
+  isCallerExpressed?: boolean;
   playbook: {
     id: string;
     name: string;

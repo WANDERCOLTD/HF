@@ -6,11 +6,14 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { GoalType, GoalStatus } from "@prisma/client";
+import { GoalStatus } from "@prisma/client";
 import { PARAMS } from "@/lib/registry";
-import type { SpecConfig } from "@/lib/types/json-fields";
-import { computeExamReadiness } from "@/lib/curriculum/exam-readiness";
 import { ContractRegistry } from "@/lib/contracts/registry";
+import {
+  getStrategy,
+  loadGoalProgressSpec,
+  resolveStrategyKey,
+} from "./strategies";
 
 export interface GoalProgressUpdate {
   goalId: string;
@@ -176,38 +179,54 @@ export async function calculateSkillAchieveProgress(
 }
 
 /**
- * Track progress for all active goals after a call
+ * Track progress for all active goals after a call (#444).
+ *
+ * Pure dispatch — loads GOAL-PROGRESS-001 spec once at the top, then for each
+ * Goal looks up its progressStrategy (or resolves it on the fly when null) and
+ * invokes the registered StrategyFn from lib/goals/strategies/registry.ts.
+ *
+ * No inline goal-type branching, no engagement-heuristic fallback. Goals that
+ * resolve to `manual_only` stay at 0 with the UI showing "awaiting evidence".
  */
 export async function trackGoalProgress(
   callerId: string,
-  callId: string
+  callId: string,
 ): Promise<{ updated: number; completed: number }> {
-  // Get active goals for this caller
   const goals = await prisma.goal.findMany({
     where: {
       callerId,
-      status: { in: ['ACTIVE', 'PAUSED'] },
+      status: { in: [GoalStatus.ACTIVE, GoalStatus.PAUSED] },
     },
-    include: {
-      contentSpec: true,
-    },
+    include: { contentSpec: true },
   });
 
   if (goals.length === 0) {
     return { updated: 0, completed: 0 };
   }
 
+  const spec = await loadGoalProgressSpec();
+
   let updatedCount = 0;
   let completedCount = 0;
 
-  // Track progress for each goal type
   for (const goal of goals) {
-    const progressUpdate = await calculateProgressUpdate(goal, callerId, callId);
+    const strategyKey =
+      goal.progressStrategy ??
+      resolveStrategyKey(
+        {
+          type: goal.type,
+          ref: goal.ref,
+          contentSpecId: goal.contentSpecId,
+          isAssessmentTarget: goal.isAssessmentTarget,
+        },
+        spec,
+      );
+    const strategy = getStrategy(strategyKey);
+    const strategyConfig = spec.strategyConfig[strategyKey];
+    const progressUpdate = await strategy(goal as any, { callerId, callId, strategyConfig });
 
     if (progressUpdate && progressUpdate.progressDelta > 0) {
       const newProgress = Math.min(1.0, goal.progress + progressUpdate.progressDelta);
-
-      // Assessment targets don't auto-complete — they need teacher confirmation (Story 4)
       const shouldAutoComplete = newProgress >= 1.0 && !goal.isAssessmentTarget;
 
       await prisma.goal.update({
@@ -216,99 +235,18 @@ export async function trackGoalProgress(
           progress: newProgress,
           updatedAt: new Date(),
           ...(shouldAutoComplete && {
-            status: 'COMPLETED',
+            status: GoalStatus.COMPLETED,
             completedAt: new Date(),
           }),
         },
       });
 
       updatedCount++;
-      if (shouldAutoComplete) {
-        completedCount++;
-      }
+      if (shouldAutoComplete) completedCount++;
     }
   }
 
   return { updated: updatedCount, completed: completedCount };
-}
-
-/**
- * Calculate progress update for a specific goal based on call outcomes.
- *
- * Routing precedence (most specific first):
- *   1. SKILL-based ACHIEVE → per-skill mastery (#417 P5b-ACHIEVE)
- *      Answers "where are you on this criterion".
- *   2. Assessment target with contentSpec → exam readiness (existing)
- *      Answers "ready for the exam" — different question, different path.
- *   3. Type-based dispatch (LEARN / CONNECT / engagement fallback)
- *
- * Skill-ACHIEVE is the FIRST branch because a goal with both
- * `ref="SKILL-NN"` AND `isAssessmentTarget=true` is asking "how good is
- * my Fluency & Coherence" — not "am I ready to take the exam".
- */
-async function calculateProgressUpdate(
-  goal: any,
-  callerId: string,
-  callId: string
-): Promise<GoalProgressUpdate | null> {
-  // 1. #417 — Skill-based ACHIEVE goals: per-skill mastery against the
-  //    learner's running CallerTarget.currentScore.
-  if (goal.type === "ACHIEVE" && typeof goal.ref === "string" && goal.ref.startsWith("SKILL-")) {
-    return await calculateSkillAchieveProgress(goal, callerId);
-  }
-
-  // 2. Assessment targets with a contentSpec use exam readiness scoring
-  if (goal.isAssessmentTarget && goal.contentSpec) {
-    return await calculateAssessmentProgress(goal, callerId);
-  }
-
-  switch (goal.type as GoalType) {
-    case 'LEARN':
-      return await calculateLearnProgress(goal, callerId, callId);
-    case 'CONNECT':
-      return await calculateConnectProgress(goal, callerId, callId);
-    case 'ACHIEVE':
-    case 'CHANGE':
-    case 'SUPPORT':
-    case 'CREATE':
-      // For other goal types, use a simple engagement-based heuristic
-      return await calculateEngagementProgress(goal, callerId, callId);
-    default:
-      return null;
-  }
-}
-
-/**
- * Calculate progress for assessment target goals using exam readiness.
- * Uses computeExamReadiness() instead of the 5%/call heuristic.
- */
-async function calculateAssessmentProgress(
-  goal: any,
-  callerId: string,
-): Promise<GoalProgressUpdate | null> {
-  try {
-    const readiness = await computeExamReadiness(callerId, goal.contentSpec.slug);
-    const readinessScore = readiness.readinessScore;
-
-    // Only update if readiness exceeds current progress
-    if (readinessScore > goal.progress) {
-      return {
-        goalId: goal.id,
-        progressDelta: readinessScore - goal.progress,
-        evidence: `Exam readiness: ${(readinessScore * 100).toFixed(0)}% (${readiness.level})${readiness.weakModules.length > 0 ? ` | Weak: ${readiness.weakModules.join(", ")}` : ""}`,
-      };
-    }
-
-    return null;
-  } catch (error: any) {
-    // Fallback to engagement heuristic if exam readiness fails (e.g., contract not seeded)
-    console.warn(`[track-progress] computeExamReadiness failed for goal ${goal.id}, falling back to engagement heuristic:`, error.message);
-    return {
-      goalId: goal.id,
-      progressDelta: 0.03, // Conservative fallback for assessment targets
-      evidence: `Assessment target engagement (readiness computation unavailable)`,
-    };
-  }
 }
 
 /**
@@ -409,220 +347,11 @@ export async function deriveLearnGoalProgressFromMastery(
 }
 
 /**
- * Calculate progress for LEARN goals based on curriculum completion
+ * #444 — per-type calculators removed. Strategies live in
+ * lib/goals/strategies/*.ts and are dispatched from trackGoalProgress via
+ * STRATEGY_REGISTRY. The engagement-heuristic path is intentionally deleted:
+ * unmeasurable goals stay at 0 with the "awaiting evidence" UI affordance.
  */
-async function calculateLearnProgress(
-  goal: any,
-  callerId: string,
-  callId: string
-): Promise<GoalProgressUpdate | null> {
-  // #414 P5b — per-goal LO derivation. When goal.ref is set (populated by
-  // #413), the goal's progress IS the mastery of its specific LO. Read
-  // `CallerModuleProgress.loScoresJson[ref].mastery` averaged across every
-  // module that contains an LO with that ref.
-  //
-  // CRITICAL: if the goal is ref-linked we never fall through to the
-  // engagement / session-embedded paths, even when no mastery has
-  // accumulated yet. The engagement heuristic would assign every ref-linked
-  // goal the same uniform value (averaged from COMP_/DISC_/COACH_ scores),
-  // exactly the bug this story exists to fix. Absence of mastery means
-  // progress stays at 0 — that is the correct answer.
-  if (goal.ref && goal.playbookId) {
-    const derived = await deriveLearnGoalProgressFromRef(callerId, {
-      ref: goal.ref,
-      playbookId: goal.playbookId,
-    });
-    if (derived && derived.progress > goal.progress) {
-      return {
-        goalId: goal.id,
-        progressDelta: derived.progress - goal.progress,
-        evidence: `LO ${goal.ref} mastery ${(derived.progress * 100).toFixed(0)}% across ${derived.touchedModules}/${derived.totalModulesWithRef} module(s)`,
-      };
-    }
-    return null;
-  }
-
-  // Phase 2 path: spec-level avg of CallerModuleProgress.mastery.
-  // Falls through to the legacy paths only when no curriculum is linked
-  // to this goal's contentSpec.
-  if (goal.contentSpec) {
-    const derived = await deriveLearnGoalProgressFromMastery(callerId, goal.contentSpecId);
-    if (derived) {
-      if (derived.progress > goal.progress) {
-        return {
-          goalId: goal.id,
-          progressDelta: derived.progress - goal.progress,
-          evidence: `Curriculum mastery avg ${(derived.progress * 100).toFixed(0)}% across ${derived.touchedModules}/${derived.totalModules} modules`,
-        };
-      }
-      // No progress to report, but the goal IS curriculum-linked — do NOT
-      // fall through to the engagement heuristic, that would double-count.
-      return null;
-    }
-
-    // Legacy fallback for goals whose contentSpec has no Curriculum row yet
-    // (rare — only old data or specs that never instantiated a curriculum).
-    const curriculumAttrs = await prisma.callerAttribute.findMany({
-      where: {
-        callerId,
-        scope: 'CURRICULUM',
-        domain: goal.contentSpec.domain,
-        key: { contains: 'module_' },
-      },
-    });
-    const completedModules = curriculumAttrs.filter(
-      attr => attr.stringValue === 'completed'
-    ).length;
-    const totalModules = (goal.contentSpec.config as SpecConfig)?.curriculum?.modules?.length || 1;
-    const curriculumProgress = completedModules / totalModules;
-    if (curriculumProgress > goal.progress) {
-      return {
-        goalId: goal.id,
-        progressDelta: curriculumProgress - goal.progress,
-        evidence: `Completed ${completedModules}/${totalModules} modules (legacy attr path)`,
-      };
-    }
-  }
-
-  // Session-embedded learning: use COMP_/DISC_/COACH_ CallScores if available
-  const outcomeScores = await prisma.callScore.findMany({
-    where: {
-      callId,
-      parameter: {
-        OR: [
-          { parameterId: { startsWith: "COMP_" } },
-          { parameterId: { startsWith: "DISC_" } },
-          { parameterId: { startsWith: "COACH_" } },
-        ],
-      },
-    },
-    select: { score: true, parameter: { select: { parameterId: true } } },
-  });
-
-  if (outcomeScores.length > 0) {
-    const avgScore = outcomeScores.reduce((sum, s) => sum + s.score, 0) / outcomeScores.length;
-    if (avgScore > goal.progress) {
-      const paramNames = outcomeScores.map(s => s.parameter.parameterId).join(", ");
-      return {
-        goalId: goal.id,
-        progressDelta: avgScore - goal.progress,
-        evidence: `Session-embedded learning: avg ${(avgScore * 100).toFixed(0)}% across ${outcomeScores.length} params (${paramNames})`,
-      };
-    }
-  }
-
-  // Fallback: small increment for engagement
-  return {
-    goalId: goal.id,
-    progressDelta: 0.05, // 5% progress per engaged call
-    evidence: `Engaged with learning content in call ${callId}`,
-  };
-}
-
-/**
- * Calculate progress for CONNECT goals based on conversation quality
- */
-async function calculateConnectProgress(
-  goal: any,
-  callerId: string,
-  callId: string
-): Promise<GoalProgressUpdate | null> {
-  // Check for high engagement/connection scores
-  const scores = await prisma.callScore.findMany({
-    where: {
-      callId,
-      parameter: {
-        parameterId: { in: [PARAMS.BEH_WARMTH, PARAMS.BEH_EMPATHY_RATE, PARAMS.BEH_INSIGHT_FREQUENCY] },
-      },
-    },
-    include: {
-      parameter: true,
-    },
-  });
-
-  if (scores.length === 0) return null;
-
-  // Average the connection-related scores
-  const avgScore = scores.reduce((sum, s) => sum + s.score, 0) / scores.length;
-
-  // Progress based on connection quality
-  // High scores (>0.7) = more progress
-  if (avgScore > 0.7) {
-    return {
-      goalId: goal.id,
-      progressDelta: 0.1, // 10% progress for strong connection
-      evidence: `High connection quality (avg score: ${avgScore.toFixed(2)})`,
-    };
-  } else if (avgScore > 0.5) {
-    return {
-      goalId: goal.id,
-      progressDelta: 0.05, // 5% progress for moderate connection
-      evidence: `Moderate connection quality (avg score: ${avgScore.toFixed(2)})`,
-    };
-  }
-
-  return null;
-}
-
-/**
- * Extract keywords (> 3 chars) from a goal's name for relevance matching.
- * Exported for testing.
- */
-export function extractGoalKeywords(goalName: string | undefined | null): string[] {
-  if (!goalName) return [];
-  return goalName
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(w => w.length > 3);
-}
-
-/**
- * Generic engagement-based progress for other goal types.
- * Uses transcript length as base signal + keyword relevance bonus
- * when the goal's name terms appear in the transcript.
- */
-async function calculateEngagementProgress(
-  goal: any,
-  callerId: string,
-  callId: string
-): Promise<GoalProgressUpdate | null> {
-  const call = await prisma.call.findUnique({
-    where: { id: callId },
-    select: { transcript: true },
-  });
-
-  if (!call?.transcript) return null;
-
-  const transcriptLength = call.transcript.length;
-  const transcriptLower = call.transcript.toLowerCase();
-
-  // Base progress from transcript length
-  let baseDelta = 0;
-  if (transcriptLength > 1000) {
-    baseDelta = 0.05;
-  } else if (transcriptLength > 500) {
-    baseDelta = 0.02;
-  }
-
-  // Keyword relevance bonus: +3% if goal name terms appear in transcript
-  const keywords = extractGoalKeywords(goal.name);
-  const hasRelevantMention = keywords.length > 0 &&
-    keywords.some(kw => transcriptLower.includes(kw));
-  const relevanceBonus = hasRelevantMention ? 0.03 : 0;
-
-  const totalDelta = baseDelta + relevanceBonus;
-  if (totalDelta === 0) return null;
-
-  const parts: string[] = [];
-  if (baseDelta > 0) parts.push(`${baseDelta === 0.05 ? "engaged" : "moderate"} conversation (${transcriptLength} chars)`);
-  if (relevanceBonus > 0) parts.push("goal-relevant content discussed");
-
-  return {
-    goalId: goal.id,
-    progressDelta: totalDelta,
-    evidence: parts.join(", ") || `Conversation (${transcriptLength} chars)`,
-  };
-}
 
 /**
  * Apply assessment-aware target adjustments.
