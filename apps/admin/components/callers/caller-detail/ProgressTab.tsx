@@ -444,6 +444,109 @@ function SkillMeasurementAffordance({
   );
 }
 
+/**
+ * #444 — generic "awaiting evidence" affordance for non-skill goals.
+ *
+ * Replaces what used to be a misleading transcript-engagement bar with an
+ * explicit reason for the blank. Spec-driven by `progressStrategy`:
+ *   • lo_rollup    + 0 touched modules → info banner: "scores will populate"
+ *   • manual_only  (caller-expressed)  → warning banner: "attach SKILL/LO"
+ *   • manual_only  (authored)          → warning banner: "configure measurement"
+ */
+function GoalMeasurementAffordance({
+  strategy,
+  type,
+  ref,
+  loTotalModules,
+  isCallerExpressed,
+}: {
+  strategy: string;
+  type: string;
+  ref?: string | null;
+  loTotalModules?: number;
+  isCallerExpressed?: boolean;
+}) {
+  if (strategy === "lo_rollup") {
+    return (
+      <div className="hf-banner hf-banner-info hf-mt-xs">
+        <div className="hf-text-xs">
+          <strong>Awaiting first call evidence</strong> — this LO ({ref}) is
+          part of the course&apos;s curriculum across{" "}
+          {loTotalModules ?? "the relevant"} module
+          {loTotalModules === 1 ? "" : "s"}. Progress will populate as the
+          learner&apos;s next call touches one of them.
+        </div>
+      </div>
+    );
+  }
+
+  if (strategy === "manual_only" && isCallerExpressed) {
+    return (
+      <div className="hf-banner hf-banner-warning hf-mt-xs">
+        <div className="hf-text-xs">
+          <strong>Not yet measured</strong> — this is a directional goal the
+          learner expressed in conversation. There&apos;s no spec attached, so
+          progress can&apos;t be measured automatically. Attach a{" "}
+          <Acronym>SKILL</Acronym> or <Acronym>LO</Acronym> link in the
+          course tuner to make it measurable.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hf-banner hf-banner-warning hf-mt-xs">
+      <div className="hf-text-xs">
+        <strong>Not yet measured</strong> — this {type.toLowerCase()} goal has
+        no measurement strategy wired in. Edit the course to link this goal
+        to a <Acronym>SKILL</Acronym>, <Acronym>LO</Acronym>, or assessment
+        rubric so progress can be tracked automatically.
+      </div>
+    </div>
+  );
+}
+
+/**
+ * #444 — small chip showing the resolved progress strategy on a goal,
+ * with an `<Acronym>` tooltip explaining what it means. Educator-facing
+ * shorthand: "measured by LO rollup" etc.
+ */
+function StrategyBadge({ strategy }: { strategy: string }) {
+  const LABEL: Record<string, { label: string; explain: string }> = {
+    skill_ema: {
+      label: "skill EMA",
+      explain:
+        "Measured by per-skill EMA — every call's skill score folds into a smoothed running value, mapped to a tier band.",
+    },
+    lo_rollup: {
+      label: "LO rollup",
+      explain:
+        "Measured by averaging the learner's mastery on every Learning Objective linked to this goal.",
+    },
+    assessment_readiness: {
+      label: "assessment readiness",
+      explain:
+        "Measured by computeExamReadiness — module coverage scored against the contract's readiness thresholds.",
+    },
+    connect_warmth_avg: {
+      label: "warmth average",
+      explain:
+        "Measured by averaging behaviour scores (warmth, empathy, insight) on each call.",
+    },
+    manual_only: {
+      label: "awaiting setup",
+      explain:
+        "No measurement spec attached. Add a SKILL or LO link in the course tuner to make this measurable.",
+    },
+  };
+  const meta = LABEL[strategy] ?? { label: strategy, explain: `Strategy: ${strategy}` };
+  return (
+    <span className="hf-profile-chip" title={meta.explain}>
+      <Acronym>{meta.label}</Acronym>
+    </span>
+  );
+}
+
 // =====================================================
 // AssessmentTargetsCard
 // =====================================================
@@ -515,6 +618,9 @@ export function AssessmentTargetsCard({ goals, callerId }: { goals: Goal[]; call
                     <span className="hf-section-title">{goal.name}</span>
                     {isCompleted && (
                       <StatusBadge status="validated" size="compact" />
+                    )}
+                    {goal.progressStrategy && (
+                      <StrategyBadge strategy={goal.progressStrategy} />
                     )}
                   </div>
                   {goal.description && (
@@ -647,10 +753,19 @@ export function LearningSection({
       {activeGoals.map((goal) => {
         const typeConfig = GOAL_TYPE_CONFIG[goal.type] || { label: goal.type, icon: "🎯", color: "var(--text-muted)", glow: "var(--text-muted)" };
         const isLearn = goal.type === 'LEARN' && hasCurriculum && curriculum;
+        // #444 — LEARN+lo_rollup goals with zero touched modules suppress the
+        // slider group in favour of the "awaiting evidence" affordance (the
+        // sliders themselves are 100% blank in that state — pure noise).
+        const isLearnAwaitingEvidence =
+          goal.type === "LEARN" &&
+          goal.progressStrategy === "lo_rollup" &&
+          (goal.loTouchedModules ?? 0) === 0;
+        const showManualOnlyBanner =
+          goal.type !== "LEARN" && goal.progressStrategy === "manual_only";
 
         return (
           <div key={goal.id}>
-            {isLearn ? (
+            {isLearn && !isLearnAwaitingEvidence ? (
               /* LEARN goal: SliderGroup with curriculum modules as sliders */
               <>
               <SliderGroup
@@ -706,12 +821,20 @@ export function LearningSection({
               )}
               </>
             ) : (
-              /* Non-LEARN goal: Progress ring card */
+              /* Non-LEARN goal (or LEARN awaiting evidence): Progress ring card */
               <div className="hf-gradient-card">
                 <div className="hf-flex hf-gap-lg">
-                  <ProgressRing progress={goal.progress} size={72} color={typeConfig.color} />
+                  <ProgressRing
+                    progress={showManualOnlyBanner || isLearnAwaitingEvidence ? 0 : goal.progress}
+                    size={72}
+                    color={
+                      showManualOnlyBanner || isLearnAwaitingEvidence
+                        ? "var(--text-muted)"
+                        : typeConfig.color
+                    }
+                  />
                   <div className="hf-flex-1">
-                    <div className="hf-flex hf-gap-sm hf-mb-xs">
+                    <div className="hf-flex hf-gap-sm hf-mb-xs hf-items-center">
                       <span style={{ fontSize: 16 }}>{typeConfig.icon}</span>
                       <GoalPill label={typeConfig.label} size="compact" />
                       <StatusBadge status={goal.status === 'ACTIVE' ? 'active' : 'pending'} size="compact" />
@@ -723,17 +846,40 @@ export function LearningSection({
                           {goal.loDescription ? ` — ${goal.loDescription}` : null}
                         </span>
                       )}
+                      {/* #444 — strategy chip surfaces "how is this measured" */}
+                      {goal.progressStrategy && (
+                        <StrategyBadge strategy={goal.progressStrategy} />
+                      )}
                     </div>
                     <div className="hf-section-title">{goal.name}</div>
                     {goal.description && (
                       <div className="hf-text-xs hf-text-muted hf-mt-xs">{goal.description}</div>
                     )}
+                    {/* #444 — caller-expressed provenance sub-label */}
+                    {goal.isCallerExpressed && goal.startedAt && (
+                      <div className="hf-text-xs hf-text-muted hf-mt-xs">
+                        <em>
+                          Expressed by learner on{" "}
+                          {new Date(goal.startedAt).toLocaleDateString()}
+                        </em>
+                      </div>
+                    )}
                     {/* #417 Story B — module-touch summary for ref-linked LEARN goals. */}
-                    {goal.type === "LEARN" && goal.ref && typeof goal.loTotalModules === "number" && (
+                    {goal.type === "LEARN" && goal.ref && typeof goal.loTotalModules === "number" && !isLearnAwaitingEvidence && (
                       <div className="hf-text-xs hf-text-muted hf-mt-xs">
                         {goal.loTouchedModules ?? 0} of {goal.loTotalModules} module
                         {goal.loTotalModules === 1 ? "" : "s"} carrying this outcome have evidence
                       </div>
+                    )}
+                    {/* #444 — "awaiting evidence" / "not yet measured" affordances */}
+                    {(isLearnAwaitingEvidence || showManualOnlyBanner) && goal.progressStrategy && (
+                      <GoalMeasurementAffordance
+                        strategy={goal.progressStrategy}
+                        type={goal.type}
+                        ref={goal.ref}
+                        loTotalModules={goal.loTotalModules}
+                        isCallerExpressed={goal.isCallerExpressed}
+                      />
                     )}
                     <div className="hf-flex-wrap hf-text-xs hf-text-muted hf-gap-md hf-mt-sm hf-items-center">
                       {goal.playbook && <PlaybookPill label={`${goal.playbook.name} v${goal.playbook.version}`} size="compact" />}

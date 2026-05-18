@@ -686,6 +686,12 @@ export async function GET(
           enriched.loTotalModules = loInfo.totalModules;
         }
       }
+      // #444 — strategy + caller-expressed provenance. progressStrategy is
+      // the canonical "how is this goal measured" signal; isCallerExpressed
+      // distinguishes authored from transcript-extracted goals so the UI
+      // can label them differently.
+      enriched.progressStrategy = g.progressStrategy ?? null;
+      enriched.isCallerExpressed = !g.sourceContentId && g.progressStrategy === "manual_only";
       return enriched;
     });
 

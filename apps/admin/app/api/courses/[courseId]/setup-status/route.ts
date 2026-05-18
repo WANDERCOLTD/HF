@@ -108,6 +108,18 @@ export async function GET(
     const hasPhases = !!playbook.domain.onboardingFlowPhases;
     const onboardingConfigured = hasIdentity && hasPhases;
 
+    // ── #444: Strategy coverage — every Goal in this playbook must have a
+    // non-null progressStrategy before the course can be marked ready. This
+    // is the wizard guarantee that the new spec-driven progress pipeline
+    // flows right through. Authored goals get strategy from projection;
+    // non-authored goals get it from GOAL-PROGRESS-001 at instantiate time.
+    // If any rows slip through with NULL, the dispatch falls back to
+    // manual_only at runtime — visible as "awaiting evidence" forever.
+    const unstrategised = await prisma.goal.count({
+      where: { playbookId: courseId, progressStrategy: null },
+    });
+    const strategiesAssigned = unstrategised === 0;
+
     // ── Stage 6: Prompt Composable ──────────────────
     // Check if any caller for this domain has a composed prompt
     const composedPrompt = await prisma.composedPrompt.findFirst({
@@ -120,9 +132,9 @@ export async function GET(
     });
     const promptComposable = !!composedPrompt;
 
-    // All critical = lesson plan + onboarding configured
+    // All critical = lesson plan + onboarding configured + strategies assigned (#444)
     // Prompt composition happens on first call — not an educator-facing readiness gate
-    const allCriticalPass = lessonPlanBuilt && onboardingConfigured;
+    const allCriticalPass = lessonPlanBuilt && onboardingConfigured && strategiesAssigned;
 
     // ── Curriculum mode (issue #418) ────────────────────
     // Authored = Course Reference module catalogue is the source of truth.
@@ -142,6 +154,8 @@ export async function GET(
       promptComposable,
       allCriticalPass,
       activeCurriculumMode,
+      strategiesAssigned,
+      unstrategisedGoalCount: unstrategised,
     };
     return NextResponse.json(payload);
   } catch (err) {
