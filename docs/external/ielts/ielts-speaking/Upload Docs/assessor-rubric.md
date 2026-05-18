@@ -1,6 +1,6 @@
 # IELTS Speaking — Assessor Rubric
 
-> **Document type:** COURSE_REFERENCE · **Intended assertion category:** `assessment_guidance` / `assessment_approach` (INSTRUCTION_CATEGORIES) · **LO systemRole if generated:** `ASSESSOR_RUBRIC` · **Question assessmentUse if generated:** `TUTOR_ONLY` · **Audience: assessor / scoring loop only**
+> **Document type:** COURSE_REFERENCE_ASSESSOR_RUBRIC · **Intended assertion category:** `assessment_guidance` / `assessment_approach` (INSTRUCTION_CATEGORIES) · **LO systemRole if generated:** `ASSESSOR_RUBRIC` · **Question assessmentUse if generated:** `TUTOR_ONLY` · **Audience: assessor / scoring loop only**
 >
 > This document defines the band descriptors used to **score** the learner. It is not learner-facing content. Nothing here becomes a learning objective the learner is taught directly, and nothing here becomes an MCQ. The tutor uses these descriptors silently in the background to score, and references them in coaching feedback by quoting specific descriptor language ("at Band 7 the examiner expects ...").
 

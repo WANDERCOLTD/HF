@@ -1,6 +1,6 @@
 # IELTS Speaking Practice — Course Reference
 
-> **Document type:** COURSE_REFERENCE · **Dual-path parsing:** (a) `## Modules` table + `**OUT-NN:**` lines → `Playbook.config.modules` + `outcomes` directly; (b) remaining sections → `ContentAssertion` rows with INSTRUCTION_CATEGORIES · **Audience: tutor-only** (never sent to learner as media)
+> **Document type:** COURSE_REFERENCE_CANONICAL · **Dual-path parsing:** (a) `## Modules` table + `**OUT-NN:**` lines → `Playbook.config.modules` + `outcomes` directly; (b) remaining sections → `ContentAssertion` rows with INSTRUCTION_CATEGORIES · **Audience: tutor-only** (never sent to learner as media)
 
 ## Course Configuration
 

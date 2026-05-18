@@ -1,6 +1,6 @@
 # IELTS Speaking — Tutor Briefing
 
-> **Document type:** COURSE_REFERENCE · **Intended assertion category:** `session_flow` / `session_metadata` / `skill_framework` (INSTRUCTION_CATEGORIES) · **LO systemRole if generated:** `TEACHING_INSTRUCTION` · **Audience: tutor-only**
+> **Document type:** COURSE_REFERENCE_TUTOR_BRIEFING · **Intended assertion category:** `session_flow` / `session_metadata` / `skill_framework` (INSTRUCTION_CATEGORIES) · **LO systemRole if generated:** `TEACHING_INSTRUCTION` · **Audience: tutor-only**
 >
 > Everything in this document is **briefing material the tutor uses to inform the learner** — test format, examiner role, timing, question shapes. The tutor explains these facts to the learner when relevant. The tutor **never quizzes** the learner on this content. None of this becomes an MCQ, an assessment item, or a learning objective the learner is scored against.
 
