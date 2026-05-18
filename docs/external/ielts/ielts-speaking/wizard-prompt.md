@@ -32,11 +32,15 @@ start of each call from Call 2 onwards (Part 1: Familiar Topics, Part 2: Long
 Turn, Part 3: Abstract Discussion, Full Mock Exam). The four modules and the
 eight OUT-NN learner outcomes are authored in course-ref.md — the Module
 Catalogue parser will pick them up automatically when course-ref.md is uploaded.
-Do **not** call update_setup with `modulesAuthored` — that is a derived
-PlaybookConfig field, written server-side from `progressionMode`, not a
-setupData field. Authored-module status is set by the course-ref.md parser;
-voice rules and tutor principles flow in via course-ref.md sections (Teaching
-Approach, First Call Special Rules, Disclosure Schedule).
+Do **not** call update_setup with `modulesAuthored` or `constraints` — both are
+rejected at the wizard tool layer. `modulesAuthored` is a derived PlaybookConfig
+field written server-side; `constraints` is not on the setupData allow-list.
+Also do **not** call update_setup with `progressionMode` — that field is
+chip-click only: the wizard must call `show_options` with `dataKey:
+"progressionMode"` and the chip click writes setupData client-side.
+Authored-module status is set by the course-ref.md parser; voice rules and
+tutor principles flow in via course-ref.md sections (Teaching Approach, First
+Call Special Rules, Disclosure Schedule).
 
 Coverage: depth — better to master two Speaking Parts than skim all three.
 
