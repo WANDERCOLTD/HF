@@ -32,10 +32,11 @@ start of each call from Call 2 onwards (Part 1: Familiar Topics, Part 2: Long
 Turn, Part 3: Abstract Discussion, Full Mock Exam). The four modules and the
 eight OUT-NN learner outcomes are authored in course-ref.md — the Module
 Catalogue parser will pick them up automatically when course-ref.md is uploaded.
-Do **not** call update_setup with `modulesAuthored` or `constraints` — those
-are not setupData fields. Authored-module status is set by the course-ref.md
-parser; voice rules and tutor principles flow in via course-ref.md sections
-(Teaching Approach, First Call Special Rules, Disclosure Schedule).
+Do **not** call update_setup with `modulesAuthored` — that is a derived
+PlaybookConfig field, written server-side from `progressionMode`, not a
+setupData field. Authored-module status is set by the course-ref.md parser;
+voice rules and tutor principles flow in via course-ref.md sections (Teaching
+Approach, First Call Special Rules, Disclosure Schedule).
 
 Coverage: depth — better to master two Speaking Parts than skim all three.
 
@@ -102,7 +103,7 @@ After the wizard's `applyProjection` step completes (one transaction; idempotent
    - **4 ACHIEVE templates** (one per skill) with `isAssessmentTarget: true`, `ref: SKILL-NN`. Goal name embeds the declared Target band — e.g. `"Reach Band 7.0 on Fluency and Coherence"` (was `"Reach Secure on …"` before the Target band parser landed). Falls back to `"Reach Secure on …"` when no Target band declared.
    - **8 LEARN templates** (one per OUT-NN outcome), `ref: OUT-NN`
 5. **Curriculum + 4 `CurriculumModule` rows** (`baseline`, `part1`, `part2`, `part3` — stable slugs, never regenerated on republish) + `LearningObjective` rows derived from each module's `outcomesPrimary` × the doc-level outcome dictionary. Module slugs `baseline`/`part1`/`part2`/`part3` are load-bearing for learner progress + dashboard rollups.
-6. **`COURSE_REFERENCE_ASSESSOR_RUBRIC` is excluded from goal projection** (#447, 2026-05-18). Bullet points / band descriptors inside the rubric document will NOT generate Goal rows. The wizard also rejects AI-emitted rubric prose as learning outcomes — phantom goals from earlier uploads can be cleaned up with the `scripts/cleanup-rubric-goals.ts` script.
+6. **`COURSE_REFERENCE_ASSESSOR_RUBRIC` is excluded from goal projection** (#447, 2026-05-18). Bullet points / band descriptors inside the rubric document will NOT generate Goal rows. The wizard also rejects AI-emitted rubric prose as learning outcomes — phantom goals from earlier uploads can be cleaned up with the `scripts/cleanup-rubric-projected-goals.ts` script.
 
 When a learner is then enrolled (any path — `/x/callers` POST, V5 wizard `+ New test learner`, `course-setup`, `create-test-learner`):
 
@@ -176,7 +177,7 @@ Per-call (each VAPI session):
 
 `applyProjection` is **idempotent**. Re-uploading the same 7 files produces zero net DB mutations beyond `updatedAt` bumps. Goal templates derived from this source (tagged with `sourceContentId`) are replaced wholesale; hand-authored or wizard-side goals (no `sourceContentId`) are preserved.
 
-If the rubric document was uploaded before #447 and produced phantom Goal rows, run `tsx apps/admin/scripts/cleanup-rubric-goals.ts` post-merge to clear them.
+If the rubric document was uploaded before #447 and produced phantom Goal rows, run `tsx apps/admin/scripts/cleanup-rubric-projected-goals.ts` post-merge to clear them.
 
 ---
 
