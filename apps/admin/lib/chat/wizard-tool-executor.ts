@@ -1361,22 +1361,44 @@ export async function executeWizardTool(
             ...newAssessmentGoals,
           ];
         }
-        // Map learning outcomes into LEARN goals (from wizard or setupData)
+        // Map learning outcomes into LEARN goals (from wizard or setupData).
+        // #447 — guarded against AI returning rubric calibration prose (band
+        // descriptors, tier-name lines) as "learning outcomes". The wizard's
+        // bare LEARN templates carry no `ref` and no `sourceContentId`, so
+        // applyProjection() can't diff them away. The guard runs the AI list
+        // through a regex filter + a soft gate that defers entirely to
+        // projection when OUT-NN templates already exist on the playbook.
         const learningOutcomes = (input.learningOutcomes as string[])
           || (setupData?.learningOutcomes as string[]);
         if (learningOutcomes && learningOutcomes.length > 0) {
           const existingGoals = (configUpdate.goals as any[]) || [];
-          const existingNames = new Set(existingGoals.map((g: any) => g.name?.toLowerCase().trim()));
-          const newLOGoals = learningOutcomes
-            .filter((lo: string) => !existingNames.has(lo.toLowerCase().trim()))
-            .map((lo: string) => ({
-              type: "LEARN",
-              name: lo,
-              isDefault: true,
-              priority: 5,
-            }));
-          if (newLOGoals.length > 0) {
-            configUpdate.goals = [...existingGoals, ...newLOGoals];
+          const { guardAILearningOutcomes } = await import("./wizard-ai-output-guard");
+          const guard = guardAILearningOutcomes(learningOutcomes, existingGoals);
+
+          for (const dropped of guard.filtered) {
+            console.warn(
+              `[wizard:guard] dropped LO "${dropped.value.slice(0, 80)}" — matches rubric pattern ${dropped.pattern}`,
+            );
+          }
+          if (guard.skippedByGate) {
+            console.log(
+              `[wizard:guard] skipped AI learning-outcome extraction — ${guard.gateReason}`,
+            );
+          }
+
+          if (guard.accepted.length > 0) {
+            const existingNames = new Set(existingGoals.map((g: any) => g.name?.toLowerCase().trim()));
+            const newLOGoals = guard.accepted
+              .filter((lo: string) => !existingNames.has(lo.toLowerCase().trim()))
+              .map((lo: string) => ({
+                type: "LEARN",
+                name: lo,
+                isDefault: true,
+                priority: 5,
+              }));
+            if (newLOGoals.length > 0) {
+              configUpdate.goals = [...existingGoals, ...newLOGoals];
+            }
           }
         }
 
