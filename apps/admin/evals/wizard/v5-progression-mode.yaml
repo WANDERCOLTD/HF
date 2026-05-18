@@ -1,19 +1,22 @@
-description: "Wizard V5 — progressionMode picker (force-confirm before create_course, #398)"
+description: "Wizard V5 — progressionMode picker via show_options + dataKey (#398, #470)"
 
 # Run with: npx promptfoo eval -c evals/wizard/v5-progression-mode.yaml --no-cache
 #
 # Tests rule 5d in v5-system-prompt.ts: before "Ready to create your course?",
-# the wizard MUST surface a 2-option show_suggestions picker confirming
-# progressionMode if it's not already set. The default ordering depends on
-# setupData.curriculumPath:
-#   - "authored" → ["Let learners pick (recommended)", "AI directs the sequence"]
-#   - "generated" / undefined → ["AI directs the sequence", "Let learners pick from a menu"]
+# the wizard MUST surface a 2-option `show_options` picker with
+# `dataKey: "progressionMode"` if it's not already set. The chip click writes
+# setupData.progressionMode directly client-side — the AI MUST NOT call
+# update_setup({ progressionMode }) (the executor REJECTS it, #470).
+#
+# Default ordering depends on setupData.curriculumPath:
+#   - "authored" → learner-picks recommended (first / recommended:true)
+#   - "generated" / undefined → ai-led recommended
 #
 # If progressionMode is already set on re-entry, the picker MUST NOT re-fire.
 
 prompts:
   - id: v5-progression-mode-prompt
-    label: "V5 — progressionMode force-confirm picker"
+    label: "V5 — progressionMode show_options picker"
     raw: |
       You are the HumanFirst Studio setup assistant.
 
@@ -22,29 +25,42 @@ prompts:
       - NEVER expose internal field names like `progressionMode`, `curriculumPath`, or `setupData.*`.
       - NEVER output XML tags in your text responses.
 
+      ## Tools: show_options vs show_suggestions
+
+      **show_options with `dataKey: "<fieldName>"`** — chip click writes setupData[fieldName]
+      directly client-side. NEVER follow up with update_setup for that field. Use for any field
+      with a fixed enum (e.g. progressionMode, audience, interactionPattern).
+
+      **show_suggestions** — generic affirmation chips. Do NOT carry a dataKey. Do NOT write
+      setupData. Pure conversational signals.
+
+      The tool layer ENFORCES this distinction. Calling `update_setup({ progressionMode: ... })` is
+      REJECTED — switch to show_options with dataKey: "progressionMode" instead.
+
       ## Rule 5d — Progression mode is a deliberate choice
 
       Before showing "Ready to create your course?" and BEFORE `create_course`, confirm
-      `progressionMode` if not already set in setupData. Surface a 2-option `show_suggestions`
-      picker — never silently infer, never skip. Default ordering depends on
-      `setupData.curriculumPath`:
+      `progressionMode` if not already set in setupData. Surface a 2-option `show_options`
+      picker with `dataKey: "progressionMode"` — never silently infer, never skip, NEVER use
+      `show_suggestions` for this field. The chip click writes setupData.progressionMode
+      directly client-side; you MUST NOT call update_setup for this field.
 
-      - When `curriculumPath === "authored"` (educator uploaded a doc with a module catalogue):
-        ask "Your course-ref doc declares a module catalogue. How should learners progress?"
-        with suggestions `["Let learners pick (recommended)", "AI directs the sequence"]`.
+      Default option ordering depends on `setupData.curriculumPath`:
 
-      - When `curriculumPath` is `"generated"`, missing, or upload was skipped: ask
-        "How should learners progress through this course?" with suggestions
-        `["AI directs the sequence", "Let learners pick from a menu"]`.
+      - When `curriculumPath === "authored"`: ask "Your course-ref doc declares a module
+        catalogue. How should learners progress?" with options
+        `[{ value: "learner-picks", label: "Let learners pick from a menu", recommended: true },
+          { value: "ai-led", label: "AI directs the sequence" }]`.
 
-      When the educator clicks a suggestion, call
-      `update_setup({ fields: { progressionMode: "ai-led" | "learner-picks" } })` immediately.
+      - When `curriculumPath` is `"generated"`, missing, or upload was skipped: ask "How should
+        learners progress through this course?" with options
+        `[{ value: "ai-led", label: "AI directs the sequence", recommended: true },
+          { value: "learner-picks", label: "Let learners pick from a menu" }]`.
 
-      Do NOT try to read `courseRefDigest.modulesAuthored` — that field is not present in the
-      runtime digest shape; `curriculumPath` is the correct signal.
+      Full call shape:
+      `show_options({ question: "...", dataKey: "progressionMode", mode: "radio", options: [...] })`.
 
-      If `progressionMode` is already set on re-entry (e.g. amendment flow), do NOT re-ask;
-      proceed to Phase 5 playback.
+      If `progressionMode` is already set on re-entry, do NOT re-ask; proceed to Phase 5 playback.
 
       ## HARD GATE
 
@@ -62,8 +78,26 @@ providers:
     config:
       max_tokens: 1500
       tools:
+        - name: show_options
+          description: "Show a single-select chip menu. Chip click writes setupData[dataKey] directly."
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              dataKey: { type: string }
+              mode: { type: string, enum: [radio, checklist] }
+              options:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    value: { type: string }
+                    label: { type: string }
+                    recommended: { type: boolean }
+                  required: [value, label]
+            required: [question, dataKey, options]
         - name: show_suggestions
-          description: "Show clickable quick-reply chips"
+          description: "Show generic affirmation chips. Does NOT write setupData."
           input_schema:
             type: object
             properties:
@@ -71,7 +105,7 @@ providers:
               suggestions: { type: array, items: { type: string } }
             required: [question, suggestions]
         - name: update_setup
-          description: "Save collected setup fields"
+          description: "Save collected setup fields. REJECTED for progressionMode — use show_options."
           input_schema:
             type: object
             properties:
@@ -87,9 +121,9 @@ providers:
 
 tests:
 
-  # ── Test A — curriculumPath=authored → picker with learner-picks default ──
+  # ── Test A — curriculumPath=authored → show_options with learner-picks recommended ──
 
-  - description: "Test A — curriculumPath=authored surfaces picker with 'Let learners pick (recommended)' first"
+  - description: "Test A — curriculumPath=authored surfaces show_options with learner-picks recommended"
     vars:
       setupState: |
         Can launch: NO. Still required for launch: Module progression.
@@ -102,22 +136,19 @@ tests:
         All other required fields are set. Only progressionMode remains.
       userMessage: "Looks good — what's next?"
     assert:
-      - type: is-json
-        value:
-          required: [content]
       - type: llm-rubric
         value: |
-          Response calls show_suggestions with TWO suggestions related to learner progression.
-          The FIRST suggestion mentions "learners pick" / "let learners pick" (the recommended
-          option for authored module catalogues). The SECOND suggestion mentions "AI" directing
-          or driving the sequence. Response does NOT call create_course. Response does NOT show
-          "Ready to create your course?" or "Create my course" chips.
+          Response calls show_options (NOT show_suggestions) with dataKey: "progressionMode"
+          and TWO options. One option has value "learner-picks" with recommended: true; the
+          other has value "ai-led". Response does NOT call create_course. Response does NOT
+          call update_setup with progressionMode (the chip click writes setupData
+          client-side). Response does NOT show "Create my course" chips.
       - type: not-icontains
         value: "Create my course"
 
-  # ── Test B — curriculumPath=generated → picker with ai-led default ──
+  # ── Test B — curriculumPath=generated → show_options with ai-led recommended ──
 
-  - description: "Test B — curriculumPath=generated surfaces picker with 'AI directs the sequence' first"
+  - description: "Test B — curriculumPath=generated surfaces show_options with ai-led recommended"
     vars:
       setupState: |
         Can launch: NO. Still required for launch: Module progression.
@@ -132,33 +163,36 @@ tests:
     assert:
       - type: llm-rubric
         value: |
-          Response calls show_suggestions with TWO suggestions related to learner progression.
-          The FIRST suggestion mentions "AI" directing or driving the sequence (the recommended
-          option when no module catalogue was declared). The SECOND suggestion mentions
-          "learners pick" / "let learners pick". Response does NOT call create_course.
+          Response calls show_options (NOT show_suggestions) with dataKey: "progressionMode"
+          and TWO options. One option has value "ai-led" with recommended: true; the other
+          has value "learner-picks". Response does NOT call create_course. Response does NOT
+          call update_setup with progressionMode.
       - type: not-icontains
         value: "Create my course"
 
-  # ── Test C — chip click triggers update_setup({ progressionMode }) ──
+  # ── Test C — chip click does NOT trigger update_setup({progressionMode}) ──
+  # The chip click already wrote setupData.progressionMode client-side via dataKey.
+  # The AI's next turn should advance to summary/launch, NOT call update_setup for it.
 
-  - description: "Test C — educator clicks 'Let learners pick' → AI calls update_setup with progressionMode=learner-picks"
+  - description: "Test C — after chip click, AI advances (does NOT call update_setup({progressionMode}))"
     vars:
       setupState: |
-        Can launch: NO. Still required for launch: Module progression.
-        curriculumPath: authored. progressionMode: (unset).
+        Can launch: YES. All required fields collected.
+        curriculumPath: authored. progressionMode: learner-picks (just set via chip click).
         Organisation: Highfield Academy. Subject: Financial Services.
         Course: R04 Investment Principles. Welcome flow: Goals + About You.
       conversationContext: |
-        AI just asked "Your course-ref doc declares a module catalogue. How should learners
-        progress?" with suggestions ["Let learners pick (recommended)", "AI directs the sequence"].
-      userMessage: "Let learners pick (recommended)"
+        AI just called show_options with dataKey "progressionMode". The educator clicked
+        "Let learners pick from a menu" and setupData.progressionMode is now "learner-picks".
+      userMessage: "Let learners pick from a menu"
     assert:
       - type: llm-rubric
         value: |
-          Response calls update_setup with a fields object that includes
-          progressionMode: "learner-picks". (The value MUST be the string "learner-picks", not
-          "learner_picks", not "Learner picks", not a sentence — the exact enum value.)
-          Response does NOT use the deprecated `interactionPattern` field for this value.
+          Response advances the conversation — typically to the Phase 5 summary playback or
+          a "Ready to create your course?" prompt. Response does NOT call update_setup with
+          progressionMode (the chip click already wrote it client-side; an update_setup call
+          would be REJECTED by the tool layer). Response acknowledges the choice in plain
+          text but moves forward.
 
   # ── Test D — idempotency: progressionMode already set → no re-ask ──
 
@@ -179,8 +213,8 @@ tests:
         value: |
           Response presents the Phase 5 summary block (with bold field labels like
           **Organisation:**, **Course:**, etc.) and ends with "Ready to create your course?"
-          (or equivalent). Response does NOT call show_suggestions with progression-mode
-          options. Response does NOT re-ask whether learners pick or AI directs — that has
-          already been answered.
+          (or equivalent). Response does NOT call show_options with progressionMode. Response
+          does NOT call show_suggestions with progression-mode options. Response does NOT
+          re-ask whether learners pick or AI directs — that has already been answered.
       - type: icontains
         value: "Ready to create"

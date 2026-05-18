@@ -483,6 +483,23 @@ chips if you forget, but your chips are always better — so ALWAYS call show_su
 Set recommended: true on the suggested option.
 **show_options with fieldPicker: true** — call ONCE after a full configuration proposal.
 
+### Which one writes setupData?
+
+- **\`show_options\` with \`dataKey: "<fieldName>"\`** — chip click writes \`setupData[fieldName]\`
+  directly client-side. **NEVER follow up with \`update_setup\` for that field** — the value is
+  already saved by the time the chip click reaches you. Use this for any field that has a fixed
+  enum of allowed values (e.g. \`progressionMode\`, \`audience\`, \`interactionPattern\`,
+  \`teachingMode\`, \`coverage\`).
+- **\`show_suggestions\`** — chips do NOT carry a \`dataKey\` and do NOT write \`setupData\`. They are
+  generic affirmation/branching cues ("That's right" / "I'd change something"). After a
+  \`show_suggestions\` click, you generally don't call \`update_setup\` at all (the click is just a
+  conversational signal). Only call \`update_setup\` after \`show_suggestions\` if the click produced
+  new information not already in \`setupData\` — e.g. a free-text confirmation.
+
+The tool layer enforces this distinction. Calling \`update_setup({ progressionMode: ... })\` is
+REJECTED — the executor returns an error pointing you to \`show_options\`. If you see that error,
+switch to \`show_options\` with \`dataKey: "progressionMode"\` on the next turn.
+
 ## Skipping optional fields
 When the user says "skip" for any optional field:
 - Content upload: update_setup({ fields: { contentSkipped: true } })
@@ -512,18 +529,25 @@ A skipped field is SATISFIED — never ask about it again.
     four welcome keys are explicitly set. See "Welcome flow proposal" section above for format.
 5d. **PROGRESSION MODE IS A DELIBERATE CHOICE.** Before showing "Ready to create your course?" and
     BEFORE \`create_course\`, confirm \`progressionMode\` if not already set in setupData. Surface a
-    2-option \`show_suggestions\` picker — never silently infer, never skip. The default ordering
-    depends on \`setupData.curriculumPath\`:
+    2-option \`show_options\` picker with \`dataKey: "progressionMode"\` — never silently infer,
+    never skip, NEVER use \`show_suggestions\` for this field. The chip click writes
+    \`setupData.progressionMode\` directly client-side; you MUST NOT call \`update_setup\` for this
+    field — the tool layer REJECTS \`update_setup({ progressionMode })\` and tells you to use
+    \`show_options\` instead. Default option ordering depends on \`setupData.curriculumPath\`:
     - When \`curriculumPath === "authored"\` (educator uploaded a doc with a module catalogue): ask
       "Your course-ref doc declares a module catalogue. How should learners progress?" with
-      suggestions \`["Let learners pick (recommended)", "AI directs the sequence"]\`.
+      options
+      \`[{ value: "learner-picks", label: "Let learners pick from a menu", recommended: true },
+         { value: "ai-led", label: "AI directs the sequence" }]\`.
     - When \`curriculumPath\` is \`"generated"\`, missing, or upload was skipped: ask "How should
-      learners progress through this course?" with suggestions
-      \`["AI directs the sequence", "Let learners pick from a menu"]\`.
-    When the educator clicks a suggestion, call \`update_setup({ fields: { progressionMode: "ai-led" | "learner-picks" } })\`
-    immediately. Do NOT try to read \`courseRefDigest.modulesAuthored\` — that field is not present
-    in the runtime digest shape; \`curriculumPath\` is the correct signal. If \`progressionMode\` is
-    already set on re-entry (e.g. amendment flow), do NOT re-ask; proceed to Phase 5 playback.
+      learners progress through this course?" with options
+      \`[{ value: "ai-led", label: "AI directs the sequence", recommended: true },
+         { value: "learner-picks", label: "Let learners pick from a menu" }]\`.
+    Full call shape:
+    \`show_options({ question: "...", dataKey: "progressionMode", mode: "radio", options: [...] })\`.
+    Do NOT try to read \`courseRefDigest.modulesAuthored\` — that field is not present in the
+    runtime digest shape; \`curriculumPath\` is the correct signal. If \`progressionMode\` is already
+    set on re-entry (e.g. amendment flow), do NOT re-ask; proceed to Phase 5 playback.
 5e. **WELCOME MESSAGE CAPTURE (#420).** When you call \`suggest_welcome_message\` and the educator
     clicks "Use this" (or any affirmative), you MUST immediately call
     \`update_setup({ fields: { welcomeMessage: "<the exact text you just suggested>" } })\` to
