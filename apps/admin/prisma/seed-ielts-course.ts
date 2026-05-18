@@ -191,22 +191,32 @@ export async function main(prisma: PrismaClient): Promise<void> {
 
   // ── 5. CONTENT-role spec for trust-weighted certification progress (#457) ──
   // `computeTrustWeightedProgress` reads module trust levels off a CONTENT
-  // spec's `config.modules[].sourceRefs[].trustLevel`. Without this spec the
-  // certification card on the caller page shows "0 of 0 modules count toward
-  // L3+". The 4 IELTS Speaking modules are official Cambridge IELTS rubric
-  // content → `PUBLISHED_REFERENCE` (weight 1.0, above the 0.80 L3+ cert
-  // threshold). Single CONTENT spec scoped to this playbook, idempotent upsert.
+  // spec's `config.modules[].sourceRefs[].trustLevel`. The trust-progress
+  // route (`app/api/callers/[callerId]/trust-progress/route.ts`) matches the
+  // CONTENT spec to the caller's curriculum BY SHARED SLUG — so this spec
+  // MUST use the same slug the Curriculum row uses. Without that match,
+  // `getActiveCurricula(callerId)` returns the curriculum slug but
+  // `analysisSpec.findFirst({slug: ...})` returns null → 0/0 modules.
+  // The 4 IELTS Speaking modules are official Cambridge IELTS rubric content
+  // → `PUBLISHED_REFERENCE` (weight 1.0, above the 0.80 L3+ cert threshold).
   const playbookForModules = await prisma.playbook.findUnique({
     where: { id: playbook.id },
-    select: { config: true },
+    select: {
+      config: true,
+      curricula: {
+        orderBy: { createdAt: "asc" },
+        take: 1,
+        select: { slug: true },
+      },
+    },
   });
   const authoredModules = Array.isArray(
     (playbookForModules?.config as Record<string, any>)?.modules,
   )
     ? ((playbookForModules!.config as Record<string, any>).modules as Array<{ id: string }>)
     : [];
-  if (authoredModules.length > 0) {
-    const contentSpecSlug = `ielts-speaking-content`;
+  const contentSpecSlug = playbookForModules?.curricula[0]?.slug;
+  if (authoredModules.length > 0 && contentSpecSlug) {
     const contentSpec = await prisma.analysisSpec.upsert({
       where: { slug: contentSpecSlug },
       update: {
