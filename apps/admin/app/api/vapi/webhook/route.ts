@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
 import { verifyVapiRequest } from "@/lib/vapi/auth";
@@ -17,7 +18,12 @@ export const runtime = "nodejs";
  *   create Call records and optionally trigger the analysis pipeline.
  *
  *   Events handled:
- *   - end-of-call-report: Create Call record from VAPI call data
+ *   - end-of-call-report: Create Call record from VAPI call data; persists
+ *     `recordingUrl`, `stereoRecordingUrl`, `vapiDurationSeconds`,
+ *     `vapiEndedReason`, `vapiCostUsd`, and the `message.analysis.{summary,
+ *     structuredData, successEvaluation}` block when present (depends on
+ *     the assistant's analysis plan config). All capture fields are
+ *     optional — VAPI sends what its plan generates.
  *   - status-update: Log call status changes
  *
  *   Ref: https://docs.vapi.ai/server-url/events
@@ -125,6 +131,12 @@ async function handleEndOfCallReport(message: any) {
   // Resolve default playbook for course-scoped calls
   const playbookId = callerId ? await resolvePlaybookId(callerId) : null;
 
+  // Extract VAPI payload fields with optional chaining + type guards.
+  // Every field is independently optional — VAPI's `message.analysis` is
+  // populated only when the assistant's analysis plan has the matching
+  // prompt configured. Persist what's present, leave the rest NULL.
+  const capture = extractVapiCapture(message);
+
   // Create the Call record
   const newCall = await prisma.call.create({
     data: {
@@ -134,6 +146,7 @@ async function handleEndOfCallReport(message: any) {
       callerId: callerId,
       usedPromptId: usedPromptId,
       ...(playbookId ? { playbookId } : {}),
+      ...capture,
     },
   });
 
@@ -156,6 +169,73 @@ async function handleEndOfCallReport(message: any) {
     callId: newCall.id,
     callerId,
   });
+}
+
+/**
+ * Extract VAPI end-of-call-report capture fields from the webhook message.
+ *
+ * Returns only the keys whose source values pass a runtime type guard, so the
+ * Prisma create call receives exactly the columns it can persist. Every field
+ * is independent — VAPI populates `message.analysis.{summary, structuredData,
+ * successEvaluation}` only when the assistant's analysis plan has the
+ * matching prompt configured, and `message.artifact.*` only when recording
+ * is enabled. Treat all source values as untrusted (any shape).
+ *
+ * Ref: https://docs.vapi.ai/server-url/events
+ */
+type VapiCapture = {
+  recordingUrl?: string;
+  stereoRecordingUrl?: string;
+  vapiDurationSeconds?: number;
+  vapiEndedReason?: string;
+  vapiCostUsd?: number;
+  vapiAnalysisSummary?: string;
+  vapiStructuredData?: Prisma.InputJsonValue;
+  vapiSuccessEvaluation?: string;
+};
+
+export function extractVapiCapture(message: unknown): VapiCapture {
+  if (!message || typeof message !== "object") return {};
+  const msg = message as Record<string, unknown>;
+  const out: VapiCapture = {};
+
+  const artifact = msg.artifact;
+  if (artifact && typeof artifact === "object") {
+    const art = artifact as Record<string, unknown>;
+    if (typeof art.recordingUrl === "string") out.recordingUrl = art.recordingUrl;
+    if (typeof art.stereoRecordingUrl === "string") out.stereoRecordingUrl = art.stereoRecordingUrl;
+  }
+
+  if (typeof msg.durationSeconds === "number" && Number.isFinite(msg.durationSeconds)) {
+    out.vapiDurationSeconds = msg.durationSeconds;
+  }
+  if (typeof msg.endedReason === "string") out.vapiEndedReason = msg.endedReason;
+
+  // cost is sometimes a number directly, sometimes nested under `cost.total`
+  if (typeof msg.cost === "number" && Number.isFinite(msg.cost)) {
+    out.vapiCostUsd = msg.cost;
+  } else if (msg.cost && typeof msg.cost === "object") {
+    const cost = msg.cost as Record<string, unknown>;
+    if (typeof cost.total === "number" && Number.isFinite(cost.total)) {
+      out.vapiCostUsd = cost.total;
+    }
+  }
+
+  const analysis = msg.analysis;
+  if (analysis && typeof analysis === "object") {
+    const an = analysis as Record<string, unknown>;
+    if (typeof an.summary === "string") out.vapiAnalysisSummary = an.summary;
+    if (an.structuredData && typeof an.structuredData === "object" && !Array.isArray(an.structuredData)) {
+      out.vapiStructuredData = an.structuredData as Prisma.InputJsonValue;
+    }
+    // successEvaluation can be a string ("true"/"false"/"PASS"), number, or boolean
+    // depending on the rubric type. Coerce to string for storage simplicity.
+    const se = an.successEvaluation;
+    if (typeof se === "string") out.vapiSuccessEvaluation = se;
+    else if (typeof se === "boolean" || typeof se === "number") out.vapiSuccessEvaluation = String(se);
+  }
+
+  return out;
 }
 
 /**
