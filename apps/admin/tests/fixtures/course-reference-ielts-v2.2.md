@@ -36,6 +36,8 @@ The four IELTS Speaking criteria, each measured independently per the official a
 
 The ability to speak at length without unnatural hesitation, with logical organisation of ideas and effective use of cohesive devices.
 
+**Target band:** 6.5
+
 - **Emerging:** Speech is hesitant with frequent self-corrections and long pauses for language search. Connectives are limited to basic markers (and, but, because). Coherence breaks down across the long turn.
 - **Developing:** Speech flows but with noticeable pauses at clause boundaries. A wider range of discourse markers (however, on the other hand, in addition) appears, though not always accurately. Coherence holds across short turns but wobbles across the Part 2 monologue.
 - **Secure:** Speech flows naturally at length with only occasional repetition or self-correction characteristic of native-speaker speech. A flexible range of discourse markers signals turn-management, topic shifts, and rhetorical relationships. The Part 2 monologue is coherent end-to-end.
@@ -43,6 +45,8 @@ The ability to speak at length without unnatural hesitation, with logical organi
 ### SKILL-02: Lexical Resource
 
 The range, accuracy, and appropriacy of vocabulary, including idiomatic and less common usage.
+
+**Target band:** 6.5
 
 - **Emerging:** Vocabulary is sufficient for familiar topics but breaks down on abstract themes. Frequent paraphrase and circumlocution to cover lexical gaps. Word choice often sounds written rather than spoken.
 - **Developing:** Vocabulary covers most topics with some flexibility. Some less common items and collocations appear but use is occasionally inaccurate. The register is mostly appropriate for spoken English.
@@ -52,6 +56,8 @@ The range, accuracy, and appropriacy of vocabulary, including idiomatic and less
 
 The variety of grammatical structures used and the accuracy with which they are produced.
 
+**Target band:** 6.5
+
 - **Emerging:** A limited range of structures with frequent errors that sometimes impede meaning. Basic sentence patterns dominate. Tense use is inconsistent across the long turn.
 - **Developing:** A mix of simple and complex structures. Errors persist in complex structures but rarely impede communication. Tense variety appears within turns.
 - **Secure:** A wide range of structures used flexibly and largely accurately. Complex structures (conditionals, relative clauses, passive voice) appear without error. Tenses are varied across past, present, and future within a single turn.
@@ -59,6 +65,8 @@ The variety of grammatical structures used and the accuracy with which they are 
 ### SKILL-04: Pronunciation
 
 The intelligibility of speech, including individual sound production, word and sentence stress, and intonation.
+
+**Target band:** 6.5
 
 - **Emerging:** Pronunciation is intelligible most of the time but specific phonemes cause confusion. Word stress is often misplaced. Intonation is flat or monotonal.
 - **Developing:** Speech is intelligible throughout with occasional mispronunciation of less common words. Word stress is mostly correct. Some intonation variation appears, though not always for meaning.

@@ -392,6 +392,8 @@ Each skill is described at three levels — Emerging, Developing, and Secure —
   
 The ability to speak at length without unnatural hesitation, with logical organisation of ideas and effective use of cohesive devices.  
   
+**Target band:** 6.5  
+  
 - **Emerging.** Speaks but with frequent pauses, repetitions, and self-corrections that break up the flow. Cohesive devices are basic ("and", "but", "because"). Ideas are present but the connections between them are unclear or not signalled. Sustains short answers (Part 1) but struggles to sustain a 2-minute monologue without significant breakdown.  
 - **Developing.** Speaks at length with some natural hesitation but no significant breakdown. Uses a wider range of cohesive devices ("for instance", "having said that", "on the whole"). Organises ideas logically across a 2-minute turn — there is a clear beginning, middle, and end. Recovers from hesitation by paraphrasing rather than freezing.  
 - **Secure.** Speaks fluently with rare hesitation, and any hesitation is for content rather than language. Uses cohesive devices naturally and varies them. Develops topics coherently and appropriately across all three parts of the test, including the abstract questions of Part 3.  
@@ -399,6 +401,8 @@ The ability to speak at length without unnatural hesitation, with logical organi
 ### SKILL-02: Lexical Resource  
   
 The range and accuracy of vocabulary used, including idiomatic language, paraphrasing, and topic-specific collocations.  
+  
+**Target band:** 6.5  
   
 - **Emerging.** Vocabulary is mostly basic and concrete. Repeats the same words across consecutive answers because alternatives are not available. Some attempts at less common vocabulary, but with errors that affect meaning. Limited paraphrasing — when the right word is unavailable, the student stops or substitutes a much vaguer word.  
 - **Developing.** Uses a mix of basic and more sophisticated vocabulary, with some less common items used appropriately. Shows some collocational awareness ("a heavy responsibility" rather than "a big responsibility"). Paraphrases when needed without significant breakdown. Some errors in word choice or word formation but they do not impede meaning.  
@@ -408,6 +412,8 @@ The range and accuracy of vocabulary used, including idiomatic language, paraphr
   
 The range of grammatical structures used and the accuracy with which they are produced.  
   
+**Target band:** 6.5  
+  
 - **Emerging.** Mainly simple sentence structures, with some attempts at complex structures that contain frequent errors. Common errors include article omission, third-person singular -s omission, tense slips, and incorrect conditional formation. Errors sometimes obscure meaning.  
 - **Developing.** Uses a mix of simple and complex sentence structures, with the complex structures usually correct. Some persistent errors (often the four "Band 7 errors" — article, third-person -s, past tense on regular verbs, conditionals) but they do not obscure meaning. Self-corrects some errors during the turn.  
 - **Secure.** Uses a wide range of grammatical structures, including complex structures, with high accuracy. Errors are rare and do not affect intelligibility. Self-corrects most errors that do occur.  
@@ -415,6 +421,8 @@ The range of grammatical structures used and the accuracy with which they are pr
 ### SKILL-04: Pronunciation  
   
 The intelligibility of speech, including individual sound production, word and sentence stress, and intonation.  
+  
+**Target band:** 6.5  
   
 - **Emerging.** Generally intelligible but with first-language accent features that occasionally obscure individual words. Stress patterns are sometimes inappropriate (stressing the wrong syllable in a word, or stressing every word equally). Intonation is flat or follows a single pattern across all utterances.  
 - **Developing.** Intelligible throughout, with first-language accent features that do not obscure meaning. Word and sentence stress are mostly appropriate. Intonation shows some variation, signalling completion of thoughts and transitions between ideas.  
