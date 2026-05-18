@@ -1121,7 +1121,7 @@ export default function CallerDetailPage() {
               { id: "scores", label: "Scores", icon: <BarChart3 size={13} />, count: new Set(data.scores?.map((s: any) => s.parameterId)).size || 0 },
               { id: "behaviour", label: "Behaviour", icon: <Brain size={13} />, count: (data.counts.callerTargets || 0) + (data.counts.measurements || 0) },
               { id: "goals", label: "Goals", icon: <Target size={13} />, count: data.counts.activeGoals || 0 },
-              { id: "topics", label: "Topics", icon: <BookOpen size={13} />, count: (data.memorySummary?.topicCount || 0) + (data.counts.keyFacts || 0) },
+              { id: "topics", label: "Topics", icon: <BookOpen size={13} />, count: (data.memorySummary?.topicCount || 0) + (data.memorySummary?.factCount || 0) },
               ...(hasExamData ? [{ id: "exam" as const, label: "Exam", icon: <ClipboardCheck size={13} /> }] : []),
               ...(hasPlanData ? [{ id: "plan" as const, label: "Plan", icon: <CheckSquare size={13} /> }] : []),
             ]}
@@ -1138,7 +1138,7 @@ export default function CallerDetailPage() {
             <LearningSection curriculum={data.curriculum} learnerProfile={data.learnerProfile} goals={data.goals} callerId={callerId} />
           )}
           {progressVis.topics !== false && (
-            <TopicsCoveredSection memorySummary={data.memorySummary} keyFactCount={data.counts.keyFacts || 0} />
+            <TopicsCoveredSection memorySummary={data.memorySummary} keyFactCount={data.memorySummary?.factCount ?? 0} />
           )}
           {progressVis.exam !== false && <ExamReadinessSection callerId={callerId} onDataLoaded={setHasExamData} />}
           {progressVis.plan !== false && <PlanProgressSection callerId={callerId} calls={data.calls} domainId={data.caller?.domainId} onDataLoaded={setHasPlanData} />}
