@@ -13,6 +13,7 @@ const mockPrisma = vi.hoisted(() => ({
   $queryRaw: vi.fn().mockResolvedValue([{ count: BigInt(0) }]),
   contentAssertion: { count: vi.fn().mockResolvedValue(1) },
   playbookSubject: { findFirst: vi.fn() },
+  subjectSource: { findMany: vi.fn().mockResolvedValue([]) },
   subject: { findUnique: vi.fn().mockResolvedValue({ name: "Test Subject" }) },
 }));
 

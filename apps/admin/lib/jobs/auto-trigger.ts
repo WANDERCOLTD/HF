@@ -8,6 +8,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { startCurriculumGeneration } from "./curriculum-runner";
+import { detectAuthoredModules } from "@/lib/wizard/detect-authored-modules";
 
 /**
  * Check if all extractions for a subject are done and auto-trigger
@@ -72,6 +73,41 @@ export async function checkAutoTriggerCurriculum(
       console.log(
         `[auto-trigger] Skipping curriculum generation — playbook ${pbSubject.playbookId} has authored modules. ` +
         `applyProjection() owns the CurriculumModule write path for this playbook.`,
+      );
+      return null;
+    }
+  }
+
+  // 3c. #476 — extraction completes BEFORE create_course, so #469's playbook
+  // lookup returns null and the LLM runner wins the race against the doc-side
+  // applyProjection. Detect the "Modules authored: Yes" declaration directly
+  // from the COURSE_REFERENCE_CANONICAL source's textSample (first ~1000 chars,
+  // where the canonical template's `## Course Configuration` preamble lives).
+  // detectAuthoredModules is pure regex, stateless, no AI call.
+  const canonicalSources = await prisma.subjectSource.findMany({
+    where: {
+      subjectId,
+      source: {
+        documentType: { in: ["COURSE_REFERENCE_CANONICAL", "COURSE_REFERENCE"] },
+        textSample: { not: null },
+      },
+    },
+    select: {
+      source: { select: { id: true, slug: true, textSample: true } },
+    },
+  });
+  for (const { source } of canonicalSources) {
+    if (!source.textSample) continue;
+    const detected = detectAuthoredModules(source.textSample);
+    // Use the header flag directly — table-row parse failures are a
+    // create_course-time concern, not a reason to fire the LLM generator.
+    // Once the educator declares "Modules authored: Yes" the runner must
+    // step out of the way.
+    if (detected.modulesAuthored === true) {
+      console.log(
+        `[auto-trigger] Skipping curriculum generation — source ${source.slug} declares ` +
+        `**Modules authored: Yes** (parsed ${detected.modules.length} module(s)). ` +
+        `applyProjection() will write the authored catalogue at create_course time.`,
       );
       return null;
     }
