@@ -45,10 +45,12 @@ import * as path from "path";
 
 import { projectCourseReference } from "../lib/wizard/project-course-reference";
 import { applyProjection } from "../lib/wizard/apply-projection";
+import { findOrCreateSeedPlaybook } from "../lib/seed/find-or-create-seed-playbook";
 
 const DOMAIN_SLUG = "abacus-academy";
 const SUBJECT_SLUG = "ielts-speaking";
 const PLAYBOOK_NAME = "IELTS Speaking Practice";
+const PLAYBOOK_SEED_TAG = "ielts-seed-v1";
 const CONTENT_SOURCE_SLUG = "ielts-speaking-course-ref";
 
 const FIXTURE_PATH = path.join(
@@ -107,45 +109,51 @@ export async function main(prisma: PrismaClient): Promise<void> {
     create: { subjectId: subject.id, sourceId: source.id },
   });
 
-  // ── 3. Playbook ──
-  let playbook = await prisma.playbook.findFirst({
-    where: { domainId: domain.id, name: PLAYBOOK_NAME },
-  });
-
-  if (!playbook) {
-    playbook = await prisma.playbook.create({
-      data: {
-        name: PLAYBOOK_NAME,
-        description: "IELTS Speaking test preparation for adult learners targeting Band 6.0–7.5. Four modules (Baseline, Part 1, Part 2, Part 3) measuring four IELTS criteria (Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, Pronunciation).",
-        domainId: domain.id,
-        status: "PUBLISHED",
-        version: "1.0",
-        publishedAt: new Date(),
-        validationPassed: true,
-        measureSpecCount: 0,
-        learnSpecCount: 0,
-        adaptSpecCount: 0,
-        parameterCount: 0,
-        config: {
-          interactionPattern: "tutor",
-          teachingMode: "directive",
-          subjectDiscipline: "IELTS Speaking",
-          audience: "Adult learners with B1+ general English preparing for IELTS",
-          sessionCount: 12,
-          durationMins: 20,
-          planEmphasis: "exam preparation — spoken performance with correction",
-          welcome: {
-            goals: { enabled: true },
-            aboutYou: { enabled: true },
-            knowledgeCheck: { enabled: false },
-            aiIntroCall: { enabled: false },
-          },
-          // No nps / surveys configured here — projection's goalTemplates carry
-          // the learning + skill goals; the wizard adds engagement goals later.
+  // ── 3. Playbook — tag-first idempotent lookup ──
+  //
+  // Resolution: (1) cross-domain `config.seedSourceTag`, (2) legacy
+  // `(domainId, name)`, (3) create. Step 2 attaches the tag so the
+  // next run hits step 1 — wizard-created playbooks with the same
+  // name converge with the seed without being silently duplicated
+  // when they happen to live on a different domain. (2026-05-19
+  // testing: wizard had created `IELTS Speaking Practice` on
+  // `ielts-prep-lab` while the seed targeted `abacus-academy`;
+  // re-seeding created a duplicate.)
+  const playbook = await findOrCreateSeedPlaybook(prisma, {
+    seedSourceTag: PLAYBOOK_SEED_TAG,
+    domainId: domain.id,
+    name: PLAYBOOK_NAME,
+    createData: {
+      name: PLAYBOOK_NAME,
+      description: "IELTS Speaking test preparation for adult learners targeting Band 6.0–7.5. Four modules (Baseline, Part 1, Part 2, Part 3) measuring four IELTS criteria (Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, Pronunciation).",
+      domainId: domain.id,
+      status: "PUBLISHED",
+      version: "1.0",
+      publishedAt: new Date(),
+      validationPassed: true,
+      measureSpecCount: 0,
+      learnSpecCount: 0,
+      adaptSpecCount: 0,
+      parameterCount: 0,
+      config: {
+        interactionPattern: "tutor",
+        teachingMode: "directive",
+        subjectDiscipline: "IELTS Speaking",
+        audience: "Adult learners with B1+ general English preparing for IELTS",
+        sessionCount: 12,
+        durationMins: 20,
+        planEmphasis: "exam preparation — spoken performance with correction",
+        welcome: {
+          goals: { enabled: true },
+          aboutYou: { enabled: true },
+          knowledgeCheck: { enabled: false },
+          aiIntroCall: { enabled: false },
         },
+        // No nps / surveys configured here — projection's goalTemplates carry
+        // the learning + skill goals; the wizard adds engagement goals later.
       },
-    });
-  }
+    },
+  });
 
   await prisma.playbookSubject.upsert({
     where: { playbookId_subjectId: { playbookId: playbook.id, subjectId: subject.id } },
