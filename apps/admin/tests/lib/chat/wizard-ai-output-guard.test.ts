@@ -22,12 +22,31 @@ describe("guardAILearningOutcomes (#447)", () => {
     expect(result.skippedByGate).toBe(false);
   });
 
-  it("drops IELTS band-descriptor strings", () => {
+  it("drops IELTS band-descriptor strings (abbreviated form)", () => {
     const inputs = [
       "Band 2 LR: Only produces isolated words or memorised utterances",
       "Band 4 P: Uses a limited range of pronunciation features",
       "Band 2 GRA: Cannot produce basic sentence forms",
       "Band 4 FC: Unable to keep going without noticeable pauses",
+    ];
+    const result = guardAILearningOutcomes(inputs, noTemplates);
+
+    expect(result.accepted).toEqual([]);
+    expect(result.filtered).toHaveLength(4);
+    expect(result.filtered.every((f) => f.pattern.includes("Band"))).toBe(true);
+  });
+
+  // Real IELTS rubrics use the criterion in full prose rather than the
+  // abbreviated code. The original regex (`Band N <CODE>:`) missed these
+  // because the colon falls after the criterion name, not after the digit
+  // (live repro on hf-dev 2026-05-19 — wizard hydrated 40 band rows as
+  // skillsFramework entries).
+  it("drops IELTS band-descriptor strings (prose form)", () => {
+    const inputs = [
+      "Band 8 Lexical Resource: Wide vocabulary used readily and flexibly",
+      "Band 5 Grammatical Range and Accuracy: Basic sentence forms",
+      "Band 0 Fluency and Coherence: Does not attend / does not complete",
+      "Band 9 Pronunciation: Uses a full range of pronunciation features",
     ];
     const result = guardAILearningOutcomes(inputs, noTemplates);
 

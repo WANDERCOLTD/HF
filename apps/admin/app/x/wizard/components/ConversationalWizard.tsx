@@ -1081,10 +1081,17 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             // Deduplicate by text similarity (take first 6 unique-ish)
             const seen = new Set<string>();
             const outcomes: string[] = [];
-            // #500 guard — drop assessor-rubric band-descriptor rows
-            // ("Lexical Resource Band 8: ...") so learningOutcomes shows
-            // top-level capabilities, not measurement granularity.
-            const isBandRow = (text: string) => /\bBand\s+\d+\s*[:.]/i.test(text);
+            // #500 guard — drop assessor-rubric band-descriptor rows so
+            // learningOutcomes shows top-level capabilities, not measurement
+            // granularity. Two shapes appear in real rubrics:
+            //   - criterion-first:  "Lexical Resource Band 8: ..."
+            //   - band-first:        "Band 8 Lexical Resource: ..."
+            // The original regex only matched the criterion-first shape (colon
+            // right after the digit). IELTS rubrics use band-first; without
+            // the extra alternation the wizard hydrates 40 band rows into
+            // learningOutcomes + skillsFramework (#510 follow-up 2026-05-19).
+            const isBandRow = (text: string) =>
+              /^Band\s+\d+\b/i.test(text) || /\bBand\s+\d+\s*[:.]/i.test(text);
             for (const a of pool) {
               if (isBandRow(a.assertion)) continue;
               const key = a.assertion.toLowerCase().slice(0, 40);
@@ -1117,8 +1124,11 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         // parseSkillsFramework reading the course-ref directly; the wizard's
         // setupData.skillsFramework hydration is best-effort UI state, safe
         // to drop the band rows here.
+        // Covers both shapes (see #510 follow-up note above):
+        //   - "Lexical Resource Band 8: ..." (criterion-first)
+        //   - "Band 8 Lexical Resource: ..." (band-first, IELTS)
         const looksLikeBandDescriptor = (text: string): boolean =>
-          /\bBand\s+\d+\s*[:.]/i.test(text);
+          /^Band\s+\d+\b/i.test(text) || /\bBand\s+\d+\s*[:.]/i.test(text);
         const skillAssertions = allAssertions
           .filter((a) => a.category === "skill_framework")
           .filter((a) => !looksLikeBandDescriptor(a.assertion));
