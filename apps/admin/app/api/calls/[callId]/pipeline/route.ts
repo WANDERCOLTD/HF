@@ -1226,6 +1226,78 @@ export async function incrementModuleEvidence(
 }
 
 /**
+ * #491 Slice 1.4 — Resolve the set of CurriculumModule ids that should be
+ * credited with evidence (callCount++) for this call.
+ *
+ * Always includes the call's bound `curriculumModuleId` (Slice 1.3). When the
+ * bound module declares a `coversModules: string[]` array (authored per-module
+ * concept — "this Mock covers part1/part2/part3"), each slug is resolved
+ * against the call's curriculum and added to the set. Unresolved slugs (typo,
+ * deleted module) are logged and skipped — the caller still gets credit for
+ * the bound module + every slug that did resolve.
+ *
+ * The schema field `coversModules` arrives in Slice 2.4. Until then it is read
+ * via `(module as any).coversModules` and treated as `[]` when absent — every
+ * existing authored / AI-generated module simply falls back to single-credit
+ * behaviour, identical to Slice 1.3.
+ *
+ * Returns a deduped array of `CurriculumModule.id` values. The bound moduleId
+ * is always position 0 when present so callers can distinguish "primary" from
+ * "fan-out" in logs.
+ */
+export async function resolveModuleEvidenceTargets(
+  call: { id: string; playbookId: string | null; curriculumModuleId: string | null },
+  log: PipelineLogger,
+): Promise<string[]> {
+  const boundModuleId = call.curriculumModuleId;
+  if (!boundModuleId) return [];
+
+  const credits: string[] = [boundModuleId];
+  const seen = new Set<string>([boundModuleId]);
+
+  const boundModule = await prisma.curriculumModule.findUnique({
+    where: { id: boundModuleId },
+    select: { id: true, slug: true, curriculumId: true },
+  });
+  if (!boundModule) {
+    log.warn("resolveModuleEvidenceTargets: bound CurriculumModule not found", {
+      callId: call.id,
+      moduleId: boundModuleId,
+    });
+    return credits;
+  }
+
+  // `coversModules` is authored metadata; DB column lands in Slice 2.4. Cast
+  // through `any` and treat missing/undefined as the empty array so this code
+  // is a no-op for every module that hasn't declared the field.
+  const coversModules: unknown = (boundModule as any).coversModules;
+  if (!Array.isArray(coversModules) || coversModules.length === 0) {
+    return credits;
+  }
+
+  const slugs = coversModules.filter((s): s is string => typeof s === "string" && s.length > 0);
+  if (slugs.length === 0) return credits;
+
+  for (const slug of slugs) {
+    const resolved = await resolveModuleByLogicalId(boundModule.curriculumId, slug);
+    if (!resolved) {
+      log.warn("resolveModuleEvidenceTargets: coversModules slug did not resolve", {
+        callId: call.id,
+        boundModuleId,
+        curriculumId: boundModule.curriculumId,
+        unresolvedSlug: slug,
+      });
+      continue;
+    }
+    if (seen.has(resolved.id)) continue;
+    seen.add(resolved.id);
+    credits.push(resolved.id);
+  }
+
+  return credits;
+}
+
+/**
  * Aggregate caller personality from call scores
  * Creates/updates PersonalityObservation for the call and CallerPersonality aggregate
  *
@@ -2485,25 +2557,42 @@ const stageExecutors: Record<string, StageExecutor> = {
       errors: aggregateResult.errors
     });
 
-    // 3. #491 Slice 1.3 — increment CallerModuleProgress.callCount for the
-    // module this call was attributed to (Slice 1.1 wrote curriculumModuleId
-    // at call-create; Slice 1.2 wrote it on every CallScore). Idempotent on
-    // pipeline force-rerun via the lastCallId check inside the helper.
-    const evidenceResult = await incrementModuleEvidence(
-      ctx.callId,
-      ctx.callerId,
-      ctx.call.curriculumModuleId,
-      ctx.log
+    // 3. #491 Slice 1.3 + 1.4 — increment CallerModuleProgress.callCount for
+    // every module credited by this call. Slice 1.3 credited only the bound
+    // module (`Call.curriculumModuleId`); Slice 1.4 fans out via the bound
+    // module's `coversModules: string[]` declaration so an IELTS Mock counts
+    // as evidence for part1 + part2 + part3 in addition to "mock" itself.
+    // Idempotent on pipeline force-rerun via the lastCallId check inside the
+    // helper. Per-segment CallScore attribution is Slice 1.5.
+    const moduleEvidenceTargets = await resolveModuleEvidenceTargets(ctx.call, ctx.log);
+    const evidenceResults = await Promise.all(
+      moduleEvidenceTargets.map((moduleId) =>
+        incrementModuleEvidence(ctx.callId, ctx.callerId, moduleId, ctx.log),
+      ),
     );
+    // Primary (bound module) is always position 0 — preserve the Slice 1.3
+    // summary fields so downstream consumers don't break, then add a fan-out
+    // count for observability.
+    const primaryEvidence = evidenceResults[0] ?? { callCount: -1, created: false, skipped: true };
+    if (moduleEvidenceTargets.length > 1) {
+      ctx.log.info("Module evidence fan-out applied", {
+        callId: ctx.callId,
+        boundModuleId: ctx.call.curriculumModuleId,
+        creditedModuleIds: moduleEvidenceTargets,
+        creditedCount: moduleEvidenceTargets.length,
+      });
+    }
 
     return {
       personalityObservationCreated: personalityResult.observationCreated,
       personalityProfileUpdated: personalityResult.profileUpdated,
       aggregateSpecsRun: aggregateResult.specsRun,
       profileUpdates: aggregateResult.profileUpdates,
-      moduleEvidenceCallCount: evidenceResult.callCount,
-      moduleEvidenceCreated: evidenceResult.created,
-      moduleEvidenceSkipped: evidenceResult.skipped,
+      moduleEvidenceCallCount: primaryEvidence.callCount,
+      moduleEvidenceCreated: primaryEvidence.created,
+      moduleEvidenceSkipped: primaryEvidence.skipped,
+      moduleEvidenceCreditedCount: moduleEvidenceTargets.length,
+      moduleEvidenceCreditedModuleIds: moduleEvidenceTargets,
     };
   },
 
