@@ -97,11 +97,15 @@ export async function sourceNeedsMcqs(sourceId: string): Promise<boolean> {
  * were permanently skipped.
  */
 export async function isLinkedSource(sourceId: string): Promise<boolean> {
-  const [primaryCount, subjectSourceCount] = await Promise.all([
+  // PlaybookSource is the modern content link (#485, post-#478). Retain
+  // SubjectSource + Curriculum checks for legacy sources that haven't yet
+  // been backfilled — without these, MCQs for pre-#481 sources skip silently.
+  const [primaryCount, playbookSourceCount, subjectSourceCount] = await Promise.all([
     prisma.curriculum.count({ where: { primarySourceId: sourceId } }),
+    prisma.playbookSource.count({ where: { sourceId } }),
     prisma.subjectSource.count({ where: { sourceId } }),
   ]);
-  return primaryCount > 0 || subjectSourceCount > 0;
+  return primaryCount > 0 || playbookSourceCount > 0 || subjectSourceCount > 0;
 }
 
 // ---------------------------------------------------------------------------

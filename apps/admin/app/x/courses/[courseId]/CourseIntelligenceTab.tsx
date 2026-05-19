@@ -568,52 +568,29 @@ export function CourseIntelligenceTab({
   }, []);
 
   // ── Sources ──────────────────────────────────────────
-  // Show the UNION of two link paths so adding a new course-scoped source
-  // doesn't hide existing subject-scoped ones:
-  //   - PlaybookSource (direct course → source link, populated by today's
-  //     upload flow)
-  //   - SubjectSource (course → subject → source, populated by older
-  //     wizard flows)
-  // Pre-#288 this branched: if courseSources had ANY entries it ignored
-  // the subject sources entirely. Result: the first PlaybookSource added
-  // to a previously-subject-only course made all the subject sources
-  // disappear from view.
+  // PlaybookSource is the single content link (#485, #478). The pre-#485
+  // union with subjects[].sources was the UI side of the Subject leak —
+  // courses sharing a Subject inherited each other's sources for display.
+  // After #481 backfill + #482 fallback removal + #484 fan-out removal,
+  // PlaybookSource is the only path that should ever surface here.
   const { courseGuideSources, otherSources, allSources } = useMemo(() => {
     const guides: SourceItem[] = [];
     const others: SourceItem[] = [];
     const seen = new Set<string>();
 
-    const push = (item: SourceItem) => {
-      if (seen.has(item.id)) return;
-      seen.add(item.id);
-      if (item.documentType === 'COURSE_REFERENCE') {
-        guides.push(item);
-      } else {
-        others.push(item);
-      }
-    };
-
-    // PlaybookSource entries first — they carry the full SourceItem shape
-    // (assertion counts split content vs instruction). Take precedence on
-    // dedup so we don't downgrade their counts to 0.
     if (courseSources) {
-      for (const src of courseSources) push(src);
-    }
-    // Subject sources fill in anything not directly linked to the playbook.
-    // Their shape is lighter (no contentAssertion split), so pad zeros.
-    for (const sub of subjects) {
-      for (const src of sub.sources || []) {
-        push({
-          ...src,
-          contentAssertionCount: 0,
-          instructionAssertionCount: 0,
-          sortOrder: 0,
-          tags: [],
-        });
+      for (const src of courseSources) {
+        if (seen.has(src.id)) continue;
+        seen.add(src.id);
+        if (src.documentType === 'COURSE_REFERENCE') {
+          guides.push(src);
+        } else {
+          others.push(src);
+        }
       }
     }
     return { courseGuideSources: guides, otherSources: others, allSources: [...guides, ...others] };
-  }, [courseSources, subjects]);
+  }, [courseSources]);
 
   // ── Auto-assign handler ──────────────────────────────
   const handleBackfill = useCallback(async () => {
