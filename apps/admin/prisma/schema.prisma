@@ -302,6 +302,15 @@ model Parameter {
   aliases       String[]  @default([]) // Alternative names for this parameter
   defaultTarget Float     @default(0.5) // Default target value (0-1 scale)
 
+  // Structured config bag (#500 PR-1). Shape lives in
+  // lib/types/json-fields.ts::ParameterConfig. Current keys:
+  //   bandThresholds?: Record<number, string>  ← per-band descriptor text
+  //                                              for skill parameters that
+  //                                              wrap a graded rubric
+  //                                              (IELTS, CEFR, NHS AfC, etc.)
+  // Pattern mirrors AnalysisSpec.config / Playbook.config / Goal.assessmentConfig.
+  config Json?
+
   @@index([sourceFeatureSetId])
   @@index([isCanonical])
   @@index([deprecatedAt])

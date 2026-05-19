@@ -30,6 +30,33 @@
 export type SpecConfig = Record<string, any>;
 
 // ---------------------------------------------------------------------------
+// Parameter.config Json? fields (#500 — bands-as-thresholds)
+// ---------------------------------------------------------------------------
+
+/**
+ * Structured config bag on the Parameter row.
+ *
+ * Lives in `Parameter.config` (Json?). Currently carries `bandThresholds`
+ * for SKILL parameters that wrap a graded rubric (IELTS Speaking bands,
+ * CEFR levels, NHS AfC bands, professional certification levels, etc.).
+ *
+ * `bandThresholds` keys the band number (typically 0–9 for IELTS, 1–6 for
+ * CEFR, etc.) to the descriptor text the LLM uses at MEASURE time to
+ * justify a per-call score. ONE Parameter per skill criterion; the bands
+ * are thresholds within that Parameter — never separate parameters.
+ *
+ * Optional. Skill parameters with no rubric (Secret Garden, Intro Psych
+ * style courses) leave it undefined; MEASURE prompt falls back to the
+ * tier descriptors inlined in the AnalysisAction.description.
+ */
+export interface ParameterConfig {
+  /** Per-band descriptor text. Key = band number; value = descriptor. */
+  bandThresholds?: Record<number, string>;
+  /** Future-proofing: arbitrary additional keys allowed. */
+  [key: string]: unknown;
+}
+
+// ---------------------------------------------------------------------------
 // RewardScore Json? fields
 // ---------------------------------------------------------------------------
 
