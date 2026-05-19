@@ -362,6 +362,18 @@ async function extractFromChunk(
         `\nInstruction categories (PRIORITISE these): ${INSTRUCTION_CATEGORIES.join(", ")}`,
         `Content categories (use ONLY for student-facing facts/definitions mixed in): fact, definition, threshold, rule, process, example`,
         `\nBe thorough — extract EVERY distinct instruction, technique, and guideline. A single paragraph may contain multiple separate instructions. Do not summarise or merge — one assertion per distinct rule/technique.`,
+        // ── Session scope marker convention (bug surfaced 2026-05-19, IELTS course e5f379ed) ──
+        `\n\n⚠️ SESSION SCOPE MARKER — CRITICAL:`,
+        `If a section in the document begins with a block-quote marker like \`> **Session scope:** 1 (...)\` or \`> **Session scope:** 2+ (...)\`, then EVERY assertion you extract from that section MUST be tagged:`,
+        `  - "category": "session_override"`,
+        `  - "section": "<scope value>"  (the literal value from the marker — e.g. "1", "2+", "1-3", "5+" etc.)`,
+        `This applies to ALL instructions/rules within the marked section, regardless of how the rule is phrased. The downstream pipeline filters session_override assertions by call number using the section field — if you tag them as "rule" or with wrong section text, they will NEVER fire on the intended call.`,
+        `Examples of correct extraction:`,
+        `  Source: "### First Call (Onboarding) — Special Rules\\n> **Session scope:** 1\\n- On Call 1, do not name the criteria"`,
+        `  → { "assertion": "On Call 1, do not name the criteria", "category": "session_override", "section": "1" }`,
+        `  Source: "## Skills Framework\\n> **Session scope:** 2+\\n- Score every response against four criteria"`,
+        `  → { "assertion": "Score every response against four criteria", "category": "session_override", "section": "2+" }`,
+        `If a section has NO Session scope marker, classify normally (rule / session_flow / etc.) — only apply session_override when the marker is present.`,
       ].join("\n")
     : "";
 
