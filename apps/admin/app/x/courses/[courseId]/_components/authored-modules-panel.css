@@ -576,3 +576,35 @@ button.learner-picker__rail-card:hover {
   flex-wrap: wrap;
   margin-top: 4px;
 }
+
+/* #495 Slice 4.1 — student picker page layout. Lifted out of inline
+   style={{}} so the file complies with the UI design system zero-tolerance
+   rule (no static inline styles). */
+
+.learner-picker-page__header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.learner-picker-page__title {
+  margin: 0;
+}
+
+.learner-picker-page__body {
+  padding: 24px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.learner-picker-page__intro {
+  margin-bottom: 16px;
+}
+
+.learner-picker-page__banner {
+  margin-top: 16px;
+}
+
+.learner-picker-page__empty {
+  padding: 24px;
+  text-align: center;
+}

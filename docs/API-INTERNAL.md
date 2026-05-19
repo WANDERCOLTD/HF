@@ -9564,13 +9564,13 @@ List all classrooms (cohort groups) assigned to a course (playbook).
 
 ### `GET` /api/courses/[courseId]/import-modules
 
-Read the current authored-modules state from PlaybookConfig.
+Read the current modules catalogue for a course. Prefers
 
 **Auth**: session (VIEWER+) · **Scope**: `course:read`
 
 **Response** `200`
 ```json
-{ ok, modulesAuthored, modules, moduleDefaults, moduleSource, moduleSourceRef, validationWarnings, hasErrors, outcomes, detectedFrom, persisted, curriculumSync, classification }
+{ ok, modulesAuthored, modules, moduleDefaults, moduleSource, source, moduleSourceRef, validationWarnings, hasErrors, outcomes, detectedFrom, persisted, curriculumSync, classification }
 ```
 
 **Response** `404`

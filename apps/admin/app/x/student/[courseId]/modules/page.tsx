@@ -8,8 +8,12 @@
  * thread the selected moduleId through the call-launch flow; Slice 1 only
  * confirms the pick and surfaces a "Starting session..." toast.
  *
- * Falls back silently when modulesAuthored !== true so legacy courses are
- * unaffected (decision #3, AC: courses without authored modules are hidden).
+ * #495 Slice 4.1 — the picker works for BOTH authored AND AI-generated
+ * courses. The API (`/api/courses/[courseId]/import-modules`) now falls
+ * back to `Curriculum.modules[]` when `Playbook.config.modules` is empty,
+ * so the previous `modulesAuthored !== true` bounce has been removed.
+ * Courses with zero modules on either path show a "curriculum is being
+ * prepared" empty state instead of bouncing.
  */
 
 import { useEffect, useState, useCallback, useMemo, Suspense } from "react";
@@ -29,6 +33,12 @@ interface ModulesPayload {
   ok: boolean;
   modulesAuthored: boolean | null;
   modules: AuthoredModule[];
+  /**
+   * #495 Slice 4.1 — `"authored"` when modules came from PlaybookConfig,
+   * `"generated"` when fallen back to Curriculum.modules[], `null` when
+   * neither source has any modules yet.
+   */
+  source: "authored" | "generated" | null;
   moduleDefaults: Partial<ModuleDefaults>;
   moduleSource: ModuleSource | null;
   validationWarnings: ValidationWarning[];
@@ -134,20 +144,11 @@ function PickerContent() {
     };
   }, [courseId, buildUrl, needsCallerRedirect]);
 
-  // Fall-through guard: course has no authored modules → bounce back.
-  // `null` (never imported) and `false` (explicitly off) both hide the picker;
-  // we distinguish them only in the console log so prod telemetry can tell them apart.
-  useEffect(() => {
-    if (loading || error || !data) return;
-    if (data.modulesAuthored !== true) {
-      console.info(
-        "[picker] modulesAuthored=%s for course %s — silently bouncing",
-        data.modulesAuthored,
-        courseId,
-      );
-      router.replace(returnTo ?? "/x/sim");
-    }
-  }, [loading, error, data, returnTo, router, courseId]);
+  // #495 Slice 4.1 — the previous `modulesAuthored !== true` bounce has
+  // been removed. The API now returns modules from either Playbook.config
+  // (authored path) or Curriculum.modules[] (AI-generated fallback), and
+  // the picker renders for both. Zero modules → empty state below, not
+  // a redirect, so the learner stays oriented on the course route.
 
   const moduleById = useMemo(() => {
     const m = new Map<string, AuthoredModule>();
@@ -243,14 +244,19 @@ function PickerContent() {
     );
   }
 
-  // While the redirect effect runs, render nothing
-  if (!data || data.modulesAuthored !== true) return null;
+  // No data → nothing to render (load handler set `error` separately).
+  if (!data) return null;
+
+  // #495 Slice 4.1 — when both the authored path and the curriculum
+  // fallback yield no modules, show a "curriculum is being prepared"
+  // empty state. We previously bounced here, which left learners stuck
+  // on AI-gen courses while generation was still completing.
+  const hasModules = data.modules.length > 0;
 
   return (
     <div className="learner-picker-page">
       <header
-        className="hf-flex hf-items-center hf-gap-sm"
-        style={{ padding: "16px 24px", borderBottom: "1px solid var(--border-default)" }}
+        className="hf-flex hf-items-center hf-gap-sm learner-picker-page__header"
       >
         {returnTo && (
           <button
@@ -263,33 +269,43 @@ function PickerContent() {
           </button>
         )}
         <GraduationCap size={18} className="hf-text-muted" aria-hidden="true" />
-        <h1 className="hf-section-title" style={{ margin: 0 }}>
+        <h1 className="hf-section-title learner-picker-page__title">
           Pick your module
         </h1>
       </header>
 
-      <div style={{ padding: 24, maxWidth: 960, margin: "0 auto" }}>
-        <p className="hf-text-sm hf-text-muted" style={{ marginBottom: 16 }}>
-          Choose what you want to practise. Recommendations are advisory — pick whatever helps you most.
-        </p>
+      <div className="learner-picker-page__body">
+        {hasModules ? (
+          <>
+            <p className="hf-text-sm hf-text-muted learner-picker-page__intro">
+              Choose what you want to practise. Recommendations are advisory — pick whatever helps you most.
+            </p>
 
-        <LearnerModulePicker
-          modules={data.modules}
-          lessonPlanMode={data.lessonPlanMode}
-          completedModuleIds={completedIds}
-          inProgressModuleIds={inProgressIds}
-          onSelect={handleSelect}
-        />
+            <LearnerModulePicker
+              modules={data.modules}
+              lessonPlanMode={data.lessonPlanMode}
+              completedModuleIds={completedIds}
+              inProgressModuleIds={inProgressIds}
+              onSelect={handleSelect}
+            />
 
-        {launching && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="hf-banner"
-            style={{ marginTop: 16 }}
-          >
-            <strong>Placeholder:</strong> VAPI call would start now —
-            returning to the simulator with the selected module.
+            {launching && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="hf-banner learner-picker-page__banner"
+              >
+                <strong>Placeholder:</strong> VAPI call would start now —
+                returning to the simulator with the selected module.
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="hf-empty learner-picker-page__empty" role="status" aria-live="polite">
+            <p className="hf-text-sm hf-text-muted">
+              Your curriculum is being prepared. Check back in a moment —
+              modules will appear here once they're ready.
+            </p>
           </div>
         )}
       </div>

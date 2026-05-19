@@ -23,6 +23,16 @@ const { mockPrisma, mockRequireAuth, mockIsAuthError, mockSyncAuthored } = vi.ho
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    // #495 Slice 4.1: GET now consults Curriculum + CurriculumModule when
+    // Playbook.config.modules is empty (AI-generated fallback). These mocks
+    // default to "no curriculum / no rows" so existing authored-path tests
+    // continue to see the same response shape they did before.
+    curriculum: {
+      findFirst: vi.fn(),
+    },
+    curriculumModule: {
+      findMany: vi.fn(),
+    },
     // #245: import-modules POST now wraps the playbook update + module sync
     // in a transaction. The mock invokes the callback with a tx that proxies
     // playbook.update so existing assertions still see the call.
@@ -105,10 +115,17 @@ beforeEach(() => {
   mockIsAuthError.mockReset();
   mockPrisma.playbook.findUnique.mockReset();
   mockPrisma.playbook.update.mockReset();
+  mockPrisma.curriculum.findFirst.mockReset();
+  mockPrisma.curriculumModule.findMany.mockReset();
   mockSyncAuthored.mockReset();
 
   mockRequireAuth.mockResolvedValue(passingAuth);
   mockIsAuthError.mockReturnValue(false);
+  // #495 Slice 4.1 — default the fallback path to "no curriculum" so the
+  // authored-path tests below stay byte-for-byte equivalent to pre-#495.
+  // Tests covering the fallback live in import-modules-fallback.test.ts.
+  mockPrisma.curriculum.findFirst.mockResolvedValue(null);
+  mockPrisma.curriculumModule.findMany.mockResolvedValue([]);
   mockSyncAuthored.mockResolvedValue({
     curriculumId: "curr-1",
     created: 0,
