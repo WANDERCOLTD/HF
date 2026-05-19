@@ -24,6 +24,12 @@ interface ProgressUpdate {
   /** Per-LO mastery outcomes for a specific module */
   loMastery?: { moduleId: string; outcomes: Record<string, number> };
   lastAccessedAt?: Date;
+  /**
+   * The Call.id that triggered this update. Used by `updateModuleMastery`
+   * for idempotency (#547) — when the canonical `incrementModuleEvidence`
+   * has already counted this call, the legacy increment is skipped.
+   */
+  callId?: string;
 }
 
 /**
@@ -216,7 +222,7 @@ export async function updateCurriculumProgress(
             curriculum.id,
             moduleId,
             mastery,
-            undefined,
+            updates.callId,
             loScoresForThisModule,
           );
         } catch {
@@ -348,10 +354,29 @@ export async function updateModuleMastery(
 
   const existing = await prisma.callerModuleProgress.findUnique({
     where: { callerId_moduleId: { callerId, moduleId: resolvedModuleId } },
-    select: { callCount: true, loScoresJson: true },
+    select: { callCount: true, loScoresJson: true, lastCallId: true },
   });
 
-  const effectiveCallCount = (existing?.callCount ?? 0) + 1;
+  // #547 — idempotency guard mirroring incrementModuleEvidence at
+  // route.ts:1198. Both writers (canonical incrementModuleEvidence in
+  // AGGREGATE, this legacy updateModuleMastery via the
+  // learningAssessment path) fire for the same call. Without this
+  // guard the legacy path double-counted callCount whenever the AI's
+  // learningAssessment.moduleId matched the bound module — a single
+  // SIM call ended up with callCount=2 on part1 in 2026-05-19's
+  // testing. Skipping the increment when this exact callId already
+  // touched the row matches the canonical path's semantics.
+  const alreadyCounted =
+    !!callId && existing?.lastCallId === callId && (existing.callCount ?? 0) > 0;
+
+  // For the LO-derived mastery branch we need the post-increment
+  // callCount to feed `capMasteryByCallCount`. If we're skipping the
+  // increment because the canonical path already counted this call,
+  // we still use the current row count — both writers see the same
+  // total.
+  const effectiveCallCount = alreadyCounted
+    ? existing!.callCount
+    : (existing?.callCount ?? 0) + 1;
 
   let finalMastery: number;
   let nextLoScoresJson: LoScoresMap | undefined;
@@ -399,7 +424,11 @@ export async function updateModuleMastery(
       status,
       completedAt: finalMastery >= 1.0 ? new Date() : null,
       lastCallId: callId || undefined,
-      callCount: { increment: 1 },
+      // #547 — guarded increment: skip when canonical
+      // incrementModuleEvidence already counted this call. Preserves
+      // loScoresJson + mastery updates on every call (LEARN goal
+      // progress / LO coverage UI keep working).
+      ...(alreadyCounted ? {} : { callCount: { increment: 1 } }),
       ...(nextLoScoresJson ? { loScoresJson: nextLoScoresJson } : {}),
     },
   });

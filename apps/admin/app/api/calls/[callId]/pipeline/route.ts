@@ -2205,17 +2205,23 @@ async function trackCurriculumAfterCall(
     masteryThreshold: number;
     allModuleIds: string[];
   } | null,
+  callId?: string,
 ): Promise<boolean> {
   // If we have a learning assessment, write mastery and potentially advance
   if (learningAssessment) {
     const { specSlug, moduleId, overallMastery, outcomes, masteryThreshold, allModuleIds } = learningAssessment;
 
     try {
-      // Write mastery score for this module + per-LO outcomes
+      // Write mastery score for this module + per-LO outcomes.
+      // `callId` threads through so `updateModuleMastery` can apply the
+      // #547 idempotency guard — the canonical AGGREGATE-stage
+      // `incrementModuleEvidence` has typically already counted this
+      // call by the time we get here.
       await updateCurriculumProgress(callerId, specSlug, {
         moduleMastery: { [moduleId]: overallMastery },
         loMastery: Object.keys(outcomes).length > 0 ? { moduleId, outcomes } : undefined,
         lastAccessedAt: new Date(),
+        callId,
       });
       log.info(`Mastery written for ${specSlug}:${moduleId}`, { mastery: overallMastery, threshold: masteryThreshold, loCount: Object.keys(outcomes).length });
 
@@ -2645,7 +2651,7 @@ const stageExecutors: Record<string, StageExecutor> = {
     const [currSettled, onboardSettled, lessonSettled, artifactSettled, actionSettled] =
       await Promise.allSettled([
         // 1. Curriculum progress + CurriculumModule FK write
-        trackCurriculumAfterCall(ctx.callerId, ctx.log, callerResult.learningAssessment)
+        trackCurriculumAfterCall(ctx.callerId, ctx.log, callerResult.learningAssessment, ctx.callId)
           .then(async (updated) => {
             if (callerResult.learningAssessment?.moduleId) {
               // Two-step scope chain (#407): caller → playbook → curriculum →
