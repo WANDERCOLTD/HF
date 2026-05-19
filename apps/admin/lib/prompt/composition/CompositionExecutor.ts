@@ -50,6 +50,7 @@ import "./transforms/offboarding";
 import "./transforms/priorCallFeedback";
 import "./transforms/mockDiagnostic";
 import "./transforms/interleaveReview";
+import "./transforms/courseComplete";
 
 /**
  * Execute the full composition pipeline.
@@ -361,6 +362,22 @@ function checkActivationWithReason(
       return { activated: false, reason: "No stale mastered modules to review" };
     }
 
+    case "courseCompleteApplies": {
+      // #492 Slice 3.7 — activate the celebratory block only when the
+      // courseComplete loader returned a positive verdict. The flag is set
+      // by `loaders/courseComplete.ts` via `isCourseComplete`. When false
+      // (most calls) the section is omitted via fallback.action: "omit"
+      // and the modules section renders unchanged.
+      const data = (context.loadedData as any).courseComplete;
+      if (data && data.courseComplete === true) {
+        return {
+          activated: true,
+          reason: `Course complete (mode=${data.completionMode ?? "unknown"})`,
+        };
+      }
+      return { activated: false, reason: "Course not yet complete" };
+    }
+
     default:
       return { activated: true, reason: `Custom condition: ${condition}` };
   }
@@ -624,6 +641,21 @@ export function getDefaultSections(): CompositionSectionDef[] {
       fallback: { action: "emptyObject", value: { totalCount: 0, byDomain: {}, all: [] } },
       transform: "mergeAndGroupTargets",
       outputKey: "behaviorTargets",
+    },
+    {
+      // #492 E3 Slice 3.7 — celebratory block when the course is complete.
+      // Sits at HIGH priority (5) so the tutor reads it BEFORE any teaching
+      // directives (modules priority 7, mockDiagnostic 7.6, goals 9). The
+      // section is omitted when courseComplete=false so the prompt is
+      // unchanged for the 99% case.
+      id: "courseComplete",
+      name: "Course Complete Celebration",
+      priority: 5,
+      dataSource: "courseComplete",
+      activateWhen: { condition: "courseCompleteApplies" },
+      fallback: { action: "omit" },
+      transform: "buildCourseCompleteBlock",
+      outputKey: "courseComplete",
     },
     {
       id: "call_history",

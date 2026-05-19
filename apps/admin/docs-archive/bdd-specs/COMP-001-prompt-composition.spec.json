@@ -635,6 +635,20 @@
       "outputKey": "behaviorTargets"
     },
     {
+      "id": "courseComplete",
+      "name": "Course Complete Celebration",
+      "priority": 5,
+      "dataSource": "courseComplete",
+      "activateWhen": {
+        "condition": "courseCompleteApplies"
+      },
+      "fallback": {
+        "action": "omit"
+      },
+      "transform": "buildCourseCompleteBlock",
+      "outputKey": "courseComplete"
+    },
+    {
       "id": "call_history",
       "name": "Call History",
       "priority": 6,
