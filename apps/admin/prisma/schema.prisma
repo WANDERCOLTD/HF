@@ -1473,6 +1473,13 @@ model CallScore {
   callerId    String? // Denormalized for efficient queries
   parameterId String
 
+  // #491 Slice 1.2 — which curriculum module this score is attributed to.
+  // For single-module calls this mirrors Call.curriculumModuleId.
+  // For multi-attribute modules (e.g. Mock Exam which covers Part 1/2/3),
+  // the same (callId, parameterId) pair can produce SEPARATE scores per
+  // sub-module — see the unique constraint below.
+  moduleId String?
+
   // Scoring result
   score      Float
   confidence Float    @default(0.5)
@@ -1487,17 +1494,29 @@ model CallScore {
   createdAt DateTime @default(now())
 
   // Relations
-  call         Call          @relation(fields: [callId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  caller       Caller?       @relation(fields: [callerId], references: [id], onDelete: SetNull)
-  parameter    Parameter     @relation(fields: [parameterId], references: [parameterId], onDelete: Restrict, onUpdate: Cascade)
-  analysisSpec AnalysisSpec? @relation(fields: [analysisSpecId], references: [id], onDelete: SetNull)
+  call             Call              @relation(fields: [callId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  caller           Caller?           @relation(fields: [callerId], references: [id], onDelete: SetNull)
+  parameter        Parameter         @relation(fields: [parameterId], references: [parameterId], onDelete: Restrict, onUpdate: Cascade)
+  analysisSpec     AnalysisSpec?     @relation(fields: [analysisSpecId], references: [id], onDelete: SetNull)
+  curriculumModule CurriculumModule? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
 
-  @@unique([callId, parameterId])
+  // #491 Slice 1.2 — multi-attribute attribution: one Mock call writes 12
+  // scores (4 skills × 3 sub-parts). The unique key now includes moduleId so
+  // the same (callId, parameterId) can repeat across moduleIds.
+  //
+  // Postgres treats NULLs as distinct in unique constraints by default —
+  // two rows with the same (callId, parameterId) and BOTH moduleId=NULL
+  // would NOT collide. Legacy callers (pre-#491 / single-module calls
+  // without an attribution) keep moduleId=NULL and need the old behaviour
+  // of "one score per (callId, parameterId)". A partial unique index
+  // enforces that.
+  @@unique([callId, parameterId, moduleId])
   @@index([callId])
   @@index([parameterId])
   @@index([callerId], map: "CallScore_userId_idx")
   @@index([analysisSpecId])
   @@index([scoredAt])
+  @@index([moduleId])
 }
 
 // =========================
@@ -2338,6 +2357,7 @@ model CurriculumModule {
   learningObjectives LearningObjective[]
   callerProgress     CallerModuleProgress[]
   calls              Call[]
+  callScores         CallScore[] // #491 Slice 1.2 — multi-attribute scoring
 
   // Projection provenance (#338, NEW courses since 2026-05-12). When this
   // module row was written by applyProjection() from a COURSE_REFERENCE doc's

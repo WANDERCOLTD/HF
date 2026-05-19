@@ -471,6 +471,7 @@ async function runBatchedCallerAnalysis(
     transcript: string | null;
     playbookId?: string | null;
     requestedModuleId?: string | null;
+    curriculumModuleId?: string | null;
   },
   callerId: string,
   engine: AIEngine,
@@ -681,6 +682,10 @@ async function runBatchedCallerAnalysis(
             callId: call.id,
             callerId,
             parameterId: param.parameterId,
+            // #491 Slice 1.2 — attribute the score to the module this call covered.
+            // Null for non-attributed calls (legacy / no module pick); a partial
+            // unique index keeps one-score-per-(callId, parameterId) in that case.
+            ...(call.curriculumModuleId ? { moduleId: call.curriculumModuleId } : {}),
             score,
             confidence: 0.7,
             evidence: ["Mock batched scoring"],
@@ -755,6 +760,8 @@ async function runBatchedCallerAnalysis(
                 callId: call.id,
                 callerId,
                 parameterId,
+                // #491 Slice 1.2 — module attribution (see note above).
+                ...(call.curriculumModuleId ? { moduleId: call.curriculumModuleId } : {}),
                 score,
                 confidence,
                 reasoning,
@@ -1379,7 +1386,16 @@ async function computeAdapt(
           });
         } else {
           await prisma.callScore.create({
-            data: { callId, callerId, parameterId: deltaParameterId, score: deltaScore, confidence: 0.9, scoredBy: "adapt_v1" },
+            data: {
+              callId,
+              callerId,
+              parameterId: deltaParameterId,
+              // #491 Slice 1.2 — delta scores inherit the source call's module attribution.
+              ...(currentCall.curriculumModuleId ? { moduleId: currentCall.curriculumModuleId } : {}),
+              score: deltaScore,
+              confidence: 0.9,
+              scoredBy: "adapt_v1",
+            },
           });
         }
         deltasComputed++;
@@ -2751,7 +2767,7 @@ export async function POST(
     // Load call
     const call = await prisma.call.findUnique({
       where: { id: callId },
-      select: { id: true, transcript: true, playbookId: true, requestedModuleId: true },
+      select: { id: true, transcript: true, playbookId: true, requestedModuleId: true, curriculumModuleId: true },
     });
 
     if (!call) {
