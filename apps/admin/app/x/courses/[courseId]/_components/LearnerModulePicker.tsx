@@ -18,6 +18,7 @@
  * when wired into the learner portal — same component, same data.
  */
 
+import { useCallback, useMemo, useState } from "react";
 import {
   GraduationCap,
   Mic,
@@ -32,6 +33,10 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { AuthoredModule } from "@/lib/types/json-fields";
+import {
+  PrereqsSoftWarningModal,
+  type UnmetPrereq,
+} from "./PrereqsSoftWarningModal";
 
 export type PickerLayout = "tiles" | "rail";
 
@@ -74,6 +79,18 @@ interface LearnerModulePickerProps {
    * "interleave-review". Surfaced as the badge's tooltip via `title=`.
    */
   recommendedReason?: string | null;
+  /**
+   * #495 Slice 4.5 — when `false` (default), clicking a module whose
+   * prereqs aren't all MASTERED triggers a soft-warning modal before the
+   * picker calls `onSelect`. When `true`, slice 4.6 will hard-lock the
+   * tile; until that ships the picker falls through to the same soft-
+   * warning modal so the learner is never silently blocked.
+   *
+   * Source of truth is the import-modules endpoint's top-level
+   * `strictPrerequisites` field (mirrors
+   * `Playbook.config.strictPrerequisites` via `readCourseFlags`).
+   */
+  strictPrerequisites?: boolean;
 }
 
 export function LearnerModulePicker({
@@ -84,7 +101,70 @@ export function LearnerModulePicker({
   onSelect,
   recommendedModuleId = null,
   recommendedReason = null,
+  strictPrerequisites = false,
 }: LearnerModulePickerProps) {
+  // #495 Slice 4.5 — pending pick whose prereqs aren't all mastered. When
+  // set, the soft-warning modal renders; "Continue anyway" forwards to
+  // the parent's `onSelect`, "Cancel" / Escape / backdrop click drops it.
+  const [pendingSoftWarn, setPendingSoftWarn] = useState<{
+    module: AuthoredModule;
+    unmetPrereqs: UnmetPrereq[];
+  } | null>(null);
+
+  // Index modules by id so we can resolve unmet prereq slugs → friendly
+  // titles for the modal's bulleted list without prop-drilling.
+  const modulesById = useMemo(() => {
+    const map = new Map<string, AuthoredModule>();
+    for (const m of modules) map.set(m.id, m);
+    return map;
+  }, [modules]);
+
+  const completed = useMemo(() => new Set(completedModuleIds), [completedModuleIds]);
+  const inProgress = useMemo(() => new Set(inProgressModuleIds), [inProgressModuleIds]);
+
+  // Wrap the parent's onSelect: when prereqs are unmet, intercept the
+  // click and stage the modal. When they're satisfied (or there are
+  // none), fall through immediately. Mastery is the gate, not mere
+  // completion — `progress.status === "MASTERED"` matches the picker's
+  // existing vocabulary (Slice 4.2) and the recommender's policy
+  // (#494 Slice 2.5).
+  const handlePick = useCallback(
+    (moduleId: string) => {
+      if (!onSelect) return;
+      const mod = modulesById.get(moduleId);
+      if (!mod) {
+        onSelect(moduleId);
+        return;
+      }
+      const unmet = computeUnmetPrereqs(mod, modulesById);
+      if (unmet.length === 0) {
+        onSelect(moduleId);
+        return;
+      }
+      // TODO: 4.6 hard-lock — when `strictPrerequisites === true`, render
+      // a lock affordance on the tile + block the click entirely. Until
+      // that slice lands we fall through to the same soft-warning modal
+      // so the learner is never silently blocked.
+      void strictPrerequisites;
+      setPendingSoftWarn({ module: mod, unmetPrereqs: unmet });
+    },
+    [onSelect, modulesById, strictPrerequisites],
+  );
+
+  const handleSoftWarnContinue = useCallback(() => {
+    if (!pendingSoftWarn || !onSelect) {
+      setPendingSoftWarn(null);
+      return;
+    }
+    const id = pendingSoftWarn.module.id;
+    setPendingSoftWarn(null);
+    onSelect(id);
+  }, [pendingSoftWarn, onSelect]);
+
+  const handleSoftWarnCancel = useCallback(() => {
+    setPendingSoftWarn(null);
+  }, []);
+
   const visible = modules.filter((m) => m.learnerSelectable !== false);
   if (visible.length === 0) {
     return (
@@ -97,9 +177,10 @@ export function LearnerModulePicker({
     );
   }
 
-  const completed = new Set(completedModuleIds);
-  const inProgress = new Set(inProgressModuleIds);
   const layout: PickerLayout = lessonPlanMode === "structured" ? "rail" : "tiles";
+  // Layouts always see the wrapped handler when an onSelect is supplied
+  // — keeps the preview path (no onSelect → div tiles) intact.
+  const layoutOnSelect = onSelect ? handlePick : undefined;
 
   return (
     <div className={`learner-picker learner-picker--${layout}`}>
@@ -108,7 +189,7 @@ export function LearnerModulePicker({
           modules={visible}
           completed={completed}
           inProgress={inProgress}
-          onSelect={onSelect}
+          onSelect={layoutOnSelect}
           recommendedModuleId={recommendedModuleId}
           recommendedReason={recommendedReason}
         />
@@ -117,13 +198,44 @@ export function LearnerModulePicker({
           modules={visible}
           completed={completed}
           inProgress={inProgress}
-          onSelect={onSelect}
+          onSelect={layoutOnSelect}
           recommendedModuleId={recommendedModuleId}
           recommendedReason={recommendedReason}
         />
       )}
+      {pendingSoftWarn && (
+        <PrereqsSoftWarningModal
+          module={pendingSoftWarn.module}
+          unmetPrereqs={pendingSoftWarn.unmetPrereqs}
+          onContinue={handleSoftWarnContinue}
+          onCancel={handleSoftWarnCancel}
+        />
+      )}
     </div>
   );
+}
+
+/**
+ * Compute prereqs that aren't yet MASTERED for the candidate module.
+ * Unknown slugs (a prereq pointing at a module no longer in the list)
+ * are skipped — we'd rather drop a stale reference than block on a
+ * phantom. Used by the click-intercept in `handlePick` (slice 4.5).
+ */
+function computeUnmetPrereqs(
+  candidate: AuthoredModule,
+  modulesById: Map<string, AuthoredModule>,
+): UnmetPrereq[] {
+  const prereqs = Array.isArray(candidate.prerequisites)
+    ? candidate.prerequisites
+    : [];
+  const unmet: UnmetPrereq[] = [];
+  for (const slug of prereqs) {
+    const ref = modulesById.get(slug);
+    if (!ref) continue; // stale slug — silently skip
+    if (ref.progress?.status === "MASTERED") continue;
+    unmet.push({ slug, title: ref.label });
+  }
+  return unmet;
 }
 
 // ── Tile layout (continuous) ───────────────────────────────────────

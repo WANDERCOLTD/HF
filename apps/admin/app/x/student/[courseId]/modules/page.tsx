@@ -52,6 +52,12 @@ interface ModulesPayload {
    */
   recommendedModuleId?: string | null;
   recommendedReason?: string | null;
+  /**
+   * #495 Slice 4.5 — course-level toggle: when `false` (default) the
+   * picker shows a soft-warning modal on unmet prereqs; slice 4.6 will
+   * hard-lock the tile when `true`.
+   */
+  strictPrerequisites?: boolean;
 }
 
 interface ProgressRow {
@@ -297,6 +303,7 @@ function PickerContent() {
               onSelect={handleSelect}
               recommendedModuleId={data.recommendedModuleId ?? null}
               recommendedReason={data.recommendedReason ?? null}
+              strictPrerequisites={data.strictPrerequisites ?? false}
             />
 
             {launching && (

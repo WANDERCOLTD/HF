@@ -9570,7 +9570,7 @@ Read the current modules catalogue for a course. Prefers
 
 **Response** `200`
 ```json
-{ ok, modulesAuthored, modules, moduleDefaults, moduleSource, source, moduleSourceRef, validationWarnings, hasErrors, outcomes, detectedFrom, persisted, curriculumSync, classification, recommendedModuleId, recommendedReason }
+{ ok, modulesAuthored, modules, moduleDefaults, moduleSource, source, moduleSourceRef, validationWarnings, hasErrors, outcomes, detectedFrom, persisted, curriculumSync, classification, recommendedModuleId, recommendedReason, strictPrerequisites }
 ```
 
 **Response** `404`

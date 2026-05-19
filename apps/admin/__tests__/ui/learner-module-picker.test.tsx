@@ -193,9 +193,11 @@ describe("LearnerModulePicker — rail (structured)", () => {
     );
     const buttons = container.querySelectorAll("button.learner-picker__rail-card");
     expect(buttons.length).toBe(3);
-    // Activate the third (whose prereqs are unmet) — must still fire
+    // The rail card is still a real <button> (not a disabled div) when
+    // prereqs are unmet. #495 Slice 4.5 wraps the click in a soft-warning
+    // modal — onSelect is reached after a "Continue anyway" tap, not
+    // suppressed entirely.
     (buttons[2] as HTMLButtonElement).click();
-    expect(onSelect).toHaveBeenCalledWith("ch3");
   });
 });
 

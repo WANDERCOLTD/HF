@@ -30,6 +30,7 @@ import { syncAuthoredModulesToCurriculum } from "@/lib/wizard/sync-authored-modu
 import { reclassifyLearningObjectives } from "@/lib/curriculum/reclassify-los";
 import { resolveCurriculumIdForPlaybook } from "@/lib/curriculum/resolve-module";
 import { recommendNextModule } from "@/lib/curriculum/recommend-next-module";
+import { readCourseFlags } from "@/lib/curriculum/course-completion";
 
 // #495 Slice 4.2 — picker status badge. Per-module progress is returned to
 // the learner picker so each tile/rail card can render Mastered / In progress
@@ -73,7 +74,7 @@ type Body = z.infer<typeof BodySchema>;
  *   (null when no modules exist on either side); the legacy `moduleSource`
  *   field (`"authored" | "derived" | null`) is preserved for backwards
  *   compatibility with the admin AuthoredModulesPanel.
- * @response 200 { ok, modulesAuthored, modules, moduleDefaults, moduleSource, source, moduleSourceRef, validationWarnings, hasErrors, outcomes, detectedFrom, persisted, curriculumSync, classification, recommendedModuleId, recommendedReason }
+ * @response 200 { ok, modulesAuthored, modules, moduleDefaults, moduleSource, source, moduleSourceRef, validationWarnings, hasErrors, outcomes, detectedFrom, persisted, curriculumSync, classification, recommendedModuleId, recommendedReason, strictPrerequisites }
  * @note #495 Slice 4.2 — each `modules[]` entry includes an optional
  *   `progress: { status: "MASTERED"|"IN_PROGRESS"|"NOT_STARTED", callCount }`
  *   field when the request carries a caller scope (STUDENT, or OPERATOR+
@@ -85,6 +86,13 @@ type Body = z.infer<typeof BodySchema>;
  *   The picker UI surfaces a "Recommended next" badge on that tile only —
  *   no per-module mutation, so any other consumer of the response keeps a
  *   stable `progress` shape.
+ * @note #495 Slice 4.5 — top-level `strictPrerequisites: boolean` mirrors
+ *   `readCourseFlags(playbook.config).strictPrerequisites`. The learner
+ *   picker reads this to decide whether unmet prereqs trigger a soft-
+ *   warning modal (false, default) or a hard lock (true — slice 4.6).
+ *   Every `modules[]` entry also carries a normalised `prerequisites:
+ *   string[]` (defaulted to `[]`) so the client can compute unmet prereqs
+ *   without re-fetching.
  * @response 404 { ok: false, error: "Course not found" }
  */
 export async function GET(
@@ -125,6 +133,23 @@ export async function GET(
       pickerSource = "generated";
     }
   }
+
+  // #495 Slice 4.5 — defensive normalisation so every module the picker
+  // receives has a stable `prerequisites: string[]`. The authored JSON
+  // type already declares the field as required, but legacy rows / hand-
+  // edited config blobs occasionally omit it. Normalising here means the
+  // client can `module.prerequisites.filter(...)` without a guard.
+  modulesForResponse = modulesForResponse.map((m) => ({
+    ...m,
+    prerequisites: Array.isArray(m.prerequisites) ? m.prerequisites : [],
+  }));
+
+  // #495 Slice 4.5 — surface `strictPrerequisites` to the client so the
+  // picker knows whether to soft-warn (false, default) or hard-lock (true,
+  // landing in slice 4.6) on unmet prereqs. Read via `readCourseFlags` so
+  // the default + validation policy is applied consistently with the
+  // recommendation helper and the completion check.
+  const { strictPrerequisites } = readCourseFlags(cfg);
 
   // #495 Slice 4.2 — resolve which caller's progress (if any) to enrich
   // the response with. STUDENT users get their own caller; OPERATOR+ may
@@ -293,6 +318,10 @@ export async function GET(
     // IN_PROGRESS fallback). The picker highlights the matching tile.
     recommendedModuleId,
     recommendedReason,
+    // #495 Slice 4.5 — picker uses this to decide whether unmet prereqs
+    // trigger a soft-warning modal (false, default) or a hard lock
+    // (true — slice 4.6). Defaults applied by `readCourseFlags`.
+    strictPrerequisites,
   });
 }
 
