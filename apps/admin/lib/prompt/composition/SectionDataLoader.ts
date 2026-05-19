@@ -20,6 +20,7 @@ import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
 import { loadPriorCallFeedback } from "./loaders/priorCallFeedback";
 import { loadMockDiagnostic } from "./loaders/mockDiagnostic";
+import { loadInterleaveReview } from "./loaders/interleaveReview";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import type { LoadedDataContext, SystemSpecData } from "./types";
 
@@ -118,6 +119,7 @@ export async function loadAllData(
     visualAids,
     priorCallFeedback,
     mockDiagnostic,
+    interleaveReview,
   ] = await Promise.all([
     loaderRegistry.get("caller")!(callerId),
     loaderRegistry.get("memories")!(callerId, { limit: memoriesLimit }),
@@ -146,6 +148,9 @@ export async function loadAllData(
     }),
     loaderRegistry.get("mockDiagnostic")!(callerId, {
       currentCallId: scope?.currentCallId ?? null,
+    }),
+    loaderRegistry.get("interleaveReview")!(callerId, {
+      currentModuleId: scope?.requestedModuleId ?? null,
     }),
   ]);
 
@@ -195,6 +200,13 @@ export async function loadAllData(
       fromCallId: null,
       generatedAt: null,
       ageInDays: null,
+    },
+    interleaveReview: interleaveReview || {
+      hasReview: false,
+      candidateModule: null,
+      daysSinceLastCall: null,
+      mastery: null,
+      summary: null,
     },
   };
 }
@@ -651,6 +663,62 @@ registerLoader("mockDiagnostic", async (callerId, config) => {
       fromCallId: null,
       generatedAt: null,
       ageInDays: null,
+    };
+  }
+});
+
+/**
+ * #492 E3 Slice 3.3 — spaced-review nudge for mastered modules. Surfaces a
+ * short "Review opportunity" block referencing a mastered module the learner
+ * hasn't seen in `interleaveReviewMinDays` (default 3) so spaced retrieval
+ * keeps long-term memory fresh.
+ *
+ * Reads playbookConfig from the caller's first ACTIVE enrollment so the
+ * loader can stay parallel — it does NOT depend on the playbooks loader
+ * (which would require sequencing). The extra read is one row keyed by
+ * (callerId, status) → cheap.
+ */
+registerLoader("interleaveReview", async (callerId, config) => {
+  const currentModuleId = (config?.currentModuleId as string | null | undefined) ?? null;
+  if (!currentModuleId) {
+    return {
+      hasReview: false,
+      candidateModule: null,
+      daysSinceLastCall: null,
+      mastery: null,
+      summary: null,
+    };
+  }
+  try {
+    // Resolve playbookConfig defensively so the minDays threshold can be
+    // overridden per-course. Falls back to the loader's default (3 days) when
+    // no enrollment / no config exists.
+    let playbookConfig: PlaybookConfig | null = null;
+    try {
+      const enrollment = await prisma.callerPlaybook.findFirst({
+        where: { callerId, status: "ACTIVE" },
+        select: { playbook: { select: { config: true } } },
+      });
+      playbookConfig = (enrollment?.playbook?.config ?? null) as PlaybookConfig | null;
+    } catch (innerErr) {
+      console.warn(
+        "[interleaveReview] playbookConfig lookup failed — using defaults:",
+        innerErr,
+      );
+    }
+    return await loadInterleaveReview(prisma, {
+      callerId,
+      currentModuleId,
+      playbookConfig,
+    });
+  } catch (err) {
+    console.warn("[interleaveReview] loader failed — section will be omitted:", err);
+    return {
+      hasReview: false,
+      candidateModule: null,
+      daysSinceLastCall: null,
+      mastery: null,
+      summary: null,
     };
   }
 });

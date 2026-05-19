@@ -701,6 +701,21 @@
       "dependsOn": ["curriculum"]
     },
     {
+      "id": "interleave_review",
+      "name": "Review Opportunity (Spaced Retrieval)",
+      "priority": 7.8,
+      "dataSource": "interleaveReview",
+      "activateWhen": {
+        "condition": "interleaveReviewExists"
+      },
+      "fallback": {
+        "action": "omit"
+      },
+      "transform": "renderInterleaveReview",
+      "outputKey": "interleaveReview",
+      "dependsOn": ["curriculum"]
+    },
+    {
       "id": "session_planning",
       "name": "Session Planning",
       "priority": 8,
