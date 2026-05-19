@@ -26,14 +26,22 @@
  *   5. Fire pipeline (currently blocked by middleware secret — UI workaround)
  */
 
-// Load .env BEFORE importing config — otherwise process.env.INTERNAL_API_SECRET
-// is undefined when this script runs as standalone tsx (Next.js auto-loads .env
-// for the dev server, but plain tsx doesn't). Without it, config.security.
-// internalApiSecret falls back to a dev placeholder that doesn't match what
-// the running dev server has, so the pipeline POST hits the auth-required
-// branch in middleware.ts:103 and gets redirected to /login (HTML response).
-// (Pipeline-fire failure observed in 2026-05-19 SIM run, course e5f379ed.)
-import "dotenv/config";
+// Load env files in Next.js precedence order BEFORE importing config:
+//   1. .env.local  (highest — overrides everything in dev)
+//   2. .env        (base)
+// Next.js dev server auto-loads .env.local + .env. Plain tsx doesn't load
+// any env file, AND `dotenv/config` (the easy way) only loads .env — not
+// .env.local. When the two files contain DIFFERENT INTERNAL_API_SECRET
+// values (as on hf-dev 2026-05-19), the SIM script ends up sending the
+// `.env` secret while the dev server validates against the `.env.local`
+// secret → mismatch → middleware redirects to /login → SIM gets HTML.
+//
+// Use `dotenv.config({path, override})` so .env.local wins, mirroring
+// Next.js behaviour. (Pipeline-fire failure observed in SIM run on
+// course e5f379ed.)
+import { config as loadDotenv } from "dotenv";
+loadDotenv({ path: ".env.local", override: true });
+loadDotenv({ path: ".env" });
 import { prisma } from "@/lib/prisma";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering";
 import { config } from "@/lib/config";
