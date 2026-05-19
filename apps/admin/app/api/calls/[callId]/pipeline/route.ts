@@ -38,6 +38,7 @@ import { updateCurriculumProgress, getCurriculumProgress, completeModule, update
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { resolveCurriculumIdForPlaybook, resolveModuleByLogicalId } from "@/lib/curriculum/resolve-module";
 import { computeModuleMastery } from "@/lib/curriculum/compute-mastery";
+import { generateDiagnosticFromMock } from "@/lib/curriculum/diagnostic-from-mock";
 import { ContractRegistry } from "@/lib/contracts/registry";
 import { loadPipelineStages, PipelineStage } from "@/lib/pipeline/config";
 
@@ -1416,6 +1417,112 @@ export async function resolveModuleEvidenceTargets(
 }
 
 /**
+ * #494 E2 Slice 2.6 — diagnosticFromMock writer.
+ *
+ * Decides whether the just-finished call is a "Mock" (bound module declares
+ * `coversModules.length >= 2`), generates a deterministic diagnostic via
+ * `generateDiagnosticFromMock`, and persists it as a single CallerAttribute
+ * row (`scope=DIAGNOSTIC`, `key=fromMock`) keyed by the existing
+ * `@@unique([callerId, key, scope])` constraint. Most recent Mock wins on
+ * subsequent runs.
+ *
+ * Failure is **not fatal**: any thrown error is logged at warn and the
+ * helper returns `{ written: false }`. The pipeline's AGGREGATE stage must
+ * continue past this point even when the diagnostic write fails — mastery
+ * writes have already succeeded and the user's progress is still durable.
+ *
+ * Returns `{ written: false }` when:
+ *   - The call has no bound `curriculumModuleId`.
+ *   - `moduleEvidenceTargets.length < 2` (a Mock by definition covers ≥2).
+ *   - The bound CurriculumModule is missing or its `coversModules.length < 2`.
+ *   - The diagnostic generator returns null (defensive duplicate of above).
+ *   - An error is thrown anywhere in the path.
+ */
+export async function writeDiagnosticFromMock(
+  callId: string,
+  callerId: string,
+  call: { id: string; playbookId: string | null; curriculumModuleId: string | null },
+  moduleEvidenceTargets: string[],
+  log: PipelineLogger,
+): Promise<{ written: boolean }> {
+  if (!call.curriculumModuleId || moduleEvidenceTargets.length < 2) {
+    return { written: false };
+  }
+  try {
+    const boundModule = await prisma.curriculumModule.findUnique({
+      where: { id: call.curriculumModuleId },
+      select: { curriculumId: true, coversModules: true },
+    });
+    const covers = boundModule
+      ? ((boundModule as any).coversModules as unknown[] | null)
+      : null;
+    const isMock = boundModule && Array.isArray(covers) && covers.length >= 2;
+    if (!isMock || !boundModule) {
+      return { written: false };
+    }
+
+    let pbConfig: Record<string, unknown> | null = null;
+    if (call.playbookId) {
+      const pb = await prisma.playbook.findUnique({
+        where: { id: call.playbookId },
+        select: { config: true },
+      });
+      pbConfig = (pb?.config as Record<string, unknown> | null) ?? null;
+    }
+
+    const diagnostic = await generateDiagnosticFromMock(prisma, {
+      callId,
+      callerId,
+      curriculumId: boundModule.curriculumId,
+      coveredModuleIds: moduleEvidenceTargets,
+      playbookConfig: pbConfig as any,
+    });
+    if (!diagnostic) return { written: false };
+
+    // CallerAttribute @@unique([callerId, key, scope]) — upsert keeps a
+    // single diagnostic row per caller; the most recent Mock overwrites.
+    await prisma.callerAttribute.upsert({
+      where: {
+        callerId_key_scope: {
+          callerId,
+          key: "fromMock",
+          scope: "DIAGNOSTIC",
+        },
+      },
+      create: {
+        callerId,
+        key: "fromMock",
+        scope: "DIAGNOSTIC",
+        valueType: "JSON",
+        stringValue: JSON.stringify(diagnostic),
+        sourceSpecSlug: "diagnostic-from-mock",
+      },
+      update: {
+        valueType: "JSON",
+        stringValue: JSON.stringify(diagnostic),
+        sourceSpecSlug: "diagnostic-from-mock",
+      },
+    });
+    log.info("diagnosticFromMock written", {
+      callId,
+      callerId,
+      focusModules: diagnostic.focusModules,
+      strengthModule: diagnostic.strengthModule,
+      weakSkill: diagnostic.weakSkill,
+    });
+    return { written: true };
+  } catch (err) {
+    // Per spec: diagnostic failure must NOT break the pipeline.
+    log.warn("diagnosticFromMock generation failed", {
+      callId,
+      callerId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { written: false };
+  }
+}
+
+/**
  * Aggregate caller personality from call scores
  * Creates/updates PersonalityObservation for the call and CallerPersonality aggregate
  *
@@ -2779,6 +2886,19 @@ const stageExecutors: Record<string, StageExecutor> = {
     };
     const masteryFlippedCount = masteryResults.filter((r) => r.statusFlipped).length;
 
+    // 5. #494 E2 Slice 2.6 — diagnosticFromMock writer. Generate + persist
+    // a learner-facing diagnostic when this call is a "Mock" (bound module
+    // declares coversModules.length >= 2). Wrapped in try/catch inside the
+    // helper — diagnostic failure MUST NOT break the pipeline.
+    const diagnosticResult = await writeDiagnosticFromMock(
+      ctx.callId,
+      ctx.callerId,
+      ctx.call,
+      moduleEvidenceTargets,
+      ctx.log,
+    );
+    const diagnosticWritten = diagnosticResult.written;
+
     return {
       personalityObservationCreated: personalityResult.observationCreated,
       personalityProfileUpdated: personalityResult.profileUpdated,
@@ -2793,6 +2913,7 @@ const stageExecutors: Record<string, StageExecutor> = {
       moduleMasteryEvidenceCount: primaryMastery.evidenceCount,
       moduleMasteryStatusFlipped: primaryMastery.statusFlipped,
       moduleMasteryFlippedCount: masteryFlippedCount,
+      diagnosticFromMockWritten: diagnosticWritten,
     };
   },
 
