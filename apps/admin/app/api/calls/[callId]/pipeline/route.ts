@@ -38,6 +38,7 @@ import { updateCurriculumProgress, getCurriculumProgress, completeModule, update
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { resolveCurriculumIdForPlaybook, resolveModuleByLogicalId } from "@/lib/curriculum/resolve-module";
 import { segmentMockTranscript } from "@/lib/curriculum/segment-mock-transcript";
+import { buildPerSegmentMeasurePrompt, bandToScore } from "@/lib/curriculum/build-per-segment-measure-prompt";
 import { computeModuleMastery } from "@/lib/curriculum/compute-mastery";
 import { generateDiagnosticFromMock } from "@/lib/curriculum/diagnostic-from-mock";
 import { ContractRegistry } from "@/lib/contracts/registry";
@@ -552,18 +553,25 @@ async function runPerSegmentScoring(
     const segmentModuleId = slugToId.get(segment.slug);
     if (!segmentModuleId) continue;
 
-    // Reuse the existing MEASURE prompt builder with the segment text.
-    // No LEARN actions (memories were handled in the parent batched
-    // call) and no moduleContext (learning assessment runs once on
-    // the full transcript, not per segment).
-    const segPrompt = buildBatchedCallerPrompt(
-      segment.text,
+    // IELTS-focused per-segment prompt: scopes scoring to the 4
+    // IELTS Speaking skills, embeds the band rubric, gives per-part
+    // context, and asks for IELTS bands (4-9) instead of free-floating
+    // 0-1 scores. Returns null when the param set has no IELTS skill
+    // params — in that case the segment is skipped (non-IELTS courses
+    // don't get per-part scoring through this path).
+    const ieltsPrompt = buildPerSegmentMeasurePrompt({
+      segmentText: segment.text,
       measureParams,
-      [],
+      partSlug: segment.slug,
       transcriptLimit,
-      null,
-      null,
-    );
+    });
+    if (!ieltsPrompt) {
+      log.info("Per-part MEASURE: no IELTS skill params in scope, skipping segment", {
+        segmentSlug: segment.slug,
+      });
+      continue;
+    }
+    const allowedParamIds = new Set(ieltsPrompt.scopedParams.map((p) => p.parameterId));
 
     try {
       // @ai-call pipeline.measure-segment — Per-part MEASURE for multi-attribute modules | config: /x/ai-config
@@ -572,10 +580,15 @@ async function runPerSegmentScoring(
           callPoint: "pipeline.measure-segment",
           engineOverride: engine,
           messages: [
-            { role: "system", content: "You are an expert behavioral analyst. Always respond with valid JSON." },
-            { role: "user", content: segPrompt },
+            {
+              role: "system",
+              content:
+                "You are an expert IELTS Speaking examiner. Score against the official band rubric. Always respond with valid JSON only — no commentary, no markdown fences.",
+            },
+            { role: "user", content: ieltsPrompt.prompt },
           ],
-          maxTokens: Math.max(1024, measureParams.length * 100),
+          maxTokens: Math.max(800, ieltsPrompt.scopedParams.length * 200),
+          temperature: 0,
           timeoutMs: timeouts.pipelineTimeoutMs,
         },
         { callId: call.id, callerId, sourceOp: "pipeline:extract-segment", userName },
@@ -589,12 +602,9 @@ async function runPerSegmentScoring(
         continue;
       }
 
-      // Validate parameter IDs against the param set we asked the AI
-      // to score. The AI occasionally returns a parameter NAME (or a
-      // bare slug like "selection_strategy") as the JSON key instead
-      // of the parameter ID. Without this guard those garbage rows
-      // land in `CallScore` with FKs the join layer cannot resolve.
-      const allowedParamIds = new Set(measureParams.map((p) => p.parameterId));
+      // Whitelist the parameter IDs to the IELTS skill set we asked
+      // about. Anything else the AI returns is rejected — keeps
+      // CallScore rows aligned with the Parameter table.
       const validEntries: Array<[string, any]> = [];
       const rejectedKeys: string[] = [];
       for (const [parameterId, scoreData] of Object.entries(segParsed.scores as Record<string, any>)) {
@@ -610,9 +620,22 @@ async function runPerSegmentScoring(
       }
 
       for (const [parameterId, scoreData] of validEntries) {
-        const score = Math.max(0, Math.min(1, scoreData.score ?? scoreData.s ?? 0.5));
-        const confidence = Math.max(0, Math.min(1, scoreData.confidence ?? scoreData.c ?? 0.7));
-        const reasoning: string | undefined = scoreData.reasoning ?? scoreData.r ?? undefined;
+        // The IELTS prompt asks for `band` (4-9). Convert via
+        // bandToScore. Legacy `score`/`s` are still honoured as a
+        // safety net — if the AI ignores instructions and returns
+        // a 0-1 value, we still write something usable.
+        const rawBand =
+          typeof scoreData?.band === "number"
+            ? scoreData.band
+            : typeof scoreData?.b === "number"
+              ? scoreData.b
+              : null;
+        const score =
+          rawBand !== null
+            ? bandToScore(rawBand)
+            : Math.max(0, Math.min(1, scoreData?.score ?? scoreData?.s ?? 0.5));
+        const confidence = Math.max(0, Math.min(1, scoreData?.confidence ?? scoreData?.c ?? 0.7));
+        const reasoning: string | undefined = scoreData?.reasoning ?? scoreData?.r ?? undefined;
 
         const existing = await prisma.callScore.findFirst({
           where: { callId: call.id, parameterId, moduleId: segmentModuleId },
