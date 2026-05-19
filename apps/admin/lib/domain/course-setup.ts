@@ -534,9 +534,12 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
       }
     }
 
-    // Phase 5: Direct PlaybookSource creation from sourceIds (bypasses Subject chain)
+    // Phase 5: Direct PlaybookSource creation from sourceIds (bypasses Subject chain).
+    // Pre-flight FK race guard — see preflightPlaybookSourceIds doc comment.
     if (ctx.input.sourceIds?.length && scaffoldResult.playbook) {
-      const { upsertPlaybookSource } = await import("@/lib/knowledge/domain-sources");
+      const { preflightPlaybookSourceIds, upsertPlaybookSource } =
+        await import("@/lib/knowledge/domain-sources");
+      await preflightPlaybookSourceIds(ctx.input.sourceIds);
       for (const srcId of ctx.input.sourceIds) {
         await upsertPlaybookSource(scaffoldResult.playbook.id, srcId);
       }

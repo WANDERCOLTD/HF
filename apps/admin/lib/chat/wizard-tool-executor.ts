@@ -981,7 +981,10 @@ export async function executeWizardTool(
             // course shows up as "degenerate". `upsertPlaybookSource` is
             // idempotent so this is safe to call on already-linked sources.
             if (uploadSourceIds?.length) {
-              const { upsertPlaybookSource } = await import("@/lib/knowledge/domain-sources");
+              // Pre-flight FK race guard (see new-course branch step 7c).
+              const { preflightPlaybookSourceIds, upsertPlaybookSource } =
+                await import("@/lib/knowledge/domain-sources");
+              await preflightPlaybookSourceIds(uploadSourceIds);
               for (const srcId of uploadSourceIds) {
                 await upsertPlaybookSource(existingPlaybookId, srcId);
               }
@@ -1569,7 +1572,10 @@ export async function executeWizardTool(
         //     When ingest provides sourceIds directly, create PlaybookSource without
         //     needing the Subject → SubjectSource chain.
         if (uploadSourceIds?.length) {
-          const { upsertPlaybookSource } = await import("@/lib/knowledge/domain-sources");
+          // Pre-flight FK race guard (incident 2026-05-19, course e5f379ed).
+          const { preflightPlaybookSourceIds, upsertPlaybookSource } =
+            await import("@/lib/knowledge/domain-sources");
+          await preflightPlaybookSourceIds(uploadSourceIds);
           for (const srcId of uploadSourceIds) {
             await upsertPlaybookSource(playbookId, srcId);
           }

@@ -74,6 +74,47 @@ export async function syncPlaybookSources(
 }
 
 /**
+ * Pre-flight check: verify every sourceId is committed as a ContentSource
+ * row before attempting `upsertPlaybookSource(playbookId, sourceId)` loops.
+ *
+ * Background (2026-05-19 incident, course e5f379ed): the wizard's Launch
+ * fires create_course immediately after the upload step. Extraction commits
+ * ContentSource rows on the order of 100–300ms per file once classification
+ * completes. If the user clicks Launch before the LAST few files commit,
+ * upsertPlaybookSource throws `PlaybookSource_sourceId_fkey` and aborts
+ * the whole create flow, leaving a half-built playbook.
+ *
+ * Strategy: check, retry once after 500ms, then fail loud with the missing
+ * IDs so the operator knows which uploads stalled. Retry-once is enough for
+ * the typical timing — anything still missing after 500ms indicates a real
+ * problem (deleted source, stalled extraction) not a race.
+ */
+export async function preflightPlaybookSourceIds(sourceIds: string[]): Promise<void> {
+  if (sourceIds.length === 0) return;
+  const verify = async (): Promise<string[]> => {
+    const existing = await prisma.contentSource.findMany({
+      where: { id: { in: sourceIds } },
+      select: { id: true },
+    });
+    const existingIds = new Set(existing.map((s) => s.id));
+    return sourceIds.filter((id) => !existingIds.has(id));
+  };
+  let missing = await verify();
+  if (missing.length > 0) {
+    console.warn(
+      `[preflightPlaybookSourceIds] ${missing.length} sourceId(s) not yet committed — retrying after 500ms: ${missing.join(", ")}`,
+    );
+    await new Promise((r) => setTimeout(r, 500));
+    missing = await verify();
+  }
+  if (missing.length > 0) {
+    throw new Error(
+      `Pre-flight failed: ${missing.length} source(s) never committed as ContentSource. Missing IDs: ${missing.join(", ")}. Extraction may have stalled or sources were deleted. Re-upload the affected files and try again.`,
+    );
+  }
+}
+
+/**
  * Upsert a single PlaybookSource row. Call when a new SubjectSource is created
  * and the playbookId is known.
  */

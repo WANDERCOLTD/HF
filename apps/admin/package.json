@@ -3,7 +3,7 @@
   "version": "0.7.315",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "npx prisma generate && next dev",
     "dev:share": "./scripts/dev-share.sh",
     "devX": "pkill -9 -f 'next dev' || true && pkill -9 -f 'next-server' || true && lsof -ti:3000 2>/dev/null | xargs kill -9 2>/dev/null || true && rm -rf .next && npm run dev",
     "devT": "vitest run",
