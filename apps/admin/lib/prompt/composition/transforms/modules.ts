@@ -753,6 +753,38 @@ export async function computeSharedState(
     }
   }
 
+  // #538 — when a module is locked (picker pick or SIM --module), the
+  // scheduler block above is bypassed AND no SchedulerDecision is written.
+  // event-gate.ts then keeps reading the prior decision, which often holds
+  // `mode: "teach"` from earlier auto-cadence calls — so caller-level
+  // skill aggregation stays gated off forever on courses that use the
+  // picker. Persist a "practice" decision here so picker-driven calls
+  // pass the gate (event-gate allows `assess`/`practice` per
+  // config.scheduler.assessmentModes).
+  //
+  // "practice" is the right semantic: the learner explicitly chose a
+  // module and is actively practising it. We deliberately do not run the
+  // full pickMode() cadence — picker-driven calls sit outside the
+  // teach→practice→assess→review cycle that pickMode() drives.
+  if (lockedModule && data.caller?.id) {
+    try {
+      const { persistSchedulerDecision } = await import("@/lib/pipeline/scheduler-decision");
+      await persistSchedulerDecision(data.caller.id, {
+        mode: "practice",
+        outcomeId: null,
+        contentSourceId: null,
+        workingSetAssertionIds: [],
+        reason: `picker-locked to module "${lockedModule.slug || lockedModule.id}" — scoring allowed`,
+        callsSinceAssess: 0,
+      });
+      console.log(
+        `[modules] #538: persisted SchedulerDecision mode=practice for locked module "${lockedModule.slug || lockedModule.id}" — caller scoring gate will allow.`,
+      );
+    } catch (err) {
+      console.warn('[modules] #538: failed to persist locked-module SchedulerDecision (non-blocking):', err);
+    }
+  }
+
   // Determine review intensity based on time gap
   // Thresholds from specConfig (default: 14/7/3 days for reintroduce/deep_review/application)
   const reviewSchedule = specConfig.reviewSchedule || { reintroduce: 14, deepReview: 7, application: 3 };
