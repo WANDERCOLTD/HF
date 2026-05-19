@@ -253,7 +253,80 @@ describe("computeSharedState", () => {
       }],
     };
 
-    it("detects completed modules from mastery attributes", async () => {
+    // #494 Slice 2.1 — these legacy CallerAttribute mastery_ / completed_ paths
+    // are flag-gated behind LEGACY_MASTERY_FALLBACK_ENABLED. They remain as an
+    // emergency escape hatch only; the primary completed-set is now built from
+    // `CallerModuleProgress.mastery` (slice 2.2 canonical store). When the
+    // PrismaClient mock returns no rows the transform sets `masteryFromDb=true`,
+    // so the fallback never fires by default — these tests therefore opt in
+    // explicitly to assert the legacy parser still works during rollback.
+    it("detects completed modules from mastery attributes (legacy fallback flag on)", async () => {
+      const prev = process.env.LEGACY_MASTERY_FALLBACK_ENABLED;
+      process.env.LEGACY_MASTERY_FALLBACK_ENABLED = "true";
+      try {
+        const data = makeLoadedData({
+          subjectSources,
+          callerAttributes: [
+            makeCallerAttribute({ key: "mastery_MOD-1", numberValue: 0.85, valueType: "NUMBER" }),
+          ],
+        });
+        const specs = makeResolvedSpecs();
+        const result = await computeSharedState(data, specs, {});
+
+        expect(result.completedModules.has("MOD-1")).toBe(true);
+        expect(result.completedModules.size).toBe(1);
+      } finally {
+        if (prev === undefined) delete process.env.LEGACY_MASTERY_FALLBACK_ENABLED;
+        else process.env.LEGACY_MASTERY_FALLBACK_ENABLED = prev;
+      }
+    });
+
+    it("detects completed modules from boolean completed_ attributes (legacy fallback flag on)", async () => {
+      const prev = process.env.LEGACY_MASTERY_FALLBACK_ENABLED;
+      process.env.LEGACY_MASTERY_FALLBACK_ENABLED = "true";
+      try {
+        const data = makeLoadedData({
+          subjectSources,
+          callerAttributes: [
+            makeCallerAttribute({ key: "completed_MOD-1", booleanValue: true, valueType: "BOOLEAN" }),
+          ],
+        });
+        const specs = makeResolvedSpecs();
+        const result = await computeSharedState(data, specs, {});
+
+        expect(result.completedModules.has("MOD-1")).toBe(true);
+      } finally {
+        if (prev === undefined) delete process.env.LEGACY_MASTERY_FALLBACK_ENABLED;
+        else process.env.LEGACY_MASTERY_FALLBACK_ENABLED = prev;
+      }
+    });
+
+    it("advances nextModule past completed ones (legacy fallback flag on)", async () => {
+      const prev = process.env.LEGACY_MASTERY_FALLBACK_ENABLED;
+      process.env.LEGACY_MASTERY_FALLBACK_ENABLED = "true";
+      try {
+        const data = makeLoadedData({
+          subjectSources,
+          callerAttributes: [
+            makeCallerAttribute({ key: "mastery_MOD-1", numberValue: 0.9, valueType: "NUMBER" }),
+          ],
+        });
+        const specs = makeResolvedSpecs();
+        const result = await computeSharedState(data, specs, {});
+
+        // MOD-1 completed, so next should be MOD-2
+        expect(result.nextModule).toBeDefined();
+        expect(result.nextModule!.id).toBe("MOD-2");
+      } finally {
+        if (prev === undefined) delete process.env.LEGACY_MASTERY_FALLBACK_ENABLED;
+        else process.env.LEGACY_MASTERY_FALLBACK_ENABLED = prev;
+      }
+    });
+
+    it("ignores legacy mastery_ keys when LEGACY_MASTERY_FALLBACK_ENABLED is off (#494 Slice 2.1)", async () => {
+      // Default behaviour: legacy CallerAttribute mastery_ keys do NOT count
+      // toward completion. CallerModuleProgress is the canonical store.
+      delete process.env.LEGACY_MASTERY_FALLBACK_ENABLED;
       const data = makeLoadedData({
         subjectSources,
         callerAttributes: [
@@ -263,36 +336,7 @@ describe("computeSharedState", () => {
       const specs = makeResolvedSpecs();
       const result = await computeSharedState(data, specs, {});
 
-      expect(result.completedModules.has("MOD-1")).toBe(true);
-      expect(result.completedModules.size).toBe(1);
-    });
-
-    it("detects completed modules from boolean completed_ attributes", async () => {
-      const data = makeLoadedData({
-        subjectSources,
-        callerAttributes: [
-          makeCallerAttribute({ key: "completed_MOD-1", booleanValue: true, valueType: "BOOLEAN" }),
-        ],
-      });
-      const specs = makeResolvedSpecs();
-      const result = await computeSharedState(data, specs, {});
-
-      expect(result.completedModules.has("MOD-1")).toBe(true);
-    });
-
-    it("advances nextModule past completed ones", async () => {
-      const data = makeLoadedData({
-        subjectSources,
-        callerAttributes: [
-          makeCallerAttribute({ key: "mastery_MOD-1", numberValue: 0.9, valueType: "NUMBER" }),
-        ],
-      });
-      const specs = makeResolvedSpecs();
-      const result = await computeSharedState(data, specs, {});
-
-      // MOD-1 completed, so next should be MOD-2
-      expect(result.nextModule).toBeDefined();
-      expect(result.nextModule!.id).toBe("MOD-2");
+      expect(result.completedModules.size).toBe(0);
     });
   });
 

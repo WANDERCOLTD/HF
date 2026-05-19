@@ -16,7 +16,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock prisma. `curriculum.findFirst` is the entry point for the
 // CallerModuleProgress dual-write in updateCurriculumProgress (#409). Returning
 // null here keeps the dual-write off — these tests assert the CallerAttribute
-// surface only.
+// surface only unless overridden by an individual test.
+//
+// #494 Slice 2.1 — getCurriculumProgress now reads `modulesMastery` from
+// CallerModuleProgress (joined via `CurriculumModule`). Default mocks return
+// empty rows so the legacy CallerAttribute surface stays the focus; tests
+// that exercise the new read path stub these directly.
 const mockPrisma = {
   callerAttribute: {
     upsert: vi.fn(),
@@ -25,6 +30,14 @@ const mockPrisma = {
   },
   curriculum: {
     findFirst: vi.fn().mockResolvedValue(null),
+  },
+  curriculumModule: {
+    findMany: vi.fn().mockResolvedValue([]),
+  },
+  callerModuleProgress: {
+    findMany: vi.fn().mockResolvedValue([]),
+    findUnique: vi.fn().mockResolvedValue(null),
+    upsert: vi.fn(),
   },
 };
 
@@ -122,14 +135,39 @@ describe('track-progress.ts', () => {
       expect(upsertCall.create.stringValue).toBe('chapter1');
     });
 
-    it('uses contract-defined key pattern for mastery', async () => {
+    it('uses contract-defined key pattern for mastery when LEGACY_MASTERY_WRITES_ENABLED=true', async () => {
+      // #494 Slice 2.1 — legacy CallerAttribute mastery writes are now flag-gated.
+      // Enable to assert the historical key pattern stays correct for the
+      // emergency-rollback path. Default-off behaviour covered separately below.
+      const prev = process.env.LEGACY_MASTERY_WRITES_ENABLED;
+      process.env.LEGACY_MASTERY_WRITES_ENABLED = 'true';
+      try {
+        await updateCurriculumProgress('caller-1', 'QM-CONTENT-001', {
+          moduleMastery: { 'chapter1_blackbody': 0.75 },
+        });
+
+        const upsertCall = mockPrisma.callerAttribute.upsert.mock.calls[0][0];
+        expect(upsertCall.where.callerId_key_scope.key).toBe('curriculum:QM-CONTENT-001:mastery:chapter1_blackbody');
+        expect(upsertCall.create.numberValue).toBe(0.75);
+      } finally {
+        if (prev === undefined) delete process.env.LEGACY_MASTERY_WRITES_ENABLED;
+        else process.env.LEGACY_MASTERY_WRITES_ENABLED = prev;
+      }
+    });
+
+    it('does NOT write CallerAttribute mastery:* by default (flag off)', async () => {
+      // #494 Slice 2.1 regression guard — with LEGACY_MASTERY_WRITES_ENABLED unset,
+      // the legacy CallerAttribute mastery write must be a no-op. CallerModuleProgress
+      // is the canonical store (slice 2.2).
+      delete process.env.LEGACY_MASTERY_WRITES_ENABLED;
       await updateCurriculumProgress('caller-1', 'QM-CONTENT-001', {
         moduleMastery: { 'chapter1_blackbody': 0.75 },
       });
 
-      const upsertCall = mockPrisma.callerAttribute.upsert.mock.calls[0][0];
-      expect(upsertCall.where.callerId_key_scope.key).toBe('curriculum:QM-CONTENT-001:mastery:chapter1_blackbody');
-      expect(upsertCall.create.numberValue).toBe(0.75);
+      const masteryUpserts = mockPrisma.callerAttribute.upsert.mock.calls.filter(
+        (c: any) => c[0].where.callerId_key_scope.key.includes('mastery:'),
+      );
+      expect(masteryUpserts).toHaveLength(0);
     });
 
     it('uses contract-defined key pattern for lastAccessed', async () => {
@@ -154,12 +192,15 @@ describe('track-progress.ts', () => {
   });
 
   describe('getCurriculumProgress', () => {
-    it('reads progress using contract-defined prefix', async () => {
+    it('reads currentModule + lastAccessed from CallerAttribute, mastery from CallerModuleProgress (#494 Slice 2.1)', async () => {
       mockPrisma.callerAttribute.findMany.mockResolvedValue([
         { key: 'curriculum:QM-CONTENT-001:current_module', stringValue: 'chapter2', numberValue: null },
-        { key: 'curriculum:QM-CONTENT-001:mastery:chapter1', stringValue: null, numberValue: 0.9 },
-        { key: 'curriculum:QM-CONTENT-001:mastery:chapter2', stringValue: null, numberValue: 0.4 },
         { key: 'curriculum:QM-CONTENT-001:last_accessed', stringValue: '2026-02-12T10:00:00Z', numberValue: null },
+      ]);
+      mockPrisma.curriculum.findFirst.mockResolvedValueOnce({ id: 'curr-uuid-1' });
+      mockPrisma.curriculumModule.findMany.mockResolvedValueOnce([
+        { id: 'mod-uuid-1', slug: 'chapter1', callerProgress: [{ mastery: 0.9 }] },
+        { id: 'mod-uuid-2', slug: 'chapter2', callerProgress: [{ mastery: 0.4 }] },
       ]);
 
       const progress = await getCurriculumProgress('caller-1', 'QM-CONTENT-001');
@@ -167,6 +208,46 @@ describe('track-progress.ts', () => {
       expect(progress.currentModuleId).toBe('chapter2');
       expect(progress.modulesMastery).toEqual({ chapter1: 0.9, chapter2: 0.4 });
       expect(progress.lastAccessedAt).toBe('2026-02-12T10:00:00Z');
+      // Critical: mastery source is CallerModuleProgress.mastery (slice 2.2 canonical store),
+      // NOT CallerAttribute mastery:* keys.
+      expect(mockPrisma.curriculumModule.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { curriculumId: 'curr-uuid-1' },
+        }),
+      );
+    });
+
+    it('ignores legacy CallerAttribute mastery:* keys (#494 Slice 2.1 — deprecated source)', async () => {
+      // Stale legacy mastery rows must NOT poison the result when
+      // CallerModuleProgress is the active source. Asserts the new code path
+      // does not read them.
+      mockPrisma.callerAttribute.findMany.mockResolvedValue([
+        { key: 'curriculum:QM-CONTENT-001:current_module', stringValue: 'chapter1', numberValue: null },
+        { key: 'curriculum:QM-CONTENT-001:mastery:chapter1', stringValue: null, numberValue: 0.99 }, // legacy noise
+      ]);
+      mockPrisma.curriculum.findFirst.mockResolvedValueOnce({ id: 'curr-uuid-1' });
+      mockPrisma.curriculumModule.findMany.mockResolvedValueOnce([
+        { id: 'mod-uuid-1', slug: 'chapter1', callerProgress: [{ mastery: 0.3 }] },
+      ]);
+
+      const progress = await getCurriculumProgress('caller-1', 'QM-CONTENT-001');
+
+      // Mastery comes from CallerModuleProgress (0.3), NOT the legacy 0.99.
+      expect(progress.modulesMastery).toEqual({ chapter1: 0.3 });
+    });
+
+    it('returns empty modulesMastery when CallerModuleProgress has no rows', async () => {
+      mockPrisma.callerAttribute.findMany.mockResolvedValue([
+        { key: 'curriculum:QM-CONTENT-001:current_module', stringValue: 'chapter1', numberValue: null },
+      ]);
+      mockPrisma.curriculum.findFirst.mockResolvedValueOnce({ id: 'curr-uuid-1' });
+      mockPrisma.curriculumModule.findMany.mockResolvedValueOnce([
+        { id: 'mod-uuid-1', slug: 'chapter1', callerProgress: [] },
+      ]);
+
+      const progress = await getCurriculumProgress('caller-1', 'QM-CONTENT-001');
+
+      expect(progress.modulesMastery).toEqual({});
     });
 
     it('returns empty progress when no attributes exist', async () => {
@@ -203,15 +284,35 @@ describe('track-progress.ts', () => {
   });
 
   describe('completeModule', () => {
-    it('sets mastery to 1.0 for completed module', async () => {
+    it('sets mastery to 1.0 for completed module when LEGACY_MASTERY_WRITES_ENABLED=true', async () => {
+      // With the legacy flag on, the CallerAttribute mastery write still
+      // fires (emergency rollback). With it off (default behaviour, covered
+      // by the regression test below), the canonical store is
+      // CallerModuleProgress instead.
+      const prev = process.env.LEGACY_MASTERY_WRITES_ENABLED;
+      process.env.LEGACY_MASTERY_WRITES_ENABLED = 'true';
+      try {
+        await completeModule('caller-1', 'QM-CONTENT-001', 'chapter1');
+
+        const masteryCalls = mockPrisma.callerAttribute.upsert.mock.calls.filter(
+          (c: any) => c[0].where.callerId_key_scope.key.includes('mastery:chapter1')
+        );
+        expect(masteryCalls).toHaveLength(1);
+        expect(masteryCalls[0][0].create.numberValue).toBe(1.0);
+      } finally {
+        if (prev === undefined) delete process.env.LEGACY_MASTERY_WRITES_ENABLED;
+        else process.env.LEGACY_MASTERY_WRITES_ENABLED = prev;
+      }
+    });
+
+    it('does NOT write CallerAttribute mastery when flag is off (default)', async () => {
+      delete process.env.LEGACY_MASTERY_WRITES_ENABLED;
       await completeModule('caller-1', 'QM-CONTENT-001', 'chapter1');
 
-      // Should have upserted mastery and lastAccessed
       const masteryCalls = mockPrisma.callerAttribute.upsert.mock.calls.filter(
         (c: any) => c[0].where.callerId_key_scope.key.includes('mastery:chapter1')
       );
-      expect(masteryCalls).toHaveLength(1);
-      expect(masteryCalls[0][0].create.numberValue).toBe(1.0);
+      expect(masteryCalls).toHaveLength(0);
     });
 
     it('advances to next module when provided', async () => {
@@ -284,17 +385,23 @@ describe('track-progress.ts', () => {
       expect(true).toBe(true);
     });
 
-    it('reads currentSession from progress attributes', async () => {
+    it('reads currentModule from CallerAttribute, mastery from CallerModuleProgress (#494 Slice 2.1)', async () => {
       mockPrisma.callerAttribute.findMany.mockResolvedValue([
         { key: 'curriculum:FS-L2-001:current_module', stringValue: 'mod-2', numberValue: null },
         { key: 'curriculum:FS-L2-001:current_session', stringValue: null, numberValue: 4 },
-        { key: 'curriculum:FS-L2-001:mastery:mod-1', stringValue: null, numberValue: 0.85 },
+        // Legacy mastery key still in the DB — intentionally ignored by the new read path.
+        { key: 'curriculum:FS-L2-001:mastery:mod-1', stringValue: null, numberValue: 0.99 },
+      ]);
+      mockPrisma.curriculum.findFirst.mockResolvedValueOnce({ id: 'curr-uuid-fs' });
+      mockPrisma.curriculumModule.findMany.mockResolvedValueOnce([
+        { id: 'mod-uuid-1', slug: 'mod-1', callerProgress: [{ mastery: 0.85 }] },
       ]);
 
       const progress = await getCurriculumProgress('caller-1', 'FS-L2-001');
 
       // currentSession removed — scheduler owns pacing
       expect(progress.currentModuleId).toBe('mod-2');
+      // 0.85 from CallerModuleProgress wins over the stale 0.99 in CallerAttribute.
       expect(progress.modulesMastery).toEqual({ 'mod-1': 0.85 });
     });
 

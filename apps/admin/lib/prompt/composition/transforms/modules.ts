@@ -340,15 +340,6 @@ export async function computeSharedState(
   resolvedSpecs: ResolvedSpecs,
   specConfig: Record<string, any>,
   triggerType?: string,
-  /**
-   * #492 Slice 3.1: explicit DB CurriculumModule.id picked by the caller
-   * (call row's `curriculumModuleId`, or compose-prompt route body). When
-   * provided AND matched against the loaded modules, becomes the highest-
-   * priority `currentModule` — overrides locked-module-from-state and
-   * scheduler choice. Works for both authored and AI-generated curricula
-   * because all module rows route through `CurriculumModule`.
-   */
-  requestedModuleIdArg?: string | null,
 ): Promise<SharedComputedState> {
   const channel: 'text' | 'voice' = triggerType === 'sim' ? 'text' : 'voice';
   // DB-first: try CurriculumModule records before JSON paths
@@ -420,30 +411,68 @@ export async function computeSharedState(
     ? Math.floor((Date.now() - new Date(lastCall.createdAt).getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
-  // Track completed modules from callerAttributes
-  // Use contract-defined storage pattern if available
+  // Track completed modules.
+  // #494 Slice 2.1 — CallerModuleProgress.mastery is the canonical store
+  // (written by Slice 2.2). Build the completed-set primarily from those
+  // rows; fall through to the legacy CallerAttribute scan only when
+  // LEGACY_MASTERY_FALLBACK_ENABLED=true (default off).
   const completedModules = new Set<string>();
   const progressKeyPrefix = metadata?.progressKey
     ? `curriculum:${specSlug}:mastery:`
     : '';
 
-  data.callerAttributes
-    .filter(a =>
-      a.key.includes("mastery_") ||
-      a.key.includes("completed_") ||
-      (progressKeyPrefix && a.key.startsWith(progressKeyPrefix))
-    )
-    .forEach(a => {
-      const val = getAttributeValue(a);
-      if (val === true || (typeof val === "number" && val >= masteryThreshold)) {
-        // Extract module ID from various key formats
-        let moduleId = a.key
-          .replace("mastery_", "")
-          .replace("completed_", "")
-          .replace(progressKeyPrefix, "");
-        completedModules.add(moduleId);
+  // Primary path — read from CallerModuleProgress when we have a
+  // curriculumId in scope. Keyed by slug to match the rest of the transform
+  // (downstream `completedModules.has(m.slug || m.id)` lookups).
+  let masteryFromDb = false;
+  if (curriculumId && data.caller?.id) {
+    try {
+      const progressRows = await prisma.callerModuleProgress.findMany({
+        where: {
+          callerId: data.caller.id,
+          module: { curriculumId },
+          mastery: { gte: masteryThreshold },
+        },
+        select: {
+          mastery: true,
+          module: { select: { slug: true, id: true } },
+        },
+      });
+      for (const row of progressRows) {
+        const key = row.module.slug || row.module.id;
+        if (key) completedModules.add(key);
       }
-    });
+      masteryFromDb = true;
+    } catch (err) {
+      console.warn(
+        "[modules] CallerModuleProgress completed-set query failed (non-blocking):",
+        err,
+      );
+    }
+  }
+
+  // Legacy fallback — only when DB read above didn't happen AND fallback
+  // flag is on. Keeps the door open for emergency rollback during the
+  // CallerAttribute → CallerModuleProgress migration window.
+  if (!masteryFromDb && process.env.LEGACY_MASTERY_FALLBACK_ENABLED === "true") {
+    data.callerAttributes
+      .filter(a =>
+        a.key.includes("mastery_") ||
+        a.key.includes("completed_") ||
+        (progressKeyPrefix && a.key.startsWith(progressKeyPrefix))
+      )
+      .forEach(a => {
+        const val = getAttributeValue(a);
+        if (val === true || (typeof val === "number" && val >= masteryThreshold)) {
+          // Extract module ID from various key formats
+          let moduleId = a.key
+            .replace("mastery_", "")
+            .replace("completed_", "")
+            .replace(progressKeyPrefix, "");
+          completedModules.add(moduleId);
+        }
+      });
+  }
 
   // Estimate progress: if no explicit tracking, assume ~1 module per 2 calls
   const estimatedProgress = completedModules.size > 0
@@ -475,50 +504,15 @@ export async function computeSharedState(
   let schedulerTotalMastered = 0;
   let schedulerTotalLOs = 0;
 
-  // ── #492 Slice 3.1: highest-priority pick via CurriculumModule.id ─────
-  // This is the call-row pathway: `Call.curriculumModuleId` (resolved at
-  // call creation from `?module=<slug>`) flows through the executor as
-  // `requestedModuleIdArg` and locks the session to that DB module. Works
-  // for both authored courses (post-sync) and AI-generated courses, because
-  // both routes populate `CurriculumModule` rows. Matched against the
-  // already-loaded `modules` array (m.id === CurriculumModule.id for the
-  // DB-first path). When matched, it short-circuits below #274 Slice A and
-  // the scheduler — this is by design: the call row is the most explicit
-  // signal of which module to teach.
-  let lockedModule: ModuleData | null = null;
-  if (requestedModuleIdArg) {
-    const dbMatch = modules.find((m) => m.id === requestedModuleIdArg);
-    if (dbMatch) {
-      lockedModule = dbMatch;
-      nextModule = dbMatch;
-      console.log(
-        `[modules] #492 Slice 3.1: locked to CurriculumModule.id "${requestedModuleIdArg}" ` +
-          `(name="${dbMatch.name}") — scheduler + specConfig.requestedModuleId BYPASSED.`,
-      );
-    } else {
-      // Important: warn so wizard / route bugs surface fast in dev. We don't
-      // throw — composition must continue. Fall through to the existing
-      // priority order (locked-from-spec → scheduler → recommendNextModule).
-      console.warn(
-        `[modules] #492 Slice 3.1: requestedModuleId "${requestedModuleIdArg}" ` +
-          `does not resolve to any CurriculumModule in this curriculum ` +
-          `(curriculumId=${curriculumId ?? "(none)"}, modules.length=${modules.length}). ` +
-          `Falling back to existing priority (locked-from-spec → scheduler → recommendNextModule).`,
-      );
-    }
-  }
-
   // ── #274 Slice A: locked-module resolution ────────────────────────────
   // When the learner picked a specific module via the Module Picker, the
   // scheduler MUST be bypassed at compose time — otherwise selectNextExchange
   // overwrites `nextModule` with its frontier choice and downstream transforms
   // narrate the wrong module. Symmetric to the pipeline-side override at
   // pipeline/route.ts:108 (mastery scoring for end-of-call).
-  //
-  // Skipped when #492 Slice 3.1 already locked (DB-id route wins over
-  // authored-id route).
+  let lockedModule: ModuleData | null = null;
   const requestedModuleId = (specConfig.requestedModuleId as string | undefined) || undefined;
-  if (!lockedModule && requestedModuleId) {
+  if (requestedModuleId) {
     // Match against Playbook.config.modules (the authored shape). The picker
     // emits the AuthoredModule.id as ?requestedModuleId=… so we match on id.
     // pbConfig is declared further down (line ~672) for the isFinalSession

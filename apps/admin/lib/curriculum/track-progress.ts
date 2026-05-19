@@ -101,7 +101,13 @@ export async function updateCurriculumProgress(
   }
 
   // Update module mastery scores
-  if (updates.moduleMastery) {
+  // DEPRECATED: legacy mastery store — canonical store is CallerModuleProgress.mastery (slice 2.2).
+  // Keep until slice 2.1.b removes consumers. Flag-gated via LEGACY_MASTERY_WRITES_ENABLED
+  // (default off → no-op). See apps/admin/docs/mastery-store-migration.md.
+  if (updates.moduleMastery && process.env.LEGACY_MASTERY_WRITES_ENABLED === "true") {
+    console.info(
+      "[mastery-legacy] writing legacy CallerAttribute mastery:* — set LEGACY_MASTERY_WRITES_ENABLED=false to disable",
+    );
     for (const [moduleId, mastery] of Object.entries(updates.moduleMastery)) {
       const key = await buildStorageKey(specSlug, 'mastery', moduleId);
       writes.push(
@@ -463,12 +469,64 @@ export async function getCurriculumProgress(
         if (!progress.loMastery[moduleId]) progress.loMastery[moduleId] = {};
         progress.loMastery[moduleId][loRef] = attr.numberValue || 0;
       }
-    } else if (key.startsWith(masteryPrefix)) {
-      const moduleId = key.replace(masteryPrefix, '');
-      progress.modulesMastery[moduleId] = attr.numberValue || 0;
     } else if (key === storageKeys.lastAccessed) {
       progress.lastAccessedAt = attr.stringValue;
     // currentSession parsing removed — scheduler owns pacing
+    // Module-mastery branch removed — read from CallerModuleProgress below (slice 2.1).
+    }
+  }
+
+  // #494 Slice 2.1 — module mastery reads from CallerModuleProgress (the
+  // canonical store written by Slice 2.2). Keyed by CurriculumModule.slug
+  // so the returned shape matches the legacy contract — consumers iterate
+  // `modulesMastery` by slug today (see exam-readiness, lo-progress route,
+  // compose-content-section).
+  //
+  // Fallback to the legacy CallerAttribute `mastery:*` keys is opt-in via
+  // LEGACY_MASTERY_FALLBACK_ENABLED (default off). See
+  // apps/admin/docs/mastery-store-migration.md.
+  try {
+    const curriculum = await prisma.curriculum.findFirst({
+      where: { slug: specSlug },
+      select: { id: true },
+    });
+    if (curriculum) {
+      const moduleRows = await prisma.curriculumModule.findMany({
+        where: { curriculumId: curriculum.id },
+        select: {
+          id: true,
+          slug: true,
+          callerProgress: {
+            where: { callerId },
+            select: { mastery: true },
+            take: 1,
+          },
+        },
+      });
+      for (const m of moduleRows) {
+        const progressRow = m.callerProgress[0];
+        if (progressRow && typeof progressRow.mastery === "number" && progressRow.mastery > 0) {
+          const key = m.slug || m.id;
+          progress.modulesMastery[key] = progressRow.mastery;
+        }
+      }
+    }
+  } catch (err) {
+    if (process.env.LEGACY_MASTERY_FALLBACK_ENABLED === "true") {
+      console.warn(
+        "[mastery-legacy] CallerModuleProgress read failed — falling back to CallerAttribute mastery:*",
+        err,
+      );
+      const masteryPrefixLocal = storageKeys.mastery.replace(':{moduleId}', ':');
+      for (const attr of attributes) {
+        const key = attr.key.replace(prefix, '');
+        if (key.startsWith(masteryPrefixLocal)) {
+          const moduleId = key.replace(masteryPrefixLocal, '');
+          progress.modulesMastery[moduleId] = attr.numberValue || 0;
+        }
+      }
+    } else {
+      throw err;
     }
   }
 

@@ -184,6 +184,11 @@ async function handleLookupTeachingPoint(
 
 /**
  * Check if a caller has mastered a specific module/concept.
+ *
+ * #494 Slice 2.1 — reads from CallerModuleProgress (the canonical store
+ * written by Slice 2.2). The legacy CallerAttribute `mastery_<slug>` path
+ * remains opt-in via LEGACY_MASTERY_FALLBACK_ENABLED (default off) — see
+ * apps/admin/docs/mastery-store-migration.md.
  */
 async function handleCheckMastery(
   args: { module: string },
@@ -193,38 +198,92 @@ async function handleCheckMastery(
   if (!callerId) return { error: "Cannot check mastery — caller not identified" };
   if (!module) return { error: "module is required" };
 
-  // Look for mastery attributes
   const slug = module.toLowerCase().replace(/\s+/g, "_");
-  const attributes = await prisma.callerAttribute.findMany({
-    where: {
-      callerId,
-      OR: [
-        { key: { startsWith: `mastery_${slug}` } },
-        { key: { contains: slug } },
-      ],
-    },
-  });
 
-  if (attributes.length === 0) {
+  // Primary path — CallerModuleProgress, matched by slug (or fuzzy match
+  // on module name when the AI passes a human-readable concept). Slug
+  // lookup is per-curriculum unique by schema, not global (#407), so we
+  // match across the caller's progress rows by joining the module's slug
+  // field directly.
+  try {
+    const progressRows = await prisma.callerModuleProgress.findMany({
+      where: {
+        callerId,
+        OR: [
+          { module: { slug: { equals: slug, mode: "insensitive" } } },
+          { module: { slug: { contains: slug, mode: "insensitive" } } },
+          { module: { title: { contains: module, mode: "insensitive" } } },
+        ],
+      },
+      select: {
+        mastery: true,
+        module: { select: { slug: true, title: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 1,
+    });
+
+    if (progressRows.length > 0) {
+      const score = progressRows[0].mastery;
+      return {
+        mastered: score >= 0.7,
+        score,
+        module,
+        message:
+          score >= 0.7
+            ? `Caller has mastered "${module}" (score: ${Math.round(score * 100)}%)`
+            : `Caller is still learning "${module}" (score: ${Math.round(score * 100)}%)`,
+      };
+    }
+  } catch (err) {
+    if (process.env.LEGACY_MASTERY_FALLBACK_ENABLED !== "true") {
+      throw err;
+    }
+    console.warn(
+      "[mastery-legacy] CallerModuleProgress read failed in handleCheckMastery — falling back to CallerAttribute mastery_*",
+      err,
+    );
+  }
+
+  // Legacy fallback — opt-in via LEGACY_MASTERY_FALLBACK_ENABLED.
+  if (process.env.LEGACY_MASTERY_FALLBACK_ENABLED === "true") {
+    const attributes = await prisma.callerAttribute.findMany({
+      where: {
+        callerId,
+        OR: [
+          { key: { startsWith: `mastery_${slug}` } },
+          { key: { contains: slug } },
+        ],
+      },
+    });
+
+    if (attributes.length === 0) {
+      return {
+        mastered: false,
+        score: null,
+        message: `No mastery data found for "${module}". The caller may not have studied this yet.`,
+      };
+    }
+
+    const masteryAttr = attributes.find((a) => a.key.startsWith("mastery_"));
+    const score = masteryAttr?.numberValue ?? null;
+
     return {
-      mastered: false,
-      score: null,
-      message: `No mastery data found for "${module}". The caller may not have studied this yet.`,
+      mastered: score !== null && score >= 0.7,
+      score,
+      module,
+      message: score !== null
+        ? score >= 0.7
+          ? `Caller has mastered "${module}" (score: ${Math.round(score * 100)}%)`
+          : `Caller is still learning "${module}" (score: ${Math.round(score * 100)}%)`
+        : `Mastery data exists but no numeric score for "${module}"`,
     };
   }
 
-  const masteryAttr = attributes.find((a) => a.key.startsWith("mastery_"));
-  const score = masteryAttr?.numberValue || null;
-
   return {
-    mastered: score !== null && score >= 0.7,
-    score,
-    module,
-    message: score !== null
-      ? score >= 0.7
-        ? `Caller has mastered "${module}" (score: ${Math.round(score * 100)}%)`
-        : `Caller is still learning "${module}" (score: ${Math.round(score * 100)}%)`
-      : `Mastery data exists but no numeric score for "${module}"`,
+    mastered: false,
+    score: null,
+    message: `No mastery data found for "${module}". The caller may not have studied this yet.`,
   };
 }
 

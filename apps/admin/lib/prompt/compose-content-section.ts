@@ -333,11 +333,62 @@ async function loadCallerProgress(
     // Use contract-defined key names
     if (key === storageKeys.currentModule) {
       progress.currentModuleId = attr.stringValue;
-    } else if (key.startsWith(storageKeys.mastery.replace(':{moduleId}', ':'))) {
-      const moduleId = key.replace(storageKeys.mastery.replace(':{moduleId}', ':'), '');
-      progress.modulesMastery[moduleId] = attr.numberValue || 0;
     } else if (key === storageKeys.lastAccessed) {
       progress.lastAccessedAt = attr.stringValue;
+    }
+    // Module-mastery branch removed — sourced from CallerModuleProgress below (#494 Slice 2.1).
+  }
+
+  // #494 Slice 2.1 — module mastery now reads from CallerModuleProgress, the
+  // canonical store written by Slice 2.2. Keyed by CurriculumModule.slug so
+  // `enrichModulesWithProgress` (below) can still look up via `module.id`
+  // (which is the JSON-spec slug, not a DB UUID, in this codepath).
+  //
+  // Fallback to legacy CallerAttribute reads is opt-in via
+  // LEGACY_MASTERY_FALLBACK_ENABLED (default off). See
+  // apps/admin/docs/mastery-store-migration.md.
+  try {
+    const curriculum = await prisma.curriculum.findFirst({
+      where: { slug: specSlug },
+      select: { id: true },
+    });
+    if (curriculum) {
+      const moduleRows = await prisma.curriculumModule.findMany({
+        where: { curriculumId: curriculum.id },
+        select: {
+          id: true,
+          slug: true,
+          callerProgress: {
+            where: { callerId },
+            select: { mastery: true },
+            take: 1,
+          },
+        },
+      });
+      for (const m of moduleRows) {
+        const progressRow = m.callerProgress[0];
+        if (progressRow && typeof progressRow.mastery === "number" && progressRow.mastery > 0) {
+          const k = m.slug || m.id;
+          progress.modulesMastery[k] = progressRow.mastery;
+        }
+      }
+    }
+  } catch (err) {
+    if (process.env.LEGACY_MASTERY_FALLBACK_ENABLED === "true") {
+      console.warn(
+        "[mastery-legacy] CallerModuleProgress read failed in compose-content-section — falling back to CallerAttribute mastery:*",
+        err,
+      );
+      const masteryPrefixLocal = storageKeys.mastery.replace(':{moduleId}', ':');
+      for (const attr of attributes) {
+        const key = attr.key.replace(prefix, '');
+        if (key.startsWith(masteryPrefixLocal)) {
+          const moduleId = key.replace(masteryPrefixLocal, '');
+          progress.modulesMastery[moduleId] = attr.numberValue || 0;
+        }
+      }
+    } else {
+      throw err;
     }
   }
 
