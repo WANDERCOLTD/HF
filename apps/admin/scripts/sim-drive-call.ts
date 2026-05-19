@@ -29,6 +29,10 @@
 import { prisma } from "@/lib/prisma";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering";
 import { config } from "@/lib/config";
+import {
+  resolveCurriculumIdForPlaybook,
+  resolveModuleByLogicalId,
+} from "@/lib/curriculum/resolve-module";
 
 interface Args {
   callerId: string;
@@ -112,7 +116,29 @@ async function main() {
   const promptText = extractPromptText(composed.llmPrompt);
   console.log(`Using prompt ${composed.id.slice(0, 8)} (${promptText.length} chars, ${composed.status})`);
 
-  // 2. Create Call row
+  // 2. Resolve --module slug → CurriculumModule.id (#491 Slice 1.1 parity).
+  //    The pipeline route looks up `Call.curriculumModuleId` for module-
+  //    aware composition; without this resolution the SIM-created call
+  //    leaves the FK null and module-scoped instructions never reach the
+  //    composed prompt (2026-05-19 SIM run, course e5f379ed). Mirrors what
+  //    the VAPI / normal call-create path does in production.
+  let curriculumModuleId: string | null = null;
+  if (moduleSlug) {
+    const curriculumId = await resolveCurriculumIdForPlaybook(playbookId);
+    if (!curriculumId) {
+      console.warn(`[sim-drive] playbook ${playbookId} has no curriculum — leaving curriculumModuleId null`);
+    } else {
+      const resolved = await resolveModuleByLogicalId(curriculumId, moduleSlug);
+      if (!resolved) {
+        console.warn(`[sim-drive] module slug "${moduleSlug}" not found in curriculum ${curriculumId.slice(0, 8)} — leaving curriculumModuleId null`);
+      } else {
+        curriculumModuleId = resolved.id;
+        console.log(`Resolved module "${moduleSlug}" → CurriculumModule ${curriculumModuleId.slice(0, 8)}`);
+      }
+    }
+  }
+
+  // 3. Create Call row
   const call = await prisma.call.create({
     data: {
       source: "sim",
@@ -121,6 +147,7 @@ async function main() {
       playbook: { connect: { id: playbookId } },
       usedPrompt: { connect: { id: composed.id } },
       ...(moduleSlug ? { requestedModuleId: moduleSlug } : {}),
+      ...(curriculumModuleId ? { curriculumModule: { connect: { id: curriculumModuleId } } } : {}),
     },
     select: { id: true },
   });
