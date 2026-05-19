@@ -26,6 +26,14 @@
  *   5. Fire pipeline (currently blocked by middleware secret — UI workaround)
  */
 
+// Load .env BEFORE importing config — otherwise process.env.INTERNAL_API_SECRET
+// is undefined when this script runs as standalone tsx (Next.js auto-loads .env
+// for the dev server, but plain tsx doesn't). Without it, config.security.
+// internalApiSecret falls back to a dev placeholder that doesn't match what
+// the running dev server has, so the pipeline POST hits the auth-required
+// branch in middleware.ts:103 and gets redirected to /login (HTML response).
+// (Pipeline-fire failure observed in 2026-05-19 SIM run, course e5f379ed.)
+import "dotenv/config";
 import { prisma } from "@/lib/prisma";
 import { getConfiguredMeteredAICompletion } from "@/lib/metering";
 import { config } from "@/lib/config";
