@@ -43,12 +43,17 @@ import type { GoalTemplate } from "@/lib/types/json-fields";
  * to minimise false positives on legitimate outcomes that happen to
  * mention rubric vocabulary.
  *
- * - IELTS Speaking band-descriptor lines: "Band 2 LR: Only produces…"
+ * - IELTS Speaking band-descriptor lines, both shapes:
+ *     - abbreviated:  "Band 2 LR: Only produces…"
+ *     - full prose:   "Band 8 Lexical Resource: Wide vocabulary…"
  * - Explicit calibration commentary: "A candidate can legitimately…"
  * - Tier-name colon prose: "Approaching: …", "Developing: …"
  */
 const RUBRIC_PATTERNS: ReadonlyArray<RegExp> = [
-  /^Band\s*\d+\s*[A-Z]+\s*:/i,
+  // Anchored: a learning outcome that starts with "Band <digit>" is rubric
+  // calibration, never a legitimate top-level capability. Covers both
+  // "Band 2 LR: …" (abbreviated) and "Band 8 Lexical Resource: …" (prose).
+  /^Band\s+\d+\b/i,
   /^A candidate can legitimately/i,
   /^(Approaching(?:\s+Emerging)?|Emerging|Developing|Secure)\s*[:.]/i,
 ];
