@@ -624,7 +624,24 @@ async function handleWizardModeWithTools(
   const thinkingBudget = useThinking ? 8000 : undefined;
   let thinkingContent: string | undefined;
 
+  // #540 — wall budget for the entire tool loop. Without this the loop
+  // could burn up to MAX_TOOL_ITERATIONS × (timeoutMs × (1 + maxRetries))
+  // wall time — observed 3.2 min hang on hf-dev 2026-05-19 with a long
+  // first-turn message. 90s caps the worst case before the browser /
+  // Next.js lifecycle gives up. Breached: return whatever we have plus a
+  // graceful nudge instead of throwing 500.
+  const WIZARD_WALL_BUDGET_MS = 90_000;
+  const wallDeadline = Date.now() + WIZARD_WALL_BUDGET_MS;
+  let wallExceeded = false;
+
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    if (Date.now() > wallDeadline) {
+      wallExceeded = true;
+      console.warn(
+        `[wizard] wall budget ${WIZARD_WALL_BUDGET_MS}ms exceeded at iter=${i} toolCalls=${toolCallCount} — breaking loop`,
+      );
+      break;
+    }
     // @ai-call wizard.get-started — Non-streaming with wizard tools | config: /x/ai-config
     const response = await getConfiguredMeteredAICompletion(
       {
@@ -635,6 +652,12 @@ async function handleWizardModeWithTools(
         // Only enable thinking on the first call — subsequent tool-loop iterations don't need it
         ...(i === 0 && thinkingBudget ? { thinkingBudgetTokens: thinkingBudget } : {}),
         timeoutMs: 60_000,
+        // #540 — wizard fails fast. Retries inside metering multiply the
+        // wall time of any single hung call by 3x (60s + backoff + 60s +
+        // backoff + 60s = ~180s). Disable so the loop's wall budget is
+        // the only ceiling and a single failure surfaces immediately
+        // rather than burning the whole budget on one bad call.
+        maxRetries: 0,
       },
       { sourceOp: `${callPoint}.tools`, userId }
     );
@@ -824,7 +847,11 @@ async function handleWizardModeWithTools(
   const hasInteractivePanel = hasShowTool || allToolCalls.some((tc) =>
     ["show_options", "show_upload", "show_suggestions"].includes(tc.name)
   );
-  if (!finalContent && !hasInteractivePanel) {
+  // #540 — skip the continuation AI call when the wall budget is already
+  // breached. The continuation is another full AI round (~60s) that the
+  // user is no longer waiting on patiently. Fall through to the
+  // graph-aware fallback text below instead.
+  if (!wallExceeded && !finalContent && !hasInteractivePanel) {
     const freshSubjectsCatalog = await getSubjectsCatalog();
     const graphEval = evaluateGraph(mergedSetupData);
     const continuationTurnCount = loopMessages.filter((m) => m.role === "user").length;
@@ -897,6 +924,15 @@ async function handleWizardModeWithTools(
     finalContent = buildGraphFallback(graphEval, mergedSetupData, allToolCalls);
   }
 
+  // #540 — when the wall budget tripped, prepend a graceful nudge so the
+  // educator knows what to do. Better than the red "connection error"
+  // banner that the previous 500-from-timeout produced.
+  if (wallExceeded) {
+    const nudge =
+      "Sorry — I'm taking longer than expected to gather everything. Try sending a shorter message and I'll pick this up.";
+    finalContent = finalContent ? `${nudge}\n\n${finalContent}` : nudge;
+  }
+
   logChatRequest(mode, message, selectedEngine, conversationHistory, entityContext, toolCallCount);
 
   // Return as JSON (not streaming) so the client can access tool calls
@@ -904,6 +940,7 @@ async function handleWizardModeWithTools(
     content: finalContent,
     toolCalls: allToolCalls,
     toolCallCount,
+    ...(wallExceeded ? { wallBudgetExceeded: true } : {}),
     ...(thinkingContent ? { thinkingContent } : {}),
   };
 
