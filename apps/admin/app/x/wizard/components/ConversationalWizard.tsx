@@ -1081,7 +1081,12 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             // Deduplicate by text similarity (take first 6 unique-ish)
             const seen = new Set<string>();
             const outcomes: string[] = [];
+            // #500 guard — drop assessor-rubric band-descriptor rows
+            // ("Lexical Resource Band 8: ...") so learningOutcomes shows
+            // top-level capabilities, not measurement granularity.
+            const isBandRow = (text: string) => /\bBand\s+\d+\s*[:.]/i.test(text);
             for (const a of pool) {
+              if (isBandRow(a.assertion)) continue;
               const key = a.assertion.toLowerCase().slice(0, 40);
               if (!seen.has(key) && a.assertion.length > 10) {
                 seen.add(key);
@@ -1100,7 +1105,23 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
 
         // Pre-populate pedagogy blackboard keys from extracted assertions.
         // Document content wins — if the educator uploaded a skill framework, use it.
-        const skillAssertions = allAssertions.filter((a) => a.category === "skill_framework");
+        //
+        // #500 guard — band-descriptor leakage. When an assessor rubric ships
+        // alongside the course-ref (e.g. IELTS bands 0–9 per criterion), the
+        // extractor classifies each band ROW as category=skill_framework.
+        // Without this filter the wizard hydrates skillsFramework with 40
+        // entries (one per band per criterion) — e.g. "Fluency and Coherence
+        // Band 6: ...", "Lexical Resource Band 8: ..." — and apply-projection
+        // then writes 40 Parameter rows on create_course. Top-level
+        // criterion-style entries are picked up at create_course time by
+        // parseSkillsFramework reading the course-ref directly; the wizard's
+        // setupData.skillsFramework hydration is best-effort UI state, safe
+        // to drop the band rows here.
+        const looksLikeBandDescriptor = (text: string): boolean =>
+          /\bBand\s+\d+\s*[:.]/i.test(text);
+        const skillAssertions = allAssertions
+          .filter((a) => a.category === "skill_framework")
+          .filter((a) => !looksLikeBandDescriptor(a.assertion));
         if (skillAssertions.length > 0) {
           const skills = skillAssertions.map((a, i) => {
             // Parse "SKILL-01: Name — Description\nEmerging: ...\nDeveloping: ...\nSecure: ..."
