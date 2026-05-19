@@ -49,6 +49,7 @@ import "./transforms/audience";
 import "./transforms/offboarding";
 import "./transforms/priorCallFeedback";
 import "./transforms/mockDiagnostic";
+import "./transforms/interleaveReview";
 
 /**
  * Execute the full composition pipeline.
@@ -338,6 +339,26 @@ function checkActivationWithReason(
         return { activated: true, reason: "Mock diagnostic available" };
       }
       return { activated: false, reason: "No mock diagnostic for this caller" };
+    }
+
+    case "interleaveReviewExists": {
+      // #492 E3 Slice 3.3 — only activate when the interleaveReview loader
+      // identified a stale mastered module to nudge for review. Activation
+      // gates on hasReview === true AND a non-empty summary so the section
+      // is OMITTED when: no active module, < 2 mastered modules, every
+      // mastered module called recently, or playbookConfig is suppressing
+      // via a high minDays. fallback.action="omit" drops the section
+      // entirely from llmPrompt.
+      const data = (context.loadedData as any).interleaveReview;
+      if (
+        data &&
+        data.hasReview === true &&
+        typeof data.summary === "string" &&
+        data.summary.length > 0
+      ) {
+        return { activated: true, reason: "Stale mastered module available for review" };
+      }
+      return { activated: false, reason: "No stale mastered modules to review" };
     }
 
     default:
@@ -658,6 +679,24 @@ export function getDefaultSections(): CompositionSectionDef[] {
       fallback: { action: "omit" },
       transform: "renderMockDiagnostic",
       outputKey: "mockDiagnostic",
+      dependsOn: ["curriculum"],
+    },
+    {
+      // #492 E3 Slice 3.3 — spaced-review nudge for mastered modules. Slots
+      // between mock_diagnostic (7.6) and session_planning (8) — i.e. AFTER
+      // the post-Mock diagnostic block and BEFORE learner_goals. The block
+      // is a soft cue, not a directive: the tutor decides whether to weave
+      // it into the conversation. Activation gates on
+      // interleaveReview.hasReview === true; fallback=omit drops the
+      // section entirely when there's nothing stale to nudge for.
+      id: "interleave_review",
+      name: "Review Opportunity (Spaced Retrieval)",
+      priority: 7.8,
+      dataSource: "interleaveReview",
+      activateWhen: { condition: "interleaveReviewExists" },
+      fallback: { action: "omit" },
+      transform: "renderInterleaveReview",
+      outputKey: "interleaveReview",
       dependsOn: ["curriculum"],
     },
     {

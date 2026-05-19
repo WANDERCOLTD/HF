@@ -109,6 +109,13 @@ export interface LoadedDataContext {
    * cases.
    */
   mockDiagnostic?: MockDiagnosticData;
+  /**
+   * #492 E3 Slice 3.3 — spaced-review nudge. `hasReview: false` when there's
+   * no active module, fewer than 2 mastered modules, or no mastered module
+   * has been silent for the freshness threshold. Section is omitted in those
+   * cases.
+   */
+  interleaveReview?: InterleaveReviewData;
 }
 
 /** Prior-call feedback data for the current module (#492 Slice 3.5) */
@@ -139,6 +146,15 @@ export interface MockDiagnosticData {
   fromCallId: string | null;
   generatedAt: string | null;
   ageInDays: number | null;
+}
+
+/** Spaced-review nudge data (#492 E3 Slice 3.3) */
+export interface InterleaveReviewData {
+  hasReview: boolean;
+  candidateModule: { id: string; slug: string; title: string } | null;
+  daysSinceLastCall: number | null;
+  mastery: number | null;
+  summary: string | null;
 }
 
 /** Visual aid data loaded for prompt and content catalog */

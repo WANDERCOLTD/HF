@@ -422,6 +422,15 @@ export interface PlaybookConfig {
    */
   strictPrerequisites?: boolean;
   /**
+   * #492 E3 Slice 3.3 — minimum freshness threshold (in days) for the
+   * interleave-review nudge. A mastered module qualifies for review when its
+   * last call was at least `interleaveReviewMinDays` days ago. Default 3
+   * (matches the typical 2-3 day spacing window). Set higher (~7) for
+   * deeper-cycle courses, lower (~1) for daily-drill courses. Read by
+   * `lib/prompt/composition/loaders/interleaveReview.ts`.
+   */
+  interleaveReviewMinDays?: number;
+  /**
    * #494 E2 Slice 2.3 — when the course counts as "done":
    *   - "terminal-only" (default): the playbook's terminal module mastered
    *   - "all-modules": every module in the catalogue must be MASTERED
