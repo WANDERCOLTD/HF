@@ -2820,16 +2820,39 @@ const stageExecutors: Record<string, StageExecutor> = {
     // silently dropped on every teach-mode call.
     const gate = await shouldRunCallerAnalysis(ctx.callerId);
 
+    // #491 Slice 1.5 — Mock-style calls (bound module declares
+    // `coversModules`) are explicit assessment events by definition.
+    // The learner deliberately picked the Mock module, so the
+    // event-gate's "no assessment evidence" verdict doesn't apply —
+    // we override to keep MEASURE running. Without this override the
+    // per-part segmenter has no full param set to score against and
+    // we lose the whole point of running a Mock.
+    let mockOverride = false;
+    if (!gate.allow && ctx.call.curriculumModuleId) {
+      const boundCovers = await prisma.curriculumModule.findUnique({
+        where: { id: ctx.call.curriculumModuleId },
+        select: { coversModules: true },
+      });
+      if (boundCovers && boundCovers.coversModules.length > 0) {
+        mockOverride = true;
+        ctx.log.info("Event-gate override: Mock-style call (coversModules non-empty) — MEASURE runs regardless of prior mode", {
+          callId: ctx.callId,
+          priorMode: gate.mode,
+        });
+      }
+    }
+    const skipMeasure = !gate.allow && !mockOverride;
+
     const callerResult = await runBatchedCallerAnalysis(
       ctx.call,
       ctx.callerId,
       ctx.engine,
       ctx.log,
       ctx.userName,
-      { skipMeasure: !gate.allow },
+      { skipMeasure },
     );
 
-    if (!gate.allow) {
+    if (!gate.allow && !mockOverride) {
       ctx.log.info(
         `EXTRACT caller-scoring gated: ${gate.reason} (${callerResult.scoresCreated} always-on scores, ${callerResult.memoriesCreated} memories — gated specs skipped)`,
       );
@@ -2917,7 +2940,7 @@ const stageExecutors: Record<string, StageExecutor> = {
       scoresCreated: callerResult.scoresCreated,
       memoriesCreated: callerResult.memoriesCreated,
       deltasComputed: deltaResult.deltasComputed,
-      callerAnalysisGated: !gate.allow,
+      callerAnalysisGated: skipMeasure,
       gate: { allow: gate.allow, mode: gate.mode, reason: gate.reason },
       curriculumUpdated,
       onboardingCompleted,
