@@ -1780,10 +1780,24 @@ export async function executeWizardTool(
         }
         const caller = await createTestCaller(callerName, false);
 
-        // 9d. Create or reuse "Test Learners" cohort so the course has a join link
+        // 9d. Create or reuse "Test Learners" cohort so the course has a join link.
+        //
+        // SCOPE BY PLAYBOOK, NOT BY NAME. Previously this looked up the cohort
+        // by (domainId, name) so a brand-new playbook would silently reuse the
+        // cohort of an earlier same-named playbook in the same domain — and
+        // inherit its entire member list. Live repro on hf-dev 2026-05-19:
+        // "IELTS Speaking Practice" was the 13th playbook of that name in
+        // the IELTS Prep Lab domain; the cohort created on 2026-05-10 had
+        // accumulated 4 leaked members across the prior runs.
+        //
+        // Scoping by playbook means: brand-new playbookId has no
+        // CohortPlaybook link yet → findFirst returns null → fresh cohort
+        // gets created. Re-runs of create_course on the SAME playbookId
+        // find the prior cohort and reuse it (the legitimate case the
+        // findFirst was added for).
         const cohortName = `${courseName} — Test Learners`;
         let cohort = await prisma.cohortGroup.findFirst({
-          where: { domainId, name: cohortName },
+          where: { playbooks: { some: { playbookId } } },
         });
         let joinToken = cohort?.joinToken || "";
         if (!cohort) {
