@@ -609,6 +609,15 @@ async function runPerSegmentScoring(
       );
 
       const { parsed: segParsed } = recoverBrokenJson(segResult.content, "pipeline:extract-segment");
+      console.info("[per-part-debug] AI response", {
+        segmentSlug: segment.slug,
+        contentSample: segResult.content.slice(0, 500),
+        parsedKeys: segParsed ? Object.keys(segParsed) : null,
+        scoresKeys: segParsed?.scores ? Object.keys(segParsed.scores) : null,
+        scoresSample: segParsed?.scores
+          ? JSON.stringify(segParsed.scores).slice(0, 400)
+          : null,
+      });
       if (!segParsed?.scores) {
         log.warn("Per-part MEASURE: AI returned no scores object for segment", {
           segmentSlug: segment.slug,
