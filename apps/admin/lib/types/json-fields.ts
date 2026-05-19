@@ -412,6 +412,28 @@ export interface PlaybookConfig {
     };
   };
   /**
+   * #494 E2 Slice 2.3 — when the picker should hard-lock terminal modules with
+   * unmet prerequisites vs. show a soft-warning override modal. Default false
+   * (soft warning), per IELTS learner-picks ethos. Set true for assessment
+   * courses where premature attempts must be blocked.
+   *
+   * Wizard-settable via the `strictPrerequisites` graph node (boolean toggle).
+   * Read at picker time by `lib/curriculum/recommend-module.ts` (E2 Slice 2.5).
+   */
+  strictPrerequisites?: boolean;
+  /**
+   * #494 E2 Slice 2.3 — when the course counts as "done":
+   *   - "terminal-only" (default): the playbook's terminal module mastered
+   *   - "all-modules": every module in the catalogue must be MASTERED
+   *   - "any": at least one module MASTERED (open-ended courses)
+   *
+   * Author-only — NOT wizard-settable. Set in Playbook.config directly via
+   * the course-design tab or by the course-ref parser. The wizard validator
+   * rejects `update_setup({ completionMode })` (see WIZARD-DATA-BAG.md §4).
+   * Read by `isCourseComplete()` (E2 Slice 2.7).
+   */
+  completionMode?: "all-modules" | "terminal-only" | "any";
+  /**
    * Author-declared module catalogue (Issue #236). Populated from a Course
    * Reference document with `**Modules authored:** Yes`. When `moduleSource`
    * is "derived" or unset, today's transform-derived path runs unchanged.
