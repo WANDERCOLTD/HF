@@ -2348,6 +2348,14 @@ model CurriculumModule {
   keyTerms                 String[]
   assessmentCriteria       String[]
 
+  // #494 E2 Slice 2.4 — module progression flags.
+  // `terminal` = course-complete trigger when Playbook.config.completionMode === "terminal-only".
+  // `coversModules` = slug list of modules whose evidence this module's calls
+  //   also count toward (e.g. IELTS Mock Exam covers part1/part2/part3).
+  // Read via `lib/curriculum/course-completion.ts::readModuleFlags()`.
+  terminal      Boolean  @default(false)
+  coversModules String[]
+
   // Lifecycle
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())

@@ -65,3 +65,73 @@ export function readCourseFlags(
 
   return { strictPrerequisites, completionMode };
 }
+
+/**
+ * Default mastery threshold applied when neither the module nor the playbook
+ * sets one. 0.7 matches IELTS-style "borderline secure" floor and is the
+ * fallback used across the picker / completion checks.
+ */
+export const DEFAULT_MASTERY_THRESHOLD = 0.7;
+
+/**
+ * Resolved per-module progression flags. Always fully populated — defaults
+ * applied for any missing or null field. Callers (recommend-module, picker,
+ * isCourseComplete) read this rather than touching raw module rows.
+ */
+export interface ModuleFlags {
+  prerequisites: string[];
+  terminal: boolean;
+  coversModules: string[];
+  masteryThreshold: number;
+}
+
+/**
+ * Shape accepted by `readModuleFlags` — narrow enough that both Prisma's
+ * `CurriculumModule` row and the JSON `AuthoredModule` shape satisfy it
+ * (after the right field aliases at the call site). All four inputs are
+ * optional + nullable so the helper is safe against legacy data and
+ * partially-populated JSON blobs.
+ */
+export interface ReadableModuleFlags {
+  prerequisites?: string[] | null;
+  terminal?: boolean | null;
+  coversModules?: string[] | null;
+  masteryThreshold?: number | null;
+}
+
+/**
+ * Read per-module progression flags from a `CurriculumModule` row (or an
+ * `AuthoredModule`-shaped JSON object), applying defaults for any missing
+ * or null value.
+ *
+ *   - `prerequisites`     → `[]` when null/undefined
+ *   - `terminal`          → `false` when null/undefined
+ *   - `coversModules`     → `[]` when null/undefined
+ *   - `masteryThreshold`  → `playbookDefaultThreshold` (default 0.7) when null
+ *
+ * `playbookDefaultThreshold` is the per-playbook fallback — callers that have
+ * a playbook-level threshold available (e.g. from `Playbook.config`) should
+ * pass it; otherwise the function-level default of 0.7 applies.
+ *
+ * Defensive only: this helper does NOT validate that prerequisite or
+ * coversModules slugs exist on the playbook. That's the picker's job
+ * (Slice 2.5).
+ */
+export function readModuleFlags(
+  module: ReadableModuleFlags,
+  playbookDefaultThreshold: number = DEFAULT_MASTERY_THRESHOLD,
+): ModuleFlags {
+  const prerequisites = Array.isArray(module.prerequisites)
+    ? module.prerequisites
+    : [];
+  const terminal = typeof module.terminal === "boolean" ? module.terminal : false;
+  const coversModules = Array.isArray(module.coversModules)
+    ? module.coversModules
+    : [];
+  const masteryThreshold =
+    typeof module.masteryThreshold === "number"
+      ? module.masteryThreshold
+      : playbookDefaultThreshold;
+
+  return { prerequisites, terminal, coversModules, masteryThreshold };
+}

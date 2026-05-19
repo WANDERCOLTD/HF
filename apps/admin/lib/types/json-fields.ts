@@ -563,6 +563,30 @@ export interface AuthoredModule {
     status: "MASTERED" | "IN_PROGRESS" | "NOT_STARTED";
     callCount: number;
   };
+  /**
+   * #494 E2 Slice 2.4 — progression flags mirrored on `CurriculumModule`.
+   *
+   * `terminal` (default false): course-complete trigger when
+   *   `Playbook.config.completionMode === "terminal-only"`. The terminal
+   *   module's mastery flips the course done. Distinct from the existing
+   *   `sessionTerminal` flag, which is about ending the current session.
+   *
+   * `coversModules` (default []): slug list of sibling modules whose
+   *   evidence this module's calls ALSO count toward — IELTS Mock Exam
+   *   produces scores attributed to part1/part2/part3 simultaneously.
+   *
+   * `masteryThreshold` (default null = use playbook-level 0.7):
+   *   per-module override for the score required to mark this module
+   *   MASTERED. Mirrors `CurriculumModule.masteryThreshold`.
+   *
+   * All three are optional on the authored JSON shape because authors
+   * may omit them; the defensive reader in
+   * `lib/curriculum/course-completion.ts::readModuleFlags()` fills
+   * defaults at read time.
+   */
+  terminal?: boolean;
+  coversModules?: string[];
+  masteryThreshold?: number;
 }
 
 export interface ModuleDefaults {
