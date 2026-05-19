@@ -28,7 +28,9 @@ export const CONVERSATIONAL_TOOLS: AITool[] = [
       "edgeCases, assessmentBoundaries. " +
       "progressionMode = 'ai-led' (scheduler picks each call) or 'learner-picks' (learner picks from a menu). " +
       "courseRefEnabled = set to true when user wants detailed teaching guide. " +
-      "skillsFramework = array of { id, name, description?, tiers: { emerging, developing, secure } }. " +
+      "skillsFramework = array of { id, name, description?, tiers: { emerging, developing, secure }, bands?: Record<number, string> }. " +
+      "ONE entry per top-level skill criterion, never one per band — see system prompt §Skills Framework. " +
+      "bands populated only when the course uses a numeric graded rubric (IELTS, CEFR, NHS). " +
       "teachingPrinciples = { corePrinciples: string[], sessionStructure?: { phases: [] }, techniquesBySkill?: [] }. " +
       "coursePhases = array of { name, sessions?, goal?, tutorBehaviour?: [], exitCriteria?: [], checkpoints?: [] }. " +
       "edgeCases = array of { scenario, response }. " +

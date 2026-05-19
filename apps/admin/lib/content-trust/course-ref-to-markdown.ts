@@ -106,6 +106,18 @@ export function renderCourseRefMarkdown(data: CourseRefData): string {
         if (skill.tiers.developing) lines.push(`- **Developing:** ${skill.tiers.developing}`);
         if (skill.tiers.secure) lines.push(`- **Secure:** ${skill.tiers.secure}`);
       }
+      // #500 PR-2 — render per-band descriptors as bullets so the projection
+      // parser (BAND_LINE in project-course-reference.ts) picks them back up
+      // at create_course time and writes into Parameter.config.bandThresholds.
+      if (skill.bands && Object.keys(skill.bands).length > 0) {
+        lines.push("");
+        const sortedBands = Object.entries(skill.bands)
+          .map(([k, v]) => [Number(k), v] as const)
+          .sort((a, b) => b[0] - a[0]);
+        for (const [bandNum, descriptor] of sortedBands) {
+          lines.push(`- **Band ${bandNum}:** ${descriptor}`);
+        }
+      }
       lines.push("");
     }
     if (data.skillDependencies?.length) {

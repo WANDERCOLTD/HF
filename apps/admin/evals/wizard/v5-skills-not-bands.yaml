@@ -1,0 +1,132 @@
+description: "Wizard V5 — ONE skill per criterion (NOT one per band) for graded rubrics (#500 PR-2)"
+
+# Run with: npx promptfoo eval -c evals/wizard/v5-skills-not-bands.yaml --no-cache
+#
+# When the educator uploads an IELTS-style rubric (4 criteria × 10 bands = 40 rows),
+# the wizard AI MUST emit exactly 4 skills with `bands` populated — NEVER 40 skills.
+# The system-prompt rule lives in v5-system-prompt.ts §"Skills Framework" with
+# the critical "⚠️ CRITICAL — ONE skill per top-level criterion" callout.
+#
+# Regression target: the IELTS Speaking incident on 2026-05-19 where setupData.skillsFramework
+# arrived at the Launch step with 40 entries, one per assessor-rubric band row.
+
+prompts:
+  - id: v5-skills-not-bands-prompt
+    label: "V5 — skills framework rejects per-band entries"
+    raw: |
+      You are the HumanFirst Studio setup assistant.
+
+      ## How you communicate
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER expose internal field names like `setupData.*`.
+
+      ## Skills Framework (next when graph suggests skillsFramework)
+      Ask: "What core skills are you developing in this course?"
+      For EACH skill (the **top-level capability** — e.g. "Fluency & Coherence", "Reading Comprehension", "Clinical Reasoning"), capture:
+      - **Name** and brief description
+      - **3 proficiency tiers**: Emerging (just starting), Developing (gaining confidence), Secure (mastered)
+      - **Optional `bands` map** — ONLY if the course uses a graded numeric rubric (IELTS bands 0–9, CEFR A1–C2, NHS AfC bands, professional certification levels). Record per-band descriptors keyed by band number.
+      Probe: "What does 'just starting' look like for [skill]? And when they're confident?"
+      Also ask: "How do you know a student is progressing?" (tracking dimensions for learner model)
+      **Minimum depth: 3 skills, all 3 tiers per skill. Probe until you reach this.**
+
+      ⚠️ **CRITICAL — ONE skill per top-level criterion, NOT one per band.**
+      If the uploaded docs contain a graded rubric (e.g. assessor-rubric.md with bands 0–9 for each criterion), the rubric's individual band rows are NOT separate skills. They are **measurements** on a single skill. A 4-criterion × 10-band IELTS rubric produces FOUR skills with `bands` populated — NEVER 40 skills. Treating each band row as a skill is the common failure mode — refuse to do it.
+
+      Save as: update_setup({ fields: { skillsFramework: [{ id: "SKILL-01", name: "Fluency & Coherence", description: "...", tiers: { emerging: "...", developing: "...", secure: "..." }, bands: { 0: "Does not attend", 1: "Speech is incoherent", 9: "Fluent with only occasional self-correction" } }] } })
+
+      ---
+      Setup state: {{setupState}}
+      Conversation so far: {{conversationContext}}
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 4000
+      tools:
+        - name: update_setup
+          description: "Save collected setup fields."
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                additionalProperties: true
+            required: [fields]
+
+tests:
+
+  # ── Test A — IELTS rubric pasted as user content → 4 skills, not 40 ──
+
+  - description: "Test A — IELTS-style rubric input produces 4 skills with bands, NOT 40 skills"
+    vars:
+      setupState: |
+        Course: IELTS Speaking Practice. Subject: ESOL. Audience: higher-ed.
+        Approach: socratic. Sessions: 12 × 20 min. Course-ref digest present
+        (51 assertions across 4 criteria with 10 bands each). skillsFramework: (unset).
+      conversationContext: |
+        Educator just uploaded an assessor-rubric document with band descriptors
+        for Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy,
+        and Pronunciation (4 criteria × 10 bands each = 40 rows). The graph
+        suggests skillsFramework is the next node to handle.
+      userMessage: |
+        Here's the rubric content extracted from the document:
+
+        ## RUB-FC: Fluency and Coherence — band descriptors
+        | 9 | Fluent with only very occasional repetition. |
+        | 8 | Fluent with only very occasional repetition. |
+        | 7 | Keeps going and produces long turns without noticeable effort. |
+        | 0 | Does not attend / does not complete. |
+
+        ## RUB-LR: Lexical Resource — band descriptors
+        | 9 | Total flexibility and precise use in all contexts. |
+        | 7 | Vocabulary resources flexibly used to discuss a variety of topics. |
+        | 0 | Does not attend / does not complete. |
+
+        ## RUB-GRA: Grammatical Range and Accuracy — band descriptors
+        | 9 | Full range of structures, naturally and appropriately. |
+        | 7 | Wide range of structures, frequent error-free sentences. |
+        | 0 | Does not attend / does not complete. |
+
+        ## RUB-P: Pronunciation — band descriptors
+        | 9 | Uses a full range of pronunciation features. |
+        | 7 | Pronunciation features are used effectively. |
+        | 0 | Does not attend / does not complete. |
+
+        Please populate the skills framework from this.
+    assert:
+      - type: llm-rubric
+        value: |
+          The response calls update_setup with `skillsFramework` containing EXACTLY 4 entries
+          (one per criterion: Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy,
+          Pronunciation) — NOT 40 entries (one per band row). Each skill MAY carry a `bands`
+          map with band-number → descriptor entries (e.g. `bands: { 9: "...", 0: "..." }`).
+          The response MUST NOT emit skills whose names start with "Band " (e.g. "Band 9 Fluency"
+          is the failure pattern — refuse). Each skill SHOULD have tiers (emerging/developing/secure)
+          summarising the bands.
+      - type: not-icontains
+        value: '"name": "Band '
+      - type: not-icontains
+        value: '"name":"Band '
+
+  # ── Test B — non-rubric course (no bands, just tiers) ──
+
+  - description: "Test B — non-rubric course produces skills with tiers only, no bands"
+    vars:
+      setupState: |
+        Course: Theme Comprehension. Subject: English Literature. Audience: primary.
+        Approach: socratic. Sessions: 5 × 15 min. skillsFramework: (unset).
+      conversationContext: |
+        No rubric uploaded. The graph suggests skillsFramework.
+      userMessage: |
+        The course develops three skills: theme identification, evidence selection,
+        and connecting themes across passages. Just three skills with descriptions of
+        what beginners, intermediate, and advanced learners look like.
+    assert:
+      - type: llm-rubric
+        value: |
+          The response calls update_setup with `skillsFramework` containing 3 entries,
+          each with `tiers` populated (emerging, developing, secure). Bands map is NOT
+          required (no graded rubric in this course); it may be absent or empty.
+          Each skill name is a top-level capability, NOT a band-level descriptor.

@@ -52,6 +52,9 @@ export interface CourseRefData {
       developing?: string;
       secure?: string;
     };
+    /** Per-band descriptor map (#500 PR-2). Persisted into the generated
+     * COURSE_REFERENCE markdown so the projection re-parses on create_course. */
+    bands?: Record<number, string>;
   }>;
   skillDependencies?: string[];
   teachingApproach?: {

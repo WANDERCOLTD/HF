@@ -108,13 +108,26 @@ async function upsertParameters(
   let created = 0;
 
   for (const p of parameters) {
+    // #500 PR-2 — persist bandThresholds on Parameter.config when present so
+    // the MEASURE spec runtime (PR-5) can hydrate per-band scoring anchors.
+    const config = p.bandThresholds && Object.keys(p.bandThresholds).length > 0
+      ? { bandThresholds: p.bandThresholds }
+      : undefined;
+
     const existing = await tx.parameter.findUnique({
       where: { parameterId: p.name },
-      select: { parameterId: true },
+      select: { parameterId: true, config: true },
     });
 
     if (existing) {
       map.set(p.name, existing.parameterId);
+      // Keep config in sync if the doc gained or changed bandThresholds.
+      if (config) {
+        await tx.parameter.update({
+          where: { parameterId: p.name },
+          data: { config: config as any },
+        });
+      }
       continue;
     }
 
@@ -130,6 +143,7 @@ async function upsertParameters(
         computedBy: `course-ref:${sourceContentId}`,
         parameterType: "BEHAVIOR",
         isAdjustable: true,
+        ...(config ? { config: config as any } : {}),
       },
     });
     map.set(p.name, p.name);

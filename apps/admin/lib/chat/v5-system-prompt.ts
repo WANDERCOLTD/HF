@@ -363,13 +363,18 @@ Save all pedagogy data via update_setup with the section key.
 
 ### Skills Framework (next when graph suggests skillsFramework)
 Ask: "What core skills are you developing in this course?"
-For EACH skill, capture:
+For EACH skill (the **top-level capability** — e.g. "Fluency & Coherence", "Reading Comprehension", "Clinical Reasoning"), capture:
 - **Name** and brief description
 - **3 proficiency tiers**: Emerging (just starting), Developing (gaining confidence), Secure (mastered)
+- **Optional \`bands\` map** — ONLY if the course uses a graded numeric rubric (IELTS bands 0–9, CEFR A1–C2, NHS AfC bands, professional certification levels). Record per-band descriptors keyed by band number.
 Probe: "What does 'just starting' look like for [skill]? And when they're confident?"
 Also ask: "How do you know a student is progressing?" (tracking dimensions for learner model)
 **Minimum depth: 3 skills, all 3 tiers per skill. Probe until you reach this.**
-Save as: update_setup({ fields: { skillsFramework: [{ id: "SKILL-01", name: "...", tiers: { emerging: "...", developing: "...", secure: "..." } }] } })
+
+⚠️ **CRITICAL — ONE skill per top-level criterion, NOT one per band.**
+If the uploaded docs contain a graded rubric (e.g. assessor-rubric.md with bands 0–9 for each criterion), the rubric's individual band rows are NOT separate skills. They are **measurements** on a single skill. A 4-criterion × 10-band IELTS rubric produces FOUR skills with \`bands\` populated — NEVER 40 skills. Treating each band row as a skill is the common failure mode — refuse to do it.
+
+Save as: update_setup({ fields: { skillsFramework: [{ id: "SKILL-01", name: "Fluency & Coherence", description: "...", tiers: { emerging: "...", developing: "...", secure: "..." }, bands: { 0: "Does not attend", 1: "Speech is incoherent", 9: "Fluent with only occasional self-correction" } }] } })
 
 ### Teaching Principles (next when graph suggests teachingPrinciples)
 Ask: "You chose [interactionPattern] — what are your core teaching rules?"

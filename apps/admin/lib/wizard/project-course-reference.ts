@@ -133,6 +133,13 @@ export interface ProjectedParameter {
   name: string;
   type: "BEHAVIOR";
   description?: string;
+  /**
+   * Optional per-band descriptor text (#500 PR-2). Written to
+   * Parameter.config.bandThresholds by the applier. Present for skill
+   * parameters that wrap a graded rubric (IELTS bands 0–9, CEFR, NHS AfC);
+   * absent for skills with only tier descriptors (Emerging/Developing/Secure).
+   */
+  bandThresholds?: Record<number, string>;
 }
 
 /**
@@ -200,6 +207,13 @@ export interface ParsedSkill {
    * by `mapSkillsToAchieveAndTargets`. Absent = aim for Secure (1.0).
    */
   targetBand?: number;
+  /**
+   * Per-band descriptor map (#500 PR-2). Two accepted forms inside a
+   * `### SKILL-NN` section: `**Band N:** descriptor` bullets, or markdown
+   * table rows `| N | descriptor |`. Keys are integer band numbers.
+   * Empty/absent when the skill has no graded rubric.
+   */
+  bandThresholds?: Record<number, string>;
 }
 
 export interface SkillsFrameworkResult {
@@ -211,6 +225,11 @@ const SKILL_HEADING = /^###\s+(SKILL-\d+)\s*:\s*(.+?)\s*$/;
 // Tier format accepts both v3.0 (`**Emerging:**`) and v2.2 (`**Emerging.**`)
 // punctuation styles. The captured text follows the closing `**`.
 const TIER_LINE = /^\s*[-*]\s*\*\*\s*(Emerging|Developing|Secure)\s*[:.]\s*\*\*\s*(.+?)\s*$/i;
+// Per-band descriptor bullet (#500 PR-2). Form: `- **Band 9:** descriptor`
+const BAND_LINE = /^\s*[-*]?\s*\*{0,2}\s*Band\s+(\d+(?:\.\d+)?)\s*\*{0,2}\s*[:.]\s*\*{0,2}\s*(.+?)\s*$/i;
+// Markdown table row carrying a band descriptor (#500 PR-2). Form: `| 9 | descriptor |`
+// First cell must be a plain integer — skips header + alignment rows.
+const BAND_TABLE_ROW = /^\s*\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*$/;
 // Per-skill target band declaration. Accepts punctuation/bold variants:
 //   `**Target band:** 6.5`     (colon inside bold)
 //   `**Target band**: 6.5`     (colon outside bold)
@@ -289,6 +308,28 @@ export function parseSkillsFramework(bodyText: string): SkillsFrameworkResult {
       const parsed = Number(bandMatch[1]);
       if (Number.isFinite(parsed) && parsed > 0) {
         current.targetBand = parsed;
+      }
+      continue;
+    }
+
+    // Per-band threshold capture (#500 PR-2). `**Band N:** desc` OR `| N | desc |`.
+    const bandLineMatch = line.match(BAND_LINE);
+    if (bandLineMatch && Number.isInteger(Number(bandLineMatch[1]))) {
+      captureDescription = false;
+      const bandNum = Number(bandLineMatch[1]);
+      if (Number.isFinite(bandNum) && bandNum >= 0 && bandNum <= 9) {
+        current.bandThresholds ??= {};
+        current.bandThresholds[bandNum] = bandLineMatch[2].trim();
+      }
+      continue;
+    }
+    const bandTableMatch = line.match(BAND_TABLE_ROW);
+    if (bandTableMatch) {
+      captureDescription = false;
+      const bandNum = Number(bandTableMatch[1]);
+      if (Number.isFinite(bandNum) && bandNum >= 0 && bandNum <= 9) {
+        current.bandThresholds ??= {};
+        current.bandThresholds[bandNum] = bandTableMatch[2].trim();
       }
       continue;
     }
@@ -443,6 +484,9 @@ function mapSkillsToAchieveAndTargets(skills: ParsedSkill[]): {
       name: paramName,
       type: "BEHAVIOR",
       description: skill.description,
+      // #500 PR-2 — pass band thresholds through; applier writes them into
+      // Parameter.config.bandThresholds. Only present for graded-rubric skills.
+      bandThresholds: skill.bandThresholds,
     });
 
     achieveGoals.push({
