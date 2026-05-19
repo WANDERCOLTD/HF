@@ -31,12 +31,14 @@ import {
   PlayCircle,
   Circle,
   Sparkles,
+  Lock,
 } from "lucide-react";
 import type { AuthoredModule } from "@/lib/types/json-fields";
 import {
   PrereqsSoftWarningModal,
   type UnmetPrereq,
 } from "./PrereqsSoftWarningModal";
+import { PrereqsHardLockModal } from "./PrereqsHardLockModal";
 
 export type PickerLayout = "tiles" | "rail";
 
@@ -80,11 +82,14 @@ interface LearnerModulePickerProps {
    */
   recommendedReason?: string | null;
   /**
-   * #495 Slice 4.5 — when `false` (default), clicking a module whose
+   * #495 Slice 4.5/4.6 — when `false` (default), clicking a module whose
    * prereqs aren't all MASTERED triggers a soft-warning modal before the
-   * picker calls `onSelect`. When `true`, slice 4.6 will hard-lock the
-   * tile; until that ships the picker falls through to the same soft-
-   * warning modal so the learner is never silently blocked.
+   * picker calls `onSelect` (Slice 4.5). When `true`, the picker hard-
+   * locks the tile: clicking opens a dismiss-only modal that points the
+   * learner at the unmet prereqs, and the tile itself renders a quiet
+   * lock badge + desaturate so it's obvious the click did something
+   * (Slice 4.6). The recommended-next badge is suppressed for any
+   * locked tile so the two affordances never contradict each other.
    *
    * Source of truth is the import-modules endpoint's top-level
    * `strictPrerequisites` field (mirrors
@@ -111,6 +116,14 @@ export function LearnerModulePicker({
     unmetPrereqs: UnmetPrereq[];
   } | null>(null);
 
+  // #495 Slice 4.6 — pending pick blocked by hard-lock (strict mode +
+  // unmet prereqs). The hard-lock modal renders with a single dismiss
+  // button; onSelect is never forwarded.
+  const [pendingHardLock, setPendingHardLock] = useState<{
+    module: AuthoredModule;
+    unmetPrereqs: UnmetPrereq[];
+  } | null>(null);
+
   // Index modules by id so we can resolve unmet prereq slugs → friendly
   // titles for the modal's bulleted list without prop-drilling.
   const modulesById = useMemo(() => {
@@ -122,12 +135,30 @@ export function LearnerModulePicker({
   const completed = useMemo(() => new Set(completedModuleIds), [completedModuleIds]);
   const inProgress = useMemo(() => new Set(inProgressModuleIds), [inProgressModuleIds]);
 
+  // Pre-compute the set of locked module ids — modules whose prereqs
+  // aren't all MASTERED while the course runs in strict mode. Drives
+  // the tile-level lock badge + desaturate (Slice 4.6) AND suppresses
+  // the recommended-next badge on the same tile so the two affordances
+  // never contradict each other. Empty set when `strictPrerequisites`
+  // is false → tiles stay un-decorated and Slice 4.5's soft-warning
+  // path is untouched.
+  const lockedModuleIds = useMemo(() => {
+    if (!strictPrerequisites) return new Set<string>();
+    const locked = new Set<string>();
+    for (const m of modules) {
+      const unmet = computeUnmetPrereqs(m, modulesById);
+      if (unmet.length > 0) locked.add(m.id);
+    }
+    return locked;
+  }, [strictPrerequisites, modules, modulesById]);
+
   // Wrap the parent's onSelect: when prereqs are unmet, intercept the
-  // click and stage the modal. When they're satisfied (or there are
-  // none), fall through immediately. Mastery is the gate, not mere
-  // completion — `progress.status === "MASTERED"` matches the picker's
-  // existing vocabulary (Slice 4.2) and the recommender's policy
-  // (#494 Slice 2.5).
+  // click. Strict mode → hard-lock modal (Slice 4.6, dismiss-only).
+  // Lenient mode → soft-warning modal (Slice 4.5, "Continue anyway"
+  // forwards). No unmet prereqs → fall through immediately. Mastery is
+  // the gate, not mere completion — `progress.status === "MASTERED"`
+  // matches the picker's existing vocabulary (Slice 4.2) and the
+  // recommender's policy (#494 Slice 2.5).
   const handlePick = useCallback(
     (moduleId: string) => {
       if (!onSelect) return;
@@ -141,11 +172,10 @@ export function LearnerModulePicker({
         onSelect(moduleId);
         return;
       }
-      // TODO: 4.6 hard-lock — when `strictPrerequisites === true`, render
-      // a lock affordance on the tile + block the click entirely. Until
-      // that slice lands we fall through to the same soft-warning modal
-      // so the learner is never silently blocked.
-      void strictPrerequisites;
+      if (strictPrerequisites) {
+        setPendingHardLock({ module: mod, unmetPrereqs: unmet });
+        return;
+      }
       setPendingSoftWarn({ module: mod, unmetPrereqs: unmet });
     },
     [onSelect, modulesById, strictPrerequisites],
@@ -163,6 +193,10 @@ export function LearnerModulePicker({
 
   const handleSoftWarnCancel = useCallback(() => {
     setPendingSoftWarn(null);
+  }, []);
+
+  const handleHardLockDismiss = useCallback(() => {
+    setPendingHardLock(null);
   }, []);
 
   const visible = modules.filter((m) => m.learnerSelectable !== false);
@@ -192,6 +226,7 @@ export function LearnerModulePicker({
           onSelect={layoutOnSelect}
           recommendedModuleId={recommendedModuleId}
           recommendedReason={recommendedReason}
+          lockedModuleIds={lockedModuleIds}
         />
       ) : (
         <TilesLayout
@@ -201,6 +236,7 @@ export function LearnerModulePicker({
           onSelect={layoutOnSelect}
           recommendedModuleId={recommendedModuleId}
           recommendedReason={recommendedReason}
+          lockedModuleIds={lockedModuleIds}
         />
       )}
       {pendingSoftWarn && (
@@ -209,6 +245,13 @@ export function LearnerModulePicker({
           unmetPrereqs={pendingSoftWarn.unmetPrereqs}
           onContinue={handleSoftWarnContinue}
           onCancel={handleSoftWarnCancel}
+        />
+      )}
+      {pendingHardLock && (
+        <PrereqsHardLockModal
+          module={pendingHardLock.module}
+          unmetPrereqs={pendingHardLock.unmetPrereqs}
+          onDismiss={handleHardLockDismiss}
         />
       )}
     </div>
@@ -247,6 +290,7 @@ function TilesLayout({
   onSelect,
   recommendedModuleId,
   recommendedReason,
+  lockedModuleIds,
 }: {
   modules: AuthoredModule[];
   completed: Set<string>;
@@ -254,6 +298,7 @@ function TilesLayout({
   onSelect?: (id: string) => void;
   recommendedModuleId: string | null;
   recommendedReason: string | null;
+  lockedModuleIds: Set<string>;
 }) {
   // Hide `frequency: once` modules already completed (e.g. Baseline).
   // Repeatable + completed stays visible so learners can retake.
@@ -275,6 +320,7 @@ function TilesLayout({
             onSelect={onSelect}
             isRecommended={m.id === recommendedModuleId}
             recommendedReason={recommendedReason}
+            isLocked={lockedModuleIds.has(m.id)}
           />
         ))}
       </div>
@@ -302,6 +348,7 @@ function TilesLayout({
               onSelect={onSelect}
               isRecommended={m.id === recommendedModuleId}
               recommendedReason={recommendedReason}
+              isLocked={lockedModuleIds.has(m.id)}
             />
           ))}
         </Section>
@@ -317,6 +364,7 @@ function TilesLayout({
               onSelect={onSelect}
               isRecommended={m.id === recommendedModuleId}
               recommendedReason={recommendedReason}
+              isLocked={lockedModuleIds.has(m.id)}
             />
           ))}
         </Section>
@@ -332,6 +380,7 @@ function TilesLayout({
               onSelect={onSelect}
               isRecommended={m.id === recommendedModuleId}
               recommendedReason={recommendedReason}
+              isLocked={lockedModuleIds.has(m.id)}
             />
           ))}
         </Section>
@@ -356,6 +405,7 @@ function Tile({
   onSelect,
   isRecommended,
   recommendedReason,
+  isLocked,
 }: {
   mod: AuthoredModule;
   inProgress: boolean;
@@ -363,23 +413,33 @@ function Tile({
   onSelect?: (id: string) => void;
   isRecommended: boolean;
   recommendedReason: string | null;
+  isLocked: boolean;
 }) {
   const Tag = onSelect ? "button" : "div";
   // Suppress the recommended badge for mastered modules — defence in depth
   // against an upstream that recommends something already MASTERED.
   // `recommendNextModule()` filters those out, but the picker shouldn't
   // double-decorate a Mastered tile if a stale payload slips through.
+  // Also suppress when the tile is locked (Slice 4.6): the lock badge
+  // takes the top-LEFT corner and "recommended-next" would contradict
+  // the lock affordance even if the recommender slipped up.
   const showRecommended =
-    isRecommended && mod.progress?.status !== "MASTERED";
+    isRecommended && mod.progress?.status !== "MASTERED" && !isLocked;
+  const className = isLocked
+    ? "learner-picker__tile learner-picker-page__tile--locked"
+    : "learner-picker__tile";
   return (
     <Tag
       type={onSelect ? "button" : undefined}
-      className="learner-picker__tile"
+      className={className}
       onClick={onSelect ? () => onSelect(mod.id) : undefined}
       data-terminal={mod.sessionTerminal || undefined}
       data-progress={inProgress ? "in-progress" : completed ? "completed" : undefined}
       data-recommended={showRecommended || undefined}
+      data-locked={isLocked || undefined}
+      title={isLocked ? "Complete the prereqs first" : undefined}
     >
+      {isLocked && <LockBadge />}
       {showRecommended && <RecommendedBadge reason={recommendedReason} />}
       <StatusBadge progress={mod.progress} />
       <ModeIcon mode={mod.mode} />
@@ -426,6 +486,7 @@ function RailLayout({
   onSelect,
   recommendedModuleId,
   recommendedReason,
+  lockedModuleIds,
 }: {
   modules: AuthoredModule[];
   completed: Set<string>;
@@ -433,6 +494,7 @@ function RailLayout({
   onSelect?: (id: string) => void;
   recommendedModuleId: string | null;
   recommendedReason: string | null;
+  lockedModuleIds: Set<string>;
 }) {
   // Sort by `position` if provided, otherwise preserve catalogue order.
   const ordered = [...modules].sort((a, b) => {
@@ -446,14 +508,23 @@ function RailLayout({
       {ordered.map((m, i) => {
         const isComplete = completed.has(m.id);
         const isInProgress = inProgress.has(m.id) && !isComplete;
+        const isLocked = lockedModuleIds.has(m.id);
         const Tag = onSelect ? "button" : "div";
         const prereqsUnmet = m.prerequisites.filter((p) => !completed.has(p));
         const advisoryHint =
           prereqsUnmet.length > 0
             ? `Recommended after ${prereqsUnmet.join(", ")}`
             : null;
+        // Suppress the recommended-next badge on locked cards — same
+        // reasoning as the tile layout: a hard-locked card cannot be the
+        // recommendation, even if upstream slipped one through.
         const showRecommended =
-          m.id === recommendedModuleId && m.progress?.status !== "MASTERED";
+          m.id === recommendedModuleId &&
+          m.progress?.status !== "MASTERED" &&
+          !isLocked;
+        const cardClassName = isLocked
+          ? "learner-picker__rail-card learner-picker-page__rail-card--locked"
+          : "learner-picker__rail-card";
 
         return (
           <li key={m.id} className="learner-picker__rail-item">
@@ -462,12 +533,15 @@ function RailLayout({
             </div>
             <Tag
               type={onSelect ? "button" : undefined}
-              className="learner-picker__rail-card"
+              className={cardClassName}
               onClick={onSelect ? () => onSelect(m.id) : undefined}
               data-progress={isComplete ? "completed" : isInProgress ? "in-progress" : undefined}
               data-terminal={m.sessionTerminal || undefined}
               data-recommended={showRecommended || undefined}
+              data-locked={isLocked || undefined}
+              title={isLocked ? "Complete the prereqs first" : undefined}
             >
+              {isLocked && <LockBadge />}
               {showRecommended && <RecommendedBadge reason={recommendedReason} />}
               <StatusBadge progress={m.progress} />
               <ModeIcon mode={m.mode} />
@@ -592,6 +666,26 @@ function RecommendedBadge({ reason }: { reason: string | null }) {
     >
       <Sparkles size={12} aria-hidden="true" />
       <span>Recommended next</span>
+    </span>
+  );
+}
+
+// ── Lock badge (#495 Slice 4.6) ────────────────────────────────────
+//
+// Quiet grey pill pinned to the top-LEFT of any tile / rail card the
+// learner can't yet take (strict-prereq mode + unmet prereqs). Sits in
+// the same corner as the "Recommended next" badge — the two are mutually
+// exclusive, so a locked tile never shows the green recommendation pill
+// (see suppression logic in Tile / RailLayout). The badge is purely
+// decorative — the tile itself stays clickable so the hard-lock modal
+// can explain WHY it's locked.
+function LockBadge() {
+  return (
+    <span
+      className="learner-picker-page__lock-badge"
+      aria-label="Locked — complete the prereqs first"
+    >
+      <Lock size={12} aria-hidden="true" />
     </span>
   );
 }

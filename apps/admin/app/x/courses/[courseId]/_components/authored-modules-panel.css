@@ -796,3 +796,128 @@ button.learner-picker__rail-card:hover {
   border-color: color-mix(in srgb, var(--text-primary) 25%, var(--border-default));
   outline: none;
 }
+
+/* #495 Slice 4.6 — hard-lock affordances.
+   Used when `strictPrerequisites === true` AND a candidate module has
+   unmet prereqs. The tile/rail card stays clickable so the hard-lock
+   modal can explain WHY it's gated; the badge + desaturate are purely
+   visual cues so the learner doesn't think their click broke. We share
+   the same modal shell as the soft warning but tint it amber to lean
+   "important info" rather than the soft-warning's neutral palette. */
+
+.learner-picker-page__tile--locked,
+.learner-picker-page__rail-card--locked {
+  opacity: 0.6;
+  filter: saturate(0.7);
+}
+
+.learner-picker-page__tile--locked:hover,
+.learner-picker-page__tile--locked:focus-visible,
+.learner-picker-page__rail-card--locked:hover,
+.learner-picker-page__rail-card--locked:focus-visible {
+  /* Restore a little on hover so the learner still sees their click
+     was registered — no pointer-events: none. */
+  opacity: 0.75;
+}
+
+.learner-picker-page__lock-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 20%, transparent);
+  color: var(--text-muted);
+  border: 1px solid color-mix(in srgb, var(--text-muted) 30%, transparent);
+  pointer-events: none; /* purely decorative — tile click stays unblocked */
+}
+
+.learner-picker-page__hardlock-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--text-primary) 50%, transparent);
+  z-index: 100;
+}
+
+.learner-picker-page__hardlock-modal {
+  max-width: 460px;
+  width: 90%;
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--surface-primary);
+  /* Subtle amber border so the modal reads as a stop sign without
+     resorting to error-red — the learner hasn't done anything wrong. */
+  border-top: 4px solid var(--status-warning-text, var(--accent-primary));
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--text-primary) 25%, transparent);
+}
+
+.learner-picker-page__hardlock-modal-title {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.learner-picker-page__hardlock-modal-body {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.learner-picker-page__hardlock-modal-list {
+  margin: 0 0 16px 0;
+  padding-left: 20px;
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.learner-picker-page__hardlock-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.learner-picker-page__hardlock-modal-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+/* Single dismiss button — amber-tinted accent so it reads as the only
+   action without screaming "error". Picks up status-warning-text from
+   the admin tokens, falling back to the brand accent if the route
+   doesn't load the warning palette. */
+.learner-picker-page__hardlock-modal-btn--primary {
+  color: var(--surface-primary);
+  background: var(--status-warning-text, var(--accent-primary));
+  border-color: var(--status-warning-text, var(--accent-primary));
+}
+
+.learner-picker-page__hardlock-modal-btn--primary:hover,
+.learner-picker-page__hardlock-modal-btn--primary:focus-visible {
+  background: color-mix(
+    in srgb,
+    var(--status-warning-text, var(--accent-primary)) 85%,
+    var(--text-primary)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--status-warning-text, var(--accent-primary)) 85%,
+    var(--text-primary)
+  );
+  outline: none;
+}

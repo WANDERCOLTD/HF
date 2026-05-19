@@ -231,10 +231,12 @@ describe("LearnerModulePicker — soft-warning modal (#495 Slice 4.5)", () => {
     expect(title).toBeTruthy();
   });
 
-  it("falls through to the soft-warning modal when strictPrerequisites=true (slice 4.6 placeholder)", () => {
-    // Until slice 4.6 lands, strict-mode unmet prereqs use the same soft-
-    // warning UX so the learner is never silently blocked. This test
-    // pins that contract.
+  it("does NOT show the soft-warning modal when strictPrerequisites=true (Slice 4.6 routes to hard-lock instead)", () => {
+    // From Slice 4.6 onwards, strict-mode unmet-prereq clicks open the
+    // hard-lock modal (dismiss-only) — NOT the soft-warning modal. This
+    // test pins that the soft-warning shell is no longer used in strict
+    // mode. The hard-lock variant has dedicated coverage in
+    // `learner-module-picker-hard-lock.test.tsx`.
     const onSelect = vi.fn();
     const { container } = render(
       <LearnerModulePicker
@@ -249,6 +251,11 @@ describe("LearnerModulePicker — soft-warning modal (#495 Slice 4.5)", () => {
       container.querySelectorAll("button.learner-picker__tile"),
     ).find((b) => b.textContent?.includes("Module Three")) as HTMLButtonElement;
     fireEvent.click(m3Button);
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // A dialog DOES open (the hard-lock variant) — assert by title to
+    // distinguish it from the soft-warning shell.
+    expect(
+      screen.queryByText(/Heads up — you haven't completed the prereqs/i),
+    ).not.toBeInTheDocument();
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });
