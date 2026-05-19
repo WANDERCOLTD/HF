@@ -209,6 +209,18 @@ export const config = {
     get authoredModulesEnabled(): boolean {
       return optionalBool("AUTHORED_MODULES_ENABLED", false);
     },
+    /**
+     * Legacy Subject-chain fallback in SectionDataLoader.resolveContentScope
+     * (#482). When true, retains the pre-#478 behaviour: if PlaybookSource
+     * is empty, fall through to PlaybookSubject → Subject → SubjectSource,
+     * and then to a domain-wide SubjectDomain fallback. When false (default,
+     * #482-onwards), content scope resolves strictly via PlaybookSource —
+     * empty PlaybookSource means empty scope. Kept as a kill switch for one
+     * sprint in case the #481 backfill missed any legacy course.
+     */
+    get contentScopeSubjectFallbackEnabled(): boolean {
+      return optionalBool("CONTENT_SCOPE_SUBJECT_FALLBACK_ENABLED", false);
+    },
   },
 
   // ---------------------------------------------------------------------------

@@ -278,95 +278,118 @@ async function resolveContentScope(callerId: string): Promise<ContentScope> {
       };
     }
 
-    // FALLBACK: Legacy Subject chain (pre-migration courses without PlaybookSource)
-    const sourceSelect = {
-      select: {
-        id: true,
-        sourceId: true,
-        sortOrder: true,
-        tags: true,
-        source: { select: { documentType: true } },
-      },
-      orderBy: { sortOrder: "asc" as const },
-    } as const;
+    // LEGACY FALLBACK: Subject chain (pre-#478 courses without PlaybookSource).
+    // Disabled by default since #482. Kill switch: CONTENT_SCOPE_SUBJECT_FALLBACK_ENABLED=true.
+    // Backfill via scripts/backfill-playbook-sources-from-subjects.ts (#481).
+    if (config.features.contentScopeSubjectFallbackEnabled) {
+      const sourceSelect = {
+        select: {
+          id: true,
+          sourceId: true,
+          sortOrder: true,
+          tags: true,
+          source: { select: { documentType: true } },
+        },
+        orderBy: { sortOrder: "asc" as const },
+      } as const;
 
-    const legacySubjects = await prisma.playbookSubject.findMany({
-      where: { playbookId: { in: playbookIds } },
+      const legacySubjects = await prisma.playbookSubject.findMany({
+        where: { playbookId: { in: playbookIds } },
+        select: {
+          subject: {
+            select: {
+              id: true,
+              teachingDepth: true,
+              sources: sourceSelect,
+            },
+          },
+        },
+      });
+
+      const seenLegacy = new Set<string>();
+      const subjects = legacySubjects
+        .filter((ps) => {
+          if (seenLegacy.has(ps.subject.id)) return false;
+          seenLegacy.add(ps.subject.id);
+          return true;
+        })
+        .map((ps) => ({
+          ...ps.subject,
+          sources: ps.subject.sources.map((s) => ({
+            subjectSourceId: s.id,
+            sourceId: s.sourceId,
+            documentType: s.source?.documentType ?? null,
+            sortOrder: s.sortOrder,
+            tags: s.tags,
+          })),
+        }));
+
+      if (subjects.length > 0) {
+        console.warn(
+          `[SectionDataLoader] legacy Subject-chain fallback fired for caller ${callerId} — #481 backfill missed this playbook set`,
+        );
+        return {
+          domainId: caller.domainId,
+          subjectIds: subjects.map((s) => s.id),
+          subjects,
+          scoped: true,
+        };
+      }
+    }
+  }
+
+  // LAST-RESORT FALLBACK: domain-wide via SubjectDomain — same flag gate (#482).
+  if (config.features.contentScopeSubjectFallbackEnabled) {
+    const subjectDomains = await prisma.subjectDomain.findMany({
+      where: { domainId: caller.domainId },
       select: {
         subject: {
           select: {
             id: true,
             teachingDepth: true,
-            sources: sourceSelect,
+            sources: {
+              select: {
+                id: true,
+                sourceId: true,
+                sortOrder: true,
+                tags: true,
+                source: { select: { documentType: true } },
+              },
+              orderBy: { sortOrder: "asc" },
+            },
           },
         },
       },
     });
 
-    const seenLegacy = new Set<string>();
-    const subjects = legacySubjects
-      .filter((ps) => {
-        if (seenLegacy.has(ps.subject.id)) return false;
-        seenLegacy.add(ps.subject.id);
-        return true;
-      })
-      .map((ps) => ({
-        ...ps.subject,
-        sources: ps.subject.sources.map((s) => ({
-          subjectSourceId: s.id,
-          sourceId: s.sourceId,
-          documentType: s.source?.documentType ?? null,
-          sortOrder: s.sortOrder,
-          tags: s.tags,
-        })),
-      }));
-
-    if (subjects.length > 0) {
+    if (subjectDomains.length > 0) {
+      console.warn(
+        `[SectionDataLoader] domain-wide Subject fallback fired for caller ${callerId} — no enrollments resolve to PlaybookSource`,
+      );
       return {
         domainId: caller.domainId,
-        subjectIds: subjects.map((s) => s.id),
-        subjects,
-        scoped: true,
+        subjectIds: subjectDomains.map((sd) => sd.subject.id),
+        subjects: subjectDomains.map((sd) => ({
+          ...sd.subject,
+          sources: sd.subject.sources.map((s) => ({
+            subjectSourceId: s.id,
+            sourceId: s.sourceId,
+            documentType: s.source?.documentType ?? null,
+            sortOrder: s.sortOrder,
+            tags: s.tags,
+          })),
+        })),
+        scoped: false,
       };
     }
   }
 
-  // Last resort: domain-wide (no enrollments, or enrollments have no subjects)
-  const subjectDomains = await prisma.subjectDomain.findMany({
-    where: { domainId: caller.domainId },
-    select: {
-      subject: {
-        select: {
-          id: true,
-          teachingDepth: true,
-          sources: {
-            select: {
-              id: true,
-              sourceId: true,
-              sortOrder: true,
-              tags: true,
-              source: { select: { documentType: true } },
-            },
-            orderBy: { sortOrder: "asc" },
-          },
-        },
-      },
-    },
-  });
-
+  // Default (post-#482): empty scope. Composition transforms see no subjects
+  // / no sources and produce empty sections — better than silent cross-course leak.
   return {
     domainId: caller.domainId,
-    subjectIds: subjectDomains.map((sd) => sd.subject.id),
-    subjects: subjectDomains.map((sd) => ({
-      ...sd.subject,
-      sources: sd.subject.sources.map((s) => ({
-        subjectSourceId: s.id,
-        sourceId: s.sourceId,
-        documentType: s.source?.documentType ?? null,
-        sortOrder: s.sortOrder,
-        tags: s.tags,
-      })),
-    })),
+    subjectIds: [],
+    subjects: [],
     scoped: false,
   };
 }
