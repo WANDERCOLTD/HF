@@ -452,3 +452,378 @@
   border-radius: 12px;
   font-size: 14px;
 }
+
+/* ────────────────────────────────────────────────────────────────────
+   #493 Slice 5.5 — EducatorProgressView
+   Read-only mirror of SimProgressPanel for the educator portal.
+   Admin-shell tokens only. No celebratory styling — analytical tone.
+   ──────────────────────────────────────────────────────────────────── */
+
+.epv-section-wrapper {
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
+
+.epv-heading {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+}
+
+.epv-root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.epv-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 48px;
+}
+
+.epv-section {
+  margin-bottom: 0;
+}
+
+.epv-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.epv-section-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  line-height: 1.45;
+}
+
+/* Subtle info badges — sit inline next to section titles + module rows */
+.epv-info-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+/* Course-complete stat row (NOT a hero) */
+.epv-course-complete {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+  font-size: 13px;
+}
+
+.epv-course-complete-icon {
+  color: var(--status-success-text);
+  flex-shrink: 0;
+}
+
+.epv-course-complete-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.epv-course-complete-value {
+  color: var(--text-primary);
+}
+
+/* Progress bar */
+.epv-progress-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-secondary);
+  overflow: hidden;
+}
+
+.epv-progress-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent-primary);
+  transition: width 0.4s ease;
+}
+
+/* Focus areas (post-Mock diagnostic) */
+.epv-focus-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.epv-focus-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-secondary);
+  font-size: 13px;
+}
+
+.epv-focus-icon {
+  flex-shrink: 0;
+}
+
+.epv-focus-strength .epv-focus-icon {
+  color: var(--status-success-text);
+}
+
+.epv-focus-next .epv-focus-icon {
+  color: var(--accent-primary);
+}
+
+.epv-focus-weak .epv-focus-icon {
+  color: var(--status-warning-text);
+}
+
+.epv-focus-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.epv-focus-value {
+  color: var(--text-primary);
+}
+
+/* Modules — read-only rows */
+.epv-modules {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.epv-module-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-secondary);
+  flex-wrap: wrap;
+}
+
+.epv-module-icon {
+  flex-shrink: 0;
+}
+
+.epv-module-mastered .epv-module-icon {
+  color: var(--status-success-text);
+}
+
+.epv-module-in-progress .epv-module-icon {
+  color: var(--accent-primary);
+}
+
+.epv-module-not-started .epv-module-icon {
+  color: var(--text-muted);
+}
+
+.epv-module-title {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+.epv-module-mastered .epv-module-title {
+  font-weight: 600;
+}
+
+.epv-module-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.epv-module-mastered .epv-module-status-badge {
+  background: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+  color: var(--status-success-text);
+}
+
+.epv-module-in-progress .epv-module-status-badge {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+}
+
+.epv-module-not-started .epv-module-status-badge {
+  background: var(--surface-tertiary, var(--surface-secondary));
+  color: var(--text-muted);
+}
+
+.epv-module-mastery-badge {
+  font-variant-numeric: tabular-nums;
+}
+
+.epv-module-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Goals */
+.epv-goals {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.epv-goal-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.epv-goal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.epv-goal-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.epv-goal-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.epv-goal-pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.epv-goal-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-secondary);
+  overflow: hidden;
+}
+
+.epv-goal-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent-primary);
+  transition: width 0.4s ease;
+}
+
+/* Stats grid */
+.epv-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.epv-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--surface-secondary);
+}
+
+.epv-stat-icon {
+  color: var(--text-secondary);
+}
+
+.epv-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.epv-stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+/* Test scores */
+.epv-test-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.epv-test-score {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.epv-test-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.epv-test-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.epv-test-value.epv-test-post {
+  color: var(--status-success-text);
+}
+
+.epv-test-arrow {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+/* Recent topics */
+.epv-topic-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.epv-topic-item {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+}

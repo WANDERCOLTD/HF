@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { SendArtifactModal } from "@/components/educator/SendArtifactModal";
 import { StudentEnrollmentsSection } from "@/components/educator/StudentEnrollmentsSection";
+import { EducatorProgressView } from "@/components/educator/EducatorProgressView";
+import "../../educator.css";
 
 interface StudentDetail {
   id: string;
@@ -347,6 +349,15 @@ export default function StudentDetailPage() {
           )}
         </div>
       </div>
+
+      {/* #493 Slice 5.5 — Progress section. Educator-side parallel mirror of
+          the learner's SimProgressPanel. READ-ONLY: same hook + API as the
+          learner panel, but framed analytically (no celebration, no module
+          click handlers). */}
+      <section className="epv-section-wrapper">
+        <h2 className="epv-heading">Progress</h2>
+        <EducatorProgressView callerId={id} />
+      </section>
 
       {/* Course Enrolments */}
       <StudentEnrollmentsSection studentId={id} domainId={student.domain?.id} />
