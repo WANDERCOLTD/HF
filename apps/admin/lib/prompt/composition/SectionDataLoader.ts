@@ -19,6 +19,7 @@ import { getSubjectsForPlaybook } from "@/lib/knowledge/domain-sources";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
 import { loadPriorCallFeedback } from "./loaders/priorCallFeedback";
+import { loadMockDiagnostic } from "./loaders/mockDiagnostic";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import type { LoadedDataContext, SystemSpecData } from "./types";
 
@@ -116,6 +117,7 @@ export async function loadAllData(
     openActions,
     visualAids,
     priorCallFeedback,
+    mockDiagnostic,
   ] = await Promise.all([
     loaderRegistry.get("caller")!(callerId),
     loaderRegistry.get("memories")!(callerId, { limit: memoriesLimit }),
@@ -140,6 +142,9 @@ export async function loadAllData(
     loaderRegistry.get("visualAids")!(callerId, { contentScope }),
     loaderRegistry.get("priorCallFeedback")!(callerId, {
       moduleId: scope?.requestedModuleId ?? null,
+      currentCallId: scope?.currentCallId ?? null,
+    }),
+    loaderRegistry.get("mockDiagnostic")!(callerId, {
       currentCallId: scope?.currentCallId ?? null,
     }),
   ]);
@@ -180,6 +185,16 @@ export async function loadAllData(
       weakestParameterScore: null,
       overallScore: null,
       summary: null,
+    },
+    mockDiagnostic: mockDiagnostic || {
+      hasDiagnostic: false,
+      focusModules: [],
+      strengthModule: null,
+      weakSkill: null,
+      summary: null,
+      fromCallId: null,
+      generatedAt: null,
+      ageInDays: null,
     },
   };
 }
@@ -606,6 +621,36 @@ registerLoader("priorCallFeedback", async (callerId, config) => {
       weakestParameterScore: null,
       overallScore: null,
       summary: null,
+    };
+  }
+});
+
+/**
+ * #492 Slice 3.6 — surface the most recent post-Mock diagnostic into the
+ * next-call composition. Reads `CallerAttribute (scope=DIAGNOSTIC, key=fromMock)`,
+ * resolves the persisted module IDs to `{ id, slug, title }` triples, and
+ * skips when the diagnostic came from the call we're composing FOR
+ * (chicken/egg). Wrapped in try/catch so any failure just disables the
+ * section rather than breaking composition.
+ */
+registerLoader("mockDiagnostic", async (callerId, config) => {
+  const currentCallId = (config?.currentCallId as string | null | undefined) ?? "";
+  try {
+    return await loadMockDiagnostic(prisma, {
+      callerId,
+      currentCallId,
+    });
+  } catch (err) {
+    console.warn("[mockDiagnostic] loader failed — section will be omitted:", err);
+    return {
+      hasDiagnostic: false,
+      focusModules: [],
+      strengthModule: null,
+      weakSkill: null,
+      summary: null,
+      fromCallId: null,
+      generatedAt: null,
+      ageInDays: null,
     };
   }
 });
