@@ -1138,6 +1138,94 @@ async function computeReward(
 }
 
 /**
+ * #491 Slice 1.3 — Increment CallerModuleProgress.callCount for the module
+ * this call was attributed to. Runs at the end of AGGREGATE so it stays
+ * consistent with the CallScore.moduleId writes from Slice 1.2.
+ *
+ * Idempotency: pipeline force-rerun must not double-count. We track the
+ * last call that touched this row via `lastCallId`. If the current call
+ * already incremented this row, we no-op. The pipeline is serial per
+ * callId, so the read-then-write window is safe.
+ *
+ * Status transitions:
+ * - missing row     → create with callCount=1, status=IN_PROGRESS, startedAt=now
+ * - NOT_STARTED row → bump to IN_PROGRESS + increment
+ * - IN_PROGRESS row → increment, status unchanged
+ * - COMPLETED row   → increment, status unchanged (don't reopen)
+ *
+ * Returns the new callCount for logging / test assertions; -1 indicates
+ * a no-op (null moduleId or idempotent skip).
+ */
+export async function incrementModuleEvidence(
+  callId: string,
+  callerId: string,
+  moduleId: string | null,
+  log: PipelineLogger
+): Promise<{ callCount: number; created: boolean; skipped: boolean }> {
+  if (!moduleId) {
+    log.debug("incrementModuleEvidence skipped: no moduleId attribution", { callId, callerId });
+    return { callCount: -1, created: false, skipped: true };
+  }
+
+  const existing = await prisma.callerModuleProgress.findUnique({
+    where: { callerId_moduleId: { callerId, moduleId } },
+    select: { id: true, callCount: true, lastCallId: true, status: true },
+  });
+
+  if (!existing) {
+    const created = await prisma.callerModuleProgress.create({
+      data: {
+        callerId,
+        moduleId,
+        callCount: 1,
+        status: "IN_PROGRESS",
+        startedAt: new Date(),
+        lastCallId: callId,
+      },
+      select: { callCount: true },
+    });
+    log.info("CallerModuleProgress created (first call on module)", {
+      callerId,
+      moduleId,
+      callCount: created.callCount,
+    });
+    return { callCount: created.callCount, created: true, skipped: false };
+  }
+
+  // Idempotency: this exact call already incremented this row.
+  if (existing.lastCallId === callId && existing.callCount > 0) {
+    log.info("CallerModuleProgress increment skipped (idempotent re-run)", {
+      callerId,
+      moduleId,
+      callId,
+      callCount: existing.callCount,
+    });
+    return { callCount: existing.callCount, created: false, skipped: true };
+  }
+
+  // Preserve COMPLETED; promote NOT_STARTED to IN_PROGRESS; leave IN_PROGRESS as-is.
+  const nextStatus = existing.status === "NOT_STARTED" ? "IN_PROGRESS" : existing.status;
+  const updated = await prisma.callerModuleProgress.update({
+    where: { id: existing.id },
+    data: {
+      callCount: { increment: 1 },
+      lastCallId: callId,
+      status: nextStatus,
+      ...(existing.status === "NOT_STARTED" && !existing.lastCallId ? { startedAt: new Date() } : {}),
+    },
+    select: { callCount: true },
+  });
+  log.info("CallerModuleProgress incremented", {
+    callerId,
+    moduleId,
+    callId,
+    callCount: updated.callCount,
+    status: nextStatus,
+  });
+  return { callCount: updated.callCount, created: false, skipped: false };
+}
+
+/**
  * Aggregate caller personality from call scores
  * Creates/updates PersonalityObservation for the call and CallerPersonality aggregate
  *
@@ -2172,7 +2260,7 @@ async function updateTpMasteryAfterCall(
 interface PipelineContext {
   callId: string;
   callerId: string;
-  call: { id: string; transcript: string | null; playbookId: string | null; requestedModuleId: string | null };
+  call: { id: string; transcript: string | null; playbookId: string | null; requestedModuleId: string | null; curriculumModuleId: string | null };
   engine: AIEngine;
   guardrails: GuardrailsConfig;
   pipelineStages: PipelineStage[];
@@ -2397,11 +2485,25 @@ const stageExecutors: Record<string, StageExecutor> = {
       errors: aggregateResult.errors
     });
 
+    // 3. #491 Slice 1.3 — increment CallerModuleProgress.callCount for the
+    // module this call was attributed to (Slice 1.1 wrote curriculumModuleId
+    // at call-create; Slice 1.2 wrote it on every CallScore). Idempotent on
+    // pipeline force-rerun via the lastCallId check inside the helper.
+    const evidenceResult = await incrementModuleEvidence(
+      ctx.callId,
+      ctx.callerId,
+      ctx.call.curriculumModuleId,
+      ctx.log
+    );
+
     return {
       personalityObservationCreated: personalityResult.observationCreated,
       personalityProfileUpdated: personalityResult.profileUpdated,
       aggregateSpecsRun: aggregateResult.specsRun,
       profileUpdates: aggregateResult.profileUpdates,
+      moduleEvidenceCallCount: evidenceResult.callCount,
+      moduleEvidenceCreated: evidenceResult.created,
+      moduleEvidenceSkipped: evidenceResult.skipped,
     };
   },
 
