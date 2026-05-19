@@ -4874,6 +4874,33 @@ Mark multiple questions as reviewed in a single transaction.
 
 ---
 
+### `GET` /api/content-sources/:sourceId/raw-text
+
+Returns the FULL extracted text of a ContentSource by re-running
+
+**Auth**: Session · **Scope**: `content-sources:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| sourceId | path | string | Yes | ContentSource ID |
+
+**Response** `200`
+```json
+{ ok: true, text: string, byteLength: number, mediaAssetId: string | null }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "not-found" | "no-media-asset" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `POST` /api/content-sources/:sourceId/unarchive
 
 Restore an archived content source (set active, clear archivedAt).
@@ -14343,8 +14370,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 444 |
-| Files with annotations | 443 |
+| Route files found | 445 |
+| Files with annotations | 444 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 

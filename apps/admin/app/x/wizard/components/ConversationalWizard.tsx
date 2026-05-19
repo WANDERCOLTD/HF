@@ -958,15 +958,31 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           const { detectPedagogy, hasPedagogy } = await import("@/lib/wizard/detect-pedagogy");
           const joinedAssertions = allAssertions.map((a) => a.assertion).join("\n");
 
-          // Also fetch textSample from course reference sources — the raw first
-          // ~1000 chars preserve the original phrasing that regex detection needs.
-          // The extractor paraphrases assertions, so "Call duration: 12-15 minutes"
-          // becomes something the regex can't match.
+          // Fetch the FULL extracted text of each course-ref source. textSample
+          // is truncated at 2KB by ingest; the `## Modules` table typically sits
+          // far beyond that (the IELTS Speaking course-ref has it at char ~20,500).
+          // Without full text, `detectAuthoredModules` parses the header
+          // declaration but not the catalogue table → wizard mis-flags
+          // `curriculumPath: "generated"` for courses that declare authored
+          // modules. The /raw-text endpoint re-extracts from storage to return
+          // the entire body. Falls back to textSample if the raw-text fetch fails
+          // (network blip, storage outage) so the wizard degrades rather than
+          // breaks.
           let rawSourceText = "";
           for (const idx of courseRefIndices) {
             const sid = sourceIds[idx];
             if (!sid) continue;
             try {
+              const fullRes = await fetch(`/api/content-sources/${sid}/raw-text`);
+              if (fullRes.ok) {
+                const fullData = await fullRes.json();
+                if (fullData.ok && typeof fullData.text === "string" && fullData.text.length > 0) {
+                  rawSourceText += fullData.text + "\n";
+                  continue;
+                }
+              }
+              // Fallback: textSample (truncated). Better than nothing for the
+              // header declaration even if the catalogue table is missed.
               const rawRes = await fetch(`/api/content-sources/${sid}`);
               if (rawRes.ok) {
                 const rawData = await rawRes.json();
