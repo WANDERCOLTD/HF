@@ -340,6 +340,7 @@ export async function computeSharedState(
   resolvedSpecs: ResolvedSpecs,
   specConfig: Record<string, any>,
   triggerType?: string,
+  requestedModuleIdArg?: string | null,
 ): Promise<SharedComputedState> {
   const channel: 'text' | 'voice' = triggerType === 'sim' ? 'text' : 'voice';
   // DB-first: try CurriculumModule records before JSON paths
@@ -511,8 +512,33 @@ export async function computeSharedState(
   // narrate the wrong module. Symmetric to the pipeline-side override at
   // pipeline/route.ts:108 (mastery scoring for end-of-call).
   let lockedModule: ModuleData | null = null;
+
+  // #492 Slice 3.1 — DB-id route. `requestedModuleIdArg` is a
+  // `CurriculumModule.id` threaded from `Call.curriculumModuleId` via
+  // executeComposition. It is the most explicit signal (the pipeline
+  // resolved the slug → id at call-create) so it wins over the
+  // authored-id specConfig path. Match against the loaded `modules[]`
+  // (which are CurriculumModule rows for DB-curricula and
+  // notableInfo.modules for the subject-fallback path) by `id` or `slug`.
+  if (requestedModuleIdArg) {
+    const matchById = modules.find(
+      (m) => m.id === requestedModuleIdArg || m.slug === requestedModuleIdArg,
+    );
+    if (matchById) {
+      lockedModule = matchById;
+      nextModule = matchById;
+      console.log(
+        `[modules] #492 Slice 3.1: locked to CurriculumModule "${matchById.slug || matchById.id}" (id="${requestedModuleIdArg}") — scheduler BYPASSED.`,
+      );
+    } else {
+      console.warn(
+        `[modules] #492 Slice 3.1: requestedModuleIdArg "${requestedModuleIdArg}" does not resolve to any CurriculumModule in the active curriculum — falling through to specConfig / scheduler.`,
+      );
+    }
+  }
+
   const requestedModuleId = (specConfig.requestedModuleId as string | undefined) || undefined;
-  if (requestedModuleId) {
+  if (!lockedModule && requestedModuleId) {
     // Match against Playbook.config.modules (the authored shape). The picker
     // emits the AuthoredModule.id as ?requestedModuleId=… so we match on id.
     // pbConfig is declared further down (line ~672) for the isFinalSession
