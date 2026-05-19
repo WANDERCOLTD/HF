@@ -55,12 +55,21 @@ import "./transforms/offboarding";
  * @param specSections - Section definitions from COMP-001 spec (or defaults)
  * @param specConfig - Full spec config (thresholds, limits, etc.)
  * @param triggerType - What triggered this composition ('sim' → text channel, others → voice)
+ * @param requestedModuleId - #492 Slice 3.1: when set, the composer locks the
+ *   session to a specific `CurriculumModule.id`. Highest-priority module pick —
+ *   overrides scheduler choice and locked-module-from-state. Surfaced from
+ *   `Call.curriculumModuleId` (resolved at call creation from a `?module=<slug>`
+ *   param) and from explicit picker → compose-prompt flows. When the id does
+ *   not resolve to a module in the active curriculum, falls back silently to
+ *   the existing priority (locked-from-spec → scheduler → recommendNextModule)
+ *   and logs a warning so wizard / route bugs surface in dev.
  */
 export async function executeComposition(
   callerId: string,
   specSections: CompositionSectionDef[],
   specConfig: Record<string, any>,
   triggerType?: string,
+  requestedModuleId?: string | null,
 ): Promise<CompositionResult> {
   const loadStart = Date.now();
 
@@ -102,7 +111,17 @@ export async function executeComposition(
   console.log(`[CompositionExecutor] Voice: ${resolvedSpecs.voiceSpec?.name || "NONE"}`);
 
   // 3. Compute shared state (modules, session flow, etc.)
-  const sharedState = await computeSharedState(loadedData, resolvedSpecs, specConfig, triggerType);
+  // #492 Slice 3.1: `requestedModuleId` (a CurriculumModule.id) is threaded as
+  // an explicit param — separate from `specConfig.requestedModuleId` (the
+  // authored-module id matched against Playbook.config.modules from #274
+  // Slice A). Both are honoured, DB-id wins when both match.
+  const sharedState = await computeSharedState(
+    loadedData,
+    resolvedSpecs,
+    specConfig,
+    triggerType,
+    requestedModuleId ?? null,
+  );
 
   // 4. Initialize assembled context
   const context: AssembledContext = {

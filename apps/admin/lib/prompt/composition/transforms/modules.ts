@@ -340,6 +340,15 @@ export async function computeSharedState(
   resolvedSpecs: ResolvedSpecs,
   specConfig: Record<string, any>,
   triggerType?: string,
+  /**
+   * #492 Slice 3.1: explicit DB CurriculumModule.id picked by the caller
+   * (call row's `curriculumModuleId`, or compose-prompt route body). When
+   * provided AND matched against the loaded modules, becomes the highest-
+   * priority `currentModule` — overrides locked-module-from-state and
+   * scheduler choice. Works for both authored and AI-generated curricula
+   * because all module rows route through `CurriculumModule`.
+   */
+  requestedModuleIdArg?: string | null,
 ): Promise<SharedComputedState> {
   const channel: 'text' | 'voice' = triggerType === 'sim' ? 'text' : 'voice';
   // DB-first: try CurriculumModule records before JSON paths
@@ -466,15 +475,50 @@ export async function computeSharedState(
   let schedulerTotalMastered = 0;
   let schedulerTotalLOs = 0;
 
+  // ── #492 Slice 3.1: highest-priority pick via CurriculumModule.id ─────
+  // This is the call-row pathway: `Call.curriculumModuleId` (resolved at
+  // call creation from `?module=<slug>`) flows through the executor as
+  // `requestedModuleIdArg` and locks the session to that DB module. Works
+  // for both authored courses (post-sync) and AI-generated courses, because
+  // both routes populate `CurriculumModule` rows. Matched against the
+  // already-loaded `modules` array (m.id === CurriculumModule.id for the
+  // DB-first path). When matched, it short-circuits below #274 Slice A and
+  // the scheduler — this is by design: the call row is the most explicit
+  // signal of which module to teach.
+  let lockedModule: ModuleData | null = null;
+  if (requestedModuleIdArg) {
+    const dbMatch = modules.find((m) => m.id === requestedModuleIdArg);
+    if (dbMatch) {
+      lockedModule = dbMatch;
+      nextModule = dbMatch;
+      console.log(
+        `[modules] #492 Slice 3.1: locked to CurriculumModule.id "${requestedModuleIdArg}" ` +
+          `(name="${dbMatch.name}") — scheduler + specConfig.requestedModuleId BYPASSED.`,
+      );
+    } else {
+      // Important: warn so wizard / route bugs surface fast in dev. We don't
+      // throw — composition must continue. Fall through to the existing
+      // priority order (locked-from-spec → scheduler → recommendNextModule).
+      console.warn(
+        `[modules] #492 Slice 3.1: requestedModuleId "${requestedModuleIdArg}" ` +
+          `does not resolve to any CurriculumModule in this curriculum ` +
+          `(curriculumId=${curriculumId ?? "(none)"}, modules.length=${modules.length}). ` +
+          `Falling back to existing priority (locked-from-spec → scheduler → recommendNextModule).`,
+      );
+    }
+  }
+
   // ── #274 Slice A: locked-module resolution ────────────────────────────
   // When the learner picked a specific module via the Module Picker, the
   // scheduler MUST be bypassed at compose time — otherwise selectNextExchange
   // overwrites `nextModule` with its frontier choice and downstream transforms
   // narrate the wrong module. Symmetric to the pipeline-side override at
   // pipeline/route.ts:108 (mastery scoring for end-of-call).
-  let lockedModule: ModuleData | null = null;
+  //
+  // Skipped when #492 Slice 3.1 already locked (DB-id route wins over
+  // authored-id route).
   const requestedModuleId = (specConfig.requestedModuleId as string | undefined) || undefined;
-  if (requestedModuleId) {
+  if (!lockedModule && requestedModuleId) {
     // Match against Playbook.config.modules (the authored shape). The picker
     // emits the AuthoredModule.id as ?requestedModuleId=… so we match on id.
     // pbConfig is declared further down (line ~672) for the isFinalSession

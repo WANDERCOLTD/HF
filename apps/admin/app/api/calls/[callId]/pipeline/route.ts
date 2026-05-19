@@ -2933,7 +2933,16 @@ const stageExecutors: Record<string, StageExecutor> = {
     // Direct function call — no HTTP self-call
     const playbookIds = ctx.call.playbookId ? [ctx.call.playbookId] : undefined;
     const { fullSpecConfig, sections, specSlug } = await loadComposeConfig({ playbookIds });
-    const composition = await executeComposition(ctx.callerId, sections, fullSpecConfig);
+    // #492 Slice 3.1: thread the call row's `curriculumModuleId` (resolved
+    // at call-create from `?module=<slug>` via E1 1.1) so the composer locks
+    // the prompt to the picked module. When null, falls through to scheduler.
+    const composition = await executeComposition(
+      ctx.callerId,
+      sections,
+      fullSpecConfig,
+      undefined,
+      ctx.call.curriculumModuleId ?? null,
+    );
     const promptSummary = renderPromptSummary(composition.llmPrompt);
 
     const persisted = await persistComposedPrompt(composition, promptSummary, {
