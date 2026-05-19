@@ -806,11 +806,14 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       const uploadOverrides = { lastUploadClassifications: data.classifications };
       pendingUploadRef.current = { text: "Teaching materials uploaded", overrides: uploadOverrides };
 
-      // Show typing dots immediately. If any file is COURSE_REFERENCE, use
-      // "course-ref-analysing" which persists through extraction → digest → AI
-      // narration. Otherwise "upload-draining" clears once the drain fires.
+      // Show typing dots immediately. If any file is a COURSE_REFERENCE* variant
+      // (COURSE_REFERENCE, COURSE_REFERENCE_CANONICAL, COURSE_REFERENCE_TUTOR_BRIEFING,
+      // ...), use "course-ref-analysing" which persists through extraction →
+      // digest → AI narration. Otherwise "upload-draining" clears once the
+      // drain fires.
       const hasCourseRef = data.classifications.some(
-        (c: { documentType: string }) => c.documentType === "COURSE_REFERENCE",
+        (c: { documentType: string }) =>
+          typeof c.documentType === "string" && c.documentType.startsWith("COURSE_REFERENCE"),
       );
       setBusyReason(hasCourseRef ? "course-ref-analysing" : "upload-draining");
       scrollToBottom();
@@ -854,8 +857,17 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       const sourceIds = getData<string[]>("uploadSourceIds");
       if (!classifications || !sourceIds) { setBusyReason(null); return; }
 
+      // Match any COURSE_REFERENCE* variant — the classifier emits
+      // COURSE_REFERENCE, COURSE_REFERENCE_CANONICAL, COURSE_REFERENCE_TUTOR_BRIEFING,
+      // and other subtypes. The canonical doc (where `## Modules` lives)
+      // is usually COURSE_REFERENCE_CANONICAL, so an exact-match filter
+      // silently skipped it and ran `detectAuthoredModules` on text that
+      // never included the module table → curriculumPath mis-flagged as
+      // "generated" for IELTS-style courses (live repro 2026-05-19).
+      const isCourseRefType = (t: string): boolean =>
+        typeof t === "string" && t.startsWith("COURSE_REFERENCE");
       const courseRefIndices = classifications
-        .map((c, i) => c.documentType === "COURSE_REFERENCE" ? i : -1)
+        .map((c, i) => isCourseRefType(c.documentType) ? i : -1)
         .filter((i) => i >= 0);
       if (courseRefIndices.length === 0) {
         // Non-COURSE_REFERENCE extraction done — show a quiet status in chat
