@@ -1044,11 +1044,29 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             const { detectCourseConfig, hasCourseConfig } = await import("@/lib/wizard/detect-course-config");
             const courseConfig = detectCourseConfig(combinedText);
             if (hasCourseConfig(courseConfig)) {
-              // Structured config from the document WINS over AI guesses —
-              // BUT only for fields the user/AI hasn't already set.
-              // courseName is special: the user names their course, the doc
-              // just has a document title. Never overwrite an existing courseName.
+              // Structured config from the document is the canonical signal
+              // for fields the educator did NOT type in chat. When the user
+              // explicitly set a field in the wizard chat (tracked via
+              // `userSetFields`), the user value wins — the comment line
+              // 1050 "user's chosen name always wins" applies to every
+              // user-set field, not just courseName. Without this guard the
+              // doc silently overwrites typed input (see #543: live repro
+              // hf-dev 2026-05-19 where typed audience="adult-professional"
+              // was replaced by doc "adult-casual").
               const docKeys: string[] = [];
+              const userSet = new Set<string>(getData<string[]>("userSetFields") ?? []);
+              const conflicts: Array<{ key: string; user: unknown; doc: unknown }> = [];
+              const setUnlessUserSet = (key: string, value: unknown) => {
+                if (userSet.has(key)) {
+                  const userValue = getData(key);
+                  if (userValue !== value) {
+                    conflicts.push({ key, user: userValue, doc: value });
+                  }
+                  return;
+                }
+                setData(key, value);
+                docKeys.push(key);
+              };
               const setIfEmpty = (key: string, value: unknown) => {
                 if (!getData(key)) {
                   setData(key, value);
@@ -1057,12 +1075,12 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
               };
               // courseName: only fill if blank — user's chosen name always wins
               if (courseConfig.courseName) setIfEmpty("courseName", courseConfig.courseName);
-              // These pedagogy fields: doc config wins (educator checkboxes)
-              if (courseConfig.subjectDiscipline) { setData("subjectDiscipline", courseConfig.subjectDiscipline); docKeys.push("subjectDiscipline"); }
-              if (courseConfig.interactionPattern) { setData("interactionPattern", courseConfig.interactionPattern); docKeys.push("interactionPattern"); }
-              if (courseConfig.teachingMode) { setData("teachingMode", courseConfig.teachingMode); docKeys.push("teachingMode"); }
-              if (courseConfig.audience) { setData("audience", courseConfig.audience); docKeys.push("audience"); }
-              if (courseConfig.planEmphasis) { setData("planEmphasis", courseConfig.planEmphasis); docKeys.push("planEmphasis"); }
+              // Pedagogy fields: doc config wins UNLESS the user explicitly typed it.
+              if (courseConfig.subjectDiscipline) setUnlessUserSet("subjectDiscipline", courseConfig.subjectDiscipline);
+              if (courseConfig.interactionPattern) setUnlessUserSet("interactionPattern", courseConfig.interactionPattern);
+              if (courseConfig.teachingMode) setUnlessUserSet("teachingMode", courseConfig.teachingMode);
+              if (courseConfig.audience) setUnlessUserSet("audience", courseConfig.audience);
+              if (courseConfig.planEmphasis) setUnlessUserSet("planEmphasis", courseConfig.planEmphasis);
               // Merge precise preset detection into coursePedagogy (overrides detect-pedagogy's looser regex)
               if (courseConfig.pedagogicalPreset) {
                 const existing = (getData("coursePedagogy") ?? {}) as Record<string, unknown>;
@@ -1072,6 +1090,12 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
               if (courseConfig.learningOutcomes?.length) { setData("learningOutcomes", courseConfig.learningOutcomes); docKeys.push("learningOutcomes"); }
               if (docKeys.length > 0) {
                 setData("_docConfigKeys", docKeys);
+              }
+              if (conflicts.length > 0) {
+                console.log(
+                  `[wizard] doc-config skipped ${conflicts.length} user-set field(s):`,
+                  conflicts.map((c) => `${c.key}: user=${JSON.stringify(c.user)} doc=${JSON.stringify(c.doc)}`).join("; "),
+                );
               }
               console.log("[wizard] course config from document (locked keys):", docKeys, courseConfig);
             }
