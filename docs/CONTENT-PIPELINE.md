@@ -66,7 +66,7 @@ All values authoritative as of 2026-05-11. Cite the file:line in any PR that cha
 | `Playbook.config.teachingMode` (TM) | recall / comprehension / practice / syllabus | `lib/types/json-fields.ts:145` | Scheduler preset, extraction weights |
 | `Playbook.config.interactionPattern` | 8 values listed above | `lib/types/json-fields.ts:153` | Tutor voice |
 | `Playbook.config.progressionMode` | ai-led / learner-picks | `lib/wizard/graph-nodes.ts` | Module selection: scheduler vs picker |
-| `Playbook.config.modulesAuthored` | true / false / null | `lib/types/json-fields.ts` | Whether authored modules exist; null = derived from curriculum |
+| `Playbook.config.modulesAuthored` | true / false / null | `lib/types/json-fields.ts` | Whether authored modules exist; null = derived from curriculum. ⚠ **No longer gates the learner picker** (#495 Slice 4.1) — the picker reads `Playbook.config.modules` first, then falls back to `Curriculum.modules[]`. Field remains the source of truth for the admin AuthoredModulesPanel. |
 | `AuthoredModule.mode` | examiner / tutor / mixed | `lib/types/json-fields.ts:406` | Per-module behaviour (silent during answer vs supportive) |
 | `AuthoredModule.frequency` | once / repeatable / cooldown | `lib/types/json-fields.ts:407` | Module picker filter |
 | `AuthoredModule.learnerSelectable` | true / false | `lib/wizard/detect-authored-modules.ts` | Hide module from picker |
@@ -473,7 +473,7 @@ The marker is informational — `§N` section refs are NOT machine-checked. The 
 |---------|-------------|------|
 | Tutor is quizzing on test mechanics | LO classifier — is the LO `TEACHING_INSTRUCTION`? | Run reclassify-los; or edit course-ref.md to add the rule explicitly |
 | Wrong content surfacing to learner | §6 veto table — which dimension should be blocking? | Add filter at that layer |
-| Module picker empty | `Playbook.config.modules` populated? `modulesAuthored=true`? | Re-import course-ref.md OR run `import-modules` POST |
+| Module picker empty | Authored path: `Playbook.config.modules` populated? `modulesAuthored=true`? Generated path: are there `CurriculumModule` rows for the playbook's primary curriculum? | Re-import course-ref.md OR run `import-modules` POST. For AI-gen courses, `GET /api/courses/:id/import-modules` now falls back to `Curriculum.modules[]` and returns `source: "authored" \| "generated" \| null` (#495 Slice 4.1) — picker renders the "curriculum is being prepared" empty state when both paths are empty rather than bouncing the learner. |
 | Curriculum on wrong playbook | `CallerPlaybook` enrollment correct? | L5 — already fixed but check the 3 patched sites |
 | MCQ asking meta-questions | LOs that feed MCQ pool — any `TEACHING_INSTRUCTION` slipping in? | `lib/assessment/module-groups.ts` filter must exclude all `systemRole != NONE` |
 | AI sent a doc to learner | `visualAids` / `subjectSources` loader filtering | L1 — fixed 2026-05-10. `visualAids` filters tutor-only docs; `subjectSources` now exposes `tutorOnly`; `share_content` tool (`app/api/chat/tools.ts`) still gates by `isStudentVisibleDefault`. If a leak recurs, check the documentType classification on the source — `COURSE_REFERENCE` misclassified as `TEXTBOOK` will pass through. |

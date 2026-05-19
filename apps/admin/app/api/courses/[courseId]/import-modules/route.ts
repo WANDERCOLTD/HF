@@ -20,7 +20,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
-import type { PlaybookConfig } from "@/lib/types/json-fields";
+import type { AuthoredModule, PlaybookConfig } from "@/lib/types/json-fields";
 import { detectAuthoredModules } from "@/lib/wizard/detect-authored-modules";
 import {
   applyAuthoredModules,
@@ -28,6 +28,7 @@ import {
 } from "@/lib/wizard/persist-authored-modules";
 import { syncAuthoredModulesToCurriculum } from "@/lib/wizard/sync-authored-modules-to-curriculum";
 import { reclassifyLearningObjectives } from "@/lib/curriculum/reclassify-los";
+import { resolveCurriculumIdForPlaybook } from "@/lib/curriculum/resolve-module";
 
 // ── Body schema ──────────────────────────────────────────────────────
 
@@ -48,11 +49,17 @@ type Body = z.infer<typeof BodySchema>;
  * @visibility internal
  * @scope course:read
  * @auth session (VIEWER+)
- * @description Read the current authored-modules state from PlaybookConfig.
- *   Used by the Authored Modules panel in the Curriculum tab to render the
- *   catalogue without re-parsing the source document. Returns nulls/empties
- *   when no authored modules exist yet (derived path is in use).
- * @response 200 { ok, modulesAuthored, modules, moduleDefaults, moduleSource, moduleSourceRef, validationWarnings, hasErrors, outcomes, detectedFrom, persisted, curriculumSync, classification }
+ * @description Read the current modules catalogue for a course. Prefers
+ *   author-declared modules from `Playbook.config.modules` when present
+ *   (authored path), otherwise falls back to `Curriculum.modules[]` rows
+ *   keyed via the playbook's primary curriculum (AI-generated path — #495
+ *   Slice 4.1). The fallback maps `CurriculumModule` rows into the same
+ *   `AuthoredModule` shape so the learner-facing picker is route-agnostic.
+ *   The new top-level `source` field is `"authored" | "generated" | null`
+ *   (null when no modules exist on either side); the legacy `moduleSource`
+ *   field (`"authored" | "derived" | null`) is preserved for backwards
+ *   compatibility with the admin AuthoredModulesPanel.
+ * @response 200 { ok, modulesAuthored, modules, moduleDefaults, moduleSource, source, moduleSourceRef, validationWarnings, hasErrors, outcomes, detectedFrom, persisted, curriculumSync, classification }
  * @response 404 { ok: false, error: "Course not found" }
  */
 export async function GET(
@@ -77,12 +84,33 @@ export async function GET(
   const cfg = (playbook.config ?? {}) as PlaybookConfig;
   const warnings = cfg.validationWarnings ?? [];
 
+  // #495 Slice 4.1 — fallback to Curriculum.modules[] when Playbook.config
+  // has no authored modules so the learner picker works for AI-generated
+  // courses too. The authored path remains canonical: only fall through
+  // when `cfg.modules` is empty/missing AND a curriculum exists.
+  const authoredModules = (cfg.modules ?? []) as AuthoredModule[];
+  let modulesForResponse: AuthoredModule[] = authoredModules;
+  let pickerSource: "authored" | "generated" | null =
+    authoredModules.length > 0 ? "authored" : null;
+
+  if (authoredModules.length === 0) {
+    const generated = await loadGeneratedModulesAsAuthored(courseId);
+    if (generated.length > 0) {
+      modulesForResponse = generated;
+      pickerSource = "generated";
+    }
+  }
+
   // #281 Slice 3b: per-module ContentQuestion count so the AuthoredModules
   // panel can show a "no learner-facing content" banner for modules whose
   // outcomes have zero MCQs. Single groupBy across all module outcomes —
   // not a per-module loop. Keys outcomeRef → count, then we spread into
   // moduleId → count by summing each module's outcomesPrimary memberships.
-  const modulesArr = (cfg.modules ?? []) as Array<{ id: string; outcomesPrimary?: string[] }>;
+  // Drives off `modulesForResponse` so the count works for both authored
+  // and generated paths (the latter has empty outcomesPrimary today, so
+  // the count is naturally zero — but the wiring is in place if generated
+  // modules later get outcome refs).
+  const modulesArr = modulesForResponse as Array<{ id: string; outcomesPrimary?: string[] }>;
   const allOutcomeRefs = Array.from(
     new Set(modulesArr.flatMap((m) => Array.isArray(m.outcomesPrimary) ? m.outcomesPrimary : [])),
   );
@@ -149,7 +177,12 @@ export async function GET(
   return NextResponse.json({
     ok: true,
     modulesAuthored: cfg.modulesAuthored ?? null,
-    modules: cfg.modules ?? [],
+    // #495 Slice 4.1 — `modules` is the picker-ready list (authored when
+    // present, generated fallback otherwise). `source` tells the UI which
+    // path produced them; the legacy `moduleSource` (authored | derived)
+    // is preserved unchanged for the admin AuthoredModulesPanel.
+    modules: modulesForResponse,
+    source: pickerSource,
     moduleDefaults: cfg.moduleDefaults ?? {},
     moduleSource: cfg.moduleSource ?? null,
     moduleSourceRef: cfg.moduleSourceRef ?? null,
@@ -168,6 +201,62 @@ export async function GET(
     // exists yet (cold-start before classifier first runs).
     loAudienceByRef,
   });
+}
+
+/**
+ * #495 Slice 4.1 — load the playbook's primary `Curriculum.modules[]` and
+ * project them into the `AuthoredModule` shape so the learner picker can
+ * render AI-generated courses without a second code path. Returns `[]` when
+ * the playbook has no curriculum attached or the curriculum has no modules.
+ *
+ * Defaults applied here keep generated modules safely renderable:
+ *   - `learnerSelectable: true` — every generated module is offered to the learner
+ *   - `mode: "tutor"`, `frequency: "repeatable"` — neutral defaults
+ *   - `voiceBandReadout: false`, `sessionTerminal: false` — opt-in behaviours only
+ *   - `outcomesPrimary: []`, `prerequisites: []` — generated modules don't yet
+ *     declare authored outcome refs; the picker treats them as ungated
+ *
+ * The slug is used as the picker's stable `id` so progress rows (which key
+ * by CurriculumModule.slug) line up with the picker's completed/in-progress
+ * sets — same convention as the authored path.
+ */
+async function loadGeneratedModulesAsAuthored(
+  playbookId: string,
+): Promise<AuthoredModule[]> {
+  const curriculumId = await resolveCurriculumIdForPlaybook(playbookId);
+  if (!curriculumId) return [];
+
+  const rows = await prisma.curriculumModule.findMany({
+    where: { curriculumId, isActive: true },
+    orderBy: { sortOrder: "asc" },
+    select: {
+      slug: true,
+      title: true,
+      description: true,
+      sortOrder: true,
+      estimatedDurationMinutes: true,
+      prerequisites: true,
+    },
+  });
+
+  return rows.map((row): AuthoredModule => ({
+    id: row.slug,
+    label: row.title,
+    learnerSelectable: true,
+    mode: "tutor",
+    duration:
+      typeof row.estimatedDurationMinutes === "number" &&
+      row.estimatedDurationMinutes > 0
+        ? `${row.estimatedDurationMinutes} min`
+        : "Student-led",
+    scoringFired: "",
+    voiceBandReadout: false,
+    sessionTerminal: false,
+    frequency: "repeatable",
+    outcomesPrimary: [],
+    prerequisites: Array.isArray(row.prerequisites) ? row.prerequisites : [],
+    position: row.sortOrder,
+  }));
 }
 
 /**
