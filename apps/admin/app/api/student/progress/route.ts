@@ -21,7 +21,12 @@ export async function GET(request: NextRequest) {
 
   const { callerId } = auth;
 
-  const [profile, goals, callCount, caller, memorySummary, keyFactCount, surveyAttrs] = await Promise.all([
+  // #493 Slice 5.1 — load per-module progress for the SimProgressPanel "Modules"
+  // section. CallerModuleProgress already tracks callCount + mastery + status;
+  // we surface those for the panel to render coloured chips per module.
+  // Module status is mapped at this boundary: DB "COMPLETED" → presentational
+  // "MASTERED" (E5 vocabulary); other statuses pass through verbatim.
+  const [profile, goals, callCount, caller, memorySummary, keyFactCount, surveyAttrs, moduleProgress] = await Promise.all([
     prisma.callerPersonalityProfile.findUnique({
       where: { callerId },
       select: { parameterValues: true, lastUpdatedAt: true, callsUsed: true },
@@ -88,6 +93,18 @@ export async function GET(request: NextRequest) {
       where: { callerId, scope: { in: SURVEY_ATTR_SCOPES } },
       select: { key: true, scope: true, valueType: true, stringValue: true, numberValue: true, booleanValue: true },
     }),
+    prisma.callerModuleProgress.findMany({
+      where: { callerId },
+      select: {
+        moduleId: true,
+        status: true,
+        mastery: true,
+        callCount: true,
+        completedAt: true,
+        module: { select: { id: true, slug: true, title: true, sortOrder: true, masteryThreshold: true } },
+      },
+      orderBy: { module: { sortOrder: "asc" } },
+    }),
   ]);
 
   // ── Build survey buckets ──
@@ -108,6 +125,25 @@ export async function GET(request: NextRequest) {
   const upliftNormalised = surveys[SURVEY_SCOPES.POST_TEST]?.uplift_normalised != null ? Number(surveys[SURVEY_SCOPES.POST_TEST].uplift_normalised) : null;
 
   const hasData = (d: Record<string, unknown>) => Object.keys(d).length > 0;
+
+  // #493 Slice 5.1 — shape CallerModuleProgress rows for the panel. DB enum
+  // "COMPLETED" maps to presentational "MASTERED" (see #480 tech-lead review).
+  // LOCKED is purely presentation (E4 derives it from prereqs); not returned here.
+  const moduleStatusMap = (dbStatus: string): "MASTERED" | "IN_PROGRESS" | "NOT_STARTED" => {
+    if (dbStatus === "COMPLETED") return "MASTERED";
+    if (dbStatus === "IN_PROGRESS") return "IN_PROGRESS";
+    return "NOT_STARTED";
+  };
+  const modules = moduleProgress.map((p) => ({
+    id: p.moduleId,
+    slug: p.module.slug,
+    title: p.module.title,
+    status: moduleStatusMap(p.status),
+    callCount: p.callCount,
+    mastery: p.mastery,
+    masteryThreshold: p.module.masteryThreshold ?? 0.7,
+    completedAt: p.completedAt,
+  }));
 
   // Prefer join table memberships, fall back to legacy FK
   const primaryCohort = caller?.cohortMemberships?.[0]?.cohortGroup ?? caller?.cohortGroup;
@@ -148,5 +184,11 @@ export async function GET(request: NextRequest) {
       postTest: postTestScore,
       uplift: upliftAbsolute != null ? { absolute: upliftAbsolute, normalised: upliftNormalised } : null,
     },
+    // #493 Slice 5.1 — per-module progress for SimProgressPanel Modules section
+    modules,
+    // #493 Slice 5.3 — populated by E2 once diagnosticFromMock lands. Null until then.
+    diagnosticFromMock: null,
+    // #493 Slice 5.4 — populated by E2 once isCourseComplete() lands. Null until then.
+    courseComplete: null,
   });
 }

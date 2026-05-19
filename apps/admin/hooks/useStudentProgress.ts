@@ -10,6 +10,44 @@ export interface StudentGoal {
   description: string | null;
 }
 
+/**
+ * #493 Slice 5.1 — per-module progress for the SimProgressPanel Modules section.
+ * Status is API-mapped: DB "COMPLETED" surfaces as presentational "MASTERED".
+ * LOCKED is computed on the client by E4's picker logic from prereqs +
+ * strictPrerequisites flag — NOT included here.
+ */
+export interface StudentModuleProgress {
+  id: string;
+  slug: string;
+  title: string;
+  status: "MASTERED" | "IN_PROGRESS" | "NOT_STARTED";
+  callCount: number;
+  mastery: number;
+  masteryThreshold: number;
+  completedAt: string | null;
+}
+
+/**
+ * #493 Slice 5.3 — populated by E2 ADAPT after a Mock call. Null until then.
+ */
+export interface StudentDiagnosticFromMock {
+  focusModules: string[];
+  strengthModule: string | null;
+  weakSkill: string | null;
+  summary: string;
+  fromCallId: string;
+  generatedAt: string;
+}
+
+/**
+ * #493 Slice 5.4 — populated by E2 once isCourseComplete() lands.
+ */
+export interface StudentCourseComplete {
+  complete: boolean;
+  mode: "all-modules" | "terminal-only" | "any";
+  completedAt: string | null;
+}
+
 export interface StudentProgress {
   goals: StudentGoal[];
   totalCalls: number;
@@ -25,6 +63,12 @@ export interface StudentProgress {
   domain: string | null;
   teacherName: string | null;
   institutionName: string | null;
+  // #493 Slice 5.1 — per-module progress
+  modules: StudentModuleProgress[];
+  // #493 Slice 5.3 — null until E2 lands diagnosticFromMock writer
+  diagnosticFromMock: StudentDiagnosticFromMock | null;
+  // #493 Slice 5.4 — null until E2 lands isCourseComplete()
+  courseComplete: StudentCourseComplete | null;
 }
 
 interface UseStudentProgressResult {
@@ -65,6 +109,9 @@ export function useStudentProgress(callerId: string): UseStudentProgressResult {
         domain: json.domain ?? null,
         teacherName: json.teacherName ?? null,
         institutionName: json.institutionName ?? null,
+        modules: json.modules ?? [],
+        diagnosticFromMock: json.diagnosticFromMock ?? null,
+        courseComplete: json.courseComplete ?? null,
       });
     } catch (err) {
       setError((err as Error).message);
