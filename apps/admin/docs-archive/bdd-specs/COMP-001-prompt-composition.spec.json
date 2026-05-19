@@ -686,6 +686,21 @@
       "dependsOn": ["curriculum"]
     },
     {
+      "id": "mock_diagnostic",
+      "name": "Mock Diagnostic",
+      "priority": 7.6,
+      "dataSource": "mockDiagnostic",
+      "activateWhen": {
+        "condition": "mockDiagnosticExists"
+      },
+      "fallback": {
+        "action": "omit"
+      },
+      "transform": "renderMockDiagnostic",
+      "outputKey": "mockDiagnostic",
+      "dependsOn": ["curriculum"]
+    },
+    {
       "id": "session_planning",
       "name": "Session Planning",
       "priority": 8,

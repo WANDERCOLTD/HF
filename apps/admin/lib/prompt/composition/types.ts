@@ -101,6 +101,14 @@ export interface LoadedDataContext {
    * module scope), in which case the section is omitted from the final prompt.
    */
   priorCallFeedback?: PriorCallFeedbackData;
+  /**
+   * #492 Slice 3.6 — most recent post-Mock diagnostic for this learner.
+   * `hasDiagnostic: false` when there is no DIAGNOSTIC/fromMock row, the
+   * JSON failed to parse, or the diagnostic came from the call we're
+   * composing for (chicken/egg). Omitted from the final prompt in those
+   * cases.
+   */
+  mockDiagnostic?: MockDiagnosticData;
 }
 
 /** Prior-call feedback data for the current module (#492 Slice 3.5) */
@@ -112,6 +120,25 @@ export interface PriorCallFeedbackData {
   weakestParameterScore: number | null;
   overallScore: number | null;
   summary: string | null;
+}
+
+/** Mock diagnostic module ref (#492 Slice 3.6) */
+export interface MockDiagnosticModuleRef {
+  id: string;
+  slug: string;
+  title: string;
+}
+
+/** Post-Mock diagnostic resolved for prompt composition (#492 Slice 3.6) */
+export interface MockDiagnosticData {
+  hasDiagnostic: boolean;
+  focusModules: MockDiagnosticModuleRef[];
+  strengthModule: MockDiagnosticModuleRef | null;
+  weakSkill: string | null;
+  summary: string | null;
+  fromCallId: string | null;
+  generatedAt: string | null;
+  ageInDays: number | null;
 }
 
 /** Visual aid data loaded for prompt and content catalog */
