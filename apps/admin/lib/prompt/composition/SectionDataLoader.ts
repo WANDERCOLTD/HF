@@ -18,6 +18,7 @@ import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { getSubjectsForPlaybook } from "@/lib/knowledge/domain-sources";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
+import { loadPriorCallFeedback } from "./loaders/priorCallFeedback";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import type { LoadedDataContext, SystemSpecData } from "./types";
 
@@ -73,10 +74,18 @@ export function getLoader(name: string): LoaderFn | undefined {
 /**
  * Load all data sources in parallel.
  * Mirrors the Promise.all() block from route.ts lines 109-355.
+ *
+ * @param callerId - Caller to compose for
+ * @param specConfig - COMP-001 spec config
+ * @param scope - Optional call-scoped values threaded from the COMPOSE stage.
+ *   `requestedModuleId` is the `CurriculumModule.id` set on the current Call;
+ *   `currentCallId` is excluded from prior-call lookups so we never
+ *   self-reference. Both default to undefined (no priorCallFeedback emitted).
  */
 export async function loadAllData(
   callerId: string,
   specConfig: Record<string, any>,
+  scope?: { requestedModuleId?: string | null; currentCallId?: string | null },
 ): Promise<LoadedDataContext> {
   const memoriesLimit = specConfig.memoriesLimit || 50;
   const recentCallsLimit = specConfig.recentCallsLimit || 5;
@@ -106,6 +115,7 @@ export async function loadAllData(
     courseInstructions,
     openActions,
     visualAids,
+    priorCallFeedback,
   ] = await Promise.all([
     loaderRegistry.get("caller")!(callerId),
     loaderRegistry.get("memories")!(callerId, { limit: memoriesLimit }),
@@ -128,6 +138,10 @@ export async function loadAllData(
     loaderRegistry.get("courseInstructions")!(callerId, { contentScope }),
     loaderRegistry.get("openActions")!(callerId),
     loaderRegistry.get("visualAids")!(callerId, { contentScope }),
+    loaderRegistry.get("priorCallFeedback")!(callerId, {
+      moduleId: scope?.requestedModuleId ?? null,
+      currentCallId: scope?.currentCallId ?? null,
+    }),
   ]);
 
   // Filter systemSpecs by playbook's systemSpecToggles (if configured)
@@ -158,6 +172,15 @@ export async function loadAllData(
     courseInstructions: courseInstructions || [],
     openActions: openActions || [],
     visualAids: visualAids || [],
+    priorCallFeedback: priorCallFeedback || {
+      hasFeedback: false,
+      lastCallAt: null,
+      lastCallId: null,
+      weakestParameterName: null,
+      weakestParameterScore: null,
+      overallScore: null,
+      summary: null,
+    },
   };
 }
 
@@ -538,6 +561,53 @@ registerLoader("callCount", async (callerId) => {
   return prisma.call.count({
     where: { callerId, endedAt: { not: null } },
   });
+});
+
+/**
+ * #492 Slice 3.5 — recap of the learner's most recent prior call on the
+ * current module. Delegates to {@link loadPriorCallFeedback} (pure function
+ * for testability). Wrapped in try/catch so any failure (missing FK,
+ * permission glitch, etc.) just disables the section rather than breaking
+ * composition.
+ *
+ * `config.moduleId` is the `CurriculumModule.id` from the current `Call`
+ * (threaded via `loadAllData(callerId, specConfig, { requestedModuleId })`).
+ * When null/undefined the loader returns the empty shape so the
+ * `priorCallFeedback` section activation check (`dataExists` + `hasFeedback`)
+ * skips emission.
+ */
+registerLoader("priorCallFeedback", async (callerId, config) => {
+  const moduleId = config?.moduleId as string | null | undefined;
+  const currentCallId = config?.currentCallId as string | null | undefined;
+  if (!moduleId) {
+    return {
+      hasFeedback: false,
+      lastCallAt: null,
+      lastCallId: null,
+      weakestParameterName: null,
+      weakestParameterScore: null,
+      overallScore: null,
+      summary: null,
+    };
+  }
+  try {
+    return await loadPriorCallFeedback(prisma, {
+      callerId,
+      moduleId,
+      currentCallId: currentCallId ?? null,
+    });
+  } catch (err) {
+    console.warn("[priorCallFeedback] loader failed — section will be omitted:", err);
+    return {
+      hasFeedback: false,
+      lastCallAt: null,
+      lastCallId: null,
+      weakestParameterName: null,
+      weakestParameterScore: null,
+      overallScore: null,
+      summary: null,
+    };
+  }
 });
 
 registerLoader("behaviorTargets", async (_callerId) => {

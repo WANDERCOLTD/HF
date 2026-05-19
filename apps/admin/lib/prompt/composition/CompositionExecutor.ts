@@ -47,6 +47,7 @@ import "./transforms/retrieval-practice";
 import "./transforms/course-instructions";
 import "./transforms/audience";
 import "./transforms/offboarding";
+import "./transforms/priorCallFeedback";
 
 /**
  * Execute the full composition pipeline.
@@ -70,11 +71,18 @@ export async function executeComposition(
   specConfig: Record<string, any>,
   triggerType?: string,
   requestedModuleId?: string | null,
+  currentCallId?: string | null,
 ): Promise<CompositionResult> {
   const loadStart = Date.now();
 
   // 1. Load all data in parallel
-  const loadedData = await loadAllData(callerId, specConfig);
+  // #492 Slice 3.5: `currentCallId` + `requestedModuleId` thread the active
+  // call's module scope into the priorCallFeedback loader so it can fetch the
+  // learner's last attempt on this module (and exclude the current call).
+  const loadedData = await loadAllData(callerId, specConfig, {
+    requestedModuleId: requestedModuleId ?? null,
+    currentCallId: currentCallId ?? null,
+  });
   const loadTimeMs = Date.now() - loadStart;
 
   if (!loadedData.caller) {
@@ -305,6 +313,19 @@ function checkActivationWithReason(
         return { activated: true, reason: "First call in current domain" };
       }
       return { activated: false, reason: "Not first call in domain" };
+
+    case "priorCallFeedbackExists": {
+      // #492 Slice 3.5 — only activate when the priorCallFeedback loader found
+      // a prior call AND it produced a usable summary. The loader always
+      // returns an object so the generic `dataExists` check passes; this
+      // checks the hasFeedback flag explicitly so the section is omitted
+      // (via fallback.action: "omit") on first-attempt calls.
+      const data = (context.loadedData as any).priorCallFeedback;
+      if (data && data.hasFeedback === true && typeof data.summary === "string" && data.summary.length > 0) {
+        return { activated: true, reason: "Prior call feedback available" };
+      }
+      return { activated: false, reason: "No prior call on this module (or empty summary)" };
+    }
 
     default:
       return { activated: true, reason: `Custom condition: ${condition}` };
@@ -589,6 +610,23 @@ export function getDefaultSections(): CompositionSectionDef[] {
       fallback: { action: "null" },
       transform: "computeModuleProgress",
       outputKey: "curriculum",
+    },
+    {
+      // #492 Slice 3.5 — recap of the learner's last attempt on this module.
+      // Slots between curriculum (priority 7) and learner_goals (priority 9) so
+      // the tutor reads "what happened last time" before any goal framing.
+      // activateWhen=priorCallFeedbackExists checks loadedData.priorCallFeedback.hasFeedback,
+      // which is false on first-attempt calls — combined with fallback.action="omit"
+      // that drops the section entirely from llmPrompt rather than emitting a null block.
+      id: "prior_call_feedback",
+      name: "Prior Call Feedback",
+      priority: 7.5,
+      dataSource: "priorCallFeedback",
+      activateWhen: { condition: "priorCallFeedbackExists" },
+      fallback: { action: "omit" },
+      transform: "renderPriorCallFeedback",
+      outputKey: "priorCallFeedback",
+      dependsOn: ["curriculum"],
     },
     {
       id: "session_planning",

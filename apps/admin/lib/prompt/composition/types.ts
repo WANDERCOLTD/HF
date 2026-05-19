@@ -95,6 +95,23 @@ export interface LoadedDataContext {
   visualAids?: VisualAidData[];
   /** Course instructions (tutor rules) from COURSE_REFERENCE document type */
   courseInstructions?: CourseInstructionData[];
+  /**
+   * #492 Slice 3.5 — recap of the learner's most recent prior call on the
+   * current module. `hasFeedback: false` when there is no prior call (or no
+   * module scope), in which case the section is omitted from the final prompt.
+   */
+  priorCallFeedback?: PriorCallFeedbackData;
+}
+
+/** Prior-call feedback data for the current module (#492 Slice 3.5) */
+export interface PriorCallFeedbackData {
+  hasFeedback: boolean;
+  lastCallAt: string | null;
+  lastCallId: string | null;
+  weakestParameterName: string | null;
+  weakestParameterScore: number | null;
+  overallScore: number | null;
+  summary: string | null;
 }
 
 /** Visual aid data loaded for prompt and content catalog */

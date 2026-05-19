@@ -671,6 +671,21 @@
       "outputKey": "curriculum"
     },
     {
+      "id": "prior_call_feedback",
+      "name": "Prior Call Feedback",
+      "priority": 7.5,
+      "dataSource": "priorCallFeedback",
+      "activateWhen": {
+        "condition": "priorCallFeedbackExists"
+      },
+      "fallback": {
+        "action": "omit"
+      },
+      "transform": "renderPriorCallFeedback",
+      "outputKey": "priorCallFeedback",
+      "dependsOn": ["curriculum"]
+    },
+    {
       "id": "session_planning",
       "name": "Session Planning",
       "priority": 8,

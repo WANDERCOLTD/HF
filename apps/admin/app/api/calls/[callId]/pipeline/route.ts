@@ -3057,12 +3057,15 @@ const stageExecutors: Record<string, StageExecutor> = {
     // #492 Slice 3.1: thread the call row's `curriculumModuleId` (resolved
     // at call-create from `?module=<slug>` via E1 1.1) so the composer locks
     // the prompt to the picked module. When null, falls through to scheduler.
+    // #492 Slice 3.5: thread `ctx.callId` so the priorCallFeedback loader can
+    // exclude the current call from its "last attempt on this module" search.
     const composition = await executeComposition(
       ctx.callerId,
       sections,
       fullSpecConfig,
       undefined,
       ctx.call.curriculumModuleId ?? null,
+      ctx.callId,
     );
     const promptSummary = renderPromptSummary(composition.llmPrompt);
 
