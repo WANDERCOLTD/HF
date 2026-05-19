@@ -93,11 +93,19 @@ function suggestKey(unknown: string): string | null {
 }
 
 export function validateSetupFields(
-  fields: Record<string, unknown>,
+  fields: Record<string, unknown> | null | undefined,
 ): ValidateSetupFieldsResult {
   const validated: Record<string, unknown> = {};
   const corrections: ValidateSetupFieldsResult["corrections"] = [];
   const errors: ValidateSetupFieldsResult["errors"] = [];
+
+  // Defensive: the AI occasionally calls update_setup({}) or
+  // update_setup({ fields: null }) — caller-side cast accepts these but
+  // Object.entries(null|undefined) crashes. Fail-soft to empty results
+  // so the chat surface returns a normal turn instead of a 500.
+  if (!fields || typeof fields !== "object") {
+    return { validated, corrections, errors };
+  }
 
   for (const [origKey, value] of Object.entries(fields)) {
     // 1. Underscore-prefixed internal keys pass through without validation.

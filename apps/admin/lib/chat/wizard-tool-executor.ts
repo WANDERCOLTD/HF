@@ -233,7 +233,14 @@ export async function executeWizardTool(
       // a progressionMode value to interactionPattern. Catch both at the
       // boundary so the data bag stays canonical.
       const { validateSetupFields } = await import("@/lib/wizard/validate-setup-fields");
-      const rawFields = input.fields as Record<string, unknown>;
+      const rawFields = input.fields as Record<string, unknown> | null | undefined;
+      // Defensive: AI sometimes calls update_setup({}) or update_setup({ fields: null }).
+      // Log so we can spot the upstream prompt issue, then fail-soft on validation.
+      if (!rawFields || typeof rawFields !== "object") {
+        console.warn(
+          `[wizard-tools] update_setup called with malformed input.fields=${JSON.stringify(rawFields)} — treating as no-op`,
+        );
+      }
       const { validated: fields, corrections, errors: fieldErrors } = validateSetupFields(rawFields);
       if (corrections.length > 0) {
         for (const c of corrections) {
@@ -253,7 +260,7 @@ export async function executeWizardTool(
           .join(", ");
         console.warn(`[wizard-tools] update_setup REJECTED unknown fields: ${summary}`);
         for (const e of fieldErrors) {
-          rejectedFields[e.key] = rawFields[e.key];
+          rejectedFields[e.key] = rawFields?.[e.key];
         }
         rejectionNotes.push(
           `Unknown setup field(s) NOT saved: ${summary}. Use canonical wizard keys (the "key" in the graph, not the label).`,
