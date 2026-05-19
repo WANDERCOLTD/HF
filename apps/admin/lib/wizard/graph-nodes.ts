@@ -180,6 +180,25 @@ export const WIZARD_GRAPH_NODES: WizardGraphNode[] = [
     mutablePostScaffold: true,
     affinityTags: ["course", "goals"],
   },
+  {
+    // #494 E2 Slice 2.3 — course-level toggle that decides whether the
+    // learner-picker hard-locks terminal modules with unmet prerequisites
+    // (true) or shows a soft-warning modal that can be overridden (false).
+    // Default false matches the IELTS learner-picks ethos. The companion
+    // `completionMode` is intentionally NOT a graph node — author-only.
+    key: "strictPrerequisites",
+    label: "Strict prerequisites",
+    group: "course",
+    inputType: "options",
+    required: false,
+    priority: 4,
+    dependsOn: [],
+    resolvedBy: ["auto-default"],
+    promptHint:
+      "Optional. Whether the module picker should HARD-LOCK modules whose prerequisites are unmet, or just show a soft-warning modal the learner can override. Default: false (soft warning) — fits self-directed adult learners (IELTS, language practice). Set true for assessment-heavy courses where premature attempts must be blocked (formal certification prep). Only surface this question when the educator's course clearly has prerequisite chains; otherwise leave as default and don't burn a turn on it.",
+    mutablePostScaffold: true,
+    affinityTags: ["course", "picker"],
+  },
 
   // ── PEDAGOGY GROUP (optional, activated by courseRefEnabled/courseRefDigest) ──
 
