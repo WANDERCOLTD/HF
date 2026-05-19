@@ -20,10 +20,38 @@ import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
  * Sync PlaybookSource rows for a playbook from its SubjectSource chain.
  * Call after creating/updating PlaybookSubject or SubjectSource links.
  * Idempotent — upserts with ON CONFLICT DO NOTHING semantics.
+ *
+ * Inheritance boundary (#478): only SubjectSource rows created AFTER the
+ * playbook are synced by default. Without this guard, the wizard linking a
+ * new course to an existing Subject (e.g. shared "ESOL" subject) silently
+ * propagates every historical SubjectSource into the new playbook —
+ * including stale rows from prior experiments. Sources attached to the
+ * subject as part of (or after) course creation cross the boundary and
+ * sync as intended.
+ *
+ * For deliberate re-sync of all historical subject content (e.g. backfill
+ * scripts, admin tooling), pass `{ includePreExisting: true }`.
  */
-export async function syncPlaybookSources(playbookId: string, subjectId: string): Promise<number> {
+export async function syncPlaybookSources(
+  playbookId: string,
+  subjectId: string,
+  opts?: { includePreExisting?: boolean },
+): Promise<number> {
+  const playbook = await prisma.playbook.findUnique({
+    where: { id: playbookId },
+    select: { createdAt: true },
+  });
+  if (!playbook) {
+    console.warn(`[syncPlaybookSources] playbook ${playbookId} not found — nothing synced`);
+    return 0;
+  }
+
+  const where = opts?.includePreExisting
+    ? { subjectId }
+    : { subjectId, createdAt: { gte: playbook.createdAt } };
+
   const subjectSources = await prisma.subjectSource.findMany({
-    where: { subjectId },
+    where,
     select: { sourceId: true, sortOrder: true, tags: true, trustLevelOverride: true },
   });
 
