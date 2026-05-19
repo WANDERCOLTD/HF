@@ -197,6 +197,28 @@ export async function main(prisma: PrismaClient): Promise<void> {
     }
   }
 
+  // ── 4b. Post-projection coversModules upsert for the Mock module (#550) ──
+  // The fixture parser (`detectAuthoredModules`) does not yet handle a
+  // `coversModules` column in the module table. The IELTS Mock module
+  // walks a learner through Part 1, Part 2, Part 3 in one call — the
+  // EXTRACT transcript segmenter needs `coversModules` populated to
+  // attribute per-part `CallScore` rows. Set it here as an idempotent
+  // post-projection step, scoped to this seed's curriculum to avoid
+  // touching any other playbook's `mock` slug (#407 slug-scope discipline).
+  const ieltsCurriculum = await prisma.curriculum.findFirst({
+    where: { playbookId: playbook.id },
+    select: { id: true },
+  });
+  if (ieltsCurriculum) {
+    const mockSet = await prisma.curriculumModule.updateMany({
+      where: { curriculumId: ieltsCurriculum.id, slug: "mock" },
+      data: { coversModules: ["part1", "part2", "part3"] },
+    });
+    if (mockSet.count > 0) {
+      console.log(`  Mock module coversModules → [part1, part2, part3] (${mockSet.count} row)`);
+    }
+  }
+
   // ── 5. CONTENT-role spec for trust-weighted certification progress (#457) ──
   // `computeTrustWeightedProgress` reads module trust levels off a CONTENT
   // spec's `config.modules[].sourceRefs[].trustLevel`. The trust-progress
