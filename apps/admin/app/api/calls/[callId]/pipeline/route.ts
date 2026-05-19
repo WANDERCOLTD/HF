@@ -37,6 +37,8 @@ import { updateCurriculumProgress, getCurriculumProgress, completeModule, update
 // initializeLessonPlanSession removed — scheduler replaces session tracking
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { resolveCurriculumIdForPlaybook, resolveModuleByLogicalId } from "@/lib/curriculum/resolve-module";
+import { segmentMockTranscript } from "@/lib/curriculum/segment-mock-transcript";
+import { buildPerSegmentMeasurePrompt, bandToScore } from "@/lib/curriculum/build-per-segment-measure-prompt";
 import { computeModuleMastery } from "@/lib/curriculum/compute-mastery";
 import { generateDiagnosticFromMock } from "@/lib/curriculum/diagnostic-from-mock";
 import { ContractRegistry } from "@/lib/contracts/registry";
@@ -465,6 +467,220 @@ Return compact JSON:
 }
 
 /**
+ * Per-part MEASURE pass for multi-attribute modules (#491 Slice 1.5).
+ *
+ * When the call's bound `CurriculumModule.coversModules` is non-empty
+ * (e.g. an IELTS Full Mock that walks the learner through Part 1,
+ * Part 2, Part 3 in a single call), this helper segments the
+ * transcript and runs one extra MEASURE AI call per segment. Each
+ * resulting `CallScore` row is tagged with the sub-part's
+ * `CurriculumModule.id` — that's what gives educators per-part bands
+ * instead of one Mock-level score.
+ *
+ * Augments the bound-module MEASURE scores already written by the
+ * caller — does NOT replace them. Mock-level rows stay so the
+ * existing `weakSkill` / `diagnostic-from-mock` readers keep working;
+ * the per-part rows feed the new per-part display + EMA per
+ * sub-module.
+ *
+ * Returns the count of NEW per-segment `CallScore` rows created.
+ * Returns `0` when segmentation does not apply, fails, or produces
+ * zero usable segments.
+ *
+ * Safe to call unconditionally with `skipMeasure: false` — internal
+ * guards short-circuit when this call's bound module has no
+ * `coversModules` declared.
+ */
+async function runPerSegmentScoring(
+  call: { id: string; transcript: string | null; curriculumModuleId?: string | null },
+  callerId: string,
+  measureParams: Array<{ parameterId: string; name: string; definition: string | null }>,
+  engine: AIEngine,
+  transcriptLimit: number,
+  log: PipelineLogger,
+  userName?: string,
+): Promise<number> {
+  if (engine === "mock") return 0; // mock engine writes random scores via the bound path only
+  if (!call.curriculumModuleId) return 0;
+  if (measureParams.length === 0) return 0;
+  const transcript = call.transcript || "";
+  if (transcript.trim().length === 0) return 0;
+
+  const boundModule = await prisma.curriculumModule.findUnique({
+    where: { id: call.curriculumModuleId },
+    select: { coversModules: true, curriculumId: true, slug: true },
+  });
+  if (!boundModule || boundModule.coversModules.length === 0) return 0;
+
+  // Resolve each declared slug → CurriculumModule.id, scoped to the
+  // bound module's curriculum (#407 — never a global slug lookup).
+  const slugToId = new Map<string, string>();
+  for (const slug of boundModule.coversModules) {
+    const resolved = await resolveModuleByLogicalId(boundModule.curriculumId, slug);
+    if (resolved) slugToId.set(slug, resolved.id);
+    else log.warn("Per-part MEASURE: coversModules slug not found in curriculum", {
+      slug,
+      curriculumId: boundModule.curriculumId,
+      boundSlug: boundModule.slug,
+    });
+  }
+  if (slugToId.size === 0) return 0;
+
+  const segments = await segmentMockTranscript({
+    transcript,
+    coversModuleSlugs: boundModule.coversModules.filter((s) => slugToId.has(s)),
+    engine,
+    log,
+  });
+  if (segments.length === 0) {
+    log.info("Per-part MEASURE: segmentation returned no segments, skipping", {
+      callId: call.id,
+      boundSlug: boundModule.slug,
+    });
+    return 0;
+  }
+
+  log.info("Per-part MEASURE: running per-segment scoring", {
+    callId: call.id,
+    boundSlug: boundModule.slug,
+    segments: segments.map((s) => ({ slug: s.slug, len: s.text.length, method: s.method })),
+  });
+
+  const timeouts = await getAITimeoutSettings();
+  let segmentScoresCreated = 0;
+
+  for (const segment of segments) {
+    const segmentModuleId = slugToId.get(segment.slug);
+    if (!segmentModuleId) continue;
+
+    // IELTS-focused per-segment prompt: scopes scoring to the 4
+    // IELTS Speaking skills, embeds the band rubric, gives per-part
+    // context, and asks for IELTS bands (4-9) instead of free-floating
+    // 0-1 scores. Returns null when the param set has no IELTS skill
+    // params — in that case the segment is skipped (non-IELTS courses
+    // don't get per-part scoring through this path).
+    const ieltsPrompt = buildPerSegmentMeasurePrompt({
+      segmentText: segment.text,
+      measureParams,
+      partSlug: segment.slug,
+      transcriptLimit,
+    });
+    if (!ieltsPrompt) {
+      log.info("Per-part MEASURE: no IELTS skill params in scope, skipping segment", {
+        segmentSlug: segment.slug,
+      });
+      continue;
+    }
+    const allowedParamIds = new Set(ieltsPrompt.scopedParams.map((p) => p.parameterId));
+
+    try {
+      // @ai-call pipeline.measure-segment — Per-part MEASURE for multi-attribute modules | config: /x/ai-config
+      const segResult = await getConfiguredMeteredAICompletion(
+        {
+          callPoint: "pipeline.measure-segment",
+          engineOverride: engine,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are an expert IELTS Speaking examiner. Score against the official band rubric. Always respond with valid JSON only — no commentary, no markdown fences.",
+            },
+            { role: "user", content: ieltsPrompt.prompt },
+          ],
+          maxTokens: Math.max(800, ieltsPrompt.scopedParams.length * 200),
+          temperature: 0,
+          timeoutMs: timeouts.pipelineTimeoutMs,
+        },
+        { callId: call.id, callerId, sourceOp: "pipeline:extract-segment", userName },
+      );
+
+      const { parsed: segParsed } = recoverBrokenJson(segResult.content, "pipeline:extract-segment");
+      if (!segParsed?.scores) {
+        log.warn("Per-part MEASURE: AI returned no scores object for segment", {
+          segmentSlug: segment.slug,
+        });
+        continue;
+      }
+
+      // Whitelist the parameter IDs to the IELTS skill set we asked
+      // about. Anything else the AI returns is rejected — keeps
+      // CallScore rows aligned with the Parameter table.
+      const validEntries: Array<[string, any]> = [];
+      const rejectedKeys: string[] = [];
+      for (const [parameterId, scoreData] of Object.entries(segParsed.scores as Record<string, any>)) {
+        if (allowedParamIds.has(parameterId)) validEntries.push([parameterId, scoreData]);
+        else rejectedKeys.push(parameterId);
+      }
+      if (rejectedKeys.length > 0) {
+        log.warn("Per-part MEASURE: rejected AI-returned parameter IDs not in whitelist", {
+          segmentSlug: segment.slug,
+          rejectedCount: rejectedKeys.length,
+          sampleRejected: rejectedKeys.slice(0, 5),
+        });
+      }
+
+      for (const [parameterId, scoreData] of validEntries) {
+        // The IELTS prompt asks for `band` (4-9). Convert via
+        // bandToScore. Legacy `score`/`s` are still honoured as a
+        // safety net — if the AI ignores instructions and returns
+        // a 0-1 value, we still write something usable.
+        const rawBand =
+          typeof scoreData?.band === "number"
+            ? scoreData.band
+            : typeof scoreData?.b === "number"
+              ? scoreData.b
+              : null;
+        const score =
+          rawBand !== null
+            ? bandToScore(rawBand)
+            : Math.max(0, Math.min(1, scoreData?.score ?? scoreData?.s ?? 0.5));
+        const confidence = Math.max(0, Math.min(1, scoreData?.confidence ?? scoreData?.c ?? 0.7));
+        const reasoning: string | undefined = scoreData?.reasoning ?? scoreData?.r ?? undefined;
+
+        const existing = await prisma.callScore.findFirst({
+          where: { callId: call.id, parameterId, moduleId: segmentModuleId },
+        });
+        if (existing) {
+          await prisma.callScore.update({
+            where: { id: existing.id },
+            data: {
+              score,
+              confidence,
+              reasoning,
+              evidence: [`Segment: ${segment.slug}`],
+              scoredBy: `${engine}_segment_v1`,
+              scoredAt: new Date(),
+            },
+          });
+        } else {
+          await prisma.callScore.create({
+            data: {
+              callId: call.id,
+              callerId,
+              parameterId,
+              moduleId: segmentModuleId,
+              score,
+              confidence,
+              reasoning,
+              evidence: [`Segment: ${segment.slug}`],
+              scoredBy: `${engine}_segment_v1`,
+            },
+          });
+          segmentScoresCreated++;
+        }
+      }
+    } catch (err: any) {
+      log.warn("Per-part MEASURE failed for segment", {
+        segmentSlug: segment.slug,
+        error: err?.message ?? "unknown",
+      });
+    }
+  }
+
+  return segmentScoresCreated;
+}
+
+/**
  * Run batched caller analysis (MEASURE + LEARN)
  */
 async function runBatchedCallerAnalysis(
@@ -773,6 +989,33 @@ async function runBatchedCallerAnalysis(
             });
           }
           scoresCreated++;
+        }
+      }
+
+      // #491 Slice 1.5 — per-part MEASURE for multi-attribute modules.
+      // When this call's bound module (typically the IELTS Mock)
+      // declares `coversModules: [part1, part2, part3]`, segment the
+      // transcript and run a per-segment MEASURE so each part gets its
+      // own `CallScore` rows. Augments (does not replace) the
+      // bound-module scores written above — Mock-level rows remain so
+      // existing readers (`weakSkill`, diagnostic) keep working, and
+      // per-part rows feed the new per-part view + EMA per sub-module.
+      if (!skipMeasure) {
+        try {
+          const segmentScores = await runPerSegmentScoring(
+            call,
+            callerId,
+            measureParams,
+            engine,
+            transcriptLimit,
+            log,
+            userName,
+          );
+          scoresCreated += segmentScores;
+        } catch (err: any) {
+          log.warn("Per-part MEASURE pass failed (non-blocking)", {
+            error: err?.message ?? "unknown",
+          });
         }
       }
 
@@ -2631,16 +2874,39 @@ const stageExecutors: Record<string, StageExecutor> = {
     // silently dropped on every teach-mode call.
     const gate = await shouldRunCallerAnalysis(ctx.callerId);
 
+    // #491 Slice 1.5 — Mock-style calls (bound module declares
+    // `coversModules`) are explicit assessment events by definition.
+    // The learner deliberately picked the Mock module, so the
+    // event-gate's "no assessment evidence" verdict doesn't apply —
+    // we override to keep MEASURE running. Without this override the
+    // per-part segmenter has no full param set to score against and
+    // we lose the whole point of running a Mock.
+    let mockOverride = false;
+    if (!gate.allow && ctx.call.curriculumModuleId) {
+      const boundCovers = await prisma.curriculumModule.findUnique({
+        where: { id: ctx.call.curriculumModuleId },
+        select: { coversModules: true },
+      });
+      if (boundCovers && boundCovers.coversModules.length > 0) {
+        mockOverride = true;
+        ctx.log.info("Event-gate override: Mock-style call (coversModules non-empty) — MEASURE runs regardless of prior mode", {
+          callId: ctx.callId,
+          priorMode: gate.mode,
+        });
+      }
+    }
+    const skipMeasure = !gate.allow && !mockOverride;
+
     const callerResult = await runBatchedCallerAnalysis(
       ctx.call,
       ctx.callerId,
       ctx.engine,
       ctx.log,
       ctx.userName,
-      { skipMeasure: !gate.allow },
+      { skipMeasure },
     );
 
-    if (!gate.allow) {
+    if (!gate.allow && !mockOverride) {
       ctx.log.info(
         `EXTRACT caller-scoring gated: ${gate.reason} (${callerResult.scoresCreated} always-on scores, ${callerResult.memoriesCreated} memories — gated specs skipped)`,
       );
@@ -2728,7 +2994,7 @@ const stageExecutors: Record<string, StageExecutor> = {
       scoresCreated: callerResult.scoresCreated,
       memoriesCreated: callerResult.memoriesCreated,
       deltasComputed: deltaResult.deltasComputed,
-      callerAnalysisGated: !gate.allow,
+      callerAnalysisGated: skipMeasure,
       gate: { allow: gate.allow, mode: gate.mode, reason: gate.reason },
       curriculumUpdated,
       onboardingCompleted,

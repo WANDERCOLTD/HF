@@ -107,7 +107,7 @@ The learner produces conditional, relative, and passive structures without the r
 ## Modules
 
 **Modules authored:** Yes
-**Module count:** 4
+**Module count:** 5
 **Module picker:** Learner-driven.
 
 ### Module Catalogue (machine-readable summary)
@@ -118,6 +118,7 @@ The learner produces conditional, relative, and passive structures without the r
 | `part1` | Part 1: Familiar Topics | Yes | Tutor | Student-led | Repeatable | OUT-01, 02 |
 | `part2` | Part 2: Cue Card Monologues | Yes | Mixed | Student-led | Repeatable | OUT-04, 05, 07 |
 | `part3` | Part 3: Abstract Discussion | Yes | Tutor | Student-led | Repeatable | OUT-03, 06, 08 |
+| `mock` | Full Mock Exam | Yes | Examiner | 15 min | Repeatable | OUT-01, 02, 03, 04, 05, 06, 07, 08 |
 
 ### Module Defaults (apply unless overridden by a Module)
 
@@ -174,6 +175,20 @@ The learner produces conditional, relative, and passive structures without the r
 **Scoring.** Lexical Resource and Grammatical Range from the full transcript. FC and Pron not scored from Part 3 alone.
 
 **Outcomes targeted (primary):** OUT-03 (recovers from unknown topics), OUT-06 (uses extension techniques), OUT-08 (Band 7 grammar control).
+
+### Module 5 — Full Mock Exam
+
+**What it is.** End-to-end simulation of the IELTS Speaking test at exam pace, walking the learner through Part 1, Part 2, and Part 3 in a single 15-minute session. The transcript is segmented post-call and per-part criterion bands are produced — this is where the learner's weakest part becomes visible.
+
+**Duration.** 15 minutes, fixed (closer to real-exam timing than the 20-minute Baseline).
+
+**Mode.** Examiner mode throughout — no correction or coaching during the test. Feedback per part is delivered at module end.
+
+**Scoring.** All four criteria scored per part. Each of Part 1, Part 2, and Part 3 receives its own band per criterion. The transcript segmenter (`lib/curriculum/segment-mock-transcript.ts`) splits the transcript at tutor part-transition cues; `CallScore` rows are attributed to the corresponding sub-module (`part1`, `part2`, `part3`) via `coversModules` fan-out — the Mock module itself receives no direct `CallScore` rows.
+
+**Covers modules:** `part1`, `part2`, `part3` — evidence and progress from a Mock call fan out to all three sub-parts via `CurriculumModule.coversModules`.
+
+**Outcomes targeted (primary):** All — OUT-01 through OUT-08.
 
 ---
 
