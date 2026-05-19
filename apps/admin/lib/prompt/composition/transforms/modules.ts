@@ -855,6 +855,21 @@ registerTransform("computeModuleProgress", (
     COMPLETED: "done",
   };
 
+  // #492 Slice 3.4 — surface the current module's TEACHING_INSTRUCTION LOs
+  // as a top-level first-class field. Per `loadModulesFromDB` they're parked
+  // inside `assessorOutcomes.teachingInstruction[]` for every module, and
+  // post-Slice-3.2 sibling thinning strips that body from non-current modules.
+  // Hoisting the current module's instructions to the top means the tutor
+  // can find per-module guidance in <1 second of context scanning — instead
+  // of digging through the modules array. Empty array when no current module
+  // resolves, when the module has no instructions, or when the module isn't
+  // DB-loaded (Subject-fallback path doesn't populate assessorOutcomes).
+  const currentModule = currentModuleKey
+    ? modules.find((m: ModuleData) => (m.slug || m.id || '') === currentModuleKey)
+    : null;
+  const currentModuleTeachingInstructions: string[] =
+    currentModule?.assessorOutcomes?.teachingInstruction ?? [];
+
   return {
     name: (sharedState as Record<string, any>).curriculumName || null,
     hasData: curriculumAttrs.length > 0 || modules.length > 0,
@@ -866,6 +881,9 @@ registerTransform("computeModuleProgress", (
     masteryThreshold,
     // #266 Slice 1: gates module-aware opening line in _quickStart.first_line
     hasAttemptData,
+    // #492 Slice 3.4 — top-level tutor guidance for the active module.
+    currentModuleSlug: currentModuleKey,
+    currentModuleTeachingInstructions,
     modules: modules.map((m: ModuleData, idx: number) => {
       const learnerProgress = m.id ? moduleAttemptCounts?.[m.id] : undefined;
       const callCount = learnerProgress?.callCount ?? 0;

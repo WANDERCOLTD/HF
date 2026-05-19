@@ -544,6 +544,62 @@ describe("computeModuleProgress transform", () => {
     expect(out.modules[0].description).toBeUndefined();
   });
 
+  // ── #492 Slice 3.4: surface currentModuleTeachingInstructions ──
+
+  it("surfaces currentModule.assessorOutcomes.teachingInstruction[] as top-level field", () => {
+    const modules: ModuleData[] = [
+      {
+        id: "m-1", slug: "part1", name: "Part 1",
+        assessorOutcomes: {
+          rubric: [],
+          itemGenSpec: [],
+          scoreExplainer: [],
+          teachingInstruction: ["Scaffold hometown questions", "Allow short pauses"],
+        },
+      },
+      {
+        id: "m-2", slug: "part2", name: "Part 2",
+        assessorOutcomes: {
+          rubric: [],
+          itemGenSpec: [],
+          scoreExplainer: [],
+          teachingInstruction: ["Give 1-minute prep", "Cover all 4 bullets"],
+        },
+      },
+    ];
+    const ctx = makeContext(modules, undefined, false);
+    ctx.sharedState.nextModule = modules[1]; // Part 2 is current
+    const out: any = transform({}, ctx, {} as any);
+    expect(out.currentModuleSlug).toBe("part2");
+    expect(out.currentModuleTeachingInstructions).toEqual([
+      "Give 1-minute prep",
+      "Cover all 4 bullets",
+    ]);
+  });
+
+  it("returns empty array for currentModuleTeachingInstructions when no current module", () => {
+    const modules: ModuleData[] = [
+      { id: "m-1", slug: "part1", name: "Part 1" },
+    ];
+    const ctx = makeContext(modules, undefined, false);
+    ctx.sharedState.nextModule = null;
+    const out: any = transform({}, ctx, {} as any);
+    expect(out.currentModuleSlug).toBeNull();
+    expect(out.currentModuleTeachingInstructions).toEqual([]);
+  });
+
+  it("returns empty array when current module has no assessorOutcomes (Subject fallback path)", () => {
+    const modules: ModuleData[] = [
+      // No assessorOutcomes — typical for Subject-curriculum fallback modules
+      { id: "m-1", slug: "part1", name: "Part 1" },
+    ];
+    const ctx = makeContext(modules, undefined, false);
+    ctx.sharedState.nextModule = modules[0];
+    const out: any = transform({}, ctx, {} as any);
+    expect(out.currentModuleSlug).toBe("part1");
+    expect(out.currentModuleTeachingInstructions).toEqual([]);
+  });
+
   it("falls back to thin-everything when no current module is identifiable", () => {
     const modules: ModuleData[] = [
       { id: "m-1", slug: "part1", name: "Part 1", description: "d1", content: { x: 1 } as any },
