@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
+import {
+  resolveCurriculumIdForPlaybook,
+  resolveModuleByLogicalId,
+} from "@/lib/curriculum/resolve-module";
 
 /**
  * @api GET /api/callers/:callerId/calls
@@ -117,6 +121,45 @@ export async function POST(
       );
     }
 
+    // #491 Slice 1.1 — resolve requestedModuleId slug → CurriculumModule.id.
+    // The picker chip stores the module's slug (e.g. "part2", "mock") in
+    // requestedModuleId, but the composer reads curriculumModuleId. Without
+    // resolution, the slug is dead-data and the scheduler's `workingSet` hint
+    // falls back to Part 1 every call. See #480 + tech-lead review.
+    //
+    // Two-step chain: playbook → curriculum → module, all FK-scoped to prevent
+    // cross-playbook leaks (#407 invariant). Curriculum may not exist yet for
+    // a brand-new authored playbook — `syncAuthoredModulesToCurriculum` runs
+    // separately. Return 400 with a clear error in either failure case.
+    let resolvedCurriculumModuleId: string | null = null;
+    if (requestedModuleId && typeof requestedModuleId === "string") {
+      const curriculumId = await resolveCurriculumIdForPlaybook(resolvedPlaybookId);
+      if (!curriculumId) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              `Course has no curriculum yet — authored modules haven't been synced to ` +
+              `CurriculumModule rows. Run syncAuthoredModulesToCurriculum, then retry.`,
+          },
+          { status: 400 }
+        );
+      }
+      const resolved = await resolveModuleByLogicalId(curriculumId, requestedModuleId);
+      if (!resolved) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              `Module "${requestedModuleId}" not found in this course's curriculum. ` +
+              `Check the module slug — picker chips should send a canonical CurriculumModule slug.`,
+          },
+          { status: 400 }
+        );
+      }
+      resolvedCurriculumModuleId = resolved.id;
+    }
+
     // Determine call sequence (scoped to this course — see #203 for chain fix)
     let sequence = callSequence;
     if (!sequence) {
@@ -146,11 +189,13 @@ export async function POST(
         externalId: source === "playground-upload" ? `upload-${Date.now()}` : `ai-sim-${Date.now()}`,
         playbookId: resolvedPlaybookId,
         ...(usedPromptId ? { usedPromptId } : {}),
-        // #242 Slice 2: learner's pre-call module pick from the picker.
-        // Read by the pipeline's loadCurrentModuleContext to override the
-        // scheduler-selected module so mastery is emitted against the
-        // learner's choice.
+        // #242 Slice 2: learner's pre-call module pick from the picker (slug).
+        // #491 Slice 1.1: also write the resolved CurriculumModule.id so the
+        // composer's scheduler workingSet picks it up. Both fields are stored
+        // — `requestedModuleId` for picker reads, `curriculumModuleId` for
+        // composer + pipeline consumption.
         ...(requestedModuleId ? { requestedModuleId } : {}),
+        ...(resolvedCurriculumModuleId ? { curriculumModuleId: resolvedCurriculumModuleId } : {}),
       },
     });
 
