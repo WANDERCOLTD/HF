@@ -532,6 +532,13 @@ async function runPerSegmentScoring(
     engine,
     log,
   });
+  console.info("[per-part-debug] segmentation result", {
+    callId: call.id,
+    boundSlug: boundModule.slug,
+    coversModules: boundModule.coversModules,
+    segmentCount: segments.length,
+    segments: segments.map((s) => ({ slug: s.slug, len: s.text.length, method: s.method })),
+  });
   if (segments.length === 0) {
     log.info("Per-part MEASURE: segmentation returned no segments, skipping", {
       callId: call.id,
@@ -564,6 +571,13 @@ async function runPerSegmentScoring(
       measureParams,
       partSlug: segment.slug,
       transcriptLimit,
+    });
+    console.info("[per-part-debug] ieltsPrompt", {
+      segmentSlug: segment.slug,
+      isNull: !ieltsPrompt,
+      scopedParamCount: ieltsPrompt?.scopedParams.length ?? 0,
+      scopedParamIds: ieltsPrompt?.scopedParams.map((p) => p.parameterId) ?? [],
+      measureParamSample: measureParams.slice(0, 5).map((p) => p.parameterId),
     });
     if (!ieltsPrompt) {
       log.info("Per-part MEASURE: no IELTS skill params in scope, skipping segment", {
