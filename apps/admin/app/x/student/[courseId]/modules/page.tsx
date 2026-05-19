@@ -44,6 +44,14 @@ interface ModulesPayload {
   validationWarnings: ValidationWarning[];
   hasErrors: boolean;
   lessonPlanMode: "structured" | "continuous" | null;
+  /**
+   * #495 Slice 4.3 — id of the single module `recommendNextModule()`
+   * suggests the learner attempt next. Null when no caller scope is
+   * resolvable or every module is mastered. Threaded straight into the
+   * picker so it can highlight the matching tile.
+   */
+  recommendedModuleId?: string | null;
+  recommendedReason?: string | null;
 }
 
 interface ProgressRow {
@@ -287,6 +295,8 @@ function PickerContent() {
               completedModuleIds={completedIds}
               inProgressModuleIds={inProgressIds}
               onSelect={handleSelect}
+              recommendedModuleId={data.recommendedModuleId ?? null}
+              recommendedReason={data.recommendedReason ?? null}
             />
 
             {launching && (

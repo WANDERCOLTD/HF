@@ -655,3 +655,47 @@ button.learner-picker__rail-card:hover {
   background: color-mix(in srgb, var(--text-muted) 8%, transparent);
   border-color: color-mix(in srgb, var(--text-muted) 20%, transparent);
 }
+
+/* #495 Slice 4.3 — "Recommended next" badge pinned to the top-LEFT of
+   the single recommended tile / rail card, opposite the status badge
+   (top-RIGHT). Visually more prominent than the status chip: solid
+   green pill with white text using --status-success-text as the brand
+   green for this route (wa-theme tokens aren't loaded outside the
+   learner portal proper, so we mirror the status-success pair already
+   used in this stylesheet). The badge is purely informative — picker
+   interaction stays on the parent tile. */
+
+.learner-picker-page__recommended-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  color: var(--surface-primary);
+  background: var(--status-success-text);
+  border: 1px solid color-mix(in srgb, var(--status-success-text) 60%, transparent);
+  pointer-events: none; /* informative — tile click stays on the tag */
+  line-height: 1.4;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--status-success-text) 25%, transparent);
+}
+
+/* Subtle accent on the host tile / rail-card so the recommended pick
+   reads at a glance even before a learner notices the badge. Uses the
+   same green token so the visual story stays unified. */
+
+.learner-picker__tile[data-recommended] {
+  border-color: color-mix(in srgb, var(--status-success-text) 45%, var(--border-default));
+  background: color-mix(in srgb, var(--status-success-text) 3%, var(--surface-primary));
+}
+
+.learner-picker__rail-card[data-recommended] {
+  border-color: color-mix(in srgb, var(--status-success-text) 45%, var(--border-default));
+  background: color-mix(in srgb, var(--status-success-text) 3%, var(--surface-primary));
+}

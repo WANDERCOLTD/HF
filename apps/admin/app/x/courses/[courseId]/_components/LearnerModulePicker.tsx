@@ -29,6 +29,7 @@ import {
   CheckCircle2,
   PlayCircle,
   Circle,
+  Sparkles,
 } from "lucide-react";
 import type { AuthoredModule } from "@/lib/types/json-fields";
 
@@ -57,6 +58,22 @@ interface LearnerModulePickerProps {
    * "Start" affordance is hidden.
    */
   onSelect?: (moduleId: string) => void;
+  /**
+   * #495 Slice 4.3 — id of the single module the system recommends the
+   * learner attempt next. Source of truth is the import-modules endpoint
+   * (top-level `recommendedModuleId`). When set, the matching tile/rail
+   * card renders a prominent "Recommended next" badge in its top-LEFT
+   * corner (the per-module status badge remains in the top-RIGHT). The
+   * recommendation is advisory only — every learner-selectable module
+   * stays clickable. Null / undefined hides the badge entirely.
+   */
+  recommendedModuleId?: string | null;
+  /**
+   * #495 Slice 4.3 — human-readable reason from `recommendNextModule()`:
+   * "next-in-sequence" | "weakest-not-mastered" | "first-unstarted" |
+   * "interleave-review". Surfaced as the badge's tooltip via `title=`.
+   */
+  recommendedReason?: string | null;
 }
 
 export function LearnerModulePicker({
@@ -65,6 +82,8 @@ export function LearnerModulePicker({
   completedModuleIds = [],
   inProgressModuleIds = [],
   onSelect,
+  recommendedModuleId = null,
+  recommendedReason = null,
 }: LearnerModulePickerProps) {
   const visible = modules.filter((m) => m.learnerSelectable !== false);
   if (visible.length === 0) {
@@ -90,6 +109,8 @@ export function LearnerModulePicker({
           completed={completed}
           inProgress={inProgress}
           onSelect={onSelect}
+          recommendedModuleId={recommendedModuleId}
+          recommendedReason={recommendedReason}
         />
       ) : (
         <TilesLayout
@@ -97,6 +118,8 @@ export function LearnerModulePicker({
           completed={completed}
           inProgress={inProgress}
           onSelect={onSelect}
+          recommendedModuleId={recommendedModuleId}
+          recommendedReason={recommendedReason}
         />
       )}
     </div>
@@ -110,11 +133,15 @@ function TilesLayout({
   completed,
   inProgress,
   onSelect,
+  recommendedModuleId,
+  recommendedReason,
 }: {
   modules: AuthoredModule[];
   completed: Set<string>;
   inProgress: Set<string>;
   onSelect?: (id: string) => void;
+  recommendedModuleId: string | null;
+  recommendedReason: string | null;
 }) {
   // Hide `frequency: once` modules already completed (e.g. Baseline).
   // Repeatable + completed stays visible so learners can retake.
@@ -128,7 +155,15 @@ function TilesLayout({
     return (
       <div className="learner-picker__tiles">
         {eligible.map((m) => (
-          <Tile key={m.id} mod={m} inProgress={false} completed={false} onSelect={onSelect} />
+          <Tile
+            key={m.id}
+            mod={m}
+            inProgress={false}
+            completed={false}
+            onSelect={onSelect}
+            isRecommended={m.id === recommendedModuleId}
+            recommendedReason={recommendedReason}
+          />
         ))}
       </div>
     );
@@ -147,21 +182,45 @@ function TilesLayout({
       {upNextMods.length > 0 && (
         <Section title="Up next">
           {upNextMods.map((m) => (
-            <Tile key={m.id} mod={m} inProgress={false} completed={false} onSelect={onSelect} />
+            <Tile
+              key={m.id}
+              mod={m}
+              inProgress={false}
+              completed={false}
+              onSelect={onSelect}
+              isRecommended={m.id === recommendedModuleId}
+              recommendedReason={recommendedReason}
+            />
           ))}
         </Section>
       )}
       {inProgressMods.length > 0 && (
         <Section title="In progress">
           {inProgressMods.map((m) => (
-            <Tile key={m.id} mod={m} inProgress completed={false} onSelect={onSelect} />
+            <Tile
+              key={m.id}
+              mod={m}
+              inProgress
+              completed={false}
+              onSelect={onSelect}
+              isRecommended={m.id === recommendedModuleId}
+              recommendedReason={recommendedReason}
+            />
           ))}
         </Section>
       )}
       {completedMods.length > 0 && (
         <Section title="Completed">
           {completedMods.map((m) => (
-            <Tile key={m.id} mod={m} inProgress={false} completed onSelect={onSelect} />
+            <Tile
+              key={m.id}
+              mod={m}
+              inProgress={false}
+              completed
+              onSelect={onSelect}
+              isRecommended={m.id === recommendedModuleId}
+              recommendedReason={recommendedReason}
+            />
           ))}
         </Section>
       )}
@@ -183,13 +242,23 @@ function Tile({
   inProgress,
   completed,
   onSelect,
+  isRecommended,
+  recommendedReason,
 }: {
   mod: AuthoredModule;
   inProgress: boolean;
   completed: boolean;
   onSelect?: (id: string) => void;
+  isRecommended: boolean;
+  recommendedReason: string | null;
 }) {
   const Tag = onSelect ? "button" : "div";
+  // Suppress the recommended badge for mastered modules — defence in depth
+  // against an upstream that recommends something already MASTERED.
+  // `recommendNextModule()` filters those out, but the picker shouldn't
+  // double-decorate a Mastered tile if a stale payload slips through.
+  const showRecommended =
+    isRecommended && mod.progress?.status !== "MASTERED";
   return (
     <Tag
       type={onSelect ? "button" : undefined}
@@ -197,7 +266,9 @@ function Tile({
       onClick={onSelect ? () => onSelect(mod.id) : undefined}
       data-terminal={mod.sessionTerminal || undefined}
       data-progress={inProgress ? "in-progress" : completed ? "completed" : undefined}
+      data-recommended={showRecommended || undefined}
     >
+      {showRecommended && <RecommendedBadge reason={recommendedReason} />}
       <StatusBadge progress={mod.progress} />
       <ModeIcon mode={mod.mode} />
       <div className="learner-picker__tile-body">
@@ -241,11 +312,15 @@ function RailLayout({
   completed,
   inProgress,
   onSelect,
+  recommendedModuleId,
+  recommendedReason,
 }: {
   modules: AuthoredModule[];
   completed: Set<string>;
   inProgress: Set<string>;
   onSelect?: (id: string) => void;
+  recommendedModuleId: string | null;
+  recommendedReason: string | null;
 }) {
   // Sort by `position` if provided, otherwise preserve catalogue order.
   const ordered = [...modules].sort((a, b) => {
@@ -265,6 +340,8 @@ function RailLayout({
           prereqsUnmet.length > 0
             ? `Recommended after ${prereqsUnmet.join(", ")}`
             : null;
+        const showRecommended =
+          m.id === recommendedModuleId && m.progress?.status !== "MASTERED";
 
         return (
           <li key={m.id} className="learner-picker__rail-item">
@@ -277,7 +354,9 @@ function RailLayout({
               onClick={onSelect ? () => onSelect(m.id) : undefined}
               data-progress={isComplete ? "completed" : isInProgress ? "in-progress" : undefined}
               data-terminal={m.sessionTerminal || undefined}
+              data-recommended={showRecommended || undefined}
             >
+              {showRecommended && <RecommendedBadge reason={recommendedReason} />}
               <StatusBadge progress={m.progress} />
               <ModeIcon mode={m.mode} />
               <div className="learner-picker__rail-body">
@@ -375,4 +454,47 @@ function StatusBadge({ progress }: { progress: AuthoredModule["progress"] }) {
       <span>Not started</span>
     </span>
   );
+}
+
+// ── Recommended-next badge (#495 Slice 4.3) ────────────────────────
+//
+// Prominent green pill pinned to the top-LEFT of the single module the
+// system recommends the learner attempt next. Sits opposite the Mastered
+// / In progress / Not started status chip (top-right) so the two never
+// overlap. Source of truth is the import-modules endpoint's top-level
+// `recommendedModuleId` field; we don't compute it client-side.
+//
+// The badge is advisory: it doesn't gate, doesn't disable the tile, and
+// doesn't change click behaviour. `recommendNextModule()` returns null
+// for fully-mastered courses so the badge is implicitly suppressed there;
+// Tile / rail-card render guards add a defensive check against the
+// MASTERED status anyway. Tooltip surfaces the human-readable reason
+// (Next in sequence / First not started / etc.) via the `title` attribute.
+function RecommendedBadge({ reason }: { reason: string | null }) {
+  const tooltip = describeRecommendedReason(reason);
+  return (
+    <span
+      className="learner-picker-page__recommended-badge"
+      title={tooltip}
+      aria-label={`Recommended next — ${tooltip}`}
+    >
+      <Sparkles size={12} aria-hidden="true" />
+      <span>Recommended next</span>
+    </span>
+  );
+}
+
+function describeRecommendedReason(reason: string | null): string {
+  switch (reason) {
+    case "next-in-sequence":
+      return "Next in sequence";
+    case "weakest-not-mastered":
+      return "Weakest area";
+    case "first-unstarted":
+      return "First not started";
+    case "interleave-review":
+      return "Interleave review";
+    default:
+      return "Recommended for you";
+  }
 }

@@ -65,6 +65,14 @@ vi.mock("@/lib/permissions", () => ({
   },
 }));
 
+// #495 Slice 4.3: recommendation helper is stubbed to "no recommendation"
+// because this suite's auth fixture is a VIEWER with no callerId — the
+// route bails out before calling the helper, but stubbing it keeps any
+// future regression contained.
+vi.mock("@/lib/curriculum/recommend-next-module", () => ({
+  recommendNextModule: vi.fn().mockResolvedValue(null),
+}));
+
 // Import AFTER mocks
 import { GET } from "@/app/api/courses/[courseId]/import-modules/route";
 

@@ -68,6 +68,13 @@ vi.mock("@/lib/permissions", () => ({
   },
 }));
 
+// #495 Slice 4.3: this suite is focused on progress-badge enrichment, not
+// the recommendation overlay. Stub the helper to null so the route's new
+// top-level fields stay `null` and existing assertions are unaffected.
+vi.mock("@/lib/curriculum/recommend-next-module", () => ({
+  recommendNextModule: vi.fn().mockResolvedValue(null),
+}));
+
 // Import AFTER mocks
 import { GET } from "@/app/api/courses/[courseId]/import-modules/route";
 

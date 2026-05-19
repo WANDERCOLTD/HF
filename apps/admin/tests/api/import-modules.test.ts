@@ -17,7 +17,13 @@ import { NextRequest, NextResponse } from "next/server";
 // vi.mock() is hoisted above all imports and `const` declarations.
 // Use vi.hoisted() so the mock instances exist by the time vi.mock factories run.
 
-const { mockPrisma, mockRequireAuth, mockIsAuthError, mockSyncAuthored } = vi.hoisted(() => ({
+const {
+  mockPrisma,
+  mockRequireAuth,
+  mockIsAuthError,
+  mockSyncAuthored,
+  mockRecommendNextModule,
+} = vi.hoisted(() => ({
   mockPrisma: {
     playbook: {
       findUnique: vi.fn(),
@@ -46,6 +52,7 @@ const { mockPrisma, mockRequireAuth, mockIsAuthError, mockSyncAuthored } = vi.ho
   mockRequireAuth: vi.fn(),
   mockIsAuthError: vi.fn(),
   mockSyncAuthored: vi.fn(),
+  mockRecommendNextModule: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -76,6 +83,14 @@ vi.mock("@/lib/permissions", () => ({
 // The helper has its own dedicated unit test file.
 vi.mock("@/lib/wizard/sync-authored-modules-to-curriculum", () => ({
   syncAuthoredModulesToCurriculum: (...args: unknown[]) => mockSyncAuthored(...args),
+}));
+
+// #495 Slice 4.3 — recommendation helper mocked so existing tests don't need
+// to know about it. Defaulted to `null` in `beforeEach` so the response keeps
+// `recommendedModuleId: null` (which existing assertions ignore). The dedicated
+// test file (import-modules-recommendation.test.ts) overrides this mock.
+vi.mock("@/lib/curriculum/recommend-next-module", () => ({
+  recommendNextModule: (...args: unknown[]) => mockRecommendNextModule(...args),
 }));
 
 // Import AFTER mocks
@@ -133,6 +148,11 @@ beforeEach(() => {
   mockPrisma.curriculum.findFirst.mockReset();
   mockPrisma.curriculumModule.findMany.mockReset();
   mockSyncAuthored.mockReset();
+  mockRecommendNextModule.mockReset();
+  // Default to "no recommendation" so existing GET tests keep their
+  // pre-#495-Slice-4.3 response shape (modulo the new top-level fields,
+  // which are null when this helper returns null).
+  mockRecommendNextModule.mockResolvedValue(null);
 
   mockRequireAuth.mockResolvedValue(passingAuth);
   mockIsAuthError.mockReturnValue(false);

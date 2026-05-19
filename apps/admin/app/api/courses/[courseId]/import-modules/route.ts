@@ -29,6 +29,7 @@ import {
 import { syncAuthoredModulesToCurriculum } from "@/lib/wizard/sync-authored-modules-to-curriculum";
 import { reclassifyLearningObjectives } from "@/lib/curriculum/reclassify-los";
 import { resolveCurriculumIdForPlaybook } from "@/lib/curriculum/resolve-module";
+import { recommendNextModule } from "@/lib/curriculum/recommend-next-module";
 
 // #495 Slice 4.2 — picker status badge. Per-module progress is returned to
 // the learner picker so each tile/rail card can render Mastered / In progress
@@ -72,12 +73,18 @@ type Body = z.infer<typeof BodySchema>;
  *   (null when no modules exist on either side); the legacy `moduleSource`
  *   field (`"authored" | "derived" | null`) is preserved for backwards
  *   compatibility with the admin AuthoredModulesPanel.
- * @response 200 { ok, modulesAuthored, modules, moduleDefaults, moduleSource, source, moduleSourceRef, validationWarnings, hasErrors, outcomes, detectedFrom, persisted, curriculumSync, classification }
+ * @response 200 { ok, modulesAuthored, modules, moduleDefaults, moduleSource, source, moduleSourceRef, validationWarnings, hasErrors, outcomes, detectedFrom, persisted, curriculumSync, classification, recommendedModuleId, recommendedReason }
  * @note #495 Slice 4.2 — each `modules[]` entry includes an optional
  *   `progress: { status: "MASTERED"|"IN_PROGRESS"|"NOT_STARTED", callCount }`
  *   field when the request carries a caller scope (STUDENT, or OPERATOR+
  *   with `?callerId=…`). Admins without a caller scope receive modules
  *   without `progress` — the picker suppresses the badge in that case.
+ * @note #495 Slice 4.3 — top-level `recommendedModuleId` + `recommendedReason`
+ *   identify the single module `recommendNextModule()` suggests the learner
+ *   attempt next (or null when no caller scope / every module mastered).
+ *   The picker UI surfaces a "Recommended next" badge on that tile only —
+ *   no per-module mutation, so any other consumer of the response keeps a
+ *   stable `progress` shape.
  * @response 404 { ok: false, error: "Course not found" }
  */
 export async function GET(
@@ -124,13 +131,15 @@ export async function GET(
   // pass `?callerId=` to inspect on a learner's behalf (same convention
   // as /api/student/module-progress). Admins without `?callerId=` get a
   // module list with NO `progress` field — the picker hides the badge.
-  const progressByModuleId = await resolveProgressForCaller(
+  const callerId = await resolveCallerIdForRequest(
     auth.session.user.role,
     auth.session.user.id,
     req.nextUrl.searchParams.get("callerId"),
-    courseId,
-    modulesForResponse,
   );
+  const progressByModuleId =
+    callerId && modulesForResponse.length > 0
+      ? await loadProgressForCaller(callerId, courseId)
+      : null;
   const modulesWithProgress = progressByModuleId
     ? modulesForResponse.map((m) => ({
         ...m,
@@ -143,6 +152,38 @@ export async function GET(
         },
       }))
     : modulesForResponse;
+
+  // #495 Slice 4.3 — compute the single "Recommended next" module for the
+  // resolved caller. Top-level fields so the picker can find the tile
+  // without mutating per-module rows (keeps the `progress` shape stable
+  // for any other consumer). Skipped entirely when there is no caller
+  // scope — admins viewing the route directly get nulls, matching the
+  // progress-enrichment policy.
+  let recommendedModuleId: string | null = null;
+  let recommendedReason: string | null = null;
+  if (callerId && modulesForResponse.length > 0) {
+    const curriculumIdForReco = await resolveCurriculumIdForPlaybook(courseId);
+    if (curriculumIdForReco) {
+      const reco = await recommendNextModule({
+        callerId,
+        curriculumId: curriculumIdForReco,
+        playbookConfig: cfg,
+      });
+      if (reco) {
+        // `recommendNextModule` returns the CurriculumModule slug (which
+        // by convention matches AuthoredModule.id for both authored and
+        // generated paths). Map back to the picker's id so the client
+        // matches against `module.id`.
+        const matched = modulesForResponse.find(
+          (m) => m.id === reco.slug || m.id === reco.moduleId,
+        );
+        if (matched) {
+          recommendedModuleId = matched.id;
+          recommendedReason = reco.reason;
+        }
+      }
+    }
+  }
 
   // #281 Slice 3b: per-module ContentQuestion count so the AuthoredModules
   // panel can show a "no learner-facing content" banner for modules whose
@@ -246,6 +287,12 @@ export async function GET(
     // performanceStatement, humanOverridden }). Empty when no curriculum
     // exists yet (cold-start before classifier first runs).
     loAudienceByRef,
+    // #495 Slice 4.3 — top-level "Recommended next" hint. null when no
+    // caller scope is resolvable or `recommendNextModule()` had nothing to
+    // suggest (every module mastered, or strict-prereq deadlock with no
+    // IN_PROGRESS fallback). The picker highlights the matching tile.
+    recommendedModuleId,
+    recommendedReason,
   });
 }
 
@@ -306,41 +353,31 @@ async function loadGeneratedModulesAsAuthored(
 }
 
 /**
- * #495 Slice 4.2 — resolve a `slug → PickerProgress` map keyed by
- * AuthoredModule.id (which equals CurriculumModule.slug by convention,
- * matching the picker page's progress-grouping logic).
- *
- * Returns `null` when no caller scope is resolvable:
+ * #495 Slice 4.2 / 4.3 — resolve the caller whose progress + recommendation
+ * the GET response should be scoped to. Returns `null` when no caller scope
+ * is resolvable:
  *   - STUDENT but no LEARNER Caller linked → null (treat as no-scope; the
  *     picker simply hides the badge rather than showing every module as
  *     "Not started", which would be misleading mid-onboarding).
  *   - OPERATOR+ without `?callerId=` → null (admin-only direct view).
  *   - Lower roles (TESTER/VIEWER) without `?callerId=` → null.
- *
- * Returns `{}` (empty object) when a caller IS resolved but has no
- * progress rows — the GET handler then synthesises NOT_STARTED for each
- * module so the picker can show "Not started" everywhere.
  */
-async function resolveProgressForCaller(
+async function resolveCallerIdForRequest(
   role: string,
   userId: string,
   callerIdParam: string | null,
-  courseId: string,
-  modules: AuthoredModule[],
-): Promise<Record<string, PickerProgress> | null> {
-  if (modules.length === 0) return null;
-
+): Promise<string | null> {
   const roleLevel =
     (ROLE_LEVEL as Record<string, number | undefined>)[role] ?? 0;
 
-  let callerId: string | null = null;
   if (role === "STUDENT") {
     const caller = await prisma.caller.findFirst({
       where: { userId, role: "LEARNER" },
       select: { id: true },
     });
-    callerId = caller?.id ?? null;
-  } else if (roleLevel >= ROLE_LEVEL.OPERATOR && callerIdParam) {
+    return caller?.id ?? null;
+  }
+  if (roleLevel >= ROLE_LEVEL.OPERATOR && callerIdParam) {
     // Verify the requested caller is a LEARNER — same shape check
     // `requireStudentOrAdmin` uses. We don't 404 here; we just decline
     // to enrich, mirroring "no scope" semantics.
@@ -348,11 +385,26 @@ async function resolveProgressForCaller(
       where: { id: callerIdParam, role: "LEARNER" },
       select: { id: true },
     });
-    callerId = caller?.id ?? null;
+    return caller?.id ?? null;
   }
+  return null;
+}
 
-  if (!callerId) return null;
-
+/**
+ * #495 Slice 4.2 — load progress rows for `callerId` scoped to the given
+ * playbook's curricula and project them into a `slug → PickerProgress`
+ * map. The slug is used as the picker-key because AuthoredModule.id
+ * equals CurriculumModule.slug by convention (mirrors the picker page's
+ * progress-grouping logic).
+ *
+ * Returns `{}` (empty object) when the caller has no progress rows yet —
+ * the GET handler then synthesises NOT_STARTED for each module so the
+ * picker can show "Not started" everywhere.
+ */
+async function loadProgressForCaller(
+  callerId: string,
+  courseId: string,
+): Promise<Record<string, PickerProgress>> {
   // Scope progress rows to this Playbook's curricula so the same slug
   // across two courses doesn't bleed in. Mirrors module-progress route.
   const rows = await prisma.callerModuleProgress.findMany({
