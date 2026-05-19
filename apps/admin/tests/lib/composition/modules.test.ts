@@ -502,6 +502,64 @@ describe("computeModuleProgress transform", () => {
     expect(out.modules[0].status).toBe("not_started");
     expect(out.modules[0].statusLabel).toBe("not started");
   });
+
+  // ── #492 Slice 3.2: sibling-module thinning ──
+
+  it("emits full shape (description + content) for the current module only", () => {
+    const modules: ModuleData[] = [
+      { id: "m-1", slug: "part1", name: "Part 1", description: "Part 1 desc", content: { teachingPlan: "long body…" } as any },
+      { id: "m-2", slug: "part2", name: "Part 2", description: "Part 2 desc", content: { teachingPlan: "long body…" } as any },
+      { id: "m-3", slug: "part3", name: "Part 3", description: "Part 3 desc", content: { teachingPlan: "long body…" } as any },
+    ];
+    const ctx = makeContext(modules, undefined, false);
+    // Mark Part 2 as the current via nextModule
+    ctx.sharedState.nextModule = modules[1];
+    const out: any = transform({}, ctx, {} as any);
+    expect(out.modules).toHaveLength(3);
+    // Current module (Part 2): full body
+    expect(out.modules[1]).toMatchObject({ slug: "part2", isCurrent: true });
+    expect(out.modules[1].description).toBe("Part 2 desc");
+    expect(out.modules[1].content).toBeDefined();
+    // Siblings: NO description, NO content
+    expect(out.modules[0]).toMatchObject({ slug: "part1", isCurrent: false });
+    expect(out.modules[0].description).toBeUndefined();
+    expect(out.modules[0].content).toBeUndefined();
+    expect(out.modules[2]).toMatchObject({ slug: "part3", isCurrent: false });
+    expect(out.modules[2].description).toBeUndefined();
+    expect(out.modules[2].content).toBeUndefined();
+  });
+
+  it("respects lockedModule over nextModule when both present (picker wins)", () => {
+    const modules: ModuleData[] = [
+      { id: "m-1", slug: "part1", name: "Part 1", description: "d1", content: { x: 1 } as any },
+      { id: "m-2", slug: "part2", name: "Part 2", description: "d2", content: { x: 2 } as any },
+    ];
+    const ctx = makeContext(modules, undefined, false);
+    ctx.sharedState.nextModule = modules[0]; // scheduler picks Part 1
+    ctx.sharedState.lockedModule = modules[1]; // picker picks Part 2
+    const out: any = transform({}, ctx, {} as any);
+    expect(out.modules[0].isCurrent).toBe(false); // Part 1 thinned
+    expect(out.modules[1].isCurrent).toBe(true);  // Part 2 full (picker wins)
+    expect(out.modules[1].description).toBe("d2");
+    expect(out.modules[0].description).toBeUndefined();
+  });
+
+  it("falls back to thin-everything when no current module is identifiable", () => {
+    const modules: ModuleData[] = [
+      { id: "m-1", slug: "part1", name: "Part 1", description: "d1", content: { x: 1 } as any },
+      { id: "m-2", slug: "part2", name: "Part 2", description: "d2", content: { x: 2 } as any },
+    ];
+    const ctx = makeContext(modules, undefined, false);
+    // No nextModule, no lockedModule → currentModuleKey=null → ALL siblings (thin)
+    ctx.sharedState.nextModule = null;
+    const out: any = transform({}, ctx, {} as any);
+    expect(out.modules[0].isCurrent).toBe(false);
+    expect(out.modules[1].isCurrent).toBe(false);
+    expect(out.modules[0].description).toBeUndefined();
+    expect(out.modules[1].description).toBeUndefined();
+    expect(out.modules[0].content).toBeUndefined();
+    expect(out.modules[1].content).toBeUndefined();
+  });
 });
 
 // resolveLessonPlanMode tests removed — function deleted.

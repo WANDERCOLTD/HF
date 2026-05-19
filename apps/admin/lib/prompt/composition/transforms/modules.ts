@@ -807,6 +807,16 @@ registerTransform("computeModuleProgress", (
   const callerAttributes = loadedData.callerAttributes;
   const totalCallCount = loadedData.callCount;
   const masteryThreshold = (sharedState as Record<string, any>).curriculumMetadata?.masteryThreshold ?? 0.7;
+  // #492 Slice 3.2: identify the CURRENT module for this call so siblings can
+  // be emitted with a thin shape (no `description` / `content` body). The
+  // tutor only needs full TP/LO text for the module being taught right now —
+  // sibling bodies bloat the prompt by ~6–12KB on a 4-module course. Current
+  // module = lockedModule (picker pick) | nextModule (scheduler choice).
+  const lockedModule = (sharedState as Record<string, any>).lockedModule as ModuleData | null;
+  const currentModuleKey: string | null =
+    (lockedModule && (lockedModule.slug || lockedModule.id || '')) ||
+    (nextModule && (nextModule.slug || nextModule.id || '')) ||
+    null;
 
   const curriculumAttrs = callerAttributes.filter((a: CallerAttributeData) =>
     a.key.includes("module") ||
@@ -867,15 +877,22 @@ registerTransform("computeModuleProgress", (
           : learnerStatus === "IN_PROGRESS" ? "in_progress"
           : learnerStatus === "NOT_STARTED" ? "not_started"
           : getModuleStatus(m, idx);
+      const moduleKey = m.slug || m.id || '';
+      // #492 Slice 3.2: sibling modules get a thin shape — drop `description`
+      // and `content` (the heavy fields). Tutor only needs full body text for
+      // the current module. Saves ~6–12KB per compose. The full body lives on
+      // the top-level `nextModule` block emitted below for the current module.
+      const isCurrentModule = currentModuleKey !== null && moduleKey === currentModuleKey;
       return {
         id: m.id,
-        slug: m.slug || m.id || '',
+        slug: moduleKey,
         name: m.name,
-        description: m.description,
+        ...(isCurrentModule ? { description: m.description } : {}),
         order: m.sortOrder ?? m.sequence,
         prerequisites: m.prerequisites,
         masteryThreshold: m.masteryThreshold ?? masteryThreshold,
         isCompleted: renderedStatus === "completed",
+        isCurrent: isCurrentModule,
         status: renderedStatus,
         // #266 Slice 1: per-learner attempt count (0 when no progress row, or when modulesAuthored !== true)
         callCount,
@@ -883,8 +900,8 @@ registerTransform("computeModuleProgress", (
           learnerStatus
             ?? (renderedStatus === "completed" ? "COMPLETED" : renderedStatus === "in_progress" ? "IN_PROGRESS" : "NOT_STARTED")
         ],
-        // Include module content for LLM context
-        content: m.content,
+        // Include module content for LLM context — full only for currentModule.
+        ...(isCurrentModule ? { content: m.content } : {}),
       };
     }),
     nextModule: nextModule ? {
