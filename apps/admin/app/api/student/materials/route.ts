@@ -48,26 +48,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true, courseName: null, materials: [] });
   }
 
-  // Get playbook name and its subjects
+  // Read student-visible content via PlaybookSource (the content boundary
+  // since 2026-04-17). Pre-#483 this traversed the Subject chain — that
+  // path leaked content from sibling courses sharing a Subject. See #478.
   const playbook = await prisma.playbook.findUnique({
     where: { id: playbookId },
-    select: {
-      name: true,
-      subjects: {
-        select: { subjectId: true },
-      },
-    },
+    select: { name: true },
   });
   if (!playbook) {
     return NextResponse.json({ ok: true, courseName: null, materials: [] });
   }
 
-  const subjectIds = playbook.subjects.map((s) => s.subjectId);
-
-  // Find student-visible SubjectSources
-  const subjectSources = await prisma.subjectSource.findMany({
+  const playbookSources = await prisma.playbookSource.findMany({
     where: {
-      subjectId: { in: subjectIds },
+      playbookId,
       tags: { has: "student-material" },
     },
     include: {
@@ -110,8 +104,8 @@ export async function GET(request: NextRequest) {
 
   // Build response — no answer keys in questions
   const materials: SessionMaterial[] = await Promise.all(
-    subjectSources.map(async (ss) => {
-      const media = ss.source.mediaAssets[0];
+    playbookSources.map(async (ps) => {
+      const media = ps.source.mediaAssets[0];
       let publicUrl: string | null = null;
 
       if (media) {
@@ -123,10 +117,10 @@ export async function GET(request: NextRequest) {
       }
 
       return {
-        sourceId: ss.source.id,
-        sourceName: ss.source.name,
-        documentType: ss.source.documentType,
-        sortOrder: ss.sortOrder,
+        sourceId: ps.source.id,
+        sourceName: ps.source.name,
+        documentType: ps.source.documentType,
+        sortOrder: ps.sortOrder,
         media: media
           ? {
               id: media.id,
@@ -135,12 +129,12 @@ export async function GET(request: NextRequest) {
               publicUrl: publicUrl!,
             }
           : null,
-        vocabulary: ss.source.vocabulary.map((v) => ({
+        vocabulary: ps.source.vocabulary.map((v) => ({
           term: v.term,
           definition: v.definition,
           partOfSpeech: v.partOfSpeech,
         })),
-        questions: ss.source.questions.map((q) => ({
+        questions: ps.source.questions.map((q) => ({
           text: q.questionText,
           type: q.questionType,
         })),
