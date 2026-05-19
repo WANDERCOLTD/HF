@@ -116,6 +116,26 @@ export interface LoadedDataContext {
    * cases.
    */
   interleaveReview?: InterleaveReviewData;
+  /**
+   * #492 Slice 3.7 — course-completion verdict for the learner's curriculum.
+   * Populated by `loaders/courseComplete.ts`. When `courseComplete === true`
+   * the `courseComplete` celebration section is emitted and the modules
+   * section is thinned to titles-only. `null` when the loader could not
+   * resolve a curriculum.
+   */
+  courseComplete?: CourseCompleteLoadedData | null;
+}
+
+/**
+ * Loaded shape of the courseComplete loader (#492 Slice 3.7). Consumed by
+ * the `buildCourseCompleteBlock` transform and read defensively by the
+ * `computeModuleProgress` transform.
+ */
+export interface CourseCompleteLoadedData {
+  courseComplete: boolean;
+  completedAt: string | null;
+  completionMode: "all-modules" | "terminal-only" | "any" | null;
+  daysSinceCompletion: number | null;
 }
 
 /** Prior-call feedback data for the current module (#492 Slice 3.5) */

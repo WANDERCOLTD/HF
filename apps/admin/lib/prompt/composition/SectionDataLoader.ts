@@ -21,8 +21,13 @@ import { isStudentVisibleDefault } from "@/lib/doc-type-icons";
 import { loadPriorCallFeedback } from "./loaders/priorCallFeedback";
 import { loadMockDiagnostic } from "./loaders/mockDiagnostic";
 import { loadInterleaveReview } from "./loaders/interleaveReview";
+import { loadCourseComplete } from "./loaders/courseComplete";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
-import type { LoadedDataContext, SystemSpecData } from "./types";
+import type {
+  LoadedDataContext,
+  SystemSpecData,
+  CourseCompleteLoadedData,
+} from "./types";
 
 /**
  * Document types that must NEVER appear in a learner-facing media palette or
@@ -160,6 +165,22 @@ export async function loadAllData(
     (playbooks || []) as Array<{ config?: any }>,
   );
 
+  // #492 Slice 3.7 — sequential because it depends on playbooks + subjectSources
+  // (curriculum lookup) which are only known after the parallel block. Cheap
+  // — at most two indexed lookups via `isCourseComplete`. Failure degrades to
+  // `courseComplete: false` so composition never breaks on a completion miss.
+  let courseComplete: CourseCompleteLoadedData | null = null;
+  try {
+    const playbookConfig = ((playbooks || [])[0]?.config ?? null) as PlaybookConfig | null;
+    courseComplete = (await loaderRegistry.get("courseComplete")!(callerId, {
+      playbookConfig,
+      subjectSources,
+    })) as CourseCompleteLoadedData | null;
+  } catch (err) {
+    console.warn("[SectionDataLoader] courseComplete loader threw — section omitted:", err);
+    courseComplete = null;
+  }
+
   return {
     caller,
     memories: memories || [],
@@ -208,6 +229,7 @@ export async function loadAllData(
       mastery: null,
       summary: null,
     },
+    courseComplete,
   };
 }
 
@@ -1501,4 +1523,43 @@ registerLoader("visualAids", async (_callerId, loaderConfig) => {
     chapter: mediaChapterMap.get(sm.media.id) || null,
     mimeType: sm.media.mimeType,
   }));
+});
+
+/**
+ * #492 Slice 3.7 — course-completion verdict for the learner's curriculum.
+ * Delegates to {@link loadCourseComplete}, which calls `isCourseComplete`
+ * under the hood. `subjectSources` (already resolved upstream) is the source
+ * of the curriculum id — same lookup as `findCurriculumInfo` in
+ * `transforms/modules.ts`. Failures degrade silently to `courseComplete: false`.
+ */
+registerLoader("courseComplete", async (callerId, loaderConfig) => {
+  const playbookConfig = (loaderConfig?.playbookConfig ?? null) as PlaybookConfig | null;
+  const subjectSources = loaderConfig?.subjectSources as
+    | { subjects?: Array<{ curriculum?: { id?: string | null } | null }> }
+    | null
+    | undefined;
+
+  let curriculumId: string | null = null;
+  for (const subject of subjectSources?.subjects ?? []) {
+    if (subject?.curriculum?.id) {
+      curriculumId = subject.curriculum.id;
+      break;
+    }
+  }
+
+  try {
+    return await loadCourseComplete(prisma, {
+      callerId,
+      curriculumId,
+      playbookConfig,
+    });
+  } catch (err) {
+    console.warn("[courseComplete] loader failed — section will be omitted:", err);
+    return {
+      courseComplete: false,
+      completedAt: null,
+      completionMode: null,
+      daysSinceCompletion: null,
+    };
+  }
 });

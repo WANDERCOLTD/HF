@@ -871,16 +871,25 @@ registerTransform("computeModuleProgress", (
   const callerAttributes = loadedData.callerAttributes;
   const totalCallCount = loadedData.callCount;
   const masteryThreshold = (sharedState as Record<string, any>).curriculumMetadata?.masteryThreshold ?? 0.7;
+  // #492 Slice 3.7: when the courseComplete loader reports a positive
+  // verdict, EVERY module renders thin (titles only) and `nextModule` clears
+  // — there is no "next" to push toward. The celebration section (priority 5)
+  // carries the celebratory directive; this transform's job is to stop
+  // pumping module bodies into a prompt that no longer needs them.
+  const courseComplete =
+    (loadedData as any).courseComplete?.courseComplete === true;
   // #492 Slice 3.2: identify the CURRENT module for this call so siblings can
   // be emitted with a thin shape (no `description` / `content` body). The
   // tutor only needs full TP/LO text for the module being taught right now —
   // sibling bodies bloat the prompt by ~6–12KB on a 4-module course. Current
   // module = lockedModule (picker pick) | nextModule (scheduler choice).
+  // Slice 3.7: no current module when the course is complete.
   const lockedModule = (sharedState as Record<string, any>).lockedModule as ModuleData | null;
-  const currentModuleKey: string | null =
-    (lockedModule && (lockedModule.slug || lockedModule.id || '')) ||
-    (nextModule && (nextModule.slug || nextModule.id || '')) ||
-    null;
+  const currentModuleKey: string | null = courseComplete
+    ? null
+    : (lockedModule && (lockedModule.slug || lockedModule.id || '')) ||
+      (nextModule && (nextModule.slug || nextModule.id || '')) ||
+      null;
 
   const curriculumAttrs = callerAttributes.filter((a: CallerAttributeData) =>
     a.key.includes("module") ||
@@ -948,6 +957,12 @@ registerTransform("computeModuleProgress", (
     // #492 Slice 3.4 — top-level tutor guidance for the active module.
     currentModuleSlug: currentModuleKey,
     currentModuleTeachingInstructions,
+    // #492 Slice 3.7 — phase + tutor note so downstream consumers know the
+    // modules list is for context only when the course is done.
+    coursePhase: courseComplete ? "complete" : "active",
+    moduleListNote: courseComplete
+      ? "(Course complete — this list is for context only.)"
+      : null,
     modules: modules.map((m: ModuleData, idx: number) => {
       const learnerProgress = m.id ? moduleAttemptCounts?.[m.id] : undefined;
       const callCount = learnerProgress?.callCount ?? 0;
@@ -986,13 +1001,19 @@ registerTransform("computeModuleProgress", (
         ...(isCurrentModule ? { content: m.content } : {}),
       };
     }),
-    nextModule: nextModule ? {
-      id: nextModule.id,
-      slug: nextModule.slug || nextModule.id,
-      name: nextModule.name,
-      description: nextModule.description,
-      content: nextModule.content,
-    } : null,
+    // #492 Slice 3.7: clear `nextModule` once the course is complete — there
+    // is no "next" to teach toward; the celebration section drives the call.
+    nextModule: courseComplete
+      ? null
+      : nextModule
+        ? {
+            id: nextModule.id,
+            slug: nextModule.slug || nextModule.id,
+            name: nextModule.name,
+            description: nextModule.description,
+            content: nextModule.content,
+          }
+        : null,
     currentProgress: curriculumAttrs.map((a: CallerAttributeData) => ({
       key: a.key,
       value: getAttributeValue(a),
