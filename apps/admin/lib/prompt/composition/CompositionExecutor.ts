@@ -229,6 +229,33 @@ export async function executeComposition(
   // Add agent identity summary
   llmPrompt.agentIdentitySummary = buildAgentIdentitySummary(resolvedSpecs);
 
+  // #479 — per-section character-count observability. The composed prompt
+  // grew from 86K → 119K across 6 calls on hf-dev IELTS Speaking, sitting
+  // near the OpenAI 30K TPM tier ceiling. Before trimming anything we need
+  // to know which sections actually dominate. This log emits a sorted
+  // breakdown so the next trim PR can target with confidence instead of
+  // guessing. Counted on the JSON-stringified value of each section after
+  // strip-internal — what actually goes into the prompt downstream.
+  try {
+    const sectionSizes: Array<{ key: string; chars: number }> = [];
+    let totalChars = 0;
+    for (const [key, value] of Object.entries(llmPrompt)) {
+      if (key === "_version" || key === "_format") continue;
+      const chars = typeof value === "string" ? value.length : JSON.stringify(value).length;
+      sectionSizes.push({ key, chars });
+      totalChars += chars;
+    }
+    sectionSizes.sort((a, b) => b.chars - a.chars);
+    const lines = [`[compose-sizes] total=${totalChars} chars across ${sectionSizes.length} sections`];
+    for (const s of sectionSizes) {
+      const pct = totalChars > 0 ? Math.round((s.chars / totalChars) * 100) : 0;
+      lines.push(`  ${String(s.chars).padStart(7)} (${String(pct).padStart(2)}%)  ${s.key}`);
+    }
+    console.log(lines.join("\n"));
+  } catch (err) {
+    console.warn("[compose-sizes] failed to compute section breakdown:", err);
+  }
+
   // 8. Build callerContext markdown (for LLM prompt and storage)
   const callerContext = buildCallerContext(context);
 
