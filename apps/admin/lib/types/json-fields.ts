@@ -550,6 +550,19 @@ export interface AuthoredModule {
   prerequisites: string[];
   /** Ordinal position in a structured course's lesson plan. Optional in continuous mode. */
   position?: number;
+  /**
+   * #495 Slice 4.2 — per-caller progress for the picker badge. Populated
+   * only by the read-side picker endpoint
+   * (`GET /api/courses/[id]/import-modules`) when a caller scope is
+   * resolvable (STUDENT, or OPERATOR+ with `?callerId=`). NEVER stored on
+   * `Playbook.config.modules`; the read-side enriches it on the fly.
+   * DB `COMPLETED` is mapped to presentational `MASTERED` (mirrors E5
+   * #493 Slice 5.2 / SimProgressPanel).
+   */
+  progress?: {
+    status: "MASTERED" | "IN_PROGRESS" | "NOT_STARTED";
+    callCount: number;
+  };
 }
 
 export interface ModuleDefaults {

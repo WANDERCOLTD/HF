@@ -55,6 +55,21 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/permissions", () => ({
   requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
   isAuthError: (...args: unknown[]) => mockIsAuthError(...args),
+  // #495 Slice 4.2: the route reads ROLE_LEVEL to decide whether to
+  // enrich the response with per-module caller progress (admins need
+  // `?callerId=`, students get auto-resolved). Mirror lib/roles so the
+  // existing tests stay unaffected without depending on @/lib/auth.
+  ROLE_LEVEL: {
+    DEMO: 0,
+    VIEWER: 1,
+    TESTER: 1,
+    STUDENT: 1,
+    SUPER_TESTER: 2,
+    OPERATOR: 3,
+    EDUCATOR: 3,
+    ADMIN: 4,
+    SUPERADMIN: 5,
+  },
 }));
 
 // #245: sync helper mocked so route tests stay focused on routing/persistence.

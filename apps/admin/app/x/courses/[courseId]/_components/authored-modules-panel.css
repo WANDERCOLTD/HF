@@ -418,6 +418,7 @@
 }
 
 .learner-picker__tile {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -511,6 +512,7 @@ button.learner-picker__tile:hover {
 }
 
 .learner-picker__rail-card {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -607,4 +609,49 @@ button.learner-picker__rail-card:hover {
 .learner-picker-page__empty {
   padding: 24px;
   text-align: center;
+}
+
+/* #495 Slice 4.2 — per-module status badge pinned to the top-right
+   corner of every tile / rail card. Driven by `AuthoredModule.progress`
+   which the read-side endpoint enriches per-caller. The Mastered /
+   In progress / Not started vocabulary mirrors SimProgressPanel so the
+   learner's surfaces stay consistent. Tokens come from the global
+   design system (--status-success-text / --status-warning-text /
+   --text-muted) — wa-theme tokens (--wa-amber etc.) aren't loaded on
+   this route, so the corresponding admin-surface tokens are used. */
+
+.learner-picker-page__status-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  pointer-events: none; /* purely informative — don't trap tile clicks */
+  line-height: 1.4;
+}
+
+.learner-picker-page__status-badge--mastered {
+  color: var(--status-success-text);
+  background: color-mix(in srgb, var(--status-success-text) 10%, transparent);
+  border-color: color-mix(in srgb, var(--status-success-text) 25%, transparent);
+}
+
+.learner-picker-page__status-badge--in-progress {
+  color: var(--status-warning-text);
+  background: color-mix(in srgb, var(--status-warning-text) 12%, transparent);
+  border-color: color-mix(in srgb, var(--status-warning-text) 30%, transparent);
+}
+
+.learner-picker-page__status-badge--not-started {
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 8%, transparent);
+  border-color: color-mix(in srgb, var(--text-muted) 20%, transparent);
 }

@@ -26,6 +26,9 @@ import {
   CircleDot,
   CircleDashed,
   AlertCircle,
+  CheckCircle2,
+  PlayCircle,
+  Circle,
 } from "lucide-react";
 import type { AuthoredModule } from "@/lib/types/json-fields";
 
@@ -195,6 +198,7 @@ function Tile({
       data-terminal={mod.sessionTerminal || undefined}
       data-progress={inProgress ? "in-progress" : completed ? "completed" : undefined}
     >
+      <StatusBadge progress={mod.progress} />
       <ModeIcon mode={mod.mode} />
       <div className="learner-picker__tile-body">
         <div className="learner-picker__tile-label">{mod.label}</div>
@@ -274,6 +278,7 @@ function RailLayout({
               data-progress={isComplete ? "completed" : isInProgress ? "in-progress" : undefined}
               data-terminal={m.sessionTerminal || undefined}
             >
+              <StatusBadge progress={m.progress} />
               <ModeIcon mode={m.mode} />
               <div className="learner-picker__rail-body">
                 <div className="learner-picker__rail-label">
@@ -327,4 +332,47 @@ function describeFrequency(freq: AuthoredModule["frequency"]): string {
   if (freq === "once") return "Once";
   if (freq === "cooldown") return "Cooldown";
   return "Repeatable";
+}
+
+// ── Status badge (#495 Slice 4.2) ──────────────────────────────────
+//
+// Per-module Mastered / In progress / Not started chip pinned to the
+// top-right of every tile / rail card. Source of truth is the
+// import-modules endpoint, which writes `progress` when a caller scope
+// is resolvable (STUDENT or OPERATOR+ ?callerId=). Modules without a
+// `progress` field render nothing — preserves the legacy admin-preview
+// usage (mounted inside AuthoredModulesPanel) where there's no caller.
+//
+// Icons match SimProgressPanel (CheckCircle2 / PlayCircle / Circle) so
+// the learner's surfaces stay visually consistent across the picker
+// and the in-call progress drawer.
+function StatusBadge({ progress }: { progress: AuthoredModule["progress"] }) {
+  if (!progress) return null;
+  if (progress.status === "MASTERED") {
+    return (
+      <span className="learner-picker-page__status-badge learner-picker-page__status-badge--mastered">
+        <CheckCircle2 size={12} aria-hidden="true" />
+        <span>Mastered</span>
+      </span>
+    );
+  }
+  if (progress.status === "IN_PROGRESS") {
+    return (
+      <span className="learner-picker-page__status-badge learner-picker-page__status-badge--in-progress">
+        <PlayCircle size={12} aria-hidden="true" />
+        <span>
+          In progress
+          {progress.callCount > 0 && (
+            <> ({progress.callCount} call{progress.callCount === 1 ? "" : "s"})</>
+          )}
+        </span>
+      </span>
+    );
+  }
+  return (
+    <span className="learner-picker-page__status-badge learner-picker-page__status-badge--not-started">
+      <Circle size={12} aria-hidden="true" />
+      <span>Not started</span>
+    </span>
+  );
 }

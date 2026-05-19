@@ -48,6 +48,21 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/permissions", () => ({
   requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
   isAuthError: (...args: unknown[]) => mockIsAuthError(...args),
+  // #495 Slice 4.2: the route reads ROLE_LEVEL to decide whether to
+  // enrich the response with per-module caller progress. Mirror lib/roles
+  // so this fallback-focused suite stays green without depending on
+  // @/lib/auth.
+  ROLE_LEVEL: {
+    DEMO: 0,
+    VIEWER: 1,
+    TESTER: 1,
+    STUDENT: 1,
+    SUPER_TESTER: 2,
+    OPERATOR: 3,
+    EDUCATOR: 3,
+    ADMIN: 4,
+    SUPERADMIN: 5,
+  },
 }));
 
 // Import AFTER mocks
