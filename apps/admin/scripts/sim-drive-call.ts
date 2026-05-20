@@ -154,11 +154,25 @@ async function main() {
     }
   }
 
-  // 3. Create Call row
+  // 3. Create Call row.
+  // #556: mirror the production /api/callers/[callerId]/calls path —
+  // compute callSequence from the caller's last call so sim-created rows
+  // get proper #1, #2, #3 ordering. Without this they all land with
+  // callSequence=null, breaking compose-next-prompt's previous-call
+  // context (compose-next-prompt.ts:732) and any UI/report that orders
+  // by sequence.
+  const lastCall = await prisma.call.findFirst({
+    where: { callerId },
+    orderBy: { callSequence: "desc" },
+    select: { callSequence: true },
+  });
+  const callSequence = (lastCall?.callSequence ?? 0) + 1;
+
   const call = await prisma.call.create({
     data: {
       source: "sim",
       transcript: "",
+      callSequence,
       caller: { connect: { id: callerId } },
       playbook: { connect: { id: playbookId } },
       usedPrompt: { connect: { id: composed.id } },
@@ -167,7 +181,7 @@ async function main() {
     },
     select: { id: true },
   });
-  console.log(`Created call ${call.id.slice(0, 8)}`);
+  console.log(`Created call ${call.id.slice(0, 8)} (#${callSequence})`);
 
   // Conversation accumulator
   const history: Array<{ role: "user" | "assistant"; content: string }> = [];
