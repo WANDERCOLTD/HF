@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { ChevronDown, BookOpen, Target, TrendingUp, Sliders, Compass, Activity } from "lucide-react";
 import { Sparkline } from "@/components/shared/Sparkline";
 import { LearningTrajectoryCard } from "./cards/LearningTrajectoryCard";
+import { SkillTrendChartCard } from "./cards/SkillTrendChartCard";
 import type { CallerInsights } from "./hooks/useCallerInsights";
 import type { UpliftData } from "./types";
 import "./uplift-tab.css";
@@ -11,6 +12,21 @@ import "./uplift-tab.css";
 type Props = {
   callerId: string;
   insights: CallerInsights | null;
+  /** #UI5 — caller-wide CallScore rows for SkillTrendChartCard. */
+  scores?: Array<{
+    callId: string;
+    parameterId: string;
+    score: number;
+    scoredAt?: string | Date;
+    createdAt?: string | Date;
+    parameter?: { parameterId?: string; name?: string | null } | null;
+  }>;
+  /** #UI5 — CallerTarget rows for target-band reference line. */
+  callerTargets?: Array<{
+    parameterId: string;
+    targetValue: number | null;
+    currentScore: number | null;
+  }>;
 };
 
 // ── SVG Ring Chart ─────────────────────────────────────
@@ -129,7 +145,7 @@ function DeltaBadge({ value, suffix = "" }: { value: number | null; suffix?: str
 
 // ── Main Component ─────────────────────────────────────
 
-export function UpliftTab({ callerId, insights }: Props): React.ReactElement {
+export function UpliftTab({ callerId, insights, scores, callerTargets }: Props): React.ReactElement {
   const [data, setData] = useState<UpliftData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -183,6 +199,14 @@ export function UpliftTab({ callerId, insights }: Props): React.ReactElement {
 
   return (
     <div className="uplift-root">
+      {/* #UI5 — Per-skill trend chart (lives above the rings so the
+          educator sees movement first). Self-hides when there are
+          < 2 data points across all skill_* params. */}
+      <SkillTrendChartCard
+        scores={(scores ?? []) as never}
+        callerTargets={(callerTargets ?? []) as never}
+      />
+
       {/* ── Hero Rings ───────────────────────────────── */}
       <div className="hf-card uplift-hero">
         {/* Mastery */}

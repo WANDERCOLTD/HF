@@ -1020,7 +1020,12 @@ export default function CallerDetailPage() {
       )}
 
       {activeSection === "uplift" && (
-        <UpliftTab callerId={callerId} insights={insights} />
+        <UpliftTab
+          callerId={callerId}
+          insights={insights}
+          scores={(data.scores ?? []) as never}
+          callerTargets={(data.callerTargets ?? []) as never}
+        />
       )}
 
       {activeSection === "calls-prompts" && (

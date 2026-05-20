@@ -1601,6 +1601,42 @@ html.light {
   opacity: 0.85;
 }
 
+/* Skill trend multi-line chart on the Uplift tab. SVG-rendered, no
+   external chart dependency. */
+.skill-trend-chart {
+  margin-top: 12px;
+}
+.skill-trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.skill-trend-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.skill-trend-legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+.skill-trend-legend-swatch--dashed {
+  background: transparent;
+  border: 1px dashed var(--status-success-text);
+  width: 16px;
+  height: 0;
+  border-top: 2px dashed var(--status-success-text);
+  border-bottom: 0;
+  border-left: 0;
+  border-right: 0;
+  margin-bottom: 5px;
+}
+
 /* Mock result panel — surfaces the latest Mock call's per-skill bands
    and per-Part sub-module breakdown using #491 fan-out scores. */
 .mock-result-header {
