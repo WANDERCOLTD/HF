@@ -1,0 +1,173 @@
+description: "Wizard V5 — continuous courses: don't ask duration, leave session count unset (#559 rule 4c)"
+
+# Run with: npx promptfoo eval -c evals/wizard/v5-continuous-course.yaml --no-cache
+#
+# Tests rule 4c in v5-system-prompt.ts: when the course is continuous / open-ended,
+# the wizard MUST NOT ask "how long should each session be?" — leave sessionCount
+# and durationMins unset. System defaults are fine. Only ask about duration if the
+# educator explicitly raises it.
+#
+# This eval is a PREP BLOCKER for #559 (structural refactor of v5-system-prompt.ts).
+# Coverage gap identified by the story baseline measurement.
+
+prompts:
+  - id: v5-continuous-course-prompt
+    label: "V5 — continuous course duration suppression (rule 4c)"
+    raw: |
+      You are the HumanFirst Studio setup assistant.
+
+      ## How you communicate
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER expose internal field names like `sessionCount`, `durationMins`, `lessonPlanMode`, or `setupData.*`.
+      - NEVER output XML tags in your text responses.
+
+      ## Rules
+
+      1. Call update_setup EVERY time you learn new information.
+
+      4. **PROPOSE, DON'T ASK** for fields with clear evidence. BANNED: inventing session
+         counts or durations with no evidence from the user or course reference. If you
+         lack evidence, leave session count open-ended and only ask the user about call
+         duration if they raise it.
+
+      4c. **CONTINUOUS COURSES: DON'T ASK DURATION.** When the course is continuous /
+          open-ended, do NOT ask "how long should each session be?" — leave sessionCount
+          and durationMins unset. The system defaults are fine. Only ask about duration
+          if the user explicitly raises it.
+
+      ## Session structure (when relevant)
+      - Duration: 15, 20, 30, 45, or 60 minutes. Only propose a specific duration if the
+        user or course reference states one.
+      - Budget: 3, 5, 8, or 12 (optional soft cap — leave blank for open-ended). Do NOT
+        invent a number — only set if the user or course reference specifies one.
+
+      ---
+      Setup state: {{setupState}}
+      Conversation so far: {{conversationContext}}
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1500
+      tools:
+        - name: update_setup
+          description: "Save collected setup fields"
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                additionalProperties: true
+            required: [fields]
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+        - name: show_options
+          description: "Show a single-select chip menu"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              dataKey: { type: string }
+              options: { type: array }
+            required: [question, options]
+
+tests:
+
+  # ── Test A — explicit "continuous / open-ended" intent → NO duration question ──
+
+  - description: "Test A — educator describes a continuous course → AI does NOT ask for duration"
+    vars:
+      setupState: |
+        Organisation: Riverside Adult Learning. Subject: Conversational French.
+        Course: Conversational French (rolling enrolment). audience: adult-professional.
+        interactionPattern: conversational-guide. lessonPlanMode: continuous.
+        sessionCount: (unset). durationMins: (unset).
+      conversationContext: |
+        The educator has just described a rolling, open-ended conversational French
+        course for working adults — learners join anytime and stay as long as they like.
+        The AI has confirmed the playback. Time to present the configuration proposal.
+      userMessage: "Yes, that captures it. What's next?"
+    assert:
+      - type: llm-rubric
+        value: |
+          Response presents a configuration proposal that treats sessions as continuous /
+          open-ended (e.g. "Sessions: continuous — scheduler decides per call" or "Sessions:
+          open-ended"). Response does NOT ask "how long should each session be?", does NOT
+          ask "how many sessions?", and does NOT propose a specific session count or duration
+          number (e.g. "8 × 30 min"). If update_setup is called, the call MUST NOT include
+          sessionCount or durationMins as numeric values.
+      - type: not-icontains
+        value: "how long should each"
+      - type: not-icontains
+        value: "how many sessions"
+
+  # ── Test B — continuous + update_setup leaves session fields unset ──
+
+  - description: "Test B — when AI calls update_setup on a continuous course, sessionCount + durationMins remain unset"
+    vars:
+      setupState: |
+        Organisation: City Library. Subject: Civic English Workshop.
+        Course: Drop-in English Conversation. audience: adult-professional.
+        lessonPlanMode: continuous. interactionPattern: conversational-guide.
+        learningOutcomes: ["Use everyday English in civic settings"].
+        sessionCount: (unset). durationMins: (unset).
+      conversationContext: |
+        Continuous course confirmed. The educator just affirmed the configuration
+        proposal which presented sessions as open-ended.
+      userMessage: "Sounds right — go with that"
+    assert:
+      - type: llm-rubric
+        value: |
+          If response calls update_setup, the fields object MUST NOT include sessionCount
+          or durationMins as numeric values. The course remains continuous / open-ended.
+          Response acknowledges the confirmation and either (a) advances to welcome flow
+          proposal, or (b) calls update_setup with courseContext / other non-session fields.
+          Response does NOT ask the user how long calls should be.
+
+  # ── Test C — explicit user mention of duration IS allowed ──
+
+  - description: "Test C — if educator volunteers a duration, AI may capture it (rule 4c only bans asking)"
+    vars:
+      setupState: |
+        Organisation: Wellness Co-op. Subject: Mindfulness.
+        Course: Daily Mindfulness Drop-In. lessonPlanMode: continuous.
+        interactionPattern: companion. sessionCount: (unset). durationMins: (unset).
+      conversationContext: |
+        Continuous course. Playback confirmed. Educator just volunteered timing without
+        being asked.
+      userMessage: "By the way, each session should be about 15 minutes — that's all most learners have."
+    assert:
+      - type: llm-rubric
+        value: |
+          Educator volunteered durationMins=15. Response captures this via update_setup
+          (fields.durationMins = 15). Response does NOT also set sessionCount — the course
+          is still continuous / open-ended.
+
+  # ── Test D — non-continuous course CAN ask about duration (negative control) ──
+
+  - description: "Test D — non-continuous course CAN propose/ask about duration (rule 4c does not apply)"
+    vars:
+      setupState: |
+        Organisation: Sixthform College. Subject: A-level Chemistry.
+        Course: A-level Chemistry Exam Prep. lessonPlanMode: structured.
+        audience: secondary. interactionPattern: directive.
+        sessionCount: (unset). durationMins: (unset).
+      conversationContext: |
+        Structured exam-prep course with a fixed end date in May. Playback confirmed.
+        The educator has not mentioned session length or count yet.
+      userMessage: "Yes, that captures it"
+    assert:
+      - type: llm-rubric
+        value: |
+          Response either (a) proposes a specific session count + duration grounded in the
+          structured exam-prep context, or (b) asks about session length (e.g. "how long
+          should each session be?"). Either is acceptable because rule 4c bans asking only
+          for CONTINUOUS courses — this is structured. Response treats sessions as a finite
+          plan, not as continuous / open-ended.
