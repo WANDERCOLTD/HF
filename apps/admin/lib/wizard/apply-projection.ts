@@ -266,7 +266,7 @@ async function diffCurriculumModules(
 ): Promise<CurriculumModuleDiff> {
   const existing = await tx.curriculumModule.findMany({
     where: { curriculumId, sourceContentId },
-    select: { id: true, slug: true, title: true, sortOrder: true, estimatedDurationMinutes: true },
+    select: { id: true, slug: true, title: true, sortOrder: true, estimatedDurationMinutes: true, coversModules: true },
   });
 
   const desiredBySlug = new Map(desired.map((m) => [m.slug, m]));
@@ -292,10 +292,16 @@ async function diffCurriculumModules(
     let moduleId: string;
     if (existingRow) {
       moduleId = existingRow.id;
+      const desiredCovers = m.coversModules ?? [];
+      const existingCovers = existingRow.coversModules ?? [];
+      const coversDrift =
+        desiredCovers.length !== existingCovers.length ||
+        desiredCovers.some((s, i) => s !== existingCovers[i]);
       const drift =
         existingRow.title !== m.title ||
         existingRow.sortOrder !== m.sortOrder ||
-        existingRow.estimatedDurationMinutes !== (m.estimatedDurationMinutes ?? null);
+        existingRow.estimatedDurationMinutes !== (m.estimatedDurationMinutes ?? null) ||
+        coversDrift;
       if (drift) {
         await tx.curriculumModule.update({
           where: { id: existingRow.id },
@@ -304,6 +310,7 @@ async function diffCurriculumModules(
             sortOrder: m.sortOrder,
             estimatedDurationMinutes: m.estimatedDurationMinutes,
             description: m.description,
+            coversModules: desiredCovers,
           },
         });
         updated += 1;
@@ -318,6 +325,7 @@ async function diffCurriculumModules(
           estimatedDurationMinutes: m.estimatedDurationMinutes,
           description: m.description,
           sourceContentId,
+          coversModules: m.coversModules ?? [],
         },
         select: { id: true },
       });

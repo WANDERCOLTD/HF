@@ -24,6 +24,7 @@ import {
   type DetectedAuthoredModules,
 } from "./detect-authored-modules";
 import { detectPedagogy, type DetectedPedagogy } from "./detect-pedagogy";
+import { detectMockShapeCovers } from "./detect-mock-shape-modules";
 import type {
   AuthoredModule,
   ModuleDefaults,
@@ -126,6 +127,14 @@ export interface ProjectedCurriculumModule {
    * primary outcomes declared. Issue #365.
    */
   learningObjectives: ProjectedLearningObjective[];
+  /**
+   * Sub-module slugs this module's evidence ALSO counts toward. Populated
+   * by the wizard for mock-shape modules (IELTS Full Mock Exam covers
+   * part1/part2/part3 in one call). Gates the pipeline's per-segment
+   * MEASURE pass at `runPerSegmentScoring` — empty/undefined → that path
+   * short-circuits and the call falls back to single-module scoring. #557.
+   */
+  coversModules?: string[];
 }
 
 export interface ProjectedParameter {
@@ -532,6 +541,11 @@ function mapAuthoredModulesToCurriculumModules(
   modules: AuthoredModule[],
   outcomes: Record<string, string>,
 ): ProjectedCurriculumModule[] {
+  // #557: pre-compute `coversModules` for mock-shape modules so the
+  // wizard projection persists it on the CurriculumModule row. Without
+  // this the per-segment MEASURE pipeline (#550) can never fire on
+  // wizard-created courses.
+  const coversBySlug = detectMockShapeCovers(modules.map((m) => ({ slug: m.id })));
   return modules.map((m, idx) => ({
     slug: m.id,
     title: m.label,
@@ -545,6 +559,7 @@ function mapAuthoredModulesToCurriculumModules(
       description: outcomes[ref]?.trim() || ref,
       sortOrder: loIdx,
     })),
+    coversModules: coversBySlug.get(m.id),
   }));
 }
 

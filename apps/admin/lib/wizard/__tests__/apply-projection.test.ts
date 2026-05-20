@@ -279,6 +279,10 @@ describe("applyProjection — orchestrator smoke", () => {
         title: m.title,
         sortOrder: m.sortOrder,
         estimatedDurationMinutes: m.estimatedDurationMinutes ?? null,
+        // #557 — diffCurriculumModules now compares coversModules.
+        // Pre-seed it with the projection's value so the no-op assertion
+        // still holds when the projection promotes a mock-shape module.
+        coversModules: m.coversModules ?? [],
       })),
     );
     // Each module's LearningObjectives are already present in the DB.

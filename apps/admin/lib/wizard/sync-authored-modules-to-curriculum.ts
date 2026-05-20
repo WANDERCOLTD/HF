@@ -27,6 +27,7 @@
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { AuthoredModule } from "@/lib/types/json-fields";
+import { detectMockShapeCovers } from "./detect-mock-shape-modules";
 
 // #317 — LO audience classification is NOT run from this helper because it
 // receives an open transaction (`tx`) and the classifier runs its own
@@ -106,7 +107,13 @@ export async function syncAuthoredModulesToCurriculum(
   let created = 0;
   let updated = 0;
 
+  // #557: detect mock-shape modules and pre-compute their coversModules.
+  // Mirrors the wizard's projection path (lib/wizard/project-course-reference.ts)
+  // so the import-modules route gets the same per-segment-MEASURE wiring.
+  const coversBySlug = detectMockShapeCovers(modules.map((m) => ({ slug: m.id })));
+
   for (const [idx, m] of modules.entries()) {
+    const coversModules = coversBySlug.get(m.id) ?? [];
     const result = await tx.curriculumModule.upsert({
       where: {
         curriculumId_slug: { curriculumId, slug: m.id },
@@ -117,6 +124,7 @@ export async function syncAuthoredModulesToCurriculum(
         title: m.label,
         sortOrder: m.position ?? idx,
         prerequisites: m.prerequisites,
+        coversModules,
       },
       update: {
         // Only forward fields the author authoritatively set in the markdown.
@@ -126,6 +134,7 @@ export async function syncAuthoredModulesToCurriculum(
         title: m.label,
         sortOrder: m.position ?? idx,
         prerequisites: m.prerequisites,
+        coversModules,
       },
       select: { id: true, createdAt: true, updatedAt: true },
     });
