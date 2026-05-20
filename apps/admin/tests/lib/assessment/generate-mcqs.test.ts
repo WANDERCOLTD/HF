@@ -18,6 +18,9 @@ vi.mock("@/lib/prisma", () => ({
     curriculum: {
       count: vi.fn(),
     },
+    playbookSource: {
+      count: vi.fn(),
+    },
     subjectSource: {
       count: vi.fn(),
       findUnique: vi.fn(),
@@ -112,6 +115,7 @@ describe("generate-mcqs", () => {
     vi.clearAllMocks();
     // Default: source is a reading passage (eligible for MCQ generation)
     mocks.prisma.contentSource.findUnique.mockResolvedValue({ documentType: "READING_PASSAGE" });
+    mocks.prisma.playbookSource.count.mockResolvedValue(0);
     mockDefaultTeachingProfile();
   });
 
