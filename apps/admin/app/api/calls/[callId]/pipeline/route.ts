@@ -440,8 +440,12 @@ PARAMS TO SCORE: ${paramList}
 FACTS TO EXTRACT (use the suggested keys, extract EVERY fact mentioned including names, pets, family, preferences):
 ${learnList}${learningSection}
 
+For each param, also include EVIDENCE FIELDS:
+- "he" (hasLearnerEvidence): true if the LEARNER's own utterances contain scoreable evidence for this param. false if the score is inferred from the tutor's prose only.
+- "eq" (evidenceQuality): 0-1 confidence that the LEARNER produced enough material to score this param. 0 = nothing scoreable, 1 = abundant evidence.
+
 Return compact JSON:
-{"scores":{"PARAM-ID":{"s":0.75,"c":0.8},...},"memories":[{"cat":"RELATIONSHIP","key":"family_pet","val":"dog called Fred","c":0.9,"e":"my dog is called Fred"},...]${learningJsonHint}}`;
+{"scores":{"PARAM-ID":{"s":0.75,"c":0.8,"he":true,"eq":0.7},...},"memories":[{"cat":"RELATIONSHIP","key":"family_pet","val":"dog called Fred","c":0.9,"e":"my dog is called Fred"},...]${learningJsonHint}}`;
 }
 
 /**
@@ -636,6 +640,21 @@ async function runPerSegmentScoring(
             : Math.max(0, Math.min(1, scoreData?.score ?? scoreData?.s ?? 0.5));
         const confidence = Math.max(0, Math.min(1, scoreData?.confidence ?? scoreData?.c ?? 0.7));
         const reasoning: string | undefined = scoreData?.reasoning ?? scoreData?.r ?? undefined;
+        // #566 Step 1 — evidence-aware fields. The IELTS per-segment prompt
+        // does not yet ask for these; leave null until the prompt is updated.
+        // Pattern matches the batched scorer for forward compatibility.
+        const hasLearnerEvidence =
+          typeof scoreData?.he === "boolean"
+            ? scoreData.he
+            : typeof scoreData?.hasLearnerEvidence === "boolean"
+              ? scoreData.hasLearnerEvidence
+              : null;
+        const evidenceQuality =
+          typeof scoreData?.eq === "number"
+            ? Math.max(0, Math.min(1, scoreData.eq))
+            : typeof scoreData?.evidenceQuality === "number"
+              ? Math.max(0, Math.min(1, scoreData.evidenceQuality))
+              : null;
 
         const existing = await prisma.callScore.findFirst({
           where: { callId: call.id, parameterId, moduleId: segmentModuleId },
@@ -650,6 +669,8 @@ async function runPerSegmentScoring(
               evidence: [`Segment: ${segment.slug}`],
               scoredBy: `${engine}_segment_v1`,
               scoredAt: new Date(),
+              hasLearnerEvidence,
+              evidenceQuality,
             },
           });
         } else {
@@ -664,6 +685,8 @@ async function runPerSegmentScoring(
               reasoning,
               evidence: [`Segment: ${segment.slug}`],
               scoredBy: `${engine}_segment_v1`,
+              hasLearnerEvidence,
+              evidenceQuality,
             },
           });
           segmentScoresCreated++;
@@ -892,6 +915,10 @@ async function runBatchedCallerAnalysis(
             evidence: ["Mock batched scoring"],
             scoredBy: "mock_batched_v1",
             scoredAt: new Date(),
+            // #566 Step 1 — mock engine has no LLM reasoning; leave evidence
+            // fields null (legacy path semantics per schema comment).
+            hasLearnerEvidence: null,
+            evidenceQuality: null,
           },
         });
       } else {
@@ -908,6 +935,9 @@ async function runBatchedCallerAnalysis(
             confidence: 0.7,
             evidence: ["Mock batched scoring"],
             scoredBy: "mock_batched_v1",
+            // #566 Step 1 — null sentinels (see above).
+            hasLearnerEvidence: null,
+            evidenceQuality: null,
           },
         });
       }
@@ -950,11 +980,31 @@ async function runBatchedCallerAnalysis(
       }
 
       // Store scores (handle both full and compact keys: score/s, confidence/c, reasoning/r)
+      // #566 Step 1 — also accept evidence-aware fields (he/hasLearnerEvidence, eq/evidenceQuality).
+      // Both fields default to null when the scorer LLM omits them (back-compat with old responses).
+      let shadowEvidencePresent = 0;
+      let shadowEvidenceAbsent = 0;
+      let shadowEvidenceUnknown = 0;
       if (parsed.scores) {
         for (const [parameterId, scoreData] of Object.entries(parsed.scores as Record<string, any>)) {
           const score = Math.max(0, Math.min(1, scoreData.score ?? scoreData.s ?? 0.5));
           const confidence = Math.max(0, Math.min(1, scoreData.confidence ?? scoreData.c ?? 0.7));
           const reasoning: string | undefined = scoreData.reasoning ?? scoreData.r ?? undefined;
+          const hasLearnerEvidence =
+            typeof scoreData.he === "boolean"
+              ? scoreData.he
+              : typeof scoreData.hasLearnerEvidence === "boolean"
+                ? scoreData.hasLearnerEvidence
+                : null;
+          const evidenceQuality =
+            typeof scoreData.eq === "number"
+              ? Math.max(0, Math.min(1, scoreData.eq))
+              : typeof scoreData.evidenceQuality === "number"
+                ? Math.max(0, Math.min(1, scoreData.evidenceQuality))
+                : null;
+          if (hasLearnerEvidence === true) shadowEvidencePresent++;
+          else if (hasLearnerEvidence === false) shadowEvidenceAbsent++;
+          else shadowEvidenceUnknown++;
 
           // Check if score already exists for this call+parameter
           const existing = await prisma.callScore.findFirst({
@@ -970,6 +1020,8 @@ async function runBatchedCallerAnalysis(
                 evidence: ["AI batched analysis"],
                 scoredBy: `${engine}_batched_v2`,
                 scoredAt: new Date(),
+                hasLearnerEvidence,
+                evidenceQuality,
               },
             });
           } else {
@@ -985,11 +1037,24 @@ async function runBatchedCallerAnalysis(
                 reasoning,
                 evidence: ["AI batched analysis"],
                 scoredBy: `${engine}_batched_v2`,
+                hasLearnerEvidence,
+                evidenceQuality,
               },
             });
           }
           scoresCreated++;
         }
+        // #566 Step 1 — shadow log of evidence-field coverage. Records what
+        // the scorer reported about learner-side evidence without changing
+        // any decision yet. Step 3 will use these counts to validate the
+        // evidence-aware gate before flipping IELTS playbooks over.
+        log.info("Evidence-aware scoring shadow telemetry", {
+          callId: call.id,
+          callerId,
+          present: shadowEvidencePresent,
+          absent: shadowEvidenceAbsent,
+          unknown: shadowEvidenceUnknown,
+        });
       }
 
       // #491 Slice 1.5 — per-part MEASURE for multi-attribute modules.
