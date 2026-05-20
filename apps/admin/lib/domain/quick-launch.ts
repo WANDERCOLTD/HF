@@ -25,6 +25,7 @@ import { scaffoldDomain } from "@/lib/domain/scaffold";
 import { applyBehaviorTargets, applyCallerTargets } from "@/lib/domain/agent-tuning";
 import { parseLoLine } from "@/lib/content-trust/validate-lo-linkage";
 import { generateContentSpec, patchContentSpecForContract } from "@/lib/domain/generate-content-spec";
+import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 import { generateCurriculumFromGoals } from "@/lib/content-trust/extract-curriculum";
 import { generateSkeletonCurriculum } from "@/lib/content-trust/generate-skeleton-curriculum";
 import { startCurriculumEnrichment } from "@/lib/jobs/curriculum-enricher";
@@ -1166,12 +1167,22 @@ export function computeAssertionSummary(assertions: ExtractedAssertion[]): Asser
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count);
 
-  // Sample assertions: pick ~2 from each top category (up to 10 total)
+  // Sample assertions: pick ~2 from each top category (up to 10 total).
+  //
+  // #555: float instruction-oriented categories (skill_framework,
+  // assessment_approach, skill_description, teaching_rule, …) to the front of
+  // the ranking, regardless of raw count. Otherwise high-count content
+  // categories (fact, rule) crowd out the outcome-shaped signal the AI needs
+  // to propose `learningOutcomes`, and we end up persisting test-format facts
+  // as LEARN goals. Falls through to raw-count ordering when no instruction
+  // categories are present (e.g. an early-stage maths course with only
+  // definition + example assertions).
   const sampleAssertions: AssertionSummary["sampleAssertions"] = [];
-  const topCategories = Object.entries(categoryBreakdown)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
-    .map(([cat]) => cat);
+  const instructionSet = new Set<string>(INSTRUCTION_CATEGORIES);
+  const ranked = Object.entries(categoryBreakdown).sort(([, a], [, b]) => b - a);
+  const instructionCats = ranked.filter(([cat]) => instructionSet.has(cat)).map(([cat]) => cat);
+  const otherCats = ranked.filter(([cat]) => !instructionSet.has(cat)).map(([cat]) => cat);
+  const topCategories = [...instructionCats, ...otherCats].slice(0, 5);
 
   for (const cat of topCategories) {
     const matching = assertions.filter((a) => a.category === cat);

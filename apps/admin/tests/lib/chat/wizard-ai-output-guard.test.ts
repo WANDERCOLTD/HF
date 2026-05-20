@@ -68,6 +68,68 @@ describe("guardAILearningOutcomes (#447)", () => {
     expect(result.filtered).toHaveLength(4);
   });
 
+  // #555 — test-format facts (Part N lasts/involves/is, examiner/candidate
+  // behaviour, "The X test is …"). Live repro 2026-05-20: IELTS Speaking course
+  // produced 6 LOs that were all test-format facts, none learner-facing.
+  it("drops test-format facts about Part-segment timing and structure (#555)", () => {
+    const inputs = [
+      "Part 1 lasts 4–5 minutes and involves introduction plus interview on familiar topics",
+      "Part 3 lasts 4–5 minutes and involves two-way discussion on abstract themes linked to Part 2",
+      "Part 2 involves a 1-minute prep plus a 1–2 minute monologue",
+      "Part 1 is a scripted interview with no clarification allowed",
+      "Part 3 takes the form of two-way discussion on abstract themes",
+    ];
+    const result = guardAILearningOutcomes(inputs, noTemplates);
+
+    expect(result.accepted).toEqual([]);
+    expect(result.filtered).toHaveLength(5);
+    expect(result.filtered.every((f) => f.pattern.startsWith("^Part\\s"))).toBe(true);
+  });
+
+  it("drops examiner/candidate behaviour facts (#555)", () => {
+    const inputs = [
+      "In Part 3, the examiner asks scripted prompts and probes with follow-up questions",
+      "In Part 1, the examiner asks scripted questions from a topic frame and cannot rephrase",
+      "In Part 2, candidates get 1 minute preparation plus 1–2 minutes for monologue",
+      "In Part 3, candidates are expected to extend their answers with examples",
+    ];
+    const result = guardAILearningOutcomes(inputs, noTemplates);
+
+    expect(result.accepted).toEqual([]);
+    expect(result.filtered).toHaveLength(4);
+    expect(result.filtered.every((f) => f.pattern.startsWith("^In\\s+Part"))).toBe(true);
+  });
+
+  it("drops test-overview sentences (#555)", () => {
+    const inputs = [
+      "The IELTS Speaking test is a face-to-face interview between one candidate and one examiner, lasting 11–14 minutes in total",
+      "The same test is administered to Academic and General Training candidates",
+      "The test is delivered in a quiet examination room",
+      "The official Speaking test is graded on four criteria",
+    ];
+    const result = guardAILearningOutcomes(inputs, noTemplates);
+
+    expect(result.accepted).toEqual([]);
+    expect(result.filtered).toHaveLength(4);
+    expect(result.filtered.every((f) => f.pattern.startsWith("^The\\s"))).toBe(true);
+  });
+
+  it("retains legitimate learner-facing outcomes that mention Part N or 'test' mid-sentence (#555)", () => {
+    const legitimate = [
+      "Produce a 1–2 minute Part 2 monologue with clear discourse markers",
+      "Extend Part 1 answers with one supporting detail",
+      "Aim for Band 7 in Part 2 discussion",
+      "Demonstrate Band 7 lexical resource through topic-specific vocabulary",
+      "Use cohesive devices accurately in Part 3 abstract discussion",
+      "Build confidence ahead of the test by rehearsing each Part",
+      "Prepare for the IELTS Speaking test by practising fluency drills weekly",
+    ];
+    const result = guardAILearningOutcomes(legitimate, noTemplates);
+
+    expect(result.accepted).toEqual(legitimate);
+    expect(result.filtered).toEqual([]);
+  });
+
   it("retains learner outcomes that happen to mention 'Band' but are not band-descriptors", () => {
     const result = guardAILearningOutcomes(
       ["Aim for IELTS Band 6 in next mock exam"], // legitimate goal

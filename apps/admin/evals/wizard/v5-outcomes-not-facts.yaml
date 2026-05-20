@@ -1,0 +1,131 @@
+description: "Wizard V5 — learningOutcomes describe learner capability, NOT test-format facts (#555)"
+
+# Run with: npx promptfoo eval -c evals/wizard/v5-outcomes-not-facts.yaml --no-cache
+#
+# When the educator uploads an IELTS-shaped course-reference (rich in
+# `fact` / `rule` category assertions describing test format, examiner
+# behaviour, and segment timing), the wizard AI MUST propose learningOutcomes
+# that describe what the LEARNER can do — never test-format facts.
+#
+# The system-prompt rule lives in v5-system-prompt.ts §"Rules" rule 4b with
+# the "SHAPE: outcomes describe what the LEARNER can do or demonstrate" callout.
+#
+# Regression target: the IELTS Speaking course created 2026-05-20 where the
+# wizard persisted 6 bogus LEARN templates ("Part 1 lasts 4–5 minutes…",
+# "The IELTS Speaking test is a face-to-face interview…", etc.) as outcomes.
+# See #555 for the three-layer fix (digest sampler + prompt + guard).
+
+prompts:
+  - id: v5-outcomes-not-facts-prompt
+    label: "V5 — outcomes are learner verbs, not test-format facts"
+    raw: |
+      You are the HumanFirst Studio setup assistant.
+
+      ## How you communicate
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER expose internal field names like `setupData.*`.
+
+      ## Rules
+      4b. **EXTRACT GOALS FROM CONTENT — NEVER ASK WHEN CONTENT EXISTS.** If courseRefDigest or uploaded materials contain skills, outcomes, or objectives, PROPOSE them as learningOutcomes via update_setup immediately — do NOT ask the user to type or confirm what the document already says.
+          **SHAPE: outcomes describe what the LEARNER can do or demonstrate.** Start each one with a learner-verb (Produce, Use, Demonstrate, Extend, Apply, Explain, Recognise, Analyse). REJECT and do NOT propose strings that describe test format, timing, examiner behaviour, or administrative structure — those are constraints, not outcomes. Examples to REJECT: "Part 1 lasts 4–5 minutes…", "In Part 3, the examiner asks…", "The IELTS Speaking test is a face-to-face interview…", "Band 6 LR: Uses a limited range…". Examples to ACCEPT: "Produce a 1–2 minute Part 2 monologue with clear discourse markers", "Demonstrate Band 7 lexical resource through topic-specific vocabulary". Prefer outcomes derived from skill_framework / assessment_approach / skill_description categories in the digest over fact / rule categories.
+
+      ---
+      Setup state: {{setupState}}
+      Conversation so far: {{conversationContext}}
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 4000
+      tools:
+        - name: update_setup
+          description: "Save collected setup fields."
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                additionalProperties: true
+            required: [fields]
+
+tests:
+
+  # ── Test A — IELTS digest with rich fact/rule content → reject all test-format facts ──
+
+  - description: "Test A — IELTS digest produces learner-verb outcomes, NOT test-format facts"
+    vars:
+      setupState: |
+        Course: IELTS Speaking Practice. Subject: ESOL. Audience: adult-professional.
+        Approach: socratic. Cadence: 25 min/call. Course-ref digest present.
+        learningOutcomes: (unset).
+      conversationContext: |
+        Educator just uploaded a course-reference doc plus tutor-briefing and an
+        assessor-rubric. courseRefDigest.sampleAssertions contains a mix:
+        - skill_framework: "Band 9 Pronunciation: full range of features", "Band 7 Lexical Resource: flexibly used"
+        - assessment_approach: "Score each criterion separately and surface the four-number breakdown internally before averaging"
+        - fact: "Part 1 lasts 4–5 minutes and involves introduction plus interview", "The IELTS Speaking test is a face-to-face interview between one candidate and one examiner"
+        - rule: "In Part 3, the examiner asks scripted prompts and probes with follow-up questions", "In Part 1, the examiner asks scripted questions and cannot rephrase"
+        - example: "Part 1 reason questions take the form 'Why / what makes'"
+        The graph suggests learningOutcomes is the next node.
+      userMessage: |
+        Please populate the learning outcomes from the uploaded content.
+    assert:
+      - type: llm-rubric
+        value: |
+          The response calls update_setup with `learningOutcomes` containing 3-6 entries.
+          Each outcome MUST start with a learner-verb (Produce, Use, Demonstrate, Extend,
+          Apply, Explain, Recognise, Analyse, Hold, Build, Achieve, Maintain, or similar
+          capability verb). NONE of the outcomes may describe test format, examiner
+          behaviour, or test timing. The outcomes should be derived from skill_framework
+          and assessment_approach content, not from the fact/rule test-structure assertions.
+      - type: not-icontains
+        value: 'Part 1 lasts'
+      - type: not-icontains
+        value: 'Part 2 lasts'
+      - type: not-icontains
+        value: 'Part 3 lasts'
+      - type: not-icontains
+        value: 'Part 1 involves'
+      - type: not-icontains
+        value: 'Part 2 involves'
+      - type: not-icontains
+        value: 'Part 3 involves'
+      - type: not-icontains
+        value: 'The IELTS Speaking test is'
+      - type: not-icontains
+        value: 'In Part 1, the examiner'
+      - type: not-icontains
+        value: 'In Part 2, the examiner'
+      - type: not-icontains
+        value: 'In Part 3, the examiner'
+      - type: not-icontains
+        value: 'In Part 1, candidates'
+      - type: not-icontains
+        value: 'In Part 2, candidates'
+      - type: not-icontains
+        value: 'In Part 3, candidates'
+
+  # ── Test B — non-test course with skill content → standard learner-verb outcomes ──
+
+  - description: "Test B — content-only course produces skill-shaped learner-verb outcomes"
+    vars:
+      setupState: |
+        Course: Year 10 Macbeth Comprehension. Subject: English Literature. Audience: secondary.
+        Approach: socratic. Sessions: 6 × 30 min. learningOutcomes: (unset).
+      conversationContext: |
+        Educator uploaded a teaching plan. courseRefDigest.sampleAssertions includes:
+        - skill_framework: "Theme identification — recognising recurring motifs", "Evidence selection — picking the strongest quote to support a claim"
+        - assessment_approach: "Always ask for a quote when learner makes a thematic claim"
+        - example: "Macbeth's hallucination of the dagger illustrates the theme of guilt"
+        The graph suggests learningOutcomes.
+      userMessage: |
+        Please pull the outcomes from the materials.
+    assert:
+      - type: llm-rubric
+        value: |
+          The response calls update_setup with `learningOutcomes` containing 2-5 entries,
+          each starting with a learner-verb (Identify, Select, Recognise, Analyse, Connect,
+          Apply, etc.) and describing what the LEARNER can do with the content. Outcomes
+          must reflect the skill_framework content, not be facts about the play or about
+          the assessment process itself.

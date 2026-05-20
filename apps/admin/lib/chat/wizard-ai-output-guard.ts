@@ -38,24 +38,50 @@
 import type { GoalTemplate } from "@/lib/types/json-fields";
 
 /**
- * Patterns matching rubric calibration content that AI agents
- * sometimes return as "learning outcomes". Anchored to start-of-string
- * to minimise false positives on legitimate outcomes that happen to
- * mention rubric vocabulary.
+ * Patterns matching non-outcome content that AI agents sometimes return as
+ * "learning outcomes". Anchored to start-of-string to minimise false positives
+ * on legitimate outcomes that happen to mention test vocabulary mid-sentence.
  *
+ * Two shape families:
+ *
+ * Rubric calibration (#447):
  * - IELTS Speaking band-descriptor lines, both shapes:
  *     - abbreviated:  "Band 2 LR: Only produces…"
  *     - full prose:   "Band 8 Lexical Resource: Wide vocabulary…"
  * - Explicit calibration commentary: "A candidate can legitimately…"
  * - Tier-name colon prose: "Approaching: …", "Developing: …"
+ *
+ * Test-format facts (#555):
+ * - Part-segment timing/structure: "Part 1 lasts 4–5 minutes…", "Part 2 involves…"
+ * - Examiner / candidate behaviour: "In Part 3, the examiner asks…",
+ *   "In Part 2, candidates get 1 minute…"
+ * - Test-overview sentences: "The IELTS Speaking test is…", "The same test is
+ *   administered to…", "The test is a face-to-face interview…"
+ *
+ * Facts about test format describe constraints, not learner capability — they
+ * belong on Playbook.config.constraints, not as LEARN goal templates.
  */
 const RUBRIC_PATTERNS: ReadonlyArray<RegExp> = [
+  // #447 — rubric calibration
   // Anchored: a learning outcome that starts with "Band <digit>" is rubric
   // calibration, never a legitimate top-level capability. Covers both
   // "Band 2 LR: …" (abbreviated) and "Band 8 Lexical Resource: …" (prose).
   /^Band\s+\d+\b/i,
   /^A candidate can legitimately/i,
   /^(Approaching(?:\s+Emerging)?|Emerging|Developing|Secure)\s*[:.]/i,
+  // #555 — test-format facts
+  // "Part N lasts/involves/takes/is …" — observed in IELTS course-ref as
+  // category=fact assertions about each test segment's timing and structure.
+  /^Part\s+\d+\s+(lasts|involves|takes|is)\b/i,
+  // "In Part N, the examiner …" / "In Part N, candidates …" — examiner-side
+  // behaviour or candidate procedure, not learner capability. Allows optional
+  // "the" + singular/plural to catch both the AI's stylings.
+  /^In\s+Part\s+\d+,?\s+(the\s+)?(examiner|candidate)s?\b/i,
+  // "The [<qualifier>[ <qualifier>]] test|exam|speaking is …" — test overview
+  // sentence. Covers "The test is", "The same test is", "The IELTS Speaking
+  // test is". The {0,2} bounds the qualifier word(s) to keep the pattern
+  // anchored and avoid runaway matches on unrelated prose.
+  /^The\s+(\w+\s+){0,2}(test|exam|speaking)\s+is\b/i,
 ];
 
 export interface GuardResult {
