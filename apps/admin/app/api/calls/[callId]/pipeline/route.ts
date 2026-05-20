@@ -26,32 +26,7 @@ import { runAggregateSpecs } from "@/lib/pipeline/aggregate-runner";
 import { aggregateCallerMemorySummary } from "@/lib/ops/memory-extract";
 import { runAdaptSpecs as runRuleBasedAdapt } from "@/lib/pipeline/adapt-runner";
 import { runEvidencePrefilterBatch } from "@/lib/pipeline/evidence-prefilter";
-import { isEvidenceFirstPlaybook } from "@/lib/pipeline/event-gate";
-
-/**
- * #566 Step 3 — Boaz guard for evidence-first playbooks.
- *
- * When a playbook is opted into evidence-first scoring, the scorer's
- * `hasLearnerEvidence` + `evidenceQuality` fields determine whether the
- * row is persisted. Rows where the scorer judged "no learner evidence"
- * AND assigned a non-trivial score are dropped — these are the Boaz
- * S1-S4 shape (tutor-prose hallucinated as learner skill).
- *
- * Returns true when the row should be skipped, false when it should be
- * persisted. Mode-gate playbooks always return false (no skip).
- */
-const EVIDENCE_FIRST_BOAZ_THRESHOLD = 0.4;
-function shouldSkipForEvidenceFirst(
-  playbookId: string | null | undefined,
-  hasLearnerEvidence: boolean | null,
-  evidenceQuality: number | null,
-): boolean {
-  if (!isEvidenceFirstPlaybook(playbookId)) return false;
-  if (hasLearnerEvidence === false) return true;
-  if (hasLearnerEvidence === null) return false; // legacy paths
-  if (typeof evidenceQuality === "number" && evidenceQuality < EVIDENCE_FIRST_BOAZ_THRESHOLD) return true;
-  return false;
-}
+import { shouldSkipForEvidenceFirst } from "@/lib/pipeline/evidence-gate";
 import { validateSpecDependencies } from "@/lib/pipeline/validate-dependencies";
 import { trackGoalProgress, applyAssessmentAdaptation } from "@/lib/goals/track-progress";
 import { evaluateCheckpoints } from "@/lib/assessment/checkpoint-evaluator";
