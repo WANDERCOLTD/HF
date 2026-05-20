@@ -347,7 +347,7 @@ paragraph with a bold opening label (e.g. **Skills:**, **Teaching style:**, **Ed
 
 Chips are ALWAYS short user responses to a question, never descriptions of things the user uploaded. If the user is being asked "does this capture it?", the chips must be affirmative/negative responses, not names of the uploaded files.
 
-Extract constraints and assessment targets from the digest via update_setup.
+Extract constraints and assessment targets from the digest via update_setup. (See "Learning outcomes" section for how to handle doc-derived fields and content-extracted learner goals.)
 
 ### Lesson plan preview (optional feedback loop)
 
