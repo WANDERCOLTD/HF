@@ -1486,6 +1486,22 @@ model CallScore {
   evidence   String[] // Array of evidence quotes
   reasoning  String?  @db.Text // LLM's reasoning for the score
 
+  // #566 Step 1 — evidence-aware scoring (shadow fields).
+  //
+  // Both fields are nullable in Step 1 because they are written ONLY by the
+  // new scorer prompt; legacy paths (mock engine, segment runner, etc.) leave
+  // them null. The mode-gate epic uses them in Step 3 to route IELTS-listed
+  // playbooks through an evidence-driven decision instead of mode-based.
+  //
+  // hasLearnerEvidence — true when the scorer LLM judged that the learner-side
+  // transcript contains scoreable evidence for this parameter. false when the
+  // score was derived from tutor prose only (Boaz S1-S4 hallucination shape).
+  //
+  // evidenceQuality — 0..1 confidence in the evidence quantity/quality
+  // (independent of confidence in the score itself).
+  hasLearnerEvidence Boolean? // null = legacy path; true/false = scorer judged evidence
+  evidenceQuality    Float?   // 0..1, null when not assessed
+
   // Spec-driven scoring
   analysisSpecId String? // Which AnalysisSpec was used
   scoredAt       DateTime @default(now())
