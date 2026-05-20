@@ -25,6 +25,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { runAggregateSpecs } from "@/lib/pipeline/aggregate-runner";
 import { aggregateCallerMemorySummary } from "@/lib/ops/memory-extract";
 import { runAdaptSpecs as runRuleBasedAdapt } from "@/lib/pipeline/adapt-runner";
+import { runEvidencePrefilterBatch } from "@/lib/pipeline/evidence-prefilter";
 import { validateSpecDependencies } from "@/lib/pipeline/validate-dependencies";
 import { trackGoalProgress, applyAssessmentAdaptation } from "@/lib/goals/track-progress";
 import { evaluateCheckpoints } from "@/lib/assessment/checkpoint-evaluator";
@@ -958,6 +959,29 @@ async function runBatchedCallerAnalysis(
     const timeouts = await getAITimeoutSettings();
     const assessPromptInstructions = assessmentSpec ? (assessmentSpec.config as SpecConfig)?.promptInstructions : null;
     const prompt = buildBatchedCallerPrompt(transcript, measureParams, learnActions, transcriptLimit, moduleContext, assessPromptInstructions);
+
+    // #566 Step 2 — Evidence pre-filter shadow pass. Logs which params the
+    // deterministic check WOULD have skipped before the scorer LLM runs.
+    // Never actually skips — Step 3 wires the decision into the gate.
+    try {
+      const paramsForPrefilter = await prisma.parameter.findMany({
+        where: { parameterId: { in: measureParams.map((p) => p.parameterId) } },
+        select: { parameterId: true, name: true, definition: true, config: true },
+      });
+      const { summary: prefilterSummary } = runEvidencePrefilterBatch(
+        transcript,
+        paramsForPrefilter,
+      );
+      log.info("Evidence pre-filter shadow telemetry", {
+        callId: call.id,
+        callerId,
+        ...prefilterSummary,
+      });
+    } catch (err: any) {
+      log.warn("Evidence pre-filter shadow pass failed (non-blocking)", {
+        error: err?.message ?? "unknown",
+      });
+    }
 
     try {
       const result = await getConfiguredMeteredAICompletion({
