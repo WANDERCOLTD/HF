@@ -706,3 +706,82 @@ export async function applyProjection(
     };
   });
 }
+
+
+// ── Rubric band-thresholds writer (#564) ────────────────────────────────────
+
+/**
+ * Mapping from rubric criterion code (e.g. "fc") to its band → descriptor
+ * lookup. Built by parseRubricBands() and consumed by writeBandThresholds()
+ * to update Parameter.config on existing skill parameters.
+ */
+export type RubricBandMap = Map<string, Record<string, string>>;
+
+export interface WriteBandThresholdsResult {
+  parametersUpdated: number;
+  /** Codes for which no matching skill parameter was found. */
+  unmatchedCodes: string[];
+}
+
+/**
+ * Apply per-band descriptor maps to existing skill Parameter rows.
+ *
+ * Matching strategy: for each criterion code (e.g. "fc"), find the unique
+ * skill parameter whose `parameterId` ends with `_<code>` (case-insensitive),
+ * scoped to `parameterId LIKE 'skill_%'` to avoid false positives.
+ *
+ * Idempotent: re-running with the same input produces no changes beyond
+ * `updatedAt`. Never creates new parameters — matches against existing
+ * ones written by the main projection pass.
+ *
+ * Issue #564.
+ */
+export async function writeBandThresholds(
+  options: { playbookId: string; sourceContentId: string },
+  bandMap: RubricBandMap,
+): Promise<WriteBandThresholdsResult> {
+  if (bandMap.size === 0) {
+    return { parametersUpdated: 0, unmatchedCodes: [] };
+  }
+
+  const result: WriteBandThresholdsResult = {
+    parametersUpdated: 0,
+    unmatchedCodes: [],
+  };
+
+  // Pull all skill parameters in one query — small set (≤ a dozen rows).
+  const skillParams = await prisma.parameter.findMany({
+    where: { parameterId: { startsWith: "skill_" } },
+    select: { parameterId: true, config: true },
+  });
+
+  for (const [code, bands] of bandMap) {
+    const suffix = `_${code.toLowerCase()}`;
+    const match = skillParams.find((p) => p.parameterId.toLowerCase().endsWith(suffix));
+    if (!match) {
+      result.unmatchedCodes.push(code);
+      continue;
+    }
+
+    const existing = (match.config as Record<string, unknown> | null) ?? {};
+    const merged = {
+      ...existing,
+      bandThresholds: bands,
+    };
+
+    await prisma.parameter.update({
+      where: { parameterId: match.parameterId },
+      data: { config: merged as Prisma.InputJsonValue },
+    });
+    result.parametersUpdated += 1;
+  }
+
+  if (result.unmatchedCodes.length > 0) {
+    console.warn(
+      `[apply-projection] writeBandThresholds: no skill parameter matched RUB codes ` +
+        `[${result.unmatchedCodes.join(", ")}] (playbook=${options.playbookId} source=${options.sourceContentId})`,
+    );
+  }
+
+  return result;
+}
