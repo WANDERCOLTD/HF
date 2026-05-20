@@ -1,0 +1,173 @@
+description: "Wizard V5 — doc-derived fields: confirm with educator, respect override (#559 rule 4d)"
+
+# Run with: npx promptfoo eval -c evals/wizard/v5-doc-derived-fields.yaml --no-cache
+#
+# Tests rule 4d in v5-system-prompt.ts: fields marked "(from document)" in the
+# setup state were extracted from the educator's uploaded materials. They are
+# PRESENTED FOR CONFIRMATION (not silently accepted). If the educator wants to
+# change a doc-derived field, the AI MUST allow it — phrasing like "Your document
+# suggests X, but I'll use Y as you prefer." Never silently reject a user's change.
+# Never revert to the document value after the educator has chosen otherwise.
+#
+# This eval is a PREP BLOCKER for #559 (structural refactor of v5-system-prompt.ts).
+# Coverage gap identified by the story baseline measurement.
+
+prompts:
+  - id: v5-doc-derived-fields-prompt
+    label: "V5 — doc-derived fields confirmation + override (rule 4d)"
+    raw: |
+      You are the HumanFirst Studio setup assistant.
+
+      ## How you communicate
+      - **Bold the opening concept of each sentence or bullet.**
+      - NEVER expose internal field names like `audience`, `interactionPattern`, or `setupData.*`.
+      - NEVER output XML tags in your text responses.
+
+      ## Rules
+
+      1. Call update_setup EVERY time you learn new information.
+
+      4. **PROPOSE, DON'T ASK** for fields with clear evidence from user input or content.
+
+      4d. **DOC-DERIVED FIELDS.** Fields marked "(from document)" in the status were
+          extracted from the educator's uploaded materials. Present them for confirmation.
+          If the user wants to change one, allow it — say "Your document suggests X, but
+          I'll use Y as you prefer." Never silently reject a user's change.
+
+      5. **AFFIRMATION = CONFIRMED. ADVANCE IMMEDIATELY.** Call update_setup with the
+         value, move to next priority.
+
+      6. NEVER re-ask something already collected. NEVER revert a user's explicit
+         override back to a document-derived value.
+
+      ---
+      Setup state: {{setupState}}
+      Conversation so far: {{conversationContext}}
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 1500
+      tools:
+        - name: update_setup
+          description: "Save collected setup fields"
+          input_schema:
+            type: object
+            properties:
+              fields:
+                type: object
+                additionalProperties: true
+            required: [fields]
+        - name: show_suggestions
+          description: "Show clickable quick-reply chips"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              suggestions: { type: array, items: { type: string } }
+            required: [question, suggestions]
+        - name: show_options
+          description: "Show a single-select chip menu"
+          input_schema:
+            type: object
+            properties:
+              question: { type: string }
+              dataKey: { type: string }
+              options: { type: array }
+            required: [question, options]
+
+tests:
+
+  # ── Test A — doc-derived field is PRESENTED for confirmation, not silently accepted ──
+
+  - description: "Test A — doc-derived audience surfaces explicitly in proposal text for educator confirmation"
+    vars:
+      setupState: |
+        Organisation: Highfield Academy. Subject: GCSE Biology.
+        audience: secondary (from document). interactionPattern: directive (from document).
+        learningOutcomes: ["Explain cell structure", "Apply genetics inheritance rules"] (from document).
+        courseRefDigest: present.
+      conversationContext: |
+        The educator just uploaded a teaching guide and the system extracted audience,
+        teaching approach, and outcomes. The AI is doing the course-ref deep reflection.
+      userMessage: "Teaching guide analyzed"
+    assert:
+      - type: llm-rubric
+        value: |
+          Response narrates the doc-derived fields back to the educator and presents them
+          for confirmation. The audience value ("secondary") and the teaching approach
+          ("directive" or its plain-language label) appear EXPLICITLY in the visible text.
+          Response is NOT silent about the doc-derived values — they are surfaced for the
+          educator to confirm or change. Response ends with a confirmation question (e.g.
+          "Does that capture how you want me to teach?") and calls show_suggestions with
+          chips like ["That's exactly right", "I'd change something"].
+
+  # ── Test B — educator overrides a doc-derived field → AI accepts and saves the override ──
+
+  - description: "Test B — educator overrides doc-derived audience → AI saves override (not the doc value)"
+    vars:
+      setupState: |
+        Organisation: Highfield Academy. Subject: GCSE Biology.
+        audience: secondary (from document). interactionPattern: directive (from document).
+        courseRefDigest: present.
+      conversationContext: |
+        AI just played back the doc-derived configuration and asked the educator to confirm
+        or change. The doc says audience=secondary, but the educator wants this for adults.
+      userMessage: "Actually this class is for adult evening learners, not secondary students. Use adult-professional."
+    assert:
+      - type: llm-rubric
+        value: |
+          Response calls update_setup with fields.audience = "adult-professional" (or the
+          equivalent adult/professional enum value). Response acknowledges the override in
+          plain language — uses phrasing close to "Your document suggests secondary, but
+          I'll use adult-professional as you prefer" (or equivalent acknowledgement of the
+          difference). Response does NOT push back, does NOT silently reject, and does NOT
+          re-propose the document's "secondary" value.
+
+  # ── Test C — after override, AI does NOT revert to the doc value ──
+
+  - description: "Test C — after override saved, next turn does NOT revert audience to doc-derived value"
+    vars:
+      setupState: |
+        Organisation: Highfield Academy. Subject: GCSE Biology.
+        audience: adult-professional (educator override; document said secondary).
+        interactionPattern: directive (from document). courseRefDigest: present.
+      conversationContext: |
+        Educator overrode audience to adult-professional on the previous turn. The AI is
+        now moving to the next field in the configuration proposal.
+      userMessage: "Yes, continue"
+    assert:
+      - type: llm-rubric
+        value: |
+          Response treats audience as adult-professional (the educator's choice) and does
+          NOT revert to "secondary". Response does NOT call update_setup with audience set
+          back to secondary. Any mention of the audience uses "adult", "adult-professional",
+          or an equivalent — NOT "secondary" or "students" in the school sense.
+      - type: not-icontains
+        value: "secondary"
+
+  # ── Test D — doc-derived field that user has not yet seen → presented, not silently used ──
+
+  - description: "Test D — fresh doc analysis surfaces all doc-derived fields explicitly for confirmation"
+    vars:
+      setupState: |
+        Organisation: City College. Subject: Business Studies.
+        audience: higher-ed (from document). interactionPattern: socratic (from document).
+        learningOutcomes: ["Analyse SWOT for a UK SME", "Produce a stakeholder map"] (from document).
+        skillsFramework: [Critical Analysis, Evidence Use] (from document).
+        courseRefDigest: present.
+      conversationContext: |
+        The educator just uploaded a course-reference handbook. The AI is starting the
+        course-reference deep reflection.
+      userMessage: "Teaching guide analyzed"
+    assert:
+      - type: llm-rubric
+        value: |
+          Response surfaces the doc-derived fields (audience, teaching approach, outcomes,
+          skills) EXPLICITLY in the visible text — the educator can see what was extracted
+          and confirm or change it. Response does NOT silently accept the values without
+          mentioning them. Response ends with a confirmation question and calls
+          show_suggestions with affirm/change chips (e.g. ["That's exactly right", "I'd
+          change something"]). Per rule 4d, doc-derived fields are presented for
+          confirmation, not silently adopted.
