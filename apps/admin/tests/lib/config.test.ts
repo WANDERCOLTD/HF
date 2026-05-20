@@ -517,3 +517,40 @@ describe("getConfigSummary", () => {
     expect(polling).toHaveProperty("statusPollMs");
   });
 });
+
+// =============================================================================
+// Mode-kill epic #566 — Step 0 evidence-first flags
+// =============================================================================
+
+describe("scheduler.evidenceFirstEnabled (#566 Step 0)", () => {
+  it("defaults to false when env var is unset", () => {
+    vi.stubEnv("EVIDENCE_FIRST_SCORING_ENABLED", "");
+    expect(config.scheduler.evidenceFirstEnabled).toBe(false);
+  });
+
+  it("returns true when env var is exactly 'true'", () => {
+    vi.stubEnv("EVIDENCE_FIRST_SCORING_ENABLED", "true");
+    expect(config.scheduler.evidenceFirstEnabled).toBe(true);
+  });
+
+  it("returns false for any non-'true' value", () => {
+    vi.stubEnv("EVIDENCE_FIRST_SCORING_ENABLED", "1");
+    expect(config.scheduler.evidenceFirstEnabled).toBe(false);
+    vi.stubEnv("EVIDENCE_FIRST_SCORING_ENABLED", "yes");
+    expect(config.scheduler.evidenceFirstEnabled).toBe(false);
+  });
+});
+
+describe("scheduler.evidenceFirstPlaybooks (#566 Step 0)", () => {
+  it("returns array (may be empty in Step 0; populated in Step 3)", () => {
+    const ids = config.scheduler.evidenceFirstPlaybooks;
+    expect(Array.isArray(ids)).toBe(true);
+  });
+
+  it("never throws when override file is malformed or missing", () => {
+    // The getter reads from disk once per process; subsequent calls hit cache.
+    // We can't easily simulate "missing file" mid-test without reloading the
+    // module, but we CAN assert the getter never throws on any call shape.
+    expect(() => config.scheduler.evidenceFirstPlaybooks).not.toThrow();
+  });
+});

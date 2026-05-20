@@ -1,0 +1,10 @@
+{
+  "_meta": {
+    "purpose": "Per-playbook override list for the mode-kill epic (#566). Playbook IDs listed here route through the new evidence-aware gate (introduced in Step 3) instead of the legacy mode-based event-gate. Empty in Step 0 — no playbook is opted in yet. Step 3 adds the IELTS Speaking Practice playbook as the first canary.",
+    "epic": "#566",
+    "step": 0,
+    "lastUpdated": "2026-05-20",
+    "rollback": "Edit this file to [] and redeploy; mode gate resumes for all playbooks within 30 seconds."
+  },
+  "playbookIds": []
+}

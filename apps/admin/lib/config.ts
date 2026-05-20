@@ -13,6 +13,17 @@
  */
 
 // =============================================================================
+// Module-scoped caches
+// =============================================================================
+
+/**
+ * Mode-kill epic #566 — cache for the per-playbook override list. Read once
+ * from disk on first access, then re-used for the process lifetime. Restart
+ * the dev server to pick up changes to evidence-first-playbooks.json.
+ */
+let _evidenceFirstPlaybookCache: string[] | null = null;
+
+// =============================================================================
 // Helpers
 // =============================================================================
 
@@ -597,12 +608,64 @@ export const config = {
      * scoring in EXTRACT. Default "assess,practice" — only score when the prior
      * decision explicitly requested assessment or retrieval practice.
      * Override: SCHEDULER_ASSESSMENT_MODES=assess,practice,review
+     *
+     * Deprecated in #566 (mode-kill epic). Step 3+ routes IELTS-listed
+     * playbooks through evidence-aware gating instead. This list survives for
+     * legacy playbooks until Step 8 deletes the mode gate entirely.
      */
     get assessmentModes(): string[] {
       return optional("SCHEDULER_ASSESSMENT_MODES", "assess,practice")
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
+    },
+
+    /**
+     * Mode-kill epic #566 — Step 0 flag.
+     *
+     * When true, playbooks in `evidenceFirstPlaybooks` use the new
+     * evidence-aware gate (introduced in Step 3) instead of the legacy
+     * mode-based gate (event-gate.ts). When false, all playbooks use the
+     * mode gate regardless of the override list.
+     *
+     * Default OFF in Step 0 — no behavior change. Step 3 flips it to true
+     * via env override on dev VM. Step 7 flips it globally.
+     *
+     * Override: EVIDENCE_FIRST_SCORING_ENABLED=true
+     */
+    get evidenceFirstEnabled(): boolean {
+      return optional("EVIDENCE_FIRST_SCORING_ENABLED", "false") === "true";
+    },
+
+    /**
+     * Mode-kill epic #566 — Step 0 per-playbook override list.
+     *
+     * Playbook IDs in `apps/admin/config/evidence-first-playbooks.json` route
+     * through the evidence-aware gate when `evidenceFirstEnabled` is true.
+     * The IELTS Speaking Practice playbook is the first canary — see #566 for
+     * the rollout plan.
+     *
+     * Cached in-process. Restart required to pick up changes.
+     */
+    get evidenceFirstPlaybooks(): string[] {
+      if (_evidenceFirstPlaybookCache !== null) return _evidenceFirstPlaybookCache;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const fs = require("fs") as typeof import("fs");
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const path = require("path") as typeof import("path");
+        const file = path.resolve(process.cwd(), "config/evidence-first-playbooks.json");
+        if (!fs.existsSync(file)) {
+          _evidenceFirstPlaybookCache = [];
+          return _evidenceFirstPlaybookCache;
+        }
+        const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as { playbookIds?: string[] };
+        _evidenceFirstPlaybookCache = Array.isArray(parsed.playbookIds) ? parsed.playbookIds : [];
+        return _evidenceFirstPlaybookCache;
+      } catch {
+        _evidenceFirstPlaybookCache = [];
+        return _evidenceFirstPlaybookCache;
+      }
     },
   },
 
