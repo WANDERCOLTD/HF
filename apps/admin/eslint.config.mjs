@@ -13,6 +13,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated Playwright artefacts — not source code, should never be linted
+    "playwright-report/**",
+    // Archived legacy code — read-only, not part of the build
+    "_archived/**",
+    "**/_archived/**",
   ]),
   // Catch hardcoded hex colors in inline styles - use CSS variables instead
   // e.g., background: "#fff" → background: "var(--surface-primary)"
