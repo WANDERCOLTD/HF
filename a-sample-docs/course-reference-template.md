@@ -237,9 +237,19 @@ behavioural ("the learner does X") not affective ("the learner enjoys X").
 
 REPLACE the two `[example]` blocks with your real skills.
 
+PARENTHETICAL CODE — REQUIRED IF YOU UPLOAD A SEPARATE ASSESSOR RUBRIC.
+If your course also ships an `assessor-rubric.md` companion doc, end each
+skill heading with a short uppercase code in parentheses — e.g.
+`### SKILL-01: Fluency & Coherence (FC)`. That `(CODE)` MUST equal the
+`<CODE>` in the matching `## RUB-<CODE>:` heading in the rubric file, or
+the band-descriptor projection pass (#564) will log an unmatched warning
+and the tutor will be unable to read per-band evidence aloud. See the
+"Assessor Rubric" sub-section below.
+
 PROJECTION: each `### SKILL-NN: <name>` block produces three DB rows together:
-  1. A `Parameter` row (upserted by skill name) — measurable dimension for
-     the pipeline's REWARD/ADAPT stages.
+  1. A `Parameter` row (upserted by skill name + code) — measurable dimension
+     for the pipeline's REWARD/ADAPT stages. `parameterId` is
+     `skill_<slugified_name>_<code>` when a `(CODE)` is supplied.
   2. A `Goal` row with `type: ACHIEVE` and `isAssessmentTarget: true` —
      the learner's measurable target on this skill.
   3. A `BehaviorTarget` row scoped to this Playbook — what value of the
@@ -248,10 +258,17 @@ If the course separately uploads an `assessor-rubric.md` whose `LearningObjectiv
 rows are classified `systemRole: ASSESSOR_RUBRIC`, those rubric LOs ALSO project
 to ACHIEVE Goals + BehaviorTargets (e.g. the four IELTS Speaking criteria with
 their Band 0–9 descriptors). The two paths are equivalent — use whichever fits
-your domain.
+your domain. A SECOND, rubric-only pass (#564, PR #574) ALSO reads
+`## RUB-<CODE>:` headings from the rubric doc to populate
+`Parameter.config.bandThresholds` (per-band descriptor text) on the matching
+skill parameter row — see the "Assessor Rubric" sub-section below.
 -->
 
-### SKILL-01: [example] [Skill name]
+### SKILL-01: [example] [Skill name] (CODE)
+
+<!-- Replace `(CODE)` with a short uppercase tag (1–4 letters) — e.g. `(FC)`
+for "Fluency & Coherence". OMIT the parenthetical entirely if your course
+has no companion assessor rubric. -->
 
 [example] Short definition — what the skill is, in one or two sentences. Mention what success looks like in the wild, outside this course.
 
@@ -259,7 +276,7 @@ your domain.
 - **Developing:** [example] Visible partial competence — what does the in-between look like?
 - **Secure:** [example] The behaviour you'd accept as evidence the learner has the skill.
 
-### SKILL-02: [example] [Skill name]
+### SKILL-02: [example] [Skill name] (CODE)
 
 [example] Short definition.
 
@@ -272,6 +289,115 @@ your domain.
 [Optional] If one skill depends on another, or two skills usually move together,
 note that here in 1–3 sentences. The scheduler reads this section as free text
 when deciding what to teach next.
+
+### Assessor Rubric (optional, separate file)
+
+<!-- HOW TO USE
+The assessor rubric is OPTIONAL. Skip this whole sub-section if your course's
+three-tier (Emerging / Developing / Secure) Skills Framework above is enough
+detail for your tutor — you only need a separate rubric when you want
+per-band descriptor text (e.g. an IELTS Band 0–9 scale, CEFR A1–C2 descriptors,
+NHS Agenda for Change behaviour anchors) that the tutor can read aloud as
+evidence ("Your Fluency is around Band 6 because …").
+
+If you DO need a rubric, write it as a SEPARATE markdown file (typically
+`assessor-rubric.md`) that you upload alongside this course-ref doc. The
+projection runs in two passes:
+
+  Pass 1 (main projection) — reads THIS course-ref doc's Skills Framework,
+                              creates Parameter / Goal / BehaviorTarget rows.
+
+  Pass 2 (rubric-only, #564) — reads the assessor-rubric.md, parses each
+                              `## RUB-<CODE>:` heading + band table, and
+                              writes the per-band descriptor strings onto
+                              `Parameter.config.bandThresholds` on the
+                              matching skill Parameter row created in Pass 1.
+
+The match between the two passes is by SUFFIX CODE — case-insensitive. The
+`(CODE)` parenthetical you put on the `### SKILL-NN:` heading above MUST
+equal the `<CODE>` on the rubric's `## RUB-<CODE>:` heading. If they don't
+agree, the rubric pass logs an unmatched-code warning and the tutor will
+have no per-band descriptor text to cite.
+
+PARSER: lib/wizard/parse-rubric-bands.ts (parseRubricBands)
+WRITER: lib/wizard/apply-projection.ts (writeBandThresholds)
+ORCHESTRATION: lib/wizard/run-projection-for-playbook.ts (rubric pass runs
+              after the main COURSE_REFERENCE loop completes)
+-->
+
+If your course ships a separate `assessor-rubric.md` companion doc, it MUST
+follow this format. Every element labelled **MANDATORY** is parsed
+deterministically — deviating from the structural marker means the row is
+silently dropped.
+
+**1. Front-matter declaration — MANDATORY.** The first thing in the file:
+
+```yaml
+---
+hf-document-type: COURSE_REFERENCE_ASSESSOR_RUBRIC
+hf-default-category: skill_framework
+hf-audience: assessor-only
+hf-lo-system-role: ASSESSOR_RUBRIC
+---
+```
+
+Without `hf-document-type: COURSE_REFERENCE_ASSESSOR_RUBRIC` the doc is
+treated as a regular course-ref and its band descriptors WILL leak as rogue
+LEARN/ACHIEVE goal rows on the learner's What tab (#447 incident).
+
+**2. One `## RUB-<CODE>: <Criterion Name>` heading per criterion — MANDATORY.**
+The `<CODE>` MUST equal the `(CODE)` parenthetical on the matching
+`### SKILL-NN:` heading in this course-ref doc. The match is case-insensitive
+and is scoped to skill Parameter rows whose `parameterId` starts with
+`skill_` and ends with `_<code>`.
+
+| Skills Framework heading (this doc) | Rubric heading (assessor-rubric.md) | Matches `Parameter.parameterId` |
+|---|---|---|
+| `### SKILL-01: Fluency & Coherence (FC)` | `## RUB-FC: Fluency & Coherence` | `skill_fluency_and_coherence_fc` |
+| `### SKILL-02: Lexical Resource (LR)`    | `## RUB-LR: Lexical Resource`     | `skill_lexical_resource_lr`     |
+| `### SKILL-03: Pronunciation (P)`        | `## RUB-P: Pronunciation`         | `skill_pronunciation_p`         |
+
+**3. Immediately after each `## RUB-<CODE>:` heading, a band-descriptor table — MANDATORY.**
+The table header MUST be `| Band | Descriptor |`. Each subsequent row MUST be
+`| <number> | <descriptor text> |` where `<number>` is the band integer or
+decimal (e.g. `0`, `1`, `2.5`, `9`) and `<descriptor text>` is the prose the
+tutor can read aloud. Header alignment rows (`|----|----|`) are tolerated and
+skipped. Prose paragraphs between the heading and the table are tolerated.
+
+**4. Worked mini-example.** Copy-paste and extend:
+
+```markdown
+---
+hf-document-type: COURSE_REFERENCE_ASSESSOR_RUBRIC
+hf-default-category: skill_framework
+hf-audience: assessor-only
+hf-lo-system-role: ASSESSOR_RUBRIC
+---
+
+# [Course name] — Assessor Rubric
+
+## RUB-FC: Fluency & Coherence
+
+Optional prose describing what this criterion measures. The parser skips it
+and scans ahead for the band table.
+
+| Band | Descriptor |
+|------|------------|
+| 5    | [example] Usually maintains flow of speech but uses repetition, self-correction and/or slow speech to keep going; overuses certain connectives and discourse markers. |
+| 6    | [example] Is willing to speak at length, though may lose coherence at times due to occasional repetition, self-correction or hesitation; uses a range of connectives and discourse markers but not always appropriately. |
+| 7    | [example] Speaks at length without noticeable effort or loss of coherence; may demonstrate language-related hesitation at times, or some repetition and/or self-correction; uses a range of connectives and discourse markers with some flexibility. |
+
+## RUB-LR: Lexical Resource
+
+| Band | Descriptor |
+|------|------------|
+| 5    | [example] Manages to talk about familiar and unfamiliar topics but uses vocabulary with limited flexibility; attempts paraphrase but with mixed success. |
+| 6    | [example] Has a wide enough vocabulary to discuss topics at length and make meaning clear in spite of inappropriacies; generally paraphrases successfully. |
+| 7    | [example] Uses vocabulary resource flexibly to discuss a variety of topics; uses some less common and idiomatic vocabulary and shows some awareness of style and collocation, with some inappropriate choices; uses paraphrase effectively. |
+```
+
+A live IELTS Speaking example sits at
+`docs/external/ielts/ielts-speaking/Upload Docs/assessor-rubric.md`.
 
 ---
 

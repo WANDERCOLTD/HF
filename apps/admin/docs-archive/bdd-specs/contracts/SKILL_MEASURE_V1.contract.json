@@ -24,6 +24,44 @@
     "secure": 7
   },
 
+  "bandDescriptorsSource": {
+    "_description": "Per-band descriptor TEXT (e.g. 'Band 5 LR: Manages to talk about familiar topics but limited flexibility…') is not stored on this contract. It lives on each skill Parameter as `Parameter.config.bandThresholds`, a { [bandNumber: string]: string } map. The thresholds + tierBands on this contract are the numeric tier→band mapping; the per-band descriptor strings are the human-readable evidence the tutor cites when reading a band aloud.",
+    "field": "Parameter.config.bandThresholds",
+    "shape": { "<bandNumber>": "<descriptor text>" },
+    "exampleKeys": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+    "populatedBy": {
+      "function": "writeBandThresholds()",
+      "file": "apps/admin/lib/wizard/apply-projection.ts",
+      "invokedFrom": "apps/admin/lib/wizard/run-projection-for-playbook.ts (rubric-only second projection pass, runs after the main COURSE_REFERENCE loop)",
+      "parser": "apps/admin/lib/wizard/parse-rubric-bands.ts (parseRubricBands)",
+      "documentType": "COURSE_REFERENCE_ASSESSOR_RUBRIC",
+      "introducedBy": "PR #574 / issue #564"
+    },
+    "matchHeuristic": {
+      "_description": "The rubric heading SUFFIX CODE binds to the Parameter row by `parameterId` suffix match (case-insensitive), scoped to `parameterId LIKE 'skill_%'` to avoid false positives.",
+      "rubricHeading": "## RUB-<CODE>: <Criterion Name>",
+      "parameterIdPattern": "skill_<slugified_name>_<code>",
+      "examples": [
+        { "rubricHeading": "## RUB-FC: Fluency & Coherence", "matchesParameter": "skill_fluency_and_coherence_fc" },
+        { "rubricHeading": "## RUB-LR: Lexical Resource",    "matchesParameter": "skill_lexical_resource_lr" },
+        { "rubricHeading": "## RUB-GRA: Grammatical Range & Accuracy", "matchesParameter": "skill_grammatical_range_and_accuracy_gra" },
+        { "rubricHeading": "## RUB-P: Pronunciation",        "matchesParameter": "skill_pronunciation_p" }
+      ]
+    },
+    "educatorContract": {
+      "_description": "Educators creating new skill-tracked domains (CEFR, NHS Agenda for Change, professional certs, in-house competency frameworks) MUST use a consistent SUFFIX CODE in both surfaces. Without alignment, the rubric pass logs an unmatched-code warning and bandThresholds remain unpopulated — the tutor cannot read band evidence aloud.",
+      "rule": "The (SUFFIX) parenthetical on the Skills Framework heading MUST equal the <CODE> on the assessor rubric heading.",
+      "skillsFrameworkExample": "### SKILL-01: Fluency & Coherence (FC)",
+      "rubricExample": "## RUB-FC: Fluency & Coherence",
+      "templateGuidance": "a-sample-docs/course-reference-template.md — Skills Framework + Assessor Rubric sections"
+    },
+    "references": [
+      "PR #574 (commit 5fae538a)",
+      "Issue #564 — rubric band-thresholds writer",
+      "docs/CONTENT-PIPELINE.md §4 — rubric-only band-descriptor pass"
+    ]
+  },
+
   "config": {
     "emaHalfLifeDays": 0.0035,
     "minCallsToFull": 2,
@@ -33,7 +71,8 @@
       "EMA half-life governs how quickly the per-skill running score adapts to new evidence. 14 days suits IELTS-style learning where improvement is gradual; coaching domains may want shorter half-lives via playbook.config.skillScoringEmaHalfLifeDays.",
       "minCallsToFull caps the per-call contribution so a single 1.0 doesn't promote a learner to Secure on call #1. Same pattern as MASTERY_MIN_CALLS_TO_FULL in lib/curriculum/track-progress.ts. Override per-playbook via Playbook.config.skillMinCallsToFull.",
       "Tier thresholds map onto IELTS Speaking band descriptors: Approaching Emerging ≈ Band 3, Emerging ≈ Band 4, Developing ≈ Band 5-6, Secure ≈ Band 7+. Playbook authors may override via playbook.config.skillTierMapping (not yet implemented).",
-      "The mandated tutor feedback format from the IELTS rubric ('Your [criterion] is around Band [X] because [evidence]') consumes this contract via scoreToTier()."
+      "The mandated tutor feedback format from the IELTS rubric ('Your [criterion] is around Band [X] because [evidence]') consumes this contract via scoreToTier().",
+      "Per-band descriptor TEXT is NOT on this contract — see top-level `bandDescriptorsSource` block. It lives on `Parameter.config.bandThresholds` and is written by the rubric-only projection pass (#564 / PR #574). Educators MUST keep the SUFFIX CODE consistent across the Skills Framework `(CODE)` parenthetical and the rubric `## RUB-<CODE>:` heading or bandThresholds stay empty."
     ]
   }
 }
