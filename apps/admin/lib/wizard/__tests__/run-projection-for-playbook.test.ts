@@ -35,8 +35,11 @@ vi.mock("@/lib/content-trust/extract-assertions", () => ({
   extractTextFromBuffer: mockExtractTextFromBuffer,
 }));
 
+const mockWriteBandThresholds = vi.fn().mockResolvedValue({ parametersUpdated: 0, unmatchedCodes: [] });
+
 vi.mock("../apply-projection", () => ({
   applyProjection: mockApplyProjection,
+  writeBandThresholds: mockWriteBandThresholds,
 }));
 
 // ── Suite ──────────────────────────────────────────────────────────────────
@@ -46,11 +49,37 @@ beforeEach(() => {
   mockStorageDownload.mockReset();
   mockExtractTextFromBuffer.mockReset();
   mockApplyProjection.mockReset();
+  mockWriteBandThresholds.mockReset();
+  mockWriteBandThresholds.mockResolvedValue({ parametersUpdated: 0, unmatchedCodes: [] });
+
+  // #564 — every test exercises TWO findMany calls (COURSE_REFERENCE pass +
+  // ASSESSOR_RUBRIC pass). Mock the COURSE_REFERENCE side per-test via
+  // setSources(); the ASSESSOR_RUBRIC side defaults to empty unless a test
+  // calls setRubricSources().
+  mockPrismaState.playbookSource.findMany.mockImplementation((args: any) => {
+    const docType = args?.where?.source?.documentType;
+    if (docType === "COURSE_REFERENCE_ASSESSOR_RUBRIC") {
+      return Promise.resolve(testState.rubricSources);
+    }
+    return Promise.resolve(testState.courseRefSources);
+  });
 });
+
+const testState: { courseRefSources: unknown[]; rubricSources: unknown[] } = {
+  courseRefSources: [],
+  rubricSources: [],
+};
+const setSources = (sources: unknown[]) => {
+  testState.courseRefSources = sources;
+  testState.rubricSources = [];
+};
+const setRubricSources = (sources: unknown[]) => {
+  testState.rubricSources = sources;
+};
 
 describe("runProjectionForPlaybook", () => {
   it("returns degenerate=true when no COURSE_REFERENCE source is linked", async () => {
-    mockPrismaState.playbookSource.findMany.mockResolvedValue([]);
+    setSources([]);
 
     const { runProjectionForPlaybook } = await import("../run-projection-for-playbook");
     const result = await runProjectionForPlaybook(PLAYBOOK_ID);
@@ -62,7 +91,7 @@ describe("runProjectionForPlaybook", () => {
   });
 
   it("skips a source with no MediaAsset and logs the reason", async () => {
-    mockPrismaState.playbookSource.findMany.mockResolvedValue([
+    setSources([
       {
         source: {
           id: "src-1",
@@ -84,7 +113,7 @@ describe("runProjectionForPlaybook", () => {
   });
 
   it("skips a source whose storage download throws (extraction race)", async () => {
-    mockPrismaState.playbookSource.findMany.mockResolvedValue([
+    setSources([
       {
         source: {
           id: "src-2",
@@ -105,7 +134,7 @@ describe("runProjectionForPlaybook", () => {
   });
 
   it("skips a source whose extracted text is empty", async () => {
-    mockPrismaState.playbookSource.findMany.mockResolvedValue([
+    setSources([
       {
         source: {
           id: "src-3",
@@ -126,7 +155,7 @@ describe("runProjectionForPlaybook", () => {
   });
 
   it("loads, projects, and applies an IELTS COURSE_REFERENCE — expect 4 BTs + 5 modules", async () => {
-    mockPrismaState.playbookSource.findMany.mockResolvedValue([
+    setSources([
       {
         source: {
           id: "src-ielts",
@@ -173,7 +202,7 @@ describe("runProjectionForPlaybook", () => {
   });
 
   it("logs LO counts alongside params/bt/cm/goals in the applied line (#365)", async () => {
-    mockPrismaState.playbookSource.findMany.mockResolvedValue([
+    setSources([
       {
         source: {
           id: "src-ielts",
@@ -217,7 +246,7 @@ describe("runProjectionForPlaybook", () => {
   });
 
   it("excludes COURSE_REFERENCE_ASSESSOR_RUBRIC from the documentType filter (#447)", async () => {
-    mockPrismaState.playbookSource.findMany.mockResolvedValue([]);
+    setSources([]);
 
     const { runProjectionForPlaybook } = await import("../run-projection-for-playbook");
     await runProjectionForPlaybook(PLAYBOOK_ID);
@@ -232,7 +261,7 @@ describe("runProjectionForPlaybook", () => {
   });
 
   it("applies multiple COURSE_REFERENCE sources in order, accumulating results", async () => {
-    mockPrismaState.playbookSource.findMany.mockResolvedValue([
+    setSources([
       {
         source: {
           id: "src-a",
@@ -272,5 +301,143 @@ describe("runProjectionForPlaybook", () => {
 
     expect(result.appliedSources.map((s) => s.sourceContentId)).toEqual(["src-a", "src-b"]);
     expect(mockApplyProjection).toHaveBeenCalledTimes(2);
+  });
+
+  // ── #564 — rubric-only second pass ────────────────────────────────────────
+
+  it("runs the rubric pass alongside the main pass when an ASSESSOR_RUBRIC source is linked", async () => {
+    setSources([
+      {
+        source: {
+          id: "src-courseref",
+          name: "IELTS Course-ref",
+          mediaAssets: [{ storageKey: "ck", fileName: "course-ref.md" }],
+        },
+      },
+    ]);
+    setRubricSources([
+      {
+        source: {
+          id: "src-rubric",
+          name: "IELTS Rubric",
+          mediaAssets: [{ storageKey: "rk", fileName: "assessor-rubric.md" }],
+        },
+      },
+    ]);
+    // Course-ref text triggers normal projection; rubric text has RUB-FC heading + table
+    mockStorageDownload.mockImplementation((key: string) =>
+      key === "rk"
+        ? Promise.resolve(
+            Buffer.from(`## RUB-FC: Fluency
+
+| Band | Descriptor |
+| 9 | Top FC band |
+| 5 | Mid FC band |
+`),
+          )
+        : Promise.resolve(Buffer.from(IELTS_V22)),
+    );
+    mockExtractTextFromBuffer.mockImplementation((buffer: Buffer) => ({
+      text: buffer.toString("utf-8"),
+      fileType: "text",
+    }));
+    mockApplyProjection.mockResolvedValue({
+      parametersUpserted: 4,
+      behaviorTargetsCreated: 4,
+      behaviorTargetsUpdated: 0,
+      behaviorTargetsRemoved: 0,
+      curriculumModulesCreated: 5,
+      curriculumModulesUpdated: 0,
+      curriculumModulesRemoved: 0,
+      learningObjectivesCreated: 27,
+      learningObjectivesUpdated: 0,
+      learningObjectivesRemoved: 0,
+      goalTemplatesWritten: 25,
+      curriculumId: "curr-1",
+      measureSpecId: "spec-1",
+      measureTriggerCount: 1,
+      warnings: [],
+      noop: false,
+    });
+    mockWriteBandThresholds.mockResolvedValue({
+      parametersUpdated: 1,
+      unmatchedCodes: [],
+    });
+
+    const { runProjectionForPlaybook } = await import("../run-projection-for-playbook");
+    const result = await runProjectionForPlaybook(PLAYBOOK_ID);
+
+    // Main pass succeeded
+    expect(result.appliedSources.map((s) => s.sourceContentId)).toEqual(["src-courseref"]);
+    // Rubric pass invoked writeBandThresholds with the parsed FC band map
+    expect(mockWriteBandThresholds).toHaveBeenCalledTimes(1);
+    const writeCall = mockWriteBandThresholds.mock.calls[0];
+    expect(writeCall[0]).toEqual({ playbookId: PLAYBOOK_ID, sourceContentId: "src-rubric" });
+    const bandMap = writeCall[1] as Map<string, Record<string, string>>;
+    expect(bandMap.has("fc")).toBe(true);
+    expect(bandMap.get("fc")?.["9"]).toContain("Top FC");
+    // Result reports the rubric pass outcome
+    expect(result.rubricBandsApplied).toEqual([
+      {
+        sourceContentId: "src-rubric",
+        sourceName: "IELTS Rubric",
+        parametersUpdated: 1,
+        unmatchedCodes: [],
+      },
+    ]);
+  });
+
+  it("logs zero rubric activity when no RUB-* sections are found in a rubric source", async () => {
+    setSources([
+      {
+        source: {
+          id: "src-courseref",
+          name: "IELTS Course-ref",
+          mediaAssets: [{ storageKey: "ck", fileName: "course-ref.md" }],
+        },
+      },
+    ]);
+    setRubricSources([
+      {
+        source: {
+          id: "src-rubric",
+          name: "Boring rubric",
+          mediaAssets: [{ storageKey: "rk", fileName: "boring.md" }],
+        },
+      },
+    ]);
+    mockStorageDownload.mockImplementation((key: string) =>
+      key === "rk"
+        ? Promise.resolve(Buffer.from("# No RUB headings here\n\nJust prose."))
+        : Promise.resolve(Buffer.from(IELTS_V22)),
+    );
+    mockExtractTextFromBuffer.mockImplementation((buffer: Buffer) => ({
+      text: buffer.toString("utf-8"),
+      fileType: "text",
+    }));
+    mockApplyProjection.mockResolvedValue({
+      parametersUpserted: 0,
+      behaviorTargetsCreated: 0,
+      behaviorTargetsUpdated: 0,
+      behaviorTargetsRemoved: 0,
+      curriculumModulesCreated: 0,
+      curriculumModulesUpdated: 0,
+      curriculumModulesRemoved: 0,
+      learningObjectivesCreated: 0,
+      learningObjectivesUpdated: 0,
+      learningObjectivesRemoved: 0,
+      goalTemplatesWritten: 0,
+      curriculumId: "curr-1",
+      measureSpecId: null,
+      measureTriggerCount: 0,
+      warnings: [],
+      noop: true,
+    });
+
+    const { runProjectionForPlaybook } = await import("../run-projection-for-playbook");
+    const result = await runProjectionForPlaybook(PLAYBOOK_ID);
+
+    expect(mockWriteBandThresholds).not.toHaveBeenCalled();
+    expect(result.rubricBandsApplied).toEqual([]);
   });
 });
