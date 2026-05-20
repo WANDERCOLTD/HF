@@ -26,6 +26,32 @@ import { runAggregateSpecs } from "@/lib/pipeline/aggregate-runner";
 import { aggregateCallerMemorySummary } from "@/lib/ops/memory-extract";
 import { runAdaptSpecs as runRuleBasedAdapt } from "@/lib/pipeline/adapt-runner";
 import { runEvidencePrefilterBatch } from "@/lib/pipeline/evidence-prefilter";
+import { isEvidenceFirstPlaybook } from "@/lib/pipeline/event-gate";
+
+/**
+ * #566 Step 3 — Boaz guard for evidence-first playbooks.
+ *
+ * When a playbook is opted into evidence-first scoring, the scorer's
+ * `hasLearnerEvidence` + `evidenceQuality` fields determine whether the
+ * row is persisted. Rows where the scorer judged "no learner evidence"
+ * AND assigned a non-trivial score are dropped — these are the Boaz
+ * S1-S4 shape (tutor-prose hallucinated as learner skill).
+ *
+ * Returns true when the row should be skipped, false when it should be
+ * persisted. Mode-gate playbooks always return false (no skip).
+ */
+const EVIDENCE_FIRST_BOAZ_THRESHOLD = 0.4;
+function shouldSkipForEvidenceFirst(
+  playbookId: string | null | undefined,
+  hasLearnerEvidence: boolean | null,
+  evidenceQuality: number | null,
+): boolean {
+  if (!isEvidenceFirstPlaybook(playbookId)) return false;
+  if (hasLearnerEvidence === false) return true;
+  if (hasLearnerEvidence === null) return false; // legacy paths
+  if (typeof evidenceQuality === "number" && evidenceQuality < EVIDENCE_FIRST_BOAZ_THRESHOLD) return true;
+  return false;
+}
 import { validateSpecDependencies } from "@/lib/pipeline/validate-dependencies";
 import { trackGoalProgress, applyAssessmentAdaptation } from "@/lib/goals/track-progress";
 import { evaluateCheckpoints } from "@/lib/assessment/checkpoint-evaluator";
@@ -1029,6 +1055,21 @@ async function runBatchedCallerAnalysis(
           if (hasLearnerEvidence === true) shadowEvidencePresent++;
           else if (hasLearnerEvidence === false) shadowEvidenceAbsent++;
           else shadowEvidenceUnknown++;
+
+          // #566 Step 3 — Boaz guard. For evidence-first playbooks, drop
+          // rows where the scorer judged the learner produced no evidence.
+          // The score itself is logged for audit but not persisted.
+          if (shouldSkipForEvidenceFirst(call.playbookId, hasLearnerEvidence, evidenceQuality)) {
+            log.info("Evidence-first Boaz guard: skipping score (no learner evidence)", {
+              callId: call.id,
+              callerId,
+              parameterId,
+              score,
+              hasLearnerEvidence,
+              evidenceQuality,
+            });
+            continue;
+          }
 
           // Check if score already exists for this call+parameter
           const existing = await prisma.callScore.findFirst({
@@ -2985,7 +3026,9 @@ const stageExecutors: Record<string, StageExecutor> = {
     // caller analysis enables: same function, zero params to score, full LEARN
     // path intact. Previously the whole call was skipped and memories were
     // silently dropped on every teach-mode call.
-    const gate = await shouldRunCallerAnalysis(ctx.callerId);
+    // #566 Step 3 — pass playbookId so evidence-first playbooks short-circuit
+    // the mode gate. Non-listed playbooks keep the legacy mode-based decision.
+    const gate = await shouldRunCallerAnalysis(ctx.callerId, ctx.call.playbookId);
 
     // #491 Slice 1.5 — Mock-style calls (bound module declares
     // `coversModules`) are explicit assessment events by definition.

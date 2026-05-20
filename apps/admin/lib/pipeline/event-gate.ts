@@ -19,17 +19,51 @@ import { readSchedulerDecision, type SchedulerMode } from "./scheduler-decision"
  *
  * Slices 2 and 3 replace the per-mode allow/deny with per-paramId gating once
  * the real scheduler can emit a working set tagged with assessment coverage.
+ *
+ * Mode-kill epic #566 — Step 3:
+ *   When the call's playbook is listed in `evidence-first-playbooks.json`
+ *   AND the global flag `EVIDENCE_FIRST_SCORING_ENABLED` is true, this gate
+ *   short-circuits to allow=true with mode="evidence-first". The downstream
+ *   scorer + persistence layer enforces per-parameter Boaz protection using
+ *   the `hasLearnerEvidence` field (Step 1) and the pre-filter (Step 2).
+ *   The legacy mode-gate is preserved for all other playbooks.
  */
 
 export interface EventGateResult {
   allow: boolean;
-  mode: SchedulerMode | "unknown";
+  mode: SchedulerMode | "unknown" | "evidence-first";
   reason: string;
+}
+
+/**
+ * Determines whether the given playbook should bypass the mode-based gate
+ * and route through evidence-first per-parameter scoring instead.
+ *
+ * Returns true only when:
+ *   1. `EVIDENCE_FIRST_SCORING_ENABLED` env flag is "true"
+ *   2. `playbookId` is non-null AND present in `evidence-first-playbooks.json`
+ *
+ * Either condition false → returns false → legacy mode-gate handles the call.
+ */
+export function isEvidenceFirstPlaybook(playbookId: string | null | undefined): boolean {
+  if (!playbookId) return false;
+  if (!config.scheduler.evidenceFirstEnabled) return false;
+  return config.scheduler.evidenceFirstPlaybooks.includes(playbookId);
 }
 
 export async function shouldRunCallerAnalysis(
   callerId: string,
+  playbookId?: string | null,
 ): Promise<EventGateResult> {
+  // #566 Step 3 — evidence-first override.
+  if (isEvidenceFirstPlaybook(playbookId)) {
+    return {
+      allow: true,
+      mode: "evidence-first",
+      reason: `playbook ${playbookId} is opted into evidence-first scoring — per-parameter decisions delegated to scorer (hasLearnerEvidence) and pre-filter`,
+    };
+  }
+
   const prior = await readSchedulerDecision(callerId);
 
   if (!prior) {
