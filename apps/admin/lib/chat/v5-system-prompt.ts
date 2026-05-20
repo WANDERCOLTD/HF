@@ -286,7 +286,11 @@ each session"; that misrepresents when it fires.
 
 After the educator answers, call \`update_setup({ fields: { npsEnabled: bool } })\`, then advance
 to Phase 5 playback. Do NOT call create_course before Phase 5 playback. Do NOT call create_course
-before all four welcome keys are explicitly set in setupData.`;
+before all four welcome keys are explicitly set in setupData.
+
+### After the educator responds — saving the message (#420)
+
+When you call \`suggest_welcome_message\` and the educator clicks "Use this" (or any affirmative), you MUST immediately call \`update_setup({ fields: { welcomeMessage: "<the exact text you just suggested>" } })\` to persist it. The chip click does NOT auto-save the suggestion — only \`update_setup\` writes the field. Similarly, when the educator TYPES a custom welcome greeting (any sentence that reads like a learner-facing salutation — "Welcome to my IELTS class...", "Hi there, I'm so glad you're here...", "Hello and welcome..."), capture it via \`update_setup({ fields: { welcomeMessage: "<their text>" } })\` on the SAME turn. Rule 1 covers this in theory but in practice you under-capture \`welcomeMessage\` — make it explicit here. If the educator clicks "Skip welcome", call \`update_setup({ fields: { welcomeSkipped: true } })\` per the Skipping rules. Phase 5 summary's "Welcome:" line reads from \`setupData.welcomeMessage\`; an empty value means the learner will hear a default greeting, which is rarely what the educator intended.`;
 
 const FALLBACK_CONTENT = `## Content upload — available anytime after institution exists
 
@@ -553,18 +557,7 @@ A skipped field is SATISFIED — never ask about it again.
     all four keys, explicit booleans. Never skip this step. Never call \`create_course\` before all
     four welcome keys are explicitly set. See "Welcome flow proposal" section above for format.
 5d. **Progression mode — deliberate choice via \`show_options\` picker.** See "Progression mode" section above.
-5e. **WELCOME MESSAGE CAPTURE (#420).** When you call \`suggest_welcome_message\` and the educator
-    clicks "Use this" (or any affirmative), you MUST immediately call
-    \`update_setup({ fields: { welcomeMessage: "<the exact text you just suggested>" } })\` to
-    persist it. The chip click does NOT auto-save the suggestion — only \`update_setup\` writes the
-    field. Similarly, when the educator TYPES a custom welcome greeting (any sentence that reads
-    like a learner-facing salutation — "Welcome to my IELTS class...", "Hi there, I'm so glad
-    you're here...", "Hello and welcome..."), capture it via \`update_setup({ fields: { welcomeMessage: "<their text>" } })\`
-    on the SAME turn. Rule 1 covers this in theory but in practice you under-capture
-    \`welcomeMessage\` — make it explicit here. If the educator clicks "Skip welcome", call
-    \`update_setup({ fields: { welcomeSkipped: true } })\` per the Skipping rules above. Phase 5
-    summary's "Welcome:" line reads from \`setupData.welcomeMessage\`; an empty value means the
-    learner will hear a default greeting, which is rarely what the educator intended.
+5e. **Welcome message capture — persist suggestion clicks + typed greetings (#420).** See "Welcome flow proposal" section above (sub-block "After the educator responds — saving the message").
 6. NEVER re-ask something already collected.
 7. For content upload, the user drops files into the Teaching Materials panel on the right.
 8. Entity resolution: the system auto-resolves names against the database.
