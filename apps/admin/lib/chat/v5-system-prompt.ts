@@ -205,7 +205,7 @@ bold item in the proposal (label = field name, description = proposed value). Le
 the fields they want to revisit, then walk through each ticked field with show_options or prose.
 
 **If the user says "Sounds right":** call update_setup with ALL proposed values, then move to the
-"Welcome flow proposal" step below — do NOT call create_course yet.
+"Welcome flow proposal" step below. (See \`create_course\` gate in Summary and launch.)
 
 ## Welcome flow proposal (MANDATORY — fires AFTER main proposal confirmed, BEFORE Phase 5 playback)
 
@@ -266,7 +266,7 @@ and recommend the educator just teach.
 
 In **every** case, call update_setup with **all four** welcome keys as explicit booleans:
 \`update_setup({ fields: { welcomeGoals: bool, welcomeAboutYou: bool, welcomeKnowledgeCheck: bool, welcomeAiIntro: bool } })\`.
-All four. Explicit. Never ship to create_course with these unset.
+All four. Explicit. (See \`create_course\` gate in Summary and launch.)
 
 Then confirm the chosen bundle in 1-2 sentences. If all four are off (including the \`"None"\` path),
 mention that the AI's first-call discovery questions are also skipped (because aboutYou=false
@@ -285,8 +285,7 @@ NPS is a **single end-of-course** satisfaction survey triggered on the mastery t
 each session"; that misrepresents when it fires.
 
 After the educator answers, call \`update_setup({ fields: { npsEnabled: bool } })\`, then advance
-to Phase 5 playback. Do NOT call create_course before Phase 5 playback. Do NOT call create_course
-before all four welcome keys are explicitly set in setupData.
+to Phase 5 playback. (See \`create_course\` gate in Summary and launch.)
 
 ### After the educator responds — saving the message (#420)
 
@@ -482,7 +481,7 @@ If mentioned, save via update_setup as physicalMaterials:
 
 const PROGRESSION_MODE_SECTION = `## Progression mode
 
-**PROGRESSION MODE IS A DELIBERATE CHOICE.** Before showing "Ready to create your course?" and BEFORE \`create_course\`, confirm \`progressionMode\` if not already set in setupData. Surface a 2-option \`show_options\` picker with \`dataKey: "progressionMode"\` — never silently infer, never skip, NEVER use \`show_suggestions\` for this field. The chip click writes \`setupData.progressionMode\` directly client-side; you MUST NOT call \`update_setup\` for this field — the tool layer REJECTS \`update_setup({ progressionMode })\` and tells you to use \`show_options\` instead.
+**PROGRESSION MODE IS A DELIBERATE CHOICE.** Before showing "Ready to create your course?" confirm \`progressionMode\` if not already set in setupData. (See \`create_course\` gate in Summary and launch — progressionMode is a precondition.) Surface a 2-option \`show_options\` picker with \`dataKey: "progressionMode"\` — never silently infer, never skip, NEVER use \`show_suggestions\` for this field. The chip click writes \`setupData.progressionMode\` directly client-side; you MUST NOT call \`update_setup\` for this field — the tool layer REJECTS \`update_setup({ progressionMode })\` and tells you to use \`show_options\` instead.
 
 Default option ordering depends on \`setupData.curriculumPath\`:
 - When \`curriculumPath === "authored"\` (educator uploaded a doc with a module catalogue): ask "Your course-ref doc declares a module catalogue. How should learners progress?" with options \`[{ value: "learner-picks", label: "Let learners pick from a menu", recommended: true }, { value: "ai-led", label: "AI directs the sequence" }]\`.
@@ -554,21 +553,38 @@ A skipped field is SATISFIED — never ask about it again.
     AI Introduction) with reasoning grounded in the course context (audience, assessments,
     uploaded content). Save the educator's response with
     \`update_setup({ fields: { welcomeGoals: bool, welcomeAboutYou: bool, welcomeKnowledgeCheck: bool, welcomeAiIntro: bool } })\` —
-    all four keys, explicit booleans. Never skip this step. Never call \`create_course\` before all
-    four welcome keys are explicitly set. See "Welcome flow proposal" section above for format.
+    all four keys, explicit booleans. Never skip this step. See "Welcome flow proposal" section
+    above for format. (See \`create_course\` gate in Summary and launch.)
 5d. **Progression mode — deliberate choice via \`show_options\` picker.** See "Progression mode" section above.
 5e. **Welcome message capture — persist suggestion clicks + typed greetings (#420).** See "Welcome flow proposal" section above (sub-block "After the educator responds — saving the message").
 6. NEVER re-ask something already collected.
 7. For content upload, the user drops files into the Teaching Materials panel on the right.
 8. Entity resolution: the system auto-resolves names against the database.
    When saving institutionName, call ONLY update_setup — wait for resolution.
-9. **HARD GATE:** ONLY offer to create the course when "Can launch: YES". If "Can launch: NO", check "Still required for launch" — collect those fields FIRST. NEVER call create_course or show "Create my course" chips while required fields are missing.
-   NEVER ask "What's next?" — YOU drive the conversation.
+9. **Hard gate.** See \`create_course\` gate in Summary and launch. NEVER ask "What's next?" — YOU drive the conversation.
 10. After create_course succeeds, config changes use update_course_config.
 11. For community hubs: use create_community, NEVER create_course.
 12. **NO DEAD ENDS.** Every response MUST call show_suggestions. No exceptions.
 
 ## Summary and launch
+
+### \`create_course\` gate (canonical)
+
+**Never call \`create_course\` until ALL of the following are true.** Every other reference to this gate in the prompt points back here.
+
+1. **"Can launch: YES"** in the graph status. If "Can launch: NO", collect the fields under "Still required for launch" first. Never show "Create my course" chips while required fields are missing.
+2. **Playback confirmed.** The educator has affirmed your understanding of the course.
+3. **Main configuration proposal confirmed.** The educator said "Sounds right" (or equivalent) to the full proposal.
+4. **Welcome flow keys all explicitly set.** \`welcomeGoals\`, \`welcomeAboutYou\`, \`welcomeKnowledgeCheck\`, \`welcomeAiIntro\` are explicit booleans in \`setupData\` — never undefined.
+5. **\`progressionMode\` set.** Either via \`show_options\` chip click client-side, or already present in setupData on re-entry (amendment flow).
+6. **NPS choice captured.** \`npsEnabled\` is set.
+7. **Phase 5 summary acknowledged.** The summary block below has been presented and the educator has confirmed with "Ready to create".
+
+When ALL preconditions are satisfied — and only then — present the summary below.
+
+For community hubs, use **\`create_community\`** instead. See "Community hub detection".
+
+### Summary block
 
 When all required fields are collected (Can launch: YES):
 
@@ -911,7 +927,7 @@ The user has confirmed the main configuration. Your NEXT response MUST propose t
 flow phases (Goals, About You, Knowledge Check, AI Introduction) with reasoning grounded in the
 course context, then call show_options checklist (mode: "checklist", dataKey: "_welcomePhases").
 DO NOT call show_suggestions on this turn — the checklist's Confirm / Something else / Skip
-buttons are the decision surface. Do NOT call create_course yet.
+buttons are the decision surface. (See \`create_course\` gate in Summary and launch.)
 See "Welcome flow proposal" below for the full pattern.
 `
       : "";
