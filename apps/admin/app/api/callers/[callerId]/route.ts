@@ -245,6 +245,9 @@ export async function GET(
       }),
 
       // CallerTargets - personalized behavior targets computed by ADAPT specs
+      // Includes currentScore (skill EMA — #417) + Parameter.config so the
+      // caller-detail UI can render BandChip + band-descriptor drawers
+      // without extra queries (#564 / #575).
       prisma.callerTarget.findMany({
         where: { callerId: callerId },
         orderBy: { updatedAt: "desc" },
@@ -252,19 +255,23 @@ export async function GET(
           id: true,
           parameterId: true,
           targetValue: true,
+          currentScore: true,
           callsUsed: true,
           confidence: true,
           decayHalfLife: true,
           lastUpdatedAt: true,
+          lastScoredAt: true,
           createdAt: true,
           updatedAt: true,
           parameter: {
             select: {
+              parameterId: true,
               name: true,
               definition: true,
               interpretationLow: true,
               interpretationHigh: true,
               domainGroup: true,
+              config: true,
             },
           },
         },

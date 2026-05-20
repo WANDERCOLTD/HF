@@ -4,6 +4,7 @@ import type { CallerInsights } from "../hooks/useCallerInsights";
 import type { CallerData, ParamConfig, SectionId } from "../types";
 import type { EnrollmentJourney } from "@/hooks/useEnrollmentJourney";
 import { AtAGlanceCard } from "../cards/AtAGlanceCard";
+import { SkillBandStripCard } from "../cards/SkillBandStripCard";
 import { ProgressStackCard } from "../cards/ProgressStackCard";
 import { FocusCard } from "../cards/FocusCard";
 import { WhoTheyAreCard } from "../cards/WhoTheyAreCard";
@@ -53,6 +54,12 @@ export function GuideLens({
     <div className="hf-guide-lens">
       {/* At a Glance strip */}
       <AtAGlanceCard insights={insights} />
+
+      {/* Skill bands — per-criterion EMA (#417 + #564 + #575) */}
+      <SkillBandStripCard
+        callerTargets={(data.callerTargets ?? []) as never}
+        tierMapping={undefined}
+      />
 
       {/* Progress Stack — the core innovation */}
       <ProgressStackCard insights={insights} enrollmentJourneys={enrollmentJourneys} />
