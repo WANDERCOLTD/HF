@@ -44,9 +44,13 @@ export interface NormalizedTarget {
   scope: string;
   parameter: {
     name: string | null;
+    parameterId?: string;
     interpretationLow: string | null;
     interpretationHigh: string | null;
     domainGroup: string | null;
+    // #575 — Parameter.config carries `bandThresholds: { [band]: descriptor }`
+    // for skill parameters once #564's rubric pass has populated them.
+    config?: Record<string, unknown> | null;
   } | null;
 }
 
@@ -179,15 +183,23 @@ registerTransform("mergeAndGroupTargets", (
   return {
     totalCount: merged.length,
     byDomain,
-    all: merged.map((t) => ({
-      parameterId: t.parameterId,
-      name: t.parameter?.name || t.parameterId,
-      targetValue: t.targetValue,
-      targetLevel: classifyValue(t.targetValue, thresholds),
-      scope: t.scope,
-      when_high: t.parameter?.interpretationHigh,
-      when_low: t.parameter?.interpretationLow,
-    })),
+    all: merged.map((t) => {
+      // #575 — surface bandThresholds (populated by #564's rubric pass) so the
+      // composed prompt can include per-band descriptor reference. Null when
+      // the parameter isn't a rubric-backed skill.
+      const cfg = (t.parameter?.config ?? null) as Record<string, unknown> | null;
+      const bandThresholds = (cfg?.bandThresholds ?? null) as Record<string, string> | null;
+      return {
+        parameterId: t.parameterId,
+        name: t.parameter?.name || t.parameterId,
+        targetValue: t.targetValue,
+        targetLevel: classifyValue(t.targetValue, thresholds),
+        scope: t.scope,
+        when_high: t.parameter?.interpretationHigh,
+        when_low: t.parameter?.interpretationLow,
+        bandThresholds,
+      };
+    }),
     // Store merged list for other transforms
     _merged: merged,
   };

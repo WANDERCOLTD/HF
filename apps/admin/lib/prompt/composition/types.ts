@@ -544,6 +544,14 @@ export interface RecentCallData {
   }>;
 }
 
+/**
+ * Shape of the rubric band ladder stored on `Parameter.config.bandThresholds`
+ * by the rubric-only projection pass (#564). Keys are band numbers as strings
+ * (or stringified decimals), values are the descriptor text the assessor AI
+ * can cite. May be null/undefined for non-skill parameters.
+ */
+export type BandThresholdsMap = Record<string, string>;
+
 export interface BehaviorTargetData {
   parameterId: string;
   targetValue: number;
@@ -552,9 +560,13 @@ export interface BehaviorTargetData {
   playbookId?: string | null;
   parameter: {
     name: string | null;
+    parameterId?: string;
     interpretationLow: string | null;
     interpretationHigh: string | null;
     domainGroup: string | null;
+    // #575 — surfaced from Parameter.config so the composer can render the
+    // per-band reference table for skill_* parameters.
+    config?: Record<string, unknown> | null;
   } | null;
 }
 
@@ -564,9 +576,12 @@ export interface CallerTargetData {
   confidence: number;
   parameter: {
     name: string | null;
+    parameterId?: string;
     interpretationLow: string | null;
     interpretationHigh: string | null;
     domainGroup: string | null;
+    // #575 — see comment above.
+    config?: Record<string, unknown> | null;
   } | null;
 }
 

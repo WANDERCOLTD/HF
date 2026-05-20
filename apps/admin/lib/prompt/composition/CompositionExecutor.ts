@@ -525,6 +525,35 @@ function buildCallerContext(context: AssembledContext): string {
     for (const t of sections.behaviorTargets.all || []) {
       parts.push(`- ${t.name}: ${(t.targetLevel || "MODERATE").toLowerCase()} (${(t.targetValue * 100).toFixed(0)}%)`);
     }
+    // #575 — Per-band descriptor reference, sourced from
+    // Parameter.config.bandThresholds (populated by #564's rubric pass).
+    // Lets the tutor/assessor cite "Band 5 LR: limited range" inline.
+    const withBands = (sections.behaviorTargets.all || []).filter(
+      (t: { bandThresholds?: Record<string, string> | null }) =>
+        t.bandThresholds && Object.keys(t.bandThresholds).length > 0,
+    );
+    if (withBands.length > 0) {
+      parts.push("\n## Skill Band Reference (rubric source)");
+      parts.push(
+        "When citing a learner's current level, anchor it to the specific band descriptor below — don't paraphrase or invent.",
+      );
+      for (const t of withBands) {
+        parts.push(`\n### ${t.name}`);
+        const entries = Object.entries(
+          t.bandThresholds as Record<string, string>,
+        )
+          .map(([band, descriptor]) => ({
+            band,
+            descriptor,
+            sortKey: parseFloat(band),
+          }))
+          .filter((e) => !Number.isNaN(e.sortKey))
+          .sort((a, b) => b.sortKey - a.sortKey);
+        for (const e of entries) {
+          parts.push(`- **Band ${e.band}:** ${e.descriptor}`);
+        }
+      }
+    }
   }
 
   // Call history

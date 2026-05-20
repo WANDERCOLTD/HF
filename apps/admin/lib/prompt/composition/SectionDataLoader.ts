@@ -754,9 +754,13 @@ registerLoader("behaviorTargets", async (_callerId) => {
       parameter: {
         select: {
           name: true,
+          parameterId: true,
           interpretationLow: true,
           interpretationHigh: true,
           domainGroup: true,
+          // #575 — surface the rubric band ladder (#564) to the composer
+          // so the tutor/assessor can cite "Band 5 LR: limited range".
+          config: true,
         },
       },
     },
@@ -770,9 +774,12 @@ registerLoader("callerTargets", async (callerId) => {
       parameter: {
         select: {
           name: true,
+          parameterId: true,
           interpretationLow: true,
           interpretationHigh: true,
           domainGroup: true,
+          // #575 — see comment above.
+          config: true,
         },
       },
     },
