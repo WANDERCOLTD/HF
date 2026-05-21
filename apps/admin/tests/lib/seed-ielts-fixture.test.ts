@@ -91,10 +91,11 @@ describe("IELTS seed fixture", () => {
     }
   });
 
-  it("detects 4 authored modules with stable slugs", () => {
-    expect(projection.curriculumModules).toHaveLength(4);
+  it("detects 5 authored modules with stable slugs", () => {
+    expect(projection.curriculumModules).toHaveLength(5);
     expect(projection.curriculumModules.map((m) => m.slug).sort()).toEqual([
       "baseline",
+      "mock",
       "part1",
       "part2",
       "part3",
