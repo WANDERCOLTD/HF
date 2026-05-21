@@ -749,6 +749,21 @@ export function AssessmentTargetsCard({ goals, callerId }: { goals: Goal[]; call
 // LearningSection
 // =====================================================
 
+// Header summary for the LEARN-goal SliderGroup. The previous form
+// (`${completedCount}/${totalModules} modules`) hid in-progress evidence —
+// modules with 0 < mastery < masteryThreshold were silently dropped from the
+// count, so two modules at 58% read as "0/4". Split the count so partial
+// progress is visible without scanning the sliders.
+function buildModulesSummary(curriculum: CurriculumProgress): string {
+  const total = curriculum.totalModules;
+  const mastered = curriculum.completedCount;
+  const inProgress = curriculum.modules.filter(m => m.status === 'in_progress').length;
+  const parts = [`${mastered} mastered`];
+  if (inProgress > 0) parts.push(`${inProgress} in progress`);
+  parts.push(`${total} total`);
+  return parts.join(' · ');
+}
+
 export function LearningSection({
   curriculum,
   learnerProfile,
@@ -819,14 +834,26 @@ export function LearningSection({
               /* LEARN goal: SliderGroup with curriculum modules as sliders */
               <>
               <SliderGroup
-                title={`${typeConfig.icon} ${goal.name} — ${Math.round(goal.progress * 100)}% — ${curriculum.completedCount}/${curriculum.totalModules} modules`}
+                title={`${typeConfig.icon} ${goal.name} — ${Math.round(goal.progress * 100)}% — ${buildModulesSummary(curriculum)}`}
                 color={{ primary: typeConfig.color, glow: typeConfig.glow }}
               >
                 {/* Goal metadata strip */}
                 <div className="hf-flex-wrap hf-text-xs hf-text-muted hf-gap-md hf-w-full hf-mb-xs hf-items-center">
                   {goal.description && <span>{goal.description}</span>}
-                  {goal.playbook && <PlaybookPill label={`${goal.playbook.name} v${goal.playbook.version}`} size="compact" />}
-                  {goal.startedAt && <span className="hf-opacity-70">Started {new Date(goal.startedAt).toLocaleDateString()}</span>}
+                  {goal.playbook ? (
+                    <PlaybookPill label={`${goal.playbook.name} v${goal.playbook.version}`} size="compact" />
+                  ) : goal.isCallerExpressed ? (
+                    // Caller-expressed LEARN goals have no playbookId — surface
+                    // the provenance in the same slot so the strip is never
+                    // empty (parity with the non-LEARN ProgressRing branch at
+                    // line 924).
+                    <span className="hf-opacity-70">
+                      <em>💬 Caller-expressed{goal.startedAt ? ` on ${new Date(goal.startedAt).toLocaleDateString()}` : ""}</em>
+                    </span>
+                  ) : null}
+                  {goal.startedAt && !(!goal.playbook && goal.isCallerExpressed) && (
+                    <span className="hf-opacity-70">Started {new Date(goal.startedAt).toLocaleDateString()}</span>
+                  )}
                   {curriculum.nextModule && (
                     <span className="hf-text-success hf-text-bold">
                       Next: {curriculum.modules.find(m => m.id === curriculum.nextModule)?.name || curriculum.nextModule}
