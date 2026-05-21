@@ -109,7 +109,11 @@ function filterSteps(profile: Profile): Step[] {
 
 async function main() {
   const args = process.argv.slice(2);
-  const shouldReset = args.includes("--reset") || args.includes("-r");
+  // Reset can be requested via CLI flag (`--reset`/`-r`) for local runs OR
+  // via `SEED_RESET=true` env var for Cloud Run jobs that can't take argv.
+  const shouldReset =
+    args.includes("--reset") || args.includes("-r")
+    || process.env.SEED_RESET === "true";
   const profile = getProfile();
   const steps = filterSteps(profile);
 
