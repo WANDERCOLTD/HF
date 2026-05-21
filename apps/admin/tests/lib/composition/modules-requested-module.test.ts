@@ -178,8 +178,10 @@ describe("computeSharedState — #492 Slice 3.1 requestedModuleId arg", () => {
     const result = await computeSharedState(data, specs, {}, undefined, "MOD-DOES-NOT-EXIST");
 
     expect(result.lockedModule).toBeNull();
-    // Existing fallback: with no progress, moduleToReview=MOD-1 and nextModule=MOD-2.
-    expect(result.moduleToReview?.id).toBe("MOD-1");
+    // #554 Fix 2: zero progress + zero recent calls → moduleToReview is null
+    // (no "review your baseline" hallucination before any call exists).
+    // nextModule still resolves to MOD-2 — frontier pick is independent.
+    expect(result.moduleToReview).toBeNull();
     expect(result.nextModule?.id).toBe("MOD-2");
     // Warning surfaced so wizard/route bugs are visible in dev.
     expect(warnSpy).toHaveBeenCalledWith(
@@ -199,8 +201,9 @@ describe("computeSharedState — #492 Slice 3.1 requestedModuleId arg", () => {
     expect(withUndefinedArg.lockedModule).toBeNull();
     expect(withNullArg.lockedModule).toBeNull();
 
-    // Stable pick — without any override, MOD-1 is moduleToReview, MOD-2 is next.
-    expect(withoutArg.moduleToReview?.id).toBe("MOD-1");
+    // #554 Fix 2: zero-progress + zero recentCalls → moduleToReview is null.
+    // nextModule still resolves to MOD-2 (frontier pick is independent).
+    expect(withoutArg.moduleToReview).toBeNull();
     expect(withoutArg.nextModule?.id).toBe("MOD-2");
     expect(withUndefinedArg.nextModule?.id).toBe("MOD-2");
     expect(withNullArg.nextModule?.id).toBe("MOD-2");
@@ -277,6 +280,184 @@ describe("computeSharedState — #492 Slice 3.1 requestedModuleId arg", () => {
     );
     expect(result.lockedModule?.id).toBe("part1");
     expect(result.nextModule?.id).toBe("part1");
+  });
+});
+
+// =====================================================
+// #554 Fix 1: outcomesPrimary refs are resolved to statement text
+// =====================================================
+
+describe("computeSharedState — #554 Fix 1 outcome ref resolution", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
+  });
+
+  const dataWithAuthoredOutcomes = () =>
+    makeLoadedData({
+      playbooks: [
+        {
+          id: "pb-1",
+          name: "IELTS",
+          isActive: true,
+          isLatest: true,
+          config: {
+            modulesAuthored: true,
+            modules: [
+              {
+                id: "part1",
+                label: "Part 1",
+                outcomesPrimary: ["OUT-01", "OUT-02"],
+              },
+              {
+                id: "part2",
+                label: "Part 2",
+                outcomesPrimary: ["OUT-03"],
+              },
+            ],
+            outcomes: {
+              "OUT-01": "Extends Part 1 answers to 2-3 sentence minimum",
+              "OUT-02": "Uses topic-specific vocabulary in introductions",
+              "OUT-03": "Sustains a long-turn answer for at least 90 seconds",
+            },
+          } as any,
+        } as any,
+      ],
+    });
+
+  it("resolves outcomesPrimary refs through lockedPbConfig.outcomes", async () => {
+    const data = dataWithAuthoredOutcomes();
+    const specs = makeResolvedSpecs();
+    const result = await computeSharedState(data, specs, { requestedModuleId: "part1" });
+
+    expect(result.lockedModule?.id).toBe("part1");
+    // Resolved text — not bare refs.
+    expect(result.lockedModule?.learningOutcomes).toEqual([
+      "Extends Part 1 answers to 2-3 sentence minimum",
+      "Uses topic-specific vocabulary in introductions",
+    ]);
+    // No warning — every ref resolved cleanly.
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("outcome ref"),
+    );
+  });
+
+  it("falls back to bare ref + console.warn when an outcome ref is not in the map", async () => {
+    const data = makeLoadedData({
+      playbooks: [
+        {
+          id: "pb-1",
+          name: "IELTS",
+          isActive: true,
+          isLatest: true,
+          config: {
+            modulesAuthored: true,
+            modules: [
+              {
+                id: "part1",
+                label: "Part 1",
+                outcomesPrimary: ["OUT-01", "OUT-MISSING"],
+              },
+            ],
+            outcomes: {
+              "OUT-01": "Extends Part 1 answers to 2-3 sentence minimum",
+            },
+          } as any,
+        } as any,
+      ],
+    });
+    const specs = makeResolvedSpecs();
+    const result = await computeSharedState(data, specs, { requestedModuleId: "part1" });
+
+    expect(result.lockedModule?.learningOutcomes).toEqual([
+      "Extends Part 1 answers to 2-3 sentence minimum",
+      "OUT-MISSING",
+    ]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('outcome ref "OUT-MISSING"'),
+    );
+  });
+
+  it("leaves learningOutcomes undefined when outcomesPrimary is not an array", async () => {
+    const data = makeLoadedData({
+      playbooks: [
+        {
+          id: "pb-1",
+          name: "IELTS",
+          isActive: true,
+          isLatest: true,
+          config: {
+            modulesAuthored: true,
+            modules: [{ id: "part1", label: "Part 1" }],
+            outcomes: { "OUT-01": "text" },
+          } as any,
+        } as any,
+      ],
+    });
+    const specs = makeResolvedSpecs();
+    const result = await computeSharedState(data, specs, { requestedModuleId: "part1" });
+
+    expect(result.lockedModule?.id).toBe("part1");
+    expect(result.lockedModule?.learningOutcomes).toBeUndefined();
+  });
+});
+
+// =====================================================
+// #554 Fix 2: moduleToReview gated on attempt evidence
+// =====================================================
+
+describe("computeSharedState — #554 Fix 2 moduleToReview gating", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
+  });
+
+  it("null moduleToReview when no completed modules AND no recent calls", async () => {
+    const data = makeLoadedData({ subjectSources: subjectSourcesWithModules as any });
+    const specs = makeResolvedSpecs();
+    const result = await computeSharedState(data, specs, {});
+
+    expect(result.completedModules.size).toBe(0);
+    expect(data.recentCalls.length).toBe(0);
+    expect(result.moduleToReview).toBeNull();
+  });
+
+  it("non-null moduleToReview when caller has at least one recentCall (regression guard for continuous-mode)", async () => {
+    const data = makeLoadedData({
+      subjectSources: subjectSourcesWithModules as any,
+      recentCalls: [
+        {
+          id: "call-prev",
+          createdAt: new Date(),
+          notes: null,
+          summary: null,
+          score: null,
+          callerId: "caller-1",
+          domain: null,
+        } as any,
+      ],
+    });
+    const specs = makeResolvedSpecs();
+    const result = await computeSharedState(data, specs, {});
+
+    // With at least one prior call, the modules[0] fallback is allowed.
+    expect(result.moduleToReview?.id).toBe("MOD-1");
   });
 });
 
