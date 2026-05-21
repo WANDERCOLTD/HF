@@ -66,14 +66,24 @@ FRONT-MATTER KEYS (each is optional; missing keys fall back to AI inference)
                            TEACHING_INSTRUCTION.
 - hf-question-assessment-use  (Optional, for docs that contain questions.) One of:
                            PRE_TEST, POST_TEST, BOTH, FORMATIVE, TUTOR_ONLY.
-- hf-scoring-mode          (Optional, opt-in.) When set to `evidence-first`, calls
-                           against this course route through the per-parameter
-                           evidence guard (see #566) — scores without learner
-                           evidence are dropped before they reach the EMA.
-                           Recommended for skill-EMA courses with per-band
-                           rubrics (IELTS, CEFR, NHS AfC bands, etc.). Omit
-                           this key for traditional curriculum-mastery courses
-                           that don't need rubric-anchored skill scoring.
+- hf-scoring-mode          (Optional, opt-in.) Allowed values: `evidence-first`
+                           (also accepted: `evidence_first`, `evidencefirst`).
+                           When set, calls against this course route through
+                           the per-parameter evidence guard (see #566) — scores
+                           without learner evidence are dropped before they
+                           reach the EMA. Recommended for skill-EMA courses
+                           with per-band rubrics (IELTS, CEFR, NHS AfC bands,
+                           etc.). Omit this key for traditional curriculum-
+                           mastery courses that don't need rubric-anchored
+                           skill scoring.
+                           ⚠️ ANY other value (e.g. `ema`, `evidence`, `boaz`)
+                           is rejected with a parse warning — the course
+                           silently falls back to the legacy mode-gate.
+
+ALLOWED-VALUES REJECTION POLICY
+The parser logs a warning + falls back to AI inference (NOT a silent failure)
+when any hf-* key carries a value not in its allowlist. Watch the wizard's
+"Sources" panel for `sourceWarnings` after upload to catch typos.
 
 See `docs/CONTENT-PIPELINE.md` §3.2 for the full hf-* declaration spec.
 -->
