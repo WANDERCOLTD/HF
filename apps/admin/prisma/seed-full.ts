@@ -12,13 +12,15 @@
  *   SEED_PROFILE=full npx tsx prisma/seed-full.ts     # DEV/VM — everything (default)
  *   SEED_PROFILE=demo npx tsx prisma/seed-full.ts     # DEMO — clean demo data, no e2e junk
  *   SEED_PROFILE=golden npx tsx prisma/seed-full.ts   # Golden path — clean minimal demo data
+ *   SEED_PROFILE=blank-ielts npx tsx prisma/seed-full.ts --reset  # Partner-test — IELTS Prep Lab only
  *
  * Profiles:
- *   core    — Specs, archetypes, institution types, run configs, dedup (PROD)
- *   demo    — Core + golden school + demo course + demo logins, NO e2e fixtures
- *   test    — Everything in core + e2e fixtures + demo logins (TEST)
- *   full    — Everything in test + golden school + demo course (DEV/VM)
- *   golden  — Specs + institution types + 1 clean institution (demo golden path)
+ *   core        — Specs, archetypes, institution types, run configs, dedup (PROD)
+ *   demo        — Core + golden school + demo course + demo logins, NO e2e fixtures
+ *   test        — Everything in core + e2e fixtures + demo logins (TEST)
+ *   full        — Everything in test + golden school + demo course (DEV/VM)
+ *   golden      — Specs + institution types + 1 clean institution (demo golden path)
+ *   blank-ielts — Specs + IELTS Prep Lab institution (no courses, no callers) — partner test
  *
  * Steps (full profile):
  *   1.  seed-clean              → 51 specs, 160 params, admin user, contracts
@@ -43,6 +45,7 @@ import { main as seedDemoLogins } from "./seed-demo-logins";
 import { main as seedGolden } from "./seed-golden";
 import { main as seedIdentityArchetypes } from "./seed-identity-archetypes";
 import { main as seedDemoCourse } from "./seed-demo-course";
+import { main as seedBlankIelts } from "./seed-blank-ielts";
 // IELTS playbook is no longer seeded — it lives behind the wizard upload-doc
 // flow (`docs/external/ielts/ielts-speaking/Upload Docs/course-ref.md`), which
 // is the realistic path teachers use. Auto-seeding produced a duplicate
@@ -52,7 +55,7 @@ import { main as seedDemoCourse } from "./seed-demo-course";
 // See #463 follow-up.
 // import { main as seedIeltsCourse } from "./seed-ielts-course";
 
-type Profile = "core" | "demo" | "test" | "full" | "golden";
+type Profile = "core" | "demo" | "test" | "full" | "golden" | "blank-ielts";
 
 interface Step {
   name: string;
@@ -62,17 +65,20 @@ interface Step {
 }
 
 const ALL_STEPS: Step[] = [
-  // ── Foundation (runs in every profile including golden) ─
+  // ── Foundation (runs in every profile including golden + blank-ielts) ─
   { name: "seed-clean", fn: seedClean },
   { name: "seed-identity-archetypes", fn: seedIdentityArchetypes },
   { name: "seed-institution-types", fn: seedInstitutionTypes },
 
-  // ── Core (runs in core/demo/test/full but NOT golden) ───
-  { name: "seed-run-configs", fn: seedRunConfigs, profiles: ["core", "demo", "test", "full"] },
-  { name: "seed (dedup)", fn: seedDedup, profiles: ["core", "demo", "test", "full"] },
+  // ── Core (runs in core/demo/test/full but NOT golden or blank-ielts) ──
+  { name: "seed-run-configs", fn: seedRunConfigs, profiles: ["core", "demo", "test", "full", "blank-ielts"] },
+  { name: "seed (dedup)", fn: seedDedup, profiles: ["core", "demo", "test", "full", "blank-ielts"] },
 
   // ── Golden (Abacus Academy — additive when in full/demo, cleanup skipped) ──
   { name: "seed-golden", fn: seedGolden, profiles: ["golden", "demo", "full"] },
+
+  // ── Blank IELTS (single "IELTS Prep Lab" institution, no courses, no callers) ──
+  { name: "seed-blank-ielts", fn: seedBlankIelts, profiles: ["blank-ielts"] },
 
   // ── Demo + Full (demo course with 8 learners) ──────────
   { name: "seed-demo-course", fn: seedDemoCourse, profiles: ["demo", "full"] },
@@ -86,7 +92,10 @@ const ALL_STEPS: Step[] = [
 
 function getProfile(): Profile {
   const val = process.env.SEED_PROFILE || "full";
-  if (val === "core" || val === "demo" || val === "test" || val === "full" || val === "golden") return val;
+  if (
+    val === "core" || val === "demo" || val === "test" || val === "full"
+    || val === "golden" || val === "blank-ielts"
+  ) return val;
   console.warn(`Invalid SEED_PROFILE "${val}", defaulting to "full"`);
   return "full";
 }
@@ -104,8 +113,8 @@ async function main() {
   const profile = getProfile();
   const steps = filterSteps(profile);
 
-  // Golden/demo profiles force SEED_MODE=prod so seed-clean skips transcript imports
-  if ((profile === "golden" || profile === "demo") && !process.env.SEED_MODE) {
+  // Golden/demo/blank-ielts profiles force SEED_MODE=prod so seed-clean skips transcript imports
+  if ((profile === "golden" || profile === "demo" || profile === "blank-ielts") && !process.env.SEED_MODE) {
     process.env.SEED_MODE = "prod";
   }
 
