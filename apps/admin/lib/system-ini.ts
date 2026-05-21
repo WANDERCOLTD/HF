@@ -166,40 +166,105 @@ async function checkDbConnectivity(): Promise<IniCheck> {
 }
 
 async function checkCanonicalSpecs(): Promise<IniCheck> {
-  const requiredSlugs = [
-    { slug: config.specs.onboarding, label: "Onboarding" },
-    { slug: config.specs.pipeline, label: "Pipeline" },
-    { slug: config.specs.pipelineFallback, label: "Pipeline Fallback" },
-    { slug: config.specs.compose, label: "Compose" },
-    { slug: config.specs.contentExtract, label: "Content Extract" },
+  // Mirror the EXACT lookup logic the runtime uses for each canonical spec,
+  // so the health check passes whenever the runtime can find what it needs —
+  // regardless of slug naming drift across DB snapshots (legacy `PIPELINE-001`
+  // vs modern `spec-pipeline-001`, etc.).
+  //
+  // If a check fails here, the corresponding runtime loader would also fail.
+  // No drift possible by construction.
+  //
+  // Note: `config.specs.pipelineFallback` is intentionally dropped — it has
+  // no runtime callers (only console.log in lib/config.ts), so requiring it
+  // in the health check was a stale guard.
+  const checks: Array<{ label: string; slug: string; query: () => Promise<{ slug: string } | null> }> = [
+    {
+      // Mirrors registerLoader("onboardingSpec") in lib/prompt/composition/SectionDataLoader.ts:941
+      label: "Onboarding",
+      slug: config.specs.onboarding,
+      query: () =>
+        prisma.analysisSpec.findFirst({
+          where: {
+            OR: [
+              { slug: { contains: config.specs.onboarding.toLowerCase(), mode: "insensitive" } },
+              { slug: { contains: "onboarding" } },
+              { domain: "onboarding" },
+            ],
+            isActive: true,
+          },
+          select: { slug: true },
+        }),
+    },
+    {
+      // Mirrors loadPipelineStages() in lib/pipeline/config.ts:49
+      label: "Pipeline",
+      slug: config.specs.pipeline,
+      query: () =>
+        prisma.analysisSpec.findFirst({
+          where: {
+            slug: { contains: config.specs.pipeline.toLowerCase(), mode: "insensitive" },
+            isActive: true,
+            isDirty: false,
+          },
+          select: { slug: true },
+        }),
+    },
+    {
+      // Mirrors loadComposeConfig() in lib/prompt/composition/loadComposeConfig.ts:42
+      // — try exact slug, then fall back to outputType-based lookup.
+      label: "Compose",
+      slug: config.specs.compose,
+      query: async () =>
+        (await prisma.analysisSpec.findFirst({
+          where: { slug: config.specs.compose, isActive: true },
+          select: { slug: true },
+        })) ||
+        (await prisma.analysisSpec.findFirst({
+          where: {
+            outputType: "COMPOSE",
+            isActive: true,
+            scope: "SYSTEM",
+            domain: { not: "prompt-slugs" },
+          },
+          select: { slug: true },
+        })),
+    },
+    {
+      // Mirrors resolveExtractionConfig() in lib/content-trust/resolve-config.ts:802
+      label: "Content Extract",
+      slug: config.specs.contentExtract,
+      query: () =>
+        prisma.analysisSpec.findFirst({
+          where: {
+            slug: { contains: config.specs.contentExtract.toLowerCase() },
+            specRole: "EXTRACT",
+            scope: "SYSTEM",
+          },
+          select: { slug: true },
+        }),
+    },
   ];
 
-  const [specs, voiceSpec] = await Promise.all([
-    prisma.analysisSpec.findMany({
-      where: { slug: { in: requiredSlugs.map((s) => s.slug) } },
-      select: { slug: true, isActive: true },
-    }),
-    prisma.analysisSpec.findFirst({
-      where: {
-        slug: { contains: config.specs.voicePattern, mode: "insensitive" },
-        isActive: true,
-      },
-      select: { slug: true },
-    }),
-  ]);
-
-  const found = new Map(specs.map((s) => [s.slug, s]));
   const issues: string[] = [];
 
-  for (const { slug, label } of requiredSlugs) {
-    const spec = found.get(slug);
-    if (!spec) {
-      issues.push(`${label} (${slug}): MISSING`);
-    } else if (!spec.isActive) {
-      issues.push(`${label} (${slug}): exists but inactive`);
+  const results = await Promise.allSettled(checks.map((c) => c.query()));
+  for (const [i, r] of results.entries()) {
+    const c = checks[i];
+    if (r.status === "rejected") {
+      issues.push(`${c.label} (looked for "${c.slug}"): ${(r.reason as Error).message}`);
+    } else if (!r.value) {
+      issues.push(`${c.label} (looked for "${c.slug}"): no matching active spec`);
     }
   }
 
+  // Voice pattern — unchanged, was already fuzzy by `contains`.
+  const voiceSpec = await prisma.analysisSpec.findFirst({
+    where: {
+      slug: { contains: config.specs.voicePattern, mode: "insensitive" },
+      isActive: true,
+    },
+    select: { slug: true },
+  });
   if (!voiceSpec) {
     issues.push(
       `Voice (pattern: "${config.specs.voicePattern}"): no matching active spec`
@@ -222,7 +287,7 @@ async function checkCanonicalSpecs(): Promise<IniCheck> {
     status: "pass",
     label: "Canonical Specs",
     severity: "critical",
-    message: "All 6 canonical specs present and active",
+    message: `All ${checks.length + 1} canonical specs resolvable (via runtime lookup patterns)`,
   };
 }
 
