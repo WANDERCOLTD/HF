@@ -372,7 +372,14 @@ describe("runProjectionForPlaybook", () => {
     // Rubric pass invoked writeBandThresholds with the parsed FC band map
     expect(mockWriteBandThresholds).toHaveBeenCalledTimes(1);
     const writeCall = mockWriteBandThresholds.mock.calls[0];
-    expect(writeCall[0]).toEqual({ playbookId: PLAYBOOK_ID, sourceContentId: "src-rubric" });
+    // #UI-followup Gap 2 — writeBandThresholds now receives a criterionByCode
+    // map so it can fall back to name-derived matching for fresh courses.
+    expect(writeCall[0]).toMatchObject({
+      playbookId: PLAYBOOK_ID,
+      sourceContentId: "src-rubric",
+    });
+    expect(writeCall[0].criterionByCode).toBeDefined();
+    expect(writeCall[0].criterionByCode.fc).toBeDefined();
     const bandMap = writeCall[1] as Map<string, Record<string, string>>;
     expect(bandMap.has("fc")).toBe(true);
     expect(bandMap.get("fc")?.["9"]).toContain("Top FC");

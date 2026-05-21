@@ -236,8 +236,14 @@ export async function runProjectionForPlaybook(playbookId: string): Promise<RunP
     const bandMap: RubricBandMap = new Map(
       parsed.criteria.map((c) => [c.code, c.bands]),
     );
+    // #UI-followup Gap 2 — also pass the criterion name per code so the
+    // matcher can fall back to name-derived parameter lookup for fresh
+    // courses whose projection produced unsuffixed parameter IDs.
+    const criterionByCode = Object.fromEntries(
+      parsed.criteria.map((c) => [c.code, c.criterionName.replace(/\s*—.*$/, "").trim()]),
+    );
     const writeResult = await writeBandThresholds(
-      { playbookId, sourceContentId: source.id },
+      { playbookId, sourceContentId: source.id, criterionByCode },
       bandMap,
     );
 

@@ -1,4 +1,5 @@
 import { config } from "@/lib/config";
+import { prisma } from "@/lib/prisma";
 import { readSchedulerDecision, type SchedulerMode } from "./scheduler-decision";
 
 /**
@@ -39,28 +40,66 @@ export interface EventGateResult {
  * Determines whether the given playbook should bypass the mode-based gate
  * and route through evidence-first per-parameter scoring instead.
  *
- * Returns true only when:
- *   1. `EVIDENCE_FIRST_SCORING_ENABLED` env flag is "true"
- *   2. `playbookId` is non-null AND present in `evidence-first-playbooks.json`
+ * Returns true when:
+ *   1. `EVIDENCE_FIRST_SCORING_ENABLED` env flag is "true" AND
+ *   2. EITHER `playbookId` is in `evidence-first-playbooks.json` (legacy
+ *      list, kept for back-compat) OR the supplied `playbookConfig` carries
+ *      `scoringMode === "evidence-first"` (#UI-followup Gap 1 — declared
+ *      via the course-ref front-matter `hf-scoring-mode: evidence-first`).
  *
- * Either condition false → returns false → legacy mode-gate handles the call.
+ * The async variant `isEvidenceFirstPlaybookAsync()` resolves the config
+ * automatically when only an ID is available. Use the sync overload when
+ * you already have the playbook config in hand (saves a query).
  */
-export function isEvidenceFirstPlaybook(playbookId: string | null | undefined): boolean {
+export function isEvidenceFirstPlaybook(
+  playbookId: string | null | undefined,
+  playbookConfig?: Record<string, unknown> | null,
+): boolean {
   if (!playbookId) return false;
   if (!config.scheduler.evidenceFirstEnabled) return false;
-  return config.scheduler.evidenceFirstPlaybooks.includes(playbookId);
+  if (config.scheduler.evidenceFirstPlaybooks.includes(playbookId)) return true;
+  if (playbookConfig && (playbookConfig as { scoringMode?: string }).scoringMode === "evidence-first") {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Async helper that fetches Playbook.config to honour the front-matter
+ * declaration. Use this in code paths that have a playbookId but not the
+ * config object already; otherwise pass the config to the sync overload.
+ */
+export async function isEvidenceFirstPlaybookAsync(
+  playbookId: string | null | undefined,
+): Promise<boolean> {
+  if (!playbookId) return false;
+  if (!config.scheduler.evidenceFirstEnabled) return false;
+  if (config.scheduler.evidenceFirstPlaybooks.includes(playbookId)) return true;
+  try {
+    const pb = await prisma.playbook.findUnique({
+      where: { id: playbookId },
+      select: { config: true },
+    });
+    const cfg = (pb?.config ?? {}) as Record<string, unknown>;
+    return cfg.scoringMode === "evidence-first";
+  } catch {
+    return false;
+  }
 }
 
 export async function shouldRunCallerAnalysis(
   callerId: string,
   playbookId?: string | null,
 ): Promise<EventGateResult> {
-  // #566 Step 3 — evidence-first override.
-  if (isEvidenceFirstPlaybook(playbookId)) {
+  // #566 Step 3 + #UI-followup Gap 1 — evidence-first override.
+  // Honours BOTH the legacy hardcoded ID list AND
+  // `Playbook.config.scoringMode === "evidence-first"` set via the
+  // course-ref front-matter declaration.
+  if (await isEvidenceFirstPlaybookAsync(playbookId)) {
     return {
       allow: true,
       mode: "evidence-first",
-      reason: `playbook ${playbookId} is opted into evidence-first scoring — per-parameter decisions delegated to scorer (hasLearnerEvidence) and pre-filter`,
+      reason: `playbook ${playbookId} is evidence-first scored — per-parameter decisions delegated to scorer (hasLearnerEvidence) and pre-filter`,
     };
   }
 
