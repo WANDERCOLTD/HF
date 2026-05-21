@@ -37,8 +37,20 @@ const BDD_SPECS_DIR = path.join(__dirname, "../docs-archive/bdd-specs");
 async function clearDatabase() {
   console.log("\n🗑️  CLEARING DATABASE\n");
 
-  // Clear in FK-safe order
+  // Clear in FK-safe order (children → parents).
+  // The blank-ielts seed profile depends on these clears actually firing —
+  // earlier the FK-dependent tables (Goal, OnboardingSession, etc.) were
+  // missing, so caller/call/playbook deletes failed silently and left
+  // stale partner data behind on deployed envs.
   const tables = [
+    // Call children
+    "callAction",
+    "callMessage",
+    "inboundMessage",
+    "conversationArtifact",
+    "pipelineStep",
+    "pipelineRun",
+    "failedCall",
     "callerAttribute",
     "callerTarget",
     "callTarget",
@@ -47,6 +59,15 @@ async function clearDatabase() {
     "callScore",
     "composedPrompt",
     "call",
+    // Caller children that block caller delete
+    "goal",
+    "onboardingSession",
+    "callerCohortMembership",
+    "callerPlaybook",
+    "callerModuleProgress",
+    "excludedCaller",
+    "promptSlugReward",
+    "promptSlugStats",
     "callerMemorySummary",
     "callerMemory",
     "personalityObservation",
@@ -55,13 +76,42 @@ async function clearDatabase() {
     "promptSlugSelection",
     "callerIdentity",
     "caller",
+    // Playbook + curriculum children
     "behaviorTarget",
     "playbookSpec",
     "playbookItem",
+    "cohortPlaybook",
+    "playbookGroupSubject",
+    "playbookGroup",
+    "playbookSubject",
+    "learningObjective",
     "curriculumModule",
     "curriculum",
     "playbook",
+    // Subject/content
+    "assertionMedia",
+    "subjectMedia",
+    "contentVocabulary",
+    "contentQuestion",
+    "contentAssertion",
+    "contentSource",
+    "subjectDomain",
+    "subjectSource",
+    "subject",
+    "vectorEmbedding",
+    "knowledgeChunk",
+    "knowledgeDoc",
+    "parameterKnowledgeLink",
+    "processedFile",
+    "mediaAsset",
+    // Cohort + domain
+    "cohortGroup",
+    "agentRun",
+    "agentInstance",
+    "segment",
+    "channelConfig",
     "domain",
+    // Specs + their children
     "analysisAction",
     "analysisTrigger",
     "analysisSpec",

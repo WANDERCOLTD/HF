@@ -33,63 +33,14 @@ const DEFAULT_FLOW_PHASES = [
   { phase: "summary", label: "Session summary" },
 ];
 
-// FK-safe truncate order — kept inline so blank-ielts owns its wipe (seed-clean
-// has gaps for Goal/OnboardingSession/CallerCohortMembership etc. which block
-// caller/call/institution deletes silently).
-const TABLES_TO_CLEAR = [
-  "AssertionMedia", "SubjectMedia", "ContentVocabulary", "ContentQuestion",
-  "ContentAssertion", "ContentSource", "SubjectDomain", "SubjectSource",
-  "PlaybookSubject", "Subject", "VectorEmbedding", "KnowledgeChunk",
-  "KnowledgeDoc", "ParameterKnowledgeLink", "ProcessedFile", "MediaAsset",
-  "ConversationArtifact", "CallAction", "InboundMessage", "CallMessage",
-  "CallScore", "RewardScore", "BehaviorMeasurement", "CallTarget",
-  "PipelineStep", "PipelineRun", "FailedCall", "PersonalityObservation",
-  "Call",
-  "CallerModuleProgress", "CallerPersonalityProfile", "CallerPersonality",
-  "CallerMemorySummary", "CallerMemory", "CallerAttribute", "CallerTarget",
-  "CallerIdentity", "CallerCohortMembership", "CallerPlaybook", "Goal",
-  "OnboardingSession", "ExcludedCaller", "ComposedPrompt",
-  "PromptSlugSelection", "PromptSlugReward", "PromptSlugStats",
-  "Caller",
-  "PlaybookItem", "CohortPlaybook", "PlaybookGroupSubject", "PlaybookGroup",
-  "Playbook", "LearningObjective", "CurriculumModule", "Curriculum",
-  "BehaviorTarget",
-  "Segment", "ChannelConfig", "Domain",
-  "CohortGroup", "AgentRun", "AgentInstance",
-  "BDDUpload", "BDDFeatureSet",
-  "UsageEvent", "UsageRollup", "AuditLog", "AppLog",
-  "TicketComment", "Ticket", "Message", "UserTask",
-];
-
-async function clearBusinessData(prisma: PrismaClient): Promise<void> {
-  console.log("\n  🗑️  Clearing business data (preserving specs, params, contracts, users)\n");
-
-  // Phase 1 — truncate everything that doesn't have a FK pointing to User.
-  // User.institutionId would block direct Institution deletion, but Institution
-  // is NOT in this list — handled in phase 2.
-  for (const tableName of TABLES_TO_CLEAR) {
-    try {
-      await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${tableName}" CASCADE`);
-    } catch (err: any) {
-      if (err.code !== "P2021") {
-        console.warn(`    ⚠ ${tableName}: ${err.code ?? "unknown"} — ${(err.message ?? "").slice(0, 80)}`);
-      }
-    }
-  }
-
-  // Phase 2 — clear User FKs to Institution, then delete Institution rows.
-  // Cannot TRUNCATE Institution with CASCADE without also wiping User (the FK
-  // exists). DELETE works once FKs are nullified.
+async function deleteAllInstitutions(prisma: PrismaClient): Promise<void> {
+  // Institution deletion needs User FKs cleared first (Prisma default
+  // onDelete=NoAction blocks otherwise). seed-clean's clearDatabase doesn't
+  // touch Institution at all, so blank-ielts handles it here. Specs, params,
+  // contracts and users are NOT touched — only the institution↔user link.
   await prisma.user.updateMany({ data: { institutionId: null, activeInstitutionId: null } });
-  await prisma.$executeRawUnsafe(`DELETE FROM "Institution"`);
-
-  // Phase 3 — Session/Account/Invite reference User but not Institution. Wipe
-  // them to clear stale partner login sessions from the prior course.
-  for (const t of ["Invite", "Session", "Account"]) {
-    try { await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${t}" CASCADE`); } catch {}
-  }
-
-  console.log(`    ✓ Cleared ${TABLES_TO_CLEAR.length} child tables + Institution + auth tables\n`);
+  const deleted = await prisma.institution.deleteMany({});
+  console.log(`    ✓ Cleared ${deleted.count} existing institution(s) (kept users + specs)\n`);
 }
 
 export async function main(externalPrisma?: PrismaClient): Promise<void> {
@@ -103,9 +54,10 @@ export async function main(externalPrisma?: PrismaClient): Promise<void> {
 
   console.log(`\n  🧪 Seeding blank ${INSTITUTION_NAME} foundation...\n`);
 
-  // Always clear business data — blank-ielts profile means clean slate.
-  // Users are preserved (seed-clean recreates SUPERADMINs already).
-  await clearBusinessData(prisma);
+  // Wipe Institution rows (seed-clean's clearDatabase doesn't touch them).
+  // Caller / Call / Playbook etc. wiping is handled in seed-clean.ts —
+  // see the gap-fix in clearDatabase's table list.
+  await deleteAllInstitutions(prisma);
 
   const instType = await prisma.institutionType.findUnique({ where: { slug: "school" } });
   if (!instType) {
