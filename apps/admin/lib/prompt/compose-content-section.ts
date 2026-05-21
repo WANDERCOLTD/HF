@@ -584,8 +584,11 @@ async function composeContentFromSubject(
       // Path 1 — relational CurriculumModule rows.
       const relationalModules = pbCurr.modules ?? [];
       if (relationalModules.length > 0) {
+        // Use slug as id — progress lookup is keyed by slug (m.slug || m.id)
+        // and CallerModuleProgress stores per-slug mastery. Using m.id (UUID)
+        // here causes enrichModulesWithProgress to miss every row.
         const modules: CurriculumModule[] = relationalModules.map((m, idx) => ({
-          id: m.id,
+          id: m.slug || m.id,
           name: m.title || `Module ${idx + 1}`,
           description: m.description ?? "",
           content: m,
@@ -595,7 +598,7 @@ async function composeContentFromSubject(
           mastery: 0,
         }));
 
-        const progress = await loadCallerProgress(callerId, pbCurr.slug, "current_module");
+        const progress = await loadCallerProgress(callerId, pbCurr.slug, "current_module", enrolledPbId);
         const contractThresholds = await ContractRegistry.getThresholds("CURRICULUM_PROGRESS_V1");
         const masteryThreshold = contractThresholds?.masteryComplete ?? 0.7;
         const enrichedModules = enrichModulesWithProgress(modules, progress, masteryThreshold);
