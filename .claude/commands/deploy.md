@@ -186,6 +186,7 @@ Options:
 2. **demo** — Clean demo data (golden school + demo course + demo logins, no e2e junk)
 3. **full** — Everything including e2e fixtures (DEV/TEST only)
 4. **core** — Specs + contracts only (safe for PROD)
+5. **blank-ielts** — Specs + "IELTS Prep Lab" institution only (no courses, no callers) — partner-test bootstrap
 
 If the user picks a seed profile, rebuild the seed image and run the seed job:
 
@@ -254,6 +255,7 @@ Options:
 2. **full** — Everything including e2e fixtures
 3. **core** — Specs + contracts only
 4. **golden** — Specs + 1 clean institution (Abacus Academy)
+5. **blank-ielts** — Specs + IELTS Prep Lab institution only (no courses, no callers)
 
 **Guard:** Block `full` or `demo` for PROD. Block `core` for DEV (likely not what you want — warn and confirm).
 
