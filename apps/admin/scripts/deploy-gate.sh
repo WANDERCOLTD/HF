@@ -122,13 +122,19 @@ fi
 rm -f /tmp/deploy-gate-build.$$
 
 # ─── Gate 2: lint ────────────────────────────────────────────
+# Use ESLint's exit code rather than grepping for "error" — the old regex
+# matched the literal "0 errors" in eslint's summary line and reported a
+# false-positive fail when lint was actually clean. ESLint exits non-zero
+# only when there are real errors (not warnings).
 section "Gate 2/6 — ESLint"
-if npm run lint 2>&1 | tail -10 | grep -qE "error" ; then
-  echo "  FAIL  lint errors detected" >&2
-  gate_fail "lint"
-else
+if npm run lint >/tmp/deploy-gate-lint.$$ 2>&1; then
   echo "  PASS  lint clean"
+else
+  echo "  FAIL  lint errors detected — tail:" >&2
+  tail -40 /tmp/deploy-gate-lint.$$ >&2
+  gate_fail "lint"
 fi
+rm -f /tmp/deploy-gate-lint.$$
 
 # ─── Gate 3: unit tests ──────────────────────────────────────
 # Quarantined pre-existing failing test files live in vitest.config.ts exclude.
