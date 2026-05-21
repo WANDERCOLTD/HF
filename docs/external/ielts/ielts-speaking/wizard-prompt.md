@@ -1,12 +1,17 @@
 # IELTS Speaking Practice — Wizard Prompt
 
-Paste this prompt into the V5 wizard chat. Upload the 7 docs from `Upload Docs/` when prompted.
+Paste the block below into the V5 wizard chat. Upload the 7 docs from
+`Upload Docs/` when prompted.
 
-> **Last refreshed:** 2026-05-18. Aligned with #417 per-skill scoring pipeline, #441/#442 banding UI tail, #447 rubric-projection guard, #448 eager `CallerTarget` placeholders, and #449 VAPI payload capture.
+> **Last refreshed:** 2026-05-21. Aligned with: #417 per-skill scoring, #441/#442 banding UI, #447 rubric-projection guard, #448 eager `CallerTarget` placeholders, #449 VAPI capture, #564 rubric → `Parameter.config.bandThresholds`, #566 mode-kill / evidence-first gate, #574 rubric pass, #578 composer reads bandThresholds, #580 per-learner UI surfaces, #581 evidence-first auto-detect (front-matter `hf-scoring-mode`).
+
+See [`a-sample-docs/wizard-prompt-template.md`](../../../a-sample-docs/wizard-prompt-template.md) for the GENERIC template + the "what NOT to repeat in the prompt" guide.
 
 ---
 
-## Wizard prompt
+## Wizard prompt (paste this; nothing more)
+
+The teaching rules, Call 1 special behaviour, skill descriptors, brief-never-quiz policy, and disclosure schedule are ALREADY DECLARED in `course-ref.md` and get projected automatically. Do not paste them here.
 
 ```
 I'm setting up an IELTS Speaking preparation course.
@@ -26,53 +31,25 @@ Teaching approach: socratic — the student speaks, the AI examines and coaches
 through targeted questions. Never answer for the student.
 
 Calls: soft cap ~12 × 20 minutes.
+Coverage: depth — better to master two Speaking Parts than skim all three.
+Assessment style: formal — track band scores per criterion across calls.
 
 progressionMode: learner-picks — the learner picks one of four modules at the
-start of each call from Call 2 onwards (Part 1: Familiar Topics, Part 2: Long
-Turn, Part 3: Abstract Discussion, Full Mock Exam). The four modules and the
-eight OUT-NN learner outcomes are authored in course-ref.md — the Module
-Catalogue parser will pick them up automatically when course-ref.md is uploaded.
-Do **not** call update_setup with `modulesAuthored` or `constraints` — both are
-rejected at the wizard tool layer. `modulesAuthored` is a derived PlaybookConfig
-field written server-side; `constraints` is not on the setupData allow-list.
-Also do **not** call update_setup with `progressionMode` — that field is
-chip-click only: the wizard must call `show_options` with `dataKey:
-"progressionMode"` and the chip click writes setupData client-side.
-Authored-module status is set by the course-ref.md parser; voice rules and
-tutor principles flow in via course-ref.md sections (Teaching Approach, First
-Call Special Rules, Disclosure Schedule).
+start of each call from Call 2 onwards. The four modules and the eight OUT-NN
+learner outcomes are authored in course-ref.md.
 
-Coverage: depth — better to master two Speaking Parts than skim all three.
+DO NOT call update_setup with `progressionMode`, `modulesAuthored`, or
+`constraints` — `progressionMode` is chip-click only (wizard must call
+show_options with dataKey="progressionMode"); the other two are rejected at
+the tool layer. All teaching rules (First Call Special Rules, Disclosure
+Schedule, Brief-Never-Quiz, voice rules, session-scope overrides) live in
+course-ref.md and project automatically — do not re-state them.
 
-Assessment style: formal — track band scores per criterion across calls
-(Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy,
-Pronunciation), but **never name them on Call 1**.
-
-Voice rule for Call 1 (onboarding): the tutor must NOT name the four criteria,
-explain the band scale, or score explicitly. Call 1 is a Part-1-only topic
-warm-up (work / study / hometown / hobbies). The four criteria are introduced
-one per call across Calls 2–5 per the Disclosure Schedule in `course-ref.md`.
-Please extract the "First Call (Onboarding) — Special Rules" section and the
-"Disclosure Schedule" as `sessionOverrides` entries with `section: "1"` and
-`section: "2+"` respectively, so the per-call filtering in
-`course-instructions.ts:matchesSessionRange()` honours the call-number scope at
-runtime. The "What This Course Is" and "Skills Framework" sections in
-`course-ref.md` are tagged `**Session scope:** 2+` — extract those as
-`session_override` with `section: "2+"`, not as always-on `session_flow` /
-`skill_framework`.
-
-Brief-never-quiz rule: facts about the test itself (number of parts, timing,
-examiner role, scoring mechanics) live in `tutor-briefing.md` as
-TEACHING_INSTRUCTION material. The tutor uses these silently to run the format
-and explains them in passing when relevant — the tutor **never** quizzes the
-learner on them. Every question the tutor asks the learner is a real
-conversational or examination question on the topic at hand, drawn from the
-Part 1 / 2 / 3 question banks.
-
-I have 7 teaching documents to upload covering: course config + modules + outcomes
-(course-ref.md), tutor briefing facts (tutor-briefing.md), assessor band
-descriptors (assessor-rubric.md), learner phrase repertoire (language-toolkit),
-and three Part-specific question banks.
+I have 7 teaching documents to upload covering: course config + modules +
+outcomes (course-ref.md, with `hf-scoring-mode: evidence-first` declared),
+tutor briefing facts (tutor-briefing.md), assessor band descriptors
+(assessor-rubric.md), learner phrase repertoire (language-toolkit), and
+three Part-specific question banks.
 ```
 
 ---
