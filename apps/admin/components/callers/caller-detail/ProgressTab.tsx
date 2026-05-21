@@ -73,6 +73,14 @@ export function ScoresSection({ scores }: { scores: CallScore[] }) {
   const totalParamCount = Object.keys(allGrouped).length;
   const visibleParamCount = Object.keys(visibleGrouped).length;
   const hiddenByFilter = totalParamCount - visibleParamCount;
+  // Split "hidden" into "scored 0 every time" (no evidence found yet —
+  // typically params gated on session content the caller hasn't reached)
+  // vs "moved less than threshold" (real but tiny signal). Surfacing the
+  // split in the hint avoids the alarming "47 hidden" reading.
+  const hiddenAlwaysZero = showOnlyChanged
+    ? Object.values(allGrouped).filter((ss) => !isParamChanged(ss) && Math.max(...ss.map((s) => s.score)) === 0).length
+    : 0;
+  const hiddenStable = hiddenByFilter - hiddenAlwaysZero;
 
   // Score color helper
   const scoreColor = (v: number) => ({
@@ -237,17 +245,27 @@ export function ScoresSection({ scores }: { scores: CallScore[] }) {
           flat across the caller's call history (spread < 5pp). Default off
           so educators still see the full grid. */}
       <div className="scores-filter-row">
-        <label className="scores-filter-toggle">
+        <label
+          className="scores-filter-toggle"
+          title={`Hides parameters whose values stay within ±${Math.round(CHANGED_THRESHOLD * 100)}% across calls, or where the scorer returned 0 every time (no evidence found yet).`}
+        >
           <input
             type="checkbox"
             checked={showOnlyChanged}
             onChange={(e) => setShowOnlyChanged(e.target.checked)}
           />
-          <span>Show only changed</span>
+          <span>Show only params that moved</span>
         </label>
         {showOnlyChanged && hiddenByFilter > 0 && (
           <span className="scores-filter-hint">
-            {hiddenByFilter} parameter{hiddenByFilter === 1 ? "" : "s"} hidden (no meaningful change across calls)
+            {hiddenByFilter} hidden
+            {hiddenAlwaysZero > 0 && (
+              <> — {hiddenAlwaysZero} scored 0 every time (no evidence yet)</>
+            )}
+            {hiddenAlwaysZero > 0 && hiddenStable > 0 && ", "}
+            {hiddenStable > 0 && (
+              <> {hiddenStable} stable within ±{Math.round(CHANGED_THRESHOLD * 100)}%</>
+            )}
           </span>
         )}
         {showOnlyChanged && hiddenByFilter === 0 && totalParamCount > 0 && (
