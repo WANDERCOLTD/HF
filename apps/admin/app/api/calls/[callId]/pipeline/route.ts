@@ -961,6 +961,19 @@ async function runBatchedCallerAnalysis(
     const assessPromptInstructions = assessmentSpec ? (assessmentSpec.config as SpecConfig)?.promptInstructions : null;
     const prompt = buildBatchedCallerPrompt(transcript, measureParams, learnActions, transcriptLimit, moduleContext, assessPromptInstructions);
 
+    // #UI-followup Gap 1 — load the playbook config ONCE up front so the
+    // Boaz guard (per-parameter persistence skip below) can honour the
+    // `scoringMode: "evidence-first"` declaration from the course-ref
+    // front-matter without a DB round-trip per parameter.
+    let playbookConfigForGuard: Record<string, unknown> | null = null;
+    if (call.playbookId) {
+      const pb = await prisma.playbook.findUnique({
+        where: { id: call.playbookId },
+        select: { config: true },
+      });
+      playbookConfigForGuard = (pb?.config as Record<string, unknown> | null) ?? null;
+    }
+
     // #566 Step 2 — Evidence pre-filter shadow pass. Logs which params the
     // deterministic check WOULD have skipped before the scorer LLM runs.
     // Never actually skips — Step 3 wires the decision into the gate.
@@ -1034,7 +1047,10 @@ async function runBatchedCallerAnalysis(
           // #566 Step 3 — Boaz guard. For evidence-first playbooks, drop
           // rows where the scorer judged the learner produced no evidence.
           // The score itself is logged for audit but not persisted.
-          if (shouldSkipForEvidenceFirst(call.playbookId, hasLearnerEvidence, evidenceQuality)) {
+          // #UI-followup Gap 1 — pass playbookConfigForGuard so courses that
+          // declared `hf-scoring-mode: evidence-first` activate without a
+          // hardcoded ID in the JSON list.
+          if (shouldSkipForEvidenceFirst(call.playbookId, hasLearnerEvidence, evidenceQuality, playbookConfigForGuard)) {
             log.info("Evidence-first Boaz guard: skipping score (no learner evidence)", {
               callId: call.id,
               callerId,

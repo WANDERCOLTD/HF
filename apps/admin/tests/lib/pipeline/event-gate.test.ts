@@ -1,26 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
-    callerAttribute: {
-      findUnique: vi.fn(),
-    },
-  },
-}));
-
 // #566 Step 3 — mock includes the new evidenceFirst* fields. Hoisted so
 // vi.mock can reference it (vi.mock factories are hoisted above imports).
-const { mockSchedulerConfig } = vi.hoisted(() => ({
+const { mockSchedulerConfig, mockPlaybookState } = vi.hoisted(() => ({
   mockSchedulerConfig: {
     assessmentModes: ["assess", "practice"],
     placeholderMode: "teach",
     evidenceFirstEnabled: false,
     evidenceFirstPlaybooks: [] as string[],
   },
+  mockPlaybookState: { config: null as Record<string, unknown> | null },
 }));
 vi.mock("@/lib/config", () => ({
   config: {
     scheduler: mockSchedulerConfig,
+  },
+}));
+// #UI-followup Gap 1 — event-gate's async variant fetches Playbook.config
+// to honour `scoringMode: "evidence-first"`. Mock prisma so tests can flip
+// mockPlaybookState.config per-case + drive the legacy callerAttribute path.
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    playbook: {
+      findUnique: vi.fn(async () => ({ config: mockPlaybookState.config })),
+    },
+    callerAttribute: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -88,6 +94,7 @@ describe("event-gate — evidence-first playbook override (#566 Step 3)", () => 
     mockFindUnique.mockReset();
     mockSchedulerConfig.evidenceFirstEnabled = false;
     mockSchedulerConfig.evidenceFirstPlaybooks = [];
+    mockPlaybookState.config = null;
   });
 
   it("isEvidenceFirstPlaybook returns false when flag is off", () => {
@@ -152,5 +159,62 @@ describe("event-gate — evidence-first playbook override (#566 Step 3)", () => 
     const result = await shouldRunCallerAnalysis("caller-1");
     expect(result.allow).toBe(true);
     expect(result.mode).toBe("practice");
+  });
+});
+
+// =============================================================================
+// #UI-followup Gap 1 — front-matter scoringMode declaration auto-detect
+// =============================================================================
+
+describe("event-gate — scoringMode declaration auto-detect (#UI-followup Gap 1)", () => {
+  beforeEach(() => {
+    mockFindUnique.mockReset();
+    mockSchedulerConfig.evidenceFirstEnabled = true;
+    mockSchedulerConfig.evidenceFirstPlaybooks = [];
+    mockPlaybookState.config = null;
+  });
+
+  it("sync isEvidenceFirstPlaybook honours playbookConfig.scoringMode = 'evidence-first'", () => {
+    expect(
+      isEvidenceFirstPlaybook("pb-fresh", { scoringMode: "evidence-first" }),
+    ).toBe(true);
+  });
+
+  it("sync isEvidenceFirstPlaybook returns false when scoringMode is missing or wrong value", () => {
+    expect(isEvidenceFirstPlaybook("pb-fresh", { scoringMode: "legacy" })).toBe(false);
+    expect(isEvidenceFirstPlaybook("pb-fresh", {})).toBe(false);
+    expect(isEvidenceFirstPlaybook("pb-fresh", null)).toBe(false);
+  });
+
+  it("sync isEvidenceFirstPlaybook still returns false when flag is off — config alone is not enough", () => {
+    mockSchedulerConfig.evidenceFirstEnabled = false;
+    expect(
+      isEvidenceFirstPlaybook("pb-fresh", { scoringMode: "evidence-first" }),
+    ).toBe(false);
+  });
+
+  it("shouldRunCallerAnalysis honours playbook.config.scoringMode without a hardcoded ID", async () => {
+    // No ID in the override list — but the playbook's config says
+    // evidence-first. Should short-circuit just like the legacy ID-listed
+    // path. The mode gate should NOT be consulted (no callerAttribute
+    // lookup needed).
+    mockPlaybookState.config = { scoringMode: "evidence-first" };
+    mockFindUnique.mockResolvedValue({
+      jsonValue: { mode: "teach", reason: "", writtenAt: "" },
+    });
+    const result = await shouldRunCallerAnalysis("caller-1", "pb-freshly-created");
+    expect(result.allow).toBe(true);
+    expect(result.mode).toBe("evidence-first");
+    expect(mockFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("shouldRunCallerAnalysis falls back to mode gate when playbook.config.scoringMode is unset", async () => {
+    mockPlaybookState.config = { someOtherField: true };
+    mockFindUnique.mockResolvedValue({
+      jsonValue: { mode: "teach", reason: "", writtenAt: "" },
+    });
+    const result = await shouldRunCallerAnalysis("caller-1", "pb-no-declaration");
+    expect(result.allow).toBe(false);
+    expect(result.mode).toBe("teach");
   });
 });

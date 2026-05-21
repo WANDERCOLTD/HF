@@ -163,6 +163,13 @@ export interface ProjectedConfigPatch {
   outcomes?: Record<string, string>;
   progressionMode?: "ai-led" | "learner-picks";
   moduleSourceRef?: { docId: string; version: string };
+  /**
+   * #UI-followup Gap 1 — opt-in scoring mode declared in course-ref
+   * front-matter via `hf-scoring-mode: evidence-first`. The applier
+   * writes it onto Playbook.config.scoringMode; event-gate auto-detects
+   * the playbook from there instead of requiring a hardcoded JSON entry.
+   */
+  scoringMode?: "evidence-first";
   /** Goal templates the applier writes to Playbook.config.goals. */
   goalTemplates: ProjectedGoalTemplate[];
 }
@@ -600,6 +607,11 @@ export function projectCourseReference(
     moduleSourceRef: options.docVersion
       ? { docId: options.sourceContentId, version: options.docVersion }
       : undefined,
+    // #UI-followup Gap 1 — opt-in evidence-first scoring declared in the
+    // course-ref front-matter (`hf-scoring-mode: evidence-first`). When
+    // set, the applier writes Playbook.config.scoringMode, and event-gate
+    // routes calls through the Boaz guard automatically — no JSON edit.
+    scoringMode: declaration.scoringMode,
     goalTemplates: [...learnGoals, ...achieveGoals],
   };
 

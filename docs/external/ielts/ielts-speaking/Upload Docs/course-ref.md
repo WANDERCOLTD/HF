@@ -1,6 +1,11 @@
+---
+hf-document-type: COURSE_REFERENCE_CANONICAL
+hf-scoring-mode: evidence-first
+---
+
 # IELTS Speaking Practice — Course Reference
 
-> **Document type:** COURSE_REFERENCE_CANONICAL · **Dual-path parsing:** (a) `## Modules` table + `**OUT-NN:**` lines → `Playbook.config.modules` + `outcomes` directly; (b) remaining sections → `ContentAssertion` rows with INSTRUCTION_CATEGORIES · **Audience: tutor-only** (never sent to learner as media)
+> **Document type:** COURSE_REFERENCE_CANONICAL · **Scoring mode:** evidence-first (per-parameter Boaz guard — see #566) · **Dual-path parsing:** (a) `## Modules` table + `**OUT-NN:**` lines → `Playbook.config.modules` + `outcomes` directly; (b) remaining sections → `ContentAssertion` rows with INSTRUCTION_CATEGORIES · **Audience: tutor-only** (never sent to learner as media)
 
 ## Course Configuration
 

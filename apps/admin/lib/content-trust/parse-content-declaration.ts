@@ -53,6 +53,15 @@ export interface ContentDeclaration {
   audience?: ContentAudience;
   loSystemRole?: LoSystemRole;
   questionAssessmentUse?: AssessmentUse;
+  /**
+   * #UI-followup Gap 1 — opt-in scoring mode declaration. When set to
+   * "evidence-first", projection writes it onto `Playbook.config.scoringMode`
+   * so the event-gate auto-detects the playbook without needing a hardcoded
+   * entry in `config/evidence-first-playbooks.json`. Educators creating
+   * IELTS-style courses set this in their course-ref front-matter; the
+   * Boaz guard then activates automatically once a call lands.
+   */
+  scoringMode?: "evidence-first";
   /** Accumulated warnings from parsing (invalid enum, malformed block, etc.). */
   sourceWarnings: string[];
   /** True when at least one field was parsed and validated successfully. */
@@ -412,6 +421,22 @@ function applyDeclaredField(
       } else {
         result.sourceWarnings.push(
           `Ignored declared hf-question-assessment-use="${value}" — not a known AssessmentUse. Falling back to AI inference.`,
+        );
+      }
+      return;
+    }
+    case "hf-scoring-mode":
+    case "hf-scoringmode": {
+      // #UI-followup Gap 1 — only one value recognised today. The check is
+      // case-insensitive and accepts "evidence-first" / "evidence_first" /
+      // "evidencefirst" so a typo doesn't silently mis-flag the course.
+      const normalized = value.toLowerCase().replace(/[\s_]/g, "-");
+      if (normalized === "evidence-first" || normalized === "evidencefirst") {
+        result.scoringMode = "evidence-first";
+        result.hasDeclaration = true;
+      } else {
+        result.sourceWarnings.push(
+          `Ignored declared hf-scoring-mode="${value}" — only "evidence-first" is supported today. Falling back to legacy mode-gate.`,
         );
       }
       return;

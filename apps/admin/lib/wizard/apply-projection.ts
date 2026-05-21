@@ -459,6 +459,9 @@ export function mergeConfig(
   if (patch.outcomes) merged.outcomes = patch.outcomes;
   if (patch.progressionMode) merged.progressionMode = patch.progressionMode;
   if (patch.moduleSourceRef) merged.moduleSourceRef = patch.moduleSourceRef;
+  // #UI-followup Gap 1 — write scoringMode through so event-gate can
+  // auto-detect evidence-first playbooks.
+  if (patch.scoringMode) (merged as Record<string, unknown>).scoringMode = patch.scoringMode;
   merged.goals = [...nonProjectedGoals, ...newGoals];
 
   return { merged, goalTemplatesWritten: newGoals.length };
@@ -737,7 +740,19 @@ export interface WriteBandThresholdsResult {
  * Issue #564.
  */
 export async function writeBandThresholds(
-  options: { playbookId: string; sourceContentId: string },
+  options: {
+    playbookId: string;
+    sourceContentId: string;
+    /**
+     * Optional per-code criterion name from the rubric heading. When the
+     * suffix-match fails (e.g. fresh-course Parameters that lack the
+     * `_fc`/`_lr` suffix), the matcher falls back to slugifying this name
+     * and looking for `skill_<slug>`. Passing this map widens compatibility
+     * to current-projection courses where `skillNameToParameterName()`
+     * produced unsuffixed IDs.
+     */
+    criterionByCode?: Record<string, string>;
+  },
   bandMap: RubricBandMap,
 ): Promise<WriteBandThresholdsResult> {
   if (bandMap.size === 0) {
@@ -755,9 +770,26 @@ export async function writeBandThresholds(
     select: { parameterId: true, config: true },
   });
 
+  const slugifySkillName = (name: string) =>
+    name
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+
   for (const [code, bands] of bandMap) {
     const suffix = `_${code.toLowerCase()}`;
-    const match = skillParams.find((p) => p.parameterId.toLowerCase().endsWith(suffix));
+    // Strategy 1: suffix match (legacy projection output e.g. _fc / _lr).
+    let match = skillParams.find((p) => p.parameterId.toLowerCase().endsWith(suffix));
+
+    // Strategy 2: name-derived match for fresh courses where the projection
+    // wrote unsuffixed Parameter IDs. Requires the caller to pass the
+    // criterion-name lookup keyed by code.
+    if (!match && options.criterionByCode?.[code]) {
+      const target = `skill_${slugifySkillName(options.criterionByCode[code])}`;
+      match = skillParams.find((p) => p.parameterId.toLowerCase() === target);
+    }
+
     if (!match) {
       result.unmatchedCodes.push(code);
       continue;

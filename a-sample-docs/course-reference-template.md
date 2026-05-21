@@ -66,6 +66,14 @@ FRONT-MATTER KEYS (each is optional; missing keys fall back to AI inference)
                            TEACHING_INSTRUCTION.
 - hf-question-assessment-use  (Optional, for docs that contain questions.) One of:
                            PRE_TEST, POST_TEST, BOTH, FORMATIVE, TUTOR_ONLY.
+- hf-scoring-mode          (Optional, opt-in.) When set to `evidence-first`, calls
+                           against this course route through the per-parameter
+                           evidence guard (see #566) — scores without learner
+                           evidence are dropped before they reach the EMA.
+                           Recommended for skill-EMA courses with per-band
+                           rubrics (IELTS, CEFR, NHS AfC bands, etc.). Omit
+                           this key for traditional curriculum-mastery courses
+                           that don't need rubric-anchored skill scoring.
 
 See `docs/CONTENT-PIPELINE.md` §3.2 for the full hf-* declaration spec.
 -->
@@ -74,6 +82,9 @@ hf-document-type: COURSE_REFERENCE
 hf-default-category: teaching_rule
 hf-audience: tutor-only
 hf-lo-system-role: TEACHING_INSTRUCTION
+# Uncomment the next line to enable evidence-first scoring (per-skill EMA
+# with Boaz guard) — required for IELTS-style rubric-anchored courses:
+# hf-scoring-mode: evidence-first
 ---
 
 # [Course name] — Course Reference

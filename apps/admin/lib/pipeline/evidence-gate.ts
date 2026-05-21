@@ -42,8 +42,15 @@ export function shouldSkipForEvidenceFirst(
   playbookId: string | null | undefined,
   hasLearnerEvidence: boolean | null,
   evidenceQuality: number | null,
+  /**
+   * Optional Playbook.config to honour `scoringMode: "evidence-first"`
+   * declarations from the course-ref front-matter (#UI-followup Gap 1).
+   * Falls back to the hardcoded ID list when omitted; passing it widens
+   * coverage to fresh courses without a JSON edit + redeploy.
+   */
+  playbookConfig?: Record<string, unknown> | null,
 ): boolean {
-  if (!isEvidenceFirstPlaybook(playbookId)) return false;
+  if (!isEvidenceFirstPlaybook(playbookId, playbookConfig)) return false;
   if (hasLearnerEvidence === false) return true;
   if (hasLearnerEvidence === null) return false; // legacy paths
   if (typeof evidenceQuality === "number" && evidenceQuality < EVIDENCE_FIRST_BOAZ_THRESHOLD) {
