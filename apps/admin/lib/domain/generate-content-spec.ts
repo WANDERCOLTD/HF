@@ -118,10 +118,19 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
   // 1. Load domain + assertions via shared loader (optionally scoped to specific subjects)
   const { domain, assertions, subjectName, qualificationRef, sourceCount } = await loadDomainAssertions(domainId, tx, options?.subjectIds);
 
-  // 2. Check if curriculum already exists for THIS course's subjects (not domain-wide)
-  const curriculumFilter = options?.subjectIds?.length
+  // 2. Check if curriculum already exists for THIS course's subjects OR playbook.
+  //
+  // #590: the authored-modules path (lib/wizard/apply-projection.ts::ensureCurriculum)
+  // attaches a Curriculum to a Playbook with `playbookId` set and `subjectId = null`.
+  // The previous filter only matched by `subjectId`, so this guard missed the
+  // authored row entirely and let the AI extraction race produce a second
+  // curriculum on the same playbook (2026-05-21 IELTS incident).
+  const subjectScopedFilter = options?.subjectIds?.length
     ? { subjectId: { in: options.subjectIds } }
     : { subject: { domains: { some: { domainId } } } };
+  const curriculumFilter = options?.playbookId
+    ? { OR: [subjectScopedFilter, { playbookId: options.playbookId }] }
+    : subjectScopedFilter;
   const existingCurriculum = await p.curriculum.findFirst({
     where: curriculumFilter,
     select: { id: true },
@@ -247,8 +256,13 @@ export async function generateContentSpec(domainId: string, options?: GenerateCo
   const subjectId = options?.subjectIds?.[0];
   if (subjectId) {
     try {
+      // #590: also match by playbookId so an authored Curriculum (which has
+      // playbookId but no subjectId) is reused instead of triggering a second
+      // create on the same playbook.
       const existingCurr = await p.curriculum.findFirst({
-        where: { subjectId },
+        where: options?.playbookId
+          ? { OR: [{ subjectId }, { playbookId: options.playbookId }] }
+          : { subjectId },
         select: { id: true },
       });
       const slugify = (await import("slugify")).default;
