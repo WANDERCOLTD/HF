@@ -206,9 +206,11 @@ describe("computeSharedState", () => {
       const specs = makeResolvedSpecs();
       const result = await computeSharedState(data, specs, {});
 
-      // With no calls/mastery, MOD-1 is moduleToReview (index 0) and nextModule is MOD-2 (index 1)
-      expect(result.moduleToReview).toBeDefined();
-      expect(result.moduleToReview!.id).toBe("MOD-1");
+      // #554 Fix 2: with zero progress AND zero recent calls, moduleToReview
+      // is null — no "review your baseline" hallucination for a brand-new
+      // learner. nextModule still resolves to MOD-2 (frontier pick is
+      // independent of the review gate).
+      expect(result.moduleToReview).toBeNull();
       expect(result.nextModule).toBeDefined();
       expect(result.nextModule!.id).toBe("MOD-2");
     });

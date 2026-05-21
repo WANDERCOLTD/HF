@@ -475,6 +475,49 @@ export async function computeSharedState(
       });
   }
 
+  // ── #266 Slice 1 + #554 Fix 2: per-learner module attempt data ──
+  // Hoisted above the moduleToReview gate so `hasAttemptData` can short-circuit
+  // the modules[0] fallback for true zero-progress learners. Without this gate,
+  // a brand-new caller (zero CallerModuleProgress, zero recentCalls) would have
+  // moduleToReview resolve to modules[0] and downstream pedagogy emits a
+  // "review your baseline work" block before any call exists.
+  // `pbConfig` is also consumed by isFinalSession logic further down — declare
+  // once at function scope, reuse.
+  const pbConfig = (data.playbooks?.[0]?.config || {}) as Record<string, any>;
+  const sessionCount = pbConfig.sessionCount as number | undefined;
+  let moduleAttemptCounts: SharedComputedState["moduleAttemptCounts"] = undefined;
+  let hasAttemptData = false;
+  if (pbConfig.modulesAuthored === true && curriculumId && data.caller?.id) {
+    try {
+      const rows = await prisma.callerModuleProgress.findMany({
+        where: {
+          callerId: data.caller.id,
+          module: { curriculumId },
+        },
+        select: {
+          moduleId: true,
+          callCount: true,
+          status: true,
+          completedAt: true,
+        },
+      });
+      moduleAttemptCounts = {};
+      for (const row of rows) {
+        moduleAttemptCounts[row.moduleId] = {
+          callCount: row.callCount,
+          status: (row.status as "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED") ?? "NOT_STARTED",
+          completedAt: row.completedAt,
+        };
+        if (row.callCount > 0) hasAttemptData = true;
+      }
+      console.log(
+        `[modules] #266: loaded ${rows.length} CallerModuleProgress rows; hasAttemptData=${hasAttemptData}`,
+      );
+    } catch (err) {
+      console.warn("[modules] #266: callerModuleProgress query failed (non-blocking):", err);
+    }
+  }
+
   // Estimate progress: if no explicit tracking, assume ~1 module per 2 calls
   const estimatedProgress = completedModules.size > 0
     ? completedModules.size
@@ -487,8 +530,17 @@ export async function computeSharedState(
       ))
     : Math.max(0, estimatedProgress - 1);
 
-  // Module to review = last completed (or first if no progress)
-  const moduleToReview = modules[lastCompletedIndex] || modules[0] || null;
+  // Module to review — gated on real evidence of prior activity (any of:
+  // a completed module, a CallerModuleProgress row with callCount > 0, or any
+  // prior call in this caller's history). Without this gate, lastCompletedIndex
+  // defaults to 0 so `modules[lastCompletedIndex]` ALWAYS resolves to modules[0]
+  // and downstream pedagogy emits a "review your baseline work" block before
+  // any call exists. See #554 Fix 2.
+  const hasAnyPriorActivity =
+    completedModules.size > 0 || hasAttemptData || data.recentCalls.length > 0;
+  const moduleToReview = hasAnyPriorActivity
+    ? (modules[lastCompletedIndex] || modules[0] || null)
+    : null;
 
   // Next module = one after last completed
   const nextModuleIndex = lastCompletedIndex + 1;
@@ -541,8 +593,9 @@ export async function computeSharedState(
   if (!lockedModule && requestedModuleId) {
     // Match against Playbook.config.modules (the authored shape). The picker
     // emits the AuthoredModule.id as ?requestedModuleId=… so we match on id.
-    // pbConfig is declared further down (line ~672) for the isFinalSession
-    // logic — read directly here to avoid temporal-dead-zone gymnastics.
+    // `pbConfig` is now declared earlier (just before moduleToReview) but kept
+    // as a local `lockedPbConfig` here for the `unknown`-typed cast — the
+    // authored-module shape is more permissive than the `any`-cast pbConfig.
     const lockedPbConfig = (data.playbooks?.[0]?.config || {}) as Record<string, unknown>;
     const authored = (Array.isArray(lockedPbConfig.modules) ? lockedPbConfig.modules : []) as Array<{
       id?: string;
@@ -553,13 +606,31 @@ export async function computeSharedState(
     }>;
     const match = authored.find((m) => m?.id === requestedModuleId);
     if (match) {
+      // #554 Fix 1: outcomesPrimary holds bare refs ("OUT-01"). Resolve each
+      // through lockedPbConfig.outcomes (Record<ref,text>) so the composed
+      // prompt narrates the human statement, not the opaque ref id. Missing
+      // entries fall back to the bare ref + console.warn — never silently
+      // drop, so authoring mistakes are visible in logs.
+      const outcomesMap = lockedPbConfig.outcomes as Record<string, string> | undefined;
+      const resolveOutcome = (ref: string): string => {
+        const text = outcomesMap?.[ref];
+        if (!text) {
+          console.warn(
+            `[modules] #554 Fix 1: outcome ref "${ref}" not found in Playbook.config.outcomes — passing through bare ref`,
+          );
+          return ref;
+        }
+        return text;
+      };
       lockedModule = {
         id: match.id,
         slug: match.id || "",
         // AuthoredModule has `label` not `name`; map for downstream `ModuleData` consumers.
         name: match.label || match.id || requestedModuleId,
         description: null,
-        learningOutcomes: Array.isArray(match.outcomesPrimary) ? (match.outcomesPrimary as string[]) : undefined,
+        learningOutcomes: Array.isArray(match.outcomesPrimary)
+          ? (match.outcomesPrimary as string[]).map(resolveOutcome)
+          : undefined,
         prerequisites: Array.isArray(match.prerequisites) ? (match.prerequisites as string[]) : undefined,
         content: match.content,
       };
@@ -803,48 +874,9 @@ export async function computeSharedState(
 
   const thresholds = specConfig.thresholds || { high: 0.65, low: 0.35 };
 
-  // Determine if this is the final teaching session
-  const pbConfig = (data.playbooks?.[0]?.config || {}) as Record<string, any>;
-  const sessionCount = pbConfig.sessionCount as number | undefined;
-
-  // ── #266 Slice 1: per-learner module progress (authored courses only) ──
-  // Source of truth for "you've done Baseline twice" narratives. Reads
-  // CallerModuleProgress, which is incremented inside updateModuleMastery
-  // (track-progress.ts) at session end — so the count the tutor sees at the
-  // start of a session reflects completed sessions only. Indexed on
-  // [callerId, status] (schema.prisma) → cheap.
-  let moduleAttemptCounts: SharedComputedState["moduleAttemptCounts"] = undefined;
-  let hasAttemptData = false;
-  if (pbConfig.modulesAuthored === true && curriculumId && data.caller?.id) {
-    try {
-      const rows = await prisma.callerModuleProgress.findMany({
-        where: {
-          callerId: data.caller.id,
-          module: { curriculumId },
-        },
-        select: {
-          moduleId: true,
-          callCount: true,
-          status: true,
-          completedAt: true,
-        },
-      });
-      moduleAttemptCounts = {};
-      for (const row of rows) {
-        moduleAttemptCounts[row.moduleId] = {
-          callCount: row.callCount,
-          status: (row.status as "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED") ?? "NOT_STARTED",
-          completedAt: row.completedAt,
-        };
-        if (row.callCount > 0) hasAttemptData = true;
-      }
-      console.log(
-        `[modules] #266: loaded ${rows.length} CallerModuleProgress rows; hasAttemptData=${hasAttemptData}`,
-      );
-    } catch (err) {
-      console.warn("[modules] #266: callerModuleProgress query failed (non-blocking):", err);
-    }
-  }
+  // pbConfig + sessionCount + moduleAttemptCounts + hasAttemptData are all
+  // hoisted above moduleToReview (see #554 Fix 2). Reused here for
+  // isFinalSession + returned shared state.
 
   const callNumber = data.recentCalls.length + 1; // 1-based: this is the Nth call
   const isFinalByBudget = !!(sessionCount && sessionCount > 0 && callNumber >= sessionCount);
