@@ -36,16 +36,22 @@ async function findIeltsLikePlaybook(): Promise<{ id: string; name: string } | n
 
 async function reportSkillParams(): Promise<{
   pass: boolean;
-  rows: Array<{ paramId: string; criterionCode: string | null; bandCount: number; sample: string }>;
+  rows: Array<{ paramId: string; criterionCode: string | null; bandCount: number; sample: string; rubricScored: boolean }>;
 }> {
   // Parameter rows are globally scoped (no playbookId column). All skill_*
   // parameters live in one registry; bandThresholds are merged onto their
   // config JSON by writeBandThresholds().
+  //
+  // PASS criterion is over RUBRIC-SCORED params only. Internal aggregator
+  // params (e.g. skill_ema_aggregate) deliberately carry no bandThresholds
+  // and would create false negatives.
   const params = await prisma.parameter.findMany({
     where: { parameterId: { startsWith: "skill_" } },
     select: { parameterId: true, config: true },
     orderBy: { parameterId: "asc" },
   });
+
+  const isAggregator = (id: string) => /aggregate|aggregator|_ema$|_meta$/i.test(id);
 
   const rows = params.map((p) => {
     const cfg = (p.config ?? {}) as ParamConfig;
@@ -59,10 +65,12 @@ async function reportSkillParams(): Promise<{
       criterionCode: m ? m[1] : null,
       bandCount,
       sample,
+      rubricScored: !isAggregator(p.parameterId),
     };
   });
 
-  const pass = rows.length > 0 && rows.every((r) => r.bandCount >= 9);
+  const rubricRows = rows.filter((r) => r.rubricScored);
+  const pass = rubricRows.length > 0 && rubricRows.every((r) => r.bandCount >= 9);
   return { pass, rows };
 }
 
@@ -94,9 +102,10 @@ async function main() {
   const before = await reportSkillParams();
   console.log(`${before.rows.length} skill parameter(s) found (global registry):`);
   for (const r of before.rows) {
-    console.log(`  - ${r.paramId.padEnd(30)} bands=${String(r.bandCount).padStart(2)}  ${r.sample}`);
+    const tag = r.rubricScored ? "" : "  [aggregator — no bands expected]";
+    console.log(`  - ${r.paramId.padEnd(42)} bands=${String(r.bandCount).padStart(2)}  ${r.sample}${tag}`);
   }
-  console.log(`  → ${before.pass ? "PASS" : "FAIL"} (need ≥9 bands per skill param)`);
+  console.log(`  → ${before.pass ? "PASS" : "FAIL"} (need ≥9 bands on every rubric-scored skill param)`);
 
   if (before.pass) {
     console.log();
@@ -125,9 +134,10 @@ async function main() {
   console.log("=== AFTER ===");
   const after = await reportSkillParams();
   for (const r of after.rows) {
-    console.log(`  - ${r.paramId.padEnd(30)} bands=${String(r.bandCount).padStart(2)}  ${r.sample}`);
+    const tag = r.rubricScored ? "" : "  [aggregator — no bands expected]";
+    console.log(`  - ${r.paramId.padEnd(42)} bands=${String(r.bandCount).padStart(2)}  ${r.sample}${tag}`);
   }
-  console.log(`  → ${after.pass ? "PASS" : "FAIL"} (need ≥9 bands per skill param)`);
+  console.log(`  → ${after.pass ? "PASS" : "FAIL"} (need ≥9 bands on every rubric-scored skill param)`);
 
   process.exit(after.pass ? 0 : 1);
 }
