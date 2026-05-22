@@ -19,9 +19,9 @@ type CallerSummary = {
   id: string;
   name: string | null;
   email: string | null;
-  phoneNumber: string | null;
-  confidence: number | null;
-  callCount: number;
+  phone: string | null;
+  personality: { confidenceScore: number | null } | null;
+  _count?: { calls: number; memories: number };
   domain: { id: string; name: string; slug: string } | null;
 };
 
@@ -38,7 +38,7 @@ export default function CallersMobilePage() {
   const fetchCallers = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/callers");
+      const res = await fetch("/api/callers?withCounts=true");
       const data = await res.json();
       if (data.ok) {
         setCallers(data.callers || []);
@@ -56,13 +56,15 @@ export default function CallersMobilePage() {
     return (
       caller.name?.toLowerCase().includes(query) ||
       caller.email?.toLowerCase().includes(query) ||
-      caller.phoneNumber?.includes(query) ||
+      caller.phone?.includes(query) ||
       caller.domain?.name.toLowerCase().includes(query)
     );
   });
 
-  const getConfidenceBadge = (confidence: number | null) => {
-    if (confidence === null) return { label: "Unknown", color: "bg-gray-100 text-gray-700" };
+  const getConfidenceBadge = (confidence: number | null | undefined) => {
+    if (confidence == null || !Number.isFinite(confidence)) {
+      return { label: "No data", color: "bg-gray-100 text-gray-700" };
+    }
     if (confidence >= 0.8) return { label: "High", color: "bg-green-100 text-green-700" };
     if (confidence >= 0.5) return { label: "Medium", color: "bg-yellow-100 text-yellow-700" };
     return { label: "Low", color: "bg-red-100 text-red-700" };
@@ -126,11 +128,14 @@ export default function CallersMobilePage() {
         ) : (
           <div className="flex flex-col gap-3">
             {filteredCallers.map((caller) => {
-              const confidenceBadge = getConfidenceBadge(caller.confidence);
+              const confidence = caller.personality?.confidenceScore ?? null;
+              const callCount = caller._count?.calls ?? 0;
+              const confidenceBadge = getConfidenceBadge(confidence);
+              const showConfidencePct = confidence != null && Number.isFinite(confidence);
               return (
                 <button
                   key={caller.id}
-                  onClick={() => router.push(`/callers/${caller.id}`)}
+                  onClick={() => router.push(`/x/callers/${caller.id}`)}
                   className="w-full text-left p-4 rounded-lg border transition-all active:scale-98"
                   style={{
                     borderColor: "var(--border-default)",
@@ -141,11 +146,11 @@ export default function CallersMobilePage() {
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-base truncate" style={{ color: "var(--text-primary)" }}>
-                        {caller.name || caller.email || caller.phoneNumber || `Caller ${caller.id.slice(0, 8)}`}
+                        {caller.name || caller.email || caller.phone || `Caller ${caller.id.slice(0, 8)}`}
                       </h3>
-                      {caller.name && (caller.email || caller.phoneNumber) && (
+                      {caller.name && (caller.email || caller.phone) && (
                         <p className="text-xs truncate mt-0.5" style={{ color: "var(--text-muted)" }}>
-                          {caller.email || caller.phoneNumber}
+                          {caller.email || caller.phone}
                         </p>
                       )}
                     </div>
@@ -163,15 +168,15 @@ export default function CallersMobilePage() {
                     <div className="flex items-center gap-1.5">
                       <Phone className="w-3.5 h-3.5" />
                       <span>
-                        {caller.callCount} {caller.callCount === 1 ? "call" : "calls"}
+                        {callCount} {callCount === 1 ? "call" : "calls"}
                       </span>
                     </div>
 
                     {/* Confidence score */}
-                    {caller.confidence !== null && (
+                    {showConfidencePct && (
                       <div className="flex items-center gap-1.5">
                         <TrendingUp className="w-3.5 h-3.5" />
-                        <span>{Math.round(caller.confidence * 100)}%</span>
+                        <span>{Math.round(confidence * 100)}%</span>
                       </div>
                     )}
 
