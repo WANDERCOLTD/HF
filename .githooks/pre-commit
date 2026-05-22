@@ -113,4 +113,31 @@ if command -v npx >/dev/null 2>&1; then
   fi
 fi
 
+# 5) Warn if KNOWLEDGE-MAP.md or any of its high-signal sources changes — the
+#    repo-root translation-layer doc must keep in step with code, specs, and
+#    data. Non-blocking. See issue #601.
+if command -v npx >/dev/null 2>&1; then
+  km_relevant_changed="0"
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    case "$f" in
+      KNOWLEDGE-MAP.md|\
+apps/admin/prisma/schema.prisma|\
+apps/admin/lib/config.ts|\
+apps/admin/lib/permissions.ts|\
+apps/admin/lib/pipeline/*|\
+apps/admin/app/api/*route.ts|\
+apps/admin/docs-archive/bdd-specs/*)
+        km_relevant_changed="1"
+        break
+        ;;
+    esac
+  done <<< "${STAGED_FILES}"
+
+  if [[ "$km_relevant_changed" == "1" ]]; then
+    (cd apps/admin && npx tsx scripts/check-knowledge-map.ts --warn 2>&1) \
+      || echo "[pre-commit] ⚠ KNOWLEDGE-MAP.md drift (non-blocking). Run: cd apps/admin && npm run docs:knowledge-map"
+  fi
+fi
+
 exit 0
