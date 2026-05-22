@@ -597,9 +597,21 @@ registerTransform("renderTeachingContent", (
   // All questions for this curriculum (session-scoped filtering removed with lesson plans)
   const questions = context.loadedData.curriculumQuestions || [];
 
-  // Split questions by type: TUTOR_QUESTION (skill-mapped with tiered responses) vs MCQ/TRUE_FALSE (practice)
+  // Split questions by type: TUTOR_QUESTION (skill-mapped with tiered responses) vs MCQ/TRUE_FALSE (practice).
+  //
+  // #606 / Epic 100 Link 3 — Defense-in-depth TUTOR_ONLY filter.
+  // The curriculumQuestions loader already excludes assessmentUse=TUTOR_ONLY at the
+  // query boundary (see SectionDataLoader.ts::registerLoader("curriculumQuestions")).
+  // This render-time guard re-enforces the contract so a loader regression cannot
+  // leak a TUTOR_ONLY MCQ into the learner-facing PRACTICE QUESTIONS section.
+  // The two filters MUST stay aligned — both belong to the same contract.
+  // See: docs/epic-100-chain-walk.md, gh issue view 606
+  const isTutorOnly = (q: { assessmentUse?: string | null | undefined }) =>
+    q.assessmentUse === "TUTOR_ONLY";
   const tutorQuestions = questions.filter((q) => q.questionType === "TUTOR_QUESTION");
-  const practiceQuestions = questions.filter((q) => q.questionType !== "TUTOR_QUESTION");
+  const practiceQuestions = questions.filter(
+    (q) => q.questionType !== "TUTOR_QUESTION" && !isTutorOnly(q),
+  );
 
   let questionsSection = "";
 
