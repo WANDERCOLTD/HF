@@ -96,7 +96,7 @@ const counters: CounterDefinition[] = [
       ];
       return prisma.contentAssertion.count({
         where: {
-          assertionCategory: { in: instructionCategories },
+          category: { in: instructionCategories },
           teachMethod: "recall_quiz",
         },
       });
@@ -253,7 +253,7 @@ const counters: CounterDefinition[] = [
       const rows = await prisma.$queryRaw<Array<{ count: bigint }>>`
         SELECT COUNT(*)::bigint AS count
         FROM "Playbook"
-        WHERE "teachingMode" IS NULL
+        WHERE (config->>'teachingMode') IS NULL
       `;
       return Number(rows[0]?.count ?? 0);
     },
