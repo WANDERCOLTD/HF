@@ -750,9 +750,9 @@
   flex-direction: column;
   gap: 4px;
 }
-/* Group header — visually anchors each call/standalone section.
-   Strong accent-primary tint so it's the clear section anchor (the previous
-   6-10% blends came out grey on most themes). */
+/* Group header — solid accent-primary background, white text, so the section
+   anchor is unmistakable. Earlier blends were still reading grey because the
+   eye fights against subtle tints in a long timeline. Solid colour wins. */
 .ptr-group-header {
   display: flex;
   align-items: center;
@@ -762,29 +762,25 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--accent-primary);
-  background: color-mix(in srgb, var(--accent-primary) 22%, var(--surface-primary));
+  color: var(--surface-primary, #fff);
+  background: var(--accent-primary);
   border-radius: 6px;
   margin-top: 10px;
-  border-left: 4px solid var(--accent-primary);
+  border-left: 4px solid color-mix(in srgb, var(--accent-primary) 70%, #000);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--accent-primary) 24%, transparent);
 }
 .ptr-group-header--standalone {
-  background: color-mix(in srgb, var(--text-muted) 16%, var(--surface-primary));
-  border-left-color: var(--text-muted);
-  color: var(--text-muted);
+  background: var(--text-muted);
+  border-left-color: color-mix(in srgb, var(--text-muted) 70%, #000);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text-muted) 20%, transparent);
+  color: var(--surface-primary, #fff);
 }
 .ptr-group-header-icon {
-  color: var(--accent-primary);
+  color: var(--surface-primary, #fff);
   flex-shrink: 0;
 }
-.ptr-group-header--standalone .ptr-group-header-icon {
-  color: var(--text-muted);
-}
 .ptr-group-meta {
-  color: color-mix(in srgb, var(--accent-primary) 60%, var(--text-muted));
-}
-.ptr-group-header--standalone .ptr-group-meta {
-  color: var(--text-placeholder);
+  color: color-mix(in srgb, var(--surface-primary, #fff) 80%, transparent);
 }
 .ptr-group-title {
   flex-shrink: 0;
@@ -815,8 +811,9 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 18%, var(--surface-primary));
+  background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 26%, var(--surface-primary));
   border: none;
+  border-left: 3px solid var(--accent-secondary, #7c6bc4);
   padding: 8px 12px;
   text-align: left;
   cursor: pointer;
@@ -825,7 +822,7 @@
   font-weight: 600;
   color: var(--text-primary);
 }
-.ptr-call-diff-head:hover { background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 28%, var(--surface-primary)); }
+.ptr-call-diff-head:hover { background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 38%, var(--surface-primary)); }
 .ptr-call-diff-label {
   font-weight: 700;
   text-transform: uppercase;
@@ -1057,17 +1054,18 @@
 .ptr-row--active {
   border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent);
 }
-/* PROMPT row head — click-toggles body, blue tint distinguishes it from
-   diff rows (neutral) and call-diff rows (purple). Bumped tints so the
-   colour is visible, not a grey gradient. */
+/* PROMPT row head — saturated blue baseline + bold accent-primary
+   left border so it pops against diff rows. Active state goes even
+   stronger to mark the row that drives the next call. */
 .ptr-row-head {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
   padding: 8px 12px;
-  background: color-mix(in srgb, var(--accent-primary) 12%, var(--surface-primary));
+  background: color-mix(in srgb, var(--accent-primary) 14%, var(--surface-primary));
   border: none;
+  border-left: 3px solid color-mix(in srgb, var(--accent-primary) 50%, transparent);
   cursor: pointer;
   text-align: left;
   font-size: 12px;
@@ -1077,13 +1075,15 @@
   font-family: inherit;
 }
 .ptr-row-head:hover {
-  background: color-mix(in srgb, var(--accent-primary) 20%, var(--surface-primary));
+  background: color-mix(in srgb, var(--accent-primary) 24%, var(--surface-primary));
+  border-left-color: var(--accent-primary);
 }
 .ptr-row--active .ptr-row-head {
-  background: color-mix(in srgb, var(--accent-primary) 28%, var(--surface-primary));
+  background: color-mix(in srgb, var(--accent-primary) 32%, var(--surface-primary));
+  border-left: 4px solid var(--accent-primary);
 }
 .ptr-row--active .ptr-row-head:hover {
-  background: color-mix(in srgb, var(--accent-primary) 36%, var(--surface-primary));
+  background: color-mix(in srgb, var(--accent-primary) 42%, var(--surface-primary));
 }
 .ptr-row-icon {
   color: var(--accent-primary);
