@@ -10,6 +10,9 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { ROLE_LEVEL } from '@/lib/roles';
+import type { UserRole } from '@prisma/client';
 import type { SurveyStep } from '@/components/student/ChatSurvey';
 import type { SurveyStepConfig } from '@/lib/types/json-fields';
 import { SURVEY_SCOPES, POST_SURVEY_KEYS } from '@/lib/learner/survey-keys';
@@ -143,6 +146,14 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
   // (treated as "already picked, proceed to teaching") so we don't loop.
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Operator/admin viewers (level >= 3) are simming, not learning. The picker
+  // page rejects them with no `?callerId=` in the URL and bounces to
+  // `/x/callers`, trapping them. Sim/[callerId]/page.tsx already gives them a
+  // banner CTA as the non-blocking entry — so the hook must not force the
+  // redirect for them. Real students still get auto-routed to the picker.
+  const { data: session } = useSession();
+  const viewerRoleLevel = ROLE_LEVEL[(session?.user?.role ?? 'STUDENT') as UserRole] ?? 0;
+  const viewerIsOperator = viewerRoleLevel >= 3;
 
   const [items, setItems] = useState<ChatItem[]>([]);
   const [state, setState] = useState<JourneyState>('loading');
@@ -493,6 +504,11 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
         // teach. Without this guard the picker → SIM round-trip loops.
         const alreadyPicked = !!searchParams?.get('requestedModuleId');
         if (alreadyPicked) {
+          setState('teaching');
+        } else if (viewerIsOperator) {
+          // Operator/admin simming: don't auto-route — the banner CTA on the
+          // sim page is the non-blocking entry. Auto-routing traps admins on
+          // /x/callers because the picker page requires `?callerId=` in URL.
           setState('teaching');
         } else if (data.nextStop.redirect) {
           router.push(data.nextStop.redirect);
