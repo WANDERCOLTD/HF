@@ -940,24 +940,48 @@
 .ptr-row--active {
   border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent);
 }
-/* Mirrors .cpt-accordion-header — surface-secondary, 600 weight, hover blend */
+/* PROMPT row head — click-toggles body, distinct from diff rows via
+   FileText icon + accent-primary tint. Mirrors .cpt-accordion-header. */
 .ptr-row-head {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
   padding: 8px 12px;
-  background: var(--surface-secondary);
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-secondary));
   border: none;
-  cursor: default;
+  cursor: pointer;
   text-align: left;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
   flex-wrap: wrap;
+  font-family: inherit;
+}
+.ptr-row-head:hover {
+  background: color-mix(in srgb, var(--accent-primary) 14%, var(--surface-secondary));
 }
 .ptr-row--active .ptr-row-head {
-  background: color-mix(in srgb, var(--accent-primary) 8%, var(--surface-secondary));
+  background: color-mix(in srgb, var(--accent-primary) 18%, var(--surface-secondary));
+}
+.ptr-row--active .ptr-row-head:hover {
+  background: color-mix(in srgb, var(--accent-primary) 24%, var(--surface-secondary));
+}
+.ptr-row-icon {
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+.ptr-row-preview {
+  flex: 1;
+  min-width: 100px;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: 4px;
 }
 .ptr-row-marker {
   display: inline-flex;
