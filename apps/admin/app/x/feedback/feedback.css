@@ -418,3 +418,33 @@
     text-align: right;
   }
 }
+
+/* #619 — admin status control in the detail panel */
+.pfb-status-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 240px;
+}
+.pfb-status-control select.hf-input {
+  width: 100%;
+}
+
+/* #619 — submit confirmation toast (fixed corner, 4s autohide) */
+.pfb-submit-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--text-primary) 18%, transparent);
+  animation: pfb-toast-in 0.2s ease-out;
+}
+@keyframes pfb-toast-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

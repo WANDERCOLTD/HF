@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useApi } from "@/hooks/useApi";
 import type { Ticket, TicketStatus, TicketCategory, TicketComment } from "@/types/tickets";
@@ -65,6 +65,8 @@ export default function FeedbackPage(): React.ReactElement {
 
   // Modal
   const [showSubmit, setShowSubmit] = useState(false);
+  // Toast after a successful submit — surfaces the ticket number for ~4s
+  const [submitToast, setSubmitToast] = useState<number | null>(null);
 
   // Build query — skip fetch on "mine" tab until session provides userId
   const queryParams = new URLSearchParams();
@@ -214,6 +216,7 @@ export default function FeedbackPage(): React.ReactElement {
                   ticketId={ticket.id}
                   isOwn={isOwn(ticket)}
                   canDelete={roleLevel >= 3 || isOwn(ticket)}
+                  roleLevel={roleLevel}
                   onClose={() => setExpandedId(null)}
                   onUpdate={refetch}
                 />
@@ -228,12 +231,42 @@ export default function FeedbackPage(): React.ReactElement {
         <FeedbackSubmitModal
           open={showSubmit}
           onClose={() => setShowSubmit(false)}
-          onSuccess={() => {
+          onSuccess={(ticketNumber) => {
             setShowSubmit(false);
+            setSubmitToast(ticketNumber);
             refetch();
           }}
         />
       )}
+
+      {/* Submission confirmation toast — visible for 4s */}
+      {submitToast !== null && (
+        <SubmitToast
+          ticketNumber={submitToast}
+          onDismiss={() => setSubmitToast(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Submit confirmation toast ──
+
+function SubmitToast({
+  ticketNumber,
+  onDismiss,
+}: {
+  ticketNumber: number;
+  onDismiss: () => void;
+}): React.ReactElement {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 4000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+
+  return (
+    <div className="pfb-submit-toast hf-banner hf-banner-success" role="status">
+      Ticket #{ticketNumber} sent. Paul will see this.
     </div>
   );
 }
@@ -318,15 +351,18 @@ function FeedbackDetail({
   ticketId,
   isOwn,
   canDelete,
+  roleLevel,
   onClose,
   onUpdate,
 }: {
   ticketId: string;
   isOwn: boolean;
   canDelete: boolean;
+  roleLevel: number;
   onClose: () => void;
   onUpdate: () => void;
 }): React.ReactElement {
+  const isAdmin = roleLevel >= 3;
   const { data, loading, refetch } = useApi<{ ticket: Ticket }>(
     `/api/tickets/${ticketId}`,
     { transform: (d) => d as unknown as { ticket: Ticket } },
@@ -352,6 +388,25 @@ function FeedbackDetail({
       });
       setCommentText("");
       refetch();
+      onUpdate();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleStatusChange = async (next: TicketStatus): Promise<void> => {
+    if (submitting || !ticket || ticket.status === next) return;
+    setSubmitting(true);
+    try {
+      // TODO(audit): TICKET_STATUS_CHANGED — no AuditEvent enum for tickets yet;
+      // follow-up issue tracks adding it + migration + write call.
+      await fetch(`/api/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      });
+      refetch();
+      onUpdate();
     } finally {
       setSubmitting(false);
     }
@@ -410,6 +465,28 @@ function FeedbackDetail({
 
   return (
     <div className="pfb-detail">
+      {/* Admin status control — OPERATOR+ only, not gated on OPEN */}
+      {isAdmin && (
+        <div className="pfb-detail-section">
+          <div className="pfb-detail-label">Status</div>
+          <div className="pfb-status-control">
+            <select
+              className="hf-input"
+              value={ticket.status}
+              onChange={(e) => handleStatusChange(e.target.value as TicketStatus)}
+              disabled={submitting}
+              aria-label="Change ticket status"
+            >
+              {(Object.keys(STATUS_DISPLAY) as TicketStatus[]).map((key) => (
+                <option key={key} value={key}>
+                  {STATUS_DISPLAY[key].label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
       {/* Description */}
       <div className="pfb-detail-section">
         <div className="pfb-detail-label">Description</div>
@@ -474,15 +551,15 @@ function FeedbackDetail({
         </div>
       )}
 
-      {/* Add comment (own ticket only) */}
-      {isOwn && (
+      {/* Add comment — own ticket OR admin reply to any ticket */}
+      {(isOwn || isAdmin) && (
         <div className="pfb-detail-section">
           <div className="pfb-add-comment">
             <input
               className="hf-input"
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Add a comment..."
+              placeholder={isOwn ? "Add a comment..." : "Reply to this ticket..."}
               onKeyDown={(e) => { if (e.key === "Enter") handleAddComment(); }}
             />
             <button

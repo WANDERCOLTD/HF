@@ -317,6 +317,20 @@ export function BugReportButton() {
           </div>
         </div>
 
+        {/* Submission confirmation — visible banner so the user is sure */}
+        {feedbackResult?.ok && (
+          <div className="hf-banner hf-banner-success hf-bug-success-banner" role="status">
+            <Check size={14} />
+            <span>Ticket #{feedbackResult.ticketNumber} sent. Paul will see this.</span>
+          </div>
+        )}
+        {feedbackResult && !feedbackResult.ok && (
+          <div className="hf-banner hf-banner-error hf-bug-success-banner" role="alert">
+            <AlertCircle size={14} />
+            <span>Failed to create ticket. Try the Copy button to grab full context.</span>
+          </div>
+        )}
+
         {/* Context summary (collapsible) */}
         <div className="hf-bug-context-bar">
           <button
