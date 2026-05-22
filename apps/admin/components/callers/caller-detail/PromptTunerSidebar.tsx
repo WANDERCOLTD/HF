@@ -184,18 +184,40 @@ export function PromptTunerSidebar({
     void refreshParameters();
   }, [playbookId, open, refreshParameters]);
 
-  // --- Extract current config from llmPrompt ---
+  // --- Locally remember what we just applied ---
+  //
+  // The parent's `llmPrompt` is a *snapshot* of the most recent ComposedPrompt
+  // row. Since we deliberately stopped auto-recomposing on save (per #602/#603
+  // policy), that snapshot stays stale after a config change — it still
+  // reflects the pre-save style/audience/mode. Without overriding it the
+  // pendingChanges diff never resolves, the PENDING list never clears, and
+  // the Apply button is stuck even though the playbook.config write succeeded.
+  //
+  // appliedConfig captures the values we just persisted and takes precedence
+  // over the stale llmPrompt-derived currents. It's reset when the active
+  // playbook changes.
+  const [appliedConfig, setAppliedConfig] = useState<{
+    style?: string;
+    audience?: string;
+    mode?: string;
+  }>({});
+
+  useEffect(() => {
+    setAppliedConfig({});
+  }, [playbookId]);
+
+  // --- Extract current config from llmPrompt, preferring locally-applied ---
   const currentStyle = useMemo(
-    () => extractConfigValue(llmPrompt, STYLE_OPTIONS, "teaching_style", "interactionPattern", "open"),
-    [llmPrompt],
+    () => appliedConfig.style ?? extractConfigValue(llmPrompt, STYLE_OPTIONS, "teaching_style", "interactionPattern", "open"),
+    [llmPrompt, appliedConfig.style],
   );
   const currentAudience = useMemo(
-    () => extractConfigValue(llmPrompt, AUDIENCE_OPTIONS, "audience", "audience", "secondary"),
-    [llmPrompt],
+    () => appliedConfig.audience ?? extractConfigValue(llmPrompt, AUDIENCE_OPTIONS, "audience", "audience", "secondary"),
+    [llmPrompt, appliedConfig.audience],
   );
   const currentMode = useMemo(
-    () => extractConfigValue(llmPrompt, MODE_OPTIONS, "pedagogy_mode", "teachingMode", "comprehension"),
-    [llmPrompt],
+    () => appliedConfig.mode ?? extractConfigValue(llmPrompt, MODE_OPTIONS, "pedagogy_mode", "teachingMode", "comprehension"),
+    [llmPrompt, appliedConfig.mode],
   );
 
   // --- Draft state (persists while component is mounted) ---
@@ -391,6 +413,7 @@ export function PromptTunerSidebar({
             configUpdate[c.configKey] = c.configValue;
           }
         }
+        console.log("[tuner] PATCH playbook config", configUpdate);
         const res = await fetch(`/api/playbooks/${playbookId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -398,6 +421,17 @@ export function PromptTunerSidebar({
         });
         const result = await res.json();
         if (!result.ok) throw new Error(result.error || "Failed to update config");
+
+        // Lock in the new config as our local baseline so the pendingChanges
+        // diff resolves and the PENDING list / Apply button can clear. The
+        // parent's llmPrompt won't reflect this until the next composition
+        // (which we deliberately don't auto-trigger any more).
+        setAppliedConfig((prev) => ({
+          ...prev,
+          ...(configUpdate.interactionPattern ? { style: configUpdate.interactionPattern } : {}),
+          ...(configUpdate.audience ? { audience: configUpdate.audience } : {}),
+          ...(configUpdate.teachingMode ? { mode: configUpdate.teachingMode } : {}),
+        }));
       }
 
       // 3. No automatic recompose. The new targets are written to the DB and
