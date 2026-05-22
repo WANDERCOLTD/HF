@@ -23,7 +23,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { ChevronDown, ChevronRight, Star, Circle, Activity, GitCompare, FileText, Phone, MonitorPlay, SlidersHorizontal, Sparkles, Clock, CheckCircle2, Eye, User } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, Circle, Activity, GitCompare, GitBranch, FileText, Phone, MonitorPlay, SlidersHorizontal, Sparkles, Clock, CheckCircle2, Eye, User, BarChart2 } from "lucide-react";
 import { computeDiff, compactDiffEntries } from "./PromptsSection";
 import type { Call, CallScore, ComposedPrompt } from "./types";
 
@@ -200,12 +200,15 @@ function CallDiffRow({
   fromCall,
   toCall,
   deltas,
+  defaultOpen,
 }: {
   fromCall: Call;
   toCall: Call;
   deltas: CallScoreDelta[];
+  /** When true, the row starts expanded (used for the most-recent CALL DIFF). */
+  defaultOpen?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(!!defaultOpen);
   if (deltas.length === 0) return null;
   const elapsedMs = new Date(toCall.createdAt).getTime() - new Date(fromCall.createdAt).getTime();
   const elapsed = formatElapsed(elapsedMs);
@@ -219,7 +222,7 @@ function CallDiffRow({
         aria-expanded={expanded}
         title={`Score deltas from Call ${fromCall.callSequence ?? "?"} to Call ${toCall.callSequence ?? "?"}`}
       >
-        <Activity size={13} />
+        <BarChart2 size={13} />
         <span className="ptr-call-diff-label">
           Call diff · Call {fromCall.callSequence ?? "?"} → Call {toCall.callSequence ?? "?"}
         </span>
@@ -451,7 +454,19 @@ export function PromptTimelineRows({
       </div>
 
       {/* ── Groups ── */}
-      {groups.map((group, groupIdx) => {
+      {(() => {
+        // Pre-compute the index of the LAST group that will render a CALL DIFF
+        // row, so we can auto-expand it (most-recent state delta is what the
+        // user cares about by default).
+        let lastCallDiffGroupIdx = -1;
+        for (let i = 1; i < groups.length; i++) {
+          const a = groups[i - 1].callId ? callsById.get(groups[i - 1].callId!) : null;
+          const b = groups[i].callId ? callsById.get(groups[i].callId!) : null;
+          if (a && b && computeCallDiff(a, b, scoresByCall).length > 0) {
+            lastCallDiffGroupIdx = i;
+          }
+        }
+        return groups.map((group, groupIdx) => {
         const call = group.callId ? callsById.get(group.callId) : null;
         // #642 — only the FIRST chronological null-triggerCallId group is
         // a real Bootstrap (initial enrollment prompt). Later null groups
@@ -490,15 +505,25 @@ export function PromptTimelineRows({
 
         return (
           <section key={`${group.callId ?? "bootstrap"}-${groupIdx}`} className="ptr-group">
-            {/* CALL DIFF row — between consecutive call groups */}
+            {/* CALL DIFF row — between consecutive call groups.
+                Auto-expand the most recent one (latest state delta is what
+                the user lands on the page wanting to see). */}
             {callDiff && callDiff.length > 0 && (
               <CallDiffRow
                 fromCall={prevCall!}
                 toCall={call!}
                 deltas={callDiff}
+                defaultOpen={groupIdx === lastCallDiffGroupIdx}
               />
             )}
-            <header className="ptr-group-header">
+            {/* Strengthened group header — Phone for call groups, triggerType icon
+                for standalone, accent-primary border so it visually anchors the section */}
+            <header className={`ptr-group-header${call ? " ptr-group-header--call" : " ptr-group-header--standalone"}`}>
+              {call
+                ? <Phone size={13} className="ptr-group-header-icon" />
+                : group.prompts[0]
+                  ? <TriggerIcon p={group.prompts[0]} size={13} />
+                  : null}
               <span className="ptr-group-title">{header}</span>
               {call && (
                 <span className="ptr-group-meta">
@@ -544,8 +569,12 @@ export function PromptTimelineRows({
               const ev = evalResults.get(p.id);
               const evLoading = evalLoadingIds.has(p.id);
               const compactEntries = diff && compactDiff ? compactDiffEntries(diff) : null;
-              const groupIdx = group.prompts.findIndex((x) => x.id === p.id);
-              const isSibling = groupIdx > 0;
+              // Inner sibling index — NOT shadowing the outer `groupIdx` (the call group's
+              // position in the timeline). This is "where within this call's sibling
+              // chain does the prompt sit". `siblingIdx > 0` means there's an earlier
+              // sibling in the same call group → the diff is intra-call.
+              const siblingIdx = group.prompts.findIndex((x) => x.id === p.id);
+              const isSibling = siblingIdx > 0;
               return (
                 <div key={p.id} className="ptr-pair">
                   {/* DIFF ROW — precedes the prompt row to tell the evolution story */}
@@ -557,7 +586,7 @@ export function PromptTimelineRows({
                         aria-expanded={isDiffOpen}
                         title={isDiffOpen ? "Hide diff" : "Show diff body"}
                       >
-                        <GitCompare size={12} />
+                        {isSibling ? <GitBranch size={12} /> : <GitCompare size={12} />}
                         <span className="ptr-diff-row-label">
                           {isSibling
                             ? `Sibling diff #${compIdx} → #${idxN}`
@@ -614,13 +643,21 @@ export function PromptTimelineRows({
                     </div>
                   )}
 
-                  {/* PROMPT ROW — entire head click-toggles the body.
-                      Distinct from diff rows via FileText icon + accent-primary tint. */}
+                  {/* PROMPT ROW — head is a div+role=button so we can nest a real
+                      <button> (eval) inside without invalid HTML. Click the head
+                      anywhere except the eval button toggles the prompt body. */}
                   <div className={`ptr-row${isActive ? " ptr-row--active" : ""}`}>
-                    <button
-                      type="button"
+                    <div
+                      role="button"
+                      tabIndex={0}
                       className="ptr-row-head"
                       onClick={() => toggle(expandedPrompt, setExpandedPrompt, p.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggle(expandedPrompt, setExpandedPrompt, p.id);
+                        }
+                      }}
                       aria-expanded={isPromptOpen}
                       title={isPromptOpen ? "Hide prompt body" : "Show prompt body"}
                     >
@@ -639,7 +676,7 @@ export function PromptTimelineRows({
                           {p.prompt.length > 80 ? "…" : ""}
                         </span>
                       )}
-                      <span className="ptr-row-actions" onClick={(e) => e.stopPropagation()}>
+                      <span className="ptr-row-actions">
                         <button
                           type="button"
                           className={`ptr-row-action${isEvalOpen ? " ptr-row-action--open" : ""}${ev ? " ptr-row-action--has-eval" : ""}`}
@@ -658,7 +695,7 @@ export function PromptTimelineRows({
                         </button>
                       </span>
                       {isPromptOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    </button>
+                    </div>
 
                     {/* Expanded — prompt body */}
                     {isPromptOpen && (
@@ -734,7 +771,8 @@ export function PromptTimelineRows({
             })}
           </section>
         );
-      })}
+      });
+      })()}
     </div>
   );
 }
