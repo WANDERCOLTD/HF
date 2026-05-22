@@ -9,6 +9,11 @@ export interface EditableTitleProps {
   as?: "h1" | "h2";
   style?: React.CSSProperties;
   disabled?: boolean;
+  /**
+   * Visual variant. `dark` inverts colours for use on dark backgrounds
+   * (e.g. the WhatsApp-style green SIM header). Default `light`.
+   */
+  variant?: "light" | "dark";
 }
 
 export function EditableTitle({
@@ -17,6 +22,7 @@ export function EditableTitle({
   as: Tag = "h2",
   style,
   disabled = false,
+  variant = "light",
 }: EditableTitleProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -79,6 +85,19 @@ export function EditableTitle({
     h2: { fontSize: 20, fontWeight: 700 },
   };
 
+  const isDark = variant === "dark";
+  const inputBg = isDark
+    ? "color-mix(in srgb, #fff 18%, transparent)"
+    : "var(--surface-primary, #fff)";
+  const inputColor = isDark ? "#fff" : "var(--text-primary, #111)";
+  const inputBorder = isDark
+    ? "1px solid color-mix(in srgb, #fff 50%, transparent)"
+    : "1px solid var(--accent-primary, #3b82f6)";
+  const displayColor = isDark ? "#fff" : "var(--text-primary)";
+  const pencilColor = isDark
+    ? "color-mix(in srgb, #fff 70%, transparent)"
+    : "var(--text-muted)";
+
   if (editing) {
     return (
       <input
@@ -87,16 +106,17 @@ export function EditableTitle({
         onChange={(e) => setDraft(e.target.value)}
         onBlur={save}
         onKeyDown={handleKeyDown}
+        onClick={(e) => e.stopPropagation()}
         disabled={saving}
         style={{
           ...defaultStyles[Tag],
           margin: 0,
           padding: "2px 6px",
-          border: "1px solid var(--accent-primary, #3b82f6)",
+          border: inputBorder,
           borderRadius: 4,
           outline: "none",
-          background: "var(--surface-primary, #fff)",
-          color: "var(--text-primary, #111)",
+          background: inputBg,
+          color: inputColor,
           width: "100%",
           maxWidth: 500,
           boxSizing: "border-box",
@@ -109,13 +129,20 @@ export function EditableTitle({
 
   return (
     <Tag
-      onClick={disabled ? undefined : () => setEditing(true)}
+      onClick={
+        disabled
+          ? undefined
+          : (e) => {
+              e.stopPropagation();
+              setEditing(true);
+            }
+      }
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
         ...defaultStyles[Tag],
         margin: 0,
-        color: "var(--text-primary)",
+        color: displayColor,
         cursor: disabled ? "default" : "pointer",
         display: "inline-flex",
         alignItems: "center",
@@ -128,7 +155,7 @@ export function EditableTitle({
       {!disabled && hovered && (
         <Pencil
           size={Tag === "h1" ? 16 : 14}
-          style={{ color: "var(--text-muted)", flexShrink: 0 }}
+          style={{ color: pencilColor, flexShrink: 0 }}
         />
       )}
     </Tag>
