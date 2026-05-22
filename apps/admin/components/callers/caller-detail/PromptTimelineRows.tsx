@@ -232,7 +232,7 @@ function CallDiffRow({
             </thead>
             <tbody>
               {deltas.map((d) => (
-                <tr key={d.parameterId}>
+                <tr key={d.parameterId} className={d.delta > 0 ? "ptr-row-up" : d.delta < 0 ? "ptr-row-down" : ""}>
                   <td>{d.name}</td>
                   <td>{d.from.toFixed(2)}</td>
                   <td>{d.to.toFixed(2)}</td>
@@ -556,6 +556,24 @@ export function PromptTimelineRows({
                       </button>
                       {isDiffOpen && diff && (
                         <div className="ptr-diff-row-body">
+                          <div className="ptr-diff-body-toolbar">
+                            <div className="hf-toggle-group">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setCompactDiff(false); }}
+                                className={`hf-toggle-btn hf-toggle-btn-sm ${!compactDiff ? "hf-toggle-btn-active" : ""}`}
+                                title="Show every line (added / removed / same)"
+                              >
+                                Full
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setCompactDiff(true); }}
+                                className={`hf-toggle-btn hf-toggle-btn-sm ${compactDiff ? "hf-toggle-btn-active" : ""}`}
+                                title="Only added / removed lines with separators"
+                              >
+                                Compact
+                              </button>
+                            </div>
+                          </div>
                           <div className="ps-diff-block">
                             {!compactDiff && diff.map((line, i) => (
                               <div
