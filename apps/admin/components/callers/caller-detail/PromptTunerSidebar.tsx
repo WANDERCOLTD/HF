@@ -158,31 +158,31 @@ export function PromptTunerSidebar({
   const [paramsLoading, setParamsLoading] = useState(false);
   const [paramsError, setParamsError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!playbookId || !open) return;
-    let cancelled = false;
+  const refreshParameters = useCallback(async (): Promise<TunerParameter[] | null> => {
+    if (!playbookId) return null;
     setParamsLoading(true);
     setParamsError(null);
+    try {
+      const res = await fetch(`/api/playbooks/${playbookId}/targets`);
+      const result = await res.json();
+      if (result.ok) {
+        setParameters(result.parameters);
+        return result.parameters;
+      }
+      setParamsError(result.error || "Failed to load parameters");
+      return null;
+    } catch (err) {
+      setParamsError(err instanceof Error ? err.message : String(err));
+      return null;
+    } finally {
+      setParamsLoading(false);
+    }
+  }, [playbookId]);
 
-    fetch(`/api/playbooks/${playbookId}/targets`)
-      .then((r) => r.json())
-      .then((result) => {
-        if (cancelled) return;
-        if (result.ok) {
-          setParameters(result.parameters);
-        } else {
-          setParamsError(result.error || "Failed to load parameters");
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) setParamsError(err.message);
-      })
-      .finally(() => {
-        if (!cancelled) setParamsLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [playbookId, open]);
+  useEffect(() => {
+    if (!playbookId || !open) return;
+    void refreshParameters();
+  }, [playbookId, open, refreshParameters]);
 
   // --- Extract current config from llmPrompt ---
   const currentStyle = useMemo(
@@ -355,18 +355,24 @@ export function PromptTunerSidebar({
           scope === "learner"
             ? `/api/callers/${callerId}/behavior-targets`
             : `/api/playbooks/${playbookId}/targets`;
+        const payload = targetChanges.map((c) => ({
+          parameterId: c.parameterId,
+          targetValue: c.numericValue,
+        }));
+        // Defensive log — surfaces the exact (parameterId, targetValue) pairs
+        // being submitted so future "0 instead of 0.30"-style discrepancies
+        // can be traced from the browser console without instrumenting the API.
+        console.log("[tuner] PATCH targets", url, JSON.stringify(payload));
         const res = await fetch(url, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            targets: targetChanges.map((c) => ({
-              parameterId: c.parameterId,
-              targetValue: c.numericValue,
-            })),
-          }),
+          body: JSON.stringify({ targets: payload }),
         });
         const result = await res.json();
         if (!result.ok) throw new Error(result.error || "Failed to update targets");
+        if (Array.isArray(result.rejected) && result.rejected.length > 0) {
+          console.warn("[tuner] Server rejected parameters", result.rejected);
+        }
       }
 
       // 2. Write config changes — playbook config is course-scoped only.
@@ -403,14 +409,36 @@ export function PromptTunerSidebar({
       //    affordance can be added later if needed.
       setApplyResult("Tuning saved. Existing learners need re-prompting to pick up changes.");
 
-      // 4. Notify parent
+      // 4. Re-fetch parameters from the API so `effectiveValue` reflects the
+      //    newly-saved values, and clear the draft so the PENDING CHANGES list
+      //    drops to zero. Without this the stale parameters cache leaves the
+      //    diff alive forever and the user has no idea whether a subsequent
+      //    drag is a new change or a repeat of the one they already saved.
+      const fresh = await refreshParameters();
+      if (fresh) {
+        const freshMap = new Map(fresh.map((p) => [p.parameterId, p.effectiveValue]));
+        // Drop draft entries that now match the server — keep any that differ
+        // (e.g. a write that was rejected, or a new drag mid-save).
+        setDraftTargets((prev) => {
+          const next: Record<string, number> = {};
+          for (const [pid, draft] of Object.entries(prev)) {
+            const server = freshMap.get(pid);
+            if (server === undefined || Math.abs(server - draft) > 0.01) {
+              next[pid] = draft;
+            }
+          }
+          return next;
+        });
+      }
+
+      // 5. Notify parent
       onApplied(pendingChanges);
     } catch (err: any) {
       setApplyError(err.message || "Apply failed");
     } finally {
       setApplying(false);
     }
-  }, [playbookId, callerId, callerName, pendingChanges, onApplied, scope]);
+  }, [playbookId, callerId, callerName, pendingChanges, onApplied, scope, refreshParameters]);
 
   // --- Toggle group collapse ---
   const toggleGroup = useCallback((group: string) => {
