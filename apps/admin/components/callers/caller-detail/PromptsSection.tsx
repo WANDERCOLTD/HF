@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, ChevronUp } from "lucide-react";
 import { diffLines as jsDiffLines } from "diff";
@@ -117,6 +117,11 @@ export function UnifiedPromptSection({
   const [evalResult, setEvalResult] = useState<EvalResult | null>(null);
   const [evalLoading, setEvalLoading] = useState(false);
   const [evalError, setEvalError] = useState<string | null>(null);
+  // #636: AbortController so we can cancel an in-flight eval cleanly when the
+  // user navigates between prompts, unmounts the component, or hits Cancel.
+  // Without this, a 10–20s eval that gets interrupted bubbles up to the user
+  // as a misleading "Eval failed: Request was aborted." error.
+  const evalAbortRef = useRef<AbortController | null>(null);
 
   const selected = indexed[idx] ?? null;
   const prevPrompt = idx > 0 ? indexed[idx - 1] : null;
@@ -127,9 +132,15 @@ export function UnifiedPromptSection({
     setTimeout(() => setCopiedButton(null), 1500);
   };
 
-  // Load persisted eval when navigating to a different prompt
+  // Load persisted eval when navigating to a different prompt.
+  // #636: also cancel any in-flight eval — the new prompt's state should win.
   useEffect(() => {
+    if (evalAbortRef.current) {
+      evalAbortRef.current.abort();
+      evalAbortRef.current = null;
+    }
     setEvalError(null);
+    setEvalLoading(false);
     const current = indexed[idx];
     if (current?.evalResult) {
       setEvalResult(current.evalResult as EvalResult);
@@ -138,9 +149,21 @@ export function UnifiedPromptSection({
     }
   }, [idx, indexed]);
 
+  // #636: cancel on unmount so an abandoned tab/page doesn't leave the
+  // user with a misleading "aborted" banner on next mount.
+  useEffect(() => {
+    return () => {
+      evalAbortRef.current?.abort();
+    };
+  }, []);
+
   const runEval = useCallback(async () => {
     const selected = indexed[idx];
     if (!selected) return;
+    // Abort any prior in-flight eval for this caller before starting a new one
+    evalAbortRef.current?.abort();
+    const controller = new AbortController();
+    evalAbortRef.current = controller;
     setEvalLoading(true);
     setEvalError(null);
     try {
@@ -148,16 +171,33 @@ export function UnifiedPromptSection({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ composedPromptId: selected.id }),
+        signal: controller.signal,
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Evaluation failed");
       setEvalResult(data.eval);
     } catch (err: any) {
+      // #636: user-initiated cancel / navigate-away / unmount — silent.
+      if (err?.name === "AbortError" || controller.signal.aborted) {
+        return;
+      }
       setEvalError(err.message);
     } finally {
-      setEvalLoading(false);
+      // Only clear the loading state if this controller is still the
+      // current one — a subsequent runEval/navigate will have already
+      // replaced it.
+      if (evalAbortRef.current === controller) {
+        evalAbortRef.current = null;
+        setEvalLoading(false);
+      }
     }
   }, [callerId, indexed, idx]);
+
+  const cancelEval = useCallback(() => {
+    evalAbortRef.current?.abort();
+    evalAbortRef.current = null;
+    setEvalLoading(false);
+  }, []);
 
   if (loading) {
     return <div className="hf-empty hf-text-muted">Loading prompts...</div>;
@@ -315,6 +355,15 @@ export function UnifiedPromptSection({
               "Eval"
             )}
           </button>
+          {evalLoading && (
+            <button
+              onClick={cancelEval}
+              className="hf-btn hf-btn-xs hf-btn-secondary"
+              title="Cancel evaluation"
+            >
+              Cancel
+            </button>
+          )}
           <button onClick={onRefresh} className="hf-btn-icon" title="Refresh prompts">
             ↻
           </button>
