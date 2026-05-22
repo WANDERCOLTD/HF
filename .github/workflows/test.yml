@@ -72,6 +72,13 @@ jobs:
         run: npm run docs:health:ci
         continue-on-error: true
 
+      # KNOWLEDGE-MAP.md ratchet (#601) — blocking on hard failures
+      # (broken paths, unresolved slugs, role-count drift). The doc is the
+      # repo-root translation layer between human language and HF concepts;
+      # if its claims stop resolving, the doc misleads partners.
+      - name: KNOWLEDGE-MAP.md ratchet
+        run: npm run docs:knowledge-map:ci
+
   # Job 2: Unit Tests
   unit-tests:
     name: Unit Tests
