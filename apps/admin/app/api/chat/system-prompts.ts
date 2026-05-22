@@ -67,9 +67,18 @@ export async function buildSystemPrompt(
 
   switch (mode) {
     case "DATA": {
+      // DATA mode shares the TUNING catalogue + truthfulness rules so the
+      // model can call update_behavior_target from the Assistant tab — but
+      // it MUST get the active entityContext so the Active Context block
+      // contains the real playbook UUID. Without this, the model would
+      // invent a UUID when asked to change a behaviour value, the tool
+      // would reject it, and the user would see "playbook not found"
+      // errors. See #603 follow-up (the chat panel only exposes DATA mode
+      // — MODE_CONFIG in ChatContext.tsx has no TUNING tab — so this is
+      // the path every Cmd+K message takes).
       const [dataPrompt, tuningContext] = await Promise.all([
         getPromptSpec(config.specs.chatDataHelper, DATA_SYSTEM_PROMPT),
-        buildTuningSystemPrompt(),
+        buildTuningSystemPrompt({ entityContext }),
       ]);
       return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + `\n\n${baseContext}` };
     }
