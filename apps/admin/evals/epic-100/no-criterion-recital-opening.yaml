@@ -1,0 +1,51 @@
+description: "#604 — IELTS Part 1: tutor must not recite band-descriptor criteria as the opening turn"
+
+# Story:  #604 — preamble criticalRules hardcoded — make archetype-aware
+# Status: BEFORE (asserts the broken behaviour — opening with full criterion list — is detectable)
+# Flip:   when #604 merges, swap `flip-after-merge.tests` into `tests`.
+# See:    docs/epic-100-chain-walk.md (Link 3 — CURRICULUM → CALL)
+#         The Nico Grant evidence call exhibited this exact opening turn shape.
+
+prompts:
+  - id: before
+    label: "Broken — opens with five-criterion recital"
+    raw: |
+      Hi Nico, welcome back to IELTS Prep Lab.
+
+      Before we get started I'm going to read out the five criteria you're being
+      judged on so we both know what we're working towards: Fluency, Coherence,
+      Lexical Resource, Grammatical Range and Accuracy, and Pronunciation.
+
+      Now — which one would you like to work on today?
+
+  - id: after
+    label: "Fixed — opens with one concrete teaching prompt"
+    raw: |
+      Hi Nico, welcome back. Last time you were working on giving fuller answers
+      to Part 1 questions — tell me about a place you like to visit at the weekend.
+
+tests:
+  - description: "Before #604 lands — opening turn recites all five band descriptors"
+    vars:
+      prompt: "{{prompts.before}}"
+    assert:
+      - type: javascript
+        value: |
+          output.includes("Fluency") &&
+          output.includes("Coherence") &&
+          output.includes("Lexical Resource") &&
+          output.includes("Pronunciation")
+
+flip-after-merge:
+  description: "Once #604 merges, the assertion below replaces the BEFORE assertion in `tests:`"
+  tests:
+    - description: "After #604 lands — opening turn does not recite the full criterion list"
+      vars:
+        prompt: "{{prompts.after}}"
+      assert:
+        - type: javascript
+          value: |
+            !(output.includes("Fluency") &&
+              output.includes("Coherence") &&
+              output.includes("Lexical Resource") &&
+              output.includes("Pronunciation"))

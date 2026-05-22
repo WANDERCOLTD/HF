@@ -1,0 +1,22 @@
+{
+  "_comment": "Epic 100 audit baseline — captures the BROKEN-state counters as of harness landing (#631). Each subsequent Epic 100 story drives its counter to its target (usually 0) and updates this file in its PR.",
+  "_generatedFor": "Epic 100 — Adaptive Loop Contract Hygiene (#600)",
+  "_harness": "scripts/audit-epic-100.ts",
+  "_chainWalk": "docs/epic-100-chain-walk.md",
+  "_howToRefresh": "From the VM (DATABASE_URL set): cd apps/admin && npx tsx scripts/audit-epic-100.ts --json > tests/fixtures/epic-100-audit-baseline.json",
+  "_pretransitionNote": "Counts below are placeholders captured pre-DB connection. First VM run will replace them with live values. Each story's PR drives its counter to target and updates this baseline.",
+  "generatedAt": "2026-05-22T00:00:00.000Z",
+  "counters": [
+    { "key": "duplicatePlaybookSubjects", "story": "#607", "count": 0, "target": 0 },
+    { "key": "recallQuizOnInstructionCategories", "story": "#605", "count": 0, "target": 0 },
+    { "key": "tutorOnlyQuestionsRenderedToLearner", "story": "#606", "count": 0, "target": 0 },
+    { "key": "dualLoMasteryKeysSameLO", "story": "#611", "count": 0, "target": 0 },
+    { "key": "callScoreZeroStorms", "story": "#611", "count": 0, "target": 0 },
+    { "key": "orphanLearningObjectives", "story": "#615", "count": 0, "target": 0 },
+    { "key": "danglingContentAssertionLOs", "story": "#615", "count": 0, "target": 0 },
+    { "key": "advisorInInputsSnapshot", "story": "#608", "count": 0, "target": 0 },
+    { "key": "callerAttributeOldKeyFormCount", "story": "#614", "count": 0, "target": 0 },
+    { "key": "playbooksWithoutTeachingMode", "story": "#604", "count": 0, "target": 0 },
+    { "key": "hardcodedRulesRemainingInTransforms", "story": "#610", "count": 0, "target": 0 }
+  ]
+}
