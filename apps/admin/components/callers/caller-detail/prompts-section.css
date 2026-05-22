@@ -761,27 +761,29 @@
 }
 
 /* #642 — CALL DIFF row (between consecutive call groups) */
+/* CALL DIFF row — uses cpt-accordion-card chrome, accent-secondary tint */
 .ptr-call-diff {
   margin: 4px 0;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 4%, var(--surface-primary));
-  border: 1px dashed color-mix(in srgb, var(--accent-secondary, #7c6bc4) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-secondary, #7c6bc4) 40%, var(--border-default));
+  overflow: hidden;
 }
-.ptr-call-diff--open { border-style: solid; }
 .ptr-call-diff-head {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  background: transparent;
+  background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 8%, var(--surface-secondary));
   border: none;
   padding: 8px 12px;
   text-align: left;
   cursor: pointer;
   flex-wrap: wrap;
   font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
-.ptr-call-diff-head:hover { background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 8%, transparent); }
+.ptr-call-diff-head:hover { background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 14%, var(--surface-secondary)); }
 .ptr-call-diff-label {
   font-weight: 700;
   text-transform: uppercase;
@@ -866,44 +868,56 @@
   color: var(--text-placeholder);
   font-style: italic;
 }
-/* #642 — Prompt diff row (sits between prompt rows) */
+/* #642 — Prompt diff row (sits between prompt rows). Uses cpt-accordion
+   chrome to match the Calls & Prompts tab feel, with a dashed indent so
+   it visually reads as a connector between two prompts. */
 .ptr-diff-row {
   margin-left: 36px;
   border-left: 2px dashed color-mix(in srgb, var(--text-muted) 30%, transparent);
-  padding-left: 10px;
+  padding-left: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
 .ptr-diff-row-head {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
-  background: transparent;
-  border: none;
-  padding: 4px 0;
+  width: 100%;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 6px 10px;
   font-size: 11px;
-  color: var(--text-muted);
+  font-weight: 600;
+  color: var(--text-primary);
   cursor: pointer;
   text-align: left;
-  width: fit-content;
+  flex-wrap: wrap;
 }
 .ptr-diff-row-head:hover {
-  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-secondary) 80%, var(--accent-primary) 20%);
+}
+.ptr-diff-row--open .ptr-diff-row-head {
+  border-radius: 6px 6px 0 0;
 }
 .ptr-diff-row-label {
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 .ptr-diff-row-kind {
   font-size: 10px;
   font-style: italic;
   color: var(--text-placeholder);
+  margin-left: auto;
 }
 .ptr-diff-row-body {
-  padding: 6px 12px 10px 0;
+  border: 1px solid var(--border-default);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  padding: 10px;
+  background: var(--surface-primary);
 }
+/* Mirrors .cpt-accordion-card shape from Calls & Prompts tab */
 .ptr-row {
   display: flex;
   flex-direction: column;
@@ -911,17 +925,29 @@
   border-radius: 8px;
   background: var(--surface-primary);
   margin-left: 24px;
+  overflow: hidden;
 }
 .ptr-row--active {
   border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent);
-  background: color-mix(in srgb, var(--accent-primary) 4%, var(--surface-primary));
 }
+/* Mirrors .cpt-accordion-header — surface-secondary, 600 weight, hover blend */
 .ptr-row-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--surface-secondary);
+  border: none;
+  cursor: default;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
   flex-wrap: wrap;
+}
+.ptr-row--active .ptr-row-head {
+  background: color-mix(in srgb, var(--accent-primary) 8%, var(--surface-secondary));
 }
 .ptr-row-marker {
   display: inline-flex;

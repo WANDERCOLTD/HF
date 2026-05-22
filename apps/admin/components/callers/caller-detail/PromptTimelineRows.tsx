@@ -23,7 +23,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { ChevronDown, ChevronRight, Star, Circle, Activity } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, Circle, Activity, GitCompare } from "lucide-react";
 import { computeDiff, compactDiffEntries } from "./PromptsSection";
 import type { Call, CallScore, ComposedPrompt } from "./types";
 
@@ -204,7 +204,7 @@ function CallDiffRow({
         aria-expanded={expanded}
         title={`Score deltas from Call ${fromCall.callSequence ?? "?"} to Call ${toCall.callSequence ?? "?"}`}
       >
-        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <Activity size={13} />
         <span className="ptr-call-diff-label">
           Call diff · Call {fromCall.callSequence ?? "?"} → Call {toCall.callSequence ?? "?"}
         </span>
@@ -217,6 +217,7 @@ function CallDiffRow({
           {rest > 0 && <span className="ptr-call-diff-more">+{rest} more</span>}
         </span>
         {elapsed && <span className="ptr-call-diff-elapsed">{elapsed} elapsed</span>}
+        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
       </button>
       {expanded && (
         <div className="ptr-call-diff-body">
@@ -474,7 +475,7 @@ export function PromptTimelineRows({
         const callEffectRemoved = callEffect ? callEffect.filter((d) => d.type === "removed").length : 0;
 
         return (
-          <section key={group.callId ?? "bootstrap"} className="ptr-group">
+          <section key={`${group.callId ?? "bootstrap"}-${groupIdx}`} className="ptr-group">
             {/* CALL DIFF row — between consecutive call groups */}
             {callDiff && callDiff.length > 0 && (
               <CallDiffRow
@@ -538,7 +539,7 @@ export function PromptTimelineRows({
                         aria-expanded={isDiffOpen}
                         title={isDiffOpen ? "Hide diff" : "Show diff body"}
                       >
-                        {isDiffOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                        <GitCompare size={12} />
                         <span className="ptr-diff-row-label">
                           {isSibling
                             ? `Sibling diff #${compIdx} → #${idxN}`
@@ -551,6 +552,7 @@ export function PromptTimelineRows({
                         <span className="ptr-diff-row-kind">
                           {isSibling ? "intra-call (sibling)" : "post-call generation"}
                         </span>
+                        {isDiffOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </button>
                       {isDiffOpen && diff && (
                         <div className="ptr-diff-row-body">
