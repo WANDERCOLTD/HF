@@ -54,6 +54,7 @@ for (const group of validated.groups) {
 | `lib/curriculum/resolve-module.ts` | `resolveModuleByLogicalId(curriculumId, slug)` — throws when curriculumId is empty | AI-returned slugs from `learningAssessment.moduleId` resolving to a cross-playbook CurriculumModule (#407 Opal/Freya/Tessa). |
 | `eslint-rules/no-unscoped-slug-lookup.mjs` | Custom ESLint rule, error severity | New `prisma.curriculumModule.find*({where:{slug,...}})` without `curriculumId`. Same for `learningObjective` + `ref` + `moduleId`. (#411) |
 | `scripts/check-fk-consistency.ts` (CI step 5) | SQL queries for cross-playbook leaks | Bad data reaching dev/staging from a slipped-through code path (#415). |
+| `lib/content-trust/resolve-config.ts` | `categoryToTeachMethod()` short-circuit on INSTRUCTION_CATEGORIES + `assertNoLearnerMethodOnInstructionCategory()` at extraction boundaries | Tutor-only directives ("Speak to learn", "Pedagogical Principles", etc.) being assigned a learner-facing `teachMethod` and rendered as quiz questions in learner sessions (#605). Pre-fix the function's `recall_quiz` fallback silently fired for every INSTRUCTION_CATEGORIES member. |
 
 ## Known Gaps (tech debt)
 

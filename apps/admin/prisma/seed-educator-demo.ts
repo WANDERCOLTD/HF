@@ -1781,6 +1781,24 @@ async function createContentAssertions(
     problem_solving: ["activity", "worksheet"],
     worked_example: ["worked_example", "example", "process"],
   };
+  // #605 — mirror of INSTRUCTION_CATEGORIES from resolve-config.ts. Tutor-directive
+  // categories short-circuit to "tutor_instruction" before the candidate search.
+  const INSTRUCTION_CATEGORIES = new Set([
+    "teaching_rule",
+    "session_flow",
+    "scaffolding_technique",
+    "skill_framework",
+    "communication_rule",
+    "assessment_approach",
+    "differentiation",
+    "edge_case",
+    "learner_model",
+    "session_override",
+    "content_strategy",
+    "session_metadata",
+    "skill_description",
+    "assessment_guidance",
+  ]);
   const INTENT_WEIGHTS: Record<string, Record<string, number>> = {
     recall: { fact: 3, concept: 3, key_term: 3, vocabulary: 2, reading_passage: 1, comprehension_task: 1 },
     comprehension: { fact: 1, concept: 2, key_term: 3, vocabulary: 3, reading_passage: 3, comprehension_task: 3, open_task: 3 },
@@ -1788,6 +1806,7 @@ async function createContentAssertions(
     syllabus: { fact: 2, concept: 2, comprehension_task: 2, activity: 2, worksheet: 2 },
   };
   const categoryToTeachMethod = (cat: string, intent: string = "comprehension"): string => {
+    if (INSTRUCTION_CATEGORIES.has(cat)) return "tutor_instruction";
     const candidates = Object.entries(TEACH_METHOD_CATEGORIES)
       .filter(([, cats]) => cats.includes(cat));
     if (candidates.length === 0) return "recall_quiz";
