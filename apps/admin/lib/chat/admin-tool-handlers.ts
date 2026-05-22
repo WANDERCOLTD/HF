@@ -30,6 +30,11 @@ const TOOL_MIN_ROLE: Record<string, UserRole> = {
   // Tuning / behaviour-target writes
   update_behavior_target: "OPERATOR",
   update_playbook_config: "OPERATOR",
+  // Caller / playbook / domain meta
+  get_caller_detail: "OPERATOR",
+  update_caller: "OPERATOR",
+  update_playbook_meta: "OPERATOR",
+  update_domain: "OPERATOR",
   // System diagnostics
   system_ini_check: "SUPERADMIN",
 };
@@ -116,6 +121,19 @@ export async function executeAdminTool(
         break;
       case "update_playbook_config":
         result = await handleUpdatePlaybookConfig(input);
+        break;
+      // Caller / playbook / domain meta
+      case "get_caller_detail":
+        result = await handleGetCallerDetail(input);
+        break;
+      case "update_caller":
+        result = await handleUpdateCaller(input);
+        break;
+      case "update_playbook_meta":
+        result = await handleUpdatePlaybookMeta(input);
+        break;
+      case "update_domain":
+        result = await handleUpdateDomain(input);
         break;
       // System diagnostics
       case "system_ini_check":
@@ -694,5 +712,194 @@ async function handleUpdatePlaybookConfig(input: Record<string, any>) {
     playbook_name: playbook.name,
     updated_fields: updates,
     message: `Updated ${fields.join(", ")} on ${playbook.name}. Tuning saved. Existing learners need re-prompting to pick up the change on calls already in flight.`,
+  };
+}
+
+// ── Read access ──────────────────────────────────────────────────
+
+async function handleGetCallerDetail(input: Record<string, any>) {
+  const callerId = typeof input.caller_id === "string" ? input.caller_id : "";
+  if (!callerId) return { error: "caller_id is required" };
+
+  const caller = await prisma.caller.findUnique({
+    where: { id: callerId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      externalId: true,
+      role: true,
+      createdAt: true,
+      archivedAt: true,
+      domainId: true,
+      cohortGroupId: true,
+      domain: { select: { id: true, slug: true, name: true } },
+      cohortGroup: { select: { id: true, name: true } },
+    },
+  });
+  if (!caller) return { error: `Caller ${callerId} not found.` };
+
+  const [callCount, memoryCount, observationCount, lastCall, enrollments, personalityProfile, scoreSummary] = await Promise.all([
+    prisma.call.count({ where: { callerId } }),
+    prisma.callerMemory.count({ where: { callerId, supersededById: null } }),
+    prisma.personalityObservation.count({ where: { callerId } }),
+    prisma.call.findFirst({
+      where: { callerId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, createdAt: true, endedAt: true, callSequence: true, playbookId: true },
+    }),
+    prisma.callerPlaybook.findMany({
+      where: { callerId },
+      select: {
+        id: true,
+        status: true,
+        isDefault: true,
+        enrolledAt: true,
+        playbook: { select: { id: true, name: true, status: true } },
+      },
+    }),
+    prisma.callerPersonalityProfile.findUnique({
+      where: { callerId },
+      select: { parameterValues: true, lastUpdatedAt: true },
+    }),
+    prisma.callScore.groupBy({
+      by: ["parameterId"],
+      where: { call: { callerId } },
+      _avg: { score: true },
+      _count: { _all: true },
+    }).catch(() => [] as any),
+  ]);
+
+  return {
+    caller,
+    counts: { calls: callCount, memories: memoryCount, observations: observationCount },
+    lastCall,
+    enrollments,
+    personalityProfile,
+    scoreSummary: Array.isArray(scoreSummary)
+      ? scoreSummary.map((s: any) => ({ parameterId: s.parameterId, avgScore: s._avg?.score ?? null, count: s._count?._all ?? 0 }))
+      : [],
+  };
+}
+
+// ── Write access — caller / playbook / domain meta ───────────────
+
+async function handleUpdateCaller(input: Record<string, any>) {
+  const callerId = typeof input.caller_id === "string" ? input.caller_id : "";
+  if (!callerId) return { error: "caller_id is required" };
+
+  const existing = await prisma.caller.findUnique({
+    where: { id: callerId },
+    select: { id: true, name: true },
+  });
+  if (!existing) return { error: `Caller ${callerId} not found.` };
+
+  const data: Record<string, unknown> = {};
+  if (typeof input.name === "string") data.name = input.name;
+  if (input.email === null || typeof input.email === "string") data.email = input.email;
+  if (input.phone === null || typeof input.phone === "string") data.phone = input.phone;
+  if (input.externalId === null || typeof input.externalId === "string") data.externalId = input.externalId;
+  if (typeof input.role === "string") data.role = input.role;
+  if (input.domainId === null || typeof input.domainId === "string") data.domainId = input.domainId;
+  if (input.cohortGroupId === null || typeof input.cohortGroupId === "string") data.cohortGroupId = input.cohortGroupId;
+  if (input.archive === true) data.archivedAt = new Date();
+  if (input.archive === false) data.archivedAt = null;
+
+  if (Object.keys(data).length === 0) {
+    return { error: "No update fields provided. Pass at least one of: name, email, phone, externalId, role, domainId, cohortGroupId, archive." };
+  }
+
+  const updated = await prisma.caller.update({
+    where: { id: callerId },
+    data,
+    select: { id: true, name: true, email: true, phone: true, role: true, archivedAt: true, domainId: true, cohortGroupId: true },
+  });
+
+  console.log(`[admin-tools] Updated caller "${existing.name}" → "${updated.name}". Fields: ${Object.keys(data).join(", ")}. Reason: ${input.reason || "(not given)"}`);
+
+  return {
+    ok: true,
+    caller_id: callerId,
+    updated_fields: data,
+    new_state: updated,
+    message: `Updated ${Object.keys(data).join(", ")} on ${updated.name}.`,
+  };
+}
+
+async function handleUpdatePlaybookMeta(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  if (!playbookId) return { error: "playbook_id is required" };
+
+  const existing = await prisma.playbook.findUnique({
+    where: { id: playbookId },
+    select: { id: true, name: true },
+  });
+  if (!existing) return { error: `Playbook ${playbookId} not found.` };
+
+  const data: Record<string, unknown> = {};
+  if (typeof input.name === "string") data.name = input.name;
+  if (typeof input.description === "string") data.description = input.description;
+  if (typeof input.sortOrder === "number" && Number.isFinite(input.sortOrder)) data.sortOrder = input.sortOrder;
+
+  if (Object.keys(data).length === 0) {
+    return { error: "No update fields provided. Pass at least one of: name, description, sortOrder." };
+  }
+
+  const updated = await prisma.playbook.update({
+    where: { id: playbookId },
+    data,
+    select: { id: true, name: true, description: true, sortOrder: true, status: true },
+  });
+
+  console.log(`[admin-tools] Updated playbook "${existing.name}" → "${updated.name}". Fields: ${Object.keys(data).join(", ")}. Reason: ${input.reason || "(not given)"}`);
+
+  return {
+    ok: true,
+    playbook_id: playbookId,
+    updated_fields: data,
+    new_state: updated,
+    message: `Updated ${Object.keys(data).join(", ")} on ${updated.name}.`,
+  };
+}
+
+async function handleUpdateDomain(input: Record<string, any>) {
+  const domainId = typeof input.domain_id === "string" ? input.domain_id : "";
+  if (!domainId) return { error: "domain_id is required" };
+
+  const existing = await prisma.domain.findUnique({
+    where: { id: domainId },
+    select: { id: true, name: true, config: true },
+  });
+  if (!existing) return { error: `Domain ${domainId} not found.` };
+
+  const data: Record<string, unknown> = {};
+  if (typeof input.name === "string") data.name = input.name;
+  if (typeof input.slug === "string") data.slug = input.slug;
+  if (typeof input.description === "string") data.description = input.description;
+  if (typeof input.isActive === "boolean") data.isActive = input.isActive;
+  if (input.config_updates && typeof input.config_updates === "object" && !Array.isArray(input.config_updates)) {
+    const currentConfig = (existing.config as Record<string, unknown> | null) || {};
+    data.config = { ...currentConfig, ...input.config_updates };
+  }
+
+  if (Object.keys(data).length === 0) {
+    return { error: "No update fields provided. Pass at least one of: name, slug, description, isActive, config_updates." };
+  }
+
+  const updated = await prisma.domain.update({
+    where: { id: domainId },
+    data,
+    select: { id: true, name: true, slug: true, description: true, isActive: true, config: true },
+  });
+
+  console.log(`[admin-tools] Updated domain "${existing.name}" → "${updated.name}". Fields: ${Object.keys(data).join(", ")}. Reason: ${input.reason || "(not given)"}`);
+
+  return {
+    ok: true,
+    domain_id: domainId,
+    updated_fields: data,
+    new_state: updated,
+    message: `Updated ${Object.keys(data).join(", ")} on ${updated.name}.`,
   };
 }

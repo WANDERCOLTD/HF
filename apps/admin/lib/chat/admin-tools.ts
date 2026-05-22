@@ -305,6 +305,93 @@ export const ADMIN_TOOLS: AITool[] = [
     },
   },
 
+  // ── Read access ────────────────────────────────────────────────
+
+  {
+    name: "get_caller_detail",
+    description:
+      "Get the full caller profile — same data the caller detail page shows. Returns name, email, phone, role, archive status, domain, cohort memberships, enrollments, learnerProfile, goals, scores summary, memory counts, recent calls, personality profile, slugs. Use when the educator asks about a specific learner's state, progress, history, or context.",
+    input_schema: {
+      type: "object",
+      properties: {
+        caller_id: {
+          type: "string",
+          description: "Caller UUID (from entity context with type: 'caller', or from query_callers).",
+        },
+      },
+      required: ["caller_id"],
+    },
+  },
+
+  // ── Write access — caller / playbook / domain meta ───────────────
+
+  {
+    name: "update_caller",
+    description:
+      "Update a caller's profile fields by merging values. Only the keys you set are touched. Accepts: name (string), email (string|null), phone (string|null), externalId (string|null), role (enum), domainId (string|null — moves to different institution), cohortGroupId (string|null), archive (boolean — true to archive, false to restore). For renaming a learner, just pass `name`.",
+    input_schema: {
+      type: "object",
+      properties: {
+        caller_id: { type: "string" },
+        name: { type: "string" },
+        email: { type: ["string", "null"] },
+        phone: { type: ["string", "null"] },
+        externalId: { type: ["string", "null"] },
+        role: {
+          type: "string",
+          enum: ["STUDENT", "TESTER", "OPERATOR", "ADMIN", "SUPERADMIN", "SUPER_TESTER", "EDUCATOR", "DEMO", "VIEWER"],
+        },
+        domainId: { type: ["string", "null"] },
+        cohortGroupId: { type: ["string", "null"] },
+        archive: {
+          type: "boolean",
+          description: "true → archive (sets archivedAt = now); false → restore (clears archivedAt).",
+        },
+        reason: { type: "string" },
+      },
+      required: ["caller_id", "reason"],
+    },
+  },
+
+  {
+    name: "update_playbook_meta",
+    description:
+      "Update playbook top-level metadata fields (name, description, sortOrder). For Playbook.config keys (sessionCount, durationMins, teaching style, etc.) use update_playbook_config instead. Does NOT change publish status (DRAFT ↔ PUBLISHED) — that needs the publish flow in the UI.",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: { type: "string" },
+        name: { type: "string" },
+        description: { type: "string" },
+        sortOrder: { type: "number" },
+        reason: { type: "string" },
+      },
+      required: ["playbook_id", "reason"],
+    },
+  },
+
+  {
+    name: "update_domain",
+    description:
+      "Update a domain's (institution's) top-level fields: name, slug, description, isActive. For Domain.config use config_updates (merge style — other keys preserved). Use when the educator asks to rename their institution or change its description.",
+    input_schema: {
+      type: "object",
+      properties: {
+        domain_id: { type: "string" },
+        name: { type: "string" },
+        slug: { type: "string" },
+        description: { type: "string" },
+        isActive: { type: "boolean" },
+        config_updates: {
+          type: "object",
+          description: "Merge into Domain.config (other keys preserved).",
+        },
+        reason: { type: "string" },
+      },
+      required: ["domain_id", "reason"],
+    },
+  },
+
   // ── System Diagnostics ──────────────────────────────────────────
 
   {
