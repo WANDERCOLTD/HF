@@ -2150,6 +2150,33 @@ export async function main(externalPrisma?: PrismaClient) {
   });
   console.log("   ✓ Admin user ready: eldar.gilad@gmail.com (SUPERADMIN)");
 
+  // Partner test accounts (short-email aliases for easier login)
+  await prisma.user.upsert({
+    where: { email: "b@test.com" },
+    update: { passwordHash: boazHash, role: "SUPERADMIN", isActive: true },
+    create: {
+      email: "b@test.com",
+      name: "B Test",
+      role: "SUPERADMIN",
+      isActive: true,
+      passwordHash: boazHash,
+    },
+  });
+  console.log("   ✓ Admin user ready: b@test.com (SUPERADMIN)");
+
+  await prisma.user.upsert({
+    where: { email: "e@test.com" },
+    update: { passwordHash: boazHash, role: "SUPERADMIN", isActive: true },
+    create: {
+      email: "e@test.com",
+      name: "E Test",
+      role: "SUPERADMIN",
+      isActive: true,
+      passwordHash: boazHash,
+    },
+  });
+  console.log("   ✓ Admin user ready: e@test.com (SUPERADMIN)");
+
   const subjectMap = await createSubjects();
   await createParameters();
   const schoolMap = await createSchools(subjectMap);
