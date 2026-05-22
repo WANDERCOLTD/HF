@@ -23,7 +23,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { ChevronDown, ChevronRight, Star, Circle, Activity, GitCompare, FileText } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, Circle, Activity, GitCompare, FileText, Phone, MonitorPlay, SlidersHorizontal, Sparkles, Clock, CheckCircle2, Eye, User } from "lucide-react";
 import { computeDiff, compactDiffEntries } from "./PromptsSection";
 import type { Call, CallScore, ComposedPrompt } from "./types";
 
@@ -51,6 +51,21 @@ function triggerLabel(p: ComposedPrompt): string {
   if (t === "post_call" || t === "pipeline") return "post call";
   if (t === "tuner_fanout") return "tuner";
   return p.triggerType || "—";
+}
+
+/** #642 — triggerType → icon. Makes it obvious where a prompt came from at a glance. */
+function TriggerIcon({ p, size = 13 }: { p: ComposedPrompt; size?: number }) {
+  const t = (p.triggerType || "").toLowerCase();
+  const cls = "ptr-row-icon";
+  if (t === "post_call" || t === "pipeline") return <Phone size={size} className={cls} />;
+  if (t === "sim") return <MonitorPlay size={size} className={cls} />;
+  if (t === "tuner_fanout" || t === "tuner") return <SlidersHorizontal size={size} className={cls} />;
+  if (t === "enrollment") return <Sparkles size={size} className={cls} />;
+  if (t === "scheduled") return <Clock size={size} className={cls} />;
+  if (t === "analysis_complete") return <CheckCircle2 size={size} className={cls} />;
+  if (t === "preview_first_call") return <Eye size={size} className={cls} />;
+  if (t === "manual") return <User size={size} className={cls} />;
+  return <FileText size={size} className={cls} />;
 }
 
 /** Group prompts by triggerCallId. null group = bootstrap. */
@@ -419,29 +434,20 @@ export function PromptTimelineRows({
 
   return (
     <div className="ptr-root">
-      {/* ── Toolbar ── */}
+      {/* ── Toolbar (single tight strip) ── */}
       <div className="ptr-toolbar">
         <div className="ptr-toolbar-counts">
-          <span>{prompts.length} prompts</span>
-          <span aria-hidden> · </span>
-          <span>{groups.length} groups</span>
+          {prompts.length} prompts · {groups.length} groups
         </div>
-        <div className="hf-toggle-group">
-          <button
-            onClick={() => setCompactDiff(false)}
-            className={`hf-toggle-btn hf-toggle-btn-sm ${!compactDiff ? "hf-toggle-btn-active" : ""}`}
-            title="Diff shows the full prompt body with added/removed/same lines"
-          >
-            Full diff
-          </button>
-          <button
-            onClick={() => setCompactDiff(true)}
-            className={`hf-toggle-btn hf-toggle-btn-sm ${compactDiff ? "hf-toggle-btn-active" : ""}`}
-            title="Diff shows only added/removed lines with @@ separators"
-          >
-            Compact diff
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setCompactDiff(!compactDiff)}
+          className="ptr-toolbar-toggle"
+          title={compactDiff ? "Switch to Full diff (show every line)" : "Switch to Compact diff (only added/removed)"}
+          aria-pressed={compactDiff}
+        >
+          <GitCompare size={11} /> {compactDiff ? "Compact" : "Full"}
+        </button>
       </div>
 
       {/* ── Groups ── */}
@@ -568,24 +574,6 @@ export function PromptTimelineRows({
                       </button>
                       {isDiffOpen && diff && (
                         <div className="ptr-diff-row-body">
-                          <div className="ptr-diff-body-toolbar">
-                            <div className="hf-toggle-group">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setCompactDiff(false); }}
-                                className={`hf-toggle-btn hf-toggle-btn-sm ${!compactDiff ? "hf-toggle-btn-active" : ""}`}
-                                title="Show every line (added / removed / same)"
-                              >
-                                Full
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setCompactDiff(true); }}
-                                className={`hf-toggle-btn hf-toggle-btn-sm ${compactDiff ? "hf-toggle-btn-active" : ""}`}
-                                title="Only added / removed lines with separators"
-                              >
-                                Compact
-                              </button>
-                            </div>
-                          </div>
                           <div className="ps-diff-block">
                             {!compactDiff && diff.map((line, i) => (
                               <div
@@ -636,7 +624,7 @@ export function PromptTimelineRows({
                       aria-expanded={isPromptOpen}
                       title={isPromptOpen ? "Hide prompt body" : "Show prompt body"}
                     >
-                      <FileText size={13} className="ptr-row-icon" />
+                      <TriggerIcon p={p} />
                       <span className="ptr-row-marker" title={isActive ? "Active — drives the next call" : "Superseded"}>
                         {isActive ? <Star size={14} className="ptr-star" /> : <Circle size={10} className="ptr-circle" />}
                       </span>
