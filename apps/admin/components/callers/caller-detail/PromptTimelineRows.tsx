@@ -23,9 +23,9 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { ChevronDown, ChevronRight, Star, Circle } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, Circle, Activity } from "lucide-react";
 import { computeDiff, compactDiffEntries } from "./PromptsSection";
-import type { Call, ComposedPrompt } from "./types";
+import type { Call, CallScore, ComposedPrompt } from "./types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -146,14 +146,150 @@ interface EvalResult {
 interface PromptTimelineRowsProps {
   prompts: ComposedPrompt[];
   calls: Call[];
+  callScores?: CallScore[];
   loading: boolean;
   onRefresh: () => void;
   callerId: string;
 }
 
+/** Delta = (toCall avg) − (fromCall avg) per parameter present in both. */
+interface CallScoreDelta {
+  parameterId: string;
+  name: string;
+  from: number;
+  to: number;
+  delta: number;
+}
+
+function computeCallDiff(
+  fromCall: Call,
+  toCall: Call,
+  scoresByCall: Map<string, Map<string, { avg: number; name: string }>>,
+): CallScoreDelta[] {
+  const fromScores = scoresByCall.get(fromCall.id);
+  const toScores = scoresByCall.get(toCall.id);
+  if (!fromScores || !toScores) return [];
+  const out: CallScoreDelta[] = [];
+  for (const [pid, fv] of fromScores) {
+    const tv = toScores.get(pid);
+    if (!tv) continue;
+    const delta = tv.avg - fv.avg;
+    out.push({ parameterId: pid, name: fv.name || tv.name, from: fv.avg, to: tv.avg, delta });
+  }
+  // Sort by magnitude — largest movers first
+  out.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  return out;
+}
+
+function CallDiffRow({
+  fromCall,
+  toCall,
+  deltas,
+}: {
+  fromCall: Call;
+  toCall: Call;
+  deltas: CallScoreDelta[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  if (deltas.length === 0) return null;
+  const elapsedMs = new Date(toCall.createdAt).getTime() - new Date(fromCall.createdAt).getTime();
+  const elapsed = formatElapsed(elapsedMs);
+  const top = deltas.slice(0, 3);
+  const rest = deltas.length - top.length;
+  return (
+    <div className={`ptr-call-diff${expanded ? " ptr-call-diff--open" : ""}`}>
+      <button
+        className="ptr-call-diff-head"
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        title={`Score deltas from Call ${fromCall.callSequence ?? "?"} to Call ${toCall.callSequence ?? "?"}`}
+      >
+        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <span className="ptr-call-diff-label">
+          Call diff · Call {fromCall.callSequence ?? "?"} → Call {toCall.callSequence ?? "?"}
+        </span>
+        <span className="ptr-call-diff-summary">
+          {top.map((d) => (
+            <span key={d.parameterId} className={`ptr-call-diff-chip${d.delta > 0 ? " ptr-call-diff-chip--up" : d.delta < 0 ? " ptr-call-diff-chip--down" : ""}`}>
+              {d.name} {d.delta >= 0 ? "+" : ""}{d.delta.toFixed(2)}
+            </span>
+          ))}
+          {rest > 0 && <span className="ptr-call-diff-more">+{rest} more</span>}
+        </span>
+        {elapsed && <span className="ptr-call-diff-elapsed">{elapsed} elapsed</span>}
+      </button>
+      {expanded && (
+        <div className="ptr-call-diff-body">
+          <table className="ptr-call-diff-table">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Δ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {deltas.map((d) => (
+                <tr key={d.parameterId}>
+                  <td>{d.name}</td>
+                  <td>{d.from.toFixed(2)}</td>
+                  <td>{d.to.toFixed(2)}</td>
+                  <td className={d.delta > 0 ? "ptr-cell-up" : d.delta < 0 ? "ptr-cell-down" : ""}>
+                    {d.delta >= 0 ? "+" : ""}{d.delta.toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatElapsed(ms: number): string {
+  if (ms <= 0) return "";
+  const min = Math.round(ms / 60_000);
+  if (min < 60) return `${min}m`;
+  const h = Math.floor(min / 60);
+  const rest = min % 60;
+  if (h < 24) return rest === 0 ? `${h}h` : `${h}h ${rest}m`;
+  const d = Math.floor(h / 24);
+  return `${d}d`;
+}
+
+/** Per-call rolled-up scores for the MVP CALL DIFF. Param → average score. */
+function rollupScoresByCall(scores: CallScore[]): Map<string, Map<string, { avg: number; name: string }>> {
+  const byCall = new Map<string, Map<string, { sum: number; count: number; name: string }>>();
+  for (const s of scores) {
+    if (!s.callId || typeof s.score !== "number") continue;
+    if (!byCall.has(s.callId)) byCall.set(s.callId, new Map());
+    const callMap = byCall.get(s.callId)!;
+    const existing = callMap.get(s.parameterId);
+    if (existing) {
+      existing.sum += s.score;
+      existing.count += 1;
+    } else {
+      callMap.set(s.parameterId, { sum: s.score, count: 1, name: s.parameter?.name || s.parameterId });
+    }
+  }
+  // Convert sums to averages
+  const out = new Map<string, Map<string, { avg: number; name: string }>>();
+  for (const [callId, params] of byCall) {
+    const avg = new Map<string, { avg: number; name: string }>();
+    for (const [pid, v] of params) {
+      avg.set(pid, { avg: v.sum / v.count, name: v.name });
+    }
+    out.set(callId, avg);
+  }
+  return out;
+}
+
 export function PromptTimelineRows({
   prompts,
   calls,
+  callScores,
   loading,
   callerId,
 }: PromptTimelineRowsProps) {
@@ -170,6 +306,10 @@ export function PromptTimelineRows({
     for (const c of calls) m.set(c.id, c);
     return m;
   }, [calls]);
+  const scoresByCall = useMemo(
+    () => rollupScoresByCall(callScores ?? []),
+    [callScores],
+  );
 
   // Auto-expand the latest active prompt's row
   const latestActiveId = useMemo(() => {
@@ -304,15 +444,45 @@ export function PromptTimelineRows({
       </div>
 
       {/* ── Groups ── */}
-      {groups.map((group) => {
+      {groups.map((group, groupIdx) => {
         const call = group.callId ? callsById.get(group.callId) : null;
         const header = group.callId == null
           ? "Bootstrap"
           : call
             ? `Call ${call.callSequence ?? "—"} · ${formatDate(call.createdAt)}`
             : `Triggered by call ${group.callId.slice(0, 8)}…`;
+
+        // #642 — CALL DIFF row: state-delta between this call and the previous one.
+        // Only renders when both calls have scored params we can compare.
+        const prevGroup = groupIdx > 0 ? groups[groupIdx - 1] : null;
+        const prevCall = prevGroup?.callId ? callsById.get(prevGroup.callId) : null;
+        const callDiff = call && prevCall
+          ? computeCallDiff(prevCall, call, scoresByCall)
+          : null;
+
+        // #642 — CALL EFFECT summary: input prompt (last chrono before group) → final active in group.
+        // Shows the net change this call produced, regardless of how many prompts were generated.
+        const firstInGroup = group.prompts[0];
+        const inputPrompt = firstInGroup
+          ? chrono[chrono.findIndex((p) => p.id === firstInGroup.id) - 1] ?? null
+          : null;
+        const activeInGroup = group.prompts.find((p) => p.status === "active") ?? group.prompts[group.prompts.length - 1];
+        const callEffect = inputPrompt && activeInGroup && inputPrompt.id !== activeInGroup.id
+          ? computeDiff(inputPrompt.prompt, activeInGroup.prompt)
+          : null;
+        const callEffectAdded = callEffect ? callEffect.filter((d) => d.type === "added").length : 0;
+        const callEffectRemoved = callEffect ? callEffect.filter((d) => d.type === "removed").length : 0;
+
         return (
           <section key={group.callId ?? "bootstrap"} className="ptr-group">
+            {/* CALL DIFF row — between consecutive call groups */}
+            {callDiff && callDiff.length > 0 && (
+              <CallDiffRow
+                fromCall={prevCall!}
+                toCall={call!}
+                deltas={callDiff}
+              />
+            )}
             <header className="ptr-group-header">
               <span className="ptr-group-title">{header}</span>
               {call && (
@@ -323,6 +493,23 @@ export function PromptTimelineRows({
                 </span>
               )}
             </header>
+            {/* CALL EFFECT summary — input → final active in this group */}
+            {callEffect && inputPrompt && activeInGroup && (
+              <div className="ptr-call-effect" title={`Net change from the prompt this call started with to the active prompt after it (${group.prompts.length} generated)`}>
+                <Activity size={12} />
+                <span className="ptr-call-effect-label">Call effect</span>
+                <span className="ptr-call-effect-from">Input #{indexMap.get(inputPrompt.id) ?? "?"}</span>
+                <span className="ptr-call-effect-arrow">→</span>
+                <span className="ptr-call-effect-to">Active #{indexMap.get(activeInGroup.id) ?? "?"}</span>
+                <span className="ptr-diff-chip">
+                  <span className="ptr-diff-chip-added">+{callEffectAdded}</span>
+                  <span className="ptr-diff-chip-removed">−{callEffectRemoved}</span>
+                </span>
+                <span className="ptr-call-effect-note">
+                  net of {group.prompts.length} generated
+                </span>
+              </div>
+            )}
             {group.prompts.map((p) => {
               const idxN = indexMap.get(p.id) ?? -1;
               const comparator = comparatorFor(p, group.prompts, chrono);
@@ -353,14 +540,16 @@ export function PromptTimelineRows({
                       >
                         {isDiffOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                         <span className="ptr-diff-row-label">
-                          Prompt diff #{compIdx} → #{idxN}
+                          {isSibling
+                            ? `Sibling diff #${compIdx} → #${idxN}`
+                            : `Input #${compIdx} → Generated #${idxN}`}
                         </span>
                         <span className="ptr-diff-chip">
                           <span className="ptr-diff-chip-added">+{added}</span>
                           <span className="ptr-diff-chip-removed">−{removed}</span>
                         </span>
                         <span className="ptr-diff-row-kind">
-                          {isSibling ? "intra-call sibling" : "cross-call"}
+                          {isSibling ? "intra-call (sibling)" : "post-call generation"}
                         </span>
                       </button>
                       {isDiffOpen && diff && (
