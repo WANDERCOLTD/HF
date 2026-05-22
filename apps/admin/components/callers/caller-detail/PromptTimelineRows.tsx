@@ -196,6 +196,34 @@ function computeCallDiff(
   return out;
 }
 
+// #642 slice 4 — richer CALL DIFF details lazy-loaded from /api/calls/[callId].
+// Reuses the same endpoint that CallsPromptsTab.loadCallDetails fires.
+interface CallDetail {
+  ok: boolean;
+  call: { id: string; createdAt: string } | null;
+  scores: Array<{ parameterId: string; score: number; parameter: { name: string } }>;
+  memories: Array<{ id: string; key: string; value?: string; category?: string; extractedAt?: string }>;
+  measurements: Array<{ parameterId: string; actualValue: number; targetValue?: number; parameter?: { name: string } }>;
+  rewardScore: { overallScore: number; parameterDiffs?: Array<{ parameterId: string; diff: number; name?: string }> } | null;
+  effectiveTargets?: Array<{ parameterId: string; targetValue: number; parameter?: { name: string } }>;
+}
+
+/** Lazy-loads /api/calls/[callId] when needed. Caches per id for the
+ *  component lifetime. Returns `null` while loading or on error. */
+function useLazyCallDetail(callId: string | null, shouldLoad: boolean): CallDetail | null {
+  const [detail, setDetail] = useState<CallDetail | null>(null);
+  useEffect(() => {
+    if (!callId || !shouldLoad || detail) return;
+    let cancelled = false;
+    fetch(`/api/calls/${callId}`)
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled && d.ok) setDetail(d); })
+      .catch(() => { /* silent — show partial deltas only */ });
+    return () => { cancelled = true; };
+  }, [callId, shouldLoad, detail]);
+  return detail;
+}
+
 function CallDiffRow({
   fromCall,
   toCall,
@@ -209,6 +237,9 @@ function CallDiffRow({
   defaultOpen?: boolean;
 }) {
   const [expanded, setExpanded] = useState(!!defaultOpen);
+  // Lazy-load richer per-call detail only when this row is expanded
+  const fromDetail = useLazyCallDetail(fromCall.id, expanded);
+  const toDetail = useLazyCallDetail(toCall.id, expanded);
   if (deltas.length === 0) return null;
   const elapsedMs = new Date(toCall.createdAt).getTime() - new Date(fromCall.createdAt).getTime();
   const elapsed = formatElapsed(elapsedMs);
@@ -239,32 +270,242 @@ function CallDiffRow({
       </button>
       {expanded && (
         <div className="ptr-call-diff-body">
-          <table className="ptr-call-diff-table">
-            <thead>
-              <tr>
-                <th>Parameter</th>
-                <th>From</th>
-                <th>To</th>
-                <th>Δ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {deltas.map((d) => (
-                <tr key={d.parameterId} className={d.delta > 0 ? "ptr-row-up" : d.delta < 0 ? "ptr-row-down" : ""}>
-                  <td>{d.name}</td>
-                  <td>{d.from.toFixed(2)}</td>
-                  <td>{d.to.toFixed(2)}</td>
-                  <td className={d.delta > 0 ? "ptr-cell-up" : d.delta < 0 ? "ptr-cell-down" : ""}>
-                    {d.delta >= 0 ? "+" : ""}{d.delta.toFixed(2)}
-                  </td>
+          {/* Section 1 — SCORES (always present, computed from page-loaded data) */}
+          <CallDiffSection title="Scores" hint="Per-parameter assessor scores">
+            <table className="ptr-call-diff-table">
+              <thead>
+                <tr>
+                  <th>Parameter</th>
+                  <th>From</th>
+                  <th>To</th>
+                  <th>Δ</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {deltas.map((d) => (
+                  <tr key={d.parameterId} className={d.delta > 0 ? "ptr-row-up" : d.delta < 0 ? "ptr-row-down" : ""}>
+                    <td>{d.name}</td>
+                    <td>{d.from.toFixed(2)}</td>
+                    <td>{d.to.toFixed(2)}</td>
+                    <td className={d.delta > 0 ? "ptr-cell-up" : d.delta < 0 ? "ptr-cell-down" : ""}>
+                      {d.delta >= 0 ? "+" : ""}{d.delta.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CallDiffSection>
+
+          {/* Loading shim for the three lazy-loaded subsections */}
+          {(!fromDetail || !toDetail) && (
+            <div className="ptr-call-diff-loading hf-text-sm hf-text-muted">
+              Loading per-call detail…
+            </div>
+          )}
+
+          {/* Section 2 — BEHAVIOUR (measurements) */}
+          {fromDetail && toDetail && (() => {
+            const ms = measurementDeltas(fromDetail, toDetail);
+            if (ms.length === 0) return null;
+            return (
+              <CallDiffSection title="Behaviour" hint="What the AI actually did vs target">
+                <table className="ptr-call-diff-table">
+                  <thead>
+                    <tr>
+                      <th>Parameter</th>
+                      <th>Target</th>
+                      <th>From</th>
+                      <th>To</th>
+                      <th>Δ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ms.map((m) => (
+                      <tr key={m.parameterId} className={m.delta > 0 ? "ptr-row-up" : m.delta < 0 ? "ptr-row-down" : ""}>
+                        <td>{m.name}</td>
+                        <td>{m.target != null ? m.target.toFixed(2) : "—"}</td>
+                        <td>{m.fromValue.toFixed(2)}</td>
+                        <td>{m.toValue.toFixed(2)}</td>
+                        <td className={m.delta > 0 ? "ptr-cell-up" : m.delta < 0 ? "ptr-cell-down" : ""}>
+                          {m.delta >= 0 ? "+" : ""}{m.delta.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CallDiffSection>
+            );
+          })()}
+
+          {/* Section 3 — REWARD */}
+          {fromDetail && toDetail && (() => {
+            const r = rewardDelta(fromDetail, toDetail);
+            if (!r) return null;
+            return (
+              <CallDiffSection
+                title="Reward"
+                hint={`overall ${r.fromOverall.toFixed(2)} → ${r.toOverall.toFixed(2)} (${r.overallDelta >= 0 ? "+" : ""}${r.overallDelta.toFixed(2)})`}
+                hintClass={r.overallDelta > 0 ? "ptr-cell-up" : r.overallDelta < 0 ? "ptr-cell-down" : ""}
+              >
+                {r.perParam.length === 0 ? (
+                  <div className="hf-text-sm hf-text-muted">No per-parameter reward diffs recorded.</div>
+                ) : (
+                  <table className="ptr-call-diff-table">
+                    <thead>
+                      <tr>
+                        <th>Parameter</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Δ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {r.perParam.map((p) => (
+                        <tr key={p.parameterId} className={p.delta > 0 ? "ptr-row-up" : p.delta < 0 ? "ptr-row-down" : ""}>
+                          <td>{p.name}</td>
+                          <td>{p.fromDiff.toFixed(2)}</td>
+                          <td>{p.toDiff.toFixed(2)}</td>
+                          <td className={p.delta > 0 ? "ptr-cell-up" : p.delta < 0 ? "ptr-cell-down" : ""}>
+                            {p.delta >= 0 ? "+" : ""}{p.delta.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </CallDiffSection>
+            );
+          })()}
+
+          {/* Section 4 — KNOWLEDGE STATE (memories added during the to-call) */}
+          {fromDetail && toDetail && (() => {
+            const added = newMemoriesAdded(fromDetail, toDetail);
+            if (added.length === 0) return null;
+            return (
+              <CallDiffSection title="Knowledge state" hint={`+${added.length} new ${added.length === 1 ? "memory" : "memories"}`}>
+                <ul className="ptr-call-diff-memories">
+                  {added.slice(0, 10).map((m) => (
+                    <li key={m.id}>
+                      {m.category && <span className="ptr-call-diff-mem-cat">{m.category}</span>}
+                      <span>{m.key}</span>
+                    </li>
+                  ))}
+                  {added.length > 10 && (
+                    <li className="ptr-call-diff-more">…and {added.length - 10} more</li>
+                  )}
+                </ul>
+              </CallDiffSection>
+            );
+          })()}
         </div>
       )}
     </div>
   );
+}
+
+/** Collapsible subsection inside a CALL DIFF body. Each can collapse
+ *  independently so a sparse call doesn't waste vertical space. */
+function CallDiffSection({
+  title,
+  hint,
+  hintClass,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  hintClass?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className={`ptr-call-diff-section${open ? " ptr-call-diff-section--open" : ""}`}>
+      <button
+        type="button"
+        className="ptr-call-diff-section-head"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+      >
+        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <span className="ptr-call-diff-section-title">{title}</span>
+        {hint && <span className={`ptr-call-diff-section-hint ${hintClass ?? ""}`}>{hint}</span>}
+      </button>
+      {open && <div className="ptr-call-diff-section-body">{children}</div>}
+    </div>
+  );
+}
+
+/** #642 slice 4 — helpers for the four CALL DIFF subsections. */
+interface MeasurementDelta {
+  parameterId: string;
+  name: string;
+  fromValue: number;
+  toValue: number;
+  delta: number;
+  target?: number;
+}
+
+function measurementDeltas(from: CallDetail | null, to: CallDetail | null): MeasurementDelta[] {
+  if (!from || !to) return [];
+  const fromMap = new Map(from.measurements.map((m) => [m.parameterId, m]));
+  const targetMap = new Map((to.effectiveTargets ?? []).map((t) => [t.parameterId, t.targetValue]));
+  const out: MeasurementDelta[] = [];
+  for (const m of to.measurements) {
+    const f = fromMap.get(m.parameterId);
+    if (!f) continue;
+    out.push({
+      parameterId: m.parameterId,
+      name: m.parameter?.name || m.parameterId,
+      fromValue: f.actualValue,
+      toValue: m.actualValue,
+      delta: m.actualValue - f.actualValue,
+      target: targetMap.get(m.parameterId),
+    });
+  }
+  out.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  return out;
+}
+
+interface RewardDelta {
+  fromOverall: number;
+  toOverall: number;
+  overallDelta: number;
+  perParam: Array<{ parameterId: string; name: string; fromDiff: number; toDiff: number; delta: number }>;
+}
+
+function rewardDelta(from: CallDetail | null, to: CallDetail | null): RewardDelta | null {
+  if (!from?.rewardScore || !to?.rewardScore) return null;
+  const fromOverall = from.rewardScore.overallScore ?? 0;
+  const toOverall = to.rewardScore.overallScore ?? 0;
+  const fromDiffs = new Map((from.rewardScore.parameterDiffs ?? []).map((p) => [p.parameterId, p]));
+  const perParam: RewardDelta["perParam"] = [];
+  for (const p of to.rewardScore.parameterDiffs ?? []) {
+    const f = fromDiffs.get(p.parameterId);
+    if (!f) continue;
+    perParam.push({
+      parameterId: p.parameterId,
+      name: p.name || f.name || p.parameterId,
+      fromDiff: f.diff,
+      toDiff: p.diff,
+      delta: p.diff - f.diff,
+    });
+  }
+  perParam.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  return {
+    fromOverall,
+    toOverall,
+    overallDelta: toOverall - fromOverall,
+    perParam,
+  };
+}
+
+/** New memories appended *during* the `to` call. Detects via createdAt window
+ *  if available, otherwise falls back to "memories in `to` not in `from` by id". */
+function newMemoriesAdded(from: CallDetail | null, to: CallDetail | null): Array<{ id: string; key: string; category?: string }> {
+  if (!from || !to) return [];
+  const fromIds = new Set(from.memories.map((m) => m.id));
+  return to.memories
+    .filter((m) => !fromIds.has(m.id))
+    .map((m) => ({ id: m.id, key: m.key, category: m.category }));
 }
 
 function formatElapsed(ms: number): string {
