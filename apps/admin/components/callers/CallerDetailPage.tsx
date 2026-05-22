@@ -69,15 +69,27 @@ export default function CallerDetailPage() {
     transcripts: "calls-prompts", prompt: "calls-prompts",
   };
   const rawTab = searchParams.get("tab");
-  const validTabs: SectionId[] = ["overview", "uplift", "calls-prompts", "how", "what", "artifacts", "ai-call"];
+  const validTabs: SectionId[] = ["overview", "uplift", "calls-prompts", "tune", "how", "what", "artifacts", "ai-call"];
   const mappedTab = rawTab ? (tabRedirects[rawTab] || rawTab) as SectionId : null;
   const lastTabKey = `hf.caller-tab.${callerId}`;
   const savedTab = typeof window !== "undefined" ? window.localStorage.getItem(lastTabKey) as SectionId | null : null;
+  // #641: migrate from the old slide-out toggle (`hf.tuner.open.<callerId>`).
+  // If the user had Tune open last visit AND no explicit ?tab= is set, send
+  // them to the new Tune tab and drop the old key so we never honor it twice.
+  const legacyTunerOpenKey = `hf.tuner.open.${callerId}`;
+  const legacyTunerOpen = typeof window !== "undefined"
+    ? window.localStorage.getItem(legacyTunerOpenKey) === "1"
+    : false;
+  if (typeof window !== "undefined" && legacyTunerOpen) {
+    window.localStorage.removeItem(legacyTunerOpenKey);
+  }
   const initialTab: SectionId = mappedTab && validTabs.includes(mappedTab)
     ? mappedTab
-    : savedTab && validTabs.includes(savedTab)
-      ? savedTab
-      : "what";
+    : (!rawTab && legacyTunerOpen)
+      ? "tune"
+      : savedTab && validTabs.includes(savedTab)
+        ? savedTab
+        : "what";
 
   const [data, setData] = useState<CallerData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -128,24 +140,9 @@ export default function CallerDetailPage() {
   // Expanded states
   const [expandedCall, setExpandedCall] = useState<string | null>(null);
   const [expandedMemory, setExpandedMemory] = useState<string | null>(null);
-  // Tuner panel state — persisted per caller
-  const tunerStorageKey = `hf.tuner.open.${callerId}`;
-  const [tunerOpen, setTunerOpen] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(tunerStorageKey) === "1";
-  });
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(tunerStorageKey, tunerOpen ? "1" : "0");
-  }, [tunerOpen, tunerStorageKey]);
-  useEffect(() => {
-    if (!tunerOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setTunerOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [tunerOpen]);
+  // #641: tuner state moved from a slide-out toggle to a top-level tab. The
+  // legacy `hf.tuner.open.<callerId>` localStorage key is migrated to a
+  // deep-link to ?tab=tune on next visit (see initialTab resolution above).
   const [appliedChanges, setAppliedChanges] = useState<{ label: string; oldValue: string; newValue: string }[] | null>(null);
 
   // Bulk pipeline actions (exposed by CallsPromptsTab for tab-bar buttons)
@@ -584,6 +581,7 @@ export default function CallerDetailPage() {
   const sections: { id: SectionId; label: string; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
     { id: "overview", label: "Overview", icon: <span aria-hidden>🧭</span>, group: "shared" },
     { id: "calls-prompts", label: "Calls & Prompts", icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
+    { id: "tune", label: "Tune", icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
     { id: "how", label: "Profile", icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
     { id: "what", label: "Progress", icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
     { id: "artifacts", label: "Artifacts", icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
@@ -969,24 +967,12 @@ export default function CallerDetailPage() {
               </button>
             </>
           )}
-          {composedPrompts.length > 0 && (
-            <button
-              onClick={() => setTunerOpen(!tunerOpen)}
-              title="Adjust teaching style and behaviour targets"
-              className={`cdp-tune-btn${tunerOpen ? " cdp-tune-btn--active" : ""}`}
-            >
-              <SlidersHorizontal size={14} />
-              Tune
-            </button>
-          )}
+          {/* #641: Tune is a top-level tab now — the old slide-out toggle was removed. */}
         </div>
       </div>
 
       {/* Section Content */}
-      {/* #635: widen the tuning panel when on Calls & Prompts so the prompt
-          preview / diff / eval are actually legible. The `--split` modifier
-          rebalances the two-column layout via CSS. */}
-      <div className={`cdp-body${tunerOpen && activeSection === "calls-prompts" ? " cdp-body--split" : ""}`}>
+      <div className="cdp-body">
       <div className="cdp-content">
       {activeSection === "overview" && (
         <>
@@ -1077,6 +1063,54 @@ export default function CallerDetailPage() {
             fetchPrompts();
           }}
         />
+      )}
+
+      {/* #641: Tune is its own tab now — full-width prompt preview + tuner. */}
+      {activeSection === "tune" && (
+        <div className="cdp-tune-tab">
+          {composedPrompts.length === 0 ? (
+            <div className="hf-empty-dashed">
+              <div className="hf-empty-state-icon hf-mb-md">🎛️</div>
+              <div className="hf-empty-state-title">No Prompts Yet</div>
+              <div className="hf-text-sm hf-text-muted hf-mt-sm hf-empty-hint-centered">
+                Run the pipeline on a call (Calls &amp; Prompts tab) to generate the first prompt. Once it exists you can tune it from here.
+              </div>
+            </div>
+          ) : (
+            <>
+              <UnifiedPromptSection
+                prompts={composedPrompts}
+                loading={promptsLoading}
+                onRefresh={fetchPrompts}
+                callerId={callerId}
+                appliedChanges={appliedChanges}
+                onDismissApplied={() => setAppliedChanges(null)}
+              />
+              <div className="cdp-tune-tab-tuner">
+                <PromptTunerSidebar
+                  inline
+                  open
+                  llmPrompt={composedPrompts[composedPrompts.length - 1]?.llmPrompt ?? null}
+                  callerId={callerId}
+                  callerName={data.caller.name || "Learner"}
+                  playbookId={
+                    selectedPlaybookId !== "all"
+                      ? selectedPlaybookId
+                      : (data.publishedPlaybookId ?? null)
+                  }
+                  onApplied={(changes) => {
+                    setAppliedChanges(changes.map((c) => ({
+                      label: c.label,
+                      oldValue: c.oldValue,
+                      newValue: c.newValue,
+                    })));
+                    fetchPrompts();
+                  }}
+                />
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {activeSection === "how" && (
@@ -1246,49 +1280,6 @@ export default function CallerDetailPage() {
         </div>
       )}
       </div>{/* cdp-content */}
-
-      {/* Tuning panel — inline slide-out, stays open across tab switches */}
-      {tunerOpen && composedPrompts.length > 0 && (
-        <div className="cdp-tuning-panel">
-          <details className="cdp-prompt-collapse">
-            <summary className="cdp-prompt-collapse-toggle">
-              Prompt Preview
-              <span className="cdp-prompt-collapse-hint">#{composedPrompts.length}</span>
-            </summary>
-            <div className="cdp-prompt-collapse-body">
-              <UnifiedPromptSection
-                prompts={composedPrompts}
-                loading={promptsLoading}
-                onRefresh={fetchPrompts}
-                callerId={callerId}
-                appliedChanges={appliedChanges}
-                onDismissApplied={() => setAppliedChanges(null)}
-              />
-            </div>
-          </details>
-          <PromptTunerSidebar
-            inline
-            open
-            llmPrompt={composedPrompts[composedPrompts.length - 1]?.llmPrompt ?? null}
-            callerId={callerId}
-            callerName={data.caller.name || "Learner"}
-            playbookId={
-              selectedPlaybookId !== "all"
-                ? selectedPlaybookId
-                : (data.publishedPlaybookId ?? null)
-            }
-            onApplied={(changes) => {
-              setAppliedChanges(changes.map((c) => ({
-                label: c.label,
-                oldValue: c.oldValue,
-                newValue: c.newValue,
-              })));
-              fetchPrompts();
-            }}
-            onClose={() => setTunerOpen(false)}
-          />
-        </div>
-      )}
       </div>{/* cdp-body */}
     </div>
   );
