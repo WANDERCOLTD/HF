@@ -407,6 +407,7 @@ export async function GET(
             },
             select: {
               id: true,
+              name: true,
               items: {
                 where: { isEnabled: true, itemType: "PROMPT_TEMPLATE" },
                 select: {
@@ -751,6 +752,7 @@ export async function GET(
       learnerProfile,
       goals: goalsWithSignals,
       publishedPlaybookId: publishedPlaybook?.id ?? null,
+      publishedPlaybookName: publishedPlaybook?.name ?? null,
       availableSlugNames: Array.from(availableSlugNames).sort(),
       counts: {
         calls: callCount,

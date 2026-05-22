@@ -293,7 +293,20 @@ export default function CallerDetailPage() {
             ...result,
             personality: result.personalityProfile || null,
           });
-          // Register with entity context for AI Chat
+          // Register with entity context for AI Chat.
+          // Push the playbook FIRST so the active course is visible to the
+          // Cmd+K assistant — without it the chat had only the caller UUID
+          // in context and the model used callerId as playbook_id, hitting
+          // a "playbook not found" error on every behaviour change. See
+          // #603 follow-up.
+          if (result.publishedPlaybookId) {
+            pushEntity({
+              type: "playbook",
+              id: result.publishedPlaybookId,
+              label: result.publishedPlaybookName || "Active Course",
+              href: `${isInXArea ? '/x' : ''}/courses/${result.publishedPlaybookId}`,
+            });
+          }
           pushEntity({
             type: "caller",
             id: result.caller.id,
