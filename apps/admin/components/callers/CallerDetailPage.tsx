@@ -1082,6 +1082,7 @@ export default function CallerDetailPage() {
               <PromptTimelineRows
                 prompts={composedPrompts}
                 calls={(data.calls ?? []) as never}
+                callScores={(data.scores ?? []) as never}
                 loading={promptsLoading}
                 onRefresh={fetchPrompts}
                 callerId={callerId}
