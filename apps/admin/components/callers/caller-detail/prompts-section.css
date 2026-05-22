@@ -836,6 +836,16 @@
 }
 .ptr-cell-up { color: var(--status-success-text); font-weight: 600; }
 .ptr-cell-down { color: var(--status-error-text); font-weight: 600; }
+.ptr-row-up { background: color-mix(in srgb, var(--status-success-bg) 60%, transparent); }
+.ptr-row-down { background: color-mix(in srgb, var(--status-error-bg) 60%, transparent); }
+
+/* In-body Full/Compact toggle on each expanded prompt-diff (mirrors the
+   global toolbar at the top of the timeline — same compactDiff state). */
+.ptr-diff-body-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
 
 /* #642 — CALL EFFECT summary row (top of each call group) */
 .ptr-call-effect {
