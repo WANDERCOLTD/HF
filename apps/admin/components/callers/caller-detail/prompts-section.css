@@ -713,13 +713,21 @@
   flex-direction: column;
   gap: 20px;
 }
+/* Sticky — keeps the Compact/Full toggle (+ counts) reachable as the user
+   scrolls a long timeline. Stays anchored to the top of the viewport. */
 .ptr-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 10px;
-  background: transparent;
-  border: none;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--surface-primary) 92%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  position: sticky;
+  top: 44px;
+  z-index: 5;
 }
 .ptr-toolbar-counts {
   font-size: 11px;
