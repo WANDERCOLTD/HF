@@ -10934,11 +10934,6 @@ Compiles the playbook's behavior targets by scanning all enabled specs,
 { ok: true, message: "...", compiled: number, skipped: number, total: number, parameters: [...] }
 ```
 
-**Response** `400`
-```json
-{ ok: false, error: "Cannot compile targets for a published playbook" }
-```
-
 **Response** `404`
 ```json
 { ok: false, error: "Playbook not found" }
@@ -11201,21 +11196,16 @@ Update playbook-level behavior targets. Set targetValue to null to remove
 
 | Parameter | In | Type | Required | Description |
 |-----------|-----|------|----------|-------------|
-| playbookId | path | string | Yes | Playbook UUID (must not be PUBLISHED) |
+| playbookId | path | string | Yes | Playbook UUID |
 
 **Response** `200`
 ```json
-{ ok: true, results: [...], message: "Updated N targets" }
+{ ok: true, results: [...], rejected: [...], message: "Updated N targets" }
 ```
 
 **Response** `400`
 ```json
 { ok: false, error: "targets must be an array" }
-```
-
-**Response** `400`
-```json
-{ ok: false, error: "Cannot modify targets for a published playbook" }
 ```
 
 **Response** `404`

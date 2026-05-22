@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { writeBehaviorTargets } from "@/lib/agent-tuner/write-target";
 
 /**
  * @api GET /api/playbooks/:playbookId/targets
@@ -136,12 +137,14 @@ export async function GET(
  * @auth session
  * @tags playbooks
  * @description Update playbook-level behavior targets. Set targetValue to null to remove
- *   the playbook override and fall back to system defaults.
- * @pathParam playbookId string - Playbook UUID (must not be PUBLISHED)
+ *   the playbook override and fall back to system defaults. PLAYBOOK-scope targets are an
+ *   operational overlay applied at composition time — edits are safe on PUBLISHED playbooks
+ *   because targets are read live (not snapshot per call). Each parameterId is validated
+ *   against the adjustable BEHAVIOR parameter catalogue before write.
+ * @pathParam playbookId string - Playbook UUID
  * @body targets Array<{ parameterId: string, targetValue: number | null }> - Target updates
- * @response 200 { ok: true, results: [...], message: "Updated N targets" }
+ * @response 200 { ok: true, results: [...], rejected: [...], message: "Updated N targets" }
  * @response 400 { ok: false, error: "targets must be an array" }
- * @response 400 { ok: false, error: "Cannot modify targets for a published playbook" }
  * @response 404 { ok: false, error: "Playbook not found" }
  * @response 500 { ok: false, error: "..." }
  */
@@ -164,9 +167,9 @@ export async function PATCH(
       );
     }
 
-    // Verify playbook exists and is editable
     const playbook = await prisma.playbook.findUnique({
       where: { id: playbookId },
+      select: { id: true },
     });
 
     if (!playbook) {
@@ -176,70 +179,41 @@ export async function PATCH(
       );
     }
 
-    if (playbook.status === "PUBLISHED") {
-      return NextResponse.json(
-        { ok: false, error: "Cannot modify targets for a published playbook" },
-        { status: 400 }
-      );
-    }
+    const writeResults = await writeBehaviorTargets(
+      playbookId,
+      targets.filter(
+        (t): t is { parameterId: string; targetValue: number | null } =>
+          typeof t?.parameterId === "string" &&
+          (t.targetValue === null || typeof t.targetValue === "number"),
+      ),
+    );
 
-    // Process each target update
-    const results = [];
-    for (const { parameterId, targetValue } of targets) {
-      if (!parameterId) continue;
-
-      // Find existing playbook target
-      const existing = await prisma.behaviorTarget.findFirst({
-        where: {
-          parameterId,
-          playbookId,
-          scope: "PLAYBOOK",
-          effectiveUntil: null,
-        },
-      });
-
-      if (targetValue === null) {
-        // Remove override - delete playbook target
-        if (existing) {
-          await prisma.behaviorTarget.delete({
-            where: { id: existing.id },
-          });
-          results.push({ parameterId, action: "removed" });
-        }
-      } else if (typeof targetValue === "number") {
-        // Set/update override
-        const value = Math.max(0, Math.min(1, targetValue)); // Clamp to 0-1
-
-        if (existing) {
-          await prisma.behaviorTarget.update({
-            where: { id: existing.id },
-            data: {
-              targetValue: value,
-              source: "MANUAL",
-              updatedAt: new Date(),
-            },
-          });
-          results.push({ parameterId, action: "updated", value });
-        } else {
-          await prisma.behaviorTarget.create({
-            data: {
-              parameterId,
-              playbookId,
-              scope: "PLAYBOOK",
-              targetValue: value,
-              confidence: 1.0,
-              source: "MANUAL",
-            },
-          });
-          results.push({ parameterId, action: "created", value });
-        }
+    const results: Array<{ parameterId: string; action: string; value?: number }> = [];
+    const rejected: Array<{ parameterId: string; reason: string }> = [];
+    for (const r of writeResults) {
+      if (r.ok) {
+        if (r.action === "noop") continue;
+        results.push({
+          parameterId: r.parameterId,
+          action: r.action,
+          ...(r.value !== null ? { value: r.value } : {}),
+        });
+      } else {
+        rejected.push({
+          parameterId: r.parameterId,
+          reason:
+            r.reason === "parameter_not_adjustable"
+              ? "not an adjustable BEHAVIOR parameter"
+              : r.reason,
+        });
       }
     }
 
     return NextResponse.json({
       ok: true,
       results,
-      message: `Updated ${results.length} targets`,
+      rejected,
+      message: `Updated ${results.length} targets${rejected.length > 0 ? `, rejected ${rejected.length}` : ""}`,
     });
   } catch (error: any) {
     console.error("Error updating playbook targets:", error);

@@ -158,44 +158,66 @@ export function PromptTunerSidebar({
   const [paramsLoading, setParamsLoading] = useState(false);
   const [paramsError, setParamsError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!playbookId || !open) return;
-    let cancelled = false;
+  const refreshParameters = useCallback(async (): Promise<TunerParameter[] | null> => {
+    if (!playbookId) return null;
     setParamsLoading(true);
     setParamsError(null);
+    try {
+      const res = await fetch(`/api/playbooks/${playbookId}/targets`);
+      const result = await res.json();
+      if (result.ok) {
+        setParameters(result.parameters);
+        return result.parameters;
+      }
+      setParamsError(result.error || "Failed to load parameters");
+      return null;
+    } catch (err) {
+      setParamsError(err instanceof Error ? err.message : String(err));
+      return null;
+    } finally {
+      setParamsLoading(false);
+    }
+  }, [playbookId]);
 
-    fetch(`/api/playbooks/${playbookId}/targets`)
-      .then((r) => r.json())
-      .then((result) => {
-        if (cancelled) return;
-        if (result.ok) {
-          setParameters(result.parameters);
-        } else {
-          setParamsError(result.error || "Failed to load parameters");
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) setParamsError(err.message);
-      })
-      .finally(() => {
-        if (!cancelled) setParamsLoading(false);
-      });
+  useEffect(() => {
+    if (!playbookId || !open) return;
+    void refreshParameters();
+  }, [playbookId, open, refreshParameters]);
 
-    return () => { cancelled = true; };
-  }, [playbookId, open]);
+  // --- Locally remember what we just applied ---
+  //
+  // The parent's `llmPrompt` is a *snapshot* of the most recent ComposedPrompt
+  // row. Since we deliberately stopped auto-recomposing on save (per #602/#603
+  // policy), that snapshot stays stale after a config change — it still
+  // reflects the pre-save style/audience/mode. Without overriding it the
+  // pendingChanges diff never resolves, the PENDING list never clears, and
+  // the Apply button is stuck even though the playbook.config write succeeded.
+  //
+  // appliedConfig captures the values we just persisted and takes precedence
+  // over the stale llmPrompt-derived currents. It's reset when the active
+  // playbook changes.
+  const [appliedConfig, setAppliedConfig] = useState<{
+    style?: string;
+    audience?: string;
+    mode?: string;
+  }>({});
 
-  // --- Extract current config from llmPrompt ---
+  useEffect(() => {
+    setAppliedConfig({});
+  }, [playbookId]);
+
+  // --- Extract current config from llmPrompt, preferring locally-applied ---
   const currentStyle = useMemo(
-    () => extractConfigValue(llmPrompt, STYLE_OPTIONS, "teaching_style", "interactionPattern", "open"),
-    [llmPrompt],
+    () => appliedConfig.style ?? extractConfigValue(llmPrompt, STYLE_OPTIONS, "teaching_style", "interactionPattern", "open"),
+    [llmPrompt, appliedConfig.style],
   );
   const currentAudience = useMemo(
-    () => extractConfigValue(llmPrompt, AUDIENCE_OPTIONS, "audience", "audience", "secondary"),
-    [llmPrompt],
+    () => appliedConfig.audience ?? extractConfigValue(llmPrompt, AUDIENCE_OPTIONS, "audience", "audience", "secondary"),
+    [llmPrompt, appliedConfig.audience],
   );
   const currentMode = useMemo(
-    () => extractConfigValue(llmPrompt, MODE_OPTIONS, "pedagogy_mode", "teachingMode", "comprehension"),
-    [llmPrompt],
+    () => appliedConfig.mode ?? extractConfigValue(llmPrompt, MODE_OPTIONS, "pedagogy_mode", "teachingMode", "comprehension"),
+    [llmPrompt, appliedConfig.mode],
   );
 
   // --- Draft state (persists while component is mounted) ---
@@ -355,18 +377,24 @@ export function PromptTunerSidebar({
           scope === "learner"
             ? `/api/callers/${callerId}/behavior-targets`
             : `/api/playbooks/${playbookId}/targets`;
+        const payload = targetChanges.map((c) => ({
+          parameterId: c.parameterId,
+          targetValue: c.numericValue,
+        }));
+        // Defensive log — surfaces the exact (parameterId, targetValue) pairs
+        // being submitted so future "0 instead of 0.30"-style discrepancies
+        // can be traced from the browser console without instrumenting the API.
+        console.log("[tuner] PATCH targets", url, JSON.stringify(payload));
         const res = await fetch(url, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            targets: targetChanges.map((c) => ({
-              parameterId: c.parameterId,
-              targetValue: c.numericValue,
-            })),
-          }),
+          body: JSON.stringify({ targets: payload }),
         });
         const result = await res.json();
         if (!result.ok) throw new Error(result.error || "Failed to update targets");
+        if (Array.isArray(result.rejected) && result.rejected.length > 0) {
+          console.warn("[tuner] Server rejected parameters", result.rejected);
+        }
       }
 
       // 2. Write config changes — playbook config is course-scoped only.
@@ -385,6 +413,7 @@ export function PromptTunerSidebar({
             configUpdate[c.configKey] = c.configValue;
           }
         }
+        console.log("[tuner] PATCH playbook config", configUpdate);
         const res = await fetch(`/api/playbooks/${playbookId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -392,43 +421,58 @@ export function PromptTunerSidebar({
         });
         const result = await res.json();
         if (!result.ok) throw new Error(result.error || "Failed to update config");
+
+        // Lock in the new config as our local baseline so the pendingChanges
+        // diff resolves and the PENDING list / Apply button can clear. The
+        // parent's llmPrompt won't reflect this until the next composition
+        // (which we deliberately don't auto-trigger any more).
+        setAppliedConfig((prev) => ({
+          ...prev,
+          ...(configUpdate.interactionPattern ? { style: configUpdate.interactionPattern } : {}),
+          ...(configUpdate.audience ? { audience: configUpdate.audience } : {}),
+          ...(configUpdate.teachingMode ? { mode: configUpdate.teachingMode } : {}),
+        }));
       }
 
-      // 3. Recompose — single caller on learner scope, fan-out on course scope.
-      if (scope === "learner") {
-        const res = await fetch(`/api/callers/${callerId}/compose-prompt`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ triggerType: "TUNER" }),
+      // 3. No automatic recompose. The new targets are written to the DB and
+      //    read live at the next composition — every fresh prompt picks up the
+      //    new values. Existing learners with a pending pre-composed prompt
+      //    need re-prompting manually to swap their in-flight prompt over.
+      //    Decision: per-user request — keep "save" cheap and side-effect-free
+      //    on both surfaces (panel + Cmd+K tool). A separate "Re-prompt now"
+      //    affordance can be added later if needed.
+      setApplyResult("Tuning saved. Existing learners need re-prompting to pick up changes.");
+
+      // 4. Re-fetch parameters from the API so `effectiveValue` reflects the
+      //    newly-saved values, and clear the draft so the PENDING CHANGES list
+      //    drops to zero. Without this the stale parameters cache leaves the
+      //    diff alive forever and the user has no idea whether a subsequent
+      //    drag is a new change or a repeat of the one they already saved.
+      const fresh = await refreshParameters();
+      if (fresh) {
+        const freshMap = new Map(fresh.map((p) => [p.parameterId, p.effectiveValue]));
+        // Drop draft entries that now match the server — keep any that differ
+        // (e.g. a write that was rejected, or a new drag mid-save).
+        setDraftTargets((prev) => {
+          const next: Record<string, number> = {};
+          for (const [pid, draft] of Object.entries(prev)) {
+            const server = freshMap.get(pid);
+            if (server === undefined || Math.abs(server - draft) > 0.01) {
+              next[pid] = draft;
+            }
+          }
+          return next;
         });
-        const result = await res.json();
-        if (!result.ok) throw new Error(result.error || "Failed to recompose");
-        setApplyResult(`Applied to ${callerName || "this learner"}. Next prompt updated.`);
-      } else {
-        const res = await fetch(`/api/playbooks/${playbookId}/recompose-all`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ triggerType: "TUNER_FANOUT" }),
-        });
-        const result = await res.json();
-        if (!result.ok) throw new Error(result.error || "Failed to recompose course");
-        const { total = 0, succeeded = 0, failed = 0 } = result;
-        if (failed > 0) {
-          console.warn(`[tuner] Fan-out recompose: ${succeeded}/${total} succeeded`, result.errors);
-          setApplyResult(`Applied to ${succeeded} of ${total} learners. ${failed} could not be updated — try again or contact support.`);
-        } else {
-          setApplyResult(`Applied course-wide. Recomposed ${succeeded} learner${succeeded === 1 ? "" : "s"}.`);
-        }
       }
 
-      // 4. Notify parent
+      // 5. Notify parent
       onApplied(pendingChanges);
     } catch (err: any) {
       setApplyError(err.message || "Apply failed");
     } finally {
       setApplying(false);
     }
-  }, [playbookId, callerId, callerName, pendingChanges, onApplied, scope]);
+  }, [playbookId, callerId, callerName, pendingChanges, onApplied, scope, refreshParameters]);
 
   // --- Toggle group collapse ---
   const toggleGroup = useCallback((group: string) => {

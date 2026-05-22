@@ -293,7 +293,22 @@ export default function CallerDetailPage() {
             ...result,
             personality: result.personalityProfile || null,
           });
-          // Register with entity context for AI Chat
+          // Register with entity context for AI Chat.
+          //
+          // Order matters: pushEntity at EntityContext.tsx:113 truncates the
+          // breadcrumb stack whenever a re-push lands on an entity already
+          // present (back-stack nav behaviour). If we pushed playbook FIRST
+          // then caller, and the caller was already in sessionStorage from a
+          // prior visit, the second push (caller) found itself at index 0
+          // and sliced the playbook back out — leaving the chat with only
+          // the caller UUID. The model would then invent a UUID for
+          // playbook_id when calling update_behavior_target and the tool
+          // returned playbook_not_found. Incognito worked because there was
+          // no stale state to trip the truncation.
+          //
+          // Fix: push the caller FIRST (no-op if already present), THEN
+          // push the playbook (different type, ADD on top). End state is
+          // [caller, playbook] regardless of prior sessionStorage state.
           pushEntity({
             type: "caller",
             id: result.caller.id,
@@ -309,6 +324,14 @@ export default function CallerDetailPage() {
               memoryCount: result.counts?.memories || 0,
             },
           });
+          if (result.publishedPlaybookId) {
+            pushEntity({
+              type: "playbook",
+              id: result.publishedPlaybookId,
+              label: result.publishedPlaybookName || "Active Course",
+              href: `${isInXArea ? '/x' : ''}/courses/${result.publishedPlaybookId}`,
+            });
+          }
         } else {
           setError(result.error || "Failed to load caller");
         }

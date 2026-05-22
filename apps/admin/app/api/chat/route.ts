@@ -11,6 +11,10 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 // zod imported dynamically inside handler — see chatSchema below
 import { ADMIN_TOOLS } from "@/lib/chat/admin-tools";
 import { executeAdminTool } from "@/lib/chat/admin-tool-handlers";
+
+// TUNING mode gets a narrow tool surface — only the behaviour-target writer.
+// Broader admin tools stay in DATA mode where they belong.
+const TUNING_TOOLS = ADMIN_TOOLS.filter((t) => t.name === "update_behavior_target");
 import { CHAT_TOOLS, executeToolCall, buildContentCatalog } from "./tools";
 import { executeWizardTool } from "@/lib/chat/wizard-tool-executor";
 import { buildV5SystemPrompt } from "@/lib/chat/v5-system-prompt";
@@ -267,30 +271,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // TUNING mode: streaming parameter guidance, no tool calling
+    // TUNING mode: tool loop — assistant may persist behaviour-target changes
+    // via update_behavior_target. Validation is centralised in
+    // lib/agent-tuner/write-target.ts so this path and the panel cannot drift.
     if (mode === "TUNING") {
-      // @ai-call chat.tuning — Tuning assistant with parameter catalogue | config: /x/ai-config
-      const callPoint = "chat.tuning";
-
-      const { stream: meteredStream } = await getConfiguredMeteredAICompletionStream(
-        {
-          callPoint,
-          engineOverride: engine,
-          messages,
-        },
-        { sourceOp: callPoint }
+      const userId = authResult.session.user.id;
+      return await handleTuningModeWithTools(
+        messages, "chat.tuning", engine, selectedEngine, mode,
+        message, entityContext, conversationHistory, userRole, userId,
       );
-
-      logChatRequest(mode, message, selectedEngine, conversationHistory, entityContext);
-
-      return new Response(meteredStream, {
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          "Transfer-Encoding": "chunked",
-          "X-Chat-Mode": mode,
-          "X-AI-Engine": selectedEngine,
-        },
-      });
     }
 
     // Should not reach here
@@ -379,6 +368,95 @@ async function handleDataModeWithTools(
   logChatRequest(mode, message, selectedEngine, conversationHistory, entityContext, toolCallCount);
 
   // Return as streaming-style response for consistency with other modes
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(finalContent));
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Transfer-Encoding": "chunked",
+      "X-Chat-Mode": mode,
+      "X-AI-Engine": selectedEngine,
+      "X-Tool-Calls": toolCallCount.toString(),
+    },
+  });
+}
+
+/**
+ * TUNING mode with tool calling.
+ * Same structure as DATA mode but restricted to update_behavior_target.
+ * The assistant may persist behaviour-target changes; the system prompt
+ * instructs it to call the tool when intent is clear and quote the
+ * DB-confirmed value back.
+ */
+async function handleTuningModeWithTools(
+  messages: AIMessage[],
+  callPoint: string,
+  engine: AIEngine | undefined,
+  selectedEngine: string,
+  mode: ChatMode,
+  message: string,
+  entityContext: EntityBreadcrumb[],
+  conversationHistory: { role: string; content: string }[],
+  userRole: string,
+  userId: string,
+): Promise<Response> {
+  const loopMessages: AIMessage[] = [...messages];
+  let toolCallCount = 0;
+  let finalContent = "";
+
+  for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    // @ai-call chat.tuning — Tuning assistant tool loop | config: /x/ai-config
+    const response = await getConfiguredMeteredAICompletion(
+      {
+        callPoint,
+        engineOverride: engine,
+        messages: loopMessages,
+        tools: TUNING_TOOLS,
+      },
+      { sourceOp: `${callPoint}.tools` }
+    );
+
+    if (!response.toolUses || response.toolUses.length === 0) {
+      finalContent = response.content;
+      break;
+    }
+
+    toolCallCount += response.toolUses.length;
+
+    loopMessages.push({
+      role: "assistant",
+      content: response.rawContentBlocks || [{ type: "text", text: response.content }],
+    });
+
+    const toolResultBlocks: ContentBlock[] = [];
+    for (const toolUse of response.toolUses) {
+      console.log(`[chat-tools:tuning] Executing: ${toolUse.name}`, JSON.stringify(toolUse.input).slice(0, 200));
+      const result = await executeAdminTool(toolUse.name, toolUse.input, userRole as any, { userId });
+      toolResultBlocks.push({
+        type: "tool_result",
+        tool_use_id: toolUse.id,
+        content: result,
+      });
+    }
+
+    loopMessages.push({
+      role: "user",
+      content: toolResultBlocks,
+    });
+  }
+
+  if (!finalContent) {
+    finalContent = "I tried to apply your change but ran out of tool steps. Please try again with a more specific request.";
+  }
+
+  logChatRequest(mode, message, selectedEngine, conversationHistory, entityContext, toolCallCount);
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
