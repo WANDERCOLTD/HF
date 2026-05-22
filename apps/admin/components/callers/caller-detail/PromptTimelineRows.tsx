@@ -447,8 +447,16 @@ export function PromptTimelineRows({
       {/* ── Groups ── */}
       {groups.map((group, groupIdx) => {
         const call = group.callId ? callsById.get(group.callId) : null;
+        // #642 — only the FIRST chronological null-triggerCallId group is
+        // a real Bootstrap (initial enrollment prompt). Later null groups
+        // are standalone recomposes (sim / TUNER_FANOUT / manual / etc.)
+        // and get labelled by their dominant triggerType.
+        const isFirstNullGroup = group.callId == null && groups.findIndex((g) => g.callId == null) === groupIdx;
+        const dominantTrigger = group.prompts[0]?.triggerType || "—";
         const header = group.callId == null
-          ? "Bootstrap"
+          ? (isFirstNullGroup
+              ? "Bootstrap"
+              : `Standalone · ${dominantTrigger.toLowerCase().replace(/_/g, " ")} · ${formatDate(group.prompts[0].composedAt)}`)
           : call
             ? `Call ${call.callSequence ?? "—"} · ${formatDate(call.createdAt)}`
             : `Triggered by call ${group.callId.slice(0, 8)}…`;
@@ -494,11 +502,15 @@ export function PromptTimelineRows({
                 </span>
               )}
             </header>
-            {/* CALL EFFECT summary — input → final active in this group */}
+            {/* Group effect summary — input → final active in this group.
+                Labelled "Call effect" for call groups, "Group effect" for
+                standalone (sim / TUNER_FANOUT / enrollment) groups. */}
             {callEffect && inputPrompt && activeInGroup && (
-              <div className="ptr-call-effect" title={`Net change from the prompt this call started with to the active prompt after it (${group.prompts.length} generated)`}>
+              <div className="ptr-call-effect" title={`Net change from input to the active prompt after this group (${group.prompts.length} generated)`}>
                 <Activity size={12} />
-                <span className="ptr-call-effect-label">Call effect</span>
+                <span className="ptr-call-effect-label">
+                  {call ? "Call effect" : "Group effect"}
+                </span>
                 <span className="ptr-call-effect-from">Input #{indexMap.get(inputPrompt.id) ?? "?"}</span>
                 <span className="ptr-call-effect-arrow">→</span>
                 <span className="ptr-call-effect-to">Active #{indexMap.get(activeInGroup.id) ?? "?"}</span>
