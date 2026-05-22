@@ -13,7 +13,6 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
  *   rows initialized to SYSTEM defaults. Prepares the Targets tab for editing.
  * @pathParam playbookId string - Playbook UUID
  * @response 200 { ok: true, message: "...", compiled: number, skipped: number, total: number, parameters: [...] }
- * @response 400 { ok: false, error: "Cannot compile targets for a published playbook" }
  * @response 404 { ok: false, error: "Playbook not found" }
  * @response 500 { ok: false, error: "..." }
  */
@@ -68,13 +67,6 @@ export async function POST(
       return NextResponse.json(
         { ok: false, error: "Playbook not found" },
         { status: 404 }
-      );
-    }
-
-    if (playbook.status === "PUBLISHED") {
-      return NextResponse.json(
-        { ok: false, error: "Cannot compile targets for a published playbook" },
-        { status: 400 }
       );
     }
 
