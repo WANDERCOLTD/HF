@@ -584,8 +584,8 @@ export default function CallerDetailPage() {
   const sections: { id: SectionId; label: string; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
     { id: "overview", label: "Overview", icon: <span aria-hidden>🧭</span>, group: "shared" },
     { id: "calls-prompts", label: "Calls & Prompts", icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
-    { id: "how", label: "How", icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
-    { id: "what", label: "What", icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
+    { id: "how", label: "Profile", icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
+    { id: "what", label: "Progress", icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
     { id: "artifacts", label: "Artifacts", icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
     { id: "uplift", label: "Uplift", icon: <TrendingUp size={13} />, group: "shared" },
     { id: "session-flow", label: "Session Flow", icon: <SlidersHorizontal size={13} />, group: "shared" },
