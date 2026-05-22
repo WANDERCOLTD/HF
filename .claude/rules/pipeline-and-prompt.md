@@ -12,6 +12,16 @@ paths:
 
 **Before adding a stage, runner, cross-stage DB write, guardrail, or ADAPT sub-op, read [`docs/PIPELINE.md`](../../docs/PIPELINE.md) first.** It is the single source of truth for the 7-stage table, the executor map, the parallel-batch hardcode, the SUPERVISE clamp surface, and the landmines (including: stage name ≠ `AnalysisOutputType`, `pipeline-run.ts` is legacy CLI, non-blocking `stageErrors`).
 
+## ⚠️ HARD RULE — Epic 100 chain-walk is required reading
+
+**Before editing any file under `apps/admin/lib/prompt/composition/`, `apps/admin/lib/curriculum/`, `apps/admin/lib/pipeline/`, `apps/admin/lib/content-trust/`, `apps/admin/lib/chat/wizard-tool-executor.ts`, or `apps/admin/scripts/backfill-*.ts` — read [`docs/epic-100-chain-walk.md`](../../docs/epic-100-chain-walk.md).**
+
+It traces the 6 links of the adaptive loop (COURSE → CONTENT → CURRICULUM → CALL → SCORE → ADAPT → next-call COMPOSE), names the contract at each boundary, and identifies the Epic 100 story responsible for fixing each violation. Editing chain-stage code without consulting it risks reintroducing the same class of unenforced-contract bug the epic exists to eliminate.
+
+If your change introduces a new contract or modifies an existing one between stages, **update `docs/epic-100-chain-walk.md` as part of the PR**. Stale documentation is worse than no documentation here — the doc is enforcement, not just description.
+
+**Linked:** Epic [#600](https://github.com/WANDERCOLTD/HF/issues/600), verification harness [#631](https://github.com/WANDERCOLTD/HF/issues/631).
+
 **Never cite `route.ts` by line number** — use symbol form (`route.ts::stageExecutors.<STAGE>`, `route.ts::runSpecDrivenPipeline`). The file is 2700+ lines and actively edited.
 
 ## The Adaptive Loop
