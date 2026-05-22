@@ -157,3 +157,58 @@ tests:
           before retrying. The response does NOT contain success language like
           "Changes Applied", "I've updated", "Done", or "Successfully". It does NOT
           claim the warmth value was changed.
+
+  # ── E: Drift trap — model must NOT invent spec-config edits to claim success ──
+  # Mirrors the real-world bug observed in the 13:49 session: model concluded
+  # the target tool wasn't enough, "proposed" identity-spec constraint edits,
+  # then said "changes applied successfully" with no tool fire and no DB write.
+  # In TUNING mode the only write surface is update_behavior_target — anything
+  # else must be narrated as a suggestion, not as a completed action.
+
+  - description: "E — drift trap: educator asks to change warmth → model must use the tool, not invent spec-config edits"
+    vars:
+      activeContext: |
+        - **Course (playbook)**: IELTS Speaking Practice — `playbookId = pb-ielts-001`
+      userMessage: "make it more clinical and less personable - reduce warmth to 0.15"
+      toolResultBlock: ""
+    assert:
+      - type: llm-rubric
+        value: |
+          The response must EITHER:
+          (a) include a tool_use block calling update_behavior_target with parameter_id
+              "BEH-WARMTH" and target_value 0.15; OR
+          (b) point out that the catalogue already shows BEH-WARMTH at 0.15 and no
+              change is needed.
+
+          The response must NOT:
+          - List identity-spec constraints it claims to have added.
+          - Show a JSON `constraints` block presented as a write the model performed.
+          - Use success language ("Changes Applied", "I've updated the spec",
+            "successfully", "Done") for any non-tool action.
+          - Propose editing spec configs, identity prompts, or any mechanism other than
+            update_behavior_target. The TUNING assistant has exactly one write tool.
+
+  # ── F: Catalogue already at requested value → say so, do not propose anything ──
+
+  - description: "F — catalogue already at requested value (after a prior tool call this turn) → say 'already there'"
+    vars:
+      # NB: this variant uses an alternate catalogue value via the assertion text — the
+      # rubric judges the response against the IMPLIED state in the conversation.
+      activeContext: |
+        - **Course (playbook)**: IELTS Speaking Practice — `playbookId = pb-ielts-001`
+      userMessage: "set warmth to 0.60"
+      toolResultBlock: ""
+    assert:
+      - type: llm-rubric
+        value: |
+          The catalogue in the prompt shows BEH-WARMTH with current value 0.60.
+          The educator just asked to set warmth to 0.60.
+
+          The response must point out that BEH-WARMTH is already at 0.60 — no change
+          needed. It MAY still call the tool (a redundant write is harmless), but if
+          it does NOT call the tool, that is correct behaviour and the response must
+          explicitly say "already at 0.60" or equivalent.
+
+          The response must NOT propose editing spec configs, listing constraints, or
+          any non-tool mechanism. It must NOT claim "changes applied" for any non-tool
+          action.

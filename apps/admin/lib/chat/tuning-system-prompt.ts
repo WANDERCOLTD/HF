@@ -13,6 +13,7 @@ import { ContractRegistry } from "@/lib/contracts/registry";
 import type { DataContract } from "@/lib/contracts/types";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
+import { prisma } from "@/lib/prisma";
 
 interface EntityBreadcrumb {
   type: string;
@@ -51,6 +52,19 @@ DB-confirmed value — quote that back.
 4. If the active playbook is missing from the entity context, ask the educator
    to navigate to a course first, then try again. Do not call the tool with a
    guessed playbookId.
+5. **No drift.** You ONLY have \`update_behavior_target\`. You do NOT have any
+   tool that edits spec configs, identity constraints, prompt text, or
+   anything else. If the educator asks for something \`update_behavior_target\`
+   cannot do — say so plainly ("I can only adjust behaviour parameters; X
+   needs to be edited via the spec editor / the panel / etc."). Do NOT
+   describe a change as if you applied it, list constraints you "added", or
+   show config JSON you "wrote". Anything other than a real \`update_behavior_target\`
+   tool call is a non-action — narrate it as a suggestion, never as fact.
+6. **Treat the catalogue values below as the current truth.** If you have
+   already called the tool earlier in this conversation, the catalogue value
+   reflects the new value (this prompt is rebuilt every turn). Do NOT second-guess
+   the catalogue and propose a different mechanism — if the value is already
+   what the educator asked for, say "It's already at X — no change needed."
 
 ## How to call the tool
 
@@ -115,6 +129,24 @@ function buildActiveCourseBlock(entityContext: EntityBreadcrumb[] | undefined): 
 }
 
 /**
+ * Load the active playbook's PLAYBOOK-scope BehaviorTargets as a parameterId →
+ * value map. Used to overlay the catalogue so the model sees the effective
+ * course value, not the SYSTEM default — without this, a tool call that wrote
+ * BEH-WARMTH=0.15 still showed up as 0.50 on the next turn (the SYSTEM base
+ * layer), causing the model to think its earlier write didn't take and drift
+ * to a different mechanism. See #603 follow-up.
+ */
+async function loadPlaybookOverrides(playbookId: string | undefined): Promise<Map<string, number> | undefined> {
+  if (!playbookId) return undefined;
+  const rows = await prisma.behaviorTarget.findMany({
+    where: { playbookId, scope: "PLAYBOOK", effectiveUntil: null },
+    select: { parameterId: true, targetValue: true },
+  });
+  if (rows.length === 0) return undefined;
+  return new Map(rows.map((r) => [r.parameterId, r.targetValue]));
+}
+
+/**
  * Build the TUNING mode system prompt with live parameter + contract context.
  */
 export async function buildTuningSystemPrompt(options: BuildTuningPromptOptions = {}): Promise<string> {
@@ -123,13 +155,16 @@ export async function buildTuningSystemPrompt(options: BuildTuningPromptOptions 
     TUNING_SYSTEM_PROMPT_FALLBACK,
   );
 
+  const playbookId = options.entityContext?.find((e) => e.type === "playbook")?.id;
+  const overrides = await loadPlaybookOverrides(playbookId);
+
   const [{ params }, contracts] = await Promise.all([
-    loadAdjustableParameters(),
+    loadAdjustableParameters(overrides),
     ContractRegistry.listContracts(),
   ]);
 
   const paramBlock = params.length > 0
-    ? `\n\n## Behaviour Parameter Catalogue (${params.length} adjustable)\n\nValues shown are the CURRENT effective value on the active course. Use these as your starting point when mapping plain-language requests to numeric targets.\n\n${formatParameterList(params)}`
+    ? `\n\n## Behaviour Parameter Catalogue (${params.length} adjustable)\n\nValues shown are the **CURRENT effective value on the active course** (PLAYBOOK overrides applied over SYSTEM defaults). If you just called the tool, the new value is reflected here on the next turn. Use these as your starting point when mapping plain-language requests to numeric targets — if the educator asks for 0.15 and the catalogue already shows 0.15, the change is already in place.\n\n${formatParameterList(params)}`
     : "\n\n## Behaviour Parameters\n\n_No adjustable behaviour parameters found in the database._";
 
   const contractBlock = formatContractCatalogue(contracts);
