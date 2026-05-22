@@ -640,7 +640,7 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
       result.action === "noop"
         ? `No PLAYBOOK-scope override existed for ${parameterId}; nothing to remove. The system default still applies.`
         : result.action === "removed"
-          ? `Removed the playbook override for ${parameterId}. The course will fall back to the system default.`
-          : `Set ${parameterId} to ${result.value} on playbook ${playbookId}. The change is live for the next composition; in-flight calls are unaffected.`,
+          ? `Removed the playbook override for ${parameterId}. Tuning saved. Existing learners need re-prompting to pick up the change.`
+          : `Set ${parameterId} to ${result.value} on playbook ${playbookId}. Tuning saved. Existing learners need re-prompting to pick up the change.`,
   };
 }

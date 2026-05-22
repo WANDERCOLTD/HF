@@ -394,32 +394,14 @@ export function PromptTunerSidebar({
         if (!result.ok) throw new Error(result.error || "Failed to update config");
       }
 
-      // 3. Recompose — single caller on learner scope, fan-out on course scope.
-      if (scope === "learner") {
-        const res = await fetch(`/api/callers/${callerId}/compose-prompt`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ triggerType: "TUNER" }),
-        });
-        const result = await res.json();
-        if (!result.ok) throw new Error(result.error || "Failed to recompose");
-        setApplyResult(`Applied to ${callerName || "this learner"}. Next prompt updated.`);
-      } else {
-        const res = await fetch(`/api/playbooks/${playbookId}/recompose-all`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ triggerType: "TUNER_FANOUT" }),
-        });
-        const result = await res.json();
-        if (!result.ok) throw new Error(result.error || "Failed to recompose course");
-        const { total = 0, succeeded = 0, failed = 0 } = result;
-        if (failed > 0) {
-          console.warn(`[tuner] Fan-out recompose: ${succeeded}/${total} succeeded`, result.errors);
-          setApplyResult(`Applied to ${succeeded} of ${total} learners. ${failed} could not be updated — try again or contact support.`);
-        } else {
-          setApplyResult(`Applied course-wide. Recomposed ${succeeded} learner${succeeded === 1 ? "" : "s"}.`);
-        }
-      }
+      // 3. No automatic recompose. The new targets are written to the DB and
+      //    read live at the next composition — every fresh prompt picks up the
+      //    new values. Existing learners with a pending pre-composed prompt
+      //    need re-prompting manually to swap their in-flight prompt over.
+      //    Decision: per-user request — keep "save" cheap and side-effect-free
+      //    on both surfaces (panel + Cmd+K tool). A separate "Re-prompt now"
+      //    affordance can be added later if needed.
+      setApplyResult("Tuning saved. Existing learners need re-prompting to pick up changes.");
 
       // 4. Notify parent
       onApplied(pendingChanges);

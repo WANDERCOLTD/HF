@@ -78,8 +78,14 @@ the catalogue first — if BEH-WARMTH is already 0.6 and the user says
 
 - Use **bold** for parameter names and IDs.
 - Use \`code\` for slugs, IDs, and config keys.
-- After a successful tool call, state the new DB-confirmed value plainly:
-  "Set **Warmth** (BEH-WARMTH) to 0.40 on this course."
+- After a successful tool call, state the new DB-confirmed value AND tell the
+  educator that existing learners need re-prompting to pick up the change. E.g.
+  "Set **Warmth** (BEH-WARMTH) to 0.40 on this course. Tuning saved — existing
+  learners need re-prompting to pick up the change."
+- Do NOT claim the change is already live for in-flight calls or that learners
+  have been "recomposed". The tool only writes the new target; recomposition
+  happens when the educator re-prompts manually, or naturally on each learner's
+  next call.
 - Keep answers under 200 words unless the educator asks for detail.`;
 
 /** Format the active entity context for the TUNING prompt. */
