@@ -751,28 +751,27 @@
   gap: 4px;
 }
 /* Group header — visually anchors each call/standalone section.
-   The accent-primary border-left + filled background makes it the visual
-   anchor of the section (was: borderless muted text, which got outranked by
-   the CALL DIFF chrome that precedes it). */
+   Strong accent-primary tint so it's the clear section anchor (the previous
+   6-10% blends came out grey on most themes). */
 .ptr-group-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--accent-primary) 10%, var(--surface-secondary));
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 22%, var(--surface-primary));
   border-radius: 6px;
-  margin-top: 8px;
-  border-left: 3px solid var(--accent-primary);
+  margin-top: 10px;
+  border-left: 4px solid var(--accent-primary);
 }
 .ptr-group-header--standalone {
-  background: color-mix(in srgb, var(--text-muted) 8%, var(--surface-secondary));
+  background: color-mix(in srgb, var(--text-muted) 16%, var(--surface-primary));
   border-left-color: var(--text-muted);
-  color: var(--text-secondary, var(--text-muted));
+  color: var(--text-muted);
 }
 .ptr-group-header-icon {
   color: var(--accent-primary);
@@ -780,6 +779,12 @@
 }
 .ptr-group-header--standalone .ptr-group-header-icon {
   color: var(--text-muted);
+}
+.ptr-group-meta {
+  color: color-mix(in srgb, var(--accent-primary) 60%, var(--text-muted));
+}
+.ptr-group-header--standalone .ptr-group-meta {
+  color: var(--text-placeholder);
 }
 .ptr-group-title {
   flex-shrink: 0;
@@ -810,7 +815,7 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 8%, var(--surface-secondary));
+  background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 18%, var(--surface-primary));
   border: none;
   padding: 8px 12px;
   text-align: left;
@@ -820,7 +825,7 @@
   font-weight: 600;
   color: var(--text-primary);
 }
-.ptr-call-diff-head:hover { background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 14%, var(--surface-secondary)); }
+.ptr-call-diff-head:hover { background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 28%, var(--surface-primary)); }
 .ptr-call-diff-label {
   font-weight: 700;
   text-transform: uppercase;
@@ -1052,15 +1057,16 @@
 .ptr-row--active {
   border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent);
 }
-/* PROMPT row head — click-toggles body, distinct from diff rows via
-   FileText icon + accent-primary tint. Mirrors .cpt-accordion-header. */
+/* PROMPT row head — click-toggles body, blue tint distinguishes it from
+   diff rows (neutral) and call-diff rows (purple). Bumped tints so the
+   colour is visible, not a grey gradient. */
 .ptr-row-head {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
   padding: 8px 12px;
-  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-secondary));
+  background: color-mix(in srgb, var(--accent-primary) 12%, var(--surface-primary));
   border: none;
   cursor: pointer;
   text-align: left;
@@ -1071,13 +1077,13 @@
   font-family: inherit;
 }
 .ptr-row-head:hover {
-  background: color-mix(in srgb, var(--accent-primary) 14%, var(--surface-secondary));
+  background: color-mix(in srgb, var(--accent-primary) 20%, var(--surface-primary));
 }
 .ptr-row--active .ptr-row-head {
-  background: color-mix(in srgb, var(--accent-primary) 18%, var(--surface-secondary));
+  background: color-mix(in srgb, var(--accent-primary) 28%, var(--surface-primary));
 }
 .ptr-row--active .ptr-row-head:hover {
-  background: color-mix(in srgb, var(--accent-primary) 24%, var(--surface-secondary));
+  background: color-mix(in srgb, var(--accent-primary) 36%, var(--surface-primary));
 }
 .ptr-row-icon {
   color: var(--accent-primary);
