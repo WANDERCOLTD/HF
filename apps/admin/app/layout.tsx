@@ -275,8 +275,6 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
             {children}
           </div>
         </main>
-
-        <StatusBar />
       </div>
     );
   }
