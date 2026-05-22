@@ -63,6 +63,19 @@ function triggerBadge(p: ComposedPrompt): string {
   return p.triggerType || "—";
 }
 
+/** #642: CSS class suffix for the triggerType badge — drives colour. */
+function triggerColourClass(p: ComposedPrompt): string {
+  const t = (p.triggerType || "").toLowerCase();
+  if (t === "post_call" || t === "pipeline") return "ps-trigger-badge--post-call";
+  if (t === "manual") return "ps-trigger-badge--manual";
+  if (t === "tuner_fanout" || t === "tuner") return "ps-trigger-badge--tuner";
+  if (t === "analysis_complete") return "ps-trigger-badge--analysis";
+  if (t === "preview_first_call") return "ps-trigger-badge--preview";
+  if (t === "scheduled") return "ps-trigger-badge--scheduled";
+  if (t === "sim") return "ps-trigger-badge--sim";
+  return "ps-trigger-badge--default";
+}
+
 /** Compute a proper line-level diff (Myers algorithm) between two prompt texts */
 export function computeDiff(
   prev: string,
@@ -81,6 +94,65 @@ export function computeDiff(
 
   return result;
 }
+
+/**
+ * #642: collapse "same" runs to separator chips when the gap between
+ * added/removed runs is > `contextLines` "same" lines. Used by Compact diff
+ * mode so the user sees only +/- lines with helpful @@ around line N @@
+ * markers, not a wall of unchanged prose.
+ */
+type CompactDiffEntry =
+  | { kind: "line"; type: "added" | "removed"; text: string; lineNumber: number }
+  | { kind: "separator"; lineNumber: number };
+
+export function compactDiffEntries(
+  fullDiff: { type: "same" | "added" | "removed"; text: string }[],
+  contextLines = 5,
+): CompactDiffEntry[] {
+  const out: CompactDiffEntry[] = [];
+  let lineNumber = 0;
+  let consecutiveSame = 0;
+  let lastWasChange = false;
+  for (const line of fullDiff) {
+    if (line.type === "removed") {
+      // removed lines don't advance the new-file line number — fine for display
+      out.push({ kind: "line", type: "removed", text: line.text, lineNumber });
+      consecutiveSame = 0;
+      lastWasChange = true;
+      continue;
+    }
+    if (line.type === "added") {
+      lineNumber++;
+      out.push({ kind: "line", type: "added", text: line.text, lineNumber });
+      consecutiveSame = 0;
+      lastWasChange = true;
+      continue;
+    }
+    // same
+    lineNumber++;
+    consecutiveSame++;
+    if (lastWasChange && consecutiveSame > contextLines) {
+      // emit a separator at the next change boundary — track via flag
+      lastWasChange = false;
+    }
+  }
+  // Insert separator chips between non-adjacent change runs by walking again
+  const finalOut: CompactDiffEntry[] = [];
+  for (let i = 0; i < out.length; i++) {
+    const entry = out[i];
+    finalOut.push(entry);
+    if (entry.kind !== "line") continue;
+    const next = out[i + 1];
+    if (!next || next.kind !== "line") continue;
+    // Gap in line numbers > contextLines * 2 → separator
+    if (next.lineNumber - entry.lineNumber > contextLines * 2) {
+      finalOut.push({ kind: "separator", lineNumber: next.lineNumber });
+    }
+  }
+  return finalOut;
+}
+
+const COMPACT_DIFF_KEY = "hf-prompt-diff-compact";
 
 // ---------------------------------------------------------------------------
 // Main Component
@@ -112,6 +184,16 @@ export function UnifiedPromptSection({
   const [viewMode, setViewMode] = useState<"human" | "llm" | "diff">("human");
   const [llmViewMode, setLlmViewMode] = useState<"pretty" | "raw">("pretty");
   const [copiedButton, setCopiedButton] = useState<string | null>(null);
+  // #642: diff comparator + compact toggle
+  const [diffComparator, setDiffComparator] = useState<"chronological" | "sibling" | "call-input">("chronological");
+  const [compactDiff, setCompactDiff] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(COMPACT_DIFF_KEY) === "1";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(COMPACT_DIFF_KEY, compactDiff ? "1" : "0");
+  }, [compactDiff]);
 
   // ── Eval state ──
   const [evalResult, setEvalResult] = useState<EvalResult | null>(null);
@@ -125,6 +207,62 @@ export function UnifiedPromptSection({
 
   const selected = indexed[idx] ?? null;
   const prevPrompt = idx > 0 ? indexed[idx - 1] : null;
+
+  // #642: sibling = same triggerCallId, different id. Used to surface
+  // "Variant M of K for Call N" and to drive the default Diff comparator.
+  const siblings = useMemo(() => {
+    if (!selected?.triggerCallId) return [] as typeof indexed;
+    return indexed.filter(
+      (p) => p.triggerCallId === selected.triggerCallId,
+    );
+  }, [indexed, selected]);
+  const siblingIndex = useMemo(() => {
+    if (!selected || siblings.length <= 1) return -1;
+    return siblings.findIndex((p) => p.id === selected.id);
+  }, [siblings, selected]);
+  const previousSibling = useMemo(() => {
+    if (!selected || siblings.length <= 1 || siblingIndex <= 0) return null;
+    return siblings[siblingIndex - 1];
+  }, [siblings, siblingIndex, selected]);
+  // The prompt the triggering call started with — for "Call's input prompt"
+  // comparator. We find the prompt whose status was active immediately before
+  // the triggering call (i.e. the most recent prompt composed earlier than
+  // the triggering call's createdAt). Cheap heuristic — works for the
+  // common case where there's one prompt per moment.
+  const callInputPrompt = useMemo(() => {
+    if (!selected?.triggerCall?.createdAt) return null;
+    const callTime = new Date(selected.triggerCall.createdAt).getTime();
+    let best: typeof indexed[number] | null = null;
+    for (const p of indexed) {
+      if (new Date(p.composedAt).getTime() < callTime) {
+        if (!best || new Date(p.composedAt).getTime() > new Date(best.composedAt).getTime()) {
+          best = p;
+        }
+      }
+    }
+    return best;
+  }, [indexed, selected]);
+
+  // #642: when navigating to a prompt with siblings, default the comparator
+  // to "previous sibling" — that's the question the user is actually asking
+  // ("what did my tune change vs the auto-prompt?"). Otherwise fall back to
+  // chronological.
+  useEffect(() => {
+    if (previousSibling) {
+      setDiffComparator("sibling");
+    } else {
+      setDiffComparator("chronological");
+    }
+    // Intentional: do NOT persist across navigation. Per-prompt default only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id]);
+
+  // Resolve which prompt to diff against based on the current comparator.
+  const comparatorPrompt = useMemo(() => {
+    if (diffComparator === "sibling") return previousSibling;
+    if (diffComparator === "call-input") return callInputPrompt;
+    return prevPrompt;
+  }, [diffComparator, previousSibling, callInputPrompt, prevPrompt]);
 
   const copyToClipboard = (text: string, buttonId: string) => {
     navigator.clipboard.writeText(text);
@@ -219,9 +357,10 @@ export function UnifiedPromptSection({
 
   const label = promptLabel(selected, total);
   const llm = selected.llmPrompt;
-  const diffLines = viewMode === "diff" && prevPrompt
-    ? computeDiff(prevPrompt.prompt, selected.prompt)
+  const diffLines = viewMode === "diff" && comparatorPrompt
+    ? computeDiff(comparatorPrompt.prompt, selected.prompt)
     : null;
+  const compactEntries = diffLines && compactDiff ? compactDiffEntries(diffLines) : null;
 
   return (
     <div className="hf-flex-col hf-gap-20">
@@ -305,9 +444,19 @@ export function UnifiedPromptSection({
           <span className={`hf-micro-badge hf-uppercase ${selected.status === "active" ? "ps-status-badge-active" : "ps-status-badge-default"}`}>
             {selected.status}
           </span>
-          <span className="hf-micro-badge ps-status-badge-default hf-uppercase">
+          {/* #642: triggerType with colour mapping so siblings are visually distinct */}
+          <span className={`hf-micro-badge hf-uppercase ${triggerColourClass(selected)}`}>
             {triggerBadge(selected)}
           </span>
+          {/* #642: sibling indicator — "Variant M of K for Call N" */}
+          {siblings.length > 1 && siblingIndex >= 0 && (
+            <span
+              className="hf-micro-badge ps-sibling-pill"
+              title={`This prompt is variant ${siblingIndex + 1} of ${siblings.length} prompts triggered by the same call.`}
+            >
+              Variant {siblingIndex + 1} of {siblings.length}
+            </span>
+          )}
           <span className="hf-text-sm hf-text-muted">
             {new Date(selected.composedAt).toLocaleString()}
           </span>
@@ -429,30 +578,105 @@ export function UnifiedPromptSection({
         </div>
       )}
 
-      {/* ── Diff View ── */}
-      {viewMode === "diff" && diffLines && (
+      {/* ── Diff View — #642: comparator picker + Compact toggle ── */}
+      {viewMode === "diff" && (
         <div className="hf-flex-col hf-gap-lg">
-          <div className="hf-text-sm hf-text-muted">
-            Changes from #{(prevPrompt as any)?._idx} → #{selected._idx}
-          </div>
-          <div className="ps-diff-block">
-            {diffLines.map((line, i) => (
-              <div
-                key={i}
-                className={`ps-diff-line${line.type === "added" ? " ps-diff-added" : line.type === "removed" ? " ps-diff-removed" : ""}`}
+          {/* Diff toolbar */}
+          <div className="ps-diff-toolbar">
+            <div className="ps-diff-toolbar-left">
+              <span className="hf-text-xs hf-text-muted">Diff against:</span>
+              <select
+                className="hf-input ps-diff-comparator"
+                value={diffComparator}
+                onChange={(e) => setDiffComparator(e.target.value as "chronological" | "sibling" | "call-input")}
+                aria-label="Diff comparator"
               >
-                <span className="ps-diff-marker">
-                  {line.type === "added" ? "+" : line.type === "removed" ? "−" : " "}
-                </span>
-                {line.text || "\u00A0"}
-              </div>
-            ))}
+                <option value="chronological" disabled={!prevPrompt}>
+                  Previous prompt (chronological){!prevPrompt ? " — n/a" : ""}
+                </option>
+                <option value="sibling" disabled={!previousSibling}>
+                  Previous sibling (intra-call){!previousSibling ? " — n/a" : ""}
+                </option>
+                <option value="call-input" disabled={!callInputPrompt}>
+                  Call&apos;s input prompt (cross-call){!callInputPrompt ? " — n/a" : ""}
+                </option>
+              </select>
+            </div>
+            <div className="hf-toggle-group">
+              <button
+                onClick={() => setCompactDiff(false)}
+                className={`hf-toggle-btn hf-toggle-btn-sm ${!compactDiff ? "hf-toggle-btn-active" : ""}`}
+                title="Show full prompt with all lines (added/removed/same)"
+              >
+                Full
+              </button>
+              <button
+                onClick={() => setCompactDiff(true)}
+                className={`hf-toggle-btn hf-toggle-btn-sm ${compactDiff ? "hf-toggle-btn-active" : ""}`}
+                title="Show only added/removed lines with line-number separators"
+              >
+                Compact
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-      {viewMode === "diff" && !prevPrompt && (
-        <div className="hf-text-sm hf-text-muted">
-          This is the first prompt — no previous version to compare.
+
+          {diffLines && comparatorPrompt && (
+            <div className="hf-text-sm hf-text-muted">
+              Changes from #{(comparatorPrompt as any)?._idx} → #{selected._idx}
+            </div>
+          )}
+
+          {/* Diff body — Full or Compact */}
+          {diffLines && !compactDiff && (
+            <div className="ps-diff-block">
+              {diffLines.map((line, i) => (
+                <div
+                  key={i}
+                  className={`ps-diff-line${line.type === "added" ? " ps-diff-added" : line.type === "removed" ? " ps-diff-removed" : ""}`}
+                >
+                  <span className="ps-diff-marker">
+                    {line.type === "added" ? "+" : line.type === "removed" ? "−" : " "}
+                  </span>
+                  {line.text || "\u00A0"}
+                </div>
+              ))}
+            </div>
+          )}
+          {compactEntries && compactDiff && (
+            <div className="ps-diff-block">
+              {compactEntries.length === 0 && (
+                <div className="hf-text-sm hf-text-muted ps-diff-empty">
+                  No changes between these two prompts.
+                </div>
+              )}
+              {compactEntries.map((entry, i) =>
+                entry.kind === "separator" ? (
+                  <div key={i} className="ps-diff-separator" aria-hidden>
+                    @@ around line {entry.lineNumber} @@
+                  </div>
+                ) : (
+                  <div
+                    key={i}
+                    className={`ps-diff-line ${entry.type === "added" ? "ps-diff-added" : "ps-diff-removed"}`}
+                  >
+                    <span className="ps-diff-marker">
+                      {entry.type === "added" ? "+" : "−"}
+                    </span>
+                    {entry.text || "\u00A0"}
+                  </div>
+                ),
+              )}
+            </div>
+          )}
+          {!diffLines && !comparatorPrompt && (
+            <div className="hf-text-sm hf-text-muted">
+              {diffComparator === "sibling"
+                ? "No earlier sibling exists for this prompt."
+                : diffComparator === "call-input"
+                  ? "No input prompt available for the triggering call."
+                  : "This is the first prompt — no previous version to compare."}
+            </div>
+          )}
         </div>
       )}
 

@@ -641,3 +641,85 @@
   border-radius: 50%;
   background: var(--status-success-text);
 }
+
+/* #642 — triggerType badge colour map */
+.ps-trigger-badge--default {
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  color: var(--text-muted);
+}
+.ps-trigger-badge--post-call {
+  background: color-mix(in srgb, var(--text-muted) 18%, transparent);
+  color: var(--text-secondary, var(--text-muted));
+}
+.ps-trigger-badge--manual {
+  background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  color: var(--accent-primary);
+}
+.ps-trigger-badge--tuner {
+  background: color-mix(in srgb, var(--status-warning-text) 18%, transparent);
+  color: var(--status-warning-text);
+}
+.ps-trigger-badge--analysis {
+  background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 18%, transparent);
+  color: var(--accent-secondary, #7c6bc4);
+}
+.ps-trigger-badge--preview {
+  background: color-mix(in srgb, var(--text-placeholder) 18%, transparent);
+  color: var(--text-placeholder);
+}
+.ps-trigger-badge--scheduled {
+  background: color-mix(in srgb, var(--status-success-text) 18%, transparent);
+  color: var(--status-success-text);
+}
+.ps-trigger-badge--sim {
+  background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  color: var(--accent-primary);
+}
+
+/* #642 — sibling indicator pill */
+.ps-sibling-pill {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+/* #642 — diff toolbar (comparator picker + Full/Compact toggle) */
+.ps-diff-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+}
+.ps-diff-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ps-diff-comparator {
+  font-size: 12px;
+  padding: 4px 8px;
+  max-width: 320px;
+}
+
+/* #642 — Compact diff separator chip */
+.ps-diff-separator {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--text-placeholder);
+  background: color-mix(in srgb, var(--text-muted) 6%, transparent);
+  padding: 2px 8px;
+  margin: 4px 0;
+  border-radius: 4px;
+  user-select: none;
+}
+.ps-diff-empty {
+  padding: 12px;
+  text-align: center;
+  font-style: italic;
+}
