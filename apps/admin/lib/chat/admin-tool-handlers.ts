@@ -29,6 +29,7 @@ const TOOL_MIN_ROLE: Record<string, UserRole> = {
   generate_curriculum: "OPERATOR",
   // Tuning / behaviour-target writes
   update_behavior_target: "OPERATOR",
+  update_playbook_config: "OPERATOR",
   // System diagnostics
   system_ini_check: "SUPERADMIN",
 };
@@ -112,6 +113,9 @@ export async function executeAdminTool(
       // Tuning / behaviour-target writes
       case "update_behavior_target":
         result = await handleUpdateBehaviorTarget(input);
+        break;
+      case "update_playbook_config":
+        result = await handleUpdatePlaybookConfig(input);
         break;
       // System diagnostics
       case "system_ini_check":
@@ -642,5 +646,53 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
         : result.action === "removed"
           ? `Removed the playbook override for ${parameterId}. Tuning saved. Existing learners need re-prompting to pick up the change.`
           : `Set ${parameterId} to ${result.value} on playbook ${playbookId}. Tuning saved. Existing learners need re-prompting to pick up the change.`,
+  };
+}
+
+/**
+ * Update non-behaviour playbook settings from the TUNING assistant. Testing-mode
+ * scope: the AI may set any key in PlaybookConfig — no server-side whitelist.
+ * Other keys in the existing config are preserved (merge, not replace).
+ * Config-only updates are allowed on PUBLISHED playbooks per
+ * /api/playbooks/[playbookId]/route.ts (isConfigOnlyUpdate exemption).
+ */
+async function handleUpdatePlaybookConfig(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  if (!playbookId) {
+    return { error: "playbook_id is required (read from entity context with type: 'playbook')" };
+  }
+
+  const updates = input.config_updates;
+  if (!updates || typeof updates !== "object" || Array.isArray(updates) || Object.keys(updates).length === 0) {
+    return {
+      error: "config_updates must be a non-empty object of PlaybookConfig keys to merge (e.g. { sessionCount: 5, durationMins: 6 }).",
+    };
+  }
+
+  const playbook = await prisma.playbook.findUnique({
+    where: { id: playbookId },
+    select: { id: true, name: true, config: true, status: true },
+  });
+  if (!playbook) {
+    return { error: `Playbook ${playbookId} not found.` };
+  }
+
+  const currentConfig = (playbook.config as Record<string, unknown> | null) || {};
+  const mergedConfig = { ...currentConfig, ...updates };
+
+  await prisma.playbook.update({
+    where: { id: playbookId },
+    data: { config: mergedConfig, updatedAt: new Date() },
+  });
+
+  const fields = Object.keys(updates);
+  console.log(`[admin-tools] Updated playbook "${playbook.name}" config. Fields: ${fields.join(", ")}. Reason: ${input.reason || "(not given)"}`);
+
+  return {
+    ok: true,
+    playbook_id: playbookId,
+    playbook_name: playbook.name,
+    updated_fields: updates,
+    message: `Updated ${fields.join(", ")} on ${playbook.name}. Tuning saved. Existing learners need re-prompting to pick up the change on calls already in flight.`,
   };
 }

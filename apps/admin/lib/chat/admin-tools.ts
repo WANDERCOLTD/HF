@@ -281,6 +281,30 @@ export const ADMIN_TOOLS: AITool[] = [
     },
   },
 
+  {
+    name: "update_playbook_config",
+    description:
+      "Update non-behaviour course settings on a playbook by merging values into Playbook.config. The playbook_id comes from the active entity context. Pass any keys from the PlaybookConfig surface in `config_updates` — they are merged into the existing config (other keys preserved). Common keys: sessionCount (integer, the 'session budget'), durationMins (integer minutes), emphasis ('breadth'|'balanced'|'depth'), lessonPlanMode ('structured'|'continuous'), lessonPlanModel ('direct_instruction'|'socratic'|'5e'|'spiral'|'mastery'|'project'), interactionPattern ('socratic'|'directive'|'advisory'|'coaching'|'companion'|'facilitation'|'reflective'|'open'|'conversational-guide'), teachingMode ('recall'|'comprehension'|'practice'|'syllabus'), audience ('primary'|'secondary'|'sixth-form'|'higher-ed'|'adult-professional'|'adult-casual'|'mixed'), welcomeMessage (string), courseContext (string), courseLearningOutcomes (string[]), physicalMaterials (string), subjectDiscipline (string), aiCanShareMaterials (boolean). For BEHAVIOR parameter changes (warmth, challenge, formality, etc.) use update_behavior_target instead.",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: {
+          type: "string",
+          description: "Playbook UUID from the active entity context (type: 'playbook').",
+        },
+        config_updates: {
+          type: "object",
+          description: "Key-value pairs merged into Playbook.config. Use camelCase keys from PlaybookConfig (see description). Example: { sessionCount: 5, durationMins: 6 }. Only the keys you set are touched; everything else is preserved.",
+        },
+        reason: {
+          type: "string",
+          description: "Short justification for the change (audit trail).",
+        },
+      },
+      required: ["playbook_id", "config_updates", "reason"],
+    },
+  },
+
   // ── System Diagnostics ──────────────────────────────────────────
 
   {
