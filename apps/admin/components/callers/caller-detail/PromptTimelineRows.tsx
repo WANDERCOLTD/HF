@@ -68,7 +68,10 @@ function TriggerIcon({ p, size = 13 }: { p: ComposedPrompt; size?: number }) {
   return <FileText size={size} className={cls} />;
 }
 
-/** Group prompts by triggerCallId. null group = bootstrap. */
+/** Group prompts by (triggerCallId, triggerType-when-null). null-call groups
+ *  also split on triggerType so a sim recompose followed by a tuner_fanout
+ *  apply each get their own labelled section — instead of being lumped into
+ *  one section labelled by whichever came first. */
 type Group = { callId: string | null; prompts: ComposedPrompt[] };
 
 function groupPrompts(prompts: ComposedPrompt[]): Group[] {
@@ -76,12 +79,14 @@ function groupPrompts(prompts: ComposedPrompt[]): Group[] {
     (a, b) => new Date(a.composedAt).getTime() - new Date(b.composedAt).getTime(),
   );
   const groups: Group[] = [];
-  let currentCallId: string | null | undefined = undefined;
+  let prevKey: string | undefined = undefined;
   for (const p of sorted) {
-    const cid = p.triggerCallId;
-    if (cid !== currentCallId) {
-      groups.push({ callId: cid, prompts: [p] });
-      currentCallId = cid;
+    // Group key: callId (when present) OR a synthetic "standalone:<type>" key
+    // so consecutive null-callId prompts of DIFFERENT triggerTypes split.
+    const key = p.triggerCallId ?? `standalone:${(p.triggerType || "—").toLowerCase()}`;
+    if (key !== prevKey) {
+      groups.push({ callId: p.triggerCallId, prompts: [p] });
+      prevKey = key;
     } else {
       groups[groups.length - 1].prompts.push(p);
     }
