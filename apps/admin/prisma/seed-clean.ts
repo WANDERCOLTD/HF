@@ -386,6 +386,33 @@ async function createInfrastructure() {
   });
   console.log(`   ✓ Admin user ready: eldar.gilad@gmail.com (SUPERADMIN)`);
 
+  // Partner test accounts (short-email aliases for easier login)
+  await prisma.user.upsert({
+    where: { email: "b@test.com" },
+    update: { passwordHash, role: "SUPERADMIN", isActive: true },
+    create: {
+      email: "b@test.com",
+      name: "B Test",
+      role: "SUPERADMIN",
+      isActive: true,
+      passwordHash,
+    },
+  });
+  console.log(`   ✓ Admin user ready: b@test.com (SUPERADMIN)`);
+
+  await prisma.user.upsert({
+    where: { email: "e@test.com" },
+    update: { passwordHash, role: "SUPERADMIN", isActive: true },
+    create: {
+      email: "e@test.com",
+      name: "E Test",
+      role: "SUPERADMIN",
+      isActive: true,
+      passwordHash,
+    },
+  });
+  console.log(`   ✓ Admin user ready: e@test.com (SUPERADMIN)`);
+
   // NOTE: Default domain and playbook creation removed
   // Use seed-domains.ts and BDD-based seeding for proper domain/playbook setup
   console.log("   ℹ️  Skipping default domain/playbook creation");
