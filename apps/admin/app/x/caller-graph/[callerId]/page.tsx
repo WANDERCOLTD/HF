@@ -246,7 +246,7 @@ export default function CallerGraphPage() {
         router.push(`/x/domains?id=${id}`);
         break;
       case "call":
-        router.push(`/x/callers/${callerId}?tab=journey`);
+        router.push(`/x/callers/${callerId}?tab=calls-prompts`);
         break;
       case "goal":
         router.push(`/x/callers/${callerId}?tab=what`);

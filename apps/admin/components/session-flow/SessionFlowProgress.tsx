@@ -15,7 +15,7 @@
  * resolved Session Flow plus per-stop progress derived from
  * OnboardingSession + Call rows + CallerAttribute records.
  *
- * @see SessionFlowTimeline.tsx
+ * @see SessionFlowEditor.tsx — course-facing writable variant
  * @see app/api/callers/[callerId]/session-flow-progress/route.ts
  */
 
@@ -108,7 +108,7 @@ export function SessionFlowProgress({ callerId }: SessionFlowProgressProps) {
 
   useEffect(() => {
     let cancelled = false;
-    // Standard fetch-on-mount pattern — see SessionFlowTimeline for matching note.
+    // Standard fetch-on-mount pattern.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);

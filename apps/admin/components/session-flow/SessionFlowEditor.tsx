@@ -1,16 +1,19 @@
 "use client";
 
 /**
- * Session Flow Editor — writable variant of the Timeline.
+ * Session Flow Editor — writable variant of the timeline.
  *
- * Same BEFORE / DURING / AFTER structure as SessionFlowTimeline (#223),
- * but each row that supports editing has an [Edit ▸] button that opens
- * a side drawer with a small form. Saves via PUT /api/courses/[courseId]/session-flow.
+ * BEFORE / DURING / AFTER structure; each editable row has an [Edit ▸]
+ * button that opens a side drawer with a small form. Saves via
+ * PUT /api/courses/[courseId]/session-flow.
  *
  * Drawers ship one at a time. Initial set: Sessions (course mode picker).
  * Subsequent commits add NPS picker, KC delivery mode, etc.
  *
- * @see SessionFlowTimeline.tsx
+ * Originally shared `SessionFlowTimeline.tsx` (#223) with `SessionFlowProgress`,
+ * but the shared component had no second consumer and was deleted in #374.
+ *
+ * @see SessionFlowProgress.tsx — caller-facing read-only variant
  * @see app/api/courses/[courseId]/session-flow/route.ts
  */
 
