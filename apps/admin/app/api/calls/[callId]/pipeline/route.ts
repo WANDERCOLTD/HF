@@ -26,7 +26,7 @@ import { runAggregateSpecs } from "@/lib/pipeline/aggregate-runner";
 import { aggregateCallerMemorySummary } from "@/lib/ops/memory-extract";
 import { runAdaptSpecs as runRuleBasedAdapt } from "@/lib/pipeline/adapt-runner";
 import { runEvidencePrefilterBatch } from "@/lib/pipeline/evidence-prefilter";
-import { shouldSkipForEvidenceFirst } from "@/lib/pipeline/evidence-gate";
+import { shouldSkipForEvidenceFirst, shouldSkipForZeroEvidence } from "@/lib/pipeline/evidence-gate";
 import { validateSpecDependencies } from "@/lib/pipeline/validate-dependencies";
 import { trackGoalProgress, applyAssessmentAdaptation } from "@/lib/goals/track-progress";
 import { evaluateCheckpoints } from "@/lib/assessment/checkpoint-evaluator";
@@ -1044,6 +1044,32 @@ async function runBatchedCallerAnalysis(
           else if (hasLearnerEvidence === false) shadowEvidenceAbsent++;
           else shadowEvidenceUnknown++;
 
+          // #611 Fix B — universal zero-evidence gate. Fires regardless of
+          // playbook ID, scheduler config, or evidence-first allowlist. The
+          // existing #566 Step 3 Boaz guard (below) only activates for
+          // evidence-first playbooks, leaving every other course writing
+          // unconditional zero-scores when the scorer found no learner
+          // evidence — which is the 47-param zero-storm bug from the Nico
+          // Grant evidence call.
+          //
+          // Rule: when BOTH `hasLearnerEvidence === false` AND
+          // `evidenceQuality === 0`, drop the row. The legacy null-sentinel
+          // path (either field is null) falls through unchanged — that's
+          // the back-compat shape for prompts that pre-date evidence-aware
+          // scoring, and we MUST NOT silently drop legacy 0-scores that
+          // were the correct measurement.
+          //
+          // See: docs/epic-100-chain-walk.md (Link 4 — CALL → SCORE).
+          if (shouldSkipForZeroEvidence(hasLearnerEvidence, evidenceQuality)) {
+            log.info("#611 universal zero-evidence gate: skipping score (no learner evidence + zero quality)", {
+              callId: call.id,
+              callerId,
+              parameterId,
+              score,
+            });
+            continue;
+          }
+
           // #566 Step 3 — Boaz guard. For evidence-first playbooks, drop
           // rows where the scorer judged the learner produced no evidence.
           // The score itself is logged for audit but not persisted.
@@ -1242,9 +1268,17 @@ async function runBatchedCallerAnalysis(
             },
           );
         }
+        // #611 Fix A — drop the `learning.moduleId ||` fallback. The AI's
+        // echoed moduleId is not trusted for DB writes (it has appeared as
+        // a display name like "Part 1: Familiar Topics" or a raw UUID in
+        // production calls, producing dual lo_mastery keys for the same LO).
+        // The host-side `moduleContext.moduleId` is the canonical slug —
+        // resolved from caller context BEFORE the prompt was composed —
+        // and is the only value safe to bake into mastery keys.
+        // See: docs/epic-100-chain-walk.md (Link 4 — CALL → SCORE).
         learningAssessment = {
           specSlug: moduleContext.specSlug,
-          moduleId: learning.moduleId || moduleContext.moduleId,
+          moduleId: moduleContext.moduleId,
           overallMastery,
           outcomes,
           masteryThreshold: moduleContext.masteryThreshold,
@@ -2600,6 +2634,17 @@ async function trackCurriculumAfterCall(
     const { specSlug, moduleId, overallMastery, outcomes, masteryThreshold, allModuleIds } = learningAssessment;
 
     try {
+      // #611 Fix A — resolve curriculumId for this specSlug + thread it
+      // through to `updateCurriculumProgress`. The loMastery write path
+      // then canonicalises `moduleId` to slug form before constructing
+      // the storage key, eliminating the dual-key bug (name-form +
+      // slug-form for the same LO). See docs/epic-100-chain-walk.md
+      // (Link 4) and lib/curriculum/track-progress.ts::updateCurriculumProgress.
+      const curriculumForSpec = await prisma.curriculum.findFirst({
+        where: { slug: specSlug },
+        select: { id: true },
+      });
+
       // Write mastery score for this module + per-LO outcomes.
       // `callId` threads through so `updateModuleMastery` can apply the
       // #547 idempotency guard — the canonical AGGREGATE-stage
@@ -2610,6 +2655,7 @@ async function trackCurriculumAfterCall(
         loMastery: Object.keys(outcomes).length > 0 ? { moduleId, outcomes } : undefined,
         lastAccessedAt: new Date(),
         callId,
+        curriculumId: curriculumForSpec?.id ?? null,
       });
       log.info(`Mastery written for ${specSlug}:${moduleId}`, { mastery: overallMastery, threshold: masteryThreshold, loCount: Object.keys(outcomes).length });
 

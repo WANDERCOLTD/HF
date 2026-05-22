@@ -93,19 +93,57 @@ export async function loadPriorCallFeedback(
 
   if (!priorCall) return EMPTY;
 
-  // 2. Scores from that prior call (joined to parameter name)
-  const scores = await prisma.callScore.findMany({
+  // 2. Scores from that prior call (joined to parameter name + parameterId)
+  const allScores = await prisma.callScore.findMany({
     where: { callId: priorCall.id },
     select: {
       score: true,
-      parameter: { select: { name: true } },
+      moduleId: true,
+      parameterId: true,
+      parameter: { select: { name: true, parameterId: true } },
     },
   });
+
+  // #611 Fix C — relevance filter for "weakest area" selection.
+  //
+  // The pre-#611 behaviour picked the lowest-scoring parameter across the
+  // FULL CallScore set, including coaching parameters (`action_commitment`,
+  // `goal_clarity`, …) that wandered into the AGGREGATE batch and scored 0
+  // in the zero-storm bug. That surfaced "your weakest area was
+  // action_commitment (0.0/9)" in the priorCallFeedback summary on an IELTS
+  // playbook — nonsense.
+  //
+  // Strategy (primary = category filter):
+  //   1. If the prior call has any `skill_*` parameters, restrict the
+  //      weakest-area pick to those (skill-domain relevance).
+  //   2. If `CallScore.moduleId` matches the current module on any of those
+  //      skill rows, prefer those (module-domain relevance).
+  //   3. Otherwise fall back to the full set (pure coaching playbooks have
+  //      no skill params; this keeps the legacy behaviour for them).
+  //
+  // Why NOT a strict `moduleId: moduleId` where-clause on the query:
+  // `CallScore.moduleId` is `String?` (nullable). A strict filter would
+  // silently drop legitimate null-moduleId rows. The post-filter approach
+  // surfaces both null and matching-moduleId rows for the relevance pick
+  // while keeping the full set for the overall-score average.
+  //
+  // See: docs/epic-100-chain-walk.md (Link 5 — SCORE → ADAPT)
+  //      gh issue view 611 (Symptom 3 — irrelevant param in priorCallFeedback)
+  const skillScores = allScores.filter((s) =>
+    (s.parameterId ?? s.parameter?.parameterId ?? "").startsWith("skill_"),
+  );
+  const moduleSkillScores = skillScores.filter((s) => s.moduleId === moduleId);
+  const relevanceCandidates =
+    moduleSkillScores.length > 0
+      ? moduleSkillScores
+      : skillScores.length > 0
+        ? skillScores
+        : allScores;
 
   const lastCallAt = priorCall.createdAt.toISOString();
   const relativeTime = formatRelativeTime(priorCall.createdAt, now ?? new Date());
 
-  if (scores.length === 0) {
+  if (allScores.length === 0) {
     return {
       hasFeedback: true,
       lastCallAt,
@@ -118,19 +156,21 @@ export async function loadPriorCallFeedback(
     };
   }
 
-  // Average overall score
-  const overallScore = scores.reduce((sum, s) => sum + (s.score ?? 0), 0) / scores.length;
+  // Average overall score — uses ALL rows (full prior-call summary).
+  const overallScore = allScores.reduce((sum, s) => sum + (s.score ?? 0), 0) / allScores.length;
 
-  // Weakest parameter — pick the lowest score; tie-break by name for determinism
-  const sortedByScore = [...scores].sort((a, b) => {
+  // Weakest parameter — pick from the relevance-filtered candidates so
+  // coaching params never surface as "weakest area" on a skill playbook.
+  // Tie-break by name for determinism.
+  const sortedByScore = [...relevanceCandidates].sort((a, b) => {
     const sa = a.score ?? 0;
     const sb = b.score ?? 0;
     if (sa !== sb) return sa - sb;
     return (a.parameter?.name ?? "").localeCompare(b.parameter?.name ?? "");
   });
   const weakest = sortedByScore[0];
-  const weakestParameterName = weakest.parameter?.name ?? null;
-  const weakestParameterScore = weakest.score ?? null;
+  const weakestParameterName = weakest?.parameter?.name ?? null;
+  const weakestParameterScore = weakest?.score ?? null;
 
   const summary = buildSummary({
     relativeTime,
