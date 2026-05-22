@@ -1,0 +1,58 @@
+description: "#606 — TUTOR_ONLY MCQs must not appear in learner PRACTICE QUESTIONS"
+
+# Story:  #606 — root-cause: tutor-training MCQs leaking into learner PRACTICE QUESTIONS section
+# Status: BEFORE (asserts the broken behaviour — TUTOR_ONLY rows in practiceQuestions — is detectable)
+# Flip:   when #606 merges, swap `flip-after-merge.tests` into `tests`.
+# See:    docs/epic-100-chain-walk.md (Link 3 — CURRICULUM → CALL)
+#         apps/admin/lib/prompt/composition/SectionDataLoader.ts::registerLoader("curriculumQuestions")
+#         apps/admin/lib/prompt/composition/transforms/teaching-content.ts (practiceQuestions filter)
+
+prompts:
+  - id: before
+    label: "Broken — TUTOR_ONLY MCQ appears in practiceQuestions"
+    raw: |
+      ## PRACTICE QUESTIONS (3)
+
+      1. A student answers a part 1 question with one sentence. What should the tutor do next?
+         A. Move to the next question
+         B. Ask a follow-up to elicit a fuller answer
+         C. Correct their grammar
+         [Answer: B]
+
+      2. What is your home town like?
+
+      3. Describe a typical day in your life.
+
+  - id: after
+    label: "Fixed — TUTOR_ONLY MCQ filtered at loader + transform"
+    raw: |
+      ## PRACTICE QUESTIONS (2)
+
+      1. What is your home town like?
+
+      2. Describe a typical day in your life.
+
+tests:
+  # BEFORE: assert the broken-prompt shape is detectable.
+  # The pre-#606 prompt contains a meta-pedagogy question targeting the tutor,
+  # not the learner. This is the leak the loader filter exists to prevent.
+  - description: "Before #606 lands — broken prompt contains tutor-targeted MCQ"
+    vars:
+      prompt: "{{prompts.before}}"
+    assert:
+      - type: javascript
+        value: |
+          output.includes("What should the tutor do next") ||
+          output.includes("[Answer:")
+
+flip-after-merge:
+  description: "Once #606 merges, the assertion below replaces the BEFORE assertion in `tests:`"
+  tests:
+    - description: "After #606 lands — practiceQuestions contains no tutor-pedagogy MCQs"
+      vars:
+        prompt: "{{prompts.after}}"
+      assert:
+        - type: javascript
+          value: |
+            !output.includes("What should the tutor do next") &&
+            !output.includes("[Answer:")

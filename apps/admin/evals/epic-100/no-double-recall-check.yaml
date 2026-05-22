@@ -1,0 +1,55 @@
+description: "#604 — preamble must not recite criticalRules before any teaching activity"
+
+# Story:  #604 — preamble criticalRules hardcoded — make archetype-aware
+# Status: BEFORE (asserts the broken behaviour — double recall check on returning callers — is detectable)
+# Flip:   when #604 merges, swap `flip-after-merge.tests` into `tests`.
+# See:    docs/epic-100-chain-walk.md (Link 3 — CURRICULUM → CALL)
+#         apps/admin/lib/prompt/composition/transforms/preamble.ts (hardcoded RETURNING_CALLER recital)
+
+prompts:
+  - id: before
+    label: "Broken — preamble opens with recall recital + criterion list"
+    raw: |
+      You are a tutor for IELTS Prep Lab.
+
+      CRITICAL RULES:
+      1. If RETURNING_CALLER: ALWAYS review previous learning before continuing.
+      2. NEVER skip the placement check.
+      3. Confirm the learner's stated band before asking any question.
+
+      Greeting: Hi Nico, welcome back. Before we continue, let's quickly review the
+      Part 1 criteria you've been working on: Fluency, Coherence, Lexical Resource,
+      Grammatical Range, and Pronunciation. Can you tell me where you scored 6 last
+      time?
+
+  - id: after
+    label: "Fixed — preamble is archetype-aware, opens with teaching action"
+    raw: |
+      You are a tutor for IELTS Prep Lab.
+
+      Greeting: Hi Nico, welcome back. Let's pick up where we left off — you were
+      working on giving fuller answers to Part 1 questions. Tell me about a place
+      you like to visit at the weekend.
+
+tests:
+  - description: "Before #604 lands — preamble opens with hardcoded criticalRules recital"
+    vars:
+      prompt: "{{prompts.before}}"
+    assert:
+      - type: javascript
+        value: |
+          output.includes("CRITICAL RULES") ||
+          output.includes("If RETURNING_CALLER") ||
+          (output.includes("Fluency") && output.includes("Lexical Resource"))
+
+flip-after-merge:
+  description: "Once #604 merges, the assertion below replaces the BEFORE assertion in `tests:`"
+  tests:
+    - description: "After #604 lands — preamble does not recite criticalRules verbatim"
+      vars:
+        prompt: "{{prompts.after}}"
+      assert:
+        - type: javascript
+          value: |
+            !output.includes("CRITICAL RULES") &&
+            !output.includes("If RETURNING_CALLER")

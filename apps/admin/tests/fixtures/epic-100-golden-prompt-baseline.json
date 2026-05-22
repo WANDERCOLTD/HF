@@ -1,0 +1,21 @@
+{
+  "_comment": "Golden-caller ComposedPrompt baseline — captures the CURRENT (broken) prompt for the canonical Nico Grant evidence case before any Epic 100 story merges. Each story PR captures its expected diff against this baseline.",
+  "_golden": {
+    "callerId": "f17d8616-3c31-4814-8de1-626fb42f16f6",
+    "callerName": "Nico Grant",
+    "playbookId": "ec4127a1-2097-4ad4-8f11-af5da46c679e",
+    "playbookName": "IELTS Prep Lab",
+    "composedPromptId": "8acde2a1-b1b7-4767-aede-c6277f5cb68e",
+    "callId": "010312de-134e-4d0c-bcdd-c91924ea2d93"
+  },
+  "_howToReSnap": "From the VM with DATABASE_URL pointed at DEV: cd apps/admin && npx tsx scripts/proof/epic-100/sim-canonical-call.ts --snap > tests/fixtures/epic-100-golden-prompt-baseline.json",
+  "_status": "PLACEHOLDER — replace with live JSON capture on first VM run. See scripts/proof/epic-100/sim-canonical-call.ts.",
+  "_documentedSymptoms": [
+    "RC1 — practiceQuestions section contains tutor-training MCQs (TUTOR_ONLY leak)",
+    "RC6a — modules section contains TWO lo_mastery values for the same LO (name + slug form)",
+    "RC6b — priorCallFeedback.summary names 'action_commitment' (coaching param) as weakest area",
+    "RC4 — preamble opens with criticalRules recital before any teaching activity"
+  ],
+  "capturedAt": "2026-05-22T00:00:00.000Z",
+  "composedPromptJson": null
+}

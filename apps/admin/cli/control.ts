@@ -548,27 +548,30 @@ program
 
 program
   .command('check')
-  .description('Run all checks (lint + type check + tests + FK consistency)')
+  .description('Run all checks (lint + type check + tests + FK consistency + Epic 100 audit)')
   .action(async () => {
     log('\n🔍 Running All Checks\n', colors.bright);
 
-    info('1/5: Linting...');
+    info('1/6: Linting...');
     exec('npm run lint');
 
-    info('2/5: Type checking...');
+    info('2/6: Type checking...');
     exec('npx tsc --noEmit');
 
-    info('3/5: Unit tests...');
+    info('3/6: Unit tests...');
     exec('npm run test');
 
-    info('4/5: Integration tests...');
+    info('4/6: Integration tests...');
     await runTestsWithServer(
       'npm run test:integration',
       'Running integration tests...'
     );
 
-    info('5/5: FK consistency (slug-scope #407 guard)...');
+    info('5/6: FK consistency (slug-scope #407 guard)...');
     exec('npx tsx scripts/check-fk-consistency.ts');
+
+    info('6/6: Epic 100 adaptive-loop audit (#600 / #631)...');
+    exec('npx tsx scripts/audit-epic-100.ts');
 
     success('All checks passed!');
   });

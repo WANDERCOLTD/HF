@@ -1,0 +1,63 @@
+description: "#604 — criticalRules must vary by playbook teachingMode/archetype"
+
+# Story:  #604 — preamble criticalRules hardcoded — make archetype-aware
+# Status: BEFORE (asserts the broken behaviour — identical rules across archetypes — is detectable)
+# Flip:   when #604 merges, swap `flip-after-merge.tests` into `tests`.
+# See:    docs/epic-100-chain-walk.md (Link 3 — CURRICULUM → CALL)
+#         apps/admin/lib/prompt/composition/transforms/preamble.ts (hardcoded rule set)
+
+prompts:
+  - id: before-recall-archetype
+    label: "Broken — recall archetype receives generic criticalRules"
+    raw: |
+      ## TEACHING MODE: recall
+      CRITICAL RULES:
+      1. If RETURNING_CALLER: ALWAYS review previous learning before continuing.
+      2. NEVER skip the placement check.
+      3. Confirm the learner's stated band before asking any question.
+
+  - id: before-practice-archetype
+    label: "Broken — practice archetype receives the SAME generic criticalRules"
+    raw: |
+      ## TEACHING MODE: practice
+      CRITICAL RULES:
+      1. If RETURNING_CALLER: ALWAYS review previous learning before continuing.
+      2. NEVER skip the placement check.
+      3. Confirm the learner's stated band before asking any question.
+
+  - id: after-recall-archetype
+    label: "Fixed — recall archetype rules"
+    raw: |
+      ## TEACHING MODE: recall
+      Rules: prioritise frequent low-stakes retrieval; vary the cue.
+
+  - id: after-practice-archetype
+    label: "Fixed — practice archetype rules differ from recall"
+    raw: |
+      ## TEACHING MODE: practice
+      Rules: alternate between deliberate practice and feedback. Keep one objective per round.
+
+tests:
+  - description: "Before #604 — recall and practice archetypes share identical criticalRules"
+    vars:
+      promptRecall: "{{prompts.before-recall-archetype}}"
+      promptPractice: "{{prompts.before-practice-archetype}}"
+    assert:
+      - type: javascript
+        value: |
+          // Strip the leading "## TEACHING MODE: ..." line and compare the rest.
+          const strip = (s) => s.split("\n").slice(1).join("\n").trim();
+          return strip(vars.promptRecall) === strip(vars.promptPractice);
+
+flip-after-merge:
+  description: "Once #604 merges, the assertion below replaces the BEFORE assertion in `tests:`"
+  tests:
+    - description: "After #604 — different archetypes produce different criticalRules"
+      vars:
+        promptRecall: "{{prompts.after-recall-archetype}}"
+        promptPractice: "{{prompts.after-practice-archetype}}"
+      assert:
+        - type: javascript
+          value: |
+            const strip = (s) => s.split("\n").slice(1).join("\n").trim();
+            return strip(vars.promptRecall) !== strip(vars.promptPractice);

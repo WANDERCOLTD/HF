@@ -1,0 +1,93 @@
+{
+  "generatedAt": "2026-05-22T22:12:56.733Z",
+  "counters": [
+    {
+      "key": "duplicatePlaybookSubjects",
+      "story": "#607",
+      "count": 0,
+      "target": 0,
+      "status": "pass",
+      "description": "PlaybookSubject rows where (playbookId, subjectId) has duplicates — same subject linked twice to same playbook."
+    },
+    {
+      "key": "recallQuizOnInstructionCategories",
+      "story": "#605",
+      "count": 0,
+      "target": 0,
+      "status": "pass",
+      "description": "ContentAssertion rows whose category is an INSTRUCTION_CATEGORY but whose teachMethod is 'recall_quiz' (should be 'tutor_instruction')."
+    },
+    {
+      "key": "tutorOnlyQuestionsRenderedToLearner",
+      "story": "#606",
+      "count": 611,
+      "target": 0,
+      "status": "fail",
+      "description": "ContentQuestion rows with assessmentUse='TUTOR_ONLY' that would be returned by curriculumQuestions loader pre-filter. Drops to 0 once #606 loader filter merges."
+    },
+    {
+      "key": "dualLoMasteryKeysSameLO",
+      "story": "#611",
+      "count": 6,
+      "target": 0,
+      "status": "fail",
+      "description": "CallerAttribute rows where two lo_mastery:* keys for the same caller resolve to the same LO under different module-token forms (name vs slug)."
+    },
+    {
+      "key": "callScoreZeroStorms",
+      "story": "#611",
+      "count": 5,
+      "target": 0,
+      "status": "fail",
+      "description": "Calls with >40 CallScore rows where every row was scored exactly 0 — symptom of evidence-gate missing on AGGREGATE writes."
+    },
+    {
+      "key": "orphanLearningObjectives",
+      "story": "#615",
+      "count": 0,
+      "target": 0,
+      "status": "pass",
+      "description": "LearningObjective rows whose moduleId references a CurriculumModule that no longer exists."
+    },
+    {
+      "key": "danglingContentAssertionLOs",
+      "story": "#615",
+      "count": 0,
+      "target": 0,
+      "status": "pass",
+      "description": "ContentAssertion rows with non-null learningObjectiveId where the LearningObjective no longer exists (soft-FK)."
+    },
+    {
+      "key": "advisorInInputsSnapshot",
+      "story": "#608",
+      "count": 28,
+      "target": 0,
+      "status": "fail",
+      "description": "Active ComposedPrompt rows whose inputs.specUsed JSON contains 'spec-advisor-001' (SYSTEM-scope IDENTITY leaking into playbook-scope prompts)."
+    },
+    {
+      "key": "callerAttributeOldKeyFormCount",
+      "story": "#614",
+      "count": 10,
+      "target": 0,
+      "status": "fail",
+      "description": "CallerAttribute rows whose lo_mastery key contains uppercase letters or spaces in the module token — old name-form, awaiting migration to slug-form."
+    },
+    {
+      "key": "playbooksWithoutTeachingMode",
+      "story": "#604",
+      "count": 1,
+      "target": 0,
+      "status": "fail",
+      "description": "Playbook rows with no teachingMode set — #604's archetype-aware criticalRules needs this populated to take effect."
+    },
+    {
+      "key": "hardcodedRulesRemainingInTransforms",
+      "story": "#610",
+      "count": 1,
+      "target": 0,
+      "status": "fail",
+      "description": "Count of files under lib/prompt/composition/transforms/ that still contain hardcoded behavioural strings (e.g. 'ALWAYS review', 'If RETURNING_CALLER'). Static grep, not a DB query."
+    }
+  ]
+}

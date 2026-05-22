@@ -1,0 +1,48 @@
+description: "#608 + TUT-001 — tutor confirms (does not overwrite) when caller memory contradicts new caller statement"
+
+# Story:  #608 — ADVISOR-001 leak in inputs snapshot + new TUT-001 confirmation rule
+# Status: BEFORE (asserts the broken behaviour — silent overwrite — is detectable)
+# Flip:   when #608 + the TUT-001 confirmation rule merge, swap `flip-after-merge.tests` into `tests`.
+# See:    docs/epic-100-chain-walk.md (Link 6 — ADAPT → COMPOSE)
+#         apps/admin/lib/prompt/composition/transforms/identity.ts:50 (ADVISOR-001 leak)
+
+prompts:
+  - id: before
+    label: "Broken — tutor silently overwrites caller memory"
+    raw: |
+      Tutor: Last time you told me your weakest area was Pronunciation. Today we'll
+      work on Pronunciation.
+      Caller: Actually I think it's Fluency now.
+      Tutor: OK, let's move on to your first practice question.
+
+  - id: after
+    label: "Fixed — tutor confirms the contradiction before updating"
+    raw: |
+      Tutor: Last time you told me your weakest area was Pronunciation. Today we'll
+      work on Pronunciation.
+      Caller: Actually I think it's Fluency now.
+      Tutor: Got it — would you like to switch focus to Fluency for today, or keep
+      Pronunciation as the main thread and revisit Fluency next time?
+
+tests:
+  - description: "Before #608 lands — tutor moves on without confirming the contradiction"
+    vars:
+      prompt: "{{prompts.before}}"
+    assert:
+      - type: javascript
+        value: |
+          output.includes("let's move on") ||
+          (!output.includes("would you like") && !output.includes("confirm"))
+
+flip-after-merge:
+  description: "Once #608 + TUT-001 rule merge, the assertion below replaces the BEFORE assertion in `tests:`"
+  tests:
+    - description: "After #608 + TUT-001 — tutor explicitly confirms before updating memory"
+      vars:
+        prompt: "{{prompts.after}}"
+      assert:
+        - type: javascript
+          value: |
+            output.includes("would you like") ||
+            output.includes("switch focus") ||
+            output.includes("confirm")
