@@ -69,23 +69,49 @@ interface CounterResult {
 /* ---------------------------------------------------------------------- */
 
 const counters: CounterDefinition[] = [
-  /* #607 — duplicate PlaybookSubject from quick-launch/analyze + create_course */
+  /* #607 — duplicate PlaybookSubject from quick-launch/analyze + create_course
+   *
+   * Pre-#607 this counter measured (playbookId, subjectId) pair-duplicates,
+   * which the DB schema's `@@unique([playbookId, subjectId])` already prevents
+   * (so the counter could never be > 0 and never detected #607's actual shape:
+   * two *different* subjects on the same playbook — a domain-level subject
+   * left over from quick-launch/analyze + the course-scoped subject from
+   * create_course). Now measures the real symptom: playbooks where a
+   * course-scoped subject coexists with a non-course-scoped one. The
+   * course-scoped pattern is `{domain.slug}-{slugified-playbook-name}-{...}`
+   * — any PlaybookSubject whose subject.slug doesn't start with that prefix
+   * but coexists with one that does is the #607 displacement target.
+   */
   {
     key: "duplicatePlaybookSubjects",
     story: "#607",
     kind: "invariant",
     target: 0,
     description:
-      "PlaybookSubject rows where (playbookId, subjectId) has duplicates — same subject linked twice to same playbook.",
+      "Playbooks where a course-scoped Subject AND a non-course-scoped Subject are both linked via PlaybookSubject — #607 displacement target. The wizard's unlinkNonPrimaryPlaybookSubjects guard drives this to 0 for every new course; pre-existing duplicates need a one-off cleanup.",
     query: async () => {
       const rows = await prisma.$queryRaw<Array<{ count: bigint }>>`
-        SELECT COUNT(*)::bigint AS count
-        FROM (
-          SELECT "playbookId", "subjectId"
-          FROM "PlaybookSubject"
-          GROUP BY "playbookId", "subjectId"
-          HAVING COUNT(*) > 1
-        ) AS dups
+        SELECT COUNT(*)::bigint AS count FROM (
+          WITH ps_classified AS (
+            SELECT
+              pb.id AS playbook_id,
+              -- "Course-scoped" = subject slug starts with "{domain.slug}-{slug(playbook.name)}-"
+              -- regexp_replace mirrors slugify() — lowercased, non-alnum → '-'.
+              CASE
+                WHEN s.slug LIKE d.slug || '-' || regexp_replace(lower(pb.name), '[^a-z0-9]+', '-', 'g') || '-%'
+                  THEN 'course-scoped'
+                ELSE 'other'
+              END AS scope
+            FROM "PlaybookSubject" ps
+            JOIN "Playbook" pb ON pb.id = ps."playbookId"
+            JOIN "Subject"  s  ON s.id  = ps."subjectId"
+            JOIN "Domain"   d  ON d.id  = pb."domainId"
+          )
+          SELECT playbook_id
+          FROM ps_classified
+          GROUP BY playbook_id
+          HAVING bool_or(scope = 'course-scoped') AND bool_or(scope = 'other')
+        ) AS mixed_scope_playbooks
       `;
       return Number(rows[0]?.count ?? 0);
     },

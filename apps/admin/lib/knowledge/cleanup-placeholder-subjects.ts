@@ -94,3 +94,69 @@ export async function removePlaceholderPlaybookSubjects(
 
   return removed;
 }
+
+/**
+ * #607 — Enforce "one primary subject per playbook" by unlinking every
+ * `PlaybookSubject` row whose `subjectId !== keepSubjectId`.
+ *
+ * Two creation paths attach subjects to a playbook with no shared knowledge:
+ *   1. `quick-launch/analyze/route.ts` creates a domain-level Subject with a
+ *      bare slug (e.g. `esol`) and links it to the draft playbook.
+ *   2. `wizard-tool-executor.create_course` then creates a course-scoped
+ *      Subject (e.g. `abacus-academy-pw-ielts-prep-lab-ielts-speaking-practice`)
+ *      and ALSO links it.
+ * The DB only enforces `@@unique([playbookId, subjectId])` so two different
+ * subjects on the same playbook slip past — producing duplicate CONTENT
+ * AUTHORITY sections in the composed prompt (#600 RC4 / IELTS Prep Lab).
+ *
+ * Unlinking the join row is SAFE:
+ *   - `PlaybookSubject.subjectId` has `onDelete: Cascade` from the FK on the
+ *     join row's perspective; deleting the join does NOT delete the Subject.
+ *   - Subject stays available to its other domains/playbooks.
+ *   - There is no `CallScore.subjectId` or `CallerAttribute.subjectId` column
+ *     (verified against schema 2026-05-23) — no FK orphans to worry about.
+ *     CallerAttribute keys may textually reference a subject slug; that's a
+ *     post-call mastery key and is unaffected by the join unlink.
+ *
+ * Returns the count of join rows removed plus the displaced subjects so the
+ * caller can surface them in wizard telemetry.
+ */
+export async function unlinkNonPrimaryPlaybookSubjects(
+  playbookId: string,
+  keepSubjectId: string,
+): Promise<{ removed: number; displaced: Array<{ subjectId: string; subjectName: string; subjectSlug: string }> }> {
+  const candidates = await prisma.playbookSubject.findMany({
+    where: { playbookId, NOT: { subjectId: keepSubjectId } },
+    select: {
+      subjectId: true,
+      subject: { select: { id: true, name: true, slug: true } },
+    },
+  });
+
+  if (candidates.length === 0) {
+    return { removed: 0, displaced: [] };
+  }
+
+  const displaced = candidates.map((ps) => ({
+    subjectId: ps.subjectId,
+    subjectName: ps.subject.name,
+    subjectSlug: ps.subject.slug,
+  }));
+
+  // Audit log — record what was displaced so a wizard run that fixes a
+  // pre-existing duplicate can be traced back to the displaced subject.
+  for (const d of displaced) {
+    console.log(
+      `[unlink-non-primary] playbook ${playbookId}: unlinking PlaybookSubject for "${d.subjectName}" (${d.subjectSlug}, ${d.subjectId}) — keeping primary ${keepSubjectId}`,
+    );
+  }
+
+  const result = await prisma.playbookSubject.deleteMany({
+    where: {
+      playbookId,
+      subjectId: { in: candidates.map((c) => c.subjectId) },
+    },
+  });
+
+  return { removed: result.count, displaced };
+}
