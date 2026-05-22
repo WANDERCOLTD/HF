@@ -23,7 +23,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { ChevronDown, ChevronRight, Star, Circle, Activity, GitCompare } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, Circle, Activity, GitCompare, FileText } from "lucide-react";
 import { computeDiff, compactDiffEntries } from "./PromptsSection";
 import type { Call, CallScore, ComposedPrompt } from "./types";
 
@@ -626,9 +626,17 @@ export function PromptTimelineRows({
                     </div>
                   )}
 
-                  {/* PROMPT ROW */}
+                  {/* PROMPT ROW — entire head click-toggles the body.
+                      Distinct from diff rows via FileText icon + accent-primary tint. */}
                   <div className={`ptr-row${isActive ? " ptr-row--active" : ""}`}>
-                    <div className="ptr-row-head">
+                    <button
+                      type="button"
+                      className="ptr-row-head"
+                      onClick={() => toggle(expandedPrompt, setExpandedPrompt, p.id)}
+                      aria-expanded={isPromptOpen}
+                      title={isPromptOpen ? "Hide prompt body" : "Show prompt body"}
+                    >
+                      <FileText size={13} className="ptr-row-icon" />
                       <span className="ptr-row-marker" title={isActive ? "Active — drives the next call" : "Superseded"}>
                         {isActive ? <Star size={14} className="ptr-star" /> : <Circle size={10} className="ptr-circle" />}
                       </span>
@@ -637,18 +645,18 @@ export function PromptTimelineRows({
                         {triggerLabel(p)}
                       </span>
                       <span className="ptr-row-time">{formatDate(p.composedAt)}</span>
-                      <div className="ptr-row-actions">
+                      {!isPromptOpen && p.prompt && (
+                        <span className="ptr-row-preview" title={p.prompt.slice(0, 200)}>
+                          {p.prompt.slice(0, 80).replace(/\s+/g, " ")}
+                          {p.prompt.length > 80 ? "…" : ""}
+                        </span>
+                      )}
+                      <span className="ptr-row-actions" onClick={(e) => e.stopPropagation()}>
                         <button
-                          className={`ptr-row-action${isPromptOpen ? " ptr-row-action--open" : ""}`}
-                          onClick={() => toggle(expandedPrompt, setExpandedPrompt, p.id)}
-                          title="Show prompt body"
-                        >
-                          {isPromptOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                          prompt
-                        </button>
-                        <button
+                          type="button"
                           className={`ptr-row-action${isEvalOpen ? " ptr-row-action--open" : ""}${ev ? " ptr-row-action--has-eval" : ""}`}
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             if (ev) {
                               toggle(expandedEval, setExpandedEval, p.id);
                             } else if (!evLoading) {
@@ -660,8 +668,9 @@ export function PromptTimelineRows({
                         >
                           {evLoading ? "evaluating…" : ev ? (isEvalOpen ? "▾ eval" : "▸ eval") : "eval"}
                         </button>
-                      </div>
-                    </div>
+                      </span>
+                      {isPromptOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    </button>
 
                     {/* Expanded — prompt body */}
                     {isPromptOpen && (
