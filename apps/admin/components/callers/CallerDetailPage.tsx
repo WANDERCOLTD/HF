@@ -26,7 +26,7 @@ import { SurveySection } from "./caller-detail/SurveySection";
 import { ScoresSection, LearningSection, AssessmentTargetsCard, TopicsCoveredSection, ExamReadinessSection, TopLevelAgentBehaviorSection, PlanProgressSection, ModuleProgressView } from "./caller-detail/ProgressTab";
 import { LearningTrajectoryCard } from "./caller-detail/cards/LearningTrajectoryCard";
 import { ArtifactsSection } from "./caller-detail/ArtifactsTab";
-import { UnifiedPromptSection } from "./caller-detail/PromptsSection";
+import { PromptTimelineRows } from "./caller-detail/PromptTimelineRows";
 import { CallsPromptsTab, type BulkActions } from "./caller-detail/CallsPromptsTab";
 import { PromptTunerSidebar } from "./caller-detail/PromptTunerSidebar";
 import { UpliftTab } from "./caller-detail/UpliftTab";
@@ -1065,7 +1065,8 @@ export default function CallerDetailPage() {
         />
       )}
 
-      {/* #641: Tune is its own tab now — full-width prompt preview + tuner. */}
+      {/* #641 + #642: Tune tab — single-column row timeline with prompt rows
+          interleaved with diff rows, followed by the tuner sliders. */}
       {activeSection === "tune" && (
         <div className="cdp-tune-tab">
           {composedPrompts.length === 0 ? (
@@ -1078,13 +1079,12 @@ export default function CallerDetailPage() {
             </div>
           ) : (
             <>
-              <UnifiedPromptSection
+              <PromptTimelineRows
                 prompts={composedPrompts}
+                calls={(data.calls ?? []) as never}
                 loading={promptsLoading}
                 onRefresh={fetchPrompts}
                 callerId={callerId}
-                appliedChanges={appliedChanges}
-                onDismissApplied={() => setAppliedChanges(null)}
               />
               <div className="cdp-tune-tab-tuner">
                 <PromptTunerSidebar

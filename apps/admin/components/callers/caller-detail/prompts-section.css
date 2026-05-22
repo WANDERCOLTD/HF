@@ -707,6 +707,280 @@
   max-width: 320px;
 }
 
+/* #642 — Prompt Timeline Rows view (replaces flat navigator on Tune tab) */
+.ptr-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.ptr-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+}
+.ptr-toolbar-counts {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.ptr-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ptr-group-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-default);
+  margin-top: 4px;
+}
+.ptr-group-title {
+  flex-shrink: 0;
+}
+.ptr-group-meta {
+  font-weight: 400;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-placeholder);
+}
+.ptr-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* #642 — Prompt diff row (sits between prompt rows) */
+.ptr-diff-row {
+  margin-left: 36px;
+  border-left: 2px dashed color-mix(in srgb, var(--text-muted) 30%, transparent);
+  padding-left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ptr-diff-row-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  width: fit-content;
+}
+.ptr-diff-row-head:hover {
+  color: var(--text-primary);
+}
+.ptr-diff-row-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ptr-diff-row-kind {
+  font-size: 10px;
+  font-style: italic;
+  color: var(--text-placeholder);
+}
+.ptr-diff-row-body {
+  padding: 6px 12px 10px 0;
+}
+.ptr-row {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-primary);
+  margin-left: 24px;
+}
+.ptr-row--active {
+  border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--accent-primary) 4%, var(--surface-primary));
+}
+.ptr-row-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  flex-wrap: wrap;
+}
+.ptr-row-marker {
+  display: inline-flex;
+  align-items: center;
+}
+.ptr-star {
+  color: var(--accent-primary);
+}
+.ptr-circle {
+  color: var(--text-placeholder);
+}
+.ptr-row-num {
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 36px;
+}
+.ptr-row-time {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.ptr-diff-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 8%, transparent);
+}
+.ptr-diff-chip--none {
+  color: var(--text-placeholder);
+  font-style: italic;
+}
+.ptr-diff-chip-added {
+  color: var(--status-success-text);
+  font-weight: 600;
+}
+.ptr-diff-chip-removed {
+  color: var(--status-error-text);
+  font-weight: 600;
+}
+.ptr-diff-chip-vs {
+  color: var(--text-muted);
+}
+.ptr-row-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 6px;
+}
+.ptr-row-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.ptr-row-action:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+.ptr-row-action--open {
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  color: var(--accent-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}
+.ptr-row-action--has-eval::before {
+  content: "★";
+  margin-right: 2px;
+  color: var(--status-success-text);
+}
+.ptr-row-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.ptr-row-body {
+  padding: 8px 16px 14px 16px;
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ptr-body-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+.ptr-prompt-text {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--surface-secondary);
+  padding: 12px;
+  border-radius: 6px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+.ptr-diff-caption {
+  margin-bottom: 4px;
+}
+.ptr-eval-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ptr-eval-score {
+  font-family: ui-monospace, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.ptr-eval-dims {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+}
+.ptr-eval-dim {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--surface-secondary);
+  font-size: 11px;
+}
+.ptr-eval-dim-name {
+  flex: 1;
+}
+.ptr-eval-dim-score {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+}
+.ptr-eval-dim-verdict {
+  text-transform: uppercase;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.ptr-eval-dim--strong .ptr-eval-dim-verdict { color: var(--status-success-text); }
+.ptr-eval-dim--weak .ptr-eval-dim-verdict { color: var(--status-error-text); }
+.ptr-eval-improvements ul {
+  margin: 6px 0 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--text-secondary, var(--text-muted));
+}
+.ptr-eval-improvements li {
+  margin-bottom: 6px;
+}
+.ptr-eval-link {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
 /* #642 — Compact diff separator chip */
 .ps-diff-separator {
   font-family: ui-monospace, monospace;
