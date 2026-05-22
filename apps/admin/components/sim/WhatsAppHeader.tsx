@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowLeft, PhoneOff, FolderOpen, Mic, Settings, BarChart3, Layers } from 'lucide-react';
+import { EditableTitle } from '@/components/shared/EditableTitle';
 
 interface WhatsAppHeaderProps {
   title: string;
@@ -9,6 +10,14 @@ interface WhatsAppHeaderProps {
   onEndCall?: () => void;
   onMediaLibrary?: () => void;
   onAvatarClick?: () => void;
+  /**
+   * If provided, the title becomes inline-editable (pencil on hover). The
+   * click target is the title text only — clicking the avatar still fires
+   * `onAvatarClick` (navigation). Set `titleEditDisabled` to suppress
+   * editing during an active call.
+   */
+  onTitleEdit?: (next: string) => Promise<void>;
+  titleEditDisabled?: boolean;
   onVoiceToggle?: () => void;
   onAdminPanel?: () => void;
   onProgressPanel?: () => void;
@@ -21,7 +30,7 @@ interface WhatsAppHeaderProps {
   avatarColor?: string;
 }
 
-export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibrary, onAvatarClick, onVoiceToggle, onAdminPanel, onProgressPanel, onPickModule, mediaLibraryActive, voiceActive, callActive, adminPanelActive, progressPanelActive, avatarColor = 'var(--text-muted)' }: WhatsAppHeaderProps) {
+export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibrary, onAvatarClick, onTitleEdit, titleEditDisabled, onVoiceToggle, onAdminPanel, onProgressPanel, onPickModule, mediaLibraryActive, voiceActive, callActive, adminPanelActive, progressPanelActive, avatarColor = 'var(--text-muted)' }: WhatsAppHeaderProps) {
   const initials = title.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
@@ -40,9 +49,36 @@ export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibr
       >
         {initials}
       </div>
-      <div style={{ flex: 1, minWidth: 0, cursor: onAvatarClick ? 'pointer' : undefined }} onClick={onAvatarClick}>
-        <div className="wa-header-title">{title}</div>
-        {subtitle && <div className="wa-header-subtitle">{subtitle}</div>}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {onTitleEdit ? (
+          <div className="wa-header-title">
+            <EditableTitle
+              as="h2"
+              value={title}
+              onSave={onTitleEdit}
+              disabled={titleEditDisabled}
+              variant="dark"
+              style={{ fontSize: 'inherit', fontWeight: 'inherit', maxWidth: '100%' }}
+            />
+          </div>
+        ) : (
+          <div
+            className="wa-header-title"
+            onClick={onAvatarClick}
+            style={{ cursor: onAvatarClick ? 'pointer' : undefined }}
+          >
+            {title}
+          </div>
+        )}
+        {subtitle && (
+          <div
+            className="wa-header-subtitle"
+            onClick={onAvatarClick}
+            style={{ cursor: onAvatarClick ? 'pointer' : undefined }}
+          >
+            {subtitle}
+          </div>
+        )}
       </div>
       {onMediaLibrary && (
         <button

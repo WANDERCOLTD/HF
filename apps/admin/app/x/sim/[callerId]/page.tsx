@@ -220,6 +220,7 @@ export default function SimConversationPage() {
         onPickModule={modulesAuthored && playbookId ? handlePickModule : undefined}
         requestedModuleId={requestedModuleId}
         journey={journey}
+        onNameChange={(next) => setCaller((prev) => (prev ? { ...prev, name: next } : prev))}
       />
     </>
   );

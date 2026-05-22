@@ -804,6 +804,7 @@ export async function PATCH(
   try {
     const authResult = await requireEntityAccess("callers", "U");
     if (isEntityAuthError(authResult)) return authResult.error;
+    const { session } = authResult;
 
     const { callerId } = await params;
     const body = await req.json();
@@ -981,6 +982,21 @@ export async function PATCH(
         }
       }
     }
+
+    // Audit trail (non-blocking, non-throwing). Captures which fields the
+    // editor changed — PII-adjacent per GDPR plan. #618.
+    auditLog({
+      userId: session.user.id,
+      userEmail: session.user.email ?? undefined,
+      action: AuditAction.UPDATED_CALLER,
+      entityType: "Caller",
+      entityId: callerId,
+      metadata: {
+        fields: Object.keys(updateData),
+        domainSwitch: isDomainSwitch || undefined,
+        goalsCreated: goalsCreated.length > 0 ? goalsCreated.length : undefined,
+      },
+    });
 
     return NextResponse.json({
       ok: true,

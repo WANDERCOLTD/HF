@@ -70,6 +70,12 @@ export interface SimChatProps {
   requestedModuleId?: string;
   /** Journey chat integration — items rendered before call history */
   journey?: UseJourneyChatResult;
+  /**
+   * Notifies the parent when the caller has been renamed inline from the SIM
+   * header. Parent should update its own caller state so any other surfaces
+   * (e.g. the page-level breadcrumb) reflect the new name. #618.
+   */
+  onNameChange?: (next: string) => void;
 }
 
 const AVATAR_COLORS = [
@@ -143,6 +149,7 @@ export function SimChat({
   onPickModule,
   requestedModuleId,
   journey,
+  onNameChange,
 }: SimChatProps) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -170,6 +177,10 @@ export function SimChat({
   const [showContentPicker, setShowContentPicker] = useState(false);
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
   const [isGreeting, setIsGreeting] = useState(false);
+  // #618: local override for inline rename from the SIM header. Falls back
+  // to the prop until the parent's own state catches up via `onNameChange`.
+  const [callerNameOverride, setCallerNameOverride] = useState<string | null>(null);
+  const displayName = callerNameOverride ?? callerName;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -495,7 +506,7 @@ export function SimChat({
           message,
           mode: 'CALL',
           entityContext: [
-            { type: 'caller', id: callerId, label: callerName },
+            { type: 'caller', id: callerId, label: displayName },
             ...(sessionGoal ? [{ type: 'demonstrationGoal', id: 'goal', label: sessionGoal }] : []),
           ],
           conversationHistory: history.slice(-10),
@@ -798,11 +809,28 @@ export function SimChat({
 
   const isEmbedded = mode === 'embedded';
 
+  // #618: inline rename from the SIM header. PATCHes the caller, updates
+  // local display state, and notifies the parent page so the breadcrumb
+  // and any other surfaces stay in sync without a refetch.
+  const handleRenameFromSim = useCallback(async (next: string) => {
+    const res = await fetch(`/api/callers/${callerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: next }),
+    });
+    const result = await res.json();
+    if (!res.ok || !result.ok) {
+      throw new Error(result.error || 'Rename failed');
+    }
+    setCallerNameOverride(next);
+    onNameChange?.(next);
+  }, [callerId, onNameChange]);
+
   const content = (
     <>
       {/* Header */}
       <WhatsAppHeader
-        title={callerName}
+        title={displayName}
         subtitle={(() => {
           // Breadcrumb: "Subject: Course" when both exist and differ, else best available
           if (subjectDiscipline && playbookName && subjectDiscipline !== playbookName) {
@@ -818,6 +846,8 @@ export function SimChat({
         }}
         onVoiceToggle={callPhase === 'active' ? voiceMode.toggle : undefined}
         onAvatarClick={() => router.push(`/x/callers/${callerId}`)}
+        onTitleEdit={handleRenameFromSim}
+        titleEditDisabled={callPhase === 'active'}
         mediaLibraryActive={showMediaLibrary}
         voiceActive={voiceMode.state !== 'off'}
         callActive={callPhase === 'active' && messages.length > 0}
@@ -1364,7 +1394,7 @@ export function SimChat({
         <SimProgressPanel
           onClose={() => setShowProgressPanel(false)}
           callerId={callerId}
-          callerName={callerName}
+          callerName={displayName}
         />
       )}
 
@@ -1379,7 +1409,7 @@ export function SimChat({
           error={error}
           newPromptId={newPromptId}
           callerId={callerId}
-          callerName={callerName}
+          callerName={displayName}
           domainName={domainName}
           playbookId={playbookId}
           playbookName={playbookName}
