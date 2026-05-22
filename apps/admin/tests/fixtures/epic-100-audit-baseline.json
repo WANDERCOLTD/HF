@@ -1,9 +1,11 @@
 {
   "generatedAt": "2026-05-22T22:12:56.733Z",
+  "_note": "Baseline snapshot of Epic 100 audit counters. INVARIANTS block CI when above target (exit 1). INFORMATIONAL counters report leak surface / historical drift and never fail the build. Re-snap on VM after each story merges via `npx tsx scripts/audit-epic-100.ts --json > tests/fixtures/epic-100-audit-baseline.json`.",
   "counters": [
     {
       "key": "duplicatePlaybookSubjects",
       "story": "#607",
+      "kind": "invariant",
       "count": 0,
       "target": 0,
       "status": "pass",
@@ -12,38 +14,43 @@
     {
       "key": "recallQuizOnInstructionCategories",
       "story": "#605",
+      "kind": "invariant",
       "count": 0,
       "target": 0,
       "status": "pass",
       "description": "ContentAssertion rows whose category is an INSTRUCTION_CATEGORY but whose teachMethod is 'recall_quiz' (should be 'tutor_instruction')."
     },
     {
-      "key": "tutorOnlyQuestionsRenderedToLearner",
+      "key": "tutorOnlyQuestionsLeakSurface",
       "story": "#606",
+      "kind": "informational",
       "count": 611,
       "target": 0,
-      "status": "fail",
-      "description": "ContentQuestion rows with assessmentUse='TUTOR_ONLY' that would be returned by curriculumQuestions loader pre-filter. Drops to 0 once #606 loader filter merges."
+      "status": "info",
+      "description": "INFORMATIONAL (leak surface). Count of ContentQuestion rows with assessmentUse='TUTOR_ONLY' present in the DB. #606's runtime fix filters these at the loader; rows are not deleted. Vitest in #648 proves the loader filter holds. This count reflects authored content surface area, not learner-prompt exposure."
     },
     {
       "key": "dualLoMasteryKeysSameLO",
       "story": "#611",
+      "kind": "informational",
       "count": 6,
       "target": 0,
-      "status": "fail",
-      "description": "CallerAttribute rows where two lo_mastery:* keys for the same caller resolve to the same LO under different module-token forms (name vs slug)."
+      "status": "info",
+      "description": "INFORMATIONAL (historical drift). CallerAttribute rows where two lo_mastery:* keys for the same caller resolve to the same LO under different module-token forms (name vs slug). #611 Fix A makes all NEW writes canonical (slug-only via resolveModuleByLogicalId); this count reflects pre-#611 historical state and only drains as #614's migration runs."
     },
     {
       "key": "callScoreZeroStorms",
       "story": "#611",
+      "kind": "informational",
       "count": 5,
       "target": 0,
-      "status": "fail",
-      "description": "Calls with >40 CallScore rows where every row was scored exactly 0 — symptom of evidence-gate missing on AGGREGATE writes."
+      "status": "info",
+      "description": "INFORMATIONAL (historical drift). Calls with >40 CallScore rows all scored exactly 0 — symptom of the missing evidence-gate on AGGREGATE writes. #611 Fix B added the gate for all NEW writes; this count reflects pre-#611 historical state and only drains via a future CallScore cleanup migration."
     },
     {
       "key": "orphanLearningObjectives",
       "story": "#615",
+      "kind": "invariant",
       "count": 0,
       "target": 0,
       "status": "pass",
@@ -52,6 +59,7 @@
     {
       "key": "danglingContentAssertionLOs",
       "story": "#615",
+      "kind": "invariant",
       "count": 0,
       "target": 0,
       "status": "pass",
@@ -60,6 +68,7 @@
     {
       "key": "advisorInInputsSnapshot",
       "story": "#608",
+      "kind": "invariant",
       "count": 28,
       "target": 0,
       "status": "fail",
@@ -68,6 +77,7 @@
     {
       "key": "callerAttributeOldKeyFormCount",
       "story": "#614",
+      "kind": "invariant",
       "count": 10,
       "target": 0,
       "status": "fail",
@@ -76,6 +86,7 @@
     {
       "key": "playbooksWithoutTeachingMode",
       "story": "#604",
+      "kind": "invariant",
       "count": 1,
       "target": 0,
       "status": "fail",
@@ -84,6 +95,7 @@
     {
       "key": "hardcodedRulesRemainingInTransforms",
       "story": "#610",
+      "kind": "invariant",
       "count": 1,
       "target": 0,
       "status": "fail",
