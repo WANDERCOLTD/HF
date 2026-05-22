@@ -983,7 +983,10 @@ export default function CallerDetailPage() {
       </div>
 
       {/* Section Content */}
-      <div className="cdp-body">
+      {/* #635: widen the tuning panel when on Calls & Prompts so the prompt
+          preview / diff / eval are actually legible. The `--split` modifier
+          rebalances the two-column layout via CSS. */}
+      <div className={`cdp-body${tunerOpen && activeSection === "calls-prompts" ? " cdp-body--split" : ""}`}>
       <div className="cdp-content">
       {activeSection === "overview" && (
         <>

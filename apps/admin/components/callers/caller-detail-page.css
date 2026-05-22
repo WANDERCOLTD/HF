@@ -35,6 +35,17 @@
   flex-direction: column;
 }
 
+/* #635: on the Calls & Prompts tab with Tune ON, give the panel ~half the
+   width on wide screens so the prompt body and diff are readable. The call
+   cards on the left adapt to the remaining space (still wide enough for the
+   standard accordion). Below 1280px the panel falls back to the 420px lane
+   so we never crush the call cards on narrower laptops. */
+@media (min-width: 1280px) {
+  .cdp-body--split .cdp-tuning-panel {
+    width: clamp(560px, 48vw, 820px);
+  }
+}
+
 /* ── Collapsible prompt preview inside tuning panel ── */
 .cdp-prompt-collapse {
   border-bottom: 1px solid var(--border-default);
