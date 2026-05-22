@@ -29,11 +29,21 @@ import fs from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
 
+/**
+ * A counter is either an **invariant** the adaptive loop must hold (above
+ * target = exit non-zero, blocks CI), or **informational** — leak surface
+ * or historical drift that won't drop until a separate migration runs.
+ * Informational counters report their value but never fail the build.
+ */
+type CounterKind = "invariant" | "informational";
+
 interface CounterDefinition {
   /** Stable identifier — referenced by baseline JSON + story ACs. */
   key: string;
   /** Story number this counter belongs to. */
   story: string;
+  /** invariant = blocks CI when above target; informational = report-only. */
+  kind: CounterKind;
   /** Target value once the story merges (usually 0). */
   target: number;
   /** Human-friendly description for the report. */
@@ -45,10 +55,11 @@ interface CounterDefinition {
 interface CounterResult {
   key: string;
   story: string;
+  kind: CounterKind;
   count: number;
   target: number;
   description: string;
-  status: "pass" | "fail" | "skipped";
+  status: "pass" | "fail" | "info" | "skipped";
   error?: string;
 }
 
@@ -61,6 +72,7 @@ const counters: CounterDefinition[] = [
   {
     key: "duplicatePlaybookSubjects",
     story: "#607",
+    kind: "invariant",
     target: 0,
     description:
       "PlaybookSubject rows where (playbookId, subjectId) has duplicates — same subject linked twice to same playbook.",
@@ -82,6 +94,7 @@ const counters: CounterDefinition[] = [
   {
     key: "recallQuizOnInstructionCategories",
     story: "#605",
+    kind: "invariant",
     target: 0,
     description:
       "ContentAssertion rows whose category is an INSTRUCTION_CATEGORY but whose teachMethod is 'recall_quiz' (should be 'tutor_instruction').",
@@ -103,33 +116,29 @@ const counters: CounterDefinition[] = [
     },
   },
 
-  /* #606 — TUTOR_ONLY questions reachable via the curriculumQuestions loader */
+  /* #606 — TUTOR_ONLY questions present in the DB (leak SURFACE, not behaviour) */
   {
-    key: "tutorOnlyQuestionsRenderedToLearner",
+    key: "tutorOnlyQuestionsLeakSurface",
     story: "#606",
+    kind: "informational",
     target: 0,
     description:
-      "ContentQuestion rows with assessmentUse='TUTOR_ONLY' that would be returned by curriculumQuestions loader pre-filter. Drops to 0 once #606 loader filter merges.",
+      "INFORMATIONAL (leak surface). Count of ContentQuestion rows with assessmentUse='TUTOR_ONLY' present in the DB. #606's runtime fix filters these at the loader; rows are not deleted. Vitest in #648 proves the loader filter holds. This count reflects authored content surface area, not learner-prompt exposure.",
     query: async () => {
-      // After #606 ships, the loader excludes assessmentUse=TUTOR_ONLY.
-      // Pre-ship: this counts how many TUTOR_ONLY rows are reachable
-      // from any active playbook source (synthetic measure — exact value
-      // depends on environment; non-zero means leak surface exists).
       return prisma.contentQuestion.count({
-        where: {
-          assessmentUse: "TUTOR_ONLY",
-        },
+        where: { assessmentUse: "TUTOR_ONLY" },
       });
     },
   },
 
-  /* #611 Fix A — dual lo_mastery keys (name-form + slug-form) for same caller */
+  /* #611 Fix A — dual lo_mastery keys (historical drift; new writes use canonical resolver) */
   {
     key: "dualLoMasteryKeysSameLO",
     story: "#611",
+    kind: "informational",
     target: 0,
     description:
-      "CallerAttribute rows where two lo_mastery:* keys for the same caller resolve to the same LO under different module-token forms (name vs slug).",
+      "INFORMATIONAL (historical drift). CallerAttribute rows where two lo_mastery:* keys for the same caller resolve to the same LO under different module-token forms (name vs slug). #611 Fix A makes all NEW writes canonical (slug-only via resolveModuleByLogicalId); this count reflects pre-#611 historical state and only drains as #614's migration runs.",
     query: async () => {
       const rows = await prisma.$queryRaw<Array<{ count: bigint }>>`
         SELECT COUNT(*)::bigint AS count
@@ -147,13 +156,14 @@ const counters: CounterDefinition[] = [
     },
   },
 
-  /* #611 Fix B — zero-storm calls (>40 CallScore rows all scored 0 for one call) */
+  /* #611 Fix B — zero-storm calls (historical drift; new writes are evidence-gated) */
   {
     key: "callScoreZeroStorms",
     story: "#611",
+    kind: "informational",
     target: 0,
     description:
-      "Calls with >40 CallScore rows where every row was scored exactly 0 — symptom of evidence-gate missing on AGGREGATE writes.",
+      "INFORMATIONAL (historical drift). Calls with >40 CallScore rows all scored exactly 0 — symptom of the missing evidence-gate on AGGREGATE writes. #611 Fix B added the gate for all NEW writes; this count reflects pre-#611 historical state and only drains via a future CallScore cleanup migration.",
     query: async () => {
       const rows = await prisma.$queryRaw<Array<{ count: bigint }>>`
         SELECT COUNT(*)::bigint AS count
@@ -173,6 +183,7 @@ const counters: CounterDefinition[] = [
   {
     key: "orphanLearningObjectives",
     story: "#615",
+    kind: "invariant",
     target: 0,
     description:
       "LearningObjective rows whose moduleId references a CurriculumModule that no longer exists.",
@@ -191,6 +202,7 @@ const counters: CounterDefinition[] = [
   {
     key: "danglingContentAssertionLOs",
     story: "#615",
+    kind: "invariant",
     target: 0,
     description:
       "ContentAssertion rows with non-null learningObjectiveId where the LearningObjective no longer exists (soft-FK).",
@@ -210,6 +222,7 @@ const counters: CounterDefinition[] = [
   {
     key: "advisorInInputsSnapshot",
     story: "#608",
+    kind: "invariant",
     target: 0,
     description:
       "Active ComposedPrompt rows whose inputs.specUsed JSON contains 'spec-advisor-001' (SYSTEM-scope IDENTITY leaking into playbook-scope prompts).",
@@ -227,6 +240,7 @@ const counters: CounterDefinition[] = [
   {
     key: "callerAttributeOldKeyFormCount",
     story: "#614",
+    kind: "invariant",
     target: 0,
     description:
       "CallerAttribute rows whose lo_mastery key contains uppercase letters or spaces in the module token — old name-form, awaiting migration to slug-form.",
@@ -246,6 +260,7 @@ const counters: CounterDefinition[] = [
   {
     key: "playbooksWithoutTeachingMode",
     story: "#604",
+    kind: "invariant",
     target: 0,
     description:
       "Playbook rows with no teachingMode set — #604's archetype-aware criticalRules needs this populated to take effect.",
@@ -263,6 +278,7 @@ const counters: CounterDefinition[] = [
   {
     key: "hardcodedRulesRemainingInTransforms",
     story: "#610",
+    kind: "invariant",
     target: 0,
     description:
       "Count of files under lib/prompt/composition/transforms/ that still contain hardcoded behavioural strings (e.g. 'ALWAYS review', 'If RETURNING_CALLER'). Static grep, not a DB query.",
@@ -320,10 +336,13 @@ async function runCounters(): Promise<CounterResult[]> {
   for (const c of counters) {
     try {
       const count = await c.query();
-      const status: CounterResult["status"] = count <= c.target ? "pass" : "fail";
+      // Invariants fail when above target; informational counters report only.
+      const status: CounterResult["status"] =
+        count <= c.target ? "pass" : c.kind === "invariant" ? "fail" : "info";
       results.push({
         key: c.key,
         story: c.story,
+        kind: c.kind,
         count,
         target: c.target,
         description: c.description,
@@ -334,6 +353,7 @@ async function runCounters(): Promise<CounterResult[]> {
       results.push({
         key: c.key,
         story: c.story,
+        kind: c.kind,
         count: -1,
         target: c.target,
         description: c.description,
@@ -346,9 +366,14 @@ async function runCounters(): Promise<CounterResult[]> {
 }
 
 function printHuman(results: CounterResult[], diffMap: Map<string, number>): void {
-  console.log("\n=== Epic 100 audit — adaptive-loop contract hygiene ===\n");
-  for (const r of results) {
-    const symbol = r.status === "pass" ? "✓" : r.status === "fail" ? "✗" : "?";
+  console.log("\n=== Epic 100 audit — adaptive-loop contract hygiene ===");
+  console.log("    ✓ invariant met   ✗ invariant breached   ℹ informational   ? skipped\n");
+  const invariants = results.filter((r) => r.kind === "invariant");
+  const informational = results.filter((r) => r.kind === "informational");
+
+  const renderRow = (r: CounterResult): void => {
+    const symbol =
+      r.status === "pass" ? "✓" : r.status === "fail" ? "✗" : r.status === "info" ? "ℹ" : "?";
     const baseline = diffMap.get(r.key);
     const delta =
       baseline !== undefined && r.count >= 0
@@ -360,15 +385,22 @@ function printHuman(results: CounterResult[], diffMap: Map<string, number>): voi
     if (r.error) {
       console.log(`        ! error: ${r.error}`);
     }
+  };
+
+  console.log("  Invariants (block CI when above target):");
+  for (const r of invariants) renderRow(r);
+  if (informational.length > 0) {
+    console.log("\n  Informational (report-only — leak surface / historical drift):");
+    for (const r of informational) renderRow(r);
   }
   console.log("");
-  const fails = results.filter((r) => r.status === "fail");
+  const fails = invariants.filter((r) => r.status === "fail");
   if (fails.length > 0) {
-    console.log(`[audit-epic-100] FAILED — ${fails.length} counter(s) above target.`);
+    console.log(`[audit-epic-100] FAILED — ${fails.length} invariant(s) above target.`);
     console.log("    See: docs/epic-100-verification.md");
     console.log("    See: docs/epic-100-chain-walk.md");
   } else {
-    console.log("[audit-epic-100] All counters at or below target.");
+    console.log("[audit-epic-100] All invariants at or below target.");
   }
 }
 
@@ -417,6 +449,7 @@ async function main(): Promise<void> {
       counters: results.map((r) => ({
         key: r.key,
         story: r.story,
+        kind: r.kind,
         count: r.count,
         target: r.target,
         status: r.status,
@@ -431,8 +464,12 @@ async function main(): Promise<void> {
 
   await prisma.$disconnect();
 
-  const anyFail = results.some((r) => r.status === "fail");
-  process.exit(anyFail ? 1 : 0);
+  // Only invariants block CI. Informational counters (leak surface / historical
+  // drift) report their value but never fail the build.
+  const anyInvariantFail = results.some(
+    (r) => r.kind === "invariant" && r.status === "fail",
+  );
+  process.exit(anyInvariantFail ? 1 : 0);
 }
 
 main().catch((err: unknown) => {

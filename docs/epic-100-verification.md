@@ -11,8 +11,8 @@ Five components, one purpose: **prove that each Epic 100 story drives its specif
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| 1. Audit script | `apps/admin/scripts/audit-epic-100.ts` | Read-only audit — 11 counters, one per Epic 100 child. Exits non-zero if any counter is above its target. |
-| 2. Audit baseline | `apps/admin/tests/fixtures/epic-100-audit-baseline.json` | Current broken-state counts. Each story PR updates the row it owns. |
+| 1. Audit script | `apps/admin/scripts/audit-epic-100.ts` | Read-only audit — 11 counters tagged `invariant` (block CI) or `informational` (report-only). Exits non-zero only when an `invariant` is above target. |
+| 2. Audit baseline | `apps/admin/tests/fixtures/epic-100-audit-baseline.json` | Snapshot of current counts. Each story PR updates the row(s) it owns. |
 | 3. Golden-prompt baseline | `apps/admin/tests/fixtures/epic-100-golden-prompt-baseline.json` | Frozen ComposedPrompt JSON for the canonical Nico Grant evidence case. Each story PR diffs against this. |
 | 4. Behaviour evals | `apps/admin/evals/epic-100/*.yaml` | Promptfoo evals — one per behavioural contract. BEFORE-mode asserts the broken behaviour is detectable; flipped to AFTER-mode by the story PR. |
 | 5. Sim-call proof | `apps/admin/scripts/proof/epic-100/sim-canonical-call.ts` | Deterministic post-pipeline shape check against the golden caller. |
@@ -84,21 +84,30 @@ When you build a Tier 1+ Epic 100 story:
 
 ---
 
+## Counter kinds — invariant vs informational
+
+The audit emits two distinct counter kinds. **Only invariants block CI.**
+
+- **`invariant`** — a contract the adaptive loop must hold. If above target, the audit exits non-zero and `npm run ctl check` step 6 fails. Each Epic 100 story drives one or more invariants to their target.
+- **`informational`** — a number worth knowing but not a contract violation per se: either **leak surface** (raw DB rows that exist but are filtered at runtime — fix is in code, not the data) or **historical drift** (pre-fix rows that only drain via a separate migration). Reported in output and JSON but never fail the build.
+
+This distinction was added on 2026-05-22 after Tier 1. The earlier shape treated every counter the same and produced misleading "still failing" messages on counters whose runtime fix had already landed.
+
 ## Counter map
 
-| Counter key | Story | Target | What it measures |
-|-------------|-------|--------|------------------|
-| `duplicatePlaybookSubjects` | #607 | 0 | Same subject linked to same playbook twice |
-| `recallQuizOnInstructionCategories` | #605 | 0 | Tutor-instruction assertions tagged `recall_quiz` |
-| `tutorOnlyQuestionsRenderedToLearner` | #606 | 0 | TUTOR_ONLY rows reachable via curriculumQuestions loader |
-| `dualLoMasteryKeysSameLO` | #611 | 0 | Two `lo_mastery:*` keys for the same LO under different module-token forms |
-| `callScoreZeroStorms` | #611 | 0 | Calls with >40 CallScore rows all scored 0 |
-| `orphanLearningObjectives` | #615 | 0 | LearningObjective with no surviving CurriculumModule parent |
-| `danglingContentAssertionLOs` | #615 | 0 | ContentAssertion.learningObjectiveId points at a deleted LO |
-| `advisorInInputsSnapshot` | #608 | 0 | Active ComposedPrompts whose `inputs.specUsed` mentions `spec-advisor-001` |
-| `callerAttributeOldKeyFormCount` | #614 | 0 | Old name-form `lo_mastery:*` keys awaiting slug migration |
-| `playbooksWithoutTeachingMode` | #604 | 0 | Prerequisite — #604's archetype-aware criticalRules requires `Playbook.teachingMode` populated |
-| `hardcodedRulesRemainingInTransforms` | #610 | 0 | Static grep — files under `lib/prompt/composition/transforms/` still containing hardcoded behavioural strings |
+| Counter key | Story | Kind | Target | What it measures |
+|-------------|-------|------|--------|------------------|
+| `duplicatePlaybookSubjects` | #607 | invariant | 0 | Same subject linked to same playbook twice |
+| `recallQuizOnInstructionCategories` | #605 | invariant | 0 | Tutor-instruction assertions tagged `recall_quiz` |
+| `tutorOnlyQuestionsLeakSurface` | #606 | informational | 0 | TUTOR_ONLY ContentQuestion rows present in the DB (filtered at loader; not deleted) |
+| `dualLoMasteryKeysSameLO` | #611 | informational | 0 | Pre-#611 dual `lo_mastery:*` keys for the same LO (drains via #614) |
+| `callScoreZeroStorms` | #611 | informational | 0 | Pre-#611 calls with >40 CallScore rows all scored 0 (drains via CallScore cleanup) |
+| `orphanLearningObjectives` | #615 | invariant | 0 | LearningObjective with no surviving CurriculumModule parent |
+| `danglingContentAssertionLOs` | #615 | invariant | 0 | ContentAssertion.learningObjectiveId points at a deleted LO |
+| `advisorInInputsSnapshot` | #608 | invariant | 0 | Active ComposedPrompts whose `inputs.specUsed` mentions `spec-advisor-001` |
+| `callerAttributeOldKeyFormCount` | #614 | invariant | 0 | Old name-form `lo_mastery:*` keys awaiting slug migration |
+| `playbooksWithoutTeachingMode` | #604 | invariant | 0 | Prerequisite — #604's archetype-aware criticalRules requires `Playbook.teachingMode` populated |
+| `hardcodedRulesRemainingInTransforms` | #610 | invariant | 0 | Static grep — files under `lib/prompt/composition/transforms/` still containing hardcoded behavioural strings |
 
 ---
 
