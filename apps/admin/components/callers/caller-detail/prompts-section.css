@@ -717,14 +717,33 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--surface-secondary);
-  border-radius: 8px;
-  border: 1px solid var(--border-default);
+  padding: 4px 10px;
+  background: transparent;
+  border: none;
 }
 .ptr-toolbar-counts {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
+}
+.ptr-toolbar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+}
+.ptr-toolbar-toggle:hover { background: var(--surface-secondary); color: var(--text-primary); }
+.ptr-toolbar-toggle[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--border-default));
+  color: var(--accent-primary);
 }
 .ptr-group {
   display: flex;
