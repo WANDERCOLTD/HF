@@ -42,7 +42,12 @@ export interface PromptTunerSidebarProps {
   callerName: string;
   playbookId: string | null;
   onApplied: (changes: PendingChange[]) => void;
-  onClose: () => void;
+  /**
+   * Required for the fixed-sidebar mode (rendered when `inline` is false) so
+   * the X button can dismiss the overlay. Optional in inline mode — the host
+   * (e.g. the #641 Tune tab) controls visibility via tab routing.
+   */
+  onClose?: () => void;
   /** Render inline (inside a panel) instead of as a fixed sidebar overlay */
   inline?: boolean;
 }
