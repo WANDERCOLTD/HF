@@ -853,7 +853,82 @@
   font-size: 11px;
   color: var(--text-placeholder);
 }
-.ptr-call-diff-body { padding: 0 12px 10px 28px; }
+.ptr-call-diff-body {
+  padding: 0 12px 10px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* #642 slice 4 — collapsible subsections inside CALL DIFF body */
+.ptr-call-diff-section {
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface-primary);
+}
+.ptr-call-diff-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: var(--surface-secondary);
+  border: none;
+  padding: 6px 10px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.ptr-call-diff-section-head:hover {
+  background: color-mix(in srgb, var(--surface-secondary) 80%, var(--accent-secondary, #7c6bc4) 20%);
+}
+.ptr-call-diff-section-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.ptr-call-diff-section-hint {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-family: ui-monospace, monospace;
+}
+.ptr-call-diff-section-body {
+  padding: 8px 10px;
+}
+.ptr-call-diff-loading {
+  padding: 8px 12px;
+  font-style: italic;
+}
+.ptr-call-diff-memories {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+.ptr-call-diff-memories li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--status-success-bg) 40%, transparent);
+}
+.ptr-call-diff-mem-cat {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface-secondary);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
 .ptr-call-diff-table {
   width: 100%;
   border-collapse: collapse;
