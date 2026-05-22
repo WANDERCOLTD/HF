@@ -1450,7 +1450,10 @@ export type TeachMethod =
   | "matching_task"
   | "guided_discussion"
   | "problem_solving"
-  | "worked_example";
+  | "worked_example"
+  // #605 — sentinel for tutor-only instruction assertions (INSTRUCTION_CATEGORIES).
+  // Never rendered to a learner; consumed by the courseInstructions transform.
+  | "tutor_instruction";
 
 export const TEACH_METHOD_CONFIG: Record<
   TeachMethod,
@@ -1475,10 +1478,11 @@ export const TEACH_METHOD_CONFIG: Record<
       "observation", "context",
       // LESSON_PLAN (teacher-facing reference)
       "objective", "timing", "resource", "assessment_opportunity",
-      // QUESTION_BANK (session-level reference)
-      "session_metadata",
       // COMPANION pattern
       "normalising_statement",
+      // NOTE: "session_metadata" lived here pre-#605. Now classified as
+      // INSTRUCTION_CATEGORY → routed to tutor_instruction via the
+      // categoryToTeachMethod guard. Do not re-add.
     ],
   },
   definition_matching: {
@@ -1522,11 +1526,15 @@ export const TEACH_METHOD_CONFIG: Record<
       // EXAMPLE
       "discussion_point",
       // QUESTION_BANK
-      "tutor_question", "skill_description", "assessment_guidance",
+      "tutor_question",
       // LESSON_PLAN
-      "differentiation", "plenary", "starter",
+      "plenary", "starter",
       // Pattern supplementary (socratic, coaching, reflective, advisory, facilitation)
       "dilemma", "reflection_question", "narrative_prompt", "caveat", "decision_framework",
+      // NOTE: "skill_description", "assessment_guidance", "differentiation"
+      // lived here pre-#605. Now classified as INSTRUCTION_CATEGORIES →
+      // routed to tutor_instruction via the categoryToTeachMethod guard.
+      // Do not re-add.
     ],
   },
   problem_solving: {
@@ -1543,6 +1551,14 @@ export const TEACH_METHOD_CONFIG: Record<
       "worked_example", "example", "process",
       "procedure", "control_measure", "corrective_action",
     ],
+  },
+  // #605 — sentinel for tutor-only instruction assertions. Exhaustively maps
+  // every INSTRUCTION_CATEGORIES member so categoryToTeachMethod's fallback
+  // can never silently route a tutor directive to "recall_quiz".
+  tutor_instruction: {
+    label: "Tutor instruction",
+    icon: "🎓",
+    categories: [...INSTRUCTION_CATEGORIES],
   },
 };
 
@@ -1613,6 +1629,15 @@ export function categoryToTeachMethod(
   category: string,
   intent: TeachingMode
 ): TeachMethod {
+  // #605 — INSTRUCTION_CATEGORIES are tutor-facing directives, not learner content.
+  // Routing them through the candidate search is wrong: tutor directives must never
+  // become learner-facing activity types (e.g. "recall_quiz"). Short-circuit here so
+  // future categories added to INSTRUCTION_CATEGORIES can never silently inherit a
+  // learner method via the fallback at the bottom of this function.
+  if ((INSTRUCTION_CATEGORIES as readonly string[]).includes(category)) {
+    return "tutor_instruction";
+  }
+
   // Find all methods whose categories list includes this category
   const candidates = (
     Object.entries(TEACH_METHOD_CONFIG) as [
@@ -1636,4 +1661,36 @@ export function categoryToTeachMethod(
     }
   }
   return bestMethod;
+}
+
+/**
+ * #605 — Post-assignment invariant: tutor-instruction categories must never
+ * carry a learner-facing teachMethod. Run at the boundary where extracted
+ * assertions cross from in-memory shape into a DB write path. Throws on
+ * violation so the failure is loud rather than silently mis-classifying.
+ *
+ * Pattern mirrors `.claude/rules/ai-to-db-guard.md` — AI/extractor proposes,
+ * guard validates, code executes.
+ */
+export function assertNoLearnerMethodOnInstructionCategory(
+  assertions: ReadonlyArray<{ category: string; teachMethod?: string | null }>,
+): void {
+  const instructionSet: ReadonlySet<string> = new Set(INSTRUCTION_CATEGORIES);
+  const violations = assertions.filter(
+    (a) =>
+      instructionSet.has(a.category) &&
+      a.teachMethod != null &&
+      a.teachMethod !== "tutor_instruction",
+  );
+  if (violations.length > 0) {
+    const sample = violations
+      .slice(0, 3)
+      .map((v) => `${v.category} → ${v.teachMethod}`)
+      .join("; ");
+    throw new Error(
+      `[#605] ${violations.length} assertion(s) have an INSTRUCTION_CATEGORY ` +
+        `with a learner-facing teachMethod (expected "tutor_instruction"). ` +
+        `Sample: ${sample}`,
+    );
+  }
 }

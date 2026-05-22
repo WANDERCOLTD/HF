@@ -15,7 +15,14 @@
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { logAssistantCall } from "@/lib/ai/assistant-wrapper";
 import { logAI } from "@/lib/logger";
-import { resolveExtractionConfig, type ExtractionConfig, type DocumentType, categoryToTeachMethod, INSTRUCTION_CATEGORIES } from "./resolve-config";
+import {
+  assertNoLearnerMethodOnInstructionCategory,
+  categoryToTeachMethod,
+  INSTRUCTION_CATEGORIES,
+  resolveExtractionConfig,
+  type DocumentType,
+  type ExtractionConfig,
+} from "./resolve-config";
 import { parseJsonResponse } from "./extractors/base-extractor";
 import { sanitiseLORef } from "./validate-lo-linkage";
 import type { DocumentSection } from "./segment-document";
@@ -625,6 +632,9 @@ export async function extractAssertions(
     }
   }
 
+  // #605 invariant — INSTRUCTION_CATEGORY assertions must carry teachMethod="tutor_instruction".
+  assertNoLearnerMethodOnInstructionCategory(deduplicated);
+
   return {
     ok: true,
     assertions: deduplicated,
@@ -740,6 +750,9 @@ export async function extractAssertionsSegmented(
   if (deduplicated.length < allAssertions.length) {
     warnings.push(`Removed ${allAssertions.length - deduplicated.length} cross-section duplicates`);
   }
+
+  // #605 invariant — INSTRUCTION_CATEGORY assertions must carry teachMethod="tutor_instruction".
+  assertNoLearnerMethodOnInstructionCategory(deduplicated);
 
   return {
     ok: true,

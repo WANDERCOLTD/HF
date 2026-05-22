@@ -28,6 +28,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
+import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
 
 /**
  * A counter is either an **invariant** the adaptive loop must hold (above
@@ -99,17 +100,16 @@ const counters: CounterDefinition[] = [
     description:
       "ContentAssertion rows whose category is an INSTRUCTION_CATEGORY but whose teachMethod is 'recall_quiz' (should be 'tutor_instruction').",
     query: async () => {
-      // INSTRUCTION_CATEGORIES — keep in sync with lib/extraction/category-to-teach-method.ts
-      const instructionCategories = [
-        "teaching_rule",
-        "session_flow",
-        "tutor_briefing",
-        "tutor_instruction",
-        "tutor_note",
-      ];
+      // Imported from lib/content-trust/resolve-config so this counter cannot
+      // drift from the canonical INSTRUCTION_CATEGORIES list. Pre-#605 this
+      // array was hand-maintained here with the wrong members
+      // ("tutor_briefing", "tutor_instruction", "tutor_note") — values that
+      // never appeared in any ContentAssertion.category, so the counter
+      // silently read 0 even while real INSTRUCTION_CATEGORIES rows were
+      // mis-tagged recall_quiz.
       return prisma.contentAssertion.count({
         where: {
-          category: { in: instructionCategories },
+          category: { in: [...INSTRUCTION_CATEGORIES] },
           teachMethod: "recall_quiz",
         },
       });

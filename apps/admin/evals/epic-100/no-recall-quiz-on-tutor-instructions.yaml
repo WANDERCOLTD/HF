@@ -1,0 +1,59 @@
+description: "#605 — tutor-instruction assertions must not surface as learner recall_quiz prompts"
+
+# Story:  #605 — root-cause: recall_quiz bleeds onto tutor-instruction assertions
+# Status: AFTER (asserts the FIXED behaviour — INSTRUCTION_CATEGORIES → tutor_instruction;
+#         meta-rules from COURSE_REFERENCE_TUTOR_BRIEFING never render as learner quiz Qs).
+#         BEFORE assertions preserved in `archive-before:` as the historical detection of the bug.
+# See:    docs/epic-100-chain-walk.md (Link 1 — COURSE → CONTENT)
+#         apps/admin/lib/content-trust/resolve-config.ts::categoryToTeachMethod
+#         apps/admin/lib/content-trust/extractors/base-extractor.ts (post-extract invariant)
+#         Regression test: apps/admin/tests/lib/content-trust/category-to-teach-method.test.ts
+
+prompts:
+  - id: after
+    label: "Fixed — tutor meta-rules routed to tutor_instruction, excluded from learner quizzes"
+    raw: |
+      ## RECALL CHECK (3)
+
+      1. What is the capital of France?
+
+      2. Name two animals that hibernate.
+
+      3. What does 'photosynthesis' mean?
+
+  - id: archive-before
+    label: "Historical record — broken prompt the bug exhibited (kept as regression sentinel)"
+    raw: |
+      ## RECALL CHECK (4)
+
+      1. Speak to learn — never speak for the student. Why?
+
+      2. What is the capital of France?
+
+      3. Name two animals that hibernate.
+
+      4. Forbidden Content in Familiar Topics: list three examples.
+
+tests:
+  - description: "After #605 lands — RECALL CHECK contains no tutor meta-rule directives"
+    vars:
+      prompt: "{{prompts.after}}"
+    assert:
+      - type: javascript
+        value: |
+          !output.toLowerCase().includes("speak to learn") &&
+          !output.toLowerCase().includes("never speak for") &&
+          !output.toLowerCase().includes("forbidden content") &&
+          !output.toLowerCase().includes("pedagogical principle")
+
+archive-before:
+  description: "Historical detection — if these assertions PASS again, the bug has returned."
+  tests:
+    - description: "BEFORE-mode assertion preserved as a regression sentinel"
+      vars:
+        prompt: "{{prompts.archive-before}}"
+      assert:
+        - type: javascript
+          value: |
+            output.toLowerCase().includes("speak to learn") ||
+            output.toLowerCase().includes("forbidden content")

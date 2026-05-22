@@ -15,7 +15,12 @@
 import { getConfiguredMeteredAICompletion } from "@/lib/metering/instrumented-ai";
 import { logAssistantCall } from "@/lib/ai/assistant-wrapper";
 import { logAI } from "@/lib/logger";
-import { categoryToTeachMethod, type ExtractionConfig, type DocumentType } from "../resolve-config";
+import {
+  assertNoLearnerMethodOnInstructionCategory,
+  categoryToTeachMethod,
+  type ExtractionConfig,
+  type DocumentType,
+} from "../resolve-config";
 import type { ExtractedAssertion, ExtractionOptions, ExtractionResult, ChunkCompleteData } from "../extract-assertions";
 import crypto from "crypto";
 import { jsonrepair } from "jsonrepair";
@@ -369,6 +374,11 @@ export abstract class DocumentExtractor {
         a.teachMethod = categoryToTeachMethod(a.category, mode);
       }
     }
+
+    // #605 invariant — fail loudly if any INSTRUCTION_CATEGORY assertion still
+    // carries a learner-facing teachMethod (would happen only if a specialist
+    // extractor pre-set it or a future teachMethod field bypasses the guard).
+    assertNoLearnerMethodOnInstructionCategory(dedupAssertions);
 
     return {
       ok: true,
