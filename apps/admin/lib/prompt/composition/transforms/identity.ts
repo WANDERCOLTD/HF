@@ -51,6 +51,23 @@ export function resolveSpecs(
     for (const spec of systemSpecs) {
       const role = spec.specRole as string;
 
+      // #608-C — SYSTEM-scope IDENTITY specs (ADVISOR-001, TUT-001, GUIDE-001,
+      // MENTOR-001, FACILITATOR-001, …) are seeded as templates for the
+      // `extendsAgent` inheritance chain in `mergeIdentitySpec`, not as
+      // fallback identities. When the playbook has already resolved an
+      // explicit IDENTITY PlaybookItem, these archetypes must not enter the
+      // resolved-spec snapshot — otherwise downstream serialisation
+      // (`ComposedPrompt.inputs.specUsed`/`specConfig`) captures the archetype
+      // and the prompt viewer shows a leak (#600 RC3 / IELTS Prep Lab where
+      // ADVISOR-001 surfaced beside "IELTS Speaking Practice Identity"). The
+      // inner `!identitySpec` check already prevents overwrite, but this
+      // outer guard makes the contract explicit so future loop changes can't
+      // regress it.
+      const isSystemIdentityCandidate = role === "IDENTITY" && spec.domain !== "voice";
+      if (isSystemIdentityCandidate && identitySpec) {
+        continue;
+      }
+
       if (!identitySpec && role === "IDENTITY" && spec.domain !== "voice") {
         identitySpec = { name: spec.name, slug: spec.slug, config: spec.config, description: spec.description, extendsAgent: spec.extendsAgent || null };
       }

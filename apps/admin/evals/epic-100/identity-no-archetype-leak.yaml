@@ -1,0 +1,60 @@
+description: "#608-C — playbook IDENTITY must not be shadowed by SYSTEM ADVISOR-001 archetype"
+
+# Story:  #608-C — root-cause: ADVISOR-001 identity leak when playbook has its own IDENTITY
+# Status: AFTER (asserts the FIXED behaviour — the playbook-resolved identity
+#         is the only identity surfaced in the composed prompt; the ADVISOR
+#         archetype seeded as scope=SYSTEM/role=IDENTITY for extendsAgent
+#         inheritance never enters the resolved-spec snapshot).
+#         BEFORE assertions preserved in `archive-before:` as the historical
+#         detection of the bug.
+# See:    docs/epic-100-chain-walk.md
+#         apps/admin/lib/prompt/composition/transforms/identity.ts (resolveSpecs guard)
+#         Regression test: apps/admin/tests/lib/prompt/composition/identity-resolve-specs.test.ts
+
+prompts:
+  - id: after
+    label: "Fixed — single course-scoped identity surfaced; no advisor archetype"
+    raw: |
+      ## TUTOR IDENTITY
+
+      Name: IELTS Speaking Practice Identity
+      Role: You are an IELTS speaking coach who builds learner fluency through
+            structured Part 1 / Part 2 / Part 3 practice and band-scored feedback.
+
+  - id: archive-before
+    label: "Historical record — broken prompt the bug exhibited (kept as regression sentinel)"
+    raw: |
+      ## TUTOR IDENTITY
+
+      Name: IELTS Speaking Practice Identity
+      Role: You are an IELTS speaking coach who builds learner fluency through
+            structured Part 1 / Part 2 / Part 3 practice and band-scored feedback.
+
+      ## TUTOR IDENTITY (SYSTEM)
+
+      Name: ADVISOR-001
+      Role: You are a precise, evidence-based advisor focused on clarity and
+            measurable outcomes.
+
+tests:
+  - description: "After #608-C lands — exactly one TUTOR IDENTITY block; no advisor"
+    vars:
+      prompt: "{{prompts.after}}"
+    assert:
+      - type: javascript
+        value: |
+          (output.match(/## TUTOR IDENTITY/g) || []).length === 1 &&
+          !output.includes("ADVISOR-001") &&
+          !output.toLowerCase().includes("evidence-based advisor")
+
+archive-before:
+  description: "Historical detection — if these assertions PASS again, the bug has returned."
+  tests:
+    - description: "BEFORE-mode assertion preserved as a regression sentinel"
+      vars:
+        prompt: "{{prompts.archive-before}}"
+      assert:
+        - type: javascript
+          value: |
+            output.includes("ADVISOR-001") ||
+            (output.match(/## TUTOR IDENTITY/g) || []).length > 1
