@@ -9468,3 +9468,12 @@ html.light {
   color: var(--surface-primary);
   cursor: pointer;
 }
+
+/* #619 — visible submission confirmation inside the bug panel */
+.hf-bug-success-banner {
+  margin: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
