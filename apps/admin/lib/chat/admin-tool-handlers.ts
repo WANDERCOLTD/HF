@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@prisma/client";
 import { startCurriculumGeneration } from "@/lib/jobs/curriculum-runner";
 import { runIniChecks } from "@/lib/system-ini";
+import { writeBehaviorTarget } from "@/lib/agent-tuner/write-target";
 
 const MAX_RESULT_LENGTH = 3000;
 
@@ -26,6 +27,8 @@ const TOOL_MIN_ROLE: Record<string, UserRole> = {
   add_content_assertions: "OPERATOR",
   link_subject_to_domain: "OPERATOR",
   generate_curriculum: "OPERATOR",
+  // Tuning / behaviour-target writes
+  update_behavior_target: "OPERATOR",
   // System diagnostics
   system_ini_check: "SUPERADMIN",
 };
@@ -105,6 +108,10 @@ export async function executeAdminTool(
           return JSON.stringify({ error: "userId is required for curriculum generation" });
         }
         result = await handleGenerateCurriculum(input, context.userId);
+        break;
+      // Tuning / behaviour-target writes
+      case "update_behavior_target":
+        result = await handleUpdateBehaviorTarget(input);
         break;
       // System diagnostics
       case "system_ini_check":
@@ -589,5 +596,51 @@ async function handleGenerateCurriculum(input: Record<string, any>, userId: stri
       `Task ID: ${taskId}. This kicks off a background AI call that may TIMEOUT or fail silently. ` +
       `Do NOT call mark_complete or claim the course is created based on this response. ` +
       `Persistence to DB only happens via create_course / curriculum-commit endpoints — verify Playbook + Curriculum exist in the DB before declaring success.`,
+  };
+}
+
+/**
+ * Apply a single PLAYBOOK-scope BehaviorTarget update from the TUNING assistant.
+ * Validation (whitelist + clamp) lives in writeBehaviorTarget so the panel route
+ * and this tool cannot drift.
+ */
+async function handleUpdateBehaviorTarget(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  const parameterId = typeof input.parameter_id === "string" ? input.parameter_id : "";
+  const rawValue = input.target_value;
+
+  if (!playbookId) {
+    return { error: "playbook_id is required (read it from the entity context with type: 'playbook')" };
+  }
+  if (!parameterId) {
+    return { error: "parameter_id is required (use a slug from the catalogue, e.g. BEH-WARMTH)" };
+  }
+  if (rawValue !== null && typeof rawValue !== "number") {
+    return { error: "target_value must be a number in [0, 1] or null to remove the override" };
+  }
+
+  const result = await writeBehaviorTarget(playbookId, parameterId, rawValue as number | null);
+
+  if (!result.ok) {
+    if (result.reason === "playbook_not_found") {
+      return { error: `Playbook ${playbookId} not found.` };
+    }
+    return {
+      error: `Parameter "${parameterId}" is not an adjustable BEHAVIOR parameter. Pick one from the catalogue in your system prompt — do not invent IDs.`,
+    };
+  }
+
+  return {
+    ok: true,
+    playbook_id: playbookId,
+    parameter_id: result.parameterId,
+    action: result.action,
+    new_value: result.value,
+    message:
+      result.action === "noop"
+        ? `No PLAYBOOK-scope override existed for ${parameterId}; nothing to remove. The system default still applies.`
+        : result.action === "removed"
+          ? `Removed the playbook override for ${parameterId}. The course will fall back to the system default.`
+          : `Set ${parameterId} to ${result.value} on playbook ${playbookId}. The change is live for the next composition; in-flight calls are unaffected.`,
   };
 }

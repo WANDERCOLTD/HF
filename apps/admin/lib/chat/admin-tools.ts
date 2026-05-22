@@ -251,6 +251,36 @@ export const ADMIN_TOOLS: AITool[] = [
     },
   },
 
+  // ── Tuning / Behaviour Target Writes ──────────────────────────
+
+  {
+    name: "update_behavior_target",
+    description:
+      "Set a course's playbook-level target value for a single adjustable BEHAVIOR parameter. Use ONLY when the educator clearly asks to change behaviour (e.g. 'be less friendly', 'increase challenge'). Call once per parameter. The parameterId must come from the catalogue in your system prompt — never invent IDs. The targetValue is a number in [0, 1] (clamped server-side); pass null to remove the override and fall back to system defaults. The playbookId comes from the active entity context (look for type: 'playbook'). The tool returns the DB-confirmed value — quote it back to the educator, never claim a different number.",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: {
+          type: "string",
+          description: "Playbook UUID from the active entity context (type: 'playbook').",
+        },
+        parameter_id: {
+          type: "string",
+          description: "BEHAVIOR parameter slug from the catalogue (e.g. 'BEH-WARMTH'). Must be adjustable.",
+        },
+        target_value: {
+          type: ["number", "null"],
+          description: "New target in [0, 1], or null to remove the playbook override.",
+        },
+        reason: {
+          type: "string",
+          description: "Short justification, for audit (e.g. 'Educator asked for less friendly tone').",
+        },
+      },
+      required: ["playbook_id", "parameter_id", "target_value", "reason"],
+    },
+  },
+
   // ── System Diagnostics ──────────────────────────────────────────
 
   {
