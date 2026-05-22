@@ -247,6 +247,14 @@ export interface CurriculumQuestionData {
   id: string;
   questionText: string;
   questionType: string;
+  /**
+   * #606 — TUTOR_ONLY contract surface. Selected by the `curriculumQuestions`
+   * loader so the render-time defense-in-depth filter in
+   * `transforms/teaching-content.ts` can re-enforce "never render TUTOR_ONLY
+   * rows to learners".
+   * See: docs/epic-100-chain-walk.md (Link 3 — CURRICULUM → CALL).
+   */
+  assessmentUse?: string | null;
   options: any;
   correctAnswer: string | null;
   chapter: string | null;

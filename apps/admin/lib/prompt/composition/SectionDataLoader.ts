@@ -1260,14 +1260,27 @@ registerLoader("curriculumQuestions", async (_callerId, loaderConfig) => {
   );
   if (sourceIds.length === 0) return [];
 
+  // #606 / Epic 100 Link 3 (CURRICULUM → CALL) — TUTOR_ONLY contract enforcement.
+  // The `assessmentUse: TUTOR_ONLY` value semantically means "never render to
+  // learner". This guard is the read-side equivalent of the write-side coercion
+  // already in `save-questions.ts` (TUTOR_QUESTION → assessmentUse=TUTOR_ONLY).
+  // Defense-in-depth: `transforms/teaching-content.ts` re-filters at render
+  // time so a loader regression cannot leak TUTOR_ONLY rows to learners.
+  // See: docs/epic-100-chain-walk.md, gh issue view 606
   return prisma.contentQuestion.findMany({
-    where: { sourceId: { in: [...new Set(sourceIds)] } },
+    where: {
+      sourceId: { in: [...new Set(sourceIds)] },
+      assessmentUse: { not: "TUTOR_ONLY" },
+    },
     orderBy: [{ sortOrder: "asc" }],
     take: 100,
     select: {
       id: true,
       questionText: true,
       questionType: true,
+      // assessmentUse MUST be selected so the render-time defense-in-depth
+      // filter in transforms/teaching-content.ts can re-check this value.
+      assessmentUse: true,
       options: true,
       correctAnswer: true,
       chapter: true,

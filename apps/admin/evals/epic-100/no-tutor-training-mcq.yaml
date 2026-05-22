@@ -1,15 +1,25 @@
 description: "#606 — TUTOR_ONLY MCQs must not appear in learner PRACTICE QUESTIONS"
 
 # Story:  #606 — root-cause: tutor-training MCQs leaking into learner PRACTICE QUESTIONS section
-# Status: BEFORE (asserts the broken behaviour — TUTOR_ONLY rows in practiceQuestions — is detectable)
-# Flip:   when #606 merges, swap `flip-after-merge.tests` into `tests`.
+# Status: AFTER (asserts the FIXED behaviour — TUTOR_ONLY rows excluded from practiceQuestions).
+#         BEFORE assertions preserved in `archive-before:` as the historical detection of the bug.
 # See:    docs/epic-100-chain-walk.md (Link 3 — CURRICULUM → CALL)
 #         apps/admin/lib/prompt/composition/SectionDataLoader.ts::registerLoader("curriculumQuestions")
 #         apps/admin/lib/prompt/composition/transforms/teaching-content.ts (practiceQuestions filter)
+#         Regression test: apps/admin/tests/lib/composition/loader-tutor-only.test.ts
 
 prompts:
-  - id: before
-    label: "Broken — TUTOR_ONLY MCQ appears in practiceQuestions"
+  - id: after
+    label: "Fixed — TUTOR_ONLY MCQ filtered at loader + transform"
+    raw: |
+      ## PRACTICE QUESTIONS (2)
+
+      1. What is your home town like?
+
+      2. Describe a typical day in your life.
+
+  - id: archive-before
+    label: "Historical record — broken prompt the bug exhibited (kept as a regression sentinel)"
     raw: |
       ## PRACTICE QUESTIONS (3)
 
@@ -23,36 +33,24 @@ prompts:
 
       3. Describe a typical day in your life.
 
-  - id: after
-    label: "Fixed — TUTOR_ONLY MCQ filtered at loader + transform"
-    raw: |
-      ## PRACTICE QUESTIONS (2)
-
-      1. What is your home town like?
-
-      2. Describe a typical day in your life.
-
 tests:
-  # BEFORE: assert the broken-prompt shape is detectable.
-  # The pre-#606 prompt contains a meta-pedagogy question targeting the tutor,
-  # not the learner. This is the leak the loader filter exists to prevent.
-  - description: "Before #606 lands — broken prompt contains tutor-targeted MCQ"
+  - description: "After #606 lands — practiceQuestions contains no tutor-pedagogy MCQs"
     vars:
-      prompt: "{{prompts.before}}"
+      prompt: "{{prompts.after}}"
     assert:
       - type: javascript
         value: |
-          output.includes("What should the tutor do next") ||
-          output.includes("[Answer:")
+          !output.includes("What should the tutor do next") &&
+          !output.includes("[Answer:")
 
-flip-after-merge:
-  description: "Once #606 merges, the assertion below replaces the BEFORE assertion in `tests:`"
+archive-before:
+  description: "Historical detection — if these assertions PASS again, the bug has returned."
   tests:
-    - description: "After #606 lands — practiceQuestions contains no tutor-pedagogy MCQs"
+    - description: "BEFORE-mode assertion preserved as a regression sentinel"
       vars:
-        prompt: "{{prompts.after}}"
+        prompt: "{{prompts.archive-before}}"
       assert:
         - type: javascript
           value: |
-            !output.includes("What should the tutor do next") &&
-            !output.includes("[Answer:")
+            output.includes("What should the tutor do next") ||
+            output.includes("[Answer:")
