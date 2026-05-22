@@ -682,7 +682,21 @@ export async function computeSharedState(
       if (callerId && assertionIds.length > 0 && dbLOs.length > 0) {
         const tpProgress = await getTpProgressBatch(callerId, specSlug, assertionIds);
 
-        // Build LO mastery map from existing CallerAttributes
+        // Build LO mastery map from existing CallerAttributes.
+        //
+        // #611 GRACE WINDOW — the `includes(':lo_mastery:')` match is
+        // INTENTIONALLY tolerant. After Fix A landed, new writes always use
+        // canonical slug-form keys (`curriculum:<spec>:lo_mastery:<slug>:<loRef>`),
+        // but historical rows still carry the broken name-form key
+        // (`...:lo_mastery:Part 1: Familiar Topics:OUT-01`). A stricter
+        // matcher here would silently drop those legacy rows from the
+        // prompt — that's a regression worse than the dual-key bug.
+        //
+        // Reader-tightening is a follow-on story (#614 historical key
+        // migration → then reader switch). Until that migration completes,
+        // this match stays tolerant. Do NOT tighten without first verifying
+        // `callerAttributeOldKeyFormCount` audit counter is 0 across all
+        // environments.
         const loMasteryMap: Record<string, number> = {};
         for (const attr of data.callerAttributes) {
           if (attr.key.includes(':lo_mastery:') && attr.scope === 'CURRICULUM') {

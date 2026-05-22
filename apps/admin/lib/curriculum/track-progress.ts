@@ -16,7 +16,7 @@
 import { prisma } from "@/lib/prisma";
 import { ContractRegistry } from "@/lib/contracts/registry";
 import { getTrustSettings, TRUST_DEFAULTS } from "@/lib/system-settings";
-import { resolveModuleByLogicalId } from "@/lib/curriculum/resolve-module";
+import { resolveModuleByLogicalId, resolveModuleSlug } from "@/lib/curriculum/resolve-module";
 
 interface ProgressUpdate {
   currentModuleId?: string;
@@ -30,6 +30,18 @@ interface ProgressUpdate {
    * has already counted this call, the legacy increment is skipped.
    */
   callId?: string;
+  /**
+   * #611 Fix A — when provided, `loMastery.moduleId` is resolved through
+   * `resolveModuleSlug(curriculumId, moduleId)` before being used as the
+   * `{moduleId}` token in the `lo_mastery:*` storage key. This enforces the
+   * canonical key contract (slug form) and prevents AI-echoed display names
+   * from being baked into per-LO mastery keys (the dual-key bug surfaced
+   * by the Nico Grant evidence call).
+   *
+   * Falsy = legacy behaviour (no resolution, key uses the raw moduleId).
+   * See: docs/epic-100-chain-walk.md (Link 4 / Link 6).
+   */
+  curriculumId?: string | null;
 }
 
 /**
@@ -140,31 +152,63 @@ export async function updateCurriculumProgress(
     }
   }
 
-  // Update per-LO mastery outcomes
+  // Update per-LO mastery outcomes.
+  //
+  // #611 Fix A — when `curriculumId` is provided, resolve the raw moduleId
+  // (which the AI may have echoed back as either a slug, UUID, or display
+  // name) to its canonical slug before constructing the storage key. This
+  // is the AI-to-DB guard for the lo_mastery key contract: AI proposes a
+  // moduleId, host validates/canonicalises, key uses the verified slug.
+  //
+  // If resolution fails (moduleId doesn't exist in this curriculum) we log
+  // and skip rather than write a corrupt key. The reader in
+  // `transforms/modules.ts` uses a tolerant `includes(':lo_mastery:')`
+  // match so historical rows still surface — skipping a new bad write
+  // doesn't lose data, it prevents the dual-key drift from recurring.
+  //
+  // Falsy `curriculumId` → legacy behaviour (use the raw moduleId). Once all
+  // callers thread curriculumId through, the fallback path can be removed
+  // (tracked as a follow-on once data migration is complete).
   if (updates.loMastery) {
-    for (const [loRef, score] of Object.entries(updates.loMastery.outcomes)) {
-      const key = await buildStorageKey(specSlug, 'loMastery', updates.loMastery.moduleId, loRef);
-      writes.push(
-        prisma.callerAttribute.upsert({
-          where: {
-            callerId_key_scope: {
+    let canonicalModuleId: string | null = updates.loMastery.moduleId;
+    if (updates.curriculumId && updates.loMastery.moduleId) {
+      canonicalModuleId = await resolveModuleSlug(
+        updates.curriculumId,
+        updates.loMastery.moduleId,
+      );
+      if (!canonicalModuleId) {
+        console.warn(
+          `[track-progress] #611 — refusing lo_mastery write: ` +
+            `cannot resolve moduleId "${updates.loMastery.moduleId}" in curriculum ${updates.curriculumId}. ` +
+            `${Object.keys(updates.loMastery.outcomes).length} LO outcome(s) skipped.`,
+        );
+      }
+    }
+    if (canonicalModuleId) {
+      for (const [loRef, score] of Object.entries(updates.loMastery.outcomes)) {
+        const key = await buildStorageKey(specSlug, 'loMastery', canonicalModuleId, loRef);
+        writes.push(
+          prisma.callerAttribute.upsert({
+            where: {
+              callerId_key_scope: {
+                callerId,
+                key,
+                scope: 'CURRICULUM',
+              },
+            },
+            create: {
               callerId,
               key,
               scope: 'CURRICULUM',
+              valueType: 'NUMBER',
+              numberValue: score,
             },
-          },
-          create: {
-            callerId,
-            key,
-            scope: 'CURRICULUM',
-            valueType: 'NUMBER',
-            numberValue: score,
-          },
-          update: {
-            numberValue: score,
-          },
-        })
-      );
+            update: {
+              numberValue: score,
+            },
+          })
+        );
+      }
     }
   }
 

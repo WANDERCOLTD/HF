@@ -58,3 +58,28 @@ export function shouldSkipForEvidenceFirst(
   }
   return false;
 }
+
+/**
+ * #611 Fix B — universal zero-evidence gate. Returns true when a CallScore
+ * row should be dropped because the scorer LLM explicitly reported the
+ * learner produced no evidence AND the evidence quality is zero. Fires
+ * regardless of playbook ID, scheduler config, or evidence-first allowlist.
+ *
+ * Distinguished from `shouldSkipForEvidenceFirst`:
+ *   - That guard is OPT-IN by playbook (evidence-first allowlist + config).
+ *   - This guard is UNIVERSAL — every playbook gets it.
+ *
+ * Legacy null-sentinel path (either field is null) returns false so prompts
+ * that pre-date evidence-aware scoring keep their existing semantics —
+ * silently dropping legitimate-zero rows on legacy prompts would be a
+ * regression we cannot tolerate.
+ *
+ * See: docs/epic-100-chain-walk.md (Link 4 — CALL → SCORE)
+ *      gh issue view 611 (Symptom 2 — 47-param zero-storm)
+ */
+export function shouldSkipForZeroEvidence(
+  hasLearnerEvidence: boolean | null,
+  evidenceQuality: number | null,
+): boolean {
+  return hasLearnerEvidence === false && evidenceQuality === 0;
+}

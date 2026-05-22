@@ -64,6 +64,65 @@ export async function resolveModuleByLogicalId(
 }
 
 /**
+ * #611 Fix A — canonical moduleId resolution for AGGREGATE-stage writers.
+ *
+ * Returns the verified `CurriculumModule.slug` for a module given any
+ * logical identifier (slug, UUID, or display-name guess). The slug is the
+ * canonical form for the `{moduleId}` token in `lo_mastery:*` storage keys
+ * (and any other contract that requires per-curriculum stability).
+ *
+ * Returns null when the module cannot be resolved within the given
+ * curriculum — callers MUST treat that as a failure and either log+skip
+ * or throw, never fall back to writing the unresolved string into a key.
+ *
+ * Throws on empty `curriculumId` (mirrors `resolveModuleByLogicalId`).
+ *
+ * See: docs/epic-100-chain-walk.md (Link 4 — CALL → SCORE; Link 6 — ADAPT → COMPOSE)
+ *      docs-archive/bdd-specs/contracts/CURRICULUM_PROGRESS_V1.contract.json
+ */
+export async function resolveModuleSlug(
+  curriculumId: string,
+  slugOrIdOrName: string | null | undefined,
+): Promise<string | null> {
+  if (!curriculumId) {
+    throw new Error(
+      "resolveModuleSlug: curriculumId is required. " +
+        "Unscoped slug lookups corrupt cross-playbook FKs — see #407.",
+    );
+  }
+  if (!slugOrIdOrName) return null;
+
+  // Case 1: UUID — look up by id (scoped) and return the slug.
+  if (UUID_RE.test(slugOrIdOrName)) {
+    const row = await prisma.curriculumModule.findFirst({
+      where: { id: slugOrIdOrName, curriculumId },
+      select: { slug: true },
+    });
+    return row?.slug ?? null;
+  }
+
+  // Case 2: slug — verify it exists in this curriculum, return as-is.
+  const direct = await prisma.curriculumModule.findFirst({
+    where: { curriculumId, slug: slugOrIdOrName },
+    select: { slug: true },
+  });
+  if (direct) return direct.slug;
+
+  // Case 3: display title — AI sometimes echoes the module's `title` field
+  // verbatim instead of its slug (e.g. "Part 1: Familiar Topics" instead of
+  // "part1"). Last-resort case-insensitive lookup by title. If multiple
+  // modules in this curriculum share a title (shouldn't happen, but possible)
+  // we refuse rather than guess.
+  const byTitle = await prisma.curriculumModule.findMany({
+    where: { curriculumId, title: { equals: slugOrIdOrName, mode: "insensitive" } },
+    select: { slug: true },
+    take: 2,
+  });
+  if (byTitle.length === 1) return byTitle[0].slug;
+  return null;
+}
+
+/**
  * Resolve the canonical `Curriculum.id` attached to a `Playbook`. Pairs
  * with `resolveModuleByLogicalId()` — the two-step chain (playbook →
  * curriculum → module) is the supported way to derive a module FK from
