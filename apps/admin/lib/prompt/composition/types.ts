@@ -566,6 +566,10 @@ export interface BehaviorTargetData {
   confidence: number;
   scope: string;
   playbookId?: string | null;
+  // #713 bug 2 — source distinguishes educator-set (MANUAL / TUNING_CHAT)
+  // from system-set (SEED / LEARNED) targets. mergeTargets uses this to
+  // let manual scope=CALLER tunes override the system's CallerTarget.
+  source?: "SEED" | "LEARNED" | "MANUAL" | "TUNING_CHAT" | null;
   parameter: {
     name: string | null;
     parameterId?: string;

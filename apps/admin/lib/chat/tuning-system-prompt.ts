@@ -249,6 +249,40 @@ function buildActiveScopeBlock(
 }
 
 /** Format the active entity context for the TUNING prompt. */
+/**
+ * #713 bug 1 — surface LEARNER-level overrides so the AI doesn't claim
+ * "Diego has no learner-level setting" when his CallerTarget says
+ * otherwise. Each row is labelled MANUAL_OVERRIDE (educator set) or
+ * ADAPTED (system set via ADAPT/AGGREGATE) so the AI can warn the
+ * educator before stomping on an ADAPT result.
+ */
+function buildLearnerOverridesBlock(
+  overrides: Array<{ parameterId: string; targetValue: number; origin: "MANUAL_OVERRIDE" | "ADAPTED" }>,
+  entityContext: EntityBreadcrumb[] | undefined,
+): string {
+  const caller = entityContext?.find((e) => e.type === "caller");
+  if (!caller) {
+    return "\n\n## Learner-level Overrides\n\n_No learner in context — values shown in the catalogue above are course-effective only._";
+  }
+  if (overrides.length === 0) {
+    return `\n\n## Learner-level Overrides (${caller.label})\n\nNo per-learner overrides for this caller. The course-effective values in the catalogue apply.`;
+  }
+  const lines = [
+    `\n\n## Learner-level Overrides (${caller.label})`,
+    "",
+    "Values here OVERRIDE the course-effective catalogue for this learner. Two origins:",
+    "- **MANUAL_OVERRIDE** — set by an educator via Tune sidebar or Cmd+K chat. Wins over everything.",
+    "- **ADAPTED** — set by the ADAPT pipeline stage based on call evidence. Wins over course defaults, BUT a fresh MANUAL_OVERRIDE will replace it.",
+    "",
+    "**Before tuning a parameter listed here at PLAYBOOK scope, warn the educator: their course-level change will be shadowed for this learner. Ask if they want to clear the override.**",
+    "",
+  ];
+  for (const o of overrides) {
+    lines.push(`- ${o.parameterId} = ${o.targetValue} (${o.origin})`);
+  }
+  return lines.join("\n");
+}
+
 function buildActiveCourseBlock(entityContext: EntityBreadcrumb[] | undefined): string {
   if (!entityContext || entityContext.length === 0) {
     return `\n\n## Active Context\n\n_No entity context. Ask the educator which course they want to tune before calling \`update_behavior_target\`._`;
@@ -293,6 +327,60 @@ async function loadPlaybookOverrides(playbookId: string | undefined): Promise<Ma
 }
 
 /**
+ * #713 bug 1 — load LEARNER-level overrides for a caller. Returns merged
+ * view of:
+ *   - BehaviorTarget(scope=CALLER, source=MANUAL|TUNING_CHAT) — educator
+ *     overrides set via Tune sidebar or Cmd+K chat
+ *   - CallerTarget — system-managed per-learner state (ADAPT, AGGREGATE)
+ *
+ * Both sources surface so the AI can distinguish "this was an explicit
+ * educator setting" from "this is the system's adapted value", and can
+ * answer "what is X for this learner?" without missing rows.
+ */
+interface LearnerOverride {
+  parameterId: string;
+  targetValue: number;
+  origin: "MANUAL_OVERRIDE" | "ADAPTED";
+}
+
+async function loadCallerOverrides(callerId: string | undefined): Promise<LearnerOverride[]> {
+  if (!callerId) return [];
+  const [callerTargets, behaviorTargets] = await Promise.all([
+    prisma.callerTarget.findMany({
+      where: { callerId },
+      select: { parameterId: true, targetValue: true },
+    }),
+    prisma.behaviorTarget.findMany({
+      where: {
+        scope: "CALLER",
+        effectiveUntil: null,
+        callerIdentity: { callerId },
+        source: { in: ["MANUAL", "TUNING_CHAT"] },
+      },
+      select: { parameterId: true, targetValue: true, source: true },
+    }),
+  ]);
+
+  // Educator overrides win over CallerTarget (mirrors mergeTargets logic).
+  const result = new Map<string, LearnerOverride>();
+  for (const ct of callerTargets) {
+    result.set(ct.parameterId, {
+      parameterId: ct.parameterId,
+      targetValue: ct.targetValue,
+      origin: "ADAPTED",
+    });
+  }
+  for (const bt of behaviorTargets) {
+    result.set(bt.parameterId, {
+      parameterId: bt.parameterId,
+      targetValue: bt.targetValue,
+      origin: "MANUAL_OVERRIDE",
+    });
+  }
+  return Array.from(result.values());
+}
+
+/**
  * Build the TUNING mode system prompt with live parameter + contract context.
  */
 export async function buildTuningSystemPrompt(options: BuildTuningPromptOptions = {}): Promise<string> {
@@ -302,16 +390,20 @@ export async function buildTuningSystemPrompt(options: BuildTuningPromptOptions 
   );
 
   const playbookId = options.entityContext?.find((e) => e.type === "playbook")?.id;
+  const callerId = options.entityContext?.find((e) => e.type === "caller")?.id;
   const overrides = await loadPlaybookOverrides(playbookId);
 
-  const [{ params }, contracts] = await Promise.all([
+  const [{ params }, contracts, learnerOverrides] = await Promise.all([
     loadAdjustableParameters(overrides),
     ContractRegistry.listContracts(),
+    loadCallerOverrides(callerId),
   ]);
 
   const paramBlock = params.length > 0
     ? `\n\n## Behaviour Parameter Catalogue (${params.length} adjustable)\n\nValues shown are the **CURRENT effective value on the active course** (PLAYBOOK overrides applied over SYSTEM defaults). If you just called the tool, the new value is reflected here on the next turn. Use these as your starting point when mapping plain-language requests to numeric targets — if the educator asks for 0.15 and the catalogue already shows 0.15, the change is already in place.\n\n${formatParameterList(params)}`
     : "\n\n## Behaviour Parameters\n\n_No adjustable behaviour parameters found in the database._";
+
+  const learnerBlock = buildLearnerOverridesBlock(learnerOverrides, options.entityContext);
 
   const contractBlock = formatContractCatalogue(contracts);
 
@@ -333,7 +425,7 @@ Each stage is spec-driven. Behaviour-target changes you make take effect at the 
   const scopeBlock = buildActiveScopeBlock(options.tuningScope, options.entityContext);
   const activeBlock = buildActiveCourseBlock(options.entityContext);
 
-  return basePrompt + scopeBlock + activeBlock + paramBlock + contractBlock + pipelineBlock;
+  return basePrompt + scopeBlock + activeBlock + paramBlock + learnerBlock + contractBlock + pipelineBlock;
 }
 
 /**

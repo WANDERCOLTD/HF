@@ -22,6 +22,7 @@ vi.mock("@/lib/prisma", () => {
     callerPlaybook: { findMany: vi.fn() },
     playbookSubject: { findMany: vi.fn() },
     playbookSource: { findMany: vi.fn() },
+    behaviorTarget: { findMany: vi.fn() },
   };
   return { prisma: mock, db: () => mock };
 });
@@ -227,5 +228,57 @@ describe("subjectSources loader — documentType + tutorOnly hint", () => {
     expect(cref.tutorOnly).toBe(true);
     expect(textbook.documentType).toBe("TEXTBOOK");
     expect(cref.documentType).toBe("COURSE_REFERENCE");
+  });
+});
+
+describe("behaviorTargets loader — #713 bug 4 cross-learner scope=CALLER filter", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("filters scope=CALLER targets to those whose callerIdentity belongs to the caller", async () => {
+    (prisma.behaviorTarget.findMany as any).mockResolvedValue([]);
+    await getLoader("behaviorTargets")!("caller-A");
+
+    // Inspect the `where` clause that was passed to prisma
+    const call = (prisma.behaviorTarget.findMany as any).mock.calls[0][0];
+    expect(call.where).toMatchObject({ effectiveUntil: null });
+    expect(call.where.OR).toEqual([
+      { scope: { not: "CALLER" } },
+      { callerIdentity: { callerId: "caller-A" } },
+    ]);
+  });
+
+  it("does not surface scope=CALLER targets belonging to other callers", async () => {
+    // Simulate Bob asking for his targets; the DB filter should ensure
+    // Alice's scope=CALLER row never even enters the result set.
+    (prisma.behaviorTarget.findMany as any).mockImplementation((args: any) => {
+      const all = [
+        // Alice's per-caller tune
+        { id: "bt-alice", scope: "CALLER", targetValue: 0.9, callerIdentityId: "ident-alice", callerIdentity: { callerId: "alice" }, parameter: { parameterId: "BEH-WARMTH" } },
+        // PLAYBOOK target (broad — should appear for Bob)
+        { id: "bt-pb", scope: "PLAYBOOK", targetValue: 0.4, playbookId: "pb1", parameter: { parameterId: "BEH-WARMTH" } },
+        // Bob's own per-caller tune
+        { id: "bt-bob", scope: "CALLER", targetValue: 0.7, callerIdentityId: "ident-bob", callerIdentity: { callerId: "bob" }, parameter: { parameterId: "BEH-WARMTH" } },
+      ];
+      // Mimic the OR filter from the real implementation
+      const orClauses = args?.where?.OR ?? [];
+      return Promise.resolve(
+        all.filter((t) => {
+          if (orClauses.length === 0) return true;
+          return orClauses.some((c: any) => {
+            if (c.scope?.not && t.scope !== c.scope.not) return true;
+            if (c.callerIdentity?.callerId && t.callerIdentity?.callerId === c.callerIdentity.callerId) return true;
+            return false;
+          });
+        }),
+      );
+    });
+
+    const bobTargets = await getLoader("behaviorTargets")!("bob");
+    const ids = (bobTargets as Array<{ id: string }>).map((t) => t.id);
+    expect(ids).toContain("bt-bob");      // Bob sees his own
+    expect(ids).toContain("bt-pb");        // Playbook target still applies broadly
+    expect(ids).not.toContain("bt-alice"); // Alice's row is filtered out
   });
 });
