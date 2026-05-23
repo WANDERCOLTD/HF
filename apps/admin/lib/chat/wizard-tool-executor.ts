@@ -966,6 +966,65 @@ export async function executeWizardTool(
               data: { config: JSON.parse(JSON.stringify(configUpdate)) },
             });
 
+            // #607 follow-on (2026-05-23) — the new-course branch's step 4b
+            // calls `unlinkNonPrimaryPlaybookSubjects()` to enforce "exactly
+            // one PlaybookSubject per playbook" (invariant I9 in
+            // docs/ENTITIES.md). The reuse branch above NEVER touched
+            // PlaybookSubject, so if a prior partial create_course (or a
+            // quick-launch/analyze run that crashed before reaching step 4b)
+            // left a non-primary Subject linked, the cleanup never fired.
+            //
+            // The IELTS V1.0 case (2026-05-23): the playbook had two
+            // PlaybookSubjects after a pre-flight-aborted retry —
+            // "<courseName>" (from quick-launch/analyze) plus "ESOL" (the
+            // course-scoped one). Audit caught it; this branch now unlinks
+            // the non-primary subject(s) on every reuse so the invariant
+            // holds end-to-end.
+            //
+            // Look up the course-scoped Subject (slug =
+            // {domain.slug}-{slug(courseName)}-{disciplineSlug}) and unlink
+            // every other PlaybookSubject row for this playbook. Skip the
+            // cleanup safely when the course-scoped Subject doesn't exist
+            // yet — better to leave the playbook with a possibly-wrong
+            // subject than to unlink everything and orphan the prompt
+            // composer.
+            if (subjectDiscipline) {
+              const domainRow = await prisma.domain.findUnique({
+                where: { id: existingPb.domainId! },
+                select: { slug: true },
+              });
+              if (domainRow) {
+                const slugify = (await import("slugify")).default;
+                const courseSlug = slugify(courseName, { lower: true, strict: true });
+                const disciplineSlug = slugify(subjectDiscipline, { lower: true, strict: true });
+                const expectedSubjectSlug = `${domainRow.slug}-${courseSlug}-${disciplineSlug}`;
+                const courseScopedSubject = await prisma.subject.findUnique({
+                  where: { slug: expectedSubjectSlug },
+                  select: { id: true },
+                });
+                if (courseScopedSubject) {
+                  const { unlinkNonPrimaryPlaybookSubjects } = await import(
+                    "@/lib/knowledge/cleanup-placeholder-subjects"
+                  );
+                  const unlink = await unlinkNonPrimaryPlaybookSubjects(
+                    existingPlaybookId,
+                    courseScopedSubject.id,
+                  );
+                  if (unlink.removed > 0) {
+                    console.log(
+                      `[wizard-tools] create_course (existing path): displaced ${unlink.removed} non-primary PlaybookSubject(s) on playbook ${existingPlaybookId}: ${unlink.displaced
+                        .map((d) => `"${d.subjectName}"`)
+                        .join(", ")}`,
+                    );
+                  }
+                } else {
+                  console.warn(
+                    `[wizard-tools] create_course (existing path): no course-scoped Subject "${expectedSubjectSlug}" found on reuse — skipping #607 unlink to avoid orphaning the playbook. Investigate if this playbook shows duplicate CONTENT AUTHORITY sections in composed prompts.`,
+                  );
+                }
+              }
+            }
+
             // Apply behavior targets if provided
             const behaviorTargets = input.behaviorTargets as Record<string, number> | undefined;
             if (behaviorTargets && Object.keys(behaviorTargets).length > 0) {
