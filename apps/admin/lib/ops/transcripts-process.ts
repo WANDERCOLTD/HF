@@ -384,6 +384,19 @@ async function processFile(
         // Tolerates null — VAPI imports can legitimately predate enrollment.
         const importedPlaybookId = callerId ? await resolvePlaybookId(callerId) : null;
 
+        // Stamp callSequence (1, 2, 3...) so the prompt timeline can label
+        // this call as "Call N". Mirrors sim-runner.ts / vapi/webhook.
+        // Only meaningful when callerId is known.
+        let importedSequence: number | null = null;
+        if (callerId) {
+          const lastCall = await prisma.call.findFirst({
+            where: { callerId },
+            orderBy: { callSequence: "desc" },
+            select: { callSequence: true },
+          });
+          importedSequence = (lastCall?.callSequence ?? 0) + 1;
+        }
+
         // Create Call record
         await prisma.call.create({
           data: {
@@ -392,6 +405,7 @@ async function processFile(
             transcript,
             callerId: callerId || null,
             ...(importedPlaybookId ? { playbookId: importedPlaybookId } : {}),
+            ...(importedSequence != null ? { callSequence: importedSequence } : {}),
           }
         });
 

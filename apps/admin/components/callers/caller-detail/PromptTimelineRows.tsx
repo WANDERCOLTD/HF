@@ -618,6 +618,15 @@ export function PromptTimelineRows({
     }
     return m;
   });
+  // Tracks when each eval was last run (ISO string from server). Used for the
+  // "Evaluated {time}" label on the eval row header.
+  const [evalAts, setEvalAts] = useState<Map<string, string>>(() => {
+    const m = new Map<string, string>();
+    for (const p of prompts) {
+      if (p.evalAt) m.set(p.id, p.evalAt);
+    }
+    return m;
+  });
   const [evalLoadingIds, setEvalLoadingIds] = useState<Set<string>>(new Set());
   const evalAbortRef = useRef<Map<string, AbortController>>(new Map());
 
@@ -646,6 +655,11 @@ export function PromptTimelineRows({
       setEvalResults((prev) => {
         const next = new Map(prev);
         next.set(promptId, data.eval);
+        return next;
+      });
+      setEvalAts((prev) => {
+        const next = new Map(prev);
+        next.set(promptId, new Date().toISOString());
         return next;
       });
       setExpandedEval((prev) => new Set(prev).add(promptId));
@@ -923,21 +937,24 @@ export function PromptTimelineRows({
                         </span>
                       )}
                       <span className="ptr-row-actions">
+                        {/* When an eval exists, the score is shown on the dedicated
+                            eval row below this prompt. The prompt-row button stays
+                            visible but quiets down — its job is just "re-run". */}
                         <button
                           type="button"
-                          className={`ptr-row-action${isEvalOpen ? " ptr-row-action--open" : ""}${ev ? " ptr-row-action--has-eval" : ""}`}
+                          className={`ptr-row-action${ev ? " ptr-row-action--has-eval" : ""}${ev ? ` ptr-row-action--verdict-${ev.overall.verdict}` : ""}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (ev) {
-                              toggle(expandedEval, setExpandedEval, p.id);
-                            } else if (!evLoading) {
-                              runEval(p.id);
-                            }
+                            if (!evLoading) runEval(p.id);
                           }}
                           disabled={evLoading}
-                          title={ev ? "Show / hide eval" : "Run quality evaluation"}
+                          title={ev ? `Re-evaluate (current score: ${Math.round((ev.overall.score || 0) * 100)}%)` : "Run quality evaluation"}
                         >
-                          {evLoading ? "evaluating…" : ev ? (isEvalOpen ? "▾ eval" : "▸ eval") : "eval"}
+                          {evLoading
+                            ? "evaluating…"
+                            : ev
+                              ? `${Math.round((ev.overall.score || 0) * 100)}% · re-eval`
+                              : "eval"}
                         </button>
                       </span>
                       {isPromptOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -970,48 +987,72 @@ export function PromptTimelineRows({
                       </div>
                     )}
 
-                    {/* Expanded — eval body */}
-                    {isEvalOpen && ev && (
-                      <div className="ptr-row-body">
-                        <div className="ptr-eval-summary">
-                          <span className="ptr-eval-score">{Math.round((ev.overall.score || 0) * 100)}%</span>
-                          <span className={`hf-micro-badge hf-uppercase ${ev.overall.verdict === "strong" ? "ps-status-badge-active" : "ps-status-badge-default"}`}>
-                            {ev.overall.verdict}
-                          </span>
-                          <span className="hf-text-sm hf-text-muted">{ev.overall.summary}</span>
-                        </div>
-                        <ul className="ptr-eval-dims">
-                          {ev.dimensions.map((d) => (
-                            <li key={d.name} className={`ptr-eval-dim ptr-eval-dim--${d.verdict}`}>
-                              <span className="ptr-eval-dim-name">{d.name}</span>
-                              <span className="ptr-eval-dim-score">{Math.round((d.score || 0) * 100)}%</span>
-                              <span className="ptr-eval-dim-verdict">{d.verdict}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        {ev.topImprovements && ev.topImprovements.length > 0 && (
-                          <div className="ptr-eval-improvements">
-                            <div className="hf-text-xs hf-text-muted">Top improvements</div>
-                            <ul>
-                              {ev.topImprovements.map((imp) => (
-                                <li key={imp.priority}>
-                                  <strong>{imp.title}</strong> — {imp.description}
-                                  {imp.adminPath && (
-                                    <>
-                                      {" "}
-                                      <a className="ptr-eval-link" href={imp.adminPath}>
-                                        {imp.adminLabel || "Open"}
-                                      </a>
-                                    </>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
+
+                  {/* EVAL ROW — peer row directly under the prompt row when an
+                      eval has been run. Mirrors the diff-row pattern: head
+                      always visible (so the score reads at a glance), body
+                      expands on click. Use the verdict colour to anchor the row. */}
+                  {ev && (
+                    <div className={`ptr-eval-row ptr-eval-row--${ev.overall.verdict}${isEvalOpen ? " ptr-eval-row--open" : ""}`}>
+                      <button
+                        type="button"
+                        className="ptr-eval-row-head"
+                        onClick={() => toggle(expandedEval, setExpandedEval, p.id)}
+                        aria-expanded={isEvalOpen}
+                        title={isEvalOpen ? "Hide eval body" : "Show eval body"}
+                      >
+                        <BarChart2 size={12} className="ptr-eval-row-icon" />
+                        <span className="ptr-eval-row-label">Eval</span>
+                        <span className="ptr-eval-row-score">{Math.round((ev.overall.score || 0) * 100)}%</span>
+                        <span className={`hf-micro-badge hf-uppercase ptr-eval-row-verdict ptr-eval-row-verdict--${ev.overall.verdict}`}>
+                          {ev.overall.verdict}
+                        </span>
+                        <span className="ptr-eval-row-summary" title={ev.overall.summary}>
+                          {ev.overall.summary}
+                        </span>
+                        {evalAts.get(p.id) && (
+                          <span className="ptr-eval-row-time">
+                            Evaluated {formatDate(evalAts.get(p.id)!)}
+                          </span>
+                        )}
+                        {isEvalOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </button>
+                      {isEvalOpen && (
+                        <div className="ptr-eval-row-body">
+                          <ul className="ptr-eval-dims">
+                            {ev.dimensions.map((d) => (
+                              <li key={d.name} className={`ptr-eval-dim ptr-eval-dim--${d.verdict}`}>
+                                <span className="ptr-eval-dim-name">{d.name}</span>
+                                <span className="ptr-eval-dim-score">{Math.round((d.score || 0) * 100)}%</span>
+                                <span className="ptr-eval-dim-verdict">{d.verdict}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          {ev.topImprovements && ev.topImprovements.length > 0 && (
+                            <div className="ptr-eval-improvements">
+                              <div className="hf-text-xs hf-text-muted">Top improvements</div>
+                              <ul>
+                                {ev.topImprovements.map((imp) => (
+                                  <li key={imp.priority}>
+                                    <strong>{imp.title}</strong> — {imp.description}
+                                    {imp.adminPath && (
+                                      <>
+                                        {" "}
+                                        <a className="ptr-eval-link" href={imp.adminPath}>
+                                          {imp.adminLabel || "Open"}
+                                        </a>
+                                      </>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

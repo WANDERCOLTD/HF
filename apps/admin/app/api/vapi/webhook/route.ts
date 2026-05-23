@@ -137,6 +137,21 @@ async function handleEndOfCallReport(message: any) {
   // prompt configured. Persist what's present, leave the rest NULL.
   const capture = extractVapiCapture(message);
 
+  // Stamp callSequence (1, 2, 3...) so the prompt timeline can label this
+  // call as "Call N". Without it, the UI shows "—" or jumps. Mirrors the
+  // pattern in sim-runner.ts / onboarding-call/route.ts. Only meaningful
+  // when callerId is known — VAPI imports without a caller link don't get
+  // a sequence (the UI doesn't show them in a per-caller timeline anyway).
+  let nextSequence: number | null = null;
+  if (callerId) {
+    const lastCall = await prisma.call.findFirst({
+      where: { callerId },
+      orderBy: { callSequence: "desc" },
+      select: { callSequence: true },
+    });
+    nextSequence = (lastCall?.callSequence ?? 0) + 1;
+  }
+
   // Create the Call record
   const newCall = await prisma.call.create({
     data: {
@@ -146,6 +161,7 @@ async function handleEndOfCallReport(message: any) {
       callerId: callerId,
       usedPromptId: usedPromptId,
       ...(playbookId ? { playbookId } : {}),
+      ...(nextSequence != null ? { callSequence: nextSequence } : {}),
       ...capture,
     },
   });
