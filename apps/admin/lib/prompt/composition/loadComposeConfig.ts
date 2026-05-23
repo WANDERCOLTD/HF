@@ -38,17 +38,50 @@ export async function loadComposeConfig(overrides?: {
    */
   requestedModuleId?: string;
 }): Promise<ComposeConfig> {
-  // Try exact slug first (from config), then fallback to any active COMPOSE/SYSTEM spec
-  const composeSpec = await prisma.analysisSpec.findFirst({
+  // Resolve the COMPOSE spec.
+  //
+  // Robust-fix (2026-05-23): the prior fallback was too permissive — it
+  // matched ANY active SYSTEM-scope spec with `outputType=COMPOSE` and
+  // `domain != prompt-slugs`. On DEV that pool included identity-domain
+  // archetype + overlay specs (ADVISOR-001, COACH-001, spec-advisor-001,
+  // spec-coach-001, …) because every IDENTITY spec is seeded with
+  // `outputType="COMPOSE"` (see prisma/seed-identity-archetypes.ts).
+  // `findFirst()` without `orderBy` is non-deterministic in Postgres, so
+  // some calls landed on `spec-comp-001` (correct) and others on
+  // `spec-advisor-001` / `ADVISOR-001` (wrong) — which then surfaced as
+  // `inputs.specUsed = "spec-advisor-001"` on ComposedPrompt rows and
+  // tripped the `advisorInInputsSnapshot` audit counter. This was the
+  // root cause of the 28 historical leaks investigated as #608 follow-ups.
+  //
+  // Tightened to require `domain="prompt-composition"` — the canonical
+  // domain for COMP-* specs in seed-from-specs / seed-prompts. Identity
+  // and archetype specs use `domain="identity"`, never `prompt-composition`,
+  // so this filter excludes them by design. `orderBy: slug asc` then
+  // makes the choice deterministic when multiple compose-domain specs
+  // are active (rare; today there is only `spec-comp-001`).
+  //
+  // If the exact-slug match fails AND the fallback fires, log a warning
+  // so the env misconfiguration is visible. The 28 historical leaks were
+  // silent because no log was emitted on fallback.
+  const exactMatch = await prisma.analysisSpec.findFirst({
     where: { slug: config.specs.compose, isActive: true },
-  }) || await prisma.analysisSpec.findFirst({
+  });
+  const composeSpec = exactMatch || await prisma.analysisSpec.findFirst({
     where: {
       outputType: "COMPOSE",
       isActive: true,
       scope: "SYSTEM",
-      domain: { not: "prompt-slugs" },
+      domain: "prompt-composition",
     },
+    orderBy: { slug: "asc" },
   });
+  if (!exactMatch && composeSpec) {
+    console.warn(
+      `[loadComposeConfig] env COMPOSE_SPEC_SLUG="${config.specs.compose}" has no exact match in DB. ` +
+        `Fell back to "${composeSpec.slug}" (first SYSTEM/COMPOSE spec in domain=prompt-composition by slug asc). ` +
+        `Set COMPOSE_SPEC_SLUG to the correct slug to suppress this warning.`,
+    );
+  }
 
   const specConfig = (composeSpec?.config as SpecConfig) || {};
   const specParameters = (specConfig.parameters as Array<{ id: string; config?: Record<string, any> }>) || [];

@@ -278,12 +278,22 @@ export const config = {
     },
 
     /**
-     * Compose Spec slug (default: system-compose-next-prompt)
-     * The COMPOSE spec that drives prompt composition.
-     * Can be overridden via COMPOSE_SPEC_SLUG env var.
+     * Compose Spec slug (default: spec-comp-001)
+     * The COMPOSE spec that drives prompt composition. Identifies the
+     * `AnalysisSpec` row whose `config` carries the section list,
+     * thresholds, memory caps, etc. for `executeComposition()`.
+     *
+     * Default updated 2026-05-23 — previous default
+     * "system-compose-next-prompt" had no DB row, causing
+     * `loadComposeConfig()` to fall through to a permissive findFirst
+     * that picked archetype/identity specs non-deterministically (see
+     * `loadComposeConfig.ts` long-comment for the full root-cause).
+     *
+     * Override via COMPOSE_SPEC_SLUG env var when seeding a custom
+     * composer (e.g. multi-tenant variants).
      */
     get compose(): string {
-      return optional("COMPOSE_SPEC_SLUG", "system-compose-next-prompt");
+      return optional("COMPOSE_SPEC_SLUG", "spec-comp-001");
     },
 
     /**
