@@ -47,7 +47,12 @@ describe("config.specs — canonical spec slugs", () => {
 
   it("has correct default for compose", () => {
     vi.stubEnv("COMPOSE_SPEC_SLUG", "");
-    expect(config.specs.compose).toBe("system-compose-next-prompt");
+    // PR #682 (2026-05-23): default changed from the legacy
+    // "system-compose-next-prompt" to "spec-comp-001". The legacy slug
+    // had no matching spec in the DB and was the trigger for the
+    // loadComposeConfig fallback that occasionally landed on
+    // spec-advisor-001 (the #608 leak root cause).
+    expect(config.specs.compose).toBe("spec-comp-001");
   });
 
   it("has correct default for voicePattern", () => {
