@@ -697,6 +697,16 @@ export async function computeSharedState(
         // this match stays tolerant. Do NOT tighten without first verifying
         // `callerAttributeOldKeyFormCount` audit counter is 0 across all
         // environments.
+        //
+        // #614 status: drain script lives at
+        // `scripts/migrate-caller-attribute-lo-mastery-keys.ts`
+        // (`--apply` to write; dry-run by default). It soft-deletes legacy
+        // rows via `validUntil = NOW()` after inserting the canonical row
+        // (or merging max-value when the canonical row already exists).
+        // Once `callerAttributeOldKeyFormCount` reads 0 in dev/test/prod,
+        // open the reader-tightening follow-on to switch this match to a
+        // slug-only regex and to mirror the change in
+        // `transforms/retrieval-practice.ts:71`.
         const loMasteryMap: Record<string, number> = {};
         for (const attr of data.callerAttributes) {
           if (attr.key.includes(':lo_mastery:') && attr.scope === 'CURRICULUM') {

@@ -68,6 +68,11 @@ registerTransform(
     // ── Compute information need (v1: coverage gap only) ──
     const loMasteryMap = {} as Record<string, number>;
     for (const attr of loadedData.callerAttributes) {
+      // #611 GRACE WINDOW — mirrors the tolerant matcher in
+      // `transforms/modules.ts:702` (see that block's long comment).
+      // Drain pending via `scripts/migrate-caller-attribute-lo-mastery-keys.ts`
+      // (#614); tighten this matcher in the follow-on once
+      // `callerAttributeOldKeyFormCount` audit counter reads 0 everywhere.
       if (attr.key.includes(":lo_mastery:") && attr.scope === "CURRICULUM" && attr.numberValue != null) {
         const suffix = attr.key.split(":lo_mastery:")[1];
         if (suffix) loMasteryMap[suffix] = attr.numberValue;
