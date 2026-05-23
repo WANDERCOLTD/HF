@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { writeCallerBehaviorTarget } from "@/lib/agent-tuner/write-target";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -77,6 +78,75 @@ export async function PATCH(
     console.error("Error updating caller behavior targets:", error);
     return NextResponse.json(
       { ok: false, error: error?.message || "Failed to update caller targets" },
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * @api GET /api/callers/:callerId/behavior-targets
+ * @visibility internal
+ * @scope callers:read
+ * @auth session
+ * @tags callers, targets
+ * @description Return the per-learner behaviour-target overrides for a caller —
+ *   both MANUAL/TUNING_CHAT scope=CALLER BehaviorTargets (educator-set) AND
+ *   CallerTarget rows (system-managed via ADAPT/AGGREGATE). Used by the Tune
+ *   sidebar (#710) to surface shadow warnings when an educator is about to
+ *   tune at PLAYBOOK scope on a parameter this learner has overridden.
+ * @pathParam callerId string - Caller UUID
+ * @response 200 { ok: true, overrides: Array<{ parameterId, targetValue, origin }> }
+ *   where origin is "MANUAL_OVERRIDE" (educator) or "ADAPTED" (system).
+ */
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ callerId: string }> },
+) {
+  try {
+    const authResult = await requireAuth("OPERATOR");
+    if (isAuthError(authResult)) return authResult.error;
+
+    const { callerId } = await params;
+
+    const [callerTargets, behaviorTargets] = await Promise.all([
+      prisma.callerTarget.findMany({
+        where: { callerId },
+        select: { parameterId: true, targetValue: true, lastUpdatedAt: true },
+      }),
+      prisma.behaviorTarget.findMany({
+        where: {
+          scope: "CALLER",
+          effectiveUntil: null,
+          callerIdentity: { callerId },
+          source: { in: ["MANUAL", "TUNING_CHAT"] },
+        },
+        select: { parameterId: true, targetValue: true, source: true, updatedAt: true },
+      }),
+    ]);
+
+    const byParam = new Map<string, { parameterId: string; targetValue: number; origin: "MANUAL_OVERRIDE" | "ADAPTED"; updatedAt: string }>();
+    for (const ct of callerTargets) {
+      byParam.set(ct.parameterId, {
+        parameterId: ct.parameterId,
+        targetValue: ct.targetValue,
+        origin: "ADAPTED",
+        updatedAt: ct.lastUpdatedAt?.toISOString() ?? new Date(0).toISOString(),
+      });
+    }
+    for (const bt of behaviorTargets) {
+      byParam.set(bt.parameterId, {
+        parameterId: bt.parameterId,
+        targetValue: bt.targetValue,
+        origin: "MANUAL_OVERRIDE",
+        updatedAt: bt.updatedAt.toISOString(),
+      });
+    }
+
+    return NextResponse.json({ ok: true, overrides: Array.from(byParam.values()) });
+  } catch (error: any) {
+    console.error("Error reading caller behavior targets:", error);
+    return NextResponse.json(
+      { ok: false, error: error?.message || "Failed to read caller targets" },
       { status: 500 },
     );
   }

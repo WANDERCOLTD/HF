@@ -2497,6 +2497,23 @@ Get all media assets available for sharing with a caller, based on their domain'
 
 ---
 
+### `GET` /api/callers/:callerId/behavior-targets
+
+Return the per-learner behaviour-target overrides for a caller —
+
+**Auth**: Session · **Scope**: `callers:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | path | string | Yes | Caller UUID |
+
+**Response** `200`
+```json
+{ ok: true, overrides: Array<{ parameterId, targetValue, origin }> }
+```
+
+---
+
 ### `PATCH` /api/callers/:callerId/behavior-targets
 
 Update CALLER-scoped behavior targets for a single caller. The server
