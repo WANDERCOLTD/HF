@@ -111,8 +111,6 @@ export default function CallerDetailPage() {
   };
   const [simChatMounted, setSimChatMounted] = useState(initialTab === "ai-call");
   const [callSession, setCallSession] = useState(0);
-  const [rePrompting, setRePrompting] = useState(false);
-  const [rePromptError, setRePromptError] = useState<string | null>(null);
   // #396: parent-owned "is a call live?" flag so the SimStateBreadcrumb pill
   // reads "(Active)" while the user is mid-call instead of always "(Pre-call)".
   const [isCallActive, setIsCallActive] = useState(false);
@@ -1091,53 +1089,6 @@ export default function CallerDetailPage() {
             </div>
           ) : (
             <>
-              <div className="cdp-tune-tab-actions">
-                <button
-                  type="button"
-                  className="hf-btn hf-btn-secondary"
-                  disabled={rePrompting}
-                  onClick={async () => {
-                    setRePrompting(true);
-                    try {
-                      // Anchor the new prompt under the latest call so it
-                      // appears as a sibling on the Calls tab (per the
-                      // #642 grouping in PromptTimelineRows). Standalone
-                      // re-composes group on their own at the top.
-                      const latestCallId = (data.calls ?? [])
-                        .slice()
-                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]?.id;
-                      const body: Record<string, unknown> = { triggerType: "manual" };
-                      if (latestCallId) body.triggerCallId = latestCallId;
-                      const res = await fetch(`/api/callers/${callerId}/compose-prompt`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(body),
-                      });
-                      if (!res.ok) {
-                        const data = await res.json().catch(() => ({}));
-                        setRePromptError(data?.error || `Re-prompt failed (HTTP ${res.status})`);
-                      } else {
-                        setRePromptError(null);
-                        fetchPrompts();
-                      }
-                    } catch (e) {
-                      setRePromptError(e instanceof Error ? e.message : "Re-prompt failed");
-                    } finally {
-                      setRePrompting(false);
-                    }
-                  }}
-                >
-                  {rePrompting ? "Re-prompting..." : "Re-prompt now"}
-                </button>
-                <span className="hf-text-xs hf-text-muted hf-ml-md">
-                  {(data.calls ?? []).length > 0
-                    ? "New prompt will appear as a sibling under the latest call."
-                    : "New prompt will appear as standalone (no call yet)."}
-                </span>
-                {rePromptError && (
-                  <span className="hf-text-xs hf-ml-md" style={{ color: "var(--status-error-text)" }}>{rePromptError}</span>
-                )}
-              </div>
               <PromptTimelineRows
                 prompts={composedPrompts}
                 calls={(data.calls ?? []) as never}
