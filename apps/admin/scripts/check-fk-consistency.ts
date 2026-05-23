@@ -100,6 +100,45 @@ async function runChecks(): Promise<CheckResult[]> {
     rows: orphans.map((r) => ({ id: r.id })),
   });
 
+  // Query 4 — #615 — orphan LearningObjective.
+  // A LearningObjective whose moduleId references a CurriculumModule that
+  // no longer exists. Should be impossible via the FK but added as a
+  // belt-and-braces invariant — same pattern as Query 3 for the LO ↔ module
+  // soft-FK shape. Mirrors audit-epic-100 counter `orphanLearningObjectives`
+  // so the failure surfaces at CI step 5 (check-fk-consistency) before
+  // step 6 (audit) re-detects it.
+  const orphanLOs = await prisma.$queryRaw<Array<{ id: string; moduleId: string }>>`
+    SELECT lo."id", lo."moduleId"
+    FROM "LearningObjective" lo
+    LEFT JOIN "CurriculumModule" cm ON cm.id = lo."moduleId"
+    WHERE cm.id IS NULL
+  `;
+  results.push({
+    name: "orphan-learning-objective",
+    description:
+      "LearningObjective.moduleId references a CurriculumModule that no longer exists. #615 — surfaces after #607's PlaybookSubject unlink if an empty subject was the LO's only host.",
+    rows: orphanLOs.map((r) => ({ id: r.id, detail: { moduleId: r.moduleId } })),
+  });
+
+  // Query 5 — #615 — dangling ContentAssertion.learningObjectiveId.
+  // `ContentAssertion.learningObjectiveId` is a SOFT FK (nullable column,
+  // no DB-level enforcement). `reconcile-lo-linkage.ts` is supposed to
+  // null these out when the LO disappears, but it runs on a cadence and
+  // can lag a delete. This check fails CI before the lag becomes a silent
+  // mastery-derivation bug.
+  const danglingCAs = await prisma.$queryRaw<Array<{ id: string; learningObjectiveId: string }>>`
+    SELECT ca."id", ca."learningObjectiveId"
+    FROM "ContentAssertion" ca
+    LEFT JOIN "LearningObjective" lo ON lo.id = ca."learningObjectiveId"
+    WHERE ca."learningObjectiveId" IS NOT NULL AND lo.id IS NULL
+  `;
+  results.push({
+    name: "dangling-content-assertion-lo",
+    description:
+      "ContentAssertion.learningObjectiveId is non-null but the referenced LearningObjective no longer exists (soft-FK). `reconcile-lo-linkage.ts` should null these; #615 catches lag.",
+    rows: danglingCAs.map((r) => ({ id: r.id, detail: { learningObjectiveId: r.learningObjectiveId } })),
+  });
+
   return results;
 }
 
