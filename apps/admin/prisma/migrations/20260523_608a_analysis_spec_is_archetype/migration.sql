@@ -5,6 +5,13 @@
 -- for the `extendsAgent` inheritance chain in `mergeIdentitySpec`) from
 -- runtime fallback IDENTITY specs.
 --
+-- IMPORTANT: the Prisma model `AnalysisSpec` is `@@map("BddFeature")` —
+-- the actual DB table is `BddFeature` (legacy name preserved during a
+-- prior rename, see schema.prisma comment at line 2512 + the @@map
+-- directive at line 2638). Always ALTER the underlying table, not the
+-- model alias. The field has no `@map` so the column name is
+-- `isArchetype` verbatim.
+--
 -- After this migration:
 --   - `seed-identity-archetypes.ts` sets `isArchetype = true` for all 5 archetypes.
 --   - The `systemSpecs` loader filters `isArchetype: false`, so archetypes
@@ -17,5 +24,5 @@
 -- Pure additive — no defaults that need backfill, no constraint changes.
 -- Existing rows get `isArchetype = false` via the column default; the seed
 -- script will flip the 5 archetype rows to `true` on next reseed.
-ALTER TABLE "AnalysisSpec"
+ALTER TABLE "BddFeature"
   ADD COLUMN "isArchetype" BOOLEAN NOT NULL DEFAULT false;
