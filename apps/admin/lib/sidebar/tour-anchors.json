@@ -1,0 +1,23 @@
+[
+  {
+    "id": "_tour-anchors",
+    "title": "Tour Anchors (not rendered)",
+    "items": [
+      { "id": "manage-callers", "href": "/x/callers", "label": "Callers", "icon": "User", "roleVariants": { "EDUCATOR": { "href": "/x/educator/students" } } },
+      { "id": "manage-cohorts", "href": "/x/cohorts", "label": "Classrooms", "icon": "School", "roleVariants": { "EDUCATOR": { "href": "/x/educator/classrooms" } } },
+      { "id": "domains", "href": "/x/domains", "label": "Domains", "icon": "Globe" },
+      { "id": "playbooks", "href": "/x/playbooks", "label": "Playbooks", "icon": "BookOpen" },
+      { "id": "subjects", "href": "/x/subjects", "label": "Subjects", "icon": "Library" },
+      { "id": "ai-config", "href": "/x/ai-config", "label": "AI Config", "icon": "Bot" },
+      { "id": "team", "href": "/x/users", "label": "Team", "icon": "Users" },
+      { "id": "edu-try", "href": "/x/educator/try", "label": "Try It", "icon": "PlayCircle" },
+      { "id": "edu-reports", "href": "/x/educator/reports", "label": "Reports", "icon": "TrendingUp" },
+      { "id": "stu-stuff", "href": "/x/student/stuff", "label": "Dashboard", "icon": "Backpack" },
+      { "id": "stu-progress", "href": "/x/student/progress", "label": "Progress", "icon": "TrendingUp" },
+      { "id": "stu-calls", "href": "/x/student/calls", "label": "Sessions", "icon": "Phone" },
+      { "id": "stu-teacher", "href": "/x/student/teacher", "label": "Mentor", "icon": "GraduationCap" },
+      { "id": "sim", "href": "/x/sim", "label": "Learn", "icon": "MessageCircle" },
+      { "id": "analytics", "href": "/x/analytics", "label": "Analytics", "icon": "TrendingUp" }
+    ]
+  }
+]
