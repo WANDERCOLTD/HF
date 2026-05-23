@@ -3,7 +3,7 @@ import { renderVoicePrompt } from "@/lib/prompt/composition/renderPromptSummary"
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import { resolveSourceFiles, getClaudeMdContext, type BugContext } from "@/lib/chat/bug-context";
 import { resolveTerminology, TECHNICAL_TERMS, type TermMap } from "@/lib/terminology";
-import { buildTuningSystemPrompt } from "@/lib/chat/tuning-system-prompt";
+import { buildTuningSystemPrompt, type TuningScope } from "@/lib/chat/tuning-system-prompt";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
 
@@ -55,6 +55,7 @@ export async function buildSystemPrompt(
   bugContext?: BugContext,
   userRole?: string,
   institutionId?: string | null,
+  tuningScope?: TuningScope,
 ): Promise<SystemPromptResult> {
   // Resolve terminology for this user
   const terms = await resolveTerminology(
@@ -83,10 +84,11 @@ export async function buildSystemPrompt(
       return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + `\n\n${baseContext}` };
     }
     case "TUNING": {
-      // TUNING mode: catalogue + truthfulness rules + ONE write tool.
+      // TUNING mode: catalogue + truthfulness rules + scope-aware write tools.
       // Deliberately not bundled with DATA_SYSTEM_PROMPT so the model does
-      // not see advertised tools it cannot reach in this mode.
-      const tuningPrompt = await buildTuningSystemPrompt({ entityContext });
+      // not see advertised tools it cannot reach in this mode. The
+      // `tuningScope` (LEARNER | PLAYBOOK) comes from the Tuning tab toggle.
+      const tuningPrompt = await buildTuningSystemPrompt({ entityContext, tuningScope });
       return { prompt: tuningPrompt + termBlock + `\n\n${baseContext}` };
     }
     case "CALL":

@@ -1,0 +1,295 @@
+description: "TUNING chat — scope-aware mechanics (#661)"
+
+# Run with: npx promptfoo eval -c evals/wizard/tuning-mechanics.yaml --no-cache
+# View:      npm run eval:view
+#
+# Covers #661 — the Cmd+K Tuning tab + Learner/Course scope toggle. The
+# assistant reads the active scope from the system prompt (set by the toggle)
+# and passes it as the `scope` arg on update_behavior_target. Tests:
+# 1. LEARNER scope happy path → tool call with scope=LEARNER + caller_id
+# 2. PLAYBOOK scope happy path → tool call with scope=PLAYBOOK + playbook_id
+# 3. Scope-mismatch: toggle=LEARNER + intent "whole course" → ask, no write
+# 4. Multi-parameter ambiguity → numbered list, no write
+# 5. Config-key at LEARNER scope → redirect, no tool call
+# 6. Multi-turn "more" → step from prior catalogue value
+# 7. Boundary nudge near 1.0
+# 8. Missing scope (no toggle picked) → asks before calling
+
+prompts:
+  - id: tuning-mechanics-prompt
+    label: "TUNING — scope-aware mechanics"
+    raw: |
+      You are the TUNING ASSISTANT for the HumanFirst platform.
+
+      You help educators understand and adjust how their AI tutor behaves on a course.
+
+      ## What you can DO
+
+      You have TWO write tools:
+
+      1. `update_behavior_target` — sets a BEHAVIOR parameter at one of two scopes:
+         - **LEARNER** — only this caller is affected
+         - **PLAYBOOK** — every learner on the course is affected
+
+         You do NOT pick the scope. The educator picks it in the Tuning tab toggle,
+         and it is surfaced in the "Active Tuning Scope" block below. Pass that scope
+         verbatim as the `scope` arg.
+
+      2. `update_playbook_config` — non-behaviour course settings (audience, mode,
+         session count, etc.). Course-only. Refuse if scope=LEARNER and redirect.
+
+      ## Rules of honesty
+
+      1. NEVER claim you applied anything unless a tool returned `ok: true` in
+         the same turn. No success language without a tool result.
+      2. If you are not sure which parameter the educator means, ask.
+      3. If the required entity (caller for LEARNER, playbook for PLAYBOOK) is
+         missing, do NOT call — ask.
+
+      ## How to call update_behavior_target
+
+      - `scope`: copy verbatim from the "Active Tuning Scope" block.
+      - `caller_id`: required when scope=LEARNER. Copy from Active Context.
+      - `playbook_id`: required when scope=PLAYBOOK. Copy from Active Context.
+      - `parameter_id`: pick from catalogue exactly.
+      - `target_value`: number in [0, 1].
+      - `reason`: one sentence justifying.
+
+      Map plain-language: "warmer" ≈ +0.2 from current, "much warmer" ≈ +0.4,
+      "maximum" = 1.0. Read the current value from the catalogue first.
+
+      ## Scope-mismatch detection
+
+      If the educator's wording clearly implies a different scope than the toggle
+      (e.g. toggle=LEARNER and they say "for the whole course"), STOP and ask
+      before calling. Do NOT silently honour the implied scope.
+
+      ## Config-key at LEARNER scope (refuse with redirect)
+
+      audience, teachingMode, interactionPattern, sessionCount, durationMins,
+      emphasis, welcomeMessage are course-only. If asked at LEARNER scope, do NOT
+      call any tool. Reply with a redirect offering to switch to Course scope.
+
+      ## Multi-parameter ambiguity
+
+      If a request maps to multiple BEHAVIOR parameters (e.g. "more engaging"),
+      ask once with a numbered list. Do NOT guess.
+
+      ## Active Tuning Scope
+      {{activeScope}}
+
+      ## Active Context
+      {{activeContext}}
+
+      ## Behaviour Parameter Catalogue (3 adjustable)
+
+      BEH-WARMTH (Warmth, group: engagement, current: {{warmthCurrent}}, high="Very warm and friendly", low="Cool and detached")
+      BEH-CHALLENGE-LEVEL (Challenge Level, group: pedagogy, current: 0.40, high="Pushes the learner hard", low="Very gentle")
+      BEH-PACE (Conversational Pace, group: voice-guidance, current: 0.50, high="Brisk", low="Slow and deliberate")
+
+      ---
+      The educator says: {{userMessage}}
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-6
+    config:
+      max_tokens: 800
+      tools:
+        - name: update_behavior_target
+          description: "Set a BehaviorTarget at LEARNER or PLAYBOOK scope. Scope is read from the Active Tuning Scope block."
+          input_schema:
+            type: object
+            properties:
+              scope: { type: string, enum: ["LEARNER", "PLAYBOOK"] }
+              playbook_id: { type: string }
+              caller_id: { type: string }
+              parameter_id: { type: string }
+              target_value: { type: ["number", "null"] }
+              reason: { type: string }
+            required: [scope, parameter_id, target_value, reason]
+        - name: update_playbook_config
+          description: "Course-only config writer. Refuse at LEARNER scope."
+          input_schema:
+            type: object
+            properties:
+              playbook_id: { type: string }
+              config_updates: { type: object }
+              reason: { type: string }
+            required: [playbook_id, config_updates, reason]
+
+tests:
+
+  # ── 1: LEARNER scope happy path ──
+
+  - description: "1 — toggle=LEARNER, 'make her warmer' → tool_use with scope=LEARNER and caller_id"
+    vars:
+      activeScope: |
+        **LEARNER** — every behaviour-target write affects only **Sofia Marquez** (`caller_id = caller-sofia-001`). Pass `scope: "LEARNER"` and `caller_id: "caller-sofia-001"`. Do NOT pass `playbook_id`.
+      activeContext: |
+        - **Course (playbook)**: IELTS Speaking — `playbookId = pb-ielts-001`
+        - **Learner**: Sofia Marquez — `callerId = caller-sofia-001`
+      warmthCurrent: "0.50"
+      userMessage: "make her warmer"
+    assert:
+      - type: is-json
+        value:
+          required: [tool_use]
+      - type: llm-rubric
+        value: |
+          The response contains a tool_use block calling update_behavior_target with:
+          - scope = "LEARNER" (exactly that string)
+          - caller_id = "caller-sofia-001"
+          - parameter_id = "BEH-WARMTH"
+          - target_value strictly greater than 0.50 and at most 1.0 (around 0.65-0.75 expected; +0.2 maps to ~0.70)
+          - reason is a non-empty sentence
+
+          The response does NOT include a playbook_id field in the tool call (LEARNER scope must omit it).
+          The response does NOT contain premature success language like "Done", "Applied", "Updated", "Successfully".
+
+  # ── 2: PLAYBOOK scope happy path ──
+
+  - description: "2 — toggle=PLAYBOOK, 'make it warmer' → tool_use with scope=PLAYBOOK and playbook_id"
+    vars:
+      activeScope: |
+        **PLAYBOOK (Course)** — every behaviour-target write affects every learner on **IELTS Speaking** (`playbook_id = pb-ielts-001`). Pass `scope: "PLAYBOOK"` and `playbook_id: "pb-ielts-001"`. Do NOT pass `caller_id`.
+      activeContext: |
+        - **Course (playbook)**: IELTS Speaking — `playbookId = pb-ielts-001`
+      warmthCurrent: "0.50"
+      userMessage: "make the tutor warmer for everyone on the course"
+    assert:
+      - type: is-json
+        value:
+          required: [tool_use]
+      - type: llm-rubric
+        value: |
+          The response contains a tool_use block calling update_behavior_target with:
+          - scope = "PLAYBOOK"
+          - playbook_id = "pb-ielts-001"
+          - parameter_id = "BEH-WARMTH"
+          - target_value strictly greater than 0.50
+
+          The response does NOT include a caller_id field.
+
+  # ── 3: Scope-mismatch detection ──
+
+  - description: "3 — toggle=LEARNER but educator says 'for the whole course' → ask, no write"
+    vars:
+      activeScope: |
+        **LEARNER** — every behaviour-target write affects only **Sofia Marquez** (`caller_id = caller-sofia-001`).
+      activeContext: |
+        - **Course (playbook)**: IELTS Speaking — `playbookId = pb-ielts-001`
+        - **Learner**: Sofia Marquez — `callerId = caller-sofia-001`
+      warmthCurrent: "0.50"
+      userMessage: "increase warmth for the whole course"
+    assert:
+      - type: llm-rubric
+        value: |
+          The response does NOT include a tool_use block.
+          The response identifies the scope mismatch — the toggle says LEARNER but the
+          educator's wording implies course-wide. It asks the educator to confirm whether
+          they want to:
+          (a) switch the toggle to Course and apply across all learners, or
+          (b) keep LEARNER scope and apply only to Sofia.
+          The response does NOT claim anything was changed.
+
+  # ── 4: Multi-parameter ambiguity ──
+
+  - description: "4 — 'more engaging' is ambiguous → numbered candidate list, no tool call"
+    vars:
+      activeScope: |
+        **LEARNER** — Pass `scope: "LEARNER"` and `caller_id: "caller-sofia-001"`.
+      activeContext: |
+        - **Learner**: Sofia Marquez — `callerId = caller-sofia-001`
+      warmthCurrent: "0.50"
+      userMessage: "make her more engaging"
+    assert:
+      - type: llm-rubric
+        value: |
+          The response does NOT include a tool_use block.
+          The response lists 2–4 candidate behaviour parameters that could match
+          "engaging" (e.g. Warmth, Challenge Level, Pace), each with their current
+          numeric value visible. The response prompts the educator to pick one
+          (or "all of them" / "all three"). The response does NOT claim anything
+          was changed or applied.
+
+  # ── 5: Config-key at LEARNER scope → redirect ──
+
+  - description: "5 — toggle=LEARNER + 'change audience to adults' → refuse with redirect to Course scope"
+    vars:
+      activeScope: |
+        **LEARNER** — Pass `scope: "LEARNER"` and `caller_id: "caller-sofia-001"`.
+      activeContext: |
+        - **Course (playbook)**: IELTS Speaking — `playbookId = pb-ielts-001`
+        - **Learner**: Sofia Marquez — `callerId = caller-sofia-001`
+      warmthCurrent: "0.50"
+      userMessage: "change her audience to adult-professional"
+    assert:
+      - type: llm-rubric
+        value: |
+          The response does NOT include any tool_use block.
+          The response explains that "audience" is a course-level setting and cannot
+          be set per learner. It offers a redirect: either switch the scope toggle
+          to Course and ask again, OR confirm "yes" to apply at course scope now.
+          The response does NOT call update_playbook_config (the educator hasn't
+          confirmed yet). The response does NOT claim anything was changed.
+
+  # ── 6: Multi-turn "more" — second turn after previous tool write ──
+
+  - description: "6 — second turn 'more' after warmth was just set to 0.70 → step further up"
+    vars:
+      activeScope: |
+        **LEARNER** — Pass `scope: "LEARNER"` and `caller_id: "caller-sofia-001"`.
+      activeContext: |
+        - **Learner**: Sofia Marquez — `callerId = caller-sofia-001`
+      # Catalogue reflects the prior write — this simulates the rebuild
+      warmthCurrent: "0.70"
+      userMessage: "more"
+    assert:
+      - type: is-json
+        value:
+          required: [tool_use]
+      - type: llm-rubric
+        value: |
+          The response calls update_behavior_target with scope=LEARNER, parameter_id="BEH-WARMTH",
+          and target_value strictly greater than 0.70 (typically around 0.85-0.95).
+          The response does NOT use success language before the tool result.
+
+  # ── 7: Missing scope — Tuning tab opened but no choice made yet ──
+
+  - description: "7 — no scope picked (toggle in neutral state) → ask before calling"
+    vars:
+      activeScope: |
+        _No scope picked yet. Before calling `update_behavior_target`, ask the educator: "Apply this for just **Sofia Marquez** (learner scope) or **the whole course** (course scope)?"_
+      activeContext: |
+        - **Course (playbook)**: IELTS Speaking — `playbookId = pb-ielts-001`
+        - **Learner**: Sofia Marquez — `callerId = caller-sofia-001`
+      warmthCurrent: "0.50"
+      userMessage: "make her warmer"
+    assert:
+      - type: llm-rubric
+        value: |
+          The response does NOT include a tool_use block.
+          The response asks the educator to pick a scope — learner only (Sofia) vs
+          the whole course — before applying. The response does NOT claim anything
+          was changed.
+
+  # ── 8: Boundary nudge ──
+
+  - description: "8 — warmth at 0.90, 'more' would push near boundary → write and nudge"
+    vars:
+      activeScope: |
+        **LEARNER** — Pass `scope: "LEARNER"` and `caller_id: "caller-sofia-001"`.
+      activeContext: |
+        - **Learner**: Sofia Marquez — `callerId = caller-sofia-001`
+      warmthCurrent: "0.90"
+      userMessage: "more"
+    assert:
+      - type: is-json
+        value:
+          required: [tool_use]
+      - type: llm-rubric
+        value: |
+          The response calls update_behavior_target with scope=LEARNER and target_value at or near 1.0
+          (between 0.95 and 1.0 inclusive). The reply mentions that the value is near
+          the top of the range or maximum — a boundary nudge — but still writes the
+          value the educator asked for.

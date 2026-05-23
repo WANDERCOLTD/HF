@@ -256,13 +256,22 @@ export const ADMIN_TOOLS: AITool[] = [
   {
     name: "update_behavior_target",
     description:
-      "Set a course's playbook-level target value for a single adjustable BEHAVIOR parameter. Use ONLY when the educator clearly asks to change behaviour (e.g. 'be less friendly', 'increase challenge'). Call once per parameter. The parameterId must come from the catalogue in your system prompt — never invent IDs. The targetValue is a number in [0, 1] (clamped server-side); pass null to remove the override and fall back to system defaults. The playbookId comes from the active entity context (look for type: 'playbook'). The tool returns the DB-confirmed value — quote it back to the educator, never claim a different number.",
+      "Set a behaviour target at one of two scopes: LEARNER (only this caller) or PLAYBOOK (every learner on the course). The scope is decided by the educator's Tuning tab toggle and surfaced in the 'Active Tuning Scope' block of your system prompt — read it from there, never infer it. Use ONLY when the educator clearly asks to change behaviour. The parameterId must come from the catalogue — never invent IDs. The targetValue is a number in [0, 1] (clamped server-side); pass null to remove the override and fall back to the cascade (CallerTarget > CALLER > PLAYBOOK > DOMAIN > SYSTEM). When scope=LEARNER you MUST pass caller_id; when scope=PLAYBOOK you MUST pass playbook_id. The tool returns the DB-confirmed value — quote it back, never claim a different number.",
     input_schema: {
       type: "object",
       properties: {
+        scope: {
+          type: "string",
+          enum: ["LEARNER", "PLAYBOOK"],
+          description: "Write scope. Read from the 'Active Tuning Scope' block in your system prompt — do NOT decide it yourself.",
+        },
         playbook_id: {
           type: "string",
-          description: "Playbook UUID from the active entity context (type: 'playbook').",
+          description: "Playbook UUID from the active entity context. Required when scope=PLAYBOOK.",
+        },
+        caller_id: {
+          type: "string",
+          description: "Caller UUID from the active entity context. Required when scope=LEARNER.",
         },
         parameter_id: {
           type: "string",
@@ -270,14 +279,14 @@ export const ADMIN_TOOLS: AITool[] = [
         },
         target_value: {
           type: ["number", "null"],
-          description: "New target in [0, 1], or null to remove the playbook override.",
+          description: "New target in [0, 1], or null to remove the override at the chosen scope.",
         },
         reason: {
           type: "string",
           description: "Short justification, for audit (e.g. 'Educator asked for less friendly tone').",
         },
       },
-      required: ["playbook_id", "parameter_id", "target_value", "reason"],
+      required: ["scope", "parameter_id", "target_value", "reason"],
     },
   },
 

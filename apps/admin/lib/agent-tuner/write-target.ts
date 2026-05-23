@@ -1,19 +1,22 @@
 /**
  * Behavior Target Writer
  *
- * Shared write path for PLAYBOOK-scope BehaviorTarget updates. Used by:
- * - PATCH /api/playbooks/:playbookId/targets (panel)
- * - update_behavior_target chat tool (Cmd+K AI assistant)
+ * Shared write path for BehaviorTarget updates at PLAYBOOK or CALLER scope.
+ * Used by:
+ * - PATCH /api/playbooks/:playbookId/targets (panel, PLAYBOOK scope)
+ * - PATCH /api/callers/:callerId/behavior-targets (sidebar, CALLER scope)
+ * - update_behavior_target chat tool (Cmd+K AI assistant — either scope)
  *
  * Centralises the AI-to-DB guard (parameterId whitelist + numeric clamp)
  * so both call sites cannot drift. See .claude/rules/ai-to-db-guard.md.
  */
 
 import { prisma } from "@/lib/prisma";
+import type { BehaviorTargetSource } from "@prisma/client";
 
 export type WriteTargetResult =
   | { ok: true; action: "created" | "updated" | "removed" | "noop"; parameterId: string; value: number | null }
-  | { ok: false; parameterId: string; reason: "playbook_not_found" | "parameter_not_adjustable" };
+  | { ok: false; parameterId: string; reason: "playbook_not_found" | "caller_not_found" | "no_identity" | "parameter_not_adjustable" };
 
 /**
  * Cache the whitelist within a single batch — callers that update multiple
@@ -41,7 +44,7 @@ export async function writeBehaviorTarget(
   playbookId: string,
   parameterId: string,
   targetValue: number | null,
-  options?: { validParamIds?: Set<string> },
+  options?: { validParamIds?: Set<string>; source?: BehaviorTargetSource },
 ): Promise<WriteTargetResult> {
   const playbook = await prisma.playbook.findUnique({
     where: { id: playbookId },
@@ -55,6 +58,8 @@ export async function writeBehaviorTarget(
   if (!valid.has(parameterId)) {
     return { ok: false, parameterId, reason: "parameter_not_adjustable" };
   }
+
+  const source: BehaviorTargetSource = options?.source ?? "MANUAL";
 
   const existing = await prisma.behaviorTarget.findFirst({
     where: {
@@ -81,7 +86,7 @@ export async function writeBehaviorTarget(
       where: { id: existing.id },
       data: {
         targetValue: clamped,
-        source: "MANUAL",
+        source,
         updatedAt: new Date(),
       },
     });
@@ -95,7 +100,7 @@ export async function writeBehaviorTarget(
       scope: "PLAYBOOK",
       targetValue: clamped,
       confidence: 1.0,
-      source: "MANUAL",
+      source,
     },
   });
   return { ok: true, action: "created", parameterId, value: clamped };
@@ -105,12 +110,126 @@ export async function writeBehaviorTarget(
 export async function writeBehaviorTargets(
   playbookId: string,
   targets: Array<{ parameterId: string; targetValue: number | null }>,
+  options?: { source?: BehaviorTargetSource },
 ): Promise<WriteTargetResult[]> {
   const validParamIds = await loadAdjustableSet();
   const results: WriteTargetResult[] = [];
   for (const t of targets) {
     if (!t.parameterId) continue;
-    results.push(await writeBehaviorTarget(playbookId, t.parameterId, t.targetValue, { validParamIds }));
+    results.push(
+      await writeBehaviorTarget(playbookId, t.parameterId, t.targetValue, {
+        validParamIds,
+        source: options?.source,
+      }),
+    );
   }
   return results;
+}
+
+/**
+ * Resolve every CallerIdentity attached to a caller. Returns the identity IDs
+ * the CALLER-scoped BehaviorTarget rows attach to.
+ *
+ * Shared between `writeCallerBehaviorTarget` and the HTTP route at
+ * `/api/callers/[callerId]/behavior-targets` so they cannot drift.
+ */
+export async function resolveCallerIdentityIds(callerId: string): Promise<
+  { ok: true; identityIds: string[] } | { ok: false; reason: "caller_not_found" | "no_identity" }
+> {
+  const caller = await prisma.caller.findUnique({
+    where: { id: callerId },
+    select: { callerIdentities: { select: { id: true } } },
+  });
+  if (!caller) return { ok: false, reason: "caller_not_found" };
+  const identityIds = caller.callerIdentities.map((i) => i.id);
+  if (identityIds.length === 0) return { ok: false, reason: "no_identity" };
+  return { ok: true, identityIds };
+}
+
+/**
+ * Apply a single CALLER-scope BehaviorTarget write for every identity
+ * attached to a caller. Mirrors `writeBehaviorTarget` but targets the
+ * per-learner override layer (resolution chain: CallerTarget > CALLER >
+ * PLAYBOOK > DOMAIN > SYSTEM).
+ *
+ * - `targetValue: null` removes the override across all identities.
+ * - Otherwise clamps to [0, 1] and upserts a row per identity.
+ * - Validates parameterId against the live adjustable BEHAVIOR catalogue.
+ */
+export async function writeCallerBehaviorTarget(
+  callerId: string,
+  parameterId: string,
+  targetValue: number | null,
+  options?: { validParamIds?: Set<string>; source?: BehaviorTargetSource },
+): Promise<WriteTargetResult> {
+  const valid = options?.validParamIds ?? (await loadAdjustableSet());
+  if (!valid.has(parameterId)) {
+    return { ok: false, parameterId, reason: "parameter_not_adjustable" };
+  }
+
+  const ids = await resolveCallerIdentityIds(callerId);
+  if (!ids.ok) {
+    return { ok: false, parameterId, reason: ids.reason };
+  }
+
+  const source: BehaviorTargetSource = options?.source ?? "MANUAL";
+
+  if (targetValue === null) {
+    const del = await prisma.behaviorTarget.deleteMany({
+      where: {
+        parameterId,
+        scope: "CALLER",
+        callerIdentityId: { in: ids.identityIds },
+        effectiveUntil: null,
+      },
+    });
+    return {
+      ok: true,
+      action: del.count > 0 ? "removed" : "noop",
+      parameterId,
+      value: null,
+    };
+  }
+
+  const clamped = Math.max(0, Math.min(1, targetValue));
+  let anyCreated = false;
+
+  await prisma.$transaction(async (tx) => {
+    for (const identityId of ids.identityIds) {
+      const existing = await tx.behaviorTarget.findFirst({
+        where: {
+          parameterId,
+          scope: "CALLER",
+          callerIdentityId: identityId,
+          effectiveUntil: null,
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        await tx.behaviorTarget.update({
+          where: { id: existing.id },
+          data: { targetValue: clamped, source, updatedAt: new Date() },
+        });
+      } else {
+        await tx.behaviorTarget.create({
+          data: {
+            parameterId,
+            callerIdentityId: identityId,
+            scope: "CALLER",
+            targetValue: clamped,
+            confidence: 1.0,
+            source,
+          },
+        });
+        anyCreated = true;
+      }
+    }
+  });
+
+  return {
+    ok: true,
+    action: anyCreated ? "created" : "updated",
+    parameterId,
+    value: clamped,
+  };
 }
