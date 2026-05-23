@@ -556,6 +556,7 @@ export function PromptTimelineRows({
   calls,
   callScores,
   loading,
+  onRefresh,
   callerId,
 }: PromptTimelineRowsProps) {
   const groups = useMemo(() => groupPrompts(prompts), [prompts]);
@@ -629,6 +630,7 @@ export function PromptTimelineRows({
   });
   const [evalLoadingIds, setEvalLoadingIds] = useState<Set<string>>(new Set());
   const evalAbortRef = useRef<Map<string, AbortController>>(new Map());
+  const [rePromptingIds, setRePromptingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const refSnapshot = evalAbortRef.current;
@@ -678,6 +680,40 @@ export function PromptTimelineRows({
       });
     }
   }, [callerId]);
+
+  // Re-prompt a specific row → produces a NEW ComposedPrompt that slots in
+  // as a sibling under the same call group (per the groupPrompts logic).
+  // Lets the user A/B the current prompt against one composed with newer
+  // tuning values without losing the source for comparison.
+  const runRePrompt = useCallback(
+    async (sourcePrompt: ComposedPrompt) => {
+      setRePromptingIds((prev) => new Set(prev).add(sourcePrompt.id));
+      try {
+        const body: Record<string, unknown> = { triggerType: "manual" };
+        if (sourcePrompt.triggerCallId) body.triggerCallId = sourcePrompt.triggerCallId;
+        const res = await fetch(`/api/callers/${callerId}/compose-prompt`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data?.ok === false) {
+          console.error("[prompt-timeline] re-prompt failed:", data?.error || res.statusText);
+        } else if (onRefresh) {
+          onRefresh();
+        }
+      } catch (err) {
+        console.error("[prompt-timeline] re-prompt error:", err);
+      } finally {
+        setRePromptingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(sourcePrompt.id);
+          return next;
+        });
+      }
+    },
+    [callerId, onRefresh],
+  );
 
   if (loading) {
     return <div className="hf-empty hf-text-muted">Loading prompts…</div>;
@@ -955,6 +991,21 @@ export function PromptTimelineRows({
                             : ev
                               ? `${Math.round(ev.overall.score || 0)}/100 · re-eval`
                               : "eval"}
+                        </button>
+                        {/* Re-prompt: compose a new prompt with the latest tuning
+                            values, anchored to this prompt's call so the new row
+                            appears as a sibling in the same group. */}
+                        <button
+                          type="button"
+                          className="ptr-row-action"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!rePromptingIds.has(p.id)) runRePrompt(p);
+                          }}
+                          disabled={rePromptingIds.has(p.id)}
+                          title="Re-compose this prompt with current tuning values — appears as a sibling under the same call"
+                        >
+                          {rePromptingIds.has(p.id) ? "re-prompting…" : "re-prompt"}
                         </button>
                       </span>
                       {isPromptOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}

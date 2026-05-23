@@ -49,17 +49,6 @@
   padding-top: 16px;
 }
 
-/* Re-prompt action row above the timeline */
-.cdp-tune-tab-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 12px;
-  background: var(--surface-secondary);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-}
-
 /* ── Collapsible prompt preview inside tuning panel ── */
 .cdp-prompt-collapse {
   border-bottom: 1px solid var(--border-default);
