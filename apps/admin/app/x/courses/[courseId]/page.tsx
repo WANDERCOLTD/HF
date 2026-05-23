@@ -32,6 +32,7 @@ import { StatusBadge, DomainPill } from '@/src/components/shared/EntityPill';
 import { DraggableTabs, type TabDefinition } from '@/components/shared/DraggableTabs';
 import { useChordShortcut } from '@/hooks/useChordShortcut';
 import { ChordHintBadge } from '@/components/help/ChordHintBadge';
+import { TabWithHelp } from '@/components/help/TabWithHelp';
 import { getPageHelp } from '@/lib/help/page-help';
 import { type TPItem, type SessionOption } from '@/components/shared/SessionTPList';
 import {
@@ -381,13 +382,13 @@ export default function CourseDetailPage() {
   }, [sessions]);
 
   const tabs: TabDefinition[] = useMemo(() => [
-    { id: 'intelligence', label: 'Content', icon: <BookMarked size={14} />, count: totalSources || null },
-    { id: 'design', label: 'Design', icon: <Wand2 size={14} /> },
-    { id: 'curriculum', label: 'Curriculum', icon: <GraduationCap size={14} /> },
-    { id: 'learners', label: 'Learners', icon: <Users2 size={14} /> },
-    { id: 'proof', label: 'Proof Points', icon: <BarChart3 size={14} /> },
-    { id: 'goals', label: 'Goals', icon: <Target size={14} /> },
-    ...(isOperator ? [{ id: 'settings', label: 'Settings', icon: <SettingsIcon size={14} /> }] : []),
+    { id: 'intelligence', label: <TabWithHelp tabId="intelligence">Content</TabWithHelp>, icon: <BookMarked size={14} />, count: totalSources || null },
+    { id: 'design', label: <TabWithHelp tabId="design">Design</TabWithHelp>, icon: <Wand2 size={14} /> },
+    { id: 'curriculum', label: <TabWithHelp tabId="curriculum">Curriculum</TabWithHelp>, icon: <GraduationCap size={14} /> },
+    { id: 'learners', label: <TabWithHelp tabId="learners">Learners</TabWithHelp>, icon: <Users2 size={14} /> },
+    { id: 'proof', label: <TabWithHelp tabId="proof">Proof Points</TabWithHelp>, icon: <BarChart3 size={14} /> },
+    { id: 'goals', label: <TabWithHelp tabId="goals">Goals</TabWithHelp>, icon: <Target size={14} /> },
+    ...(isOperator ? [{ id: 'settings', label: <TabWithHelp tabId="settings">Settings</TabWithHelp>, icon: <SettingsIcon size={14} /> }] : []),
   ], [totalSources, isOperator, sessions]);
 
   // Sync active tab from URL on popstate (browser back/forward)
