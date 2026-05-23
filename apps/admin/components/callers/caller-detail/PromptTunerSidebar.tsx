@@ -237,6 +237,28 @@ export function PromptTunerSidebar({
   const [applyResult, setApplyResult] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [activeLearnerCount, setActiveLearnerCount] = useState<number | null>(null);
+  // #710 — surface LEARNER-level overrides on this caller so a PLAYBOOK-scope
+  // change can warn when it'll be silently shadowed for the active learner.
+  const [learnerOverrides, setLearnerOverrides] = useState<
+    Array<{ parameterId: string; targetValue: number; origin: "MANUAL_OVERRIDE" | "ADAPTED"; updatedAt: string }>
+  >([]);
+
+  useEffect(() => {
+    if (!callerId || !open) return;
+    let cancelled = false;
+    fetch(`/api/callers/${callerId}/behavior-targets`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.ok && Array.isArray(data.overrides)) {
+          setLearnerOverrides(data.overrides);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [callerId, open]);
 
   // Fetch ACTIVE enrollment count so the Apply button can show consequence up front.
   useEffect(() => {
@@ -724,6 +746,27 @@ export function PromptTunerSidebar({
             {applyResult}
           </div>
         )}
+        {/* #710 — shadowing warning when PLAYBOOK-scope change targets a parameter
+            this learner already has a per-learner override on. */}
+        {scope === "course" && (() => {
+          const shadowed = pendingChanges
+            .filter((c) => c.type === "target" && c.parameterId)
+            .map((c) => learnerOverrides.find((o) => o.parameterId === c.parameterId))
+            .filter((o): o is NonNullable<typeof o> => o != null);
+          if (shadowed.length === 0) return null;
+          const manualCount = shadowed.filter((o) => o.origin === "MANUAL_OVERRIDE").length;
+          const adaptedCount = shadowed.filter((o) => o.origin === "ADAPTED").length;
+          const parts: string[] = [];
+          if (manualCount > 0) parts.push(`${manualCount} manual override${manualCount === 1 ? "" : "s"}`);
+          if (adaptedCount > 0) parts.push(`${adaptedCount} ADAPT result${adaptedCount === 1 ? "" : "s"}`);
+          return (
+            <div className="hf-banner hf-banner-warning ps-tuner-error">
+              <strong>Will be shadowed for {callerName || "this learner"}.</strong>{" "}
+              {parts.join(" and ")} on the same parameter{shadowed.length === 1 ? "" : "s"} ({shadowed.map((o) => o.parameterId).join(", ")}){" "}
+              will keep winning over this PLAYBOOK change. Other learners on this course are unaffected — switch to learner scope if you want this to land for {callerName || "this learner"}.
+            </div>
+          );
+        })()}
           </>
         )}
       </div>
