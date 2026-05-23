@@ -102,6 +102,7 @@ A useful note for teachers: in the UI, teachers never see Playbooks, Specs, or R
 | The data-driven spec system | `apps/admin/docs/DATA-DRIVEN-ARCHITECTURE.md` |
 | The 7-stage pipeline in detail | `docs/PIPELINE.md` |
 | Content classification and data flow | `docs/CONTENT-PIPELINE.md` |
+| Stage-to-stage data contracts (the chain) | `docs/CHAIN-CONTRACTS.md` |
 | The data model (database design) | `apps/admin/prisma/schema.prisma` |
 | Parameters and metrics | `docs/04-behaviour/PAR-001-parameters-and-metrics.md` |
 | Personality model | `docs/04-behaviour/PRS-001-personality-model.md` |
