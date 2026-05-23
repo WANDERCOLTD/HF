@@ -30,6 +30,9 @@ import { useEntityContext } from '@/contexts/EntityContext';
 import { EditableTitle } from '@/components/shared/EditableTitle';
 import { StatusBadge, DomainPill } from '@/src/components/shared/EntityPill';
 import { DraggableTabs, type TabDefinition } from '@/components/shared/DraggableTabs';
+import { useChordShortcut } from '@/hooks/useChordShortcut';
+import { ChordHintBadge } from '@/components/help/ChordHintBadge';
+import { getPageHelp } from '@/lib/help/page-help';
 import { type TPItem, type SessionOption } from '@/components/shared/SessionTPList';
 import {
   groupSpecs,
@@ -155,6 +158,10 @@ export default function CourseDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
+  // #688 — chord shortcuts (H/G + key) for tab navigation.
+  // Lookup is route-templated; pathname not needed.
+  const pageHelp = useMemo(() => getPageHelp(`/x/courses/${courseId || ""}`), [courseId]);
+  const { activePrefix: chordActivePrefix } = useChordShortcut(pageHelp?.chords);
   const isOperator = ['OPERATOR', 'EDUCATOR', 'ADMIN', 'SUPERADMIN'].includes((session?.user?.role as string) || '');
   const { pushEntity } = useEntityContext();
   const { plural } = useTerminology();
@@ -480,6 +487,23 @@ export default function CourseDetailPage() {
     handleTabChange(activeTab);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, activeTab, handleTabChange]);
+
+  // ── #688 — listen for chord-driven tab switches ──
+  // Convention: chord engine dispatches `hf:chord:tab:<id>`. Pages map that
+  // to their tab setter without a global prop-drill.
+  useEffect(() => {
+    const tabIds = (pageHelp?.tabs ?? []).map((t) => t.id);
+    const handlers: Array<{ name: string; fn: EventListener }> = [];
+    for (const id of tabIds) {
+      const name = `hf:chord:tab:${id}`;
+      const fn: EventListener = () => handleTabChange(id);
+      window.addEventListener(name, fn);
+      handlers.push({ name, fn });
+    }
+    return () => {
+      for (const { name, fn } of handlers) window.removeEventListener(name, fn);
+    };
+  }, [pageHelp, handleTabChange]);
 
   // ── Action Handlers ──────────────────────────────────
   const handlePublish = async () => {
@@ -1714,6 +1738,7 @@ export default function CourseDetailPage() {
           }}
         />
       )}
+      <ChordHintBadge activePrefix={chordActivePrefix} />
     </div>
   );
 }
