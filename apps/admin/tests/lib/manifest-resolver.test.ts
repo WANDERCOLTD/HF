@@ -4,11 +4,14 @@ import { resolveManifestItem, getAllManifestItemIds } from "@/lib/tours/manifest
 describe("resolveManifestItem", () => {
   it("returns href/label/icon for a known item", () => {
     const result = resolveManifestItem("manage-callers");
+    // manage-callers now lives in tour-anchors.json (post #7f49c460 sidebar
+    // prune + #706 tour-anchors fix). Href/label/icon unchanged; sectionId
+    // is the tour-anchor section, not the old "manage" section.
     expect(result).toEqual({
       href: "/x/callers",
       label: "Callers",
       icon: "User",
-      sectionId: "manage",
+      sectionId: "_tour-anchors",
     });
   });
 
@@ -38,7 +41,10 @@ describe("resolveManifestItem", () => {
 describe("getAllManifestItemIds", () => {
   it("returns all manifest items", () => {
     const ids = getAllManifestItemIds();
-    expect(ids.length).toBeGreaterThan(30);
+    // Post #7f49c460 sidebar prune + #706 tour-anchors: visible sidebar has
+    // ~6 items, tour-anchors registers ~15 more. Total ~21. Lower bound
+    // catches accidental deletion of the tour-anchors registry.
+    expect(ids.length).toBeGreaterThan(15);
     expect(ids).toContain("manage-callers");
     expect(ids).toContain("domains");
     expect(ids).toContain("stu-progress");
