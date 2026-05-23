@@ -5313,7 +5313,7 @@ Returns a flat list of content sources linked to this course via PlaybookSource.
 
 **Response** `200`
 ```json
-{ ok, sources, course, totals }
+{ ok, sources: Array<{ id, name, documentType, extractorVersion, assertionCount, contentAssertionCount, instructionAssertionCount, sortOrder, tags, mediaAssetId, mediaFileName }>, course, totals }
 ```
 
 **Response** `404`

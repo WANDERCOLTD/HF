@@ -11,9 +11,10 @@ import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
  * @tags courses, content-trust
  * @description Returns a flat list of content sources linked to this course via PlaybookSource.
  *   No subject grouping — sources are course-scoped. Includes per-source assertion counts
- *   split into content vs instruction categories.
+ *   split into content vs instruction categories, plus the latest MediaAsset id + fileName
+ *   so the UI can render a download link via `/api/media/:id`.
  * @pathParam courseId string - Playbook UUID
- * @response 200 { ok, sources, course, totals }
+ * @response 200 { ok, sources: Array<{ id, name, documentType, extractorVersion, assertionCount, contentAssertionCount, instructionAssertionCount, sortOrder, tags, mediaAssetId, mediaFileName }>, course, totals }
  * @response 404 { ok: false, error }
  */
 export async function GET(
@@ -59,6 +60,11 @@ export async function GET(
             documentType: true,
             extractorVersion: true,
             _count: { select: { assertions: true } },
+            mediaAssets: {
+              select: { id: true, fileName: true },
+              take: 1,
+              orderBy: { createdAt: "desc" },
+            },
           },
         },
       },
@@ -87,6 +93,7 @@ export async function GET(
     const sources = playbookSources.map((ps) => {
       const assertionCount = ps.source._count.assertions;
       const instructionCount = instrMap.get(ps.sourceId) || 0;
+      const media = ps.source.mediaAssets[0] ?? null;
       return {
         id: ps.source.id,
         name: ps.source.name,
@@ -97,6 +104,8 @@ export async function GET(
         instructionAssertionCount: instructionCount,
         sortOrder: ps.sortOrder,
         tags: ps.tags,
+        mediaAssetId: media?.id ?? null,
+        mediaFileName: media?.fileName ?? null,
       };
     });
 

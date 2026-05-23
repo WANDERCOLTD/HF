@@ -17,7 +17,7 @@ import Link from 'next/link';
 import {
   BookMarked, AlertTriangle, Zap, RefreshCw,
   Map as MapIcon, ChevronDown,
-  Plus, Trash2, Upload,
+  Plus, Trash2, Upload, Download,
 } from 'lucide-react';
 import { getDocTypeInfo } from '@/lib/doc-type-icons';
 import { CONTENT_CATEGORIES, getCategoryStyle } from '@/lib/content-categories';
@@ -40,6 +40,8 @@ type SourceItem = {
   instructionAssertionCount: number;
   sortOrder: number;
   tags: string[];
+  mediaAssetId: string | null;
+  mediaFileName: string | null;
 };
 
 type SubjectSummary = {
@@ -274,8 +276,10 @@ function GroupedAssertionList({ items, groupBy, drawerAssertionId, onSelect }: {
 
 /**
  * Single row in the Sources list. Renders the doc-type icon, source name,
- * type badge, and assertion count link to the source detail page. For
- * operators, shows two icon-only action buttons:
+ * type badge, and assertion count link to the source detail page. Shows a
+ * Download icon (any role) when a MediaAsset is attached, and Extract +
+ * Delete icons for operators:
+ *  - Download: links to /api/media/[id] (Content-Disposition: attachment)
  *  - Extract: re-runs assertion extraction on the source (POST /content-sources/[id]/extract)
  *  - Delete: hard cascade delete (DELETE /content-sources/[id]/permanent)
  *
@@ -309,28 +313,42 @@ function SourceRow({
           <span className="ci-source-count">{src.assertionCount}</span>
         )}
       </Link>
-      {isOperator && (
-        <div className="ci-source-actions">
-          <button
+      <div className="ci-source-actions">
+        {src.mediaAssetId && (
+          <a
             className="hf-btn hf-btn-xs hf-btn-icon"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onExtract(); }}
-            disabled={busy}
-            title="Re-extract assertions from this source"
-            aria-label={`Extract ${src.name}`}
+            href={`/api/media/${src.mediaAssetId}`}
+            download={src.mediaFileName ?? src.name}
+            onClick={(e) => e.stopPropagation()}
+            title={`Download ${src.mediaFileName ?? src.name}`}
+            aria-label={`Download ${src.mediaFileName ?? src.name}`}
           >
-            <RefreshCw size={12} />
-          </button>
-          <button
-            className="hf-btn hf-btn-xs hf-btn-icon hf-btn-danger"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-            disabled={busy}
-            title="Delete this source and all its extracted content (cascade)"
-            aria-label={`Delete ${src.name}`}
-          >
-            <Trash2 size={12} />
-          </button>
-        </div>
-      )}
+            <Download size={12} />
+          </a>
+        )}
+        {isOperator && (
+          <>
+            <button
+              className="hf-btn hf-btn-xs hf-btn-icon"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onExtract(); }}
+              disabled={busy}
+              title="Re-extract assertions from this source"
+              aria-label={`Extract ${src.name}`}
+            >
+              <RefreshCw size={12} />
+            </button>
+            <button
+              className="hf-btn hf-btn-xs hf-btn-icon hf-btn-danger"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
+              disabled={busy}
+              title="Delete this source and all its extracted content (cascade)"
+              aria-label={`Delete ${src.name}`}
+            >
+              <Trash2 size={12} />
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -592,6 +610,34 @@ export function CourseIntelligenceTab({
     return { courseGuideSources: guides, otherSources: others, allSources: [...guides, ...others] };
   }, [courseSources]);
 
+  // ── Download all (#721) ──────────────────────────────
+  // Sequential <a download> clicks — no zip dep, no new endpoint. Chrome
+  // throttles bulk downloads to ~10 simultaneous, so we space them.
+  const downloadableSources = useMemo(
+    () => allSources.filter((s) => !!s.mediaAssetId),
+    [allSources],
+  );
+  const [downloadingAll, setDownloadingAll] = useState(false);
+  const handleDownloadAll = useCallback(async () => {
+    if (downloadableSources.length === 0) return;
+    setDownloadingAll(true);
+    try {
+      for (const src of downloadableSources) {
+        const a = document.createElement("a");
+        a.href = `/api/media/${src.mediaAssetId}`;
+        a.download = src.mediaFileName ?? src.name;
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        // 250ms gap keeps Chrome from collapsing identical-filename downloads
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    } finally {
+      setDownloadingAll(false);
+    }
+  }, [downloadableSources]);
+
   // ── Auto-assign handler ──────────────────────────────
   const handleBackfill = useCallback(async () => {
     setBackfilling(true);
@@ -672,41 +718,55 @@ export function CourseIntelligenceTab({
             <span className="ci-panel-title">
               <BookMarked size={14} /> Sources ({allSources.length})
             </span>
-            {isOperator && (
-              <div className="hf-flex hf-items-center hf-gap-xs">
-                {/* Hidden file input — opened by the + button. */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept=".pdf,.docx,.txt,.md,.markdown,.json"
-                  className="hf-hidden"
-                  onChange={(e) => {
-                    const picked = Array.from(e.target.files ?? []);
-                    if (picked.length > 0) handleFiles(picked);
-                    e.target.value = ""; // allow re-picking the same file
-                  }}
-                />
+            <div className="hf-flex hf-items-center hf-gap-xs">
+              {downloadableSources.length > 0 && (
                 <button
-                  className="hf-btn hf-btn-xs hf-btn-primary hf-flex hf-items-center hf-gap-xs"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading || !primarySubjectId}
-                  title={primarySubjectId ? "Upload a file to this course" : "No subject linked yet"}
+                  className="hf-btn hf-btn-xs hf-btn-secondary hf-flex hf-items-center hf-gap-xs"
+                  onClick={handleDownloadAll}
+                  disabled={downloadingAll}
+                  title={`Download all ${downloadableSources.length} source file${downloadableSources.length === 1 ? "" : "s"}`}
+                  aria-label="Download all source files"
                 >
-                  <Plus size={12} />
-                  Add
+                  <Download size={12} />
+                  {downloadingAll ? "Downloading…" : "Download all"}
                 </button>
-                {allSources.length > 0 && (
+              )}
+              {isOperator && (
+                <>
+                  {/* Hidden file input — opened by the + button. */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.docx,.txt,.md,.markdown,.json"
+                    className="hf-hidden"
+                    onChange={(e) => {
+                      const picked = Array.from(e.target.files ?? []);
+                      if (picked.length > 0) handleFiles(picked);
+                      e.target.value = ""; // allow re-picking the same file
+                    }}
+                  />
                   <button
-                    className="hf-btn hf-btn-xs hf-btn-secondary hf-flex hf-items-center hf-gap-xs"
-                    onClick={() => setShowReExtract(true)}
+                    className="hf-btn hf-btn-xs hf-btn-primary hf-flex hf-items-center hf-gap-xs"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading || !primarySubjectId}
+                    title={primarySubjectId ? "Upload a file to this course" : "No subject linked yet"}
                   >
-                    <RefreshCw size={12} />
-                    Re-extract
+                    <Plus size={12} />
+                    Add
                   </button>
-                )}
-              </div>
-            )}
+                  {allSources.length > 0 && (
+                    <button
+                      className="hf-btn hf-btn-xs hf-btn-secondary hf-flex hf-items-center hf-gap-xs"
+                      onClick={() => setShowReExtract(true)}
+                    >
+                      <RefreshCw size={12} />
+                      Re-extract
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
           {opError && (
             <div className="hf-banner hf-banner-error hf-text-xs" role="alert">
