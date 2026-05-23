@@ -948,12 +948,12 @@ export function PromptTimelineRows({
                             if (!evLoading) runEval(p.id);
                           }}
                           disabled={evLoading}
-                          title={ev ? `Re-evaluate (current score: ${Math.round((ev.overall.score || 0) * 100)}%)` : "Run quality evaluation"}
+                          title={ev ? `Re-evaluate (current score: ${Math.round(ev.overall.score || 0)}/100)` : "Run quality evaluation"}
                         >
                           {evLoading
                             ? "evaluating…"
                             : ev
-                              ? `${Math.round((ev.overall.score || 0) * 100)}% · re-eval`
+                              ? `${Math.round(ev.overall.score || 0)}/100 · re-eval`
                               : "eval"}
                         </button>
                       </span>
@@ -1004,7 +1004,7 @@ export function PromptTimelineRows({
                       >
                         <BarChart2 size={12} className="ptr-eval-row-icon" />
                         <span className="ptr-eval-row-label">Eval</span>
-                        <span className="ptr-eval-row-score">{Math.round((ev.overall.score || 0) * 100)}%</span>
+                        <span className="ptr-eval-row-score">{Math.round(ev.overall.score || 0)}/100</span>
                         <span className={`hf-micro-badge hf-uppercase ptr-eval-row-verdict ptr-eval-row-verdict--${ev.overall.verdict}`}>
                           {ev.overall.verdict}
                         </span>
@@ -1024,7 +1024,7 @@ export function PromptTimelineRows({
                             {ev.dimensions.map((d) => (
                               <li key={d.name} className={`ptr-eval-dim ptr-eval-dim--${d.verdict}`}>
                                 <span className="ptr-eval-dim-name">{d.name}</span>
-                                <span className="ptr-eval-dim-score">{Math.round((d.score || 0) * 100)}%</span>
+                                <span className="ptr-eval-dim-score">{Math.round(d.score || 0)}/100</span>
                                 <span className="ptr-eval-dim-verdict">{d.verdict}</span>
                               </li>
                             ))}
