@@ -197,15 +197,34 @@ export async function saveQuestions(
 }
 
 /**
- * Look up every playbook attached to a source and fire the AI MCQ
- * reconcile for each (fire-and-forget, errors logged).
+ * Per-course debounce for the post-upload reconcile. A course-pack ingest
+ * may call `saveQuestions` many times across multiple sources tied to the
+ * same course; without debouncing we'd fire N redundant reconciles back-
+ * to-back. Window = 30s — long enough to coalesce a multi-source upload,
+ * short enough that the educator sees fresh badges within a minute.
  *
- * Sources can be linked to N playbooks via PlaybookSource. After a
- * question import, every linked course has a fresh batch of
- * `assertionId = null` rows and is a candidate for reconciliation.
+ * The map lives at module scope (one entry per courseId). Each timeout
+ * also stamps a `firingAt` time so concurrent calls can dedupe.
+ */
+const RECONCILE_DEBOUNCE_MS = 30_000;
+const reconcileTimers = new Map<string, NodeJS.Timeout>();
+
+/**
+ * Look up every playbook attached to a source and schedule a debounced
+ * AI MCQ reconcile for each. Fire-and-forget; never blocks the upload.
  *
- * Dynamic import keeps the heavier AI dependencies (embeddings) out of
- * the hot-path module graph for callers that never trigger this.
+ * Pre-checks before scheduling:
+ * - Course must have ≥1 candidate ContentAssertion in scope (otherwise
+ *   reconciliation can't match anything; cheap query saves an AI call)
+ * - Course must have ≥1 orphan ContentQuestion (skip when already linked)
+ *
+ * Dedup:
+ * - If a reconcile is already scheduled for this course within the
+ *   debounce window, the new call resets the timer rather than queueing
+ *   a second run. Course-pack ingests with many sources per course
+ *   collapse to one reconcile per course.
+ *
+ * Dynamic import keeps embedding deps out of the hot-path module graph.
  */
 async function triggerReconcileForSource(sourceId: string): Promise<void> {
   try {
@@ -214,27 +233,57 @@ async function triggerReconcileForSource(sourceId: string): Promise<void> {
       select: { playbookId: true },
     });
     if (links.length === 0) return;
-    const { reconcileQuestionAssertions } = await import("./reconcile-question-linkage");
     for (const link of links) {
-      // Fire-and-forget per course — don't block the import response on
-      // potentially slow AI calls. Stagger naturally via the await.
-      reconcileQuestionAssertions(link.playbookId)
-        .then((res) => {
-          if (res.scanned > 0) {
-            console.log(
-              `[save-questions] post-import reconcile course=${link.playbookId}: scanned=${res.scanned} matched=${res.matched} unmatched=${res.unmatched}`,
-            );
-          }
-        })
-        .catch((err) => {
-          console.warn(
-            `[save-questions] post-import reconcile failed for course=${link.playbookId}:`,
-            err?.message || err,
-          );
-        });
+      scheduleReconcileForCourse(link.playbookId);
     }
   } catch (err: any) {
     console.warn(`[save-questions] triggerReconcileForSource(${sourceId}) failed:`, err?.message || err);
+  }
+}
+
+function scheduleReconcileForCourse(courseId: string): void {
+  const existing = reconcileTimers.get(courseId);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => {
+    reconcileTimers.delete(courseId);
+    void runReconcileForCourse(courseId);
+  }, RECONCILE_DEBOUNCE_MS);
+  reconcileTimers.set(courseId, timer);
+}
+
+async function runReconcileForCourse(courseId: string): Promise<void> {
+  try {
+    // Guard 1: any orphans to reconcile?
+    const orphanCount = await prisma.contentQuestion.count({
+      where: { assertionId: null, source: { playbookSources: { some: { playbookId: courseId } } } },
+    });
+    if (orphanCount === 0) return;
+
+    // Guard 2: any candidate teaching points in scope? Skip pure
+    // question-bank courses (no TPs to link to) — they'd burn the AI
+    // call for a guaranteed zero-match result.
+    const candidateCount = await prisma.contentAssertion.count({
+      where: { source: { playbookSources: { some: { playbookId: courseId } } } },
+    });
+    if (candidateCount === 0) {
+      console.log(
+        `[save-questions] post-import reconcile course=${courseId}: skipped (${orphanCount} orphan(s), 0 candidate TPs — pure question-bank course)`,
+      );
+      return;
+    }
+
+    const { reconcileQuestionAssertions } = await import("./reconcile-question-linkage");
+    const res = await reconcileQuestionAssertions(courseId);
+    if (res.scanned > 0) {
+      console.log(
+        `[save-questions] post-import reconcile course=${courseId}: scanned=${res.scanned} matched=${res.matched} unmatched=${res.unmatched}`,
+      );
+    }
+  } catch (err: any) {
+    console.warn(
+      `[save-questions] runReconcileForCourse(${courseId}) failed:`,
+      err?.message || err,
+    );
   }
 }
 
