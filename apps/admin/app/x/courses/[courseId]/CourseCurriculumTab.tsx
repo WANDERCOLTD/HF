@@ -281,7 +281,10 @@ export function CourseCurriculumTab({
                 MCQs created from your uploaded learner-facing content. Trust badge per row indicates provenance.
               </span>
             </header>
-            <McqPanel courseId={courseId} />
+            <McqPanel
+              courseId={courseId}
+              onScorecardRefresh={loadScorecard}
+            />
           </section>
         )}
         {regenResult && (
