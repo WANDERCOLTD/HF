@@ -2020,6 +2020,29 @@ html.light {
   flex-shrink: 0;
 }
 
+/* Help button — opens the Help Overlay (#686) */
+.hf-topbar-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.hf-topbar-help:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+.hf-topbar-help:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
 /* Search trigger — looks like a muted input, acts as a button */
 .hf-topbar-search {
   display: inline-flex;
