@@ -117,14 +117,14 @@ const counters: CounterDefinition[] = [
     },
   },
 
-  /* #605 — recall_quiz auto-tagged on tutor-instruction assertions */
+  /* #605 — any learner-facing teachMethod on tutor-instruction assertions */
   {
     key: "recallQuizOnInstructionCategories",
     story: "#605",
     kind: "invariant",
     target: 0,
     description:
-      "ContentAssertion rows whose category is an INSTRUCTION_CATEGORY but whose teachMethod is 'recall_quiz' (should be 'tutor_instruction').",
+      "ContentAssertion rows whose category is an INSTRUCTION_CATEGORY but whose teachMethod is NOT 'tutor_instruction' (includes null and any learner-facing method like 'recall_quiz' / 'guided_discussion' / etc.).",
     query: async () => {
       // Imported from lib/content-trust/resolve-config so this counter cannot
       // drift from the canonical INSTRUCTION_CATEGORIES list. Pre-#605 this
@@ -132,13 +132,34 @@ const counters: CounterDefinition[] = [
       // ("tutor_briefing", "tutor_instruction", "tutor_note") — values that
       // never appeared in any ContentAssertion.category, so the counter
       // silently read 0 even while real INSTRUCTION_CATEGORIES rows were
-      // mis-tagged recall_quiz.
-      return prisma.contentAssertion.count({
-        where: {
-          category: { in: [...INSTRUCTION_CATEGORIES] },
-          teachMethod: "recall_quiz",
-        },
-      });
+      // mis-tagged.
+      //
+      // #605 follow-on (2026-05-23): the original query only matched
+      // `teachMethod = "recall_quiz"`. The IELTS V1.0 wizard run on
+      // 2026-05-23 surfaced 53 INSTRUCTION_CATEGORIES rows tagged
+      // `guided_discussion` from legacy QUESTION_BANK sources — same
+      // problem class (learner-facing method on a tutor-instruction
+      // category) but a different value. The narrow counter reported 0
+      // while real violations sat there. Widened to "anything that isn't
+      // tutor_instruction" — matches what the runtime guard
+      // `assertNoLearnerMethodOnInstructionCategory()` catches at
+      // extraction boundaries. NULL is treated as a violation too (it
+      // means the row was never run through the guard, e.g. legacy
+      // assertions extracted before #605 shipped) so the backfill script
+      // (`scripts/backfill-teach-methods.ts` pass 2) drains it on the
+      // next run.
+      //
+      // Counter key preserved (`recallQuizOnInstructionCategories`) for
+      // back-compat with the baseline JSON fixture and prior digests;
+      // the description above is the source of truth for what it
+      // measures now.
+      const rows = await prisma.$queryRaw<Array<{ count: bigint }>>`
+        SELECT COUNT(*)::bigint AS count
+        FROM "ContentAssertion"
+        WHERE category = ANY(${[...INSTRUCTION_CATEGORIES]}::text[])
+          AND ("teachMethod" IS NULL OR "teachMethod" != 'tutor_instruction')
+      `;
+      return Number(rows[0]?.count ?? 0);
     },
   },
 
