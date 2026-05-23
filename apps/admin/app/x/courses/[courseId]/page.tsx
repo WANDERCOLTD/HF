@@ -95,6 +95,8 @@ type SourceItem = {
   instructionAssertionCount: number;
   sortOrder: number;
   tags: string[];
+  mediaAssetId: string | null;
+  mediaFileName: string | null;
 };
 
 type SubjectSummary = {
