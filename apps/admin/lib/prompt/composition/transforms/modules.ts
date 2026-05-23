@@ -902,7 +902,15 @@ export async function computeSharedState(
   // hoisted above moduleToReview (see #554 Fix 2). Reused here for
   // isFinalSession + returned shared state.
 
-  const callNumber = data.recentCalls.length + 1; // 1-based: this is the Nth call
+  // 1-based: this is the Nth call about to be composed.
+  //
+  // Must use `data.callCount` (full count from the loader), NOT
+  // `data.recentCalls.length` — the latter is CAPPED at `recentCallsLimit`
+  // (default 5). Anyone past their 5th call previously got the wrong number
+  // baked into the prompt body (quickstart.ts:651 "This is call X — the final
+  // session") AND wrong session-specific rules selected by
+  // course-instructions / pedagogy session-range matching.
+  const callNumber = data.callCount + 1;
   const isFinalByBudget = !!(sessionCount && sessionCount > 0 && callNumber >= sessionCount);
   const isFinalByScheduler = schedulerTotalLOs > 0 && schedulerTotalMastered >= schedulerTotalLOs;
   const isFinalByModules = modules.length > 0 && completedModules.size >= modules.length;
