@@ -5,6 +5,9 @@ import { FancySelect } from "@/components/shared/FancySelect";
 import type { FancySelectOption } from "@/components/shared/FancySelect";
 import { ConversationalWizard } from "../wizard/components/ConversationalWizard";
 import type { WizardInitialContext } from "../wizard/components/ConversationalWizard";
+import { useChordShortcut } from "@/hooks/useChordShortcut";
+import { ChordHintBadge } from "@/components/help/ChordHintBadge";
+import { getPageHelp } from "@/lib/help/page-help";
 import "./get-started-v5.css";
 
 /* ── Types ──────────────────────────────────────────────── */
@@ -56,6 +59,10 @@ export function V5WizardWithSelector({
   const [loading, setLoading] = useState(false);
 
   const isSuperAdmin = userRole === "SUPERADMIN";
+
+  // #688 — chord shortcuts (only the C=Exit chord on this route).
+  const wizardPageHelp = getPageHelp("/x/get-started-v5");
+  const { activePrefix: chordActivePrefix } = useChordShortcut(wizardPageHelp?.chords);
 
   // Fetch institution list on mount
   useEffect(() => {
@@ -180,6 +187,7 @@ export function V5WizardWithSelector({
         userRole={userRole}
         wizardVersion="v5"
       />
+      <ChordHintBadge activePrefix={chordActivePrefix} />
     </>
   );
 }

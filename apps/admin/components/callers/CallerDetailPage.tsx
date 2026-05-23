@@ -18,6 +18,9 @@ import './caller-detail-page.css';
 import './caller-detail/lens.css';
 import './caller-detail/prompt-tuner.css';
 import { useAssistant, useAssistantKeyboardShortcut } from "@/hooks/useAssistant";
+import { useChordShortcut } from "@/hooks/useChordShortcut";
+import { ChordHintBadge } from "@/components/help/ChordHintBadge";
+import { getPageHelp } from "@/lib/help/page-help";
 
 // Extracted sub-components
 import { ProcessingNotice } from "./caller-detail/CallsTab";
@@ -94,6 +97,10 @@ export default function CallerDetailPage() {
   const [data, setData] = useState<CallerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // #688 — chord shortcuts (H/G + key) for tab navigation.
+  const pageHelp = useMemo(() => getPageHelp(`/x/callers/${callerId}`), [callerId]);
+  const { activePrefix: chordActivePrefix } = useChordShortcut(pageHelp?.chords);
+
   const [activeSection, _setActiveSection] = useState<SectionId>(initialTab);
   const setActiveSection = (id: SectionId) => {
     _setActiveSection(id);
@@ -561,6 +568,24 @@ export default function CallerDetailPage() {
       fetchPrompts();
     }
   }, [fetchPrompts, composedPrompts.length]);
+
+  // #688 — listen for chord-driven tab switches. Convention: chord engine
+  // dispatches `hf:chord:tab:<id>`. Map id → SectionId via the registry.
+  useEffect(() => {
+    const tabIds = (pageHelp?.tabs ?? []).map((t) => t.id);
+    const handlers: Array<{ name: string; fn: EventListener }> = [];
+    for (const id of tabIds) {
+      const name = `hf:chord:tab:${id}`;
+      const fn: EventListener = () => setActiveSection(id as SectionId);
+      window.addEventListener(name, fn);
+      handlers.push({ name, fn });
+    }
+    return () => {
+      for (const { name, fn } of handlers) window.removeEventListener(name, fn);
+    };
+  // setActiveSection is intentionally a stable reference via the closure.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageHelp]);
 
   const getCallerLabel = (caller: CallerProfile | undefined) => {
     if (!caller) return "Unknown";
@@ -1292,6 +1317,7 @@ export default function CallerDetailPage() {
       )}
       </div>{/* cdp-content */}
       </div>{/* cdp-body */}
+      <ChordHintBadge activePrefix={chordActivePrefix} />
     </div>
   );
 }
