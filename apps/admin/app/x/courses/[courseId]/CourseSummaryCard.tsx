@@ -1,8 +1,9 @@
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
 import {
   Users2, Target, Sparkles, PlayCircle, BookMarked,
-  ChevronRight, FileText,
+  ChevronRight, ChevronDown, FileText,
 } from 'lucide-react';
 import { GOAL_TYPE_CONFIG } from '@/lib/goals/goal-constants';
 import { CONTENT_CATEGORIES, CATEGORY_ORDER } from '@/lib/content-categories';
@@ -40,6 +41,8 @@ export type CourseSummaryCardProps = {
   subjectNames: string[];
   // Navigation
   onNavigate: (tab: string) => void;
+  /** Used as the localStorage suffix for collapse persistence — typically the courseId. */
+  persistKey?: string;
 };
 
 // ── Helpers ────────────────────────────────────────
@@ -89,6 +92,7 @@ export function CourseSummaryCard({
   version,
   subjectNames,
   onNavigate,
+  persistKey,
 }: CourseSummaryCardProps): React.ReactElement {
   const hasIdentity = interactionPattern || audienceLabel || teachingMode;
   const hasContent = subjectCount > 0 || totalTPs > 0 || totalSources > 0;
@@ -98,12 +102,51 @@ export function CourseSummaryCard({
   // Unique goal types for badge pills
   const goalTypes = [...new Set(goals.map(g => g.type))];
 
+  // Collapsed by default — the card takes ~400px on the Design tab and
+  // most educators don't need to see it on every page load. Per-course
+  // preference persists via the supplied persistKey (typically courseId).
+  const storageKey = persistKey ? `hf.course.section.${persistKey}.glance` : null;
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !storageKey) return true;
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored === 'open') return false;
+      if (stored === 'collapsed') return true;
+      return true; // default: collapsed
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    if (!storageKey || typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(storageKey, collapsed ? 'collapsed' : 'open');
+    } catch {
+      // ignore
+    }
+  }, [collapsed, storageKey]);
+  const toggle = useCallback(() => setCollapsed((c) => !c), []);
+
   return (
     <div className="hf-card-compact csc-card">
-      <div className="csc-header">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={!collapsed}
+        className="csc-header"
+        style={{
+          background: 'transparent', border: 'none', width: '100%',
+          textAlign: 'left', cursor: 'pointer', display: 'flex',
+          alignItems: 'center', gap: 6, padding: 0,
+        }}
+      >
+        {collapsed
+          ? <ChevronRight size={14} className="hf-text-muted" />
+          : <ChevronDown size={14} className="hf-text-muted" />}
         <span className="hf-text-xs hf-text-bold hf-text-muted hf-uppercase">Course at a Glance</span>
-      </div>
+      </button>
 
+      {!collapsed && (
       <div className="csc-body">
         {!hasAnyRow && (
           <div className="hf-text-sm hf-text-muted csc-empty">
@@ -249,8 +292,9 @@ export function CourseSummaryCard({
           </SummaryRow>
         )}
       </div>
+      )}
 
-      {/* ── Footer ─────────────────────────────────── */}
+      {/* ── Footer (always visible, gives a quick "Draft / v1" cue even when collapsed) */}
       <div className="csc-footer">
         <span className="hf-text-xs hf-text-muted">
           {publishedAt

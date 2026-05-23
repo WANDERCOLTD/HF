@@ -1391,10 +1391,13 @@ export default function CourseDetailPage() {
                 title="Every Session"
                 icon={Sparkles}
                 subtitle="How sessions 2+ are structured (from your course reference)"
-              />
-              <div className="hf-card-compact hf-mb-lg">
-                <SessionFlowPipeline items={sessionFlowItems} />
-              </div>
+                collapsible
+                persistKey={`${courseId}.every-session`}
+              >
+                <div className="hf-card-compact hf-mb-lg">
+                  <SessionFlowPipeline items={sessionFlowItems} />
+                </div>
+              </SectionHeader>
             </div>
           )}
         </>
@@ -1526,7 +1529,7 @@ export default function CourseDetailPage() {
               </div>
 
               {/* ── Course Configuration ─────────────────── */}
-              <SectionHeader title="Course Configuration" icon={Zap} />
+              <SectionHeader title="Course Configuration" icon={Zap} collapsible persistKey={`${courseId}.config`}>
               <div className="hf-card hf-mb-lg">
                 {configLoading ? (
                   <div className="hf-flex hf-items-center hf-gap-sm hf-text-xs hf-text-muted">
@@ -1567,9 +1570,10 @@ export default function CourseDetailPage() {
                   <p className="hf-text-xs hf-text-muted">Configuration not available</p>
                 )}
               </div>
+              </SectionHeader>
 
               {/* ── Teaching Identity ────────────────── */}
-              <SectionHeader title="Teaching Identity" icon={Sparkles} />
+              <SectionHeader title="Teaching Identity" icon={Sparkles} collapsible persistKey={`${courseId}.identity`}>
               <div className="hf-card hf-mb-lg">
                 <div className="hf-grid-2col hf-gap-sm">
                   {([
@@ -1606,6 +1610,7 @@ export default function CourseDetailPage() {
                   })()}
                 </div>
               </div>
+              </SectionHeader>
 
               {detail.status === 'DRAFT' && (
                 <>
@@ -1630,17 +1635,18 @@ export default function CourseDetailPage() {
                 </>
               )}
 
-              <SectionHeader title="Metadata" icon={FileText} />
-              <div className="hf-card">
-                <div className="hf-flex hf-gap-lg hf-text-xs hf-text-muted hf-flex-wrap">
-                  <span>ID: <span className="hf-mono">{detail.id.slice(0, 8)}...</span></span>
-                  <span>Created: {new Date(detail.createdAt).toLocaleDateString()}</span>
-                  <span>Updated: {new Date(detail.updatedAt).toLocaleDateString()}</span>
-                  {detail.publishedAt && (
-                    <span>Published: {new Date(detail.publishedAt).toLocaleDateString()}</span>
-                  )}
+              <SectionHeader title="Metadata" icon={FileText} collapsible defaultCollapsed persistKey={`${courseId}.metadata`}>
+                <div className="hf-card">
+                  <div className="hf-flex hf-gap-lg hf-text-xs hf-text-muted hf-flex-wrap">
+                    <span>ID: <span className="hf-mono">{detail.id.slice(0, 8)}...</span></span>
+                    <span>Created: {new Date(detail.createdAt).toLocaleDateString()}</span>
+                    <span>Updated: {new Date(detail.updatedAt).toLocaleDateString()}</span>
+                    {detail.publishedAt && (
+                      <span>Published: {new Date(detail.publishedAt).toLocaleDateString()}</span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </SectionHeader>
             </>
           ) : (
             <div className="hf-banner hf-banner-info">

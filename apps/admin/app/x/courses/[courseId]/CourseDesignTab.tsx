@@ -90,7 +90,9 @@ export function CourseDesignTab({
 
   return (
     <div className="hf-mt-lg">
-      {/* ── Summary (absorbed from Overview) ── */}
+      {/* ── Summary (absorbed from Overview) ──
+          Collapsed by default — see CourseSummaryCard. `persistKey` lets each
+          course remember its own preference. */}
       {detail && (
         <>
           <CourseSummaryCard
@@ -112,6 +114,7 @@ export function CourseDesignTab({
             version={String(detail.version ?? '1')}
             subjectNames={(subjects || []).map(s => s.name)}
             onNavigate={onNavigate || (() => {})}
+            persistKey={courseId}
           />
         </>
       )}
