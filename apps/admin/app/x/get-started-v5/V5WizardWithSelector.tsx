@@ -135,14 +135,14 @@ export function V5WizardWithSelector({
         <div className="v5-institution-bar">
           {showInstitutionSelector && (
             <div>
-              <label className="hf-text-xs hf-text-muted">Organisation</label>
+              <label className="hf-text-xs hf-text-muted">Build course for...</label>
               <FancySelect
                 value={selectedId}
                 onChange={setSelectedId}
                 options={instOptions}
                 searchable
                 loading={loading}
-                placeholder="Select organisation..."
+                placeholder="Pick an organisation..."
               />
             </div>
           )}
