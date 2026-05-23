@@ -20,6 +20,7 @@ import './caller-detail/prompt-tuner.css';
 import { useAssistant, useAssistantKeyboardShortcut } from "@/hooks/useAssistant";
 import { useChordShortcut } from "@/hooks/useChordShortcut";
 import { ChordHintBadge } from "@/components/help/ChordHintBadge";
+import { TabWithHelp } from "@/components/help/TabWithHelp";
 import { getPageHelp } from "@/lib/help/page-help";
 
 // Extracted sub-components
@@ -613,16 +614,16 @@ export default function CallerDetailPage() {
   // Tabs affected by pipeline processing (will show pulsing indicator)
   const processingTabs = new Set<SectionId>(["calls-prompts", "how", "what", "uplift", "artifacts"]);
 
-  const sections: { id: SectionId; label: string; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
-    { id: "overview", label: "Overview", icon: <span aria-hidden>🧭</span>, group: "shared" },
-    { id: "calls-prompts", label: "Calls", icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
-    { id: "tune", label: "Tune", icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
-    { id: "how", label: "Profile", icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
-    { id: "what", label: "Progress", icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
-    { id: "artifacts", label: "Artifacts", icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
-    { id: "uplift", label: "Uplift", icon: <TrendingUp size={13} />, group: "shared" },
+  const sections: { id: SectionId; label: React.ReactNode; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
+    { id: "overview", label: <TabWithHelp tabId="overview">Overview</TabWithHelp>, icon: <span aria-hidden>🧭</span>, group: "shared" },
+    { id: "calls-prompts", label: <TabWithHelp tabId="calls-prompts">Calls</TabWithHelp>, icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
+    { id: "tune", label: <TabWithHelp tabId="tune">Tune</TabWithHelp>, icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
+    { id: "how", label: <TabWithHelp tabId="how">Profile</TabWithHelp>, icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
+    { id: "what", label: <TabWithHelp tabId="what">Progress</TabWithHelp>, icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
+    { id: "artifacts", label: <TabWithHelp tabId="artifacts">Artifacts</TabWithHelp>, icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
+    { id: "uplift", label: <TabWithHelp tabId="uplift">Uplift</TabWithHelp>, icon: <TrendingUp size={13} />, group: "shared" },
     { id: "session-flow", label: "Session Flow", icon: <SlidersHorizontal size={13} />, group: "shared" },
-    { id: "ai-call", label: "Call", icon: <PlayCircle size={13} />, special: true, group: "action" },
+    { id: "ai-call", label: <TabWithHelp tabId="ai-call">Call</TabWithHelp>, icon: <PlayCircle size={13} />, special: true, group: "action" },
   ];
 
   return (
