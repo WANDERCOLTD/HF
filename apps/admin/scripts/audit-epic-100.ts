@@ -307,7 +307,7 @@ const counters: CounterDefinition[] = [
     kind: "invariant",
     target: 0,
     description:
-      "Count of files under lib/prompt/composition/transforms/ that still contain hardcoded behavioural strings (e.g. 'ALWAYS review', 'If RETURNING_CALLER'). Static grep, not a DB query.",
+      "Count of files under lib/prompt/composition/transforms/ that still contain hardcoded behavioural strings (e.g. 'ALWAYS review', 'If RETURNING_CALLER'). Static grep, not a DB query. #610 separated code-side defaults into lib/prompt/composition/defaults/ — that sibling directory is intentionally NOT scanned, so a transform that imports a default constant is not counted. The scan still flags any transform that embeds a behavioural phrase inline.",
     query: async () => {
       const transformsDir = path.resolve(
         __dirname,
@@ -318,7 +318,9 @@ const counters: CounterDefinition[] = [
         "transforms",
       );
       if (!fs.existsSync(transformsDir)) return 0;
-      // Hardcoded behavioural phrases we want to lift to spec config (#604, #610).
+      // Hardcoded behavioural phrases we want to lift out of transforms.
+      // Sourced from #604 and the broader #610 audit. Extend as new
+      // patterns are identified.
       const phrases = [
         "ALWAYS review",
         "If RETURNING_CALLER",

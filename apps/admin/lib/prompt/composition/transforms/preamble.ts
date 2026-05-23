@@ -9,36 +9,14 @@ import type { SpecConfig } from "@/lib/types/json-fields";
 import type { TeachingMode } from "@/lib/content-trust/resolve-config";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
+// #610 — code-side defaults for criticalRules live in `defaults/` so the
+// transforms directory holds mechanics only. Audit counter
+// `hardcodedRulesRemainingInTransforms` greps this directory; keeping
+// content out of it is the structural marker that separates policy from
+// pipeline. Spec config still wins (see selection logic below).
+import { RETURNING_CALLER_BY_MODE } from "../defaults/critical-rules";
 
 const PREAMBLE_FALLBACK = "You are receiving a structured context package for your next conversation. This data has been assembled specifically for this caller based on their history, personality, and learning progress. Use it to deliver a personalized, effective session.";
-
-/**
- * #604 — RETURNING_CALLER rule keyed by playbook teachingMode.
- *
- * Pre-#604 the with-curriculum branch hardcoded the recall-archetype rule
- * ("ALWAYS review before new material") for every playbook, regardless of
- * its teachingMode. For `practice` archetypes (IELTS Prep Lab, IELTS
- * Listening, anything coaching/skills-based) the right opening is a
- * warm-up attempt — the attempt itself diagnoses retention without front-
- * loading a recall check the learner usually fails. This map is the
- * code-side default; COMP-001 spec config can override per-mode via
- * `criticalRules.returningCallerByMode[mode]`.
- *
- * `Record<TeachingMode, string>` forces an update here whenever a new
- * TeachingMode is added to `lib/content-trust/resolve-config.ts` — without
- * this exhaustiveness check a new mode would silently inherit `recall`
- * behaviour and re-introduce the same RC5 bug under a different label.
- */
-const RETURNING_CALLER_BY_MODE: Record<TeachingMode, string> = {
-  recall:
-    "If RETURNING_CALLER: ALWAYS review before new material",
-  comprehension:
-    "If RETURNING_CALLER: ALWAYS review before new material",
-  syllabus:
-    "If RETURNING_CALLER: ALWAYS review before new material",
-  practice:
-    "RETURNING_CALLER: Begin with a warm-up attempt, not a recall check. The attempt IS the diagnostic.",
-};
 
 /**
  * Read playbook `teachingMode` from the assembled context. Mirrors the
