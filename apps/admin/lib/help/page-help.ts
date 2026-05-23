@@ -229,6 +229,40 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
 ];
 
 /**
+ * Global chord bindings — work on every page regardless of which PageHelp
+ * matches. The chord engine merges these with the page's `chords` (page
+ * wins on key collision, so e.g. on Course detail `H L` still goes to the
+ * Learners tab, not the global Learners index).
+ *
+ * Listed verbatim in the Help Overlay's "Shortcuts — global" block.
+ */
+export const GLOBAL_CHORDS: readonly ChordBinding[] = [
+  { keys: "H", action: "navigate", href: "/x", label: "Home" },
+  { keys: "C", action: "navigate", href: "/x/courses", label: "Courses" },
+  { keys: "L", action: "navigate", href: "/x/callers", label: "Learners" },
+  { keys: "D", action: "navigate", href: "/x/data-dictionary", label: "Data dictionary" },
+  { keys: "S", action: "navigate", href: "/x/specs", label: "Specs" },
+];
+
+/**
+ * Get the chord bindings active on a given path — page-specific bindings
+ * win over globals on key collision (e.g. on Course detail `H L` switches
+ * to the Learners tab; everywhere else `H L` goes to /x/callers).
+ */
+export function getEffectiveChords(pathname: string): ChordBinding[] {
+  const page = getPageHelp(pathname);
+  const pageChords = page?.chords ?? [];
+  const pageKeys = new Set(pageChords.map((c) => c.keys.toUpperCase()));
+  const merged: ChordBinding[] = [...pageChords];
+  for (const g of GLOBAL_CHORDS) {
+    if (!pageKeys.has(g.keys.toUpperCase())) {
+      merged.push(g);
+    }
+  }
+  return merged;
+}
+
+/**
  * Match a pathname against the registry. Exact match wins over prefix
  * match wins over RegExp match.
  */

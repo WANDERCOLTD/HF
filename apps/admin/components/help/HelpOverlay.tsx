@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 import { useHelpContext } from "@/contexts/HelpContext";
 import { useSession } from "next-auth/react";
 import { useChatContext, MODE_CONFIG, type ChatMode } from "@/contexts/ChatContext";
-import { getPageHelp, canSeeOperatorOnly, type PageHelp } from "@/lib/help/page-help";
+import { getPageHelp, canSeeOperatorOnly, GLOBAL_CHORDS, type PageHelp } from "@/lib/help/page-help";
 import { GLOBAL_SHORTCUTS } from "@/lib/help/global-shortcuts";
 import { useHelpKeyboard } from "@/hooks/useHelpKeyboard";
 import "./help-overlay.css";
@@ -135,15 +135,38 @@ export function HelpOverlay() {
           </Section>
 
           <Section title="Shortcuts — on this page">
+            <p className="help-overlay-chord-hint">
+              Press <kbd>H</kbd> or <kbd>G</kbd> followed by the chord letter — either prefix works.
+            </p>
             {pageHelp?.chords?.length ? (
-              <ShortcutList items={pageHelp.chords.map((c) => ({ keys: `H ${c.keys} · G ${c.keys}`, description: c.label }))} />
+              <ShortcutList
+                items={pageHelp.chords.map((c) => ({
+                  keys: `H/G + ${c.keys}`,
+                  description: c.label,
+                }))}
+              />
             ) : (
               <p className="help-overlay-empty">No page-specific shortcuts.</p>
             )}
           </Section>
 
           <Section title="Shortcuts — global">
-            <ShortcutList items={[...GLOBAL_SHORTCUTS]} />
+            <ShortcutList
+              items={[
+                ...GLOBAL_SHORTCUTS,
+                // Derive the chord nav display strings from the actual bindings
+                // so the overlay can't claim a chord that doesn't exist. Filter
+                // out keys that the active page has overridden (page chord wins
+                // on collision, so listing the global form here would mislead).
+                ...GLOBAL_CHORDS.filter((g) => {
+                  const pageKeys = new Set((pageHelp?.chords ?? []).map((c) => c.keys.toUpperCase()));
+                  return !pageKeys.has(g.keys.toUpperCase());
+                }).map((c) => ({
+                  keys: `H/G + ${c.keys}`,
+                  description: c.label,
+                })),
+              ]}
+            />
           </Section>
 
           {chatOpen && (
