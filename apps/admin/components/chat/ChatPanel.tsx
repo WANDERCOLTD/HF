@@ -3,11 +3,84 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useChatContext, MODE_CONFIG } from "@/contexts/ChatContext";
+import { useChatContext, MODE_CONFIG, type ChatMode } from "@/contexts/ChatContext";
 import { useEntityContext, ENTITY_COLORS, EntityBreadcrumb } from "@/contexts/EntityContext";
 import { useEntityDetection } from "@/hooks/useEntityDetection";
 import { AIModelBadge } from "@/components/shared/AIModelBadge";
 import "./chat-panel.css";
+
+// #661 — Tab bar for switching between Assistant (DATA) and Tuning (TUNING) modes.
+function ChatModeTabs() {
+  const { mode, setMode } = useChatContext();
+  const modes: ChatMode[] = ["DATA", "TUNING"];
+  return (
+    <div className="chat-mode-tabs" role="tablist" aria-label="Chat mode">
+      {modes.map((m) => {
+        const cfg = MODE_CONFIG[m];
+        const active = mode === m;
+        return (
+          <button
+            key={m}
+            role="tab"
+            aria-selected={active}
+            onClick={() => setMode(m)}
+            className={`chat-mode-tab${active ? " chat-mode-tab--active" : ""}`}
+            title={cfg.description}
+          >
+            <span className="chat-mode-tab-icon">{cfg.icon}</span>
+            <span className="chat-mode-tab-label">{cfg.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// #661 — Scope toggle visible only on TUNING tab. Defaults to LEARNER when
+// a caller is in entity context (handled in ChatContext effect), else PLAYBOOK.
+// Disabled with tooltip when no caller is available for LEARNER scope.
+function ChatTuningScopeToggle() {
+  const { tuningScope, setTuningScope } = useChatContext();
+  const { breadcrumbs } = useEntityContext();
+  const callerCrumb = breadcrumbs.find((b) => b.type === "caller");
+  const playbookCrumb = breadcrumbs.find((b) => b.type === "playbook");
+  const learnerDisabled = !callerCrumb;
+  const playbookDisabled = !playbookCrumb;
+
+  return (
+    <div className="chat-scope-toggle" role="radiogroup" aria-label="Tuning scope">
+      <span className="chat-scope-label">Scope:</span>
+      <button
+        role="radio"
+        aria-checked={tuningScope === "LEARNER"}
+        disabled={learnerDisabled}
+        onClick={() => setTuningScope("LEARNER")}
+        className={`chat-scope-btn${tuningScope === "LEARNER" ? " chat-scope-btn--active" : ""}`}
+        title={
+          learnerDisabled
+            ? "No learner in context — navigate to a caller page to enable learner-scope tuning."
+            : `Learner-scope writes apply to ${callerCrumb?.label} only`
+        }
+      >
+        Learner{callerCrumb ? ` (${callerCrumb.label})` : ""}
+      </button>
+      <button
+        role="radio"
+        aria-checked={tuningScope === "PLAYBOOK"}
+        disabled={playbookDisabled}
+        onClick={() => setTuningScope("PLAYBOOK")}
+        className={`chat-scope-btn${tuningScope === "PLAYBOOK" ? " chat-scope-btn--active" : ""}`}
+        title={
+          playbookDisabled
+            ? "No course in context — navigate to a course page to enable course-scope tuning."
+            : `Course-scope writes apply to ${playbookCrumb?.label} — all enrolled learners affected`
+        }
+      >
+        Course{playbookCrumb ? ` (${playbookCrumb.label})` : ""}
+      </button>
+    </div>
+  );
+}
 
 // User-facing labels for entity types (internal names → educator language)
 const ENTITY_LABELS: Record<string, string> = {
@@ -288,6 +361,12 @@ export function ChatPanel() {
 
         {/* AI Chat Interface */}
         <>
+          {/* #661 — Mode tab bar (Assistant / Tuning) */}
+          <ChatModeTabs />
+
+          {/* #661 — Scope toggle (Learner / Course), visible only on TUNING tab */}
+          {mode === "TUNING" && <ChatTuningScopeToggle />}
+
           {/* Context Breadcrumbs */}
           <ChatBreadcrumbStripe breadcrumbs={breadcrumbs} />
 

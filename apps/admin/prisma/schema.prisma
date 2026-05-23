@@ -517,6 +517,10 @@ enum BehaviorTargetSource {
   SEED // Initial seed data
   LEARNED // Automatically learned from reward loop
   MANUAL // Manually set by operator
+  // #661 — Cmd+K Tuning tab. Records that the write came from the chat
+  // surface rather than the sidebar (MANUAL) or pipeline (LEARNED). Audit
+  // trail surface for the educator's natural-language tuning requests.
+  TUNING_CHAT
 }
 
 model BehaviorTarget {

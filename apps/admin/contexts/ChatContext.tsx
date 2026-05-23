@@ -4,8 +4,17 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { useSession } from "next-auth/react";
 import { EntityBreadcrumb, useEntityContext } from "./EntityContext";
 
-export type ChatMode = "DATA";
+// #661 — TUNING mode joins DATA. The API route already accepts TUNING
+// (see app/api/chat/route.ts:41) and ships a scoped tool surface
+// (update_behavior_target with scope toggle, update_playbook_config).
+// Adding it here lets the client open a Tuning tab in the chat panel.
+export type ChatMode = "DATA" | "TUNING";
 export type ChatLayout = "vertical" | "horizontal" | "popout";
+
+// #661 — Active tuning-scope toggle on the Tuning tab. Persists per user.
+// LEARNER = writes BehaviorTarget(scope=CALLER) for the active caller
+// PLAYBOOK = writes BehaviorTarget(scope=PLAYBOOK) for the active playbook
+export type TuningScope = "LEARNER" | "PLAYBOOK";
 
 export interface ChatMessage {
   id: string;
@@ -27,6 +36,8 @@ interface ChatState {
   isOpen: boolean;
   mode: ChatMode;
   chatLayout: ChatLayout;
+  /** #661 — active scope on the Tuning tab. Default: LEARNER if a caller is in entity context, else PLAYBOOK. */
+  tuningScope: TuningScope;
   messages: Record<ChatMode, ChatMessage[]>;
   isStreaming: boolean;
   streamingMessageId: string | null;
@@ -39,6 +50,7 @@ interface ChatActions {
   closePanel: () => void;
   setMode: (mode: ChatMode) => void;
   setChatLayout: (layout: ChatLayout) => void;
+  setTuningScope: (scope: TuningScope) => void;
   sendMessage: (content: string) => Promise<void>;
   addMessage: (message: Omit<ChatMessage, "id" | "timestamp">) => string;
   updateMessage: (id: string, updates: Partial<ChatMessage>) => void;
@@ -72,6 +84,15 @@ export const MODE_CONFIG: Record<ChatMode, { label: string; icon: string; color:
     color: "var(--accent-primary)",
     description: "Context-aware assistant with tools and parameter knowledge",
   },
+  TUNING: {
+    label: "Tuning",
+    // gear glyph (⚙) intentionally avoided in JSX to keep markup ASCII-clean
+    // — falls through to a unicode escape in the tab label.
+    icon: "⚙",
+    color: "var(--accent-warning, var(--accent-primary))",
+    description:
+      "Natural-language tuning for behaviour targets and course settings. Scope toggle switches per-learner vs whole course.",
+  },
 };
 
 function generateId(): string {
@@ -81,6 +102,8 @@ function generateId(): string {
 function createEmptyMessages(): Record<ChatMode, ChatMessage[]> {
   return {
     DATA: [],
+    // #661 — Tuning tab has its own message history; persisted alongside DATA.
+    TUNING: [],
   };
 }
 
@@ -154,6 +177,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setModeState] = useState<ChatMode>("DATA");
   const [chatLayout, setChatLayoutState] = useState<ChatLayout>("vertical");
+  // #661 — tuningScope toggle. Default-resolved on first render based on
+  // whether a caller is in the entity context (see effect below). Explicit
+  // user choice persists.
+  const [tuningScope, setTuningScopeState] = useState<TuningScope>("PLAYBOOK");
   const [messages, setMessages] = useState<Record<ChatMode, ChatMessage[]>>(createEmptyMessages);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
@@ -217,6 +244,22 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const setChatLayout = useCallback((layout: ChatLayout) => {
     setChatLayoutState(layout);
+  }, []);
+
+  // #661 — Default tuning scope on first open: LEARNER if a caller is in
+  // entity context, else PLAYBOOK. Once the user explicitly toggles, their
+  // choice sticks for the session.
+  const hasExplicitScopeChoice = useRef(false);
+  useEffect(() => {
+    if (mode !== "TUNING") return;
+    if (hasExplicitScopeChoice.current) return;
+    const hasCaller = entityContext.breadcrumbs.some((b) => b.type === "caller");
+    setTuningScopeState(hasCaller ? "LEARNER" : "PLAYBOOK");
+  }, [mode, entityContext.breadcrumbs]);
+
+  const setTuningScope = useCallback((scope: TuningScope) => {
+    hasExplicitScopeChoice.current = true;
+    setTuningScopeState(scope);
   }, []);
 
   const addMessage = useCallback((message: Omit<ChatMessage, "id" | "timestamp">): string => {
@@ -322,6 +365,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               mode,
               entityContext: entityContext.breadcrumbs,
               isCommand: true,
+              // #661 — Tuning tab's scope toggle is part of the message envelope.
+              // The route uses this to inject "Active Tuning Scope" into the
+              // system prompt so the model passes the right `scope` arg to
+              // update_behavior_target.
+              tuningScope: mode === "TUNING" ? tuningScope : undefined,
             }),
           });
 
@@ -370,6 +418,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               mode,
               entityContext: entityContext.breadcrumbs,
               conversationHistory: history,
+              // #661 — scope toggle joins the envelope on TUNING mode only.
+              tuningScope: mode === "TUNING" ? tuningScope : undefined,
             }),
             signal: abortControllerRef.current.signal,
           });
@@ -444,7 +494,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         abortControllerRef.current = null;
       }
     },
-    [mode, isStreaming, entityContext.breadcrumbs, messages, addMessage, updateMessage, appendToMessage]
+    [mode, tuningScope, isStreaming, entityContext.breadcrumbs, messages, addMessage, updateMessage, appendToMessage]
   );
 
   const value: ChatContextValue = {
@@ -452,6 +502,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     isOpen,
     mode,
     chatLayout,
+    tuningScope,
     messages,
     isStreaming,
     streamingMessageId,
@@ -462,6 +513,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     closePanel,
     setMode,
     setChatLayout,
+    setTuningScope,
     sendMessage,
     addMessage,
     updateMessage,

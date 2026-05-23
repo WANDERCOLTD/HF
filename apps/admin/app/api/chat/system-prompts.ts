@@ -55,6 +55,8 @@ export async function buildSystemPrompt(
   bugContext?: BugContext,
   userRole?: string,
   institutionId?: string | null,
+  /** #661 — Active Tuning Scope toggle. Pass-through to buildTuningSystemPrompt. */
+  tuningScope?: "LEARNER" | "PLAYBOOK",
 ): Promise<SystemPromptResult> {
   // Resolve terminology for this user
   const terms = await resolveTerminology(
@@ -78,15 +80,16 @@ export async function buildSystemPrompt(
       // the path every Cmd+K message takes).
       const [dataPrompt, tuningContext] = await Promise.all([
         getPromptSpec(config.specs.chatDataHelper, DATA_SYSTEM_PROMPT),
-        buildTuningSystemPrompt({ entityContext }),
+        buildTuningSystemPrompt({ entityContext, tuningScope }),
       ]);
       return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + `\n\n${baseContext}` };
     }
     case "TUNING": {
-      // TUNING mode: catalogue + truthfulness rules + ONE write tool.
-      // Deliberately not bundled with DATA_SYSTEM_PROMPT so the model does
-      // not see advertised tools it cannot reach in this mode.
-      const tuningPrompt = await buildTuningSystemPrompt({ entityContext });
+      // TUNING mode: catalogue + truthfulness rules + scoped write tools.
+      // The Active Tuning Scope block (built in buildTuningSystemPrompt) tells
+      // the model whether to write PLAYBOOK or CALLER scope on every turn —
+      // see #661.
+      const tuningPrompt = await buildTuningSystemPrompt({ entityContext, tuningScope });
       return { prompt: tuningPrompt + termBlock + `\n\n${baseContext}` };
     }
     case "CALL":

@@ -49,6 +49,7 @@ describe("update_behavior_target chat tool handler", () => {
     const raw = await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-1",
         parameter_id: "BEH-WARMTH",
         target_value: 0.4,
@@ -69,7 +70,9 @@ describe("update_behavior_target chat tool handler", () => {
         playbookId: "pb-1",
         scope: "PLAYBOOK",
         targetValue: 0.4,
-        source: "MANUAL",
+        // #661 — chat-initiated writes are audit-tagged TUNING_CHAT,
+        // distinct from sidebar MANUAL and pipeline LEARNED.
+        source: "TUNING_CHAT",
       }),
     });
   });
@@ -78,6 +81,7 @@ describe("update_behavior_target chat tool handler", () => {
     const raw = await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-1",
         parameter_id: "BEH-MADE-UP",
         target_value: 0.5,
@@ -95,6 +99,7 @@ describe("update_behavior_target chat tool handler", () => {
     await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-1",
         parameter_id: "BEH-WARMTH",
         target_value: 1.7,
@@ -114,6 +119,7 @@ describe("update_behavior_target chat tool handler", () => {
     const raw = await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-1",
         parameter_id: "BEH-WARMTH",
         target_value: null,
@@ -136,6 +142,7 @@ describe("update_behavior_target chat tool handler", () => {
     const raw = await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-missing",
         parameter_id: "BEH-WARMTH",
         target_value: 0.5,
@@ -149,17 +156,17 @@ describe("update_behavior_target chat tool handler", () => {
     expect(mockPrisma.behaviorTarget.create).not.toHaveBeenCalled();
   });
 
-  it("requires playbook_id and parameter_id strings", async () => {
-    const raw1 = await executeAdminTool(
+  it("#661 — refuses scope=PLAYBOOK without playbook_id", async () => {
+    const raw = await executeAdminTool(
       "update_behavior_target",
-      { playbook_id: "", parameter_id: "BEH-WARMTH", target_value: 0.5, reason: "x" },
+      { scope: "PLAYBOOK", playbook_id: "", parameter_id: "BEH-WARMTH", target_value: 0.5, reason: "x" },
       "OPERATOR",
     );
-    expect(JSON.parse(raw1).error).toContain("playbook_id");
+    expect(JSON.parse(raw).error).toContain("playbook_id");
 
     const raw2 = await executeAdminTool(
       "update_behavior_target",
-      { playbook_id: "pb-1", parameter_id: "", target_value: 0.5, reason: "x" },
+      { scope: "PLAYBOOK", playbook_id: "pb-1", parameter_id: "", target_value: 0.5, reason: "x" },
       "OPERATOR",
     );
     expect(JSON.parse(raw2).error).toContain("parameter_id");
@@ -171,6 +178,7 @@ describe("update_behavior_target chat tool handler", () => {
     const raw = await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-1",
         parameter_id: "BEH-WARMTH",
         target_value: "high",
@@ -186,6 +194,7 @@ describe("update_behavior_target chat tool handler", () => {
     const raw = await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-1",
         parameter_id: "BEH-WARMTH",
         target_value: 0.5,
@@ -194,6 +203,35 @@ describe("update_behavior_target chat tool handler", () => {
       "TESTER",
     );
     expect(JSON.parse(raw).error).toContain("Insufficient permissions");
+    expect(mockPrisma.behaviorTarget.create).not.toHaveBeenCalled();
+  });
+
+  // #661 — scope-aware dispatch tests
+  it("#661 — refuses scope=LEARNER without caller_id", async () => {
+    const raw = await executeAdminTool(
+      "update_behavior_target",
+      { scope: "LEARNER", parameter_id: "BEH-WARMTH", target_value: 0.7, reason: "no caller" },
+      "OPERATOR",
+    );
+    expect(JSON.parse(raw).error).toContain("caller_id");
+    expect(mockPrisma.behaviorTarget.create).not.toHaveBeenCalled();
+  });
+
+  it("#661 — refuses requests with missing or invalid scope", async () => {
+    const noScope = await executeAdminTool(
+      "update_behavior_target",
+      { playbook_id: "pb-1", parameter_id: "BEH-WARMTH", target_value: 0.7, reason: "no scope" },
+      "OPERATOR",
+    );
+    expect(JSON.parse(noScope).error).toContain("scope");
+
+    const badScope = await executeAdminTool(
+      "update_behavior_target",
+      { scope: "DOMAIN", playbook_id: "pb-1", parameter_id: "BEH-WARMTH", target_value: 0.7, reason: "bogus scope" },
+      "OPERATOR",
+    );
+    expect(JSON.parse(badScope).error).toContain("scope");
+
     expect(mockPrisma.behaviorTarget.create).not.toHaveBeenCalled();
   });
 });

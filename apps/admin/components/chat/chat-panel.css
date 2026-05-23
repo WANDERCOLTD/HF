@@ -516,3 +516,93 @@
 .chat-header-btn--close {
   font-size: 16px;
 }
+
+/* #661 — Mode tab bar (Assistant / Tuning) */
+.chat-mode-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 12px 0 12px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+}
+
+.chat-mode-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 4px 4px 0 0;
+}
+
+.chat-mode-tab:hover {
+  background: var(--surface-primary);
+  color: var(--text-default);
+}
+
+.chat-mode-tab--active {
+  color: var(--text-default);
+  border-bottom-color: var(--accent-primary);
+  background: var(--surface-primary);
+}
+
+.chat-mode-tab-icon {
+  font-size: 14px;
+}
+
+/* #661 — Scope toggle (Learner / Course) on the Tuning tab */
+.chat-scope-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-primary);
+  font-size: 12px;
+}
+
+.chat-scope-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.chat-scope-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--surface-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-scope-btn:hover:not(:disabled) {
+  background: var(--surface-secondary);
+  color: var(--text-default);
+}
+
+.chat-scope-btn--active {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
+.chat-scope-btn--active:hover:not(:disabled) {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.chat-scope-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

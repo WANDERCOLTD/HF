@@ -24,6 +24,8 @@ interface EntityBreadcrumb {
 
 interface BuildTuningPromptOptions {
   entityContext?: EntityBreadcrumb[];
+  /** #661 — Active scope from the Tuning tab's toggle. Pass-through from chat envelope. */
+  tuningScope?: "LEARNER" | "PLAYBOOK";
 }
 
 const TUNING_SYSTEM_PROMPT_FALLBACK = `You are the TUNING ASSISTANT for the HumanFirst platform.
@@ -224,7 +226,66 @@ Each stage is spec-driven. Behaviour-target changes you make take effect at the 
 
   const activeBlock = buildActiveCourseBlock(options.entityContext);
 
-  return basePrompt + activeBlock + paramBlock + contractBlock + pipelineBlock;
+  // #661 — Inject the active scope from the Tuning tab. The model MUST
+  // read this from the prompt (never infer from chat history) and pass
+  // `scope` arg to update_behavior_target on every call.
+  const scopeBlock = buildScopeBlock(options.tuningScope, options.entityContext);
+
+  return basePrompt + activeBlock + scopeBlock + paramBlock + contractBlock + pipelineBlock;
+}
+
+/**
+ * #661 — Render the Active Tuning Scope block. Tells the model:
+ *   - what scope to pass to update_behavior_target
+ *   - which entity IDs are in context for each scope
+ *   - what to do when scope=LEARNER but no caller is in context
+ *   - how to handle config-key requests at LEARNER scope (refuse + redirect)
+ */
+function buildScopeBlock(
+  scope: "LEARNER" | "PLAYBOOK" | undefined,
+  entityContext: EntityBreadcrumb[] | undefined,
+): string {
+  const playbook = entityContext?.find((e) => e.type === "playbook");
+  const caller = entityContext?.find((e) => e.type === "caller");
+  const effective = scope ?? "PLAYBOOK";
+
+  const lines: string[] = ["\n\n## Active Tuning Scope (read this every turn)"];
+  lines.push("");
+  lines.push(`Scope toggle: **${effective}**`);
+
+  if (effective === "LEARNER") {
+    if (caller) {
+      lines.push(`Active learner: ${caller.label} (caller_id=${caller.id})`);
+      lines.push("");
+      lines.push("- When you call update_behavior_target, pass `scope: \"LEARNER\"` and `caller_id` from above.");
+      lines.push("- DO NOT pass playbook_id when scope=LEARNER — it is ignored.");
+      lines.push("- DO NOT call update_playbook_config at LEARNER scope. Config keys (sessionCount, audience, lessonPlanMode, etc.) are course-only by design. If the educator asks to change one at LEARNER scope, refuse and redirect:");
+      lines.push('  > "{key} is a course-level setting — it can\'t be set per learner. Switch the scope toggle to Course and ask again, or say \\"yes\\" and I\'ll apply it at course scope now."');
+    } else {
+      lines.push("Active learner: **none in entity context**");
+      lines.push("");
+      lines.push("- The toggle is set to LEARNER but no caller is selected. DO NOT call update_behavior_target with scope=LEARNER — the tool will refuse.");
+      lines.push("- Ask the educator to either navigate to a learner page first, or switch the scope toggle to Course (PLAYBOOK).");
+    }
+  } else {
+    if (playbook) {
+      lines.push(`Active course: ${playbook.label} (playbook_id=${playbook.id})`);
+      lines.push("");
+      lines.push("- When you call update_behavior_target, pass `scope: \"PLAYBOOK\"` and `playbook_id` from above.");
+      lines.push("- DO NOT pass caller_id when scope=PLAYBOOK — it is ignored.");
+      lines.push("- Course-scope writes affect every learner enrolled. Always include the line **\"Existing learners need re-prompting to pick up the change.\"** in your reply.");
+    } else {
+      lines.push("Active course: **none in entity context**");
+      lines.push("");
+      lines.push("- The toggle is set to PLAYBOOK but no course is selected. DO NOT call update_behavior_target — ask the educator to navigate to a course first.");
+    }
+  }
+
+  lines.push("");
+  lines.push("**Scope-mismatch handling:** if the educator's wording implies a different scope than the toggle (e.g. toggle=LEARNER but they say \"for the whole course\"), ASK before writing:");
+  lines.push("  > \"Your scope toggle is set to {currentScope}, so changes apply to {who}. Do you want to (a) switch the toggle to {otherScope} and apply more broadly, or (b) keep it at {currentScope}?\"");
+
+  return lines.join("\n");
 }
 
 /**

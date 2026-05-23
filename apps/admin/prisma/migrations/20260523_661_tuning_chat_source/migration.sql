@@ -1,0 +1,11 @@
+-- #661 — Add `TUNING_CHAT` to BehaviorTargetSource enum.
+--
+-- New write surface: the Cmd+K Tuning tab persists behaviour-target changes
+-- (PLAYBOOK scope OR CALLER scope, per the tab's scope toggle). The chat
+-- handler records these as `source = "TUNING_CHAT"` so the audit trail
+-- distinguishes natural-language tuning requests from sidebar manual edits
+-- (`source = "MANUAL"`) and pipeline reward-loop adjustments
+-- (`source = "LEARNED"`).
+--
+-- Pure additive — extends an existing enum, no existing rows touched.
+ALTER TYPE "BehaviorTargetSource" ADD VALUE 'TUNING_CHAT';

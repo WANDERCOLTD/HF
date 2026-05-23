@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@prisma/client";
 import { startCurriculumGeneration } from "@/lib/jobs/curriculum-runner";
 import { runIniChecks } from "@/lib/system-ini";
-import { writeBehaviorTarget } from "@/lib/agent-tuner/write-target";
+import { writeBehaviorTarget, writeCallerBehaviorTarget } from "@/lib/agent-tuner/write-target";
 
 const MAX_RESULT_LENGTH = 3000;
 
@@ -622,17 +622,35 @@ async function handleGenerateCurriculum(input: Record<string, any>, userId: stri
 }
 
 /**
- * Apply a single PLAYBOOK-scope BehaviorTarget update from the TUNING assistant.
- * Validation (whitelist + clamp) lives in writeBehaviorTarget so the panel route
- * and this tool cannot drift.
+ * #661 — Apply a single BehaviorTarget update from the TUNING assistant.
+ *
+ * Dispatch by `scope`:
+ *   - `LEARNER`  → writeCallerBehaviorTarget (resolves CallerIdentity rows
+ *                  from caller_id, writes scope=CALLER)
+ *   - `PLAYBOOK` → writeBehaviorTarget        (writes scope=PLAYBOOK)
+ *
+ * Validation (whitelist + clamp + identity resolution) lives in the
+ * write-target helpers so the chat tool, the sidebar PATCH endpoints, and
+ * any future caller cannot drift. Records `source = "TUNING_CHAT"` for
+ * audit-trail separation from sidebar MANUAL edits and pipeline LEARNED
+ * adjustments.
+ *
+ * Refuses with a structured error (visible to the model) when the
+ * scope/ID combination is invalid — the model surfaces the error to the
+ * educator rather than silently writing to the wrong scope.
  */
 async function handleUpdateBehaviorTarget(input: Record<string, any>) {
+  const scope = typeof input.scope === "string" ? input.scope.toUpperCase() : "";
   const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  const callerId = typeof input.caller_id === "string" ? input.caller_id : "";
   const parameterId = typeof input.parameter_id === "string" ? input.parameter_id : "";
   const rawValue = input.target_value;
 
-  if (!playbookId) {
-    return { error: "playbook_id is required (read it from the entity context with type: 'playbook')" };
+  if (scope !== "LEARNER" && scope !== "PLAYBOOK") {
+    return {
+      error:
+        "scope is required and must be 'LEARNER' or 'PLAYBOOK'. Read it from the Tuning tab's active scope toggle — do not infer from the conversation.",
+    };
   }
   if (!parameterId) {
     return { error: "parameter_id is required (use a slug from the catalogue, e.g. BEH-WARMTH)" };
@@ -641,7 +659,66 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
     return { error: "target_value must be a number in [0, 1] or null to remove the override" };
   }
 
-  const result = await writeBehaviorTarget(playbookId, parameterId, rawValue as number | null);
+  if (scope === "LEARNER") {
+    if (!callerId) {
+      return {
+        error:
+          "scope=LEARNER requires caller_id (read from the entity context with type: 'caller'). If the educator wants to tune the whole course, ask them to switch the scope toggle to PLAYBOOK.",
+      };
+    }
+
+    const result = await writeCallerBehaviorTarget(
+      callerId,
+      parameterId,
+      rawValue as number | null,
+      { source: "TUNING_CHAT" },
+    );
+
+    if (!result.ok) {
+      if (result.reason === "caller_not_found") {
+        return { error: `Caller ${callerId} not found.` };
+      }
+      if (result.reason === "caller_has_no_identity") {
+        return {
+          error: `Caller ${callerId} has no CallerIdentity rows — cannot attach a learner-scope target. The operator needs to add an identity (phone, email) before per-learner tuning.`,
+        };
+      }
+      return {
+        error: `Parameter "${parameterId}" is not an adjustable BEHAVIOR parameter. Pick one from the catalogue in your system prompt — do not invent IDs.`,
+      };
+    }
+
+    return {
+      ok: true,
+      scope: "LEARNER" as const,
+      caller_id: callerId,
+      parameter_id: result.parameterId,
+      action: result.action,
+      new_value: result.value,
+      identities_affected: result.identitiesAffected,
+      message:
+        result.action === "noop"
+          ? `No LEARNER-scope override existed for ${parameterId}; nothing to remove. The cascade (PLAYBOOK → SEGMENT → SYSTEM) still applies.`
+          : result.action === "removed"
+            ? `Removed the learner override for ${parameterId} (${result.identitiesAffected} identity row${result.identitiesAffected === 1 ? "" : "s"}). Existing sessions pick this up at the next call. In-flight sessions are not affected.`
+            : `Set ${parameterId} to ${result.value} for this learner (${result.identitiesAffected} identity row${result.identitiesAffected === 1 ? "" : "s"}). Existing sessions pick this up at the next call. In-flight sessions are not affected.`,
+    };
+  }
+
+  // scope === "PLAYBOOK"
+  if (!playbookId) {
+    return {
+      error:
+        "scope=PLAYBOOK requires playbook_id (read from the entity context with type: 'playbook').",
+    };
+  }
+
+  const result = await writeBehaviorTarget(
+    playbookId,
+    parameterId,
+    rawValue as number | null,
+    { source: "TUNING_CHAT" },
+  );
 
   if (!result.ok) {
     if (result.reason === "playbook_not_found") {
@@ -654,6 +731,7 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
 
   return {
     ok: true,
+    scope: "PLAYBOOK" as const,
     playbook_id: playbookId,
     parameter_id: result.parameterId,
     action: result.action,
