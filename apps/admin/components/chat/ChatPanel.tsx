@@ -3,6 +3,7 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useSession } from "next-auth/react";
 import { useChatContext, MODE_CONFIG, type ChatMode, type TuningScope } from "@/contexts/ChatContext";
 import { useEntityContext, ENTITY_COLORS, EntityBreadcrumb } from "@/contexts/EntityContext";
 import { useEntityDetection } from "@/hooks/useEntityDetection";
@@ -306,8 +307,9 @@ function ChatInput() {
 }
 
 export function ChatPanel() {
-  const { isOpen, closePanel, mode, chatLayout, setChatLayout } = useChatContext();
+  const { isOpen, closePanel, mode, chatLayout, setChatLayout, messages, clearHistory } = useChatContext();
   const { breadcrumbs } = useEntityContext();
+  const { data: session } = useSession();
 
   // Cmd+K shortcut is registered by GlobalAssistant (avoids double-toggle)
 
@@ -338,6 +340,41 @@ export function ChatPanel() {
     setChatLayout(layouts[(idx + 1) % layouts.length]);
   };
 
+  const handleClearClick = () => {
+    const userId = session?.user?.id;
+    // Source of truth is localStorage["hf.chat.history.${userId}"] — read it
+    // here so the confirm dialog reflects what's persisted, not in-memory
+    // staging that may differ during a stream.
+    let count = messages[mode]?.length ?? 0;
+    let earliestIso: string | null = null;
+    if (typeof window !== "undefined") {
+      try {
+        const key = userId ? `hf.chat.history.${userId}` : "hf.chat.history";
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const arr = Array.isArray(parsed?.[mode]) ? parsed[mode] : [];
+          count = arr.length;
+          if (arr.length > 0 && arr[0]?.timestamp) {
+            earliestIso = arr[0].timestamp;
+          }
+        }
+      } catch {
+        // Fall back to in-memory counts; non-fatal.
+      }
+    }
+    if (count === 0) {
+      // Nothing to clear — no-op rather than a confusing dialog.
+      return;
+    }
+    const since = earliestIso ? new Date(earliestIso).toLocaleString() : "the start";
+    const ok = window.confirm(
+      `Clear ${count} message${count === 1 ? "" : "s"} from ${mode} mode (since ${since})?`
+    );
+    if (!ok) return;
+    clearHistory(mode);
+  };
+
   const panelClass = `chat-panel chat-panel--${chatLayout}${isOpen ? " chat-panel--open" : ""}`;
   const headerClass = `chat-header${chatLayout === "popout" ? " chat-header--popout" : ""}`;
 
@@ -360,6 +397,15 @@ export function ChatPanel() {
             </div>
           </div>
           <div className="chat-header-actions">
+            <button
+              onClick={handleClearClick}
+              className="chat-header-btn chat-header-btn--clear"
+              title={`Clear ${mode} chat history`}
+              aria-label={`Clear ${mode} chat history`}
+              disabled={(messages[mode]?.length ?? 0) === 0}
+            >
+              ⌫
+            </button>
             <button
               onClick={cycleLayout}
               className="chat-header-btn chat-header-btn--layout"

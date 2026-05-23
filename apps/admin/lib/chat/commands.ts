@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { MemoryCategory } from "@prisma/client";
 
-type ChatMode = "DATA" | "CALL" | "BUG";
+// Reconciled with the live ChatContext.tsx type ("DATA" | "TUNING").
+// BUG and CALL are legacy API modes still routed through this command pipeline;
+// keep them in the union so the cast in app/api/chat/route.ts stays type-safe.
+type ChatMode = "DATA" | "CALL" | "BUG" | "TUNING";
 
 interface EntityBreadcrumb {
   type: string;
@@ -13,6 +16,7 @@ interface EntityBreadcrumb {
 interface CommandContext {
   entityContext: EntityBreadcrumb[];
   mode: ChatMode;
+  tuningScope?: "LEARNER" | "PLAYBOOK";
 }
 
 interface CommandResult {
@@ -58,7 +62,8 @@ function findCommand(commandName: string): ChatCommand | undefined {
 export async function executeCommand(
   input: string,
   entityContext: EntityBreadcrumb[],
-  mode: ChatMode
+  mode: ChatMode,
+  tuningScope?: "LEARNER" | "PLAYBOOK"
 ): Promise<CommandResult> {
   const parsed = parseCommand(input);
   if (!parsed) {
@@ -81,7 +86,7 @@ export async function executeCommand(
   }
 
   try {
-    return await command.execute(parsed.args, { entityContext, mode });
+    return await command.execute(parsed.args, { entityContext, mode, tuningScope });
   } catch (error) {
     return {
       ok: false,
@@ -100,7 +105,7 @@ const COMMANDS: ChatCommand[] = [
     aliases: ["?", "commands"],
     description: "Show available commands",
     usage: "/help [command]",
-    modes: ["DATA", "CALL"],
+    modes: ["DATA", "CALL", "TUNING"],
     execute: async (args, ctx) => {
       const specificCommand = args[0];
       if (specificCommand) {
@@ -133,7 +138,7 @@ const COMMANDS: ChatCommand[] = [
     aliases: ["ctx"],
     description: "Show current entity context",
     usage: "/context",
-    modes: ["DATA", "CALL"],
+    modes: ["DATA", "CALL", "TUNING"],
     execute: async (args, ctx) => {
       if (ctx.entityContext.length === 0) {
         return {
@@ -162,7 +167,7 @@ const COMMANDS: ChatCommand[] = [
     aliases: ["reset"],
     description: "Clear chat history for current mode",
     usage: "/clear",
-    modes: ["DATA", "CALL"],
+    modes: ["DATA", "CALL", "TUNING"],
     execute: async (args, ctx) => {
       return {
         ok: true,
@@ -348,6 +353,54 @@ const COMMANDS: ChatCommand[] = [
         ok: true,
         message: lines.join("\n"),
         data: caller,
+        action: "display",
+      };
+    },
+  },
+
+  {
+    name: "scope",
+    aliases: [],
+    description: "Show current tuning scope (LEARNER or PLAYBOOK)",
+    usage: "/scope",
+    modes: ["TUNING"],
+    execute: async (_args, ctx) => {
+      const scope = ctx.tuningScope ?? "PLAYBOOK";
+      const explainer =
+        scope === "LEARNER"
+          ? "Changes apply to the selected learner only."
+          : "Changes apply to the whole course.";
+      return {
+        ok: true,
+        message: `**Scope: ${scope}**\n\n${explainer}\n\nFlip with the toggle at the top of the Tuning tab.`,
+        action: "display",
+      };
+    },
+  },
+
+  {
+    name: "params",
+    aliases: ["parameters"],
+    description: "List tunable parameters for current context",
+    usage: "/params",
+    modes: ["TUNING"],
+    execute: async (_args, ctx) => {
+      const scope = ctx.tuningScope ?? "PLAYBOOK";
+      const lines = [
+        `**Tunable parameters — ${scope} scope**`,
+        "",
+        "Full per-context parameter discovery is coming with the tuning",
+        "registry. For now, ask the assistant directly:",
+        "",
+        "• \"Which parameters can I tune for this learner?\"",
+        "• \"Show me the playbook config keys I can override.\"",
+        "",
+        "The assistant has tool access to the live parameter set and will",
+        "return the current value plus the safe range.",
+      ];
+      return {
+        ok: true,
+        message: lines.join("\n"),
         action: "display",
       };
     },
