@@ -143,7 +143,7 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
       { keys: "C", action: "callback", callbackId: "tab:intelligence", label: "Content tab" },
       { keys: "D", action: "callback", callbackId: "tab:design", label: "Design tab" },
       { keys: "U", action: "callback", callbackId: "tab:curriculum", label: "Curriculum tab (cUrriculum)" },
-      { keys: "L", action: "callback", callbackId: "tab:learners", label: "Learners tab" },
+      { keys: "E", action: "callback", callbackId: "tab:learners", label: "Learners tab (Enrolled)" },
       { keys: "P", action: "callback", callbackId: "tab:proof", label: "Proof Points tab" },
       { keys: "O", action: "callback", callbackId: "tab:goals", label: "Goals tab (gOals — G is reserved as a chord prefix)" },
       { keys: "T", action: "callback", callbackId: "tab:settings", label: "Settings tab", requiresOperator: true },
