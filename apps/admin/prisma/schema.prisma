@@ -3990,6 +3990,13 @@ model ContentQuestion {
   assertionId String?
   assertion   ContentAssertion? @relation(fields: [assertionId], references: [id], onDelete: SetNull)
 
+  // Last time the AI reconciler scanned this row, regardless of whether
+  // it matched. `reconcile-question-linkage.ts` uses this to skip rows it
+  // tried recently — prevents repeat AI spend on orphans that have no
+  // candidate teaching point. TTL ~7 days so when an educator adds new
+  // TPs the orphans get re-evaluated eventually.
+  linkReconciledAt DateTime?
+
   // Curriculum reference
   learningOutcomeRef String?
   skillRef           String? // Comprehension skill ref (e.g., "SKILL-01:Retrieval", "SKILL-05:Language Effect")

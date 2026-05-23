@@ -52,9 +52,23 @@ export async function reconcileQuestionAssertions(courseId: string): Promise<Que
   const sourceIds = await getSourceIdsForPlaybook(courseId);
   if (sourceIds.length === 0) return empty;
 
-  // 2. Load orphan questions (no assertionId yet)
+  // 2. Load orphan questions (no assertionId yet) that we haven't already
+  //    tried recently. `linkReconciledAt` is stamped on every row the
+  //    reconciler scans, regardless of match — so rows that returned no
+  //    match last time sit out for the TTL window before we burn another
+  //    embedding call on them. When an educator adds new TPs the window
+  //    expires and we retry naturally.
+  const reconcileTtlDays = 7;
+  const ttlCutoff = new Date(Date.now() - reconcileTtlDays * 24 * 60 * 60 * 1000);
   const orphans = await prisma.contentQuestion.findMany({
-    where: { sourceId: { in: sourceIds }, assertionId: null },
+    where: {
+      sourceId: { in: sourceIds },
+      assertionId: null,
+      OR: [
+        { linkReconciledAt: null },
+        { linkReconciledAt: { lt: ttlCutoff } },
+      ],
+    },
     select: {
       id: true,
       questionText: true,
@@ -106,6 +120,25 @@ export async function reconcileQuestionAssertions(courseId: string): Promise<Que
     childLabel: "multiple-choice questions",
     parentLabel: "teaching points",
   });
+
+  // Stamp linkReconciledAt on EVERY row we scanned, matched or not. This
+  // is the TTL marker that lets future runs skip rows we've already
+  // evaluated. Failures here are non-fatal — the next reconcile will
+  // just see them as eligible again, which is correct behaviour.
+  if (orphans.length > 0) {
+    try {
+      const now = new Date();
+      await prisma.contentQuestion.updateMany({
+        where: { id: { in: orphans.map((o) => o.id) } },
+        data: { linkReconciledAt: now },
+      });
+    } catch (err: any) {
+      console.warn(
+        `[reconcile-question-linkage] course=${courseId}: failed to stamp linkReconciledAt:`,
+        err?.message || err,
+      );
+    }
+  }
 
   console.log(
     `[reconcile-question-linkage] course=${courseId}: scanned=${result.scanned} ` +
