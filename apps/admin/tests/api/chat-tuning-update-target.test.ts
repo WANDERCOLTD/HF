@@ -49,6 +49,7 @@ describe("update_behavior_target chat tool handler", () => {
     const raw = await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-1",
         parameter_id: "BEH-WARMTH",
         target_value: 0.4,
@@ -69,7 +70,7 @@ describe("update_behavior_target chat tool handler", () => {
         playbookId: "pb-1",
         scope: "PLAYBOOK",
         targetValue: 0.4,
-        source: "MANUAL",
+        source: "TUNING_CHAT",
       }),
     });
   });
@@ -78,6 +79,7 @@ describe("update_behavior_target chat tool handler", () => {
     const raw = await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-1",
         parameter_id: "BEH-MADE-UP",
         target_value: 0.5,
@@ -95,6 +97,7 @@ describe("update_behavior_target chat tool handler", () => {
     await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-1",
         parameter_id: "BEH-WARMTH",
         target_value: 1.7,
@@ -114,6 +117,7 @@ describe("update_behavior_target chat tool handler", () => {
     const raw = await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-1",
         parameter_id: "BEH-WARMTH",
         target_value: null,
@@ -136,6 +140,7 @@ describe("update_behavior_target chat tool handler", () => {
     const raw = await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-missing",
         parameter_id: "BEH-WARMTH",
         target_value: 0.5,
@@ -152,14 +157,14 @@ describe("update_behavior_target chat tool handler", () => {
   it("requires playbook_id and parameter_id strings", async () => {
     const raw1 = await executeAdminTool(
       "update_behavior_target",
-      { playbook_id: "", parameter_id: "BEH-WARMTH", target_value: 0.5, reason: "x" },
+      { scope: "PLAYBOOK", playbook_id: "", parameter_id: "BEH-WARMTH", target_value: 0.5, reason: "x" },
       "OPERATOR",
     );
     expect(JSON.parse(raw1).error).toContain("playbook_id");
 
     const raw2 = await executeAdminTool(
       "update_behavior_target",
-      { playbook_id: "pb-1", parameter_id: "", target_value: 0.5, reason: "x" },
+      { scope: "PLAYBOOK", playbook_id: "pb-1", parameter_id: "", target_value: 0.5, reason: "x" },
       "OPERATOR",
     );
     expect(JSON.parse(raw2).error).toContain("parameter_id");
@@ -171,6 +176,7 @@ describe("update_behavior_target chat tool handler", () => {
     const raw = await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-1",
         parameter_id: "BEH-WARMTH",
         target_value: "high",
@@ -186,6 +192,7 @@ describe("update_behavior_target chat tool handler", () => {
     const raw = await executeAdminTool(
       "update_behavior_target",
       {
+        scope: "PLAYBOOK",
         playbook_id: "pb-1",
         parameter_id: "BEH-WARMTH",
         target_value: 0.5,
