@@ -67,8 +67,11 @@ export function V5WizardWithSelector({
         if (cancelled) return;
         const list: InstitutionFromAPI[] = data.institutions ?? [];
         setInstitutions(list);
-        // If no default was set server-side, pick first from list
-        if (!selectedId && list.length > 0) setSelectedId(list[0].id);
+        // If no default was set server-side, pick first from list — but never
+        // for SUPERADMIN (#702 fix only worked server-side; the client auto-
+        // pick was silently restoring Abacus as the alphabetically-first
+        // tenant). SUPERADMIN must make an explicit choice.
+        if (!selectedId && list.length > 0 && !isSuperAdmin) setSelectedId(list[0].id);
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false); });
