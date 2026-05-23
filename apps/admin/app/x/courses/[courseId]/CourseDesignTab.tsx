@@ -120,33 +120,53 @@ export function CourseDesignTab({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [activeState, setActiveState] = useState<FlowState>('WELCOME');
 
-  // Load config from playbook — prefer canonical sessionFlow.intake, fall back
-  // to legacy `welcome` shape (matches resolveSessionFlow precedence).
+  // Load config via GET /api/courses/[courseId]/session-flow — the same
+  // resolved endpoint SessionFlowEditor uses. Reading the page-level
+  // `playbookConfig` prop directly causes drift: SessionFlowEditor saves
+  // an intake change → server updates → SessionFlowEditor re-fetches
+  // fresh, but the page's `detail.config` (passed down here) stays at
+  // the value loaded on mount. The two tabs then disagree until the
+  // page is reloaded. Single shared GET keeps both tabs honest.
   useEffect(() => {
-    if (!playbookConfig) return;
-    const sf = (playbookConfig.sessionFlow as { intake?: Partial<IntakeConfig> } | undefined);
-    if (sf?.intake) {
-      setIntake({ ...DEFAULT_INTAKE_CONFIG, ...sf.intake } as IntakeConfig);
-    } else if (playbookConfig.welcome) {
-      const w = playbookConfig.welcome as {
-        goals?: { enabled?: boolean };
-        aboutYou?: { enabled?: boolean };
-        knowledgeCheck?: { enabled?: boolean };
-        aiIntroCall?: { enabled?: boolean };
-      };
-      setIntake({
-        goals: { enabled: w.goals?.enabled ?? DEFAULT_INTAKE_CONFIG.goals.enabled },
-        aboutYou: { enabled: w.aboutYou?.enabled ?? DEFAULT_INTAKE_CONFIG.aboutYou.enabled },
-        knowledgeCheck: {
-          enabled: w.knowledgeCheck?.enabled ?? DEFAULT_INTAKE_CONFIG.knowledgeCheck.enabled,
-          deliveryMode: DEFAULT_INTAKE_CONFIG.knowledgeCheck.deliveryMode,
-        },
-        aiIntroCall: { enabled: w.aiIntroCall?.enabled ?? DEFAULT_INTAKE_CONFIG.aiIntroCall.enabled },
+    let cancelled = false;
+    fetch(`/api/courses/${courseId}/session-flow`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data?.ok || !data.sessionFlow?.intake) return;
+        setIntake({ ...DEFAULT_INTAKE_CONFIG, ...data.sessionFlow.intake });
+      })
+      .catch(() => {
+        // Soft fall back to the page's playbookConfig prop if the API
+        // call fails — better to show stale data than nothing.
+        if (cancelled || !playbookConfig) return;
+        const sf = (playbookConfig.sessionFlow as { intake?: Partial<IntakeConfig> } | undefined);
+        if (sf?.intake) {
+          setIntake({ ...DEFAULT_INTAKE_CONFIG, ...sf.intake } as IntakeConfig);
+        } else if (playbookConfig.welcome) {
+          const w = playbookConfig.welcome as {
+            goals?: { enabled?: boolean };
+            aboutYou?: { enabled?: boolean };
+            knowledgeCheck?: { enabled?: boolean };
+            aiIntroCall?: { enabled?: boolean };
+          };
+          setIntake({
+            goals: { enabled: w.goals?.enabled ?? DEFAULT_INTAKE_CONFIG.goals.enabled },
+            aboutYou: { enabled: w.aboutYou?.enabled ?? DEFAULT_INTAKE_CONFIG.aboutYou.enabled },
+            knowledgeCheck: {
+              enabled: w.knowledgeCheck?.enabled ?? DEFAULT_INTAKE_CONFIG.knowledgeCheck.enabled,
+              deliveryMode: DEFAULT_INTAKE_CONFIG.knowledgeCheck.deliveryMode,
+            },
+            aiIntroCall: { enabled: w.aiIntroCall?.enabled ?? DEFAULT_INTAKE_CONFIG.aiIntroCall.enabled },
+          });
+        }
       });
-    }
-    if (playbookConfig.nps) {
-      setNps({ ...DEFAULT_NPS_CONFIG, ...(playbookConfig.nps as Partial<NpsConfig>) });
-    }
+    return () => { cancelled = true; };
+  }, [courseId, playbookConfig]);
+
+  // NPS comes from the same playbookConfig (no session-flow API surface yet).
+  useEffect(() => {
+    if (!playbookConfig?.nps) return;
+    setNps({ ...DEFAULT_NPS_CONFIG, ...(playbookConfig.nps as Partial<NpsConfig>) });
   }, [playbookConfig]);
 
   // Persist via the session-flow route. That route writes both
