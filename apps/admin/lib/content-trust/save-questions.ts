@@ -183,7 +183,59 @@ export async function saveQuestions(
     );
   }
 
+  // Fire-and-forget AI reconcile so freshly-imported question banks land
+  // with `assertionId` populated, instead of relying on a later UI visit
+  // to trigger McqPanel's auto-reconcile. Looks up every playbook that
+  // contains this source and runs `reconcileQuestionAssertions` per
+  // course. Errors swallowed — this is best-effort polish; the McqPanel
+  // auto-reconcile remains the safety net.
+  if (toCreate.length > 0) {
+    void triggerReconcileForSource(sourceId);
+  }
+
   return { created: toCreate.length, duplicatesSkipped, semanticDuplicatesSkipped };
+}
+
+/**
+ * Look up every playbook attached to a source and fire the AI MCQ
+ * reconcile for each (fire-and-forget, errors logged).
+ *
+ * Sources can be linked to N playbooks via PlaybookSource. After a
+ * question import, every linked course has a fresh batch of
+ * `assertionId = null` rows and is a candidate for reconciliation.
+ *
+ * Dynamic import keeps the heavier AI dependencies (embeddings) out of
+ * the hot-path module graph for callers that never trigger this.
+ */
+async function triggerReconcileForSource(sourceId: string): Promise<void> {
+  try {
+    const links = await prisma.playbookSource.findMany({
+      where: { sourceId },
+      select: { playbookId: true },
+    });
+    if (links.length === 0) return;
+    const { reconcileQuestionAssertions } = await import("./reconcile-question-linkage");
+    for (const link of links) {
+      // Fire-and-forget per course — don't block the import response on
+      // potentially slow AI calls. Stagger naturally via the await.
+      reconcileQuestionAssertions(link.playbookId)
+        .then((res) => {
+          if (res.scanned > 0) {
+            console.log(
+              `[save-questions] post-import reconcile course=${link.playbookId}: scanned=${res.scanned} matched=${res.matched} unmatched=${res.unmatched}`,
+            );
+          }
+        })
+        .catch((err) => {
+          console.warn(
+            `[save-questions] post-import reconcile failed for course=${link.playbookId}:`,
+            err?.message || err,
+          );
+        });
+    }
+  } catch (err: any) {
+    console.warn(`[save-questions] triggerReconcileForSource(${sourceId}) failed:`, err?.message || err);
+  }
 }
 
 /**
