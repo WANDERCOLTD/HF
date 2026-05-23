@@ -35,17 +35,12 @@ export default async function GetStartedV5Page({
     return <V5WizardWithSelector defaultInstitution={null} userRole={user.role} defaultCourseId={courseIdParam} courses={[]} />;
   }
 
-  // TODO(institution-lock): non-SUPERADMIN users running the wizard must be
-  // hard-locked to their session.user.institutionId — they should never see
-  // the organisation selector, regardless of how many institutions they have
-  // access to via UserInstitution joins. Today the selector is hidden when
-  // V5WizardWithSelector sees `institutions.length < 2`, but that's a UX
-  // signal, not a security guard. The wizard accepts a selected id from the
-  // client and trusts it. Tighten by either:
-  //   (a) drop the institution selector entirely for non-SUPERADMIN, OR
-  //   (b) enforce institutionId === session.user.institutionId in the
-  //       create-course API for non-SUPERADMIN roles.
-  // Track via GitHub issue if you want it in the backlog.
+  // #703 — institution lock for non-SUPERADMIN is enforced two ways:
+  //   (a) V5WizardWithSelector hides the institution selector unless
+  //       userRole === "SUPERADMIN", so the affordance to switch is gone.
+  //   (b) /api/chat (WIZARD mode) rejects requests whose setupData
+  //       institutionId differs from session.user.institutionId with a
+  //       403 (errorCode INSTITUTION_MISMATCH).
 
   const institution = await prisma.institution.findUnique({
     where: { id: institutionId, isActive: true },
