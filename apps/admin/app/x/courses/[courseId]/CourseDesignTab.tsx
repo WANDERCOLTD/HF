@@ -1,10 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Wand2, ArrowRight, Check, Brain, Sparkles, ThumbsUp } from 'lucide-react';
-import type { IntakeConfig, NpsConfig } from '@/lib/types/json-fields';
-import { DEFAULT_INTAKE_CONFIG, DEFAULT_NPS_CONFIG } from '@/lib/types/json-fields';
-import { IntakeToggleGroup, type IntakeValues } from '@/components/wizards/IntakeToggleGroup';
+import { SessionFlowEditor } from '@/components/session-flow/SessionFlowEditor';
 import { CourseSetupTracker } from '@/components/shared/CourseSetupTracker';
 import { BandingPicker } from '@/components/shared/BandingPicker';
 import { CourseSummaryCard } from './CourseSummaryCard';
@@ -14,7 +10,6 @@ import { getTeachingProfile } from '@/lib/content-trust/teaching-profiles';
 import { getAudienceOption } from '@/lib/prompt/composition/transforms/audience';
 import type { PlaybookConfig } from '@/lib/types/json-fields';
 import type { SetupStatusInput } from '@/hooks/useCourseSetupStatus';
-import './course-design-tab.css';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -63,48 +58,6 @@ export type CourseDesignTabProps = {
   onReadinessChange?: (completedCount: number, allComplete: boolean) => void;
 };
 
-type FlowState = 'WELCOME' | 'LEARNING' | 'NPS' | 'COMPLETE';
-
-interface FlowStateConfig {
-  key: FlowState;
-  label: string;
-  icon: React.ReactNode;
-  description: string;
-}
-
-const FLOW_STATES: FlowStateConfig[] = [
-  { key: 'WELCOME', label: 'Welcome', icon: <Sparkles size={16} />, description: 'First-time student experience' },
-  { key: 'LEARNING', label: 'Learning', icon: <Brain size={16} />, description: 'Teaching sessions' },
-  { key: 'NPS', label: 'Feedback', icon: <ThumbsUp size={16} />, description: 'Satisfaction & NPS' },
-  { key: 'COMPLETE', label: 'Complete', icon: <Check size={16} />, description: 'Course finished' },
-];
-
-// ── Intake ↔ IntakeValues mapping ───────────────────────
-//
-// `IntakeConfig` is the canonical persistence shape under
-// `Playbook.config.sessionFlow.intake`. `IntakeValues` is the flat shape used
-// by the shared `<IntakeToggleGroup>` (single source of truth across wizard
-// and Design tab). Convert at the UI boundary.
-
-function intakeToValues(i: IntakeConfig): IntakeValues {
-  return {
-    goals: i.goals.enabled,
-    aboutYou: i.aboutYou.enabled,
-    knowledgeCheck: i.knowledgeCheck.enabled,
-    knowledgeCheckMode: i.knowledgeCheck.deliveryMode ?? 'mcq',
-    aiIntroCall: i.aiIntroCall.enabled,
-  };
-}
-
-function valuesToIntake(v: IntakeValues): IntakeConfig {
-  return {
-    goals: { enabled: v.goals },
-    aboutYou: { enabled: v.aboutYou },
-    knowledgeCheck: { enabled: v.knowledgeCheck, deliveryMode: v.knowledgeCheckMode },
-    aiIntroCall: { enabled: v.aiIntroCall },
-  };
-}
-
 // ── Main Component ─────────────────────────────────────
 
 export function CourseDesignTab({
@@ -113,107 +66,10 @@ export function CourseDesignTab({
   onSimCall, instructionTotal, categoryCounts, contentMethods, onNavigate,
   onReadinessChange,
 }: CourseDesignTabProps): React.ReactElement {
-  const [intake, setIntake] = useState<IntakeConfig>(DEFAULT_INTAKE_CONFIG);
-  const [nps, setNps] = useState<NpsConfig>(DEFAULT_NPS_CONFIG);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [activeState, setActiveState] = useState<FlowState>('WELCOME');
-
-  // Load config via GET /api/courses/[courseId]/session-flow — the same
-  // resolved endpoint SessionFlowEditor uses. Reading the page-level
-  // `playbookConfig` prop directly causes drift: SessionFlowEditor saves
-  // an intake change → server updates → SessionFlowEditor re-fetches
-  // fresh, but the page's `detail.config` (passed down here) stays at
-  // the value loaded on mount. The two tabs then disagree until the
-  // page is reloaded. Single shared GET keeps both tabs honest.
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/courses/${courseId}/session-flow`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (cancelled || !data?.ok || !data.sessionFlow?.intake) return;
-        setIntake({ ...DEFAULT_INTAKE_CONFIG, ...data.sessionFlow.intake });
-      })
-      .catch(() => {
-        // Soft fall back to the page's playbookConfig prop if the API
-        // call fails — better to show stale data than nothing.
-        if (cancelled || !playbookConfig) return;
-        const sf = (playbookConfig.sessionFlow as { intake?: Partial<IntakeConfig> } | undefined);
-        if (sf?.intake) {
-          setIntake({ ...DEFAULT_INTAKE_CONFIG, ...sf.intake } as IntakeConfig);
-        } else if (playbookConfig.welcome) {
-          const w = playbookConfig.welcome as {
-            goals?: { enabled?: boolean };
-            aboutYou?: { enabled?: boolean };
-            knowledgeCheck?: { enabled?: boolean };
-            aiIntroCall?: { enabled?: boolean };
-          };
-          setIntake({
-            goals: { enabled: w.goals?.enabled ?? DEFAULT_INTAKE_CONFIG.goals.enabled },
-            aboutYou: { enabled: w.aboutYou?.enabled ?? DEFAULT_INTAKE_CONFIG.aboutYou.enabled },
-            knowledgeCheck: {
-              enabled: w.knowledgeCheck?.enabled ?? DEFAULT_INTAKE_CONFIG.knowledgeCheck.enabled,
-              deliveryMode: DEFAULT_INTAKE_CONFIG.knowledgeCheck.deliveryMode,
-            },
-            aiIntroCall: { enabled: w.aiIntroCall?.enabled ?? DEFAULT_INTAKE_CONFIG.aiIntroCall.enabled },
-          });
-        }
-      });
-    return () => { cancelled = true; };
-  }, [courseId, playbookConfig]);
-
-  // NPS comes from the same playbookConfig (no session-flow API surface yet).
-  useEffect(() => {
-    if (!playbookConfig?.nps) return;
-    setNps({ ...DEFAULT_NPS_CONFIG, ...(playbookConfig.nps as Partial<NpsConfig>) });
-  }, [playbookConfig]);
-
-  // Persist via the session-flow route. That route writes both
-  // `sessionFlow.intake` (canonical) and mirrors to legacy `welcome` for the
-  // dual-read window — same pattern the wizard uses. Single write path means
-  // every reader (resolveSessionFlow, isPreSurveyEnabled, pedagogy.ts) sees
-  // the same shape regardless of where the educator made the change.
-  const saveConfig = useCallback(async (newIntake: IntakeConfig, newNps: NpsConfig) => {
-    setSaving(true);
-    setSaved(false);
-    setSaveError(null);
-    try {
-      const res = await fetch(`/api/courses/${courseId}/session-flow`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionFlow: { intake: newIntake }, nps: newNps }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || `Save failed (${res.status})`);
-      }
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err) {
-      setSaveError((err as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }, [courseId]);
-
-  const handleIntakeChange = useCallback((next: IntakeValues) => {
-    const updated = valuesToIntake(next);
-    // Skip the redundant initial onChange that fires from IntakeToggleGroup's
-    // mount effect — only persist when values actually differ.
-    if (JSON.stringify(updated) === JSON.stringify(intake)) return;
-    setIntake(updated);
-    saveConfig(updated, nps);
-  }, [intake, nps, saveConfig]);
-
-  const toggleNps = useCallback(() => {
-    const updated = { ...nps, enabled: !nps.enabled };
-    setNps(updated);
-    saveConfig(intake, updated);
-  }, [intake, nps, saveConfig]);
-
-  // Duration from playbook config (sessionCount is now just a budget, not pacing)
-  const durationMins = (playbookConfig?.durationMins as number) || null;
+  // Session-flow state (intake, NPS, welcome message, onboarding/offboarding
+  // phases, mode, etc.) is owned end-to-end by <SessionFlowEditor>, which
+  // fetches /api/courses/:id/session-flow on mount and persists via PUT.
+  // No mirroring here — one canonical surface.
 
   // Overview-derived data (from absorbed CourseOverviewTab)
   const pbConfig = (playbookConfig || {}) as PlaybookConfig;
@@ -260,134 +116,18 @@ export function CourseDesignTab({
         </>
       )}
 
-      {/* ── Student Experience Flow (tab-card) ────────── */}
+      {/* ── Session Flow (canonical editor — absorbed from retired tab) ── */}
+      {/*
+        The Session Flow tab was retired in favour of one canonical editor
+        on the Design tab. SessionFlowEditor owns its own data fetching
+        (GET /api/courses/:id/session-flow) and persistence, so we mount it
+        directly — no prop plumbing, no duplicate state. The earlier
+        "Student Experience Flow" pill-row card was a styled subset of the
+        same data; it's gone because every educator-visible setting it
+        offered is also here, in the more complete form.
+      */}
       <div className="hf-card hf-mb-lg">
-        <div className="hf-flex hf-items-center hf-gap-sm hf-mb-md">
-          <Wand2 size={16} className="hf-text-muted" />
-          <span className="hf-section-title" style={{ margin: 0 }}>Student Experience Flow</span>
-          {saving && <span className="hf-text-xs hf-text-muted">Saving...</span>}
-          {saved && <span className="hf-text-xs" style={{ color: 'var(--status-success-text)' }}>Saved</span>}
-          {saveError && (
-            <span className="hf-text-xs" style={{ color: 'var(--status-error-text)' }}>
-              Save failed — {saveError}
-            </span>
-          )}
-        </div>
-
-        {/* Tab strip */}
-        <div className="cdt-flow-row" role="tablist" aria-label="Student experience phases">
-          {FLOW_STATES.map((state, i) => (
-            <div key={state.key} className="cdt-flow-item">
-              <button
-                role="tab"
-                aria-selected={activeState === state.key}
-                aria-controls={`cdt-panel-${state.key}`}
-                className={`cdt-flow-bubble ${activeState === state.key ? 'cdt-flow-bubble--active' : ''}`}
-                onClick={() => setActiveState(state.key)}
-              >
-                {state.icon}
-                <span className="cdt-flow-label">{state.label}</span>
-              </button>
-              {i < FLOW_STATES.length - 1 && (
-                <ArrowRight size={14} className="cdt-flow-arrow" />
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Divider */}
-        <div className="cdt-flow-divider" />
-
-        {/* Panel content */}
-        {activeState === 'WELCOME' && (
-          <div role="tabpanel" id="cdt-panel-WELCOME" className="cdt-flow-panel">
-            <div className="hf-section-title hf-mb-sm">Welcome Flow Phases</div>
-            <p className="hf-text-xs hf-text-muted hf-mb-md">
-              Configure what students see before their first learning session. Toggle phases on or off.
-            </p>
-            <IntakeToggleGroup
-              initial={intakeToValues(intake)}
-              onChange={handleIntakeChange}
-              showHeader={false}
-            />
-
-            {/* Welcome message preview */}
-            {typeof playbookConfig?.welcomeMessage === 'string' && playbookConfig.welcomeMessage && (
-              <div className="hf-mt-md">
-                <div className="hf-text-xs hf-text-bold hf-mb-xs">Welcome Message</div>
-                <div className="cdt-welcome-preview">
-                  {String(playbookConfig.welcomeMessage).slice(0, 120)}
-                  {String(playbookConfig.welcomeMessage).length > 120 ? '...' : ''}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeState === 'LEARNING' && (
-          <div role="tabpanel" id="cdt-panel-LEARNING" className="cdt-flow-panel">
-            <div className="hf-section-title hf-mb-sm">Learning Sessions</div>
-            <div className="cdt-info-grid">
-              <div className="cdt-info-item">
-                <span className="hf-text-xs hf-text-muted">Pacing</span>
-                <span className="hf-text-sm hf-text-bold">Scheduler-driven</span>
-              </div>
-              {(playbookConfig?.sessionCount as number) > 0 && (
-                <div className="cdt-info-item">
-                  <span className="hf-text-xs hf-text-muted">Session budget</span>
-                  <span className="hf-text-sm hf-text-bold">{playbookConfig?.sessionCount as number}</span>
-                </div>
-              )}
-              {durationMins && (
-                <div className="cdt-info-item">
-                  <span className="hf-text-xs hf-text-muted">Duration</span>
-                  <span className="hf-text-sm hf-text-bold">{durationMins} min</span>
-                </div>
-              )}
-            </div>
-            <p className="hf-text-xs hf-text-muted hf-mt-sm">
-              Session count and duration can be changed on the Journey tab.
-            </p>
-          </div>
-        )}
-
-        {activeState === 'NPS' && (
-          <div role="tabpanel" id="cdt-panel-NPS" className="cdt-flow-panel">
-            <div className="hf-section-title hf-mb-sm">Student Feedback</div>
-            <p className="hf-text-xs hf-text-muted hf-mb-md">
-              When enabled, students are asked for feedback (NPS + satisfaction) after reaching the mastery threshold.
-            </p>
-            <label className="cdt-phase-row">
-              <div className="cdt-phase-toggle">
-                <input
-                  type="checkbox"
-                  checked={nps.enabled}
-                  onChange={toggleNps}
-                  className="hf-checkbox"
-                />
-              </div>
-              <div className="cdt-phase-icon"><ThumbsUp size={14} /></div>
-              <div className="cdt-phase-info">
-                <span className="cdt-phase-name">NPS & Satisfaction</span>
-                <span className="cdt-phase-desc">
-                  {nps.trigger === 'mastery'
-                    ? `Triggered at ${nps.threshold}% mastery`
-                    : `Triggered after ${nps.threshold} sessions`}
-                </span>
-              </div>
-            </label>
-          </div>
-        )}
-
-        {activeState === 'COMPLETE' && (
-          <div role="tabpanel" id="cdt-panel-COMPLETE" className="cdt-flow-panel">
-            <div className="hf-section-title hf-mb-sm">Course Complete</div>
-            <p className="hf-text-xs hf-text-muted">
-              When all learning outcomes are mastered and feedback is submitted (if enabled),
-              students see their progress dashboard with goals, topics, and test scores.
-            </p>
-          </div>
-        )}
+        <SessionFlowEditor courseId={courseId} />
       </div>
 
       {/* ── Skill Banding (#417 Story C — per-playbook tier mapping) ── */}

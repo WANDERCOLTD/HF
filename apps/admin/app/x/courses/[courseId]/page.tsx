@@ -18,7 +18,6 @@ import { CourseIntelligenceTab } from './CourseIntelligenceTab';
 import { CourseWhoTab } from './CourseWhoTab';
 import { CourseGoalsTab } from './CourseGoalsTab';
 import { CourseDesignTab } from './CourseDesignTab';
-import { SessionFlowEditor } from '@/components/session-flow/SessionFlowEditor';
 import { CourseLearnersTab } from './CourseLearnersTab';
 import { CourseProofTab } from './CourseProofTab';
 import { SessionDetailPanel } from '@/components/shared/SessionDetailPanel';
@@ -138,9 +137,9 @@ type SessionTabData = {
 
 import { SectionHeader } from './SectionHeader';
 
-const VALID_TABS = ['intelligence', 'design', 'curriculum', 'content', 'learners', 'proof', 'goals', 'session-flow', 'settings',
+const VALID_TABS = ['intelligence', 'design', 'curriculum', 'content', 'learners', 'proof', 'goals', 'settings',
   // Legacy tab IDs — redirected in handleTabChange
-  'overview', 'journey', 'genome', 'audience',
+  'overview', 'journey', 'genome', 'audience', 'session-flow',
 ];
 
 const statusMap: Record<string, 'draft' | 'active' | 'archived'> = {
@@ -378,7 +377,6 @@ export default function CourseDetailPage() {
     { id: 'intelligence', label: 'Content', icon: <BookMarked size={14} />, count: totalSources || null },
     { id: 'design', label: 'Design', icon: <Wand2 size={14} /> },
     { id: 'curriculum', label: 'Curriculum', icon: <GraduationCap size={14} /> },
-    { id: 'session-flow', label: 'Session Flow', icon: <SettingsIcon size={14} /> },
     { id: 'learners', label: 'Learners', icon: <Users2 size={14} /> },
     { id: 'proof', label: 'Proof Points', icon: <BarChart3 size={14} /> },
     { id: 'goals', label: 'Goals', icon: <Target size={14} /> },
@@ -400,7 +398,7 @@ export default function CourseDetailPage() {
     const TAB_REDIRECTS: Record<string, string> = {
       sessions: 'design', onboarding: 'design', overview: 'design',
       journey: 'design', genome: 'intelligence', audience: 'design',
-      content: 'intelligence',
+      content: 'intelligence', 'session-flow': 'design',
     };
     const resolvedTab = TAB_REDIRECTS[tab] ?? tab;
     setActiveTab(resolvedTab);
@@ -1495,15 +1493,6 @@ export default function CourseDetailPage() {
         />
       )}
 
-
-      {/* ═══════════════════════════════════════════════ */}
-      {/* SESSION FLOW TAB                                */}
-      {/* ═══════════════════════════════════════════════ */}
-      {activeTab === 'session-flow' && (
-        <div className="hf-mt-lg">
-          <SessionFlowEditor courseId={courseId} />
-        </div>
-      )}
 
       {/* ═══════════════════════════════════════════════ */}
       {/* SETTINGS TAB                                   */}
