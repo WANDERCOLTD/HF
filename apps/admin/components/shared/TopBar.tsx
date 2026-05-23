@@ -23,11 +23,11 @@ function SearchTrigger() {
     <button
       className="hf-topbar-search"
       onClick={openPanel}
-      title={`Search or jump to... ${isMac ? "⌘K" : "Ctrl+K"}`}
-      aria-label="Open search"
+      title={`Search or ask anything... ${isMac ? "⌘K" : "Ctrl+K"}`}
+      aria-label="Open assistant"
     >
       <Search size={14} />
-      <span className="hf-topbar-search-label">Search...</span>
+      <span className="hf-topbar-search-label">Search or ask...</span>
       <kbd className="hf-topbar-kbd">{isMac ? "⌘K" : "⌃K"}</kbd>
     </button>
   );
