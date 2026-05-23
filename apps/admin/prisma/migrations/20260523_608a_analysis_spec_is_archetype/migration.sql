@@ -1,0 +1,21 @@
+-- #608-A — Add `isArchetype` discriminator to AnalysisSpec.
+--
+-- Distinguishes archetype templates (TUT-001, ADVISOR-001, GUIDE-001,
+-- MENTOR-001, FACILITATOR-001 — seeded with scope=SYSTEM + specRole=IDENTITY
+-- for the `extendsAgent` inheritance chain in `mergeIdentitySpec`) from
+-- runtime fallback IDENTITY specs.
+--
+-- After this migration:
+--   - `seed-identity-archetypes.ts` sets `isArchetype = true` for all 5 archetypes.
+--   - The `systemSpecs` loader filters `isArchetype: false`, so archetypes
+--     stay discoverable by slug (for the inheritance chain) but never enter
+--     the resolved-spec snapshot via the SYSTEM IDENTITY fallback path.
+--   - Closes the structural gap that #608-C's defensive runtime guard
+--     covers — `advisorInInputsSnapshot` audit counter drops to 0 for all
+--     NEW prompts after the seed runs.
+--
+-- Pure additive — no defaults that need backfill, no constraint changes.
+-- Existing rows get `isArchetype = false` via the column default; the seed
+-- script will flip the 5 archetype rows to `true` on next reseed.
+ALTER TABLE "AnalysisSpec"
+  ADD COLUMN "isArchetype" BOOLEAN NOT NULL DEFAULT false;
