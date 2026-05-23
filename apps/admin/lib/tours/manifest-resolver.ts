@@ -4,9 +4,17 @@
  * Resolves stable manifest item IDs to current href/label/icon values.
  * Tours reference item IDs instead of hardcoding hrefs — when the sidebar
  * manifest changes, tours follow automatically.
+ *
+ * Sources, merged in order (sidebar wins on id collision):
+ *   1. lib/sidebar/sidebar-manifest.json — items rendered in the visible
+ *      sidebar
+ *   2. lib/sidebar/tour-anchors.json — items the tours reference but the
+ *      simplified sidebar (#7f49c460) no longer renders. Keeps tours
+ *      working without re-polluting the visible nav.
  */
 
 import manifest from "@/lib/sidebar/sidebar-manifest.json";
+import tourAnchors from "@/lib/sidebar/tour-anchors.json";
 
 interface ManifestItemInfo {
   id: string;
@@ -24,23 +32,29 @@ export interface ResolvedItem {
   sectionId: string;
 }
 
-// Build lookup map once at module load
+// Build lookup map once at module load. Sidebar manifest first so its
+// entries take precedence if a tour-anchor id collides.
 const ITEM_MAP = new Map<string, ManifestItemInfo>();
 
-for (const section of manifest) {
-  for (const item of section.items) {
-    if ((item as any).id) {
-      ITEM_MAP.set((item as any).id, {
-        id: (item as any).id,
+function indexSections(sections: typeof manifest | typeof tourAnchors): void {
+  for (const section of sections) {
+    for (const item of section.items) {
+      const itemId = (item as { id?: string }).id;
+      if (!itemId || ITEM_MAP.has(itemId)) continue;
+      ITEM_MAP.set(itemId, {
+        id: itemId,
         href: item.href,
         label: item.label,
-        icon: item.icon,
+        icon: (item as { icon?: string }).icon,
         sectionId: section.id,
-        roleVariants: (item as any).roleVariants,
+        roleVariants: (item as { roleVariants?: ManifestItemInfo["roleVariants"] }).roleVariants,
       });
     }
   }
 }
+
+indexSections(manifest);
+indexSections(tourAnchors);
 
 /**
  * Resolve a manifest item ID to its current info.
