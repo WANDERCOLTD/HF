@@ -39,7 +39,7 @@
  *   scripts/audit-epic-100.ts (the per-counter source of truth)
  *   .claude/rules/ai-to-db-guard.md
  */
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { INSTRUCTION_CATEGORIES } from "@/lib/content-trust/resolve-config";
@@ -88,11 +88,22 @@ async function runAuditSection(strict: boolean): Promise<Check[]> {
   const checks: Check[] = [];
   try {
     const scriptPath = path.resolve(__dirname, "audit-epic-100.ts");
-    const json = execSync(`npx tsx ${scriptPath} --json`, {
+    // audit-epic-100 exits non-zero when invariants fail; that's expected
+    // signal, not "could not run". Use spawnSync so we always get stdout.
+    const result = spawnSync("npx", ["tsx", scriptPath, "--json"], {
       stdio: ["ignore", "pipe", "pipe"],
       env: process.env,
-    }).toString();
-    const parsed = JSON.parse(json) as { counters: AuditCounter[] };
+      encoding: "utf8",
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    if (result.error) throw result.error;
+    const stdout = result.stdout ?? "";
+    if (!stdout.trim()) {
+      throw new Error(
+        `audit produced no stdout (exit=${result.status}, stderr=${(result.stderr || "").slice(0, 200)})`,
+      );
+    }
+    const parsed = JSON.parse(stdout) as { counters: AuditCounter[] };
     for (const c of parsed.counters) {
       const isFailure =
         c.kind === "invariant"
