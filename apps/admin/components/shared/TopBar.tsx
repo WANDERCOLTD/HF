@@ -10,7 +10,8 @@ import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { HierarchyBreadcrumb } from "./HierarchyBreadcrumb";
 import { UserAvatar } from "./UserAvatar";
 import { UserContextMenu } from "./UserContextMenu";
-import { VenetianMask, X, Search, Building2 } from "lucide-react";
+import { VenetianMask, X, Search, Building2, HelpCircle } from "lucide-react";
+import { useHelpContext } from "@/contexts/HelpContext";
 
 // ── Search Trigger ───────────────────────────────────────
 
@@ -92,6 +93,7 @@ export function TopBar() {
   const { data: session } = useSession();
   const [showMenu, setShowMenu] = useState(false);
   const { masquerade, isMasquerading, stopMasquerade } = useMasquerade();
+  const { toggle: toggleHelp } = useHelpContext();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const breadcrumbs = useBreadcrumbs();
 
@@ -121,6 +123,15 @@ export function TopBar() {
 
       {/* Right: institution + masquerade + avatar */}
       <div className="hf-topbar-right">
+        <button
+          type="button"
+          onClick={toggleHelp}
+          className="hf-topbar-help"
+          title="Help (?)"
+          aria-label="Open help"
+        >
+          <HelpCircle size={16} />
+        </button>
         <InstitutionChip />
         <DomainScopeChip />
 

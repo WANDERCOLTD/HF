@@ -10,6 +10,8 @@ import { TerminologyProvider } from '@/contexts/TerminologyContext';
 import { GuidanceProvider } from '@/contexts/GuidanceContext';
 import { GlobalAssistantProvider } from '@/contexts/AssistantContext';
 import { GlobalAssistant } from '@/components/shared/GlobalAssistant';
+import { HelpProvider } from '@/contexts/HelpContext';
+import { HelpOverlay } from '@/components/help/HelpOverlay';
 import { ContentJobQueueProvider, ContentJobQueue } from '@/components/shared/ContentJobQueue';
 import EnvironmentBanner from '@/components/shared/EnvironmentBanner';
 import DynamicFavicon from '@/components/shared/DynamicFavicon';
@@ -373,6 +375,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <ViewModeProvider>
               <EntityProvider>
                 <GuidanceProvider>
+                  <HelpProvider>
                   <ChatProvider>
                     <GlobalAssistantProvider>
                       <ContentJobQueueProvider>
@@ -384,11 +387,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         </PageErrorBoundary>
                         {/* Floating widgets — outside PageErrorBoundary so they survive page crashes */}
                         <GlobalAssistant />
+                        <HelpOverlay />
                         <ContentJobQueue />
                         <BugReportButton />
                       </ContentJobQueueProvider>
                     </GlobalAssistantProvider>
                   </ChatProvider>
+                  </HelpProvider>
                 </GuidanceProvider>
               </EntityProvider>
               </ViewModeProvider>

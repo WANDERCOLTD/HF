@@ -1,0 +1,145 @@
+.help-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 64px 24px 24px;
+  background: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  overflow-y: auto;
+}
+
+.help-overlay-panel {
+  width: 100%;
+  max-width: 720px;
+  max-height: calc(100dvh - 96px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px color-mix(in srgb, var(--text-primary) 24%, transparent);
+  overflow: hidden;
+}
+
+.help-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+}
+
+.help-overlay-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.help-overlay-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.help-overlay-close:hover {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.help-overlay-body {
+  padding: 16px 24px 24px;
+  overflow-y: auto;
+}
+
+.help-overlay-section {
+  margin-bottom: 24px;
+}
+
+.help-overlay-section:last-child {
+  margin-bottom: 0;
+}
+
+.help-overlay-section-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.help-overlay-about {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.help-overlay-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.help-overlay-tabs,
+.help-overlay-shortcuts {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.help-overlay-tab-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.help-overlay-tab-about {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.help-overlay-tab-when {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.help-overlay-shortcut-keys {
+  margin: 0;
+}
+
+.help-overlay-shortcut-keys kbd {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  padding: 2px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.help-overlay-shortcut-desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-primary);
+  align-self: center;
+}
