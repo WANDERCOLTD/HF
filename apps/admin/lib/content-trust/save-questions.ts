@@ -253,9 +253,20 @@ function scheduleReconcileForCourse(courseId: string): void {
 
 async function runReconcileForCourse(courseId: string): Promise<void> {
   try {
-    // Guard 1: any orphans to reconcile?
+    // Guard 1: any orphans to reconcile? Count only rows the reconciler is
+    // *eligible* to scan — null assertionId AND linkReconciledAt is null or
+    // older than the TTL window. Rows locked out by the 7-day TTL aren't
+    // worth firing a reconcile for.
+    const ttlCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const orphanCount = await prisma.contentQuestion.count({
-      where: { assertionId: null, source: { playbookSources: { some: { playbookId: courseId } } } },
+      where: {
+        assertionId: null,
+        OR: [
+          { linkReconciledAt: null },
+          { linkReconciledAt: { lt: ttlCutoff } },
+        ],
+        source: { playbookSources: { some: { playbookId: courseId } } },
+      },
     });
     if (orphanCount === 0) return;
 
