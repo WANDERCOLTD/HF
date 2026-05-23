@@ -152,6 +152,13 @@ async function handleEndOfCallReport(message: any) {
     nextSequence = (lastCall?.callSequence ?? 0) + 1;
   }
 
+  // Stamp endedAt — `end-of-call-report` means the call has just ended,
+  // so this is the canonical end time. Without it, the composer's
+  // recentCalls / callCount loaders (filter: endedAt != null) silently
+  // exclude every VAPI call, leaving `callNumber` stuck at 1 and session-
+  // specific rules never advancing. Equivalent to `createdAt` for VAPI.
+  const endedAt = new Date();
+
   // Create the Call record
   const newCall = await prisma.call.create({
     data: {
@@ -160,6 +167,7 @@ async function handleEndOfCallReport(message: any) {
       transcript: transcript || "(no transcript)",
       callerId: callerId,
       usedPromptId: usedPromptId,
+      endedAt,
       ...(playbookId ? { playbookId } : {}),
       ...(nextSequence != null ? { callSequence: nextSequence } : {}),
       ...capture,
