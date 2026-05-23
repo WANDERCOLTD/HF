@@ -147,7 +147,10 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, [sidebarWidth, collapsed]);
 
-  // Global keyboard shortcuts for top-nav items
+  // Global keyboard shortcuts for top-nav items.
+  // Cmd+L intentionally NOT bound — the browser owns Cmd+L for the address
+  // bar; reclaiming it broke muscle memory. Use H/G+L (the global chord) or
+  // the sidebar to reach Learners.
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
@@ -155,7 +158,6 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
       if (key === 'g') { e.preventDefault(); router.push('/x/get-started-v5'); }
       else if (key === 'd') { e.preventDefault(); router.push('/x/educator'); }
       else if (key === 's') { e.preventDefault(); router.push('/x/sim'); }
-      else if (key === 'l') { e.preventDefault(); router.push('/x/callers'); }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);

@@ -20,7 +20,7 @@ export const GLOBAL_SHORTCUTS: readonly GlobalShortcut[] = [
   { keys: "⌘G", description: "Build Course (wizard)" },
   { keys: "⌘D", description: "Educator dashboard" },
   { keys: "⌘S", description: "Sim / Learn surface" },
-  { keys: "⌘L", description: "Learners" },
+  // ⌘L intentionally left to the browser (address bar). Use H/G+L instead.
 
   // Chord prefix
   { keys: "H + key  ·  G + key", description: "Two-key navigation chord (see list below)" },
