@@ -4,8 +4,9 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { useSession } from "next-auth/react";
 import { EntityBreadcrumb, useEntityContext } from "./EntityContext";
 
-export type ChatMode = "DATA";
+export type ChatMode = "DATA" | "TUNING";
 export type ChatLayout = "vertical" | "horizontal" | "popout";
+export type TuningScope = "LEARNER" | "PLAYBOOK";
 
 export interface ChatMessage {
   id: string;
@@ -31,6 +32,8 @@ interface ChatState {
   isStreaming: boolean;
   streamingMessageId: string | null;
   error: string | null;
+  /** Tuning tab scope toggle. Persisted in settings. */
+  tuningScope: TuningScope;
 }
 
 interface ChatActions {
@@ -39,6 +42,7 @@ interface ChatActions {
   closePanel: () => void;
   setMode: (mode: ChatMode) => void;
   setChatLayout: (layout: ChatLayout) => void;
+  setTuningScope: (scope: TuningScope) => void;
   sendMessage: (content: string) => Promise<void>;
   addMessage: (message: Omit<ChatMessage, "id" | "timestamp">) => string;
   updateMessage: (id: string, updates: Partial<ChatMessage>) => void;
@@ -72,6 +76,12 @@ export const MODE_CONFIG: Record<ChatMode, { label: string; icon: string; color:
     color: "var(--accent-primary)",
     description: "Context-aware assistant with tools and parameter knowledge",
   },
+  TUNING: {
+    label: "Tuning",
+    icon: "⚙",
+    color: "var(--accent-primary)",
+    description: "Tune behaviour parameters for one learner or the whole course",
+  },
 };
 
 function generateId(): string {
@@ -81,6 +91,7 @@ function generateId(): string {
 function createEmptyMessages(): Record<ChatMode, ChatMessage[]> {
   return {
     DATA: [],
+    TUNING: [],
   };
 }
 
@@ -126,22 +137,24 @@ function persistMessages(messages: Record<ChatMode, ChatMessage[]>, userId: stri
   }
 }
 
-function loadSettings(userId: string | undefined): { isOpen: boolean; mode: ChatMode; chatLayout: ChatLayout } {
-  if (typeof window === "undefined") return { isOpen: false, mode: "DATA", chatLayout: "vertical" };
+function loadSettings(userId: string | undefined): { isOpen: boolean; mode: ChatMode; chatLayout: ChatLayout; tuningScope: TuningScope } {
+  const defaults = { isOpen: false, mode: "DATA" as ChatMode, chatLayout: "vertical" as ChatLayout, tuningScope: "PLAYBOOK" as TuningScope };
+  if (typeof window === "undefined") return defaults;
   try {
     const stored = localStorage.getItem(getSettingsKey(userId));
-    if (!stored) return { isOpen: false, mode: "DATA", chatLayout: "vertical" };
+    if (!stored) return defaults;
     const parsed = JSON.parse(stored);
-    return { isOpen: false, mode: "DATA", chatLayout: parsed.chatLayout || "vertical" };
+    const scope: TuningScope = parsed.tuningScope === "LEARNER" || parsed.tuningScope === "PLAYBOOK" ? parsed.tuningScope : "PLAYBOOK";
+    return { isOpen: false, mode: "DATA", chatLayout: parsed.chatLayout || "vertical", tuningScope: scope };
   } catch {
-    return { isOpen: false, mode: "DATA", chatLayout: "vertical" };
+    return defaults;
   }
 }
 
-function persistSettings(isOpen: boolean, mode: ChatMode, chatLayout: ChatLayout, userId: string | undefined): void {
+function persistSettings(isOpen: boolean, mode: ChatMode, chatLayout: ChatLayout, tuningScope: TuningScope, userId: string | undefined): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(getSettingsKey(userId), JSON.stringify({ isOpen, mode, chatLayout }));
+    localStorage.setItem(getSettingsKey(userId), JSON.stringify({ isOpen, mode, chatLayout, tuningScope }));
   } catch {
     // Ignore storage errors
   }
@@ -154,6 +167,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setModeState] = useState<ChatMode>("DATA");
   const [chatLayout, setChatLayoutState] = useState<ChatLayout>("vertical");
+  const [tuningScope, setTuningScopeState] = useState<TuningScope>("PLAYBOOK");
   const [messages, setMessages] = useState<Record<ChatMode, ChatMessage[]>>(createEmptyMessages);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
@@ -179,6 +193,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setIsOpen(settings.isOpen);
       setModeState(settings.mode);
       setChatLayoutState(settings.chatLayout);
+      setTuningScopeState(settings.tuningScope);
       setLastUserId(userId);
       setInitialized(true);
     }
@@ -194,9 +209,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   // Persist settings when they change
   useEffect(() => {
     if (initialized) {
-      persistSettings(isOpen, mode, chatLayout, userId);
+      persistSettings(isOpen, mode, chatLayout, tuningScope, userId);
     }
-  }, [isOpen, mode, chatLayout, initialized, userId]);
+  }, [isOpen, mode, chatLayout, tuningScope, initialized, userId]);
 
   const togglePanel = useCallback(() => {
     setIsOpen((prev) => !prev);
@@ -217,6 +232,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const setChatLayout = useCallback((layout: ChatLayout) => {
     setChatLayoutState(layout);
+  }, []);
+
+  const setTuningScope = useCallback((scope: TuningScope) => {
+    setTuningScopeState(scope);
   }, []);
 
   const addMessage = useCallback((message: Omit<ChatMessage, "id" | "timestamp">): string => {
@@ -322,6 +341,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               mode,
               entityContext: entityContext.breadcrumbs,
               isCommand: true,
+              ...(mode === "TUNING" ? { tuningScope } : {}),
             }),
           });
 
@@ -370,6 +390,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               mode,
               entityContext: entityContext.breadcrumbs,
               conversationHistory: history,
+              ...(mode === "TUNING" ? { tuningScope } : {}),
             }),
             signal: abortControllerRef.current.signal,
           });
@@ -444,7 +465,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         abortControllerRef.current = null;
       }
     },
-    [mode, isStreaming, entityContext.breadcrumbs, messages, addMessage, updateMessage, appendToMessage]
+    [mode, tuningScope, isStreaming, entityContext.breadcrumbs, messages, addMessage, updateMessage, appendToMessage]
   );
 
   const value: ChatContextValue = {
@@ -452,6 +473,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     isOpen,
     mode,
     chatLayout,
+    tuningScope,
     messages,
     isStreaming,
     streamingMessageId,
@@ -462,6 +484,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     closePanel,
     setMode,
     setChatLayout,
+    setTuningScope,
     sendMessage,
     addMessage,
     updateMessage,

@@ -12,9 +12,14 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 import { ADMIN_TOOLS } from "@/lib/chat/admin-tools";
 import { executeAdminTool } from "@/lib/chat/admin-tool-handlers";
 
-// TUNING mode gets a narrow tool surface — only the behaviour-target writer.
-// Broader admin tools stay in DATA mode where they belong.
-const TUNING_TOOLS = ADMIN_TOOLS.filter((t) => t.name === "update_behavior_target");
+// TUNING mode gets a narrow tool surface — behaviour-target writer + playbook
+// config writer. Broader admin tools stay in DATA mode where they belong.
+// `update_behavior_target` is scope-aware (LEARNER or PLAYBOOK); the model
+// reads the active scope from the system prompt and passes it as a tool arg.
+// `update_playbook_config` is always course-scoped (config keys live on
+// Playbook.config — no per-learner variant).
+const TUNING_TOOL_NAMES = new Set(["update_behavior_target", "update_playbook_config"]);
+const TUNING_TOOLS = ADMIN_TOOLS.filter((t) => TUNING_TOOL_NAMES.has(t.name));
 import { CHAT_TOOLS, executeToolCall, buildContentCatalog } from "./tools";
 import { executeWizardTool } from "@/lib/chat/wizard-tool-executor";
 import { buildV5SystemPrompt } from "@/lib/chat/v5-system-prompt";
@@ -91,6 +96,13 @@ export async function POST(request: NextRequest) {
     const requestCallId = typeof rawBody?.callId === "string" ? rawBody.callId : undefined;
     const bugContext = rawBody?.bugContext || undefined;
     const setupData = rawBody?.setupData || undefined;
+    // TUNING mode only — scope toggle value from the Tuning tab. The model
+    // reads this from the "Active Tuning Scope" block in its system prompt
+    // and passes it back as the `scope` arg on update_behavior_target.
+    const tuningScope: "LEARNER" | "PLAYBOOK" | undefined =
+      rawBody?.tuningScope === "LEARNER" || rawBody?.tuningScope === "PLAYBOOK"
+        ? rawBody.tuningScope
+        : undefined;
 
     if (!message) {
       return NextResponse.json({ ok: false, error: "Message is required" }, { status: 400 });
@@ -180,7 +192,7 @@ export async function POST(request: NextRequest) {
 
     // Build mode-specific system prompt with terminology
     const userInstitutionId = authResult.session.user.institutionId;
-    const { prompt: systemPrompt, llmPrompt } = await buildSystemPrompt(mode as "DATA" | "CALL" | "BUG" | "TUNING", entityContext, bugContext, userRole, userInstitutionId);
+    const { prompt: systemPrompt, llmPrompt } = await buildSystemPrompt(mode as "DATA" | "CALL" | "BUG" | "TUNING", entityContext, bugContext, userRole, userInstitutionId, tuningScope);
 
     // Prepare messages with conversation history
     const lastHistoryMessage = conversationHistory[conversationHistory.length - 1];

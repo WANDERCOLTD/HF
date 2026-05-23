@@ -41,8 +41,9 @@ prompts:
 
       ## How to call the tool
 
-      - `playbook_id`: copy the UUID from the Active Context block (entry with type "playbook").
-        If there is no playbook in context, do NOT call.
+      - `scope`: copy verbatim from the "Active Tuning Scope" block — never decide it yourself.
+      - `playbook_id`: required when scope=PLAYBOOK. Copy from the Active Context.
+      - `caller_id`: required when scope=LEARNER. Copy from the Active Context.
       - `parameter_id`: pick from the catalogue — must match exactly (e.g. `BEH-WARMTH`).
       - `target_value`: number in [0, 1] (clamped server-side). `null` removes the override.
       - `reason`: one sentence justifying the change.
@@ -50,6 +51,9 @@ prompts:
       Map plain-language intent to a value: "much less" ≈ 0.1-0.2, "less" ≈ 0.3,
       "more" ≈ 0.7, "much more" ≈ 0.8-0.9. Read the current value from the catalogue
       first.
+
+      ## Active Tuning Scope
+      {{activeScope}}
 
       ## Active Context
       {{activeContext}}
@@ -70,22 +74,26 @@ providers:
       max_tokens: 800
       tools:
         - name: update_behavior_target
-          description: "Set a playbook-level BehaviorTarget. Use ONLY when the educator clearly asks to change behaviour."
+          description: "Set a BehaviorTarget at LEARNER or PLAYBOOK scope. Scope is read from the 'Active Tuning Scope' block, not inferred. Use ONLY when the educator clearly asks to change behaviour."
           input_schema:
             type: object
             properties:
+              scope: { type: string, enum: ["LEARNER", "PLAYBOOK"] }
               playbook_id: { type: string }
+              caller_id: { type: string }
               parameter_id: { type: string }
               target_value: { type: ["number", "null"] }
               reason: { type: string }
-            required: [playbook_id, parameter_id, target_value, reason]
+            required: [scope, parameter_id, target_value, reason]
 
 tests:
 
   # ── A: Clear intent → tool called with valid ID and a sensible value ──
 
-  - description: "A — 'be less friendly' → call update_behavior_target on BEH-WARMTH below current 0.60"
+  - description: "A — 'be less friendly' (PLAYBOOK scope) → call update_behavior_target on BEH-WARMTH below current 0.60"
     vars:
+      activeScope: |
+        **PLAYBOOK (Course)** — every behaviour-target write affects every learner on **IELTS Speaking Practice** (`playbook_id = pb-ielts-001`). Pass `scope: "PLAYBOOK"` and `playbook_id: "pb-ielts-001"` on every `update_behavior_target` call. Do NOT pass `caller_id`.
       activeContext: |
         - **Course (playbook)**: IELTS Speaking Practice — `playbookId = pb-ielts-001`
         - **Learner**: Olive Volkov
@@ -98,9 +106,9 @@ tests:
       - type: llm-rubric
         value: |
           The model produced a tool_use block calling update_behavior_target with
-          parameter_id = "BEH-WARMTH", playbook_id = "pb-ielts-001", and a numeric
-          target_value strictly less than 0.60 and strictly greater than or equal to 0.0.
-          The reason is a brief plain-language sentence (not empty).
+          scope = "PLAYBOOK", parameter_id = "BEH-WARMTH", playbook_id = "pb-ielts-001",
+          and a numeric target_value strictly less than 0.60 and strictly greater than
+          or equal to 0.0. The reason is a brief plain-language sentence (not empty).
           The response does NOT contain the phrases "applied", "updated", "changed",
           "set to", "done", or "successfully" — those would be premature without a
           tool RESULT (this is a tool_use, not a final answer).
@@ -109,6 +117,8 @@ tests:
 
   - description: "B — 'make it better' is too vague → no tool call, ask for clarification"
     vars:
+      activeScope: |
+        **PLAYBOOK (Course)** — every behaviour-target write affects every learner on **IELTS Speaking Practice** (`playbook_id = pb-ielts-001`). Pass `scope: "PLAYBOOK"` and `playbook_id: "pb-ielts-001"`.
       activeContext: |
         - **Course (playbook)**: IELTS Speaking Practice — `playbookId = pb-ielts-001`
       userMessage: "make it better"
@@ -125,6 +135,8 @@ tests:
 
   - description: "C — no playbook in context → no tool call, ask the educator to navigate to a course"
     vars:
+      activeScope: |
+        _No scope picked yet. Before calling `update_behavior_target`, ask the educator: "Apply this for just one learner or the whole course?"_
       activeContext: |
         _No entity context. Ask the educator which course they want to tune before calling update_behavior_target._
       userMessage: "make the tutor more challenging"
@@ -142,6 +154,8 @@ tests:
 
   - description: "D — tool returned error → assistant states what failed, no 'Changes Applied' framing"
     vars:
+      activeScope: |
+        **PLAYBOOK (Course)** — Pass `scope: "PLAYBOOK"` and `playbook_id: "pb-ielts-001"`.
       activeContext: |
         - **Course (playbook)**: IELTS Speaking Practice — `playbookId = pb-ielts-001`
       userMessage: "make it warmer"
@@ -167,6 +181,8 @@ tests:
 
   - description: "E — drift trap: educator asks to change warmth → model must use the tool, not invent spec-config edits"
     vars:
+      activeScope: |
+        **PLAYBOOK (Course)** — Pass `scope: "PLAYBOOK"` and `playbook_id: "pb-ielts-001"`.
       activeContext: |
         - **Course (playbook)**: IELTS Speaking Practice — `playbookId = pb-ielts-001`
       userMessage: "make it more clinical and less personable - reduce warmth to 0.15"
@@ -194,6 +210,8 @@ tests:
     vars:
       # NB: this variant uses an alternate catalogue value via the assertion text — the
       # rubric judges the response against the IMPLIED state in the conversation.
+      activeScope: |
+        **PLAYBOOK (Course)** — Pass `scope: "PLAYBOOK"` and `playbook_id: "pb-ielts-001"`.
       activeContext: |
         - **Course (playbook)**: IELTS Speaking Practice — `playbookId = pb-ielts-001`
       userMessage: "set warmth to 0.60"

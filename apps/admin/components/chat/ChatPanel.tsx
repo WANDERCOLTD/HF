@@ -3,7 +3,7 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useChatContext, MODE_CONFIG } from "@/contexts/ChatContext";
+import { useChatContext, MODE_CONFIG, type ChatMode, type TuningScope } from "@/contexts/ChatContext";
 import { useEntityContext, ENTITY_COLORS, EntityBreadcrumb } from "@/contexts/EntityContext";
 import { useEntityDetection } from "@/hooks/useEntityDetection";
 import { AIModelBadge } from "@/components/shared/AIModelBadge";
@@ -61,6 +61,97 @@ function ChatBreadcrumbStripe({ breadcrumbs }: { breadcrumbs: EntityBreadcrumb[]
   );
 }
 
+
+function ChatModeTabs() {
+  const { mode, setMode } = useChatContext();
+  const modes = Object.keys(MODE_CONFIG) as ChatMode[];
+  return (
+    <div className="chat-mode-tabs" role="tablist">
+      {modes.map((m) => {
+        const cfg = MODE_CONFIG[m];
+        const isActive = m === mode;
+        return (
+          <button
+            key={m}
+            role="tab"
+            aria-selected={isActive}
+            className={`chat-mode-tab${isActive ? " chat-mode-tab--active" : ""}`}
+            onClick={() => setMode(m)}
+            title={cfg.description}
+          >
+            <span className="chat-mode-tab-icon">{cfg.icon}</span>
+            <span className="chat-mode-tab-label">{cfg.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function TuningScopeToggle() {
+  const { tuningScope, setTuningScope } = useChatContext();
+  const { breadcrumbs } = useEntityContext();
+  const caller = breadcrumbs.find((b) => b.type === "caller");
+  const playbook = breadcrumbs.find((b) => b.type === "playbook");
+  const learnerDisabled = !caller;
+  const courseDisabled = !playbook;
+  const hasAutoPicked = React.useRef(false);
+
+  // Auto-pick on entry: prefer LEARNER when a caller is in context,
+  // otherwise PLAYBOOK. Only fires once per session — after that the
+  // user owns the toggle.
+  React.useEffect(() => {
+    if (hasAutoPicked.current) return;
+    if (caller && tuningScope !== "LEARNER") {
+      setTuningScope("LEARNER");
+      hasAutoPicked.current = true;
+    } else if (!caller && tuningScope !== "PLAYBOOK") {
+      setTuningScope("PLAYBOOK");
+      hasAutoPicked.current = true;
+    }
+  }, [caller, tuningScope, setTuningScope]);
+
+  // Safety: if scope=LEARNER but no caller available, fall back to PLAYBOOK
+  React.useEffect(() => {
+    if (tuningScope === "LEARNER" && learnerDisabled) {
+      setTuningScope("PLAYBOOK");
+    }
+  }, [tuningScope, learnerDisabled, setTuningScope]);
+
+  const handlePick = (scope: TuningScope) => {
+    if (scope === "LEARNER" && learnerDisabled) return;
+    if (scope === "PLAYBOOK" && courseDisabled) return;
+    setTuningScope(scope);
+  };
+
+  return (
+    <div className="chat-tuning-scope" role="radiogroup" aria-label="Tuning scope">
+      <span className="chat-tuning-scope-label">Scope:</span>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={tuningScope === "LEARNER"}
+        disabled={learnerDisabled}
+        className={`chat-tuning-scope-btn${tuningScope === "LEARNER" ? " chat-tuning-scope-btn--active" : ""}`}
+        title={learnerDisabled ? "Navigate to a learner to enable Learner scope" : `Apply to ${caller?.label}`}
+        onClick={() => handlePick("LEARNER")}
+      >
+        Learner{caller ? `: ${caller.label}` : ""}
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={tuningScope === "PLAYBOOK"}
+        disabled={courseDisabled}
+        className={`chat-tuning-scope-btn${tuningScope === "PLAYBOOK" ? " chat-tuning-scope-btn--active" : ""}`}
+        title={courseDisabled ? "Navigate to a course to enable Course scope" : `Apply to ${playbook?.label}`}
+        onClick={() => handlePick("PLAYBOOK")}
+      >
+        Course{playbook ? `: ${playbook.label}` : ""}
+      </button>
+    </div>
+  );
+}
 
 function ChatMessages() {
   const { messages, mode, isStreaming, streamingMessageId } = useChatContext();
@@ -288,6 +379,12 @@ export function ChatPanel() {
 
         {/* AI Chat Interface */}
         <>
+          {/* Mode tabs (Assistant / Tuning) */}
+          <ChatModeTabs />
+
+          {/* Tuning scope toggle (only in TUNING mode) */}
+          {mode === "TUNING" && <TuningScopeToggle />}
+
           {/* Context Breadcrumbs */}
           <ChatBreadcrumbStripe breadcrumbs={breadcrumbs} />
 

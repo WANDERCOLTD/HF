@@ -516,3 +516,106 @@
 .chat-header-btn--close {
   font-size: 16px;
 }
+
+/* ---------------------------------------------------------------------------
+   Mode Tabs (Assistant / Tuning) — #661
+   --------------------------------------------------------------------------- */
+
+.chat-mode-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px 0;
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.chat-mode-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+}
+
+.chat-mode-tab:hover {
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  color: var(--text-primary);
+}
+
+.chat-mode-tab--active {
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  margin-bottom: -1px;
+}
+
+.chat-mode-tab-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.chat-mode-tab-label {
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------------------------
+   Tuning Scope Toggle — #661
+   --------------------------------------------------------------------------- */
+
+.chat-tuning-scope {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--accent-primary) 4%, var(--surface-primary));
+  border-bottom: 1px solid var(--border-default);
+  font-size: 12px;
+}
+
+.chat-tuning-scope-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.chat-tuning-scope-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.chat-tuning-scope-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-primary));
+}
+
+.chat-tuning-scope-btn--active {
+  background: var(--accent-primary);
+  color: var(--surface-primary);
+  border-color: var(--accent-primary);
+}
+
+.chat-tuning-scope-btn--active:hover {
+  background: var(--accent-primary);
+}
+
+.chat-tuning-scope-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

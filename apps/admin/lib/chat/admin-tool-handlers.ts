@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@prisma/client";
 import { startCurriculumGeneration } from "@/lib/jobs/curriculum-runner";
 import { runIniChecks } from "@/lib/system-ini";
-import { writeBehaviorTarget } from "@/lib/agent-tuner/write-target";
+import { writeBehaviorTarget, writeCallerBehaviorTarget } from "@/lib/agent-tuner/write-target";
 
 const MAX_RESULT_LENGTH = 3000;
 
@@ -622,17 +622,22 @@ async function handleGenerateCurriculum(input: Record<string, any>, userId: stri
 }
 
 /**
- * Apply a single PLAYBOOK-scope BehaviorTarget update from the TUNING assistant.
- * Validation (whitelist + clamp) lives in writeBehaviorTarget so the panel route
+ * Apply a single BehaviorTarget update from the TUNING assistant at either
+ * LEARNER or PLAYBOOK scope. Dispatch on the `scope` arg the model passes —
+ * which itself comes from the Tuning tab toggle the educator picked.
+ *
+ * Validation (whitelist + clamp) lives in write-target.ts so the panel routes
  * and this tool cannot drift.
  */
 async function handleUpdateBehaviorTarget(input: Record<string, any>) {
-  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  const scope = typeof input.scope === "string" ? input.scope.toUpperCase() : "";
   const parameterId = typeof input.parameter_id === "string" ? input.parameter_id : "";
   const rawValue = input.target_value;
 
-  if (!playbookId) {
-    return { error: "playbook_id is required (read it from the entity context with type: 'playbook')" };
+  if (scope !== "LEARNER" && scope !== "PLAYBOOK") {
+    return {
+      error: "scope is required and must be 'LEARNER' or 'PLAYBOOK'. Read it from the 'Active Tuning Scope' block in your system prompt — do not decide it yourself.",
+    };
   }
   if (!parameterId) {
     return { error: "parameter_id is required (use a slug from the catalogue, e.g. BEH-WARMTH)" };
@@ -641,8 +646,57 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
     return { error: "target_value must be a number in [0, 1] or null to remove the override" };
   }
 
-  const result = await writeBehaviorTarget(playbookId, parameterId, rawValue as number | null);
+  if (scope === "LEARNER") {
+    const callerId = typeof input.caller_id === "string" ? input.caller_id : "";
+    if (!callerId) {
+      return {
+        error: "caller_id is required when scope=LEARNER. Read it from the active entity context (type: 'caller'). If no caller is in context, ask the educator to navigate to a learner first.",
+      };
+    }
+    console.log(
+      `[chat-tools:tuning] update_behavior_target scope=LEARNER caller=${callerId} param=${parameterId} value=${rawValue}`,
+    );
+    const result = await writeCallerBehaviorTarget(callerId, parameterId, rawValue as number | null, {
+      source: "TUNING_CHAT",
+    });
+    if (!result.ok) {
+      if (result.reason === "caller_not_found") return { error: `Caller ${callerId} not found.` };
+      if (result.reason === "no_identity") {
+        return { error: "This caller has no identity yet — targets can't attach. Ask the educator to complete enrollment first." };
+      }
+      return {
+        error: `Parameter "${parameterId}" is not an adjustable BEHAVIOR parameter. Pick one from the catalogue in your system prompt — do not invent IDs.`,
+      };
+    }
+    return {
+      ok: true,
+      scope: "LEARNER",
+      caller_id: callerId,
+      parameter_id: result.parameterId,
+      action: result.action,
+      new_value: result.value,
+      message:
+        result.action === "noop"
+          ? `No learner-scope override existed for ${parameterId}; nothing to remove. The course-level value still applies.`
+          : result.action === "removed"
+            ? `Removed the learner-scope override for ${parameterId} on this caller. The course-level value now applies. Existing sessions take effect at the next call.`
+            : `Set ${parameterId} to ${result.value} for this learner only. Tuning saved — applies at the next call. In-flight sessions are not affected.`,
+    };
+  }
 
+  // scope === "PLAYBOOK"
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  if (!playbookId) {
+    return {
+      error: "playbook_id is required when scope=PLAYBOOK. Read it from the active entity context (type: 'playbook'). If no course is in context, ask the educator to navigate to a course first.",
+    };
+  }
+  console.log(
+    `[chat-tools:tuning] update_behavior_target scope=PLAYBOOK playbook=${playbookId} param=${parameterId} value=${rawValue}`,
+  );
+  const result = await writeBehaviorTarget(playbookId, parameterId, rawValue as number | null, {
+    source: "TUNING_CHAT",
+  });
   if (!result.ok) {
     if (result.reason === "playbook_not_found") {
       return { error: `Playbook ${playbookId} not found.` };
@@ -651,9 +705,9 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
       error: `Parameter "${parameterId}" is not an adjustable BEHAVIOR parameter. Pick one from the catalogue in your system prompt — do not invent IDs.`,
     };
   }
-
   return {
     ok: true,
+    scope: "PLAYBOOK",
     playbook_id: playbookId,
     parameter_id: result.parameterId,
     action: result.action,
@@ -662,8 +716,8 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
       result.action === "noop"
         ? `No PLAYBOOK-scope override existed for ${parameterId}; nothing to remove. The system default still applies.`
         : result.action === "removed"
-          ? `Removed the playbook override for ${parameterId}. Tuning saved. Existing learners need re-prompting to pick up the change.`
-          : `Set ${parameterId} to ${result.value} on playbook ${playbookId}. Tuning saved. Existing learners need re-prompting to pick up the change.`,
+          ? `Removed the course-level override for ${parameterId}. Tuning saved. Existing learners need re-prompting to pick up the change.`
+          : `Set ${parameterId} to ${result.value} on this course. Tuning saved — applies on every learner's next call. Existing in-flight calls are not affected.`,
   };
 }
 

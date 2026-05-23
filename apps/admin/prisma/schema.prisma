@@ -516,7 +516,8 @@ enum BehaviorTargetScope {
 enum BehaviorTargetSource {
   SEED // Initial seed data
   LEARNED // Automatically learned from reward loop
-  MANUAL // Manually set by operator
+  MANUAL // Manually set by operator (sidebar / API panel)
+  TUNING_CHAT // Set by the Cmd+K Tuning chat assistant (#661)
 }
 
 model BehaviorTarget {
