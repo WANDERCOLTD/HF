@@ -4,8 +4,9 @@ import React, { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import { useHelpContext } from "@/contexts/HelpContext";
+import { useSession } from "next-auth/react";
 import { useChatContext, MODE_CONFIG, type ChatMode } from "@/contexts/ChatContext";
-import { findPageHelp, type PageHelp } from "@/lib/help/page-help";
+import { getPageHelp, canSeeOperatorOnly, type PageHelp } from "@/lib/help/page-help";
 import { GLOBAL_SHORTCUTS } from "@/lib/help/global-shortcuts";
 import { useHelpKeyboard } from "@/hooks/useHelpKeyboard";
 import "./help-overlay.css";
@@ -35,8 +36,19 @@ export function HelpOverlay() {
   useHelpKeyboard();
   const { isOpen, close } = useHelpContext();
   const { isOpen: chatOpen, mode: chatMode } = useChatContext();
+  const { data: session } = useSession();
   const pathname = usePathname() || "/";
-  const pageHelp = findPageHelp(pathname);
+  const rawPageHelp = getPageHelp(pathname);
+  const isOperator = canSeeOperatorOnly(session?.user?.role as string | undefined);
+  // Filter operator-only tabs and chords so VIEWER/STUDENT/TESTER don't see
+  // affordances they can't actually use.
+  const pageHelp: PageHelp | undefined = rawPageHelp
+    ? {
+        ...rawPageHelp,
+        tabs: rawPageHelp.tabs?.filter((t) => !t.requiresOperator || isOperator),
+        chords: rawPageHelp.chords?.filter((c) => !c.requiresOperator || isOperator),
+      }
+    : undefined;
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
