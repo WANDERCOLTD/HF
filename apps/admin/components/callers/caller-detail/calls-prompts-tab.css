@@ -32,15 +32,17 @@
   font-size: 12px;
   font-weight: 600;
   font-family: inherit;
-  border: 1px solid var(--border-default);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 25%, var(--border-default));
   border-radius: 6px;
-  background: var(--surface-secondary);
-  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-primary));
+  color: color-mix(in srgb, var(--accent-primary) 70%, var(--text-secondary));
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .cpt-toolbar-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--surface-secondary) 70%, var(--accent-primary) 30%);
+  background: color-mix(in srgb, var(--accent-primary) 14%, var(--surface-primary));
+  color: var(--accent-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 45%, var(--border-default));
 }
 .cpt-toolbar-btn:disabled {
   opacity: 0.5;

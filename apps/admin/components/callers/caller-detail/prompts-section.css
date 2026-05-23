@@ -642,38 +642,44 @@
   background: var(--status-success-text);
 }
 
-/* #642 — triggerType badge colour map */
+/* #642 — triggerType badge colour map.
+   #661 follow-up: bump opacities + remap grey-on-grey badges to semantic
+   colours so the timeline reads at a glance instead of as a wall of grey.
+   - post_call: was muted grey, now blue (it's the canonical pipeline output)
+   - sim: was accent-primary 14% (clashed with manual), now purple
+   - preview: was placeholder grey, now warning (tentative = warm hint) */
 .ps-trigger-badge--default {
-  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  background: color-mix(in srgb, var(--text-muted) 18%, transparent);
   color: var(--text-muted);
 }
 .ps-trigger-badge--post-call {
-  background: color-mix(in srgb, var(--text-muted) 18%, transparent);
-  color: var(--text-secondary, var(--text-muted));
+  background: var(--badge-blue-bg);
+  color: var(--badge-blue-text);
+  border: 1px solid color-mix(in srgb, var(--badge-blue-border) 60%, transparent);
 }
 .ps-trigger-badge--manual {
-  background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  background: color-mix(in srgb, var(--accent-primary) 30%, transparent);
   color: var(--accent-primary);
 }
 .ps-trigger-badge--tuner {
-  background: color-mix(in srgb, var(--status-warning-text) 18%, transparent);
+  background: color-mix(in srgb, var(--status-warning-text) 30%, transparent);
   color: var(--status-warning-text);
 }
 .ps-trigger-badge--analysis {
-  background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 18%, transparent);
+  background: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 30%, transparent);
   color: var(--accent-secondary, #7c6bc4);
 }
 .ps-trigger-badge--preview {
-  background: color-mix(in srgb, var(--text-placeholder) 18%, transparent);
-  color: var(--text-placeholder);
+  background: var(--badge-yellow-bg);
+  color: var(--badge-yellow-text);
 }
 .ps-trigger-badge--scheduled {
-  background: color-mix(in srgb, var(--status-success-text) 18%, transparent);
+  background: color-mix(in srgb, var(--status-success-text) 28%, transparent);
   color: var(--status-success-text);
 }
 .ps-trigger-badge--sim {
-  background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
-  color: var(--accent-primary);
+  background: var(--badge-purple-bg);
+  color: var(--badge-purple-text);
 }
 
 /* #642 — sibling indicator pill */
@@ -777,10 +783,14 @@
   border-left: 4px solid color-mix(in srgb, var(--accent-primary) 70%, #000);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--accent-primary) 24%, transparent);
 }
+/* #661 follow-up: was var(--text-muted) — looked like a disabled call group.
+   Switched to accent-secondary (purple) so sim / tuner_fanout / enrollment
+   groups visually distinguish from blue call-group headers, mirroring the
+   CALL DIFF row tint. */
 .ptr-group-header--standalone {
-  background: var(--text-muted);
-  border-left-color: color-mix(in srgb, var(--text-muted) 70%, #000);
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--text-muted) 20%, transparent);
+  background: var(--accent-secondary, #7c6bc4);
+  border-left-color: color-mix(in srgb, var(--accent-secondary, #7c6bc4) 70%, #000);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--accent-secondary, #7c6bc4) 24%, transparent);
   color: var(--surface-primary, #fff);
 }
 .ptr-group-header-icon {
@@ -1182,14 +1192,132 @@
   color: var(--accent-primary);
   border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
 }
-.ptr-row-action--has-eval::before {
-  content: "★";
-  margin-right: 2px;
+/* Has-eval button — colour follows verdict so the prompt-row pill reads
+   as a status indicator at a glance, not just "an action with a star". */
+.ptr-row-action--has-eval {
+  font-weight: 600;
+}
+.ptr-row-action--verdict-strong {
+  background: color-mix(in srgb, var(--status-success-text) 14%, transparent);
   color: var(--status-success-text);
+  border-color: color-mix(in srgb, var(--status-success-text) 40%, transparent);
+}
+.ptr-row-action--verdict-strong:hover {
+  background: color-mix(in srgb, var(--status-success-text) 22%, transparent);
+  color: var(--status-success-text);
+}
+.ptr-row-action--verdict-adequate {
+  background: color-mix(in srgb, var(--status-warning-text) 14%, transparent);
+  color: var(--status-warning-text);
+  border-color: color-mix(in srgb, var(--status-warning-text) 40%, transparent);
+}
+.ptr-row-action--verdict-adequate:hover {
+  background: color-mix(in srgb, var(--status-warning-text) 22%, transparent);
+  color: var(--status-warning-text);
+}
+.ptr-row-action--verdict-weak {
+  background: color-mix(in srgb, var(--status-error-text) 14%, transparent);
+  color: var(--status-error-text);
+  border-color: color-mix(in srgb, var(--status-error-text) 40%, transparent);
+}
+.ptr-row-action--verdict-weak:hover {
+  background: color-mix(in srgb, var(--status-error-text) 22%, transparent);
+  color: var(--status-error-text);
 }
 .ptr-row-action:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* ── Eval peer row (#661 follow-up) ───────────────────────────────────
+   Sits directly under the prompt row when an eval exists. Score + verdict
+   are always visible; body expands on click. Colour follows verdict. */
+.ptr-eval-row {
+  margin: 2px 0 6px 0;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ptr-eval-row--strong {
+  border-left: 3px solid var(--status-success-text);
+  background: color-mix(in srgb, var(--status-success-bg) 60%, var(--surface-primary));
+}
+.ptr-eval-row--adequate {
+  border-left: 3px solid var(--status-warning-text);
+  background: color-mix(in srgb, var(--status-warning-bg) 60%, var(--surface-primary));
+}
+.ptr-eval-row--weak {
+  border-left: 3px solid var(--status-error-text);
+  background: color-mix(in srgb, var(--status-error-bg) 60%, var(--surface-primary));
+}
+.ptr-eval-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+.ptr-eval-row-head:hover {
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+}
+.ptr-eval-row-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.ptr-eval-row-label {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.ptr-eval-row-score {
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+  font-weight: 700;
+}
+.ptr-eval-row--strong .ptr-eval-row-score { color: var(--status-success-text); }
+.ptr-eval-row--adequate .ptr-eval-row-score { color: var(--status-warning-text); }
+.ptr-eval-row--weak .ptr-eval-row-score { color: var(--status-error-text); }
+.ptr-eval-row-verdict--strong {
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
+}
+.ptr-eval-row-verdict--adequate {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+}
+.ptr-eval-row-verdict--weak {
+  background: var(--status-error-bg);
+  color: var(--status-error-text);
+}
+.ptr-eval-row-summary {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ptr-eval-row-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.ptr-eval-row-body {
+  padding: 8px 14px 12px 14px;
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .ptr-row-body {
   padding: 8px 16px 14px 16px;
