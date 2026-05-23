@@ -2539,6 +2539,17 @@ model AnalysisSpec {
   // Value is the spec ID (e.g., "TUT-001"). Prompt composition merges base + overlay at runtime.
   extendsAgent String?
 
+  // #608-A — Marks archetype specs (TUT-001, ADVISOR-001, GUIDE-001, MENTOR-001,
+  // FACILITATOR-001 and similar) that exist as templates for the extendsAgent
+  // inheritance chain in `mergeIdentitySpec`. Archetypes are seeded with
+  // scope=SYSTEM + specRole=IDENTITY so they can be resolved by slug, but
+  // they MUST NOT enter the resolved-spec snapshot via the systemSpecs
+  // loader fallback. The loader filters `isArchetype: false`; #608-C's
+  // defensive guard in `transforms/identity.ts::resolveSpecs` is the
+  // belt-and-braces fallback for any archetype that slips past (e.g. an
+  // operator forgetting to flip the flag on a custom archetype).
+  isArchetype Boolean @default(false)
+
   // Deletion control - prevents accidental deletion of critical specs
   isDeletable Boolean @default(true) // ORCHESTRATE specs (PIPELINE-001, INIT-001) should be false
 

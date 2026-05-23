@@ -196,6 +196,13 @@ export async function main(externalPrisma?: PrismaClient) {
       isActive: true,
       isDirty: false,
       isDeletable: false,
+      // #608-A — Marks this row as an extendsAgent template, not a runtime
+      // identity. The systemSpecs loader filters `isArchetype: false`, so
+      // these specs stay discoverable by slug for the inheritance chain
+      // (`mergeIdentitySpec` looks them up directly) but never enter the
+      // resolved-spec snapshot via the SYSTEM IDENTITY fallback path.
+      // Closes the gap defended by #608-C's runtime guard.
+      isArchetype: true,
       config: {
         icon: archetype.icon,
         warmth: archetype.warmth,

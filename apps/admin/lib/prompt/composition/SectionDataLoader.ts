@@ -917,6 +917,14 @@ registerLoader("systemSpecs", async (_callerId) => {
     where: {
       scope: "SYSTEM",
       isActive: true,
+      // #608-A — archetype specs (TUT-001, ADVISOR-001, etc.) exist as
+      // templates for the `extendsAgent` inheritance chain in
+      // `mergeIdentitySpec`. They are NOT runtime fallback identities and
+      // must not enter the resolved-spec snapshot via the IDENTITY-role
+      // fallback in `transforms/identity.ts::resolveSpecs`. #608-C added a
+      // defensive `continue` in that loop; this filter is the structural
+      // fix that removes the offending rows from the loader pool entirely.
+      isArchetype: false,
     },
     select: {
       id: true,
