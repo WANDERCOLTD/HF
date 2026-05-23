@@ -517,6 +517,19 @@
   font-size: 16px;
 }
 
+.chat-header-btn--clear {
+  font-size: 14px;
+}
+
+.chat-header-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chat-header-btn:disabled:hover {
+  background: var(--surface-primary);
+}
+
 /* ---------------------------------------------------------------------------
    Mode Tabs (Assistant / Tuning) — #661
    --------------------------------------------------------------------------- */

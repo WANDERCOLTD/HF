@@ -58,6 +58,10 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 
 const STORAGE_KEY_PREFIX = "hf.chat.history";
 const SETTINGS_KEY_PREFIX = "hf.chat.settings";
+// Rolling trim, not an expiry. No TTL on chat history — persists until the
+// user clears it explicitly (Clear button in header or /clear command).
+// Matches Slack / ChatGPT / Linear conventions; localStorage cap (~5MB) is
+// three orders of magnitude away from being hit at 50 × 2 modes × ~2KB.
 const MAX_MESSAGES_PER_MODE = 50;
 
 function getStorageKey(userId: string | undefined): string {
@@ -350,6 +354,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             content: data.message || data.error || "Command executed",
             metadata: { command: content.trim(), commandResult: data, isStreaming: false },
           });
+          if (data?.action === "execute" && data?.data?.clearHistory) {
+            const targetMode = data.data.clearHistory as ChatMode;
+            setMessages((prev) => ({ ...prev, [targetMode]: [] }));
+          }
         } catch (err) {
           updateMessage(assistantId, {
             content: `Error executing command: ${err instanceof Error ? err.message : "Unknown error"}`,

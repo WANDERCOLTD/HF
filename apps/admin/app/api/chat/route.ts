@@ -186,7 +186,12 @@ export async function POST(request: NextRequest) {
     // Check for slash command
     const parsed = parseCommand(message);
     if (parsed) {
-      const result = await executeCommand(message, entityContext, mode as "DATA" | "CALL" | "BUG");
+      const result = await executeCommand(
+        message,
+        entityContext,
+        mode as "DATA" | "CALL" | "BUG" | "TUNING",
+        tuningScope,
+      );
       return NextResponse.json(result);
     }
 
