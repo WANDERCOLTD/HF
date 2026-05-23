@@ -5,33 +5,12 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useMasquerade } from "@/contexts/MasqueradeContext";
 import { useDomainScope } from "@/contexts/DomainScopeContext";
-import { useChatContext } from "@/contexts/ChatContext";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { HierarchyBreadcrumb } from "./HierarchyBreadcrumb";
 import { UserAvatar } from "./UserAvatar";
 import { UserContextMenu } from "./UserContextMenu";
-import { VenetianMask, X, Search, Building2, HelpCircle } from "lucide-react";
+import { VenetianMask, X, Building2, HelpCircle } from "lucide-react";
 import { useHelpContext } from "@/contexts/HelpContext";
-
-// ── Search Trigger ───────────────────────────────────────
-
-function SearchTrigger() {
-  const { openPanel } = useChatContext();
-  const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
-
-  return (
-    <button
-      className="hf-topbar-search"
-      onClick={openPanel}
-      title={`Search or ask anything... ${isMac ? "⌘K" : "Ctrl+K"}`}
-      aria-label="Open assistant"
-    >
-      <Search size={14} />
-      <span className="hf-topbar-search-label">Search or ask...</span>
-      <kbd className="hf-topbar-kbd">{isMac ? "⌘K" : "⌃K"}</kbd>
-    </button>
-  );
-}
 
 // ── Institution Chip ─────────────────────────────────────
 
@@ -116,12 +95,7 @@ export function TopBar() {
         <HierarchyBreadcrumb segments={breadcrumbs} />
       </div>
 
-      {/* Center: search trigger */}
-      <div className="hf-topbar-center">
-        <SearchTrigger />
-      </div>
-
-      {/* Right: institution + masquerade + avatar */}
+      {/* Right: help + institution + masquerade + avatar */}
       <div className="hf-topbar-right">
         <button
           type="button"
