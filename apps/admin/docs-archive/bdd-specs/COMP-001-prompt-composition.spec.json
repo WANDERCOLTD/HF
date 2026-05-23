@@ -242,6 +242,15 @@
           "whenCallerStruggles": "Back up one step. Use a different example. Don't push forward.",
           "whenCallerExcels": "Acknowledge briefly, then challenge with a harder application or critique.",
           "whenCallerWantsToSkip": "Only skip review if they PROVE they know it with a quick check."
+        },
+        "criticalRules": {
+          "_doc": "#604 — extension point for archetype-aware RETURNING_CALLER rule. Code default lives in transforms/preamble.ts::RETURNING_CALLER_BY_MODE. Set returningCallerByMode.<mode> here to override per playbook teachingMode. recall/comprehension/syllabus use the same review-first rule; practice uses the warm-up-attempt rule (IELTS-style coaching/skills archetypes).",
+          "returningCallerByMode": {
+            "recall": "If RETURNING_CALLER: ALWAYS review before new material",
+            "comprehension": "If RETURNING_CALLER: ALWAYS review before new material",
+            "syllabus": "If RETURNING_CALLER: ALWAYS review before new material",
+            "practice": "RETURNING_CALLER: Begin with a warm-up attempt, not a recall check. The attempt IS the diagnostic."
+          }
         }
       }
     },
