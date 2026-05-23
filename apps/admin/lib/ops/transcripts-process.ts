@@ -397,13 +397,16 @@ async function processFile(
           importedSequence = (lastCall?.callSequence ?? 0) + 1;
         }
 
-        // Create Call record
+        // Create Call record. `endedAt` set to now: this is a bulk import
+        // of historical completed calls, so the composer must include them
+        // in callCount / recentCalls (filter: endedAt != null).
         await prisma.call.create({
           data: {
             source: "VAPI",
             externalId: externalId || null,
             transcript,
             callerId: callerId || null,
+            endedAt: new Date(),
             ...(importedPlaybookId ? { playbookId: importedPlaybookId } : {}),
             ...(importedSequence != null ? { callSequence: importedSequence } : {}),
           }
