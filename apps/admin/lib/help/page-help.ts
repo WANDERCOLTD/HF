@@ -180,7 +180,7 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
       },
       {
         id: "calls-prompts",
-        label: "Calls & Prompts",
+        label: "Calls",
         about: "Every call this learner has had, with the transcript and the composed prompt that was used for each.",
         whenToUse: "When you want to debug why the AI said what it said, or replay a session.",
       },
@@ -218,7 +218,7 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
     chords: [
       { keys: "O", action: "callback", callbackId: "tab:overview", label: "Overview tab" },
       { keys: "U", action: "callback", callbackId: "tab:uplift", label: "Uplift tab" },
-      { keys: "C", action: "callback", callbackId: "tab:calls-prompts", label: "Calls & Prompts tab" },
+      { keys: "C", action: "callback", callbackId: "tab:calls-prompts", label: "Calls tab" },
       { keys: "T", action: "callback", callbackId: "tab:tune", label: "Tune tab" },
       { keys: "W", action: "callback", callbackId: "tab:how", label: "How tab (hoW — H is reserved as a chord prefix)" },
       { keys: "A", action: "callback", callbackId: "tab:what", label: "What tab (whAt)" },

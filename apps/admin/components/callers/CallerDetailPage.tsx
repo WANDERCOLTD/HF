@@ -580,7 +580,7 @@ export default function CallerDetailPage() {
 
   const sections: { id: SectionId; label: string; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
     { id: "overview", label: "Overview", icon: <span aria-hidden>🧭</span>, group: "shared" },
-    { id: "calls-prompts", label: "Calls & Prompts", icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
+    { id: "calls-prompts", label: "Calls", icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
     { id: "tune", label: "Tune", icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
     { id: "how", label: "Profile", icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
     { id: "what", label: "Progress", icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
