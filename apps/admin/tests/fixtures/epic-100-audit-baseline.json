@@ -15,10 +15,10 @@
       "key": "recallQuizOnInstructionCategories",
       "story": "#605",
       "kind": "invariant",
-      "count": 0,
+      "count": 88,
       "target": 0,
-      "status": "pass",
-      "description": "ContentAssertion rows whose category is an INSTRUCTION_CATEGORY but whose teachMethod is 'recall_quiz' (should be 'tutor_instruction')."
+      "status": "fail",
+      "description": "ContentAssertion rows whose category is an INSTRUCTION_CATEGORY but whose teachMethod is NOT 'tutor_instruction' (includes null and any learner-facing method like 'recall_quiz' / 'guided_discussion' / etc.). Widened from the narrow recall_quiz-only query on 2026-05-23 after a wizard run surfaced 53 guided_discussion violations on legacy QUESTION_BANK sources. Drains via `scripts/backfill-teach-methods.ts` pass 2; re-snap this baseline after running --apply on DEV."
     },
     {
       "key": "tutorOnlyQuestionsLeakSurface",
