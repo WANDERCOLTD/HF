@@ -1,15 +1,21 @@
 /**
- * CurriculumHealthTabs — `readOnly` prop suppresses the two silent
- * auto-reconcile useEffects (issue #418).
+ * CurriculumHealthTabs — `readOnly` prop suppresses the silent
+ * auto-reconcile useEffect (issue #418).
  *
- * Today the component fires two background POSTs on mount whenever the
- * scorecard reports orphans:
- *   1. POST /api/curricula/:id/reconcile-orphans
- *   2. POST /api/courses/:id/reconcile-mcqs
+ * The component fires one background POST on mount whenever the
+ * scorecard reports outcomes-without-content:
+ *   POST /api/curricula/:id/reconcile-orphans
+ *
+ * (#163 Phase 2 moved the MCQ reconcile into `McqPanel` itself so it
+ * also fires for authored-modules courses that mount McqPanel
+ * standalone. McqPanel only renders here when activeTab='questions',
+ * which this test never switches to, so the MCQ reconcile is out of
+ * scope. McqPanel still respects its own `readOnly` prop — covered
+ * by McqPanel's own tests.)
  *
  * When the curriculum tab renders this component in preview mode (i.e.
  * the educator is peeking at the derived view on an authored-modules
- * course), those silent fires must not run — they'd mutate a curriculum
+ * course), the silent fire must not run — it'd mutate a curriculum
  * that isn't the active source of truth. This test holds that contract.
  */
 
@@ -83,7 +89,7 @@ describe("CurriculumHealthTabs — readOnly prop", () => {
     vi.restoreAllMocks();
   });
 
-  it("fires both silent reconciles on mount when readOnly is false", async () => {
+  it("fires the orphan-outcome reconcile on mount when readOnly is false", async () => {
     render(
       <CurriculumHealthTabs
         scorecard={scorecardWithOrphans()}
@@ -100,11 +106,10 @@ describe("CurriculumHealthTabs — readOnly prop", () => {
         (c) => String(c[0]),
       );
       expect(calls.some((u) => u.includes("/reconcile-orphans"))).toBe(true);
-      expect(calls.some((u) => u.includes("/reconcile-mcqs"))).toBe(true);
     });
   });
 
-  it("does NOT fire silent reconciles when readOnly is true", async () => {
+  it("does NOT fire the orphan-outcome reconcile when readOnly is true", async () => {
     render(
       <CurriculumHealthTabs
         scorecard={scorecardWithOrphans()}
@@ -116,13 +121,12 @@ describe("CurriculumHealthTabs — readOnly prop", () => {
       />,
     );
 
-    // Give effects a tick to run, then assert nothing matching either
+    // Give effects a tick to run, then assert nothing matching the
     // reconcile URL was POSTed.
     await new Promise((r) => setTimeout(r, 30));
     const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.map(
       (c) => String(c[0]),
     );
     expect(calls.some((u) => u.includes("/reconcile-orphans"))).toBe(false);
-    expect(calls.some((u) => u.includes("/reconcile-mcqs"))).toBe(false);
   });
 });
