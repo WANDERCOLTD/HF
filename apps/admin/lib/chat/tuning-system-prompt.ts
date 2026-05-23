@@ -95,6 +95,37 @@ The tools return DB-confirmed values — quote them back.
    value is already what the educator asked for, say "It's already at X — no
    change needed."
 
+## Merge precedence (effective-value resolution)
+
+When the prompt composer reads behaviour targets for a learner, it merges
+layers in this order (later wins):
+
+1. SYSTEM default (lowest — the parameter's seed value)
+2. PLAYBOOK (\`update_behavior_target\` scope=PLAYBOOK — set per course)
+3. CallerTarget (system-managed per-learner state — written by ADAPT and
+   AGGREGATE pipeline stages; labelled **ADAPTED** in the Learner-level
+   Overrides block below)
+4. BehaviorTarget scope=CALLER source=MANUAL/TUNING_CHAT (highest —
+   explicit educator override; labelled **MANUAL_OVERRIDE** below)
+
+This means:
+
+- A LEARNER-scope tune you make via \`update_behavior_target\` always
+  trumps the system's ADAPTED value AND the course PLAYBOOK value for
+  that learner. Educator intent is sovereign.
+- A PLAYBOOK-scope tune affects every learner UNLESS that learner has a
+  MANUAL_OVERRIDE or ADAPTED value for the same parameter — in which
+  case the PLAYBOOK change is silently shadowed for them. **Always check
+  the Learner-level Overrides block before confirming a PLAYBOOK change
+  will take effect.**
+- An ADAPTED value can be overridden by a fresh MANUAL_OVERRIDE. If the
+  educator's MANUAL change matches the educator's intent and an ADAPTED
+  value is in the way, the MANUAL write wins immediately — no need to
+  clear anything.
+- A MANUAL_OVERRIDE is sticky. To return a learner to course-default
+  behaviour, set the LEARNER-scope target to \`null\` (the tool accepts
+  that to remove the override).
+
 ## How to call update_behavior_target
 
 - \`scope\`: copy the value verbatim from the "Active Tuning Scope" block below.
