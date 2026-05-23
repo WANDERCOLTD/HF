@@ -126,6 +126,32 @@ export async function POST(request: NextRequest) {
     // WIZARD mode: handle early (has its own system prompt, no slash commands)
     if (mode === "WIZARD") {
       const userId = authResult.session.user.id;
+
+      // #703 — non-SUPERADMIN users are hard-locked to their session's
+      // institutionId. Even if the client somehow sends a different
+      // institutionId in setupData (modified bundle, multi-institution
+      // join, etc.), reject before any AI call or DB write touches the
+      // wrong tenant. SUPERADMIN keeps the platform-wide ability to pick.
+      if (userRole !== "SUPERADMIN") {
+        const sessionInstitutionId = authResult.session.user.institutionId;
+        const claimedInstitutionId = (setupData as Record<string, unknown> | undefined)?.institutionId;
+        if (
+          typeof claimedInstitutionId === "string" &&
+          claimedInstitutionId.length > 0 &&
+          sessionInstitutionId &&
+          claimedInstitutionId !== sessionInstitutionId
+        ) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: "Forbidden — you can only build courses within your own institution.",
+              errorCode: "INSTITUTION_MISMATCH",
+            },
+            { status: 403 },
+          );
+        }
+      }
+
       const subjectsCatalog = await getSubjectsCatalog();
       const graphEval = evaluateGraph(setupData || {});
       const turnCount = conversationHistory.filter((m: { role: string }) => m.role === "user").length;

@@ -85,8 +85,12 @@ export function V5WizardWithSelector({
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Show institution selector for SUPERADMIN always, or anyone with 2+ institutions
-  const showInstitutionSelector = isSuperAdmin || institutions.length >= 2;
+  // #703 — Show institution selector ONLY for SUPERADMIN. Non-SUPERADMIN
+  // users are hard-locked to their own session.user.institutionId. Even
+  // when they appear in multiple institutions via UserInstitution joins,
+  // the wizard does not give them a switcher — the server-side guard in
+  // /api/chat (WIZARD mode) is the second line of defense.
+  const showInstitutionSelector = isSuperAdmin;
 
   // Show course selector when courses exist
   const showCourseSelector = courses.length > 0;
