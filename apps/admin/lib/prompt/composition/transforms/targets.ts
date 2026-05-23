@@ -217,7 +217,8 @@ export function mergeTargets(
   const byParameter = new Map<string, NormalizedTarget>();
   const playbookIdSet = new Set(playbookIds);
 
-  // CallerTargets first (highest priority)
+  // CallerTargets first (system-managed per-learner state — ADAPT / AGGREGATE
+  // / goal tracking write here). Treated as the baseline per-learner value.
   for (const ct of callerTargets) {
     byParameter.set(ct.parameterId, {
       parameterId: ct.parameterId,
@@ -236,9 +237,39 @@ export function mergeTargets(
     SYSTEM: 1,
   };
 
-  // Fill in with BehaviorTargets for missing parameters
+  // #713 bug 2 — educator-set BehaviorTarget(scope=CALLER, source MANUAL or
+  // TUNING_CHAT) must override the system-managed CallerTarget. Pre-fix the
+  // CallerTarget always won, which made every Cmd+K tune at LEARNER scope
+  // structurally invisible. Manual intent now wins over LEARNED / SEED.
+  const isEducatorOverride = (t: BehaviorTargetData) =>
+    t.scope === "CALLER" && (t.source === "MANUAL" || t.source === "TUNING_CHAT");
+
+  // First pass: apply educator overrides (highest priority). These win over
+  // CallerTargets and over system-set BehaviorTargets alike. Track which
+  // parameters were set this way so the second pass can't overwrite them
+  // even if a higher-scope system target also exists.
+  const lockedByEducator = new Set<string>();
   for (const target of behaviorTargets) {
-    if (byParameter.has(target.parameterId) && byParameter.get(target.parameterId)?.source === "CallerTarget") {
+    if (!isEducatorOverride(target)) continue;
+    byParameter.set(target.parameterId, {
+      parameterId: target.parameterId,
+      targetValue: target.targetValue,
+      confidence: target.confidence,
+      source: "BehaviorTarget",
+      scope: target.scope,
+      parameter: target.parameter,
+    });
+    lockedByEducator.add(target.parameterId);
+  }
+
+  // Fill in with remaining BehaviorTargets for missing/lower-priority params.
+  for (const target of behaviorTargets) {
+    if (isEducatorOverride(target)) continue;  // already applied
+    if (lockedByEducator.has(target.parameterId)) continue;  // educator override locks this param
+    if (
+      byParameter.has(target.parameterId) &&
+      byParameter.get(target.parameterId)?.source === "CallerTarget"
+    ) {
       continue;
     }
 

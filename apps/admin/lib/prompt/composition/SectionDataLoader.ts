@@ -745,10 +745,21 @@ registerLoader("interleaveReview", async (callerId, config) => {
   }
 });
 
-registerLoader("behaviorTargets", async (_callerId) => {
+registerLoader("behaviorTargets", async (callerId) => {
+  // #713 bug 4 — scope=CALLER targets must be filtered to THIS caller.
+  // Pre-fix this loader returned ALL non-expired BehaviorTargets across the
+  // institution, including scope=CALLER rows belonging to other learners.
+  // Cross-learner leak: Alice's per-caller tune influenced Bob's compose.
+  // Non-CALLER scopes (SYSTEM / PLAYBOOK / SEGMENT) still pass through —
+  // their broad applicability is intentional and mergeTargets filters
+  // PLAYBOOK targets against the active playbook stack downstream.
   return prisma.behaviorTarget.findMany({
     where: {
       effectiveUntil: null,
+      OR: [
+        { scope: { not: "CALLER" } },
+        { callerIdentity: { callerId } },
+      ],
     },
     include: {
       parameter: {

@@ -191,6 +191,89 @@ describe("mergeTargets", () => {
     expect(result[0].targetValue).toBe(0.99);
     expect(result[0].source).toBe("CallerTarget");
   });
+
+  describe("#713 bug 2 — educator override (scope=CALLER, source=MANUAL/TUNING_CHAT) wins over CallerTarget", () => {
+    it("TUNING_CHAT scope=CALLER overrides CallerTarget for the same parameter", () => {
+      const educatorTune = makeBehaviorTarget({
+        parameterId: "P1",
+        scope: "CALLER",
+        source: "TUNING_CHAT",
+        targetValue: 0.2,
+      });
+      const ct = makeCallerTarget({ parameterId: "P1", targetValue: 0.9 });
+
+      const result = mergeTargets([educatorTune], [ct], []);
+      expect(result).toHaveLength(1);
+      expect(result[0].targetValue).toBe(0.2);
+      expect(result[0].source).toBe("BehaviorTarget");
+      expect(result[0].scope).toBe("CALLER");
+    });
+
+    it("MANUAL scope=CALLER overrides CallerTarget for the same parameter", () => {
+      const sidebarTune = makeBehaviorTarget({
+        parameterId: "P1",
+        scope: "CALLER",
+        source: "MANUAL",
+        targetValue: 0.15,
+      });
+      const ct = makeCallerTarget({ parameterId: "P1", targetValue: 0.85 });
+
+      const result = mergeTargets([sidebarTune], [ct], []);
+      expect(result[0].targetValue).toBe(0.15);
+      expect(result[0].source).toBe("BehaviorTarget");
+    });
+
+    it("LEARNED scope=CALLER does NOT override CallerTarget (only MANUAL/TUNING_CHAT do)", () => {
+      const adapted = makeBehaviorTarget({
+        parameterId: "P1",
+        scope: "CALLER",
+        source: "LEARNED",
+        targetValue: 0.3,
+      });
+      const ct = makeCallerTarget({ parameterId: "P1", targetValue: 0.9 });
+
+      const result = mergeTargets([adapted], [ct], []);
+      expect(result[0].targetValue).toBe(0.9);
+      expect(result[0].source).toBe("CallerTarget");
+    });
+
+    it("educator override at scope=CALLER also wins over PLAYBOOK target", () => {
+      const playbookTune = makeBehaviorTarget({
+        parameterId: "P1",
+        scope: "PLAYBOOK",
+        playbookId: "pb-1",
+        targetValue: 0.6,
+      });
+      const educatorTune = makeBehaviorTarget({
+        parameterId: "P1",
+        scope: "CALLER",
+        source: "TUNING_CHAT",
+        targetValue: 0.2,
+      });
+
+      const result = mergeTargets([playbookTune, educatorTune], [], ["pb-1"]);
+      expect(result[0].targetValue).toBe(0.2);
+    });
+
+    it("educator override and CallerTarget on different params both surface", () => {
+      const educatorTune = makeBehaviorTarget({
+        parameterId: "P1",
+        scope: "CALLER",
+        source: "TUNING_CHAT",
+        targetValue: 0.2,
+      });
+      const ct = makeCallerTarget({ parameterId: "P2", targetValue: 0.9 });
+
+      const result = mergeTargets([educatorTune], [ct], []);
+      expect(result).toHaveLength(2);
+      const p1 = result.find((r) => r.parameterId === "P1")!;
+      const p2 = result.find((r) => r.parameterId === "P2")!;
+      expect(p1.source).toBe("BehaviorTarget");
+      expect(p1.targetValue).toBe(0.2);
+      expect(p2.source).toBe("CallerTarget");
+      expect(p2.targetValue).toBe(0.9);
+    });
+  });
 });
 
 // =====================================================
