@@ -291,25 +291,9 @@ export function CurriculumHealthTabs({
       .catch(() => {});
   }, [curriculumId, scorecard.structure.outcomesWithoutContent, onScorecardRefresh, readOnly]);
 
-  // #163 Phase 2 — silent background MCQ reconcile. Fires on mount when the
-  // course has orphan MCQs and the 5-min client cooldown has expired.
-  useEffect(() => {
-    // #418 — same read-only gate as the orphan reconcile above.
-    if (readOnly) return;
-    if (!courseId || mcqOrphans === 0) return;
-    const key = `reconcile-mcqs:${courseId}:lastRunAt`;
-    const lastRun = Number(localStorage.getItem(key) || "0");
-    if (Date.now() - lastRun < 5 * 60 * 1000) return;
-    localStorage.setItem(key, String(Date.now()));
-    fetch(`/api/courses/${courseId}/reconcile-mcqs`, { method: "POST" })
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.ok && res.matched > 0) {
-          onScorecardRefresh?.();
-        }
-      })
-      .catch(() => {});
-  }, [courseId, mcqOrphans, onScorecardRefresh, readOnly]);
+  // (MCQ auto-reconcile moved into McqPanel itself so it also fires for
+  // authored-modules courses that mount McqPanel standalone. See the
+  // comment block in McqPanel below.)
 
   const handleReconcileMcqs = async () => {
     if (reconcilingMcqs) return;
@@ -493,7 +477,11 @@ export function CurriculumHealthTabs({
           />
         )}
         {activeTab === "questions" && (
-          <McqPanel courseId={courseId} />
+          <McqPanel
+            courseId={courseId}
+            readOnly={readOnly}
+            onScorecardRefresh={onScorecardRefresh}
+          />
         )}
         {activeTab === "instructions" && (
           <AssertionsPanel
@@ -1009,9 +997,21 @@ function McqTrustBadge({ level }: { level: string | null }) {
 // authored courses had no path to see their generated MCQs in the
 // curriculum tab — the questions existed but weren't surfaced.
 
-export function McqPanel({ courseId }: { courseId: string }) {
+export function McqPanel({
+  courseId,
+  readOnly = false,
+  onScorecardRefresh,
+}: {
+  courseId: string;
+  /** Suppress side-effecting auto-reconcile in preview / read-only contexts. */
+  readOnly?: boolean;
+  /** Called after a successful auto-reconcile so the parent scorecard refreshes. */
+  onScorecardRefresh?: () => void;
+}) {
   const [items, setItems] = useState<McqItem[]>([]);
   const [loading, setLoading] = useState(false);
+  // Bumped after a successful auto-reconcile to re-run the items fetch.
+  const [reconcileNonce, setReconcileNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -1031,7 +1031,40 @@ export function McqPanel({ courseId }: { courseId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [courseId]);
+  }, [courseId, reconcileNonce]);
+
+  // #163 Phase 2 — silent background MCQ reconcile.
+  //
+  // Previously lived in CurriculumHealthTabs, which wraps McqPanel ONLY on
+  // the derived-curriculum branch. Authored-modules courses mount McqPanel
+  // standalone (CourseCurriculumTab.tsx:274-286) and never got the
+  // reconcile — leaving every imported question-bank row stuck with
+  // `assertionId = null`, rendering as red "unlinked" badges forever.
+  //
+  // Lifted into the panel itself: fires whenever the panel renders with
+  // any orphans, throttled per-course to once per 5 minutes via
+  // localStorage, server-side cooldown of 60s as the secondary guard.
+  // On a successful match, bumps `reconcileNonce` to re-fetch items so
+  // the badges flip without a page reload, and pings the parent's
+  // scorecard refresh if one was passed in.
+  const mcqOrphans = items.filter((q) => !q.assertion).length;
+  useEffect(() => {
+    if (readOnly) return;
+    if (!courseId || mcqOrphans === 0) return;
+    const key = `reconcile-mcqs:${courseId}:lastRunAt`;
+    const lastRun = Number(localStorage.getItem(key) || "0");
+    if (Date.now() - lastRun < 5 * 60 * 1000) return;
+    localStorage.setItem(key, String(Date.now()));
+    fetch(`/api/courses/${courseId}/reconcile-mcqs`, { method: "POST" })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.ok && res.matched > 0) {
+          setReconcileNonce((n) => n + 1);
+          onScorecardRefresh?.();
+        }
+      })
+      .catch(() => {});
+  }, [courseId, mcqOrphans, onScorecardRefresh, readOnly]);
 
   if (loading && items.length === 0) {
     return (
