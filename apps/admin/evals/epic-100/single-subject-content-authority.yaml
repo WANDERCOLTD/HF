@@ -1,0 +1,65 @@
+description: "#607 — composed prompt must show exactly one CONTENT AUTHORITY SUBJECT section per course"
+
+# Story:  #607 — root-cause: duplicate PlaybookSubject on course creation
+# Status: AFTER (asserts the FIXED behaviour — single course-scoped subject,
+#         single CONTENT AUTHORITY block; quick-launch/analyze's domain-level
+#         subject is displaced by wizard-tool-executor.create_course's
+#         unlinkNonPrimaryPlaybookSubjects() step).
+#         BEFORE assertions preserved in `archive-before:` as the historical
+#         detection of the bug.
+# See:    docs/epic-100-chain-walk.md (Link 1 — COURSE → CONTENT)
+#         apps/admin/lib/knowledge/cleanup-placeholder-subjects.ts (unlinkNonPrimaryPlaybookSubjects)
+#         apps/admin/lib/chat/wizard-tool-executor.ts (create_course step 4b)
+#         Regression test: apps/admin/tests/lib/knowledge/cleanup-placeholder-subjects.test.ts
+
+prompts:
+  - id: after
+    label: "Fixed — single SUBJECT under CONTENT AUTHORITY"
+    raw: |
+      ## CONTENT AUTHORITY
+
+      ### SUBJECT: IELTS Speaking Practice
+
+      Module 1 — Part 1: Familiar Topics
+      Module 2 — Part 2: Long Turn
+      Module 3 — Part 3: Discussion
+      Module 4 — Mock Exam
+
+  - id: archive-before
+    label: "Historical record — broken prompt the bug exhibited (kept as regression sentinel)"
+    raw: |
+      ## CONTENT AUTHORITY
+
+      ### SUBJECT: ESOL
+
+      Module 1 — Part 1: Familiar Topics
+      Module 2 — Part 2: Long Turn
+      Module 3 — Part 3: Discussion
+      Module 4 — Mock Exam
+
+      ### SUBJECT: IELTS Speaking Practice
+
+      Module 1 — Part 1: Familiar Topics
+      Module 2 — Part 2: Long Turn
+      Module 3 — Part 3: Discussion
+      Module 4 — Mock Exam
+
+tests:
+  - description: "After #607 lands — exactly one SUBJECT header under CONTENT AUTHORITY"
+    vars:
+      prompt: "{{prompts.after}}"
+    assert:
+      - type: javascript
+        value: |
+          (output.match(/### SUBJECT:/g) || []).length === 1
+
+archive-before:
+  description: "Historical detection — if this assertion PASSES again, the bug has returned."
+  tests:
+    - description: "BEFORE-mode assertion preserved as a regression sentinel"
+      vars:
+        prompt: "{{prompts.archive-before}}"
+      assert:
+        - type: javascript
+          value: |
+            (output.match(/### SUBJECT:/g) || []).length > 1

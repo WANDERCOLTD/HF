@@ -1299,8 +1299,23 @@ export async function executeWizardTool(
         // Remove any placeholder PlaybookSubjects accumulated on this playbook
         // from earlier wizard turns (e.g. a Subject named "Course" created when
         // subjectDiscipline fell back to courseName). See #207.
-        const { removePlaceholderPlaybookSubjects } = await import("@/lib/knowledge/cleanup-placeholder-subjects");
+        //
+        // Then enforce the single-primary-subject invariant — quick-launch/analyze
+        // (or any other upstream caller) may have linked a domain-level Subject
+        // with a different (non-placeholder) name that we must displace so the
+        // composed prompt doesn't render two CONTENT AUTHORITY sections. See #607.
+        const { removePlaceholderPlaybookSubjects, unlinkNonPrimaryPlaybookSubjects } = await import(
+          "@/lib/knowledge/cleanup-placeholder-subjects"
+        );
         await removePlaceholderPlaybookSubjects(playbookId, subject.id);
+        const unlink = await unlinkNonPrimaryPlaybookSubjects(playbookId, subject.id);
+        if (unlink.removed > 0) {
+          console.log(
+            `[wizard-tools] create_course: displaced ${unlink.removed} non-primary PlaybookSubject(s) on playbook ${playbookId}: ${unlink.displaced
+              .map((d) => `"${d.subjectName}"`)
+              .join(", ")}`,
+          );
+        }
 
         // Dual-write: sync PlaybookSource from primary subject
         // Skip when uploadSourceIds provided — Phase 5 (step 7c) creates PlaybookSource
