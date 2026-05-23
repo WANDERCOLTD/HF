@@ -124,7 +124,7 @@ describe("computePreamble transform", () => {
     expect(result.voiceRules).toEqual(["Rule 1", "Rule 2"]);
   });
 
-  it("includes critical rules about review and struggle handling (with-curriculum branch)", () => {
+  it("includes critical rules about review and struggle handling (with-curriculum branch, default mode)", () => {
     const ctx = makeContext({
       sharedState: {
         modules: [{ id: "m1" }] as any,
@@ -146,9 +146,159 @@ describe("computePreamble transform", () => {
     const result = getTransform("computePreamble")!(null, ctx, makeSectionDef());
 
     const rules = result.criticalRules.join(" ");
+    // Default mode (no playbook teachingMode) → recall behaviour: review-first rule
     expect(rules).toContain("RETURNING_CALLER");
-    expect(rules).toContain("review");
+    expect(rules).toContain("ALWAYS review before new material");
     expect(rules).toContain("struggles");
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // #604 — RETURNING_CALLER rule must vary by playbook teachingMode.
+  //
+  // Pre-#604, the with-curriculum branch hardcoded the recall-archetype
+  // rule ("ALWAYS review before new material") for every playbook,
+  // regardless of teachingMode. That made the IELTS Prep Lab (practice
+  // mode) open returning-caller sessions with criterion-recall questions
+  // even after the criticalRules in TUT-001 were edited in the DB. These
+  // tests guard the new contract: the rule must change by archetype, and
+  // spec-config overrides must win over the code-side default.
+  // ─────────────────────────────────────────────────────────────────────
+
+  function makePlaybookWithMode(mode: string) {
+    return [
+      {
+        id: "pb-test",
+        name: "Test Playbook",
+        status: "PUBLISHED",
+        config: { teachingMode: mode },
+        domain: null,
+        items: [],
+      } as any,
+    ];
+  }
+
+  function makeCurriculumSharedState() {
+    return {
+      modules: [{ id: "m1" }] as any,
+      isFirstCall: false,
+      daysSinceLastCall: 0,
+      completedModules: new Set<string>(),
+      estimatedProgress: 0,
+      lastCompletedIndex: -1,
+      moduleToReview: null,
+      nextModule: null,
+      reviewType: "",
+      reviewReason: "",
+      thresholds: { high: 0.65, low: 0.35 },
+      callNumber: 1,
+      channel: "voice" as const,
+      isFinalSession: false,
+    };
+  }
+
+  it("#604 — teachingMode=practice → warm-up-attempt RETURNING_CALLER rule, NOT review-first", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: makePlaybookWithMode("practice"),
+      },
+      sharedState: makeCurriculumSharedState(),
+    });
+
+    const result = getTransform("computePreamble")!(null, ctx, makeSectionDef());
+    const rules = result.criticalRules.join(" ");
+
+    expect(rules).toContain("warm-up attempt");
+    expect(rules).toContain("attempt IS the diagnostic");
+    expect(rules).not.toContain("ALWAYS review before new material");
+  });
+
+  it("#604 — teachingMode=recall → review-first RETURNING_CALLER rule (regression on happy path)", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: makePlaybookWithMode("recall"),
+      },
+      sharedState: makeCurriculumSharedState(),
+    });
+
+    const result = getTransform("computePreamble")!(null, ctx, makeSectionDef());
+    const rules = result.criticalRules.join(" ");
+
+    expect(rules).toContain("ALWAYS review before new material");
+    expect(rules).not.toContain("warm-up attempt");
+  });
+
+  it("#604 — teachingMode=comprehension → review-first rule (recall-archetype family)", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: makePlaybookWithMode("comprehension"),
+      },
+      sharedState: makeCurriculumSharedState(),
+    });
+
+    const result = getTransform("computePreamble")!(null, ctx, makeSectionDef());
+    const rules = result.criticalRules.join(" ");
+
+    expect(rules).toContain("ALWAYS review before new material");
+  });
+
+  it("#604 — teachingMode=syllabus → review-first rule (recall-archetype family)", () => {
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: makePlaybookWithMode("syllabus"),
+      },
+      sharedState: makeCurriculumSharedState(),
+    });
+
+    const result = getTransform("computePreamble")!(null, ctx, makeSectionDef());
+    const rules = result.criticalRules.join(" ");
+
+    expect(rules).toContain("ALWAYS review before new material");
+  });
+
+  it("#604 — spec-config override wins over code-side default per teachingMode", () => {
+    const customRule = "RETURNING_CALLER: spec-override rule for practice mode.";
+    const ctx = makeContext({
+      loadedData: {
+        ...makeContext().loadedData,
+        playbooks: makePlaybookWithMode("practice"),
+      },
+      sharedState: makeCurriculumSharedState(),
+      specConfig: {
+        criticalRules: {
+          returningCallerByMode: { practice: customRule },
+        },
+      } as any,
+    });
+
+    const result = getTransform("computePreamble")!(null, ctx, makeSectionDef());
+    const rules = result.criticalRules.join(" ");
+
+    expect(rules).toContain(customRule);
+    expect(rules).not.toContain("warm-up attempt");
+    expect(rules).not.toContain("ALWAYS review before new material");
+  });
+
+  it("#604 — universal pedagogy rules appear in all modes", () => {
+    for (const mode of ["recall", "comprehension", "practice", "syllabus"]) {
+      const ctx = makeContext({
+        loadedData: {
+          ...makeContext().loadedData,
+          playbooks: makePlaybookWithMode(mode),
+        },
+        sharedState: makeCurriculumSharedState(),
+      });
+
+      const result = getTransform("computePreamble")!(null, ctx, makeSectionDef());
+      const rules = result.criticalRules.join(" ");
+
+      expect(rules, `mode=${mode}`).toContain("rubric level, band descriptor");
+      expect(rules, `mode=${mode}`).toContain("Meta-statements about how you operate are forbidden");
+      expect(rules, `mode=${mode}`).toContain("INSTRUCTIONS, not a script");
+    }
   });
 
   it("includes all 4 pacing rules in with-curriculum branch", () => {

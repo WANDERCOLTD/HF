@@ -1,0 +1,89 @@
+description: "#604 — preamble RETURNING_CALLER rule must vary by playbook teachingMode"
+
+# Story:  #604 — root-cause: preamble criticalRules hardcoded; AI opens
+#         practice-archetype sessions with a recall check ("Can you remind
+#         me what the four IELTS Speaking assessment criteria are?") even
+#         when DB-side edits to criticalRules in TUT-001 add 3 contradicting
+#         rules.
+# Status: AFTER (asserts the FIXED behaviour — practice mode uses warm-up
+#         attempt; recall mode still uses review-first; spec config override
+#         can replace either per mode).
+#         BEFORE assertions preserved in `archive-before:` as the historical
+#         detection of the bug.
+# See:    docs/epic-100-chain-walk.md
+#         apps/admin/lib/prompt/composition/transforms/preamble.ts
+#         apps/admin/lib/prompt/composition/transforms/pedagogy-mode.ts (mirror read pattern)
+#         apps/admin/docs-archive/bdd-specs/COMP-001-prompt-composition.spec.json (criticalRules extension point)
+#         Regression test: apps/admin/tests/lib/preamble-archetype.test.ts (16 cases)
+
+prompts:
+  - id: after-practice
+    label: "Fixed — practice-mode RETURNING_CALLER: warm-up attempt, not recall"
+    raw: |
+      ## Critical Rules
+
+      - Before referencing any rubric level, band descriptor, score, or technical criterion by name, define it in ≤2 sentences with one concrete example.
+      - RETURNING_CALLER: Begin with a warm-up attempt, not a recall check. The attempt IS the diagnostic.
+      - If caller struggles: Back up. Different example. Don't push forward.
+
+      Hi again! Last time we worked on Part 1 of the speaking test. Let's start
+      with a fresh prompt — describe a typical day for you. Take a minute, then
+      go ahead.
+
+  - id: after-recall
+    label: "Fixed — recall-mode RETURNING_CALLER: review first, no regression"
+    raw: |
+      ## Critical Rules
+
+      - Before referencing any rubric level, band descriptor, score, or technical criterion by name, define it in ≤2 sentences with one concrete example.
+      - If RETURNING_CALLER: ALWAYS review before new material
+      - If review fails (caller can't recall): Don't proceed. Re-teach foundation first.
+
+      Welcome back. Before we move on, let's review what we covered last time —
+      do you remember what photosynthesis does for a plant?
+
+  - id: archive-before-practice
+    label: "Historical record — practice-mode session opens with criterion-recall (BUG)"
+    raw: |
+      ## Critical Rules
+
+      - If RETURNING_CALLER: ALWAYS review before new material
+      - If review fails (caller can't recall): Don't proceed. Re-teach foundation first.
+
+      Welcome back! Quick check — can you remind me what the four IELTS Speaking
+      assessment criteria are?
+
+tests:
+  - description: "After #604 — practice mode opens with a warm-up attempt, not a criterion recall"
+    vars:
+      prompt: "{{prompts.after-practice}}"
+    assert:
+      - type: javascript
+        value: |
+          output.toLowerCase().includes("warm-up attempt") &&
+          !output.toLowerCase().includes("can you remind me what the four") &&
+          !output.toLowerCase().includes("always review before new material")
+
+  - description: "After #604 — recall mode still opens with review (no regression)"
+    vars:
+      prompt: "{{prompts.after-recall}}"
+    assert:
+      - type: javascript
+        value: |
+          output.toLowerCase().includes("always review before new material") &&
+          !output.toLowerCase().includes("warm-up attempt")
+
+archive-before:
+  description: "Historical detection — if these assertions PASS again, the bug has returned."
+  tests:
+    - description: "BEFORE-mode assertion preserved as a regression sentinel"
+      vars:
+        prompt: "{{prompts.archive-before-practice}}"
+      assert:
+        - type: javascript
+          value: |
+            output.toLowerCase().includes("can you remind me what the four") ||
+            (
+              output.toLowerCase().includes("always review before new material") &&
+              !output.toLowerCase().includes("warm-up attempt")
+            )

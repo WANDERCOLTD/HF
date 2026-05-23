@@ -94,7 +94,14 @@ describe("renderVoicePrompt — pacing rules", () => {
     "Treat each session as standalone",
   ];
 
-  it("renders all 4 pacing rules when criticalRules has 9 entries (hasCurriculum path)", () => {
+  it("renders all 4 pacing rules when criticalRules has 9 entries (hasCurriculum path, recall-archetype shape)", () => {
+    // Fixture mirrors the with-curriculum/recall-archetype shape produced by
+    // computePreamble — see lib/prompt/composition/transforms/preamble.ts.
+    // The first entry is `RETURNING_CALLER_BY_MODE.recall`; for the practice
+    // archetype computePreamble swaps it for the warm-up-attempt rule
+    // (#604). This test only validates that renderVoicePrompt emits the
+    // 4 pacing rules under [RULES] regardless of which RETURNING_CALLER
+    // variant precedes them.
     const result = renderVoicePrompt({
       _preamble: {
         criticalRules: [
@@ -137,6 +144,43 @@ describe("renderVoicePrompt — pacing rules", () => {
     for (const rule of PACING_RULES) {
       expect(result).toContain(rule);
     }
+  });
+});
+
+describe("renderVoicePrompt — pacing rules (practice-archetype shape, #604)", () => {
+  const PACING_RULES = [
+    "Confirm readiness before moving to a new topic",
+    "Do not give answers before the student has attempted",
+    "Do not rush",
+    "Treat each session as standalone",
+  ];
+
+  it("renders all 4 pacing rules when the RETURNING_CALLER rule is the practice variant (#604)", () => {
+    // Fixture mirrors what computePreamble emits for a playbook with
+    // teachingMode='practice': the first entry is the warm-up-attempt
+    // rule instead of the review-first one. Renderer must not depend on
+    // which RETURNING_CALLER variant precedes the pacing rules.
+    const result = renderVoicePrompt({
+      _preamble: {
+        criticalRules: [
+          "RETURNING_CALLER: Begin with a warm-up attempt, not a recall check. The attempt IS the diagnostic.",
+          "If review fails (caller can't recall): Don't proceed. Re-teach foundation first.",
+          "If caller struggles: Back up. Different example. Don't push forward.",
+          "If caller wants to skip review: Only allow if they PROVE they know it.",
+          "End at natural stopping point, never mid-concept.",
+          "Confirm readiness before moving to a new topic — ask 'Ready to move on?' and wait for YES before continuing.",
+          "Do not give answers before the student has attempted. Wait, give a hint, wait again.",
+          "Do not rush — if the student is mid-thought, stay silent until they finish.",
+          "Treat each session as standalone. Never say 'as we covered last time' as fact — say 'if you remember from before...' and re-establish if they don't.",
+        ],
+      },
+    } as any);
+
+    expect(result).toContain("[RULES]");
+    for (const rule of PACING_RULES) {
+      expect(result).toContain(rule);
+    }
+    expect(result).toContain("warm-up attempt");
   });
 });
 

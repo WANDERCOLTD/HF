@@ -6,10 +6,56 @@
 import { registerTransform } from "../TransformRegistry";
 import type { AssembledContext } from "../types";
 import type { SpecConfig } from "@/lib/types/json-fields";
+import type { TeachingMode } from "@/lib/content-trust/resolve-config";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
 
 const PREAMBLE_FALLBACK = "You are receiving a structured context package for your next conversation. This data has been assembled specifically for this caller based on their history, personality, and learning progress. Use it to deliver a personalized, effective session.";
+
+/**
+ * #604 — RETURNING_CALLER rule keyed by playbook teachingMode.
+ *
+ * Pre-#604 the with-curriculum branch hardcoded the recall-archetype rule
+ * ("ALWAYS review before new material") for every playbook, regardless of
+ * its teachingMode. For `practice` archetypes (IELTS Prep Lab, IELTS
+ * Listening, anything coaching/skills-based) the right opening is a
+ * warm-up attempt — the attempt itself diagnoses retention without front-
+ * loading a recall check the learner usually fails. This map is the
+ * code-side default; COMP-001 spec config can override per-mode via
+ * `criticalRules.returningCallerByMode[mode]`.
+ *
+ * `Record<TeachingMode, string>` forces an update here whenever a new
+ * TeachingMode is added to `lib/content-trust/resolve-config.ts` — without
+ * this exhaustiveness check a new mode would silently inherit `recall`
+ * behaviour and re-introduce the same RC5 bug under a different label.
+ */
+const RETURNING_CALLER_BY_MODE: Record<TeachingMode, string> = {
+  recall:
+    "If RETURNING_CALLER: ALWAYS review before new material",
+  comprehension:
+    "If RETURNING_CALLER: ALWAYS review before new material",
+  syllabus:
+    "If RETURNING_CALLER: ALWAYS review before new material",
+  practice:
+    "RETURNING_CALLER: Begin with a warm-up attempt, not a recall check. The attempt IS the diagnostic.",
+};
+
+/**
+ * Read playbook `teachingMode` from the assembled context. Mirrors the
+ * pattern in `transforms/pedagogy-mode.ts:100-106` exactly — playbook
+ * raw config wins over the first PlaybookItem spec's config; returns
+ * undefined when neither is set (caller falls back to recall behaviour).
+ */
+function readPlaybookTeachingMode(
+  context: AssembledContext,
+): TeachingMode | undefined {
+  const playbooks = context.loadedData.playbooks;
+  const pbConfig = playbooks?.[0]?.items?.[0]?.spec?.config as
+    | { teachingMode?: TeachingMode }
+    | undefined;
+  const playbookRawConfig = (playbooks?.[0] as { config?: { teachingMode?: TeachingMode } } | undefined)?.config;
+  return playbookRawConfig?.teachingMode || pbConfig?.teachingMode;
+}
 
 registerTransform("computePreamble", async (
   _rawData: any,
@@ -86,10 +132,25 @@ registerTransform("computePreamble", async (
         "Anything in your context labelled internal, scaffolding, question bank, or for-your-reference is INSTRUCTIONS, not a script. Use it to guide your behaviour; never quote, paraphrase, or list it to the learner.",
       ];
 
+      // #604 — pick the RETURNING_CALLER rule by archetype (playbook
+      // teachingMode). Spec-config override wins (COMP-001
+      // `criticalRules.returningCallerByMode[mode]`); falls through to the
+      // code-side default; falls through again to `recall` if the playbook
+      // has no teachingMode set at all (pre-#604 behaviour).
+      const teachingMode = readPlaybookTeachingMode(context);
+      const specCriticalRules = (context.specConfig as { criticalRules?: { returningCallerByMode?: Partial<Record<TeachingMode, string>> } } | undefined)?.criticalRules;
+      const specOverride = teachingMode
+        ? specCriticalRules?.returningCallerByMode?.[teachingMode]
+        : undefined;
+      const codeDefault = teachingMode
+        ? RETURNING_CALLER_BY_MODE[teachingMode]
+        : RETURNING_CALLER_BY_MODE.recall;
+      const returningCallerRule = specOverride ?? codeDefault;
+
       if (hasCurriculum) {
         return [
           ...pedagogyRules,
-          "If RETURNING_CALLER: ALWAYS review before new material",
+          returningCallerRule,
           "If review fails (caller can't recall): Don't proceed. Re-teach foundation first.",
           "If caller struggles: Back up. Different example. Don't push forward.",
           "If caller wants to skip review: Only allow if they PROVE they know it.",
