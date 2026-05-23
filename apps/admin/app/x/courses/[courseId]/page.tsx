@@ -33,7 +33,7 @@ import { DraggableTabs, type TabDefinition } from '@/components/shared/Draggable
 import { useChordShortcut } from '@/hooks/useChordShortcut';
 import { ChordHintBadge } from '@/components/help/ChordHintBadge';
 import { TabWithHelp } from '@/components/help/TabWithHelp';
-import { getPageHelp } from '@/lib/help/page-help';
+import { getPageHelp, getEffectiveChords } from '@/lib/help/page-help';
 import { type TPItem, type SessionOption } from '@/components/shared/SessionTPList';
 import {
   groupSpecs,
@@ -160,9 +160,12 @@ export default function CourseDetailPage() {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   // #688 — chord shortcuts (H/G + key) for tab navigation.
-  // Lookup is route-templated; pathname not needed.
+  // #global-chords — getEffectiveChords merges page bindings with the
+  // global nav chords (page wins on key collision). Lookup is route-
+  // templated; pathname not needed.
   const pageHelp = useMemo(() => getPageHelp(`/x/courses/${courseId || ""}`), [courseId]);
-  const { activePrefix: chordActivePrefix } = useChordShortcut(pageHelp?.chords);
+  const effectiveChords = useMemo(() => getEffectiveChords(`/x/courses/${courseId || ""}`), [courseId]);
+  const { activePrefix: chordActivePrefix } = useChordShortcut(effectiveChords);
   const isOperator = ['OPERATOR', 'EDUCATOR', 'ADMIN', 'SUPERADMIN'].includes((session?.user?.role as string) || '');
   const { pushEntity } = useEntityContext();
   const { plural } = useTerminology();

@@ -21,7 +21,7 @@ import { useAssistant, useAssistantKeyboardShortcut } from "@/hooks/useAssistant
 import { useChordShortcut } from "@/hooks/useChordShortcut";
 import { ChordHintBadge } from "@/components/help/ChordHintBadge";
 import { TabWithHelp } from "@/components/help/TabWithHelp";
-import { getPageHelp } from "@/lib/help/page-help";
+import { getPageHelp, getEffectiveChords } from "@/lib/help/page-help";
 
 // Extracted sub-components
 import { ProcessingNotice } from "./caller-detail/CallsTab";
@@ -98,9 +98,10 @@ export default function CallerDetailPage() {
   const [data, setData] = useState<CallerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // #688 — chord shortcuts (H/G + key) for tab navigation.
+  // #688 — chord shortcuts (H/G + key) for tab navigation + globals.
   const pageHelp = useMemo(() => getPageHelp(`/x/callers/${callerId}`), [callerId]);
-  const { activePrefix: chordActivePrefix } = useChordShortcut(pageHelp?.chords);
+  const effectiveChords = useMemo(() => getEffectiveChords(`/x/callers/${callerId}`), [callerId]);
+  const { activePrefix: chordActivePrefix } = useChordShortcut(effectiveChords);
 
   const [activeSection, _setActiveSection] = useState<SectionId>(initialTab);
   const setActiveSection = (id: SectionId) => {

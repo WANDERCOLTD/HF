@@ -1,6 +1,9 @@
 /**
  * Global keyboard shortcuts shown in the Help Overlay's "Shortcuts — global"
- * section. Page-scoped shortcuts live in lib/help/page-help.ts.
+ * section. NON-CHORD shortcuts only — chord nav bindings live in
+ * lib/help/page-help.ts::GLOBAL_CHORDS and are derived dynamically for
+ * display (so the listed chord can never claim a binding that doesn't
+ * actually exist).
  */
 export interface GlobalShortcut {
   keys: string;
@@ -8,13 +11,17 @@ export interface GlobalShortcut {
 }
 
 export const GLOBAL_SHORTCUTS: readonly GlobalShortcut[] = [
+  // Trigger-style — single-key with no modifier
   { keys: "?", description: "Open this help" },
-  { keys: "⌘K", description: "Open AI assistant / search" },
   { keys: "Esc", description: "Close panel or dialog" },
-  { keys: "H + key  ·  G + key", description: "Jump to a tab on this page (chord)" },
-  { keys: "H H  ·  G H", description: "Go home" },
-  { keys: "H C  ·  G C", description: "Courses" },
-  { keys: "H L  ·  G L", description: "Learners" },
-  { keys: "H D  ·  G D", description: "Data dictionary" },
-  { keys: "H S  ·  G S", description: "Specs" },
+
+  // Cmd-modified (wired in app/layout.tsx::handleGlobalKeyDown)
+  { keys: "⌘K", description: "Open AI assistant" },
+  { keys: "⌘G", description: "Build Course (wizard)" },
+  { keys: "⌘D", description: "Educator dashboard" },
+  { keys: "⌘S", description: "Sim / Learn surface" },
+  { keys: "⌘L", description: "Learners" },
+
+  // Chord prefix
+  { keys: "H + key  ·  G + key", description: "Two-key navigation chord (see list below)" },
 ];

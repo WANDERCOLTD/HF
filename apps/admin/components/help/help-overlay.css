@@ -93,6 +93,23 @@
   font-style: italic;
 }
 
+.help-overlay-chord-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.help-overlay-chord-hint kbd {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  padding: 1px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
 .help-overlay-tabs,
 .help-overlay-shortcuts {
   display: grid;
