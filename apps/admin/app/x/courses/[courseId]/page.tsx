@@ -1744,7 +1744,7 @@ export default function CourseDetailPage() {
           }}
         />
       )}
-      <ChordHintBadge activePrefix={chordActivePrefix} />
+      <ChordHintBadge activePrefix={chordActivePrefix} chords={effectiveChords} />
     </div>
   );
 }

@@ -1319,7 +1319,7 @@ export default function CallerDetailPage() {
       )}
       </div>{/* cdp-content */}
       </div>{/* cdp-body */}
-      <ChordHintBadge activePrefix={chordActivePrefix} />
+      <ChordHintBadge activePrefix={chordActivePrefix} chords={effectiveChords} />
     </div>
   );
 }

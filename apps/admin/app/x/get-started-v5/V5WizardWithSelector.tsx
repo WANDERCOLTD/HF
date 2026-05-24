@@ -191,7 +191,7 @@ export function V5WizardWithSelector({
         userRole={userRole}
         wizardVersion="v5"
       />
-      <ChordHintBadge activePrefix={chordActivePrefix} />
+      <ChordHintBadge activePrefix={chordActivePrefix} chords={wizardChords} />
     </>
   );
 }
