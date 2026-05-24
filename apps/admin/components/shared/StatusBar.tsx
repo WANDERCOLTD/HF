@@ -26,7 +26,7 @@ import { ROLE_LEVEL } from '@/lib/roles';
 import { useBranding } from '@/contexts/BrandingContext';
 import { useMasquerade } from '@/contexts/MasqueradeContext';
 import { useErrorCapture } from '@/contexts/ErrorCaptureContext';
-import { envLabel, envSidebarColor, envTextColor, showEnvBanner, isLocalhost, envDbTarget, envCanonical, dbTargetColor } from './EnvironmentBanner';
+import { envLabel, envSidebarColor, envTextColor, showEnvBanner, envDbTarget, envCanonical, dbTargetColor } from './EnvironmentBanner';
 import { JobsPopup } from './JobsPopup';
 import { HealthPopup } from './HealthPopup';
 import type { IniResult } from './HealthPopup';
@@ -298,8 +298,7 @@ export function StatusBar() {
             Single chip when env matches DB target (default).
             Two-part chip [SANDBOX | DB→PILOT] when sandbox VM is pointed at another env's DB. */}
         {showEnvBanner && envLabel && envSidebarColor && (() => {
-          const onVm = isLocalhost();
-          const baseLabel = onVm && envCanonical === 'SANDBOX' ? 'VM' : envLabel;
+          const baseLabel = envLabel;
           const switched = !!envDbTarget && envDbTarget.toUpperCase() !== envCanonical;
           const targetColor = switched ? dbTargetColor(envDbTarget) : null;
           return (

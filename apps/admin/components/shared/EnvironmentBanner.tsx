@@ -103,16 +103,11 @@ export function isLocalhost(): boolean {
 export default function EnvironmentBanner() {
   useEffect(() => {
     if (ENV_CANONICAL === 'PROD') return;
-    const isLocal = isLocalhost();
-    let label: string;
-    if (isLocal) {
-      // VM. If DB is switched to another env, show "VM→PILOT" / "VM→STAGING".
-      const target = (envDbTarget || '').toUpperCase();
-      label = target && target !== 'SANDBOX' ? `VM→${target}` : 'VM';
-    } else {
-      label = ENV_CANONICAL;
-    }
-    const base = document.title.replace(/^\[(VM|VM→\w+|SANDBOX|STAGING|PILOT|PROD|DEV|TEST|STG|LIVE)\]\s*/, '');
+    // Tab label uses the canonical env name. When the VM is pointed at a
+    // different env's DB (via /db-switch), show the arrow form: "SANDBOX→PILOT".
+    const target = (envDbTarget || '').toUpperCase();
+    const label = target && target !== ENV_CANONICAL ? `${ENV_CANONICAL}→${target}` : ENV_CANONICAL;
+    const base = document.title.replace(/^\[(VM|VM→\w+|SANDBOX|SANDBOX→\w+|STAGING|STAGING→\w+|PILOT|PILOT→\w+|PROD|DEV|TEST|STG|LIVE)\]\s*/, '');
     document.title = `[${label}] ${base || 'HFF'}`;
   }, []);
 
