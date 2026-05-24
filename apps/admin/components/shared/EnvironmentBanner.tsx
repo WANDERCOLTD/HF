@@ -65,8 +65,16 @@ if (!ENV_CONFIG) {
 /** Canonical env name (SANDBOX/STAGING/PILOT/PROD) */
 export const envCanonical = ENV_CANONICAL;
 
-/** DB target ('sandbox' | 'staging' | 'pilot' | null) — set when sandbox VM is pointed at a non-sandbox DB */
+/** Raw DB target ('sandbox'|'staging'|'pilot') or null if NEXT_PUBLIC_DB_TARGET unset */
 export const envDbTarget: string | null = DB_TARGET || null;
+
+/** Effective DB target — falls back to env name when NEXT_PUBLIC_DB_TARGET is unset.
+ *  So the StatusBar can always show "DB:sandbox" / "DB:staging" / "DB:pilot" without
+ *  requiring every env's .env.local to explicitly set NEXT_PUBLIC_DB_TARGET. */
+export const envDbEffective: string = (DB_TARGET || ENV_CANONICAL).toLowerCase();
+
+/** True when sandbox VM is pointed at a DB that does NOT match its env (the loaded-gun case) */
+export const isDbSwitched: boolean = !!DB_TARGET && DB_TARGET.toUpperCase() !== ENV_CANONICAL;
 
 /** Whether an environment badge should be shown */
 export const showEnvBanner = ENV_CONFIG != null;

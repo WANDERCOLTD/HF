@@ -26,7 +26,7 @@ import { ROLE_LEVEL } from '@/lib/roles';
 import { useBranding } from '@/contexts/BrandingContext';
 import { useMasquerade } from '@/contexts/MasqueradeContext';
 import { useErrorCapture } from '@/contexts/ErrorCaptureContext';
-import { envLabel, envSidebarColor, envTextColor, showEnvBanner, envDbTarget, envCanonical, dbTargetColor } from './EnvironmentBanner';
+import { envLabel, envSidebarColor, envTextColor, showEnvBanner, envDbEffective, isDbSwitched, dbTargetColor } from './EnvironmentBanner';
 import { JobsPopup } from './JobsPopup';
 import { HealthPopup } from './HealthPopup';
 import type { IniResult } from './HealthPopup';
@@ -297,10 +297,12 @@ export function StatusBar() {
         {/* Environment badge → /x/settings
             Single chip when env matches DB target (default).
             Two-part chip [SANDBOX | DB→PILOT] when sandbox VM is pointed at another env's DB. */}
+        {/* ENV badge — always shows env code + effective DB.
+            Default (matched):  "SANDBOX · DB:sandbox"
+            Switched (loaded gun): "SANDBOX · DB→PILOT" with right half tinted target color */}
         {showEnvBanner && envLabel && envSidebarColor && (() => {
-          const baseLabel = envLabel;
-          const switched = !!envDbTarget && envDbTarget.toUpperCase() !== envCanonical;
-          const targetColor = switched ? dbTargetColor(envDbTarget) : null;
+          const dbColor = isDbSwitched ? dbTargetColor(envDbEffective) : null;
+          const dbLabel = isDbSwitched ? `DB→${envDbEffective.toUpperCase()}` : `DB:${envDbEffective}`;
           return (
             <span
               className="hf-status-env-badge hf-status-clickable"
@@ -309,17 +311,13 @@ export function StatusBar() {
                 ...(envTextColor ? { color: envTextColor } : {}),
               }}
               onClick={() => router.push('/x/settings')}
-              title={switched ? `${envCanonical} code, DB pointed at ${envDbTarget?.toUpperCase()}` : 'View settings'}
+              title={isDbSwitched ? `${envLabel} code, DB pointed at ${envDbEffective.toUpperCase()}` : `${envLabel} · DB:${envDbEffective}`}
             >
-              {baseLabel}
-              {switched && targetColor && (
-                <>
-                  <span aria-hidden="true" style={{ opacity: 0.5, marginInline: 4 }}>|</span>
-                  <span style={{ background: targetColor, color: 'var(--surface-primary)', borderRadius: 4, padding: '0 4px' }}>
-                    DB→{envDbTarget?.toUpperCase()}
-                  </span>
-                </>
-              )}
+              {envLabel}
+              <span aria-hidden="true" style={{ opacity: 0.5, marginInline: 4 }}>·</span>
+              <span style={dbColor ? { background: dbColor, color: 'var(--surface-primary)', borderRadius: 4, padding: '0 4px' } : { opacity: 0.85 }}>
+                {dbLabel}
+              </span>
             </span>
           );
         })()}
