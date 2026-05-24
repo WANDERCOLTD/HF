@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { ROLE_LEVEL } from "@/lib/roles";
 import type { UserRole } from "@prisma/client";
+import { applyAutoStatusTransition } from "@/lib/feedback/auto-status";
 
 /**
  * @api GET /api/tickets/:ticketId/comments
@@ -85,11 +86,11 @@ export async function GET(
  * @scope tickets:comments-create
  * @auth session
  * @tags tickets
- * @description Adds a comment to a ticket and updates the ticket's updatedAt timestamp. TESTER+ can comment on own tickets. Partners cannot create internal comments.
+ * @description Adds a comment to a ticket and updates the ticket's updatedAt timestamp. TESTER+ can comment on own tickets. Partners cannot create internal comments. #734 — runs `applyAutoStatusTransition` in the same transaction: OPEN→IN_PROGRESS on first non-creator comment, WAITING→IN_PROGRESS on any comment.
  * @pathParam ticketId string - The ticket ID
  * @body content string - Comment text (required)
  * @body isInternal boolean - Whether comment is internal-only (default: false)
- * @response 201 { ok: true, comment: {...} }
+ * @response 201 { ok: true, comment: {...}, autoStatus: { transitioned: boolean, from?: TicketStatus, to?: TicketStatus, autoCommentId?: string } }
  * @response 400 { ok: false, error: "Comment content is required" }
  * @response 401 { ok: false, error: "Unauthorized" }
  * @response 403 { ok: false, error: "You can only comment on your own feedback" | "Internal comments are not available" }
@@ -116,16 +117,18 @@ export async function POST(
       );
     }
 
-    // Partners can only comment on their own tickets
+    // Fetch ticket once — we need creatorId for the partner-ownership guard,
+    // status for the #734 auto-status rules, and existence either way.
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: { id: true, creatorId: true, status: true },
+    });
+    if (!ticket) {
+      return NextResponse.json({ ok: false, error: "Ticket not found" }, { status: 404 });
+    }
+
     const roleLevel = ROLE_LEVEL[session.user.role as UserRole] ?? 0;
     if (roleLevel < 3) {
-      const ticket = await prisma.ticket.findUnique({
-        where: { id: ticketId },
-        select: { creatorId: true },
-      });
-      if (!ticket) {
-        return NextResponse.json({ ok: false, error: "Ticket not found" }, { status: 404 });
-      }
       if (ticket.creatorId !== session.user.id) {
         return NextResponse.json({ ok: false, error: "You can only comment on your own feedback" }, { status: 403 });
       }
@@ -135,38 +138,43 @@ export async function POST(
       }
     }
 
-    // Verify ticket exists (for OPERATOR+ who skip the guard above)
-    if (roleLevel >= 3) {
-      const ticket = await prisma.ticket.findUnique({
-        where: { id: ticketId },
-        select: { id: true },
-      });
-      if (!ticket) {
-        return NextResponse.json({ ok: false, error: "Ticket not found" }, { status: 404 });
-      }
-    }
-
-    const comment = await prisma.ticketComment.create({
-      data: {
-        ticketId,
-        authorId: session.user.id,
-        content: content.trim(),
-        isInternal: isInternal || false,
-      },
-      include: {
-        author: {
-          select: { id: true, name: true, email: true, image: true },
+    // #734 — comment insert + auto-status transition + auto-comment all in one
+    // transaction so a failed status update rolls the user's comment back too.
+    const { comment, autoStatusResult } = await prisma.$transaction(async (tx) => {
+      const comment = await tx.ticketComment.create({
+        data: {
+          ticketId,
+          authorId: session.user.id,
+          content: content.trim(),
+          isInternal: isInternal || false,
         },
-      },
+        include: {
+          author: {
+            select: { id: true, name: true, email: true, image: true },
+          },
+        },
+      });
+
+      // Bump ticket.updatedAt regardless of status flip.
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: { updatedAt: new Date() },
+      });
+
+      const autoStatusResult = await applyAutoStatusTransition({
+        ticketId,
+        ticketStatusBefore: ticket.status,
+        ticketCreatorId: ticket.creatorId,
+        commentAuthorId: session.user.id,
+        commentAuthorName: comment.author.name ?? comment.author.email ?? "Someone",
+        triggeredByCommentId: comment.id,
+        tx,
+      });
+
+      return { comment, autoStatusResult };
     });
 
-    // Update ticket's updatedAt
-    await prisma.ticket.update({
-      where: { id: ticketId },
-      data: { updatedAt: new Date() },
-    });
-
-    return NextResponse.json({ ok: true, comment }, { status: 201 });
+    return NextResponse.json({ ok: true, comment, autoStatus: autoStatusResult }, { status: 201 });
   } catch (error) {
     console.error("POST /api/tickets/[ticketId]/comments error:", error);
     return NextResponse.json(
