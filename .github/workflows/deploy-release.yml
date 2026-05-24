@@ -19,12 +19,6 @@ concurrency:
   group: deploy-pilot-release
   cancel-in-progress: false
 
-env:
-  PROJECT_ID: hf-admin-prod
-  REGION: europe-west2
-  REGISTRY: europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker
-  SERVICE: hf-admin-pilot
-
 jobs:
   cherry-pick-check:
     runs-on: ubuntu-latest
@@ -59,7 +53,7 @@ jobs:
 
   gate:
     runs-on: ubuntu-latest
-    name: Cheap gate (tsc + lint + unit)
+    name: Cheap gate (ratchet + lint + unit)
     needs: cherry-pick-check
     steps:
       - uses: actions/checkout@v4
@@ -72,9 +66,15 @@ jobs:
         working-directory: apps/admin
         run: npm ci
 
-      - name: tsc
+      # tsc on this repo carries hundreds of pre-existing errors — informational; ratchet is the real gate.
+      - name: TypeScript type check (informational)
         working-directory: apps/admin
         run: npx tsc --noEmit
+        continue-on-error: true
+
+      - name: Ratchet check (no new debt)
+        working-directory: apps/admin
+        run: npm run ratchet:check
 
       - name: lint
         working-directory: apps/admin
@@ -94,75 +94,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Authenticate to GCP
-        id: auth
-        uses: google-github-actions/auth@v2
+      - name: GCP Cloud Run runner deploy
+        uses: ./.github/actions/gcp-runner-deploy
         with:
-          workload_identity_provider: projects/311250123759/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-          service_account: github-deploy@hf-admin-prod.iam.gserviceaccount.com
-          token_format: access_token
+          service: hf-admin-pilot
+          app_env: PILOT
+          image_tag: pilot
+          cache_scope: runner-pilot
+          public_url: https://pilot.humanfirstfoundation.com
+          cf_auth_email: ${{ secrets.CF_AUTH_EMAIL }}
+          cf_auth_key: ${{ secrets.CF_AUTH_KEY }}
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Login to Artifact Registry (Docker)
-        uses: docker/login-action@v3
-        with:
-          registry: europe-west2-docker.pkg.dev
-          username: oauth2accesstoken
-          password: ${{ steps.auth.outputs.access_token }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build + push runner image (cached scope=runner-pilot)
-        uses: docker/build-push-action@v6
-        with:
-          context: apps/admin
-          file: apps/admin/Dockerfile
-          target: runner
-          platforms: linux/amd64
-          push: true
-          build-args: |
-            NEXT_PUBLIC_APP_ENV=PILOT
-            NODE_OPTIONS=--max-old-space-size=4096
-          tags: |
-            ${{ env.REGISTRY }}/hf-admin:pilot
-            ${{ env.REGISTRY }}/hf-admin:pilot-${{ github.sha }}
-          cache-from: type=gha,scope=runner-pilot
-          cache-to: type=gha,mode=max,scope=runner-pilot
-
-      - name: Deploy to pilot Cloud Run (no migrate, no seed)
-        run: |
-          gcloud run deploy ${{ env.SERVICE }} \
-            --image=${{ env.REGISTRY }}/hf-admin:pilot \
-            --region=${{ env.REGION }} \
-            --no-cpu-throttling
-
-      - name: Smoke test
-        run: |
-          URL=$(gcloud run services describe ${{ env.SERVICE }} --region=${{ env.REGION }} --format='value(status.url)')
-          echo "Smoke testing $URL..."
-          for i in $(seq 1 12); do
-            if curl -sf "$URL/api/health" > /dev/null 2>&1; then
-              echo "✅ Health check passed"
-              break
-            fi
-            echo "Waiting for service... (attempt $i/12)"
-            sleep 5
-          done
-          curl -sf "$URL/api/health" | jq .
-          curl -sf "$URL/api/ready" | jq .
-
-      - name: Cloudflare cache purge for pilot.humanfirstfoundation.com
-        run: |
-          curl -s -X POST "https://api.cloudflare.com/client/v4/zones/a75655f1818c73eaaecc232b1076dbf3/purge_cache" \
-            -H "X-Auth-Email: ${{ secrets.CF_AUTH_EMAIL }}" \
-            -H "X-Auth-Key: ${{ secrets.CF_AUTH_KEY }}" \
-            -H "Content-Type: application/json" \
-            --data '{"files":["https://pilot.humanfirstfoundation.com/*"]}' | jq .
-
-      - name: Summary
+      - name: Release summary
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🚀 Release deploy complete" >> $GITHUB_STEP_SUMMARY
