@@ -13777,7 +13777,7 @@ Lists comments for a ticket with pagination. Includes author details. Internal c
 
 ### `POST` /api/tickets/:ticketId/comments
 
-Adds a comment to a ticket and updates the ticket's updatedAt timestamp. TESTER+ can comment on own tickets. Partners cannot create internal comments.
+Adds a comment to a ticket and updates the ticket's updatedAt timestamp. TESTER+ can comment on own tickets. Partners cannot create internal comments. #734 — runs `applyAutoStatusTransition` in the same transaction: OPEN→IN_PROGRESS on first non-creator comment, WAITING→IN_PROGRESS on any comment.
 
 **Auth**: Session · **Scope**: `tickets:comments-create`
 
@@ -13789,7 +13789,7 @@ Adds a comment to a ticket and updates the ticket's updatedAt timestamp. TESTER+
 
 **Response** `201`
 ```json
-{ ok: true, comment: {...} }
+{ ok: true, comment: {...}, autoStatus: { transitioned: boolean, from?: TicketStatus, to?: TicketStatus, autoCommentId?: string } }
 ```
 
 **Response** `400`
