@@ -1,5 +1,9 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# #762 load-test secrets + run output
+load-tests/.env.load-test
+load-tests/fixtures/last-seed.json
+
 # dependencies
 /node_modules
 /.pnp
