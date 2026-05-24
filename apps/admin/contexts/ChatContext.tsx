@@ -34,6 +34,14 @@ interface ChatState {
   error: string | null;
   /** Tuning tab scope toggle. Persisted in settings. */
   tuningScope: TuningScope;
+  /**
+   * #727 v1 — when set, every DATA-mode message includes this ticket's UUID
+   * so the API can inject the ticket + comment thread into the system prompt.
+   * Set by the Feedback view's "Discuss with AI" button. Not persisted —
+   * lives only as long as the user is actively discussing the ticket.
+   */
+  discussionTicketId: string | null;
+  discussionTicketNumber: number | null;
 }
 
 interface ChatActions {
@@ -43,6 +51,11 @@ interface ChatActions {
   setMode: (mode: ChatMode) => void;
   setChatLayout: (layout: ChatLayout) => void;
   setTuningScope: (scope: TuningScope) => void;
+  /**
+   * Set / clear the active ticket the Assistant should be discussing.
+   * Pass `null` to clear (e.g. when closing the ticket detail panel).
+   */
+  setDiscussionTicket: (id: string | null, ticketNumber?: number | null) => void;
   sendMessage: (content: string) => Promise<void>;
   addMessage: (message: Omit<ChatMessage, "id" | "timestamp">) => string;
   updateMessage: (id: string, updates: Partial<ChatMessage>) => void;
@@ -178,6 +191,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [lastUserId, setLastUserId] = useState<string | undefined>(undefined);
+  const [discussionTicketId, setDiscussionTicketIdState] = useState<string | null>(null);
+  const [discussionTicketNumber, setDiscussionTicketNumberState] = useState<number | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -240,6 +255,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const setTuningScope = useCallback((scope: TuningScope) => {
     setTuningScopeState(scope);
+  }, []);
+
+  const setDiscussionTicket = useCallback((id: string | null, ticketNumber: number | null = null) => {
+    setDiscussionTicketIdState(id);
+    setDiscussionTicketNumberState(id ? ticketNumber : null);
+    // Force DATA mode when starting a ticket discussion — TUNING wouldn't see
+    // the ticket block (it's only injected on the DATA-mode prompt branch).
+    if (id) setModeState("DATA");
   }, []);
 
   const addMessage = useCallback((message: Omit<ChatMessage, "id" | "timestamp">): string => {
@@ -346,6 +369,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               entityContext: entityContext.breadcrumbs,
               isCommand: true,
               ...(mode === "TUNING" ? { tuningScope } : {}),
+              ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
             }),
           });
 
@@ -399,6 +423,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               entityContext: entityContext.breadcrumbs,
               conversationHistory: history,
               ...(mode === "TUNING" ? { tuningScope } : {}),
+              ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
             }),
             signal: abortControllerRef.current.signal,
           });
@@ -473,7 +498,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         abortControllerRef.current = null;
       }
     },
-    [mode, tuningScope, isStreaming, entityContext.breadcrumbs, messages, addMessage, updateMessage, appendToMessage]
+    [mode, tuningScope, discussionTicketId, isStreaming, entityContext.breadcrumbs, messages, addMessage, updateMessage, appendToMessage]
   );
 
   const value: ChatContextValue = {
@@ -482,6 +507,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     mode,
     chatLayout,
     tuningScope,
+    discussionTicketId,
+    discussionTicketNumber,
     messages,
     isStreaming,
     streamingMessageId,
@@ -493,6 +520,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setMode,
     setChatLayout,
     setTuningScope,
+    setDiscussionTicket,
     sendMessage,
     addMessage,
     updateMessage,

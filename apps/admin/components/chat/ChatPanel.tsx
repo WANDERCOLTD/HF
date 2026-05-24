@@ -154,6 +154,32 @@ function TuningScopeToggle() {
   );
 }
 
+/**
+ * #727 v1 — when the user clicks "Discuss with AI" on a feedback ticket,
+ * show a thin stripe inside the Assistant tab so they remember the assistant
+ * is loaded with that ticket as context. Click "clear" to drop the ticket.
+ */
+function DiscussingTicketStripe() {
+  const { discussionTicketId, discussionTicketNumber, setDiscussionTicket } = useChatContext();
+  if (!discussionTicketId) return null;
+  return (
+    <div className="chat-ticket-stripe" role="status" aria-label="Discussing ticket">
+      <span className="chat-ticket-stripe-label">
+        ✦ Discussing ticket{discussionTicketNumber ? ` #${discussionTicketNumber}` : ""}
+      </span>
+      <button
+        type="button"
+        className="chat-ticket-stripe-clear"
+        onClick={() => setDiscussionTicket(null)}
+        title="Stop discussing this ticket"
+        aria-label="Stop discussing this ticket"
+      >
+        clear
+      </button>
+    </div>
+  );
+}
+
 function ChatMessages() {
   const { messages, mode, isStreaming, streamingMessageId } = useChatContext();
   const currentMessages = messages[mode];
@@ -430,6 +456,9 @@ export function ChatPanel() {
 
           {/* Tuning scope toggle (only in TUNING mode) */}
           {mode === "TUNING" && <TuningScopeToggle />}
+
+          {/* Active ticket stripe (only in DATA mode when a discussion is active) */}
+          {mode === "DATA" && <DiscussingTicketStripe />}
 
           {/* Context Breadcrumbs */}
           <ChatBreadcrumbStripe breadcrumbs={breadcrumbs} />

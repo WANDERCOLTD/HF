@@ -632,3 +632,40 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* #727 v1 — "Discussing ticket #N" stripe in the Assistant tab */
+.chat-ticket-stripe {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 16px;
+  background: color-mix(in srgb, var(--accent-primary) 8%, var(--surface-primary));
+  border-bottom: 1px solid var(--border-default);
+  font-size: 12px;
+}
+
+.chat-ticket-stripe-label {
+  color: var(--accent-primary);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-ticket-stripe-clear {
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  border-radius: 10px;
+  background: var(--surface-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.chat-ticket-stripe-clear:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--surface-primary));
+}

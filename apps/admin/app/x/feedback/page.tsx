@@ -8,6 +8,7 @@ import { formatRelativeTime, getUserInitials, getCategoryIcon } from "@/utils/fo
 import { ROLE_LEVEL } from "@/lib/roles";
 import type { UserRole } from "@prisma/client";
 import { FeedbackSubmitModal } from "@/components/feedback/FeedbackSubmitModal";
+import { useChatContext } from "@/contexts/ChatContext";
 import "./feedback.css";
 
 // ── Educator-friendly status mapping ──
@@ -377,6 +378,27 @@ function FeedbackDetail({
 
   const canEdit = isOwn && ticket?.status === "OPEN";
 
+  // #727 v1 — "Discuss with AI" wires this ticket into the Assistant's system
+  // prompt. Clear when the panel unmounts so a stale ticketId doesn't leak
+  // into a follow-up DATA-mode chat the user opens from elsewhere.
+  const chat = useChatContext();
+  useEffect(() => {
+    return () => {
+      // Only clear if this panel set the discussion — guard against racing
+      // a second panel that hasn't unmounted yet.
+      if (chat.discussionTicketId === ticketId) {
+        chat.setDiscussionTicket(null);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticketId]);
+
+  const handleDiscussWithAI = (): void => {
+    if (!ticket) return;
+    chat.setDiscussionTicket(ticket.id, ticket.ticketNumber ?? null);
+    chat.openPanel();
+  };
+
   const handleAddComment = async (): Promise<void> => {
     if (!commentText.trim() || submitting) return;
     setSubmitting(true);
@@ -575,6 +597,13 @@ function FeedbackDetail({
 
       {/* Actions bar */}
       <div className="pfb-detail-actions">
+        <button
+          className="hf-btn hf-btn-primary"
+          onClick={handleDiscussWithAI}
+          title="Open the AI Assistant with this ticket loaded as context"
+        >
+          ✦ Discuss with AI
+        </button>
         {canEdit && !editing && (
           <button className="hf-btn hf-btn-secondary" onClick={startEdit}>
             Edit
