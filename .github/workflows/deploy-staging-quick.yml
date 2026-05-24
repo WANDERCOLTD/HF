@@ -7,12 +7,17 @@ name: Deploy to Staging (Quick / Lean)
 # Trigger: workflow_dispatch only (manual, not on push)
 # Target: hf-admin-dev Cloud Run service (renames to hf-admin-staging in #726 Phase 4)
 # Skips: Playwright E2E, integration, seed, migrate (deploy-dev.yml is the full path)
+#
+# Gate is OFF by default — staging deploys from main, which was already gated at
+# PR merge time. Double-gating cost 5-7 min per deploy. Pass `-f run_gate=true`
+# to force the gate (e.g., for paranoid pushes after a contested merge).
+# Release/* workflow keeps the gate ON because those commits may not be on main.
 
 on:
   workflow_dispatch:
     inputs:
-      skip_gate:
-        description: 'Skip ratchet + lint + unit (emergency only)'
+      run_gate:
+        description: 'Run ratchet + lint + unit gate (off by default — main already gated at PR merge; on for paranoid pushes)'
         type: boolean
         default: false
 
@@ -24,7 +29,7 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     name: Cheap gate (ratchet + lint + unit)
-    if: ${{ !inputs.skip_gate }}
+    if: ${{ inputs.run_gate }}
     steps:
       - uses: actions/checkout@v4
 
@@ -60,7 +65,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: [gate]
-    if: ${{ always() && (needs.gate.result == 'success' || inputs.skip_gate) }}
+    if: ${{ always() && (needs.gate.result == 'success' || needs.gate.result == 'skipped') }}
     permissions:
       contents: read
       id-token: write
