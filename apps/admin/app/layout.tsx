@@ -19,7 +19,10 @@ import { TourOverlay } from '@/src/components/shared/TourOverlay';
 import { ErrorCaptureProvider } from '@/contexts/ErrorCaptureContext';
 import { BugReportButton } from '@/components/shared/BugReportButton';
 import { StatusBar } from '@/components/shared/StatusBar';
+import { UserAvatar, computeInitials } from '@/components/shared/UserAvatar';
+import { UserContextMenu } from '@/components/shared/UserContextMenu';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useSession } from 'next-auth/react';
 import { Menu, PanelLeft } from 'lucide-react';
 import './globals.css';
 
@@ -84,6 +87,10 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const [sidebarWidth, setSidebarWidth] = useState<number>(DEFAULT_SIDEBAR_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // #753 — mobile header avatar menu
+  const mobileAvatarRef = useRef<HTMLButtonElement>(null);
+  const [mobileAvatarOpen, setMobileAvatarOpen] = useState(false);
+  const { data: mobileSession } = useSession();
   const resizeRef = useRef<HTMLDivElement>(null);
   const { isOpen, chatLayout } = useChatContext();
   const { isMobile, showDesktop } = useResponsive();
@@ -245,7 +252,31 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
               {branding.name}
             </span>
           )}
+          {/* #753 — push avatar to right + open UserContextMenu on tap so
+              mobile admins can reach version/env/role/sign-out (StatusBar +
+              TopBar are desktop-only). */}
+          {mobileSession?.user && (
+            <button
+              ref={mobileAvatarRef}
+              onClick={() => setMobileAvatarOpen((v) => !v)}
+              className="ml-auto rounded-full transition-opacity hover:opacity-80"
+              aria-label="Open account menu"
+              style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+            >
+              <UserAvatar
+                name={mobileSession.user.name || mobileSession.user.email || 'User'}
+                initials={mobileSession.user.avatarInitials}
+                role={mobileSession.user.role}
+                size={32}
+              />
+            </button>
+          )}
         </header>
+        <UserContextMenu
+          isOpen={mobileAvatarOpen}
+          onClose={() => setMobileAvatarOpen(false)}
+          anchorRef={mobileAvatarRef}
+        />
 
         {/* Mobile sidebar overlay */}
         {mobileMenuOpen && (
