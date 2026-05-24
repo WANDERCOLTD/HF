@@ -40,7 +40,7 @@ env:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    name: Cheap gate (tsc + lint + unit)
+    name: Cheap gate (ratchet + lint + unit)
     if: ${{ !inputs.skip_gate }}
     steps:
       - uses: actions/checkout@v4
@@ -53,9 +53,18 @@ jobs:
         working-directory: apps/admin
         run: npm ci
 
-      - name: tsc
+      # tsc on this repo carries hundreds of pre-existing errors (legacy schema-rot)
+      # — surfaced informationally; ratchet is the real gate.
+      - name: TypeScript type check (informational)
         working-directory: apps/admin
         run: npx tsc --noEmit
+        continue-on-error: true
+
+      # Hard gate: fails the build if tsc_errors, lint_errors, lint_warnings,
+      # or quarantined_tests goes UP vs .ratchet.json baseline.
+      - name: Ratchet check (no new debt)
+        working-directory: apps/admin
+        run: npm run ratchet:check
 
       - name: lint
         working-directory: apps/admin
