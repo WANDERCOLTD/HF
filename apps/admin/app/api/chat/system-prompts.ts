@@ -4,6 +4,7 @@ import type { PlaybookConfig } from "@/lib/types/json-fields";
 import { resolveSourceFiles, getClaudeMdContext, type BugContext } from "@/lib/chat/bug-context";
 import { resolveTerminology, TECHNICAL_TERMS, type TermMap } from "@/lib/terminology";
 import { buildTuningSystemPrompt, type TuningScope } from "@/lib/chat/tuning-system-prompt";
+import { loadTicketContext } from "@/lib/chat/ticket-context";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
 
@@ -49,6 +50,17 @@ export interface SystemPromptResult {
   llmPrompt?: unknown;
 }
 
+export interface BuildSystemPromptOptions {
+  /**
+   * #727 v1 — when set, the Feedback view has asked the Assistant to discuss
+   * a specific ticket. We load the ticket (institution-scoped via creator)
+   * and append an `## Active Ticket` block to the DATA-mode prompt.
+   */
+  discussionTicketId?: string;
+  /** Required when discussionTicketId is set — institution-scope guard. */
+  sessionUserId?: string;
+}
+
 export async function buildSystemPrompt(
   mode: ChatMode,
   entityContext: EntityBreadcrumb[],
@@ -56,6 +68,7 @@ export async function buildSystemPrompt(
   userRole?: string,
   institutionId?: string | null,
   tuningScope?: TuningScope,
+  options?: BuildSystemPromptOptions,
 ): Promise<SystemPromptResult> {
   // Resolve terminology for this user
   const terms = await resolveTerminology(
@@ -77,11 +90,12 @@ export async function buildSystemPrompt(
       // errors. See #603 follow-up (the chat panel only exposes DATA mode
       // — MODE_CONFIG in ChatContext.tsx has no TUNING tab — so this is
       // the path every Cmd+K message takes).
-      const [dataPrompt, tuningContext] = await Promise.all([
+      const [dataPrompt, tuningContext, ticketBlock] = await Promise.all([
         getPromptSpec(config.specs.chatDataHelper, DATA_SYSTEM_PROMPT),
         buildTuningSystemPrompt({ entityContext }),
+        buildTicketDiscussionBlock(options, userRole, institutionId),
       ]);
-      return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + `\n\n${baseContext}` };
+      return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + `\n\n${baseContext}` + ticketBlock };
     }
     case "TUNING": {
       // TUNING mode: catalogue + truthfulness rules + scope-aware write tools.
@@ -96,6 +110,29 @@ export async function buildSystemPrompt(
     case "BUG":
       return { prompt: await buildBugDiagnosisPrompt(entityContext, bugContext, termBlock) };
   }
+}
+
+/**
+ * #727 v1 — load the active feedback ticket (if requested) for DATA-mode
+ * Assistant. Returns "" when no discussionTicketId is set or when the scope
+ * guard refuses. The DATA case appends the result to the system prompt.
+ */
+async function buildTicketDiscussionBlock(
+  options: BuildSystemPromptOptions | undefined,
+  userRole: string | undefined,
+  institutionId: string | null | undefined,
+): Promise<string> {
+  if (!options?.discussionTicketId || !options.sessionUserId) return "";
+  const result = await loadTicketContext({
+    ticketId: options.discussionTicketId,
+    sessionUserId: options.sessionUserId,
+    sessionInstitutionId: institutionId ?? null,
+    isSuperadmin: userRole === "SUPERADMIN",
+    // Internal comments visible to OPERATOR+; mirrors GET /api/tickets/[id] filter
+    canSeeInternalComments: userRole === "OPERATOR" || userRole === "ADMIN" || userRole === "SUPERADMIN",
+  });
+  if (!result.ok) return "";
+  return `\n\n${result.block}`;
 }
 
 const DATA_SYSTEM_PROMPT = `You are a DATA HELPER for the HumanFirst Admin application.

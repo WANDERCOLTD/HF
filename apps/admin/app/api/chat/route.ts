@@ -67,6 +67,7 @@ const MAX_TOOL_ITERATIONS = 5;
  * @body conversationHistory object[] - Previous conversation messages
  * @body engine string - AI engine to use (optional, uses default if not specified)
  * @body bugContext object - Bug report context for BUG mode (url, errors, browser, viewport, timestamp)
+ * @body discussionTicketId string - UUID of an open feedback Ticket to discuss in DATA mode. When set, the assistant's system prompt includes a `## Active Ticket` block with the ticket + comment thread, institution-scoped via the creator's institutionId.
  * @response 200 text/plain (streaming response)
  * @response 400 { ok: false, error: "Message is required" }
  * @response 500 { ok: false, error: "...", errorCode: "BILLING" | "AUTH" | "RATE_LIMIT" | ... }
@@ -102,6 +103,14 @@ export async function POST(request: NextRequest) {
     const tuningScope: "LEARNER" | "PLAYBOOK" | undefined =
       rawBody?.tuningScope === "LEARNER" || rawBody?.tuningScope === "PLAYBOOK"
         ? rawBody.tuningScope
+        : undefined;
+    // #727 v1 — when the Feedback view's "Discuss with AI" button is active,
+    // the client passes the ticket UUID so the DATA-mode system prompt can
+    // load + inject the ticket as an `## Active Ticket` block. Institution-
+    // scope guard lives in lib/chat/ticket-context.ts.
+    const discussionTicketId: string | undefined =
+      typeof rawBody?.discussionTicketId === "string" && rawBody.discussionTicketId.length > 0
+        ? rawBody.discussionTicketId
         : undefined;
 
     if (!message) {
@@ -223,7 +232,15 @@ export async function POST(request: NextRequest) {
 
     // Build mode-specific system prompt with terminology
     const userInstitutionId = authResult.session.user.institutionId;
-    const { prompt: systemPrompt, llmPrompt } = await buildSystemPrompt(mode as "DATA" | "CALL" | "BUG" | "TUNING", entityContext, bugContext, userRole, userInstitutionId, tuningScope);
+    const { prompt: systemPrompt, llmPrompt } = await buildSystemPrompt(
+      mode as "DATA" | "CALL" | "BUG" | "TUNING",
+      entityContext,
+      bugContext,
+      userRole,
+      userInstitutionId,
+      tuningScope,
+      { discussionTicketId, sessionUserId: authResult.session.user.id },
+    );
 
     // Prepare messages with conversation history
     const lastHistoryMessage = conversationHistory[conversationHistory.length - 1];

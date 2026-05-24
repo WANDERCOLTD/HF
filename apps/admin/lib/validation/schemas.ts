@@ -89,4 +89,8 @@ export const chatRequestSchema = z.object({
     timestamp: z.number(),
   }).optional(),
   setupData: z.record(z.string(), z.unknown()).optional(),
+  // #727 v1 — UUID of an open feedback Ticket the Assistant should discuss.
+  // Loader applies an institution-scope guard before injecting ticket content.
+  discussionTicketId: z.string().uuid().optional(),
+  tuningScope: z.enum(["LEARNER", "PLAYBOOK"]).optional(),
 });
