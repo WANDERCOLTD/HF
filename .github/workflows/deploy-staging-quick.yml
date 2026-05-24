@@ -1,41 +1,24 @@
 name: Deploy to Staging (Quick / Lean)
 # Closes #741. Lean manual deploy to staging.
+# Now uses the .github/actions/gcp-runner-deploy composite (#748) so the
+# auth + docker-login + buildx + build-push + smoke + CF-purge boilerplate
+# lives in one place across all 3+ Cloud Run deploy workflows.
 #
-# Mirrors deploy-release.yml (pilot fast hotfix), with these differences:
-#  - Trigger: workflow_dispatch only (NOT push) — user wants explicit control
-#  - Target: hf-admin-dev Cloud Run service (renames to hf-admin-staging in #726 Phase 4)
-#  - Build arg: NEXT_PUBLIC_APP_ENV=STAGING
-#  - GHA cache scope: runner-dev (shared with deploy-dev.yml — same image base)
-#  - Cloudflare purge target: dev.humanfirstfoundation.com (URL flips to staging. in Phase 4)
-#  - NO cherry-pick check (staging is main-following, no invariant to enforce)
-#
-# Skips (same as pilot release):
-#  - Playwright E2E + integration tests (already passed at PR merge to main)
-#  - migrate job (soft-warns in summary if pending migrations detected)
-#  - seed job (use /deploy → Seed only, separately)
-#
-# Concurrency group "deploy-staging" is shared with deploy-dev.yml so a Quick
-# run cannot race a Full run's migrate step — they serialize cleanly.
+# Trigger: workflow_dispatch only (manual, not on push)
+# Target: hf-admin-dev Cloud Run service (renames to hf-admin-staging in #726 Phase 4)
+# Skips: Playwright E2E, integration, seed, migrate (deploy-dev.yml is the full path)
 
 on:
   workflow_dispatch:
     inputs:
       skip_gate:
-        description: 'Skip tsc + lint + unit (emergency only)'
+        description: 'Skip ratchet + lint + unit (emergency only)'
         type: boolean
         default: false
 
 concurrency:
   group: deploy-staging
   cancel-in-progress: true
-
-env:
-  PROJECT_ID: hf-admin-prod
-  REGION: europe-west2
-  REGISTRY: europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker
-  SERVICE: hf-admin-dev
-  APP_ENV: STAGING
-  STAGING_URL: https://dev.humanfirstfoundation.com
 
 jobs:
   gate:
@@ -85,99 +68,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Authenticate to GCP
-        id: auth
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: projects/311250123759/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-          service_account: github-deploy@hf-admin-prod.iam.gserviceaccount.com
-          token_format: access_token
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Login to Artifact Registry (Docker)
-        uses: docker/login-action@v3
-        with:
-          registry: europe-west2-docker.pkg.dev
-          username: oauth2accesstoken
-          password: ${{ steps.auth.outputs.access_token }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Migration soft-warn — list pending migrations on staging DB
         continue-on-error: true
         run: |
-          set +e
-          PENDING=$(gcloud run jobs describe hf-migrate-dev --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} --format=json 2>/dev/null | jq -r '.status.lastSuccessfulRunCompletionTime // "never"')
           MIG_COUNT=$(find apps/admin/prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l)
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## ⚠️ Migration soft-warn" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- Migration directory count: $MIG_COUNT" >> $GITHUB_STEP_SUMMARY
-          echo "- Last successful \`hf-migrate-dev\` job run: $PENDING" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "If a schema change has merged since the last migrate run, runtime errors are likely. Trigger \`hf-migrate-dev\` manually before considering this deploy stable:" >> $GITHUB_STEP_SUMMARY
+          echo "- If a schema change has merged since the last \`hf-migrate-dev\` run, runtime errors are likely. Trigger manually:" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
           echo 'gcloud run jobs execute hf-migrate-dev --region=europe-west2 --project=hf-admin-prod --wait' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      - name: Build + push runner image (cached scope=runner-dev)
-        uses: docker/build-push-action@v6
+      - name: GCP Cloud Run runner deploy
+        uses: ./.github/actions/gcp-runner-deploy
         with:
-          context: apps/admin
-          file: apps/admin/Dockerfile
-          target: runner
-          platforms: linux/amd64
-          push: true
-          build-args: |
-            NEXT_PUBLIC_APP_ENV=${{ env.APP_ENV }}
-            NODE_OPTIONS=--max-old-space-size=4096
-          tags: |
-            ${{ env.REGISTRY }}/hf-admin:staging
-            ${{ env.REGISTRY }}/hf-admin:staging-${{ github.sha }}
-          cache-from: type=gha,scope=runner-dev
-          cache-to: type=gha,mode=max,scope=runner-dev
-
-      - name: Deploy to staging Cloud Run
-        run: |
-          gcloud run deploy ${{ env.SERVICE }} \
-            --image=${{ env.REGISTRY }}/hf-admin:staging \
-            --region=${{ env.REGION }} \
-            --no-cpu-throttling
-
-      - name: Smoke test
-        run: |
-          URL=$(gcloud run services describe ${{ env.SERVICE }} --region=${{ env.REGION }} --format='value(status.url)')
-          echo "Smoke testing $URL..."
-          for i in $(seq 1 12); do
-            if curl -sf "$URL/api/health" > /dev/null 2>&1; then
-              echo "✅ Health check passed"
-              break
-            fi
-            echo "Waiting for service... (attempt $i/12)"
-            sleep 5
-          done
-          curl -sf "$URL/api/health" | jq .
-          curl -sf "$URL/api/ready" | jq .
-
-      - name: Cloudflare cache purge for dev.humanfirstfoundation.com
-        continue-on-error: true
-        run: |
-          curl -s -X POST "https://api.cloudflare.com/client/v4/zones/a75655f1818c73eaaecc232b1076dbf3/purge_cache" \
-            -H "X-Auth-Email: ${{ secrets.CF_AUTH_EMAIL }}" \
-            -H "X-Auth-Key: ${{ secrets.CF_AUTH_KEY }}" \
-            -H "Content-Type: application/json" \
-            --data '{"files":["${{ env.STAGING_URL }}/*"]}' | jq .
-
-      - name: Summary
-        run: |
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 🚀 Staging deploy complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **SHA**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **URL**: ${{ env.STAGING_URL }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Skipped**: Playwright E2E, integration tests, seed, migrate" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "If schema changed and you skipped the migration soft-warn above, run \`hf-migrate-dev\` manually before considering staging stable." >> $GITHUB_STEP_SUMMARY
+          service: hf-admin-dev
+          app_env: STAGING
+          image_tag: staging
+          cache_scope: runner-dev
+          public_url: https://dev.humanfirstfoundation.com
+          cf_auth_email: ${{ secrets.CF_AUTH_EMAIL }}
+          cf_auth_key: ${{ secrets.CF_AUTH_KEY }}
