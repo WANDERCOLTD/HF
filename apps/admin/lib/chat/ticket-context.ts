@@ -1,4 +1,60 @@
 /**
+ * #733 — when the user opens the chat on `/x/feedback` without a specific
+ * ticket selected (list view), inject a small digest of recent OPEN /
+ * IN_PROGRESS tickets so the assistant can ask "which one?" instead of
+ * pretending to know. Scope-guarded: non-SUPERADMIN sees only tickets from
+ * users in their own institution.
+ */
+export async function loadRecentTicketsDigest(
+  sessionInstitutionId: string | null,
+  isSuperadmin: boolean,
+  limit: number = 5,
+): Promise<string> {
+  const tickets = await prisma.ticket.findMany({
+    where: {
+      status: { in: ["OPEN", "IN_PROGRESS"] },
+      ...(isSuperadmin ? {} : sessionInstitutionId
+        ? { creator: { institutionId: sessionInstitutionId } }
+        : { id: "__never__" }), // No institution → see nothing
+    },
+    orderBy: { updatedAt: "desc" },
+    take: limit,
+    select: {
+      ticketNumber: true,
+      title: true,
+      status: true,
+      category: true,
+      updatedAt: true,
+      creator: { select: { name: true, email: true } },
+    },
+  });
+
+  if (tickets.length === 0) {
+    return [
+      "## Feedback list mode",
+      "",
+      "The user is on the Feedback list page. There are NO open or in-progress tickets visible to them.",
+      "If they ask about tickets, say so politely.",
+    ].join("\n");
+  }
+
+  const lines: string[] = [
+    "## Feedback list mode",
+    "",
+    "The user is on the Feedback list page and has NOT selected a specific ticket.",
+    `Here are the ${tickets.length} most recently updated OPEN / IN_PROGRESS tickets:`,
+    "",
+  ];
+  for (const t of tickets) {
+    const who = t.creator.name ?? t.creator.email;
+    lines.push(`- **#${t.ticketNumber}** [${t.status}] ${t.category} — "${t.title.slice(0, 80)}" (by ${who}, updated ${t.updatedAt.toISOString()})`);
+  }
+  lines.push("");
+  lines.push("**When the user asks about a ticket**: ask which one (by number), or list these for them to pick. Do not invent a ticket they didn't reference. Once they pick one, suggest they expand it on the page so the assistant gets full context (description + comments + screenshot).");
+  return lines.join("\n");
+}
+
+/**
  * Loads a Ticket + comment thread for injection into the Assistant's system
  * prompt when the user clicks "Discuss with AI" on a feedback ticket.
  *

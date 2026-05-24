@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import type { Ticket, TicketStatus, TicketCategory, TicketComment } from "@/types/tickets";
 import { formatRelativeTime, getUserInitials, getCategoryIcon } from "@/utils/formatters";
@@ -61,8 +62,13 @@ export default function FeedbackPage(): React.ReactElement {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("newest");
 
-  // Detail panel
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Detail panel — URL-synced (#733) so refresh + back-button work and Cmd+K
+  // can pick up the active ticket without an extra click.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const urlTicketId = searchParams?.get("ticket") ?? null;
+  const [expandedId, setExpandedId] = useState<string | null>(urlTicketId);
 
   // Modal
   const [showSubmit, setShowSubmit] = useState(false);
@@ -111,8 +117,29 @@ export default function FeedbackPage(): React.ReactElement {
   }, [searched, sortKey]);
 
   const toggleExpand = useCallback((id: string) => {
-    setExpandedId((prev) => (prev === id ? null : id));
-  }, []);
+    setExpandedId((prev) => {
+      const next = prev === id ? null : id;
+      // Push the ticket id into the URL so Cmd+K, refresh, and back-button
+      // all see the same state. Replace when collapsing so the back-button
+      // doesn't get a no-op entry.
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      if (next) {
+        params.set("ticket", next);
+        router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      } else {
+        params.delete("ticket");
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      }
+      return next;
+    });
+  }, [router, pathname, searchParams]);
+
+  // Keep `expandedId` in sync with the URL when it changes from elsewhere
+  // (e.g. user hits back, or someone deep-links into a ticket).
+  useEffect(() => {
+    setExpandedId(urlTicketId);
+  }, [urlTicketId]);
 
   const isOwn = useCallback((ticket: Ticket): boolean => ticket.creatorId === userId, [userId]);
 
@@ -127,13 +154,13 @@ export default function FeedbackPage(): React.ReactElement {
               <div className="pfb-tabs">
                 <button
                   className={`pfb-tab${activeTab === "mine" ? " active" : ""}`}
-                  onClick={() => { setActiveTab("mine"); setExpandedId(null); }}
+                  onClick={() => { setActiveTab("mine"); setExpandedId(null); router.replace(pathname, { scroll: false }); }}
                 >
                   Mine
                 </button>
                 <button
                   className={`pfb-tab${activeTab === "all" ? " active" : ""}`}
-                  onClick={() => { setActiveTab("all"); setExpandedId(null); }}
+                  onClick={() => { setActiveTab("all"); setExpandedId(null); router.replace(pathname, { scroll: false }); }}
                 >
                   All
                 </button>
@@ -378,11 +405,14 @@ function FeedbackDetail({
 
   const canEdit = isOwn && ticket?.status === "OPEN";
 
-  // #727 v1 — "Discuss with AI" wires this ticket into the Assistant's system
-  // prompt. Clear when the panel unmounts so a stale ticketId doesn't leak
-  // into a follow-up DATA-mode chat the user opens from elsewhere.
+  // #727 v1 + #733 — when a ticket detail is open, the Assistant should already
+  // know about it the moment the user opens chat (Cmd+K). Set the discussion
+  // ticket as soon as the ticket data loads and clear it on unmount.
   const chat = useChatContext();
   useEffect(() => {
+    if (ticket) {
+      chat.setDiscussionTicket(ticket.id, ticket.ticketNumber ?? null);
+    }
     return () => {
       // Only clear if this panel set the discussion — guard against racing
       // a second panel that hasn't unmounted yet.
@@ -391,7 +421,7 @@ function FeedbackDetail({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticketId]);
+  }, [ticketId, ticket?.id, ticket?.ticketNumber]);
 
   const handleDiscussWithAI = (): void => {
     if (!ticket) return;
@@ -487,13 +517,22 @@ function FeedbackDetail({
 
   return (
     <div className="pfb-detail">
-      {/* Admin status control — OPERATOR+ only, not gated on OPEN */}
-      {isAdmin && (
-        <div className="pfb-detail-section">
-          <div className="pfb-detail-label">Status</div>
-          <div className="pfb-status-control">
+      {/* #733 — sticky actions bar: stays visible at the top of the detail
+          panel regardless of how long the description / comment thread grows.
+          Discuss with AI + status (admin) live on the left, Edit / Delete /
+          Close on the right. */}
+      <div className="pfb-detail-actions-sticky">
+        <div className="pfb-detail-actions-sticky-left">
+          <button
+            className="hf-btn hf-btn-primary"
+            onClick={handleDiscussWithAI}
+            title="Open the AI Assistant with this ticket loaded as context"
+          >
+            ✦ Discuss with AI
+          </button>
+          {isAdmin && (
             <select
-              className="hf-input"
+              className="hf-input pfb-detail-status-select"
               value={ticket.status}
               onChange={(e) => handleStatusChange(e.target.value as TicketStatus)}
               disabled={submitting}
@@ -505,9 +544,24 @@ function FeedbackDetail({
                 </option>
               ))}
             </select>
-          </div>
+          )}
         </div>
-      )}
+        <div className="pfb-detail-actions-sticky-right">
+          {canEdit && !editing && (
+            <button className="hf-btn hf-btn-secondary" onClick={startEdit}>
+              Edit
+            </button>
+          )}
+          {canDelete && (
+            <button className="hf-btn hf-btn-destructive" onClick={handleDelete} disabled={submitting}>
+              {confirmDelete ? "Confirm delete?" : "Delete"}
+            </button>
+          )}
+          <button className="hf-btn hf-btn-secondary" onClick={onClose} title="Close detail">
+            ✕
+          </button>
+        </div>
+      </div>
 
       {/* Description */}
       <div className="pfb-detail-section">
@@ -595,29 +649,6 @@ function FeedbackDetail({
         </div>
       )}
 
-      {/* Actions bar */}
-      <div className="pfb-detail-actions">
-        <button
-          className="hf-btn hf-btn-primary"
-          onClick={handleDiscussWithAI}
-          title="Open the AI Assistant with this ticket loaded as context"
-        >
-          ✦ Discuss with AI
-        </button>
-        {canEdit && !editing && (
-          <button className="hf-btn hf-btn-secondary" onClick={startEdit}>
-            Edit
-          </button>
-        )}
-        {canDelete && (
-          <button className="hf-btn hf-btn-destructive" onClick={handleDelete} disabled={submitting}>
-            {confirmDelete ? "Confirm delete?" : "Delete"}
-          </button>
-        )}
-        <button className="hf-btn hf-btn-secondary" onClick={onClose}>
-          Close
-        </button>
-      </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import type { PlaybookConfig } from "@/lib/types/json-fields";
 import { resolveSourceFiles, getClaudeMdContext, type BugContext } from "@/lib/chat/bug-context";
 import { resolveTerminology, TECHNICAL_TERMS, type TermMap } from "@/lib/terminology";
 import { buildTuningSystemPrompt, type TuningScope } from "@/lib/chat/tuning-system-prompt";
-import { loadTicketContext } from "@/lib/chat/ticket-context";
+import { loadTicketContext, loadRecentTicketsDigest } from "@/lib/chat/ticket-context";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
 
@@ -59,6 +59,13 @@ export interface BuildSystemPromptOptions {
   discussionTicketId?: string;
   /** Required when discussionTicketId is set — institution-scope guard. */
   sessionUserId?: string;
+  /**
+   * #733 — when the user is on `/x/feedback` without a specific ticket
+   * selected, append a "Feedback list mode" digest with the 5 most recent
+   * OPEN/IN_PROGRESS tickets so the assistant can ask "which one?" rather
+   * than hallucinate. Only fires when `discussionTicketId` is unset.
+   */
+  pageHintRoute?: string;
 }
 
 export async function buildSystemPrompt(
@@ -90,12 +97,13 @@ export async function buildSystemPrompt(
       // errors. See #603 follow-up (the chat panel only exposes DATA mode
       // — MODE_CONFIG in ChatContext.tsx has no TUNING tab — so this is
       // the path every Cmd+K message takes).
-      const [dataPrompt, tuningContext, ticketBlock] = await Promise.all([
+      const [dataPrompt, tuningContext, ticketBlock, listHintBlock] = await Promise.all([
         getPromptSpec(config.specs.chatDataHelper, DATA_SYSTEM_PROMPT),
         buildTuningSystemPrompt({ entityContext }),
         buildTicketDiscussionBlock(options, userRole, institutionId),
+        buildFeedbackListHintBlock(options, userRole, institutionId),
       ]);
-      return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + `\n\n${baseContext}` + ticketBlock };
+      return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + `\n\n${baseContext}` + ticketBlock + listHintBlock };
     }
     case "TUNING": {
       // TUNING mode: catalogue + truthfulness rules + scope-aware write tools.
@@ -110,6 +118,27 @@ export async function buildSystemPrompt(
     case "BUG":
       return { prompt: await buildBugDiagnosisPrompt(entityContext, bugContext, termBlock) };
   }
+}
+
+/**
+ * #733 — when the user is on `/x/feedback` without a selected ticket, inject
+ * a short digest of recent OPEN/IN_PROGRESS tickets so the assistant can ask
+ * "which one?" instead of guessing. Only fires when no discussionTicketId is
+ * set (otherwise the Active Ticket block already gives full context).
+ */
+async function buildFeedbackListHintBlock(
+  options: BuildSystemPromptOptions | undefined,
+  userRole: string | undefined,
+  institutionId: string | null | undefined,
+): Promise<string> {
+  if (!options?.pageHintRoute || options.pageHintRoute !== "/x/feedback") return "";
+  if (options.discussionTicketId) return ""; // active ticket → no need for the digest
+  const block = await loadRecentTicketsDigest(
+    institutionId ?? null,
+    userRole === "SUPERADMIN",
+    5,
+  );
+  return `\n\n${block}`;
 }
 
 /**

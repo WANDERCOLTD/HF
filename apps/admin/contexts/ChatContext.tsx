@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { EntityBreadcrumb, useEntityContext } from "./EntityContext";
 
 export type ChatMode = "DATA" | "TUNING";
@@ -198,6 +199,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   // Get entity context for including in messages
   const entityContext = useEntityContext();
+  // #733 — route hint lets the chat API inject a small "Feedback list mode"
+  // digest when the user is on /x/feedback without a specific ticket open.
+  const pathname = usePathname();
 
   // Load persisted state on mount or when user changes
   useEffect(() => {
@@ -370,6 +374,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               isCommand: true,
               ...(mode === "TUNING" ? { tuningScope } : {}),
               ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
+              ...(mode === "DATA" && pathname ? { pageHint: { route: pathname } } : {}),
             }),
           });
 
@@ -424,6 +429,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               conversationHistory: history,
               ...(mode === "TUNING" ? { tuningScope } : {}),
               ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
+              ...(mode === "DATA" && pathname ? { pageHint: { route: pathname } } : {}),
             }),
             signal: abortControllerRef.current.signal,
           });
@@ -498,7 +504,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         abortControllerRef.current = null;
       }
     },
-    [mode, tuningScope, discussionTicketId, isStreaming, entityContext.breadcrumbs, messages, addMessage, updateMessage, appendToMessage]
+    [mode, tuningScope, discussionTicketId, pathname, isStreaming, entityContext.breadcrumbs, messages, addMessage, updateMessage, appendToMessage]
   );
 
   const value: ChatContextValue = {
