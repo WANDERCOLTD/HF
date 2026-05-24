@@ -207,16 +207,54 @@
   border-top: none;
   border-bottom-left-radius: 8px;
   border-bottom-right-radius: 8px;
-  padding: 16px 20px;
   margin-bottom: 2px;
+  /* #733 — outer padding moved to .pfb-detail-body-content so the sticky
+     actions bar sits flush with the panel edges and stays full-width. */
+  padding: 0;
+}
+
+/* #733 — sticky actions bar above the scrollable content. */
+.pfb-detail-actions-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--surface-primary);
+  border-bottom: 1px solid var(--border-default);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.pfb-detail-actions-sticky-left,
+.pfb-detail-actions-sticky-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pfb-detail-status-select {
+  max-width: 180px;
 }
 
 .pfb-detail-section {
   margin-bottom: 16px;
+  /* #733 — horizontal padding lives on the section so the sticky actions bar
+     above can sit flush with the panel edges. */
+  padding: 0 20px;
+}
+
+.pfb-detail-section:first-of-type {
+  padding-top: 16px;
 }
 
 .pfb-detail-section:last-child {
   margin-bottom: 0;
+  padding-bottom: 16px;
 }
 
 .pfb-detail-label {

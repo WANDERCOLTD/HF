@@ -11,11 +11,11 @@
  *   - Ticket whose creator has no institutionId returns reason=no_creator_institution for non-SUPERADMIN
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { loadTicketContext } from "@/lib/chat/ticket-context";
+import { loadTicketContext, loadRecentTicketsDigest } from "@/lib/chat/ticket-context";
 
 vi.mock("@/lib/prisma", () => {
   const mock = {
-    ticket: { findUnique: vi.fn() },
+    ticket: { findUnique: vi.fn(), findMany: vi.fn() },
   };
   return { prisma: mock };
 });
@@ -212,5 +212,49 @@ describe("loadTicketContext — comment filter + truncation", () => {
       // It should contain the truncation marker
       expect(result.block).toContain("…");
     }
+  });
+});
+
+describe("loadRecentTicketsDigest — #733 list-mode hint", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("renders a digest with the 5 most-recent OPEN/IN_PROGRESS tickets", async () => {
+    vi.mocked(prisma.ticket.findMany).mockResolvedValue([
+      { ticketNumber: 12, title: "Login broken", status: "OPEN", category: "BUG", updatedAt: new Date("2026-05-24T08:00:00Z"), creator: { name: "Pat", email: "p@x" } },
+      { ticketNumber: 11, title: "Suggestion: dark mode", status: "IN_PROGRESS", category: "FEATURE", updatedAt: new Date("2026-05-23T20:00:00Z"), creator: { name: "Sam", email: "s@x" } },
+    ] as never);
+    const block = await loadRecentTicketsDigest("inst-A", false, 5);
+    expect(block).toContain("Feedback list mode");
+    expect(block).toContain("#12");
+    expect(block).toContain("Login broken");
+    expect(block).toContain("#11");
+    expect(block).toContain("ask which one");
+  });
+
+  it("returns an explicit 'no tickets' block when none match", async () => {
+    vi.mocked(prisma.ticket.findMany).mockResolvedValue([] as never);
+    const block = await loadRecentTicketsDigest("inst-A", false, 5);
+    expect(block).toContain("NO open or in-progress tickets");
+  });
+
+  it("scopes by creator.institutionId for non-SUPERADMIN", async () => {
+    vi.mocked(prisma.ticket.findMany).mockResolvedValue([] as never);
+    await loadRecentTicketsDigest("inst-A", false, 5);
+    const callArgs = vi.mocked(prisma.ticket.findMany).mock.calls[0][0] as { where: Record<string, unknown> };
+    expect(callArgs.where).toMatchObject({ creator: { institutionId: "inst-A" } });
+  });
+
+  it("SUPERADMIN sees all institutions (no creator scope)", async () => {
+    vi.mocked(prisma.ticket.findMany).mockResolvedValue([] as never);
+    await loadRecentTicketsDigest("inst-A", true, 5);
+    const callArgs = vi.mocked(prisma.ticket.findMany).mock.calls[0][0] as { where: Record<string, unknown> };
+    expect(callArgs.where).not.toHaveProperty("creator");
+  });
+
+  it("returns the 'no creator institution' fallback (id=__never__) when session has no institution", async () => {
+    vi.mocked(prisma.ticket.findMany).mockResolvedValue([] as never);
+    await loadRecentTicketsDigest(null, false, 5);
+    const callArgs = vi.mocked(prisma.ticket.findMany).mock.calls[0][0] as { where: Record<string, unknown> };
+    expect(callArgs.where).toMatchObject({ id: "__never__" });
   });
 });

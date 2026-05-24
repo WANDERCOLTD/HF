@@ -112,6 +112,10 @@ export async function POST(request: NextRequest) {
       typeof rawBody?.discussionTicketId === "string" && rawBody.discussionTicketId.length > 0
         ? rawBody.discussionTicketId
         : undefined;
+    // #733 — small route hint so DATA mode can inject a "Feedback list mode"
+    // digest when the user is on `/x/feedback` without a specific ticket.
+    const pageHintRoute: string | undefined =
+      typeof rawBody?.pageHint?.route === "string" ? rawBody.pageHint.route : undefined;
 
     if (!message) {
       return NextResponse.json({ ok: false, error: "Message is required" }, { status: 400 });
@@ -239,7 +243,7 @@ export async function POST(request: NextRequest) {
       userRole,
       userInstitutionId,
       tuningScope,
-      { discussionTicketId, sessionUserId: authResult.session.user.id },
+      { discussionTicketId, sessionUserId: authResult.session.user.id, pageHintRoute },
     );
 
     // Prepare messages with conversation history
