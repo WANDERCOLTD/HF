@@ -117,23 +117,28 @@ export default function FeedbackPage(): React.ReactElement {
   }, [searched, sortKey]);
 
   const toggleExpand = useCallback((id: string) => {
-    setExpandedId((prev) => {
-      const next = prev === id ? null : id;
-      // Push the ticket id into the URL so Cmd+K, refresh, and back-button
-      // all see the same state. Replace when collapsing so the back-button
-      // doesn't get a no-op entry.
-      const params = new URLSearchParams(searchParams?.toString() ?? "");
-      if (next) {
-        params.set("ticket", next);
-        router.push(`${pathname}?${params.toString()}`, { scroll: false });
-      } else {
-        params.delete("ticket");
-        const qs = params.toString();
-        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-      }
-      return next;
-    });
-  }, [router, pathname, searchParams]);
+    // Compute the next value OUTSIDE the state updater. Calling router.push
+    // inside a setState updater triggers React's "Cannot update a component
+    // while rendering a different component" warning because the updater
+    // function runs during render. Reading `expandedId` from closure is
+    // fine here — the click handler runs after render, so the closure is
+    // already up to date for this event.
+    const next = expandedId === id ? null : id;
+    setExpandedId(next);
+
+    // Push the ticket id into the URL so Cmd+K, refresh, and back-button
+    // all see the same state. Replace when collapsing so the back-button
+    // doesn't get a no-op entry.
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    if (next) {
+      params.set("ticket", next);
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    } else {
+      params.delete("ticket");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }
+  }, [expandedId, router, pathname, searchParams]);
 
   // Keep `expandedId` in sync with the URL when it changes from elsewhere
   // (e.g. user hits back, or someone deep-links into a ticket).
