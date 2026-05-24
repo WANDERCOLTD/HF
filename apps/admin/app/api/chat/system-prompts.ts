@@ -18,6 +18,31 @@ interface EntityBreadcrumb {
 }
 
 /**
+ * #754 — runtime context block injected into DATA/TUNING/BUG prompts so the
+ * AI knows which version, env, DB target, route, and user role the request
+ * came from. Reduces back-and-forth ("what version are you on?") and helps
+ * the model give env-aware advice ("don't run that on prod").
+ *
+ * CALL mode deliberately excluded — admin metadata would break the roleplay.
+ */
+function buildRuntimeContextBlock(
+  userRole: string | undefined,
+  pageHintRoute: string | undefined,
+): string {
+  const version = process.env.NEXT_PUBLIC_APP_VERSION || "unknown";
+  const envLabel = process.env.NEXT_PUBLIC_APP_ENV || "SANDBOX";
+  const dbTarget = process.env.NEXT_PUBLIC_DB_TARGET;
+  const lines = [
+    `- App version: ${version}`,
+    `- Environment: ${envLabel}`,
+  ];
+  if (dbTarget) lines.push(`- DB target (sandbox VM switched): ${dbTarget}`);
+  if (pageHintRoute) lines.push(`- User's current route: ${pageHintRoute}`);
+  if (userRole) lines.push(`- User role: ${userRole}`);
+  return `\n\n## Runtime context\n${lines.join("\n")}`;
+}
+
+/**
  * Build a terminology block to inject into system prompts.
  * Only included when terms differ from technical defaults.
  */
@@ -85,6 +110,9 @@ export async function buildSystemPrompt(
   const termBlock = buildTerminologyBlock(terms);
 
   const baseContext = await buildEntityContext(entityContext);
+  // #754: runtime context (version / env / dbTarget / route / role) — injected
+  // for non-CALL modes. CALL would break voice roleplay if it knew the env.
+  const runtimeBlock = buildRuntimeContextBlock(userRole, options?.pageHintRoute);
 
   switch (mode) {
     case "DATA": {
@@ -103,7 +131,7 @@ export async function buildSystemPrompt(
         buildTicketDiscussionBlock(options, userRole, institutionId),
         buildFeedbackListHintBlock(options, userRole, institutionId),
       ]);
-      return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + `\n\n${baseContext}` + ticketBlock + listHintBlock };
+      return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + runtimeBlock + `\n\n${baseContext}` + ticketBlock + listHintBlock };
     }
     case "TUNING": {
       // TUNING mode: catalogue + truthfulness rules + scope-aware write tools.
@@ -111,12 +139,12 @@ export async function buildSystemPrompt(
       // not see advertised tools it cannot reach in this mode. The
       // `tuningScope` (LEARNER | PLAYBOOK) comes from the Tuning tab toggle.
       const tuningPrompt = await buildTuningSystemPrompt({ entityContext, tuningScope });
-      return { prompt: tuningPrompt + termBlock + `\n\n${baseContext}` };
+      return { prompt: tuningPrompt + termBlock + runtimeBlock + `\n\n${baseContext}` };
     }
     case "CALL":
       return await buildCallSimPrompt(entityContext, terms, termBlock);
     case "BUG":
-      return { prompt: await buildBugDiagnosisPrompt(entityContext, bugContext, termBlock) };
+      return { prompt: await buildBugDiagnosisPrompt(entityContext, bugContext, termBlock, runtimeBlock) };
   }
 }
 
@@ -1104,10 +1132,11 @@ Be specific and actionable. Reference actual file paths and code from the contex
 async function buildBugDiagnosisPrompt(
   entityContext: EntityBreadcrumb[],
   bugContext?: BugContext,
-  termBlock?: string
+  termBlock?: string,
+  runtimeBlock?: string,
 ): Promise<string> {
   const bugPrompt = await getPromptSpec(config.specs.chatBugDiagnosis, BUG_SYSTEM_PROMPT);
-  const parts: string[] = [bugPrompt + (termBlock || "")];
+  const parts: string[] = [bugPrompt + (termBlock || "") + (runtimeBlock || "")];
 
   // Architecture context from CLAUDE.md
   const claudeMd = await getClaudeMdContext();

@@ -374,7 +374,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               isCommand: true,
               ...(mode === "TUNING" ? { tuningScope } : {}),
               ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
-              ...(mode === "DATA" && pathname ? { pageHint: { route: pathname } } : {}),
+              ...(pathname && (mode === "DATA" || mode === "TUNING") ? { pageHint: { route: pathname } } : {}),
             }),
           });
 
@@ -429,7 +429,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               conversationHistory: history,
               ...(mode === "TUNING" ? { tuningScope } : {}),
               ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
-              ...(mode === "DATA" && pathname ? { pageHint: { route: pathname } } : {}),
+              ...(pathname && (mode === "DATA" || mode === "TUNING") ? { pageHint: { route: pathname } } : {}),
             }),
             signal: abortControllerRef.current.signal,
           });
