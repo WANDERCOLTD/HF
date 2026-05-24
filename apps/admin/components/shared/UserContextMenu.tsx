@@ -28,6 +28,9 @@ import { useMasquerade } from "@/contexts/MasqueradeContext";
 import { useDomainScope } from "@/contexts/DomainScopeContext";
 import { ROLE_LEVEL } from "@/lib/roles";
 import { UserAvatar, ROLE_COLORS } from "./UserAvatar";
+import { envLabel, envSidebarColor, envTextColor, showEnvBanner, envDbEffective, isDbSwitched, dbTargetColor } from "./EnvironmentBanner";
+
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION;
 
 interface UserContextMenuProps {
   isOpen: boolean;
@@ -384,15 +387,18 @@ export function UserContextMenu({
         style={{ background: "transparent" }}
       />
 
-      {/* Menu popover — fixed position calculated from anchor button */}
+      {/* Menu popover — fixed position calculated from anchor button.
+          #753: max-height + scroll so iPhone (667px) doesn't lose menu items
+          below the viewport. */}
       <div
         ref={menuRef}
-        className="fixed z-50 w-72 rounded-xl border overflow-hidden"
+        className="fixed z-50 w-72 rounded-xl border overflow-y-auto"
         style={{
           background: "var(--surface-primary)",
           borderColor: "var(--border-default)",
           top: pos.top + 4,
           right: pos.right,
+          maxHeight: `calc(100dvh - ${pos.top + 16}px)`,
           boxShadow:
             "0 20px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04)",
         }}
@@ -420,6 +426,50 @@ export function UserContextMenu({
                 {roleLabel}
               </div>
             </div>
+          </div>
+
+          {/* #753: env + version row — surfaces what StatusBar shows on
+              desktop, since StatusBar is hidden on mobile. Visible all viewports. */}
+          <div className="mt-3 flex items-center gap-2 text-xs">
+            {showEnvBanner && envLabel && envSidebarColor && (
+              <span
+                className="hf-status-env-badge"
+                style={{
+                  background: envSidebarColor,
+                  ...(envTextColor ? { color: envTextColor } : { color: "var(--surface-primary)" }),
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  fontWeight: 600,
+                  fontSize: 11,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+                title={isDbSwitched ? `${envLabel} code, DB pointed at ${envDbEffective.toUpperCase()}` : `${envLabel} · DB:${envDbEffective}`}
+              >
+                {envLabel}
+                <span aria-hidden="true" style={{ opacity: 0.5 }}>·</span>
+                <span
+                  style={
+                    isDbSwitched
+                      ? {
+                          background: dbTargetColor(envDbEffective) || undefined,
+                          color: "var(--surface-primary)",
+                          borderRadius: 3,
+                          padding: "0 4px",
+                        }
+                      : { opacity: 0.85 }
+                  }
+                >
+                  {isDbSwitched ? `DB→${envDbEffective.toUpperCase()}` : `DB:${envDbEffective}`}
+                </span>
+              </span>
+            )}
+            {APP_VERSION && (
+              <span style={{ color: "var(--text-muted)", marginLeft: "auto" }}>
+                v{APP_VERSION}
+              </span>
+            )}
           </div>
         </div>
 
