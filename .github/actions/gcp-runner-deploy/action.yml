@@ -33,11 +33,11 @@ inputs:
     required: false
     default: a75655f1818c73eaaecc232b1076dbf3
   cf_auth_email:
-    description: Cloudflare API email — pass `${{ secrets.CF_AUTH_EMAIL }}` from caller
+    description: Cloudflare API email — caller passes secrets.CF_AUTH_EMAIL
     required: false
     default: ''
   cf_auth_key:
-    description: Cloudflare API key — pass `${{ secrets.CF_AUTH_KEY }}` from caller
+    description: Cloudflare API key — caller passes secrets.CF_AUTH_KEY
     required: false
     default: ''
   registry:
