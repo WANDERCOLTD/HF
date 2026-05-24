@@ -144,7 +144,7 @@ gcloud run jobs execute hf-seed-dev --region=europe-west2 --project=hf-admin-pro
 ## 9. Smoke tests
 
 ```bash
-APP_URL="https://hf-admin-dev-311250123759.europe-west2.run.app"
+APP_URL="https://hf-admin-dev-nqep3i44ra-nw.a.run.app"
 curl -f "$APP_URL/api/health"
 curl -f "$APP_URL/api/ready"
 curl -f "$APP_URL/api/system/readiness"

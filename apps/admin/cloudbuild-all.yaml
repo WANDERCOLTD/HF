@@ -27,7 +27,8 @@ steps:
       - '--cache-repo=europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker/hf-shared-cache'
       - '--cache-ttl=720h'
       - '--snapshot-mode=redo'
-      - '--compressed-caching=false'
+      # #726 Phase 2G: enable compressed caching — faster cache push/pull
+      - '--compressed-caching=true'
 
   # --- Step 2: seed (parallel with runner — deps layer cached from step 1) ---
   - id: seed
@@ -42,7 +43,8 @@ steps:
       - '--cache-repo=europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker/hf-shared-cache'
       - '--cache-ttl=720h'
       - '--snapshot-mode=redo'
-      - '--compressed-caching=false'
+      # #726 Phase 2G: enable compressed caching — faster cache push/pull
+      - '--compressed-caching=true'
 
   # --- Step 3: runner (parallel with seed — deps layer cached from step 1) ---
   - id: runner
@@ -57,7 +59,8 @@ steps:
       - '--cache-repo=europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker/hf-shared-cache'
       - '--cache-ttl=720h'
       - '--snapshot-mode=redo'
-      - '--compressed-caching=false'
+      # #726 Phase 2G: enable compressed caching — faster cache push/pull
+      - '--compressed-caching=true'
       - '--build-arg=NEXT_PUBLIC_APP_ENV=${_APP_ENV}'
       - '--build-arg=NODE_OPTIONS=--max-old-space-size=4096'
 

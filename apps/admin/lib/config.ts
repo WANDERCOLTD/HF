@@ -101,8 +101,8 @@ export const config = {
   security: {
     /**
      * Internal API secret for server-to-server calls.
-     * REQUIRED in production. In dev, falls back to a deterministic value
-     * derived from DATABASE_URL so it works without manual setup.
+     * REQUIRED in production. In dev, falls back to a fixed value so the
+     * key fingerprint stays stable across DATABASE_URL swaps (sandbox/staging/pilot).
      */
     get internalApiSecret(): string {
       const envVal = process.env.INTERNAL_API_SECRET;
@@ -113,7 +113,7 @@ export const config = {
             "Generate with: openssl rand -hex 32"
         );
       }
-      return "dev-internal-" + (process.env.DATABASE_URL?.slice(-8) || "local");
+      return "dev-internal-fallback";
     },
     /** CORS allowed origins (comma-separated). Empty = no cross-origin allowed. */
     get corsAllowedOrigins(): string[] {
@@ -731,9 +731,13 @@ export const config = {
     get nodeEnv(): string {
       return optional("NODE_ENV", "development");
     },
-    /** Application environment label (DEV / STG / LIVE) */
+    /** Application environment label — SANDBOX | STAGING | PILOT | PROD (legacy: DEV | TEST | STG | LIVE still accepted) */
     get env(): string {
-      return optional("NEXT_PUBLIC_APP_ENV", "DEV");
+      return optional("NEXT_PUBLIC_APP_ENV", "SANDBOX");
+    },
+    /** DB target when the sandbox VM is pointed at a non-sandbox DB (staging | pilot) */
+    get dbTarget(): string | null {
+      return process.env.NEXT_PUBLIC_DB_TARGET || null;
     },
     /** Is production environment */
     get isProduction(): boolean {

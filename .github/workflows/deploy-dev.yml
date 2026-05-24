@@ -1,12 +1,16 @@
-name: Deploy to Dev
+name: Deploy to Staging
+# #726 transition: targets the existing hf-admin-dev Cloud Run service. Phase 4
+# renames the service to hf-admin-staging — this workflow's SERVICE env var
+# will be updated at that time. Filename stays as deploy-dev.yml until then to
+# preserve the repository_dispatch token reference.
 
 on:
   workflow_dispatch:
   repository_dispatch:
-    types: [deploy-dev]
+    types: [deploy-dev, deploy-staging]
 
 concurrency:
-  group: deploy-dev
+  group: deploy-staging
   cancel-in-progress: true
 
 env:
@@ -49,7 +53,7 @@ jobs:
           platforms: linux/amd64
           push: true
           build-args: |
-            NEXT_PUBLIC_APP_ENV=DEV
+            NEXT_PUBLIC_APP_ENV=STAGING
             NODE_OPTIONS=--max-old-space-size=4096
           tags: |
             ${{ env.REGISTRY }}/hf-admin:dev

@@ -10,10 +10,10 @@ Ask the user using AskUserQuestion:
 **Header:** "E2E Tests"
 
 Options:
-1. **Local (VM tunnel)** — Run against localhost:3000 (requires `/vm-dev` or `/vm-tunnel` running)
-2. **DEV** — Run against dev.humanfirstfoundation.com
-3. **TEST** — Run against test.humanfirstfoundation.com
-4. **PROD** — Run against lab.humanfirstfoundation.com
+1. **Local (sandbox VM tunnel)** — Run against localhost:3000 (requires `/vm-dev` or `/vm-tunnel` running)
+2. **STAGING** — Run against staging.humanfirstfoundation.com (currently still served by `hf-admin-dev` at `dev.` — Phase 4 rename pending)
+3. **PILOT** — Run against pilot.humanfirstfoundation.com (after #726 Phase 5)
+4. **PROD** — Run against app.humanfirstfoundation.com (after #726 Phase 6)
 
 Then ask which tests to run:
 
@@ -59,12 +59,12 @@ cd /Users/paulwander/projects/HF/apps/admin && npm run test:e2e
 cd /Users/paulwander/projects/HF/apps/admin && npx playwright test <path>
 ```
 
-### Cloud environments (DEV / TEST / PROD)
+### Cloud environments (STAGING / PILOT / PROD)
 
 Map environment to URL:
-- DEV → `https://dev.humanfirstfoundation.com`
-- TEST → `https://test.humanfirstfoundation.com`
-- PROD → `https://lab.humanfirstfoundation.com`
+- STAGING → `https://staging.humanfirstfoundation.com` *(transition: currently `https://dev.humanfirstfoundation.com` until Phase 4)*
+- PILOT → `https://pilot.humanfirstfoundation.com` *(after Phase 5)*
+- PROD → `https://app.humanfirstfoundation.com` *(after Phase 6)*
 
 ```bash
 cd /Users/paulwander/projects/HF/apps/admin && CLOUD_E2E=1 NEXT_PUBLIC_API_URL=<URL> npx playwright test tests/cloud/<scope> --project=cloud

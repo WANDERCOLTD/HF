@@ -38,8 +38,9 @@ Full database clone using `pg_dump | psql` via the hf-dev VM. All 3 databases ar
 **Header:** "Source"
 
 Options:
-1. **TEST** — test.humanfirstfoundation.com (safe, recommended for dev work)
-2. **PROD** — lab.humanfirstfoundation.com (real production data)
+1. **STAGING** — staging.humanfirstfoundation.com (safe; currently still at dev. — Phase 4 rename pending)
+2. **PILOT** — pilot.humanfirstfoundation.com (only available after #726 Phase 5)
+3. **PROD** — app.humanfirstfoundation.com (only available after #726 Phase 6)
 
 ### Step 2: Ask target
 
@@ -47,10 +48,13 @@ Options:
 **Header:** "Target"
 
 Options:
-1. **DEV (Recommended)** — dev.humanfirstfoundation.com (safe target)
-2. **TEST** — test.humanfirstfoundation.com (only if cloning PROD → TEST)
+1. **SANDBOX (Recommended)** — VM's `hf_sandbox` DB (safe target — wipe-friendly)
+2. **STAGING** — staging.humanfirstfoundation.com (refresh staging with pilot or prod data)
+3. **PILOT** — pilot.humanfirstfoundation.com (only if cloning PROD → PILOT)
 
 **NEVER allow PROD as a clone target.** If the user picks PROD, refuse and explain why.
+
+> **Transition state (#726):** `hf_test` and `hf` (old prod) databases were dropped in Phase 1. The new DB names are `hf_sandbox` (VM), `hf_staging` (will replace `hf_dev`), `hf_pilot`, `hf_prod`. Currently only `hf_dev` exists — Phase 3 renames it to `hf_sandbox`, Phase 4 creates `hf_staging`.
 
 ### Step 3: Confirm
 
