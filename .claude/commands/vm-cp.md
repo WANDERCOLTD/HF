@@ -4,7 +4,7 @@ description: Commit locally + push + pull on VM
 
 Commit local changes, push to remote, then pull on the hf-dev VM.
 
-**NOTE:** This updates the hf-dev VM only (localhost:3000 via SSH tunnel). It does NOT deploy to Cloud Run environments (dev/test/prod). To deploy to `dev.humanfirstfoundation.com` etc., use `/deploy`.
+**NOTE:** This updates the sandbox VM (hf-dev) only (localhost:3000 via SSH tunnel). It does NOT deploy to Cloud Run environments (staging/pilot/prod). To deploy to `staging.humanfirstfoundation.com` etc., use `/deploy`.
 
 ## 0. Pre-check — local branch health (#423)
 

@@ -324,25 +324,38 @@ No re-seeding is needed after initial setup unless you want to add new spec file
 
 ---
 
-## Live Infrastructure (3 Environments)
+## Live Infrastructure (transitional during #726)
 
-All 3 environments live in the same GCP project (`hf-admin-prod`, region `europe-west2`). Public URLs route through a **Cloudflare Tunnel** (`00d2c2cc-...`), NOT directly to Cloud Run.
+All envs live in the same GCP project (`hf-admin-prod`, region `europe-west2`). **Public URLs are routed by a Cloudflare Worker (`still-cake-1d83`), NOT the Cloudflare Tunnel** — see [CLOUDFLARE-WORKER-ROUTING.md](./CLOUDFLARE-WORKER-ROUTING.md) for the canonical routing layer. The cloudflared tunnel on `hf-dev` is currently dead weight.
 
-| Env | Domain | Cloud Run Service | DB Secret | Seed Job | Migrate Job |
-|-----|--------|-------------------|-----------|----------|-------------|
-| **DEV** | `dev.humanfirstfoundation.com` | `hf-admin-dev` | `DATABASE_URL_DEV` | `hf-seed-dev` | `hf-migrate-dev` |
-| **TEST** | `test.humanfirstfoundation.com` | `hf-admin-test` | `DATABASE_URL_TEST` | `hf-seed-test` | `hf-migrate-test` |
-| **PROD** | `lab.humanfirstfoundation.com` | `hf-admin` | `DATABASE_URL` | `hf-seed` | `hf-migrate` |
+### Target state (after #726 completes)
+
+| Env | Domain | Cloud Run Service | DB Secret | Cloud SQL DB | Seed Job | Migrate Job |
+|-----|--------|-------------------|-----------|--------------|----------|-------------|
+| **sandbox** | localhost via SSH tunnel | n/a (VM `next dev`) | (VM `.env.local`) | `hf_sandbox` | n/a | n/a |
+| **staging** | `staging.humanfirstfoundation.com` | `hf-admin-staging` | `DATABASE_URL_STAGING` | `hf_staging` | `hf-seed-staging` | `hf-migrate-staging` |
+| **pilot** | `pilot.humanfirstfoundation.com` | `hf-admin-pilot` | `DATABASE_URL_PILOT` | `hf_pilot` | `hf-seed-pilot` | `hf-migrate-pilot` |
+| **prod** | `app.humanfirstfoundation.com` | `hf-admin-prod` | `DATABASE_URL_PROD` | `hf_prod` | `hf-seed-prod` | `hf-migrate-prod` |
+
+### Current state (as of #726 Phase 1 complete)
+
+| Env | Status | Notes |
+|-----|--------|-------|
+| **sandbox** (VM) | ✅ alive | Still uses `hf_dev` DB until Phase 3 renames to `hf_sandbox` |
+| **staging** | 🟡 transitional | Cloud Run `hf-admin-dev` is alive at `dev.humanfirstfoundation.com`; renames to `hf-admin-staging` at `staging.humanfirstfoundation.com` in Phase 4 |
+| **pilot** | ⏳ to be provisioned | Phase 5 — old `hf-admin-test` + `hf_test` DB killed in Phase 1 |
+| **prod** | ⏳ to be provisioned | Phase 6 — old `hf-admin` + `hf` DB + `lab.humanfirstfoundation.com` killed in Phase 1 (prod was broken/unused) |
 
 ### Shared Infrastructure
 
 | Resource | Details |
 |----------|---------|
-| **Cloud SQL** | `hf-db` — PostgreSQL 16, db-f1-micro, private IP only (172.23.0.3). Separate databases per env. |
+| **Cloud SQL** | `hf-db` — PostgreSQL 16, db-f1-micro, private IP only (172.23.0.3). Separate databases per env. **Automated daily backups enabled 2026-05-24** (14 retained, 7-day PITR, start time 02:00). |
 | **VPC Connector** | `hf-connector` — bridges Cloud Run → Cloud SQL |
 | **Artifact Registry** | `europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker/` |
-| **Secrets Manager** | `DATABASE_URL`, `DATABASE_URL_DEV`, `DATABASE_URL_TEST`, `AUTH_SECRET`, `HF_SUPERADMIN_TOKEN` |
-| **Cloudflare** | Zone `humanfirstfoundation.com`, Tunnel `00d2c2cc-...` routes all 3 domains |
+| **Secrets Manager** | Currently: `DATABASE_URL_DEV` (will become `DATABASE_URL_STAGING` in Phase 4), `AUTH_SECRET`, `HF_SUPERADMIN_TOKEN`, `ANTHROPIC_API_KEY`, `INTERNAL_API_SECRET`, `OPENAI_API_KEY` |
+| **Cloudflare Worker** | `still-cake-1d83` (canonical router) — see [CLOUDFLARE-WORKER-ROUTING.md](./CLOUDFLARE-WORKER-ROUTING.md) |
+| **Cloudflare Tunnel** | `00d2c2cc-...` on hf-dev VM — currently dead weight, may be decommissioned |
 
 ### Environment-Specific Deploy Commands
 
@@ -364,11 +377,19 @@ gcloud run jobs execute hf-seed --region=europe-west2 --wait
 
 ### Environment Indicator
 
-Each environment should set `NEXT_PUBLIC_APP_ENV` to show a colored stripe:
-- `DEV` → blue stripe
-- `TEST` → purple stripe
-- `STG` → amber stripe
-- `LIVE` → no stripe (production)
+Each environment should set `NEXT_PUBLIC_APP_ENV` to drive the colored env stripe + StatusBar badge + UserAvatar ring:
+
+| Canonical value | Color | Legacy alias |
+|-----------------|-------|--------------|
+| `SANDBOX` | grey (`--env-sandbox-color`, default `#64748b`) | — |
+| `STAGING` | blue (`--env-staging-color`, default `#3b82f6`) | `DEV`, `STG` |
+| `PILOT` | purple (`--env-pilot-color`, default `#8b5cf6`) | `TEST` |
+| `PROD` | gold (`--env-prod-color`, default `#F5B856`) | `LIVE` |
+
+Optional `NEXT_PUBLIC_DB_TARGET` (set by `/db-switch`):
+- When the sandbox VM is temporarily pointed at a non-sandbox DB, set this to `staging` / `pilot`.
+- Drives the `[VM→PILOT]` browser tab prefix + the two-part StatusBar chip `[SANDBOX | DB→PILOT]` + the colored avatar ring across every page.
+- Restored to `sandbox` (or removed) when `/db-switch sandbox` runs.
 
 **GCP Project**: `hf-admin-prod`
 **Estimated cost**: ~$17/mo per environment (Cloud SQL $10 + VPC connector $7)

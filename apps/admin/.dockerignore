@@ -1,8 +1,28 @@
+# Build artifacts + caches
 node_modules
 .next
 dist
 coverage
+playwright-report
+test-results
 *.log
-.env*
 .DS_Store
+
+# Secrets — never copy
+.env*
+
+# Git + meta
 .git
+
+# Tests + e2e (not needed for runner build; seed copies what it needs explicitly)
+tests
+e2e
+evals
+
+# Docs (saves COPY . . layer cost on source-only changes)
+docs
+README.md
+ARCHITECTURE.md
+ADMIN_USER_GUIDE.md
+QUICKSTART.md
+TODO.md

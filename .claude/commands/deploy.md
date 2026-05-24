@@ -15,17 +15,19 @@ Interactive deployment guide for GCP Cloud Run. Supports 3 environments.
 **multiSelect:** false
 
 Options:
-1. **DEV (Recommended)** — dev.humanfirstfoundation.com — safe for testing
-2. **TEST** — test.humanfirstfoundation.com — pre-production validation
-3. **PROD** — lab.humanfirstfoundation.com — live production
+1. **STAGING (Recommended)** — dev.humanfirstfoundation.com — daily-driver cloud env, will move to staging.humanfirstfoundation.com in #726 Phase 4
+2. **PILOT** — *not yet provisioned* — see #726 Phase 5 (target: pilot.humanfirstfoundation.com)
+3. **PROD** — *not yet provisioned* — see #726 Phase 6 (target: app.humanfirstfoundation.com)
 
-## Environment Map
+> **Transition state (#726):** The cloud "DEV" env was conceptually renamed to STAGING but the underlying Cloud Run service, jobs, and secret are still named with `-dev` suffix until Phase 4 cuts over. Until then, `/deploy STAGING` actually targets `hf-admin-dev`.
 
-| Env | Domain | Service | Seed Job | Migrate Job | DB Secret | Seed Profile | `_APP_ENV` |
-|-----|--------|---------|----------|-------------|-----------|--------------|------------|
-| DEV | dev.humanfirstfoundation.com | `hf-admin-dev` | `hf-seed-dev` | `hf-migrate-dev` | `DATABASE_URL_DEV` | `full` | `DEV` |
-| TEST | test.humanfirstfoundation.com | `hf-admin-test` | `hf-seed-test` | `hf-migrate-test` | `DATABASE_URL_TEST` | `test` | `TEST` |
-| PROD | lab.humanfirstfoundation.com | `hf-admin` | `hf-seed` | `hf-migrate` | `DATABASE_URL` | `core` | `LIVE` |
+## Environment Map (current — transitional)
+
+| Env (conceptual) | Domain | Service | Seed Job | Migrate Job | DB Secret | Seed Profile | `_APP_ENV` |
+|------------------|--------|---------|----------|-------------|-----------|--------------|------------|
+| STAGING | dev.humanfirstfoundation.com | `hf-admin-dev` *(renames to `hf-admin-staging` in Phase 4)* | `hf-seed-dev` | `hf-migrate-dev` | `DATABASE_URL_DEV` *(renames to `DATABASE_URL_STAGING` in Phase 4)* | `full` | `STAGING` (legacy `DEV` still works) |
+| PILOT | (provision in Phase 5) | `hf-admin-pilot` | `hf-seed-pilot` | `hf-migrate-pilot` | `DATABASE_URL_PILOT` | `blank-ielts` | `PILOT` |
+| PROD | (provision in Phase 6) | `hf-admin-prod` | `hf-seed-prod` | `hf-migrate-prod` | `DATABASE_URL_PROD` | `core` | `PROD` |
 
 All environments:
 - **GCP Project**: `hf-admin-prod`
@@ -163,7 +165,7 @@ gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash -c 
 '
 ```
 
-Set `$APP_ENV` from the `_APP_ENV` column in the Environment Map (DEV→`DEV`, TEST→`TEST`, PROD→`LIVE`).
+Set `$APP_ENV` from the `_APP_ENV` column in the Environment Map (STAGING→`STAGING`, PILOT→`PILOT`, PROD→`PROD`). Legacy `DEV`/`TEST`/`LIVE` values are still accepted by the runtime for one transition release.
 
 ### 3. Deploy to target environment
 ```bash
@@ -217,7 +219,7 @@ Same as Quick Deploy step 1.
 gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- "cd ~/HF && git pull --rebase && cd apps/admin && gcloud builds submit --config cloudbuild-all.yaml --project hf-admin-prod --region europe-west2 --substitutions=_TAG=latest,_APP_ENV=\$APP_ENV ."
 ```
 
-Set `$APP_ENV` from the `_APP_ENV` column in the Environment Map (DEV→`DEV`, TEST→`TEST`, PROD→`LIVE`).
+Set `$APP_ENV` from the `_APP_ENV` column in the Environment Map (STAGING→`STAGING`, PILOT→`PILOT`, PROD→`PROD`). Legacy `DEV`/`TEST`/`LIVE` values are still accepted by the runtime for one transition release.
 
 ### 3. Run migrate job
 ```bash
@@ -296,9 +298,9 @@ Use the **direct Cloud Run URL** (bypasses Cloudflare):
 
 | Env | Direct URL |
 |-----|-----------|
-| DEV | `https://hf-admin-dev-311250123759.europe-west2.run.app` |
-| TEST | `https://hf-admin-test-311250123759.europe-west2.run.app` |
-| PROD | `https://hf-admin-311250123759.europe-west2.run.app` |
+| STAGING | `https://hf-admin-dev-nqep3i44ra-nw.a.run.app` *(infra renames in Phase 4)* |
+| PILOT | `https://hf-admin-pilot-nqep3i44ra-nw.a.run.app` *(after Phase 5)* |
+| PROD | `https://hf-admin-prod-nqep3i44ra-nw.a.run.app` *(after Phase 6)* |
 
 ```bash
 APP_URL="<direct URL from table above>"
@@ -358,5 +360,5 @@ git push origin deploy-$ENV-$(date +%Y%m%d-%H%M%S)
 - After every deploy, run smoke tests automatically
 - After every successful deploy, run deploy tagging
 - If any step fails, stop and diagnose — don't continue
-- For PROD deploys, add an extra confirmation: "You are deploying to PRODUCTION (lab.humanfirstfoundation.com). Are you sure?"
+- For PROD deploys, add an extra confirmation: "You are deploying to PRODUCTION (app.humanfirstfoundation.com). Are you sure?"
 - Cloud Build uses Kaniko layer caching (30-day TTL). First build after a cache miss is slow; subsequent code-only builds skip npm ci. If a deploy uses stale cached layers, clear the cache repos in Artifact Registry.

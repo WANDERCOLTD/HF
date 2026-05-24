@@ -26,7 +26,7 @@ import { ROLE_LEVEL } from '@/lib/roles';
 import { useBranding } from '@/contexts/BrandingContext';
 import { useMasquerade } from '@/contexts/MasqueradeContext';
 import { useErrorCapture } from '@/contexts/ErrorCaptureContext';
-import { envLabel, envSidebarColor, envTextColor, showEnvBanner, isLocalhost } from './EnvironmentBanner';
+import { envLabel, envSidebarColor, envTextColor, showEnvBanner, isLocalhost, envDbTarget, envCanonical, dbTargetColor } from './EnvironmentBanner';
 import { JobsPopup } from './JobsPopup';
 import { HealthPopup } from './HealthPopup';
 import type { IniResult } from './HealthPopup';
@@ -294,20 +294,36 @@ export function StatusBar() {
           </span>
         )}
 
-        {/* Environment badge → /x/settings */}
-        {showEnvBanner && envLabel && envSidebarColor && (
-          <span
-            className="hf-status-env-badge hf-status-clickable"
-            style={{
-              background: envSidebarColor,
-              ...(envTextColor ? { color: envTextColor } : {}),
-            }}
-            onClick={() => router.push('/x/settings')}
-            title="View settings"
-          >
-            {isLocalhost() && envLabel === 'DEV' ? 'VM' : envLabel}
-          </span>
-        )}
+        {/* Environment badge → /x/settings
+            Single chip when env matches DB target (default).
+            Two-part chip [SANDBOX | DB→PILOT] when sandbox VM is pointed at another env's DB. */}
+        {showEnvBanner && envLabel && envSidebarColor && (() => {
+          const onVm = isLocalhost();
+          const baseLabel = onVm && envCanonical === 'SANDBOX' ? 'VM' : envLabel;
+          const switched = !!envDbTarget && envDbTarget.toUpperCase() !== envCanonical;
+          const targetColor = switched ? dbTargetColor(envDbTarget) : null;
+          return (
+            <span
+              className="hf-status-env-badge hf-status-clickable"
+              style={{
+                background: envSidebarColor,
+                ...(envTextColor ? { color: envTextColor } : {}),
+              }}
+              onClick={() => router.push('/x/settings')}
+              title={switched ? `${envCanonical} code, DB pointed at ${envDbTarget?.toUpperCase()}` : 'View settings'}
+            >
+              {baseLabel}
+              {switched && targetColor && (
+                <>
+                  <span aria-hidden="true" style={{ opacity: 0.5, marginInline: 4 }}>|</span>
+                  <span style={{ background: targetColor, color: 'var(--surface-primary)', borderRadius: 4, padding: '0 4px' }}>
+                    DB→{envDbTarget?.toUpperCase()}
+                  </span>
+                </>
+              )}
+            </span>
+          );
+        })()}
 
         {/* Masquerade chip → MasqueradePopup */}
         {isMasq && (

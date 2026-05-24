@@ -5,16 +5,25 @@ import { useEffect } from 'react';
 /**
  * Dynamic favicon — HFF monogram colored by environment.
  *
- * DEV (Cloud Run):  Blue background (#3b82f6)
- * DEV (VM/local):   Teal background (#06b6d4) — distinct from Cloud Run DEV
- * TEST:             Purple background (#8b5cf6)
- * STG:              Amber background (#f59e0b)
- * LIVE:             Navy background (#1F1B4A) with gold "HFF" text
+ * SANDBOX (VM/local):  Teal background (#06b6d4)
+ * STAGING (Cloud Run): Blue background (#3b82f6)
+ * PILOT (Cloud Run):   Purple background (#8b5cf6)
+ * PROD (Cloud Run):    Navy background (#1F1B4A) with gold "HFF" text
  *
+ * Legacy DEV/TEST/STG/LIVE values are mapped to the canonical names.
  * Replaces the default Next.js triangle favicon at runtime.
  */
 
-const ENV = (process.env.NEXT_PUBLIC_APP_ENV || 'DEV').toUpperCase();
+const RAW_ENV = (process.env.NEXT_PUBLIC_APP_ENV || 'SANDBOX').toUpperCase();
+
+const LEGACY_ALIAS: Record<string, string> = {
+  DEV: 'STAGING',
+  TEST: 'PILOT',
+  STG: 'STAGING',
+  LIVE: 'PROD',
+};
+
+const ENV_CANONICAL = LEGACY_ALIAS[RAW_ENV] ?? RAW_ENV;
 
 interface EnvFaviconConfig {
   bg: string;
@@ -22,12 +31,10 @@ interface EnvFaviconConfig {
 }
 
 const ENV_FAVICON: Record<string, EnvFaviconConfig> = {
-  DEV:  { bg: '#3b82f6', text: '#ffffff' },
-  /** VM/localhost gets teal — visually distinct from Cloud Run DEV blue */
-  VM:   { bg: '#06b6d4', text: '#ffffff' },
-  TEST: { bg: '#8b5cf6', text: '#ffffff' },
-  STG:  { bg: '#f59e0b', text: '#ffffff' },
-  LIVE: { bg: '#1F1B4A', text: '#F5B856' },
+  SANDBOX: { bg: '#06b6d4', text: '#ffffff' },
+  STAGING: { bg: '#3b82f6', text: '#ffffff' },
+  PILOT:   { bg: '#8b5cf6', text: '#ffffff' },
+  PROD:    { bg: '#1F1B4A', text: '#F5B856' },
 };
 
 function generateFaviconSVG(config: EnvFaviconConfig): string {
@@ -44,11 +51,9 @@ function generateFaviconSVG(config: EnvFaviconConfig): string {
 function setFavicon(svg: string) {
   const encoded = `data:image/svg+xml,${encodeURIComponent(svg)}`;
 
-  // Remove any existing favicons
   const existing = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
   existing.forEach((el) => el.remove());
 
-  // Set new SVG favicon
   const link = document.createElement('link');
   link.rel = 'icon';
   link.type = 'image/svg+xml';
@@ -62,9 +67,10 @@ export default function DynamicFavicon() {
       window.location.hostname === 'localhost' ||
       window.location.hostname === '127.0.0.1'
     );
-    // VM/localhost DEV gets teal favicon; Cloud Run DEV gets blue
-    const key = isLocal && ENV === 'DEV' ? 'VM' : ENV;
-    const config = ENV_FAVICON[key] || ENV_FAVICON.DEV;
+    // Cloud Run "STAGING" deploy when accessed from VM via SSH tunnel
+    // (localhost:3000) is still SANDBOX visually — distinct teal favicon.
+    const key = isLocal ? 'SANDBOX' : ENV_CANONICAL;
+    const config = ENV_FAVICON[key] || ENV_FAVICON.SANDBOX;
     const svg = generateFaviconSVG(config);
     setFavicon(svg);
   }, []);

@@ -43,25 +43,30 @@ set -euo pipefail
 
 ENV="${1:-}"
 if [[ -z "$ENV" ]]; then
-  echo "error: missing env. usage: $0 <dev|test|prod>" >&2
+  echo "error: missing env. usage: $0 <staging|pilot|prod>  (legacy: dev|test also accepted during #726 transition)" >&2
   exit 2
 fi
 
+# Accept canonical (staging/pilot/prod) + legacy (dev/test) names during #726 transition.
 case "$ENV" in
-  dev)
+  staging|dev)
+    # #726 transition: 'staging' is the canonical name; 'dev' still maps to same infra until Phase 4.
     BASE_URL="https://dev.humanfirstfoundation.com"
     DB_SECRET="DATABASE_URL_DEV"
     ;;
-  test)
-    BASE_URL="https://test.humanfirstfoundation.com"
-    DB_SECRET="DATABASE_URL_TEST"
+  pilot|test)
+    # #726 transition: 'pilot' is the canonical name; 'test' is legacy.
+    # Pilot infra doesn't exist yet — Phase 5 provisions it.
+    BASE_URL="https://pilot.humanfirstfoundation.com"
+    DB_SECRET="DATABASE_URL_PILOT"
     ;;
   prod)
-    BASE_URL="https://lab.humanfirstfoundation.com"
-    DB_SECRET="DATABASE_URL"
+    # #726 transition: prod infra doesn't exist yet — Phase 6 provisions it.
+    BASE_URL="https://app.humanfirstfoundation.com"
+    DB_SECRET="DATABASE_URL_PROD"
     ;;
   *)
-    echo "error: unknown env '$ENV' (expected dev|test|prod)" >&2
+    echo "error: unknown env '$ENV' (expected staging|pilot|prod, or legacy dev|test)" >&2
     exit 2
     ;;
 esac

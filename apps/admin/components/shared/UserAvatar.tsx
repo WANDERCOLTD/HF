@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { envDbTarget, dbTargetColor, envCanonical } from "./EnvironmentBanner";
 
 export const ROLE_COLORS: Record<string, string> = {
   SUPERADMIN: "var(--status-error-text)",
@@ -82,6 +83,18 @@ export function UserAvatar({
         ? ROLE_COLORS[role] || "var(--text-muted)"
         : "var(--text-muted)";
 
+  // DB-target ring: when sandbox VM is pointed at a non-sandbox DB (staging/pilot),
+  // ring color matches that env. When DB matches env (default), no ring.
+  // The ring is the loaded-gun guard — visible on every avatar instance, can't be missed.
+  const ringTarget =
+    envDbTarget && envDbTarget.toUpperCase() !== envCanonical
+      ? envDbTarget
+      : null;
+  const ringColor = dbTargetColor(ringTarget);
+  const ringShadow = ringColor
+    ? `0 0 0 2px var(--surface-primary), 0 0 0 4px ${ringColor}`
+    : undefined;
+
   const baseStyle: React.CSSProperties = {
     width: size,
     height: size,
@@ -90,6 +103,7 @@ export function UserAvatar({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    ...(ringShadow ? { boxShadow: ringShadow } : {}),
     ...style,
   };
 
@@ -99,6 +113,7 @@ export function UserAvatar({
         src={image}
         alt={name || "User"}
         className={className}
+        data-db-target={ringTarget || undefined}
         style={{ ...baseStyle, objectFit: "cover" }}
       />
     );
@@ -107,6 +122,7 @@ export function UserAvatar({
   return (
     <div
       className={className}
+      data-db-target={ringTarget || undefined}
       style={{
         ...baseStyle,
         background: bg,

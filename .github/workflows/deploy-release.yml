@@ -1,0 +1,169 @@
+name: Release → Pilot (fast hotfix)
+# Triggered on push to release/* branches.
+# Lean runner-only deploy to pilot — no seed, no migrate, no E2E.
+# Test suite is intentionally skipped: every commit on release/* should be a
+# cherry-pick of a commit that already passed full CI on main.
+#
+# See issue #726, Part C for full rationale.
+#
+# WARNING: this workflow targets hf-admin-pilot, which is provisioned in
+# #726 Phase 5. Until that lands, the deploy step will fail with
+# "service not found" — that's expected.
+
+on:
+  push:
+    branches:
+      - 'release/**'
+
+concurrency:
+  group: deploy-pilot-release
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: hf-admin-prod
+  REGION: europe-west2
+  REGISTRY: europe-west2-docker.pkg.dev/hf-admin-prod/hf-docker
+  SERVICE: hf-admin-pilot
+
+jobs:
+  cherry-pick-check:
+    runs-on: ubuntu-latest
+    name: Cherry-pick invariant (soft-warn)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: List commits on release/* not reachable from main
+        run: |
+          set -e
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          echo "Checking commits on $BRANCH not reachable from origin/main..."
+          NOT_ON_MAIN=$(git log --oneline origin/main..HEAD)
+          if [ -z "$NOT_ON_MAIN" ]; then
+            echo "✅ All commits on $BRANCH are reachable from origin/main (clean cherry-picks)"
+          else
+            echo "⚠️  Commits on $BRANCH NOT reachable from origin/main:"
+            echo "$NOT_ON_MAIN"
+            echo ""
+            echo "Soft-warn only — deploy continues. Consider cherry-picking these to main after the release stabilises."
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## ⚠️ Cherry-pick check" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Commits on \`$BRANCH\` NOT on \`main\`:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$NOT_ON_MAIN" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+  gate:
+    runs-on: ubuntu-latest
+    name: Cheap gate (tsc + lint + unit)
+    needs: cherry-pick-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        working-directory: apps/admin
+        run: npm ci
+
+      - name: tsc
+        working-directory: apps/admin
+        run: npx tsc --noEmit
+
+      - name: lint
+        working-directory: apps/admin
+        run: npm run lint
+
+      - name: unit tests
+        working-directory: apps/admin
+        run: npm run test
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: gate
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/311250123759/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deploy@hf-admin-prod.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker europe-west2-docker.pkg.dev --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build + push runner image (cached scope=runner-pilot)
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/admin
+          file: apps/admin/Dockerfile
+          target: runner
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            NEXT_PUBLIC_APP_ENV=PILOT
+            NODE_OPTIONS=--max-old-space-size=4096
+          tags: |
+            ${{ env.REGISTRY }}/hf-admin:pilot
+            ${{ env.REGISTRY }}/hf-admin:pilot-${{ github.sha }}
+          cache-from: type=gha,scope=runner-pilot
+          cache-to: type=gha,mode=max,scope=runner-pilot
+
+      - name: Deploy to pilot Cloud Run (no migrate, no seed)
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image=${{ env.REGISTRY }}/hf-admin:pilot \
+            --region=${{ env.REGION }} \
+            --no-cpu-throttling
+
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE }} --region=${{ env.REGION }} --format='value(status.url)')
+          echo "Smoke testing $URL..."
+          for i in $(seq 1 12); do
+            if curl -sf "$URL/api/health" > /dev/null 2>&1; then
+              echo "✅ Health check passed"
+              break
+            fi
+            echo "Waiting for service... (attempt $i/12)"
+            sleep 5
+          done
+          curl -sf "$URL/api/health" | jq .
+          curl -sf "$URL/api/ready" | jq .
+
+      - name: Cloudflare cache purge for pilot.humanfirstfoundation.com
+        run: |
+          curl -s -X POST "https://api.cloudflare.com/client/v4/zones/a75655f1818c73eaaecc232b1076dbf3/purge_cache" \
+            -H "X-Auth-Email: ${{ secrets.CF_AUTH_EMAIL }}" \
+            -H "X-Auth-Key: ${{ secrets.CF_AUTH_KEY }}" \
+            -H "Content-Type: application/json" \
+            --data '{"files":["https://pilot.humanfirstfoundation.com/*"]}' | jq .
+
+      - name: Summary
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Release deploy complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: \`${GITHUB_REF#refs/heads/}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **SHA**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: https://pilot.humanfirstfoundation.com" >> $GITHUB_STEP_SUMMARY
+          echo "- **Skipped**: Playwright E2E, integration tests, seed, migrate" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "If schema changed, manually run \`hf-migrate-pilot\` job before considering this release stable." >> $GITHUB_STEP_SUMMARY
