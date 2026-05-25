@@ -437,6 +437,13 @@ model Domain {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // #825 — compose-input staleness marker for DOMAIN-scope fields
+  // (onboardingFlowPhases, onboardingDefaultTargets, onboardingWelcome,
+  // domain-scope identity-spec changes). Null = epoch (never-stale).
+  // Read by lib/compose/staleness.ts::isPromptStale at COMPOSE-stage
+  // call-start; bumped by Stories 4–5 writer helpers.
+  composeInputsUpdatedAt DateTime?
+
   // Relations
   callers            Caller[] // Callers assigned to this domain
   playbooks          Playbook[] // Playbooks for this domain
@@ -922,6 +929,11 @@ model Caller {
   archivedAt DateTime?
 
   createdAt DateTime @default(now())
+
+  // #825 — compose-input staleness marker for CALLER-scope fields
+  // (CallerTarget, CallerAttribute, identity edits). Null = epoch
+  // (never-stale). Read by lib/compose/staleness.ts::isPromptStale.
+  composeInputsUpdatedAt DateTime?
 
   @@index([userId])
   @@index([externalId])
@@ -2772,6 +2784,12 @@ model Playbook {
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // #825 — compose-input staleness marker. Bumped by any helper that
+  // writes to a compose-affecting field at PLAYBOOK scope (e.g.
+  // updatePlaybookConfig). Null = epoch (never-stale). Read by
+  // lib/compose/staleness.ts::isPromptStale at COMPOSE-stage call-start.
+  composeInputsUpdatedAt DateTime?
 
   // Items in this playbook (ordered)
   items PlaybookItem[]

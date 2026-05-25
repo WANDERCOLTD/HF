@@ -106,17 +106,21 @@ Format per link:
 | **Audit counter** | `advisorInInputsSnapshot` (target 0 after #608-A applies), `playbooksWithoutTeachingMode` (target 0 — operator data), `hardcodedRulesRemainingInTransforms` (target 0). |
 | **Reinforced by** | #604, #607, #608-C, #608-A, #610, #819 (settings-change fan-out). |
 
-#### Link 3 sub-contract — TUNER → COMPOSE (settings-change propagation, #819)
+#### Link 3 sub-contract — TUNER → COMPOSE (input-change propagation)
+
+**Mechanism rewritten 2026-05-25 (#825 / EPIC #832): "fan-out on save" → "stamp on write, check on read".**
 
 | Field | Value |
 |---|---|
-| **Producer** | `PUT /api/courses/[id]/design` writes to `Playbook.config.{progressNarrative,offboardingSummary,firstSessionTargets,firstCallMode}` and fan-outs to `autoComposeForCaller` for every ACTIVE roster entry. |
-| **Consumer** | Same as Link 3 main row — `ComposedPrompt` rows downstream. |
-| **Invariant** | When an educator changes a COMPOSE-affecting playbook namespace, every active caller's ComposedPrompt MUST be refreshed before their next call — never stale-on-save. The fan-out uses `pLimit(5)` so even large rosters complete bounded. |
-| **Enforcement** | `COMPOSE_AFFECTING_KEYS` const in the design route gates the fan-out; PUT response carries `recomposed: boolean` so the UI can surface "propagating to N callers". Standalone `POST /api/playbooks/[id]/recompose-all` remains the manual escape hatch. |
-| **Test** | `tests/api/design-recompose-fanout.test.ts` (8 cases — each compose-affecting field triggers; welcome/nps/banding do NOT trigger; 404 + empty roster paths). |
-| **Memory doc** | This row; `app/api/courses/[courseId]/design/route.ts` JSDoc references the COMPOSE_AFFECTING_KEYS list. |
-| **Reinforced by** | #819. |
+| **Producer** | Any helper that mutates a compose-affecting field (`Playbook.config`, `Domain.config`, `AnalysisSpec.config`, `BehaviorTarget`, `CallerTarget`, identity edits, curriculum / LO / assertion writes) bumps the corresponding `composeInputsUpdatedAt` on the scope row (`Playbook` / `Caller` / `Domain`) or the `SystemSetting` key `"compose_inputs_updated_at"`. |
+| **Consumer** | `lib/compose/staleness.ts::isPromptStale` at `lib/enrollment/auto-compose.ts::autoComposeForCaller` and `app/api/callers/[callerId]/compose-prompt/route.ts` (when called within `skipIfFreshMs` window). Reads `ComposedPrompt.composedAt` vs the max of the upstream timestamps; recomposes when stale, serves cache when fresh. |
+| **Invariant** | Every active caller's `ComposedPrompt` MUST reflect the latest compose-affecting inputs before their next call. Mechanism: **timestamps on scope rows; COMPOSE-entry-points read staleness and recompose if stale.** Null upstream timestamps are treated as epoch (never-stale); only a populated timestamp newer than `composedAt` makes a prompt stale. Output is byte-identical with eager-fan-out under deterministic composition. Educators see staleness via `<StalePromptPill />` (Story 7 #831) with a `[Recompose now]` action. |
+| **Pipeline COMPOSE carve-out** | `app/api/calls/[callId]/pipeline/route.ts::stageExecutors.COMPOSE` is INTENTIONALLY exempt from the staleness check — it runs at the END of every pipeline (after SCORE_AGENT / AGGREGATE / ADAPT / SUPERVISE have updated CallerAttribute / CallerMemory) and ALWAYS recomposes to incorporate just-produced scores. Pipeline-internal writes do NOT bump `composeInputsUpdatedAt` (carve-out in `lib/playbook/bump-timestamp.ts` per Story 6) — they're followed by pipeline COMPOSE which recomposes unconditionally. |
+| **Enforcement** | Per-table ESLint rules (`hf-playbook/no-direct-config-write` etc., one per producer table — see Stories 2–8) block direct DB writes outside the helpers. Helpers diff against `COMPOSE_AFFECTING_KEYS` and bump on change. |
+| **Race window** | INTENTIONAL. A write committing between `isPromptStale`'s read and `persistComposedPrompt`'s `composedAt` write is silently missed for one compose cycle. Self-heals on next save. Documented in `lib/compose/staleness.ts` file header. **Do NOT add row-level locks or serialise compose** — alternative fixes create queue-up-on-save problems that are objectively worse. If stronger guarantees needed, surface in UI (Story 7 pill). |
+| **Test** | `tests/lib/compose/staleness.test.ts` (11 cases — null timestamps, each upstream source, domain skip, malformed system-setting fail-safe, strict >, parallel queries). |
+| **Memory doc** | This row; `lib/compose/staleness.ts` file header (race-window rationale); per-helper file headers in `lib/playbook/`, `lib/domain/`, `lib/agent-tuner/` (Stories 2–8). |
+| **Reinforced by** | #819 (initial fan-out attempt, superseded); #825 (foundation: schema + staleness check + autoComposeForCaller + compose-prompt wire-in); #826 (Playbook.config helper pivot); #827 (8 Playbook.config writers); #828 (Domain); #829 (AnalysisSpec); #830 (BehaviorTarget + CallerTarget + Caller identity); #831 (StalePromptPill UI); #834 (curriculum / LO / assertion writers). |
 
 ---
 
