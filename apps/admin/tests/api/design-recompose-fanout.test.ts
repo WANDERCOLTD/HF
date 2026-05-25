@@ -51,8 +51,16 @@ async function flushDynamicImports() {
   await new Promise((r) => setTimeout(r, 10));
 }
 
+// Route handler signature is intentionally loose here — the runtime arg is
+// a NextRequest but the test injects a plain Request, and the Next types
+// don't sufficiently overlap for a direct cast.
+type PutHandler = (
+  req: unknown,
+  ctx: { params: Promise<{ courseId: string }> },
+) => Promise<Response>;
+
 describe("PUT /api/courses/[id]/design — recompose fan-out (#819)", () => {
-  let PUT: any;
+  let PUT: PutHandler;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -63,7 +71,7 @@ describe("PUT /api/courses/[id]/design — recompose fan-out (#819)", () => {
       { caller: { id: "u3" } },
     ]);
     const mod = await import("@/app/api/courses/[courseId]/design/route");
-    PUT = mod.PUT;
+    PUT = mod.PUT as PutHandler;
   });
 
   function call(body: Record<string, unknown>) {

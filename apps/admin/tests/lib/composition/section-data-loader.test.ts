@@ -349,10 +349,10 @@ describe("curriculumAssertions loader — teachingDepth typed field (#814)", () 
   }
 
   it("Case 1 — returns the playbook-configured teachingDepth on the result object", async () => {
-    (prisma.contentAssertion.findMany as any).mockResolvedValue([
+    vi.mocked(prisma.contentAssertion.findMany).mockResolvedValue([
       makeRawAssertion("a1"),
       makeRawAssertion("a2"),
-    ]);
+    ] as never);
 
     const loader = getLoader("curriculumAssertions");
     expect(loader).toBeDefined();
@@ -368,9 +368,9 @@ describe("curriculumAssertions loader — teachingDepth typed field (#814)", () 
   });
 
   it("Case 2 — defaults teachingDepth to null when no subject sets it", async () => {
-    (prisma.contentAssertion.findMany as any).mockResolvedValue([
+    vi.mocked(prisma.contentAssertion.findMany).mockResolvedValue([
       makeRawAssertion("a1"),
-    ]);
+    ] as never);
 
     const result = await getLoader("curriculumAssertions")!(
       "caller-1",
@@ -382,11 +382,11 @@ describe("curriculumAssertions loader — teachingDepth typed field (#814)", () 
   });
 
   it("Case 3 — teachingDepth survives a downstream .filter() on the result (regression for the array-property hack)", async () => {
-    (prisma.contentAssertion.findMany as any).mockResolvedValue([
+    vi.mocked(prisma.contentAssertion.findMany).mockResolvedValue([
       makeRawAssertion("a1"),
       makeRawAssertion("a2"),
       makeRawAssertion("a3"),
-    ]);
+    ] as never);
 
     const result = await getLoader("curriculumAssertions")!(
       "caller-1",
@@ -403,10 +403,10 @@ describe("curriculumAssertions loader — teachingDepth typed field (#814)", () 
   });
 
   it("Case 4 — teachingDepth survives a downstream .map() on the result", async () => {
-    (prisma.contentAssertion.findMany as any).mockResolvedValue([
+    vi.mocked(prisma.contentAssertion.findMany).mockResolvedValue([
       makeRawAssertion("a1"),
       makeRawAssertion("a2"),
-    ]);
+    ] as never);
 
     const result = await getLoader("curriculumAssertions")!(
       "caller-1",

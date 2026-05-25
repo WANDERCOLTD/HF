@@ -268,39 +268,45 @@ describe("computeActivityToolkit transform", () => {
     };
   }
 
+  // Shape of computeActivityToolkit's return value — see lib/prompt/composition/transforms/activities.ts.
+  type ActivityToolkitResult = {
+    recommended: Array<{ id: string; channel?: string; text_template?: string }>;
+    all_available: Array<{ id: string }>;
+  };
+
   it("firstCallMode='teach_immediately' + isFirstCall=true → assessment NOT suppressed", () => {
     const ctx = makeCtxWithMode("teach_immediately", true);
-    const result = getTransform("computeActivityToolkit")!(null, ctx, makeSectionDef());
+    const result = getTransform("computeActivityToolkit")!(null, ctx, makeSectionDef()) as ActivityToolkitResult;
     // pop_quiz (assessment) should now be allowed — it'll score similar to scenario.
-    const ids = result.recommended.map((r: any) => r.id);
+    const ids = result.recommended.map((r) => r.id);
     expect(ids).toContain("pop_quiz");
   });
 
   it("firstCallMode='baseline_assessment' + isFirstCall=true → assessment NOT suppressed", () => {
     const ctx = makeCtxWithMode("baseline_assessment", true);
-    const result = getTransform("computeActivityToolkit")!(null, ctx, makeSectionDef());
-    const ids = result.recommended.map((r: any) => r.id);
+    const result = getTransform("computeActivityToolkit")!(null, ctx, makeSectionDef()) as ActivityToolkitResult;
+    const ids = result.recommended.map((r) => r.id);
     expect(ids).toContain("pop_quiz");
   });
 
   it("firstCallMode='onboarding' + isFirstCall=true → assessment SUPPRESSED", () => {
     const ctx = makeCtxWithMode("onboarding", true);
-    const result = getTransform("computeActivityToolkit")!(null, ctx, makeSectionDef());
-    const ids = result.recommended.map((r: any) => r.id);
+    const result = getTransform("computeActivityToolkit")!(null, ctx, makeSectionDef()) as ActivityToolkitResult;
+    const ids = result.recommended.map((r) => r.id);
     expect(ids).not.toContain("pop_quiz");
   });
 
   it("isFirstCall=false → assessment never suppressed (any mode)", () => {
     for (const mode of ["onboarding", "teach_immediately", "baseline_assessment"] as const) {
       const ctx = makeCtxWithMode(mode, false);
-      const result = getTransform("computeActivityToolkit")!(null, ctx, makeSectionDef());
+      const result = getTransform("computeActivityToolkit")!(null, ctx, makeSectionDef()) as ActivityToolkitResult;
       // Returning-call: assessment may or may not be in top-2 depending on
       // mastery/phase, but the SUPPRESSION (-2 score penalty) must not fire.
       // Easiest assertion: the all_available list still contains pop_quiz
       // and at least one assessment activity may appear in recommended.
       // Stronger: verify the score for pop_quiz isn't being penalised by
       // comparing against the all_available list shape.
-      expect(result.all_available.map((a: any) => a.id)).toContain("pop_quiz");
+      expect(result.all_available.map((a) => a.id)).toContain("pop_quiz");
     }
   });
 

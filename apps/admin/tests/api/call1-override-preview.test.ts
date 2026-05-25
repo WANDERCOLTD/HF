@@ -32,17 +32,25 @@ vi.mock("@/lib/knowledge/domain-sources", () => ({
   getSourceIdsForPlaybook: vi.fn(),
 }));
 
+// Route handler signature is intentionally loose here — the runtime arg is
+// a NextRequest but the test injects a plain Request, and the Next types
+// don't sufficiently overlap for a direct cast.
+type GetHandler = (
+  req: unknown,
+  ctx: { params: Promise<{ courseId: string }> },
+) => Promise<Response>;
+
 describe("GET /api/courses/[id]/call1-override-preview", () => {
-  let GET: any;
-  let mockGetSourceIds: any;
+  let GET: GetHandler;
+  let mockGetSourceIds: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     mockPrisma.playbook.findUnique.mockResolvedValue({ id: "pb1" });
     const ds = await import("@/lib/knowledge/domain-sources");
-    mockGetSourceIds = ds.getSourceIdsForPlaybook;
+    mockGetSourceIds = ds.getSourceIdsForPlaybook as ReturnType<typeof vi.fn>;
     const mod = await import("@/app/api/courses/[courseId]/call1-override-preview/route");
-    GET = mod.GET;
+    GET = mod.GET as GetHandler;
   });
 
   function call() {
