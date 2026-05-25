@@ -1,0 +1,157 @@
+/* #761 Phase 1A — operator monitor board styles.
+   Uses CSS vars per HF UI rules; no hardcoded hex. */
+
+.hf-monitor-page {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.hf-monitor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 20px;
+}
+
+.hf-monitor-meta {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.hf-monitor-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.hf-monitor-chip {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 200ms ease;
+}
+
+.hf-monitor-chip.tone-live {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}
+
+.hf-monitor-chip.tone-good {
+  border-color: color-mix(in srgb, var(--status-success-text) 40%, var(--border-default));
+}
+
+.hf-monitor-chip.tone-warn {
+  border-color: color-mix(in srgb, var(--status-warning-text) 40%, var(--border-default));
+}
+
+.hf-monitor-chip.tone-alert {
+  border-color: var(--status-error-text);
+  background: color-mix(in srgb, var(--status-error-text) 5%, var(--surface-primary));
+}
+
+.hf-monitor-chip.tone-muted {
+  opacity: 0.7;
+}
+
+.hf-monitor-chip-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.hf-monitor-chip-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.hf-monitor-chip-sublabel {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.hf-monitor-feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.hf-monitor-link {
+  color: var(--accent-primary);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.hf-monitor-link:hover {
+  text-decoration: underline;
+}
+
+.hf-monitor-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hf-monitor-feed-row {
+  display: grid;
+  grid-template-columns: 12px 1fr auto auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 13px;
+}
+
+.hf-monitor-feed-row:last-child {
+  border-bottom: none;
+}
+
+.hf-monitor-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.hf-monitor-dot.live {
+  background: var(--status-success-text);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-success-text) 25%, transparent);
+  animation: hf-monitor-pulse 1.6s ease-in-out infinite;
+}
+
+.hf-monitor-dot.ended {
+  background: var(--text-muted);
+}
+
+.hf-monitor-feed-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.hf-monitor-feed-when {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.hf-monitor-feed-course {
+  color: var(--text-secondary);
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes hf-monitor-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

@@ -64,6 +64,7 @@
   - [Memories](#memories)
   - [Messages](#messages)
   - [Metering](#metering)
+  - [Monitoring](#monitoring)
   - [Onboarding](#onboarding)
   - [Ops](#ops)
   - [Other](#other)
@@ -9035,6 +9036,26 @@ Returns usage breakdowns by caller, domain, most expensive operations, and most 
 
 ---
 
+## Monitoring
+
+### `GET` /api/monitor/activity
+
+Aggregated live + recent activity signals for the operator
+
+**Auth**: OPERATOR
+
+**Response** `200`
+```json
+{ ok: true, liveCalls, recentCallsHour, callsToday, callersTotal, callersActive24h, callersNotCalledToday, openTickets, aiErrorsHour }
+```
+
+**Response** `401`
+```json
+{ ok: false, error: "unauthorized" }
+```
+
+---
+
 ## Onboarding
 
 ### `GET` /api/onboarding
@@ -14378,8 +14399,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 445 |
-| Files with annotations | 444 |
+| Route files found | 446 |
+| Files with annotations | 445 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 
