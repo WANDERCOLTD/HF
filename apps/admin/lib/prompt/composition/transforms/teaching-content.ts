@@ -537,8 +537,12 @@ registerTransform("renderTeachingContent", (
   // Detect if we have pyramid hierarchy
   const hasHierarchy = assertions.some((a) => a.depth !== null && a.depth !== undefined);
 
-  // Get teaching depth config
-  const teachingDepth = (allAssertions as any).__teachingDepth ?? null;
+  // Get teaching depth config — sourced from LoadedDataContext.teachingDepth,
+  // which the curriculumAssertions loader lifts off the scope subjects. Reads
+  // the typed field directly so it survives `.filter()` / `.map()` / `.slice()`
+  // ops on `allAssertions` (the legacy `(allAssertions as any).__teachingDepth`
+  // hack silently lost the value through any functional array op — #814 s2).
+  const teachingDepth = context.loadedData.teachingDepth ?? null;
   const learnerProfile = context.loadedData.learnerProfile;
   const qualificationLevel = context.loadedData.subjectSources?.subjects?.[0]?.qualificationRef ?? null;
 

@@ -27,7 +27,22 @@ import type {
   LoadedDataContext,
   SystemSpecData,
   CourseCompleteLoadedData,
+  CurriculumAssertionData,
 } from "./types";
+
+/**
+ * Loaded shape of the `curriculumAssertions` loader.
+ *
+ * `teachingDepth` is carried alongside the assertions so it survives
+ * functional array ops (`.filter()`, `.map()`, `.slice()`) downstream. The
+ * previous implementation stashed it as a non-enumerable-ish `__teachingDepth`
+ * property on the result array, which any iteration silently dropped. See
+ * #814 story 2.
+ */
+export interface CurriculumAssertionsLoaderResult {
+  assertions: CurriculumAssertionData[];
+  teachingDepth: number | null;
+}
 
 /**
  * Document types that must NEVER appear in a learner-facing media palette or
@@ -165,6 +180,15 @@ export async function loadAllData(
     (playbooks || []) as Array<{ config?: any }>,
   );
 
+  // Unwrap the curriculumAssertions loader result into the array shape that
+  // downstream consumers (`loadedData.curriculumAssertions`, `dataSource:
+  // "curriculumAssertions"` in COMP-001) expect, and lift `teachingDepth`
+  // onto its own typed field. See CurriculumAssertionsLoaderResult + #814 s2.
+  const assertionsResult = (curriculumAssertions ?? {
+    assertions: [],
+    teachingDepth: null,
+  }) as CurriculumAssertionsLoaderResult;
+
   // #492 Slice 3.7 — sequential because it depends on playbooks + subjectSources
   // (curriculum lookup) which are only known after the parallel block. Cheap
   // — at most two indexed lookups via `isCourseComplete`. Failure degrades to
@@ -197,7 +221,8 @@ export async function loadAllData(
     onboardingSpec: onboardingSpec || null,
     onboardingSession: onboardingSession || null,
     subjectSources: subjectSources || null,
-    curriculumAssertions: curriculumAssertions || [],
+    curriculumAssertions: assertionsResult.assertions,
+    teachingDepth: assertionsResult.teachingDepth,
     curriculumQuestions: curriculumQuestions || [],
     curriculumVocabulary: curriculumVocabulary || [],
     courseInstructions: courseInstructions || [],
@@ -1150,8 +1175,13 @@ registerLoader("subjectSources", async (callerId, loaderConfig) => {
  * Returns assertions grouped-ready with source metadata for the teaching-content transform.
  */
 registerLoader("curriculumAssertions", async (_callerId, loaderConfig) => {
+  const empty: CurriculumAssertionsLoaderResult = {
+    assertions: [],
+    teachingDepth: null,
+  };
+
   const scope: ContentScope = loaderConfig?.contentScope ?? null;
-  if (!scope) return [];
+  if (!scope) return empty;
 
   // Build ordered source list respecting teacher-set sortOrder
   // Note: COURSE_REFERENCE sources are included — their instruction-category
@@ -1162,7 +1192,14 @@ registerLoader("curriculumAssertions", async (_callerId, loaderConfig) => {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   const sourceIds = [...new Set(orderedSources.map((ss) => ss.sourceId))];
-  if (sourceIds.length === 0) return [];
+  if (sourceIds.length === 0) {
+    // Preserve teachingDepth from scope even when no sources resolved — keeps
+    // downstream behaviour identical to the legacy array-property hack.
+    const teachingDepth = scope.subjects
+      .map((s) => s.teachingDepth)
+      .find((d) => d !== null) ?? null;
+    return { assertions: [], teachingDepth };
+  }
 
   // Subject-scoped filtering (epic #94): prefer subjectSourceId when available
   const subjectSourceIds = orderedSources
@@ -1260,10 +1297,14 @@ registerLoader("curriculumAssertions", async (_callerId, loaderConfig) => {
     return 0; // preserve DB ordering (depth, orderIndex, examRelevance) within same source
   });
 
-  // Attach teachingDepth as metadata on the loader context
-  (result as any).__teachingDepth = teachingDepth;
-
-  return result;
+  // teachingDepth is returned as a sibling field — see CurriculumAssertionsLoaderResult.
+  // `loadAllData` lifts it onto LoadedDataContext.teachingDepth so consumers
+  // read a properly-typed value that survives array filter/map/slice ops.
+  const loaderResult: CurriculumAssertionsLoaderResult = {
+    assertions: result,
+    teachingDepth,
+  };
+  return loaderResult;
 });
 
 /**
