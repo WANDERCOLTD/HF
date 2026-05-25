@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
 import { logSystem } from "@/lib/logger";
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
+import { updateDomainConfig } from "@/lib/domain/update-domain-config";
 import slugify from "slugify";
 import { scaffoldDomain } from "@/lib/domain/scaffold";
 import { loadPersonaFlowPhases, loadPersonaArchetype, loadPersonaWelcomeTemplate } from "@/lib/domain/quick-launch";
@@ -607,16 +608,20 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
       || null;
 
     // Update onboarding config
-    await prisma.domain.update({
-      where: { id: domainId },
-      data: {
+    // #828 — central helper, skipTimestamp: true (course-setup scaffold
+    // path runs BEFORE any callers can enroll in this domain).
+    await updateDomainConfig(
+      domainId,
+      (d) => ({
+        ...d,
         onboardingWelcome: resolvedWelcome,
         onboardingFlowPhases: resolvedFlowPhases,
         ...(Object.keys(mergedForDomain).length > 0 && {
           onboardingDefaultTargets: mergedForDomain,
         }),
-      },
-    });
+      }),
+      { skipTimestamp: true, reason: "course-setup onboarding config" },
+    );
 
     // Also store welcome + flow phases in Playbook.config (course-scoped)
     // so different courses in the same domain can have different onboarding

@@ -10,6 +10,7 @@
  */
 
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
+import { updateDomainConfig } from "@/lib/domain/update-domain-config";
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -1071,12 +1072,15 @@ export async function executeWizardTool(
             }
 
             // Apply welcome message to domain
+            // #828 — central helper bumps Domain.composeInputsUpdatedAt;
+            // fans out staleness to all playbooks-in-domain.
             const resolvedDomainId = existingPb.domainId || domainId;
             if (input.welcomeMessage && resolvedDomainId) {
-              await prisma.domain.update({
-                where: { id: resolvedDomainId },
-                data: { onboardingWelcome: input.welcomeMessage as string },
-              });
+              await updateDomainConfig(
+                resolvedDomainId,
+                (d) => ({ ...d, onboardingWelcome: input.welcomeMessage as string }),
+                { reason: "wizard create_course (existing) — welcome message" },
+              );
             }
 
             // If test caller already exists, return it (no duplicates)
@@ -1790,10 +1794,12 @@ export async function executeWizardTool(
                 };
               });
               finalFlowPhases = { phases: updatedPhases };
-              await prisma.domain.update({
-                where: { id: domainId },
-                data: { onboardingFlowPhases: finalFlowPhases },
-              });
+              // #828 — central helper; fans staleness to all playbooks in domain.
+              await updateDomainConfig(
+                domainId,
+                (d) => ({ ...d, onboardingFlowPhases: finalFlowPhases }),
+                { reason: "wizard create_course — onboardingFlowPhases" },
+              );
             }
           }
         }
@@ -2275,11 +2281,14 @@ export async function executeWizardTool(
           || null;
 
         // Persist welcome message to domain
+        // #828 — central helper; community hub scaffold writes welcome
+        // before any callers join, so timestamp bump is a no-op.
         if (resolvedWelcome) {
-          await prisma.domain.update({
-            where: { id: community.id },
-            data: { onboardingWelcome: resolvedWelcome },
-          });
+          await updateDomainConfig(
+            community.id,
+            (d) => ({ ...d, onboardingWelcome: resolvedWelcome }),
+            { skipTimestamp: true, reason: "wizard community scaffold welcome" },
+          );
         }
 
         // Link scaffold-created playbooks to CohortGroup
@@ -2360,12 +2369,16 @@ export async function executeWizardTool(
         }
 
         // 1. Persist welcome message to Domain
+        // #828 — central helper; update_course_config is post-creation
+        // educator tuning, so timestamp bumps and fans staleness to all
+        // playbooks in domain.
         const welcomeMessage = input.welcomeMessage as string | undefined;
         if (welcomeMessage) {
-          await prisma.domain.update({
-            where: { id: domainId },
-            data: { onboardingWelcome: welcomeMessage },
-          });
+          await updateDomainConfig(
+            domainId,
+            (d) => ({ ...d, onboardingWelcome: welcomeMessage }),
+            { reason: "wizard update_course_config — welcome" },
+          );
         }
 
         // 2. Persist behavior targets to Domain + BehaviorTarget rows
@@ -2375,19 +2388,21 @@ export async function executeWizardTool(
           for (const [paramId, value] of Object.entries(behaviorTargets)) {
             wrapped[paramId] = { value, confidence: 0.5 };
           }
-          await prisma.domain.update({
-            where: { id: domainId },
-            data: { onboardingDefaultTargets: wrapped },
-          });
+          await updateDomainConfig(
+            domainId,
+            (d) => ({ ...d, onboardingDefaultTargets: wrapped }),
+            { reason: "wizard update_course_config — onboardingDefaultTargets" },
+          );
           await applyBehaviorTargets(playbookId, behaviorTargets);
         }
 
         // 3. Persist onboarding flow phases to Domain (attachment changes)
         if (input.onboardingFlowPhases) {
-          await prisma.domain.update({
-            where: { id: domainId },
-            data: { onboardingFlowPhases: JSON.parse(JSON.stringify(input.onboardingFlowPhases)) },
-          });
+          await updateDomainConfig(
+            domainId,
+            (d) => ({ ...d, onboardingFlowPhases: JSON.parse(JSON.stringify(input.onboardingFlowPhases)) }),
+            { reason: "wizard update_course_config — onboardingFlowPhases" },
+          );
         }
 
         // 4. Merge session settings + lesson plan into playbook config

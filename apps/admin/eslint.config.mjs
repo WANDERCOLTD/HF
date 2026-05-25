@@ -3,6 +3,7 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import noUnscopedSlugLookup from "./eslint-rules/no-unscoped-slug-lookup.mjs";
 import noDirectPlaybookConfigWrite from "./eslint-rules/no-direct-playbook-config-write.mjs";
+import noDirectDomainOnboardingWrite from "./eslint-rules/no-direct-domain-onboarding-write.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -53,10 +54,19 @@ const eslintConfig = defineConfig([
           "no-direct-config-write": noDirectPlaybookConfigWrite,
         },
       },
+      // #828 — block direct writes to Domain onboarding* fields
+      // outside the central helper. Domain bumps fan out to ALL
+      // playbooks-in-domain via the staleness check.
+      "hf-domain": {
+        rules: {
+          "no-direct-onboarding-write": noDirectDomainOnboardingWrite,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
       "hf-playbook/no-direct-config-write": "error",
+      "hf-domain/no-direct-onboarding-write": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)

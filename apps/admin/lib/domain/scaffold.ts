@@ -17,6 +17,7 @@ import { db, type TxClient } from "@/lib/prisma";
 import { config } from "@/lib/config";
 import { getFlowPhasesFallback } from "@/lib/fallback-settings";
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
+import { updateDomainConfig } from "@/lib/domain/update-domain-config";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -171,13 +172,19 @@ export async function scaffoldDomain(domainId: string, options?: ScaffoldOptions
         select: { onboardingIdentitySpecId: true, onboardingFlowPhases: true },
       });
       if (!currentDomain?.onboardingIdentitySpecId) {
-        await p.domain.update({
-          where: { id: domainId },
-          data: {
+        // #828 — central helper, skipTimestamp: true (scaffold path,
+        // pre-enrolment). Note: bypasses tx if one was passed, but
+        // scaffold is the bootstrap path so no atomicity concern.
+        const fallbackPhases = currentDomain?.onboardingFlowPhases || options?.flowPhases || await getFlowPhasesFallback();
+        await updateDomainConfig(
+          domainId,
+          (d) => ({
+            ...d,
             onboardingIdentitySpecId: identitySpec.id,
-            onboardingFlowPhases: currentDomain?.onboardingFlowPhases || options?.flowPhases || await getFlowPhasesFallback(),
-          },
-        });
+            onboardingFlowPhases: fallbackPhases as any,
+          }),
+          { skipTimestamp: true, reason: "scaffold ensure onboarding" },
+        );
       }
 
       return {
@@ -364,13 +371,17 @@ export async function scaffoldDomain(domainId: string, options?: ScaffoldOptions
   });
 
   // 8. Configure onboarding
-  await p.domain.update({
-    where: { id: domainId },
-    data: {
+  // #828 — central helper, skipTimestamp: true (scaffold path).
+  const fallback = options?.flowPhases || await getFlowPhasesFallback();
+  await updateDomainConfig(
+    domainId,
+    (d) => ({
+      ...d,
       onboardingIdentitySpecId: identitySpec.id,
-      onboardingFlowPhases: options?.flowPhases || await getFlowPhasesFallback(),
-    },
-  });
+      onboardingFlowPhases: fallback as any,
+    }),
+    { skipTimestamp: true, reason: "scaffold configure onboarding" },
+  );
 
   return {
     identitySpec: { id: identitySpec.id, slug: identitySpec.slug, name: identitySpec.name },
