@@ -5130,6 +5130,24 @@ Find all COURSE_REFERENCE sources for a course and trigger
 
 ## Course
 
+### `GET` /api/courses/[courseId]/call1-override-preview
+
+Read-only preview of `ContentAssertion` rows scoped to this
+
+**Auth**: session (OPERATOR+) · **Scope**: `course:read`
+
+**Response** `200`
+```json
+{
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Course not found" }
+```
+
+---
+
 ### `PUT` /api/courses/[courseId]/design
 
 Save student experience design config. Writes to
@@ -14412,8 +14430,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 447 |
-| Files with annotations | 446 |
+| Route files found | 448 |
+| Files with annotations | 447 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 
