@@ -3,9 +3,8 @@
  * Reads a k6 --out json file and prints a verdict per scenario.
  * Pass/fail per threshold defined in k6.config.js.
  *
- * Streams the input file line-by-line (a 100-VU × 15-min run produces
- * 80MB+, hitting Node's max string length on naive readFileSync). #762
- * Phase 1B fix.
+ * Streams input line-by-line — a 100-VU × 19-min run produces ~1GB,
+ * hitting Node's max-string-length on naive readFileSync.
  *
  * Usage:
  *   npx tsx summarise.ts results/run-1779634000.json
@@ -19,13 +18,12 @@ if (!file) {
   process.exit(2);
 }
 
-// Thresholds mirror k6.config.js — kept in sync manually for now.
-// k6's JSON output emits one 'Point' per data sample; we re-derive percentiles ourselves.
 const TARGETS: Record<string, { p95?: number; label: string }> = {
   health: { p95: 200, label: '/api/health' },
   readiness: { p95: 500, label: '/api/system/readiness' },
   vapi_webhook: { p95: 500, label: 'POST /api/vapi/webhook' },
   pipeline: { p95: 2000, label: 'POST /api/calls/[id]/pipeline' },
+  prisma_probe: { p95: 1500, label: '#191 probe routes' },
 };
 
 interface Sample {
@@ -37,7 +35,6 @@ interface Sample {
 const durations: Record<string, number[]> = {};
 const failures: Record<string, number> = {};
 const totals: Record<string, number> = {};
-// #762 Phase 1B — track failures by HTTP status for triage
 const failuresByStatus: Record<string, Record<string, number>> = {};
 
 async function readPoints() {
@@ -67,15 +64,6 @@ async function readPoints() {
   }
 }
 
-readPoints().then(() => {
-  printSummary();
-}).catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
-
-function printSummary() {
-
 function pct(arr: number[], p: number): number {
   if (arr.length === 0) return 0;
   const sorted = [...arr].sort((a, b) => a - b);
@@ -83,40 +71,44 @@ function pct(arr: number[], p: number): number {
   return Math.round(sorted[idx]);
 }
 
-let overall = 'PASS';
-for (const [scen, samples] of Object.entries(durations)) {
-  const target = TARGETS[scen];
-  const p50 = pct(samples, 50);
-  const p95 = pct(samples, 95);
-  const p99 = pct(samples, 99);
-  const errN = failures[scen] ?? 0;
-  const totN = totals[scen] ?? samples.length;
-  const errRate = totN > 0 ? errN / totN : 0;
+function printSummary() {
+  let overall = 'PASS';
+  for (const [scen, samples] of Object.entries(durations)) {
+    const target = TARGETS[scen];
+    const p50 = pct(samples, 50);
+    const p95 = pct(samples, 95);
+    const p99 = pct(samples, 99);
+    const errN = failures[scen] ?? 0;
+    const totN = totals[scen] ?? samples.length;
+    const errRate = totN > 0 ? errN / totN : 0;
 
-  const verdict =
-    target?.p95 && p95 > target.p95 ? 'FAIL'
-    : errRate > 0.01 ? 'WARN'
-    : 'PASS';
-  if (verdict === 'FAIL') overall = 'FAIL';
-  else if (verdict === 'WARN' && overall !== 'FAIL') overall = 'WARN';
+    const verdict =
+      target?.p95 && p95 > target.p95 ? 'FAIL'
+      : errRate > 0.01 ? 'WARN'
+      : 'PASS';
+    if (verdict === 'FAIL') overall = 'FAIL';
+    else if (verdict === 'WARN' && overall !== 'FAIL') overall = 'WARN';
 
-  const label = target?.label ?? scen;
-  console.log(
-    `  ${label.padEnd(38)} p50=${String(p50).padStart(4)}ms  p95=${String(p95).padStart(4)}ms  p99=${String(p99).padStart(4)}ms  errors=${errN}/${totN}  ${verdict}` +
-    (target?.p95 ? ` (target p95<${target.p95}ms)` : ''),
-  );
-}
-
-// Per-scenario failure breakdown by HTTP status (helps triage 4xx vs 5xx vs 0/timeout)
-for (const [scen, byStatus] of Object.entries(failuresByStatus)) {
-  const top = Object.entries(byStatus).sort((a, b) => b[1] - a[1]);
-  if (top.length > 0) {
-    const breakdown = top.map(([s, n]) => `${s}=${n}`).join(' ');
-    console.log(`  ${scen.padEnd(38)} failure breakdown by status: ${breakdown}`);
+    const label = target?.label ?? scen;
+    console.log(
+      `  ${label.padEnd(38)} p50=${String(p50).padStart(4)}ms  p95=${String(p95).padStart(4)}ms  p99=${String(p99).padStart(4)}ms  errors=${errN}/${totN}  ${verdict}` +
+      (target?.p95 ? ` (target p95<${target.p95}ms)` : ''),
+    );
   }
+
+  for (const [scen, byStatus] of Object.entries(failuresByStatus)) {
+    const top = Object.entries(byStatus).sort((a, b) => b[1] - a[1]);
+    if (top.length > 0) {
+      const breakdown = top.map(([s, n]) => `${s}=${n}`).join(' ');
+      console.log(`  ${scen.padEnd(38)} failure breakdown by status: ${breakdown}`);
+    }
+  }
+
+  console.log(`\nOverall: ${overall}`);
+  process.exit(overall === 'FAIL' ? 1 : 0);
 }
 
-console.log(`\nOverall: ${overall}`);
-process.exit(overall === 'FAIL' ? 1 : 0);
-}
-
+readPoints().then(printSummary).catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
