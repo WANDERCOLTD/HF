@@ -88,6 +88,26 @@ If you discover work has started on `main`, stop and move it: `git checkout -b <
 
 ---
 
+## ⚠️ MANDATORY: No concurrent claude sessions on this working tree
+
+`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in `.claude/settings.json` and multiple terminal `claude` processes can land in `/Users/paulwander/projects/HF` simultaneously. They all share **one** `.git/` directory — `git checkout` is process-wide, so any peer's branch switch silently moves HEAD for everyone. Observed live during PR #836 / #838 / #839 (2026-05-25): branch was swapped under the active session 4 times in one sitting; commits landed on the wrong branch twice; recovery cost ~30 min.
+
+**Rules:**
+
+1. **Check at session start.** The `SessionStart` hook prints `🚨 N concurrent claude processes detected` when peers exist. Treat it as a hard warning — every `git status` claim is suspect until proven.
+2. **`PreToolUse:Bash` runs the drift detector.** It snapshots HEAD per session and surfaces a loud warning when HEAD drifts between Bash calls without an explicit checkout/reset/pull in the current call. Read the warning — it's the smoking gun for peer interference.
+3. **If you spawn peer agents that touch code, use `isolation: "worktree"` on the `Agent` tool.** Each parallel agent then gets its own `git worktree add ../HF-feat-X feat/X-…` checkout. The `Agent` tool already supports this. Never spawn code-touching agents into the shared working tree.
+4. **Recovery when drift hits:**
+   - `git stash --include-untracked -m '<work-description>'`
+   - `git reflog | head -10` — find your last known-good HEAD (the one *before* the unexplained `checkout: moving from X to Y`)
+   - `git branch -f <correct-branch> <commit>` and `git checkout <correct-branch>`
+   - `git stash pop` — should apply cleanly since the working tree is at the expected base
+5. **Don't shell out to `pkill claude` to fix this.** Peer sessions may be doing legitimate work the operator launched intentionally. Ask before killing.
+
+Memory: [feedback_concurrent_claude_processes.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/feedback_concurrent_claude_processes.md).
+
+---
+
 ## ⚠️ MANDATORY: Use qmd and hf-graph — NOT grep, NOT glob
 
 **This is non-negotiable. Before searching, reading, or navigating any code in this repo:**
