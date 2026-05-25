@@ -3584,6 +3584,18 @@ async function runSpecDrivenPipeline(ctx: PipelineContext): Promise<{
   }
 
   // Stages that can run in parallel (no dependencies between them)
+  //
+  // PIPELINE-001 drives stage ORDER via the spec, but stage PARALLELISM
+  // is hardcoded here. To add a new parallel pair, edit BOTH the spec
+  // and this set — failing to update one leaves silent serialisation
+  // (or worse, a race) with no compile-time signal.
+  //
+  // Acceptable trade-off documented in docs/pipeline.md §4 L5
+  // ("By design. To add a parallel pair: edit the constant AND ensure
+  // no cross-batch DB dependency."). To spec-drive parallelism in
+  // future, add a `parallelGroup: string` field to PIPELINE-001 stage
+  // entries and replace this set with a group lookup at runner start.
+  // See #814 (story 3) for the deferral.
   const parallelStages = new Set(["EXTRACT", "SCORE_AGENT"]);
   const stageErrors: string[] = [];
 
