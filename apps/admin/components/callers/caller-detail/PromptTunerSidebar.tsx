@@ -33,6 +33,26 @@ export interface PendingChange {
   numericValue?: number;
   configKey?: string;
   configValue?: string;
+  /**
+   * #598 Slice 2 — when `true`, warm-recompose every active learner's prompt
+   * on save (POST `/api/playbooks/[id]/recompose-all`). When `false` / absent,
+   * the change still takes effect on the next call lazily via the stamp-and-
+   * check pattern (#825) — the UI shows a "takes effect on next call" banner.
+   * Mastery threshold sets this `true`; cadence + decay scale set it `false`.
+   */
+  recompose?: boolean;
+  /**
+   * #598 Slice 2 — write-path tag for the three new tolerance fields.
+   * `"playbook-config"` lands under `Playbook.config.tolerances.<key>` via
+   * `PATCH /api/playbooks/[id]`; `"behavior-target"` routes via the existing
+   * target endpoints with `parameterId="TOL-MASTERY-THRESHOLD"`.
+   */
+  toleranceWritePath?: "playbook-config" | "behavior-target";
+  /**
+   * For `toleranceWritePath === "playbook-config"` — the nested key under
+   * `Playbook.config.tolerances` to write.
+   */
+  tolerancesConfigKey?: "retrievalCadenceOverride" | "memoryDecayScale";
 }
 
 export interface PromptTunerSidebarProps {
@@ -230,6 +250,21 @@ export function PromptTunerSidebar({
   const [draftStyle, setDraftStyle] = useState(currentStyle);
   const [draftAudience, setDraftAudience] = useState(currentAudience);
   const [draftMode, setDraftMode] = useState(currentMode);
+  // #598 Slice 2 — tolerance drafts. Course tolerances live under
+  // `Playbook.config.tolerances`. Learner draft is just the mastery threshold
+  // override (the only learner-scoped knob in this slice).
+  const [draftCourseTolerances, setDraftCourseTolerances] = useState<{
+    masteryThreshold?: number;
+    retrievalCadenceOverride?: number;
+    memoryDecayScale?: number;
+  }>({});
+  const [draftLearnerMasteryOverride, setDraftLearnerMasteryOverride] =
+    useState<number | undefined>(undefined);
+  const [courseTolerances, setCourseTolerances] = useState<{
+    masteryThreshold?: number;
+    retrievalCadenceOverride?: number;
+    memoryDecayScale?: number;
+  }>({});
   const [scope, setScope] = useState<"course" | "learner" | null>(null);
   const approachLocked = scope === "learner";
   const [applying, setApplying] = useState(false);
@@ -259,6 +294,33 @@ export function PromptTunerSidebar({
       cancelled = true;
     };
   }, [callerId, open]);
+
+  // #598 Slice 2 — load `Playbook.config.tolerances` for the Tolerances section.
+  const refreshCourseTolerances = useCallback(async () => {
+    if (!playbookId) return;
+    try {
+      const res = await fetch(`/api/playbooks/${playbookId}`);
+      const data = await res.json();
+      const tol = (data?.playbook?.config as Record<string, unknown> | undefined)?.tolerances as
+        | { masteryThreshold?: number; retrievalCadenceOverride?: number; memoryDecayScale?: number }
+        | undefined;
+      setCourseTolerances(tol ?? {});
+    } catch {
+      // Non-fatal — sidebar still loads, controls just show empty.
+    }
+  }, [playbookId]);
+
+  useEffect(() => {
+    if (!playbookId || !open) return;
+    void refreshCourseTolerances();
+  }, [playbookId, open, refreshCourseTolerances]);
+
+  // Per-learner mastery threshold override (BehaviorTarget(CALLER) for
+  // TOL-MASTERY-THRESHOLD) — derived from the existing learnerOverrides fetch.
+  const currentLearnerMasteryOverride = useMemo<number | undefined>(() => {
+    const row = learnerOverrides.find((o) => o.parameterId === "TOL-MASTERY-THRESHOLD");
+    return row?.targetValue;
+  }, [learnerOverrides]);
 
   // Fetch ACTIVE enrollment count so the Apply button can show consequence up front.
   useEffect(() => {
@@ -308,6 +370,14 @@ export function PromptTunerSidebar({
   useEffect(() => {
     setDraftMode(currentMode);
   }, [currentMode]);
+
+  // #598 Slice 2 — keep tolerance drafts in sync with server state.
+  useEffect(() => {
+    setDraftCourseTolerances(courseTolerances);
+  }, [courseTolerances]);
+  useEffect(() => {
+    setDraftLearnerMasteryOverride(currentLearnerMasteryOverride);
+  }, [currentLearnerMasteryOverride]);
 
   // Flipping to learner scope snaps pending Approach changes back to current —
   // those fields are course-level only and can't be saved per-learner.
@@ -371,8 +441,83 @@ export function PromptTunerSidebar({
       });
     }
 
+    // #598 Slice 2 — tolerance changes
+    if (scope === "course") {
+      const masteryDraft = draftCourseTolerances.masteryThreshold;
+      const masteryCurrent = courseTolerances.masteryThreshold;
+      if (masteryDraft !== masteryCurrent) {
+        changes.push({
+          type: "target",
+          key: "tolerances.masteryThreshold:course",
+          label: "Mastery Threshold (course)",
+          oldValue: masteryCurrent !== undefined ? fmt(masteryCurrent) : "(default)",
+          newValue: masteryDraft !== undefined ? fmt(masteryDraft) : "(default)",
+          parameterId: "TOL-MASTERY-THRESHOLD",
+          numericValue: masteryDraft,
+          recompose: true,
+          toleranceWritePath: "behavior-target",
+        });
+      }
+      const cadenceDraft = draftCourseTolerances.retrievalCadenceOverride;
+      const cadenceCurrent = courseTolerances.retrievalCadenceOverride;
+      if (cadenceDraft !== cadenceCurrent) {
+        changes.push({
+          type: "config",
+          key: "tolerances.retrievalCadenceOverride",
+          label: "Retrieval Cadence",
+          oldValue: cadenceCurrent !== undefined ? String(cadenceCurrent) : "(preset)",
+          newValue: cadenceDraft !== undefined ? String(cadenceDraft) : "(preset)",
+          recompose: false,
+          toleranceWritePath: "playbook-config",
+          tolerancesConfigKey: "retrievalCadenceOverride",
+        });
+      }
+      const decayDraft = draftCourseTolerances.memoryDecayScale;
+      const decayCurrent = courseTolerances.memoryDecayScale;
+      if (decayDraft !== decayCurrent) {
+        changes.push({
+          type: "config",
+          key: "tolerances.memoryDecayScale",
+          label: "Memory Decay Scale",
+          oldValue: decayCurrent !== undefined ? fmt(decayCurrent) : "(1.0)",
+          newValue: decayDraft !== undefined ? fmt(decayDraft) : "(1.0)",
+          recompose: false,
+          toleranceWritePath: "playbook-config",
+          tolerancesConfigKey: "memoryDecayScale",
+        });
+      }
+    } else if (scope === "learner") {
+      // Per-learner mastery threshold override only. Cadence + decay are
+      // course-only and intentionally not diffed here.
+      if (draftLearnerMasteryOverride !== currentLearnerMasteryOverride) {
+        changes.push({
+          type: "target",
+          key: "tolerances.masteryThreshold:learner",
+          label: "Mastery Threshold (this learner)",
+          oldValue:
+            currentLearnerMasteryOverride !== undefined
+              ? fmt(currentLearnerMasteryOverride)
+              : "(course default)",
+          newValue:
+            draftLearnerMasteryOverride !== undefined
+              ? fmt(draftLearnerMasteryOverride)
+              : "(course default)",
+          parameterId: "TOL-MASTERY-THRESHOLD",
+          numericValue: draftLearnerMasteryOverride,
+          recompose: true,
+          toleranceWritePath: "behavior-target",
+        });
+      }
+    }
+
     return changes;
-  }, [draftTargets, draftStyle, draftAudience, draftMode, parameters, currentStyle, currentAudience, currentMode]);
+  }, [
+    draftTargets, draftStyle, draftAudience, draftMode,
+    parameters, currentStyle, currentAudience, currentMode,
+    scope,
+    draftCourseTolerances, courseTolerances,
+    draftLearnerMasteryOverride, currentLearnerMasteryOverride,
+  ]);
 
   // --- Reset all drafts ---
   const handleDiscard = useCallback(() => {
@@ -427,18 +572,42 @@ export function PromptTunerSidebar({
       // 2. Write config changes — playbook config is course-scoped only.
       //    Learner-scoped Approach overrides would need a caller-config concept
       //    which doesn't exist yet — block the save with a clear error.
-      if (configChanges.length > 0) {
+      // #598 Slice 2 — split tolerance config changes from approach config
+      // changes; tolerances land under `config.tolerances` as a merged sub-
+      // object (the PATCH endpoint shallow-merges so we pre-merge here).
+      const tolConfigChanges = configChanges.filter(
+        (c) => c.toleranceWritePath === "playbook-config",
+      );
+      const approachConfigChanges = configChanges.filter(
+        (c) => c.toleranceWritePath !== "playbook-config",
+      );
+
+      if (approachConfigChanges.length > 0 || tolConfigChanges.length > 0) {
         if (scope === "learner") {
           throw new Error(
-            "Teaching Style / Audience / Mode can only be changed at the course level. " +
+            "Teaching Style / Audience / Mode and Tolerance settings can only be changed at the course level. " +
               "Switch scope to 'This course' to apply, or discard these changes.",
           );
         }
-        const configUpdate: Record<string, string> = {};
-        for (const c of configChanges) {
+        const configUpdate: Record<string, unknown> = {};
+        for (const c of approachConfigChanges) {
           if (c.configKey && c.configValue) {
             configUpdate[c.configKey] = c.configValue;
           }
+        }
+        if (tolConfigChanges.length > 0) {
+          // Start from current tolerances so we don't clobber siblings.
+          const tolerances: Record<string, number | undefined> = { ...courseTolerances };
+          for (const c of tolConfigChanges) {
+            if (!c.tolerancesConfigKey) continue;
+            const draft =
+              c.tolerancesConfigKey === "retrievalCadenceOverride"
+                ? draftCourseTolerances.retrievalCadenceOverride
+                : draftCourseTolerances.memoryDecayScale;
+            if (draft === undefined) delete tolerances[c.tolerancesConfigKey];
+            else tolerances[c.tolerancesConfigKey] = draft;
+          }
+          configUpdate.tolerances = tolerances;
         }
         console.log("[tuner] PATCH playbook config", configUpdate);
         const res = await fetch(`/api/playbooks/${playbookId}`, {
@@ -455,20 +624,39 @@ export function PromptTunerSidebar({
         // (which we deliberately don't auto-trigger any more).
         setAppliedConfig((prev) => ({
           ...prev,
-          ...(configUpdate.interactionPattern ? { style: configUpdate.interactionPattern } : {}),
-          ...(configUpdate.audience ? { audience: configUpdate.audience } : {}),
-          ...(configUpdate.teachingMode ? { mode: configUpdate.teachingMode } : {}),
+          ...(typeof configUpdate.interactionPattern === "string"
+            ? { style: configUpdate.interactionPattern }
+            : {}),
+          ...(typeof configUpdate.audience === "string"
+            ? { audience: configUpdate.audience }
+            : {}),
+          ...(typeof configUpdate.teachingMode === "string"
+            ? { mode: configUpdate.teachingMode }
+            : {}),
         }));
       }
 
-      // 3. No automatic recompose. The new targets are written to the DB and
-      //    read live at the next composition — every fresh prompt picks up the
-      //    new values. Existing learners with a pending pre-composed prompt
-      //    need re-prompting manually to swap their in-flight prompt over.
-      //    Decision: per-user request — keep "save" cheap and side-effect-free
-      //    on both surfaces (panel + Cmd+K tool). A separate "Re-prompt now"
-      //    affordance can be added later if needed.
-      setApplyResult("Tuning saved. Existing learners need re-prompting to pick up changes.");
+      // 3. #598 Slice 2 — selective recompose.
+      //    Most config changes (Approach, cadence, decay) land in DB and take
+      //    effect on the next call lazily via the #825 stamp-and-check
+      //    pattern. The mastery threshold is special — a change there should
+      //    warm-recompose every active learner's prompt now so the new
+      //    threshold lands on in-flight prompts. Gated on `c.recompose === true`
+      //    so the no-op-on-save knobs stay cheap.
+      const shouldRecompose = pendingChanges.some((c) => c.recompose === true);
+      if (shouldRecompose) {
+        try {
+          await fetch(`/api/playbooks/${playbookId}/recompose-all`, { method: "POST" });
+        } catch (recomposeErr) {
+          // Non-fatal — the writes landed, will pick up lazily.
+          console.warn("[tuner] recompose-all call failed (non-blocking):", recomposeErr);
+        }
+        setApplyResult(
+          "Tuning saved. Active learners' prompts are being warmed in the background.",
+        );
+      } else {
+        setApplyResult("Tuning saved. Takes effect on the next call.");
+      }
 
       // 4. Re-fetch parameters from the API so `effectiveValue` reflects the
       //    newly-saved values, and clear the draft so the PENDING CHANGES list
@@ -492,6 +680,17 @@ export function PromptTunerSidebar({
         });
       }
 
+      // 4b. #598 Slice 2 — refresh tolerances + learner overrides so the diff
+      // resolves after the save.
+      void refreshCourseTolerances();
+      if (callerId) {
+        try {
+          const r = await fetch(`/api/callers/${callerId}/behavior-targets`);
+          const d = await r.json();
+          if (d?.ok && Array.isArray(d.overrides)) setLearnerOverrides(d.overrides);
+        } catch { /* non-fatal */ }
+      }
+
       // 5. Notify parent
       onApplied(pendingChanges);
     } catch (err: any) {
@@ -499,7 +698,10 @@ export function PromptTunerSidebar({
     } finally {
       setApplying(false);
     }
-  }, [playbookId, callerId, callerName, pendingChanges, onApplied, scope, refreshParameters]);
+  }, [
+    playbookId, callerId, callerName, pendingChanges, onApplied, scope,
+    refreshParameters, refreshCourseTolerances, courseTolerances, draftCourseTolerances,
+  ]);
 
   // --- Toggle group collapse ---
   const toggleGroup = useCallback((group: string) => {
@@ -713,6 +915,146 @@ export function PromptTunerSidebar({
           );
         })}
         </div>{/* ps-eq-groups */}
+
+        {/* #598 Slice 2 — Tolerances section
+         *
+         * Mastery threshold: both scopes editable. Course writes a
+         * BehaviorTarget(scope=PLAYBOOK, parameterId=TOL-MASTERY-THRESHOLD)
+         * via /api/playbooks/[id]/targets; learner writes
+         * BehaviorTarget(scope=CALLER) via /api/callers/[id]/behavior-targets
+         * (already fans out across identities per #836).
+         *
+         * Retrieval cadence + Memory decay: course-only. At learner scope
+         * they render disabled with a "course-level only" tooltip via
+         * data-disabled-reason. Writes land under Playbook.config.tolerances
+         * and route through updatePlaybookConfig which bumps
+         * composeInputsUpdatedAt (#825 stamp-and-check).
+         */}
+        <div className="ps-tuner-section">
+          <div className="ps-tuner-section-title">Tolerances</div>
+
+          {/* Mastery threshold */}
+          <div className="ps-tuner-tolerance-row">
+            <label className="ps-tuner-tolerance-label" htmlFor="tol-mastery">
+              Mastery Threshold
+              <span className="ps-tuner-tolerance-sublabel">
+                {scope === "learner"
+                  ? "Per-learner override; falls back to course default when cleared."
+                  : "0–1. Higher = caller stays longer on each LO before mastery."}
+              </span>
+            </label>
+            <div className="ps-tuner-tolerance-control">
+              <input
+                id="tol-mastery"
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={
+                  scope === "learner"
+                    ? draftLearnerMasteryOverride ?? 0.7
+                    : draftCourseTolerances.masteryThreshold ?? 0.7
+                }
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (scope === "learner") setDraftLearnerMasteryOverride(v);
+                  else setDraftCourseTolerances((p) => ({ ...p, masteryThreshold: v }));
+                }}
+                className="ps-eq-slider"
+                data-testid={`tuner-tolerance-mastery-${scope ?? "none"}`}
+              />
+              <span className="ps-eq-value">
+                {scope === "learner"
+                  ? draftLearnerMasteryOverride !== undefined
+                    ? fmt(draftLearnerMasteryOverride)
+                    : "(course default)"
+                  : draftCourseTolerances.masteryThreshold !== undefined
+                    ? fmt(draftCourseTolerances.masteryThreshold)
+                    : "(preset default)"}
+              </span>
+            </div>
+          </div>
+
+          {/* Retrieval cadence (course-only) */}
+          <div
+            className="ps-tuner-tolerance-row"
+            data-disabled-reason={
+              scope === "learner"
+                ? "Course-level only — applies to all learners."
+                : undefined
+            }
+          >
+            <label className="ps-tuner-tolerance-label" htmlFor="tol-cadence">
+              Retrieval Cadence
+              <span className="ps-tuner-tolerance-sublabel">
+                Fire retrieval questions every N calls. 1 = every call.
+              </span>
+            </label>
+            <div className="ps-tuner-tolerance-control">
+              <input
+                id="tol-cadence"
+                type="number"
+                min={1}
+                max={10}
+                step={1}
+                value={draftCourseTolerances.retrievalCadenceOverride ?? ""}
+                placeholder="preset"
+                disabled={scope !== "course"}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const v = raw === "" ? undefined : Math.max(1, Math.floor(Number(raw)));
+                  setDraftCourseTolerances((p) => ({ ...p, retrievalCadenceOverride: v }));
+                }}
+                className="hf-input ps-tuner-tolerance-input"
+                data-testid={`tuner-tolerance-cadence-${scope ?? "none"}`}
+              />
+              <span className="ps-eq-value">
+                {draftCourseTolerances.retrievalCadenceOverride !== undefined
+                  ? String(draftCourseTolerances.retrievalCadenceOverride)
+                  : "(preset)"}
+              </span>
+            </div>
+          </div>
+
+          {/* Memory decay scale (course-only) */}
+          <div
+            className="ps-tuner-tolerance-row"
+            data-disabled-reason={
+              scope === "learner"
+                ? "Course-level only — applies to all learners."
+                : undefined
+            }
+          >
+            <label className="ps-tuner-tolerance-label" htmlFor="tol-decay">
+              Memory Decay Scale
+              <span className="ps-tuner-tolerance-sublabel">
+                0.1–1.0 multiplier on default per-category decay. Lower = memories fade faster.
+              </span>
+            </label>
+            <div className="ps-tuner-tolerance-control">
+              <input
+                id="tol-decay"
+                type="range"
+                min={0.1}
+                max={1.0}
+                step={0.1}
+                value={draftCourseTolerances.memoryDecayScale ?? 1.0}
+                disabled={scope !== "course"}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setDraftCourseTolerances((p) => ({ ...p, memoryDecayScale: v }));
+                }}
+                className="ps-eq-slider"
+                data-testid={`tuner-tolerance-decay-${scope ?? "none"}`}
+              />
+              <span className="ps-eq-value">
+                {draftCourseTolerances.memoryDecayScale !== undefined
+                  ? fmt(draftCourseTolerances.memoryDecayScale)
+                  : "(1.0)"}
+              </span>
+            </div>
+          </div>
+        </div>
 
         {/* Pending changes */}
         {hasChanges && (

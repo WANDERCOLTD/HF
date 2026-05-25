@@ -635,3 +635,63 @@
   height: 12px;
   border-width: 2px;
 }
+
+/* ---------------------------------------------------------------------------
+ * #598 Slice 2 — Tolerances section
+ * ---------------------------------------------------------------------------
+ *
+ * Stacks three controls (mastery / cadence / decay) inside the existing
+ * ps-tuner-section. Reuses ps-eq-slider for the two range inputs so visual
+ * consistency with the EQ block above is preserved.
+ */
+.ps-tuner-tolerance-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-default);
+}
+.ps-tuner-tolerance-row:first-of-type {
+  border-top: none;
+  padding-top: 4px;
+}
+
+/* Course-only field disabled at learner scope — dim + add tooltip via the
+ * data-disabled-reason attribute. Inputs themselves use the native `disabled`
+ * attribute for keyboard / screen reader accessibility. */
+.ps-tuner-tolerance-row[data-disabled-reason] {
+  opacity: 0.55;
+}
+.ps-tuner-tolerance-row[data-disabled-reason]::after {
+  content: attr(data-disabled-reason);
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-style: italic;
+}
+
+.ps-tuner-tolerance-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ps-tuner-tolerance-sublabel {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.ps-tuner-tolerance-control {
+  display: grid;
+  grid-template-columns: 1fr 80px;
+  align-items: center;
+  gap: 12px;
+}
+
+.ps-tuner-tolerance-input {
+  width: 100%;
+}
