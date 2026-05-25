@@ -5119,7 +5119,7 @@ Find all COURSE_REFERENCE sources for a course and trigger
 
 ### `PUT` /api/courses/[courseId]/design
 
-Save student experience design config (welcome flow phases + NPS settings).
+Save student experience design config. Writes to
 
 **Auth**: session (OPERATOR+) · **Scope**: `course:write`
 

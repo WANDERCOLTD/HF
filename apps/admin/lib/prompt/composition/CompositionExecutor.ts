@@ -47,6 +47,7 @@ import "./transforms/retrieval-practice";
 import "./transforms/course-instructions";
 import "./transforms/audience";
 import "./transforms/offboarding";
+import "./transforms/progress-narrative";
 import "./transforms/priorCallFeedback";
 import "./transforms/mockDiagnostic";
 import "./transforms/interleaveReview";
@@ -785,6 +786,22 @@ export function getDefaultSections(): CompositionSectionDef[] {
       fallback: { action: "omit" },
       transform: "renderInterleaveReview",
       outputKey: "interleaveReview",
+      dependsOn: ["curriculum"],
+    },
+    {
+      // #779 — Felt Progress S1. Sits between interleaveReview (7.8) and
+      // session_planning (8) — i.e. AFTER the recap / review context blocks
+      // and BEFORE goals / pedagogy directives. activateWhen=always because
+      // the transform applies its own config + evidence gating and returns
+      // null (which fallback=null preserves) when nothing notable to surface.
+      id: "progress_narrative",
+      name: "Progress Narrative",
+      priority: 7.9,
+      dataSource: "_assembled",
+      activateWhen: { condition: "always" },
+      fallback: { action: "null" },
+      transform: "computeProgressNarrative",
+      outputKey: "progressNarrative",
       dependsOn: ["curriculum"],
     },
     {

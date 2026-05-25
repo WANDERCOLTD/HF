@@ -145,6 +145,7 @@ All declared in `transforms/*.ts` via `registerTransform("<name>", fn)`. `Compos
 | `activities.ts` | `computeActivityToolkit` | `activityToolkit` | `_assembled` (personality + curriculum + pedagogy) |
 | `pedagogy.ts` | `computeSessionPedagogy` | `instructions_pedagogy` | `_assembled` — picks onboardingFlowSource: Playbook → Domain → Spec |
 | `offboarding.ts` | `computeOffboarding` | `offboarding` | `_assembled` — gated by `sharedState.isFinalSession` |
+| `progress-narrative.ts` | `computeProgressNarrative` | `progressNarrative` | `_assembled` — gated by `Playbook.config.progressNarrative` (#779 Felt Progress S1); rebuilds `loMasteryMap` from `callerAttributes`, surfaces top 3 LO refs as evidence for mid-call acknowledgement |
 | `voice.ts` | `computeVoiceGuidance` | `instructions_voice` | `_assembled` + `resolvedSpecs.voiceSpec` |
 | `instructions.ts` | `computeInstructions` | `instructions` | `_assembled` (depends on every prior content / pedagogy / voice section) |
 | `actions.ts` | `formatActions` | (embedded inside `instructions`) | `loadedData.openActions` |
