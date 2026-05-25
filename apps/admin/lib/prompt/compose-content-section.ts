@@ -16,6 +16,7 @@
 import { prisma } from "@/lib/prisma";
 import { ContractRegistry } from "@/lib/contracts/registry";
 import { CURRICULUM_REQUIRED_FIELDS } from "@/lib/curriculum/constants";
+import { resolveMasteryThreshold } from "@/lib/tolerance/resolve-tolerance";
 import type { SpecConfig } from "@/lib/types/json-fields";
 
 interface CurriculumMetadata {
@@ -581,6 +582,19 @@ async function composeContentFromSubject(
     });
 
     if (pbCurr) {
+      // #598 Slice 1 follow-up — single tolerance-cascade resolution covers
+      // both Path 1 and Path 2 below. Pulls Playbook.config once for layers
+      // 2–4 of the cascade (per-playbook target, tolerances field, preset).
+      const playbookForResolve = await prisma.playbook.findUnique({
+        where: { id: enrolledPbId },
+        select: { config: true },
+      });
+      const masteryThreshold = await resolveMasteryThreshold({
+        callerId,
+        playbookId: enrolledPbId,
+        playbookConfig: (playbookForResolve?.config as Record<string, unknown>) ?? null,
+      });
+
       // Path 1 — relational CurriculumModule rows.
       const relationalModules = pbCurr.modules ?? [];
       if (relationalModules.length > 0) {
@@ -599,14 +613,6 @@ async function composeContentFromSubject(
         }));
 
         const progress = await loadCallerProgress(callerId, pbCurr.slug, "current_module", enrolledPbId);
-        const contractThresholds = await ContractRegistry.getThresholds("CURRICULUM_PROGRESS_V1");
-        // TODO(#598 Slice 1 follow-up): migrate to resolveMasteryThreshold()
-        // once `lib/tolerance/resolve-tolerance.ts` ships. The cascade there
-        // covers the 7 layers (caller → playbook → preset → spec config →
-        // ContractRegistry → hardcoded 0.7) — this 2-layer fallback is the
-        // last surviving direct read of `0.7` outside `transforms/modules.ts`.
-        // See docs/decisions/2026-05-22-tolerance-placement.md.
-        const masteryThreshold = contractThresholds?.masteryComplete ?? 0.7;
         const enrichedModules = enrichModulesWithProgress(modules, progress, masteryThreshold);
         const nextModule = enrichedModules.find((m) => m.status !== "completed") || null;
         const nextContent = nextModule
@@ -643,14 +649,6 @@ async function composeContentFromSubject(
         }));
 
         const progress = await loadCallerProgress(callerId, pbCurr.slug, "current_module");
-        const contractThresholds = await ContractRegistry.getThresholds("CURRICULUM_PROGRESS_V1");
-        // TODO(#598 Slice 1 follow-up): migrate to resolveMasteryThreshold()
-        // once `lib/tolerance/resolve-tolerance.ts` ships. The cascade there
-        // covers the 7 layers (caller → playbook → preset → spec config →
-        // ContractRegistry → hardcoded 0.7) — this 2-layer fallback is the
-        // last surviving direct read of `0.7` outside `transforms/modules.ts`.
-        // See docs/decisions/2026-05-22-tolerance-placement.md.
-        const masteryThreshold = contractThresholds?.masteryComplete ?? 0.7;
         const enrichedModules = enrichModulesWithProgress(modules, progress, masteryThreshold);
         const nextModule = enrichedModules.find((m) => m.status !== "completed") || null;
         const nextContent = nextModule
@@ -716,15 +714,11 @@ async function composeContentFromSubject(
     // Load progress using contract-defined keys
     const progress = await loadCallerProgress(callerId, curriculum.slug, "current_module");
 
-    // Get mastery threshold from contract (not hardcoded)
-    // TODO(#598 Slice 1 follow-up): migrate to resolveMasteryThreshold()
-    // once `lib/tolerance/resolve-tolerance.ts` ships. The cascade there
-    // covers the 7 layers (caller → playbook → preset → spec config →
-    // ContractRegistry → hardcoded 0.7) — this 2-layer fallback is the
-    // last surviving direct read of `0.7` outside `transforms/modules.ts`.
-    // See docs/decisions/2026-05-22-tolerance-placement.md.
-    const contractThresholds = await ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1');
-    const masteryThreshold = contractThresholds?.masteryComplete ?? 0.7;
+    // #598 Slice 1 follow-up — subject-domain fallback path. No playbook is
+    // resolved here (this branch fires when there's no PlaybookCurriculum),
+    // so the cascade naturally degrades through layers 5→6→7 (specConfig →
+    // ContractRegistry → 0.7). Per-caller targets at layer 1 still apply.
+    const masteryThreshold = await resolveMasteryThreshold({ callerId });
 
     // Enrich modules with progress
     const enrichedModules = enrichModulesWithProgress(modules, progress, masteryThreshold);
