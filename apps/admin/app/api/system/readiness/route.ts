@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+// #191 / #762 — was `new PrismaClient()` per-route; load test 2026-05-25 measured
+// p95 677ms + 28/1734 5xx at 10 VUs (#766 forward-fix). The original PR #765
+// reverted because `prisma.$disconnect()` in finally{} killed the SHARED
+// singleton pool for every other in-flight request. Fix: singleton + drop the
+// $disconnect (it was harmless with per-route clients, fatal with the shared
+// one) + 5s in-memory cache (kills the 9-query bottleneck regardless of pool
+// architecture — readiness is polled every ~30s by StatusBar, 5s staleness is
+// fine for a "is the system up" check).
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -28,17 +34,44 @@ interface SuggestedAction {
   opid?: string;
 }
 
+interface ReadinessResponse {
+  ok: boolean;
+  ready: boolean;
+  checks: Record<string, ReadinessCheck>;
+  sources: Record<string, SourceStatus>;
+  suggestedActions: SuggestedAction[];
+  stats: {
+    totalCallers: number;
+    totalCalls: number;
+    totalMemories: number;
+    analyzedCalls: number;
+    callersWithPrompts: number;
+  };
+  timestamp: string;
+}
+
+// 5-second in-memory cache. StatusBar polls every ~30s; multiple admins
+// pulling at once + load-test-style bursts collapse to ~1 DB hit per 5s.
+const CACHE_TTL_MS = 5_000;
+let cached: { at: number; payload: ReadinessResponse } | null = null;
+
 /**
  * @api GET /api/system/readiness
  * @visibility public
  * @scope system:readiness
  * @auth none
  * @tags system
- * @description Returns comprehensive system readiness status for the analyze workflow. Checks prerequisites (specs, parameters, run configs), data sources (callers, calls, transcripts), and suggests next actions.
+ * @description Returns comprehensive system readiness status for the analyze workflow. Checks prerequisites (specs, parameters, run configs), data sources (callers, calls, transcripts), and suggests next actions. Result cached 5s in-memory per Cloud Run instance.
  * @response 200 { ok: true, ready: boolean, checks: {...}, sources: {...}, suggestedActions: [...], stats: {...}, timestamp: "ISO8601" }
  * @response 500 { ok: false, ready: false, error: "...", checks: { database: { ok: false, message: "..." } } }
  */
 export async function GET() {
+  // Serve from cache if fresh
+  const now = Date.now();
+  if (cached && now - cached.at < CACHE_TTL_MS) {
+    return NextResponse.json(cached.payload);
+  }
+
   try {
     // Run all checks in parallel
     const [
@@ -51,6 +84,8 @@ export async function GET() {
       transcriptCount,
       behaviorTargetCount,
       memoryCount,
+      analyzedCalls,
+      callersWithPrompts,
     ] = await Promise.all([
       prisma.analysisSpec.count(),
       prisma.analysisSpec.count({ where: { isActive: true, compiledAt: { not: null } } }),
@@ -61,6 +96,10 @@ export async function GET() {
       prisma.processedFile.count(),
       prisma.behaviorTarget.count(),
       prisma.callerMemory.count(),
+      // Hoisted out of the post-Promise.all serial await — adds 0 latency thanks to parallel,
+      // saves ~50-200ms per request that previously waited for these two sequentially.
+      prisma.call.count({ where: { scores: { some: {} } } }),
+      prisma.callerIdentity.count({ where: { nextPrompt: { not: null } } }),
     ]);
     // Run configs = compiled specs (CompiledAnalysisSet was removed from schema)
     const runConfigCount = publishedSpecCount;
@@ -189,26 +228,27 @@ export async function GET() {
     const criticalChecks = ["analysisSpecs", "runConfigs"];
     const ready = criticalChecks.every((key) => checks[key].ok);
 
-    // Stats for display
-    const stats = {
-      totalCallers: callerCount,
-      totalCalls: callCount,
-      totalMemories: memoryCount,
-      analyzedCalls: await prisma.call.count({ where: { scores: { some: {} } } }),
-      callersWithPrompts: await prisma.callerIdentity.count({ where: { nextPrompt: { not: null } } }),
-    };
-
-    return NextResponse.json({
+    const payload: ReadinessResponse = {
       ok: true,
       ready,
       checks,
       sources,
       suggestedActions: suggestedActions.sort((a, b) => a.priority - b.priority),
-      stats,
+      stats: {
+        totalCallers: callerCount,
+        totalCalls: callCount,
+        totalMemories: memoryCount,
+        analyzedCalls,
+        callersWithPrompts,
+      },
       timestamp: new Date().toISOString(),
-    });
+    };
+    cached = { at: now, payload };
+    return NextResponse.json(payload);
   } catch (error: any) {
     console.error("[System Readiness Error]:", error);
+    // Do NOT cache the error — next request retries fresh
+    cached = null;
     return NextResponse.json(
       {
         ok: false,
@@ -223,7 +263,8 @@ export async function GET() {
       },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
+  // No finally{} prisma.$disconnect() — the shared singleton must stay open
+  // for concurrent requests. The disconnect was a leftover from when this
+  // route created its own per-request PrismaClient.
 }
