@@ -28,28 +28,31 @@ const mockPrisma = {
 };
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
+type GetHandler = () => Promise<Response>;
+type Row = Record<string, unknown>;
+
 describe("GET /api/cohorts/overview", () => {
-  let GET: any;
+  let GET: GetHandler;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     const mod = await import("@/app/api/cohorts/overview/route");
-    GET = mod.GET;
+    GET = mod.GET as GetHandler;
   });
 
-  function setCohorts(cohorts: any[]) {
+  function setCohorts(cohorts: Row[]) {
     mockPrisma.cohortGroup.findMany.mockResolvedValue(cohorts);
   }
-  function setMemberships(memberships: any[]) {
+  function setMemberships(memberships: Row[]) {
     mockPrisma.callerCohortMembership.findMany.mockResolvedValue(memberships);
   }
   // First call.findMany call = last 7d; second = prior 7d
-  function setCalls(thisWeek: any[], priorWeek: any[]) {
+  function setCalls(thisWeek: Row[], priorWeek: Row[]) {
     mockPrisma.call.findMany
       .mockResolvedValueOnce(thisWeek)
       .mockResolvedValueOnce(priorWeek);
   }
-  function setMastery(rows: any[]) {
+  function setMastery(rows: Row[]) {
     mockPrisma.callerModuleProgress.findMany.mockResolvedValue(rows);
   }
 
