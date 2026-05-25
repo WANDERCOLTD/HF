@@ -24,8 +24,20 @@
  * keeps the component self-contained — matching the BandingPicker pattern.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
+
+interface Call1OverrideSample {
+  id: string;
+  ref: string | null;
+  text: string;
+  truncated: boolean;
+}
+interface Call1OverridePreview {
+  count: number;
+  samples: Call1OverrideSample[];
+  rangeFormCount: number;
+}
 
 // Hardcoded fallback list — covers the common first-call tuning surface.
 // Kept short on purpose; the AgentTuner is the rich entry-point. If a
@@ -125,6 +137,28 @@ export function FirstSessionSettings({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // #798 — course-ref Layer-0 override preview. Read-only fetch on mount.
+  const [courseRefPreview, setCourseRefPreview] = useState<Call1OverridePreview | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/courses/${courseId}/call1-override-preview`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!alive || !json?.ok) return;
+        setCourseRefPreview({
+          count: json.count,
+          samples: json.samples,
+          rangeFormCount: json.rangeFormCount,
+        });
+      })
+      .catch(() => {
+        /* preview is non-critical — silently no-op on error */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [courseId]);
 
   const signpost = readSignpostState(cfg);
 
@@ -297,6 +331,58 @@ export function FirstSessionSettings({
           + Add first-call target override
         </button>
       </div>
+
+      {/* ── #798: read-only preview of course-ref Layer-0 call-1 overrides ── */}
+      {courseRefPreview && (
+        <div className="hf-mb-lg">
+          <div className="hf-text-sm hf-text-bold hf-mb-xs">From your course-ref</div>
+          {courseRefPreview.count === 0 ? (
+            <div className="hf-text-xs hf-text-muted">
+              Your course-ref has no call-1 specific instructions. Call 1 uses
+              the cascade above.
+            </div>
+          ) : (
+            <>
+              <div className="hf-text-xs hf-text-muted hf-mb-xs">
+                Your course-ref defines {courseRefPreview.count} call-1
+                instruction{courseRefPreview.count === 1 ? "" : "s"}. These
+                REPLACE the onboarding flow entirely on call 1 (highest
+                priority).
+              </div>
+              <ul className="hf-card-compact hf-text-xs hf-mb-xs">
+                {courseRefPreview.samples.map((s) => (
+                  <li key={s.id} className="hf-list-row">
+                    {s.ref ? <span className="hf-text-muted">[{s.ref}] </span> : null}
+                    {s.text}
+                  </li>
+                ))}
+                {courseRefPreview.count > courseRefPreview.samples.length && (
+                  <li className="hf-list-row hf-text-muted">
+                    …and {courseRefPreview.count - courseRefPreview.samples.length}{" "}
+                    more
+                  </li>
+                )}
+              </ul>
+              <div className="hf-text-xs hf-text-muted">
+                Edit by updating your course-ref doc →{" "}
+                <a
+                  href={`/x/courses/${courseId}?tab=content`}
+                  className="hf-link"
+                >
+                  Subject sources
+                </a>
+              </div>
+              {courseRefPreview.rangeFormCount > 0 && (
+                <div className="hf-text-xs hf-text-muted hf-mt-xs">
+                  Note: range-form assertions (e.g. &ldquo;1-3&rdquo;,
+                  &ldquo;1-5&rdquo;) that also apply to call 1 aren&apos;t shown
+                  here — view all course-ref instructions in the sources tab.
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="hf-flex hf-gap-sm hf-items-center">
         <button
