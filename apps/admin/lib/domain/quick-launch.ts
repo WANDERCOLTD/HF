@@ -12,6 +12,7 @@
 import { randomUUID } from "crypto";
 import { prisma, db, type TxClient } from "@/lib/prisma";
 import { config } from "@/lib/config";
+import { updateDomainConfig } from "@/lib/domain/update-domain-config";
 import {
   extractText,
   extractAssertions,
@@ -542,10 +543,13 @@ const stepExecutors: Record<string, StepExecutor> = {
           if (ctx.input.matrixPositions) {
             targetPayload._matrixPositions = ctx.input.matrixPositions;
           }
-          await p.domain.update({
-            where: { id: domainId },
-            data: { onboardingDefaultTargets: targetPayload },
-          });
+          // #828 — central helper, skipTimestamp: true (quick-launch is
+          // pre-enrolment scaffold path).
+          await updateDomainConfig(
+            domainId,
+            (d) => ({ ...d, onboardingDefaultTargets: targetPayload }),
+            { skipTimestamp: true, reason: "quick-launch onboardingDefaultTargets" },
+          );
         }
 
         // Apply as PLAYBOOK-scoped BehaviorTarget rows (always-active)
