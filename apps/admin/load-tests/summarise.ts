@@ -4,7 +4,7 @@
  * Pass/fail per threshold defined in k6.config.js.
  *
  * Streams input line-by-line — a 100-VU × 19-min run produces ~1GB,
- * hitting Node's max-string-length on naive readFileSync.
+ * hitting Node's max-string-length on naive readFileSync. #762 Phase 1B.
  *
  * Usage:
  *   npx tsx summarise.ts results/run-1779634000.json
@@ -35,6 +35,7 @@ interface Sample {
 const durations: Record<string, number[]> = {};
 const failures: Record<string, number> = {};
 const totals: Record<string, number> = {};
+// Track failures by HTTP status for triage (gateway 429 vs app 5xx vs client 0/timeout)
 const failuresByStatus: Record<string, Record<string, number>> = {};
 
 async function readPoints() {
@@ -96,7 +97,6 @@ function printSummary() {
     );
   }
 
-  // Failure breakdown by HTTP status — distinguishes gateway 429 vs app 5xx vs timeout
   for (const [scen, byStatus] of Object.entries(failuresByStatus)) {
     const top = Object.entries(byStatus).sort((a, b) => b[1] - a[1]);
     if (top.length > 0) {
