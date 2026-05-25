@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import { deletePlaybookData } from "@/lib/gdpr/delete-playbook-data";
 
 /**
@@ -275,18 +276,20 @@ export async function PATCH(
 
       if (spec.scope === "SYSTEM") {
         // Save single system spec toggle to config.systemSpecToggles
-        const currentConfig = (existing.config as Record<string, any>) || {};
-        const toggles = currentConfig.systemSpecToggles || {};
-        toggles[specId] = {
-          isEnabled: enabled,
-          configOverride: toggles[specId]?.configOverride || null,
-        };
-        await prisma.playbook.update({
-          where: { id: playbookId },
-          data: {
-            config: { ...currentConfig, systemSpecToggles: toggles },
-          },
-        });
+        // #819 — systemSpecToggles aren't in COMPOSE_AFFECTING_KEYS today
+        // (they're read by spec resolvers, not directly by transforms), but
+        // we still route through the helper so the chain-contract enforcement
+        // applies consistently. The helper short-circuits fan-out when
+        // changedKeys is empty, so the cost is one extra fetch.
+        await updatePlaybookConfig(playbookId, (cfg) => {
+          const toggles = ((cfg as Record<string, any>).systemSpecToggles ?? {}) as Record<string, any>;
+          toggles[specId] = {
+            isEnabled: enabled,
+            configOverride: toggles[specId]?.configOverride || null,
+          };
+          (cfg as Record<string, any>).systemSpecToggles = toggles;
+          return cfg;
+        }, { reason: "playbook-PATCH:systemSpecToggle" });
       } else {
         // Toggle domain spec via PlaybookItem
         const existingItem = await prisma.playbookItem.findFirst({
@@ -376,6 +379,9 @@ export async function PATCH(
     }
 
     // Save system spec toggles to playbook.config.systemSpecToggles
+    // #819 — systemSpecToggles aren't in COMPOSE_AFFECTING_KEYS today (read
+    // by spec resolvers, not transforms), but routing through the helper
+    // keeps chain-contract enforcement uniform.
     if (specs !== undefined) {
       const systemSpecToggles: Record<string, { isEnabled: boolean; configOverride: any }> = {};
       for (const s of specs as Array<{ specId: string; isEnabled: boolean; configOverride: any }>) {
@@ -384,55 +390,39 @@ export async function PATCH(
           configOverride: s.configOverride || null,
         };
       }
-      const currentConfig = (existing.config as Record<string, any>) || {};
-      await prisma.playbook.update({
-        where: { id: playbookId },
-        data: {
-          config: { ...currentConfig, systemSpecToggles },
-        },
-      });
+      await updatePlaybookConfig(playbookId, (cfg) => {
+        (cfg as Record<string, any>).systemSpecToggles = systemSpecToggles;
+        return cfg;
+      }, { reason: "playbook-PATCH:systemSpecToggles-bulk" });
     }
 
-    // Save audience to playbook.config.audience (top-level config field)
+    // Save audience to playbook.config.audience (top-level config field).
+    // #819 — `audience` IS compose-affecting (selects audience-default
+    // targets cascade in transforms/targets.ts), so the helper fans out.
     if (audience !== undefined) {
-      const current = await prisma.playbook.findUnique({
-        where: { id: playbookId },
-        select: { config: true },
-      });
-      const currentConfig = (current?.config as Record<string, any>) || {};
-      await prisma.playbook.update({
-        where: { id: playbookId },
-        data: { config: { ...currentConfig, audience } },
-      });
+      await updatePlaybookConfig(playbookId, (cfg) => {
+        (cfg as Record<string, any>).audience = audience;
+        return cfg;
+      }, { reason: "playbook-PATCH:audience" });
     }
 
-    // Save config settings (memory, learning, AI, thresholds) to playbook.config.configSettings
+    // Save config settings (memory, learning, AI, thresholds) to
+    // playbook.config.configSettings — not in COMPOSE_AFFECTING_KEYS today.
     if (configSettings !== undefined) {
-      // Re-fetch to get latest config (in case specs were also updated)
-      const current = await prisma.playbook.findUnique({
-        where: { id: playbookId },
-        select: { config: true },
-      });
-      const currentConfig = (current?.config as Record<string, any>) || {};
-      await prisma.playbook.update({
-        where: { id: playbookId },
-        data: {
-          config: { ...currentConfig, configSettings },
-        },
-      });
+      await updatePlaybookConfig(playbookId, (cfg) => {
+        (cfg as Record<string, any>).configSettings = configSettings;
+        return cfg;
+      }, { reason: "playbook-PATCH:configSettings" });
     }
 
-    // Merge arbitrary config fields (goals, constraints, teachingFocus, etc.)
+    // Merge arbitrary config fields. #819 — `goals` IS compose-affecting;
+    // other keys are passed through the helper which diffs against
+    // COMPOSE_AFFECTING_KEYS and fans out only if something compose-relevant
+    // actually changed.
     if (config !== undefined && typeof config === "object" && config !== null) {
-      const current = await prisma.playbook.findUnique({
-        where: { id: playbookId },
-        select: { config: true },
-      });
-      const currentConfig = (current?.config as Record<string, any>) || {};
-      await prisma.playbook.update({
-        where: { id: playbookId },
-        data: { config: { ...currentConfig, ...config } },
-      });
+      await updatePlaybookConfig(playbookId, (cfg) => {
+        return Object.assign(cfg, config);
+      }, { reason: "playbook-PATCH:arbitrary-config-merge" });
     }
 
     // Fetch updated playbook

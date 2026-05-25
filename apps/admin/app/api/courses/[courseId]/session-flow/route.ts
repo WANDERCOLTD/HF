@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { config } from "@/lib/config";
+import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import { resolveSessionFlow } from "@/lib/session-flow/resolver";
 import type {
   PlaybookConfig,
@@ -150,54 +151,49 @@ export async function PUT(
       );
     }
 
-    const existing = (playbook.config ?? {}) as PlaybookConfig;
+    // Centralised write enforces the TUNER -> COMPOSE chain-contract (#819):
+    // when sessionFlow / welcome / lessonPlanMode change, the helper fans out
+    // recompose-all across every active caller before they hit their next call.
+    await updatePlaybookConfig(courseId, (existing) => {
+      // ── Mirror sessionFlow.intake → legacy `welcome` during dual-read window ──
+      // The runtime transforms (and journey-position route, when the flag is OFF)
+      // read `playbook.config.welcome.*.enabled`. Without this mirror, edits in
+      // the Session Flow editor would silently fail when SESSION_FLOW_RESOLVER_ENABLED
+      // is false (currently the case in test/prod). Same pattern the wizard
+      // already uses for `nps.enabled` → `surveys.post.enabled`. Removed in
+      // Phase 5 (#220) once legacy fields are dropped.
+      let mirroredWelcome = existing.welcome;
+      if (body.sessionFlow?.intake) {
+        const i = body.sessionFlow.intake;
+        mirroredWelcome = {
+          goals: { enabled: i.goals.enabled },
+          aboutYou: { enabled: i.aboutYou.enabled },
+          knowledgeCheck: { enabled: i.knowledgeCheck.enabled },
+          aiIntroCall: { enabled: i.aiIntroCall.enabled },
+        };
+      }
 
-    // ── Mirror sessionFlow.intake → legacy `welcome` during dual-read window ──
-    // The runtime transforms (and journey-position route, when the flag is OFF)
-    // read `playbook.config.welcome.*.enabled`. Without this mirror, edits in
-    // the Session Flow editor would silently fail when SESSION_FLOW_RESOLVER_ENABLED
-    // is false (currently the case in test/prod). Same pattern the wizard
-    // already uses for `nps.enabled` → `surveys.post.enabled`. Removed in
-    // Phase 5 (#220) once legacy fields are dropped.
-    let mirroredWelcome = existing.welcome;
-    if (body.sessionFlow?.intake) {
-      const i = body.sessionFlow.intake;
-      mirroredWelcome = {
-        goals: { enabled: i.goals.enabled },
-        aboutYou: { enabled: i.aboutYou.enabled },
-        knowledgeCheck: { enabled: i.knowledgeCheck.enabled },
-        aiIntroCall: { enabled: i.aiIntroCall.enabled },
-      };
-    }
+      // ── Mirror nps.enabled → surveys.post.enabled (existing wizard pattern) ──
+      let mirroredSurveys = existing.surveys;
+      if (body.nps !== undefined) {
+        mirroredSurveys = {
+          ...(existing.surveys ?? {}),
+          post: { ...(existing.surveys?.post ?? {}), enabled: body.nps.enabled },
+        };
+      }
 
-    // ── Mirror nps.enabled → surveys.post.enabled (existing wizard pattern) ──
-    let mirroredSurveys = existing.surveys;
-    if (body.nps !== undefined) {
-      mirroredSurveys = {
-        ...(existing.surveys ?? {}),
-        post: { ...(existing.surveys?.post ?? {}), enabled: body.nps.enabled },
-      };
-    }
-
-    const merged: PlaybookConfig = {
-      ...existing,
-      ...(body.lessonPlanMode !== undefined ? { lessonPlanMode: body.lessonPlanMode } : {}),
-      ...(body.welcomeMessage !== undefined ? { welcomeMessage: body.welcomeMessage ?? undefined } : {}),
-      ...(body.nps !== undefined
-        ? { nps: body.nps, ...(mirroredSurveys !== existing.surveys ? { surveys: mirroredSurveys } : {}) }
-        : {}),
-      ...(body.sessionFlow !== undefined
-        ? {
-            sessionFlow: { ...(existing.sessionFlow ?? {}), ...body.sessionFlow },
-            ...(mirroredWelcome !== existing.welcome ? { welcome: mirroredWelcome } : {}),
-          }
-        : {}),
-    };
-
-    await prisma.playbook.update({
-      where: { id: courseId },
-      data: { config: merged as object },
-    });
+      if (body.lessonPlanMode !== undefined) existing.lessonPlanMode = body.lessonPlanMode;
+      if (body.welcomeMessage !== undefined) existing.welcomeMessage = body.welcomeMessage ?? undefined;
+      if (body.nps !== undefined) {
+        existing.nps = body.nps;
+        if (mirroredSurveys !== existing.surveys) existing.surveys = mirroredSurveys;
+      }
+      if (body.sessionFlow !== undefined) {
+        existing.sessionFlow = { ...(existing.sessionFlow ?? {}), ...body.sessionFlow };
+        if (mirroredWelcome !== existing.welcome) existing.welcome = mirroredWelcome;
+      }
+      return existing;
+    }, { reason: "session-flow:PUT" });
 
     // Re-resolve and return so the client can update without a second fetch.
     const updated = await prisma.playbook.findUnique({

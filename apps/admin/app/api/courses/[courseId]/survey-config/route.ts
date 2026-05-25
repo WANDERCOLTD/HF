@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import type {
   PlaybookConfig,
   OnboardingPhase,
@@ -105,73 +106,69 @@ export async function PATCH(
       triggerAfterCalls?: number;
     };
 
-    const playbook = await prisma.playbook.findUnique({
-      where: { id: courseId },
-      select: { config: true },
-    });
+    // #819 — central helper enforces TUNER -> COMPOSE chain-contract.
+    // onboardingFlowPhases mutations trigger fan-out (it's in
+    // COMPOSE_AFFECTING_KEYS); offboarding-only mutations do not.
+    try {
+      await updatePlaybookConfig(courseId, (pbConfig) => {
+        // ---- Onboarding survey steps ----
+        if (body.onboardingSurveySteps) {
+          const phases: OnboardingPhase[] = pbConfig.onboardingFlowPhases?.phases ?? [];
+          const surveyIdx = phases.findIndex(
+            (p) => p.surveySteps && p.surveySteps.length > 0,
+          );
 
-    if (!playbook) {
-      return NextResponse.json({ ok: false, error: "Course not found" }, { status: 404 });
-    }
+          if (surveyIdx >= 0) {
+            phases[surveyIdx] = { ...phases[surveyIdx], surveySteps: body.onboardingSurveySteps };
+          } else {
+            const welcomeIdx = phases.findIndex((p) => p.phase.toLowerCase() === "welcome");
+            const insertAt = welcomeIdx >= 0 ? welcomeIdx + 1 : Math.min(1, phases.length);
+            phases.splice(insertAt, 0, {
+              phase: "survey",
+              duration: "2min",
+              goals: ["Capture learner baseline"],
+              surveySteps: body.onboardingSurveySteps,
+            });
+          }
 
-    const pbConfig = (playbook.config ?? {}) as PlaybookConfig;
-
-    // ---- Onboarding survey steps ----
-    if (body.onboardingSurveySteps) {
-      const phases: OnboardingPhase[] = pbConfig.onboardingFlowPhases?.phases ?? [];
-      const surveyIdx = phases.findIndex(
-        (p) => p.surveySteps && p.surveySteps.length > 0,
-      );
-
-      if (surveyIdx >= 0) {
-        // Update existing survey phase
-        phases[surveyIdx] = { ...phases[surveyIdx], surveySteps: body.onboardingSurveySteps };
-      } else {
-        // Insert a survey phase after "welcome" (or at position 1)
-        const welcomeIdx = phases.findIndex((p) => p.phase.toLowerCase() === "welcome");
-        const insertAt = welcomeIdx >= 0 ? welcomeIdx + 1 : Math.min(1, phases.length);
-        phases.splice(insertAt, 0, {
-          phase: "survey",
-          duration: "2min",
-          goals: ["Capture learner baseline"],
-          surveySteps: body.onboardingSurveySteps,
-        });
-      }
-
-      pbConfig.onboardingFlowPhases = {
-        ...pbConfig.onboardingFlowPhases,
-        phases,
-      };
-    }
-
-    // ---- Offboarding survey / trigger ----
-    if (body.offboardingSurveySteps !== undefined || body.triggerAfterCalls !== undefined) {
-      const existing = (pbConfig.offboarding ?? {}) as Partial<OffboardingConfig>;
-      const existingPhases = existing.phases ?? [];
-
-      if (body.offboardingSurveySteps) {
-        if (existingPhases.length > 0) {
-          existingPhases[0] = { ...existingPhases[0], surveySteps: body.offboardingSurveySteps };
-        } else {
-          existingPhases.push({
-            phase: "survey",
-            duration: "3min",
-            goals: ["Gather feedback"],
-            surveySteps: body.offboardingSurveySteps,
-          });
+          pbConfig.onboardingFlowPhases = {
+            ...pbConfig.onboardingFlowPhases,
+            phases,
+          };
         }
+
+        // ---- Offboarding survey / trigger ----
+        if (body.offboardingSurveySteps !== undefined || body.triggerAfterCalls !== undefined) {
+          const existing = (pbConfig.offboarding ?? {}) as Partial<OffboardingConfig>;
+          const existingPhases = existing.phases ?? [];
+
+          if (body.offboardingSurveySteps) {
+            if (existingPhases.length > 0) {
+              existingPhases[0] = { ...existingPhases[0], surveySteps: body.offboardingSurveySteps };
+            } else {
+              existingPhases.push({
+                phase: "survey",
+                duration: "3min",
+                goals: ["Gather feedback"],
+                surveySteps: body.offboardingSurveySteps,
+              });
+            }
+          }
+
+          pbConfig.offboarding = {
+            triggerAfterCalls: body.triggerAfterCalls ?? existing.triggerAfterCalls ?? DEFAULT_OFFBOARDING_TRIGGER,
+            phases: existingPhases,
+          } satisfies OffboardingConfig;
+        }
+
+        return pbConfig;
+      }, { reason: "survey-config:PATCH" });
+    } catch (e) {
+      if (e instanceof Error && e.message.includes("not found")) {
+        return NextResponse.json({ ok: false, error: "Course not found" }, { status: 404 });
       }
-
-      pbConfig.offboarding = {
-        triggerAfterCalls: body.triggerAfterCalls ?? existing.triggerAfterCalls ?? DEFAULT_OFFBOARDING_TRIGGER,
-        phases: existingPhases,
-      } satisfies OffboardingConfig;
+      throw e;
     }
-
-    await prisma.playbook.update({
-      where: { id: courseId },
-      data: { config: pbConfig as Record<string, unknown> },
-    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

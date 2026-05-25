@@ -2,6 +2,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import noUnscopedSlugLookup from "./eslint-rules/no-unscoped-slug-lookup.mjs";
+import noDirectPlaybookConfigWrite from "./eslint-rules/no-direct-playbook-config-write.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -43,9 +44,19 @@ const eslintConfig = defineConfig([
           "no-unscoped-slug-lookup": noUnscopedSlugLookup,
         },
       },
+      // #819 — block direct Playbook.config writes outside the central
+      // helper. Forces every writer (route, wizard tool, programmatic)
+      // through `updatePlaybookConfig()` so the recompose-all fan-out
+      // (TUNER -> COMPOSE chain-contract) cannot be skipped.
+      "hf-playbook": {
+        rules: {
+          "no-direct-config-write": noDirectPlaybookConfigWrite,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
+      "hf-playbook/no-direct-config-write": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import type { PlaybookConfig, OnboardingFlowPhases, OnboardingPhase } from "@/lib/types/json-fields";
 import { getFlowPhasesFallback } from "@/lib/fallback-settings";
 
@@ -140,34 +141,24 @@ export async function PUT(
     const body = await req.json();
     const { onboardingFlowPhases } = body as { onboardingFlowPhases: OnboardingFlowPhases | null };
 
-    // Verify playbook exists
-    const playbook = await prisma.playbook.findUnique({
-      where: { id: courseId },
-      select: { id: true, config: true },
-    });
-
-    if (!playbook) {
-      return NextResponse.json(
-        { ok: false, error: "Course not found" },
-        { status: 404 }
-      );
+    // #819 — central helper enforces TUNER -> COMPOSE chain-contract.
+    // onboardingFlowPhases is in COMPOSE_AFFECTING_KEYS, so this PUT
+    // automatically fans out recompose-all when the override changes.
+    try {
+      await updatePlaybookConfig(courseId, (cfg) => {
+        if (onboardingFlowPhases === null) {
+          delete cfg.onboardingFlowPhases;
+        } else {
+          cfg.onboardingFlowPhases = onboardingFlowPhases;
+        }
+        return cfg;
+      }, { reason: "course-onboarding:PUT" });
+    } catch (e) {
+      if (e instanceof Error && e.message.includes("not found")) {
+        return NextResponse.json({ ok: false, error: "Course not found" }, { status: 404 });
+      }
+      throw e;
     }
-
-    // Merge into existing config (preserve other config fields)
-    const existingConfig = (playbook.config || {}) as PlaybookConfig;
-    const updatedConfig: PlaybookConfig = { ...existingConfig };
-
-    if (onboardingFlowPhases === null) {
-      // Reset to institution default — remove the override
-      delete updatedConfig.onboardingFlowPhases;
-    } else {
-      updatedConfig.onboardingFlowPhases = onboardingFlowPhases;
-    }
-
-    await prisma.playbook.update({
-      where: { id: courseId },
-      data: { config: updatedConfig },
-    });
 
     const action = onboardingFlowPhases === null ? "reset to domain default" : "set course override";
     console.log(`[course-onboarding-api] ${action} for course ${courseId}`);

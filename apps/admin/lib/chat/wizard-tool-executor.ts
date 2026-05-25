@@ -961,10 +961,19 @@ export async function executeWizardTool(
               existingPlaybookId,
             );
 
-            await prisma.playbook.update({
-              where: { id: existingPlaybookId },
-              data: { config: JSON.parse(JSON.stringify(configUpdate)) },
-            });
+            // #819 — central helper enforces TUNER -> COMPOSE chain-contract
+            // (Link 3 sub-contract). create_course reuse-existing path can hit
+            // a playbook that already has enrolled callers; the helper
+            // diffs against COMPOSE_AFFECTING_KEYS and fans out recompose-all
+            // automatically if any compose-affecting key changed.
+            const { updatePlaybookConfig } = await import(
+              "@/lib/playbook/update-playbook-config"
+            );
+            await updatePlaybookConfig(
+              existingPlaybookId,
+              () => configUpdate,
+              { reason: "wizard:create_course:reuse-existing" },
+            );
 
             // #607 follow-on (2026-05-23) — the new-course branch's step 4b
             // calls `unlinkNonPrimaryPlaybookSubjects()` to enforce "exactly
@@ -1508,10 +1517,20 @@ export async function executeWizardTool(
           playbookId,
         );
 
-        await prisma.playbook.update({
-          where: { id: playbookId },
-          data: { config: JSON.parse(JSON.stringify(configUpdate)) },
-        });
+        // #819 — central helper enforces TUNER -> COMPOSE chain-contract.
+        // create_course new-playbook path: the playbook was created in this
+        // same flow and has no callers yet, so skipFanOut is safe (and avoids
+        // the helper paying the cost of a roster lookup we know returns []).
+        {
+          const { updatePlaybookConfig } = await import(
+            "@/lib/playbook/update-playbook-config"
+          );
+          await updatePlaybookConfig(
+            playbookId,
+            () => configUpdate,
+            { reason: "wizard:create_course:new-playbook", skipFanOut: true },
+          );
+        }
 
         // 6. Link Subject → Playbook
         await prisma.playbookSubject.upsert({
@@ -2403,10 +2422,20 @@ export async function executeWizardTool(
           configUpdate.modulesAuthored = false;
         }
 
-        await prisma.playbook.update({
-          where: { id: playbookId },
-          data: { config: JSON.parse(JSON.stringify(configUpdate)) },
-        });
+        // #819 — update_course_config is the canonical "educator tunes the
+        // course post-creation" path. Goes through the helper so
+        // recompose-all fans out to every active caller when a
+        // COMPOSE-affecting key changes (firstCallMode, sessionFlow, etc.).
+        {
+          const { updatePlaybookConfig } = await import(
+            "@/lib/playbook/update-playbook-config"
+          );
+          await updatePlaybookConfig(
+            playbookId,
+            () => configUpdate,
+            { reason: "wizard:update_course_config" },
+          );
+        }
 
         return {
           ...base,
