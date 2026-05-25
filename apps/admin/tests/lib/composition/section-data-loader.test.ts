@@ -349,7 +349,7 @@ describe("curriculumAssertions loader — teachingDepth typed field (#814)", () 
   }
 
   it("Case 1 — returns the playbook-configured teachingDepth on the result object", async () => {
-    vi.mocked(prisma.contentAssertion.findMany).mockResolvedValue([
+    (prisma.contentAssertion.findMany as any).mockResolvedValue([
       makeRawAssertion("a1"),
       makeRawAssertion("a2"),
     ]);
@@ -368,7 +368,7 @@ describe("curriculumAssertions loader — teachingDepth typed field (#814)", () 
   });
 
   it("Case 2 — defaults teachingDepth to null when no subject sets it", async () => {
-    vi.mocked(prisma.contentAssertion.findMany).mockResolvedValue([
+    (prisma.contentAssertion.findMany as any).mockResolvedValue([
       makeRawAssertion("a1"),
     ]);
 
@@ -382,7 +382,7 @@ describe("curriculumAssertions loader — teachingDepth typed field (#814)", () 
   });
 
   it("Case 3 — teachingDepth survives a downstream .filter() on the result (regression for the array-property hack)", async () => {
-    vi.mocked(prisma.contentAssertion.findMany).mockResolvedValue([
+    (prisma.contentAssertion.findMany as any).mockResolvedValue([
       makeRawAssertion("a1"),
       makeRawAssertion("a2"),
       makeRawAssertion("a3"),
@@ -403,7 +403,7 @@ describe("curriculumAssertions loader — teachingDepth typed field (#814)", () 
   });
 
   it("Case 4 — teachingDepth survives a downstream .map() on the result", async () => {
-    vi.mocked(prisma.contentAssertion.findMany).mockResolvedValue([
+    (prisma.contentAssertion.findMany as any).mockResolvedValue([
       makeRawAssertion("a1"),
       makeRawAssertion("a2"),
     ]);
