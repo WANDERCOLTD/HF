@@ -223,3 +223,93 @@
   font-size: 11px;
   color: var(--text-muted);
 }
+
+/* ============================================================
+ * #760 Operator overview — engagement + mastery + red flags
+ * ============================================================ */
+
+/* Warn-toned summary card (red-flag rollup) */
+.co-summary-warn {
+  border-color: var(--status-error-text);
+  background: color-mix(in srgb, var(--status-error-text) 4%, var(--surface-primary));
+}
+.co-warn-icon {
+  color: var(--status-error-text);
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+
+/* Red-flagged cohort card */
+.co-card-redflag {
+  border-color: color-mix(in srgb, var(--status-error-text) 50%, var(--border-default));
+}
+.co-card-redflag:hover {
+  border-color: var(--status-error-text);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--status-error-text) 18%, transparent);
+}
+
+/* Header badges container (right-side stack) */
+.co-card-header-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.co-redflag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Engagement trend chip */
+.co-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.co-trend-up   { color: var(--status-success-text); }
+.co-trend-down { color: var(--status-error-text); }
+
+/* Lapsed counter (muted) */
+.co-stat-lapsed { color: var(--text-muted); }
+.co-stat-lapsed .co-stat-value { color: var(--text-secondary); }
+
+/* Mastery distribution bar */
+.co-mastery-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 12px;
+  font-size: 11px;
+}
+.co-mastery-label {
+  color: var(--text-muted);
+  min-width: 50px;
+}
+.co-mastery-bar {
+  flex: 1;
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--surface-tertiary);
+}
+.co-mastery-seg {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+}
+.co-mastery-hi     { background: var(--status-success-text); }
+.co-mastery-mid    { background: var(--accent-primary); }
+.co-mastery-low    { background: var(--status-error-text); }
+.co-mastery-nodata { background: var(--border-default); }
+.co-mastery-counts {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+  text-align: right;
+}

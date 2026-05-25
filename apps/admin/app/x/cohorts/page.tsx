@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import { FancySelect } from "@/components/shared/FancySelect";
 import { DomainPill } from "@/src/components/shared/EntityPill";
-import { School, Plus, Users } from "lucide-react";
+import { School, Plus, Users, Activity, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
 import { useSession } from "next-auth/react";
 import "./cohorts.css";
 
@@ -24,6 +24,34 @@ type CohortGroup = {
 type CohortsResponse = {
   cohorts: CohortGroup[];
   total: number;
+};
+
+type CohortOverviewRow = {
+  cohortId: string;
+  name: string;
+  domain: { id: string; name: string; slug: string } | null;
+  memberCount: number;
+  callerCount: number;
+  calledThisWeek: number;
+  calledPriorWeek: number;
+  lapsedCount: number;
+  engagementPct: number;
+  trend: number;
+  masteryDist: { hi: number; mid: number; low: number; noData: number };
+  redFlag: boolean;
+};
+
+type CohortOverviewResponse = {
+  ok: boolean;
+  cohorts: CohortOverviewRow[];
+  rollup: {
+    totalCohorts: number;
+    totalLearners: number;
+    activeThisWeek: number;
+    activeThisWeekPct: number;
+    avgMastery: number;
+    redFlagCohorts: number;
+  };
 };
 
 type Domain = {
@@ -93,6 +121,18 @@ export default function CohortsPage() {
 
   const cohorts = cohortsData?.cohorts || [];
 
+  // Operator overview: engagement + mastery + lapsed across all cohorts
+  const { data: overviewData } = useApi<CohortOverviewResponse>("/api/cohorts/overview", {
+    transform: (res) => res as CohortOverviewResponse,
+  });
+  const overviewRows = overviewData?.cohorts || [];
+  const overviewById = useMemo(() => {
+    const m = new Map<string, CohortOverviewRow>();
+    for (const r of overviewRows) m.set(r.cohortId, r);
+    return m;
+  }, [overviewRows]);
+  const rollup = overviewData?.rollup;
+
   // Client-side search filter
   const filtered = cohorts.filter((c) => {
     if (!search) return true;
@@ -148,7 +188,36 @@ export default function CohortsPage() {
         )}
       </div>
 
-      {/* Summary Strip */}
+      {/* Operator Overview Strip (engagement + mastery + red flags) */}
+      {!loading && rollup && rollup.totalLearners > 0 && (
+        <div className="hf-summary-strip hf-mb-md">
+          <div className="hf-summary-card">
+            <div className="hf-summary-card-label">Total Learners</div>
+            <div className="hf-summary-card-value">{rollup.totalLearners}</div>
+            <span className="hf-summary-card-sub">across {rollup.totalCohorts} cohorts</span>
+          </div>
+          <div className="hf-summary-card">
+            <div className="hf-summary-card-label">Active This Week</div>
+            <div className="hf-summary-card-value">{rollup.activeThisWeekPct}%</div>
+            <span className="hf-summary-card-sub">{rollup.activeThisWeek} of {rollup.totalLearners}</span>
+          </div>
+          <div className="hf-summary-card">
+            <div className="hf-summary-card-label">Avg Mastery</div>
+            <div className="hf-summary-card-value">{Math.round(rollup.avgMastery * 100)}%</div>
+            <span className="hf-summary-card-sub">measured learners</span>
+          </div>
+          <div className={`hf-summary-card${rollup.redFlagCohorts > 0 ? " co-summary-warn" : ""}`}>
+            <div className="hf-summary-card-label">
+              {rollup.redFlagCohorts > 0 && <AlertTriangle size={12} className="co-warn-icon" />}
+              Red-Flag Cohorts
+            </div>
+            <div className="hf-summary-card-value">{rollup.redFlagCohorts}</div>
+            <span className="hf-summary-card-sub">need attention</span>
+          </div>
+        </div>
+      )}
+
+      {/* Structural Summary Strip */}
       {!loading && cohorts.length > 0 && (
         <div className="hf-summary-strip hf-mb-md">
           <div className="hf-summary-card">
@@ -265,13 +334,14 @@ export default function CohortsPage() {
             const fillPct = cohort.maxMembers > 0
               ? Math.round(cohort._count.members / cohort.maxMembers * 100)
               : null;
+            const ov = overviewById.get(cohort.id);
             return (
               <Link
                 key={cohort.id}
                 href={`/x/cohorts/${cohort.id}`}
                 className="co-card-link"
               >
-                <div className="co-card">
+                <div className={`co-card${ov?.redFlag ? " co-card-redflag" : ""}`}>
                   {/* Card Header */}
                   <div className="co-card-header">
                     <div>
@@ -284,9 +354,17 @@ export default function CohortsPage() {
                         </p>
                       )}
                     </div>
-                    <span className={`hf-badge ${cohort.isActive ? "hf-badge-success" : "hf-badge-muted"}`}>
-                      {cohort.isActive ? "Active" : "Inactive"}
-                    </span>
+                    <div className="co-card-header-badges">
+                      {ov?.redFlag && (
+                        <span className="hf-badge hf-badge-error co-redflag-badge" title="Lapsed >50% or low-mastery >50%">
+                          <AlertTriangle size={11} />
+                          Red flag
+                        </span>
+                      )}
+                      <span className={`hf-badge ${cohort.isActive ? "hf-badge-success" : "hf-badge-muted"}`}>
+                        {cohort.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Stats Row */}
@@ -296,7 +374,68 @@ export default function CohortsPage() {
                       <span className="co-stat-value">{cohort._count.members}</span>
                       <span className="co-stat-max">/ {cohort.maxMembers}</span>
                     </div>
+                    {ov && ov.callerCount > 0 && (
+                      <>
+                        <div className="co-stat-item" title={`${ov.calledThisWeek} of ${ov.callerCount} learners called in last 7d`}>
+                          <Activity size={14} />
+                          <span className="co-stat-value">{ov.engagementPct}%</span>
+                          <span className="co-stat-max">active 7d</span>
+                          {ov.trend !== 0 && (
+                            <span className={`co-trend ${ov.trend > 0 ? "co-trend-up" : "co-trend-down"}`}>
+                              {ov.trend > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                              {ov.trend > 0 ? "+" : ""}{ov.trend}
+                            </span>
+                          )}
+                        </div>
+                        {ov.lapsedCount > 0 && (
+                          <div className="co-stat-item co-stat-lapsed" title="Learners with no call in last 7d">
+                            <span className="co-stat-value">{ov.lapsedCount}</span>
+                            <span className="co-stat-max">lapsed</span>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
+
+                  {/* Mastery distribution */}
+                  {ov && ov.callerCount > 0 && (
+                    <div className="co-mastery-row" title="Mastery distribution: hi ≥0.7, mid ≥0.5, low <0.5">
+                      <span className="co-mastery-label">Mastery</span>
+                      <div className="co-mastery-bar">
+                        {ov.masteryDist.hi > 0 && (
+                          <span
+                            className="co-mastery-seg co-mastery-hi"
+                            style={{ flexGrow: ov.masteryDist.hi }}
+                            title={`${ov.masteryDist.hi} high`}
+                          />
+                        )}
+                        {ov.masteryDist.mid > 0 && (
+                          <span
+                            className="co-mastery-seg co-mastery-mid"
+                            style={{ flexGrow: ov.masteryDist.mid }}
+                            title={`${ov.masteryDist.mid} mid`}
+                          />
+                        )}
+                        {ov.masteryDist.low > 0 && (
+                          <span
+                            className="co-mastery-seg co-mastery-low"
+                            style={{ flexGrow: ov.masteryDist.low }}
+                            title={`${ov.masteryDist.low} low`}
+                          />
+                        )}
+                        {ov.masteryDist.noData > 0 && (
+                          <span
+                            className="co-mastery-seg co-mastery-nodata"
+                            style={{ flexGrow: ov.masteryDist.noData }}
+                            title={`${ov.masteryDist.noData} no data`}
+                          />
+                        )}
+                      </div>
+                      <span className="co-mastery-counts">
+                        {ov.masteryDist.hi}·{ov.masteryDist.mid}·{ov.masteryDist.low}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Fill rate bar */}
                   {fillPct !== null && (
