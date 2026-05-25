@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-// #191 / #762 — was `new PrismaClient()` per-route; load test 2026-05-25 measured
-// p95 677ms + 28/1734 5xx at 10 VUs because every warm Cloud Run instance opened
-// its own pool. Shared singleton eliminates contention. Other 22 #191 routes
-// pending a follow-up bulk sweep.
-import { prisma } from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 export const runtime = "nodejs";
 
