@@ -419,6 +419,16 @@ export async function patchContentSpecForContract(specId: string, tx?: TxClient)
     }));
   }
 
+  // #829 — direct write retained: this helper accepts a TxClient and
+  // must enlist in the outer transaction (quick-launch / instant-
+  // curriculum / curriculum-enricher all wrap it). updateAnalysisSpecConfig
+  // does its own findUnique+update and can't enlist in an interactive
+  // transaction. Composition staleness is propagated via the upstream
+  // Playbook write that owns this content spec (which already routes
+  // through updatePlaybookConfig).
+  // TODO(#834): refactor patchContentSpecForContract to either lift the
+  // config write out of the transaction or accept a stale-stamp callback.
+  // eslint-disable-next-line hf-spec/no-direct-config-write
   await p.analysisSpec.update({
     where: { id: specId },
     data: { config: cfg },

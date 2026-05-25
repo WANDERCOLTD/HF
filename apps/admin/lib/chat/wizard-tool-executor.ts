@@ -1557,6 +1557,12 @@ export async function executeWizardTool(
           });
           if (domainSpec) {
             const courseIdentitySlug = `${slugify(courseName, { lower: true, strict: true })}-identity`;
+            // #829 — CREATE-only upsert. `update: {}` is a no-op so no
+            // compose-affecting mutation can land here, and the brand-
+            // new spec has no enrolled callers. The linking Playbook
+            // write that happens in the same wizard step is what marks
+            // downstream callers stale once they exist. No helper bump
+            // required at this site.
             const courseIdentity = await prisma.analysisSpec.upsert({
               where: { slug: courseIdentitySlug },
               update: {},

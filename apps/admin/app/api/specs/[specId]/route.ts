@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { updateAnalysisSpecConfig } from "@/lib/analysis-spec/update-analysis-spec-config";
 
 /**
  * @api GET /api/specs/:specId
@@ -97,18 +98,29 @@ export async function PATCH(
     const { specId } = await params;
     const body = await req.json();
 
-    const spec = await prisma.analysisSpec.update({
-      where: { id: specId },
-      data: {
-        name: body.name,
-        description: body.description,
-        isActive: body.isActive,
-        isDirty: body.isDirty,
-        priority: body.priority,
-        config: body.config,
-        promptTemplate: body.promptTemplate,
-      },
-    });
+    // #829 — central helper. Routes the bump by spec scope:
+    //   SYSTEM → SystemSetting "compose_inputs_updated_at"
+    //   DOMAIN → Domain.composeInputsUpdatedAt (helper warns + skips
+    //           without domainId; this surface doesn't carry one yet)
+    //   CALLER → no-op
+    // allowLocked: legacy route currently has no lock check; preserve
+    // existing behaviour rather than introducing a 423 on locked specs.
+    const { spec } = await updateAnalysisSpecConfig(
+      specId,
+      (current) => ({
+        ...current,
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.isActive !== undefined && { isActive: body.isActive }),
+        ...(body.isDirty !== undefined && { isDirty: body.isDirty }),
+        ...(body.priority !== undefined && { priority: body.priority }),
+        ...(body.config !== undefined && { config: body.config }),
+        ...(body.promptTemplate !== undefined && {
+          promptTemplate: body.promptTemplate,
+        }),
+      }),
+      { allowLocked: true, reason: "PATCH /api/specs/[specId]" },
+    );
 
     return NextResponse.json({ ok: true, spec });
   } catch (error: any) {

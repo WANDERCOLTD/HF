@@ -13,6 +13,7 @@ import { startCurriculumGeneration } from "@/lib/jobs/curriculum-runner";
 import { runIniChecks } from "@/lib/system-ini";
 import { writeBehaviorTarget, writeCallerBehaviorTarget } from "@/lib/agent-tuner/write-target";
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
+import { updateAnalysisSpecConfig } from "@/lib/analysis-spec/update-analysis-spec-config";
 
 const MAX_RESULT_LENGTH = 3000;
 
@@ -238,12 +239,12 @@ async function handleGetSpecConfig(input: Record<string, any>) {
 }
 
 async function handleUpdateSpecConfig(input: Record<string, any>) {
-  const { spec_id, config_updates, reason } = input;
+  const { spec_id, config_updates, reason, domain_id } = input;
 
   // Load current spec
   const spec = await prisma.analysisSpec.findUnique({
     where: { id: spec_id },
-    select: { id: true, name: true, config: true, isLocked: true },
+    select: { id: true, name: true, isLocked: true },
   });
 
   if (!spec) {
@@ -254,17 +255,24 @@ async function handleUpdateSpecConfig(input: Record<string, any>) {
     return { error: `Spec "${spec.name}" is locked. Unlock it first before making changes.` };
   }
 
-  // Merge: existing config + updates (updates win on conflicts)
-  const currentConfig = (spec.config as Record<string, any>) || {};
-  const mergedConfig = { ...currentConfig, ...config_updates };
+  // #829 — central helper. Merge existing config + updates (updates win
+  // on conflicts), then route the bump by the spec's scope:
+  //   SYSTEM (e.g. INIT-001) → SystemSetting "compose_inputs_updated_at"
+  //   DOMAIN → Domain.composeInputsUpdatedAt (caller can pass domain_id)
+  //   CALLER → no-op
+  await updateAnalysisSpecConfig(
+    spec_id,
+    (current) => {
+      const currentConfig = (current.config as Record<string, any>) ?? {};
+      const mergedConfig = { ...currentConfig, ...config_updates };
+      return { ...current, config: mergedConfig };
+    },
+    {
+      domainId: domain_id,
+      reason: `Cmd+K update_spec_config: ${reason ?? "(no reason)"}`,
+    },
+  );
 
-  // Apply the update
-  await prisma.analysisSpec.update({
-    where: { id: spec_id },
-    data: { config: mergedConfig },
-  });
-
-  // Log the change
   console.log(`[admin-tools] Updated spec "${spec.name}" config. Reason: ${reason}. Fields changed: ${Object.keys(config_updates).join(", ")}`);
 
   return {
