@@ -440,6 +440,20 @@ export interface SharedComputedState {
     retrievalBloomFloor: string;
     retrievalCadence: number;
   } | null;
+
+  /**
+   * #598 Slice 1 — resolved mastery threshold for this composition, after
+   * running the 7-layer cascade in `lib/tolerance/resolve-tolerance.ts`.
+   * Replaces the previous practice of reading bare `0.7` literals at each
+   * call site. Downstream transforms read this instead of recomputing.
+   *
+   * Optional in the type so legacy test fixtures stay valid; in production
+   * `computeSharedState()` always populates it. Consumers must coalesce to
+   * the bucket-2 default (`MASTERY_THRESHOLD_FALLBACK`) when reading.
+   *
+   * @see docs/decisions/2026-05-22-tolerance-placement.md
+   */
+  resolvedMasteryThreshold?: number;
 }
 
 export interface ModuleData {

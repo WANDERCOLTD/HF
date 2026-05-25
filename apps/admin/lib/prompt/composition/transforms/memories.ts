@@ -105,12 +105,26 @@ const CATEGORY_DECAY_DEFAULTS: Record<string, number> = {
  * When decayFactor is explicitly set (< 1.0), use it directly.
  * When decayFactor is 1.0 (DB default), apply category-based decay instead.
  *   effectiveConfidence = confidence * decay^(daysSinceExtraction / 30)
+ *
+ * #598 Slice 1 — `memoryDecayScale` (from `Playbook.config.tolerances`) is a
+ * per-course multiplier applied ONLY to the category-default branch. Explicit
+ * per-assertion `decayFactor < 1.0` values are NOT scaled (already authored
+ * with intent — scaling would double-penalise). Scale of 1.0 (or absent) is a
+ * no-op so existing courses produce byte-identical output.
  */
-function applyDecay(m: MemoryData): number {
+export function applyDecay(m: MemoryData, memoryDecayScale: number = 1.0): number {
   if (!m.extractedAt) return m.confidence;
-  const decay = m.decayFactor < 1.0
-    ? m.decayFactor
-    : (CATEGORY_DECAY_DEFAULTS[m.category] ?? 1.0);
+  let decay: number;
+  if (m.decayFactor < 1.0) {
+    // Explicit per-assertion decay — honour it as-is, no course-level scaling.
+    decay = m.decayFactor;
+  } else {
+    // Category default — clamp the scale to [0.1, 1.0] and multiply.
+    const rawScale = Number.isFinite(memoryDecayScale) ? memoryDecayScale : 1.0;
+    const scale = Math.min(1.0, Math.max(0.1, rawScale));
+    const categoryDefault = CATEGORY_DECAY_DEFAULTS[m.category] ?? 1.0;
+    decay = categoryDefault * scale;
+  }
   if (decay >= 1.0) return m.confidence;
   const daysSince = (Date.now() - new Date(m.extractedAt).getTime()) / (1000 * 60 * 60 * 24);
   return m.confidence * Math.pow(decay, daysSince / 30);
@@ -123,12 +137,17 @@ function applyDecay(m: MemoryData): number {
 // ---------------------------------------------------------------------------
 registerTransform("deduplicateMemories", (
   rawData: MemoryData[],
-  _context: AssembledContext,
+  context: AssembledContext,
   _sectionDef: CompositionSectionDef,
 ) => {
   const memories = rawData || [];
+  // #598 Slice 1 — read the course-level decay scale (no-op when absent or 1.0).
+  const pbConfig = (context.loadedData?.playbooks?.[0]?.config || {}) as Record<string, unknown>;
+  const tolerances = pbConfig.tolerances as { memoryDecayScale?: number } | undefined;
+  const memoryDecayScale =
+    typeof tolerances?.memoryDecayScale === "number" ? tolerances.memoryDecayScale : 1.0;
   // Apply decay to confidence before deduplication
-  const decayed = memories.map((m) => ({ ...m, confidence: applyDecay(m) }));
+  const decayed = memories.map((m) => ({ ...m, confidence: applyDecay(m, memoryDecayScale) }));
   const seen = new Map<string, MemoryData>();
   for (const m of decayed) {
     const normalizedKey = `${m.category}:${m.key.toLowerCase().replace(/\s+/g, "_")}`;
@@ -227,8 +246,14 @@ registerTransform("deduplicateAndGroupMemories", (
   const memoriesPerCategory = sectionDef.config?.memoriesPerCategory || context.specConfig.memoriesPerCategory || 5;
   const memoriesLimit = sectionDef.config?.memoriesLimit || context.specConfig.memoriesLimit || 50;
 
+  // #598 Slice 1 — same course-level decay scale as the split transform.
+  const pbConfig = (context.loadedData?.playbooks?.[0]?.config || {}) as Record<string, unknown>;
+  const tolerances = pbConfig.tolerances as { memoryDecayScale?: number } | undefined;
+  const memoryDecayScale =
+    typeof tolerances?.memoryDecayScale === "number" ? tolerances.memoryDecayScale : 1.0;
+
   // Step 1: Apply decay + deduplicate
-  const decayed = memories.map((m) => ({ ...m, confidence: applyDecay(m) }));
+  const decayed = memories.map((m) => ({ ...m, confidence: applyDecay(m, memoryDecayScale) }));
   const seen = new Map<string, MemoryData>();
   for (const m of decayed) {
     const normalizedKey = `${m.category}:${m.key.toLowerCase().replace(/\s+/g, "_")}`;

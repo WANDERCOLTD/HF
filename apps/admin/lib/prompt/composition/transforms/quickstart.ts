@@ -112,7 +112,13 @@ registerTransform("computeQuickStart", (
   const subjectRef = subjectDiscipline || null;
   const audienceId = pbConfig.audience;
   const constraints = pbConfig.constraints;
-  const durationMins = pbConfig.durationMins;
+  // #598 Slice 1 — call-1 may override duration via firstCall.durationMinsOverride.
+  // Calls 2+ unaffected.
+  const firstCallDurationOverride =
+    isFirstCall && typeof pbConfig.firstCall?.durationMinsOverride === "number"
+      ? pbConfig.firstCall.durationMinsOverride
+      : null;
+  const durationMins = firstCallDurationOverride ?? pbConfig.durationMins;
   const courseLearningOutcomes = pbConfig.courseLearningOutcomes;
   const emphasis = pbConfig.emphasis;
   const assessments = pbConfig.assessments;
