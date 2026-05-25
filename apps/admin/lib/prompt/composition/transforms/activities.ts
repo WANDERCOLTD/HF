@@ -12,7 +12,7 @@
 import { registerTransform } from "../TransformRegistry";
 import { classifyValue } from "../types";
 import type { AssembledContext, SystemSpecData } from "../types";
-import type { SpecConfig } from "@/lib/types/json-fields";
+import type { PlaybookConfig, SpecConfig } from "@/lib/types/json-fields";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -113,13 +113,22 @@ function getTraitLevels(context: AssembledContext): Record<string, string> {
 
 /**
  * Score an activity for relevance given current context.
+ *
+ * `suppressAssessment` is the gate for the historical "first call =
+ * no assessment activities" penalty. Caller computes it from
+ * `isFirstCall && firstCallMode === 'onboarding'` so the penalty only
+ * fires when the playbook is in the default onboarding mode (#797).
+ * `teach_immediately` and `baseline_assessment` modes pass `false`
+ * here — `baseline_assessment` actively WANTS assessment activities
+ * on call 1; `teach_immediately` treats call 1 like a normal teaching
+ * call where assessment is allowed.
  */
 function scoreActivity(
   activity: ActivityDef,
   phase: string | null,
   masteryLevel: string,
   traitLevels: Record<string, string>,
-  isFirstCall: boolean,
+  suppressAssessment: boolean,
   strategy: SelectionStrategy,
 ): { score: number; reason: string } {
   let score = 0;
@@ -137,8 +146,10 @@ function scoreActivity(
     if (!reason) reason = `Matches ${masteryLevel} mastery level`;
   }
 
-  // First call penalty for assessment activities
-  if (isFirstCall && activity.category === "assessment") {
+  // First-call assessment suppression — gated on firstCallMode (#797).
+  // Penalty magnitude unchanged from the prior unconditional `isFirstCall`
+  // version; only the trigger condition is now mode-aware.
+  if (suppressAssessment && activity.category === "assessment") {
     score -= 2;
   }
 
@@ -212,10 +223,21 @@ registerTransform("computeActivityToolkit", (
   const traitLevels = getTraitLevels(context);
   const { isFirstCall } = context.sharedState;
 
+  // #797 — first-call assessment suppression is now keyed on firstCallMode
+  // (#790). Only the default 'onboarding' mode keeps the historical
+  // "no assessment on call 1" penalty. 'teach_immediately' treats call 1
+  // like a normal teaching call; 'baseline_assessment' actively wants
+  // assessment activities (diagnostic-only first call). Same access
+  // pattern as transforms/pedagogy.ts.
+  const firstCallMode =
+    (context.loadedData.playbooks?.[0]?.config as PlaybookConfig | undefined)
+      ?.firstCallMode ?? "onboarding";
+  const suppressAssessment = isFirstCall && firstCallMode === "onboarding";
+
   // Score and rank activities
   const scored = activities.map((activity) => {
     const { score, reason } = scoreActivity(
-      activity, phase, masteryLevel, traitLevels, isFirstCall, strategy,
+      activity, phase, masteryLevel, traitLevels, suppressAssessment, strategy,
     );
     return { activity, score, reason };
   });
