@@ -13,6 +13,7 @@ new behaviour is detectable, and the eval stays in CI as a regression net.
 |------|-------|----------|
 | `progress-narrative-gates.yaml` | #779 (S1) | progressNarrative section is omitted when no evidence, enabled=false, or call 1; emitted with strict-rule guidance when evidence is present |
 | `offboarding-summary.yaml` | #780 (S2) | offboarding emits structured progressSummary (modules + goals + skills) with cite-only-verbatim guidance; null-guards when no data; per-field includes work |
+| `s8-first-call-mode.yaml` | #790 (S8) | firstCallMode branches: 'onboarding' (default) keeps ONBOARDING MODE block; 'teach_immediately' skips onboarding and injects `returningCallerByMode[teachingMode]`; 'baseline_assessment' emits BASELINE rule with no curriculum teaching content |
 
 ## Running locally
 

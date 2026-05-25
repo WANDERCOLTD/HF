@@ -8,6 +8,7 @@ import { classifyValue } from "../types";
 import type { AssembledContext, BehaviorTargetData, CallerTargetData, CompositionSectionDef } from "../types";
 import { config } from "@/lib/config";
 import type { AudienceId } from "./audience";
+import type { PlaybookConfig } from "@/lib/types/json-fields";
 
 /**
  * Audience-aware default targets for parameters not covered by INIT-001.
@@ -77,9 +78,50 @@ registerTransform("mergeAndGroupTargets", (
   let merged = mergeTargets(behaviorTargets, callerTargets, playbookIds);
 
   // ONBOARDING: Inject first-call defaults for missing parameters
-  // Priority: Domain.onboardingDefaultTargets > INIT-001 fallback
+  // Priority (highest first):
+  //   1. Playbook.config.firstSessionTargets — #784 (S6) per-playbook override
+  //   2. Domain.onboardingDefaultTargets
+  //   3. INIT-001 fallback
+  //   4. AUDIENCE_TARGET_DEFAULTS (still runs below as the last resort)
   if (isFirstCall) {
     const existingParams = new Set(merged.map(t => t.parameterId));
+
+    // #784 (S6) — per-playbook first-call BEHAVIOR target overrides at NEW
+    // priority 1. Educator-tuned; sits above the domain default cascade.
+    // Existing CallerTargets / educator-locked BehaviorTargets are still
+    // honoured (they're already in `existingParams` from the merge above),
+    // so a learner who has been scored on call 2+ is never reset to
+    // first-call defaults — the gate is `isFirstCall === true`.
+    const firstSessionTargets = (
+      (playbooks?.[0] as { config?: PlaybookConfig })?.config?.firstSessionTargets
+    ) as PlaybookConfig["firstSessionTargets"] | undefined;
+    if (firstSessionTargets) {
+      let playbookFirstSessionInjected = 0;
+      for (const [paramId, overrides] of Object.entries(firstSessionTargets)) {
+        if (paramId.startsWith("_")) continue;
+        if (existingParams.has(paramId)) continue;
+        merged.push({
+          parameterId: paramId,
+          targetValue: overrides.value,
+          confidence: overrides.confidence ?? 0.8,
+          source: "BehaviorTarget",
+          scope: "PLAYBOOK_FIRST_SESSION",
+          parameter: {
+            name: paramId.replace("BEH-", "").replace(/-/g, " ").toLowerCase(),
+            interpretationLow: null,
+            interpretationHigh: null,
+            domainGroup: "First Call Defaults",
+          },
+        });
+        existingParams.add(paramId);
+        playbookFirstSessionInjected++;
+      }
+      if (playbookFirstSessionInjected > 0) {
+        console.log(
+          `[targets] First call: injected ${playbookFirstSessionInjected} playbook-level firstSessionTargets (Playbook.config.firstSessionTargets)`,
+        );
+      }
+    }
 
     // Try Domain onboarding defaults first
     const domain = context.loadedData.caller?.domain;

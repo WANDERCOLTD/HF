@@ -47,3 +47,16 @@ export const RETURNING_CALLER_BY_MODE: Record<TeachingMode, string> = {
   practice:
     "RETURNING_CALLER: Begin with a warm-up attempt, not a recall check. The attempt IS the diagnostic.",
 };
+
+/**
+ * #790 (S8) — Critical rule injected on call 1 when
+ * `Playbook.config.firstCallMode === 'baseline_assessment'`. Bypasses both
+ * the onboarding intro AND the teaching-mode-specific returning-caller
+ * rule. The session is diagnostic-only: capture baseline scores against
+ * learning objectives, no teaching content, no review.
+ *
+ * Override path: `prompt_preamble.config.criticalRules.baselineAssessment`
+ * in COMP-001 spec config.
+ */
+export const BASELINE_ASSESSMENT_RULE =
+  "BASELINE_ASSESSMENT: This first call captures diagnostic evidence only — no teaching, no review, no remediation. Ask the learner to demonstrate their current ability against the learning objectives in turn; score what you observe. Do not correct mistakes, do not explain answers, do not introduce new material. The purpose is to establish where the learner starts so progress can be measured. Encourage attempts but never lead the learner to a correct answer.";

@@ -105,6 +105,17 @@ registerTransform("computeSessionPedagogy", (
   // First playbook's config for course-level onboarding override
   const primaryPlaybook = context.loadedData.playbooks?.[0];
 
+  // #790 (S8) — first-call mode override. Default 'onboarding' preserves
+  // existing behaviour byte-for-byte. `teach_immediately` skips the
+  // ONBOARDING MODE branch so the returning-caller flow runs on call 1.
+  // `baseline_assessment` swaps in a diagnostic-only branch with no
+  // curriculum teaching content. See lib/types/json-fields.ts.
+  const firstCallMode =
+    ((primaryPlaybook as { config?: { firstCallMode?: "onboarding" | "teach_immediately" | "baseline_assessment" } })?.config?.firstCallMode) ?? "onboarding";
+  const isFirstCallAny = isFirstCall || isFirstCallInDomain;
+  const isOnboardingFirstCall = isFirstCallAny && firstCallMode === "onboarding";
+  const isBaselineFirstCall = isFirstCallAny && firstCallMode === "baseline_assessment";
+
   const plan: {
     sessionType: string;
     flow: string[];
@@ -124,16 +135,48 @@ registerTransform("computeSessionPedagogy", (
     /** Post-coverage guidance — what to do when all TPs are covered */
     postCoverageGuidance?: string;
   } = {
-    sessionType: isFirstCall ? "FIRST_CALL" : "RETURNING_CALLER",
+    // #790 (S8) — sessionType now reflects firstCallMode on call 1:
+    //   onboarding (default) → FIRST_CALL (current behaviour)
+    //   baseline_assessment  → BASELINE
+    //   teach_immediately    → RETURNING_CALLER (treat call 1 as returning)
+    sessionType: isOnboardingFirstCall
+      ? "FIRST_CALL"
+      : isBaselineFirstCall
+        ? "BASELINE"
+        : "RETURNING_CALLER",
     flow: [],
     principles: [],
   };
 
   // =========================================================================
-  // THREE-WAY BRANCH: Onboarding / Lesson Plan / Generic Returning Caller
+  // FOUR-WAY BRANCH: Baseline / Onboarding / Lesson Plan / Generic Returning Caller
+  //
+  // #790 (S8) — `firstCallMode` selects between Baseline and Onboarding on
+  // call 1. `teach_immediately` falls THROUGH this if-chain entirely so the
+  // scheduler / returning-caller path runs on call 1 with no first-call
+  // override flow. `baseline_assessment` short-circuits with a diagnostic-
+  // only flow that ignores any curriculum teaching content.
   // =========================================================================
 
-  if (isFirstCall || isFirstCallInDomain) {
+  if (isBaselineFirstCall) {
+    // === BASELINE ASSESSMENT MODE (#790 S8) ===
+    // Diagnostic-only first call: capture baseline scores against learning
+    // objectives, no teaching content, no correction. The corresponding
+    // critical rule (BASELINE_ASSESSMENT_RULE) is injected by preamble.ts.
+    plan.flow = [
+      "1. Set context — this first call captures baseline ability, no teaching.",
+      "2. Ask the learner to attempt each learning objective in turn.",
+      "3. Listen and score; do NOT correct or explain.",
+      "4. Encourage attempts; never lead the learner to a correct answer.",
+      "5. Close by thanking them and explaining teaching starts next session.",
+    ];
+    plan.principles = [
+      "No teaching, no review, no remediation on this call.",
+      "Score every learning objective you observe.",
+      "Encourage attempts; never give the answer.",
+    ];
+    console.log("[pedagogy] firstCallMode=baseline_assessment — diagnostic-only flow");
+  } else if (isOnboardingFirstCall) {
     // === ONBOARDING MODE ===
     const firstModule = modules[0];
 
@@ -441,7 +484,10 @@ registerTransform("computeSessionPedagogy", (
   // =========================================================================
   // POST-COVERAGE GUIDANCE — what to do when all TPs are covered
   // =========================================================================
-  const isTeachingSession = hasCurriculum && !isFirstCall && !isFirstCallInDomain
+  // #790 (S8) — `teach_immediately` IS a teaching session on call 1, but
+  // `onboarding` and `baseline_assessment` are not. The exclusion now keys
+  // off the firstCallMode-aware flags computed above, not raw isFirstCall.
+  const isTeachingSession = hasCurriculum && !isOnboardingFirstCall && !isBaselineFirstCall
     && plan.sessionType !== "OPEN_CONVERSATION";
 
   if (isTeachingSession) {
@@ -473,6 +519,14 @@ registerTransform("computeSessionPedagogy", (
         "- Stretching should feel rewarding, not punitive.",
       ].join("\n");
     }
+  }
+
+  // #790 (S8) — baseline mode owns its own principles; do NOT overwrite.
+  // Onboarding sets `principles=[]` (existing behaviour) so the curriculum-
+  // vs-no-curriculum block below applies. teach_immediately falls into the
+  // returning-caller principles which match the existing call-2+ behaviour.
+  if (isBaselineFirstCall) {
+    return plan;
   }
 
   plan.principles = hasCurriculum

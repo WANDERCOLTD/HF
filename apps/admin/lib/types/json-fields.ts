@@ -455,6 +455,28 @@ export interface PlaybookConfig {
     includeSkillCurrentScore?: boolean;
   };
   /**
+   * #784 (S6) — per-playbook first-call BEHAVIOR target overrides. Read by
+   * `transforms/targets.ts::mergeAndGroupTargets` at NEW priority 1, above
+   * `Domain.onboardingDefaultTargets`. When unset, the existing cascade
+   * (domain → INIT-001 → AUDIENCE_TARGET_DEFAULTS) applies.
+   *
+   * Keyed by `Parameter.parameterId` (e.g. `BEH-WARMTH`). `value` in [0,1];
+   * `confidence` defaults to 0.8 when omitted.
+   */
+  firstSessionTargets?: Record<string, { value: number; confidence?: number }>;
+  /**
+   * #790 (S8) — first-call mode override. Today every first call is forced
+   * into ONBOARDING MODE in `transforms/pedagogy.ts` regardless of
+   * `teachingMode`. This knob lets the educator pick:
+   *   - `'onboarding'` (default) — current behaviour, byte-identical output
+   *   - `'teach_immediately'` — bypass ONBOARDING MODE; call 1 runs the
+   *     `teachingMode`-branched returning-caller flow; preamble injects
+   *     `returningCallerByMode[teachingMode]`
+   *   - `'baseline_assessment'` — first call captures diagnostic only;
+   *     no curriculum teaching; new baseline critical rule injected
+   */
+  firstCallMode?: "onboarding" | "teach_immediately" | "baseline_assessment";
+  /**
    * #494 E2 Slice 2.3 — when the picker should hard-lock terminal modules with
    * unmet prerequisites vs. show a soft-warning override modal. Default false
    * (soft warning), per IELTS learner-picks ethos. Set true for assessment
