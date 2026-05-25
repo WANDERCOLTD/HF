@@ -2999,6 +2999,24 @@ Switch a caller to a new domain. Archives old goals, creates new goals from the 
 
 ---
 
+### `PATCH` /api/callers/:callerId/tolerances
+
+Per-learner tolerance overrides for the #598 Slice 1 cascade.
+
+**Auth**: Session · **Scope**: `callers:write`
+
+**Response** `200`
+```json
+{ ok: true }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "..." }
+```
+
+---
+
 ### `GET` /api/callers/:callerId/trust-progress
 
 Compute trust-weighted progress for a caller across all active curricula
@@ -14431,8 +14449,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 448 |
-| Files with annotations | 447 |
+| Route files found | 449 |
+| Files with annotations | 448 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 

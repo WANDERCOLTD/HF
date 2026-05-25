@@ -4,6 +4,7 @@ import nextTs from "eslint-config-next/typescript";
 import noUnscopedSlugLookup from "./eslint-rules/no-unscoped-slug-lookup.mjs";
 import noDirectPlaybookConfigWrite from "./eslint-rules/no-direct-playbook-config-write.mjs";
 import noDirectDomainOnboardingWrite from "./eslint-rules/no-direct-domain-onboarding-write.mjs";
+import noDirectSpecConfigWrite from "./eslint-rules/no-direct-spec-config-write.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -62,11 +63,21 @@ const eslintConfig = defineConfig([
           "no-direct-onboarding-write": noDirectDomainOnboardingWrite,
         },
       },
+      // #829 — block direct writes to compose-affecting AnalysisSpec
+      // fields outside the central helper. Routes the bump to
+      // SystemSetting (SYSTEM scope) or Domain (DOMAIN scope) per the
+      // spec's scope field. CALLER scope is no-op.
+      "hf-spec": {
+        rules: {
+          "no-direct-config-write": noDirectSpecConfigWrite,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
       "hf-playbook/no-direct-config-write": "error",
       "hf-domain/no-direct-onboarding-write": "error",
+      "hf-spec/no-direct-config-write": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)

@@ -4,6 +4,7 @@ import { validateSourceAuthority, hasSourceAuthority } from "@/lib/content-trust
 import { clearAIConfigCache } from "@/lib/ai/config-loader";
 import { clearSystemSettingsCache } from "@/lib/system-settings";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { updateAnalysisSpecConfig } from "@/lib/analysis-spec/update-analysis-spec-config";
 
 export const runtime = "nodejs";
 
@@ -244,9 +245,20 @@ export async function PUT(
     // TODO: PlaybookSystemSpec model doesn't exist yet - cascade logic disabled
     const affectedPlaybooks: { id: string; name: string }[] = [];
 
-    const spec = await prisma.analysisSpec.update({
-      where: { id: specId },
-      data: {
+    // #829 — central helper. Routes the timestamp bump by spec scope:
+    //   SYSTEM → SystemSetting "compose_inputs_updated_at"
+    //   DOMAIN → Domain.composeInputsUpdatedAt (requires domainId; not
+    //           available on this surface today — helper warns + skips,
+    //           cached prompts in the domain won't be marked stale by
+    //           this write. UI will surface the staleness via Story 7
+    //           pill once educator passes domainId here.)
+    //   CALLER → no-op
+    // allowLocked: we did our own narrower lock check above (isActive
+    //   toggle is allowed on locked specs).
+    const { spec } = await updateAnalysisSpecConfig(
+      specId,
+      (current) => ({
+        ...current,
         ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
         ...(outputType !== undefined && { outputType }),
@@ -255,13 +267,13 @@ export async function PUT(
         ...(priority !== undefined && { priority }),
         ...(isActive !== undefined && { isActive }),
         ...(version !== undefined && { version }),
-        // Mark as dirty if content changed
         ...(isContentChange && {
           isDirty: true,
-          dirtyReason: "spec_metadata_modified"
+          dirtyReason: "spec_metadata_modified",
         }),
-      },
-    });
+      }),
+      { allowLocked: true, reason: "PUT /api/analysis-specs/[specId]" },
+    );
 
     // Invalidate caches so changes take effect immediately
     clearAIConfigCache();
@@ -370,19 +382,22 @@ export async function PATCH(
     if (config !== undefined) changes.push("config");
     if (specRole !== undefined) changes.push("spec_role");
 
-    const spec = await prisma.analysisSpec.update({
-      where: { id: specId },
-      data: {
+    // #829 — central helper. Bumps SystemSetting / Domain / nothing per
+    // spec scope (see PUT handler for full rationale).
+    const { spec } = await updateAnalysisSpecConfig(
+      specId,
+      (current) => ({
+        ...current,
         ...(promptTemplate !== undefined && { promptTemplate }),
         ...(config !== undefined && { config }),
         ...(specRole !== undefined && { specRole }),
-        // Mark as dirty if anything changed
         ...(changes.length > 0 && {
           isDirty: true,
           dirtyReason: changes.join("_") + "_modified",
         }),
-      },
-    });
+      }),
+      { reason: "PATCH /api/analysis-specs/[specId]" },
+    );
 
     // Update linked BDDFeatureSet rawSpec if provided
     if (rawSpec !== undefined && existing.compiledSetId) {
