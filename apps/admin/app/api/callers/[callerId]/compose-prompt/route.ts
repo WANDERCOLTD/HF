@@ -3,6 +3,7 @@ import { executeComposition, loadComposeConfig, persistComposedPrompt } from "@/
 import { renderPromptSummary } from "@/lib/prompt/composition/renderPromptSummary";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { isPromptStale } from "@/lib/compose/staleness";
 
 export const runtime = "nodejs";
 
@@ -68,6 +69,13 @@ export async function POST(
     // Skip composition if a fresh active prompt already exists (avoids duplicate on sim start)
     // #274: skip the skip when requestedModuleId is set — the locked module
     // changes the prompt content, so cached freshness is irrelevant.
+    //
+    // #825 — Story 1: manual recompose (no `skipIfFreshMs`) ALWAYS proceeds.
+    // The staleness check is an additional gate that applies only WITHIN
+    // the existing `skipIfFreshMs` window — if a prompt is within the
+    // freshness window AND no upstream timestamp has been bumped since it
+    // was composed, return cache. If upstream bump happened, force
+    // recompose even within the freshness window.
     if (skipIfFreshMs > 0 && !requestedModuleId) {
       const cutoff = new Date(Date.now() - skipIfFreshMs);
       const fresh = await prisma.composedPrompt.findFirst({
@@ -75,8 +83,22 @@ export async function POST(
         orderBy: { createdAt: "desc" },
       });
       if (fresh) {
-        console.log(`[compose-prompt] Skipping — fresh prompt ${fresh.id} is ${Math.round((Date.now() - fresh.createdAt.getTime()) / 1000)}s old`);
-        return NextResponse.json({ ok: true, prompt: fresh, metadata: { skipped: true } });
+        // #825 — additional staleness gate inside the freshness window.
+        const callerRow = await prisma.caller.findUnique({
+          where: { id: callerId },
+          select: { domainId: true },
+        });
+        const stale = await isPromptStale({
+          composedAt: fresh.composedAt,
+          playbookId: fresh.playbookId ?? "",
+          callerId,
+          domainId: callerRow?.domainId ?? null,
+        });
+        if (!stale) {
+          console.log(`[compose-prompt] Skipping — fresh prompt ${fresh.id} is ${Math.round((Date.now() - fresh.createdAt.getTime()) / 1000)}s old and inputs unchanged`);
+          return NextResponse.json({ ok: true, prompt: fresh, metadata: { skipped: true } });
+        }
+        console.log(`[compose-prompt] Freshness window hit but inputs are stale — forcing recompose for ${callerId}`);
       }
     }
 
