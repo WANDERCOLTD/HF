@@ -27,6 +27,8 @@ import {
   parseAudience,
   projectLoForAudience,
 } from "@/lib/curriculum/lo-audience";
+import { bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
+import { resolvePlaybookIdForCurriculum } from "@/lib/curriculum/resolve-playbook-for-curriculum";
 
 type Params = { params: Promise<{ curriculumId: string; moduleId: string }> };
 
@@ -220,6 +222,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       },
     });
 
+    // #834 — CurriculumModule + LearningObjective flow into the composed
+    // prompt via the curriculum / modules loaders. Bump the owning
+    // Playbook so the staleness check picks this up on next call.
+    const playbookId = await resolvePlaybookIdForCurriculum(curriculumId);
+    if (playbookId) await bumpPlaybookComposeTimestamp(playbookId);
+
     return NextResponse.json({ ok: true, module: result });
   } catch (error: any) {
     console.error("[curricula/:id/modules/:id] PATCH error:", error);
@@ -248,6 +256,10 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     }
 
     await prisma.curriculumModule.delete({ where: { id: moduleId } });
+
+    // #834 — deletion changes which modules feed into compose.
+    const playbookId = await resolvePlaybookIdForCurriculum(curriculumId);
+    if (playbookId) await bumpPlaybookComposeTimestamp(playbookId);
 
     return NextResponse.json({ ok: true });
   } catch (error: any) {

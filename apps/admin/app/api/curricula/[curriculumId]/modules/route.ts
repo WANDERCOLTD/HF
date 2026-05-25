@@ -27,6 +27,8 @@ import {
   parseAudience,
   projectLoForAudience,
 } from "@/lib/curriculum/lo-audience";
+import { bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
+import { resolvePlaybookIdForCurriculum } from "@/lib/curriculum/resolve-playbook-for-curriculum";
 
 type Params = { params: Promise<{ curriculumId: string }> };
 
@@ -239,6 +241,11 @@ export async function POST(req: NextRequest, { params }: Params) {
       orderBy: { sortOrder: "asc" },
     });
 
+    // #834 — bulk upsert may have created, updated, or rewritten LOs.
+    // Stamp the owning playbook so callers recompose on next call.
+    const playbookId = await resolvePlaybookIdForCurriculum(curriculumId);
+    if (playbookId) await bumpPlaybookComposeTimestamp(playbookId);
+
     return NextResponse.json({ ok: true, modules, count: result.length }, { status: 201 });
   } catch (error: any) {
     console.error("[curricula/:id/modules] POST error:", error);
@@ -271,6 +278,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
         }),
       ),
     );
+
+    // #834 — sortOrder feeds into modules-loader scheduling. Bump.
+    const playbookId = await resolvePlaybookIdForCurriculum(curriculumId);
+    if (playbookId) await bumpPlaybookComposeTimestamp(playbookId);
 
     return NextResponse.json({ ok: true });
   } catch (error: any) {

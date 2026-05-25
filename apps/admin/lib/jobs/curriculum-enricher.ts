@@ -12,6 +12,8 @@ import { prisma } from "@/lib/prisma";
 import { startTaskTracking, updateTaskProgress, completeTask, failTask } from "@/lib/ai/task-guidance";
 import { generateCurriculumFromGoals } from "@/lib/content-trust/extract-curriculum";
 import { patchContentSpecForContract } from "@/lib/domain/generate-content-spec";
+import { bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
+import { resolvePlaybookIdsForAnalysisSpec } from "@/lib/curriculum/resolve-playbook-for-curriculum";
 
 export interface EnrichmentInput {
   subjectName: string;
@@ -93,6 +95,13 @@ async function runCurriculumEnrichment(
 
   // Re-run contract patching with full modules
   await patchContentSpecForContract(contentSpecId);
+
+  // #834 — post-enrolment background enrichment. The patched spec
+  // flows into compose via the content-authority loader. Bump every
+  // playbook that links this spec via PlaybookItem so the next call
+  // recomposes against the enriched modules.
+  const playbookIds = await resolvePlaybookIdsForAnalysisSpec(contentSpecId);
+  for (const pbId of playbookIds) await bumpPlaybookComposeTimestamp(pbId);
 
   // Step 3: Complete
   await updateTaskProgress(taskId, {

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
+import { resolvePlaybookIdsForContentSource } from "@/lib/curriculum/resolve-playbook-for-curriculum";
 
 /**
  * @api PATCH /api/assertions/:assertionId
@@ -65,11 +67,16 @@ export async function PATCH(
         },
         select: {
           id: true,
+          sourceId: true,
           learningObjectiveId: true,
           learningOutcomeRef: true,
           linkConfidence: true,
         },
       });
+      // #834 — assertion → LO link flows into compose via the curriculum
+      // assertions loader. Bump every playbook that links this source.
+      const playbookIds = await resolvePlaybookIdsForContentSource(updated.sourceId);
+      for (const pbId of playbookIds) await bumpPlaybookComposeTimestamp(pbId);
       return NextResponse.json({ ok: true, assertion: updated });
     }
 
@@ -83,11 +90,14 @@ export async function PATCH(
       },
       select: {
         id: true,
+        sourceId: true,
         learningObjectiveId: true,
         learningOutcomeRef: true,
         linkConfidence: true,
       },
     });
+    const playbookIds = await resolvePlaybookIdsForContentSource(updated.sourceId);
+    for (const pbId of playbookIds) await bumpPlaybookComposeTimestamp(pbId);
     return NextResponse.json({ ok: true, assertion: updated });
   } catch (err: any) {
     console.error("[PATCH assertion] Error:", err);
