@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireStudentOrAdmin, isStudentAuthError } from "@/lib/student-access";
 import { SURVEY_SCOPES } from "@/lib/learner/survey-keys";
+import { bumpCallerComposeTimestamp } from "@/lib/compose/bump-timestamp";
 
 const VALID_SCOPES = new Set([SURVEY_SCOPES.PRE_TEST, SURVEY_SCOPES.POST_TEST]);
 
@@ -131,6 +132,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   await prisma.$transaction(upserts);
+
+  // #830 — pre-test score is read by COMPOSE quickstart transform
+  // (renders the "your starting score was N%" preamble). Out-of-band
+  // student-side write happens between calls, so stamp the caller.
+  await bumpCallerComposeTimestamp(callerId);
 
   return NextResponse.json({
     ok: true,
