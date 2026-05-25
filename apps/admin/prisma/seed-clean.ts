@@ -19,6 +19,7 @@ import * as path from "path";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { seedFromSpecs, loadSpecFiles, setPrismaClient } from "./seed-from-specs";
+import { seedToleranceParameters } from "./seed-tolerance-parameters";
 import { config } from "../lib/config";
 
 let prisma: PrismaClient;
@@ -456,6 +457,14 @@ export async function main(externalPrisma?: PrismaClient, opts?: { reset?: boole
 
   // 1. Load BDD specs (prod mode excludes dev-only specs)
   await loadSpecs();
+
+  // 1b. Seed tolerance parameter rows (#598 Slice 1). Idempotent; lives outside
+  // the spec-driven flow because TOL-* parameters are system knobs, not
+  // measurement parameters.
+  const toleranceResult = await seedToleranceParameters(prisma);
+  console.log(
+    `   ✓ Tolerance parameters: ${toleranceResult.created} created, ${toleranceResult.updated} updated`,
+  );
 
   // 2. Create minimal infrastructure (domain, playbook)
   await createInfrastructure();
