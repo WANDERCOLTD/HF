@@ -6,13 +6,14 @@
  * @tags course, design, welcome, nps, felt-progress
  * @description Save student experience design config. Writes to
  *   Playbook.config.welcome, Playbook.config.nps, the #417 skill-banding
- *   overrides, and the Felt Progress namespaces (#779 progressNarrative,
- *   #780 offboardingSummary).
+ *   overrides, the Felt Progress namespaces (#779 progressNarrative,
+ *   #780 offboardingSummary), and the S6/S8 first-call knobs (#784
+ *   firstSessionTargets, #790 firstCallMode).
  *   Pre-survey gating is computed from welcome.* via isPreSurveyEnabled
  *   (no surveys.pre write); surveys.post.enabled mirrors nps.enabled.
  *   Pass `null` for any optional override field to clear it (falls back
  *   to defaults / contract).
- * @request { welcome?: WelcomeConfig, nps?: NpsConfig, skillTierMapping?, skillScoringEmaHalfLifeDays?, skillMinCallsToFull?, progressNarrative?, offboardingSummary? }
+ * @request { welcome?: WelcomeConfig, nps?: NpsConfig, skillTierMapping?, skillScoringEmaHalfLifeDays?, skillMinCallsToFull?, progressNarrative?, offboardingSummary?, firstSessionTargets?, firstCallMode? }
  * @response 200 { ok: true }
  * @response 404 { ok: false, error: "Course not found" }
  */
@@ -43,6 +44,12 @@ export async function PUT(
       progressNarrative?: PlaybookConfig["progressNarrative"] | null;
       // #780 — Felt Progress S2. Same shape: object writes; null clears.
       offboardingSummary?: PlaybookConfig["offboardingSummary"] | null;
+      // #784 (S6) — per-playbook first-call BEHAVIOR target overrides.
+      // Object writes; null clears the namespace (falls back to domain defaults).
+      firstSessionTargets?: PlaybookConfig["firstSessionTargets"] | null;
+      // #790 (S8) — first-call mode override. String writes; null clears
+      // (falls back to default 'onboarding' behaviour).
+      firstCallMode?: PlaybookConfig["firstCallMode"] | null;
     };
 
     const playbook = await prisma.playbook.findUnique({
@@ -104,6 +111,30 @@ export async function PUT(
         delete pbConfig.offboardingSummary;
       } else {
         pbConfig.offboardingSummary = body.offboardingSummary;
+      }
+    }
+
+    // #784 (S6) — per-playbook first-call BEHAVIOR target overrides.
+    // null or empty-object clears so the domain → INIT-001 → AUDIENCE
+    // cascade applies again.
+    if (body.firstSessionTargets !== undefined) {
+      if (
+        body.firstSessionTargets === null ||
+        Object.keys(body.firstSessionTargets).length === 0
+      ) {
+        delete pbConfig.firstSessionTargets;
+      } else {
+        pbConfig.firstSessionTargets = body.firstSessionTargets;
+      }
+    }
+
+    // #790 (S8) — first-call mode. null clears so the default 'onboarding'
+    // path runs in `transforms/pedagogy.ts` (byte-identical to pre-#790).
+    if (body.firstCallMode !== undefined) {
+      if (body.firstCallMode === null) {
+        delete pbConfig.firstCallMode;
+      } else {
+        pbConfig.firstCallMode = body.firstCallMode;
       }
     }
 

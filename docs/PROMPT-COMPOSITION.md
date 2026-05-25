@@ -128,7 +128,7 @@ All declared in `transforms/*.ts` via `registerTransform("<name>", fn)`. `Compos
 |------|-------------------------|----------------------------------------|------------------------|
 | `personality.ts` | `mapPersonalityTraits` | `personality` | `loadedData.personality` |
 | `memories.ts` | `deduplicateAndGroupMemories`, `deduplicateMemories`, `groupMemoriesByCategory`, `scoreMemoryRelevance` | `memories` | `loadedData.memories` |
-| `targets.ts` | `mergeAndGroupTargets` | `behaviorTargets` | `loadedData.behaviorTargets` + `callerTargets` |
+| `targets.ts` | `mergeAndGroupTargets` | `behaviorTargets` | `loadedData.behaviorTargets` + `callerTargets`; on first call (`isFirstCall===true`), injects `Playbook.config.firstSessionTargets` (#784 S6) at NEW priority 1 (`PLAYBOOK_FIRST_SESSION` scope) above `Domain.onboardingDefaultTargets` → INIT-001 → `AUDIENCE_TARGET_DEFAULTS` |
 | `modules.ts` | `computeModuleProgress` (+ `computeSharedState` helper used pre-section-loop) | `curriculum` | `_assembled`; reads `CallerModuleProgress` directly (non-blocking) |
 | `identity.ts` | `extractIdentitySpec` (+ `resolveSpecs`, `resolveVoiceSpecFallback`, `mergeIdentitySpec`, `applyGroupToneOverride` helpers) | `identity` | `_assembled` → `resolvedSpecs.identitySpec` |
 | `simple.ts` | `mapLearnerProfile`, `computeCallHistory`, `filterSessionAttributes`, `mapGoals`, `computeDomainContext` | `learnerProfile`, `callHistory`, `sessionPlanning`, `learnerGoals`, `domain` | Various `loadedData.*` |
@@ -143,14 +143,14 @@ All declared in `transforms/*.ts` via `registerTransform("<name>", fn)`. `Compos
 | `teaching-style.ts` | `computeTeachingStyle` | `teachingStyle` | `_assembled` (identity archetype + curriculum) |
 | `audience.ts` | `computeAudienceGuidance` | `audienceGuidance` | `_assembled` |
 | `activities.ts` | `computeActivityToolkit` | `activityToolkit` | `_assembled` (personality + curriculum + pedagogy) |
-| `pedagogy.ts` | `computeSessionPedagogy` | `instructions_pedagogy` | `_assembled` — picks onboardingFlowSource: Playbook → Domain → Spec |
+| `pedagogy.ts` | `computeSessionPedagogy` | `instructions_pedagogy` | `_assembled` — picks onboardingFlowSource: Playbook → Domain → Spec. **#790 (S8)** `Playbook.config.firstCallMode` branches call 1: `onboarding` (default, byte-identical) → `sessionType=FIRST_CALL` + ONBOARDING MODE flow; `teach_immediately` → ONBOARDING MODE branch SKIPPED, `sessionType=RETURNING_CALLER`, scheduler / generic-returning flow runs on call 1; `baseline_assessment` → `sessionType=BASELINE` + diagnostic-only flow + principles override (no teaching, no review, no remediation) |
 | `offboarding.ts` | `computeOffboarding` (**async**) | `offboarding` | `_assembled` + `CallerModuleProgress` query — gated by `Playbook.config.offboardingSummary` (#780 Felt Progress S2); cadence picks `final_only` (default, gated on `sharedState.isFinalSession`) or `every_session_with_data`; emits structured `progressSummary` with modules / goals / skills when data exists, null-guards to generic guidance otherwise |
 | `progress-narrative.ts` | `computeProgressNarrative` | `progressNarrative` | `_assembled` — gated by `Playbook.config.progressNarrative` (#779 Felt Progress S1); rebuilds `loMasteryMap` from `callerAttributes`, surfaces top 3 LO refs as evidence for mid-call acknowledgement |
 | `voice.ts` | `computeVoiceGuidance` | `instructions_voice` | `_assembled` + `resolvedSpecs.voiceSpec` |
 | `instructions.ts` | `computeInstructions` | `instructions` | `_assembled` (depends on every prior content / pedagogy / voice section) |
 | `actions.ts` | `formatActions` | (embedded inside `instructions`) | `loadedData.openActions` |
 | `quickstart.ts` | `computeQuickStart` | `_quickStart` | `_assembled` (caller_info + memories + targets + curriculum + goals + identity) |
-| `preamble.ts` | `computePreamble` | `_preamble` | `_assembled` (identity only) |
+| `preamble.ts` | `computePreamble` | `_preamble` | `_assembled` (identity only). **#790 (S8)** `criticalRules` short-circuits on `Playbook.config.firstCallMode === 'baseline_assessment'` (call 1) to inject `BASELINE_ASSESSMENT_RULE` (override path: `prompt_preamble.config.criticalRules.baselineAssessment`). `teach_immediately` requires no preamble change — the existing branches already inject `returningCallerByMode[teachingMode]` regardless of `isFirstCall`. Default `onboarding` preserves byte-identical pre-#790 output |
 
 `_quickStart` and `_preamble` are prefixed with `_` so the executor strips them from the final `llmPrompt` JSON output — they're consumed by `instructions.ts` and `renderPromptSummary.ts` but not exposed as top-level sections.
 

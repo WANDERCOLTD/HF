@@ -3,6 +3,8 @@
 import { SessionFlowEditor } from '@/components/session-flow/SessionFlowEditor';
 import { CourseSetupTracker } from '@/components/shared/CourseSetupTracker';
 import { BandingPicker } from '@/components/shared/BandingPicker';
+import { FeltProgressSettings } from '@/components/course-design/FeltProgressSettings';
+import { FirstSessionSettings } from '@/components/course-design/FirstSessionSettings';
 import { CourseSummaryCard } from './CourseSummaryCard';
 import { archetypeLabel } from '@/lib/course/group-specs';
 import { INTERACTION_PATTERN_LABELS, type InteractionPattern } from '@/lib/content-trust/resolve-config';
@@ -131,6 +133,16 @@ export function CourseDesignTab({
       */}
       <div className="hf-card hf-mb-lg">
         <SessionFlowEditor courseId={courseId} />
+      </div>
+
+      {/* ── Felt Progress controls (#784 S6 Section 1 — #779 + #780 namespaces) ── */}
+      <div className="hf-card hf-mb-lg">
+        <FeltProgressSettings courseId={courseId} playbookConfig={pbConfig} />
+      </div>
+
+      {/* ── Call 1 / First Session settings (#784 S6 Section 2 + #790 S8) ── */}
+      <div className="hf-card hf-mb-lg">
+        <FirstSessionSettings courseId={courseId} playbookConfig={pbConfig} />
       </div>
 
       {/* ── Skill Banding (#417 Story C — per-playbook tier mapping) ── */}
