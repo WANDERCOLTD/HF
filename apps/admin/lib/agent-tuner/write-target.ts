@@ -13,6 +13,10 @@
 
 import { prisma } from "@/lib/prisma";
 import type { BehaviorTargetSource } from "@prisma/client";
+import {
+  bumpCallerComposeTimestamp,
+  bumpPlaybookComposeTimestamp,
+} from "@/lib/compose/bump-timestamp";
 
 export type WriteTargetResult =
   | { ok: true; action: "created" | "updated" | "removed" | "noop"; parameterId: string; value: number | null }
@@ -76,6 +80,9 @@ export async function writeBehaviorTarget(
       return { ok: true, action: "noop", parameterId, value: null };
     }
     await prisma.behaviorTarget.delete({ where: { id: existing.id } });
+    // #830 — out-of-band PLAYBOOK-scope target removal: mark every
+    // caller in this playbook stale on next call.
+    await bumpPlaybookComposeTimestamp(playbookId);
     return { ok: true, action: "removed", parameterId, value: null };
   }
 
@@ -90,6 +97,7 @@ export async function writeBehaviorTarget(
         updatedAt: new Date(),
       },
     });
+    await bumpPlaybookComposeTimestamp(playbookId);
     return { ok: true, action: "updated", parameterId, value: clamped };
   }
 
@@ -103,6 +111,7 @@ export async function writeBehaviorTarget(
       source,
     },
   });
+  await bumpPlaybookComposeTimestamp(playbookId);
   return { ok: true, action: "created", parameterId, value: clamped };
 }
 
@@ -183,6 +192,12 @@ export async function writeCallerBehaviorTarget(
         effectiveUntil: null,
       },
     });
+    if (del.count > 0) {
+      // #830 — out-of-band per-caller target removal: stamp this caller
+      // so the staleness check picks it up on next call. Noop deletions
+      // don't change anything and don't need a bump.
+      await bumpCallerComposeTimestamp(callerId);
+    }
     return {
       ok: true,
       action: del.count > 0 ? "removed" : "noop",
@@ -225,6 +240,10 @@ export async function writeCallerBehaviorTarget(
       }
     }
   });
+
+  // #830 — successful upsert across the caller's identities: stamp the
+  // caller so the staleness check picks this up on next call.
+  await bumpCallerComposeTimestamp(callerId);
 
   return {
     ok: true,

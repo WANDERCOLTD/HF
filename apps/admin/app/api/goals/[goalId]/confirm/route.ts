@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { bumpCallerComposeTimestamp } from "@/lib/compose/bump-timestamp";
 
 export async function POST(
   request: NextRequest,
@@ -78,6 +79,11 @@ export async function POST(
       });
     }
 
+    // #830 — goals are read by COMPOSE (renderPromptSummary, simple,
+    // offboarding transforms). Out-of-band confirmation means the
+    // cached prompt's learner_goals block is now stale.
+    await bumpCallerComposeTimestamp(goal.callerId);
+
     return NextResponse.json({
       ok: true,
       goal: updatedGoal,
@@ -97,6 +103,9 @@ export async function POST(
     where: { id: signal.id },
     data: { booleanValue: false },
   });
+
+  // #830 — dismissal flips the completion booleanValue read by COMPOSE.
+  await bumpCallerComposeTimestamp(goal.callerId);
 
   return NextResponse.json({
     ok: true,

@@ -19,6 +19,7 @@ import { PrismaClient } from "@prisma/client";
 import { AIEngine, isEngineAvailable } from "@/lib/ai/client";
 import { getConfiguredMeteredAICompletion, logMockAIUsage } from "@/lib/metering";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { bumpCallerComposeTimestamp } from "@/lib/compose/bump-timestamp";
 
 const prisma = new PrismaClient();
 
@@ -556,6 +557,16 @@ const opHandlers: Record<string, OpHandler> = {
     }
 
     log.info(`LEARN complete`, { memoriesCreated: memoriesCreated.length });
+
+    // #830 — out-of-band CallerMemory writes from the ops route (an
+    // operator/admin re-running this op against an existing call). The
+    // pipeline-internal memory writer is excluded by Story 6 because
+    // COMPOSE runs at the end of the same pipeline invocation; the ops
+    // route runs after the pipeline has already completed and the cached
+    // ComposedPrompt is stale.
+    if (memoriesCreated.length > 0) {
+      await bumpCallerComposeTimestamp(callerId);
+    }
 
     return {
       ok: true,

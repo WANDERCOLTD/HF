@@ -8,6 +8,7 @@ import { auditLog, AuditAction } from "@/lib/audit";
 import type { CallerRole } from "@prisma/client";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
 import { getSkillTierMapping } from "@/lib/goals/track-progress";
+import { bumpCallerComposeTimestamp } from "@/lib/compose/bump-timestamp";
 
 /**
  * @api GET /api/callers/:callerId
@@ -983,6 +984,15 @@ export async function PATCH(
           goalsCreated.push(goal.name);
         }
       }
+    }
+
+    // #830 — caller name + domain are read by COMPOSE (quickstart strip-
+    // name-questions logic, identity section). Stamp the caller so the
+    // staleness check recomposes on next call. The domain switch is
+    // additionally cascaded by Story 4's Domain bump if the new domain's
+    // onboarding settings are touched elsewhere.
+    if (Object.keys(updateData).length > 0) {
+      await bumpCallerComposeTimestamp(callerId);
     }
 
     // Audit trail (non-blocking, non-throwing). Captures which fields the
