@@ -23,6 +23,7 @@ vi.mock("@/lib/prisma", () => {
     playbookSubject: { findMany: vi.fn() },
     playbookSource: { findMany: vi.fn() },
     behaviorTarget: { findMany: vi.fn() },
+    contentAssertion: { findMany: vi.fn() },
   };
   return { prisma: mock, db: () => mock };
 });
@@ -282,5 +283,143 @@ describe("behaviorTargets loader — #713 bug 4 cross-learner scope=CALLER filte
     expect(ids).toContain("bt-bob");      // Bob sees his own
     expect(ids).toContain("bt-pb");        // Playbook target still applies broadly
     expect(ids).not.toContain("bt-alice"); // Alice's row is filtered out
+  });
+});
+
+/**
+ * #814 story 2 — teachingDepth as a typed sibling field on the loader result.
+ *
+ * Before this refactor the loader stashed teachingDepth as `(result as any).__teachingDepth`
+ * on the assertions array. Any downstream `.filter()` / `.map()` / `.slice()` silently
+ * lost it because array property assignment doesn't survive functional operations.
+ * The four cases below pin the new contract: `{ assertions, teachingDepth }` shape.
+ */
+describe("curriculumAssertions loader — teachingDepth typed field (#814)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // Shared helper — minimal ContentAssertion mock row matching the loader's select shape.
+  function makeRawAssertion(id: string, sourceId = "src-A") {
+    return {
+      id,
+      assertion: `assertion ${id}`,
+      category: "fact",
+      chapter: null,
+      section: null,
+      pageRef: null,
+      tags: [],
+      trustLevel: "ACCREDITED_MATERIAL",
+      examRelevance: 0.5,
+      learningOutcomeRef: null,
+      learningObjectiveId: null,
+      depth: 1,
+      parentId: null,
+      orderIndex: 0,
+      topicSlug: null,
+      teachMethod: null,
+      sourceId,
+      source: { name: "Source A", trustLevel: "ACCREDITED_MATERIAL" },
+    };
+  }
+
+  // Scope helper — one subject, one source, configurable teachingDepth.
+  function makeScope(teachingDepth: number | null) {
+    return {
+      domainId: "d1",
+      playbookId: "pb1",
+      subjectIds: ["s1"],
+      subjects: [
+        {
+          id: "s1",
+          teachingDepth,
+          sources: [
+            {
+              subjectSourceId: "ss-1",
+              sourceId: "src-A",
+              documentType: "TEXTBOOK",
+              sortOrder: 0,
+              tags: [],
+            },
+          ],
+        },
+      ],
+      scoped: true,
+    };
+  }
+
+  it("Case 1 — returns the playbook-configured teachingDepth on the result object", async () => {
+    (prisma.contentAssertion.findMany as any).mockResolvedValue([
+      makeRawAssertion("a1"),
+      makeRawAssertion("a2"),
+    ]);
+
+    const loader = getLoader("curriculumAssertions");
+    expect(loader).toBeDefined();
+    const result = await loader!("caller-1", { contentScope: makeScope(3) });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        teachingDepth: 3,
+        assertions: expect.any(Array),
+      }),
+    );
+    expect(result.assertions).toHaveLength(2);
+  });
+
+  it("Case 2 — defaults teachingDepth to null when no subject sets it", async () => {
+    (prisma.contentAssertion.findMany as any).mockResolvedValue([
+      makeRawAssertion("a1"),
+    ]);
+
+    const result = await getLoader("curriculumAssertions")!(
+      "caller-1",
+      { contentScope: makeScope(null) },
+    );
+
+    expect(result.teachingDepth).toBeNull();
+    expect(result.assertions).toHaveLength(1);
+  });
+
+  it("Case 3 — teachingDepth survives a downstream .filter() on the result (regression for the array-property hack)", async () => {
+    (prisma.contentAssertion.findMany as any).mockResolvedValue([
+      makeRawAssertion("a1"),
+      makeRawAssertion("a2"),
+      makeRawAssertion("a3"),
+    ]);
+
+    const result = await getLoader("curriculumAssertions")!(
+      "caller-1",
+      { contentScope: makeScope(2) },
+    );
+
+    // The exact downstream pattern that silently dropped __teachingDepth pre-refactor:
+    // filter the assertions array and check the metadata is still accessible.
+    const filtered = result.assertions.filter((a: { id: string }) => a.id !== "a2");
+    expect(filtered).toHaveLength(2);
+    // teachingDepth lives on the result object — `.filter()` on `.assertions`
+    // does NOT touch it. This would FAIL under the legacy array-property scheme.
+    expect(result.teachingDepth).toBe(2);
+  });
+
+  it("Case 4 — teachingDepth survives a downstream .map() on the result", async () => {
+    (prisma.contentAssertion.findMany as any).mockResolvedValue([
+      makeRawAssertion("a1"),
+      makeRawAssertion("a2"),
+    ]);
+
+    const result = await getLoader("curriculumAssertions")!(
+      "caller-1",
+      { contentScope: makeScope(4) },
+    );
+
+    const mapped = result.assertions.map((a: { id: string; assertion: string }) => ({
+      id: a.id,
+      text: a.assertion.toUpperCase(),
+    }));
+    expect(mapped).toHaveLength(2);
+    expect(mapped[0].text).toBe("ASSERTION A1");
+    // teachingDepth is unaffected — it's a sibling field, not an array prop.
+    expect(result.teachingDepth).toBe(4);
   });
 });
