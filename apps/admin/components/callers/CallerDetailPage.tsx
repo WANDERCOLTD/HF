@@ -33,6 +33,7 @@ import { ArtifactsSection } from "./caller-detail/ArtifactsTab";
 import { PromptTimelineRows } from "./caller-detail/PromptTimelineRows";
 import { CallsPromptsTab, type BulkActions } from "./caller-detail/CallsPromptsTab";
 import { PromptTunerSidebar } from "./caller-detail/PromptTunerSidebar";
+import { StalePromptPill } from "./caller-detail/StalePromptPill";
 import { UpliftTab } from "./caller-detail/UpliftTab";
 
 // Overview lens (now rendered as the first section tab)
@@ -1078,7 +1079,11 @@ export default function CallerDetailPage() {
       )}
 
       {activeSection === "calls-prompts" && (
-        <CallsPromptsTab
+        <>
+          {/* #831 — surface compose-input staleness above the calls list.
+              Renders nothing when the cached prompt is fresh. */}
+          <StalePromptPill callerId={callerId} />
+          <CallsPromptsTab
           calls={filteredCalls}
           composedPrompts={filteredPrompts}
           callerId={callerId}
@@ -1100,12 +1105,15 @@ export default function CallerDetailPage() {
             fetchPrompts();
           }}
         />
+        </>
       )}
 
       {/* #641 + #642: Tune tab — single-column row timeline with prompt rows
           interleaved with diff rows, followed by the tuner sliders. */}
       {activeSection === "tune" && (
         <div className="cdp-tune-tab">
+          {/* #831 — surface compose-input staleness above the tune panel. */}
+          <StalePromptPill callerId={callerId} />
           {composedPrompts.length === 0 ? (
             <div className="hf-empty-dashed">
               <div className="hf-empty-state-icon hf-mb-md">🎛️</div>

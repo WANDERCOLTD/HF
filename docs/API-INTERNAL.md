@@ -2843,6 +2843,33 @@ Get all media shared with a caller across their calls. Supports sort, order, typ
 
 ---
 
+### `GET` /api/callers/:callerId/prompt-staleness
+
+Returns whether the active composed prompt for this caller is stale (upstream compose-affecting writes newer than the cached `ComposedPrompt.composedAt`). Powers the `<StalePromptPill />` UI.
+
+**Auth**: Session · **Scope**: `callers:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | path | string | Yes | Caller UUID |
+
+**Response** `200`
+```json
+{ ok: true, isStale: boolean, composedAt: string|null, upstreamChanges: Array<{ source: string, changedAt: string, label: string }> }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Caller not found" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ### `POST` /api/callers/:callerId/reset
 
 Full reset for a caller — deletes ALL runtime data (calls, transcripts,
@@ -14449,8 +14476,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 449 |
-| Files with annotations | 448 |
+| Route files found | 450 |
+| Files with annotations | 449 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 
