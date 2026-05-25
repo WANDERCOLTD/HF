@@ -94,17 +94,18 @@ If you discover work has started on `main`, stop and move it: `git checkout -b <
 
 **Rules:**
 
-1. **Check at session start.** The `SessionStart` hook prints `🚨 N concurrent claude processes detected` when peers exist. Treat it as a hard warning — every `git status` claim is suspect until proven.
-2. **`PreToolUse:Bash` runs the drift detector.** It snapshots HEAD per session and surfaces a loud warning when HEAD drifts between Bash calls without an explicit checkout/reset/pull in the current call. Read the warning — it's the smoking gun for peer interference.
-3. **If you spawn peer agents that touch code, use `isolation: "worktree"` on the `Agent` tool.** Each parallel agent then gets its own `git worktree add ../HF-feat-X feat/X-…` checkout. The `Agent` tool already supports this. Never spawn code-touching agents into the shared working tree.
-4. **Recovery when drift hits:**
+1. **Check at session start.** The `SessionStart` hook prints `🚨 N concurrent claude processes detected` when peers exist, and also reports the working-tree lock role (PRIMARY / SECONDARY / RECLAIMED). Treat the SECONDARY banner as a hard signal — destructive git in this tree will be blocked.
+2. **`PreToolUse:Bash` runs two hooks:** `branch-drift-detector.sh` (warn-only, fires on unexplained HEAD swap between tool calls) and `git-lock-enforcer.sh` (hard block on destructive git from secondary sessions — `checkout`, `switch`, `reset --hard`, `pull`, `merge`, `rebase`, `stash pop/apply/drop`, `clean`, `branch -f/-D`, `push --force`). Read-only git (`status`, `log`, `diff`, `branch`, `rev-parse`, `fetch`) and all non-git commands always pass.
+3. **If you spawn peer agents that touch code, use `isolation: "worktree"` on the `Agent` tool.** Each parallel agent then gets its own `git worktree add ../HF-feat-X feat/X-…` checkout. The lock is keyed on `git rev-parse --show-toplevel`, so every worktree is its own PRIMARY slot — concurrent worktree sessions never block each other.
+4. **Operator override (one-shot):** export `HF_FORCE_GIT=1` before the blocked command. Use only when you have confirmed the peer is finished or you accept the HEAD-swap risk.
+5. **Recovery when drift hits anyway:**
    - `git stash --include-untracked -m '<work-description>'`
    - `git reflog | head -10` — find your last known-good HEAD (the one *before* the unexplained `checkout: moving from X to Y`)
    - `git branch -f <correct-branch> <commit>` and `git checkout <correct-branch>`
    - `git stash pop` — should apply cleanly since the working tree is at the expected base
-5. **Don't shell out to `pkill claude` to fix this.** Peer sessions may be doing legitimate work the operator launched intentionally. Ask before killing.
+6. **Don't shell out to `pkill claude` to fix this.** Peer sessions may be doing legitimate work the operator launched intentionally. Ask before killing.
 
-Memory: [feedback_concurrent_claude_processes.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/feedback_concurrent_claude_processes.md).
+Memory: [feedback_concurrent_claude_processes.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/feedback_concurrent_claude_processes.md), [feedback_concurrent_claude_pidlock_design.md](~/.claude/projects/-Users-paulwander-projects-HF/memory/feedback_concurrent_claude_pidlock_design.md).
 
 ---
 
