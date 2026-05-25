@@ -17,8 +17,12 @@
  *   npx tsx apps/admin/scripts/audit-epic-100.ts --diff=tests/fixtures/epic-100-audit-baseline.json
  *
  * Exit codes:
- *   0  — no counter exceeded its target (or DB unreachable)
- *   1  — at least one counter exceeded its target
+ *   0  — no invariant exceeded its target AND none were skipped
+ *        (or the DB was completely unreachable at startup — same as
+ *        check-fk-consistency.ts so unrelated CI steps aren't blocked)
+ *   1  — at least one invariant exceeded its target OR was skipped
+ *        due to a per-counter query error (e.g. dead DB pointer where
+ *        the schema is missing — silent skips were masking real drift)
  *
  * See: docs/epic-100-verification.md
  *      docs/epic-100-chain-walk.md
@@ -518,7 +522,29 @@ async function main(): Promise<void> {
   const anyInvariantFail = results.some(
     (r) => r.kind === "invariant" && r.status === "fail",
   );
-  process.exit(anyInvariantFail ? 1 : 0);
+
+  // Skipped invariants ALSO block CI — a counter that couldn't run is not a
+  // counter that proved zero. Silent skips were masking dead DB pointers:
+  // when #726 Phase 3 dropped `hf_dev` (2026-05-25), every per-counter query
+  // returned `relation "X" does not exist`, the script exited 0, and the
+  // build looked green with no real audit. Fail loud instead.
+  //
+  // Note: this is the *per-counter* skip path (one query threw mid-run).
+  // A completely unreachable DB still exits 0 via the catch block above,
+  // matching `check-fk-consistency.ts` so unrelated CI steps aren't blocked.
+  const skippedInvariants = results.filter(
+    (r) => r.kind === "invariant" && r.status === "skipped",
+  );
+  if (skippedInvariants.length > 0) {
+    console.error(
+      `[audit-epic-100] FAIL: ${skippedInvariants.length} invariant counter(s) skipped — DB schema mismatch or query error. Affected:`,
+    );
+    for (const c of skippedInvariants) {
+      console.error(`  - ${c.key} (${c.story}): ${c.error}`);
+    }
+  }
+
+  process.exit(anyInvariantFail || skippedInvariants.length > 0 ? 1 : 0);
 }
 
 main().catch((err: unknown) => {
