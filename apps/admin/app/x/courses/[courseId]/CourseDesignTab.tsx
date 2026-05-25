@@ -3,6 +3,7 @@
 import { SessionFlowEditor } from '@/components/session-flow/SessionFlowEditor';
 import { CourseSetupTracker } from '@/components/shared/CourseSetupTracker';
 import { BandingPicker } from '@/components/shared/BandingPicker';
+import { CollapsibleCard } from '@/components/shared/CollapsibleCard';
 import { FeltProgressSettings } from '@/components/course-design/FeltProgressSettings';
 import { FirstSessionSettings } from '@/components/course-design/FirstSessionSettings';
 import { CourseSummaryCard } from './CourseSummaryCard';
@@ -121,37 +122,49 @@ export function CourseDesignTab({
         </>
       )}
 
-      {/* ── Session Flow (canonical editor — absorbed from retired tab) ── */}
-      {/*
-        The Session Flow tab was retired in favour of one canonical editor
-        on the Design tab. SessionFlowEditor owns its own data fetching
-        (GET /api/courses/:id/session-flow) and persistence, so we mount it
-        directly — no prop plumbing, no duplicate state. The earlier
-        "Student Experience Flow" pill-row card was a styled subset of the
-        same data; it's gone because every educator-visible setting it
-        offered is also here, in the more complete form.
-      */}
-      <div className="hf-card hf-mb-lg">
+      {/* ── Session Flow (canonical editor — absorbed from retired tab) ──
+          The Session Flow tab was retired in favour of one canonical editor
+          on the Design tab. SessionFlowEditor owns its own data fetching
+          (GET /api/courses/:id/session-flow) and persistence, so we mount it
+          directly — no prop plumbing, no duplicate state. */}
+      <CollapsibleCard
+        title="Session Flow"
+        hint="Before / during / after phases, intake, NPS, welcome"
+        defaultOpen
+        className="hf-mb-lg"
+      >
         <SessionFlowEditor courseId={courseId} />
-      </div>
+      </CollapsibleCard>
 
       {/* ── Felt Progress controls (#784 S6 Section 1 — #779 + #780 namespaces) ── */}
-      <div className="hf-card hf-mb-lg">
+      <CollapsibleCard
+        title="Felt Progress"
+        hint="Mid-call acknowledgement + structured offboarding summary"
+        className="hf-mb-lg"
+      >
         <FeltProgressSettings courseId={courseId} playbookConfig={pbConfig} />
-      </div>
+      </CollapsibleCard>
 
       {/* ── Call 1 / First Session settings (#784 S6 Section 2 + #790 S8) ── */}
-      <div className="hf-card hf-mb-lg">
+      <CollapsibleCard
+        title="Call 1 / First Session"
+        hint="firstCallMode, behaviour targets, course-ref preview"
+        className="hf-mb-lg"
+      >
         <FirstSessionSettings courseId={courseId} playbookConfig={pbConfig} />
-      </div>
+      </CollapsibleCard>
 
       {/* ── Skill Banding (#417 Story C — per-playbook tier mapping) ── */}
-      <div className="hf-card hf-mb-lg">
+      <CollapsibleCard
+        title="Skill Banding"
+        hint="Per-course tier mapping override"
+        className="hf-mb-lg"
+      >
         <BandingPicker
           courseId={courseId}
           current={playbookConfig?.skillTierMapping}
         />
-      </div>
+      </CollapsibleCard>
 
       {/* ── Setup Tracker (bottom — readiness reported to hero via callback) ── */}
       {detail && (

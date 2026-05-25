@@ -121,7 +121,6 @@ export function FeltProgressSettings({
 
   return (
     <div>
-      <div className="hf-section-title hf-mb-xs">Felt progress</div>
       <div className="hf-text-xs hf-text-muted hf-mb-md">
         Controls how the AI acknowledges progress mid-call and summarises the
         learner&apos;s journey at the end of the course. Defaults are sensible

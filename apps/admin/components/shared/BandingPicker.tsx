@@ -94,7 +94,6 @@ export function BandingPicker({ courseId, current, onSaved }: BandingPickerProps
 
   return (
     <div className="hf-card-compact">
-      <div className="hf-section-title hf-mb-xs">Skill banding</div>
       <div className="hf-text-xs hf-text-muted hf-mb-md">
         How <Acronym>SKILL-NN</Acronym> ACHIEVE goal progress maps to a tier
         label + band number. Default is IELTS Speaking. Change this when the
