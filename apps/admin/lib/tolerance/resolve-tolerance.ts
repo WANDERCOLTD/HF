@@ -69,29 +69,71 @@ interface ResolverOptions {
   silent?: boolean;
 }
 
-async function readBehaviorTargetValue(args: {
-  scope: "CALLER" | "PLAYBOOK";
-  callerId?: string | null;
-  playbookId?: string | null;
-}): Promise<number | null> {
+/**
+ * Look up CALLER-scope BehaviorTarget rows for the mastery threshold parameter.
+ *
+ * ⚠ FK contract (#836 / CHAIN-CONTRACTS.md Link 3 sub-contract): the
+ * `BehaviorTarget.callerIdentityId` column references `CallerIdentity.id`, NOT
+ * `Caller.id` — see also `prisma/schema.prisma:549` which `@map("callerId")`
+ * aliases the field and is the original tripwire. A Caller can have multiple
+ * CallerIdentity rows (one per channel: phone, web, etc.), and a tolerance
+ * override may sit on any of them. To honour every per-learner override we:
+ *
+ *   1. Resolve `callerId` → all attached `CallerIdentity.id`s.
+ *   2. Query `BehaviorTarget` with `callerIdentityId: { in: identityIds }`.
+ *   3. Pick the MAX `targetValue` — the most-favourable override wins so a
+ *      legitimately higher per-identity threshold can't be silently undercut
+ *      by a stale lower value on a different identity.
+ *
+ * Mirrors the write-side fanout in
+ * `lib/agent-tuner/write-target.ts::writeCallerBehaviorTarget`, which writes a
+ * row per identity for the same caller.
+ */
+async function readCallerBehaviorTargetValue(callerId: string): Promise<number | null> {
+  try {
+    const caller = await prisma.caller.findUnique({
+      where: { id: callerId },
+      select: { callerIdentities: { select: { id: true } } },
+    });
+    const identityIds = caller?.callerIdentities.map((i) => i.id) ?? [];
+    if (identityIds.length === 0) return null;
+
+    const rows = await prisma.behaviorTarget.findMany({
+      where: {
+        parameterId: TOLERANCE_MASTERY_THRESHOLD_PARAM_ID,
+        scope: "CALLER",
+        effectiveUntil: null,
+        callerIdentityId: { in: identityIds },
+      },
+      select: { targetValue: true },
+    });
+    if (rows.length === 0) return null;
+    return rows.reduce((m, r) => (r.targetValue > m ? r.targetValue : m), -Infinity);
+  } catch (err) {
+    console.warn(
+      `[tolerance] BehaviorTarget(CALLER) read failed for ${TOLERANCE_MASTERY_THRESHOLD_PARAM_ID} — falling through.`,
+      err,
+    );
+    return null;
+  }
+}
+
+async function readPlaybookBehaviorTargetValue(playbookId: string): Promise<number | null> {
   try {
     const row = await prisma.behaviorTarget.findFirst({
       where: {
         parameterId: TOLERANCE_MASTERY_THRESHOLD_PARAM_ID,
-        scope: args.scope,
+        scope: "PLAYBOOK",
+        playbookId,
         effectiveUntil: null,
-        ...(args.scope === "CALLER" ? { callerIdentityId: args.callerId ?? undefined } : {}),
-        ...(args.scope === "PLAYBOOK" ? { playbookId: args.playbookId ?? undefined } : {}),
       },
       select: { targetValue: true },
       orderBy: { effectiveFrom: "desc" },
     });
     return row?.targetValue ?? null;
   } catch (err) {
-    // Non-blocking: a missing parameter row or empty DB shouldn't kill the
-    // composition. Fall through to lower-precedence layers.
     console.warn(
-      `[tolerance] BehaviorTarget(${args.scope}) read failed for ${TOLERANCE_MASTERY_THRESHOLD_PARAM_ID} — falling through.`,
+      `[tolerance] BehaviorTarget(PLAYBOOK) read failed for ${TOLERANCE_MASTERY_THRESHOLD_PARAM_ID} — falling through.`,
       err,
     );
     return null;
@@ -111,14 +153,16 @@ export async function resolveMasteryThresholdDetailed(
   const { callerId, playbookId, playbookConfig, specConfig } = inputs;
 
   // Layer 1 — per-caller behavior target (bucket 3, adaptive override).
+  // `callerId` is a Caller.id; the helper fans out to CallerIdentity rows
+  // before querying BehaviorTarget (see helper docstring + #836).
   if (callerId) {
-    const v = await readBehaviorTargetValue({ scope: "CALLER", callerId });
+    const v = await readCallerBehaviorTargetValue(callerId);
     if (v != null) return logAndReturn("caller-behavior-target", v, options);
   }
 
   // Layer 2 — per-playbook behavior target (bucket 1, alt write path).
   if (playbookId) {
-    const v = await readBehaviorTargetValue({ scope: "PLAYBOOK", playbookId });
+    const v = await readPlaybookBehaviorTargetValue(playbookId);
     if (v != null) return logAndReturn("playbook-behavior-target", v, options);
   }
 
