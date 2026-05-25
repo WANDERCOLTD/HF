@@ -229,9 +229,10 @@ export async function updateTargets(
         include: {
           caller: {
             include: {
-              callerIdentities: {
-                take: 1,
-              },
+              // #836 fanout — load ALL identities so the CALLER write below
+              // creates one BehaviorTarget per identity. Pre-fix `take: 1`
+              // meant only an arbitrary identity received the new target.
+              callerIdentities: true,
             },
           },
         },
@@ -257,7 +258,14 @@ export async function updateTargets(
     try {
       result.rewardsProcessed++;
 
-      const callerIdentityId = reward.call.caller?.callerIdentities?.[0]?.id || null;
+      // #836 fanout — write the LEARNED target to EVERY CallerIdentity row for
+      // this caller so subsequent reads (via `lib/tolerance/resolve-tolerance.ts`
+      // or `loadEffectiveTargets`, both of which fan out + MAX) see a consistent
+      // value regardless of which identity the next call comes in on. Pre-fix
+      // this picked `identities?.[0]?.id` and silently skipped every other
+      // identity, producing drift between channels.
+      const callerIdentityIds: string[] =
+        reward.call.caller?.callerIdentities?.map((i) => i.id) ?? [];
       const effectiveTargets = reward.effectiveTargets as Record<string, any>;
       const parameterDiffs = reward.parameterDiffs as Record<string, any>;
 
@@ -300,45 +308,50 @@ export async function updateTargets(
           continue;
         }
 
-        // Determine scope for new target (CALLER if we have one, otherwise keep original scope)
-        const newScope = callerIdentityId ? BehaviorTargetScope.CALLER : (scope as BehaviorTargetScope);
+        // Determine scope for new target (CALLER if we have at least one
+        // identity, otherwise keep original scope)
+        const newScope =
+          callerIdentityIds.length > 0
+            ? BehaviorTargetScope.CALLER
+            : (scope as BehaviorTargetScope);
 
-        // Create new target (or update existing CALLER target)
-        if (callerIdentityId && newScope === BehaviorTargetScope.CALLER) {
-          // Check for existing CALLER target
-          const existingTarget = await prisma.behaviorTarget.findFirst({
-            where: {
-              parameterId,
-              callerIdentityId,
-              scope: BehaviorTargetScope.CALLER,
-              effectiveUntil: null,
-            },
-          });
-
-          if (existingTarget) {
-            // Supersede existing target
-            await prisma.behaviorTarget.update({
-              where: { id: existingTarget.id },
-              data: { effectiveUntil: new Date() },
+        // Create new target (or update existing CALLER target). Fan out per
+        // identity so writes are consistent with the MAX-tie-break reader.
+        if (callerIdentityIds.length > 0 && newScope === BehaviorTargetScope.CALLER) {
+          for (const identityId of callerIdentityIds) {
+            const existingTarget = await prisma.behaviorTarget.findFirst({
+              where: {
+                parameterId,
+                callerIdentityId: identityId,
+                scope: BehaviorTargetScope.CALLER,
+                effectiveUntil: null,
+              },
             });
-            result.targetsUpdated++;
-          }
 
-          // Create new target
-          await prisma.behaviorTarget.create({
-            data: {
-              parameterId,
-              scope: BehaviorTargetScope.CALLER,
-              callerIdentityId,
-              targetValue: adjustment.newTarget,
-              confidence: adjustment.newConfidence,
-              source: BehaviorTargetSource.LEARNED,
-              observationCount: 1,
-              lastLearnedAt: new Date(),
-              supersededById: existingTarget?.id,
-            },
-          });
-          result.targetsCreated++;
+            if (existingTarget) {
+              // Supersede existing target
+              await prisma.behaviorTarget.update({
+                where: { id: existingTarget.id },
+                data: { effectiveUntil: new Date() },
+              });
+              result.targetsUpdated++;
+            }
+
+            await prisma.behaviorTarget.create({
+              data: {
+                parameterId,
+                scope: BehaviorTargetScope.CALLER,
+                callerIdentityId: identityId,
+                targetValue: adjustment.newTarget,
+                confidence: adjustment.newConfidence,
+                source: BehaviorTargetSource.LEARNED,
+                observationCount: 1,
+                lastLearnedAt: new Date(),
+                supersededById: existingTarget?.id,
+              },
+            });
+            result.targetsCreated++;
+          }
         } else {
           // For SYSTEM/SEGMENT targets, we just record the update but don't modify
           // (Those should be updated through aggregate analysis, not individual calls)
