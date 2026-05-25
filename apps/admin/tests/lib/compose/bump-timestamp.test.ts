@@ -59,13 +59,25 @@ describe("bumpPlaybookComposeTimestamp / bumpCallerComposeTimestamp — #830", (
     await expect(bumpCallerComposeTimestamp("c-missing")).resolves.toBeUndefined();
   });
 
-  it("playbook bump re-throws non-P2025 errors", async () => {
+  it("playbook bump swallows + logs non-P2025 errors (best-effort)", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockPrisma.playbook.update.mockRejectedValue(new Error("boom"));
-    await expect(bumpPlaybookComposeTimestamp("pb-1")).rejects.toThrow(/boom/);
+    await expect(bumpPlaybookComposeTimestamp("pb-1")).resolves.toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("bumpPlaybookComposeTimestamp"),
+      expect.any(Error),
+    );
+    warnSpy.mockRestore();
   });
 
-  it("caller bump re-throws non-P2025 errors", async () => {
+  it("caller bump swallows + logs non-P2025 errors (best-effort)", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockPrisma.caller.update.mockRejectedValue(new Error("boom"));
-    await expect(bumpCallerComposeTimestamp("c-1")).rejects.toThrow(/boom/);
+    await expect(bumpCallerComposeTimestamp("c-1")).resolves.toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("bumpCallerComposeTimestamp"),
+      expect.any(Error),
+    );
+    warnSpy.mockRestore();
   });
 });

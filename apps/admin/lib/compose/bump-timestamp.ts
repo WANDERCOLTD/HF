@@ -53,8 +53,20 @@ export async function bumpPlaybookComposeTimestamp(
       where: { id: playbookId },
       data: { composeInputsUpdatedAt: new Date() },
     });
-  } catch (err: any) {
-    if (err?.code !== "P2025") throw err;
+  } catch (err: unknown) {
+    // Best-effort: never let a bump failure break the upstream write.
+    // P2025 (row not found) is the expected path on missing playbooks.
+    // Any other failure is logged and swallowed — the consequence is a
+    // missed staleness signal, which self-heals on the *next* upstream
+    // write (or via the lazy COMPOSE check on the very next call).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const code = (err as any)?.code;
+    if (code !== "P2025") {
+      console.warn(
+        `[bumpPlaybookComposeTimestamp] swallowed error for ${playbookId}:`,
+        err,
+      );
+    }
   }
 }
 
@@ -72,7 +84,15 @@ export async function bumpCallerComposeTimestamp(
       where: { id: callerId },
       data: { composeInputsUpdatedAt: new Date() },
     });
-  } catch (err: any) {
-    if (err?.code !== "P2025") throw err;
+  } catch (err: unknown) {
+    // Best-effort — see bumpPlaybookComposeTimestamp for rationale.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const code = (err as any)?.code;
+    if (code !== "P2025") {
+      console.warn(
+        `[bumpCallerComposeTimestamp] swallowed error for ${callerId}:`,
+        err,
+      );
+    }
   }
 }
