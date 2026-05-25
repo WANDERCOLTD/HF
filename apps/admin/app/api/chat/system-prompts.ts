@@ -7,6 +7,9 @@ import { buildTuningSystemPrompt, type TuningScope } from "@/lib/chat/tuning-sys
 import { loadTicketContext, loadRecentTicketsDigest } from "@/lib/chat/ticket-context";
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
+import { buildPageContextBlock, type PageContextHint } from "./page-context";
+
+export type { PageContextHint };
 
 type ChatMode = "DATA" | "CALL" | "BUG" | "TUNING";
 
@@ -91,6 +94,13 @@ export interface BuildSystemPromptOptions {
    * than hallucinate. Only fires when `discussionTicketId` is unset.
    */
   pageHintRoute?: string;
+  /**
+   * #809 — DATA mode only. Explicit page + tab + section context injected
+   * as a short preamble so the assistant doesn't say "I don't see that
+   * section" when the user is staring at it. Ignored in WIZARD / CALL /
+   * COURSE_REF / TUNING modes.
+   */
+  pageContext?: PageContextHint;
 }
 
 export async function buildSystemPrompt(
@@ -131,7 +141,8 @@ export async function buildSystemPrompt(
         buildTicketDiscussionBlock(options, userRole, institutionId),
         buildFeedbackListHintBlock(options, userRole, institutionId),
       ]);
-      return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + runtimeBlock + `\n\n${baseContext}` + ticketBlock + listHintBlock };
+      const pageBlock = buildPageContextBlock(options?.pageContext);
+      return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + runtimeBlock + pageBlock + `\n\n${baseContext}` + ticketBlock + listHintBlock };
     }
     case "TUNING": {
       // TUNING mode: catalogue + truthfulness rules + scope-aware write tools.

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 
 // Entity types that can be tracked in breadcrumbs
 export type EntityType = "caller" | "call" | "spec" | "playbook" | "domain" | "transcript" | "memory" | "flow" | "subject" | "source";
@@ -73,6 +74,7 @@ export function EntityProvider({ children }: { children: React.ReactNode }) {
   const [breadcrumbs, setBreadcrumbs] = useState<EntityBreadcrumb[]>([]);
   const [pageContext, setPageContextState] = useState<PageContext>({ page: "", params: {} });
   const [initialized, setInitialized] = useState(false);
+  const pathname = usePathname();
 
   // Load persisted context on mount
   useEffect(() => {
@@ -80,6 +82,14 @@ export function EntityProvider({ children }: { children: React.ReactNode }) {
     setBreadcrumbs(persisted);
     setInitialized(true);
   }, []);
+
+  // #809 — reset pageContext when the route changes so a previous page's tab
+  // or section state cannot bleed into the next page's chat payload. Pages
+  // that own a tab/section setting call setPageContext() in their own effect
+  // after this reset fires; pages that don't simply leave it blank.
+  useEffect(() => {
+    setPageContextState({ page: "", params: {} });
+  }, [pathname]);
 
   // Reset entity context when user changes (login/logout/switch)
   useEffect(() => {

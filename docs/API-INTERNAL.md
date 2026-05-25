@@ -3377,6 +3377,7 @@ Sends a message to the AI chat assistant. Supports DATA mode (tool calling for d
 | engine | body | string | No | AI engine to use (optional, uses default if not specified) |
 | bugContext | body | object | No | Bug report context for BUG mode (url, errors, browser, viewport, timestamp) |
 | discussionTicketId | body | string | No | UUID of an open feedback Ticket to discuss in DATA mode. When set, the assistant's system prompt includes a `## Active Ticket` block with the ticket + comment thread, institution-scoped via the creator's institutionId. |
+| pageContext | body | object | No | DATA mode only. Shape: `{ page: string, params: { activeTab?: string, visibleSections?: string[] } }`. Identifies which page + tab + visible section the user is looking at so the assistant does not have to guess. Ignored for WIZARD/CALL/COURSE_REF/TUNING modes. |
 
 **Response** `200`
 ```json
