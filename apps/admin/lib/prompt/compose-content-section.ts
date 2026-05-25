@@ -600,6 +600,12 @@ async function composeContentFromSubject(
 
         const progress = await loadCallerProgress(callerId, pbCurr.slug, "current_module", enrolledPbId);
         const contractThresholds = await ContractRegistry.getThresholds("CURRICULUM_PROGRESS_V1");
+        // TODO(#598 Slice 1 follow-up): migrate to resolveMasteryThreshold()
+        // once `lib/tolerance/resolve-tolerance.ts` ships. The cascade there
+        // covers the 7 layers (caller → playbook → preset → spec config →
+        // ContractRegistry → hardcoded 0.7) — this 2-layer fallback is the
+        // last surviving direct read of `0.7` outside `transforms/modules.ts`.
+        // See docs/decisions/2026-05-22-tolerance-placement.md.
         const masteryThreshold = contractThresholds?.masteryComplete ?? 0.7;
         const enrichedModules = enrichModulesWithProgress(modules, progress, masteryThreshold);
         const nextModule = enrichedModules.find((m) => m.status !== "completed") || null;
@@ -638,6 +644,12 @@ async function composeContentFromSubject(
 
         const progress = await loadCallerProgress(callerId, pbCurr.slug, "current_module");
         const contractThresholds = await ContractRegistry.getThresholds("CURRICULUM_PROGRESS_V1");
+        // TODO(#598 Slice 1 follow-up): migrate to resolveMasteryThreshold()
+        // once `lib/tolerance/resolve-tolerance.ts` ships. The cascade there
+        // covers the 7 layers (caller → playbook → preset → spec config →
+        // ContractRegistry → hardcoded 0.7) — this 2-layer fallback is the
+        // last surviving direct read of `0.7` outside `transforms/modules.ts`.
+        // See docs/decisions/2026-05-22-tolerance-placement.md.
         const masteryThreshold = contractThresholds?.masteryComplete ?? 0.7;
         const enrichedModules = enrichModulesWithProgress(modules, progress, masteryThreshold);
         const nextModule = enrichedModules.find((m) => m.status !== "completed") || null;
@@ -705,6 +717,12 @@ async function composeContentFromSubject(
     const progress = await loadCallerProgress(callerId, curriculum.slug, "current_module");
 
     // Get mastery threshold from contract (not hardcoded)
+    // TODO(#598 Slice 1 follow-up): migrate to resolveMasteryThreshold()
+    // once `lib/tolerance/resolve-tolerance.ts` ships. The cascade there
+    // covers the 7 layers (caller → playbook → preset → spec config →
+    // ContractRegistry → hardcoded 0.7) — this 2-layer fallback is the
+    // last surviving direct read of `0.7` outside `transforms/modules.ts`.
+    // See docs/decisions/2026-05-22-tolerance-placement.md.
     const contractThresholds = await ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1');
     const masteryThreshold = contractThresholds?.masteryComplete ?? 0.7;
 
