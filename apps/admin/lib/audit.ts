@@ -58,6 +58,9 @@ export const AuditAction = {
   UPDATED_ENTITY_ACCESS: "updated_entity_access",
   RESET_ENTITY_ACCESS: "reset_entity_access",
   UPDATED_TERMINOLOGY: "updated_terminology",
+
+  // Tolerances (#598 Slice 1) — per-learner overrides on the mastery cascade
+  TOLERANCE_WRITE: "tolerance_write",
 } as const;
 
 export type AuditActionType = (typeof AuditAction)[keyof typeof AuditAction];

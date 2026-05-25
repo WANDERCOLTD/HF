@@ -113,8 +113,22 @@ registerTransform("computeSessionPedagogy", (
   const firstCallMode =
     ((primaryPlaybook as { config?: { firstCallMode?: "onboarding" | "teach_immediately" | "baseline_assessment" } })?.config?.firstCallMode) ?? "onboarding";
   const isFirstCallAny = isFirstCall || isFirstCallInDomain;
-  const isOnboardingFirstCall = isFirstCallAny && firstCallMode === "onboarding";
+  // #598 Slice 1 — `firstCall.introducePedagogy === false` suppresses the
+  // ONBOARDING MODE intro block on call 1 (the "here's how this works"
+  // speech). Behaviour-wise this matches firstCallMode=teach_immediately for
+  // the ONBOARDING-vs-RETURNING gate, but kept as a separate knob so it
+  // composes cleanly with `baseline_assessment` (which keeps its own branch).
+  // Absent or `true` → current behaviour.
+  const introducePedagogy =
+    ((primaryPlaybook as { config?: { firstCall?: { introducePedagogy?: boolean } } })?.config?.firstCall?.introducePedagogy) ?? true;
+  const isOnboardingFirstCall =
+    isFirstCallAny && firstCallMode === "onboarding" && introducePedagogy;
   const isBaselineFirstCall = isFirstCallAny && firstCallMode === "baseline_assessment";
+  if (isFirstCallAny && firstCallMode === "onboarding" && !introducePedagogy) {
+    console.log(
+      "[pedagogy] #598 Slice 1: firstCall.introducePedagogy=false — suppressing ONBOARDING MODE intro on call 1; routing through returning-caller flow.",
+    );
+  }
 
   const plan: {
     sessionType: string;

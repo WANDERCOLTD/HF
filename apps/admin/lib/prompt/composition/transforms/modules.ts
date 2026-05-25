@@ -21,6 +21,10 @@ import type {
 } from "../types";
 import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
+import {
+  resolveMasteryThreshold,
+  MASTERY_THRESHOLD_FALLBACK,
+} from "@/lib/tolerance/resolve-tolerance";
 
 // =============================================================================
 // DB-FIRST MODULE LOADING (CurriculumModule model)
@@ -30,7 +34,10 @@ import { config } from "@/lib/config";
  * Load modules from first-class CurriculumModule + LearningObjective records.
  * Returns ModuleData[] if records exist, null to fall back to JSON/spec paths.
  */
-async function loadModulesFromDB(curriculumId: string): Promise<{ modules: ModuleData[]; loRefToIdMap: Map<string, string> } | null> {
+async function loadModulesFromDB(
+  curriculumId: string,
+  resolvedMasteryThreshold: number,
+): Promise<{ modules: ModuleData[]; loRefToIdMap: Map<string, string> } | null> {
   try {
     const dbModules = await prisma.curriculumModule.findMany({
       where: { curriculumId, isActive: true },
@@ -81,7 +88,7 @@ async function loadModulesFromDB(curriculumId: string): Promise<{ modules: Modul
         description: m.description,
         sortOrder: m.sortOrder,
         sequence: m.sortOrder,
-        masteryThreshold: m.masteryThreshold ?? 0.7,
+        masteryThreshold: m.masteryThreshold ?? resolvedMasteryThreshold,
         prerequisites: m.prerequisites,
         concepts: m.keyTerms,
         learningOutcomes: learnerOutcomes,
@@ -155,7 +162,10 @@ interface CurriculumMetadata {
  * Extract curriculum metadata from content spec config.
  * Falls back to legacy paths for backward compatibility.
  */
-function extractCurriculumMetadata(contentSpec: any): CurriculumMetadata | null {
+function extractCurriculumMetadata(
+  contentSpec: any,
+  resolvedMasteryThreshold: number,
+): CurriculumMetadata | null {
   const config = contentSpec?.config as Record<string, any> | null;
   if (!config) return null;
 
@@ -168,7 +178,7 @@ function extractCurriculumMetadata(contentSpec: any): CurriculumMetadata | null 
       moduleSelector: meta.moduleSelector || 'section=content',
       moduleOrder: meta.moduleOrder || 'sortBySequence',
       progressKey: meta.progressKey || 'current_module',
-      masteryThreshold: meta.masteryThreshold ?? 0.7,
+      masteryThreshold: meta.masteryThreshold ?? resolvedMasteryThreshold,
     };
   }
 
@@ -240,7 +250,10 @@ function sortModules(modules: ModuleData[], orderRule: string): ModuleData[] {
  * Legacy module extraction - for backward compatibility with specs that
  * use direct modules array instead of contract-driven parameters.
  */
-function extractLegacyModules(contentSpec: any): ModuleData[] {
+function extractLegacyModules(
+  contentSpec: any,
+  resolvedMasteryThreshold: number,
+): ModuleData[] {
   const config = contentSpec?.config as Record<string, any> | null;
   if (!config) return [];
 
@@ -256,7 +269,7 @@ function extractLegacyModules(contentSpec: any): ModuleData[] {
     sequence: m.sequence ?? m.sortOrder ?? index,
     sortOrder: m.sortOrder ?? m.sequence ?? index,
     prerequisites: m.prerequisites || [],
-    masteryThreshold: m.masteryThreshold ?? 0.7,
+    masteryThreshold: m.masteryThreshold ?? resolvedMasteryThreshold,
   }));
 }
 
@@ -264,9 +277,12 @@ function extractLegacyModules(contentSpec: any): ModuleData[] {
  * Extract modules from content spec - uses contract-driven approach first,
  * falls back to legacy paths for backward compatibility.
  */
-function extractModules(contentSpec: any): { modules: ModuleData[]; metadata: CurriculumMetadata | null } {
+function extractModules(
+  contentSpec: any,
+  resolvedMasteryThreshold: number,
+): { modules: ModuleData[]; metadata: CurriculumMetadata | null } {
   // Try contract-driven extraction first
-  const metadata = extractCurriculumMetadata(contentSpec);
+  const metadata = extractCurriculumMetadata(contentSpec, resolvedMasteryThreshold);
 
   if (metadata) {
     const modules = extractModulesFromParameters(contentSpec, metadata);
@@ -277,7 +293,7 @@ function extractModules(contentSpec: any): { modules: ModuleData[]; metadata: Cu
   }
 
   // Fallback to legacy direct modules array
-  const legacyModules = extractLegacyModules(contentSpec);
+  const legacyModules = extractLegacyModules(contentSpec, resolvedMasteryThreshold);
   if (legacyModules.length > 0) {
     console.log(`[modules] Legacy extraction: found ${legacyModules.length} modules from direct array`);
   }
@@ -294,7 +310,8 @@ function extractModules(contentSpec: any): { modules: ModuleData[]; metadata: Cu
  * Used when no CONTENT spec modules are found — bridges Subject system to composition pipeline.
  */
 function extractSubjectCurriculumModules(
-  data: LoadedDataContext
+  data: LoadedDataContext,
+  resolvedMasteryThreshold: number,
 ): { modules: ModuleData[]; specSlug: string } | null {
   const subjects = data.subjectSources?.subjects;
   if (!subjects?.length) return null;
@@ -318,7 +335,7 @@ function extractSubjectCurriculumModules(
       learningOutcomes: m.learningOutcomes || [],
       assessmentCriteria: m.assessmentCriteria || [],
       keyTerms: m.keyTerms || [],
-      masteryThreshold: 0.7,
+      masteryThreshold: resolvedMasteryThreshold,
     }));
 
     return { modules, specSlug: curriculum.slug };
@@ -353,8 +370,20 @@ export async function computeSharedState(
   // #142: LO ref → id map for FK-based assertion filtering
   let loRefToIdMap = new Map<string, string>();
 
+  // #598 Slice 1 — resolve the mastery threshold once via the 7-layer cascade
+  // (`lib/tolerance/resolve-tolerance.ts`). Used as the per-module fallback
+  // when a CurriculumModule has no explicit override and threaded through to
+  // the scheduler call below. Replaces the previous bare `0.7` literals.
+  const playbookForResolve = data.playbooks?.[0];
+  const resolvedMasteryThreshold = await resolveMasteryThreshold({
+    callerId: data.caller?.id ?? null,
+    playbookId: playbookForResolve?.id ?? null,
+    playbookConfig: (playbookForResolve?.config as Record<string, unknown>) ?? null,
+    specConfig,
+  });
+
   if (curriculumId) {
-    const dbResult = await loadModulesFromDB(curriculumId);
+    const dbResult = await loadModulesFromDB(curriculumId, resolvedMasteryThreshold);
     if (dbResult && dbResult.modules.length > 0) {
       modules = dbResult.modules;
       loRefToIdMap = dbResult.loRefToIdMap;
@@ -367,7 +396,7 @@ export async function computeSharedState(
 
   // Fallback: Subject-based curriculum (JSON in notableInfo)
   if (modules.length === 0) {
-    const subjectResult = extractSubjectCurriculumModules(data);
+    const subjectResult = extractSubjectCurriculumModules(data, resolvedMasteryThreshold);
     if (subjectResult && subjectResult.modules.length > 0) {
       modules = subjectResult.modules;
       specSlug = subjectResult.specSlug;
@@ -379,7 +408,7 @@ export async function computeSharedState(
           moduleSelector: 'subject-curriculum',
           moduleOrder: 'sortBySequence',
           progressKey: 'current_module',
-          masteryThreshold: 0.7,
+          masteryThreshold: resolvedMasteryThreshold,
         };
       }
       console.log(`[modules] Subject curriculum fallback: ${modules.length} modules from "${specSlug}"`);
@@ -395,7 +424,10 @@ export async function computeSharedState(
     }
   }
 
-  const masteryThreshold = metadata?.masteryThreshold ?? 0.7;
+  // #598 Slice 1 — metadata.masteryThreshold is already populated from the
+  // resolved cascade above; fall back to the resolved value if metadata is
+  // null (e.g., no curriculum loaded for this composition).
+  const masteryThreshold = metadata?.masteryThreshold ?? resolvedMasteryThreshold;
 
   const isFirstCall = specConfig.forceFirstCall || data.recentCalls.length === 0;
 
@@ -718,8 +750,19 @@ export async function computeSharedState(
         }
 
         const pbConfig = (data.playbooks?.[0]?.config || {}) as Record<string, any>;
-        const callDurationMins = (pbConfig.durationMins as number) || 15;
-        const threshold = specConfig.thresholds?.masteryComplete ?? 0.7;
+        // #598 Slice 1 — call-1 may override duration via firstCall.durationMinsOverride.
+        // Calls 2+ ignore the override and use the regular config.
+        const firstCallDurationOverride =
+          isFirstCall && typeof pbConfig.firstCall?.durationMinsOverride === "number"
+            ? (pbConfig.firstCall.durationMinsOverride as number)
+            : null;
+        const callDurationMins =
+          firstCallDurationOverride ?? (pbConfig.durationMins as number) ?? 15;
+        // #598 Slice 1 — was `specConfig.thresholds?.masteryComplete ?? 0.7`,
+        // now uses the resolved cascade (which incorporates that spec-config
+        // layer at layer 5 and falls through to 0.7 at layer 7). The local
+        // const is kept for readability at the scheduler call below.
+        const threshold = resolvedMasteryThreshold;
 
         // Scheduler v1 Slice 2 (#155) — selectNextExchange replaces the
         // placeholder SchedulerDecision write from Slice 1. It delegates
@@ -729,12 +772,27 @@ export async function computeSharedState(
 
         // Read prior decision to compute cadence counter. First call: null.
         const priorDecision = await readSchedulerDecision(callerId).catch(() => null);
-        const pendingCount =
+        let pendingCount =
           priorDecision == null
             ? 0
             : priorDecision.mode === "assess"
               ? 1
               : (priorDecision.callsSinceAssess ?? 0) + 1;
+
+        // #598 Slice 1 — `firstCallMode === "teach_immediately"` says "skip the
+        // ONBOARDING-style opening and start teaching at call 1". The scheduler
+        // shouldn't fire `mode: assess` on that same call just because the
+        // cadence counter would have ticked over — clamp the counter at the
+        // read site so the first call is always allowed to teach. Read-time
+        // only: we DO NOT mutate the stored CallerAttribute.
+        if (isFirstCall && pbConfig.firstCallMode === "teach_immediately") {
+          if (pendingCount !== 0) {
+            console.log(
+              `[modules] #598 Slice 1: firstCallMode=teach_immediately — clamping callsSinceLastAssess ${pendingCount} → 0 for first call (read-time only).`,
+            );
+          }
+          pendingCount = 0;
+        }
 
         const { decision, workingSet: wsResult } = selectNextExchange(
           {
@@ -948,6 +1006,8 @@ export async function computeSharedState(
     hasAttemptData,
     // #274 Slice A: locked module from picker (null when not picked or unmatched)
     lockedModule,
+    // #598 Slice 1: resolved mastery threshold (7-layer cascade winner)
+    resolvedMasteryThreshold,
   };
 }
 
@@ -966,7 +1026,13 @@ registerTransform("computeModuleProgress", (
   const { modules, completedModules, estimatedProgress, lastCompletedIndex, nextModule } = sharedState;
   const callerAttributes = loadedData.callerAttributes;
   const totalCallCount = loadedData.callCount;
-  const masteryThreshold = (sharedState as Record<string, any>).curriculumMetadata?.masteryThreshold ?? 0.7;
+  // #598 Slice 1 — read the resolved cascade winner stored by
+  // computeSharedState. curriculumMetadata.masteryThreshold tracks the same
+  // value but staying on the sharedState field keeps the read explicit when
+  // the metadata is null. Fall back to the hardcoded default for legacy
+  // test fixtures that build sharedState without the field.
+  const masteryThreshold =
+    sharedState.resolvedMasteryThreshold ?? MASTERY_THRESHOLD_FALLBACK;
   // #492 Slice 3.7: when the courseComplete loader reports a positive
   // verdict, EVERY module renders thin (titles only) and `nextModule` clears
   // — there is no "next" to push toward. The celebration section (priority 5)

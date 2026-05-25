@@ -210,22 +210,39 @@ export function getPresetForPlaybook(
 ): SchedulerPolicy {
   const cfg = (playbook?.config ?? {}) as Record<string, unknown>;
 
+  let basePreset: SchedulerPolicy;
   const explicit = cfg.schedulerPreset;
   if (typeof explicit === "string" && explicit.toUpperCase() in ALL_PRESETS) {
-    return ALL_PRESETS[explicit.toUpperCase() as SchedulerPresetName];
+    basePreset = ALL_PRESETS[explicit.toUpperCase() as SchedulerPresetName];
+  } else {
+    const teachingMode = typeof cfg.teachingMode === "string" ? cfg.teachingMode : null;
+    switch (teachingMode) {
+      case "comprehension":
+        basePreset = COMPREHENSION;
+        break;
+      case "practice":
+        basePreset = INTERLEAVED;
+        break;
+      case "syllabus":
+        basePreset = EXAM_PREP;
+        break;
+      case "recall":
+        basePreset = BALANCED;
+        break;
+      default:
+        basePreset = BALANCED;
+    }
   }
 
-  const teachingMode = typeof cfg.teachingMode === "string" ? cfg.teachingMode : null;
-  switch (teachingMode) {
-    case "comprehension":
-      return COMPREHENSION;
-    case "practice":
-      return INTERLEAVED;
-    case "syllabus":
-      return EXAM_PREP;
-    case "recall":
-      return BALANCED;
-    default:
-      return BALANCED;
+  // #598 Slice 1 — `Playbook.config.tolerances.retrievalCadenceOverride` is a
+  // course-level shallow merge over the preset's retrievalCadence (positive
+  // integer, no per-learner override per ADR — interleaving relies on a
+  // single course-wide rhythm). Preset name is unchanged so downstream logs
+  // still surface the named policy.
+  const tolerances = cfg.tolerances as { retrievalCadenceOverride?: unknown } | undefined;
+  const override = tolerances?.retrievalCadenceOverride;
+  if (typeof override === "number" && Number.isFinite(override) && override > 0) {
+    return { ...basePreset, retrievalCadence: Math.floor(override) };
   }
+  return basePreset;
 }

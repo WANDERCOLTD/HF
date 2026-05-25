@@ -497,6 +497,45 @@ export interface PlaybookConfig {
    */
   firstCallMode?: "onboarding" | "teach_immediately" | "baseline_assessment";
   /**
+   * #598 Slice 1 — Course-level tolerance overrides for the mastery / spacing /
+   * decay cascade (ADR 2026-05-22-tolerance-placement.md).
+   *
+   * - `masteryThreshold` — @bucket 1 + 3. Course parameter with optional
+   *   per-learner override via `BehaviorTarget(scope=CALLER, parameterId=
+   *   "TOL-MASTERY-THRESHOLD")`. Resolved by `lib/tolerance/resolve-tolerance.ts
+   *   ::resolveMasteryThreshold` (7-layer cascade, bucket-2 default `0.7`).
+   * - `retrievalCadenceOverride` — @bucket 1 only. Shallow-merges onto the
+   *   `SchedulerPolicy.retrievalCadence` from `lib/pipeline/scheduler-presets`.
+   *   Per-learner override intentionally NOT in scope (would defeat interleaving).
+   * - `memoryDecayScale` — @bucket 1 only. 0.1–1.0 multiplier applied to
+   *   `CATEGORY_DECAY_DEFAULTS` in `transforms/memories.ts::applyDecay`.
+   *   Per-learner override intentionally NOT in scope (course-wide rhythm).
+   *
+   * @see docs/decisions/2026-05-22-tolerance-placement.md
+   */
+  tolerances?: {
+    masteryThreshold?: number;
+    retrievalCadenceOverride?: number;
+    memoryDecayScale?: number;
+  };
+  /**
+   * #598 Slice 1 — Additional first-call overrides. Companion to
+   * `firstCallMode` (flat field above, shipped #790) — these are net-new
+   * knobs, NOT a rename. Re-introducing `firstCall.allowAssessMode` would
+   * create a namespace collision with `firstCallMode`; do not.
+   *
+   * - `durationMinsOverride` — @bucket 1. Call-1 only; calls 2+ use the
+   *   regular `Playbook.config.durationMins`.
+   * - `introducePedagogy` — @bucket 1. Absent = current ("here's how this
+   *   works" speech). `false` suppresses the pedagogy intro block on call 1.
+   *
+   * @see docs/decisions/2026-05-22-tolerance-placement.md
+   */
+  firstCall?: {
+    durationMinsOverride?: number;
+    introducePedagogy?: boolean;
+  };
+  /**
    * #494 E2 Slice 2.3 — when the picker should hard-lock terminal modules with
    * unmet prerequisites vs. show a soft-warning override modal. Default false
    * (soft warning), per IELTS learner-picks ethos. Set true for assessment
