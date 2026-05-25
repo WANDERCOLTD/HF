@@ -115,6 +115,23 @@ Flag:
 - ADAPT stage changed without checking SUPERVISE still guards it
 - New pipeline route that bypasses any of the 6 stages
 
+### Check E — Tolerance Placement (`PlaybookConfig` `@bucket` tags)
+
+For any change to `apps/admin/lib/types/json-fields.ts` that adds or modifies a field on `PlaybookConfig`:
+
+```bash
+git diff HEAD -- apps/admin/lib/types/json-fields.ts | grep -E "^\+\s+\w+\??:"
+```
+
+Each new or modified field MUST carry a `@bucket` JSDoc tag classifying it under one of the 3 buckets in `docs/decisions/2026-05-22-tolerance-placement.md` (Course parameter / System default / Per-learner adaptation).
+
+Flag (soft warning — not a hard fail):
+- New `PlaybookConfig` field with no `@bucket` JSDoc comment
+- Field whose `@bucket` references a value outside `{1, 2, 3}` or the canonical labels
+- Field that duplicates a knob already stored elsewhere (`Curriculum.deliveryConfig`, `Subject.config`, etc.) — pick one bucket, don't double-store
+
+Also flag if a new resolver under `lib/tolerance/` is added without a comment documenting its full cascade order (it must traverse Bucket 3 → 1 → preset → spec config → ContractRegistry → Bucket 2 hardcoded fallback, with a `console.log` recording the winning layer).
+
 ---
 
 ## Step 3 — Memory Doc Freshness
