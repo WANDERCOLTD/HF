@@ -26,10 +26,9 @@
  *    {{#if low}}Be direct and efficient.{{/if}}"
  */
 
-import { PrismaClient, MemoryCategory } from "@prisma/client";
+import { MemoryCategory } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { getMemoriesByCategory } from "@/lib/constants";
-
-const prisma = new PrismaClient();
 
 export interface TemplateContext {
   // For MEASURE specs
