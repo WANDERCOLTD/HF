@@ -1,0 +1,124 @@
+/**
+ * Playbook.config writer — #826 (Story 2 of EPIC #832).
+ *
+ * Central enforcement point for writes to `Playbook.config`. Every route
+ * / chat tool / lib that mutates `Playbook.config` MUST go through this
+ * helper. The ESLint rule `hf-playbook/no-direct-config-write` blocks
+ * `prisma.playbook.update({ data: { config: ... } })` calls outside the
+ * allowlist (this file + seed/migration scripts + recompose-all).
+ *
+ * Mechanism — stamp on write, check on read (NOT eager fan-out, see
+ * `docs/CHAIN-CONTRACTS.md` §3 Link 3 sub-contract):
+ *
+ *   1. findUnique current config
+ *   2. apply transformer to a deep clone
+ *   3. diff against COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS
+ *   4. write new config; if any compose-affecting key changed AND
+ *      `skipTimestamp` is not set, ALSO write
+ *      `composeInputsUpdatedAt = new Date()`
+ *   5. return updated playbook
+ *
+ * Downstream consumers see the staleness via
+ * `lib/compose/staleness.ts::isPromptStale` at COMPOSE-entry points
+ * (autoComposeForCaller, compose-prompt route). Pipeline COMPOSE has its
+ * own carve-out — it always recomposes.
+ *
+ * ## skipTimestamp
+ *
+ * Default `false`. Set to `true` for:
+ *   - Seed scripts (no callers exist yet)
+ *   - Migration scripts (config is being established before enrolment)
+ *   - The course-setup scaffold path (pre-enrolment course creation)
+ *   - The `create_course` new-playbook branch of `wizard-tool-executor`
+ *
+ * Do NOT use `skipTimestamp: true` to "save the write" on educator
+ * tuning paths — the timestamp bump is the entire point of the helper.
+ */
+
+import { prisma } from "@/lib/prisma";
+import type { Playbook } from "@prisma/client";
+import {
+  composeAffectingChanged,
+  COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS,
+} from "@/lib/compose/affecting-keys";
+import type { PlaybookConfig } from "@/lib/types/json-fields";
+
+export interface UpdatePlaybookConfigOptions {
+  /**
+   * When true, suppresses the `composeInputsUpdatedAt` bump even when
+   * compose-affecting keys changed. Use for seed/migration/pre-enrolment
+   * writers only.
+   */
+  skipTimestamp?: boolean;
+  /**
+   * Diagnostic label written to the log line. Helps trace which writer
+   * is responsible for a given timestamp bump.
+   */
+  reason?: string;
+}
+
+export interface UpdatePlaybookConfigResult {
+  playbook: Playbook;
+  /** True when at least one COMPOSE-affecting key differed from the prior config. */
+  composeAffectingChanged: boolean;
+  /** True when the timestamp was bumped (composeAffectingChanged && !skipTimestamp). */
+  timestampBumped: boolean;
+}
+
+export type PlaybookConfigTransformer = (
+  current: PlaybookConfig,
+) => PlaybookConfig;
+
+export async function updatePlaybookConfig(
+  playbookId: string,
+  transformer: PlaybookConfigTransformer,
+  options: UpdatePlaybookConfigOptions = {},
+): Promise<UpdatePlaybookConfigResult> {
+  if (!playbookId) {
+    throw new Error("updatePlaybookConfig: playbookId is required");
+  }
+
+  const current = await prisma.playbook.findUnique({
+    where: { id: playbookId },
+    select: { config: true },
+  });
+  if (!current) {
+    throw new Error(`updatePlaybookConfig: playbook ${playbookId} not found`);
+  }
+
+  const currentConfig = (current.config ?? {}) as PlaybookConfig;
+  // Deep-clone so the transformer can mutate freely without surprising
+  // the caller's reference to the original config object.
+  const nextConfig = transformer(
+    JSON.parse(JSON.stringify(currentConfig)) as PlaybookConfig,
+  );
+
+  const composeAffected = composeAffectingChanged(
+    currentConfig as Record<string, unknown>,
+    nextConfig as Record<string, unknown>,
+  );
+  const shouldBumpTimestamp = composeAffected && !options.skipTimestamp;
+
+  const playbook = await prisma.playbook.update({
+    where: { id: playbookId },
+    data: {
+      config: nextConfig as object,
+      ...(shouldBumpTimestamp && { composeInputsUpdatedAt: new Date() }),
+    },
+  });
+
+  if (shouldBumpTimestamp) {
+    console.log(
+      `[updatePlaybookConfig] composeInputsUpdatedAt bumped for ${playbookId}${options.reason ? ` (reason: ${options.reason})` : ""}`,
+    );
+  }
+
+  return {
+    playbook,
+    composeAffectingChanged: composeAffected,
+    timestampBumped: shouldBumpTimestamp,
+  };
+}
+
+// Re-export the keys list so callers / tests can introspect.
+export { COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS };
