@@ -586,6 +586,13 @@ export interface CallerTargetData {
   parameterId: string;
   targetValue: number;
   confidence: number;
+  /**
+   * #417 — EMA-decayed running score the learner has demonstrated on this
+   * parameter (separate from `targetValue`, which is where they should be).
+   * Surfaced for consumers that read demonstrated level — e.g. the Felt
+   * Progress S2 offboarding summary (#780). Null when no scoring evidence.
+   */
+  currentScore?: number | null;
   parameter: {
     name: string | null;
     parameterId?: string;

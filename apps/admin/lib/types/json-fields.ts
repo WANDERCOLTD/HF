@@ -432,6 +432,29 @@ export interface PlaybookConfig {
     skipFirstCall?: boolean;
   };
   /**
+   * #780 — Felt Progress S2. Controls the structured progress block emitted
+   * by `transforms/offboarding.ts`. When enabled, the offboarding guidance
+   * carries concrete module / goal / skill numbers the AI can cite verbatim
+   * in its closing turn. Sensible defaults preserve today's final-only
+   * behaviour. UI surface in S6 (#784); AgentTuner awareness in S7 (#785).
+   *
+   * - `enabled` (default true) — off-switch for the entire summary block.
+   * - `cadence` (default 'final_only') — `'final_only'` preserves the
+   *   existing `isFinalSession`-gated trigger; `'every_session_with_data'`
+   *   fires on every post-call-1 session that has at least one mastery /
+   *   goal / skill data point.
+   * - `includeModuleMastery` / `includeGoalProgress` /
+   *   `includeSkillCurrentScore` (default true) — per-section toggles so a
+   *   course can surface only the dimensions that match its pedagogy.
+   */
+  offboardingSummary?: {
+    enabled?: boolean;
+    cadence?: "final_only" | "every_session_with_data";
+    includeModuleMastery?: boolean;
+    includeGoalProgress?: boolean;
+    includeSkillCurrentScore?: boolean;
+  };
+  /**
    * #494 E2 Slice 2.3 — when the picker should hard-lock terminal modules with
    * unmet prerequisites vs. show a soft-warning override modal. Default false
    * (soft warning), per IELTS learner-picks ethos. Set true for assessment

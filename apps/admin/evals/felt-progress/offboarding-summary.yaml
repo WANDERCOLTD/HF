@@ -1,0 +1,149 @@
+description: "#780 — offboarding summary: structured progressSummary present with strict-rule guidance when data exists; null guard when no data"
+
+# Story:  #780 — S2 structured offboarding summary (Felt Progress)
+# Status: AFTER (asserts the new behaviour the story introduces).
+# See:    apps/admin/lib/prompt/composition/transforms/offboarding.ts
+#         apps/admin/lib/types/json-fields.ts (PlaybookConfig.offboardingSummary)
+
+prompts:
+  - id: final_with_all_dimensions
+    label: "AFTER — final session, modules+goals+skills surfaced"
+    raw: |
+      ## Offboarding Guidance
+
+      This is the learner's final session.
+      Summarise their learning journey — reference specific topics covered and progress made.
+      Invite reflection on what they have achieved and how their understanding has grown.
+      Suggest concrete next steps for continued learning beyond this course.
+      End on an encouraging note that reinforces their capability to continue independently.
+
+      Concrete progress data — cite these numbers verbatim if you mention progress; do not invent any others:
+        - Module mastery so far: Part 2: Long Turn (78% mastery, 4 calls); Part 3: Discussion (55% mastery, 2 calls).
+        - Goal progress: Master Part 2 at 60%.
+        - Skill scores (current demonstrated level): Fluency = 5.10.
+
+      STRICT RULES — read every time:
+        - When acknowledging progress, cite ONLY values from the lines above. Never invent or round dramatically.
+        - Translate scores into plain language alongside the number ('78% — solid grasp', 'goal at 60% — close to the milestone').
+        - Keep it tight: name at most two dimensions to celebrate. Don't recite the whole list.
+
+  - id: final_no_data
+    label: "AFTER — final session, no data — null guard, generic guidance only"
+    raw: |
+      ## Offboarding Guidance
+
+      This is the learner's final session.
+      Summarise their learning journey — reference specific topics covered and progress made.
+      Invite reflection on what they have achieved and how their understanding has grown.
+      Suggest concrete next steps for continued learning beyond this course.
+      End on an encouraging note that reinforces their capability to continue independently.
+
+  - id: disabled
+    label: "AFTER — enabled=false: section absent from prompt"
+    raw: |
+      ## (no offboarding block — section returned null)
+
+  - id: every_session_fires
+    label: "AFTER — cadence='every_session_with_data', call 3 with data, NOT final"
+    raw: |
+      ## Offboarding Guidance
+
+      Wind down this session with a brief progress acknowledgement.
+      Reference specific topics worked on and the learner's demonstrated capability.
+      Suggest one concrete focus for the next session.
+
+      Concrete progress data — cite these numbers verbatim if you mention progress; do not invent any others:
+        - Goal progress: Master Part 2 at 30%.
+
+      STRICT RULES — read every time:
+        - When acknowledging progress, cite ONLY values from the lines above. Never invent or round dramatically.
+        - Translate scores into plain language alongside the number ('78% — solid grasp', 'goal at 60% — close to the milestone').
+        - Keep it tight: name at most two dimensions to celebrate. Don't recite the whole list.
+
+  - id: include_module_off
+    label: "AFTER — includeModuleMastery=false: modules absent, goals+skills present"
+    raw: |
+      ## Offboarding Guidance
+
+      This is the learner's final session.
+      Summarise their learning journey — reference specific topics covered and progress made.
+      Invite reflection on what they have achieved and how their understanding has grown.
+      Suggest concrete next steps for continued learning beyond this course.
+      End on an encouraging note that reinforces their capability to continue independently.
+
+      Concrete progress data — cite these numbers verbatim if you mention progress; do not invent any others:
+        - Goal progress: Master Part 2 at 60%.
+        - Skill scores (current demonstrated level): Fluency = 5.10.
+
+      STRICT RULES — read every time:
+        - When acknowledging progress, cite ONLY values from the lines above. Never invent or round dramatically.
+        - Translate scores into plain language alongside the number ('78% — solid grasp', 'goal at 60% — close to the milestone').
+        - Keep it tight: name at most two dimensions to celebrate. Don't recite the whole list.
+
+tests:
+  - description: "Structured summary present with all three dimensions"
+    vars:
+      prompt: "{{prompts.final_with_all_dimensions}}"
+    assert:
+      - type: javascript
+        value: |
+          output.includes("Module mastery so far") &&
+          output.includes("Goal progress") &&
+          output.includes("Skill scores")
+
+  - description: "Strict-rule guidance includes 'cite ONLY' and 'never invent'"
+    vars:
+      prompt: "{{prompts.final_with_all_dimensions}}"
+    assert:
+      - type: javascript
+        value: |
+          /cite ONLY/i.test(output) &&
+          /never invent/i.test(output) &&
+          /at most two dimensions/i.test(output)
+
+  - description: "Specific mastery numbers are present verbatim (no rounding for AI to mimic)"
+    vars:
+      prompt: "{{prompts.final_with_all_dimensions}}"
+    assert:
+      - type: javascript
+        value: |
+          output.includes("78% mastery") &&
+          output.includes("Master Part 2 at 60%") &&
+          output.includes("Fluency = 5.10")
+
+  - description: "Null guard — final session, no data: generic guidance, no 'Concrete progress data' block"
+    vars:
+      prompt: "{{prompts.final_no_data}}"
+    assert:
+      - type: javascript
+        value: |
+          !/Concrete progress data/.test(output) &&
+          /final session/i.test(output)
+
+  - description: "enabled=false: no offboarding block at all"
+    vars:
+      prompt: "{{prompts.disabled}}"
+    assert:
+      - type: javascript
+        value: |
+          !/Offboarding Guidance/.test(output) &&
+          !/Concrete progress data/.test(output)
+
+  - description: "every_session_with_data: fires with wind-down guidance and data block on non-final session"
+    vars:
+      prompt: "{{prompts.every_session_fires}}"
+    assert:
+      - type: javascript
+        value: |
+          /Wind down this session/i.test(output) &&
+          /Goal progress/.test(output)
+
+  - description: "includeModuleMastery=false: modules absent but goals+skills present"
+    vars:
+      prompt: "{{prompts.include_module_off}}"
+    assert:
+      - type: javascript
+        value: |
+          !/Module mastery so far/.test(output) &&
+          /Goal progress/.test(output) &&
+          /Skill scores/.test(output)
