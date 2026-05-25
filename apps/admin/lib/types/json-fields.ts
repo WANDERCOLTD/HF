@@ -412,6 +412,26 @@ export interface PlaybookConfig {
     };
   };
   /**
+   * #779 — Felt Progress S1. Controls the `progressNarrative` composer
+   * section that gives the AI evidence of LO mastery for mid-call
+   * acknowledgement. Sensible defaults mean no required setup; UI surface in
+   * S6 (#784); AgentTuner awareness in S7 (#785).
+   *
+   * - `enabled` (default true) — off-switch for the section.
+   * - `cadence` (default 'on_threshold_crossing') — `'every_call'` emits
+   *   evidence whenever any LO score > 0; `'on_threshold_crossing'` emits
+   *   only when at least one LO score meets `minScoreDelta`.
+   * - `minScoreDelta` (default 0.1) — threshold used by 'on_threshold_crossing'.
+   * - `skipFirstCall` (default true) — suppress on call 1 where there is no
+   *   prior context for "improvement".
+   */
+  progressNarrative?: {
+    enabled?: boolean;
+    cadence?: "every_call" | "on_threshold_crossing";
+    minScoreDelta?: number;
+    skipFirstCall?: boolean;
+  };
+  /**
    * #494 E2 Slice 2.3 — when the picker should hard-lock terminal modules with
    * unmet prerequisites vs. show a soft-warning override modal. Default false
    * (soft warning), per IELTS learner-picks ethos. Set true for assessment

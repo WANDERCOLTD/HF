@@ -3,13 +3,15 @@
  * @visibility internal
  * @scope course:write
  * @auth session (OPERATOR+)
- * @tags course, design, welcome, nps
- * @description Save student experience design config (welcome flow phases + NPS settings).
- *   Writes to Playbook.config.welcome and Playbook.config.nps. Pre-survey gating
- *   is now computed from welcome.* via isPreSurveyEnabled — no surveys.pre write.
- *   surveys.post.enabled is mirrored from nps.enabled (post-survey has no
- *   welcome-side mirror yet).
- * @request { welcome?: WelcomeConfig, nps?: NpsConfig }
+ * @tags course, design, welcome, nps, felt-progress
+ * @description Save student experience design config. Writes to
+ *   Playbook.config.welcome, Playbook.config.nps, the #417 skill-banding
+ *   overrides, and the #779 Felt Progress `progressNarrative` namespace.
+ *   Pre-survey gating is computed from welcome.* via isPreSurveyEnabled
+ *   (no surveys.pre write); surveys.post.enabled mirrors nps.enabled.
+ *   Pass `null` for any optional override field to clear it (falls back
+ *   to defaults / contract).
+ * @request { welcome?: WelcomeConfig, nps?: NpsConfig, skillTierMapping?, skillScoringEmaHalfLifeDays?, skillMinCallsToFull?, progressNarrative? }
  * @response 200 { ok: true }
  * @response 404 { ok: false, error: "Course not found" }
  */
@@ -35,6 +37,9 @@ export async function PUT(
       skillTierMapping?: PlaybookConfig["skillTierMapping"] | null;
       skillScoringEmaHalfLifeDays?: number | null;
       skillMinCallsToFull?: number | null;
+      // #779 — Felt Progress S1. Object writes the fields; null clears the
+      // namespace (falls back to all defaults from the transform).
+      progressNarrative?: PlaybookConfig["progressNarrative"] | null;
     };
 
     const playbook = await prisma.playbook.findUnique({
@@ -77,6 +82,16 @@ export async function PUT(
         delete pbConfig.skillMinCallsToFull;
       } else {
         pbConfig.skillMinCallsToFull = body.skillMinCallsToFull;
+      }
+    }
+
+    // #779 — Felt Progress progressNarrative. Pass `null` to clear (fall back
+    // to transform defaults). Object writes the namespace verbatim.
+    if (body.progressNarrative !== undefined) {
+      if (body.progressNarrative === null) {
+        delete pbConfig.progressNarrative;
+      } else {
+        pbConfig.progressNarrative = body.progressNarrative;
       }
     }
 

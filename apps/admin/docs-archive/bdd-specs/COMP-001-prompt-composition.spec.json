@@ -739,6 +739,21 @@
       "dependsOn": ["curriculum"]
     },
     {
+      "id": "progress_narrative",
+      "name": "Progress Narrative",
+      "priority": 7.9,
+      "dataSource": "_assembled",
+      "activateWhen": {
+        "condition": "always"
+      },
+      "fallback": {
+        "action": "null"
+      },
+      "transform": "computeProgressNarrative",
+      "outputKey": "progressNarrative",
+      "dependsOn": ["curriculum"]
+    },
+    {
       "id": "session_planning",
       "name": "Session Planning",
       "priority": 8,
