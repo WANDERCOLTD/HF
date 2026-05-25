@@ -7,7 +7,8 @@
       { "id": "demo-sim", "href": "/x/sim", "label": "Learn", "icon": "MessageCircle", "shortcutHint": "⌘S" },
       { "id": "demo-callers", "href": "/x/callers", "label": "Callers", "icon": "User", "shortcutHint": "⌘L" },
       { "id": "demo-courses", "href": "/x/courses", "label": "Courses", "icon": "BookOpen", "terminologyLabel": "playbook_plural" },
-      { "id": "demo-feedback", "href": "/x/feedback", "label": "Feedback", "icon": "MessageSquarePlus" }
+      { "id": "demo-feedback", "href": "/x/feedback", "label": "Feedback", "icon": "MessageSquarePlus" },
+      { "id": "demo-cohorts", "href": "/x/cohorts", "label": "Cohorts", "icon": "School" }
     ]
   }
 ]
