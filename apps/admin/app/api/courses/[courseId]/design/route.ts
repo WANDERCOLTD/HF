@@ -23,6 +23,25 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import type { WelcomeConfig, NpsConfig, PlaybookConfig } from "@/lib/types/json-fields";
 
+/**
+ * #819 — keys whose presence in the request body should trigger
+ * `recompose-all` fan-out after the save commits. Skill-banding and
+ * NPS/welcome don't appear here because they're read at runtime via
+ * their own loaders (banding via the registry, welcome by the student
+ * portal — neither is baked into the deterministic ComposedPrompt).
+ *
+ * All four Felt-Progress / Call-1 namespaces directly affect the
+ * COMPOSE-stage output for enrolled callers — without this fan-out,
+ * the existing ComposedPrompt row for each caller goes stale until
+ * the next pipeline call triggers a recompose naturally.
+ */
+const COMPOSE_AFFECTING_KEYS = [
+  "progressNarrative",
+  "offboardingSummary",
+  "firstSessionTargets",
+  "firstCallMode",
+] as const;
+
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ courseId: string }> },
@@ -154,7 +173,44 @@ export async function PUT(
       data: { config: JSON.parse(JSON.stringify(pbConfig)) },
     });
 
-    return NextResponse.json({ ok: true });
+    // #819 — close the chain-contract gap: educator-tunable namespaces that
+    // flow into COMPOSE need to propagate to every active caller's
+    // ComposedPrompt row, not just the next pipeline run. Fire the existing
+    // /api/playbooks/[id]/recompose-all endpoint via the internal function
+    // path (it's bounded by pLimit(5) so even large rosters are safe).
+    // Fire-and-forget so the design save returns immediately; recompose
+    // errors are logged but don't block the educator.
+    const composeAffected = COMPOSE_AFFECTING_KEYS.some(
+      (k) => body[k] !== undefined,
+    );
+    if (composeAffected) {
+      import("@/lib/enrollment/auto-compose")
+        .then(async ({ autoComposeForCaller }) => {
+          const { getPlaybookRoster } = await import("@/lib/enrollment");
+          const pLimit = (await import("p-limit")).default;
+          const roster = await getPlaybookRoster(courseId, "ACTIVE");
+          const callerIds = roster
+            .map((r) => r.caller?.id)
+            .filter((id): id is string => !!id);
+          const limit = pLimit(5);
+          await Promise.all(
+            callerIds.map((cid) =>
+              limit(() => autoComposeForCaller(cid, courseId)),
+            ),
+          );
+          console.log(
+            `[design PUT] recompose-all fan-out complete: ${callerIds.length} callers (course ${courseId})`,
+          );
+        })
+        .catch((err) => {
+          console.error(
+            `[design PUT] recompose-all fan-out failed for course ${courseId}:`,
+            err.message,
+          );
+        });
+    }
+
+    return NextResponse.json({ ok: true, recomposed: composeAffected });
   } catch (err) {
     console.error("[design PUT]", err);
     return NextResponse.json(
