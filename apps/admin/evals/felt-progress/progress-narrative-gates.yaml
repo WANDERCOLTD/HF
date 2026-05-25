@@ -1,0 +1,144 @@
+description: "#779 — progressNarrative section gating: present with strict rules when evidence; absent when not"
+
+# Story:  #779 — S1 progressNarrative composer section (Felt Progress)
+# Status: AFTER (asserts the new behaviour the story introduces).
+# See:    apps/admin/lib/prompt/composition/transforms/progress-narrative.ts
+#         apps/admin/lib/prompt/composition/CompositionExecutor.ts (section progress_narrative)
+#         apps/admin/docs-archive/bdd-specs/COMP-001-prompt-composition.spec.json (seed)
+
+prompts:
+  - id: with_evidence
+    label: "AFTER — evidence above threshold, on_threshold_crossing cadence"
+    raw: |
+      ## Progress Narrative
+
+      Measured progress signals from this learner:
+        - OUT-01: mastery 72%
+        - OUT-04: mastery 55%
+
+      If a notable improvement is evidenced above, you MAY briefly acknowledge it in your own voice (one short sentence, woven into the conversation) — e.g. 'Your handling of {topic} is much clearer than before'.
+      STRICT RULES — read every time:
+        - Cite ONLY the learning objectives listed above. Never name an LO that is not in this list.
+        - If no clear improvement is evidenced this call, say nothing. Never invent progress.
+        - Do NOT recite the mastery percentage — translate into plain language ('much stronger', 'noticeable progress', 'getting solid').
+        - Acknowledge at most ONE improvement per call. The learner doesn't need a report card mid-conversation.
+
+  - id: empty_evidence
+    label: "AFTER — no evidence (callerAttributes empty / below threshold)"
+    raw: |
+      ## (no progressNarrative block — section returned null)
+
+  - id: disabled_in_config
+    label: "AFTER — enabled=false in Playbook.config.progressNarrative"
+    raw: |
+      ## (no progressNarrative block — section omitted)
+
+  - id: first_call_skipped
+    label: "AFTER — call 1 with skipFirstCall=true"
+    raw: |
+      ## (no progressNarrative block — section returned null on first call)
+
+  - id: every_call_fires
+    label: "AFTER — cadence='every_call' with any LO score > 0"
+    raw: |
+      ## Progress Narrative
+
+      Measured progress signals from this learner:
+        - OUT-02: mastery 8%
+
+      If a notable improvement is evidenced above, you MAY briefly acknowledge it in your own voice (one short sentence, woven into the conversation) — e.g. 'Your handling of {topic} is much clearer than before'.
+      STRICT RULES — read every time:
+        - Cite ONLY the learning objectives listed above. Never name an LO that is not in this list.
+        - If no clear improvement is evidenced this call, say nothing. Never invent progress.
+        - Do NOT recite the mastery percentage — translate into plain language ('much stronger', 'noticeable progress', 'getting solid').
+        - Acknowledge at most ONE improvement per call. The learner doesn't need a report card mid-conversation.
+
+  - id: threshold_not_met
+    label: "AFTER — cadence='on_threshold_crossing', minScoreDelta=0.1, all scores below"
+    raw: |
+      ## (no progressNarrative block — every LO score is below minScoreDelta)
+
+tests:
+  - description: "Section present when evidence is provided"
+    vars:
+      prompt: "{{prompts.with_evidence}}"
+    assert:
+      - type: javascript
+        value: |
+          output.includes("Progress Narrative") &&
+          output.includes("OUT-01") &&
+          output.includes("STRICT RULES")
+
+  - description: "Strict rules include the never-invent instruction"
+    vars:
+      prompt: "{{prompts.with_evidence}}"
+    assert:
+      - type: javascript
+        value: |
+          /never invent progress/i.test(output)
+
+  - description: "Strict rules constrain to listed LOs only"
+    vars:
+      prompt: "{{prompts.with_evidence}}"
+    assert:
+      - type: javascript
+        value: |
+          /Cite ONLY the learning objectives listed/i.test(output)
+
+  - description: "Strict rules forbid percentage recital"
+    vars:
+      prompt: "{{prompts.with_evidence}}"
+    assert:
+      - type: javascript
+        value: |
+          /Do NOT recite the mastery percentage/i.test(output)
+
+  - description: "Strict rules cap at one acknowledgement per call"
+    vars:
+      prompt: "{{prompts.with_evidence}}"
+    assert:
+      - type: javascript
+        value: |
+          /at most ONE improvement per call/i.test(output)
+
+  - description: "Section absent when no evidence (no Progress Narrative header)"
+    vars:
+      prompt: "{{prompts.empty_evidence}}"
+    assert:
+      - type: javascript
+        value: |
+          !/## Progress Narrative/.test(output)
+
+  - description: "Section absent when disabled in config"
+    vars:
+      prompt: "{{prompts.disabled_in_config}}"
+    assert:
+      - type: javascript
+        value: |
+          !/## Progress Narrative/.test(output) &&
+          !/OUT-\d+/.test(output)
+
+  - description: "Section absent on first call when skipFirstCall=true"
+    vars:
+      prompt: "{{prompts.first_call_skipped}}"
+    assert:
+      - type: javascript
+        value: |
+          !/## Progress Narrative/.test(output)
+
+  - description: "every_call cadence fires even with low score"
+    vars:
+      prompt: "{{prompts.every_call_fires}}"
+    assert:
+      - type: javascript
+        value: |
+          output.includes("Progress Narrative") &&
+          output.includes("OUT-02")
+
+  - description: "on_threshold_crossing cadence stays null when all scores below minScoreDelta"
+    vars:
+      prompt: "{{prompts.threshold_not_met}}"
+    assert:
+      - type: javascript
+        value: |
+          !/## Progress Narrative/.test(output)
