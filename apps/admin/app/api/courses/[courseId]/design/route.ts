@@ -6,12 +6,13 @@
  * @tags course, design, welcome, nps, felt-progress
  * @description Save student experience design config. Writes to
  *   Playbook.config.welcome, Playbook.config.nps, the #417 skill-banding
- *   overrides, and the #779 Felt Progress `progressNarrative` namespace.
+ *   overrides, and the Felt Progress namespaces (#779 progressNarrative,
+ *   #780 offboardingSummary).
  *   Pre-survey gating is computed from welcome.* via isPreSurveyEnabled
  *   (no surveys.pre write); surveys.post.enabled mirrors nps.enabled.
  *   Pass `null` for any optional override field to clear it (falls back
  *   to defaults / contract).
- * @request { welcome?: WelcomeConfig, nps?: NpsConfig, skillTierMapping?, skillScoringEmaHalfLifeDays?, skillMinCallsToFull?, progressNarrative? }
+ * @request { welcome?: WelcomeConfig, nps?: NpsConfig, skillTierMapping?, skillScoringEmaHalfLifeDays?, skillMinCallsToFull?, progressNarrative?, offboardingSummary? }
  * @response 200 { ok: true }
  * @response 404 { ok: false, error: "Course not found" }
  */
@@ -40,6 +41,8 @@ export async function PUT(
       // #779 — Felt Progress S1. Object writes the fields; null clears the
       // namespace (falls back to all defaults from the transform).
       progressNarrative?: PlaybookConfig["progressNarrative"] | null;
+      // #780 — Felt Progress S2. Same shape: object writes; null clears.
+      offboardingSummary?: PlaybookConfig["offboardingSummary"] | null;
     };
 
     const playbook = await prisma.playbook.findUnique({
@@ -92,6 +95,15 @@ export async function PUT(
         delete pbConfig.progressNarrative;
       } else {
         pbConfig.progressNarrative = body.progressNarrative;
+      }
+    }
+
+    // #780 — Felt Progress offboardingSummary. Same null-clears semantics.
+    if (body.offboardingSummary !== undefined) {
+      if (body.offboardingSummary === null) {
+        delete pbConfig.offboardingSummary;
+      } else {
+        pbConfig.offboardingSummary = body.offboardingSummary;
       }
     }
 
