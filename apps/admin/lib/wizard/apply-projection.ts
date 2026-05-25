@@ -46,6 +46,7 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import type {
   GoalTemplate,
   PlaybookConfig,
@@ -672,10 +673,20 @@ export async function applyProjection(
       sourceContentId,
     );
 
-    await tx.playbook.update({
-      where: { id: playbookId },
-      data: { config: merged as Prisma.InputJsonValue },
-    });
+    // #827 (Story 3) — config write LIFTED OUT of the transaction (see
+    // post-tx block below). The helper does its own findUnique + update
+    // which can't participate in this interactive transaction's tx client.
+    //
+    // Trade-off: if the post-tx config write fails, parameter/behaviorTarget/
+    // module rows are committed but config + timestamp lag. applyProjection
+    // is idempotent (per file header) — re-running brings config back in
+    // line. The orphan-state window is the network round-trip between
+    // tx commit and the helper's update.
+    //
+    // Stash merged config + count in the tx return so the post-tx block
+    // can apply it.
+    const _mergedConfigForPostTx = merged;
+    const _goalTemplatesWrittenForPostTx = goalTemplatesWritten;
 
     const noop =
       parametersUpserted === 0 &&
@@ -706,7 +717,22 @@ export async function applyProjection(
       measureTriggerCount: specUpsert.triggerCount,
       warnings: projection.validationWarnings,
       noop,
+      // #827 — pass merged config out of the tx for the post-commit
+      // updatePlaybookConfig call below.
+      __postTxMergedConfig: _mergedConfigForPostTx,
     };
+  }).then(async (txResult) => {
+    // #827 — post-tx config write + composeInputsUpdatedAt bump via the
+    // central helper. See lifted-out comment inside the tx for trade-off
+    // rationale (orphan-state window if this fails — re-run is idempotent).
+    await updatePlaybookConfig(
+      playbookId,
+      () => txResult.__postTxMergedConfig as PlaybookConfig,
+      { reason: "apply-projection post-tx config write" },
+    );
+    // Strip the internal carry-out before returning.
+    const { __postTxMergedConfig: _drop, ...publicResult } = txResult;
+    return publicResult;
   });
 }
 

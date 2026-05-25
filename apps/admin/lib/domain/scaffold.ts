@@ -16,6 +16,7 @@
 import { db, type TxClient } from "@/lib/prisma";
 import { config } from "@/lib/config";
 import { getFlowPhasesFallback } from "@/lib/fallback-settings";
+import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -320,25 +321,20 @@ export async function scaffoldDomain(domainId: string, options?: ScaffoldOptions
     toggles[ss.id] = { isEnabled: !disabledIds.has(ss.id) };
   }
 
-  // Merge with any existing config
-  const currentPlaybook = await p.playbook.findUnique({
-    where: { id: playbook.id },
-    select: { config: true },
-  });
-  const currentConfig = (currentPlaybook?.config as Record<string, any>) || {};
-
-  await p.playbook.update({
-    where: { id: playbook.id },
-    data: {
-      config: {
-        ...currentConfig,
-        systemSpecToggles: {
-          ...(currentConfig.systemSpecToggles || {}),
-          ...toggles,
-        },
-      },
+  // #827 (Story 3) — central helper, skipTimestamp: true. Scaffold runs
+  // during initial playbook creation BEFORE any callers can enroll, so
+  // no downstream staleness to mark. systemSpecToggles isn't in
+  // COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS anyway (resolved by spec
+  // resolution path, not the prompt composer).
+  await updatePlaybookConfig(
+    playbook.id,
+    (cfg) => {
+      const c = cfg as Record<string, any>;
+      c.systemSpecToggles = { ...(c.systemSpecToggles || {}), ...toggles };
+      return cfg;
     },
-  });
+    { skipTimestamp: true, reason: "scaffold systemSpecToggles" },
+  );
 
   // 7. Publish playbook
   //    When forceNewPlaybook=true, keep existing published playbooks (multiple classes coexist).

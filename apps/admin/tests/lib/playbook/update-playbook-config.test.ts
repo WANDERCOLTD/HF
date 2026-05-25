@@ -132,14 +132,14 @@ describe("updatePlaybookConfig — #826 stamp-on-write helper", () => {
 
   it("config persisted in the update payload regardless of timestamp", async () => {
     mockPrisma.playbook.findUnique.mockResolvedValue({
-      config: { welcome: { greeting: "old" } },
+      config: { skillScoringEmaHalfLifeDays: 7 },
     });
     await updatePlaybookConfig("pb1", (c) => ({
       ...c,
-      welcome: { greeting: "new" },
+      skillScoringEmaHalfLifeDays: 21,
     }));
     const updateArgs = mockPrisma.playbook.update.mock.calls[0][0];
-    expect(updateArgs.data.config).toEqual({ welcome: { greeting: "new" } });
+    expect(updateArgs.data.config).toEqual({ skillScoringEmaHalfLifeDays: 21 });
   });
 
   it("transformer can return a brand-new object (not a mutation of the input)", async () => {

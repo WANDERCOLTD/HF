@@ -12,6 +12,7 @@ import type { UserRole } from "@prisma/client";
 import { startCurriculumGeneration } from "@/lib/jobs/curriculum-runner";
 import { runIniChecks } from "@/lib/system-ini";
 import { writeBehaviorTarget, writeCallerBehaviorTarget } from "@/lib/agent-tuner/write-target";
+import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 
 const MAX_RESULT_LENGTH = 3000;
 
@@ -749,23 +750,26 @@ async function handleUpdatePlaybookConfig(input: Record<string, any>) {
     return { error: `Playbook ${playbookId} not found.` };
   }
 
-  const currentConfig = (playbook.config as Record<string, unknown> | null) || {};
-  const mergedConfig = { ...currentConfig, ...updates };
-
-  await prisma.playbook.update({
-    where: { id: playbookId },
-    data: { config: mergedConfig, updatedAt: new Date() },
-  });
+  // #827 (Story 3) — Cmd+K admin chat tool is the post-creation educator
+  // tuning surface; updates here MUST go through the helper so any
+  // COMPOSE-affecting change bumps Playbook.composeInputsUpdatedAt and
+  // downstream callers' next compose detects stale (#825 staleness check).
+  const result = await updatePlaybookConfig(
+    playbookId,
+    (cfg) => ({ ...(cfg as Record<string, unknown>), ...updates } as typeof cfg),
+    { reason: `admin-tool update_playbook_config: ${input.reason || "(not given)"}` },
+  );
 
   const fields = Object.keys(updates);
-  console.log(`[admin-tools] Updated playbook "${playbook.name}" config. Fields: ${fields.join(", ")}. Reason: ${input.reason || "(not given)"}`);
+  console.log(`[admin-tools] Updated playbook "${playbook.name}" config. Fields: ${fields.join(", ")}. Reason: ${input.reason || "(not given)"}. composeInputsUpdatedAt bumped: ${result.timestampBumped}`);
 
   return {
     ok: true,
     playbook_id: playbookId,
     playbook_name: playbook.name,
     updated_fields: updates,
-    message: `Updated ${fields.join(", ")} on ${playbook.name}. Tuning saved. Existing learners need re-prompting to pick up the change on calls already in flight.`,
+    compose_inputs_bumped: result.timestampBumped,
+    message: `Updated ${fields.join(", ")} on ${playbook.name}. Tuning saved.${result.timestampBumped ? " Active callers' prompts marked stale — they'll recompose on next call." : ""}`,
   };
 }
 

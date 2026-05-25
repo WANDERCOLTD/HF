@@ -622,28 +622,23 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
     // so different courses in the same domain can have different onboarding
     const playbookId = ctx.results.playbookId || domain?.playbooks?.[0]?.id;
     if (playbookId && (resolvedWelcome || resolvedFlowPhases)) {
-      const pb = await prisma.playbook.findUnique({
-        where: { id: playbookId },
-        select: { config: true },
-      });
-      const existingPbConfig = (pb?.config || {}) as Record<string, any>;
-      await prisma.playbook.update({
-        where: { id: playbookId },
-        data: {
-          config: {
-            ...existingPbConfig,
-            ...(resolvedWelcome && { welcomeMessage: resolvedWelcome }),
-            ...(resolvedFlowPhases && { onboardingFlowPhases: resolvedFlowPhases }),
-            // Survey selections from wizard (defaults: pre=true, post=true)
-            ...(ctx.input.surveySelections && {
-              surveys: {
-                pre: { enabled: ctx.input.surveySelections.pre ?? true, questions: [] },
-                post: { enabled: ctx.input.surveySelections.post ?? true, questions: [] },
-              },
-            }),
-          },
-        },
-      });
+      // #827 (Story 3) — central helper, skipTimestamp: true. Course
+      // setup welcome+flow mirror runs pre-enrolment; no callers yet.
+      await updatePlaybookConfig(
+        playbookId,
+        (cfg) => ({
+          ...cfg,
+          ...(resolvedWelcome && { welcomeMessage: resolvedWelcome }),
+          ...(resolvedFlowPhases && { onboardingFlowPhases: resolvedFlowPhases }),
+          ...(ctx.input.surveySelections && {
+            surveys: {
+              pre: { enabled: ctx.input.surveySelections.pre ?? true, questions: [] },
+              post: { enabled: ctx.input.surveySelections.post ?? true, questions: [] },
+            },
+          }),
+        } as any),
+        { skipTimestamp: true, reason: "course-setup welcome+flow mirror" },
+      );
     }
 
     // Also create PLAYBOOK-scoped BehaviorTarget rows so values are visible in PlaybookBuilder
