@@ -12,6 +12,8 @@ import {
   completeTask,
   failTask,
 } from "@/lib/ai/task-guidance";
+import { bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
+import { resolvePlaybookIdForCurriculum } from "@/lib/curriculum/resolve-playbook-for-curriculum";
 
 type Params = { params: Promise<{ curriculumId: string }> };
 
@@ -252,6 +254,11 @@ export async function PUT(
         deliveryConfig: { ...existingDC, lessonPlan: plan } as unknown as Prisma.InputJsonValue,
       },
     });
+
+    // #834 — lesson plan flows into compose via the modules / curriculum
+    // loaders (session bucketing, target LOs, assertion routing). Bump.
+    const playbookId = await resolvePlaybookIdForCurriculum(curriculumId);
+    if (playbookId) await bumpPlaybookComposeTimestamp(playbookId);
 
     return NextResponse.json({ ok: true, plan, entries: plan.entries, ...(staleWarning ? { warning: staleWarning } : {}) });
   } catch (error: any) {
