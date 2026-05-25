@@ -104,7 +104,19 @@ Format per link:
 | **Test** | `tests/lib/prompt/composition/identity-resolve-specs.test.ts` (9 cases for #608-C); `tests/lib/preamble-archetype.test.ts` (16 cases for #604); `tests/lib/composition/renderPromptSummary.test.ts`. |
 | **Memory doc** | `docs/PROMPT-COMPOSITION.md` §3 loaders + §4 transforms + §9 landmines L8/L8b/L9/L10. |
 | **Audit counter** | `advisorInInputsSnapshot` (target 0 after #608-A applies), `playbooksWithoutTeachingMode` (target 0 — operator data), `hardcodedRulesRemainingInTransforms` (target 0). |
-| **Reinforced by** | #604, #607, #608-C, #608-A, #610. |
+| **Reinforced by** | #604, #607, #608-C, #608-A, #610, #819 (settings-change fan-out). |
+
+#### Link 3 sub-contract — TUNER → COMPOSE (settings-change propagation, #819)
+
+| Field | Value |
+|---|---|
+| **Producer** | `PUT /api/courses/[id]/design` writes to `Playbook.config.{progressNarrative,offboardingSummary,firstSessionTargets,firstCallMode}` and fan-outs to `autoComposeForCaller` for every ACTIVE roster entry. |
+| **Consumer** | Same as Link 3 main row — `ComposedPrompt` rows downstream. |
+| **Invariant** | When an educator changes a COMPOSE-affecting playbook namespace, every active caller's ComposedPrompt MUST be refreshed before their next call — never stale-on-save. The fan-out uses `pLimit(5)` so even large rosters complete bounded. |
+| **Enforcement** | `COMPOSE_AFFECTING_KEYS` const in the design route gates the fan-out; PUT response carries `recomposed: boolean` so the UI can surface "propagating to N callers". Standalone `POST /api/playbooks/[id]/recompose-all` remains the manual escape hatch. |
+| **Test** | `tests/api/design-recompose-fanout.test.ts` (8 cases — each compose-affecting field triggers; welcome/nps/banding do NOT trigger; 404 + empty roster paths). |
+| **Memory doc** | This row; `app/api/courses/[courseId]/design/route.ts` JSDoc references the COMPOSE_AFFECTING_KEYS list. |
+| **Reinforced by** | #819. |
 
 ---
 
@@ -196,6 +208,7 @@ If a chain row above references "DataContract slug: implicit" and the contract i
 | #670 | #610 | 3 | `defaults/` directory convention — transforms hold mechanics, content lives elsewhere |
 | #671 | #608-A | 3 | `AnalysisSpec.isArchetype` schema field + loader filter |
 | #672 | #616 | (this doc) | Single inventory of chain contracts |
+| TBD  | #819 | 3 (sub-contract) | PUT /api/courses/[id]/design fans out recompose-all when COMPOSE-affecting namespaces change — closes the stale-prompt-after-tuner-save gap |
 
 ---
 
