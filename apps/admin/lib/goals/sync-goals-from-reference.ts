@@ -12,8 +12,8 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
 import type { GoalTemplate, PlaybookConfig } from "@/lib/types/json-fields";
+import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 
 export interface SyncGoalsResult {
   playbooksUpdated: number;
@@ -135,19 +135,23 @@ export async function syncGoalsFromReference(
 
     const mergedGoals = [...existingGoals, ...toAdd];
 
-    await prisma.playbook.update({
-      where: { id: playbook.id },
-      data: {
-        config: { ...config, goals: mergedGoals } as Prisma.InputJsonValue,
-      },
-    });
+    // #827 (Story 3) — `goals` IS in COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS,
+    // so this WILL bump composeInputsUpdatedAt. Course-reference re-extraction
+    // can affect every playbook linked to that source — fans out staleness
+    // to all their enrolled callers. This is the correct behaviour but a
+    // change vs pre-#827 where the goals sync silently produced stale prompts.
+    const { timestampBumped } = await updatePlaybookConfig(
+      playbook.id,
+      (cfg) => ({ ...cfg, goals: mergedGoals } as PlaybookConfig),
+      { reason: "sync-goals-from-reference" },
+    );
 
     result.playbooksUpdated++;
     result.goalsAdded += toAdd.length;
     result.goalsSkipped += newGoals.length - toAdd.length;
 
     console.log(
-      `[sync-goals] Playbook ${playbook.id}: added ${toAdd.length} goals from course reference`,
+      `[sync-goals] Playbook ${playbook.id}: added ${toAdd.length} goals from course reference (composeInputsUpdatedAt bumped: ${timestampBumped})`,
     );
   }
 

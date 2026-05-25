@@ -13,6 +13,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { PlaybookConfig } from "@/lib/types/json-fields";
+import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 
 export interface SyncConstraintsResult {
   playbooksUpdated: number;
@@ -118,12 +119,16 @@ export async function syncConstraintsFromReference(
 
     const mergedConstraints = [...existingConstraints, ...toAdd];
 
-    await prisma.playbook.update({
-      where: { id: playbook.id },
-      data: {
-        config: JSON.parse(JSON.stringify({ ...config, constraints: mergedConstraints })),
-      },
-    });
+    // #827 (Story 3) — `constraints` is NOT in
+    // COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS today (constraints feed into
+    // the supervise/guardrail path, not the prompt composer directly), so
+    // no timestamp bump fires. Routing through helper anyway for uniform
+    // ESLint enforcement.
+    await updatePlaybookConfig(
+      playbook.id,
+      (cfg) => ({ ...cfg, constraints: mergedConstraints } as PlaybookConfig & { constraints: string[] }),
+      { reason: "sync-constraints-from-reference" },
+    );
 
     result.playbooksUpdated++;
     result.constraintsAdded += toAdd.length;

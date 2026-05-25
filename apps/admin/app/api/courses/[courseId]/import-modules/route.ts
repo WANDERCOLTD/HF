@@ -535,6 +535,20 @@ export async function POST(
   let syncResult: SyncResultT | null = null;
   if (changed) {
     syncResult = await prisma.$transaction(async (tx): Promise<SyncResultT | null> => {
+      // #827 (Story 3) — direct write retained. Atomicity with the
+      // CurriculumModule writes below requires both to share a tx; the
+      // updatePlaybookConfig helper does its own findUnique+update which
+      // can't enlist in this interactive transaction. The fields written
+      // (config.modules, config.modulesAuthored, config.outcomes,
+      // config.moduleSource, etc.) are not in
+      // COMPOSE_AFFECTING_PLAYBOOK_CONFIG_KEYS — they're read by the
+      // picker UI + curriculum reconciler, not the prompt composer — so
+      // a missing timestamp bump here does NOT cause stale prompts.
+      // The CurriculumModule writes that DO affect compose go via
+      // SectionDataLoader.curriculumAssertions; Story 8 (#834) adds the
+      // separate bumpPlaybookComposeTimestamp helper that runs AFTER this
+      // tx commits to mark playbooks stale on curriculum mutations.
+      // eslint-disable-next-line hf-playbook/no-direct-config-write
       await tx.playbook.update({
         where: { id: courseId },
         data: { config: nextConfig as object },
