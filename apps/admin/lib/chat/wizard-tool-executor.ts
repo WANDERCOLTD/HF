@@ -9,6 +9,8 @@
  * institutions/courses, and returning results to the AI loop.
  */
 
+import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
+
 // ── Helpers ─────────────────────────────────────────────
 
 // Canonical wizard phase-id mapping. Used to build sessionFlow.onboarding.phases
@@ -961,10 +963,15 @@ export async function executeWizardTool(
               existingPlaybookId,
             );
 
-            await prisma.playbook.update({
-              where: { id: existingPlaybookId },
-              data: { config: JSON.parse(JSON.stringify(configUpdate)) },
-            });
+            // #826 — central helper. create_course reuse-existing path
+            // hits a playbook that MAY already have enrolled callers, so
+            // the timestamp bump (when compose-affecting keys change)
+            // marks downstream prompts as stale.
+            await updatePlaybookConfig(
+              existingPlaybookId,
+              () => configUpdate,
+              { reason: "wizard create_course (existing path)" },
+            );
 
             // #607 follow-on (2026-05-23) — the new-course branch's step 4b
             // calls `unlinkNonPrimaryPlaybookSubjects()` to enforce "exactly
@@ -1508,10 +1515,15 @@ export async function executeWizardTool(
           playbookId,
         );
 
-        await prisma.playbook.update({
-          where: { id: playbookId },
-          data: { config: JSON.parse(JSON.stringify(configUpdate)) },
-        });
+        // #826 — central helper, skipTimestamp: true because this is
+        // create_course NEW path — the playbook was created in the same
+        // wizard step and has no enrolled callers yet, so no downstream
+        // staleness to mark.
+        await updatePlaybookConfig(
+          playbookId,
+          () => configUpdate,
+          { skipTimestamp: true, reason: "wizard create_course (new path)" },
+        );
 
         // 6. Link Subject → Playbook
         await prisma.playbookSubject.upsert({
@@ -2403,10 +2415,15 @@ export async function executeWizardTool(
           configUpdate.modulesAuthored = false;
         }
 
-        await prisma.playbook.update({
-          where: { id: playbookId },
-          data: { config: JSON.parse(JSON.stringify(configUpdate)) },
-        });
+        // #826 — central helper. update_course_config is hit AFTER
+        // playbook creation, possibly with enrolled callers — timestamp
+        // bump marks downstream prompts as stale when COMPOSE-affecting
+        // keys changed.
+        await updatePlaybookConfig(
+          playbookId,
+          () => configUpdate,
+          { reason: "wizard update_course_config" },
+        );
 
         return {
           ...base,

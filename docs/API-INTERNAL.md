@@ -5157,7 +5157,7 @@ Save student experience design config. Writes to
 
 **Response** `200`
 ```json
-{ ok: true }
+{ ok: true, configUpdated: boolean }
 ```
 
 **Response** `404`
