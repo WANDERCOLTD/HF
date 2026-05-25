@@ -140,9 +140,25 @@ interface ComputeRewardResult {
 /**
  * Load effective targets for a caller identity, merging SYSTEM → SEGMENT → CALLER
  */
+/**
+ * Load effective targets for a call by composing SYSTEM → SEGMENT → CALLER
+ * scopes, with later layers overriding earlier ones per parameter.
+ *
+ * #836 fanout contract — `BehaviorTarget.callerIdentityId` references
+ * `CallerIdentity.id`, NOT `Caller.id`. A caller may have multiple identities
+ * (one per channel) and BehaviorTarget overrides may sit on any of them. We
+ * fan out via the full `callerIdentityIds[]` list, collect all matching rows,
+ * and resolve cross-identity conflicts by picking **MAX targetValue** per
+ * parameter — same tie-break as `lib/tolerance/resolve-tolerance.ts` so reads
+ * are consistent across both call paths. Pre-fix this used `identities?.[0]?.id`
+ * and silently ignored overrides written to any non-first identity.
+ *
+ * Segment fanout uses the same shape — every identity's `segmentId` is
+ * considered, deduplicated, and queried with `segmentId: { in: ... }`.
+ */
 async function loadEffectiveTargets(
-  callerIdentityId: string | null,
-  segmentId: string | null
+  callerIdentityIds: string[],
+  segmentIds: string[]
 ): Promise<Map<string, EffectiveTarget>> {
   const targets = new Map<string, EffectiveTarget>();
 
@@ -164,45 +180,62 @@ async function loadEffectiveTargets(
     });
   }
 
-  // Load SEGMENT targets (override system)
-  if (segmentId) {
+  // Load SEGMENT targets (override system) — fan out across all segments the
+  // caller's identities belong to. MAX per parameter.
+  if (segmentIds.length > 0) {
     const segmentTargets = await prisma.behaviorTarget.findMany({
       where: {
         scope: BehaviorTargetScope.SEGMENT,
-        segmentId,
+        segmentId: { in: segmentIds },
         effectiveUntil: null,
       },
     });
 
     for (const t of segmentTargets) {
-      targets.set(t.parameterId, {
-        parameterId: t.parameterId,
-        targetValue: t.targetValue,
-        confidence: t.confidence,
-        scope: t.scope,
-        source: t.source,
-      });
+      const existing = targets.get(t.parameterId);
+      if (
+        !existing ||
+        existing.scope !== BehaviorTargetScope.SEGMENT ||
+        t.targetValue > existing.targetValue
+      ) {
+        targets.set(t.parameterId, {
+          parameterId: t.parameterId,
+          targetValue: t.targetValue,
+          confidence: t.confidence,
+          scope: t.scope,
+          source: t.source,
+        });
+      }
     }
   }
 
-  // Load CALLER targets (override segment/system)
-  if (callerIdentityId) {
+  // Load CALLER targets (override segment/system) — fan out across all caller
+  // identities. MAX per parameter so a higher per-identity override can't be
+  // silently undercut by a stale lower value on a different identity.
+  if (callerIdentityIds.length > 0) {
     const callerTargets = await prisma.behaviorTarget.findMany({
       where: {
         scope: BehaviorTargetScope.CALLER,
-        callerIdentityId,
+        callerIdentityId: { in: callerIdentityIds },
         effectiveUntil: null,
       },
     });
 
     for (const t of callerTargets) {
-      targets.set(t.parameterId, {
-        parameterId: t.parameterId,
-        targetValue: t.targetValue,
-        confidence: t.confidence,
-        scope: t.scope,
-        source: t.source,
-      });
+      const existing = targets.get(t.parameterId);
+      if (
+        !existing ||
+        existing.scope !== BehaviorTargetScope.CALLER ||
+        t.targetValue > existing.targetValue
+      ) {
+        targets.set(t.parameterId, {
+          parameterId: t.parameterId,
+          targetValue: t.targetValue,
+          confidence: t.confidence,
+          scope: t.scope,
+          source: t.source,
+        });
+      }
     }
   }
 
@@ -344,8 +377,11 @@ export async function computeReward(
       behaviorMeasurements: true,
       caller: {
         include: {
+          // #836 fanout — load ALL identities so loadEffectiveTargets can
+          // resolve per-identity CALLER + SEGMENT targets and MAX over them.
+          // Pre-fix this had `take: 1`, which silently dropped overrides on
+          // any non-first identity.
           callerIdentities: {
-            take: 1,
             include: {
               segment: true,
             },
@@ -372,13 +408,17 @@ export async function computeReward(
     try {
       result.callsProcessed++;
 
-      // Get caller context
-      const callerIdentity = call.caller?.callerIdentities?.[0];
-      const callerIdentityId = callerIdentity?.id || null;
-      const segmentId = callerIdentity?.segmentId || null;
+      // #836 fanout — collect every CallerIdentity.id + unique segmentId
+      // attached to this caller. `loadEffectiveTargets` does the fanout query
+      // and the MAX-per-parameter tie-break across identities.
+      const identities = call.caller?.callerIdentities ?? [];
+      const callerIdentityIds = identities.map((i) => i.id);
+      const segmentIds = Array.from(
+        new Set(identities.map((i) => i.segmentId).filter((s): s is string => !!s)),
+      );
 
       // Load effective targets
-      const targets = await loadEffectiveTargets(callerIdentityId, segmentId);
+      const targets = await loadEffectiveTargets(callerIdentityIds, segmentIds);
 
       if (targets.size === 0) {
         if (verbose) console.log(`Call ${call.id}: No targets found, using defaults`);
