@@ -214,7 +214,6 @@ export function FirstSessionSettings({
 
   return (
     <div>
-      <div className="hf-section-title hf-mb-xs">Call 1 / First session</div>
       <div className="hf-text-xs hf-text-muted hf-mb-md">
         How the learner&apos;s first call is configured. Some controls live
         in the Session Flow editor above — the table below shows their
