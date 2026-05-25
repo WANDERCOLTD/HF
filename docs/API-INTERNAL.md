@@ -3918,6 +3918,19 @@ Sync all cohort members to the cohort's assigned playbooks. Enrolls any members 
 
 ---
 
+### `GET` /api/cohorts/overview
+
+Multi-cohort operator overview — per-cohort engagement + mastery
+
+**Auth**: Session · **Scope**: `cohorts:read`
+
+**Response** `200`
+```json
+{ ok: true, cohorts: Array<CohortOverviewRow>, rollup: Rollup }
+```
+
+---
+
 ## Communities
 
 ### `GET` /api/communities
@@ -14399,8 +14412,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 446 |
-| Files with annotations | 445 |
+| Route files found | 447 |
+| Files with annotations | 446 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 
