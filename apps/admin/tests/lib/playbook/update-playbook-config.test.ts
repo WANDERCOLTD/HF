@@ -52,11 +52,11 @@ describe("updatePlaybookConfig — #826 stamp-on-write helper", () => {
 
   it("non-compose-affecting key change → no bump", async () => {
     mockPrisma.playbook.findUnique.mockResolvedValue({
-      config: { welcome: { greeting: "old" } },
+      config: { skillScoringEmaHalfLifeDays: 14 },
     });
     const result = await updatePlaybookConfig("pb1", (c) => ({
       ...c,
-      welcome: { greeting: "new" },
+      skillScoringEmaHalfLifeDays: 28,
     }));
     expect(result.composeAffectingChanged).toBe(false);
     expect(result.timestampBumped).toBe(false);
@@ -65,7 +65,7 @@ describe("updatePlaybookConfig — #826 stamp-on-write helper", () => {
   });
 
   it("idempotent re-save (same config) → no bump", async () => {
-    const cfg = { firstCallMode: "onboarding", welcome: { greeting: "hi" } };
+    const cfg = { firstCallMode: "onboarding" as const, skillScoringEmaHalfLifeDays: 14 };
     mockPrisma.playbook.findUnique.mockResolvedValue({ config: cfg });
     const result = await updatePlaybookConfig("pb1", (c) => c);
     expect(result.composeAffectingChanged).toBe(false);
@@ -89,12 +89,12 @@ describe("updatePlaybookConfig — #826 stamp-on-write helper", () => {
 
   it("multi-key diff: at least one compose-affecting → bump fires", async () => {
     mockPrisma.playbook.findUnique.mockResolvedValue({
-      config: { firstCallMode: "onboarding", welcome: { greeting: "old" } },
+      config: { firstCallMode: "onboarding" as const, skillScoringEmaHalfLifeDays: 14 },
     });
     const result = await updatePlaybookConfig("pb1", (c) => ({
       ...c,
       firstCallMode: "baseline_assessment", // compose-affecting
-      welcome: { greeting: "new" }, // not compose-affecting
+      skillScoringEmaHalfLifeDays: 28, // not compose-affecting
     }));
     expect(result.composeAffectingChanged).toBe(true);
     expect(result.timestampBumped).toBe(true);

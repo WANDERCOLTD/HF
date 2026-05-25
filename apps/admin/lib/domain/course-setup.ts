@@ -10,6 +10,7 @@
 import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
 import { logSystem } from "@/lib/logger";
+import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import slugify from "slugify";
 import { scaffoldDomain } from "@/lib/domain/scaffold";
 import { loadPersonaFlowPhases, loadPersonaArchetype, loadPersonaWelcomeTemplate } from "@/lib/domain/quick-launch";
@@ -388,36 +389,31 @@ const stepExecutors: Record<string, (ctx: CourseSetupContext, step: CourseSetupS
           mergedGoals = [...mergedGoals, ...newLOGoals];
         }
 
-        await prisma.playbook.update({
-          where: { id: scaffoldResult.playbook.id },
-          data: {
-            config: {
-              ...existingConfig,
-              ...(ctx.input.interactionPattern && { interactionPattern: ctx.input.interactionPattern }),
-              ...(ctx.input.teachingMode && { teachingMode: ctx.input.teachingMode }),
-              ...(ctx.input.subjectDiscipline && { subjectDiscipline: ctx.input.subjectDiscipline }),
-              // Plan intents — used by "Regenerate Plan" fallback
-              ...(planIntents?.sessionCount && { sessionCount: planIntents.sessionCount }),
-              ...(planIntents?.durationMins && { durationMins: planIntents.durationMins }),
-              ...(planIntents?.emphasis && { emphasis: planIntents.emphasis }),
-              ...(planIntents?.assessments && { assessments: planIntents.assessments }),
-              // Top-level fallbacks (when planIntents not provided)
-              ...(!planIntents?.sessionCount && ctx.input.sessionCount && { sessionCount: ctx.input.sessionCount }),
-              ...(!planIntents?.durationMins && ctx.input.durationMins && { durationMins: ctx.input.durationMins }),
-              ...(!planIntents?.emphasis && ctx.input.emphasis && { emphasis: ctx.input.emphasis }),
-              // Lesson plan model — used by quickstart.ts for prompt composition
-              ...(ctx.input.lessonPlanModel && { lessonPlanModel: ctx.input.lessonPlanModel }),
-              // Learning structure — structured (fixed syllabus) vs continuous (adaptive per-call)
-              ...(ctx.input.learningStructure && { learningStructure: ctx.input.learningStructure }),
-              // Course learning outcomes — the educator's stated goals (distinct from module LOs)
-              ...(ctx.input.learningOutcomes?.length && { courseLearningOutcomes: ctx.input.learningOutcomes }),
-              // GoalTemplate entries — consumed by instantiatePlaybookGoals on enrolment
-              ...(mergedGoals.length > 0 && { goals: mergedGoals }),
-              // Audience segment — per-course override (falls back to domain/system default)
-              ...(ctx.input.audience && { audience: ctx.input.audience }),
-            },
-          },
-        });
+        // #826 — central helper, skipTimestamp: true. course-setup
+        // scaffold runs BEFORE any callers can enroll; no downstream
+        // staleness to mark.
+        await updatePlaybookConfig(
+          scaffoldResult.playbook.id,
+          () => ({
+            ...existingConfig,
+            ...(ctx.input.interactionPattern && { interactionPattern: ctx.input.interactionPattern }),
+            ...(ctx.input.teachingMode && { teachingMode: ctx.input.teachingMode }),
+            ...(ctx.input.subjectDiscipline && { subjectDiscipline: ctx.input.subjectDiscipline }),
+            ...(planIntents?.sessionCount && { sessionCount: planIntents.sessionCount }),
+            ...(planIntents?.durationMins && { durationMins: planIntents.durationMins }),
+            ...(planIntents?.emphasis && { emphasis: planIntents.emphasis }),
+            ...(planIntents?.assessments && { assessments: planIntents.assessments }),
+            ...(!planIntents?.sessionCount && ctx.input.sessionCount && { sessionCount: ctx.input.sessionCount }),
+            ...(!planIntents?.durationMins && ctx.input.durationMins && { durationMins: ctx.input.durationMins }),
+            ...(!planIntents?.emphasis && ctx.input.emphasis && { emphasis: ctx.input.emphasis }),
+            ...(ctx.input.lessonPlanModel && { lessonPlanModel: ctx.input.lessonPlanModel }),
+            ...(ctx.input.learningStructure && { learningStructure: ctx.input.learningStructure }),
+            ...(ctx.input.learningOutcomes?.length && { courseLearningOutcomes: ctx.input.learningOutcomes }),
+            ...(mergedGoals.length > 0 && { goals: mergedGoals }),
+            ...(ctx.input.audience && { audience: ctx.input.audience }),
+          } as any),
+          { skipTimestamp: true, reason: "course-setup scaffold" },
+        );
       }
 
       // Link Subject to Playbook (course-scoped content retrieval)
