@@ -375,6 +375,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               ...(mode === "TUNING" ? { tuningScope } : {}),
               ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
               ...(pathname && (mode === "DATA" || mode === "TUNING") ? { pageHint: { route: pathname } } : {}),
+              ...(mode === "DATA" && entityContext.pageContext?.page
+                ? { pageContext: entityContext.pageContext }
+                : {}),
             }),
           });
 
@@ -430,6 +433,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               ...(mode === "TUNING" ? { tuningScope } : {}),
               ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
               ...(pathname && (mode === "DATA" || mode === "TUNING") ? { pageHint: { route: pathname } } : {}),
+              ...(mode === "DATA" && entityContext.pageContext?.page
+                ? { pageContext: entityContext.pageContext }
+                : {}),
             }),
             signal: abortControllerRef.current.signal,
           });
@@ -504,7 +510,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         abortControllerRef.current = null;
       }
     },
-    [mode, tuningScope, discussionTicketId, pathname, isStreaming, entityContext.breadcrumbs, messages, addMessage, updateMessage, appendToMessage]
+    [mode, tuningScope, discussionTicketId, pathname, isStreaming, entityContext.breadcrumbs, entityContext.pageContext, messages, addMessage, updateMessage, appendToMessage]
   );
 
   const value: ChatContextValue = {

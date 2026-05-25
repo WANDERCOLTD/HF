@@ -169,7 +169,7 @@ export default function CourseDetailPage() {
   const effectiveChords = useMemo(() => getEffectiveChords(`/x/courses/${courseId || ""}`), [courseId]);
   const { activePrefix: chordActivePrefix } = useChordShortcut(effectiveChords);
   const isOperator = ['OPERATOR', 'EDUCATOR', 'ADMIN', 'SUPERADMIN'].includes((session?.user?.role as string) || '');
-  const { pushEntity } = useEntityContext();
+  const { pushEntity, setPageContext } = useEntityContext();
   const { plural } = useTerminology();
 
   // ── State ──────────────────────────────────────────
@@ -404,6 +404,16 @@ export default function CourseDetailPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // #809 — tell the DATA-mode assistant which course + tab the user is on
+  // so it can answer "what tab am I on?" and "tell me about Felt Progress"
+  // without saying "I don't see that section". The path string matches the
+  // pathname (resolved courseId, not the route template) so ChatContext's
+  // stale-route guard treats it as live.
+  useEffect(() => {
+    if (!courseId) return;
+    setPageContext(`/x/courses/${courseId}`, { activeTab });
+  }, [courseId, activeTab, setPageContext]);
 
   // ── Tab change: lazy load lesson plan data ──
   const handleTabChange = useCallback((tab: string) => {

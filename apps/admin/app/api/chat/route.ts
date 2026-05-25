@@ -4,6 +4,7 @@ import { getAIConfig } from "@/lib/ai/config-loader";
 import { classifyAIError, userMessageForError } from "@/lib/ai/error-utils";
 import { getConfiguredMeteredAICompletionStream, getConfiguredMeteredAICompletion } from "@/lib/metering";
 import { buildSystemPrompt } from "./system-prompts";
+import { parsePageContext, type PageContextHint } from "./page-context";
 import { executeCommand, parseCommand } from "@/lib/chat/commands";
 import { logAI } from "@/lib/logger";
 import { logAIInteraction } from "@/lib/ai/knowledge-accumulation";
@@ -68,6 +69,7 @@ const MAX_TOOL_ITERATIONS = 5;
  * @body engine string - AI engine to use (optional, uses default if not specified)
  * @body bugContext object - Bug report context for BUG mode (url, errors, browser, viewport, timestamp)
  * @body discussionTicketId string - UUID of an open feedback Ticket to discuss in DATA mode. When set, the assistant's system prompt includes a `## Active Ticket` block with the ticket + comment thread, institution-scoped via the creator's institutionId.
+ * @body pageContext object - DATA mode only. Shape: `{ page: string, params: { activeTab?: string, visibleSections?: string[] } }`. Identifies which page + tab + visible section the user is looking at so the assistant does not have to guess. Ignored for WIZARD/CALL/COURSE_REF/TUNING modes.
  * @response 200 text/plain (streaming response)
  * @response 400 { ok: false, error: "Message is required" }
  * @response 500 { ok: false, error: "...", errorCode: "BILLING" | "AUTH" | "RATE_LIMIT" | ... }
@@ -116,6 +118,10 @@ export async function POST(request: NextRequest) {
     // digest when the user is on `/x/feedback` without a specific ticket.
     const pageHintRoute: string | undefined =
       typeof rawBody?.pageHint?.route === "string" ? rawBody.pageHint.route : undefined;
+    // #809 — DATA mode only. Explicit page + tab + visible section context so
+    // the assistant doesn't say "I don't see that section" when the user is
+    // staring at it. Parsed defensively — unknown shapes silently drop.
+    const pageContext: PageContextHint | undefined = parsePageContext(rawBody?.pageContext);
 
     if (!message) {
       return NextResponse.json({ ok: false, error: "Message is required" }, { status: 400 });
@@ -243,7 +249,7 @@ export async function POST(request: NextRequest) {
       userRole,
       userInstitutionId,
       tuningScope,
-      { discussionTicketId, sessionUserId: authResult.session.user.id, pageHintRoute },
+      { discussionTicketId, sessionUserId: authResult.session.user.id, pageHintRoute, pageContext },
     );
 
     // Prepare messages with conversation history
