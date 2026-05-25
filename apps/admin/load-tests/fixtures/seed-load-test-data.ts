@@ -34,7 +34,8 @@ async function main() {
     const caller = await prisma.callerIdentity.create({
       data: {
         name,
-        email: `${name}@load-test.local`,
+        // Use externalId as a load-test marker — CallerIdentity has no email field.
+        externalId: `load-test:${name}`,
         // Minimal fields — load tests don't need playbook enrollment for the
         // Phase 1A scenarios (health + webhook). Pipeline/extraction scenarios
         // in Phase 1B will need richer setup.
