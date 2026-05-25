@@ -332,6 +332,14 @@ describe("mergeAndGroupTargets transform", () => {
               "BEH-WARMTH": { value: 0.6, confidence: 0.5 },
               "BEH-DIRECTNESS": { value: 0.4, confidence: 0.5 },
             },
+            // #796 — audience defaults now live on the INIT-001 spec config
+            // (was a hardcoded const in transforms/targets.ts).
+            audienceDefaultTargets: {
+              "BEH-CHALLENGE-LEVEL": {
+                mixed:   { value: 0.5, confidence: 0.3 },
+                default: { value: 0.5, confidence: 0.3 },
+              },
+            },
           },
         },
       },

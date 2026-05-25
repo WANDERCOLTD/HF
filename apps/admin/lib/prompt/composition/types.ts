@@ -285,6 +285,18 @@ export interface OnboardingSpecData {
       confidence: number;
       rationale?: string;
     }>;
+    /**
+     * #796 — Audience-aware first-call defaults for parameters NOT covered by
+     * `defaultTargets`. Keyed parameterId → audienceId → {value, confidence}.
+     * Read by `transforms/targets.ts` at cascade priority 4 (below playbook
+     * firstSessionTargets, domain onboardingDefaultTargets, and `defaultTargets`).
+     * Replaces the former hardcoded `AUDIENCE_TARGET_DEFAULTS` const so educators
+     * can tune via INIT-001 instead of a code change.
+     */
+    audienceDefaultTargets?: Record<string, Record<string, {
+      value: number;
+      confidence: number;
+    }>>;
     /** First call flow phases */
     firstCallFlow?: {
       phases: Array<{

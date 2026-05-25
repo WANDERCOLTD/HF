@@ -53,6 +53,22 @@ interface MakeCtxOpts {
   isFirstCall?: boolean;
 }
 
+// #796 — audience defaults moved from a hardcoded const in targets.ts to
+// INIT-001.audienceDefaultTargets. The test ctx must inject this in the
+// onboardingSpec mock to keep covering the same cascade behaviour.
+const MOCK_AUDIENCE_DEFAULTS = {
+  "BEH-CHALLENGE-LEVEL": {
+    primary:              { value: 0.3,  confidence: 0.5 },
+    secondary:            { value: 0.45, confidence: 0.4 },
+    "sixth-form":         { value: 0.55, confidence: 0.4 },
+    "higher-ed":          { value: 0.6,  confidence: 0.3 },
+    "adult-professional": { value: 0.55, confidence: 0.3 },
+    "adult-casual":       { value: 0.45, confidence: 0.3 },
+    mixed:                { value: 0.5,  confidence: 0.3 },
+    default:              { value: 0.5,  confidence: 0.3 },
+  },
+};
+
 function makeContext(opts: MakeCtxOpts = {}): AssembledContext {
   const playbookConfig: PlaybookConfig = opts.firstSessionTargets
     ? { firstSessionTargets: opts.firstSessionTargets }
@@ -82,7 +98,14 @@ function makeContext(opts: MakeCtxOpts = {}): AssembledContext {
         },
       ] as unknown as AssembledContext["loadedData"]["playbooks"],
       systemSpecs: [],
-      onboardingSpec: null,
+      onboardingSpec: {
+        id: "init-001",
+        slug: "init-001",
+        name: "Caller Onboarding",
+        config: {
+          audienceDefaultTargets: MOCK_AUDIENCE_DEFAULTS,
+        },
+      } as AssembledContext["loadedData"]["onboardingSpec"],
     },
     resolvedSpecs: {} as AssembledContext["resolvedSpecs"],
     specConfig: {},
@@ -193,8 +216,9 @@ describe("mergeAndGroupTargets — firstSessionTargets (#784 S6)", () => {
   });
 
   it("precedes the audience-default for the same parameter (priority 1 wins)", () => {
-    // AUDIENCE_TARGET_DEFAULTS has a default for BEH-CHALLENGE-LEVEL — when the
-    // playbook overrides it, the audience injection must skip that paramId.
+    // INIT-001.audienceDefaultTargets has a default for BEH-CHALLENGE-LEVEL —
+    // when the playbook overrides it, the audience injection must skip that
+    // paramId. (#796: was hardcoded AUDIENCE_TARGET_DEFAULTS const.)
     const ctx = makeContext({
       firstSessionTargets: {
         "BEH-CHALLENGE-LEVEL": { value: 0.9 },
@@ -212,5 +236,39 @@ describe("mergeAndGroupTargets — firstSessionTargets (#784 S6)", () => {
     // Only one entry — audience default did NOT also fire for this paramId.
     const matching = result.all.filter((t) => t.parameterId === "BEH-CHALLENGE-LEVEL");
     expect(matching).toHaveLength(1);
+  });
+
+  // #796 — cascade-order guard. Ensures the four-priority cascade (1: playbook
+  // firstSessionTargets → 2: domain onboardingDefaultTargets → 3: INIT-001
+  // defaultTargets → 4: INIT-001.audienceDefaultTargets) stays in this order
+  // after the AUDIENCE_TARGET_DEFAULTS const → spec-config migration.
+  it("priority 4: INIT-001.audienceDefaultTargets injects only when no higher cascade layer covered the param", () => {
+    // Bare context — no playbook firstSessionTargets, no domain defaults, no
+    // INIT-001 defaultTargets entry for BEH-CHALLENGE-LEVEL. Only the audience
+    // default (priority 4) should fire.
+    const ctx = makeContext({});
+    const result = transform!(
+      { behaviorTargets: [], callerTargets: [] },
+      ctx,
+      STUB_SECTION,
+    ) as TargetsOutput;
+    const challenge = result.all.find((t) => t.parameterId === "BEH-CHALLENGE-LEVEL");
+    expect(challenge).toBeDefined();
+    expect(challenge!.scope).toBe("AUDIENCE_DEFAULT");
+    // 'mixed' audience default = 0.5 per MOCK_AUDIENCE_DEFAULTS
+    expect(challenge!.targetValue).toBe(0.5);
+  });
+
+  it("priority 4 skips metadata keys (e.g. _note) in audienceDefaultTargets", () => {
+    // Authors of the INIT-001 spec JSON sometimes add `_note` or other metadata
+    // keys alongside the real parameter keys. The cascade must skip these.
+    const ctx = makeContext({});
+    const result = transform!(
+      { behaviorTargets: [], callerTargets: [] },
+      ctx,
+      STUB_SECTION,
+    ) as TargetsOutput;
+    const metaEntry = result.all.find((t) => t.parameterId.startsWith("_"));
+    expect(metaEntry).toBeUndefined();
   });
 });
