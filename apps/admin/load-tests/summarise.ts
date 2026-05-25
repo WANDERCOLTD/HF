@@ -3,10 +3,15 @@
  * Reads a k6 --out json file and prints a verdict per scenario.
  * Pass/fail per threshold defined in k6.config.js.
  *
+ * Streams the input file line-by-line (a 100-VU × 15-min run produces
+ * 80MB+, hitting Node's max string length on naive readFileSync). #762
+ * Phase 1B fix.
+ *
  * Usage:
  *   npx tsx summarise.ts results/run-1779634000.json
  */
-import { readFileSync } from 'node:fs';
+import { createReadStream } from 'node:fs';
+import { createInterface } from 'node:readline';
 
 const file = process.argv[2];
 if (!file) {
@@ -26,35 +31,50 @@ const TARGETS: Record<string, { p95?: number; label: string }> = {
 interface Sample {
   type: string;
   metric: string;
-  data: { time: string; value: number; tags?: { scenario?: string } };
+  data: { time: string; value: number; tags?: { scenario?: string; status?: string } };
 }
-
-const lines = readFileSync(file, 'utf8').split('\n').filter(Boolean);
-const points: Sample[] = lines
-  .map((l) => {
-    try {
-      return JSON.parse(l) as Sample;
-    } catch {
-      return null;
-    }
-  })
-  .filter((p): p is Sample => p !== null && p.type === 'Point');
 
 const durations: Record<string, number[]> = {};
 const failures: Record<string, number> = {};
 const totals: Record<string, number> = {};
+// #762 Phase 1B — track failures by HTTP status for triage
+const failuresByStatus: Record<string, Record<string, number>> = {};
 
-for (const p of points) {
-  const scen = p.data.tags?.scenario;
-  if (!scen) continue;
-  if (p.metric === 'http_req_duration') {
-    (durations[scen] ??= []).push(p.data.value);
-  }
-  if (p.metric === 'http_req_failed') {
-    totals[scen] = (totals[scen] ?? 0) + 1;
-    if (p.data.value === 1) failures[scen] = (failures[scen] ?? 0) + 1;
+async function readPoints() {
+  const rl = createInterface({ input: createReadStream(file, { encoding: 'utf8' }), crlfDelay: Infinity });
+  for await (const line of rl) {
+    if (!line) continue;
+    let p: Sample | null;
+    try {
+      p = JSON.parse(line) as Sample;
+    } catch {
+      continue;
+    }
+    if (!p || p.type !== 'Point') continue;
+    const scen = p.data.tags?.scenario;
+    if (!scen) continue;
+    if (p.metric === 'http_req_duration') {
+      (durations[scen] ??= []).push(p.data.value);
+    }
+    if (p.metric === 'http_req_failed') {
+      totals[scen] = (totals[scen] ?? 0) + 1;
+      if (p.data.value === 1) {
+        failures[scen] = (failures[scen] ?? 0) + 1;
+        const status = p.data.tags?.status || 'unknown';
+        (failuresByStatus[scen] ??= {})[status] = (failuresByStatus[scen]?.[status] ?? 0) + 1;
+      }
+    }
   }
 }
+
+readPoints().then(() => {
+  printSummary();
+}).catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
+
+function printSummary() {
 
 function pct(arr: number[], p: number): number {
   if (arr.length === 0) return 0;
@@ -87,5 +107,16 @@ for (const [scen, samples] of Object.entries(durations)) {
   );
 }
 
+// Per-scenario failure breakdown by HTTP status (helps triage 4xx vs 5xx vs 0/timeout)
+for (const [scen, byStatus] of Object.entries(failuresByStatus)) {
+  const top = Object.entries(byStatus).sort((a, b) => b[1] - a[1]);
+  if (top.length > 0) {
+    const breakdown = top.map(([s, n]) => `${s}=${n}`).join(' ');
+    console.log(`  ${scen.padEnd(38)} failure breakdown by status: ${breakdown}`);
+  }
+}
+
 console.log(`\nOverall: ${overall}`);
 process.exit(overall === 'FAIL' ? 1 : 0);
+}
+
