@@ -309,6 +309,26 @@ export const DEFAULT_OFFBOARDING_CONFIG: OffboardingConfig = {
  */
 export type WelcomeToggles = IntakeConfig;
 
+/**
+ * Tunable course-level configuration for a Playbook.
+ *
+ * **Tolerance placement contract:** every new field on this interface MUST be
+ * classified under one of the 3 buckets in
+ * `docs/decisions/2026-05-22-tolerance-placement.md` (Course parameter / System
+ * default / Per-learner adaptation), and the field's JSDoc MUST carry a
+ * `@bucket` tag. Reads cascade through `lib/tolerance/resolve-*.ts`; writes go
+ * through `applyBehaviorTargets(PLAYBOOK)` or a `PATCH /api/playbooks/[id]`
+ * route, audited via `AuditLog.action = PLAYBOOK_CONFIG_WRITE`.
+ *
+ * Per-learner overrides do NOT live on this interface — they're stored on
+ * `BehaviorTarget(scope=CALLER)` or `CallerAttribute(scope=TOLERANCE)`. See the
+ * ADR for the cascade order.
+ *
+ * The `arch-checker` agent surfaces new fields here that lack a `@bucket` tag
+ * (soft warning — not a hard CI fail).
+ *
+ * @see docs/decisions/2026-05-22-tolerance-placement.md
+ */
 export interface PlaybookConfig {
   systemSpecToggles?: Record<string, { isEnabled: boolean }>;
   goals?: GoalTemplate[];
