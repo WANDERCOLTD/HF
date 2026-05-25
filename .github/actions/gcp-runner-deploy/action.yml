@@ -121,6 +121,12 @@ runs:
           --image=${{ steps.tags.outputs.image }} \
           --region=${{ inputs.region }} \
           --no-cpu-throttling
+        # #762 follow-up: a prior manual `update-traffic --to-revisions=X=100`
+        # pin (e.g. from a rollback) silently persists across subsequent
+        # deploys — new revisions get 0% traffic. Explicit --to-latest here
+        # ensures the freshly-built image actually receives traffic.
+        gcloud run services update-traffic ${{ inputs.service }} \
+          --region=${{ inputs.region }} --to-latest
         URL=$(gcloud run services describe ${{ inputs.service }} --region=${{ inputs.region }} --format='value(status.url)')
         echo "url=$URL" >> $GITHUB_OUTPUT
         echo "Deployed to $URL"
