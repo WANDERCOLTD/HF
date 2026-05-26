@@ -177,14 +177,21 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unsafe-function-type": "warn",
       "@typescript-eslint/no-require-imports": "warn",
       "@typescript-eslint/no-empty-object-type": "warn",
+      // react-hooks ratchet (#865 closeout):
+      // - 4 rules at "error" (rules-of-hooks, static-components, purity,
+      //   preserve-manual-memoization) — zero current violations after #876 + #894;
+      //   future regressions block CI.
+      // - Remaining rules stay "warn" — non-zero counts accepted as ratchet-locked
+      //   forward-compat debt; `.ratchet.json` (lint_warnings) only allows the count
+      //   to decrease over time. See #865 closeout for rationale.
       "react-hooks/exhaustive-deps": "warn",
       "react-hooks/set-state-in-effect": "warn",
-      "react-hooks/rules-of-hooks": "warn",
-      "react-hooks/immutability": "warn",
       "react-hooks/refs": "warn",
-      "react-hooks/preserve-manual-memoization": "warn",
-      "react-hooks/static-components": "warn",
-      "react-hooks/purity": "warn",
+      "react-hooks/immutability": "warn",
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/static-components": "error",
+      "react-hooks/purity": "error",
+      "react-hooks/preserve-manual-memoization": "error",
       "prefer-const": "warn",
       "@next/next/no-img-element": "warn",
       "@next/next/no-html-link-for-pages": "warn",
