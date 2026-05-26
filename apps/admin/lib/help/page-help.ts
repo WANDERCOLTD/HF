@@ -104,8 +104,8 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
       {
         id: "design",
         label: "Design",
-        about: "Welcome flow, session flow, mid-survey, and audience — the shape of how a learner experiences the course.",
-        whenToUse: "When you want to change how sessions begin, what's asked partway through, or who the course is for.",
+        about: "Welcome flow, session flow, mid-survey, audience, and tolerances — the shape of how a learner experiences the course. Tolerances cover the mastery threshold (how high a learner has to score before the AI moves on), retrieval cadence (how often the AI fires recall questions), and memory decay scale (how fast prior-call memories fade).",
+        whenToUse: "When you want to change how sessions begin, what's asked partway through, who the course is for, or how strict the AI is about mastery before advancing.",
       },
       {
         id: "curriculum",
@@ -187,8 +187,8 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
       {
         id: "tune",
         label: "Tune",
-        about: "Per-learner tuning overrides — chat with the AI to nudge how it behaves for this specific learner.",
-        whenToUse: "When this learner needs something different from the cohort default (slower pace, gentler tone, etc.).",
+        about: "Per-learner tuning overrides. Two surfaces: (1) the EQ-style sidebar with behaviour-target dials (warmth, challenge, etc.), an Approach picker (style/audience/mode), and a per-learner mastery threshold slider; (2) the Cmd+K Tuning chat for guided nudges. Saves at learner scope only affect this caller; saves at course scope cascade to everyone enrolled.",
+        whenToUse: "When this learner needs something different from the cohort default — slower pace, gentler tone, a lower or higher mastery bar before advancing.",
       },
       {
         id: "how",
