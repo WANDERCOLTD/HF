@@ -293,7 +293,7 @@ export const ADMIN_TOOLS: AITool[] = [
   {
     name: "update_playbook_config",
     description:
-      "Update non-behaviour course settings on a playbook by merging values into Playbook.config. The playbook_id comes from the active entity context. Pass any keys from the PlaybookConfig surface in `config_updates` — they are merged into the existing config (other keys preserved). Common keys: sessionCount (integer, the 'session budget'), durationMins (integer minutes), emphasis ('breadth'|'balanced'|'depth'), lessonPlanMode ('structured'|'continuous'), lessonPlanModel ('direct_instruction'|'socratic'|'5e'|'spiral'|'mastery'|'project'), interactionPattern ('socratic'|'directive'|'advisory'|'coaching'|'companion'|'facilitation'|'reflective'|'open'|'conversational-guide'), teachingMode ('recall'|'comprehension'|'practice'|'syllabus'), audience ('primary'|'secondary'|'sixth-form'|'higher-ed'|'adult-professional'|'adult-casual'|'mixed'), welcomeMessage (string), courseContext (string), courseLearningOutcomes (string[]), physicalMaterials (string), subjectDiscipline (string), aiCanShareMaterials (boolean). For BEHAVIOR parameter changes (warmth, challenge, formality, etc.) use update_behavior_target instead.",
+      "Update non-behaviour course settings on a playbook by merging values into Playbook.config. The playbook_id comes from the active entity context. Pass any keys from the PlaybookConfig surface in `config_updates` — they are merged into the existing config (other keys preserved). Common keys: sessionCount (integer, the 'session budget'), durationMins (integer minutes), emphasis ('breadth'|'balanced'|'depth'), lessonPlanMode ('structured'|'continuous'), lessonPlanModel ('direct_instruction'|'socratic'|'5e'|'spiral'|'mastery'|'project'), interactionPattern ('socratic'|'directive'|'advisory'|'coaching'|'companion'|'facilitation'|'reflective'|'open'|'conversational-guide'), teachingMode ('recall'|'comprehension'|'practice'|'syllabus'), audience ('primary'|'secondary'|'sixth-form'|'higher-ed'|'adult-professional'|'adult-casual'|'mixed'), welcomeMessage (string), courseContext (string), courseLearningOutcomes (string[]), physicalMaterials (string), subjectDiscipline (string), aiCanShareMaterials (boolean), firstCallMode ('onboarding'|'teach_immediately'|'baseline_assessment'), firstSessionTargets (object map of parameterId→{value, confidence}), progressNarrative (object: enabled, cadence, minScoreDelta, skipFirstCall), offboardingSummary (object: enabled, cadence, includeModuleMastery, includeGoalProgress, includeSkillCurrentScore), tolerances (object: retrievalCadenceOverride (integer N), memoryDecayScale (0.1-1.0)). The course-default Mastery Threshold lives in BehaviorTarget(scope=PLAYBOOK, parameterId='TOL-MASTERY-THRESHOLD'), NOT here — use update_behavior_target. For other BEHAVIOR parameter changes (warmth, challenge, formality, etc.) also use update_behavior_target.",
     input_schema: {
       type: "object",
       properties: {
@@ -382,7 +382,7 @@ export const ADMIN_TOOLS: AITool[] = [
   {
     name: "update_domain",
     description:
-      "Update a domain's (institution's) top-level fields: name, slug, description, isActive. For Domain.config use config_updates (merge style — other keys preserved). Use when the educator asks to rename their institution or change its description.",
+      "Update a domain's (institution's) fields. Top-level metadata (name, slug, description, isActive) is direct. `config_updates` merges into Domain.config (other keys preserved). For the 4 COMPOSE-affecting domain fields — `onboardingFlowPhases`, `onboardingDefaultTargets`, `onboardingWelcome`, `onboardingIdentitySpecId` — pass them at the top level; they route through `updateDomainConfig` which bumps `Domain.composeInputsUpdatedAt` so every caller in every playbook in this domain marks their cached prompt stale. Use when the educator asks to rename the institution, change its description, or tune domain-level onboarding overlays.",
     input_schema: {
       type: "object",
       properties: {
@@ -395,9 +395,107 @@ export const ADMIN_TOOLS: AITool[] = [
           type: "object",
           description: "Merge into Domain.config (other keys preserved).",
         },
+        onboardingFlowPhases: {
+          type: "object",
+          description:
+            "Domain-level fallback for `Playbook.config.onboardingFlowPhases`. Object with a `phases` array. Pass null to clear. Bumps the domain compose timestamp.",
+        },
+        onboardingDefaultTargets: {
+          type: "object",
+          description:
+            "Domain-level fallback for `Playbook.config.firstSessionTargets`. Map of parameterId → { value, confidence }. Pass null to clear. Bumps the domain compose timestamp.",
+        },
+        onboardingWelcome: {
+          type: "string",
+          description:
+            "Domain-level welcome greeting fallback used when `Playbook.config.welcome.message` is unset. Pass empty string to clear. Bumps the domain compose timestamp.",
+        },
+        onboardingIdentitySpecId: {
+          type: "string",
+          description:
+            "AnalysisSpec UUID for the domain-level identity overlay (TUT-001, COMPANION-001, COACH-001, etc.). Pass empty string to clear. Bumps the domain compose timestamp.",
+        },
         reason: { type: "string" },
       },
       required: ["domain_id", "reason"],
+    },
+  },
+
+  // ── Curriculum-side edits ───────────────────────────────────────
+  // Mirror the educator-facing routes in app/api/curricula/* +
+  // app/api/assertions/[assertionId] so the AI can edit course content
+  // through the same surface educators do. Each write fires
+  // `bumpPlaybookComposeTimestamp` after success so enrolled callers
+  // see <StalePromptPill /> on next page load.
+
+  {
+    name: "update_curriculum_module",
+    description:
+      "Update an existing CurriculumModule's editable fields. Pass any combination of: title, description, sortOrder, estimatedDurationMinutes, masteryThreshold (0-1), prerequisites (string[]), keyTerms (string[]), assessmentCriteria (string[]), isActive (boolean). Only the keys you pass are touched; everything else is preserved. The parent playbook's compose timestamp is bumped so every enrolled caller recomposes on next call. Use when the educator says 'rename module 3 to X' or 'extend module 2 to 90 minutes'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        module_id: { type: "string", description: "CurriculumModule UUID." },
+        title: { type: "string" },
+        description: { type: "string" },
+        sortOrder: { type: "integer" },
+        estimatedDurationMinutes: { type: "integer" },
+        masteryThreshold: { type: "number", minimum: 0, maximum: 1 },
+        prerequisites: { type: "array", items: { type: "string" } },
+        keyTerms: { type: "array", items: { type: "string" } },
+        assessmentCriteria: { type: "array", items: { type: "string" } },
+        isActive: { type: "boolean" },
+        reason: { type: "string" },
+      },
+      required: ["module_id", "reason"],
+    },
+  },
+
+  {
+    name: "update_assertion_lo_link",
+    description:
+      "Link (or clear) the LearningObjective FK on a ContentAssertion. Pass `learning_objective_id` as a UUID to teacher-verify the link (sets linkConfidence=1.0 + syncs learningOutcomeRef). Pass `null` to clear. Every playbook that links the assertion's parent source via PlaybookSource gets its compose timestamp bumped. Use when the educator says 'this assertion is actually about LO-5' or 'unlink this — it's miscategorised'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        assertion_id: { type: "string", description: "ContentAssertion UUID." },
+        learning_objective_id: {
+          type: ["string", "null"],
+          description: "LearningObjective UUID to link, or null to clear the link.",
+        },
+        reason: { type: "string" },
+      },
+      required: ["assertion_id", "reason"],
+    },
+  },
+
+  // ── Goal lifecycle ──────────────────────────────────────────────
+
+  {
+    name: "confirm_goal",
+    description:
+      "Mark a Goal as COMPLETED. If a pending completion signal (CallerAttribute key='goal_completion_signal') exists for the goal, flip its booleanValue to true. The caller's compose timestamp is bumped so the next call recomposes against the updated goal state. Use when the educator says 'mark Anna's goal as done' or confirms a pipeline-detected completion.",
+    input_schema: {
+      type: "object",
+      properties: {
+        goal_id: { type: "string", description: "Goal UUID." },
+        reason: { type: "string" },
+      },
+      required: ["goal_id", "reason"],
+    },
+  },
+
+  {
+    name: "dismiss_goal",
+    description:
+      "Dismiss a pending completion signal on a Goal without marking the goal COMPLETED. Flips the latest CallerAttribute(key='goal_completion_signal') booleanValue to false. The caller's compose timestamp is bumped. Use when the pipeline flagged a goal as complete but the educator wants to keep it active.",
+    input_schema: {
+      type: "object",
+      properties: {
+        goal_id: { type: "string", description: "Goal UUID." },
+        reason: { type: "string" },
+      },
+      required: ["goal_id", "reason"],
     },
   },
 
