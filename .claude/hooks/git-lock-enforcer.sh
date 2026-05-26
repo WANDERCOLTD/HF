@@ -84,18 +84,40 @@ if [ "$LOCK_PID" = "$MY_CLAUDE_PID" ] || [ "$LOCK_PID" = "$MY_PPID" ]; then
   exit 0
 fi
 
-# Check if the lock PID is alive.
+# Check if the lock PID is alive AND a claude process. An alive PID that
+# isn't a claude (e.g. an orphan zsh, Finder) is a stale lock — the previous
+# claude crashed before its Stop hook released the lock, and the OS later
+# reassigned the PID to something unrelated. Without the comm check the
+# hook would forever treat that lock as a live peer and block this session.
+# (Bug fix on top of #849, reported during the cleanup pass that followed
+#  the merge.)
+LOCK_PROC=$(ps -o comm= -p "$LOCK_PID" 2>/dev/null | tr -d ' ')
 if ! kill -0 "$LOCK_PID" 2>/dev/null; then
-  # Stale lock → reclaim silently for this session.
+  # Stale lock (dead PID) → reclaim silently for this session.
   echo "$MY_CLAUDE_PID:$(hostname):$(date -u +%s)" > "$LOCK" 2>/dev/null || true
   exit 0
 fi
+case "$LOCK_PROC" in
+  claude|*/claude)
+    : # Live claude — fall through to secondary-mode check below.
+    ;;
+  *)
+    # Live PID but not a claude — orphan lock. Reclaim silently.
+    echo "$MY_CLAUDE_PID:$(hostname):$(date -u +%s)" > "$LOCK" 2>/dev/null || true
+    exit 0
+    ;;
+esac
 
 # Secondary mode. Block destructive git ops only — allow read-only git
-# commands (status, log, diff, show, branch, rev-parse, fetch).
-# Match the command at word boundaries.
-case "$CMD" in
-  *"git checkout"*|*"git switch"*|*"git reset --hard"*|*"git pull"*|*"git merge"*|*"git rebase"*|*"git stash pop"*|*"git stash apply"*|*"git stash drop"*|*"git clean"*|*"git branch -f"*|*"git branch -D"*|*"git push --force"*|*"git push -f"*)
+# commands (status, log, diff, show, branch -list, rev-parse, fetch).
+#
+# Match keywords at word boundaries via a regex with bash's =~ operator
+# (shell glob patterns in `case` substring-match and would over-block —
+# e.g. `*"git merge"*` matches `git merge-base`, which is a read).
+# Each alternative is anchored on the trailing side by space or
+# end-of-string so the keyword can't be part of a longer command name.
+GIT_BLOCK_RE='git[[:space:]]+(checkout|switch|reset[[:space:]]+--hard|pull|merge|rebase|stash[[:space:]]+(pop|apply|drop)|clean|branch[[:space:]]+-[fD]|push[[:space:]]+(--force|-f))([[:space:]]|$)'
+if [[ "$CMD" =~ $GIT_BLOCK_RE ]]; then
     cat <<EOF
 🚫 Another claude session (PID $LOCK_PID) owns this working tree.
    This session is in SECONDARY mode — destructive git ops are blocked
@@ -114,8 +136,7 @@ case "$CMD" in
    is finished or you accept the HEAD-swap risk.
 EOF
     exit 2
-    ;;
-esac
+fi
 
 # Read-only git command → allow.
 exit 0
