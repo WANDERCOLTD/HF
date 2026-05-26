@@ -656,7 +656,7 @@ async function createSource(
   // Dedup: reuse existing ContentSource if same file uploaded within this institution.
   // Pass documentType so COURSE_REFERENCE docs skip cross-subject dedup.
   const dedup = await findDuplicateSource(contentHash, subjectId, documentType);
-  let deduplicated = dedup.deduplicated;
+  const deduplicated = dedup.deduplicated;
   let source = dedup.existingSource
     ? await prisma.contentSource.findUnique({ where: { id: dedup.existingSource.id } })
     : null;

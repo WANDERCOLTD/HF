@@ -358,7 +358,7 @@ function processSectionBlocks(
     // If it's an object, scope variables to that object
     if (typeof sectionData === "object" && sectionData !== null) {
       // Replace {{property}} with sectionData.property within this section
-      let scopedContent = content.replace(
+      const scopedContent = content.replace(
         /\{\{(\w+)\}\}/g,
         (m: string, prop: string) => {
           if (prop in sectionData) {

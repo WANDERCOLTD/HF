@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Auto-create Institution from type slug if provided and no explicit institutionId
-    let resolvedInstitutionId = institutionId || session?.user?.institutionId || undefined;
+    const resolvedInstitutionId = institutionId || session?.user?.institutionId || undefined;
     const needsAutoInstitution = !resolvedInstitutionId && !!institutionTypeSlug;
 
     if (needsAutoInstitution) {

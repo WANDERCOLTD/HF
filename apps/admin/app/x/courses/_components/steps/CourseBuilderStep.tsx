@@ -292,7 +292,7 @@ export function CourseBuilderStep({
         .catch(() => {});
     }, 600);
     return () => { if (suggestModeTimerRef.current) clearTimeout(suggestModeTimerRef.current); };
-  }, [courseName]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [courseName]);  
 
   // ── Auto-draft welcome message on outcomes arrival ─
   useEffect(() => {

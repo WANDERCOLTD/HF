@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 
   try {
   // Determine auth scope
-  let where: Record<string, unknown> = { role: "LEARNER", archivedAt: null };
+  const where: Record<string, unknown> = { role: "LEARNER", archivedAt: null };
 
   console.log("[roster] Step 0: Auth...");
   const adminAuth = await requireAuth("ADMIN");

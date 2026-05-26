@@ -95,7 +95,7 @@ export function useCourseSetupStatus(input: SetupStatusInput): CourseSetupStatus
     // input is referenced inside the memo body but its identity-changing fields
     // are tracked via the explicit deps above; a full input dep would
     // invalidate on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   ]);
 }
 

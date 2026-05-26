@@ -44,7 +44,7 @@ vi.mock("@/lib/prompt/composition/CompositionExecutor", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.configCompose = "spec-comp-001";
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   vi.spyOn(console, "warn").mockImplementation((...args: unknown[]) => mocks.warn(...args));
 });
 

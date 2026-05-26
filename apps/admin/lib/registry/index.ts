@@ -297,7 +297,7 @@ export const TRAIT_NAMES: Record<string, string> = {
 // RUNTIME HELPERS (load from database at runtime)
 // ============================================================================
 
-let _paramMap: Map<string, ParameterDefinition> | null = null;
+const _paramMap: Map<string, ParameterDefinition> | null = null;
 
 export async function loadParameterRegistry(): Promise<ParameterRegistry> {
   const { PrismaClient } = await import("@prisma/client");

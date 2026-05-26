@@ -299,7 +299,7 @@ export default function CoursesPage() {
 
   useEffect(() => {
     if (!legacyId && actionParam !== 'setup') loadCourses();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [legacyId, actionParam]);
 
   // Derive unique groups from courses

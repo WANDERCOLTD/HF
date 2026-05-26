@@ -498,7 +498,7 @@ export async function computeSharedState(
         const val = getAttributeValue(a);
         if (val === true || (typeof val === "number" && val >= masteryThreshold)) {
           // Extract module ID from various key formats
-          let moduleId = a.key
+          const moduleId = a.key
             .replace("mastery_", "")
             .replace("completed_", "")
             .replace(progressKeyPrefix, "");

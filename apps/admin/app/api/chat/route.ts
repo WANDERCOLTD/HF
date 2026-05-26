@@ -760,7 +760,7 @@ async function handleWizardModeWithTools(
   const loopMessages: AIMessage[] = [...messages];
   let toolCallCount = 0;
   let finalContent = "";
-  let allToolCalls: Array<{ name: string; input: Record<string, unknown> }> = [];
+  const allToolCalls: Array<{ name: string; input: Record<string, unknown> }> = [];
   // mergedSetupData accumulates fields across ALL loop iterations so later tools
   // (e.g. show_upload) and the continuation re-prompt see the full state.
   const mergedSetupData: Record<string, unknown> = { ...(setupData ?? {}) };

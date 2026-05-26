@@ -313,7 +313,7 @@ describe("Chat Message Storage", () => {
 
 describe("User Change Detection", () => {
   it("should detect user change", () => {
-    let lastUserId: string | undefined = "user-1";
+    const lastUserId: string | undefined = "user-1";
     const newUserId = "user-2";
 
     const hasChanged = newUserId !== lastUserId;
@@ -321,7 +321,7 @@ describe("User Change Detection", () => {
   });
 
   it("should not detect change when same user", () => {
-    let lastUserId: string | undefined = "user-1";
+    const lastUserId: string | undefined = "user-1";
     const newUserId = "user-1";
 
     const hasChanged = newUserId !== lastUserId;
@@ -329,7 +329,7 @@ describe("User Change Detection", () => {
   });
 
   it("should detect change from undefined to defined", () => {
-    let lastUserId: string | undefined = undefined;
+    const lastUserId: string | undefined = undefined;
     const newUserId = "user-1";
 
     const hasChanged = newUserId !== lastUserId;
@@ -337,7 +337,7 @@ describe("User Change Detection", () => {
   });
 
   it("should detect change from defined to undefined (logout)", () => {
-    let lastUserId: string | undefined = "user-1";
+    const lastUserId: string | undefined = "user-1";
     const newUserId: string | undefined = undefined;
 
     const hasChanged = newUserId !== lastUserId;

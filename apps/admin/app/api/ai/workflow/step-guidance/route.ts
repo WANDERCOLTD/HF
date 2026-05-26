@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Strip the fieldUpdates block from the conversational response
-    let conversationalResponse = result.content
+    const conversationalResponse = result.content
       .replace(/```fieldUpdates\s*[\s\S]*?\s*```/g, "")
       .trim();
 
