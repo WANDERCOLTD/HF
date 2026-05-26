@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Copy, Trash2, X as XIcon } from "lucide-react";
 import { useChatContext } from "@/contexts/ChatContext";
 import { useEntityContext } from "@/contexts/EntityContext";
-import { useGlobalAssistant } from "@/contexts/AssistantContext";
+import { useOptionalGlobalAssistant } from "@/contexts/AssistantContext";
 import type { LayoutMode } from "@/contexts/AssistantContext";
 import { useResponsive } from "@/hooks/useResponsive";
 import "./unified-assistant-panel.css";
@@ -148,14 +148,11 @@ export function UnifiedAssistantPanel({
   const chatContext = useChatContext();
   const entityContext = useEntityContext();
 
-  // Try to access global assistant context (optional - only available when used in GlobalAssistant)
-  let globalAssistant;
-  try {
-    globalAssistant = useGlobalAssistant();
-  } catch {
-    // Not in GlobalAssistant context, that's okay
-    globalAssistant = null;
-  }
+  // Optional global assistant context. Returns null when the panel is mounted
+  // outside GlobalAssistantProvider (legacy pages: /x/specs, /x/domains, …).
+  // useOptionalGlobalAssistant is the no-throw sibling of useGlobalAssistant
+  // and is safe to call unconditionally — satisfies rules-of-hooks. (#865 PR 2)
+  const globalAssistant = useOptionalGlobalAssistant();
 
   // Responsive detection for mobile adaptations
   const { isMobile } = useResponsive();

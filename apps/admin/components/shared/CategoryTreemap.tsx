@@ -147,9 +147,11 @@ export function CategoryTreemap({
   categoryItems?: Record<string, string[]>;
   className?: string;
 }): React.ReactElement | null {
-  const total = Object.values(categoryCounts).reduce((s, c) => s + c, 0);
-  if (total === 0) return null;
-
+  // Hooks must run unconditionally. The `total === 0` early-return previously
+  // sat above these four hooks, which violated rules-of-hooks. The hooks have
+  // no inputs that depend on `total`, so it's safe to hoist them above the
+  // guard — when total is 0 we still construct the empty hover state, then
+  // bail out of rendering. (#865 PR 2)
   const containerRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState<{
     cat: string;
@@ -165,6 +167,9 @@ export function CategoryTreemap({
   const handleMouseLeave = useCallback(() => {
     setHovered(null);
   }, []);
+
+  const total = Object.values(categoryCounts).reduce((s, c) => s + c, 0);
+  if (total === 0) return null;
 
   const entries = Object.entries(categoryCounts)
     .filter(([, c]) => c > 0)

@@ -104,3 +104,15 @@ export function useGlobalAssistant(): GlobalAssistantContextValue {
   }
   return context;
 }
+
+/**
+ * Like {@link useGlobalAssistant} but returns `null` instead of throwing when
+ * the provider is absent. Use this when a component wants the assistant
+ * features if present but renders correctly outside the provider (e.g.
+ * UnifiedAssistantPanel, which can be mounted standalone on legacy pages).
+ *
+ * Always called unconditionally — satisfies react-hooks/rules-of-hooks. (#865)
+ */
+export function useOptionalGlobalAssistant(): GlobalAssistantContextValue | null {
+  return useContext(GlobalAssistantContext);
+}
