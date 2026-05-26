@@ -132,6 +132,25 @@ Flag (soft warning — not a hard fail):
 
 Also flag if a new resolver under `lib/tolerance/` is added without a comment documenting its full cascade order (it must traverse Bucket 3 → 1 → preset → spec config → ContractRegistry → Bucket 2 hardcoded fallback, with a `console.log` recording the winning layer).
 
+### Check F — Authoring-side cascade read parity
+
+For any change under `apps/admin/components/**/*.{ts,tsx}` that fetches both `/api/playbooks/[id]/targets` AND `/api/callers/[id]/behavior-targets` (or `/effective-behavior-targets`):
+
+```bash
+grep -l "/api/playbooks/.*targets" apps/admin/components/**/*.{ts,tsx}
+grep -l "/api/callers/.*\(behavior-targets\|effective-behavior-targets\)" apps/admin/components/**/*.{ts,tsx}
+```
+
+The file MUST import from `@/lib/tolerance/resolve-tolerance` or `@/lib/tolerance/getEffectiveBehaviorTargetsForCaller`. Ad-hoc two-endpoint cascade merges in-component are forbidden — the runtime adaptive loop reads through the canonical resolver, and an authoring surface that doesn't will show a stale course-level value after a learner-scope save (caught empirically 2026-05-26 on `PromptTunerSidebar.tsx:940`).
+
+Flag (soft warning — promoted to error once #911 lands and the existing violation is fixed):
+
+- New component that introduces the dual-fetch antipattern without the resolver import
+- Refactor that drops the resolver import but keeps the dual fetch
+- A new endpoint that hides the cascade-merge antipattern behind a wrapper that itself doesn't go through the resolver
+
+This check is the static sibling of audit counter `authoringBehTargetBypassCount` in `apps/admin/scripts/audit-epic-100.ts`. See `docs/CHAIN-CONTRACTS.md` Link 3a and ADR `docs/decisions/2026-05-26-tray-model-a-semantics.md` for the sibling tray-label-honesty invariant surfaced in the same debugging session.
+
 ---
 
 ## Step 3 — Memory Doc Freshness
@@ -164,7 +183,9 @@ Files checked: [list]
 | B | Entity Hierarchy | ✅ PASS / ⚠️ FLAG / N/A | |
 | C | Holographic Contracts | ✅ PASS / ⚠️ FLAG / N/A | |
 | D | Adaptive Loop | ✅ PASS / ⚠️ FLAG / N/A | |
-| E | Memory Doc Freshness | ✅ PASS / ⚠️ FLAG / N/A | |
+| E | Tolerance Placement | ✅ PASS / ⚠️ FLAG / N/A | |
+| F | Authoring Cascade Read Parity | ✅ PASS / ⚠️ FLAG / N/A | |
+| — | Memory Doc Freshness | ✅ PASS / ⚠️ FLAG / N/A | |
 
 **Result: CLEAN** / **FLAGS: [N]**
 ```
