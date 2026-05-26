@@ -40,3 +40,4 @@ A-Sample Docs/
 *.pdf
 *.docx
 docs/market-test-plan.md
+.claude/scheduled_tasks.lock
