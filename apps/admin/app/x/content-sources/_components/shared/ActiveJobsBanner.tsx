@@ -80,6 +80,7 @@ export function ActiveJobsBanner({ onJobDone }: { onJobDone: () => void }) {
         const pct = ctx.totalChunks && ctx.totalChunks > 0
           ? Math.round(((ctx.currentChunk || 0) / ctx.totalChunks) * 100)
           : 0;
+        // eslint-disable-next-line react-hooks/purity -- live elapsed display in a polling banner; rerenders every 3s tick when jobs[] updates, so Date.now() is intentionally evaluated on each render to advance the seconds counter
         const elapsed = Math.floor((Date.now() - new Date(job.startedAt).getTime()) / 1000);
         const mins = Math.floor(elapsed / 60);
         const secs = elapsed % 60;

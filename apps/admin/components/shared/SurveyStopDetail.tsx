@@ -383,10 +383,12 @@ export function SurveyStopDetail({
     onAssessmentConfigChange?.({ questionCount: count }, 'preTest');
   }, [onAssessmentConfigChange]);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the compiler flags cfg (and any slice cast from it via `as string[]`) as "may be mutated later" because playbookConfig is a deep Record<string, any>. The handler reads a snapshot at call time; manual memoization is the correct shape here.
   const handleExclude = useCallback((questionId: string) => {
     const current = (cfg.assessment?.preTest?.excludedQuestionIds as string[]) ?? [];
     if (current.includes(questionId)) return;
     onAssessmentConfigChange?.({ excludedQuestionIds: [...current, questionId] }, 'preTest');
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization -- see suppress above on the callback line; the dep-array warning is the second half of the same compiler complaint about cfg being a deep mutable Record.
   }, [cfg, onAssessmentConfigChange]);
 
   // Resolve sourceId per section type

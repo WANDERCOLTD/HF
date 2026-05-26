@@ -29,6 +29,36 @@ const DURATIONS = [15, 20, 30, 45, 60] as const;
 const EMPHASIS_OPTIONS = ["breadth", "balanced", "depth"] as const;
 const ASSESSMENT_OPTIONS = ["formal", "light", "none"] as const;
 
+// ── Render helpers ─────────────────────────────────
+
+interface SourceBadgeProps {
+  field: string;
+  isOverride: boolean;
+  canEdit: boolean;
+  onReset: (field: string) => void;
+}
+
+function SourceBadge({ field, isOverride, canEdit, onReset }: SourceBadgeProps) {
+  return (
+    <span className="hf-flex hf-items-center hf-gap-xs">
+      <span
+        className={`hf-chip hf-chip-sm hf-source-badge ${isOverride ? "hf-chip-selected" : ""}`}
+      >
+        {isOverride ? "OVR" : "SYS"}
+      </span>
+      {isOverride && canEdit && (
+        <button
+          onClick={() => onReset(field)}
+          className="hf-btn hf-btn-ghost hf-btn-xs"
+          title="Reset to system default"
+        >
+          <RefreshCw size={10} />
+        </button>
+      )}
+    </span>
+  );
+}
+
 // ── Props ──────────────────────────────────────────
 
 interface Props {
@@ -129,30 +159,6 @@ export function CourseDefaultsSection({ domainId, canEdit }: Props) {
     save(body);
   };
 
-  // ── Render helpers ───────────────────────────────
-
-  function SourceBadge({ field }: { field: string }) {
-    const isOverride = overrides.has(field);
-    return (
-      <span className="hf-flex hf-items-center hf-gap-xs">
-        <span
-          className={`hf-chip hf-chip-sm hf-source-badge ${isOverride ? "hf-chip-selected" : ""}`}
-        >
-          {isOverride ? "OVR" : "SYS"}
-        </span>
-        {isOverride && canEdit && (
-          <button
-            onClick={() => handleReset(field)}
-            className="hf-btn hf-btn-ghost hf-btn-xs"
-            title="Reset to system default"
-          >
-            <RefreshCw size={10} />
-          </button>
-        )}
-      </span>
-    );
-  }
-
   // ── Render ───────────────────────────────────────
 
   if (!domainId) {
@@ -200,7 +206,7 @@ export function CourseDefaultsSection({ domainId, canEdit }: Props) {
         <div>
           <div className="hf-flex hf-items-center hf-gap-sm hf-mb-xs">
             <FieldHint label="Sessions per course" hint={WIZARD_HINTS["course.duration"]} labelClass="hf-label" />
-            <SourceBadge field="sessionCount" />
+            <SourceBadge field="sessionCount" isOverride={overrides.has("sessionCount")} canEdit={canEdit} onReset={handleReset} />
           </div>
           <SessionCountPicker
             value={sessionCount}
@@ -212,7 +218,7 @@ export function CourseDefaultsSection({ domainId, canEdit }: Props) {
         <div>
           <div className="hf-flex hf-items-center hf-gap-sm hf-mb-xs">
             <FieldHint label="Session duration" hint={WIZARD_HINTS["course.duration"]} labelClass="hf-label" />
-            <SourceBadge field="durationMins" />
+            <SourceBadge field="durationMins" isOverride={overrides.has("durationMins")} canEdit={canEdit} onReset={handleReset} />
           </div>
           <div className="hf-chip-row">
             {DURATIONS.map((d) => (
@@ -232,7 +238,7 @@ export function CourseDefaultsSection({ domainId, canEdit }: Props) {
         <div>
           <div className="hf-flex hf-items-center hf-gap-sm hf-mb-xs">
             <FieldHint label="Teaching emphasis" hint={WIZARD_HINTS["course.emphasis"]} labelClass="hf-label" />
-            <SourceBadge field="emphasis" />
+            <SourceBadge field="emphasis" isOverride={overrides.has("emphasis")} canEdit={canEdit} onReset={handleReset} />
           </div>
           <div className="hf-chip-row">
             {EMPHASIS_OPTIONS.map((e) => (
@@ -252,7 +258,7 @@ export function CourseDefaultsSection({ domainId, canEdit }: Props) {
         <div>
           <div className="hf-flex hf-items-center hf-gap-sm hf-mb-xs">
             <FieldHint label="Assessments" hint={WIZARD_HINTS["course.assessments"]} labelClass="hf-label" />
-            <SourceBadge field="assessments" />
+            <SourceBadge field="assessments" isOverride={overrides.has("assessments")} canEdit={canEdit} onReset={handleReset} />
           </div>
           <div className="hf-chip-row">
             {ASSESSMENT_OPTIONS.map((a) => (
@@ -272,7 +278,7 @@ export function CourseDefaultsSection({ domainId, canEdit }: Props) {
         <div>
           <div className="hf-flex hf-items-center hf-gap-sm hf-mb-xs">
             <FieldHint label="Teaching model" hint={WIZARD_HINTS["course.model"]} labelClass="hf-label" />
-            <SourceBadge field="lessonPlanModel" />
+            <SourceBadge field="lessonPlanModel" isOverride={overrides.has("lessonPlanModel")} canEdit={canEdit} onReset={handleReset} />
           </div>
           <LessonPlanModelPicker
             value={lessonPlanModel}

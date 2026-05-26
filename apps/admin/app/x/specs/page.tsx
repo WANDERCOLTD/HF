@@ -226,6 +226,18 @@ type AvailableSource = {
   isExpired: boolean;
 };
 
+function TrustBadge({ level }: { level: string }) {
+  const info = TRUST_LEVEL_COLORS[level] || TRUST_LEVEL_COLORS.UNVERIFIED;
+  return (
+    <span
+      className="hf-trust-badge"
+      style={{ background: info.bg, color: info.text }}
+    >
+      {info.label}
+    </span>
+  );
+}
+
 function SourceAuthorityPanel({
   configText,
   onConfigChange,
@@ -331,18 +343,6 @@ function SourceAuthorityPanel({
     const { primarySource: _removed, ...rest } = parsed || {};
     updateSourceAuthority(rest);
   }, [parsed, updateSourceAuthority]);
-
-  const TrustBadge = ({ level }: { level: string }) => {
-    const info = TRUST_LEVEL_COLORS[level] || TRUST_LEVEL_COLORS.UNVERIFIED;
-    return (
-      <span
-        className="hf-trust-badge"
-        style={{ background: info.bg, color: info.text }}
-      >
-        {info.label}
-      </span>
-    );
-  };
 
   // Sources not yet assigned
   const unassignedSources = availableSources.filter(

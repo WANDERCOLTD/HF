@@ -113,6 +113,7 @@ export default function MonitorClient() {
 
   if (!data) return null;
 
+  // eslint-disable-next-line react-hooks/purity -- "Last updated Ns ago" counter; the monitor poll triggers re-renders that should advance this display
   const updatedSec = Math.floor((Date.now() - loadedAt) / 1000);
   const engagementPct = data.callersTotal > 0 ? Math.round((data.callersCalledToday / data.callersTotal) * 100) : 0;
 
