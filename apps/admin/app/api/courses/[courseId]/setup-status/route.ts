@@ -10,11 +10,14 @@ import type { SetupStatusResponse, SetupStatusErrorResponse } from "./types";
  * @auth VIEWER
  * @tags courses, readiness
  * @description Returns aggregated setup status for stages 4-6 of the Course Setup Tracker.
- *   Stages 1-3 are derived client-side from data already loaded on the page.
- *   This endpoint checks: lesson plan existence, onboarding config, and prompt composability.
+ *   Stages 1-3 are derived client-side from data already loaded on the page,
+ *   but #884 S0 also exposes `hasSources` + `hasAssertions` so the client can
+ *   enforce `ready_to_teach ⇒ ∀ prior step done` without re-fetching subjects.
+ *   This endpoint checks: lesson plan existence, onboarding config, prompt
+ *   composability, and Foundation-stage signals.
  *
  * @pathParam courseId string - Playbook UUID
- * @response 200 { ok, lessonPlanBuilt, onboardingConfigured, promptComposable, allCriticalPass, activeCurriculumMode }
+ * @response 200 { ok, lessonPlanBuilt, onboardingConfigured, promptComposable, allCriticalPass, activeCurriculumMode, hasSources, hasAssertions }
  */
 export async function GET(
   _req: NextRequest,
@@ -132,6 +135,45 @@ export async function GET(
     });
     const promptComposable = !!composedPrompt;
 
+    // ── #884 S0 — Foundation-stage signals (hasSources / hasAssertions) ──
+    // Stages 1-3 of the Course Setup Tracker are derived client-side from
+    // subjects/sources already loaded on the page, but the client needs the
+    // server's view of "is this playbook backed by extracted content yet?"
+    // to enforce `ready_to_teach ⇒ ∀ prior step done` without trusting the
+    // partial subjects array (which can lag the actual DB state).
+    //
+    // Scope strictly by playbook (PlaybookSubject → Subject → SubjectSource →
+    // ContentAssertion). Domain-wide scoping would leak sibling-course content
+    // and falsely mark a brand-new course as "has assertions" — slug-scope
+    // invariant §4 / #407.
+    const playbookSubjectIds = await prisma.playbookSubject.findMany({
+      where: { playbookId: courseId },
+      select: { subjectId: true },
+    });
+    const subjectIdList = playbookSubjectIds.map((ps) => ps.subjectId);
+
+    let hasSources = false;
+    let hasAssertions = false;
+    if (subjectIdList.length > 0) {
+      const sourceLink = await prisma.subjectSource.findFirst({
+        where: { subjectId: { in: subjectIdList } },
+        select: { sourceId: true },
+      });
+      hasSources = !!sourceLink;
+
+      if (hasSources) {
+        const assertion = await prisma.contentAssertion.findFirst({
+          where: {
+            source: {
+              subjects: { some: { subjectId: { in: subjectIdList } } },
+            },
+          },
+          select: { id: true },
+        });
+        hasAssertions = !!assertion;
+      }
+    }
+
     // All critical = lesson plan + onboarding configured + strategies assigned (#444)
     // Prompt composition happens on first call — not an educator-facing readiness gate
     const allCriticalPass = lessonPlanBuilt && onboardingConfigured && strategiesAssigned;
@@ -156,6 +198,8 @@ export async function GET(
       activeCurriculumMode,
       strategiesAssigned,
       unstrategisedGoalCount: unstrategised,
+      hasSources,
+      hasAssertions,
     };
     return NextResponse.json(payload);
   } catch (err) {

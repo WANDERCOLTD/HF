@@ -93,6 +93,8 @@ export function useCourseSetupStatus(input: SetupStatusInput): CourseSetupStatus
     input.sessions?.plan?.estimatedSessions,
     input.readiness?.lessonPlanBuilt,
     input.readiness?.allCriticalPass,
+    input.readiness?.hasSources,
+    input.readiness?.hasAssertions,
     // input is referenced inside the memo body but its identity-changing fields
     // are tracked via the explicit deps above; a full input dep would
     // invalidate on every render.
@@ -249,18 +251,67 @@ export function deriveStages(input: SetupStatusInput): CourseSetupStatus {
     detail: onboardingOk ? 'Welcome experience ready' : 'Set up the welcome message',
   });
 
-  // ── Stage 6: Ready to Teach (gates on BOTH 4 + 5) ────
+  // ── Stage 6: Ready to Teach (gates on ALL prior stages) ────
+  //
+  // #884 S0 — "Ready to Teach gating lie" stopgap.
+  //
+  // Previously this used `readiness?.allCriticalPass` alone, which only
+  // verified stages 4-5 (lesson plan + onboarding + #444 strategies). A
+  // course with no content uploaded could show "Ready to Teach" green
+  // while stages 1-3 were still pending — banner contradicting badge.
+  //
+  // Invariant: `ready_to_teach ⇒ ∀ prior step done`.
+  //
+  // Foundation signals come from the server (`hasSources`/`hasAssertions`)
+  // so the gate doesn't trust the partial client-side subjects array.
+  // Stage 1 ("Course Created") and stage 2 ("Content Uploaded") collapse
+  // into `hasSources`; stage 3 ("Teaching Points Ready") collapses into
+  // `hasAssertions`. We also require the locally-derived stages to be
+  // `done` so a still-extracting stage 3 keeps stage 6 pending.
+  //
+  // The full chain-contract refactor (S1-S2) moves these to first-class
+  // spec checks. Until then this guard ships as a stopgap — see
+  // `docs/decisions/2026-05-26-extend-chain-contracts-to-setup-readiness.md`.
   const allCritical = readiness?.allCriticalPass ?? false;
+  const foundationFromServer =
+    (readiness?.hasSources ?? false) && (readiness?.hasAssertions ?? false);
+  const foundationFromClient =
+    stage1Done && stage2Done && stage3Status === 'done';
+  const allPriorDone = foundationFromServer && foundationFromClient && hasPlan && onboardingOk;
   const bothConfigured = hasPlan && onboardingOk;
+
+  // Status: only 'done' when EVERY prior gate passes AND server agrees
+  // (`allCriticalPass`). 'active' when configure-stage is done but
+  // foundation is still catching up. 'pending' otherwise.
+  let stage6Status: StageStatus;
+  let stage6Detail: string;
+  if (allCritical && allPriorDone) {
+    stage6Status = 'done';
+    stage6Detail = 'Ready for practice calls';
+  } else if (bothConfigured && !foundationFromServer) {
+    // The lying-banner case: stages 4-5 done but content/extraction missing.
+    stage6Status = 'pending';
+    stage6Detail = !readiness?.hasSources
+      ? 'Upload content to unlock'
+      : 'Waiting for teaching points to be extracted';
+  } else if (bothConfigured && !foundationFromClient) {
+    // Server says content exists but client-derived stages 1-3 not all 'done'
+    // (e.g. extraction still active). Hold the gate.
+    stage6Status = 'pending';
+    stage6Detail = 'Finishing content extraction...';
+  } else if (bothConfigured) {
+    stage6Status = 'active';
+    stage6Detail = 'Running final checks...';
+  } else {
+    stage6Status = 'pending';
+    stage6Detail = 'Complete steps 4 and 5';
+  }
+
   stages.push({
     number: 6,
     label: 'Ready to Teach',
-    status: allCritical ? 'done' : bothConfigured ? 'active' : 'pending',
-    detail: allCritical
-      ? 'Ready for practice calls'
-      : bothConfigured
-        ? 'Running final checks...'
-        : 'Complete steps 4 and 5',
+    status: stage6Status,
+    detail: stage6Detail,
   });
 
   // ── Summary ────────────────────────────────────────

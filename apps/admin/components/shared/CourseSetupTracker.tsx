@@ -69,6 +69,9 @@ export function CourseSetupTracker({
           promptComposable: data.promptComposable,
           allCriticalPass: data.allCriticalPass,
           activeCurriculumMode: data.activeCurriculumMode,
+          // #884 S0 — Foundation-stage signals for "Ready to Teach" gating
+          hasSources: data.hasSources,
+          hasAssertions: data.hasAssertions,
         });
       }
     } catch (err) {
