@@ -33,6 +33,13 @@ const { mockPrisma, mockRequireAuth, mockIsAuthError } = vi.hoisted(() => ({
     goal: {
       count: vi.fn(),
     },
+    // #884 S0 — Foundation-stage signals (hasSources / hasAssertions).
+    subjectSource: {
+      findFirst: vi.fn(),
+    },
+    contentAssertion: {
+      findFirst: vi.fn(),
+    },
   },
   mockRequireAuth: vi.fn(),
   mockIsAuthError: vi.fn(),
@@ -65,6 +72,8 @@ beforeEach(() => {
   mockPrisma.curriculum.findFirst.mockReset();
   mockPrisma.composedPrompt.findFirst.mockReset();
   mockPrisma.goal.count.mockReset();
+  mockPrisma.subjectSource.findFirst.mockReset();
+  mockPrisma.contentAssertion.findFirst.mockReset();
 
   mockRequireAuth.mockResolvedValue(passingAuth);
   mockIsAuthError.mockReturnValue(false);
@@ -74,6 +83,11 @@ beforeEach(() => {
   mockPrisma.composedPrompt.findFirst.mockResolvedValue(null);
   // #444 — default: 0 unstrategised goals (course is strategy-clean).
   mockPrisma.goal.count.mockResolvedValue(0);
+  // #884 S0 — default: course has subjects but no sources/assertions yet
+  // (fresh-create state). Individual tests override.
+  mockPrisma.playbookSubject.findMany.mockResolvedValue([]);
+  mockPrisma.subjectSource.findFirst.mockResolvedValue(null);
+  mockPrisma.contentAssertion.findFirst.mockResolvedValue(null);
 });
 
 function basePlaybook(configOverrides: Record<string, unknown> = {}) {
@@ -220,5 +234,79 @@ describe("setup-status — auth and 404 still behave (regression)", () => {
     mockPrisma.playbook.findUnique.mockResolvedValue(null);
     const res = (await GET(makeReq(), { params })) as NextResponse;
     expect(res.status).toBe(404);
+  });
+});
+
+// =====================================================
+// #884 S0 — Foundation-stage signals (hasSources / hasAssertions)
+// =====================================================
+
+describe("setup-status — #884 S0 Foundation-stage signals", () => {
+  it("returns hasSources=false, hasAssertions=false for a fresh course with no subjects", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue(basePlaybook());
+    mockPrisma.playbookSubject.findMany.mockResolvedValue([]);
+
+    const res = (await GET(makeReq(), { params })) as NextResponse;
+    const body = await res.json();
+
+    expect(body.hasSources).toBe(false);
+    expect(body.hasAssertions).toBe(false);
+    // Sanity: lying-bug guard — `allCriticalPass` may still be true when
+    // onboarding + lesson plan pass, but the client uses hasSources/
+    // hasAssertions to override stage 6. The server intentionally does NOT
+    // fold Foundation into allCriticalPass (full contract refactor — S1/S2).
+    expect(body.allCriticalPass).toBe(true);
+  });
+
+  it("returns hasSources=true, hasAssertions=false while extraction is still running", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue(basePlaybook());
+    mockPrisma.playbookSubject.findMany.mockResolvedValue([{ subjectId: "sub-1" }]);
+    mockPrisma.subjectSource.findFirst.mockResolvedValue({ sourceId: "src-1" });
+    mockPrisma.contentAssertion.findFirst.mockResolvedValue(null);
+
+    const res = (await GET(makeReq(), { params })) as NextResponse;
+    const body = await res.json();
+
+    expect(body.hasSources).toBe(true);
+    expect(body.hasAssertions).toBe(false);
+  });
+
+  it("returns hasSources=true, hasAssertions=true for a fully-extracted course", async () => {
+    mockPrisma.playbook.findUnique.mockResolvedValue(basePlaybook());
+    mockPrisma.playbookSubject.findMany.mockResolvedValue([{ subjectId: "sub-1" }]);
+    mockPrisma.subjectSource.findFirst.mockResolvedValue({ sourceId: "src-1" });
+    mockPrisma.contentAssertion.findFirst.mockResolvedValue({ id: "a-1" });
+
+    const res = (await GET(makeReq(), { params })) as NextResponse;
+    const body = await res.json();
+
+    expect(body.hasSources).toBe(true);
+    expect(body.hasAssertions).toBe(true);
+  });
+
+  it("scopes by playbook (not domain) — slug-scope invariant #407", async () => {
+    // Two subjects linked to this playbook
+    mockPrisma.playbook.findUnique.mockResolvedValue(basePlaybook());
+    mockPrisma.playbookSubject.findMany.mockResolvedValue([
+      { subjectId: "sub-A" },
+      { subjectId: "sub-B" },
+    ]);
+    mockPrisma.subjectSource.findFirst.mockResolvedValue({ sourceId: "src-1" });
+    mockPrisma.contentAssertion.findFirst.mockResolvedValue({ id: "a-1" });
+
+    await GET(makeReq(), { params });
+
+    // playbookSubject query must filter on this playbook only
+    expect(mockPrisma.playbookSubject.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { playbookId: "playbook-1" },
+      }),
+    );
+    // subjectSource query must use the resolved subject IDs (not domain or other heuristic)
+    expect(mockPrisma.subjectSource.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { subjectId: { in: ["sub-A", "sub-B"] } },
+      }),
+    );
   });
 });

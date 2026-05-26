@@ -36,6 +36,25 @@ export interface SetupStatusResponse {
    */
   strategiesAssigned: boolean;
   unstrategisedGoalCount: number;
+  /**
+   * #884 S0 — stopgap "Ready to Teach" gating signals.
+   *
+   * Stages 1–3 of the Course Setup tracker (Course Created, Content Uploaded,
+   * Teaching Points Ready) are currently derived client-side from subject/source
+   * data already loaded on the page. The server exposes these booleans so the
+   * `useCourseSetupStatus` hook can enforce the invariant
+   * `ready_to_teach ⇒ ∀ prior step done` without re-fetching subjects.
+   *
+   * These are deliberately NOT folded into `allCriticalPass` — the full
+   * chain-contract refactor (S1–S2, see
+   * `docs/decisions/2026-05-26-extend-chain-contracts-to-setup-readiness.md`)
+   * decides their severity. Client enforces the dependency locally for now.
+   *
+   * - `hasSources`: at least one ContentSource linked to any Subject of this playbook
+   * - `hasAssertions`: at least one ContentAssertion extracted for those sources
+   */
+  hasSources: boolean;
+  hasAssertions: boolean;
 }
 
 /** 4xx/5xx error path — separate type so the success contract stays tight. */
