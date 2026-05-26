@@ -1,18 +1,30 @@
-# Cmd+K AI Capabilities
+# AI Capabilities
 
-**Auto-generated** from `apps/admin/lib/chat/admin-tools.ts` + the `TOOL_MIN_ROLE` map in `admin-tool-handlers.ts`. Do not edit by hand — run `npm run docs:ai-capabilities` to refresh, or `npm run docs:ai-capabilities:check` in CI to gate drift.
+**Auto-generated** from the three AI tool registries in `apps/admin/lib/chat/` + the `TOOL_MIN_ROLE` map in each registry's handler. Do not edit by hand — run `npm run docs:ai-capabilities` to refresh, or `npm run docs:ai-capabilities:check` in CI to gate drift.
 
-Mirrors what the AI sees at every chat turn. "Live" tools execute real handlers. "Roadmap stubs" return a friendly refusal that tells the educator which UI to use today (the schema description carries the verbatim line the AI will say).
+This mirrors what the AI sees at every chat turn across all three AI surfaces. "Live" tools execute real handlers. "Roadmap stubs" return a friendly refusal that points the user at the UI surface to use today.
 
-> Last generated: 2026-05-26T09:38:17.948Z
-> Live tools: 27
-> Roadmap stubs: 6
+> Last generated: 2026-05-26T09:54:18.456Z
+> Surfaces: 3
+> Total tools: 48 (42 live, 6 roadmap stubs)
 
 ## Contract
 
-Every educator-facing write must bump compose timestamps (per `docs/CHAIN-CONTRACTS.md` §3 Link 3 sub-contract). Every promised tool must be declared in `ADMIN_TOOLS[]` — the AI cannot invent capabilities. The dispatch in `admin-tool-handlers.ts` enforces RBAC via `TOOL_MIN_ROLE` *before* the handler runs, so STUDENT/VIEWER hit auth refusal before any read or write.
+Per `docs/CHAIN-CONTRACTS.md` §3 Link 3:
 
-## Live tools
+1. Every AI write path must be declared in one of the registries below.
+2. Every entry must declare RBAC via `TOOL_MIN_ROLE` in its handler module.
+3. Every NOT YET AVAILABLE tool must carry the prefix in its description AND be listed in `NOT_YET_AVAILABLE_TOOLS`.
+4. Every compose-affecting write must route through a `update*Config` helper or call `bump*ComposeTimestamp` — never write `prisma.{playbook,domain,analysisSpec}.update` directly. ESLint rules enforce this at severity `error`.
+5. This file is auto-derived. CI fails on drift.
+
+## Cmd+K (admin chat)
+
+Source: `apps/admin/lib/chat/admin-tools.ts`
+
+27 live, 6 stubs.
+
+### Live tools
 
 | Tool | Min role | Required | Optional | Summary |
 |------|----------|----------|----------|---------|
@@ -44,7 +56,7 @@ Every educator-facing write must bump compose timestamps (per `docs/CHAIN-CONTRA
 | `update_playbook_meta` | OPERATOR | `playbook_id`, `reason` | `name`, `description`, `sortOrder` | Update playbook top-level metadata fields (name, description, sortOrder). |
 | `update_spec_config` | OPERATOR | `spec_id`, `config_updates`, `reason` | — | Update a spec's config JSON by merging new values. |
 
-## Roadmap stubs (NOT YET AVAILABLE)
+### Roadmap stubs (NOT YET AVAILABLE)
 
 | Tool | Min role | Required | Optional | Summary |
 |------|----------|----------|----------|---------|
@@ -55,11 +67,48 @@ Every educator-facing write must bump compose timestamps (per `docs/CHAIN-CONTRA
 | `replace_lesson_plan` | OPERATOR | `curriculum_id`, `plan`, `reason` | — | replace Curriculum. |
 | `reset_caller` | OPERATOR | `caller_id`, `reason` | — | wipe a caller's runtime state (calls, scores, memories, attributes, goals) and start over without deleting the Caller row. |
 
+## Wizard (course-creation chat)
+
+Source: `apps/admin/lib/chat/conversational-wizard-tools.ts`
+
+10 live, 0 stubs.
+
+### Live tools
+
+| Tool | Min role | Required | Optional | Summary |
+|------|----------|----------|----------|---------|
+| `create_community` | (route-level) | `hubName`, `communityMode` | `hubDescription`, `hubPattern`, `communityKind`, `topics`, `welcomeMessage` | Create a community hub with infrastructure (COMMUNITY domain, identity spec, playbook, cohort group). |
+| `create_course` | (route-level) | `courseName`, `interactionPattern` | `domainId`, `groupId`, `subjectDiscipline`, `teachingMode`, `welcomeMessage`, `sessionCount`, `durationMins`, `planEmphasis`, `behaviorTargets`, `personalityPreset`, `lessonPlanModel`, `physicalMaterials`, `packSubjectIds`, `uploadSourceIds` | Create the course with full infrastructure (identity spec, playbook, system specs, onboarding) and a test caller. |
+| `create_institution` | (route-level) | `name` | `typeSlug`, `websiteUrl` | Create a new institution (and its domain). |
+| `mark_complete` | (route-level) | — | `playbookId`, `callerId` | Signal that setup is complete. |
+| `show_options` | (route-level) | `question`, `dataKey`, `mode`, `options` | `required`, `fieldPicker` | Show a structured option card for questions with predefined choices. |
+| `show_suggestions` | (route-level) | `question`, `suggestions` | — | Show clickable quick-reply chips above the chat input. |
+| `show_upload` | (route-level) | `question` | — | Show the file upload panel above the chat input bar. |
+| `suggest_welcome_message` | (route-level) | `courseName` | `subjectDiscipline`, `interactionPattern`, `personalityPreset` | Generate a welcome message for the first call based on the course context. |
+| `update_course_config` | (route-level) | — | `domainId`, `playbookId`, `welcomeMessage`, `sessionCount`, `durationMins`, `planEmphasis`, `behaviorTargets`, `lessonPlanModel`, `onboardingFlowPhases` | Update an already-created course's configuration. |
+| `update_setup` | (route-level) | `fields` | — | Save one or more extracted data fields from the conversation. |
+
+## Course-Ref (course-reference chat)
+
+Source: `apps/admin/lib/chat/course-ref-tools.ts`
+
+5 live, 0 stubs.
+
+### Live tools
+
+| Tool | Min role | Required | Optional | Summary |
+|------|----------|----------|----------|---------|
+| `check_completeness` | (route-level) | — | — | Check which sections of the course reference are complete, partial, or empty. |
+| `finalize_ref` | (route-level) | — | `institutionName`, `courseName`, `courseId` | Finalize the course reference and create the course. |
+| `show_ref_preview` | (route-level) | `sections` | — | Update the preview panel to show the current state of one or more sections. |
+| `show_suggestions` | (route-level) | `question`, `suggestions` | — | Show clickable quick-reply chips above the chat input. |
+| `update_ref` | (route-level) | `section`, `data` | — | Save or update a section of the course reference document. |
+
 ## Promoting a stub
 
-1. Implement the handler in `apps/admin/lib/chat/admin-tool-handlers.ts`.
-2. Verify the RBAC entry (already at OPERATOR by default; bump if the op is destructive).
+1. Implement the handler in the registry's handler module.
+2. Verify the RBAC entry in `TOOL_MIN_ROLE` (default OPERATOR; bump if destructive).
 3. Remove the tool name from the `NOT_YET_AVAILABLE_TOOLS` Set and add a dispatch case routing to the real handler.
-4. Strip the `NOT YET AVAILABLE — ` prefix from the description in `admin-tools.ts`.
+4. Strip the `NOT YET AVAILABLE — ` prefix from the description in the registry.
 5. Run `npm run docs:ai-capabilities` to regenerate this file.
 
