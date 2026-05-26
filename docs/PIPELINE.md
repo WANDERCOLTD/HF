@@ -127,9 +127,13 @@ ADAPT        reads:  CallerPersonalityProfile, transcript, Goal
              writes: CallTarget, CallerTarget, Goal, GoalProgress
 SUPERVISE    reads:  CallTarget, CallerTarget
              writes: clamped CallTarget, aggregated CallerTarget
-COMPOSE      reads:  CallerMemory, CallerPersonalityProfile, Goal, CallerTarget
-             writes: ComposedPrompt
+COMPOSE      reads:  CallerMemory, CallerPersonalityProfile, Goal, CallerTarget,
+                     CallerAttribute(scope=CURRICULUM, key="scheduler:last_decision")  ← #918
+             writes: ComposedPrompt,
+                     CallerAttribute(scope=CURRICULUM, key="scheduler:last_decision")  ← bi-directional
 ```
+
+**#918 COMPOSE bi-directional read.** Since #918 (carry-forward of planned-but-uncovered TPs), COMPOSE reads the *prior call's* `scheduler:last_decision` CallerAttribute to identify TPs the scheduler planned but the EXTRACT-side mastery signal shows were never reached (status still `not_started`). Those TP IDs are passed into `selectWorkingSet` as `WorkingSetInput.priorPlannedAssertionIds` and boost their containing LO in the working-set ranking. Caller responsibility (in `transforms/modules.ts`): diff `priorDecision.workingSetAssertionIds` against `tpProgress` *before* calling `selectWorkingSet`; the picker-locked path at `modules.ts:929+` writes an empty workingSet which naturally suppresses carry-forward on the next call. See `docs/CHAIN-CONTRACTS.md` Link 6.a for the full contract.
 
 **#417 cross-stage AGGREGATE write — note for reviewers.** SKILL-AGG-001
 (SYSTEM-scope AGGREGATE spec) uses a new `AggregationRule.method =

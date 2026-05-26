@@ -28,6 +28,37 @@ export interface WorkingSetInput {
   callDurationMins: number;
   /** Mastery threshold for "mastered" status (default 0.7) */
   masteryThreshold: number;
+  /**
+   * #918 — Assertion IDs that the prior call planned (`workingSetAssertionIds`)
+   * but never covered (`tp_status` still `not_started` after the prior pipeline
+   * run). When non-empty, LOs containing these TPs are boosted in the review +
+   * new-LO ranking so a learner who hung up mid-call does not silently skip
+   * the planned-but-undelivered content.
+   *
+   * Caller responsibilities (see `lib/prompt/composition/transforms/modules.ts`):
+   *   - Diff prior `workingSetAssertionIds` against `tpMasteryMap` and pass the
+   *     set difference here.
+   *   - On the picker-locked path (prior decision had empty workingSet), pass
+   *     `[]` so no carry-forward fires — that lane is educator/learner-driven
+   *     and shouldn't blend with the system's autonomous catch-up.
+   *
+   * Empty / undefined → no effect (byte-identical to pre-#918 ranking).
+   */
+  priorPlannedAssertionIds?: string[];
+  /**
+   * #918 — Magnitude of the carry-forward priority bump. Default `0.5`.
+   * Zero disables the feature even when `priorPlannedAssertionIds` is non-empty.
+   *
+   * Applied as a mastery shift: an LO's effective mastery for ranking purposes
+   * is reduced by `carryForwardBoost × carryForwardScore`, where
+   * `carryForwardScore` is the fraction of the LO's child TPs that appear in
+   * `priorPlannedAssertionIds` (0..1). A fully-planned-uncovered LO gets the
+   * full boost; partial overlap gets a proportional bump.
+   *
+   * @bucket 1 (course parameter, see Playbook.config.tolerances.carryForwardBoost)
+   * @see docs/decisions/2026-05-22-tolerance-placement.md
+   */
+  carryForwardBoost?: number;
 }
 
 export interface AssertionRef {
@@ -91,7 +122,12 @@ interface LOWithMeta extends LORef {
   mastery: number;
   status: "mastered" | "in_progress" | "not_started";
   weight: number;  // cost against budget
+  /** #918 — fraction of childTps that appear in `priorPlannedAssertionIds` (0..1). */
+  carryForwardScore: number;
 }
+
+/** Default boost magnitude when caller doesn't override. */
+const DEFAULT_CARRY_FORWARD_BOOST = 0.5;
 
 /**
  * Compute LO budget based on call duration.
@@ -144,10 +180,21 @@ export function selectWorkingSet(input: WorkingSetInput): WorkingSetResult {
     assertions, learningObjectives, modules,
     tpMasteryMap, loMasteryMap,
     callDurationMins, masteryThreshold,
+    priorPlannedAssertionIds,
+    carryForwardBoost,
   } = input;
 
   const loBudget = computeLoBudget(callDurationMins);
   const maxTps = computeMaxTps(callDurationMins);
+
+  // #918 — Carry-forward set. Empty when no prior call, when prior call was
+  // picker-locked, or when the prior call covered everything. In all three
+  // cases the ranking below collapses to the pre-#918 behaviour.
+  const carryForwardSet = new Set(priorPlannedAssertionIds ?? []);
+  const effectiveBoost =
+    carryForwardSet.size > 0 && carryForwardBoost == null
+      ? DEFAULT_CARRY_FORWARD_BOOST
+      : (carryForwardBoost ?? 0);
 
   // ── STEP 1: Build LO graph ──
 
@@ -197,7 +244,15 @@ export function selectWorkingSet(input: WorkingSetInput): WorkingSetResult {
     const isReview = status === "in_progress";
     const weight = computeLoWeight(childTps.length, isReview);
 
-    loGraph.push({ ...lo, childTps, mastery, status, weight });
+    // #918 — carry-forward score = fraction of childTps that appear in the
+    // prior call's planned-but-uncovered set. Used in ranking below; zero
+    // when the feature is off (empty set or boost = 0).
+    const carryForwardScore =
+      carryForwardSet.size === 0
+        ? 0
+        : childTps.filter((tp) => carryForwardSet.has(tp.id)).length / childTps.length;
+
+    loGraph.push({ ...lo, childTps, mastery, status, weight, carryForwardScore });
   }
 
   // Build module completion map
@@ -209,11 +264,19 @@ export function selectWorkingSet(input: WorkingSetInput): WorkingSetResult {
   }
 
   // ── STEP 2: Select review LO (at most 1) ──
+  //
+  // #918 — effective mastery for ranking is shifted down by
+  // `effectiveBoost × carryForwardScore`. A fully-planned-uncovered LO
+  // (score=1.0) at the default 0.5 boost gets a -0.5 shift; partial overlap
+  // gets a proportional shift. When no carry-forward is in play the shift is
+  // zero and ranking collapses to the pre-#918 weakest-first order.
+  const effectiveMastery = (lo: LOWithMeta): number =>
+    lo.mastery - effectiveBoost * lo.carryForwardScore;
 
   let reviewLO: LOWithMeta | null = null;
   const reviewCandidates = loGraph
     .filter((lo) => lo.status === "in_progress" && lo.mastery < (lo.masteryThreshold ?? masteryThreshold))
-    .sort((a, b) => a.mastery - b.mastery);  // weakest first
+    .sort((a, b) => effectiveMastery(a) - effectiveMastery(b));  // weakest (after boost) first
 
   if (reviewCandidates.length > 0) {
     reviewLO = reviewCandidates[0];
@@ -242,9 +305,17 @@ export function selectWorkingSet(input: WorkingSetInput): WorkingSetResult {
 
     if (!frontierModuleId) frontierModuleId = mod.id;
 
+    // #918 — within a frontier module, prefer not_started LOs that carry
+    // forward planned-but-uncovered TPs. Secondary sort by the original
+    // `sortOrder` so courses without carry-forward keep their authored order.
     const moduleLOs = loGraph
       .filter((lo) => lo.moduleId === mod.id && lo.status === "not_started")
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+      .sort((a, b) => {
+        const carryDiff =
+          effectiveBoost > 0 ? b.carryForwardScore - a.carryForwardScore : 0;
+        if (carryDiff !== 0) return carryDiff;
+        return a.sortOrder - b.sortOrder;
+      });
 
     for (const lo of moduleLOs) {
       if (remainingBudget <= 0 || tpCount + lo.childTps.length > maxTps) break;
