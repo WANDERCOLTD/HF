@@ -8,6 +8,7 @@ import { loadTicketContext, loadRecentTicketsDigest } from "@/lib/chat/ticket-co
 import { getPromptSpec } from "@/lib/prompts/spec-prompts";
 import { config } from "@/lib/config";
 import { buildPageContextBlock, type PageContextHint } from "./page-context";
+import { buildPageFeatureCatalogue } from "@/lib/chat/page-feature-catalogue";
 
 export type { PageContextHint };
 
@@ -142,7 +143,8 @@ export async function buildSystemPrompt(
         buildFeedbackListHintBlock(options, userRole, institutionId),
       ]);
       const pageBlock = buildPageContextBlock(options?.pageContext);
-      return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + runtimeBlock + pageBlock + `\n\n${baseContext}` + ticketBlock + listHintBlock };
+      const featureCatalogueBlock = buildPageFeatureCatalogue(options?.pageHintRoute);
+      return { prompt: dataPrompt + "\n\n" + tuningContext + termBlock + runtimeBlock + pageBlock + featureCatalogueBlock + `\n\n${baseContext}` + ticketBlock + listHintBlock };
     }
     case "TUNING": {
       // TUNING mode: catalogue + truthfulness rules + scope-aware write tools.
