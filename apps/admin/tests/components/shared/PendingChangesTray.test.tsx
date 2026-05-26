@@ -15,6 +15,15 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, fireEvent, act } from "@testing-library/react";
 import React from "react";
+
+// #873 — PendingChangesTray reads chat-open / chatLayout from
+// ChatContext to position itself away from the chat panel. The
+// component test doesn't render a real ChatProvider; mock the hook to
+// return "chat closed" defaults so the tray sits at its base position.
+vi.mock("@/contexts/ChatContext", () => ({
+  useChatContext: () => ({ isOpen: false, chatLayout: "vertical" }),
+}));
+
 import {
   PendingChangesTrayProvider,
   usePendingChangesTray,

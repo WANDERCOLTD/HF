@@ -487,6 +487,31 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const toolCallsHeader = response.headers.get("X-Tool-Calls");
         const toolCalls = toolCallsHeader ? parseInt(toolCallsHeader, 10) : undefined;
 
+        // #873 — propagate AI-emitted pendingChange payloads to the
+        // PendingChangesTray. ChatProvider lives outside the tray
+        // Provider in the layout tree (tray reads chat state for its
+        // position-aware right/bottom), so we dispatch a CustomEvent
+        // here and let the tray Provider listen for it. Decoupling
+        // avoids the circular Provider-ordering problem.
+        const pendingChangesHeader = response.headers.get("X-Pending-Changes");
+        if (pendingChangesHeader) {
+          try {
+            const parsed = JSON.parse(decodeURIComponent(pendingChangesHeader));
+            if (Array.isArray(parsed)) {
+              for (const payload of parsed) {
+                window.dispatchEvent(
+                  new CustomEvent("hf:pending-change", { detail: payload }),
+                );
+              }
+            }
+          } catch (err) {
+            console.warn(
+              "[chat] failed to parse X-Pending-Changes header:",
+              err,
+            );
+          }
+        }
+
         updateMessage(assistantId, {
           metadata: { isStreaming: false, entityContext: entityContext.breadcrumbs, toolCalls },
         });

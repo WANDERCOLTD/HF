@@ -206,6 +206,57 @@ export function PendingChangesTrayProvider({
     setEntries((prev) => mergeEntries(prev, incoming));
   }, []);
 
+  // #873 — AI surfaces (chat, Cmd+K) dispatch a `hf:pending-change`
+  // CustomEvent when their tool calls write a compose-affecting
+  // setting. We listen here because ChatProvider lives outside this
+  // Provider in the layout tree (the tray reads chat context for
+  // position-aware right/bottom). Decoupling via a window event
+  // avoids the circular Provider-ordering problem. The detail shape
+  // matches `PendingChangePayload` (`lib/chat/pending-change-payload.ts`)
+  // — the tray generates the `id` here and sets `aiSuggested: true`.
+  useEffect(() => {
+    function handle(ev: Event) {
+      const detail = (ev as CustomEvent<unknown>).detail;
+      if (!detail || typeof detail !== "object") return;
+      const p = detail as Record<string, unknown>;
+      const key = p.key;
+      const label = p.label;
+      const scopeLabel = p.scopeLabel;
+      const beforeValue = p.beforeValue;
+      const afterValue = p.afterValue;
+      if (
+        typeof key !== "string" ||
+        typeof label !== "string" ||
+        typeof scopeLabel !== "string" ||
+        typeof beforeValue !== "string" ||
+        typeof afterValue !== "string"
+      ) {
+        return;
+      }
+      const scope: TrayEntryScope =
+        p.scope === "domain" || p.scope === "system" ? p.scope : "playbook";
+      const fanoutScope: FanoutScope =
+        p.fanoutScope === "caller" || p.fanoutScope === "none"
+          ? p.fanoutScope
+          : "caller";
+      setEntries((prev) =>
+        mergeEntries(prev, {
+          key,
+          label,
+          scopeLabel,
+          beforeValue,
+          afterValue,
+          scope,
+          scopeId: typeof p.scopeId === "string" ? p.scopeId : null,
+          aiSuggested: true,
+          fanoutScope,
+        }),
+      );
+    }
+    window.addEventListener("hf:pending-change", handle);
+    return () => window.removeEventListener("hf:pending-change", handle);
+  }, []);
+
   const remove = useCallback((id: string) => {
     setEntries((prev) => prev.filter((e) => e.id !== id));
   }, []);
