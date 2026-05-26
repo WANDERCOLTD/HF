@@ -58,9 +58,32 @@ const TOOL_MIN_ROLE: Record<string, UserRole> = {
   recompose_caller_prompt: "OPERATOR",
   update_learning_objective: "OPERATOR",
   update_curriculum_metadata: "OPERATOR",
+  // Roadmap stubs (NOT YET AVAILABLE — handleNotYetAvailable). Gating
+  // them at OPERATOR keeps STUDENT/VIEWER on the same RBAC bar as the
+  // real tools they'll eventually replace, so promoting a stub later
+  // doesn't change the auth posture.
+  list_caller_memories: "OPERATOR",
+  create_goal: "OPERATOR",
+  rename_subject: "OPERATOR",
+  replace_lesson_plan: "OPERATOR",
+  add_curriculum_module: "OPERATOR",
+  reset_caller: "OPERATOR",
   // System diagnostics
   system_ini_check: "SUPERADMIN",
 };
+
+/** Names of every roadmap-stub tool — kept centralised so the
+ *  dispatch + tests can refer to one source. To promote a tool, remove
+ *  it from this set AND from the stub-handling switch case AND wire its
+ *  real handler. */
+const NOT_YET_AVAILABLE_TOOLS = new Set<string>([
+  "list_caller_memories",
+  "create_goal",
+  "rename_subject",
+  "replace_lesson_plan",
+  "add_curriculum_module",
+  "reset_caller",
+]);
 
 // Role hierarchy for comparison (mirrors lib/permissions.ts)
 const ROLE_LEVEL: Record<string, number> = {
@@ -201,7 +224,11 @@ export async function executeAdminTool(
         result = await runIniChecks();
         break;
       default:
-        result = { error: `Unknown tool: ${name}` };
+        if (NOT_YET_AVAILABLE_TOOLS.has(name)) {
+          result = handleNotYetAvailable(name);
+        } else {
+          result = { error: `Unknown tool: ${name}` };
+        }
     }
     return truncateResult(result);
   } catch (error) {
@@ -1694,6 +1721,27 @@ async function handleUpdateCurriculumMetadata(input: Record<string, any>) {
     compose_inputs_bumped: timestampBumped,
     new_state: updated,
     message: `Updated ${updated.name}. ${timestampBumped ? "Enrolled callers will recompose on next call." : "No playbook linked yet — no stale bump."}`.trim(),
+  };
+}
+
+// ── Roadmap stubs ───────────────────────────────────────────────────────
+//
+// One handler covers every NOT YET AVAILABLE tool. The schema in
+// admin-tools.ts carries the user-facing copy in its description so the
+// AI surfaces a tool-specific refusal verbatim. This handler is the
+// belt-and-braces: it returns a structured payload so the AI can never
+// silently call the function and pretend it worked.
+
+function handleNotYetAvailable(toolName: string) {
+  console.log(`[admin-tools] Stub tool invoked: ${toolName} (NOT YET AVAILABLE)`);
+  return {
+    ok: false,
+    not_yet_available: true,
+    tool: toolName,
+    message:
+      `The "${toolName}" tool is on the roadmap and is not yet implemented. ` +
+      `Tell the user this in plain English and point them at the UI surface ` +
+      `noted in the tool's description above.`,
   };
 }
 
