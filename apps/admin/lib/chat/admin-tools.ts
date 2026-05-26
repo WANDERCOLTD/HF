@@ -499,6 +499,124 @@ export const ADMIN_TOOLS: AITool[] = [
     },
   },
 
+  // ── Read parity for the writers ─────────────────────────────────
+  // The AI now writes Playbook.config, BehaviorTarget, CurriculumModule,
+  // and Goal status. To make safe edits ('change session count from 5
+  // to 7') it needs to read the current value first. These reads close
+  // that loop. All read-only — no RBAC tightening beyond OPERATOR.
+
+  {
+    name: "get_playbook_config",
+    description:
+      "Read the full Playbook (course) config + top-level metadata. Returns id, name, description, status, domainId, and the entire Playbook.config JSON. Use BEFORE update_playbook_config so you know the current values and don't blindly overwrite. Also returns composeInputsUpdatedAt so you can tell the educator if the prompt is stale.",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: { type: "string" },
+      },
+      required: ["playbook_id"],
+    },
+  },
+
+  {
+    name: "list_behavior_targets",
+    description:
+      "List active BehaviorTargets. Pass `playbook_id` for PLAYBOOK-scope (course defaults) or `caller_id` for CALLER-scope (per-learner overrides; fanned out across all of the caller's CallerIdentity rows). Returns parameterId, name, description, targetValue, confidence, source. Use BEFORE update_behavior_target so you know the current values and can speak in delta terms ('raise warmth from 0.6 to 0.75').",
+    input_schema: {
+      type: "object",
+      properties: {
+        playbook_id: { type: "string", description: "Playbook UUID for PLAYBOOK scope. Mutually exclusive with caller_id." },
+        caller_id: { type: "string", description: "Caller UUID for CALLER scope. Mutually exclusive with playbook_id." },
+      },
+    },
+  },
+
+  {
+    name: "list_curriculum_modules",
+    description:
+      "List CurriculumModule rows. Pass `curriculum_id` for direct lookup, or `playbook_id` to resolve via the Playbook → Curriculum FK. Returns id, slug, title, description, sortOrder, isActive, estimatedDurationMinutes, masteryThreshold, plus learningObjectives summary (ref + description). Use BEFORE update_curriculum_module or update_learning_objective so you know which moduleId / LO ref to act on.",
+    input_schema: {
+      type: "object",
+      properties: {
+        curriculum_id: { type: "string" },
+        playbook_id: { type: "string" },
+      },
+    },
+  },
+
+  {
+    name: "list_goals_for_caller",
+    description:
+      "List a caller's Goal rows. Returns id, name, type, status (ACTIVE/COMPLETED/ARCHIVED/PAUSED), progress (0-1), startedAt, completedAt, isAssessmentTarget. Use BEFORE confirm_goal / dismiss_goal so you know which goalId to act on. Also useful for 'how is Anna progressing?' summary requests.",
+    input_schema: {
+      type: "object",
+      properties: {
+        caller_id: { type: "string" },
+        status: {
+          type: "string",
+          enum: ["ACTIVE", "COMPLETED", "ARCHIVED", "PAUSED"],
+          description: "Optional filter. Omit to return all statuses.",
+        },
+      },
+      required: ["caller_id"],
+    },
+  },
+
+  // ── Trigger compose / state recovery ────────────────────────────
+
+  {
+    name: "recompose_caller_prompt",
+    description:
+      "Force a fresh compose of a caller's prompt RIGHT NOW (rather than waiting for their next call). After bumping Playbook.config or any other compose-affecting setting, the caller's cached ComposedPrompt is marked stale (see <StalePromptPill />) but doesn't actually recompose until their next call OR an operator click 'Recompose now'. This tool is the chat equivalent. POST to /api/callers/[id]/compose-prompt with triggerType='manual'. Returns the new ComposedPrompt id + composedAt.",
+    input_schema: {
+      type: "object",
+      properties: {
+        caller_id: { type: "string" },
+        reason: { type: "string" },
+      },
+      required: ["caller_id", "reason"],
+    },
+  },
+
+  // ── Curriculum-side direct edits (single LO + curriculum meta) ──
+
+  {
+    name: "update_learning_objective",
+    description:
+      "Update a single LearningObjective without rewriting the whole module's LO list. Pass `learning_objective_id` and any of: description, performanceStatement, learnerVisible (boolean), masteryThreshold (0-1). Bumps the parent playbook's compose timestamp. Use when the educator says 'rephrase LO-3' or 'mark LO-7 as not learner-visible'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        learning_objective_id: { type: "string" },
+        description: { type: "string" },
+        performanceStatement: { type: "string" },
+        learnerVisible: { type: "boolean" },
+        masteryThreshold: { type: "number", minimum: 0, maximum: 1 },
+        reason: { type: "string" },
+      },
+      required: ["learning_objective_id", "reason"],
+    },
+  },
+
+  {
+    name: "update_curriculum_metadata",
+    description:
+      "Update Curriculum top-level metadata (NOT modules/LOs/assertions — use the dedicated tools for those, or lesson-plan editing via UI). Pass `curriculum_id` and any of: name, description, sourceTitle, sourceYear, authors (string[]). Bumps the parent playbook's compose timestamp so the curriculum loader picks up the change.",
+    input_schema: {
+      type: "object",
+      properties: {
+        curriculum_id: { type: "string" },
+        name: { type: "string" },
+        description: { type: "string" },
+        sourceTitle: { type: "string" },
+        sourceYear: { type: "integer" },
+        authors: { type: "array", items: { type: "string" } },
+        reason: { type: "string" },
+      },
+      required: ["curriculum_id", "reason"],
+    },
+  },
+
   // ── System Diagnostics ──────────────────────────────────────────
 
   {
