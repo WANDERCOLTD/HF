@@ -14,6 +14,12 @@ import { runIniChecks } from "@/lib/system-ini";
 import { writeBehaviorTarget, writeCallerBehaviorTarget } from "@/lib/agent-tuner/write-target";
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import { updateAnalysisSpecConfig } from "@/lib/analysis-spec/update-analysis-spec-config";
+import { updateDomainConfig } from "@/lib/domain/update-domain-config";
+import { bumpCallerComposeTimestamp, bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
+import {
+  resolvePlaybookIdForCurriculum,
+  resolvePlaybookIdsForContentSource,
+} from "@/lib/curriculum/resolve-playbook-for-curriculum";
 
 const MAX_RESULT_LENGTH = 3000;
 
@@ -37,6 +43,12 @@ const TOOL_MIN_ROLE: Record<string, UserRole> = {
   update_caller: "OPERATOR",
   update_playbook_meta: "OPERATOR",
   update_domain: "OPERATOR",
+  // Curriculum-side edits
+  update_curriculum_module: "OPERATOR",
+  update_assertion_lo_link: "OPERATOR",
+  // Goal lifecycle
+  confirm_goal: "OPERATOR",
+  dismiss_goal: "OPERATOR",
   // System diagnostics
   system_ini_check: "SUPERADMIN",
 };
@@ -136,6 +148,21 @@ export async function executeAdminTool(
         break;
       case "update_domain":
         result = await handleUpdateDomain(input);
+        break;
+      // Curriculum-side edits (Story 8 #834 follow-up — exposes the same
+      // stale-stamping writers from app/api/curricula/* through Cmd+K)
+      case "update_curriculum_module":
+        result = await handleUpdateCurriculumModule(input);
+        break;
+      case "update_assertion_lo_link":
+        result = await handleUpdateAssertionLoLink(input);
+        break;
+      // Goal lifecycle (Story 6 #830 follow-up)
+      case "confirm_goal":
+        result = await handleConfirmGoal(input);
+        break;
+      case "dismiss_goal":
+        result = await handleDismissGoal(input);
         break;
       // System diagnostics
       case "system_ini_check":
@@ -939,33 +966,307 @@ async function handleUpdateDomain(input: Record<string, any>) {
   });
   if (!existing) return { error: `Domain ${domainId} not found.` };
 
-  const data: Record<string, unknown> = {};
-  if (typeof input.name === "string") data.name = input.name;
-  if (typeof input.slug === "string") data.slug = input.slug;
-  if (typeof input.description === "string") data.description = input.description;
-  if (typeof input.isActive === "boolean") data.isActive = input.isActive;
+  // Two write paths. The 4 COMPOSE-affecting onboarding* fields MUST go
+  // through `updateDomainConfig` so the timestamp bump fires (Story 4 #828).
+  // Everything else (name/slug/description/isActive/config_updates) is non-
+  // compose-affecting and stays a direct write.
+  const directData: Record<string, unknown> = {};
+  if (typeof input.name === "string") directData.name = input.name;
+  if (typeof input.slug === "string") directData.slug = input.slug;
+  if (typeof input.description === "string") directData.description = input.description;
+  if (typeof input.isActive === "boolean") directData.isActive = input.isActive;
   if (input.config_updates && typeof input.config_updates === "object" && !Array.isArray(input.config_updates)) {
     const currentConfig = (existing.config as Record<string, unknown> | null) || {};
-    data.config = { ...currentConfig, ...input.config_updates };
+    directData.config = { ...currentConfig, ...input.config_updates };
   }
 
-  if (Object.keys(data).length === 0) {
-    return { error: "No update fields provided. Pass at least one of: name, slug, description, isActive, config_updates." };
+  const composeAffectingPresent =
+    input.onboardingFlowPhases !== undefined ||
+    input.onboardingDefaultTargets !== undefined ||
+    input.onboardingWelcome !== undefined ||
+    input.onboardingIdentitySpecId !== undefined;
+
+  if (Object.keys(directData).length === 0 && !composeAffectingPresent) {
+    return {
+      error:
+        "No update fields provided. Pass at least one of: name, slug, description, isActive, config_updates, onboardingFlowPhases, onboardingDefaultTargets, onboardingWelcome, onboardingIdentitySpecId.",
+    };
   }
 
-  const updated = await prisma.domain.update({
+  if (Object.keys(directData).length > 0) {
+    // eslint-disable-next-line hf-domain/no-direct-onboarding-write
+    await prisma.domain.update({ where: { id: domainId }, data: directData });
+  }
+
+  let timestampBumped = false;
+  if (composeAffectingPresent) {
+    const result = await updateDomainConfig(
+      domainId,
+      (current) => {
+        const next = { ...current };
+        if (input.onboardingFlowPhases !== undefined) {
+          next.onboardingFlowPhases =
+            input.onboardingFlowPhases === null ? null : input.onboardingFlowPhases;
+        }
+        if (input.onboardingDefaultTargets !== undefined) {
+          next.onboardingDefaultTargets =
+            input.onboardingDefaultTargets === null ? null : input.onboardingDefaultTargets;
+        }
+        if (input.onboardingWelcome !== undefined) {
+          // Empty string clears the override; non-empty string sets it.
+          next.onboardingWelcome =
+            input.onboardingWelcome === "" ? null : input.onboardingWelcome;
+        }
+        if (input.onboardingIdentitySpecId !== undefined) {
+          next.onboardingIdentitySpecId =
+            input.onboardingIdentitySpecId === "" ? null : input.onboardingIdentitySpecId;
+        }
+        return next;
+      },
+      { reason: `Cmd+K update_domain: ${input.reason ?? "(not given)"}` },
+    );
+    timestampBumped = result.timestampBumped;
+  }
+
+  const updated = await prisma.domain.findUnique({
     where: { id: domainId },
-    data,
-    select: { id: true, name: true, slug: true, description: true, isActive: true, config: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      description: true,
+      isActive: true,
+      config: true,
+      onboardingFlowPhases: true,
+      onboardingDefaultTargets: true,
+      onboardingWelcome: true,
+      onboardingIdentitySpecId: true,
+    },
   });
 
-  console.log(`[admin-tools] Updated domain "${existing.name}" → "${updated.name}". Fields: ${Object.keys(data).join(", ")}. Reason: ${input.reason || "(not given)"}`);
+  const allUpdatedKeys = [
+    ...Object.keys(directData),
+    ...(input.onboardingFlowPhases !== undefined ? ["onboardingFlowPhases"] : []),
+    ...(input.onboardingDefaultTargets !== undefined ? ["onboardingDefaultTargets"] : []),
+    ...(input.onboardingWelcome !== undefined ? ["onboardingWelcome"] : []),
+    ...(input.onboardingIdentitySpecId !== undefined ? ["onboardingIdentitySpecId"] : []),
+  ];
+
+  console.log(
+    `[admin-tools] Updated domain "${existing.name}". Fields: ${allUpdatedKeys.join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped}. Reason: ${input.reason || "(not given)"}`,
+  );
 
   return {
     ok: true,
     domain_id: domainId,
-    updated_fields: data,
+    updated_fields: allUpdatedKeys,
+    compose_inputs_bumped: timestampBumped,
     new_state: updated,
-    message: `Updated ${Object.keys(data).join(", ")} on ${updated.name}.`,
+    message:
+      `Updated ${allUpdatedKeys.join(", ")} on ${updated?.name ?? domainId}.` +
+      (timestampBumped
+        ? " Every caller in every playbook in this domain will recompose on their next call."
+        : ""),
+  };
+}
+
+// ── Curriculum-side edits ────────────────────────────────────────────────
+//
+// Wrappers around the same write surface app/api/curricula/* uses,
+// invoked from Cmd+K. Each handler calls bumpPlaybookComposeTimestamp
+// after the write so the staleness check at COMPOSE time picks the
+// edit up on the caller's next call (Story 8 #834 contract).
+
+async function handleUpdateCurriculumModule(input: Record<string, any>) {
+  const moduleId = typeof input.module_id === "string" ? input.module_id : "";
+  if (!moduleId) return { error: "module_id is required" };
+
+  const existing = await prisma.curriculumModule.findUnique({
+    where: { id: moduleId },
+    select: { id: true, slug: true, title: true, curriculumId: true },
+  });
+  if (!existing) return { error: `Module ${moduleId} not found.` };
+
+  const data: Record<string, unknown> = {};
+  if (typeof input.title === "string") data.title = input.title;
+  if (typeof input.description === "string") data.description = input.description;
+  if (typeof input.sortOrder === "number") data.sortOrder = input.sortOrder;
+  if (typeof input.estimatedDurationMinutes === "number") {
+    data.estimatedDurationMinutes = input.estimatedDurationMinutes;
+  }
+  if (typeof input.masteryThreshold === "number") data.masteryThreshold = input.masteryThreshold;
+  if (Array.isArray(input.prerequisites)) data.prerequisites = input.prerequisites;
+  if (Array.isArray(input.keyTerms)) data.keyTerms = input.keyTerms;
+  if (Array.isArray(input.assessmentCriteria)) data.assessmentCriteria = input.assessmentCriteria;
+  if (typeof input.isActive === "boolean") data.isActive = input.isActive;
+
+  if (Object.keys(data).length === 0) {
+    return {
+      error:
+        "No update fields provided. Pass at least one of: title, description, sortOrder, estimatedDurationMinutes, masteryThreshold, prerequisites, keyTerms, assessmentCriteria, isActive.",
+    };
+  }
+
+  const updated = await prisma.curriculumModule.update({
+    where: { id: moduleId },
+    data,
+    select: {
+      id: true, slug: true, title: true, description: true, sortOrder: true,
+      isActive: true, estimatedDurationMinutes: true, masteryThreshold: true,
+    },
+  });
+
+  const playbookId = await resolvePlaybookIdForCurriculum(existing.curriculumId);
+  let timestampBumped = false;
+  if (playbookId) {
+    await bumpPlaybookComposeTimestamp(playbookId);
+    timestampBumped = true;
+  }
+
+  console.log(
+    `[admin-tools] Updated module "${existing.slug}". Fields: ${Object.keys(data).join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped}. Reason: ${input.reason || "(not given)"}`,
+  );
+
+  return {
+    ok: true,
+    module_id: moduleId,
+    playbook_id: playbookId,
+    updated_fields: Object.keys(data),
+    compose_inputs_bumped: timestampBumped,
+    new_state: updated,
+    message: `Updated module ${existing.slug}. ${timestampBumped ? "Enrolled callers will recompose on next call." : "No playbook linked yet — no stale bump."}`,
+  };
+}
+
+async function handleUpdateAssertionLoLink(input: Record<string, any>) {
+  const assertionId = typeof input.assertion_id === "string" ? input.assertion_id : "";
+  if (!assertionId) return { error: "assertion_id is required" };
+
+  // null = clear the link; string = set the link to that LO
+  const loId: string | null =
+    input.learning_objective_id === null || input.learning_objective_id === undefined
+      ? null
+      : typeof input.learning_objective_id === "string"
+        ? input.learning_objective_id
+        : null;
+
+  let updated;
+  if (loId) {
+    const lo = await prisma.learningObjective.findUnique({
+      where: { id: loId },
+      select: { id: true, ref: true },
+    });
+    if (!lo) return { error: `LearningObjective ${loId} not found.` };
+    updated = await prisma.contentAssertion.update({
+      where: { id: assertionId },
+      data: {
+        learningObjectiveId: lo.id,
+        learningOutcomeRef: lo.ref,
+        linkConfidence: 1.0,
+      },
+      select: { id: true, sourceId: true, learningObjectiveId: true, learningOutcomeRef: true, linkConfidence: true },
+    });
+  } else {
+    updated = await prisma.contentAssertion.update({
+      where: { id: assertionId },
+      data: { learningObjectiveId: null, learningOutcomeRef: null, linkConfidence: null },
+      select: { id: true, sourceId: true, learningObjectiveId: true, learningOutcomeRef: true, linkConfidence: true },
+    });
+  }
+
+  const playbookIds = await resolvePlaybookIdsForContentSource(updated.sourceId);
+  for (const pbId of playbookIds) await bumpPlaybookComposeTimestamp(pbId);
+
+  console.log(
+    `[admin-tools] ${loId ? "Linked" : "Cleared"} assertion ${assertionId} → LO ${loId ?? "none"}. composeInputsUpdatedAt bumped for ${playbookIds.length} playbooks. Reason: ${input.reason || "(not given)"}`,
+  );
+
+  return {
+    ok: true,
+    assertion_id: assertionId,
+    new_state: updated,
+    playbooks_bumped: playbookIds.length,
+    message: loId
+      ? `Linked assertion to LO. ${playbookIds.length} playbook(s) on this source will recompose on next call.`
+      : `Cleared LO link on assertion. ${playbookIds.length} playbook(s) on this source will recompose.`,
+  };
+}
+
+// ── Goal lifecycle ──────────────────────────────────────────────────────
+
+async function handleConfirmGoal(input: Record<string, any>) {
+  const goalId = typeof input.goal_id === "string" ? input.goal_id : "";
+  if (!goalId) return { error: "goal_id is required" };
+
+  const goal = await prisma.goal.findUnique({
+    where: { id: goalId },
+    select: { id: true, name: true, callerId: true, isAssessmentTarget: true, status: true },
+  });
+  if (!goal) return { error: `Goal ${goalId} not found.` };
+
+  const signal = await prisma.callerAttribute.findFirst({
+    where: {
+      callerId: goal.callerId,
+      key: `goal_completion_signal:${goalId}`,
+      scope: "GOAL_EVENT",
+      booleanValue: null,
+    },
+  });
+
+  const updatedGoal = await prisma.goal.update({
+    where: { id: goalId },
+    data: { status: "COMPLETED", completedAt: new Date(), progress: 1.0 },
+  });
+  if (signal) {
+    await prisma.callerAttribute.update({ where: { id: signal.id }, data: { booleanValue: true } });
+  }
+  await bumpCallerComposeTimestamp(goal.callerId);
+
+  console.log(
+    `[admin-tools] Confirmed goal "${goal.name}" for caller ${goal.callerId}. Reason: ${input.reason || "(not given)"}`,
+  );
+
+  return {
+    ok: true,
+    goal_id: goalId,
+    caller_id: goal.callerId,
+    new_state: { status: updatedGoal.status, completedAt: updatedGoal.completedAt, progress: updatedGoal.progress },
+    message: `Goal "${goal.name}" marked COMPLETED. This caller will recompose on next call.`,
+  };
+}
+
+async function handleDismissGoal(input: Record<string, any>) {
+  const goalId = typeof input.goal_id === "string" ? input.goal_id : "";
+  if (!goalId) return { error: "goal_id is required" };
+
+  const goal = await prisma.goal.findUnique({
+    where: { id: goalId },
+    select: { id: true, name: true, callerId: true },
+  });
+  if (!goal) return { error: `Goal ${goalId} not found.` };
+
+  const signal = await prisma.callerAttribute.findFirst({
+    where: {
+      callerId: goal.callerId,
+      key: `goal_completion_signal:${goalId}`,
+      scope: "GOAL_EVENT",
+      booleanValue: null,
+    },
+  });
+  if (!signal) {
+    return { error: "No pending completion signal to dismiss for this goal." };
+  }
+  await prisma.callerAttribute.update({ where: { id: signal.id }, data: { booleanValue: false } });
+  await bumpCallerComposeTimestamp(goal.callerId);
+
+  console.log(
+    `[admin-tools] Dismissed completion signal for goal "${goal.name}" caller ${goal.callerId}. Reason: ${input.reason || "(not given)"}`,
+  );
+
+  return {
+    ok: true,
+    goal_id: goalId,
+    caller_id: goal.callerId,
+    message: `Completion signal for "${goal.name}" dismissed. This caller will recompose on next call.`,
   };
 }
