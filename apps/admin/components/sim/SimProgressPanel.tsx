@@ -4,6 +4,18 @@ import { useEffect, type JSX } from 'react';
 import { ArrowLeft, X, Target, BookOpen, Lightbulb, Phone, TrendingUp, CheckCircle2, Circle, PlayCircle, Award } from 'lucide-react';
 import { useStudentProgress } from '@/hooks/useStudentProgress';
 import { useJourneyPosition } from '@/hooks/useJourneyPosition';
+import { useSchedulerDecision } from '@/hooks/useSchedulerDecision';
+import { getSchedulerModeLabel } from '@/lib/scheduler/mode-labels';
+
+/**
+ * #917 Slice 2 — countdown copy assumes the BALANCED preset cadence (3 calls
+ * between Mock checkpoints, see `lib/pipeline/scheduler-presets.ts`). Until
+ * the API surfaces the active playbook's effective cadence, this is the
+ * default. Per-course overrides via `Playbook.config.tolerances.retrievalCadenceOverride`
+ * (#598 Slice 1) are NOT reflected in this number — acceptable for v1 since
+ * the cadence is approximate guidance, not a contract.
+ */
+const DEFAULT_MOCK_CADENCE = 3;
 
 /** #493 Slice 5.4 — humanise the completion mode into educator-friendly copy. */
 function describeCompletionMode(mode: 'all-modules' | 'terminal-only' | 'any'): string {
@@ -29,6 +41,7 @@ interface SimProgressPanelProps {
 export function SimProgressPanel({ onClose, callerId }: SimProgressPanelProps): JSX.Element {
   const { data, loading, error } = useStudentProgress(callerId);
   const { position } = useJourneyPosition(callerId);
+  const { data: decision } = useSchedulerDecision(callerId);
 
   // Close on Escape
   useEffect(() => {
@@ -85,6 +98,32 @@ export function SimProgressPanel({ onClose, callerId }: SimProgressPanelProps): 
                 <div className="wa-progress-course-complete-desc">
                   {describeCompletionMode(data.courseComplete.mode)}
                 </div>
+              </div>
+            )}
+
+            {/* #917 Slice 2 — "Today's call" section. Hidden entirely when
+                the scheduler decision is null (cold start, stale, multi-course
+                learner, fully-sanitized reason). Countdown is omitted when
+                the next call is already a Mock (`mode === 'assess'`). */}
+            {decision && (
+              <div className="wa-progress-section wa-progress-today-call">
+                <div className="wa-progress-section-title">Today&apos;s call</div>
+                <div className="wa-progress-today-header">
+                  <span className="wa-progress-today-mode">
+                    {getSchedulerModeLabel(decision.mode)} mode
+                  </span>
+                  {decision.mode !== 'assess' && decision.callsSinceAssess != null && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span className="wa-progress-today-countdown">
+                        {Math.max(0, DEFAULT_MOCK_CADENCE - decision.callsSinceAssess)} calls until Mock
+                      </span>
+                    </>
+                  )}
+                </div>
+                {decision.reason && (
+                  <div className="wa-progress-today-reason">{decision.reason}</div>
+                )}
               </div>
             )}
 
