@@ -665,10 +665,26 @@ registerLoader("priorCallFeedback", async (callerId, config) => {
     };
   }
   try {
+    // #599 Slice 1 — resolve playbookId + config from the current Call so the
+    // synthesis gate sequence has the inputs it needs. When currentCallId is
+    // absent (preview / forceFirstCall path), the loader falls through to the
+    // templated path; no DB lookup is needed.
+    let playbookId: string | null = null;
+    let playbookConfig: PlaybookConfig | null = null;
+    if (currentCallId) {
+      const call = await prisma.call.findUnique({
+        where: { id: currentCallId },
+        select: { playbookId: true, playbook: { select: { config: true } } },
+      });
+      playbookId = call?.playbookId ?? null;
+      playbookConfig = (call?.playbook?.config as PlaybookConfig | null) ?? null;
+    }
     return await loadPriorCallFeedback(prisma, {
       callerId,
       moduleId,
       currentCallId: currentCallId ?? null,
+      playbookId,
+      playbookConfig,
     });
   } catch (err) {
     console.warn("[priorCallFeedback] loader failed — section will be omitted:", err);
