@@ -24,6 +24,19 @@ import {
 
 const MAX_RESULT_LENGTH = 3000;
 
+/**
+ * #873 follow-up — shared suffix for any tool message that emits a
+ * pendingChange payload. Reframes the AI's status update from "Applied"
+ * (which sounds final to the user) to "Proposed" (which matches what
+ * the tray actually does: queues for the user's explicit recompose).
+ *
+ * Writes themselves DO commit immediately at the helper layer (lazy
+ * recompose via isPromptStale picks them up on next caller touchpoint).
+ * The "proposed" wording is about RECOMPOSE, not WRITE.
+ */
+const TRAY_PROPOSED_SUFFIX =
+  "Proposed — review in the pending changes tray (bottom-right) and click **Save & apply** to recompose.";
+
 // Minimum role required per tool (matches REST API auth levels)
 const TOOL_MIN_ROLE: Record<string, UserRole> = {
   query_specs: "OPERATOR",
@@ -381,7 +394,9 @@ async function handleUpdateSpecConfig(input: Record<string, any>) {
 
   return {
     ok: true,
-    message: `Updated "${spec.name}" config successfully.`,
+    message: pendingChange
+      ? `Updated "${spec.name}" config. ${TRAY_PROPOSED_SUFFIX}`
+      : `Updated "${spec.name}" config successfully.`,
     fieldsUpdated,
     reason,
     ...(pendingChange ? { pendingChange } : {}),
@@ -812,8 +827,8 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
         result.action === "noop"
           ? `No learner-scope override existed for ${parameterId}; nothing to remove. The course-level value still applies.`
           : result.action === "removed"
-            ? `Removed the learner-scope override for ${parameterId} on this caller. The course-level value now applies. Existing sessions take effect at the next call.`
-            : `Set ${parameterId} to ${result.value} for this learner only. Tuning saved — applies at the next call. In-flight sessions are not affected.`,
+            ? `Removed the learner-scope override for ${parameterId} on this caller. ${TRAY_PROPOSED_SUFFIX}`
+            : `Set ${parameterId} to ${result.value} for this learner only. ${TRAY_PROPOSED_SUFFIX}`,
       ...(pendingChangeLearner ? { pendingChange: pendingChangeLearner } : {}),
     };
   }
@@ -868,8 +883,8 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
       result.action === "noop"
         ? `No PLAYBOOK-scope override existed for ${parameterId}; nothing to remove. The system default still applies.`
         : result.action === "removed"
-          ? `Removed the course-level override for ${parameterId}. Tuning saved. Existing learners need re-prompting to pick up the change.`
-          : `Set ${parameterId} to ${result.value} on this course. Tuning saved — applies on every learner's next call. Existing in-flight calls are not affected.`,
+          ? `Removed the course-level override for ${parameterId}. ${TRAY_PROPOSED_SUFFIX}`
+          : `Set ${parameterId} to ${result.value} on this course. ${TRAY_PROPOSED_SUFFIX}`,
     ...(pendingChangePlaybook ? { pendingChange: pendingChangePlaybook } : {}),
   };
 }
@@ -940,7 +955,9 @@ async function handleUpdatePlaybookConfig(input: Record<string, any>) {
     playbook_name: playbook.name,
     updated_fields: updates,
     compose_inputs_bumped: result.timestampBumped,
-    message: `Updated ${fields.join(", ")} on ${playbook.name}. Tuning saved.${result.timestampBumped ? " Active callers' prompts marked stale — they'll recompose on next call." : ""}`,
+    message: pendingChange
+      ? `Updated ${fields.join(", ")} on ${playbook.name}. ${TRAY_PROPOSED_SUFFIX}`
+      : `Updated ${fields.join(", ")} on ${playbook.name}. Tuning saved.`,
     ...(pendingChange ? { pendingChange } : {}),
   };
 }
@@ -1237,9 +1254,7 @@ async function handleUpdateDomain(input: Record<string, any>) {
     new_state: updated,
     message:
       `Updated ${allUpdatedKeys.join(", ")} on ${updated?.name ?? domainId}.` +
-      (timestampBumped
-        ? " Every caller in every playbook in this domain will recompose on their next call."
-        : ""),
+      (pendingChange ? ` ${TRAY_PROPOSED_SUFFIX}` : ""),
     ...(pendingChange ? { pendingChange } : {}),
   };
 }
@@ -1325,7 +1340,9 @@ async function handleUpdateCurriculumModule(input: Record<string, any>) {
     updated_fields: fields,
     compose_inputs_bumped: timestampBumped,
     new_state: updated,
-    message: `Updated module ${existing.slug}. ${timestampBumped ? "Enrolled callers will recompose on next call." : "No playbook linked yet — no stale bump."}`,
+    message: `Updated module ${existing.slug}. ${
+      pendingChange ? TRAY_PROPOSED_SUFFIX : "No playbook linked yet — no stale bump."
+    }`,
     ...(pendingChange ? { pendingChange } : {}),
   };
 }
@@ -1396,8 +1413,8 @@ async function handleUpdateAssertionLoLink(input: Record<string, any>) {
     new_state: updated,
     playbooks_bumped: playbookIds.length,
     message: loId
-      ? `Linked assertion to LO. ${playbookIds.length} playbook(s) on this source will recompose on next call.`
-      : `Cleared LO link on assertion. ${playbookIds.length} playbook(s) on this source will recompose.`,
+      ? `Linked assertion to LO across ${playbookIds.length} playbook(s) on this source. ${TRAY_PROPOSED_SUFFIX}`
+      : `Cleared LO link on assertion (${playbookIds.length} playbook(s) on this source). ${TRAY_PROPOSED_SUFFIX}`,
     ...(pendingChange ? { pendingChange } : {}),
   };
 }
@@ -1454,7 +1471,7 @@ async function handleConfirmGoal(input: Record<string, any>) {
     goal_id: goalId,
     caller_id: goal.callerId,
     new_state: { status: updatedGoal.status, completedAt: updatedGoal.completedAt, progress: updatedGoal.progress },
-    message: `Goal "${goal.name}" marked COMPLETED. This caller will recompose on next call.`,
+    message: `Goal "${goal.name}" marked COMPLETED. ${TRAY_PROPOSED_SUFFIX}`,
     pendingChange,
   };
 }
@@ -1502,7 +1519,7 @@ async function handleDismissGoal(input: Record<string, any>) {
     ok: true,
     goal_id: goalId,
     caller_id: goal.callerId,
-    message: `Completion signal for "${goal.name}" dismissed. This caller will recompose on next call.`,
+    message: `Completion signal for "${goal.name}" dismissed. ${TRAY_PROPOSED_SUFFIX}`,
     pendingChange,
   };
 }
@@ -1855,7 +1872,7 @@ async function handleUpdateLearningObjective(input: Record<string, any>) {
     updated_fields: loFields,
     compose_inputs_bumped: timestampBumped,
     new_state: updated,
-    message: `Updated ${existing.ref}. ${timestampBumped ? "Enrolled callers will recompose on next call." : ""}`.trim(),
+    message: `Updated ${existing.ref}. ${pendingChange ? TRAY_PROPOSED_SUFFIX : ""}`.trim(),
     ...(pendingChange ? { pendingChange } : {}),
   };
 }
@@ -1928,7 +1945,9 @@ async function handleUpdateCurriculumMetadata(input: Record<string, any>) {
     updated_fields: curFields,
     compose_inputs_bumped: timestampBumped,
     new_state: updated,
-    message: `Updated ${updated.name}. ${timestampBumped ? "Enrolled callers will recompose on next call." : "No playbook linked yet — no stale bump."}`.trim(),
+    message: `Updated ${updated.name}. ${
+      pendingChange ? TRAY_PROPOSED_SUFFIX : "No playbook linked yet — no stale bump."
+    }`.trim(),
     ...(pendingChange ? { pendingChange } : {}),
   };
 }
