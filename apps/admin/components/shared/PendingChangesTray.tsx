@@ -41,7 +41,43 @@ import {
 import {
   shouldPreCheckFanout,
 } from "@/lib/recompose/fanout-class-keys";
+import { useChatContext } from "@/contexts/ChatContext";
 import "./pending-changes-tray.css";
+
+/**
+ * Tray position needs to avoid the chat panel. The chat panel's per-layout
+ * footprint comes from `components/chat/chat-panel.css` — these constants
+ * mirror it. If chat CSS changes, update here too.
+ *
+ * Layouts:
+ *   vertical   — chat is a 400px right-edge sidebar; tray slides left of it
+ *   horizontal — chat is a 320px bottom strip; tray rises above it
+ *   popout     — chat is a 420×560 floating panel at bottom-right (24,24);
+ *                tray slides to its left
+ */
+const CHAT_VERTICAL_WIDTH = 400;
+const CHAT_HORIZONTAL_HEIGHT = 320;
+const CHAT_POPOUT_WIDTH = 420;
+const CHAT_POPOUT_RIGHT_GAP = 24;
+const TRAY_GAP = 16;
+
+function trayOffsets(
+  chatOpen: boolean,
+  chatLayout: "vertical" | "horizontal" | "popout",
+): { right: number; bottom: number } {
+  if (!chatOpen) return { right: TRAY_GAP, bottom: TRAY_GAP };
+  switch (chatLayout) {
+    case "vertical":
+      return { right: CHAT_VERTICAL_WIDTH + TRAY_GAP, bottom: TRAY_GAP };
+    case "horizontal":
+      return { right: TRAY_GAP, bottom: CHAT_HORIZONTAL_HEIGHT + TRAY_GAP };
+    case "popout":
+      return {
+        right: CHAT_POPOUT_RIGHT_GAP + CHAT_POPOUT_WIDTH + TRAY_GAP,
+        bottom: TRAY_GAP,
+      };
+  }
+}
 
 interface PreviewState {
   count: number;
@@ -93,12 +129,15 @@ function formatEta(seconds: number): string {
 
 export function PendingChangesTray(): React.ReactElement | null {
   const { entries, callerInContext, remove, clear } = usePendingChangesTray();
+  const { isOpen: chatOpen, chatLayout } = useChatContext();
   const [collapsed, setCollapsed] = useState(false);
   const [preview, setPreview] = useState<PreviewState>(ZERO_PREVIEW);
   const [toggleCaller, setToggleCaller] = useState(true);
   const [toggleAll, setToggleAll] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const { right: trayRight, bottom: trayBottom } = trayOffsets(chatOpen, chatLayout);
 
   const hasAiSuggested = useMemo(
     () => entries.some((e) => e.aiSuggested),
@@ -176,7 +215,18 @@ export function PendingChangesTray(): React.ReactElement | null {
       : "";
 
   return (
-    <div className="hf-pending-tray" data-testid="pending-changes-tray">
+    <div
+      className="hf-pending-tray"
+      data-testid="pending-changes-tray"
+      style={
+        {
+          // Position-aware offsets — avoid the chat panel when open.
+          // Static `right`/`bottom` would collide with the chat sidebar.
+          "--hf-tray-right": `${trayRight}px`,
+          "--hf-tray-bottom": `${trayBottom}px`,
+        } as React.CSSProperties
+      }
+    >
       <div className="hf-pending-tray-header">
         <span className="hf-pending-tray-count">
           {entries.length} pending change{entries.length === 1 ? "" : "s"}

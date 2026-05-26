@@ -12,6 +12,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 // zod imported dynamically inside handler — see chatSchema below
 import { ADMIN_TOOLS } from "@/lib/chat/admin-tools";
 import { executeAdminTool } from "@/lib/chat/admin-tool-handlers";
+import { hasPendingChangePayload, type PendingChangePayload } from "@/lib/chat/pending-change-payload";
 
 // TUNING mode gets a narrow tool surface — behaviour-target writer + playbook
 // config writer. Broader admin tools stay in DATA mode where they belong.
@@ -383,6 +384,10 @@ async function handleDataModeWithTools(
   const loopMessages: AIMessage[] = [...messages];
   let toolCallCount = 0;
   let finalContent = "";
+  // #873 — accumulate pendingChange payloads from tool results; surface
+  // via X-Pending-Changes response header for the client renderer to
+  // push into the PendingChangesTray.
+  const pendingChanges: PendingChangePayload[] = [];
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     // @ai-call chat.data — Non-streaming with tools | config: /x/ai-config
@@ -421,6 +426,11 @@ async function handleDataModeWithTools(
         tool_use_id: toolUse.id,
         content: result,
       });
+      // #873 — collect any pendingChange payload so the client renderer
+      // can push it into the PendingChangesTray with `aiSuggested: true`.
+      if (hasPendingChangePayload(result)) {
+        pendingChanges.push(result.pendingChange);
+      }
     }
 
     // Add tool results as a user message
@@ -453,6 +463,9 @@ async function handleDataModeWithTools(
       "X-Chat-Mode": mode,
       "X-AI-Engine": selectedEngine,
       "X-Tool-Calls": toolCallCount.toString(),
+      ...(pendingChanges.length > 0
+        ? { "X-Pending-Changes": encodeURIComponent(JSON.stringify(pendingChanges)) }
+        : {}),
     },
   });
 }
@@ -479,6 +492,8 @@ async function handleTuningModeWithTools(
   const loopMessages: AIMessage[] = [...messages];
   let toolCallCount = 0;
   let finalContent = "";
+  // #873 — accumulate pendingChange payloads from tool results.
+  const pendingChanges: PendingChangePayload[] = [];
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     // @ai-call chat.tuning — Tuning assistant tool loop | config: /x/ai-config
@@ -513,6 +528,10 @@ async function handleTuningModeWithTools(
         tool_use_id: toolUse.id,
         content: result,
       });
+      // #873 — surface pendingChange to the client via response header.
+      if (hasPendingChangePayload(result)) {
+        pendingChanges.push(result.pendingChange);
+      }
     }
 
     loopMessages.push({
@@ -542,6 +561,9 @@ async function handleTuningModeWithTools(
       "X-Chat-Mode": mode,
       "X-AI-Engine": selectedEngine,
       "X-Tool-Calls": toolCallCount.toString(),
+      ...(pendingChanges.length > 0
+        ? { "X-Pending-Changes": encodeURIComponent(JSON.stringify(pendingChanges)) }
+        : {}),
     },
   });
 }

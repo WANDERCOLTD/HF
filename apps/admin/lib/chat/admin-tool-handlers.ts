@@ -15,6 +15,7 @@ import { writeBehaviorTarget, writeCallerBehaviorTarget } from "@/lib/agent-tune
 import { updatePlaybookConfig } from "@/lib/playbook/update-playbook-config";
 import { updateAnalysisSpecConfig } from "@/lib/analysis-spec/update-analysis-spec-config";
 import { updateDomainConfig } from "@/lib/domain/update-domain-config";
+import { buildPendingChangePayload } from "@/lib/chat/pending-change-payload";
 import { bumpCallerComposeTimestamp, bumpPlaybookComposeTimestamp } from "@/lib/compose/bump-timestamp";
 import {
   resolvePlaybookIdForCurriculum,
@@ -327,10 +328,10 @@ async function handleGetSpecConfig(input: Record<string, any>) {
 async function handleUpdateSpecConfig(input: Record<string, any>) {
   const { spec_id, config_updates, reason, domain_id } = input;
 
-  // Load current spec
+  // Load current spec — also fetch config for the #873 pendingChange diff
   const spec = await prisma.analysisSpec.findUnique({
     where: { id: spec_id },
-    select: { id: true, name: true, isLocked: true },
+    select: { id: true, name: true, isLocked: true, config: true },
   });
 
   if (!spec) {
@@ -346,7 +347,8 @@ async function handleUpdateSpecConfig(input: Record<string, any>) {
   //   SYSTEM (e.g. INIT-001) → SystemSetting "compose_inputs_updated_at"
   //   DOMAIN → Domain.composeInputsUpdatedAt (caller can pass domain_id)
   //   CALLER → no-op
-  await updateAnalysisSpecConfig(
+  const prevSpecConfig = (spec.config as Record<string, unknown>) ?? {};
+  const specResult = await updateAnalysisSpecConfig(
     spec_id,
     (current) => {
       const currentConfig = (current.config as Record<string, any>) ?? {};
@@ -359,13 +361,30 @@ async function handleUpdateSpecConfig(input: Record<string, any>) {
     },
   );
 
-  console.log(`[admin-tools] Updated spec "${spec.name}" config. Reason: ${reason}. Fields changed: ${Object.keys(config_updates).join(", ")}`);
+  const fieldsUpdated = Object.keys(config_updates);
+  console.log(`[admin-tools] Updated spec "${spec.name}" config. Reason: ${reason}. Fields changed: ${fieldsUpdated.join(", ")}`);
+
+  // #873 — emit pendingChange when the write actually bumped timestamps.
+  // Spec writes route bump to SYSTEM or DOMAIN; map that to tray scope.
+  const pendingChange =
+    specResult.timestampBumped && fieldsUpdated.length > 0
+      ? buildPendingChangePayload({
+          scope: specResult.bumpTarget === "domain" ? "domain" : "system",
+          scopeId: specResult.bumpTarget === "domain" ? (domain_id ?? null) : null,
+          scopeLabel: `Spec ${spec.name}`,
+          key: fieldsUpdated[0],
+          label: fieldsUpdated[0],
+          beforeValue: prevSpecConfig[fieldsUpdated[0]],
+          afterValue: config_updates[fieldsUpdated[0]],
+        })
+      : undefined;
 
   return {
     ok: true,
     message: `Updated "${spec.name}" config successfully.`,
-    fieldsUpdated: Object.keys(config_updates),
+    fieldsUpdated,
     reason,
+    ...(pendingChange ? { pendingChange } : {}),
   };
 }
 
@@ -848,6 +867,7 @@ async function handleUpdatePlaybookConfig(input: Record<string, any>) {
   // tuning surface; updates here MUST go through the helper so any
   // COMPOSE-affecting change bumps Playbook.composeInputsUpdatedAt and
   // downstream callers' next compose detects stale (#825 staleness check).
+  const prevConfig = (playbook.config ?? {}) as Record<string, unknown>;
   const result = await updatePlaybookConfig(
     playbookId,
     (cfg) => ({ ...(cfg as Record<string, unknown>), ...updates } as typeof cfg),
@@ -857,6 +877,24 @@ async function handleUpdatePlaybookConfig(input: Record<string, any>) {
   const fields = Object.keys(updates);
   console.log(`[admin-tools] Updated playbook "${playbook.name}" config. Fields: ${fields.join(", ")}. Reason: ${input.reason || "(not given)"}. composeInputsUpdatedAt bumped: ${result.timestampBumped}`);
 
+  // #873 — emit pendingChange payload only when the write actually
+  // bumped the timestamp (compose-affecting). One payload per call site;
+  // if the AI updates multiple fields at once, pick the first one as the
+  // representative (the tray surfaces *that* a change happened — full
+  // multi-field diff lives in the chat transcript).
+  const pendingChange =
+    result.timestampBumped && fields.length > 0
+      ? buildPendingChangePayload({
+          scope: "playbook",
+          scopeId: playbookId,
+          scopeLabel: `Course ${playbook.name}`,
+          key: fields[0],
+          label: fields[0],
+          beforeValue: prevConfig[fields[0]],
+          afterValue: updates[fields[0]],
+        })
+      : undefined;
+
   return {
     ok: true,
     playbook_id: playbookId,
@@ -864,6 +902,7 @@ async function handleUpdatePlaybookConfig(input: Record<string, any>) {
     updated_fields: updates,
     compose_inputs_bumped: result.timestampBumped,
     message: `Updated ${fields.join(", ")} on ${playbook.name}. Tuning saved.${result.timestampBumped ? " Active callers' prompts marked stale — they'll recompose on next call." : ""}`,
+    ...(pendingChange ? { pendingChange } : {}),
   };
 }
 
@@ -1115,6 +1154,30 @@ async function handleUpdateDomain(input: Record<string, any>) {
     `[admin-tools] Updated domain "${existing.name}". Fields: ${allUpdatedKeys.join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped}. Reason: ${input.reason || "(not given)"}`,
   );
 
+  // #873 — emit pendingChange when the timestamp bumped (compose-
+  // affecting). Use the first compose-affecting field as the
+  // representative; full diff lives in the chat transcript.
+  const composeAffectingChanged = allUpdatedKeys.find((k) =>
+    [
+      "onboardingFlowPhases",
+      "onboardingDefaultTargets",
+      "onboardingWelcome",
+      "onboardingIdentitySpecId",
+    ].includes(k),
+  );
+  const pendingChange =
+    timestampBumped && composeAffectingChanged
+      ? buildPendingChangePayload({
+          scope: "domain",
+          scopeId: domainId,
+          scopeLabel: `Domain ${existing.name}`,
+          key: composeAffectingChanged,
+          label: composeAffectingChanged,
+          beforeValue: undefined,
+          afterValue: (input as Record<string, unknown>)[composeAffectingChanged],
+        })
+      : undefined;
+
   return {
     ok: true,
     domain_id: domainId,
@@ -1126,6 +1189,7 @@ async function handleUpdateDomain(input: Record<string, any>) {
       (timestampBumped
         ? " Every caller in every playbook in this domain will recompose on their next call."
         : ""),
+    ...(pendingChange ? { pendingChange } : {}),
   };
 }
 

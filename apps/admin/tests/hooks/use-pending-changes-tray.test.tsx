@@ -203,6 +203,72 @@ describe("usePendingChangesTray", () => {
     });
   });
 
+  describe("hf:pending-change CustomEvent listener (#873)", () => {
+    it("dispatching a valid CustomEvent pushes an aiSuggested entry", () => {
+      const { result } = renderHook(() => usePendingChangesTray(), { wrapper });
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent("hf:pending-change", {
+            detail: {
+              key: "tolerances.masteryThreshold",
+              label: "Mastery threshold",
+              scopeLabel: "Course IELTS Prep",
+              beforeValue: "0.7",
+              afterValue: "0.6",
+              scope: "playbook",
+              scopeId: "pb-1",
+              fanoutScope: "caller",
+            },
+          }),
+        );
+      });
+      expect(result.current.entries).toHaveLength(1);
+      expect(result.current.entries[0].aiSuggested).toBe(true);
+      expect(result.current.entries[0].key).toBe("tolerances.masteryThreshold");
+    });
+
+    it("ignores events with malformed detail", () => {
+      const { result } = renderHook(() => usePendingChangesTray(), { wrapper });
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent("hf:pending-change", { detail: null }),
+        );
+        window.dispatchEvent(
+          new CustomEvent("hf:pending-change", {
+            detail: { key: 123 /* not a string */ },
+          }),
+        );
+        window.dispatchEvent(
+          new CustomEvent("hf:pending-change", { detail: "string" }),
+        );
+      });
+      expect(result.current.entries).toHaveLength(0);
+    });
+
+    it("coerces unknown scope/fanoutScope to safe defaults", () => {
+      const { result } = renderHook(() => usePendingChangesTray(), { wrapper });
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent("hf:pending-change", {
+            detail: {
+              key: "k",
+              label: "L",
+              scopeLabel: "S",
+              beforeValue: "a",
+              afterValue: "b",
+              scope: "bogus",
+              scopeId: "x",
+              fanoutScope: "all", // not allowed for AI — coerced
+            },
+          }),
+        );
+      });
+      expect(result.current.entries[0].scope).toBe("playbook");
+      expect(result.current.entries[0].fanoutScope).toBe("caller");
+      expect(result.current.entries[0].aiSuggested).toBe(true);
+    });
+  });
+
   describe("mergeEntries (unit, no React)", () => {
     it("returns a new array when no conflict", () => {
       const existing: TrayEntry[] = [];

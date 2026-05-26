@@ -11,8 +11,11 @@
 
 .hf-pending-tray {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  /* --hf-tray-right and --hf-tray-bottom are set inline by the React
+     component, reading from useChatContext. Fallback to 16px when not
+     mounted with custom props (e.g. in isolated tests). */
+  right: var(--hf-tray-right, 16px);
+  bottom: var(--hf-tray-bottom, 16px);
   width: 420px;
   max-width: calc(100vw - 32px);
   max-height: 60vh;
@@ -26,6 +29,7 @@
   font-size: 13px;
   color: var(--text-primary);
   overflow: hidden;
+  transition: right 200ms ease-out, bottom 200ms ease-out;
 }
 
 .hf-pending-tray-header {
