@@ -70,10 +70,6 @@
           {
             "type": "command",
             "command": "/Users/paulwander/projects/HF/.claude/hooks/stop-reminder.sh"
-          },
-          {
-            "type": "command",
-            "command": "/Users/paulwander/projects/HF/.claude/hooks/stop-release-lock.sh"
           }
         ]
       }
