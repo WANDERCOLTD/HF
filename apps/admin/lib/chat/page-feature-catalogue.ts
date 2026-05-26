@@ -16,6 +16,11 @@
  * omitted — it largely restates the `about` field for the human reader and
  * pushed Course detail (7 tabs) over budget. The `about` field alone is
  * enough for the assistant to answer "what is the X tab?".
+ *
+ * #810: `tab.sections` (named `<CollapsibleCard>` blocks like Felt Progress on
+ * the Design tab) are rendered as a nested bullet under their parent tab so
+ * the assistant can answer "tell me about Felt Progress" the same way it
+ * answers tab-level questions.
  */
 
 import { getPageHelp } from "@/lib/help/page-help";
@@ -35,6 +40,11 @@ export function buildPageFeatureCatalogue(pathname: string | undefined): string 
     for (const tab of help.tabs) {
       const operatorMark = tab.requiresOperator ? " _(operator-only)_" : "";
       lines.push(`- **${tab.label}** (\`${tab.id}\`)${operatorMark} — ${tab.about}`);
+      if (tab.sections && tab.sections.length > 0) {
+        for (const section of tab.sections) {
+          lines.push(`    - **${section.title}** — ${section.about}`);
+        }
+      }
     }
   }
 
