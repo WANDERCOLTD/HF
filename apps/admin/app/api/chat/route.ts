@@ -12,7 +12,7 @@ import { requireAuth, isAuthError } from "@/lib/permissions";
 // zod imported dynamically inside handler — see chatSchema below
 import { ADMIN_TOOLS } from "@/lib/chat/admin-tools";
 import { executeAdminTool } from "@/lib/chat/admin-tool-handlers";
-import { hasPendingChangePayload, type PendingChangePayload } from "@/lib/chat/pending-change-payload";
+import { extractPendingChangeFromToolResult, type PendingChangePayload } from "@/lib/chat/pending-change-payload";
 
 // TUNING mode gets a narrow tool surface — behaviour-target writer + playbook
 // config writer. Broader admin tools stay in DATA mode where they belong.
@@ -428,8 +428,12 @@ async function handleDataModeWithTools(
       });
       // #873 — collect any pendingChange payload so the client renderer
       // can push it into the PendingChangesTray with `aiSuggested: true`.
-      if (hasPendingChangePayload(result)) {
-        pendingChanges.push(result.pendingChange);
+      // `result` is a JSON-stringified blob (executeAdminTool calls
+      // truncateResult → JSON.stringify) — must parse before extraction.
+      // Silent on parse failure (truncated tool results are accepted).
+      const pendingChange = extractPendingChangeFromToolResult(result);
+      if (pendingChange) {
+        pendingChanges.push(pendingChange);
       }
     }
 
@@ -529,8 +533,10 @@ async function handleTuningModeWithTools(
         content: result,
       });
       // #873 — surface pendingChange to the client via response header.
-      if (hasPendingChangePayload(result)) {
-        pendingChanges.push(result.pendingChange);
+      // `result` is a JSON-stringified blob — must parse before extraction.
+      const pendingChange = extractPendingChangeFromToolResult(result);
+      if (pendingChange) {
+        pendingChanges.push(pendingChange);
       }
     }
 

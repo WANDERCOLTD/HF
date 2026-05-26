@@ -79,6 +79,34 @@ function stringifyValue(v: unknown): string {
 }
 
 /**
+ * Extract a pendingChange payload from a stringified tool result.
+ *
+ * `lib/chat/admin-tool-handlers.ts::executeAdminTool` returns a JSON-
+ * stringified blob (so the AI loop can append it as a tool_result block).
+ * The chat route needs to pluck pendingChange OUT of that string before
+ * the result goes back to the model — otherwise the AI sees the field
+ * (harmless but noisy) and the client gets nothing in the
+ * X-Pending-Changes header.
+ *
+ * Defensive on parse failure: tool results may be truncated at
+ * MAX_RESULT_LENGTH (3000) producing invalid JSON. In that case we
+ * silently return null — accepting that very-long tool results lose
+ * their tray push as a v1 limitation.
+ */
+export function extractPendingChangeFromToolResult(
+  toolResultString: string,
+): PendingChangePayload | null {
+  if (typeof toolResultString !== "string") return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(toolResultString);
+  } catch {
+    return null;
+  }
+  return hasPendingChangePayload(parsed) ? parsed.pendingChange : null;
+}
+
+/**
  * Type guard — detects whether a chat tool result carries a pending-change
  * payload. Tool results are heterogenous shapes; this narrows safely.
  */

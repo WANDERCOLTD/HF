@@ -11,6 +11,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildPendingChangePayload,
   hasPendingChangePayload,
+  extractPendingChangeFromToolResult,
 } from "@/lib/chat/pending-change-payload";
 
 describe("buildPendingChangePayload", () => {
@@ -137,5 +138,55 @@ describe("hasPendingChangePayload type guard", () => {
       pendingChange: { ...valid.pendingChange, scope: "system" as const, scopeId: null },
     };
     expect(hasPendingChangePayload(ok)).toBe(true);
+  });
+});
+
+describe("extractPendingChangeFromToolResult (chat-route bridge)", () => {
+  const validPayload = {
+    key: "k",
+    label: "L",
+    scopeLabel: "S",
+    beforeValue: "0.7",
+    afterValue: "0.6",
+    scope: "playbook" as const,
+    scopeId: "pb-1",
+    fanoutScope: "caller" as const,
+  };
+
+  it("extracts pendingChange from a stringified tool result", () => {
+    const toolResult = JSON.stringify({
+      ok: true,
+      message: "done",
+      pendingChange: validPayload,
+    });
+    const extracted = extractPendingChangeFromToolResult(toolResult);
+    expect(extracted).toEqual(validPayload);
+  });
+
+  it("returns null when the string has no pendingChange field", () => {
+    const toolResult = JSON.stringify({ ok: true, message: "no payload" });
+    expect(extractPendingChangeFromToolResult(toolResult)).toBeNull();
+  });
+
+  it("returns null for truncated / malformed JSON (3000+ char results)", () => {
+    // Simulates `truncateResult`'s "json.slice(0, 3000) + '... (truncated)'"
+    const truncated = '{"ok":true,"pendingChange":{"key":"k","label":"L"... (truncated)';
+    expect(extractPendingChangeFromToolResult(truncated)).toBeNull();
+  });
+
+  it("returns null when input is not a string", () => {
+    // Defensive against future signature drift
+    expect(extractPendingChangeFromToolResult(null as unknown as string)).toBeNull();
+    expect(
+      extractPendingChangeFromToolResult({ pendingChange: validPayload } as unknown as string),
+    ).toBeNull();
+  });
+
+  it("returns null when pendingChange exists but has wrong shape", () => {
+    const toolResult = JSON.stringify({
+      ok: true,
+      pendingChange: { key: 42 /* should be string */ },
+    });
+    expect(extractPendingChangeFromToolResult(toolResult)).toBeNull();
   });
 });
