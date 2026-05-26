@@ -10146,6 +10146,12 @@ Returns the resolved caller's `CallerModuleProgress` rows joined
 
 ---
 
+### `GET` /api/student/scheduler-decision
+
+**Auth**: STUDENT | OPERATOR+ (with callerId param)
+
+---
+
 ### `GET` /api/student/survey
 
 **Auth**: session (STUDENT | OPERATOR+)
@@ -14515,8 +14521,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 452 |
-| Files with annotations | 451 |
+| Route files found | 453 |
+| Files with annotations | 452 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 
