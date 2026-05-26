@@ -97,6 +97,8 @@ export function PendingChangesTray(): React.ReactElement | null {
   const [preview, setPreview] = useState<PreviewState>(ZERO_PREVIEW);
   const [toggleCaller, setToggleCaller] = useState(true);
   const [toggleAll, setToggleAll] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const hasAiSuggested = useMemo(
     () => entries.some((e) => e.aiSuggested),
@@ -269,21 +271,54 @@ export function PendingChangesTray(): React.ReactElement | null {
             )}
           </div>
 
+          {saveError && (
+            <p className="hf-pending-tray-ai-warning" role="alert">
+              ⚠ {saveError}
+            </p>
+          )}
+
           <div className="hf-pending-tray-actions">
             <button
               type="button"
               className="hf-pending-tray-discard"
               onClick={clear}
+              disabled={saving}
             >
               Discard all
             </button>
             <button
               type="button"
               className="hf-pending-tray-save"
-              disabled
-              title="Save & apply lands in Story #857 — this tray currently accumulates entries only."
+              disabled={saving}
+              onClick={async () => {
+                setSaving(true);
+                setSaveError(null);
+                try {
+                  const res = await fetch("/api/recompose/apply", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      entries,
+                      toggleCaller: Boolean(callerInContext) && toggleCaller,
+                      toggleAll: !toggle2Locked && effectiveToggleAll,
+                      callerInContext,
+                    }),
+                  });
+                  const json = (await res.json()) as { ok?: boolean; error?: string };
+                  if (!res.ok || !json.ok) {
+                    throw new Error(json.error || `Apply failed (${res.status})`);
+                  }
+                  clear();
+                  // Reset toggle state for next batch
+                  setToggleAllUserTouched(false);
+                } catch (err: unknown) {
+                  setSaveError(err instanceof Error ? err.message : String(err));
+                } finally {
+                  setSaving(false);
+                }
+              }}
             >
-              Save &amp; apply (#857)
+              {saving ? "Applying…" : "Save & apply"}
             </button>
           </div>
         </>
