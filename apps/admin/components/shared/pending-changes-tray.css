@@ -1,0 +1,222 @@
+/* Pending Changes Tray — epic #854 / Story #856
+ *
+ * Non-modal floating panel, bottom-right. z-index above page content,
+ * below modals (modals live at 100+; this sits at 50).
+ *
+ * All colours come from CSS variables (no hardcoded hex). Alpha via
+ * color-mix() per the global rule. Sized to feel weighty but not
+ * dominant — typical width ~420px, max height ~50vh with scrollable
+ * entry list.
+ */
+
+.hf-pending-tray {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  max-height: 60vh;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--text-primary) 12%, transparent);
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.hf-pending-tray-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-secondary) 60%, var(--surface-primary));
+}
+
+.hf-pending-tray-count {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.hf-pending-tray-collapse {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.hf-pending-tray-collapse:hover {
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.hf-pending-tray-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 14px;
+  overflow-y: auto;
+  max-height: 28vh;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.hf-pending-tray-entry {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px dashed color-mix(in srgb, var(--border-subtle) 60%, transparent);
+}
+
+.hf-pending-tray-entry:last-child {
+  border-bottom: none;
+}
+
+.hf-pending-tray-entry-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.hf-pending-tray-scope {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.hf-pending-tray-label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.hf-pending-tray-diff {
+  color: var(--text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11.5px;
+}
+
+.hf-pending-tray-ai-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: color-mix(in srgb, var(--accent-primary) 16%, transparent);
+  color: var(--accent-primary);
+}
+
+.hf-pending-tray-remove {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.hf-pending-tray-remove:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.hf-pending-tray-toggles {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hf-pending-tray-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.hf-pending-tray-toggle input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.hf-pending-tray-toggle.is-locked {
+  cursor: not-allowed;
+  color: var(--text-tertiary);
+}
+
+.hf-pending-tray-toggle.is-locked input[type="checkbox"] {
+  cursor: not-allowed;
+}
+
+.hf-pending-tray-sample {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.hf-pending-tray-ai-warning {
+  margin: 4px 0 0;
+  padding: 4px 8px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  border-radius: 4px;
+}
+
+.hf-pending-tray-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--surface-secondary) 40%, var(--surface-primary));
+}
+
+.hf-pending-tray-discard,
+.hf-pending-tray-save {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid var(--border-default);
+}
+
+.hf-pending-tray-discard {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.hf-pending-tray-discard:hover {
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  color: var(--text-primary);
+}
+
+.hf-pending-tray-save {
+  background: var(--accent-primary);
+  color: var(--surface-primary);
+  border-color: var(--accent-primary);
+}
+
+.hf-pending-tray-save:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-primary) 85%, var(--text-primary));
+}
+
+.hf-pending-tray-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
