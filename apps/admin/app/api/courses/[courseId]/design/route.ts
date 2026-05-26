@@ -56,6 +56,14 @@ export async function PUT(
       // #790 (S8) — first-call mode override. String writes; null clears
       // (falls back to default 'onboarding' behaviour).
       firstCallMode?: PlaybookConfig["firstCallMode"] | null;
+      // Course-level tolerance overrides (split from caller Tune,
+      // post-#849). Partial-merge semantics: each subfield is patched
+      // independently. masteryThreshold is NOT accepted here — its
+      // canonical home is BehaviorTarget(scope=PLAYBOOK).
+      tolerances?: {
+        retrievalCadenceOverride?: number | null;
+        memoryDecayScale?: number | null;
+      } | null;
     };
 
     try {
@@ -130,6 +138,38 @@ export async function PUT(
               delete pbConfig.firstCallMode;
             } else {
               pbConfig.firstCallMode = body.firstCallMode;
+            }
+          }
+
+          // Tolerances (split from caller Tune, post-#849).
+          // Patch one field at a time so a partial body (e.g. only
+          // memoryDecayScale provided) does not blow away other tolerance
+          // fields that were unchanged. masteryThreshold is NOT accepted
+          // here — its canonical home is BehaviorTarget(scope=PLAYBOOK,
+          // parameterId=TOL-MASTERY-THRESHOLD), written via
+          // /api/playbooks/[id]/targets.
+          if (body.tolerances !== undefined) {
+            const incoming = body.tolerances as Record<string, unknown> | null;
+            if (incoming === null) {
+              delete pbConfig.tolerances;
+            } else {
+              const current = pbConfig.tolerances ?? {};
+              const next = { ...current };
+              if ("retrievalCadenceOverride" in incoming) {
+                const v = incoming.retrievalCadenceOverride;
+                if (v == null) delete next.retrievalCadenceOverride;
+                else next.retrievalCadenceOverride = v as number;
+              }
+              if ("memoryDecayScale" in incoming) {
+                const v = incoming.memoryDecayScale;
+                if (v == null) delete next.memoryDecayScale;
+                else next.memoryDecayScale = v as number;
+              }
+              if (Object.keys(next).length === 0) {
+                delete pbConfig.tolerances;
+              } else {
+                pbConfig.tolerances = next;
+              }
             }
           }
 

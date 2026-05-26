@@ -916,24 +916,22 @@ export function PromptTunerSidebar({
         })}
         </div>{/* ps-eq-groups */}
 
-        {/* #598 Slice 2 — Tolerances section
+        {/* Tolerances — Mastery Threshold only (split per #849 follow-up).
          *
-         * Mastery threshold: both scopes editable. Course writes a
-         * BehaviorTarget(scope=PLAYBOOK, parameterId=TOL-MASTERY-THRESHOLD)
-         * via /api/playbooks/[id]/targets; learner writes
-         * BehaviorTarget(scope=CALLER) via /api/callers/[id]/behavior-targets
-         * (already fans out across identities per #836).
+         * Course-only knobs (Retrieval Cadence Override, Memory Decay Scale)
+         * moved to Course Design → Tolerances. The per-learner Mastery
+         * Threshold override stays here because that's where educators tune
+         * an individual learner.
          *
-         * Retrieval cadence + Memory decay: course-only. At learner scope
-         * they render disabled with a "course-level only" tooltip via
-         * data-disabled-reason. Writes land under Playbook.config.tolerances
-         * and route through updatePlaybookConfig which bumps
-         * composeInputsUpdatedAt (#825 stamp-and-check).
+         * Course scope writes BehaviorTarget(scope=PLAYBOOK, parameterId=
+         * TOL-MASTERY-THRESHOLD) via /api/playbooks/[id]/targets.
+         * Learner scope writes BehaviorTarget(scope=CALLER) via
+         * /api/callers/[id]/behavior-targets (fans out across identities
+         * per #836). Both bump composeInputsUpdatedAt via #830's helpers.
          */}
         <div className="ps-tuner-section">
           <div className="ps-tuner-section-title">Tolerances</div>
 
-          {/* Mastery threshold */}
           <div className="ps-tuner-tolerance-row">
             <label className="ps-tuner-tolerance-label" htmlFor="tol-mastery">
               Mastery Threshold
@@ -975,84 +973,9 @@ export function PromptTunerSidebar({
             </div>
           </div>
 
-          {/* Retrieval cadence (course-only) */}
-          <div
-            className="ps-tuner-tolerance-row"
-            data-disabled-reason={
-              scope === "learner"
-                ? "Course-level only — applies to all learners."
-                : undefined
-            }
-          >
-            <label className="ps-tuner-tolerance-label" htmlFor="tol-cadence">
-              Retrieval Cadence
-              <span className="ps-tuner-tolerance-sublabel">
-                Fire retrieval questions every N calls. 1 = every call.
-              </span>
-            </label>
-            <div className="ps-tuner-tolerance-control">
-              <input
-                id="tol-cadence"
-                type="number"
-                min={1}
-                max={10}
-                step={1}
-                value={draftCourseTolerances.retrievalCadenceOverride ?? ""}
-                placeholder="preset"
-                disabled={scope !== "course"}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  const v = raw === "" ? undefined : Math.max(1, Math.floor(Number(raw)));
-                  setDraftCourseTolerances((p) => ({ ...p, retrievalCadenceOverride: v }));
-                }}
-                className="hf-input ps-tuner-tolerance-input"
-                data-testid={`tuner-tolerance-cadence-${scope ?? "none"}`}
-              />
-              <span className="ps-eq-value">
-                {draftCourseTolerances.retrievalCadenceOverride !== undefined
-                  ? String(draftCourseTolerances.retrievalCadenceOverride)
-                  : "(preset)"}
-              </span>
-            </div>
-          </div>
-
-          {/* Memory decay scale (course-only) */}
-          <div
-            className="ps-tuner-tolerance-row"
-            data-disabled-reason={
-              scope === "learner"
-                ? "Course-level only — applies to all learners."
-                : undefined
-            }
-          >
-            <label className="ps-tuner-tolerance-label" htmlFor="tol-decay">
-              Memory Decay Scale
-              <span className="ps-tuner-tolerance-sublabel">
-                0.1–1.0 multiplier on default per-category decay. Lower = memories fade faster.
-              </span>
-            </label>
-            <div className="ps-tuner-tolerance-control">
-              <input
-                id="tol-decay"
-                type="range"
-                min={0.1}
-                max={1.0}
-                step={0.1}
-                value={draftCourseTolerances.memoryDecayScale ?? 1.0}
-                disabled={scope !== "course"}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setDraftCourseTolerances((p) => ({ ...p, memoryDecayScale: v }));
-                }}
-                className="ps-eq-slider"
-                data-testid={`tuner-tolerance-decay-${scope ?? "none"}`}
-              />
-              <span className="ps-eq-value">
-                {draftCourseTolerances.memoryDecayScale !== undefined
-                  ? fmt(draftCourseTolerances.memoryDecayScale)
-                  : "(1.0)"}
-              </span>
-            </div>
+          <div className="hf-text-xs hf-text-muted hf-mt-sm">
+            Course-wide retrieval cadence + memory decay live on the
+            Course&nbsp;Design&nbsp;tab → Tolerances.
           </div>
         </div>
 

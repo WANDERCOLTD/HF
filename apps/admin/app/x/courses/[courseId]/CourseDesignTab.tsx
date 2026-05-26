@@ -6,6 +6,7 @@ import { BandingPicker } from '@/components/shared/BandingPicker';
 import { CollapsibleCard } from '@/components/shared/CollapsibleCard';
 import { FeltProgressSettings } from '@/components/course-design/FeltProgressSettings';
 import { FirstSessionSettings } from '@/components/course-design/FirstSessionSettings';
+import { TolerancesSettings } from '@/components/course-design/TolerancesSettings';
 import { CourseSummaryCard } from './CourseSummaryCard';
 import { archetypeLabel } from '@/lib/course/group-specs';
 import { INTERACTION_PATTERN_LABELS, type InteractionPattern } from '@/lib/content-trust/resolve-config';
@@ -152,6 +153,22 @@ export function CourseDesignTab({
         className="hf-mb-lg"
       >
         <FirstSessionSettings courseId={courseId} playbookConfig={pbConfig} />
+      </CollapsibleCard>
+
+      {/* ── Tolerances (split from caller Tune, post-#849) ──
+          Course-default Mastery Threshold + Retrieval Cadence Override +
+          Memory Decay Scale. The per-learner Mastery Threshold override
+          stays in PromptTunerSidebar on the caller page. */}
+      <CollapsibleCard
+        title="Tolerances"
+        hint="Course-default mastery threshold, retrieval cadence, memory decay"
+        className="hf-mb-lg"
+      >
+        <TolerancesSettings
+          courseId={courseId}
+          playbookId={courseId}
+          playbookConfig={pbConfig}
+        />
       </CollapsibleCard>
 
       {/* ── Skill Banding (#417 Story C — per-playbook tier mapping) ── */}
