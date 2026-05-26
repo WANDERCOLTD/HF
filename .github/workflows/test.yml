@@ -79,6 +79,15 @@ jobs:
       - name: KNOWLEDGE-MAP.md ratchet
         run: npm run docs:knowledge-map:ci
 
+      # AI-CAPABILITIES.md drift guard (#866). Blocking. The doc is
+      # auto-derived from lib/chat/admin-tools.ts (the registry the AI
+      # reads at every chat turn). If a tool is added/changed/removed
+      # without regenerating, the doc silently lies — and humans rely
+      # on it to know which Cmd+K calls exist. Regen with
+      # `npm run docs:ai-capabilities`.
+      - name: AI-CAPABILITIES.md drift guard
+        run: npm run docs:ai-capabilities:check
+
   # Job 2: Unit Tests
   unit-tests:
     name: Unit Tests
