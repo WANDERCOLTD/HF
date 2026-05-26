@@ -11979,6 +11979,24 @@ Post-call pipeline endpoint that orchestrates call analysis. Receives call
 
 ## Recompose
 
+### `POST` /api/recompose/apply
+
+Acts on the toggle decisions from the PendingChangesTray's
+
+**Auth**: session OPERATOR · **Scope**: `recompose:write`
+
+**Response** `200`
+```json
+{ ok, audited, callerRecomposed, cohortRecomposeAttempts[] }
+```
+
+**Response** `400`
+```json
+{ ok: false, error } — invalid body or AI-safety violation
+```
+
+---
+
 ### `GET` /api/recompose/preview?scope=playbook|domain|system&scopeId=<uuid>
 
 Returns `{ count, sampleNames[3], etaSeconds, cacheHit, source }`
@@ -14497,8 +14515,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 451 |
-| Files with annotations | 450 |
+| Route files found | 452 |
+| Files with annotations | 451 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 

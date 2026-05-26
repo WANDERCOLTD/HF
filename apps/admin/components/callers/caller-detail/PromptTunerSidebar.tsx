@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { X, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
 import "./prompt-tuner.css";
+import { usePendingChangesTray } from "@/hooks/use-pending-changes-tray";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -208,6 +209,19 @@ export function PromptTunerSidebar({
     if (!playbookId || !open) return;
     void refreshParameters();
   }, [playbookId, open, refreshParameters]);
+
+  // #857 — feed the pending-changes tray with caller-in-context while the
+  // sidebar is open. The tray's Toggle 1 ("Also recompose <name>") uses
+  // this to render the caller's name + default ON. Cleared on close.
+  const { push: trayPush, setCallerInContext: traySetCaller } = usePendingChangesTray();
+  useEffect(() => {
+    if (!open) return;
+    if (!callerId || !callerName) return;
+    traySetCaller({ id: callerId, name: callerName });
+    return () => {
+      traySetCaller(null);
+    };
+  }, [open, callerId, callerName, traySetCaller]);
 
   // --- Locally remember what we just applied ---
   //
@@ -636,27 +650,42 @@ export function PromptTunerSidebar({
         }));
       }
 
-      // 3. #598 Slice 2 — selective recompose.
-      //    Most config changes (Approach, cadence, decay) land in DB and take
-      //    effect on the next call lazily via the #825 stamp-and-check
-      //    pattern. The mastery threshold is special — a change there should
-      //    warm-recompose every active learner's prompt now so the new
-      //    threshold lands on in-flight prompts. Gated on `c.recompose === true`
-      //    so the no-op-on-save knobs stay cheap.
-      const shouldRecompose = pendingChanges.some((c) => c.recompose === true);
-      if (shouldRecompose) {
-        try {
-          await fetch(`/api/playbooks/${playbookId}/recompose-all`, { method: "POST" });
-        } catch (recomposeErr) {
-          // Non-fatal — the writes landed, will pick up lazily.
-          console.warn("[tuner] recompose-all call failed (non-blocking):", recomposeErr);
-        }
-        setApplyResult(
-          "Tuning saved. Active learners' prompts are being warmed in the background.",
-        );
-      } else {
-        setApplyResult("Tuning saved. Takes effect on the next call.");
+      // 3. #857 — push each change into the global PendingChangesTray.
+      //
+      //    Previously this branch auto-POSTed `/recompose-all` when any
+      //    pending change carried `recompose: true` (mastery threshold).
+      //    That silent fan-out is now opt-in via the tray's Toggle 2 —
+      //    the safety property of epic #854. Cohort recompose happens
+      //    only when the educator explicitly clicks Save & apply on the
+      //    tray with Toggle 2 ON; per-caller recompose via Toggle 1.
+      //
+      //    Underlying writes (sections 1 and 2 above) still happen
+      //    immediately at handleApply time. The tray entries serve as
+      //    visualisation + the gate for the fan-out decision.
+      for (const c of pendingChanges) {
+        const trayKey = c.tolerancesConfigKey
+          ? `tolerances.${c.tolerancesConfigKey}`
+          : c.configKey ?? c.parameterId ?? c.key;
+        trayPush({
+          key: trayKey,
+          label: c.label,
+          scopeLabel: `Course ${playbookId.slice(0, 8)}`,
+          beforeValue: c.oldValue,
+          afterValue: c.newValue,
+          scope: "playbook",
+          scopeId: playbookId,
+          aiSuggested: false,
+          // Mastery-threshold-class changes carried `recompose: true`
+          // historically. The tray's A6 pre-check reads the `key` against
+          // FANOUT_CLASS_PLAYBOOK_KEYS so the toggle defaults ON for
+          // those — preserving the old expectation without bypassing
+          // the educator's explicit click.
+          fanoutScope: c.recompose ? "caller" : "none",
+        });
       }
+      setApplyResult(
+        "Tuning saved. Review the pending changes tray (bottom-right) to recompose now, or wait for the next call.",
+      );
 
       // 4. Re-fetch parameters from the API so `effectiveValue` reflects the
       //    newly-saved values, and clear the draft so the PENDING CHANGES list
@@ -701,6 +730,7 @@ export function PromptTunerSidebar({
   }, [
     playbookId, callerId, callerName, pendingChanges, onApplied, scope,
     refreshParameters, refreshCourseTolerances, courseTolerances, draftCourseTolerances,
+    trayPush,
   ]);
 
   // --- Toggle group collapse ---
