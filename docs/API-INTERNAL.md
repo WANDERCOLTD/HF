@@ -73,6 +73,7 @@
   - [Playbook](#playbook)
   - [Playbooks](#playbooks)
   - [Prompts](#prompts)
+  - [Recompose](#recompose)
   - [Settings](#settings)
   - [Sidebar](#sidebar)
   - [Sim](#sim)
@@ -11976,6 +11977,26 @@ Post-call pipeline endpoint that orchestrates call analysis. Receives call
 
 ---
 
+## Recompose
+
+### `GET` /api/recompose/preview?scope=playbook|domain|system&scopeId=<uuid>
+
+Returns `{ count, sampleNames[3], etaSeconds, cacheHit, source }`
+
+**Auth**: session OPERATOR · **Scope**: `recompose:read`
+
+**Response** `200`
+```json
+RecomposePreview
+```
+
+**Response** `400`
+```json
+{ ok: false, error } when scope is invalid
+```
+
+---
+
 ## Settings
 
 ### `DELETE` /api/settings/channels
@@ -14476,8 +14497,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 450 |
-| Files with annotations | 449 |
+| Route files found | 451 |
+| Files with annotations | 450 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 
