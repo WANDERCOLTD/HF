@@ -66,6 +66,44 @@ function persistContext(breadcrumbs: EntityBreadcrumb[]): void {
   }
 }
 
+/**
+ * Pure reducer for pushEntity — exported for unit tests.
+ *
+ * Rules, in order:
+ *   1. Same id already at the end → no-op (idempotent re-push).
+ *   2. Otherwise → remove any entry with the same id OR the same type,
+ *      then append the new entity at the end.
+ *
+ * Net invariant: at most one entity of each type is in the stack at any
+ * time, and the pushed entity is always last.
+ *
+ * Two design deltas vs the original implementation:
+ *
+ *   (a) Dedupe by type runs across the WHOLE stack, not just the last
+ *       slot. Pre-fix: `Course A → Learner X (publishedPlaybook A) →
+ *       Learner Y (publishedPlaybook B)` ended up as `[playbook A,
+ *       caller Y, playbook B]` (two playbook chips, the source of the
+ *       "which scope?" ambiguity in DATA-mode AI Assistant). Post-fix:
+ *       always exactly one of each leaf type.
+ *
+ *   (b) The previous "slice-to-existing on same id" rule has been
+ *       removed. It conflated page-load pushes (CallerDetailPage pushes
+ *       caller + publishedPlaybook on mount) with back-stack navigation,
+ *       which truncated co-present entities of other types. Pages that
+ *       genuinely want back-nav should use `clearToEntity()` directly.
+ *       Re-pushing an existing id now just moves that entity to the end.
+ */
+export function computeNextBreadcrumbs(
+  prev: EntityBreadcrumb[],
+  entity: EntityBreadcrumb,
+): EntityBreadcrumb[] {
+  if (prev.length > 0 && prev[prev.length - 1].id === entity.id) {
+    return prev;
+  }
+  const cleaned = prev.filter((e) => e.id !== entity.id && e.type !== entity.type);
+  return [...cleaned, entity];
+}
+
 export function EntityProvider({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const userId = session?.user?.id;
@@ -112,27 +150,7 @@ export function EntityProvider({ children }: { children: React.ReactNode }) {
   const currentEntity = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1] : null;
 
   const pushEntity = useCallback((entity: EntityBreadcrumb) => {
-    setBreadcrumbs((prev) => {
-      // Don't add duplicate if same entity is already at the end
-      if (prev.length > 0 && prev[prev.length - 1].id === entity.id) {
-        return prev;
-      }
-
-      // Check if entity already exists in the stack - if so, clear to it
-      const existingIndex = prev.findIndex((e) => e.id === entity.id);
-      if (existingIndex >= 0) {
-        return prev.slice(0, existingIndex + 1);
-      }
-
-      // If the last entity is the same type, replace it (e.g., Caller A → Caller B)
-      // This prevents stacking multiple entities of the same type
-      if (prev.length > 0 && prev[prev.length - 1].type === entity.type) {
-        return [...prev.slice(0, -1), entity];
-      }
-
-      // Different type - add to breadcrumb trail (e.g., Caller → Call)
-      return [...prev, entity];
-    });
+    setBreadcrumbs((prev) => computeNextBreadcrumbs(prev, entity));
   }, []);
 
   const popEntity = useCallback(() => {

@@ -138,7 +138,11 @@ export async function buildSystemPrompt(
       // the path every Cmd+K message takes).
       const [dataPrompt, tuningContext, ticketBlock, listHintBlock] = await Promise.all([
         getPromptSpec(config.specs.chatDataHelper, DATA_SYSTEM_PROMPT),
-        buildTuningSystemPrompt({ entityContext }),
+        // Pass tuningScope so DATA mode's shared tuning catalogue knows the
+        // active scope picked from the Assistant tab's Scope toggle. Without
+        // this the model had to infer scope from the chip stack, which
+        // failed whenever the stack contained multiple caller/playbook ids.
+        buildTuningSystemPrompt({ entityContext, tuningScope }),
         buildTicketDiscussionBlock(options, userRole, institutionId),
         buildFeedbackListHintBlock(options, userRole, institutionId),
       ]);

@@ -372,7 +372,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               mode,
               entityContext: entityContext.breadcrumbs,
               isCommand: true,
-              ...(mode === "TUNING" ? { tuningScope } : {}),
+              ...(mode === "DATA" || mode === "TUNING" ? { tuningScope } : {}),
               ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
               ...(pathname && (mode === "DATA" || mode === "TUNING") ? { pageHint: { route: pathname } } : {}),
               ...(mode === "DATA" && entityContext.pageContext?.page
@@ -430,7 +430,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               mode,
               entityContext: entityContext.breadcrumbs,
               conversationHistory: history,
-              ...(mode === "TUNING" ? { tuningScope } : {}),
+              ...(mode === "DATA" || mode === "TUNING" ? { tuningScope } : {}),
               ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
               ...(pathname && (mode === "DATA" || mode === "TUNING") ? { pageHint: { route: pathname } } : {}),
               ...(mode === "DATA" && entityContext.pageContext?.page
