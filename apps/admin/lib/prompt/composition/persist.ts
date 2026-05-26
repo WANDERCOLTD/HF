@@ -70,6 +70,19 @@ export async function persistComposedPrompt(
 
   const p = db(tx);
 
+  // #599 Slice 1 — populate the recap cache column when the loader produced
+  // a synthesized recap. The loader writes the AI call + audit row; persist
+  // just stores the cached text alongside the new prompt row so subsequent
+  // composes for the same triggerCallId can short-circuit.
+  const synthesizedRecap = composition.loadedData?.priorCallFeedback?.synthesizedRecap ?? null;
+  const recapSynthesisCache = synthesizedRecap
+    ? {
+        depth: synthesizedRecap.depth,
+        text: synthesizedRecap.text,
+        cachedAt: synthesizedRecap.cachedAt,
+      }
+    : undefined;
+
   const composedPrompt = await p.composedPrompt.create({
     data: {
       callerId,
@@ -80,6 +93,7 @@ export async function persistComposedPrompt(
       triggerCallId: triggerCallId || null,
       model: "deterministic",
       status: "active",
+      ...(recapSynthesisCache ? { recapSynthesisCache } : {}),
       inputs: {
         callerContext,
         memoriesCount: loadedData.memories.length,

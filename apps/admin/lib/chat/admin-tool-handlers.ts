@@ -890,11 +890,88 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
 }
 
 /**
+ * #599 Slice 1 — AI-surface validation/clamp for the `priorCallRecap` block
+ * on inbound `update_playbook_config` writes. Two defensive checks:
+ *   1. `depth` must be one of `"minimal" | "standard" | "rich"`. Unknown
+ *      values (`"Maximum"`, numbers, `null`) are rejected with a clear
+ *      message so the model can self-correct.
+ *   2. `dailyCap` is clamped to `[0, PRIOR_CALL_RECAP_DAILY_CAP_MAX]` and
+ *      coerced to an integer. A `console.warn` fires when clamping kicks
+ *      in so operators can spot model hallucinations in the logs.
+ *
+ * Returns either `{ normalised }` (the same shape as the input, with
+ * `priorCallRecap` cleaned) or `{ error }` with a human-readable message
+ * suitable for echoing back to the model.
+ */
+const VALID_RECAP_DEPTHS = new Set(["minimal", "standard", "rich"]);
+
+/** Exported for unit tests. Returned shape is the same one the handler echoes back to the model. */
+export function validatePriorCallRecapUpdates(
+  updates: Record<string, unknown>,
+): { normalised: Record<string, unknown>; error?: undefined } | { normalised?: undefined; error: string } {
+  if (!Object.prototype.hasOwnProperty.call(updates, "priorCallRecap")) {
+    return { normalised: updates };
+  }
+  const raw = updates.priorCallRecap;
+  // Allow explicit `null` to clear the field — merge target picks it up.
+  if (raw === null) {
+    return { normalised: updates };
+  }
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    return {
+      error:
+        "priorCallRecap must be an object of shape { enabled: boolean; depth?: 'minimal'|'standard'|'rich'; dailyCap?: number }.",
+    };
+  }
+  const value = raw as Record<string, unknown>;
+
+  const cleaned: Record<string, unknown> = {};
+
+  if (Object.prototype.hasOwnProperty.call(value, "enabled")) {
+    if (typeof value.enabled !== "boolean") {
+      return { error: "priorCallRecap.enabled must be a boolean." };
+    }
+    cleaned.enabled = value.enabled;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(value, "depth")) {
+    if (typeof value.depth !== "string" || !VALID_RECAP_DEPTHS.has(value.depth)) {
+      return {
+        error: `priorCallRecap.depth must be one of 'minimal', 'standard', 'rich' — got ${JSON.stringify(value.depth)}.`,
+      };
+    }
+    cleaned.depth = value.depth;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(value, "dailyCap")) {
+    const dailyCap = value.dailyCap;
+    if (typeof dailyCap !== "number" || !Number.isFinite(dailyCap)) {
+      return { error: "priorCallRecap.dailyCap must be a finite number." };
+    }
+    const PRIOR_CALL_RECAP_DAILY_CAP_MAX = 500;
+    const clamped = Math.min(Math.max(0, Math.floor(dailyCap)), PRIOR_CALL_RECAP_DAILY_CAP_MAX);
+    if (clamped !== dailyCap) {
+      console.warn(
+        `[admin-tool] update_playbook_config: priorCallRecap.dailyCap clamped ${dailyCap} → ${clamped} (limit: ${PRIOR_CALL_RECAP_DAILY_CAP_MAX}).`,
+      );
+    }
+    cleaned.dailyCap = clamped;
+  }
+
+  return { normalised: { ...updates, priorCallRecap: cleaned } };
+}
+
+/**
  * Update non-behaviour playbook settings from the TUNING assistant. Testing-mode
  * scope: the AI may set any key in PlaybookConfig — no server-side whitelist.
  * Other keys in the existing config are preserved (merge, not replace).
  * Config-only updates are allowed on PUBLISHED playbooks per
  * /api/playbooks/[playbookId]/route.ts (isConfigOnlyUpdate exemption).
+ *
+ * #599 Slice 1 — AI-surface safety rails for `priorCallRecap`:
+ *   - `depth` enum validated; unknown values rejected with a clear error.
+ *   - `dailyCap` server-side clamped to `[0, 500]` with a console.warn.
+ * See `validatePriorCallRecapUpdates` below.
  */
 async function handleUpdatePlaybookConfig(input: Record<string, any>) {
   const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
@@ -902,12 +979,20 @@ async function handleUpdatePlaybookConfig(input: Record<string, any>) {
     return { error: "playbook_id is required (read from entity context with type: 'playbook')" };
   }
 
-  const updates = input.config_updates;
-  if (!updates || typeof updates !== "object" || Array.isArray(updates) || Object.keys(updates).length === 0) {
+  const rawUpdates = input.config_updates;
+  if (!rawUpdates || typeof rawUpdates !== "object" || Array.isArray(rawUpdates) || Object.keys(rawUpdates).length === 0) {
     return {
       error: "config_updates must be a non-empty object of PlaybookConfig keys to merge (e.g. { sessionCount: 5, durationMins: 6 }).",
     };
   }
+
+  // #599 Slice 1 — validate + clamp priorCallRecap before write so a
+  // hallucinated enum or out-of-range number cannot slip through tray review.
+  const safety = validatePriorCallRecapUpdates(rawUpdates);
+  if (safety.error) {
+    return { error: safety.error };
+  }
+  const updates = safety.normalised as Record<string, unknown>;
 
   const playbook = await prisma.playbook.findUnique({
     where: { id: playbookId },

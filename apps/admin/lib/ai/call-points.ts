@@ -135,6 +135,17 @@ export const CALL_POINTS: CallPointDef[] = [
     defaults: { provider: "claude", model: config.ai.claude.model },
   },
   {
+    // #599 Slice 1 — AI-synthesized prior-call recap. Brief 2-4 sentence
+    // diagnosis of the learner's last attempt on this module, consumed by
+    // the `priorCallFeedback` composer section. Light model is sufficient
+    // (input is a small structured summary + optional 6KB transcript slice).
+    id: "compose.prior-call-recap",
+    label: "Prompt Composition - Prior-Call Recap",
+    description: "Synthesizes a brief diagnosis of the learner's last attempt for the next-call prompt",
+    category: "conversation",
+    defaults: { provider: "claude", model: config.ai.claude.lightModel, temperature: 0.4, maxTokens: 600, timeoutMs: 20_000 },
+  },
+  {
     id: "test-harness.system",
     label: "Test Harness - System Agent",
     description: "System agent turns in simulated conversations",

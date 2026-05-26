@@ -65,6 +65,17 @@ export const AI_FORBIDDEN_FIELDS: Record<string, readonly string[]> = {
   // ContentAssertion soft-FK; changing it through AI would silently
   // break assertion linkage.
   learning_objective: ["ref", "moduleId", "deletedAt"],
+
+  // SystemSetting — global / cross-tenant configuration. No AI tool
+  // currently writes to this table; this entry is a tripwire so any future
+  // `update_system_setting`-style tool that exposes one of these keys to
+  // the model gets caught by the meta-test. (#599 Slice 1.)
+  //
+  // `prior_call_recap.allowlist` gates which playbooks receive the
+  // AI-synthesized recap path — it must remain an ops-admin-only knob so
+  // synthesis cannot be unblocked from the chat surface. See the loader
+  // gate in lib/prompt/composition/loaders/priorCallFeedback.ts.
+  system_setting: ["prior_call_recap.allowlist"],
 };
 
 /**

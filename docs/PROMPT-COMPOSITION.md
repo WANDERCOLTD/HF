@@ -105,6 +105,7 @@ All declared in `SectionDataLoader.ts` via `registerLoader("<name>", async (call
 | `courseInstructions` | `contentScope` | `ContentAssertion` (`category IN INSTRUCTION_CATEGORIES` OR `sourceId IN COURSE_REFERENCE`); plus `LearningObjective` where `systemRole=TEACHING_INSTRUCTION` (since #317) | `courseInstructions` | TEACHING_INSTRUCTION LOs are rebadged with `category="teaching_rule"` so the render path is unchanged. |
 | `openActions` | `callerId` | `CallAction` (PENDING / IN_PROGRESS, top 10) | (formatted via `formatActions`, surfaced inside `instructions`) | — |
 | `visualAids` | `contentScope` | `SubjectMedia` (`mimeType startsWith "image/"`, top 20) + chapter join via `AssertionMedia` | `visualAids` | Post-filtered by `isTutorOnlyDocumentType`; logs `[visualAids] Filtered N` (see L3). |
+| `priorCallFeedback` | `callerId`, `moduleId`, `currentCallId` (from `Call.curriculumModuleId`) | `Call.findFirst` (prior on module, excludes currentCallId) + `CallScore.findMany`; **#599 Slice 1** widens to `SystemSetting`, `UsageEvent`, `ComposedPrompt`, `AuditLog`, `Caller` for the synthesis gate sequence | `priorCallFeedback` | Templated path (`hasFeedback: true/false`) is #492 Slice 3.5; AI-synthesized recap is opt-in per-playbook (see §3.2 below). Failures in the synthesis path degrade silently to the templated text. |
 
 ### 3.1 `resolveContentScope` — three-tier resolution
 
@@ -117,6 +118,22 @@ Order:
 3. **Domain-wide last resort** — no enrollments at all → all `SubjectDomain` rows for `caller.domainId`. `scoped: false`. **Intentional for unenrolled previewing, structurally leaky for multi-course domains** (ENTITIES.md §4.3, E8).
 
 Anti-bleed invariant: when `subjectSourceIds` is non-empty, `curriculumAssertions` uses a strict `subjectSourceId IN (…)` filter with **no null fallback**. Adding `OR subjectSourceId IS NULL` revives Leak B (ENTITIES.md §9, E2).
+
+### 3.2 `priorCallFeedback` — synthesis gate sequence (#599 Slice 1)
+
+The templated path (#492 Slice 3.5) is the safe default. An AI-synthesized recap replaces the templated summary **only** when every safety gate passes, in order:
+
+1. **Kill switch** — `process.env.PRIOR_CALL_RECAP_SYNTHESIS_ENABLED === "true"` (strict string compare). Absent or any other value → templated path. Documented inline on `PlaybookConfig.priorCallRecap` JSDoc.
+2. **Playbook opt-in** — `Playbook.config.priorCallRecap.enabled === true`. Default `false` (the whole block is omitted on day-1 playbooks).
+3. **Allowlist** — `SystemSetting prior_call_recap.allowlist` value (JSON-encoded `string[]` of playbookIds). **Absent row AND empty array both block every playbook** — safe-by-default. Admin-only write (no AI tool reaches `SystemSetting`; the `system_setting` entry in `AI_FORBIDDEN_FIELDS` is a structural tripwire for any future tool that tries).
+4. **Daily cap** — counts today's `UsageEvent.sourceOp = 'compose.prior-call-recap'` rows where `metadata->>'playbookId'` matches. Compared against `Playbook.config.priorCallRecap.dailyCap` (default 50, server-side clamped to `[0, 500]` at the AI-surface handler). Over-cap → templated path + `AuditLog action: prior-call-recap-cap-exceeded`.
+5. **Depth dispatch** — `minimal` short-circuits to the templated path (no AI). `standard` → 2-3 sentence diagnosis, `rich` → 3-4 sentences + transcript-grounded observation (transcript sliced to 6000 chars).
+6. **Cache** — most recent `ComposedPrompt` for `(callerId, triggerCallId, playbookId)` checked; if `recapSynthesisCache.depth === requestedDepth`, the cached text is returned with `cachedHit: true` and no AI call fires. On depth mismatch, the next synthesis overwrites the cache via `persistComposedPrompt` (one entry per ComposedPrompt row — no stale-depth retention).
+7. **Synthesis + audit** — `synthesizePriorCallRecap()` fires the configured AI call point `compose.prior-call-recap` (cascade-only — no explicit `maxTokens`/`temperature`). On success: `AuditLog action: prior-call-recap-synthesized` with `{callId, depth, playbookId, cachedHit, tokensUsed, latencyMs, outputText}`.
+
+Gates 1, 2, 3, 4, 6 fall back to the templated path; the loader returns `synthesizedRecap: null` in those cases. `persist.ts::persistComposedPrompt` reads `loadedData.priorCallFeedback.synthesizedRecap` and writes it to `ComposedPrompt.recapSynthesisCache` when present.
+
+**Where the writes go.** Course settings (`enabled`, `depth`, `dailyCap`) flow through the educator UI on the Course detail page → "Course Configuration" section, and via the AI assistant's `update_playbook_config` tool. The tool handler validates inbound `priorCallRecap.depth` against the typed enum and clamps `dailyCap` server-side before the write reaches the pendingChange tray (#854).
 
 ---
 
