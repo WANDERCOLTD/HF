@@ -49,6 +49,15 @@ const TOOL_MIN_ROLE: Record<string, UserRole> = {
   // Goal lifecycle
   confirm_goal: "OPERATOR",
   dismiss_goal: "OPERATOR",
+  // Read parity (#852 follow-up)
+  get_playbook_config: "OPERATOR",
+  list_behavior_targets: "OPERATOR",
+  list_curriculum_modules: "OPERATOR",
+  list_goals_for_caller: "OPERATOR",
+  // State recovery / direct edits
+  recompose_caller_prompt: "OPERATOR",
+  update_learning_objective: "OPERATOR",
+  update_curriculum_metadata: "OPERATOR",
   // System diagnostics
   system_ini_check: "SUPERADMIN",
 };
@@ -163,6 +172,29 @@ export async function executeAdminTool(
         break;
       case "dismiss_goal":
         result = await handleDismissGoal(input);
+        break;
+      // Read parity (#852 follow-up)
+      case "get_playbook_config":
+        result = await handleGetPlaybookConfig(input);
+        break;
+      case "list_behavior_targets":
+        result = await handleListBehaviorTargets(input);
+        break;
+      case "list_curriculum_modules":
+        result = await handleListCurriculumModules(input);
+        break;
+      case "list_goals_for_caller":
+        result = await handleListGoalsForCaller(input);
+        break;
+      // State recovery + direct edits
+      case "recompose_caller_prompt":
+        result = await handleRecomposeCallerPrompt(input);
+        break;
+      case "update_learning_objective":
+        result = await handleUpdateLearningObjective(input);
+        break;
+      case "update_curriculum_metadata":
+        result = await handleUpdateCurriculumMetadata(input);
         break;
       // System diagnostics
       case "system_ini_check":
@@ -1270,3 +1302,398 @@ async function handleDismissGoal(input: Record<string, any>) {
     message: `Completion signal for "${goal.name}" dismissed. This caller will recompose on next call.`,
   };
 }
+
+// ── Read parity (#852 follow-up) ────────────────────────────────────────
+//
+// The four writers added in #852 (update_playbook_config,
+// update_behavior_target, update_curriculum_module, confirm/dismiss_goal)
+// needed read-side companions so the AI can speak in delta terms
+// ('raise warmth from 0.6 to 0.75') rather than blindly overwriting.
+
+async function handleGetPlaybookConfig(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  if (!playbookId) return { error: "playbook_id is required" };
+
+  const pb = await prisma.playbook.findUnique({
+    where: { id: playbookId },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      status: true,
+      domainId: true,
+      version: true,
+      config: true,
+      composeInputsUpdatedAt: true,
+      domain: { select: { id: true, name: true, slug: true } },
+    },
+  });
+  if (!pb) return { error: `Playbook ${playbookId} not found.` };
+
+  return {
+    ok: true,
+    playbook: pb,
+    compose_stale_hint: pb.composeInputsUpdatedAt
+      ? `Last compose-affecting write: ${pb.composeInputsUpdatedAt.toISOString()}. Enrolled callers whose ComposedPrompt.composedAt is older than this will recompose on next call.`
+      : "No compose-affecting writes recorded — all enrolled callers' cached prompts are fresh.",
+  };
+}
+
+async function handleListBehaviorTargets(input: Record<string, any>) {
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+  const callerId = typeof input.caller_id === "string" ? input.caller_id : "";
+
+  if (!playbookId && !callerId) {
+    return { error: "Pass either playbook_id (PLAYBOOK scope) or caller_id (CALLER scope)." };
+  }
+  if (playbookId && callerId) {
+    return { error: "Pass only one of playbook_id or caller_id, not both." };
+  }
+
+  if (playbookId) {
+    const rows = await prisma.behaviorTarget.findMany({
+      where: { playbookId, scope: "PLAYBOOK", effectiveUntil: null },
+      select: {
+        id: true,
+        parameterId: true,
+        targetValue: true,
+        confidence: true,
+        source: true,
+        updatedAt: true,
+        parameter: { select: { name: true, definition: true } },
+      },
+    });
+    return {
+      ok: true,
+      scope: "PLAYBOOK",
+      playbook_id: playbookId,
+      count: rows.length,
+      targets: rows.map((r) => ({
+        parameterId: r.parameterId,
+        name: r.parameter?.name ?? null,
+        definition: r.parameter?.definition ?? null,
+        targetValue: r.targetValue,
+        confidence: r.confidence,
+        source: r.source,
+        updatedAt: r.updatedAt,
+      })),
+    };
+  }
+
+  // CALLER scope — fan in across all of this caller's identities.
+  const caller = await prisma.caller.findUnique({
+    where: { id: callerId },
+    select: { callerIdentities: { select: { id: true } } },
+  });
+  if (!caller) return { error: `Caller ${callerId} not found.` };
+  const identityIds = caller.callerIdentities.map((i) => i.id);
+  if (identityIds.length === 0) {
+    return {
+      ok: true,
+      scope: "CALLER",
+      caller_id: callerId,
+      count: 0,
+      targets: [],
+      note: "Caller has no CallerIdentity rows yet — no CALLER-scope targets possible until they enrol.",
+    };
+  }
+
+  const rows = await prisma.behaviorTarget.findMany({
+    where: {
+      scope: "CALLER",
+      callerIdentityId: { in: identityIds },
+      effectiveUntil: null,
+    },
+    select: {
+      id: true,
+      parameterId: true,
+      callerIdentityId: true,
+      targetValue: true,
+      confidence: true,
+      source: true,
+      updatedAt: true,
+      parameter: { select: { name: true, definition: true } },
+    },
+  });
+
+  // De-duplicate: same parameter across multiple identities → pick MAX
+  // (matches lib/tolerance/resolve-tolerance.ts behaviour for #836).
+  const byParam = new Map<string, (typeof rows)[number]>();
+  for (const r of rows) {
+    const existing = byParam.get(r.parameterId);
+    if (!existing || r.targetValue > existing.targetValue) {
+      byParam.set(r.parameterId, r);
+    }
+  }
+
+  return {
+    ok: true,
+    scope: "CALLER",
+    caller_id: callerId,
+    count: byParam.size,
+    targets: Array.from(byParam.values()).map((r) => ({
+      parameterId: r.parameterId,
+      name: r.parameter?.name ?? null,
+      definition: r.parameter?.definition ?? null,
+      targetValue: r.targetValue,
+      confidence: r.confidence,
+      source: r.source,
+      updatedAt: r.updatedAt,
+    })),
+    note:
+      identityIds.length > 1
+        ? `Caller has ${identityIds.length} identities. Values shown are MAX across identities (matches resolve-tolerance.ts).`
+        : undefined,
+  };
+}
+
+async function handleListCurriculumModules(input: Record<string, any>) {
+  let curriculumId = typeof input.curriculum_id === "string" ? input.curriculum_id : "";
+  const playbookId = typeof input.playbook_id === "string" ? input.playbook_id : "";
+
+  if (!curriculumId && !playbookId) {
+    return { error: "Pass curriculum_id or playbook_id." };
+  }
+
+  if (!curriculumId && playbookId) {
+    const curr = await prisma.curriculum.findFirst({
+      where: { playbookId },
+      select: { id: true },
+    });
+    if (!curr) {
+      return {
+        ok: true,
+        playbook_id: playbookId,
+        curriculum_id: null,
+        count: 0,
+        modules: [],
+        note: "No Curriculum linked to this playbook yet.",
+      };
+    }
+    curriculumId = curr.id;
+  }
+
+  const modules = await prisma.curriculumModule.findMany({
+    where: { curriculumId },
+    orderBy: { sortOrder: "asc" },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      description: true,
+      sortOrder: true,
+      isActive: true,
+      estimatedDurationMinutes: true,
+      masteryThreshold: true,
+      learningObjectives: {
+        select: { id: true, ref: true, description: true, learnerVisible: true },
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+  });
+
+  return {
+    ok: true,
+    curriculum_id: curriculumId,
+    playbook_id: playbookId || undefined,
+    count: modules.length,
+    modules,
+  };
+}
+
+async function handleListGoalsForCaller(input: Record<string, any>) {
+  const callerId = typeof input.caller_id === "string" ? input.caller_id : "";
+  if (!callerId) return { error: "caller_id is required" };
+
+  const where: Record<string, unknown> = { callerId };
+  if (typeof input.status === "string") where.status = input.status;
+
+  const goals = await prisma.goal.findMany({
+    where,
+    orderBy: [{ status: "asc" }, { priority: "desc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      status: true,
+      progress: true,
+      priority: true,
+      isAssessmentTarget: true,
+      startedAt: true,
+      completedAt: true,
+      createdAt: true,
+    },
+  });
+
+  return {
+    ok: true,
+    caller_id: callerId,
+    count: goals.length,
+    goals,
+  };
+}
+
+// ── State recovery / direct edits ───────────────────────────────────────
+
+async function handleRecomposeCallerPrompt(input: Record<string, any>) {
+  const callerId = typeof input.caller_id === "string" ? input.caller_id : "";
+  if (!callerId) return { error: "caller_id is required" };
+
+  // Dynamic import the composition pipeline so the test-mocking story
+  // for the chat module stays decoupled. Same pattern that #831's pill
+  // uses when calling the route from the client.
+  const { executeComposition, loadComposeConfig, persistComposedPrompt } = await import(
+    "@/lib/prompt/composition"
+  );
+  const { renderPromptSummary } = await import("@/lib/prompt/composition/renderPromptSummary");
+
+  const caller = await prisma.caller.findUnique({
+    where: { id: callerId },
+    select: { id: true, name: true, domainId: true },
+  });
+  if (!caller) return { error: `Caller ${callerId} not found.` };
+
+  const { fullSpecConfig, sections, specSlug } = await loadComposeConfig({});
+  const composition = await executeComposition(callerId, sections, fullSpecConfig, "manual");
+  const summary = renderPromptSummary(composition.llmPrompt);
+  const cp = await persistComposedPrompt(composition, summary, {
+    callerId,
+    playbookId: null,
+    triggerType: "manual",
+    triggerCallId: null,
+    composeSpecSlug: specSlug,
+    specConfig: fullSpecConfig,
+    skipPersist: false,
+  });
+
+  console.log(
+    `[admin-tools] Recomposed prompt for caller ${callerId} (${caller.name}). New ComposedPrompt id=${cp?.id ?? "(?)"}. Reason: ${input.reason || "(not given)"}`,
+  );
+
+  return {
+    ok: true,
+    caller_id: callerId,
+    composed_prompt_id: cp?.id ?? null,
+    composed_at: cp?.composedAt ?? null,
+    message: cp
+      ? `Recomposed. New ComposedPrompt id=${cp.id} at ${cp.composedAt.toISOString()}.`
+      : "Recompose ran but persistence was skipped.",
+  };
+}
+
+async function handleUpdateLearningObjective(input: Record<string, any>) {
+  const loId = typeof input.learning_objective_id === "string" ? input.learning_objective_id : "";
+  if (!loId) return { error: "learning_objective_id is required" };
+
+  const existing = await prisma.learningObjective.findUnique({
+    where: { id: loId },
+    select: { id: true, ref: true, moduleId: true, module: { select: { curriculumId: true } } },
+  });
+  if (!existing) return { error: `LearningObjective ${loId} not found.` };
+
+  const data: Record<string, unknown> = {};
+  if (typeof input.description === "string") data.description = input.description;
+  if (typeof input.performanceStatement === "string") data.performanceStatement = input.performanceStatement;
+  if (typeof input.learnerVisible === "boolean") data.learnerVisible = input.learnerVisible;
+  if (typeof input.masteryThreshold === "number") data.masteryThreshold = input.masteryThreshold;
+
+  if (Object.keys(data).length === 0) {
+    return {
+      error:
+        "No update fields provided. Pass at least one of: description, performanceStatement, learnerVisible, masteryThreshold.",
+    };
+  }
+
+  const updated = await prisma.learningObjective.update({
+    where: { id: loId },
+    data,
+    select: {
+      id: true,
+      ref: true,
+      description: true,
+      performanceStatement: true,
+      learnerVisible: true,
+      masteryThreshold: true,
+    },
+  });
+
+  let timestampBumped = false;
+  if (existing.module?.curriculumId) {
+    const playbookId = await resolvePlaybookIdForCurriculum(existing.module.curriculumId);
+    if (playbookId) {
+      await bumpPlaybookComposeTimestamp(playbookId);
+      timestampBumped = true;
+    }
+  }
+
+  console.log(
+    `[admin-tools] Updated LO ${existing.ref}. Fields: ${Object.keys(data).join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped}. Reason: ${input.reason || "(not given)"}`,
+  );
+
+  return {
+    ok: true,
+    learning_objective_id: loId,
+    updated_fields: Object.keys(data),
+    compose_inputs_bumped: timestampBumped,
+    new_state: updated,
+    message: `Updated ${existing.ref}. ${timestampBumped ? "Enrolled callers will recompose on next call." : ""}`.trim(),
+  };
+}
+
+async function handleUpdateCurriculumMetadata(input: Record<string, any>) {
+  const curriculumId = typeof input.curriculum_id === "string" ? input.curriculum_id : "";
+  if (!curriculumId) return { error: "curriculum_id is required" };
+
+  const existing = await prisma.curriculum.findUnique({
+    where: { id: curriculumId },
+    select: { id: true, name: true, playbookId: true },
+  });
+  if (!existing) return { error: `Curriculum ${curriculumId} not found.` };
+
+  const data: Record<string, unknown> = {};
+  if (typeof input.name === "string") data.name = input.name;
+  if (typeof input.description === "string") data.description = input.description;
+  if (typeof input.sourceTitle === "string") data.sourceTitle = input.sourceTitle;
+  if (typeof input.sourceYear === "number") data.sourceYear = input.sourceYear;
+  if (Array.isArray(input.authors)) data.authors = input.authors;
+
+  if (Object.keys(data).length === 0) {
+    return {
+      error:
+        "No update fields provided. Pass at least one of: name, description, sourceTitle, sourceYear, authors.",
+    };
+  }
+
+  const updated = await prisma.curriculum.update({
+    where: { id: curriculumId },
+    data,
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      sourceTitle: true,
+      sourceYear: true,
+      authors: true,
+    },
+  });
+
+  let timestampBumped = false;
+  if (existing.playbookId) {
+    await bumpPlaybookComposeTimestamp(existing.playbookId);
+    timestampBumped = true;
+  }
+
+  console.log(
+    `[admin-tools] Updated curriculum "${existing.name}" → "${updated.name}". Fields: ${Object.keys(data).join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped}. Reason: ${input.reason || "(not given)"}`,
+  );
+
+  return {
+    ok: true,
+    curriculum_id: curriculumId,
+    updated_fields: Object.keys(data),
+    compose_inputs_bumped: timestampBumped,
+    new_state: updated,
+    message: `Updated ${updated.name}. ${timestampBumped ? "Enrolled callers will recompose on next call." : "No playbook linked yet — no stale bump."}`.trim(),
+  };
+}
+
