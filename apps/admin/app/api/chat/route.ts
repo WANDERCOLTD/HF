@@ -5,6 +5,7 @@ import { classifyAIError, userMessageForError } from "@/lib/ai/error-utils";
 import { getConfiguredMeteredAICompletionStream, getConfiguredMeteredAICompletion } from "@/lib/metering";
 import { buildSystemPrompt } from "./system-prompts";
 import { parsePageContext, type PageContextHint } from "./page-context";
+import { parseTrayReflections, buildReflectionMessages } from "./tray-reflection";
 import { executeCommand, parseCommand } from "@/lib/chat/commands";
 import { logAI } from "@/lib/logger";
 import { logAIInteraction } from "@/lib/ai/knowledge-accumulation";
@@ -123,6 +124,34 @@ export async function POST(request: NextRequest) {
     // the assistant doesn't say "I don't see that section" when the user is
     // staring at it. Parsed defensively — unknown shapes silently drop.
     const pageContext: PageContextHint | undefined = parsePageContext(rawBody?.pageContext);
+    // #873 follow-up — bidirectional reflection. The client queues
+    // user decisions made on the PendingChangesTray (Save & apply /
+    // Discard) and forwards them with the next user message so the AI
+    // knows what the user did with the changes it proposed last turn.
+    // Each reflection becomes a synthetic user-role message prepended
+    // to the conversation history (Anthropic messages array only
+    // supports user/assistant; system goes in the top-level field, so
+    // we encode reflections as `[tray] ...` user-prefixed notes that
+    // the AI's system prompt instructs it to acknowledge).
+    // Defensive: silently drop unknown shapes.
+    const trayReflections = parseTrayReflections(rawBody?.trayReflections);
+    const reflectionMessages = buildReflectionMessages(trayReflections);
+    if (reflectionMessages.length > 0) {
+      // Insert BEFORE the current user message in conversationHistory.
+      // The client includes the new turn at the end (see the dedup
+      // logic later in this file) — reflections happened chronologically
+      // BEFORE the new turn, so they must precede it.
+      const lastIdx = conversationHistory.length - 1;
+      const lastIsCurrentMsg =
+        lastIdx >= 0 &&
+        conversationHistory[lastIdx]?.role === "user" &&
+        conversationHistory[lastIdx]?.content === message.trim();
+      if (lastIsCurrentMsg) {
+        conversationHistory.splice(lastIdx, 0, ...reflectionMessages);
+      } else {
+        conversationHistory.push(...reflectionMessages);
+      }
+    }
 
     if (!message) {
       return NextResponse.json({ ok: false, error: "Message is required" }, { status: 400 });

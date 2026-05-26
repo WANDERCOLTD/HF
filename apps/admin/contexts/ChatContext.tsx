@@ -197,6 +197,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // #873 follow-up — queue of bidirectional reflections from the
+  // PendingChangesTray. Each tray Save & apply / Discard dispatches a
+  // window CustomEvent (see `components/shared/PendingChangesTray.tsx`)
+  // that this ref captures. The next sendMessage forwards the queue
+  // contents to `/api/chat` as `trayReflections`, then clears it. We
+  // use a ref instead of state to avoid re-render churn for an event
+  // queue that's only read at chat-send time.
+  const trayReflectionsRef = useRef<unknown[]>([]);
+
   // Get entity context for including in messages
   const entityContext = useEntityContext();
   // #733 — route hint lets the chat API inject a small "Feedback list mode"
@@ -235,6 +244,28 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       persistSettings(isOpen, mode, chatLayout, tuningScope, userId);
     }
   }, [isOpen, mode, chatLayout, tuningScope, initialized, userId]);
+
+  // #873 follow-up — subscribe to tray decision events. Each event
+  // is pushed into `trayReflectionsRef`; the next `sendMessage` flushes
+  // the queue to `/api/chat` as `trayReflections` and clears it.
+  useEffect(() => {
+    function onApplied(ev: Event) {
+      const detail = (ev as CustomEvent<unknown>).detail;
+      if (!detail || typeof detail !== "object") return;
+      trayReflectionsRef.current.push({ action: "applied", ...(detail as Record<string, unknown>) });
+    }
+    function onDiscarded(ev: Event) {
+      const detail = (ev as CustomEvent<unknown>).detail;
+      if (!detail || typeof detail !== "object") return;
+      trayReflectionsRef.current.push({ action: "discarded", ...(detail as Record<string, unknown>) });
+    }
+    window.addEventListener("hf:tray-applied", onApplied);
+    window.addEventListener("hf:tray-discarded", onDiscarded);
+    return () => {
+      window.removeEventListener("hf:tray-applied", onApplied);
+      window.removeEventListener("hf:tray-discarded", onDiscarded);
+    };
+  }, []);
 
   const togglePanel = useCallback(() => {
     setIsOpen((prev) => !prev);
@@ -420,6 +451,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           content: m.content,
         }));
 
+        // #873 follow-up — flush + clear the tray reflection queue.
+        // Drained per-send so each batch is delivered exactly once.
+        const trayReflections = trayReflectionsRef.current;
+        trayReflectionsRef.current = [];
+
         let response: Response;
         try {
           response = await fetch("/api/chat", {
@@ -436,6 +472,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               ...(mode === "DATA" && entityContext.pageContext?.page
                 ? { pageContext: entityContext.pageContext }
                 : {}),
+              ...(trayReflections.length > 0 ? { trayReflections } : {}),
             }),
             signal: abortControllerRef.current.signal,
           });

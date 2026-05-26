@@ -331,7 +331,27 @@ export function PendingChangesTray(): React.ReactElement | null {
             <button
               type="button"
               className="hf-pending-tray-discard"
-              onClick={clear}
+              onClick={() => {
+                // #873 follow-up — emit bidirectional reflection event so
+                // ChatContext can tell the AI what the user did on the
+                // next chat turn. Capture entry snapshot BEFORE clearing.
+                const snapshot = entries.map((e) => ({
+                  label: e.label,
+                  scopeLabel: e.scopeLabel,
+                  beforeValue: e.beforeValue,
+                  afterValue: e.afterValue,
+                }));
+                window.dispatchEvent(
+                  new CustomEvent("hf:tray-discarded", {
+                    detail: {
+                      entries: snapshot,
+                      callerInContext: callerInContext?.name ?? null,
+                      decidedAt: new Date().toISOString(),
+                    },
+                  }),
+                );
+                clear();
+              }}
               disabled={saving}
             >
               Discard all
@@ -343,14 +363,16 @@ export function PendingChangesTray(): React.ReactElement | null {
               onClick={async () => {
                 setSaving(true);
                 setSaveError(null);
+                const decisionToggleCaller = Boolean(callerInContext) && toggleCaller;
+                const decisionToggleAll = !toggle2Locked && effectiveToggleAll;
                 try {
                   const res = await fetch("/api/recompose/apply", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       entries,
-                      toggleCaller: Boolean(callerInContext) && toggleCaller,
-                      toggleAll: !toggle2Locked && effectiveToggleAll,
+                      toggleCaller: decisionToggleCaller,
+                      toggleAll: decisionToggleAll,
                       callerInContext,
                     }),
                   });
@@ -358,6 +380,25 @@ export function PendingChangesTray(): React.ReactElement | null {
                   if (!res.ok || !json.ok) {
                     throw new Error(json.error || `Apply failed (${res.status})`);
                   }
+                  // #873 follow-up — emit bidirectional reflection event
+                  // BEFORE clearing the tray so we still have entry data.
+                  const snapshot = entries.map((e) => ({
+                    label: e.label,
+                    scopeLabel: e.scopeLabel,
+                    beforeValue: e.beforeValue,
+                    afterValue: e.afterValue,
+                  }));
+                  window.dispatchEvent(
+                    new CustomEvent("hf:tray-applied", {
+                      detail: {
+                        entries: snapshot,
+                        toggleCaller: decisionToggleCaller,
+                        toggleAll: decisionToggleAll,
+                        callerInContext: callerInContext?.name ?? null,
+                        decidedAt: new Date().toISOString(),
+                      },
+                    }),
+                  );
                   clear();
                   // Reset toggle state for next batch
                   setToggleAllUserTouched(false);
