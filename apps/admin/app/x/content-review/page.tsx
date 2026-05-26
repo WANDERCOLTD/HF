@@ -65,8 +65,13 @@ function TrustBadge({ level }: { level: string }) {
 }
 
 function FreshnessBadge({ validUntil }: { validUntil: string | null }) {
+  // Anchor "now" at mount so subsequent re-renders don't recompute Date.now()
+  // mid-render (react-hooks/purity). Acceptable: the badge is a relative-day
+  // indicator on a content-review row; sub-day drift across an open tab is
+  // not user-visible.
+  const [now] = useState(() => Date.now());
   if (!validUntil) return <span className="cr-freshness-none">No expiry</span>;
-  const days = Math.floor((new Date(validUntil).getTime() - Date.now()) / 86400000);
+  const days = Math.floor((new Date(validUntil).getTime() - now) / 86400000);
   if (days < 0) {
     return <span className="cr-freshness-expired">Expired {Math.abs(days)}d ago</span>;
   }

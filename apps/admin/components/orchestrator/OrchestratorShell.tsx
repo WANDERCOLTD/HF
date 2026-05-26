@@ -144,7 +144,9 @@ export function OrchestratorShell({
       related: (raw as any).related,
     });
     setJsonText(JSON.stringify(spec.config || {}, null, 2));
-  }, [spec, featureSet]);
+    // setX dispatchers are stable by React contract; listed so React Compiler
+    // can preserve manual memoization (react-hooks/preserve-manual-memoization).
+  }, [spec, featureSet, setEditedConfig, setEditedName, setEditedActive, setEditedEnvelope, setJsonText]);
 
   const handleJsonChange = useCallback((newJson: string) => {
     setJsonText(newJson);
@@ -154,7 +156,8 @@ export function OrchestratorShell({
     } catch {
       // Invalid JSON, don't update config
     }
-  }, []);
+    // setX dispatchers stable per React; listed for compiler preservation.
+  }, [setJsonText, setEditedConfig]);
 
   const isExtraTab = extraTabs?.some((t) => t.id === activeTab);
   const isEnvelopeTab = ["story", "context", "acceptance", "constraints", "related"].includes(activeTab);

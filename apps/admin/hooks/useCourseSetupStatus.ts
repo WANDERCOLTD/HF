@@ -84,6 +84,7 @@ export function useCourseSetupStatus(input: SetupStatusInput): CourseSetupStatus
   // rule rejects function calls in dep lists. Same semantics: invalidate when
   // the set of source IDs changes.
   const sourceKeysSnapshot = Object.keys(input.sourceStatusMap).join("|");
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- intentionally specific deps: a full `input` dep would invalidate on every render, defeating the memo; the inferred dep mismatch is the design.
   return useMemo(() => deriveStages(input), [
     input.detail?.id,
     input.detail?.status,
@@ -95,7 +96,7 @@ export function useCourseSetupStatus(input: SetupStatusInput): CourseSetupStatus
     // input is referenced inside the memo body but its identity-changing fields
     // are tracked via the explicit deps above; a full input dep would
     // invalidate on every render.
-     
+
   ]);
 }
 

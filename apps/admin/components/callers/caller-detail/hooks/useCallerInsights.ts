@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { CallerData, CallScore, Goal, Call } from "../types";
 import {
   computeMomentum as computeMomentumShared,
@@ -78,6 +78,10 @@ export type CallerInsights = {
 // ─── Computation ─────────────────────────────────────────────
 
 export function useCallerInsights(data: CallerData | null): CallerInsights | null {
+  // Anchor "now" at mount — avoids Date.now() during render (react-hooks/purity).
+  // Used for lastCallDaysAgo display; sub-day drift across an open caller-detail
+  // tab is not user-visible.
+  const [nowMs] = useState(() => Date.now());
   return useMemo(() => {
     if (!data) return null;
 
@@ -183,7 +187,7 @@ export function useCallerInsights(data: CallerData | null): CallerInsights | nul
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
     const lastCallDaysAgo = sortedCalls.length > 0
-      ? Math.floor((Date.now() - new Date(sortedCalls[0].createdAt).getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.floor((nowMs - new Date(sortedCalls[0].createdAt).getTime()) / (1000 * 60 * 60 * 24))
       : null;
 
     // ── Top memories ─────────────────────────────────────
@@ -224,7 +228,7 @@ export function useCallerInsights(data: CallerData | null): CallerInsights | nul
       topMemories,
       personalityTraits,
     };
-  }, [data]);
+  }, [data, nowMs]);
 }
 
 // Helpers moved to lib/caller-utils.ts — shared between roster (list) and detail (lens) views.

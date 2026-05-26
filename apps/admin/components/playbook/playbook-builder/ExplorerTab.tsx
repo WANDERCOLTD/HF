@@ -427,24 +427,9 @@ function ExplorerTreeNode({
   const icon = nodeIcons[node.type] || "📄";
   const colors = nodeColors[node.type] || nodeColors.config;
 
-  // Windows Explorer style [+]/[-] toggle box
-  const ToggleBox = () => {
-    if (!hasChildren) {
-      return <span className="exp-toggle-box-spacer" />;
-    }
-    return (
-      <span
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle(node.id);
-        }}
-        className="exp-toggle-box"
-        title={isExpanded ? "Collapse" : "Expand"}
-      >
-        {isExpanded ? "−" : "+"}
-      </span>
-    );
-  };
+  // Windows Explorer style [+]/[-] toggle box — inlined below
+  // (was a nested component; hoisted into the JSX to satisfy
+  // react-hooks/static-components and avoid prop drilling).
 
   return (
     <div className="exp-node-wrapper">
@@ -522,7 +507,20 @@ function ExplorerTreeNode({
         }}
       >
         {/* Windows-style [+]/[-] Toggle Box */}
-        <ToggleBox />
+        {!hasChildren ? (
+          <span className="exp-toggle-box-spacer" />
+        ) : (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle(node.id);
+            }}
+            className="exp-toggle-box"
+            title={isExpanded ? "Collapse" : "Expand"}
+          >
+            {isExpanded ? "−" : "+"}
+          </span>
+        )}
 
         {/* Node Icon */}
         <span className="exp-node-icon">{icon}</span>

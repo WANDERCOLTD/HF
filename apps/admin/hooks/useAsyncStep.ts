@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useTaskPoll, type PollableTask } from "@/hooks/useTaskPoll";
+import { useStableCallback } from "@/hooks/useStableCallback";
 
 // ── useAsyncStep ──────────────────────────────────────
 //
@@ -86,58 +87,74 @@ export function useAsyncStep<TResult = unknown>({
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<PollableTask | null>(null);
 
-  // Refs for callbacks to avoid stale closures in useTaskPoll
-  const onCompleteRef = useRef(onComplete);
-  const onProgressRef = useRef(onProgress);
-  const onSkeletonRef = useRef(onSkeleton);
-  const reportErrorRef = useRef(reportError);
-  onCompleteRef.current = onComplete;
-  onProgressRef.current = onProgress;
-  onSkeletonRef.current = onSkeleton;
-  reportErrorRef.current = reportError;
+  // Stable wrappers around prop callbacks — avoid stale closures inside
+  // useTaskPoll without forcing re-registration on every prop change.
+  // See hooks/useStableCallback.ts (useEvent RFC).
+  const stableOnComplete = useStableCallback(onComplete);
+  const stableOnProgress = useStableCallback(
+    onProgress ?? (() => undefined),
+  );
+  const stableOnSkeleton = useStableCallback(
+    onSkeleton ?? (() => false),
+  );
+  const stableReportError = useStableCallback(
+    reportError ?? (() => undefined),
+  );
+  const hasOnProgress = onProgress !== undefined;
+  const hasOnSkeleton = onSkeleton !== undefined;
 
-  // Phase ref so useTaskPoll callbacks can read current phase
-  const phaseRef = useRef(phase);
-  phaseRef.current = phase;
+  // Latest-phase reader — stable identity, always returns current phase.
+  // Replaces the manual `phaseRef.current = phase` write-during-render.
+  const getPhase = useStableCallback(() => phase);
 
   // Wire useTaskPoll — only active when taskId is non-null
   useTaskPoll({
     taskId,
     timeoutMs,
-    onProgress: useCallback((task: PollableTask) => {
-      setProgress(task);
-      setError(null);
-      onProgressRef.current?.(task);
+    onProgress: useCallback(
+      (task: PollableTask) => {
+        setProgress(task);
+        setError(null);
+        if (hasOnProgress) stableOnProgress(task);
 
-      // Skeleton detection
-      if (
-        onSkeletonRef.current &&
-        (phaseRef.current === "polling" || phaseRef.current === "submitting")
-      ) {
-        const consumed = onSkeletonRef.current(task);
-        if (consumed) {
-          setPhase("skeleton");
+        // Skeleton detection
+        if (hasOnSkeleton) {
+          const currentPhase = getPhase();
+          if (currentPhase === "polling" || currentPhase === "submitting") {
+            const consumed = stableOnSkeleton(task);
+            if (consumed) {
+              setPhase("skeleton");
+            }
+          }
         }
-      }
-    }, []),
-    onComplete: useCallback((task: PollableTask) => {
-      try {
-        const r = onCompleteRef.current(task);
-        setResult(r);
-        setPhase("done");
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Failed to process result";
-        setError(msg);
-        setPhase("error");
-        reportErrorRef.current?.(err instanceof Error ? err : msg, { source: "useAsyncStep:complete", step: taskIdKey });
-      }
-      setTaskId(null);
-      setData(taskIdKey, null);
-    }, [setData, taskIdKey]),
+      },
+      [hasOnProgress, hasOnSkeleton, stableOnProgress, stableOnSkeleton, getPhase],
+    ),
+    onComplete: useCallback(
+      (task: PollableTask) => {
+        try {
+          const r = stableOnComplete(task);
+          setResult(r as TResult);
+          setPhase("done");
+        } catch (err: unknown) {
+          const msg =
+            err instanceof Error ? err.message : "Failed to process result";
+          setError(msg);
+          setPhase("error");
+          stableReportError(err instanceof Error ? err : msg, {
+            source: "useAsyncStep:complete",
+            step: taskIdKey,
+          });
+        }
+        setTaskId(null);
+        setData(taskIdKey, null);
+      },
+      [setData, taskIdKey, stableOnComplete, stableReportError],
+    ),
     onError: useCallback(
       (msg: string) => {
         // If we have skeleton data, keep showing it — degrade gracefully
-        if (phaseRef.current === "skeleton") {
+        if (getPhase() === "skeleton") {
           setPhase("done");
           setTaskId(null);
           setData(taskIdKey, null);
@@ -147,9 +164,9 @@ export function useAsyncStep<TResult = unknown>({
         setPhase("error");
         setTaskId(null);
         setData(taskIdKey, null);
-        reportErrorRef.current?.(msg, { source: "useAsyncStep", step: taskIdKey });
+        stableReportError(msg, { source: "useAsyncStep", step: taskIdKey });
       },
-      [setData, taskIdKey],
+      [setData, taskIdKey, getPhase, stableReportError],
     ),
   });
 
@@ -167,9 +184,12 @@ export function useAsyncStep<TResult = unknown>({
       const msg = err instanceof Error ? err.message : "Failed to start";
       setError(msg);
       setPhase("error");
-      reportErrorRef.current?.(err instanceof Error ? err : msg, { source: "useAsyncStep:start", step: taskIdKey });
+      stableReportError(err instanceof Error ? err : msg, {
+        source: "useAsyncStep:start",
+        step: taskIdKey,
+      });
     }
-  }, [start, setData, taskIdKey]);
+  }, [start, setData, taskIdKey, stableReportError]);
 
   const cancel = useCallback(() => {
     setTaskId(null);

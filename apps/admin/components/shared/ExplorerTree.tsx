@@ -361,40 +361,8 @@ export function ExplorerTreeNode({
   // Calculate opacity for highlight mode
   const nodeOpacity = isSearching && searchMode === "highlight" && !isMatch && !isAncestor ? 0.35 : 1;
 
-  // Windows Explorer style [+]/[-] toggle box
-  const ToggleBox = () => {
-    if (!hasChildren) {
-      return <span style={{ width: 16, height: 16, display: "inline-block" }} />;
-    }
-    return (
-      <span
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle(node.id);
-        }}
-        style={{
-          width: 16,
-          height: 16,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          border: "1px solid var(--text-placeholder)",
-          borderRadius: 2,
-          background: "var(--surface-primary)",
-          fontSize: 12,
-          fontWeight: 700,
-          color: "var(--text-muted)",
-          cursor: "pointer",
-          flexShrink: 0,
-          lineHeight: 1,
-          fontFamily: "monospace",
-        }}
-        title={isExpanded ? "Collapse" : "Expand"}
-      >
-        {isExpanded ? "−" : "+"}
-      </span>
-    );
-  };
+  // Windows Explorer [+]/[-] toggle — inlined below (hoisted from nested
+  // component to satisfy react-hooks/static-components).
 
   return (
     <div style={{ position: "relative" }}>
@@ -500,7 +468,36 @@ export function ExplorerTreeNode({
         }}
       >
         {/* Windows-style [+]/[-] Toggle Box */}
-        <ToggleBox />
+        {!hasChildren ? (
+          <span style={{ width: 16, height: 16, display: "inline-block" }} />
+        ) : (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle(node.id);
+            }}
+            style={{
+              width: 16,
+              height: 16,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "1px solid var(--text-placeholder)",
+              borderRadius: 2,
+              background: "var(--surface-primary)",
+              fontSize: 12,
+              fontWeight: 700,
+              color: "var(--text-muted)",
+              cursor: "pointer",
+              flexShrink: 0,
+              lineHeight: 1,
+              fontFamily: "monospace",
+            }}
+            title={isExpanded ? "Collapse" : "Expand"}
+          >
+            {isExpanded ? "−" : "+"}
+          </span>
+        )}
 
         {/* Node Icon */}
         <span style={{ flexShrink: 0, fontSize: 14 }}>{icon}</span>

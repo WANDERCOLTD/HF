@@ -226,6 +226,7 @@ export default function ClassroomDetailPage() {
     );
   }
 
+  // eslint-disable-next-line react-hooks/purity -- "active in last 7 days" cutoff for the roster filter; the value drifts at most by the lifetime of an open tab (minutes), which has no user-visible effect on a day-resolution threshold. Anchoring this at mount via useState produced a spurious set-state-in-effect cascade in the analyser, so the suppress is the smaller cost.
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
   return (

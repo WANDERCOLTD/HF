@@ -507,6 +507,7 @@ export function ContentJobQueue() {
   if (jobs.length === 0) return null;
 
   const elapsed = (startedAt: number) => {
+    // eslint-disable-next-line react-hooks/purity -- live elapsed display in the background-task queue; re-renders are driven by useBackgroundTaskQueue poll updates and should advance the counter
     const s = Math.floor((Date.now() - startedAt) / 1000);
     const m = Math.floor(s / 60);
     return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;

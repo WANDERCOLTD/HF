@@ -391,7 +391,7 @@ export default function SimpleSidebarNav({
       }
     }
     return items;
-  }, [visibleSections, userRole]);
+  }, [visibleSections, userRole, terms]);
 
   // Active state
   const isActive = useCallback(
