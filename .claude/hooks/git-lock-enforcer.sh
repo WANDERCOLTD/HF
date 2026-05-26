@@ -73,11 +73,38 @@ if [ "$LOCK_HOST" != "$(hostname)" ]; then
   exit 0
 fi
 
-# Walk up the process tree to find a claude PID (hook bash → claude).
-# $PPID is this script's parent (bash), $PPID's parent is the invoking
-# process. On Claude Code that's the claude session.
+# Climb the process tree until we find an ancestor whose comm is
+# `claude`. Claude Code's hook execution layers a wrapper shell between
+# this script and the claude session, so a one-step `ps -o ppid=` walk
+# lands on the shell (comm `-zsh`) — not on claude. That used to
+# silently mask all protection: the lock owner would be a shell PID,
+# the orphan-reclaim path below would fire, the lock would be rewritten
+# with another shell PID, and we'd exit 0 on every git command. See
+# #899 for the live evidence.
+#
+# Fallback: if no claude ancestor is found within max_hops (e.g. when
+# the hook is invoked manually for testing), preserve original
+# behaviour by returning the one-step PPID-walk result. Duplicated from
+# session-start.sh — these are bash hooks with no module system.
+find_claude_ancestor() {
+  local pid="${1:-$PPID}"
+  local max_hops=20
+  local hop=0
+  local comm
+  while [ -n "$pid" ] && [ "$pid" -gt 1 ] && [ "$hop" -lt "$max_hops" ]; do
+    comm=$(ps -o comm= -p "$pid" 2>/dev/null | tr -d ' ' | sed 's|.*/||')
+    if [ "$comm" = "claude" ]; then
+      echo "$pid"
+      return 0
+    fi
+    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    hop=$((hop + 1))
+  done
+  ps -o ppid= -p "$PPID" 2>/dev/null | tr -d ' '
+}
+
 MY_PPID="$PPID"
-MY_CLAUDE_PID=$(ps -o ppid= -p "$MY_PPID" 2>/dev/null | tr -d ' ')
+MY_CLAUDE_PID=$(find_claude_ancestor "$MY_PPID")
 
 # Primary mode → lock PID matches our claude session.
 if [ "$LOCK_PID" = "$MY_CLAUDE_PID" ] || [ "$LOCK_PID" = "$MY_PPID" ]; then

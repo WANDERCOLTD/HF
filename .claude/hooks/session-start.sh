@@ -12,9 +12,36 @@ TREE_TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null || printf '%s' "$PWD")
 LOCK_KEY=$(printf '%s' "$TREE_TOPLEVEL" | shasum -a 256 | head -c8)
 LOCK="/tmp/claude-lock-$LOCK_KEY"
 
-# Walk one level up from this script's bash → the claude PID (our PPID
-# is the bash, PPID's parent is claude).
-MY_CLAUDE_PID=$(ps -o ppid= -p "$PPID" 2>/dev/null | tr -d ' ')
+# Climb the process tree until we find an ancestor whose comm is
+# `claude`. Claude Code's hook execution layers a wrapper shell between
+# this script and the claude session, so a one-step `ps -o ppid=` walk
+# lands on the shell (comm `-zsh`) — not on claude. That used to
+# silently break the orphan-reclaim path in git-lock-enforcer.sh, which
+# would then rewrite the lock with another shell PID and exit 0,
+# disabling all protection. See #899 for the live evidence.
+#
+# Fallback: if no claude ancestor is found within max_hops (e.g. when
+# the hook is invoked manually for testing), preserve original
+# behaviour by returning the one-step PPID-walk result.
+find_claude_ancestor() {
+  local pid="${1:-$PPID}"
+  local max_hops=20
+  local hop=0
+  local comm
+  while [ -n "$pid" ] && [ "$pid" -gt 1 ] && [ "$hop" -lt "$max_hops" ]; do
+    comm=$(ps -o comm= -p "$pid" 2>/dev/null | tr -d ' ' | sed 's|.*/||')
+    if [ "$comm" = "claude" ]; then
+      echo "$pid"
+      return 0
+    fi
+    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    hop=$((hop + 1))
+  done
+  # Fallback to original one-step walk.
+  ps -o ppid= -p "$PPID" 2>/dev/null | tr -d ' '
+}
+
+MY_CLAUDE_PID=$(find_claude_ancestor "$PPID")
 LOCK_CONTENT="${MY_CLAUDE_PID:-$PPID}:$(hostname):$(date -u +%s)"
 
 # Try atomic claim. noclobber refuses to overwrite existing locks.
