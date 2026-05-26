@@ -337,7 +337,7 @@ export const ADMIN_TOOLS: AITool[] = [
   {
     name: "update_caller",
     description:
-      "Update a caller's profile fields by merging values. Only the keys you set are touched. Accepts: name (string), email (string|null), phone (string|null), externalId (string|null), role (enum), domainId (string|null — moves to different institution), cohortGroupId (string|null), archive (boolean — true to archive, false to restore). For renaming a learner, just pass `name`.",
+      "Update a caller's profile fields by merging values. Only the keys you set are touched. Accepts: name (string), email (string|null), phone (string|null), externalId (string|null), cohortGroupId (string|null), archive (boolean — true to archive, false to restore). For renaming a learner, just pass `name`. NOTE: role + domainId are deliberately NOT AI-accessible — role changes are privilege escalation and domainId changes cross-tenant; both must be done by a human via the admin UI.",
     input_schema: {
       type: "object",
       properties: {
@@ -346,11 +346,6 @@ export const ADMIN_TOOLS: AITool[] = [
         email: { type: ["string", "null"] },
         phone: { type: ["string", "null"] },
         externalId: { type: ["string", "null"] },
-        role: {
-          type: "string",
-          enum: ["STUDENT", "TESTER", "OPERATOR", "ADMIN", "SUPERADMIN", "SUPER_TESTER", "EDUCATOR", "DEMO", "VIEWER"],
-        },
-        domainId: { type: ["string", "null"] },
         cohortGroupId: { type: ["string", "null"] },
         archive: {
           type: "boolean",
@@ -720,7 +715,11 @@ export const ADMIN_TOOLS: AITool[] = [
         title: { type: "string" },
         description: { type: "string" },
         sortOrder: { type: "integer" },
-        slug: { type: "string" },
+        // SAFETY: slug is the per-parent identity used by AGGREGATE
+        // mastery keys (#411/#614). An AI-chosen slug could orphan
+        // downstream `lo_mastery:{moduleId}:*` entries. When this stub is
+        // promoted, the server-side handler must derive the slug from
+        // the title via slugify(), not accept it from the model.
         reason: { type: "string" },
       },
       required: ["curriculum_id", "title", "reason"],
