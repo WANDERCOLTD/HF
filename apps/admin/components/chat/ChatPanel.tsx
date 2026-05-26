@@ -454,8 +454,13 @@ export function ChatPanel() {
           {/* Mode tabs (Assistant / Tuning) */}
           <ChatModeTabs />
 
-          {/* Tuning scope toggle (only in TUNING mode) */}
-          {mode === "TUNING" && <TuningScopeToggle />}
+          {/* Tuning scope toggle — shown in both DATA (Assistant) and TUNING
+              modes so write operations always have unambiguous scope
+              regardless of which tab the user is in. DATA mode previously
+              relied on the chip stack alone, which the model couldn't
+              disambiguate when the stack accumulated multiple
+              callers/playbooks across navigation. */}
+          {(mode === "DATA" || mode === "TUNING") && <TuningScopeToggle />}
 
           {/* Active ticket stripe (only in DATA mode when a discussion is active) */}
           {mode === "DATA" && <DiscussingTicketStripe />}
