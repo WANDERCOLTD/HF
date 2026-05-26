@@ -628,4 +628,116 @@ export const ADMIN_TOOLS: AITool[] = [
       properties: {},
     },
   },
+
+  // ─────────────────────────────────────────────────────────────────────
+  // NOT YET AVAILABLE — roadmap stubs
+  //
+  // These tools are declared so the AI never silently invents them and
+  // never pretends to call something that doesn't exist. When invoked,
+  // they return a friendly refusal that tells the educator: (a) the
+  // feature is on the roadmap, (b) which UI surface to use today.
+  //
+  // To promote a stub to a real tool:
+  //   1. Implement the handler in admin-tool-handlers.ts
+  //   2. Add the RBAC entry to TOOL_MIN_ROLE
+  //   3. Switch the dispatch case from handleNotYetAvailable to the real handler
+  //   4. Update this description to remove the "NOT YET AVAILABLE" prefix
+  // ─────────────────────────────────────────────────────────────────────
+
+  {
+    name: "list_caller_memories",
+    description:
+      "NOT YET AVAILABLE — list a caller's CallerMemory rows by category (personality, preferences, key_facts, behaviour_pattern). When invoked, you MUST tell the user: 'I can't list memories yet — that tool is on the roadmap. For now, open /x/callers/[callerId]?tab=how to inspect them directly.' Do NOT pretend to call this; surface the limitation explicitly.",
+    input_schema: {
+      type: "object",
+      properties: {
+        caller_id: { type: "string" },
+        category: { type: "string" },
+      },
+      required: ["caller_id"],
+    },
+  },
+
+  {
+    name: "create_goal",
+    description:
+      "NOT YET AVAILABLE — directly add a single Goal for a caller (type, name, priority, isAssessmentTarget). When invoked, you MUST tell the user: 'I can't create goals one-off yet — that tool is on the roadmap. Goals are currently created automatically by generate_curriculum or via the Goals UI at /x/callers/[callerId]?tab=what.' Do NOT pretend to call this.",
+    input_schema: {
+      type: "object",
+      properties: {
+        caller_id: { type: "string" },
+        name: { type: "string" },
+        type: { type: "string", enum: ["LEARN", "BEHAVIOUR", "ASSESSMENT"] },
+        priority: { type: "integer" },
+        isAssessmentTarget: { type: "boolean" },
+        reason: { type: "string" },
+      },
+      required: ["caller_id", "name", "type", "reason"],
+    },
+  },
+
+  {
+    name: "rename_subject",
+    description:
+      "NOT YET AVAILABLE — rename a Subject (name, description, defaultTrustLevel, teachingProfile). When invoked, you MUST tell the user: 'I can't rename subjects yet — that tool is on the roadmap. You can rename a subject directly in the Subjects UI at /x/subjects, or use create_subject_with_source if you need a new one.' Do NOT pretend to call this.",
+    input_schema: {
+      type: "object",
+      properties: {
+        subject_id: { type: "string" },
+        name: { type: "string" },
+        description: { type: "string" },
+        defaultTrustLevel: { type: "string" },
+        teachingProfile: { type: "string" },
+        reason: { type: "string" },
+      },
+      required: ["subject_id", "reason"],
+    },
+  },
+
+  {
+    name: "replace_lesson_plan",
+    description:
+      "NOT YET AVAILABLE — replace Curriculum.deliveryConfig.lessonPlan in bulk. When invoked, you MUST tell the user: 'I can't replace lesson plans through chat yet — that tool is on the roadmap. The lesson-plan editor at /x/courses/[courseId]?tab=design has a Regenerate button that drives the same write through the UI.' Do NOT pretend to call this — the lesson plan is a structured object best authored via the editor.",
+    input_schema: {
+      type: "object",
+      properties: {
+        curriculum_id: { type: "string" },
+        plan: { type: "object" },
+        reason: { type: "string" },
+      },
+      required: ["curriculum_id", "plan", "reason"],
+    },
+  },
+
+  {
+    name: "add_curriculum_module",
+    description:
+      "NOT YET AVAILABLE — add a single new CurriculumModule (without rebuilding the whole curriculum). When invoked, you MUST tell the user: 'I can't add a single module yet — that tool is on the roadmap. Today you can use generate_curriculum to bulk-author the curriculum, or the Curriculum editor at /x/courses/[courseId]?tab=design for hand-authored module changes.' Do NOT pretend to call this.",
+    input_schema: {
+      type: "object",
+      properties: {
+        curriculum_id: { type: "string" },
+        title: { type: "string" },
+        description: { type: "string" },
+        sortOrder: { type: "integer" },
+        slug: { type: "string" },
+        reason: { type: "string" },
+      },
+      required: ["curriculum_id", "title", "reason"],
+    },
+  },
+
+  {
+    name: "reset_caller",
+    description:
+      "NOT YET AVAILABLE — wipe a caller's runtime state (calls, scores, memories, attributes, goals) and start over without deleting the Caller row. When invoked, you MUST tell the user: 'I can't reset a learner through chat yet — that tool is on the roadmap (the route logic at POST /api/callers/[id]/reset still needs extracting to a shared library before chat can call it safely). Today you can reset from the caller detail page UI.' Do NOT pretend to call this — it is destructive and the deferred safety extraction matters.",
+    input_schema: {
+      type: "object",
+      properties: {
+        caller_id: { type: "string" },
+        reason: { type: "string" },
+      },
+      required: ["caller_id", "reason"],
+    },
+  },
 ];
