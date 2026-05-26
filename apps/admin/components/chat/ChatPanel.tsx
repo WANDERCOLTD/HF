@@ -20,15 +20,31 @@ const ENTITY_LABELS: Record<string, string> = {
 };
 
 // Sub-components
-function ChatBreadcrumbStripe({ breadcrumbs }: { breadcrumbs: EntityBreadcrumb[] }) {
+function ChatBreadcrumbStripe({
+  breadcrumbs,
+  hideTypes,
+}: {
+  breadcrumbs: EntityBreadcrumb[];
+  /**
+   * Types to hide from the stripe. Used by DATA + TUNING modes to suppress
+   * caller + playbook chips that the Scope toggle already shows above,
+   * while still surfacing drill-down chips like Call / Memory / Spec.
+   */
+  hideTypes?: ReadonlyArray<EntityBreadcrumb["type"]>;
+}) {
   const { clearToEntity } = useEntityContext();
 
-  // Deduplicate breadcrumbs by ID (keep first occurrence)
-  const uniqueBreadcrumbs = breadcrumbs.filter(
-    (crumb, index, self) => self.findIndex((c) => c.id === crumb.id) === index
-  );
+  // Deduplicate breadcrumbs by ID (keep first occurrence), then filter out
+  // types the parent doesn't want re-displayed.
+  const uniqueBreadcrumbs = breadcrumbs
+    .filter((crumb, index, self) => self.findIndex((c) => c.id === crumb.id) === index)
+    .filter((crumb) => !hideTypes?.includes(crumb.type));
 
   if (uniqueBreadcrumbs.length === 0) {
+    // When hideTypes is set (DATA/TUNING modes), absence of drill-down
+    // chips is normal — the Scope toggle already shows context. Render
+    // nothing instead of the "No context selected" empty state.
+    if (hideTypes && hideTypes.length > 0) return null;
     return (
       <div className="chat-breadcrumb-empty">
         No context selected - navigate to a caller or call to add context
@@ -465,8 +481,14 @@ export function ChatPanel() {
           {/* Active ticket stripe (only in DATA mode when a discussion is active) */}
           {mode === "DATA" && <DiscussingTicketStripe />}
 
-          {/* Context Breadcrumbs */}
-          <ChatBreadcrumbStripe breadcrumbs={breadcrumbs} />
+          {/* Context Breadcrumbs — in DATA/TUNING modes the Scope toggle
+              above already shows caller + playbook, so hide those types to
+              avoid duplicate display. Drill-down chips (Call, Memory,
+              Spec, etc.) still render here. */}
+          <ChatBreadcrumbStripe
+            breadcrumbs={breadcrumbs}
+            hideTypes={mode === "DATA" || mode === "TUNING" ? ["caller", "playbook"] : undefined}
+          />
 
           {/* Messages */}
           <ChatMessages />
