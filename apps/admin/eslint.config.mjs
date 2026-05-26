@@ -6,6 +6,7 @@ import noDirectPlaybookConfigWrite from "./eslint-rules/no-direct-playbook-confi
 import noDirectDomainOnboardingWrite from "./eslint-rules/no-direct-domain-onboarding-write.mjs";
 import noDirectSpecConfigWrite from "./eslint-rules/no-direct-spec-config-write.mjs";
 import noAiFanoutAll from "./eslint-rules/no-ai-fanout-all.mjs";
+import noAiForbiddenFields from "./eslint-rules/no-ai-forbidden-fields.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -82,6 +83,19 @@ const eslintConfig = defineConfig([
           "no-ai-fanout-all": noAiFanoutAll,
         },
       },
+      // 2026-05-26 — block AI tool schemas from declaring globally
+      // forbidden fields (role, domainId, ownerId, isLocked, slug…).
+      // The pattern fires at edit time on apps/admin/lib/chat/admin-tools.ts
+      // so any new tool that exposes a privileged field can't even reach
+      // a PR. Companion: lib/chat/ai-forbidden-fields.ts (the runtime
+      // registry) + tests/lib/admin-tools-no-forbidden-fields.test.ts
+      // (the dynamic-pattern catch). Triggered by the update_caller→role
+      // incident where the schema shipped with `role` in its enum.
+      "hf-ai-tools": {
+        rules: {
+          "no-forbidden-fields": noAiForbiddenFields,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
@@ -89,6 +103,7 @@ const eslintConfig = defineConfig([
       "hf-domain/no-direct-onboarding-write": "error",
       "hf-spec/no-direct-config-write": "error",
       "hf-recompose/no-ai-fanout-all": "error",
+      "hf-ai-tools/no-forbidden-fields": "error",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)

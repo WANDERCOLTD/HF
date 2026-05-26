@@ -190,6 +190,36 @@ Format per link:
 
 ---
 
+## 3a. Authoring-time contracts
+
+The links above cover the runtime adaptive loop (CALL → … → COMPOSE). The contracts below cover the **authoring-time boundaries** — when humans or AI agents propose changes to config and data that the loop will later read. Same shape (producer → consumer, enforced, tested, doc-linked), different timing.
+
+### Link A1 — AI TOOL CATALOGUE → DB WRITE (privilege & tenancy)
+
+| Field | Value |
+|---|---|
+| **Producer** | The Cmd+K AI assistant chooses and calls tools from `ADMIN_TOOLS` (`apps/admin/lib/chat/admin-tools.ts`). Tool input_schema is the per-tool whitelist of writable fields. |
+| **Consumer** | `executeAdminTool()` dispatcher in `admin-tool-handlers.ts`, which writes via `prisma.*` to caller/playbook/domain/spec/curriculum_module/learning_objective tables. |
+| **Data shape** | Each `update_<entity>` tool's `input_schema.properties` MUST NOT include any field in `AI_FORBIDDEN_FIELDS[entity]` (`apps/admin/lib/chat/ai-forbidden-fields.ts`). Forbidden classes: privilege escalation (`role`), cross-tenant moves (`domainId`, `ownerId`, `userId`), hard-delete (`deletedAt`), and per-parent identity slugs that downstream mastery keys depend on (`slug`, `ref`). |
+| **Enforcement** | (1) Schema layer: forbidden fields removed from `input_schema.properties`. (2) Handler layer: defence-in-depth scrub at `handleUpdateCaller` (etc.) drops `role`/`domainId` even if a future schema regression adds them back, logs a warning. (3) RBAC layer: `TOOL_MIN_ROLE` per-tool minimum role enforced at dispatcher entry; meta-test asserts every tool in `ADMIN_TOOLS` is gated. |
+| **Test** | `tests/lib/admin-tools-no-forbidden-fields.test.ts` walks `ADMIN_TOOLS` and fails CI if any schema exposes a forbidden field, AND asserts every tool blocks a DEMO-tier caller. `tests/lib/admin-tools-no-role-escalation.test.ts` covers the handler scrub. `tests/lib/admin-tools.test.ts` `RBAC enforcement` block covers behavioural cases. |
+| **Memory doc** | `.claude/rules/ai-to-db-guard.md` ("update_caller / update_playbook_*" guard row, added 2026-05-26) + the JSDoc on `AI_FORBIDDEN_FIELDS` itself. |
+| **Reinforced by** | 2026-05-26 sandbox demo — `update_caller` schema exposed `role` and an operator typed "change Brynn's role to admin"; the tool fired and Brynn was elevated. Fix removed `role`+`domainId` from the schema, added handler scrub, and built the central registry + meta-test so the next over-permissive tool fails CI before merge. |
+
+### Link A2 — PENDING-CHANGES TRAY → /api/recompose/apply (human gate on AI proposals)
+
+| Field | Value |
+|---|---|
+| **Producer** | Tray push sites: `PromptTunerSidebar`, Course Design tabs, Cmd+K palette, wizard chat, AI tool executors (#878). Each push lands a `TrayEntry` with `aiSuggested: boolean` and `fanoutScope: 'none' | 'caller' | 'all'`. |
+| **Consumer** | `POST /api/recompose/apply` route — writes pending config/target changes via `update-playbook-config.ts` / `update-behavior-target` and optionally triggers `autoComposeForCaller` (Toggle 1) or `recompose-all` (Toggle 2). |
+| **Data shape** | Tray invariants: (a) `aiSuggested` is **sticky** — once true for a `(key, scopeId)`, subsequent re-pushes (even from human surfaces) keep it true. (b) `beforeValue` is **frozen at first push** — diffs are against original DB state, not intermediate edits. (c) The fanout-class set is derived from `key` against `FANOUT_CLASS_PLAYBOOK_KEYS`, not stored per-entry. |
+| **Enforcement** | Five layers: (1) TypeScript `TrayEntry` interface requires `aiSuggested: boolean`. (2) Reducer in `use-pending-changes-tray.tsx::push` enforces stickiness + frozen `beforeValue`. (3) zod `.strict()` validates the apply payload server-side. (4) Runtime guard at `apply/route.ts:125-126` rejects `aiSuggested + toggleAll` (cohort fan-out from an AI-touched batch). (5) ESLint rule `hf-recompose/no-ai-fanout-all` blocks AI tool executor files from passing `fanoutScope: 'all'`. Audit row written for every Save & apply regardless of toggles. |
+| **Test** | `tests/hooks/use-pending-changes-tray.test.tsx` — reducer invariants (stickiness, frozen beforeValue). `tests/api/recompose-apply.test.ts` — server-side `aiSuggested + toggleAll` rejection + audit shape. ESLint rule self-tests at lint time. |
+| **Memory doc** | `.claude/rules/ai-to-db-guard.md` ("Pending-changes tray + apply route" guard row, added 2026-05-26). |
+| **Reinforced by** | Epic #854 / Stories #856 / #857 / #874 / #877 / #878. Safety property: **no AI surface, anywhere, can trigger a cohort fan-out** — only an explicit human Toggle 2 click on a batch with zero `aiSuggested:true` entries can. |
+
+---
+
 ## 4. DataContract registry
 
 The runtime DataContract registry (`lib/contracts/`) is the DB-backed source of truth for storage-key patterns. Contract files live in `apps/admin/docs-archive/bdd-specs/contracts/` and are seeded into `DataContract` rows on `db:seed`.

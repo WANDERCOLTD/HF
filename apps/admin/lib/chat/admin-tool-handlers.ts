@@ -986,16 +986,28 @@ async function handleUpdateCaller(input: Record<string, any>) {
   });
   if (!existing) return { error: `Caller ${callerId} not found.` };
 
+  // SAFETY: role + domainId are NOT in the tool schema (admin-tools.ts) so
+  // they should never appear in input. Defence-in-depth: even if a future
+  // schema change adds them back, or a malformed tool call slips through,
+  // ignore them here. Role changes are privilege escalation; domainId
+  // changes are cross-tenant moves — both are human-only via the admin UI.
   const data: Record<string, unknown> = {};
   if (typeof input.name === "string") data.name = input.name;
   if (input.email === null || typeof input.email === "string") data.email = input.email;
   if (input.phone === null || typeof input.phone === "string") data.phone = input.phone;
   if (input.externalId === null || typeof input.externalId === "string") data.externalId = input.externalId;
-  if (typeof input.role === "string") data.role = input.role;
-  if (input.domainId === null || typeof input.domainId === "string") data.domainId = input.domainId;
   if (input.cohortGroupId === null || typeof input.cohortGroupId === "string") data.cohortGroupId = input.cohortGroupId;
   if (input.archive === true) data.archivedAt = new Date();
   if (input.archive === false) data.archivedAt = null;
+  if (input.role !== undefined || input.domainId !== undefined) {
+    console.warn(
+      `[admin-tools] update_caller dropped privileged field(s) from AI tool call: ${
+        [input.role !== undefined ? "role" : null, input.domainId !== undefined ? "domainId" : null]
+          .filter(Boolean)
+          .join(", ")
+      }. caller_id=${callerId}, reason="${input.reason ?? "(none)"}"`,
+    );
+  }
 
   if (Object.keys(data).length === 0) {
     return { error: "No update fields provided. Pass at least one of: name, email, phone, externalId, role, domainId, cohortGroupId, archive." };
