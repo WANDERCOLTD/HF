@@ -12,6 +12,9 @@ vi.mock("@/lib/prisma", () => ({
     callerAttribute: {
       upsert: vi.fn(),
     },
+    caller: {
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -25,11 +28,14 @@ import { auditLog } from "@/lib/audit";
 import { applyLearnerTolerance } from "@/lib/tolerance/apply-learner-tolerances";
 
 const upsertMock = prisma.callerAttribute.upsert as unknown as Mock;
+const callerUpdateMock = prisma.caller.update as unknown as Mock;
 const auditMock = auditLog as unknown as Mock;
 
 beforeEach(() => {
   upsertMock.mockReset();
   upsertMock.mockResolvedValue({});
+  callerUpdateMock.mockReset();
+  callerUpdateMock.mockResolvedValue({});
   auditMock.mockReset();
 });
 
@@ -90,6 +96,36 @@ describe("applyLearnerTolerance", () => {
       }),
     ).rejects.toThrow(/unknown key/i);
     expect(prisma.callerAttribute.upsert).not.toHaveBeenCalled();
+    expect(prisma.caller.update).not.toHaveBeenCalled();
     expect(auditLog).not.toHaveBeenCalled();
+  });
+
+  // #854 A1 — silent bug from #843: tolerance writes were not bumping
+  // Caller.composeInputsUpdatedAt, so the staleness check never fired
+  // for the next compose. The bump must run after every successful upsert.
+  it("bumps Caller.composeInputsUpdatedAt after a successful upsert (A1)", async () => {
+    await applyLearnerTolerance({
+      callerId: "c-1",
+      key: "firstCall",
+      value: { durationMinsOverride: 7 },
+    });
+
+    expect(callerUpdateMock).toHaveBeenCalledTimes(1);
+    const updateCall = callerUpdateMock.mock.calls[0][0];
+    expect(updateCall.where).toEqual({ id: "c-1" });
+    expect(updateCall.data.composeInputsUpdatedAt).toBeInstanceOf(Date);
+  });
+
+  it("does NOT bump Caller.composeInputsUpdatedAt when the key is rejected (A1)", async () => {
+    await expect(
+      applyLearnerTolerance({
+        callerId: "c-1",
+        // @ts-expect-error — intentionally invalid key
+        key: "bogus",
+        value: {} as never,
+      }),
+    ).rejects.toThrow();
+
+    expect(callerUpdateMock).not.toHaveBeenCalled();
   });
 });

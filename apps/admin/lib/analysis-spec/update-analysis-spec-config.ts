@@ -95,6 +95,14 @@ export interface UpdateAnalysisSpecConfigOptions {
   allowLocked?: boolean;
   /** Diagnostic label for the bump log line. */
   reason?: string;
+  /**
+   * Recompose fan-out scope for this write. See `update-playbook-config.ts`
+   * for the full contract. AI tool executors MUST NOT pass `'all'`.
+   *
+   * Note: SYSTEM-scope specs have very large blast radius (every active
+   * caller across every domain). Treat `'all'` here as load-bearing.
+   */
+  fanoutScope?: 'none' | 'caller' | 'all';
 }
 
 export interface UpdateAnalysisSpecConfigResult {
@@ -103,6 +111,8 @@ export interface UpdateAnalysisSpecConfigResult {
   timestampBumped: boolean;
   /** What got bumped: "system" | "domain" | "none". */
   bumpTarget: "system" | "domain" | "none";
+  /** Echoes the requested fanout scope so callers can branch (default 'none'). */
+  fanoutScope: 'none' | 'caller' | 'all';
 }
 
 export type AnalysisSpecConfigTransformer = (
@@ -206,6 +216,7 @@ export async function updateAnalysisSpecConfig(
     composeAffectingChanged: composeAffected,
     timestampBumped,
     bumpTarget,
+    fanoutScope: options.fanoutScope ?? 'none',
   };
 }
 

@@ -61,6 +61,10 @@ export const AuditAction = {
 
   // Tolerances (#598 Slice 1) — per-learner overrides on the mastery cascade
   TOLERANCE_WRITE: "tolerance_write",
+
+  // Recompose control (#854 epic) — cohort fan-out + tray-batched apply
+  RECOMPOSE_FANOUT: "recompose_fanout",
+  PENDING_CHANGES_APPLIED: "pending_changes_applied",
 } as const;
 
 export type AuditActionType = (typeof AuditAction)[keyof typeof AuditAction];

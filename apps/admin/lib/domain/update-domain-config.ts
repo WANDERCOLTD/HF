@@ -48,12 +48,19 @@ export interface UpdateDomainConfigOptions {
   skipTimestamp?: boolean;
   /** Diagnostic label for the bump log line. */
   reason?: string;
+  /**
+   * Recompose fan-out scope for this write. See `update-playbook-config.ts`
+   * for the full contract. AI tool executors MUST NOT pass `'all'`.
+   */
+  fanoutScope?: 'none' | 'caller' | 'all';
 }
 
 export interface UpdateDomainConfigResult {
   domain: Domain;
   composeAffectingChanged: boolean;
   timestampBumped: boolean;
+  /** Echoes the requested fanout scope so callers can branch (default 'none'). */
+  fanoutScope: 'none' | 'caller' | 'all';
 }
 
 export type DomainConfigTransformer = (
@@ -111,6 +118,7 @@ export async function updateDomainConfig(
     domain,
     composeAffectingChanged: composeAffected,
     timestampBumped: shouldBumpTimestamp,
+    fanoutScope: options.fanoutScope ?? 'none',
   };
 }
 

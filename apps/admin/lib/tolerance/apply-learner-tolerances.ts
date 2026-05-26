@@ -28,6 +28,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auditLog, AuditAction } from "@/lib/audit";
+import { bumpCallerComposeTimestamp } from "@/lib/compose/bump-timestamp";
 
 export const TOLERANCE_SCOPE = "TOLERANCE" as const;
 
@@ -88,6 +89,12 @@ export async function applyLearnerTolerance(
       confidence: 1.0,
     },
   });
+
+  // #854 A1 — drive caller-scope staleness so the next touchpoint actually
+  // sees the override via `isPromptStale` → `autoComposeForCaller`. Without
+  // this bump, a per-learner tolerance write silently never reaches the
+  // composed prompt until something else also bumps the caller.
+  await bumpCallerComposeTimestamp(input.callerId);
 
   await auditLog({
     userId: input.actor?.userId,

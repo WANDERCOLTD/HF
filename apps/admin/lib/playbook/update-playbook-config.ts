@@ -55,6 +55,22 @@ export interface UpdatePlaybookConfigOptions {
    * is responsible for a given timestamp bump.
    */
   reason?: string;
+  /**
+   * Recompose fan-out scope for this write. Read by the pending-changes
+   * tray (epic #854) to set toggle defaults.
+   *
+   *   'none'   — stamp timestamp only; no immediate recompose (default).
+   *              Lazy-auto recompose still fires on next caller touchpoint
+   *              via `autoComposeForCaller` + `isPromptStale`.
+   *   'caller' — recompose the single caller in context (human OR AI may set).
+   *   'all'    — fan out to every active caller on this playbook.
+   *              **Human UI only — AI tool executors MUST NOT pass this.**
+   *
+   * Enforced at AI call sites by the ESLint rule
+   * `hf-recompose/no-ai-fanout-all`. This helper does NOT fan out itself;
+   * the value is surfaced in the result for upstream code to act on.
+   */
+  fanoutScope?: 'none' | 'caller' | 'all';
 }
 
 export interface UpdatePlaybookConfigResult {
@@ -63,6 +79,8 @@ export interface UpdatePlaybookConfigResult {
   composeAffectingChanged: boolean;
   /** True when the timestamp was bumped (composeAffectingChanged && !skipTimestamp). */
   timestampBumped: boolean;
+  /** Echoes the requested fanout scope so callers can branch (default 'none'). */
+  fanoutScope: 'none' | 'caller' | 'all';
 }
 
 export type PlaybookConfigTransformer = (
@@ -117,6 +135,7 @@ export async function updatePlaybookConfig(
     playbook,
     composeAffectingChanged: composeAffected,
     timestampBumped: shouldBumpTimestamp,
+    fanoutScope: options.fanoutScope ?? 'none',
   };
 }
 
