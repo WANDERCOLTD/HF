@@ -246,7 +246,7 @@ export async function GET(
   // AuthoredModulesPanel can render a [hidden: ASSESSOR_RUBRIC] / etc.
   // badge alongside each LO. Same Set of refs we already collected for
   // mcqCountsByModule, so this is one extra DB hit, not N.
-  let loAudienceByRef: Record<string, {
+  const loAudienceByRef: Record<string, {
     learnerVisible: boolean;
     systemRole: string;
     performanceStatement: string | null;

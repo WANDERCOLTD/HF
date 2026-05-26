@@ -245,7 +245,7 @@ export function SequencerView({ config, onChange, disabled }: SequencerViewProps
   // Add a new item
   const addItem = useCallback(() => {
     if (!activeSeq) return;
-    let template: Record<string, unknown> = {};
+    const template: Record<string, unknown> = {};
     if (activeSeq.items.length > 0) {
       for (const [k, v] of Object.entries(activeSeq.items[0])) {
         if (typeof v === "string") template[k] = "";

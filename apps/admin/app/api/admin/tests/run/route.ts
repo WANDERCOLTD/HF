@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const adminRoot = path.resolve(process.cwd());
 
     // Build the command
-    let args = ["playwright", "test"];
+    const args = ["playwright", "test"];
 
     if (file) {
       args.push(file);

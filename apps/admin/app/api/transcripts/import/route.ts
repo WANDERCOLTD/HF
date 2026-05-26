@@ -632,11 +632,11 @@ export async function POST(request: NextRequest) {
 
     const contentType = request.headers.get("content-type") || "";
 
-    let filesToProcess: Array<{ content: string; filename: string }> = [];
+    const filesToProcess: Array<{ content: string; filename: string }> = [];
     let domainSlug: string | null = null; // No default domain - callers can exist without one
     let duplicateHandling: "skip" | "overwrite" | "create_new" = "skip";
     let sourceDir: string | null = null;
-    let savedToRaw: string[] = [];
+    const savedToRaw: string[] = [];
     let previewMode = false;
     let conflictResolutions: Record<string, "merge" | "create_new" | "skip"> = {};
 
@@ -809,7 +809,7 @@ export async function POST(request: NextRequest) {
       if (phone) callerConditions.push({ phone });
       if (callerTag) callerConditions.push({ externalId: `import-tag:${callerTag}` });
 
-      let existingCaller = callerConditions.length > 0
+      const existingCaller = callerConditions.length > 0
         ? await prisma.caller.findFirst({ where: { OR: callerConditions } })
         : null;
 
@@ -828,7 +828,7 @@ export async function POST(request: NextRequest) {
         } else if (resolution === "create_new") {
           // Create as new caller (with modified phone to avoid conflict)
           isNewCaller = true;
-          let externalId = `import-new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const externalId = `import-new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
           caller = await prisma.caller.create({
             data: {

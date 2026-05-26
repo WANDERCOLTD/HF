@@ -49,7 +49,7 @@ registerTransform("mergeAndGroupTargets", (
   // Merge with priority: CallerTarget > PLAYBOOK > DOMAIN > SYSTEM
   // Pass all stacked playbook IDs - targets from any stacked playbook apply
   const playbookIds = playbooks.map(pb => pb.id);
-  let merged = mergeTargets(behaviorTargets, callerTargets, playbookIds);
+  const merged = mergeTargets(behaviorTargets, callerTargets, playbookIds);
 
   // ONBOARDING: Inject first-call defaults for missing parameters
   // Priority (highest first):

@@ -256,7 +256,7 @@ export async function classifyLoLlm(input: ClassifyLoInput): Promise<ClassifyLoR
     );
 
     const raw = result.content.trim();
-    let jsonStr = raw.startsWith("{") ? raw : raw.replace(/^```json?\n?/, "").replace(/\n?```$/, "");
+    const jsonStr = raw.startsWith("{") ? raw : raw.replace(/^```json?\n?/, "").replace(/\n?```$/, "");
     // LLM outputs sometimes contain embedded slashes, IPA notation, smart
     // quotes, or trailing commas that break JSON.parse. jsonrepair fixes
     // these without losing data — same pattern used elsewhere in the

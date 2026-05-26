@@ -144,7 +144,7 @@ export const DEFAULT_COST_RATES: Record<
 };
 
 // Cache for DB rates (5 minute TTL)
-let rateCache: Map<string, { rate: number; unitType: string; expiresAt: number }> =
+const rateCache: Map<string, { rate: number; unitType: string; expiresAt: number }> =
   new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 

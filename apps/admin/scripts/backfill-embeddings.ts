@@ -41,7 +41,7 @@ async function backfillAssertions(batchSize: number, dryRun: boolean) {
   }
 
   let processed = 0;
-  let offset = 0;
+  const offset = 0;
 
   while (processed < remaining) {
     const rows = await prisma.$queryRaw<Array<{ id: string; assertion: string }>>(

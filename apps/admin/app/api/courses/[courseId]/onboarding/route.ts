@@ -75,7 +75,7 @@ export async function GET(
     }
 
     // Load domain media for editor picker (SubjectDomain → Subject → SubjectMedia → MediaAsset)
-    let media: Array<{ id: string; title: string | null; fileName: string; mimeType: string }> = [];
+    const media: Array<{ id: string; title: string | null; fileName: string; mimeType: string }> = [];
     if (playbook.domain) {
       const subjectMedia = await prisma.subjectMedia.findMany({
         where: {
