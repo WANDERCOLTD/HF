@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { X, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
 import "./prompt-tuner.css";
 import { usePendingChangesTray } from "@/hooks/use-pending-changes-tray";
@@ -213,7 +213,7 @@ export function PromptTunerSidebar({
   // #857 — feed the pending-changes tray with caller-in-context while the
   // sidebar is open. The tray's Toggle 1 ("Also recompose <name>") uses
   // this to render the caller's name + default ON. Cleared on close.
-  const { push: trayPush, setCallerInContext: traySetCaller } = usePendingChangesTray();
+  const { entries: trayEntries, push: trayPush, setCallerInContext: traySetCaller } = usePendingChangesTray();
   useEffect(() => {
     if (!open) return;
     if (!callerId || !callerName) return;
@@ -222,6 +222,8 @@ export function PromptTunerSidebar({
       traySetCaller(null);
     };
   }, [open, callerId, callerName, traySetCaller]);
+
+  const lastTrayEntryCountRef = useRef(0);
 
   // --- Locally remember what we just applied ---
   //
@@ -335,6 +337,35 @@ export function PromptTunerSidebar({
     const row = learnerOverrides.find((o) => o.parameterId === "TOL-MASTERY-THRESHOLD");
     return row?.targetValue;
   }, [learnerOverrides]);
+
+  // Watch the tray for "external clear" events — fires when the user
+  // hits Save & apply OR Discard all on the tray. In either case the
+  // pending state has been resolved outside this sidebar, so we
+  // refresh from the server and drop any local drafts so PENDING
+  // CHANGES (N) and the "Apply to <name> only" CTA disappear in
+  // lock-step with the tray.
+  useEffect(() => {
+    const prevCount = lastTrayEntryCountRef.current;
+    lastTrayEntryCountRef.current = trayEntries.length;
+    if (prevCount === 0 || trayEntries.length !== 0) return;
+    void refreshParameters();
+    void refreshCourseTolerances();
+    setDraftTargets({});
+    setDraftStyle(currentStyle);
+    setDraftAudience(currentAudience);
+    setDraftMode(currentMode);
+    setDraftCourseTolerances(courseTolerances);
+    setDraftLearnerMasteryOverride(currentLearnerMasteryOverride);
+  }, [
+    trayEntries.length,
+    refreshParameters,
+    refreshCourseTolerances,
+    currentStyle,
+    currentAudience,
+    currentMode,
+    courseTolerances,
+    currentLearnerMasteryOverride,
+  ]);
 
   // Fetch ACTIVE enrollment count so the Apply button can show consequence up front.
   useEffect(() => {
@@ -687,27 +718,38 @@ export function PromptTunerSidebar({
         "Tuning saved. Review the pending changes tray (bottom-right) to recompose now, or wait for the next call.",
       );
 
-      // 4. Re-fetch parameters from the API so `effectiveValue` reflects the
-      //    newly-saved values, and clear the draft so the PENDING CHANGES list
-      //    drops to zero. Without this the stale parameters cache leaves the
-      //    diff alive forever and the user has no idea whether a subsequent
-      //    drag is a new change or a repeat of the one they already saved.
-      const fresh = await refreshParameters();
-      if (fresh) {
-        const freshMap = new Map(fresh.map((p) => [p.parameterId, p.effectiveValue]));
-        // Drop draft entries that now match the server — keep any that differ
-        // (e.g. a write that was rejected, or a new drag mid-save).
-        setDraftTargets((prev) => {
-          const next: Record<string, number> = {};
-          for (const [pid, draft] of Object.entries(prev)) {
-            const server = freshMap.get(pid);
-            if (server === undefined || Math.abs(server - draft) > 0.01) {
-              next[pid] = draft;
-            }
-          }
-          return next;
-        });
-      }
+      // 4. Hard-reset every draft slice so the page-level PENDING CHANGES
+      //    list drops to zero immediately on save success.
+      //
+      //    Previously this branch only filtered draftTargets against the
+      //    refreshParameters() response, which left two failure modes:
+      //
+      //    (a) BEH params not present in /api/playbooks/<id>/targets
+      //        → freshMap.get(pid) === undefined → the filter kept the
+      //          draft entry alive forever, so PENDING CHANGES (N) and
+      //          the purple "Apply to <name> only" button stayed visible
+      //          even after a successful save.
+      //    (b) refreshParameters() returning null (network blip, 5xx)
+      //        → entire block skipped, drafts untouched.
+      //    (c) Style/Audience/Mode/Tolerance drafts had no cleanup at
+      //        all, so config changes never cleared until the user
+      //        navigated away.
+      //
+      //    The save itself succeeded (we're past the writes above), so
+      //    the user's mental model is "I clicked apply, it worked". The
+      //    UI must agree.
+      setDraftTargets({});
+      setDraftStyle(currentStyle);
+      setDraftAudience(currentAudience);
+      setDraftMode(currentMode);
+      setDraftCourseTolerances(courseTolerances);
+      setDraftLearnerMasteryOverride(currentLearnerMasteryOverride);
+
+      // 4a. Re-fetch in the background so `effectiveValue` etc. reflect
+      // the newly-saved values on the next render. Not awaited — the
+      // drafts are already cleared, so even if this fetch lags the user
+      // can immediately drag a slider for a new change.
+      void refreshParameters();
 
       // 4b. #598 Slice 2 — refresh tolerances + learner overrides so the diff
       // resolves after the save.
@@ -730,7 +772,8 @@ export function PromptTunerSidebar({
   }, [
     playbookId, callerId, callerName, pendingChanges, onApplied, scope,
     refreshParameters, refreshCourseTolerances, courseTolerances, draftCourseTolerances,
-    trayPush,
+    trayPush, currentStyle, currentAudience, currentMode,
+    currentLearnerMasteryOverride,
   ]);
 
   // --- Toggle group collapse ---
