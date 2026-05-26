@@ -1,8 +1,8 @@
 /**
  * Page-scoped help registry. Each route declares its title, about copy,
  * tab explanations, and chord bindings here. The Help Overlay (#686),
- * chord engine (#688), and tab hover-tooltips (#689) all read from this
- * single source.
+ * chord engine (#688), tab hover-tooltips (#689), and DATA-mode AI
+ * assistant catalogue (#812) all read from this single source.
  *
  * Letter mapping rule for chord `keys`:
  *   - First letter of the tab label is preferred
@@ -14,6 +14,19 @@
  * chord prefix), which would collide with Overview=`O` on Learner detail —
  * but they live on different routes so no runtime conflict. Document any
  * future cross-page collision in the page's entry comment.
+ *
+ * Freshness rule (#810):
+ *   When shipping a new tab OR a new named section (a `<CollapsibleCard>`
+ *   on a tabbed page) on any route covered by this registry, add the entry
+ *   here in the SAME PR. Felt Progress (#779/#780/#784/#790/#795 →
+ *   epic #808) is the canonical example of what happens when you don't:
+ *   the section shipped, the Help modal didn't know, and the AI assistant
+ *   answered "I don't see that section" when users asked about it.
+ *
+ *   `tests/lib/page-help.test.ts` enforces this for the Design tab by
+ *   parsing `CourseDesignTab.tsx` and asserting every `<CollapsibleCard
+ *   title="X">` has a matching entry in `tabs.find(design).sections[]`.
+ *   Mirror the test for new tabbed pages that grow named sections.
  */
 
 export interface PageHelp {
@@ -42,6 +55,24 @@ export interface TabHelp {
   whenToUse?: string;
   /** When true, hide from VIEWER/STUDENT/TESTER (only show to OPERATOR+). */
   requiresOperator?: boolean;
+  /**
+   * Named sections inside the tab — usually `<CollapsibleCard title="X">`
+   * blocks. Populated only when the tab grows non-trivial sub-features the
+   * AI assistant and Help modal need to know about. The freshness test
+   * (#810) parses the source TSX and fails CI if a new card ships without
+   * a matching entry here.
+   */
+  sections?: SectionHelp[];
+}
+
+export interface SectionHelp {
+  /**
+   * MUST match the `<CollapsibleCard title="...">` string in the source
+   * exactly — the freshness test compares titles by exact equality.
+   */
+  title: string;
+  /** 1–2 sentences. What this section is for in plain English. */
+  about: string;
 }
 
 export interface ChordBinding {
@@ -104,8 +135,30 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
       {
         id: "design",
         label: "Design",
-        about: "Welcome flow, session flow, mid-survey, audience, and tolerances — the shape of how a learner experiences the course. Tolerances cover the mastery threshold (how high a learner has to score before the AI moves on), retrieval cadence (how often the AI fires recall questions), and memory decay scale (how fast prior-call memories fade).",
-        whenToUse: "When you want to change how sessions begin, what's asked partway through, who the course is for, or how strict the AI is about mastery before advancing.",
+        about: "Welcome flow, session flow, Felt Progress acknowledgements, first-session behaviour, tolerances, and skill banding — the shape of how a learner experiences the course. Tolerances cover the mastery threshold (how high a learner has to score before the AI moves on), retrieval cadence (how often the AI fires recall questions), and memory decay scale (how fast prior-call memories fade).",
+        whenToUse: "When you want to change how sessions begin, what's acknowledged mid-call, how Call 1 behaves differently from later calls, who the course is for, or how strict the AI is about mastery before advancing.",
+        sections: [
+          {
+            title: "Session Flow",
+            about: "Canonical session-flow editor — before / during / after phases, intake, NPS, welcome. Absorbed from the retired Session Flow tab.",
+          },
+          {
+            title: "Felt Progress",
+            about: "Mid-call acknowledgement cues + structured offboarding summary. Lets the AI say 'here's what we covered today' before hanging up so learners feel forward motion. Shipped across #779, #780, #784, #790, #795.",
+          },
+          {
+            title: "Call 1 / First Session",
+            about: "First-session-only behaviour: firstCallMode preset, behaviour-target overrides for the opening call, and a course-ref preview of what the AI will say.",
+          },
+          {
+            title: "Tolerances",
+            about: "Course-default Mastery Threshold (how high a learner scores before the AI advances), Retrieval Cadence Override (how often recall questions fire), and Memory Decay Scale (how fast prior-call memories fade). The per-learner Mastery Threshold override lives in PromptTunerSidebar on the caller page.",
+          },
+          {
+            title: "Skill Banding",
+            about: "Per-course tier-mapping override for skill scoring. Lets a course use a stricter or gentler banding curve than the system default.",
+          },
+        ],
       },
       {
         id: "curriculum",

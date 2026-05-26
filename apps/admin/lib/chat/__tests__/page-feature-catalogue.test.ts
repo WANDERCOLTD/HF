@@ -47,7 +47,12 @@ describe("buildPageFeatureCatalogue", () => {
     expect(out).toMatch(/\*\*Settings\*\*.*operator-only/);
   });
 
-  it("stays under ~500-token budget (2000 chars proxy) for every registered page", () => {
+  it("stays under ~700-token budget (2800 chars proxy) for every registered page", () => {
+    // #810 raised the cap from ~500 tokens (2000 chars) to ~700 tokens (2800
+    // chars). The Design tab now exports 5 named `sections` (Felt Progress,
+    // Tolerances, etc.) so the AI can answer section-level questions, which
+    // costs ~120 extra tokens per render. Cheap given DATA-mode runs Sonnet
+    // 4.5 — the grounding wins are worth more than the bytes.
     const routes = [
       "/x/get-started-v5",
       "/x/courses",
@@ -59,8 +64,8 @@ describe("buildPageFeatureCatalogue", () => {
       const out = buildPageFeatureCatalogue(route);
       expect(
         out.length,
-        `${route} catalogue exceeded 2000-char budget (got ${out.length})`,
-      ).toBeLessThanOrEqual(2000);
+        `${route} catalogue exceeded 2800-char budget (got ${out.length})`,
+      ).toBeLessThanOrEqual(2800);
     }
   });
 });

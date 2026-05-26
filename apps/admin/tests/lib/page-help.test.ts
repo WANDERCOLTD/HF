@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import {
   PAGE_HELP_REGISTRY,
   getPageHelp,
@@ -148,6 +150,62 @@ describe("page-help registry", () => {
       expect(canSeeOperatorOnly(undefined)).toBe(false);
       expect(canSeeOperatorOnly(null)).toBe(false);
       expect(canSeeOperatorOnly("")).toBe(false);
+    });
+  });
+
+  /**
+   * #810 freshness guard.
+   *
+   * The Felt Progress regression (epic #808) shipped a new `<CollapsibleCard
+   * title="Felt Progress">` on the Design tab across 5 PRs without anyone
+   * updating PAGE_HELP_REGISTRY. The Help modal stayed silent; the DATA-mode
+   * AI assistant answered "I don't see that section". This block parses the
+   * source TSX for every `<CollapsibleCard title="X">` on the Design tab and
+   * asserts each title is registered under `tabs.find(design).sections[]`.
+   *
+   * To extend to a new tabbed page: copy the parse block, point `sourceFile`
+   * at the tab component, and add the registry assertion.
+   */
+  describe("freshness guard — Course detail Design tab (#810)", () => {
+    const sourceFile = path.resolve(
+      __dirname,
+      "../../app/x/courses/[courseId]/CourseDesignTab.tsx",
+    );
+    const source = fs.readFileSync(sourceFile, "utf-8");
+    const cardTitles = Array.from(
+      source.matchAll(/<CollapsibleCard\s+title="([^"]+)"/g),
+      (m) => m[1],
+    );
+
+    it("source parse finds at least one CollapsibleCard (sanity)", () => {
+      expect(cardTitles.length).toBeGreaterThan(0);
+    });
+
+    it("every CollapsibleCard rendered on the Design tab has a registry entry", () => {
+      const entry = getPageHelp("/x/courses/abc-123");
+      const designTab = entry?.tabs?.find((t) => t.id === "design");
+      expect(designTab, "Design tab missing from Course detail registry").toBeDefined();
+      const registeredTitles = (designTab?.sections ?? []).map((s) => s.title);
+      for (const title of cardTitles) {
+        expect(
+          registeredTitles,
+          `CourseDesignTab.tsx renders <CollapsibleCard title="${title}"> but no matching entry exists in PAGE_HELP_REGISTRY → tabs[design].sections. Add it to apps/admin/lib/help/page-help.ts so the Help modal and AI assistant know about it.`,
+        ).toContain(title);
+      }
+    });
+
+    it("Design tab `about` mentions Felt Progress so the Help modal surfaces it without HelpOverlay changes", () => {
+      const entry = getPageHelp("/x/courses/abc-123");
+      const designTab = entry?.tabs?.find((t) => t.id === "design");
+      expect(designTab?.about.toLowerCase()).toContain("felt progress");
+    });
+
+    it("the Felt Progress section explicitly exists in the registry", () => {
+      const entry = getPageHelp("/x/courses/abc-123");
+      const designTab = entry?.tabs?.find((t) => t.id === "design");
+      const feltProgress = designTab?.sections?.find((s) => s.title === "Felt Progress");
+      expect(feltProgress).toBeDefined();
+      expect(feltProgress?.about.length).toBeGreaterThan(20);
     });
   });
 
