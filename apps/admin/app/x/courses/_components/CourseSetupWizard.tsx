@@ -32,6 +32,23 @@ export function CourseSetupWizard({ onComplete }: CourseSetupWizardProps) {
   // Warn on browser refresh/close when user has started filling in data
   useUnsavedGuard(!!getData<string>('courseName'));
 
+  // Hooks must run unconditionally; the early-return guards below depend on `state`,
+  // so hoist all useCallback declarations above them. The captured callbacks
+  // (`nextStep`, `prevStep`, `endFlow`) are stable identities from StepFlowContext,
+  // so the guard branch never causes them to capture stale values. (#865 PR 2)
+  const handleNext = useCallback(() => {
+    nextStep();
+  }, [nextStep]);
+
+  const handlePrev = useCallback(() => {
+    prevStep();
+  }, [prevStep]);
+
+  const handleEndFlow = useCallback(() => {
+    endFlow();
+    onComplete?.();
+  }, [endFlow, onComplete]);
+
   if (!state || !state.active) {
     return <div>Loading wizard...</div>;
   }
@@ -48,19 +65,6 @@ export function CourseSetupWizard({ onComplete }: CourseSetupWizardProps) {
   };
 
   const StepComponent = steps[currentStepId];
-
-  const handleNext = useCallback(() => {
-    nextStep();
-  }, [nextStep]);
-
-  const handlePrev = useCallback(() => {
-    prevStep();
-  }, [prevStep]);
-
-  const handleEndFlow = useCallback(() => {
-    endFlow();
-    onComplete?.();
-  }, [endFlow, onComplete]);
 
   if (!StepComponent) {
     return <div>Unknown step: {currentStepId}</div>;

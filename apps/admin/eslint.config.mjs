@@ -194,6 +194,24 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/ban-ts-comment": "warn",
     },
   },
+  // Playwright e2e fixtures are not React. Playwright's `use(value)` is the
+  // fixture-callback parameter, not React's `use` hook — the rules-of-hooks
+  // parser misidentifies it because the identifier matches `use*`. Disable
+  // the React Hooks rules for the e2e tree so the false positives go away
+  // without touching the fixtures themselves. (#865 PR 2)
+  {
+    files: ["e2e/**/*.{ts,tsx}", "e2e/**/*.{js,jsx,mjs,cjs}"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+      "react-hooks/exhaustive-deps": "off",
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/immutability": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/preserve-manual-memoization": "off",
+      "react-hooks/static-components": "off",
+      "react-hooks/purity": "off",
+    },
+  },
   // Archived code is read-only by definition — turn off entirely.
   {
     files: ["_archived/**/*.{ts,tsx}", "_archived/**/*.{js,jsx,mjs,cjs}"],

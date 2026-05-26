@@ -169,6 +169,36 @@ export function GenomeBrowser({ data, onSessionClick, onCategoryClick, onAsserti
     return { pre, teaching, post };
   }, [data.journeyStops, effectiveStart, effectiveEnd]);
 
+  // Visible learning outcomes (clipped to window)
+  // Hoisted above the `teachingSessionCount === 0` early return so hook order
+  // stays stable across re-renders. (#865 PR 2)
+  const visibleLOs = useMemo(
+    () =>
+      data.learningOutcomes
+        .map((lo, i) => {
+          const cs = Math.max(lo.sessionStart, effectiveStart);
+          const ce = Math.min(lo.sessionEnd, effectiveEnd);
+          if (ce < cs) return null;
+          return { lo, originalIndex: i, clippedStart: cs, clippedEnd: ce };
+        })
+        .filter((x): x is { lo: (typeof data.learningOutcomes)[number]; originalIndex: number; clippedStart: number; clippedEnd: number } => x !== null),
+    [data.learningOutcomes, effectiveStart, effectiveEnd],
+  );
+
+  // Visible modules (clipped to window) — hoisted above early return for same reason.
+  const visibleModules = useMemo(
+    () =>
+      data.modules
+        .map((mod, i) => {
+          const cs = Math.max(mod.sessionStart, effectiveStart);
+          const ce = Math.min(mod.sessionEnd, effectiveEnd);
+          if (ce < cs) return null;
+          return { mod, originalIndex: i, clippedStart: cs, clippedEnd: ce };
+        })
+        .filter((x): x is { mod: (typeof data.modules)[number]; originalIndex: number; clippedStart: number; clippedEnd: number } => x !== null),
+    [data.modules, effectiveStart, effectiveEnd],
+  );
+
   if (data.teachingSessionCount === 0) {
     return (
       <div className="genome-empty">
@@ -186,34 +216,6 @@ export function GenomeBrowser({ data, onSessionClick, onCategoryClick, onAsserti
 
   // Column index helpers — grid column 1 = label, visible session `s` → column `s - effectiveStart + 2`.
   const colForSession = (s: number) => s - effectiveStart + 2;
-
-  // Visible learning outcomes (clipped to window)
-  const visibleLOs = useMemo(
-    () =>
-      data.learningOutcomes
-        .map((lo, i) => {
-          const cs = Math.max(lo.sessionStart, effectiveStart);
-          const ce = Math.min(lo.sessionEnd, effectiveEnd);
-          if (ce < cs) return null;
-          return { lo, originalIndex: i, clippedStart: cs, clippedEnd: ce };
-        })
-        .filter((x): x is { lo: (typeof data.learningOutcomes)[number]; originalIndex: number; clippedStart: number; clippedEnd: number } => x !== null),
-    [data.learningOutcomes, effectiveStart, effectiveEnd],
-  );
-
-  // Visible modules (clipped to window)
-  const visibleModules = useMemo(
-    () =>
-      data.modules
-        .map((mod, i) => {
-          const cs = Math.max(mod.sessionStart, effectiveStart);
-          const ce = Math.min(mod.sessionEnd, effectiveEnd);
-          if (ce < cs) return null;
-          return { mod, originalIndex: i, clippedStart: cs, clippedEnd: ce };
-        })
-        .filter((x): x is { mod: (typeof data.modules)[number]; originalIndex: number; clippedStart: number; clippedEnd: number } => x !== null),
-    [data.modules, effectiveStart, effectiveEnd],
-  );
 
   const canPrev = paged && effectiveStart > 1;
   const canNext = paged && effectiveEnd < sessionCount;
