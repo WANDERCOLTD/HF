@@ -10,6 +10,8 @@ import { TerminologyProvider } from '@/contexts/TerminologyContext';
 import { GuidanceProvider } from '@/contexts/GuidanceContext';
 import { GlobalAssistantProvider } from '@/contexts/AssistantContext';
 import { GlobalAssistant } from '@/components/shared/GlobalAssistant';
+import { PendingChangesTrayProvider } from '@/hooks/use-pending-changes-tray';
+import { PendingChangesTray } from '@/components/shared/PendingChangesTray';
 import { HelpProvider } from '@/contexts/HelpContext';
 import { HelpOverlay } from '@/components/help/HelpOverlay';
 import { ContentJobQueueProvider, ContentJobQueue } from '@/components/shared/ContentJobQueue';
@@ -411,19 +413,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <HelpProvider>
                   <ChatProvider>
                     <GlobalAssistantProvider>
-                      <ContentJobQueueProvider>
-                        <TourOverlay />
-                        <PageErrorBoundary>
-                          <Suspense fallback={null}>
-                            <LayoutInner>{children}</LayoutInner>
-                          </Suspense>
-                        </PageErrorBoundary>
-                        {/* Floating widgets — outside PageErrorBoundary so they survive page crashes */}
-                        <GlobalAssistant />
-                        <HelpOverlay />
-                        <ContentJobQueue />
-                        <BugReportButton />
-                      </ContentJobQueueProvider>
+                      <PendingChangesTrayProvider>
+                        <ContentJobQueueProvider>
+                          <TourOverlay />
+                          <PageErrorBoundary>
+                            <Suspense fallback={null}>
+                              <LayoutInner>{children}</LayoutInner>
+                            </Suspense>
+                          </PageErrorBoundary>
+                          {/* Floating widgets — outside PageErrorBoundary so they survive page crashes */}
+                          <GlobalAssistant />
+                          <HelpOverlay />
+                          <ContentJobQueue />
+                          <BugReportButton />
+                          <PendingChangesTray />
+                        </ContentJobQueueProvider>
+                      </PendingChangesTrayProvider>
                     </GlobalAssistantProvider>
                   </ChatProvider>
                   </HelpProvider>
