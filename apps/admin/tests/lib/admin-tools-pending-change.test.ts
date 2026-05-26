@@ -1,0 +1,265 @@
+/**
+ * Tests for the #873 follow-up — pendingChange emission across every
+ * compose-affecting admin tool handler.
+ *
+ * Per CHAIN-CONTRACTS Link 3, the producer set is: Playbook.config,
+ * Domain.config, AnalysisSpec.config, BehaviorTarget, curriculum / LO /
+ * assertion writes, goal lifecycle. Each of those handlers MUST emit a
+ * `pendingChange` payload in its result when the timestamp bumped so
+ * the chat route's `X-Pending-Changes` header carries it to the client
+ * and the tray picks it up with `aiSuggested: true`.
+ *
+ * One test per migrated handler asserting the contract.
+ */
+
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+const mockPrisma = {
+  playbook: { findUnique: vi.fn(), update: vi.fn() },
+  caller: { findUnique: vi.fn(), update: vi.fn() },
+  callerAttribute: { findFirst: vi.fn(), update: vi.fn() },
+  curriculum: { findUnique: vi.fn(), update: vi.fn(), findFirst: vi.fn() },
+  curriculumModule: { findUnique: vi.fn(), update: vi.fn() },
+  learningObjective: { findUnique: vi.fn(), update: vi.fn() },
+  contentAssertion: { update: vi.fn() },
+  goal: { findUnique: vi.fn(), update: vi.fn() },
+};
+vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
+
+vi.mock("@/lib/compose/bump-timestamp", () => ({
+  bumpPlaybookComposeTimestamp: vi.fn(),
+  bumpCallerComposeTimestamp: vi.fn(),
+}));
+
+// Resolve helpers — stub to return predictable playbook IDs.
+// Both helpers live in lib/curriculum/resolve-playbook-for-curriculum.ts.
+vi.mock("@/lib/curriculum/resolve-playbook-for-curriculum", () => ({
+  resolvePlaybookIdForCurriculum: vi.fn(async () => "pb-1"),
+  resolvePlaybookIdsForContentSource: vi.fn(async () => ["pb-1", "pb-2"]),
+}));
+
+// BehaviorTarget writer (used by update_behavior_target handler)
+vi.mock("@/lib/agent-tuner/write-target", () => ({
+  writeBehaviorTarget: vi.fn(async () => ({
+    ok: true,
+    parameterId: "BEH-WARMTH",
+    action: "updated",
+    value: 0.7,
+  })),
+  writeCallerBehaviorTarget: vi.fn(async () => ({
+    ok: true,
+    parameterId: "TOL-MASTERY-THRESHOLD",
+    action: "updated",
+    value: 0.55,
+  })),
+}));
+
+describe("Admin tool handlers — pendingChange emission (#873 follow-up)", () => {
+  let executeAdminTool: typeof import("@/lib/chat/admin-tool-handlers").executeAdminTool;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const mod = await import("@/lib/chat/admin-tool-handlers");
+    executeAdminTool = mod.executeAdminTool;
+  });
+
+  it("update_behavior_target LEARNER emits pendingChange (scopeId=null)", async () => {
+    const raw = await executeAdminTool(
+      "update_behavior_target",
+      { scope: "LEARNER", caller_id: "c-1", parameter_id: "TOL-MASTERY-THRESHOLD", target_value: 0.55 },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.ok).toBe(true);
+    expect(result.pendingChange).toMatchObject({
+      key: "TOL-MASTERY-THRESHOLD",
+      scope: "playbook",
+      scopeId: null,
+      fanoutScope: "caller",
+    });
+  });
+
+  it("update_behavior_target PLAYBOOK emits pendingChange with playbookId", async () => {
+    const raw = await executeAdminTool(
+      "update_behavior_target",
+      { scope: "PLAYBOOK", playbook_id: "pb-7", parameter_id: "BEH-WARMTH", target_value: 0.7 },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.pendingChange).toMatchObject({
+      scope: "playbook",
+      scopeId: "pb-7",
+      fanoutScope: "caller",
+    });
+  });
+
+  it("update_curriculum_module emits pendingChange when playbook resolves", async () => {
+    mockPrisma.curriculumModule.findUnique.mockResolvedValue({
+      id: "mod-1",
+      slug: "intro",
+      title: "Intro",
+      curriculumId: "cur-1",
+    });
+    mockPrisma.curriculumModule.update.mockResolvedValue({
+      id: "mod-1",
+      slug: "intro",
+      title: "Intro 2",
+    });
+    const raw = await executeAdminTool(
+      "update_curriculum_module",
+      { module_id: "mod-1", title: "Intro 2" },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.compose_inputs_bumped).toBe(true);
+    expect(result.pendingChange).toMatchObject({
+      key: "title",
+      scope: "playbook",
+      scopeId: "pb-1",
+    });
+  });
+
+  it("update_assertion_lo_link emits pendingChange with first playbook", async () => {
+    mockPrisma.contentAssertion.update.mockResolvedValue({
+      id: "a-1",
+      sourceId: "src-1",
+      learningObjectiveId: "lo-1",
+      learningOutcomeRef: "LO-1",
+      linkConfidence: 1.0,
+    });
+    mockPrisma.learningObjective.findUnique.mockResolvedValue({ id: "lo-1", ref: "LO-1" });
+    const raw = await executeAdminTool(
+      "update_assertion_lo_link",
+      { assertion_id: "a-1", learning_objective_id: "lo-1" },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.pendingChange).toMatchObject({
+      scope: "playbook",
+      scopeId: "pb-1",
+      key: "learningObjectiveId",
+    });
+  });
+
+  it("confirm_goal emits pendingChange (caller-only, scopeId=null)", async () => {
+    mockPrisma.goal.findUnique.mockResolvedValue({
+      id: "g-1",
+      name: "Goal A",
+      callerId: "c-1",
+      isAssessmentTarget: false,
+      status: "PENDING",
+    });
+    mockPrisma.callerAttribute.findFirst.mockResolvedValue({ id: "ca-1" });
+    mockPrisma.goal.update.mockResolvedValue({
+      status: "COMPLETED",
+      completedAt: new Date("2026-05-26"),
+      progress: 1.0,
+    });
+    const raw = await executeAdminTool("confirm_goal", { goal_id: "g-1" }, "OPERATOR");
+    const result = JSON.parse(raw);
+    expect(result.pendingChange).toMatchObject({
+      key: "status",
+      scope: "playbook",
+      scopeId: null,
+      fanoutScope: "caller",
+    });
+    expect(result.pendingChange.afterValue).toBe("COMPLETED");
+  });
+
+  it("dismiss_goal emits pendingChange (caller-only)", async () => {
+    mockPrisma.goal.findUnique.mockResolvedValue({
+      id: "g-1",
+      name: "Goal A",
+      callerId: "c-1",
+    });
+    mockPrisma.callerAttribute.findFirst.mockResolvedValue({ id: "ca-1" });
+    mockPrisma.callerAttribute.update.mockResolvedValue({});
+    const raw = await executeAdminTool("dismiss_goal", { goal_id: "g-1" }, "OPERATOR");
+    const result = JSON.parse(raw);
+    expect(result.pendingChange).toMatchObject({
+      key: "completionSignal",
+      scope: "playbook",
+      scopeId: null,
+    });
+  });
+
+  it("update_learning_objective emits pendingChange when bumped", async () => {
+    mockPrisma.learningObjective.findUnique.mockResolvedValue({
+      id: "lo-1",
+      ref: "LO-1",
+      moduleId: "mod-1",
+      module: { curriculumId: "cur-1" },
+    });
+    mockPrisma.learningObjective.update.mockResolvedValue({
+      id: "lo-1",
+      ref: "LO-1",
+      description: "Revised",
+    });
+    const raw = await executeAdminTool(
+      "update_learning_objective",
+      { learning_objective_id: "lo-1", description: "Revised" },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.compose_inputs_bumped).toBe(true);
+    expect(result.pendingChange).toMatchObject({
+      key: "description",
+      scope: "playbook",
+    });
+  });
+
+  it("update_curriculum_metadata emits pendingChange with playbookId from curriculum", async () => {
+    mockPrisma.curriculum.findUnique.mockResolvedValue({
+      id: "cur-1",
+      name: "Old",
+      playbookId: "pb-9",
+    });
+    mockPrisma.curriculum.update.mockResolvedValue({
+      id: "cur-1",
+      name: "New",
+      description: null,
+      sourceTitle: null,
+      sourceYear: null,
+      authors: [],
+    });
+    const raw = await executeAdminTool(
+      "update_curriculum_metadata",
+      { curriculum_id: "cur-1", name: "New" },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.pendingChange).toMatchObject({
+      scope: "playbook",
+      scopeId: "pb-9",
+      key: "name",
+    });
+  });
+
+  it("does NOT emit pendingChange when timestamp didn't bump (no playbook linked)", async () => {
+    mockPrisma.curriculumModule.findUnique.mockResolvedValue({
+      id: "mod-1",
+      slug: "intro",
+      title: "Intro",
+      curriculumId: "cur-orphan",
+    });
+    // Override the resolve mock to return null (no playbook linked).
+    const { resolvePlaybookIdForCurriculum } = await import(
+      "@/lib/curriculum/resolve-playbook-for-curriculum"
+    );
+    (resolvePlaybookIdForCurriculum as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+    mockPrisma.curriculumModule.update.mockResolvedValue({
+      id: "mod-1",
+      slug: "intro",
+      title: "Renamed",
+    });
+    const raw = await executeAdminTool(
+      "update_curriculum_module",
+      { module_id: "mod-1", title: "Renamed" },
+      "OPERATOR",
+    );
+    const result = JSON.parse(raw);
+    expect(result.compose_inputs_bumped).toBe(false);
+    // pendingChange field should be absent (or undefined)
+    expect(result.pendingChange).toBeUndefined();
+  });
+});

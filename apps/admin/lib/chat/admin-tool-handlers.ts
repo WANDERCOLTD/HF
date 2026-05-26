@@ -782,6 +782,25 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
         error: `Parameter "${parameterId}" is not an adjustable BEHAVIOR parameter. Pick one from the catalogue in your system prompt — do not invent IDs.`,
       };
     }
+    // #873 follow-up — emit pendingChange so the tray surfaces the AI
+    // edit with `aiSuggested: true`. LEARNER-scope writes affect one
+    // caller; we set scopeId=null so the cohort preview doesn't fetch
+    // (the tray hides Toggle 2 when count=0). Toggle 1 ("Also recompose
+    // <name>") drives the recompose via the caller-in-context wired
+    // from the Tune sidebar in #857.
+    const pendingChangeLearner =
+      result.action !== "noop"
+        ? buildPendingChangePayload({
+            scope: "playbook",
+            scopeId: null,
+            scopeLabel: `Learner override`,
+            key: result.parameterId,
+            label: result.parameterId,
+            beforeValue: undefined,
+            afterValue: result.value,
+          })
+        : undefined;
+
     return {
       ok: true,
       scope: "LEARNER",
@@ -795,6 +814,7 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
           : result.action === "removed"
             ? `Removed the learner-scope override for ${parameterId} on this caller. The course-level value now applies. Existing sessions take effect at the next call.`
             : `Set ${parameterId} to ${result.value} for this learner only. Tuning saved — applies at the next call. In-flight sessions are not affected.`,
+      ...(pendingChangeLearner ? { pendingChange: pendingChangeLearner } : {}),
     };
   }
 
@@ -819,6 +839,24 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
       error: `Parameter "${parameterId}" is not an adjustable BEHAVIOR parameter. Pick one from the catalogue in your system prompt — do not invent IDs.`,
     };
   }
+  // #873 follow-up — emit pendingChange. PLAYBOOK-scope writes affect
+  // every active learner on this course; the tray's preview will fetch
+  // the cohort count. Toggle 2 stays locked OFF (aiSuggested + the A5
+  // defence-in-depth from #856). Toggle 1 + the educator's explicit
+  // override remain the path to cohort fanout.
+  const pendingChangePlaybook =
+    result.action !== "noop"
+      ? buildPendingChangePayload({
+          scope: "playbook",
+          scopeId: playbookId,
+          scopeLabel: `Course override`,
+          key: result.parameterId,
+          label: result.parameterId,
+          beforeValue: undefined,
+          afterValue: result.value,
+        })
+      : undefined;
+
   return {
     ok: true,
     scope: "PLAYBOOK",
@@ -832,6 +870,7 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
         : result.action === "removed"
           ? `Removed the course-level override for ${parameterId}. Tuning saved. Existing learners need re-prompting to pick up the change.`
           : `Set ${parameterId} to ${result.value} on this course. Tuning saved — applies on every learner's next call. Existing in-flight calls are not affected.`,
+    ...(pendingChangePlaybook ? { pendingChange: pendingChangePlaybook } : {}),
   };
 }
 
@@ -1262,14 +1301,32 @@ async function handleUpdateCurriculumModule(input: Record<string, any>) {
     `[admin-tools] Updated module "${existing.slug}". Fields: ${Object.keys(data).join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped}. Reason: ${input.reason || "(not given)"}`,
   );
 
+  // #873 follow-up — emit pendingChange when the timestamp bumped. AI
+  // tool sets aiSuggested=true; the tray's defence-in-depth lock keeps
+  // Toggle 2 OFF (no cohort fanout from an AI-driven curriculum edit).
+  const fields = Object.keys(data);
+  const pendingChange =
+    timestampBumped && fields.length > 0
+      ? buildPendingChangePayload({
+          scope: "playbook",
+          scopeId: playbookId ?? null,
+          scopeLabel: `Module ${existing.slug}`,
+          key: fields[0],
+          label: fields[0],
+          beforeValue: undefined,
+          afterValue: (data as Record<string, unknown>)[fields[0]],
+        })
+      : undefined;
+
   return {
     ok: true,
     module_id: moduleId,
     playbook_id: playbookId,
-    updated_fields: Object.keys(data),
+    updated_fields: fields,
     compose_inputs_bumped: timestampBumped,
     new_state: updated,
     message: `Updated module ${existing.slug}. ${timestampBumped ? "Enrolled callers will recompose on next call." : "No playbook linked yet — no stale bump."}`,
+    ...(pendingChange ? { pendingChange } : {}),
   };
 }
 
@@ -1316,6 +1373,23 @@ async function handleUpdateAssertionLoLink(input: Record<string, any>) {
     `[admin-tools] ${loId ? "Linked" : "Cleared"} assertion ${assertionId} → LO ${loId ?? "none"}. composeInputsUpdatedAt bumped for ${playbookIds.length} playbooks. Reason: ${input.reason || "(not given)"}`,
   );
 
+  // #873 follow-up — emit pendingChange. A single source can be tied to
+  // multiple playbooks; the tray entry uses the first as the cohort
+  // preview context. Known v1 limitation: the message text quotes the
+  // accurate "N playbook(s)" count.
+  const pendingChange =
+    playbookIds.length > 0
+      ? buildPendingChangePayload({
+          scope: "playbook",
+          scopeId: playbookIds[0],
+          scopeLabel: `Assertion link`,
+          key: "learningObjectiveId",
+          label: loId ? "LO link" : "Cleared LO link",
+          beforeValue: undefined,
+          afterValue: loId ?? "(none)",
+        })
+      : undefined;
+
   return {
     ok: true,
     assertion_id: assertionId,
@@ -1324,6 +1398,7 @@ async function handleUpdateAssertionLoLink(input: Record<string, any>) {
     message: loId
       ? `Linked assertion to LO. ${playbookIds.length} playbook(s) on this source will recompose on next call.`
       : `Cleared LO link on assertion. ${playbookIds.length} playbook(s) on this source will recompose.`,
+    ...(pendingChange ? { pendingChange } : {}),
   };
 }
 
@@ -1361,12 +1436,26 @@ async function handleConfirmGoal(input: Record<string, any>) {
     `[admin-tools] Confirmed goal "${goal.name}" for caller ${goal.callerId}. Reason: ${input.reason || "(not given)"}`,
   );
 
+  // #873 follow-up — emit pendingChange. Goal lifecycle affects one
+  // caller only; scopeId=null hides Toggle 2's cohort preview. Toggle 1
+  // (caller-in-context) drives the recompose.
+  const pendingChange = buildPendingChangePayload({
+    scope: "playbook",
+    scopeId: null,
+    scopeLabel: `Goal "${goal.name}"`,
+    key: "status",
+    label: "Status",
+    beforeValue: goal.status,
+    afterValue: "COMPLETED",
+  });
+
   return {
     ok: true,
     goal_id: goalId,
     caller_id: goal.callerId,
     new_state: { status: updatedGoal.status, completedAt: updatedGoal.completedAt, progress: updatedGoal.progress },
     message: `Goal "${goal.name}" marked COMPLETED. This caller will recompose on next call.`,
+    pendingChange,
   };
 }
 
@@ -1398,11 +1487,23 @@ async function handleDismissGoal(input: Record<string, any>) {
     `[admin-tools] Dismissed completion signal for goal "${goal.name}" caller ${goal.callerId}. Reason: ${input.reason || "(not given)"}`,
   );
 
+  // #873 follow-up — emit pendingChange (caller-only, scopeId=null).
+  const pendingChange = buildPendingChangePayload({
+    scope: "playbook",
+    scopeId: null,
+    scopeLabel: `Goal "${goal.name}"`,
+    key: "completionSignal",
+    label: "Completion signal",
+    beforeValue: undefined,
+    afterValue: "dismissed",
+  });
+
   return {
     ok: true,
     goal_id: goalId,
     caller_id: goal.callerId,
     message: `Completion signal for "${goal.name}" dismissed. This caller will recompose on next call.`,
+    pendingChange,
   };
 }
 
@@ -1733,13 +1834,29 @@ async function handleUpdateLearningObjective(input: Record<string, any>) {
     `[admin-tools] Updated LO ${existing.ref}. Fields: ${Object.keys(data).join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped}. Reason: ${input.reason || "(not given)"}`,
   );
 
+  // #873 follow-up — emit pendingChange when the timestamp bumped.
+  const loFields = Object.keys(data);
+  const pendingChange =
+    timestampBumped && loFields.length > 0
+      ? buildPendingChangePayload({
+          scope: "playbook",
+          scopeId: null, // playbookId resolved earlier but not surfaced here; cohort preview suppressed
+          scopeLabel: `LO ${existing.ref}`,
+          key: loFields[0],
+          label: loFields[0],
+          beforeValue: undefined,
+          afterValue: (data as Record<string, unknown>)[loFields[0]],
+        })
+      : undefined;
+
   return {
     ok: true,
     learning_objective_id: loId,
-    updated_fields: Object.keys(data),
+    updated_fields: loFields,
     compose_inputs_bumped: timestampBumped,
     new_state: updated,
     message: `Updated ${existing.ref}. ${timestampBumped ? "Enrolled callers will recompose on next call." : ""}`.trim(),
+    ...(pendingChange ? { pendingChange } : {}),
   };
 }
 
@@ -1790,13 +1907,29 @@ async function handleUpdateCurriculumMetadata(input: Record<string, any>) {
     `[admin-tools] Updated curriculum "${existing.name}" → "${updated.name}". Fields: ${Object.keys(data).join(", ")}. composeInputsUpdatedAt bumped: ${timestampBumped}. Reason: ${input.reason || "(not given)"}`,
   );
 
+  // #873 follow-up — emit pendingChange when the timestamp bumped.
+  const curFields = Object.keys(data);
+  const pendingChange =
+    timestampBumped && curFields.length > 0
+      ? buildPendingChangePayload({
+          scope: "playbook",
+          scopeId: existing.playbookId,
+          scopeLabel: `Curriculum ${existing.name}`,
+          key: curFields[0],
+          label: curFields[0],
+          beforeValue: undefined,
+          afterValue: (data as Record<string, unknown>)[curFields[0]],
+        })
+      : undefined;
+
   return {
     ok: true,
     curriculum_id: curriculumId,
-    updated_fields: Object.keys(data),
+    updated_fields: curFields,
     compose_inputs_bumped: timestampBumped,
     new_state: updated,
     message: `Updated ${updated.name}. ${timestampBumped ? "Enrolled callers will recompose on next call." : "No playbook linked yet — no stale bump."}`.trim(),
+    ...(pendingChange ? { pendingChange } : {}),
   };
 }
 
