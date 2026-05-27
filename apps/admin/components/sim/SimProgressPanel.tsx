@@ -116,7 +116,9 @@ export function SimProgressPanel({ onClose, callerId }: SimProgressPanelProps): 
                     <>
                       <span aria-hidden="true">·</span>
                       <span className="wa-progress-today-countdown">
-                        {Math.max(0, DEFAULT_MOCK_CADENCE - decision.callsSinceAssess)} calls until Mock
+                        {DEFAULT_MOCK_CADENCE - decision.callsSinceAssess <= 0
+                          ? 'Mock checkpoint due'
+                          : `${DEFAULT_MOCK_CADENCE - decision.callsSinceAssess} calls until Mock`}
                       </span>
                     </>
                   )}
