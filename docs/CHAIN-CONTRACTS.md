@@ -188,6 +188,20 @@ Format per link:
 | **Audit counter** | `dualLoMasteryKeysSameLO` (informational), `callerAttributeOldKeyFormCount` (target 0 after #614). |
 | **Reinforced by** | #614 + reader-tightening follow-on (post-drain). |
 
+#### Link 6.a — COMPOSE → COMPOSE (carry-forward, #918)
+
+| Field | Value |
+|---|---|
+| **Producer** | COMPOSE writes `SchedulerDecision.workingSetAssertionIds` to `CallerAttribute(scope=CURRICULUM, key="scheduler:last_decision")` via `persistSchedulerDecision` (Scheduler v1 Slice 1, #155). |
+| **Consumer** | Next COMPOSE call's `transforms/modules.ts` — reads `priorDecision.workingSetAssertionIds`, diffs against `tpProgress` to compute `priorPlannedAssertionIds` (TPs the prior call planned but never moved past `not_started`), passes into `selectWorkingSet` as `WorkingSetInput.priorPlannedAssertionIds`. **This is the first bi-directional contract on the loop closure link** — same producer + consumer stage. |
+| **Data shape** | `SchedulerDecision.workingSetAssertionIds: string[]` (assertion IDs only, no LO refs); diff result is a subset. |
+| **DataContract slug** | None — uses the existing `scheduler:last_decision` CallerAttribute payload. |
+| **Enforcement** | `tpProgress` filter at the diff site uses `status === undefined \|\| status === "not_started"` (conservative — any progress signal counts as "covered"). Picker-locked path at `modules.ts:929+` deliberately writes `workingSetAssertionIds: []`, suppressing carry-forward for educator/learner-driven sessions. |
+| **Test** | `tests/lib/working-set-selector.test.ts` `#918 carry-forward` describe block — 8 cases incl. picker-locked-suppression + first-call-no-crash + boost-off-regression. |
+| **Memory doc** | `docs/PIPELINE.md` §4.2 COMPOSE; `lib/curriculum/working-set-selector.ts::WorkingSetInput` JSDoc. |
+| **Audit counter** | None added — `effectiveBoost > 0 && priorPlannedAssertionIds.length > 0` fires a structured `console.log` from `modules.ts` instead. Add a counter to `scripts/audit-epic-100.ts` only if the loop produces miscount evidence in production. |
+| **Reinforced by** | #918. Tolerance entry at `Playbook.config.tolerances.carryForwardBoost` follows the #598 Slice 1 ADR placement (`@bucket 1 — Course parameter`, no per-learner override). |
+
 ---
 
 ## 3a. Authoring-time contracts

@@ -525,6 +525,11 @@ export interface PlaybookConfig {
    * - `memoryDecayScale` — @bucket 1 only. 0.1–1.0 multiplier applied to
    *   `CATEGORY_DECAY_DEFAULTS` in `transforms/memories.ts::applyDecay`.
    *   Per-learner override intentionally NOT in scope (course-wide rhythm).
+   * - `carryForwardBoost` — @bucket 1 only. #918. Magnitude of the priority
+   *   bump given to TPs that were planned in the prior call but never
+   *   covered (learner hangup, time ran out, etc.). 0 disables the feature.
+   *   Default `0.5` in `selectWorkingSet`. Per-learner override NOT in scope —
+   *   carry-forward is a course-wide pacing decision.
    *
    * @see docs/decisions/2026-05-22-tolerance-placement.md
    */
@@ -532,6 +537,7 @@ export interface PlaybookConfig {
     masteryThreshold?: number;
     retrievalCadenceOverride?: number;
     memoryDecayScale?: number;
+    carryForwardBoost?: number;
   };
   /**
    * #598 Slice 1 — Additional first-call overrides. Companion to

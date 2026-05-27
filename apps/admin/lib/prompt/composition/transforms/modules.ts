@@ -794,6 +794,40 @@ export async function computeSharedState(
           pendingCount = 0;
         }
 
+        // #918 — Carry-forward planned-but-uncovered TPs.
+        //
+        // Diff the prior call's `workingSetAssertionIds` (what the scheduler
+        // planned) against the post-pipeline `tpProgress` (what EXTRACT/AGGREGATE
+        // moved off `not_started`). The result is the set of TPs the prior call
+        // committed to teaching but never reached — typically because the
+        // learner hung up early, ran out of time, or skipped ahead.
+        //
+        // Suppression: when prior decision was picker-locked (workingSetAssertionIds
+        // is empty by design at modules.ts:929+), the diff is empty and no
+        // boost fires. That lane is educator/learner-driven and shouldn't
+        // blend with the system's autonomous catch-up.
+        const priorPlannedAssertionIds: string[] =
+          priorDecision?.workingSetAssertionIds
+            ?.filter((tpId) => {
+              const status = tpProgress[tpId]?.status;
+              // "uncovered" = still not_started after the prior pipeline run.
+              // in_progress / mastered means the learner did see it (we have
+              // some signal, even partial), so carry-forward is unnecessary.
+              return status === undefined || status === "not_started";
+            }) ?? [];
+
+        // #918 — Course-level boost magnitude. Cascades through the
+        // Playbook.config.tolerances block per the #598 tolerance-placement ADR.
+        // `selectWorkingSet` applies its own DEFAULT_CARRY_FORWARD_BOOST when
+        // this is undefined AND the set is non-empty.
+        const carryForwardBoost = pbConfig.tolerances?.carryForwardBoost;
+        if (priorPlannedAssertionIds.length > 0) {
+          console.log(
+            `[modules] #918 carry-forward: ${priorPlannedAssertionIds.length} planned-but-uncovered TP(s) from prior call. ` +
+            `boost=${carryForwardBoost ?? "default"}, suppressed=${priorDecision?.workingSetAssertionIds?.length === 0}`,
+          );
+        }
+
         const { decision, workingSet: wsResult } = selectNextExchange(
           {
             workingSetInput: {
@@ -824,6 +858,9 @@ export async function computeSharedState(
               loMasteryMap,
               callDurationMins,
               masteryThreshold: threshold,
+              // #918 — pass carry-forward signal into the candidate-pool layer
+              priorPlannedAssertionIds,
+              carryForwardBoost,
             },
             priorDecision,
             callsSinceLastAssess: pendingCount,
