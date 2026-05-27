@@ -406,10 +406,11 @@ export default function CourseDetailPage() {
   }, [searchParams]);
 
   // #809 — tell the DATA-mode assistant which course + tab the user is on
-  // so it can answer "what tab am I on?" and "tell me about Felt Progress"
-  // without saying "I don't see that section". The path string matches the
-  // pathname (resolved courseId, not the route template) so ChatContext's
-  // stale-route guard treats it as live.
+  // so it can answer "what tab am I on?" and "tell me about Progress Signals"
+  // (the user-visible name; internally still the Felt Progress epic) without
+  // saying "I don't see that section". The path string matches the pathname
+  // (resolved courseId, not the route template) so ChatContext's stale-route
+  // guard treats it as live.
   useEffect(() => {
     if (!courseId) return;
     setPageContext(`/x/courses/${courseId}`, { activeTab });
