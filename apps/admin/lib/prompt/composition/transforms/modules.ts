@@ -959,12 +959,13 @@ export async function computeSharedState(
   if (lockedModule && data.caller?.id) {
     try {
       const { persistSchedulerDecision } = await import("@/lib/pipeline/scheduler-decision");
+      const { SCHEDULER_REASONS } = await import("@/lib/pipeline/scheduler-reasons");
       await persistSchedulerDecision(data.caller.id, {
         mode: "practice",
         outcomeId: null,
         contentSourceId: null,
         workingSetAssertionIds: [],
-        reason: `picker-locked to module "${lockedModule.slug || lockedModule.id}" — scoring allowed`,
+        reason: SCHEDULER_REASONS.pickerLockedModule,
         callsSinceAssess: 0,
       });
       console.log(
