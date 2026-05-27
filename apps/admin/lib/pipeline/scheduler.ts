@@ -30,6 +30,7 @@
 import { selectWorkingSet, type WorkingSetInput, type WorkingSetResult } from "@/lib/curriculum/working-set-selector";
 import type { SchedulerDecision, SchedulerMode } from "./scheduler-decision";
 import type { SchedulerPolicy } from "./scheduler-presets";
+import { SCHEDULER_REASONS, reasonForMode } from "./scheduler-reasons";
 
 export interface SchedulerState {
   /** Candidate-pool inputs — forwarded to `selectWorkingSet`. */
@@ -88,13 +89,17 @@ export function selectNextExchange(
 
   // ── Empty-pool fallback ──
   if (ws.assertionIds.length === 0 || ws.selectedLOs.length === 0) {
+    // Diagnostic context for developers — never reaches the learner.
+    console.log(
+      `[scheduler] Empty working set (${ws.totalLOs} LOs, ${ws.totalTps} TPs) — falling back to teach mode.`,
+    );
     return {
       decision: {
         mode: "teach",
         outcomeId: null,
         contentSourceId: null,
         workingSetAssertionIds: [],
-        reason: `scheduler: empty working set (${ws.totalLOs} LOs, ${ws.totalTps} TPs) — fallback teach mode`,
+        reason: SCHEDULER_REASONS.emptyWorkingSetFallback,
         writtenAt: new Date().toISOString(),
       },
       workingSet: ws,
@@ -157,13 +162,15 @@ export function selectNextExchange(
   scoredLOs.sort((a, b) => b.score - a.score);
   const picked = scoredLOs[0].lo;
 
-  const reason = [
-    `scheduler:${policy.name.toLowerCase()}`,
-    `mode=${mode} (${modeReason})`,
-    `outcome=${picked.ref} (${picked.status})`,
-    `pool=${ws.selectedLOs.length}LOs/${ws.assertionIds.length}TPs`,
+  // Diagnostic trace for developers — preset, mode, outcome and pool sizes.
+  // Never reaches the learner (#923). The persisted `reason` below is the
+  // learner-facing string read by SimProgressPanel.
+  console.log(
+    `[scheduler] ${policy.name.toLowerCase()} | mode=${mode} (${modeReason}) | ` +
+    `outcome=${picked.ref} (${picked.status}) | ` +
+    `pool=${ws.selectedLOs.length}LOs/${ws.assertionIds.length}TPs | ` +
     `callsSinceAssess=${callsSinceLastAssess}`,
-  ].join(" | ");
+  );
 
   return {
     decision: {
@@ -173,7 +180,7 @@ export function selectNextExchange(
       // on the shape for forward compatibility.
       contentSourceId: null,
       workingSetAssertionIds: ws.assertionIds,
-      reason,
+      reason: reasonForMode(mode),
       writtenAt: new Date().toISOString(),
     },
     workingSet: ws,
