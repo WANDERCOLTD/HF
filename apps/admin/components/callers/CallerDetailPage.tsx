@@ -1330,11 +1330,6 @@ export default function CallerDetailPage() {
             }}
             onNewCall={() => setCallSession(prev => prev + 1)}
             onCallStateChange={setIsCallActive}
-            onPickModule={
-              modulesAuthored && selectedPlaybookId && selectedPlaybookId !== "all"
-                ? handlePickModule
-                : undefined
-            }
             requestedModuleId={requestedModuleId}
           />
         </div>

@@ -217,7 +217,6 @@ export default function SimConversationPage() {
         onBack={isDesktop ? undefined : () => router.push('/x/sim')}
         onCallEnd={isStudent ? handleStudentCallEnd : undefined}
         onCallStateChange={setIsCallActive}
-        onPickModule={modulesAuthored && playbookId ? handlePickModule : undefined}
         requestedModuleId={requestedModuleId}
         journey={journey}
         onNameChange={(next) => setCaller((prev) => (prev ? { ...prev, name: next } : prev))}

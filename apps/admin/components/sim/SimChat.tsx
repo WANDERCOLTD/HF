@@ -60,8 +60,6 @@ export interface SimChatProps {
    * breadcrumb doesn't snap back to "Pre-call" before post-call UI settles.
    */
   onCallStateChange?: (active: boolean) => void;
-  /** When set, renders a "Pick module" header button (Issue #242 SIM-first mount) */
-  onPickModule?: () => void;
   /**
    * #242 Slice 2: learner's pre-call module pick from the picker. When set,
    * forwarded to POST /api/callers/[id]/calls so the pipeline's module
@@ -146,7 +144,6 @@ export function SimChat({
   onNewCall,
   onBack,
   onCallStateChange,
-  onPickModule,
   requestedModuleId,
   journey,
   onNameChange,
@@ -858,7 +855,6 @@ export function SimChat({
           setShowMediaLibrary(false);
         }}
         progressPanelActive={showProgressPanel}
-        onPickModule={onPickModule}
         onAdminPanel={isOperator ? () => { setShowAdminPanel(prev => !prev); setShowProgressPanel(false); } : undefined}
         adminPanelActive={showAdminPanel}
       />
