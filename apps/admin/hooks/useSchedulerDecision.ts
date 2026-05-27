@@ -33,9 +33,7 @@ export function useSchedulerDecision(callerId: string): UseSchedulerDecisionResu
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/student/scheduler-decision?callerId=${encodeURIComponent(callerId)}`,
-      );
+      const res = await fetch(`/api/student/scheduler-decision`);
       if (!res.ok) {
         setError(`Failed to load scheduler decision (${res.status})`);
         return;

@@ -1,6 +1,6 @@
 /**
  * @api GET /api/student/scheduler-decision
- * @auth STUDENT | OPERATOR+ (with callerId param)
+ * @auth STUDENT | OPERATOR+ (callerId from session)
  * @desc Returns the most recent scheduler decision for the learner's active
  *   curriculum so the SimProgressPanel "Today's call" section can show why
  *   the next call is set to teach / review / assess / practice. Returns
