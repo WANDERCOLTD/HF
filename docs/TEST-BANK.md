@@ -40,9 +40,12 @@ Not bank-worthy:
 
 - Tests that mostly exercise framework or library behaviour
 - Snapshot tests with no narrative in the docstring
-- Anything that needs a live DB, a network call, or a running dev server
-  (these are integration tests — track them in `docs/INTEGRATION-TESTS.md`
-  when we have one)
+
+**Live-DB integration demos** are tracked separately in the **Live-DB Demos**
+section below. These are evidence-gathering scripts (not pass/fail gates run
+in CI) — they hit the dev VM database, inject synthetic rows, prove a
+property, and clean up after themselves. Use a `D###` prefix to distinguish
+from unit-test entries.
 
 ## Running the bank
 
@@ -88,6 +91,32 @@ Mixing tags is fine. `describe("buildLoMasteryMap (#928 scoping helper)", ...)` 
 | **Status** | ✅ green (13/13, 2026-05-27) |
 | **Owner area** | Composition / Adaptive Loop |
 | **Related** | `#611` canonical-slug write path · `#614` legacy-key drain · `#615` FK consistency audit · `docs/epic-100-chain-walk.md` Link 6 |
+
+---
+
+---
+
+## Live-DB Demos
+
+These run against the dev VM database (not in CI). They prove a property
+holds against **real** data by injecting a synthetic condition, observing
+the system's response, and cleaning up. Run them manually when you need
+field evidence that a fix is live.
+
+### D001 — #928 cross-course bleed prevention against live DB
+
+| Field | Value |
+|---|---|
+| **Script** | `apps/admin/scripts/demo-928-bleed-prevention.ts` |
+| **Subject** | `buildLoMasteryMap` against live `CallerAttribute` rows on hf-dev VM |
+| **Defends** | Same property as bank entry 001 — but proved on real data, not a synthetic test fixture. |
+| **What it does** | Picks the caller with the most `lo_mastery` rows in dev. Captures the helper's BEFORE output. Injects 3 synthetic foreign-spec rows under that callerId (marked with `sourceSpecSlug = 'demo-928-bleed-marker'`). Re-runs the helper. Verifies AFTER === BEFORE — foreign rows live in the raw query result but the helper scopes them out. Cleans up the synthetic rows. |
+| **Pass / fail signal** | `✓ PASS — foreign rows scoped out` vs `✗ FAIL — fix broken`. Also exits with code 0/1. |
+| **How to run** | `gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- "cd ~/HF/apps/admin && npx tsx scripts/demo-928-bleed-prevention.ts"` |
+| **When to re-run** | After any change to the helper, the three transforms that consume it, the `SectionDataLoader` `callerAttributes` loader, or before flipping the `callerAttributeOldKeyFormCount` audit gate. Also useful as a post-deploy smoke check on staging/pilot. |
+| **Safety** | Idempotent. Synthetic rows carry a unique `sourceSpecSlug` marker so cleanup is deterministic even if the script crashes mid-run (re-run will overwrite + clean up). Never touches non-synthetic rows. |
+| **Last verified** | 2026-05-27 — ran against hf-dev, 12 mastery rows for caller `f17d8616…` (Freddy Starr), 3 foreign rows injected and ignored, verdict ✓ PASS. |
+| **Related** | Bank entry 001 (unit-level proof) · #928 / #936 / #939 |
 
 ---
 
