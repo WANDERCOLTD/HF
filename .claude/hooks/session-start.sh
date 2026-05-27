@@ -12,6 +12,60 @@ TREE_TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null || printf '%s' "$PWD")
 LOCK_KEY=$(printf '%s' "$TREE_TOPLEVEL" | shasum -a 256 | head -c8)
 LOCK="/tmp/claude-lock-$LOCK_KEY"
 
+# Worktree detection (#904) — also run BEFORE we cd into the main repo
+# below, so we see the session's actual starting tree. The canonical
+# git rule: in a linked worktree, git-dir lives under
+# `.git/worktrees/<name>` while git-common-dir is the shared `.git` —
+# they diverge. In the main repo checkout they are the same path.
+GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+GIT_COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
+IS_WORKTREE="false"
+if [ -n "$GIT_DIR" ] && [ -n "$GIT_COMMON_DIR" ]; then
+  # Normalise — both can return relative paths from the worktree cwd.
+  GIT_DIR_ABS=$(cd "$GIT_DIR" 2>/dev/null && pwd -P)
+  GIT_COMMON_DIR_ABS=$(cd "$GIT_COMMON_DIR" 2>/dev/null && pwd -P)
+  if [ -n "$GIT_DIR_ABS" ] && [ "$GIT_DIR_ABS" != "$GIT_COMMON_DIR_ABS" ]; then
+    IS_WORKTREE="true"
+  fi
+fi
+
+# Hard block (#904): worktree isolation is now the structural default.
+# Background: between 2026-05-25 and 2026-05-26 we shipped a five-commit
+# fix chain (#841 → #849 → #861 → #870 → #899) bolting a PreToolUse
+# enforcer onto the shared-.git problem. Every retrofit had a subtle
+# semantic bug that ran live for hours before being noticed. The
+# systemic fix is to refuse the dangerous state at startup so the
+# enforcer becomes a defence-in-depth fallback, not the primary gate.
+#
+# We only block when a peer is already live (PEER_COUNT > 1). A solo
+# session in the main tree is safe — nobody else can swap HEAD under it.
+PEER_COUNT=$(pgrep -x claude 2>/dev/null | wc -l | tr -d ' ')
+if [ "$PEER_COUNT" -gt 1 ] && [ "$IS_WORKTREE" != "true" ] && [ -z "$HF_FORCE_SHARED_TREE" ]; then
+  cat >&2 <<EOF
+🛑 BLOCKED: shared-tree claude session refused (#904).
+
+$PEER_COUNT concurrent claude processes are live and this session is
+opening in the main repo working tree (\`$TREE_TOPLEVEL\`). All concurrent
+sessions MUST run in isolated git worktrees — peer \`git checkout\` calls
+on a shared .git silently swap HEAD under live sessions (incident
+2026-05-25, fix chain #841 → #849 → #861 → #870 → #899).
+
+Start safely:
+
+  git worktree add ../HF-myrole feat/your-branch && cd ../HF-myrole
+  claude
+
+Operator override (per-session, conscious risk):
+
+  HF_FORCE_SHARED_TREE=1 claude
+
+The override parallels the per-command \`HF_FORCE_GIT=1\` escape. Use
+only when you have confirmed the peer is finished or accept the
+HEAD-swap risk.
+EOF
+  exit 2
+fi
+
 # Climb the process tree until we find an ancestor whose comm is
 # `claude`. Claude Code's hook execution layers a wrapper shell between
 # this script and the claude session, so a one-step `ps -o ppid=` walk
@@ -69,10 +123,6 @@ LAST_SYNC=$(git log -1 --format="%ar" -- "$MEMORY_SYNC_LOG" 2>/dev/null || echo 
 # Check for uncommitted changes
 DIRTY=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
 
-# Concurrent claude processes — peer checkouts can swap HEAD silently.
-# See memory/feedback_concurrent_claude_processes.md (2026-05-25 incident).
-PEER_COUNT=$(pgrep -x claude 2>/dev/null | wc -l | tr -d ' ')
-
 # Seed the shared HEAD snapshot the drift detector reads.
 SNAPSHOT="/tmp/claude-head-snapshot-HF"
 CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "(detached)")
@@ -81,6 +131,10 @@ echo "$CURRENT_BRANCH @ $CURRENT_HEAD" > "$SNAPSHOT"
 
 # Build message
 MSG=""
+if [ -n "$HF_FORCE_SHARED_TREE" ] && [ "$PEER_COUNT" -gt 1 ] && [ "$IS_WORKTREE" != "true" ]; then
+  # Document the opt-out in the session banner so it's auditable.
+  MSG="${MSG}⚠️  HF_FORCE_SHARED_TREE=1 active — shared-tree opt-out, peer HEAD-swap risk acknowledged. "
+fi
 if [ "$DIRTY" -gt 0 ]; then
   MSG="$MSG⚠️  $DIRTY uncommitted changes from last session. "
 fi

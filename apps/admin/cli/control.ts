@@ -548,30 +548,40 @@ program
 
 program
   .command('check')
-  .description('Run all checks (lint + type check + tests + FK consistency + Epic 100 audit)')
+  .description(
+    'Run all checks (lint + type check + tests + FK consistency + Epic 100 audit + harness hooks)'
+  )
   .action(async () => {
     log('\n🔍 Running All Checks\n', colors.bright);
 
-    info('1/6: Linting...');
+    info('1/7: Linting...');
     exec('npm run lint');
 
-    info('2/6: Type checking...');
+    info('2/7: Type checking...');
     exec('npx tsc --noEmit');
 
-    info('3/6: Unit tests...');
+    info('3/7: Unit tests...');
     exec('npm run test');
 
-    info('4/6: Integration tests...');
+    info('4/7: Integration tests...');
     await runTestsWithServer(
       'npm run test:integration',
       'Running integration tests...'
     );
 
-    info('5/6: FK consistency (slug-scope #407 guard)...');
+    info('5/7: FK consistency (slug-scope #407 guard)...');
     exec('npx tsx scripts/check-fk-consistency.ts');
 
-    info('6/6: Epic 100 adaptive-loop audit (#600 / #631)...');
+    info('6/7: Epic 100 adaptive-loop audit (#600 / #631)...');
     exec('npx tsx scripts/audit-epic-100.ts');
+
+    // #904 — harness hooks live outside apps/admin/ but their
+    // correctness is load-bearing for git-safety on multi-session
+    // workflows. We had a five-commit fix chain in 24h because the
+    // hooks were not tested; this step prevents regression of either
+    // the PID ancestor walk (#899) or the worktree-isolation block.
+    info('7/7: Harness hooks (.claude/hooks/__tests__/test-*.sh)...');
+    exec('npm run test:hooks');
 
     success('All checks passed!');
   });
