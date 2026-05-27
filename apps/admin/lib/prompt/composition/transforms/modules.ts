@@ -10,6 +10,7 @@
  */
 
 import { registerTransform } from "../TransformRegistry";
+import { buildLoMasteryMap } from "../lo-mastery-map";
 import { getAttributeValue } from "../types";
 import type {
   LoadedDataContext,
@@ -714,48 +715,13 @@ export async function computeSharedState(
       if (callerId && assertionIds.length > 0 && dbLOs.length > 0) {
         const tpProgress = await getTpProgressBatch(callerId, specSlug, assertionIds);
 
-        // Build LO mastery map from existing CallerAttributes.
-        //
-        // #928 — Scope the read to the CURRENT curriculum spec slug. The
-        // loader at SectionDataLoader fetches all CURRICULUM-scope rows for
-        // the caller with no per-playbook filter, so a learner enrolled in
-        // multiple courses would otherwise bleed mastery rows from a sibling
-        // course into this prompt (key form: `curriculum:<spec>:lo_mastery:...`).
+        // Build LO mastery map from existing CallerAttributes — scoped to the
+        // current curriculum spec slug to prevent cross-course bleed (#928).
         // The `specSlug` local is guaranteed truthy here by the enclosing
-        // `if (modules.length > 0 && specSlug && curriculumId && !lockedModule)`
-        // gate at line ~684.
-        //
-        // #611 GRACE WINDOW — the post-prefix `split(':lo_mastery:')[1]`
-        // suffix extraction stays INTENTIONALLY tolerant. After Fix A
-        // landed, new writes use canonical slug-form keys
-        // (`curriculum:<spec>:lo_mastery:<slug>:<loRef>`), but historical
-        // rows still carry the broken name-form key
-        // (`curriculum:<spec>:lo_mastery:Part 1: Familiar Topics:OUT-01`).
-        // The prefix tightening below still captures both shapes — they
-        // share the same `curriculum:<spec>:lo_mastery:` prefix and only
-        // differ in the module-segment form. Do NOT tighten the suffix
-        // split without first verifying `callerAttributeOldKeyFormCount`
-        // audit counter (audit-epic-100.ts) is 0 across all environments.
-        //
-        // #614 status: drain script lives at
-        // `scripts/migrate-caller-attribute-lo-mastery-keys.ts`
-        // (`--apply` to write; dry-run by default). It soft-deletes legacy
-        // rows via `validUntil = NOW()` after inserting the canonical row
-        // (or merging max-value when the canonical row already exists).
-        // Once `callerAttributeOldKeyFormCount` reads 0 in dev/test/prod,
-        // open the reader-tightening follow-on to drop the suffix
-        // tolerance and mirror the change in
-        // `transforms/retrieval-practice.ts` + `transforms/progress-narrative.ts`.
-        const loMasteryPrefix = `curriculum:${specSlug}:lo_mastery:`;
-        const loMasteryMap: Record<string, number> = {};
-        for (const attr of data.callerAttributes) {
-          if (attr.key.startsWith(loMasteryPrefix) && attr.scope === 'CURRICULUM') {
-            const suffix = attr.key.split(':lo_mastery:')[1];
-            if (suffix && suffix.length > 0 && attr.numberValue != null) {
-              loMasteryMap[suffix] = attr.numberValue;
-            }
-          }
-        }
+        // `modules.length > 0 && specSlug && curriculumId && !lockedModule`
+        // gate (~line 684). Behaviour contract + grace-window rationale live
+        // in `lib/prompt/composition/lo-mastery-map.ts`.
+        const loMasteryMap = buildLoMasteryMap(data.callerAttributes, specSlug);
 
         const pbConfig = (data.playbooks?.[0]?.config || {}) as Record<string, any>;
         // #598 Slice 1 — call-1 may override duration via firstCall.durationMinsOverride.
