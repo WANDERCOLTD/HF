@@ -211,6 +211,20 @@ Applied via `gh issue comment` on each child:
 
 ---
 
+## Follow-on: learner-surfacing contracts (2026-05-27)
+
+The original chain-walk (2026-05-22) covered pipeline-internal boundaries (Links 1–6) and authoring-time boundaries (Section 3a in `CHAIN-CONTRACTS.md`). It did not anticipate that pipeline-written state would be surfaced directly to learners.
+
+Slice 2 of the "Surface progress data on learner side" plan (#917 / PR #920) added the first such boundary: the scheduler's `reason` field, written to `CallerAttribute` during COMPOSE, is now exposed via `/api/student/scheduler-decision` and rendered in `SimProgressPanel`. The runtime verification on golden caller Nico Grant (2026-05-27) showed the writer was emitting debugger-style log strings (`scheduler: empty working set (0 LOs, 300 TPs) — fallback teach mode`) — a classic Epic-100-style implicit-contract bug, this time on a writer→learner boundary rather than writer→reader.
+
+The fix (#923 / PR #924) added a `SCHEDULER_REASONS` constants module + a regression test that fails CI if any scheduler `reason` string starts with a lowercase log-prefix (`/^[a-z][a-z_-]*:\s/`). Defensive layers on the read side: sanitizer + multi-curriculum guard + stale guard + strict response shape.
+
+See **`CHAIN-CONTRACTS.md` section 3c, Link L1** for the canonical contract row. Known gap #919 (multi-curriculum writer key shape) is documented there as a read-time guard pending writer-side fix.
+
+**Generalisation:** any future endpoint under `/api/student/*` that surfaces pipeline-written state inherits this contract pattern — the writer must produce learner-facing copy (no log prefixes), the read route must sanitize defensively, and a regression test must back the writer contract.
+
+---
+
 ## Execution order (final)
 
 ```
