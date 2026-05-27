@@ -4,22 +4,28 @@
  * Pending Changes Tray (epic #854 / Story #856).
  *
  * Non-modal tray pinned to the bottom-right of the viewport. Renders the
- * list of accumulated settings edits + the asymmetric-default toggles +
- * Save & apply / Discard all actions.
+ * list of accumulated settings edits + two explicit recompose CTAs:
  *
- * Toggle 1 — "Also recompose <caller name>":
- *   - Visible only when `callerInContext !== null`
- *   - Default ON (asymmetric — single-caller recompose is cheap + expected)
+ *   - "Recompose this learner" — fires only the per-caller path
+ *     (`toggleCaller: true, toggleAll: false`). Disabled when
+ *     `callerInContext` is null.
  *
- * Toggle 2 — "Recompose all N affected learners":
- *   - Default OFF (the safety property of this epic)
- *   - Hidden when N = 0
- *   - **Disabled** when any entry is `aiSuggested: true` (A5 — AI safety
- *     defence-in-depth)
- *   - **Pre-checked ON** when any entry's `key` is in
- *     `FANOUT_CLASS_PLAYBOOK_KEYS` (A6 — preserves the historical
- *     `recompose: true` behaviour for mastery-threshold-class knobs).
- *     Still user-overridable to OFF.
+ *   - "Recompose entire cohort" — fires only the cohort fan-out path
+ *     (`toggleCaller: false, toggleAll: true`). Disabled when any entry
+ *     is `aiSuggested: true` (A5 — AI safety defence-in-depth; epic #854
+ *     safety property). Also disabled when no cohort is affected
+ *     (`preview.count === 0`).
+ *
+ * Both buttons POST to the same `/api/recompose/apply` endpoint. The
+ * server-side guard at `apply/route.ts:125-126` rejects
+ * `aiSuggested + toggleAll` regardless of button label, so the UI gate
+ * is one of five layers (see `.claude/rules/ai-to-db-guard.md`).
+ *
+ * Why no "Save" / "Discard all"? The tray is Model A — writes already
+ * committed at push time. Labels named for transactional semantics
+ * misled educators into thinking "Discard all" would roll back DB
+ * state. See `docs/decisions/2026-05-26-tray-model-a-semantics.md` and
+ * issue #912 for the rename rationale.
  *
  * Preview fetch:
  *   - Fired on tray open + on entry set change (debounced 500ms)
@@ -38,9 +44,6 @@ import {
   type TrayEntry,
   type TrayEntryScope,
 } from "@/hooks/use-pending-changes-tray";
-import {
-  shouldPreCheckFanout,
-} from "@/lib/recompose/fanout-class-keys";
 import { useChatContext } from "@/contexts/ChatContext";
 import "./pending-changes-tray.css";
 
@@ -97,6 +100,9 @@ const ZERO_PREVIEW: PreviewState = {
 
 const PREVIEW_DEBOUNCE_MS = 500;
 
+const COHORT_AI_BLOCKED_TOOLTIP =
+  "AI-suggested changes can't fan out — recompose this learner only";
+
 /**
  * Pick the dominant scope across all entries for the preview fetch.
  * Priority: system > domain > playbook. SYSTEM wins because a single
@@ -132,10 +138,8 @@ export function PendingChangesTray(): React.ReactElement | null {
   const { isOpen: chatOpen, chatLayout } = useChatContext();
   const [collapsed, setCollapsed] = useState(false);
   const [preview, setPreview] = useState<PreviewState>(ZERO_PREVIEW);
-  const [toggleCaller, setToggleCaller] = useState(true);
-  const [toggleAll, setToggleAll] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
 
   const { right: trayRight, bottom: trayBottom } = trayOffsets(chatOpen, chatLayout);
 
@@ -143,25 +147,6 @@ export function PendingChangesTray(): React.ReactElement | null {
     () => entries.some((e) => e.aiSuggested),
     [entries],
   );
-  const preCheckAll = useMemo(
-    () => shouldPreCheckFanout(entries.map((e) => e.key)),
-    [entries],
-  );
-
-  // Toggle defaults derive from the current state, not a one-time mount.
-  // When entries flip from non-fanout-class → fanout-class, Toggle 2's
-  // default flips ON. The user can still override with an explicit click.
-  // Track whether the user has manually touched Toggle 2 — if so, respect
-  // their choice over the derived default.
-  const [toggleAllUserTouched, setToggleAllUserTouched] = useState(false);
-  useEffect(() => {
-    if (toggleAllUserTouched) return;
-    setToggleAll(preCheckAll);
-  }, [preCheckAll, toggleAllUserTouched]);
-
-  // AI-mixed defence-in-depth: force OFF + lock regardless of pre-check.
-  const toggle2Locked = hasAiSuggested;
-  const effectiveToggleAll = toggle2Locked ? false : toggleAll;
 
   // Preview fetch — debounced. Cancels on entry change before debounce fires.
   useEffect(() => {
@@ -214,6 +199,62 @@ export function PendingChangesTray(): React.ReactElement | null {
       ? ` + ${preview.count - preview.sampleNames.length} more`
       : "";
 
+  const learnerButtonDisabled = applying || !callerInContext;
+  const cohortButtonDisabled =
+    applying || hasAiSuggested || preview.count === 0;
+  const cohortButtonTooltip = hasAiSuggested
+    ? COHORT_AI_BLOCKED_TOOLTIP
+    : preview.count === 0
+      ? "No affected cohort detected for these changes"
+      : undefined;
+
+  async function applyRecompose(target: "caller" | "cohort"): Promise<void> {
+    setApplying(true);
+    setApplyError(null);
+    const decisionToggleCaller = target === "caller" && Boolean(callerInContext);
+    const decisionToggleAll = target === "cohort" && !hasAiSuggested;
+    try {
+      const res = await fetch("/api/recompose/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entries,
+          toggleCaller: decisionToggleCaller,
+          toggleAll: decisionToggleAll,
+          callerInContext,
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || `Apply failed (${res.status})`);
+      }
+      // #873 follow-up — emit bidirectional reflection event BEFORE
+      // clearing the tray so we still have entry data.
+      const snapshot = entries.map((e) => ({
+        label: e.label,
+        scopeLabel: e.scopeLabel,
+        beforeValue: e.beforeValue,
+        afterValue: e.afterValue,
+      }));
+      window.dispatchEvent(
+        new CustomEvent("hf:tray-applied", {
+          detail: {
+            entries: snapshot,
+            toggleCaller: decisionToggleCaller,
+            toggleAll: decisionToggleAll,
+            callerInContext: callerInContext?.name ?? null,
+            decidedAt: new Date().toISOString(),
+          },
+        }),
+      );
+      clear();
+    } catch (err: unknown) {
+      setApplyError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setApplying(false);
+    }
+  }
+
   return (
     <div
       className="hf-pending-tray"
@@ -260,7 +301,8 @@ export function PendingChangesTray(): React.ReactElement | null {
                   type="button"
                   className="hf-pending-tray-remove"
                   onClick={() => remove(e.id)}
-                  aria-label={`Remove ${e.label} from pending changes`}
+                  aria-label={`Dismiss ${e.label}`}
+                  title="Dismiss"
                 >
                   ×
                 </button>
@@ -268,148 +310,54 @@ export function PendingChangesTray(): React.ReactElement | null {
             ))}
           </ul>
 
-          <div className="hf-pending-tray-toggles">
-            {callerInContext && (
-              <label className="hf-pending-tray-toggle">
-                <input
-                  type="checkbox"
-                  checked={toggleCaller}
-                  onChange={(e) => setToggleCaller(e.target.checked)}
-                />
-                <span>
-                  Also recompose {callerInContext.name} now (~2s)
-                </span>
-              </label>
-            )}
+          {preview.count > 0 && (
+            <div className="hf-pending-tray-cohort-info">
+              <span>
+                Cohort affected: {preview.count} learner
+                {preview.count === 1 ? "" : "s"} ({formatEta(preview.etaSeconds)})
+                {samplePreview && (
+                  <span className="hf-pending-tray-sample">
+                    {" "}— {samplePreview}{moreAffected}
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
 
-            {preview.count > 0 && (
-              <label
-                className={`hf-pending-tray-toggle ${toggle2Locked ? "is-locked" : ""}`}
-                title={
-                  toggle2Locked
-                    ? "AI-suggested changes cannot trigger a full cohort recompose. Save without Toggle 2, then enable manually if needed."
-                    : preCheckAll
-                      ? "Pre-checked — this change historically fanned out to the full cohort automatically."
-                      : undefined
-                }
-              >
-                <input
-                  type="checkbox"
-                  checked={effectiveToggleAll}
-                  disabled={toggle2Locked}
-                  onChange={(e) => {
-                    setToggleAllUserTouched(true);
-                    setToggleAll(e.target.checked);
-                  }}
-                />
-                <span>
-                  Recompose all {preview.count} affected learner
-                  {preview.count === 1 ? "" : "s"} ({formatEta(preview.etaSeconds)})
-                  {samplePreview && (
-                    <span className="hf-pending-tray-sample">
-                      {" "}— {samplePreview}{moreAffected}
-                    </span>
-                  )}
-                </span>
-              </label>
-            )}
+          {hasAiSuggested && (
+            <p className="hf-pending-tray-ai-warning">
+              ⚠ AI-suggested change present — cohort recompose is disabled.
+            </p>
+          )}
 
-            {toggle2Locked && (
-              <p className="hf-pending-tray-ai-warning">
-                ⚠ AI-suggested change present — cohort fanout is disabled.
-              </p>
-            )}
-          </div>
-
-          {saveError && (
+          {applyError && (
             <p className="hf-pending-tray-ai-warning" role="alert">
-              ⚠ {saveError}
+              ⚠ {applyError}
             </p>
           )}
 
           <div className="hf-pending-tray-actions">
             <button
               type="button"
-              className="hf-pending-tray-discard"
-              onClick={() => {
-                // #873 follow-up — emit bidirectional reflection event so
-                // ChatContext can tell the AI what the user did on the
-                // next chat turn. Capture entry snapshot BEFORE clearing.
-                const snapshot = entries.map((e) => ({
-                  label: e.label,
-                  scopeLabel: e.scopeLabel,
-                  beforeValue: e.beforeValue,
-                  afterValue: e.afterValue,
-                }));
-                window.dispatchEvent(
-                  new CustomEvent("hf:tray-discarded", {
-                    detail: {
-                      entries: snapshot,
-                      callerInContext: callerInContext?.name ?? null,
-                      decidedAt: new Date().toISOString(),
-                    },
-                  }),
-                );
-                clear();
-              }}
-              disabled={saving}
+              className="hf-pending-tray-recompose-learner"
+              disabled={learnerButtonDisabled}
+              title={
+                !callerInContext
+                  ? "Open a learner to recompose just their prompt"
+                  : undefined
+              }
+              onClick={() => applyRecompose("caller")}
             >
-              Discard all
+              {applying ? "Applying…" : "Recompose this learner"}
             </button>
             <button
               type="button"
-              className="hf-pending-tray-save"
-              disabled={saving}
-              onClick={async () => {
-                setSaving(true);
-                setSaveError(null);
-                const decisionToggleCaller = Boolean(callerInContext) && toggleCaller;
-                const decisionToggleAll = !toggle2Locked && effectiveToggleAll;
-                try {
-                  const res = await fetch("/api/recompose/apply", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      entries,
-                      toggleCaller: decisionToggleCaller,
-                      toggleAll: decisionToggleAll,
-                      callerInContext,
-                    }),
-                  });
-                  const json = (await res.json()) as { ok?: boolean; error?: string };
-                  if (!res.ok || !json.ok) {
-                    throw new Error(json.error || `Apply failed (${res.status})`);
-                  }
-                  // #873 follow-up — emit bidirectional reflection event
-                  // BEFORE clearing the tray so we still have entry data.
-                  const snapshot = entries.map((e) => ({
-                    label: e.label,
-                    scopeLabel: e.scopeLabel,
-                    beforeValue: e.beforeValue,
-                    afterValue: e.afterValue,
-                  }));
-                  window.dispatchEvent(
-                    new CustomEvent("hf:tray-applied", {
-                      detail: {
-                        entries: snapshot,
-                        toggleCaller: decisionToggleCaller,
-                        toggleAll: decisionToggleAll,
-                        callerInContext: callerInContext?.name ?? null,
-                        decidedAt: new Date().toISOString(),
-                      },
-                    }),
-                  );
-                  clear();
-                  // Reset toggle state for next batch
-                  setToggleAllUserTouched(false);
-                } catch (err: unknown) {
-                  setSaveError(err instanceof Error ? err.message : String(err));
-                } finally {
-                  setSaving(false);
-                }
-              }}
+              className="hf-pending-tray-recompose-cohort"
+              disabled={cohortButtonDisabled}
+              title={cohortButtonTooltip}
+              onClick={() => applyRecompose("cohort")}
             >
-              {saving ? "Applying…" : "Save & apply"}
+              {applying ? "Applying…" : "Recompose entire cohort"}
             </button>
           </div>
         </>
