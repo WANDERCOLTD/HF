@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FancySelect } from "@/components/shared/FancySelect";
 import type { FancySelectOption } from "@/components/shared/FancySelect";
 import { ConversationalWizard } from "../wizard/components/ConversationalWizard";
@@ -114,7 +114,7 @@ export function V5WizardWithSelector({
 
   // Build WizardInitialContext from selected institution
   const selected = institutions.find((i) => i.id === selectedId);
-  const initialContext: WizardInitialContext | undefined =
+  const pickerContext: WizardInitialContext | undefined =
     selected && selected.domainId
       ? {
           institutionName: selected.name,
@@ -139,6 +139,44 @@ export function V5WizardWithSelector({
   const selectedCourse = selectedCourseId !== NEW_COURSE_VALUE
     ? courses.find((c) => c.id === selectedCourseId)
     : null;
+
+  // #929 Slice A — Start Over override. For non-SUPERADMIN users this is set
+  // by `handleStartOver` after re-fetching `/api/user/wizard-context`, so the
+  // wizard re-anchors to the educator's home institution + domain rather than
+  // the picker's prior selection or the amendment-mode course's domain.
+  //
+  // The override REPLACES (not merges with) the picker / amendment context —
+  // Start Over drops the course pre-fill so the next attempt is truly fresh.
+  //
+  // While the re-fetch is in flight we set this to `undefined` (rather than
+  // leaving the stale picker context) so the wizard's re-seed effect
+  // (ConversationalWizard.tsx — guarded by `initialContext && ...`) does NOT
+  // fire with stale data. It re-fires once the new context arrives.
+  const [overrideContext, setOverrideContext] = useState<WizardInitialContext | undefined>(undefined);
+  const [overrideActive, setOverrideActive] = useState(false);
+
+  const handleStartOver = useCallback(async () => {
+    if (isSuperAdmin) return; // SUPERADMIN keeps picker selection (#929 risk note)
+
+    setOverrideActive(true);
+    setOverrideContext(undefined); // suppress re-seed effect while fetching
+
+    try {
+      const res = await fetch("/api/user/wizard-context");
+      const json = await res.json();
+      if (json?.ok && json.context) {
+        setOverrideContext({ ...json.context, userRole });
+      }
+    } catch {
+      // Fall back silently — the picker/defaultInstitution context will stay
+      // in effect via the merge below.
+      setOverrideActive(false);
+    }
+  }, [isSuperAdmin, userRole]);
+
+  // When the override is active and resolved (or even still loading), it wins
+  // over the picker/amendment context.
+  const initialContext = overrideActive ? overrideContext : pickerContext;
 
   // Key includes institution + course so wizard resets when switching
   const wizardKey = `v5-${selectedId}-${selectedCourseId}`;
@@ -177,7 +215,10 @@ export function V5WizardWithSelector({
       <ConversationalWizard
         key={wizardKey}
         initialContext={
-          selectedCourse && initialContext
+          // #929 Slice A — once the user has hit Start Over (overrideActive),
+          // drop the amendment-mode course pre-fill so the fresh attempt
+          // anchors to the user's home domain only.
+          !overrideActive && selectedCourse && initialContext
             ? {
                 ...initialContext,
                 courseId: selectedCourse.id,
@@ -190,6 +231,7 @@ export function V5WizardWithSelector({
         }
         userRole={userRole}
         wizardVersion="v5"
+        onStartOver={handleStartOver}
       />
       <ChordHintBadge activePrefix={chordActivePrefix} chords={wizardChords} />
     </>
