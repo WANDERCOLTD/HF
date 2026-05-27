@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, PhoneOff, FolderOpen, Mic, Settings, TrendingUp, Layers } from 'lucide-react';
+import { ArrowLeft, PhoneOff, FolderOpen, Mic, Settings, TrendingUp } from 'lucide-react';
 import { EditableTitle } from '@/components/shared/EditableTitle';
 
 interface WhatsAppHeaderProps {
@@ -21,7 +21,6 @@ interface WhatsAppHeaderProps {
   onVoiceToggle?: () => void;
   onAdminPanel?: () => void;
   onProgressPanel?: () => void;
-  onPickModule?: () => void;
   mediaLibraryActive?: boolean;
   voiceActive?: boolean;
   callActive?: boolean;
@@ -30,7 +29,7 @@ interface WhatsAppHeaderProps {
   avatarColor?: string;
 }
 
-export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibrary, onAvatarClick, onTitleEdit, titleEditDisabled, onVoiceToggle, onAdminPanel, onProgressPanel, onPickModule, mediaLibraryActive, voiceActive, callActive, adminPanelActive, progressPanelActive, avatarColor = 'var(--text-muted)' }: WhatsAppHeaderProps) {
+export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibrary, onAvatarClick, onTitleEdit, titleEditDisabled, onVoiceToggle, onAdminPanel, onProgressPanel, mediaLibraryActive, voiceActive, callActive, adminPanelActive, progressPanelActive, avatarColor = 'var(--text-muted)' }: WhatsAppHeaderProps) {
   const initials = title.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
@@ -112,16 +111,6 @@ export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibr
           style={{ color: progressPanelActive ? 'var(--wa-green-primary)' : undefined }}
         >
           <TrendingUp size={20} />
-        </button>
-      )}
-      {onPickModule && (
-        <button
-          className="wa-back-btn"
-          onClick={onPickModule}
-          aria-label="Pick a module to practise"
-          title="Pick module"
-        >
-          <Layers size={20} />
         </button>
       )}
       {onAdminPanel && (
