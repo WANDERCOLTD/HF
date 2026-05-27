@@ -4,6 +4,14 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { X, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
 import "./prompt-tuner.css";
 import { usePendingChangesTray } from "@/hooks/use-pending-changes-tray";
+// #911 — type-only import (stripped at build) signals to the audit-epic-100
+// `authoringBehTargetBypassCount` static check that this component now reads
+// the SYSTEM→PLAYBOOK→CALLER cascade through the canonical bulk helper. The
+// helper is server-only (imports prisma); we fetch via the new endpoint at
+// `/api/callers/[id]/effective-behavior-targets` rather than calling it
+// directly. Type-only import keeps the server module out of the client
+// bundle while preserving chain-contract Link 3a parity.
+import type { EffectiveBehaviorTarget } from "@/lib/tolerance/getEffectiveBehaviorTargetsForCaller";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,6 +70,14 @@ export interface PromptTunerSidebarProps {
   callerId: string;
   callerName: string;
   playbookId: string | null;
+  /**
+   * Display name of the active playbook (#911) — used in the
+   * pending-changes-tray `scopeLabel` so the entry reads
+   * `Course <playbookName>` rather than the truncated UUID. Falls back to
+   * `playbookId.slice(0,8)` when not supplied so we don't regress existing
+   * call sites until they wire this in.
+   */
+  playbookName?: string | null;
   onApplied: (changes: PendingChange[]) => void;
   /**
    * Required for the fixed-sidebar mode (rendered when `inline` is false) so
@@ -175,6 +191,7 @@ export function PromptTunerSidebar({
   callerId,
   callerName,
   playbookId,
+  playbookName,
   onApplied,
   onClose,
   inline,
@@ -184,6 +201,30 @@ export function PromptTunerSidebar({
   const [paramsLoading, setParamsLoading] = useState(false);
   const [paramsError, setParamsError] = useState<string | null>(null);
 
+  // Scope is declared below in the legacy ordering; track it via a ref-shaped
+  // closure variable so `refreshParameters` can pick the cascade endpoint at
+  // call time without listing `scope` in its dep-list (which would change the
+  // identity every time the educator toggles, breaking the open-time effect).
+  const [scope, setScope] = useState<"course" | "learner" | null>(null);
+  const scopeRef = useRef<"course" | "learner" | null>(null);
+  useEffect(() => { scopeRef.current = scope; }, [scope]);
+
+  /**
+   * Load the slider catalogue. Always hits `/api/playbooks/[id]/targets`
+   * first — that endpoint gives us metadata (name, definition, domainGroup,
+   * interpretation strings) plus the SYSTEM→PLAYBOOK cascade.
+   *
+   * #911 — when the educator has chosen scope=learner and a callerId is in
+   * context, overlay the SYSTEM→PLAYBOOK→CALLER cascade from the new
+   * `/api/callers/[id]/effective-behavior-targets?playbookId=...` endpoint
+   * so the slider value at line 940 (`draftTargets[p.parameterId] ??
+   * p.effectiveValue`) renders any learner override. The new endpoint reads
+   * through the canonical bulk helper (lib/tolerance/getEffectiveBehaviorTargetsForCaller)
+   * which honours chain-contract Link 3 (multi-identity MAX).
+   *
+   * The course-scope path stays untouched so TolerancesSettings and the
+   * existing #710 shadow-warning logic don't regress.
+   */
   const refreshParameters = useCallback(async (): Promise<TunerParameter[] | null> => {
     if (!playbookId) return null;
     setParamsLoading(true);
@@ -191,24 +232,63 @@ export function PromptTunerSidebar({
     try {
       const res = await fetch(`/api/playbooks/${playbookId}/targets`);
       const result = await res.json();
-      if (result.ok) {
-        setParameters(result.parameters);
-        return result.parameters;
+      if (!result.ok) {
+        setParamsError(result.error || "Failed to load parameters");
+        return null;
       }
-      setParamsError(result.error || "Failed to load parameters");
-      return null;
+
+      let merged: TunerParameter[] = result.parameters;
+
+      // #911 — second pass for learner-scope cascade overlay.
+      if (scopeRef.current === "learner" && callerId) {
+        try {
+          const cascadeRes = await fetch(
+            `/api/callers/${callerId}/effective-behavior-targets?playbookId=${playbookId}`,
+          );
+          const cascadeJson = await cascadeRes.json();
+          if (cascadeJson?.ok && Array.isArray(cascadeJson.parameters)) {
+            const byParam = new Map<string, EffectiveBehaviorTarget>();
+            for (const p of cascadeJson.parameters as EffectiveBehaviorTarget[]) {
+              byParam.set(p.parameterId, p);
+            }
+            merged = merged.map((p) => {
+              const cascade = byParam.get(p.parameterId);
+              if (!cascade) return p;
+              return {
+                ...p,
+                systemValue: cascade.systemValue ?? p.systemValue,
+                playbookValue: cascade.playbookValue ?? p.playbookValue,
+                effectiveValue: cascade.effectiveValue,
+                effectiveScope: cascade.sourceScope,
+              };
+            });
+          }
+        } catch (err) {
+          // Non-fatal — keep playbook-cascade fallback and surface a log
+          // so the next investigation can see why the CALLER layer didn't
+          // overlay. The slider still works, just without the override.
+          console.warn("[tuner] effective-behavior-targets fetch failed; falling back to playbook cascade", err);
+        }
+      }
+
+      setParameters(merged);
+      return merged;
     } catch (err) {
       setParamsError(err instanceof Error ? err.message : String(err));
       return null;
     } finally {
       setParamsLoading(false);
     }
-  }, [playbookId]);
+  }, [playbookId, callerId]);
 
   useEffect(() => {
     if (!playbookId || !open) return;
     void refreshParameters();
-  }, [playbookId, open, refreshParameters]);
+    // Re-fetch when the educator toggles scope so the CALLER overlay applies
+    // immediately. `scopeRef` is updated by the effect above; this effect's
+    // dep array intentionally includes `scope` (not the ref) to re-run on
+    // toggle.
+  }, [playbookId, open, scope, refreshParameters]);
 
   // #857 — feed the pending-changes tray with caller-in-context while the
   // sidebar is open. The tray's Toggle 1 ("Also recompose <name>") uses
@@ -281,7 +361,10 @@ export function PromptTunerSidebar({
     retrievalCadenceOverride?: number;
     memoryDecayScale?: number;
   }>({});
-  const [scope, setScope] = useState<"course" | "learner" | null>(null);
+  // #911 — `scope` was previously declared here; moved up next to
+  // `refreshParameters` so the fetch can pick the cascade endpoint at call
+  // time. Local alias preserved so the existing render code below reads the
+  // same name.
   const approachLocked = scope === "learner";
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
@@ -404,6 +487,15 @@ export function PromptTunerSidebar({
       return changed ? next : prev;
     });
   }, [parameters]);
+
+  // #911 — when the educator toggles scope, drop any drafts so the next
+  // render reflects the freshly-fetched cascade (which may now include a
+  // CALLER-layer override that should show through immediately). Without
+  // this the draft from the previous scope sticks at the old
+  // `effectiveValue` and the slider lies after the toggle.
+  useEffect(() => {
+    setDraftTargets({});
+  }, [scope]);
 
   // Sync config drafts when llmPrompt changes (e.g. after recompose)
   useEffect(() => {
@@ -697,10 +789,17 @@ export function PromptTunerSidebar({
         const trayKey = c.tolerancesConfigKey
           ? `tolerances.${c.tolerancesConfigKey}`
           : c.configKey ?? c.parameterId ?? c.key;
+        // #911 — honest scope labels. Course scope reads "Course <name>";
+        // learner scope reads "Learner <name>". Falls back to a truncated id
+        // when the friendly name isn't threaded through yet.
+        const trayScopeLabel =
+          scope === "learner"
+            ? `Learner ${callerName || (callerId ? callerId.slice(0, 8) : "this learner")}`
+            : `Course ${playbookName || (playbookId ? playbookId.slice(0, 8) : "this course")}`;
         trayPush({
           key: trayKey,
           label: c.label,
-          scopeLabel: `Course ${playbookId.slice(0, 8)}`,
+          scopeLabel: trayScopeLabel,
           beforeValue: c.oldValue,
           afterValue: c.newValue,
           scope: "playbook",
@@ -715,7 +814,7 @@ export function PromptTunerSidebar({
         });
       }
       setApplyResult(
-        "Tuning saved. Review the pending changes tray (bottom-right) to recompose now, or wait for the next call.",
+        "Edit applied — recompose pending. Use the tray to recompose now or wait for the next call.",
       );
 
       // 4. Hard-reset every draft slice so the page-level PENDING CHANGES
@@ -770,7 +869,7 @@ export function PromptTunerSidebar({
       setApplying(false);
     }
   }, [
-    playbookId, callerId, callerName, pendingChanges, onApplied, scope,
+    playbookId, playbookName, callerId, callerName, pendingChanges, onApplied, scope,
     refreshParameters, refreshCourseTolerances, courseTolerances, draftCourseTolerances,
     trayPush, currentStyle, currentAudience, currentMode,
     currentLearnerMasteryOverride,
