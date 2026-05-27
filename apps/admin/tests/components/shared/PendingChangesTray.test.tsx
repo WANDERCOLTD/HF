@@ -1,14 +1,15 @@
 /**
- * PendingChangesTray (epic #854 / Story #856).
+ * PendingChangesTray (epic #854 / Story #856; renamed in #912).
  *
  * Asserts:
  *   - Returns null when no entries
  *   - Renders entries with diff + AI badge
- *   - Toggle 1 hidden without caller-in-context, visible + ON-default with one
- *   - Toggle 2 OFF-default for non-fanout-class keys
- *   - Toggle 2 pre-checked ON for fanout-class keys (A6 — mastery threshold)
- *   - Toggle 2 disabled + forced OFF when any entry has aiSuggested (A5)
- *   - Discard all clears entries
+ *   - No tray button contains "Save" or "Discard" (#912 — Model A honesty)
+ *   - "Recompose this learner" + "Recompose entire cohort" CTAs render
+ *   - Learner button disabled without caller-in-context
+ *   - Cohort button disabled (with AI tooltip) when any entry aiSuggested
+ *   - Cohort button enabled when all entries non-AI + cohort > 0
+ *   - Per-row dismiss button tooltip reads "Dismiss"
  *   - Remove button removes a single entry
  */
 
@@ -131,6 +132,12 @@ function fanoutClassEntry(overrides: Partial<TrayEntry> = {}): Omit<TrayEntry, "
   };
 }
 
+async function waitForPreview(): Promise<void> {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 600));
+  });
+}
+
 describe("PendingChangesTray", () => {
   it("renders nothing when no entries", () => {
     const { queryByTestId } = render(<TestHarness />);
@@ -139,9 +146,7 @@ describe("PendingChangesTray", () => {
 
   it("renders entries with scope, label, and diff", async () => {
     const { findByTestId, getByText } = render(
-      <TestHarness
-        setupEntries={(push) => push(nonFanoutEntry())}
-      />,
+      <TestHarness setupEntries={(push) => push(nonFanoutEntry())} />,
     );
     await findByTestId("pending-changes-tray");
     expect(getByText("Domain Acme")).toBeInTheDocument();
@@ -152,108 +157,100 @@ describe("PendingChangesTray", () => {
   it("shows AI badge for ai-suggested entries", async () => {
     const { findByText } = render(
       <TestHarness
-        setupEntries={(push) =>
-          push(nonFanoutEntry({ aiSuggested: true }))
-        }
+        setupEntries={(push) => push(nonFanoutEntry({ aiSuggested: true }))}
       />,
     );
     expect(await findByText("AI")).toBeInTheDocument();
   });
 
-  it("Toggle 1 is hidden when no caller-in-context", async () => {
-    const { findByTestId, queryByText } = render(
-      <TestHarness
-        setupEntries={(push) => push(nonFanoutEntry())}
-      />,
-    );
-    await findByTestId("pending-changes-tray");
-    expect(queryByText(/Also recompose/i)).toBeNull();
-  });
-
-  it("Toggle 1 visible + checked when caller-in-context set", async () => {
-    const { findByLabelText } = render(
+  it("never renders a button labelled 'Save' or 'Discard' (#912 Model A)", async () => {
+    const { findByTestId, queryAllByRole } = render(
       <TestHarness
         setupCaller={{ id: "c-1", name: "Mary Smith" }}
         setupEntries={(push) => push(nonFanoutEntry())}
       />,
     );
-    const cb = (await findByLabelText(
-      /Also recompose Mary Smith/i,
-    )) as HTMLInputElement;
-    expect(cb.checked).toBe(true);
+    await findByTestId("pending-changes-tray");
+    await waitForPreview();
+    const buttons = queryAllByRole("button");
+    for (const btn of buttons) {
+      const text = (btn.textContent || "").toLowerCase();
+      const label = (btn.getAttribute("aria-label") || "").toLowerCase();
+      expect(text).not.toMatch(/\bsave\b/);
+      expect(label).not.toMatch(/\bsave\b/);
+      expect(text).not.toMatch(/\bdiscard\b/);
+      expect(label).not.toMatch(/\bdiscard\b/);
+    }
   });
 
-  it("Toggle 2 is OFF by default for non-fanout-class entry", async () => {
-    const { findByLabelText } = render(
+  it("renders 'Recompose this learner' and 'Recompose entire cohort' CTAs", async () => {
+    const { findByRole, findByTestId } = render(
       <TestHarness
+        setupCaller={{ id: "c-1", name: "Mary Smith" }}
         setupEntries={(push) => push(nonFanoutEntry())}
       />,
     );
-    // Wait for preview to render (count > 0 → toggle 2 visible)
-    await act(async () => {
-      await Promise.resolve();
-      await new Promise((r) => setTimeout(r, 600));
-    });
-    const cb = (await findByLabelText(
-      /Recompose all/i,
-    )) as HTMLInputElement;
-    expect(cb.checked).toBe(false);
+    await findByTestId("pending-changes-tray");
+    await waitForPreview();
+    expect(
+      await findByRole("button", { name: /Recompose this learner/i }),
+    ).toBeInTheDocument();
+    expect(
+      await findByRole("button", { name: /Recompose entire cohort/i }),
+    ).toBeInTheDocument();
   });
 
-  it("Toggle 2 is pre-checked ON for fanout-class entry (A6)", async () => {
-    const { findByLabelText } = render(
-      <TestHarness
-        setupEntries={(push) => push(fanoutClassEntry())}
-      />,
+  it("'Recompose this learner' is disabled without caller-in-context", async () => {
+    const { findByRole, findByTestId } = render(
+      <TestHarness setupEntries={(push) => push(nonFanoutEntry())} />,
     );
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 600));
-    });
-    const cb = (await findByLabelText(
-      /Recompose all/i,
-    )) as HTMLInputElement;
-    expect(cb.checked).toBe(true);
+    await findByTestId("pending-changes-tray");
+    await waitForPreview();
+    const btn = (await findByRole("button", {
+      name: /Recompose this learner/i,
+    })) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
   });
 
-  it("Toggle 2 is disabled + OFF when any entry is aiSuggested (A5)", async () => {
-    const { findByLabelText, findByText } = render(
+  it("'Recompose entire cohort' is disabled (AI tooltip) when any entry is aiSuggested", async () => {
+    const { findByRole, findByText } = render(
       <TestHarness
+        setupCaller={{ id: "c-1", name: "Mary Smith" }}
         setupEntries={(push) => {
-          push(fanoutClassEntry()); // would normally pre-check Toggle 2
-          push(nonFanoutEntry({ aiSuggested: true })); // forces lock
+          push(fanoutClassEntry());
+          push(nonFanoutEntry({ aiSuggested: true }));
         }}
       />,
     );
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 600));
-    });
-    const cb = (await findByLabelText(
-      /Recompose all/i,
-    )) as HTMLInputElement;
-    expect(cb.disabled).toBe(true);
-    expect(cb.checked).toBe(false);
-    // Warning copy surfaces
+    await waitForPreview();
+    const btn = (await findByRole("button", {
+      name: /Recompose entire cohort/i,
+    })) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(btn.getAttribute("title")).toMatch(
+      /AI-suggested changes can't fan out/i,
+    );
     expect(
       await findByText(/AI-suggested change present/i),
     ).toBeInTheDocument();
   });
 
-  it("Discard all clears every entry", async () => {
-    const { findByText, queryByTestId } = render(
+  it("'Recompose entire cohort' is enabled when all entries are non-AI and cohort > 0", async () => {
+    const { findByRole } = render(
       <TestHarness
-        setupEntries={(push) => {
-          push(nonFanoutEntry({ key: "k-1" }));
-          push(nonFanoutEntry({ key: "k-2" }));
-        }}
+        setupCaller={{ id: "c-1", name: "Mary Smith" }}
+        setupEntries={(push) => push(nonFanoutEntry())}
       />,
     );
-    const discardBtn = await findByText("Discard all");
-    fireEvent.click(discardBtn);
-    expect(queryByTestId("pending-changes-tray")).toBeNull();
+    await waitForPreview();
+    const btn = (await findByRole("button", {
+      name: /Recompose entire cohort/i,
+    })) as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
   });
 
-  it("remove button on an entry removes only that entry", async () => {
-    const { findAllByLabelText, getByText } = render(
+  it("per-row dismiss button has aria-label 'Dismiss <label>' and title 'Dismiss'", async () => {
+    const { findAllByRole } = render(
       <TestHarness
         setupEntries={(push) => {
           push(nonFanoutEntry({ key: "k-1", label: "Label 1" }));
@@ -261,10 +258,24 @@ describe("PendingChangesTray", () => {
         }}
       />,
     );
-    const removeButtons = await findAllByLabelText(/Remove /i);
-    expect(removeButtons).toHaveLength(2);
-    fireEvent.click(removeButtons[0]);
-    // After removing one, the other label still shows
+    const dismissButtons = await findAllByRole("button", { name: /^Dismiss / });
+    expect(dismissButtons).toHaveLength(2);
+    for (const btn of dismissButtons) {
+      expect(btn.getAttribute("title")).toBe("Dismiss");
+    }
+  });
+
+  it("dismiss button removes only that entry", async () => {
+    const { findAllByRole, getByText } = render(
+      <TestHarness
+        setupEntries={(push) => {
+          push(nonFanoutEntry({ key: "k-1", label: "Label 1" }));
+          push(nonFanoutEntry({ key: "k-2", label: "Label 2" }));
+        }}
+      />,
+    );
+    const dismissButtons = await findAllByRole("button", { name: /^Dismiss / });
+    fireEvent.click(dismissButtons[0]);
     expect(getByText("Label 2")).toBeInTheDocument();
   });
 });

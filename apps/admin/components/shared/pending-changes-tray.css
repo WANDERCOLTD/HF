@@ -190,8 +190,8 @@
   background: color-mix(in srgb, var(--surface-secondary) 40%, var(--surface-primary));
 }
 
-.hf-pending-tray-discard,
-.hf-pending-tray-save {
+.hf-pending-tray-recompose-learner,
+.hf-pending-tray-recompose-cohort {
   padding: 6px 12px;
   font-size: 12px;
   font-weight: 500;
@@ -200,27 +200,34 @@
   border: 1px solid var(--border-default);
 }
 
-.hf-pending-tray-discard {
-  background: transparent;
-  color: var(--text-secondary);
-}
-
-.hf-pending-tray-discard:hover {
-  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
-  color: var(--text-primary);
-}
-
-.hf-pending-tray-save {
+.hf-pending-tray-recompose-learner {
   background: var(--accent-primary);
   color: var(--surface-primary);
   border-color: var(--accent-primary);
 }
 
-.hf-pending-tray-save:hover:not(:disabled) {
+.hf-pending-tray-recompose-learner:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent-primary) 85%, var(--text-primary));
 }
 
-.hf-pending-tray-save:disabled {
-  opacity: 0.6;
+.hf-pending-tray-recompose-cohort {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.hf-pending-tray-recompose-cohort:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.hf-pending-tray-recompose-learner:disabled,
+.hf-pending-tray-recompose-cohort:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
+}
+
+.hf-pending-tray-cohort-info {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 12px;
+  color: var(--text-secondary);
 }
