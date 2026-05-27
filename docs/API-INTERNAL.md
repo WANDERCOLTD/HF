@@ -14110,6 +14110,14 @@ Get institutions the current user can access
 
 ---
 
+### `GET` /api/user/wizard-context
+
+Resolve the logged-in user's home institution + domain for the
+
+**Auth**: bearer (OPERATOR+) · **Scope**: `user:read`
+
+---
+
 ## Users
 
 ### `DELETE` /api/invites
@@ -14419,6 +14427,14 @@ Load wizard step definitions from a spec. Accepts either `wizard` (name resolved
 ```json
 { ok: false, error: string }
 ```
+
+---
+
+### `POST` /api/wizard/discard-draft
+
+Mark a partially-built wizard attempt as abandoned so the next
+
+**Auth**: bearer (OPERATOR+) · **Scope**: `wizard:write`
 
 ---
 

@@ -65,6 +65,14 @@ interface ConversationalWizardProps {
   userRole?: string;
   /** Override wizard version sent to API. Defaults to "v4". */
   wizardVersion?: string;
+  /**
+   * #929 Slice A — fires inside `handleStartOver` after local state is cleared.
+   * Parents use this to re-fetch a clean `initialContext` from the user's
+   * session (e.g. via `/api/user/wizard-context`) so a non-SUPERADMIN
+   * Start Over re-anchors to the user's home domain rather than the picker's
+   * prior selection or the amendment-mode course's domain.
+   */
+  onStartOver?: () => void;
 }
 
 type MessageRole = "assistant" | "user" | "system";
@@ -265,7 +273,7 @@ function previewToSessionEntries(preview: FirstCallPreviewData): SessionEntry[] 
 
 // ── Component ────────────────────────────────────────────
 
-export function ConversationalWizard({ initialContext, userRole, wizardVersion = "v4" }: ConversationalWizardProps) {
+export function ConversationalWizard({ initialContext, userRole, wizardVersion = "v4", onStartOver }: ConversationalWizardProps) {
   const { getData, setData, clearData, isActive, startFlow } = useStepFlow();
 
   // Scope sessionStorage by institution so step-in doesn't leak across orgs
@@ -285,6 +293,20 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
   const [fieldPickerPanel, setFieldPickerPanel] = useState<OptionsPanel | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetKey, setResetKey] = useState(0);
+
+  /**
+   * #929 Slice B1 — monotonically increments on every `handleStartOver`.
+   * Async paths that may resolve AFTER Start Over (in-flight tool executions,
+   * `handleSourcesReady`, `handleExtractionDone`, course-ref `sendToAPI`
+   * round-trips, and every `saveHistory` site) capture the token at call-start
+   * and no-op their persistence/setMessages writes if the token has changed
+   * by the time they execute.
+   *
+   * Read `resetTokenRef.current` at execution time (not capture time) inside
+   * `setMessages(prev => ...)` lambdas — capturing a stale snapshot inside a
+   * lambda defeats the guard.
+   */
+  const resetTokenRef = useRef(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<Message[]>([]);
@@ -319,7 +341,32 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
   // ── Start over ───────────────────────────────────────
 
   const handleStartOver = useCallback(() => {
+    // #929 Slice B1 — bump token FIRST so any in-flight async resolution
+    // checking `resetTokenRef.current` sees the new value before we begin
+    // clearing state.
+    resetTokenRef.current += 1;
     abortRef.current?.abort();
+
+    // #929 Slice B2 — snapshot draft IDs BEFORE clearData() wipes them, then
+    // fire-and-forget POST so the next attempt cannot resume an abandoned
+    // Playbook via `resolveCourseByName`. Network errors are swallowed —
+    // Start Over must succeed even if the server is unreachable.
+    const draftIds = {
+      draftPlaybookId: (getData<string>("draftPlaybookId") || null),
+      draftDomainId: (getData<string>("draftDomainId") || null),
+      draftInstitutionId: (getData<string>("draftInstitutionId") || null),
+      draftCallerId: (getData<string>("draftCallerId") || null),
+      draftDemoCallerId: (getData<string>("draftDemoCallerId") || null),
+    };
+    const hasAnyDraft = Object.values(draftIds).some((v) => v);
+    if (hasAnyDraft) {
+      fetch("/api/wizard/discard-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draftIds),
+      }).catch(() => { /* fire-and-forget */ });
+    }
+
     sessionStorage.removeItem(storageKey(storageScope));
     clearData();
     setMessages([]);
@@ -329,9 +376,17 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
     setWelcomeSuggestion(null);
     setFieldPickerPanel(null);
     setConfirmReset(false);
+    // #929 Slice B1 — drop refs that survived clearData() and would leak
+    // prior-attempt state into the fresh session.
+    pendingUploadRef.current = null;
+    inputHistoryRef.current = [];
+    historyIndexRef.current = -1;
     initialised.current = false;
     setResetKey((n) => n + 1);
-  }, [clearData]);
+    // #929 Slice A — let the parent re-anchor `initialContext` to the user's
+    // home domain (non-SUPERADMIN) before the re-seed effect fires.
+    onStartOver?.();
+  }, [clearData, getData, onStartOver, storageScope]);
 
   // ── Setup data ────────────────────────────────────────
 
@@ -666,6 +721,12 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       setSuggestions({ items: [] });
       setWelcomeSuggestion(null);
 
+      // #929 Slice B1 — capture the reset token BEFORE the user message is
+      // appended. If Start Over fires while the API call is in flight, every
+      // post-await write below short-circuits and the cleared chat stays
+      // empty.
+      const token = resetTokenRef.current;
+
       const userMsg: Message = { id: uid(), role: "user", content: msg };
       const newMessages = [...messages, userMsg];
       setMessages(newMessages);
@@ -676,6 +737,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       // (the course-ref flow outlives the initial upload-notification API call).
       setBusyReason((prev) => prev === "course-ref-analysing" ? prev : "sending");
       const result = await sendToAPI(msg, newMessages, overrides);
+      if (resetTokenRef.current !== token) return; // #929 Slice B1
       setBusyReason((prev) => prev === "sending" ? null : prev);
 
       if (!result) {
@@ -838,6 +900,9 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
 
   const handleExtractionDone = useCallback(
     async (totals: { assertions: number; questions: number; vocabulary: number }) => {
+      // #929 Slice B1 — capture before any setData/fetch. Every post-await
+      // setMessages write below short-circuits if Start Over fires mid-flight.
+      const token = resetTokenRef.current;
       setData("extractionTotals", { ...totals, images: 0 });
 
       // Fetch category breakdown (fire-and-forget — ScaffoldPanel picks it up via getData)
@@ -884,12 +949,14 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
             content: `${parts.join(" · ")} extracted — ready for your course`,
             systemType: "timeline",
           };
-          setMessages((prev) => {
-            const updated = [...prev, doneMsg];
-            saveHistory(updated, storageScope);
-            return updated;
-          });
-          scrollToBottom();
+          if (resetTokenRef.current === token) { // #929 Slice B1
+            setMessages((prev) => {
+              const updated = [...prev, doneMsg];
+              saveHistory(updated, storageScope);
+              return updated;
+            });
+            scrollToBottom();
+          }
         }
         setBusyReason(null);
         return;
@@ -925,6 +992,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           const fallbackMsg = "Course reference processed but no structured content was extracted — please continue with the conversation";
           const currentMsgs = messagesRef.current;
           const fallbackResult = await sendToAPI(fallbackMsg, [...currentMsgs, { id: uid(), role: "user" as const, content: fallbackMsg }]);
+          if (resetTokenRef.current !== token) return; // #929 Slice B1
           setBusyReason(null);
           if (fallbackResult && "data" in fallbackResult && fallbackResult.data.content) {
             const assistantMsg: Message = { id: uid(), role: "assistant", content: fallbackResult.data.content };
@@ -1232,6 +1300,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
         const hiddenMsg = "Teaching guide analyzed — here's what I found in your course reference";
         const currentMessages = messagesRef.current;
         const result = await sendToAPI(hiddenMsg, [...currentMessages, { id: uid(), role: "user" as const, content: hiddenMsg }], digestOverrides);
+        if (resetTokenRef.current !== token) return; // #929 Slice B1
         setBusyReason(null);
         if (result && "data" in result && result.data.content) {
           const assistantMsg: Message = { id: uid(), role: "assistant", content: result.data.content };
@@ -1255,6 +1324,7 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           scrollToBottom();
         }
       } catch {
+        if (resetTokenRef.current !== token) return; // #929 Slice B1
         setBusyReason(null);
         // Non-critical — show a status message so the chat isn't stuck after
         // "Give me a moment..." with no follow-up.

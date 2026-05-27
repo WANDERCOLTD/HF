@@ -119,7 +119,14 @@ There is **no `KNOWN_AUTO_DROP` set today**. The validator's behaviour is binary
 
 ## 5. `update_setup` → `create_course` → `mark_complete` lifecycle
 
-The data bag is in-memory until `create_course`. The three tool handlers form a strict sequence:
+The data bag is in-memory until `create_course`. The three tool handlers form a strict sequence (with `discard-draft` as step 0 when the educator hits Start Over mid-attempt):
+
+**`discard-draft` (server-side, soft cleanup — #929 Slice B2).** Step 0 in the lifecycle. Called fire-and-forget from `ConversationalWizard.handleStartOver` BEFORE `clearData()` wipes the bag. Endpoint: `POST /api/wizard/discard-draft` with `{ draftPlaybookId?, draftDomainId?, draftInstitutionId?, draftCallerId?, draftDemoCallerId? }`. Behaviour:
+- `draftPlaybookId` → if `status=DRAFT`, sets `config.wizardAbandonedAt = ISO timestamp` and suffixes the name `[abandoned <timestamp>]`. PUBLISHED/ARCHIVED rows are left untouched (defensive). `resolveCourseByName` filters out playbooks with `config.wizardAbandonedAt` so the next attempt cannot resume the abandoned draft via partial-name match.
+- `draftCallerId` / `draftDemoCallerId` → `archivedAt = NOW()` (soft delete).
+- `draftInstitutionId` / `draftDomainId` → **not** touched. These are permanent records and may be shared by other courses.
+- Defense-in-depth: non-SUPERADMIN callers can only discard drafts whose domain belongs to their `session.user.institutionId`.
+- Missing draft IDs (Start Over before `create_institution` ran) → 200 with `discarded: null`, no DB writes.
 
 **`update_setup` (server-side, no DB writes).** Validates field names via `validateSetupFields()` (`wizard-tool-executor.ts:194-223`). Auto-resolves entity references (institution → `existingDomainId`, course → `draftPlaybookId`) and injects them client-side via `autoInjectFields` (`:298-318`). Result: the chat's `setupData` bag accumulates the canonical fields listed in §3.
 
