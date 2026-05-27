@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, PhoneOff, FolderOpen, Mic, Settings, BarChart3, Layers } from 'lucide-react';
+import { ArrowLeft, PhoneOff, FolderOpen, Mic, Settings, TrendingUp, Layers } from 'lucide-react';
 import { EditableTitle } from '@/components/shared/EditableTitle';
 
 interface WhatsAppHeaderProps {
@@ -111,7 +111,7 @@ export function WhatsAppHeader({ title, subtitle, onBack, onEndCall, onMediaLibr
           title="Progress"
           style={{ color: progressPanelActive ? 'var(--wa-green-primary)' : undefined }}
         >
-          <BarChart3 size={20} />
+          <TrendingUp size={20} />
         </button>
       )}
       {onPickModule && (
