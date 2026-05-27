@@ -3182,6 +3182,12 @@ model ComposedPrompt {
   evalResult Json? // { overall, dimensions, topImprovements }
   evalAt     DateTime? // When the eval was last run
 
+  // #599 Slice 1 — AI-synthesized prior-call recap cache.
+  // Shape: { depth: "minimal" | "standard" | "rich"; text: string; cachedAt: string }
+  // One entry per ComposedPrompt row. On depth mismatch, overwritten by next synthesis.
+  // See lib/prompt/composition/loaders/synthesizePriorCallRecap.ts
+  recapSynthesisCache Json?
+
   // Timestamps
   composedAt DateTime  @default(now())
   expiresAt  DateTime? // Optional expiration

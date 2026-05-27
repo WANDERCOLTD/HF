@@ -1,5 +1,5 @@
 /**
- * priorCallFeedback loader (#492 Slice 3.5)
+ * priorCallFeedback loader (#492 Slice 3.5 + #599 Slice 1)
  *
  * When composing the prompt for the next call on a given module, pull a brief
  * "since your last attempt on this module" recap so the AI tutor can reference
@@ -11,16 +11,68 @@
  * Implementation notes:
  *   - Pure function — takes a prisma client + scope as args so it can be tested
  *     against a mock client and reused outside the composition path.
- *   - Single Call query + single CallScore query (no N+1).
- *   - Safe by default: any unexpected error returns `hasFeedback: false`. The
- *     SectionDataLoader wrapper additionally try/catches so composition is
- *     never broken by a feedback miss.
+ *   - Single Call query + single CallScore query (no N+1) for the templated
+ *     path. The synthesis path adds: optional Caller lookup, optional Call
+ *     transcript fetch, SystemSetting allowlist check, UsageEvent cap count,
+ *     ComposedPrompt cache read, AuditLog write — all behind feature gates.
+ *   - Safe by default: any unexpected error returns `hasFeedback: false`.
+ *     Synthesis failures degrade to the templated path (caught in the loader).
+ *
+ * **#599 Slice 1 — synthesis wrapping.** When `opts.playbookConfig?.priorCallRecap`
+ * opts in (and every gate passes), the loader replaces the templated summary
+ * with an AI-synthesized version. Gates fire in order:
+ *   1. `process.env.PRIOR_CALL_RECAP_SYNTHESIS_ENABLED === "true"` (kill switch)
+ *   2. `playbookConfig.priorCallRecap.enabled === true`
+ *   3. `SystemSetting prior_call_recap.allowlist` contains `playbookId`
+ *   4. `UsageEvent` count for today < `dailyCap`
+ *   5. Depth dispatch: `minimal` short-circuits to templated path (no AI call)
+ *   6. Cache read: existing `ComposedPrompt.recapSynthesisCache.depth` match → hit
+ *   7. Synthesize → audit log → return
+ *
+ * Cache writes happen at persist time — see `lib/prompt/composition/persist.ts`,
+ * which reads `synthesizedRecap` off the loader output and writes it to
+ * `ComposedPrompt.recapSynthesisCache`.
  *
  * @see SectionDataLoader.registerLoader("priorCallFeedback", ...)
  * @see transforms/priorCallFeedback.ts (renderPriorCallFeedback transform)
+ * @see loaders/synthesizePriorCallRecap.ts (synthesis function)
  */
 
 import type { PrismaClient } from "@prisma/client";
+import type { PlaybookConfig, PriorCallRecapDepth } from "@/lib/types/json-fields";
+import { synthesizePriorCallRecap, RICH_TRANSCRIPT_SLICE_LIMIT } from "./synthesizePriorCallRecap";
+
+/** Server-side ceiling on `priorCallRecap.dailyCap`. Anything larger is treated as this. */
+export const PRIOR_CALL_RECAP_DAILY_CAP_MAX = 500;
+
+/** Default per-playbook cap when `priorCallRecap.dailyCap` is absent. */
+export const PRIOR_CALL_RECAP_DAILY_CAP_DEFAULT = 50;
+
+/** SystemSetting key holding the JSON-encoded playbookId allowlist. */
+export const PRIOR_CALL_RECAP_ALLOWLIST_KEY = "prior_call_recap.allowlist";
+
+/** UsageEvent.sourceOp value emitted by the synthesis AI call. */
+export const PRIOR_CALL_RECAP_SOURCE_OP = "compose.prior-call-recap";
+
+/** AuditLog.action values written by the gate sequence. */
+export const PRIOR_CALL_RECAP_ACTIONS = {
+  synthesized: "prior-call-recap-synthesized",
+  allowlistEmpty: "prior-call-recap-allowlist-empty",
+  capExceeded: "prior-call-recap-cap-exceeded",
+} as const;
+
+export interface PriorCallRecapCacheEntry {
+  depth: PriorCallRecapDepth;
+  text: string;
+  cachedAt: string;
+}
+
+export interface SynthesizedRecapResult {
+  depth: PriorCallRecapDepth;
+  text: string;
+  cachedAt: string;
+  cachedHit: boolean;
+}
 
 export interface PriorCallFeedbackData {
   hasFeedback: boolean;
@@ -35,6 +87,13 @@ export interface PriorCallFeedbackData {
   overallScore: number | null;
   /** 1–2 sentence canned summary — friendly, with relative time */
   summary: string | null;
+  /**
+   * #599 Slice 1 — when the AI synthesis path ran (or returned a cache hit),
+   * the resolved depth + text. Null on the templated path (every gate-blocked
+   * scenario, plus `depth: "minimal"`). Persisted to
+   * `ComposedPrompt.recapSynthesisCache` by `persistComposedPrompt`.
+   */
+  synthesizedRecap?: SynthesizedRecapResult | null;
 }
 
 export interface LoadPriorCallFeedbackOptions {
@@ -45,6 +104,17 @@ export interface LoadPriorCallFeedbackOptions {
   currentCallId?: string | null;
   /** Override "now" for deterministic tests */
   now?: Date;
+  /**
+   * #599 Slice 1 — playbook being composed for. Required for the synthesis
+   * gate sequence (allowlist + daily cap + cache key). When absent, the
+   * loader runs the templated path only.
+   */
+  playbookId?: string | null;
+  /**
+   * #599 Slice 1 — playbook config feeding `priorCallRecap` gates. Pass
+   * `null` (or omit) to bypass synthesis entirely (templated path only).
+   */
+  playbookConfig?: PlaybookConfig | null;
 }
 
 const EMPTY: PriorCallFeedbackData = {
@@ -59,9 +129,13 @@ const EMPTY: PriorCallFeedbackData = {
 
 /**
  * Subset of PrismaClient used by this loader — narrows the surface so tests
- * can pass a minimal mock object.
+ * can pass a minimal mock object. #599 Slice 1 widens the surface to cover
+ * the synthesis gates.
  */
-type PrismaForLoader = Pick<PrismaClient, "call" | "callScore">;
+type PrismaForLoader = Pick<
+  PrismaClient,
+  "call" | "callScore" | "systemSetting" | "usageEvent" | "composedPrompt" | "auditLog" | "caller"
+>;
 
 /**
  * Load the prior-call feedback summary for a given caller + module.
@@ -179,7 +253,7 @@ export async function loadPriorCallFeedback(
     overallScore,
   });
 
-  return {
+  const templated: PriorCallFeedbackData = {
     hasFeedback: true,
     lastCallAt,
     lastCallId: priorCall.id,
@@ -188,6 +262,270 @@ export async function loadPriorCallFeedback(
     overallScore,
     summary,
   };
+
+  // #599 Slice 1 — opt-in AI synthesis path. Failures degrade silently to
+  // the templated path so a flaky AI call cannot break composition.
+  let synthesizedRecap: SynthesizedRecapResult | null = null;
+  try {
+    synthesizedRecap = await maybeSynthesizeRecap(prisma, opts, templated);
+  } catch (err) {
+    console.warn("[priorCallFeedback] synthesis failed — falling back to templated path:", err);
+  }
+
+  return { ...templated, synthesizedRecap };
+}
+
+// =============================================================
+// #599 Slice 1 — synthesis gate sequence
+// =============================================================
+
+/**
+ * Resolves the AI-synthesized recap when every gate passes. Returns null on
+ * any gate miss (templated path wins), null on `minimal` depth (no AI), and
+ * the full result on cache hit or synth success.
+ *
+ * Side-effects: writes UsageEvent (via the metering helper inside the
+ * synthesizer) and AuditLog rows (synth-success / allowlist-empty / cap-exceeded).
+ */
+async function maybeSynthesizeRecap(
+  prisma: PrismaForLoader,
+  opts: LoadPriorCallFeedbackOptions,
+  templated: PriorCallFeedbackData,
+): Promise<SynthesizedRecapResult | null> {
+  if (!templated.hasFeedback) return null;
+
+  // Gate 1 — kill switch (env var, strict string compare).
+  if (process.env.PRIOR_CALL_RECAP_SYNTHESIS_ENABLED !== "true") return null;
+
+  // Gate 2 — playbook config opt-in.
+  const recapCfg = opts.playbookConfig?.priorCallRecap;
+  if (!recapCfg?.enabled) return null;
+
+  const depth: PriorCallRecapDepth = recapCfg.depth ?? "minimal";
+  // `minimal` depth is documented as "no AI call". Short-circuit before
+  // running the allowlist / cap queries.
+  if (depth === "minimal") return null;
+
+  const playbookId = opts.playbookId ?? null;
+  if (!playbookId) return null;
+
+  // Gate 3 — allowlist. Absent row AND empty array both block (safe default).
+  const allowlistCheck = await checkAllowlist(prisma, playbookId);
+  if (!allowlistCheck.allowed) {
+    await maybeWriteOncePerDayAudit(
+      prisma,
+      PRIOR_CALL_RECAP_ACTIONS.allowlistEmpty,
+      playbookId,
+      { cause: allowlistCheck.cause, depth },
+      opts.now ?? new Date(),
+    );
+    return null;
+  }
+
+  // Gate 4 — daily cap. Use the same clamp the AI-surface handler uses.
+  const requestedCap = recapCfg.dailyCap ?? PRIOR_CALL_RECAP_DAILY_CAP_DEFAULT;
+  const cap = Math.min(Math.max(0, requestedCap), PRIOR_CALL_RECAP_DAILY_CAP_MAX);
+  const usedToday = await countSynthesisUsageToday(prisma, playbookId, opts.now ?? new Date());
+  if (usedToday >= cap) {
+    await prisma.auditLog.create({
+      data: {
+        action: PRIOR_CALL_RECAP_ACTIONS.capExceeded,
+        entityType: "Playbook",
+        entityId: playbookId,
+        metadata: { playbookId, dailyCap: cap, usedToday, depth },
+      },
+    });
+    return null;
+  }
+
+  // Gate 5 — cache read. Existing ComposedPrompt for this triggerCallId with
+  // a matching depth → reuse text (no AI call, no audit row).
+  if (opts.currentCallId) {
+    const cached = await readCachedRecap(prisma, {
+      callerId: opts.callerId,
+      triggerCallId: opts.currentCallId,
+      playbookId,
+      depth,
+    });
+    if (cached) {
+      return { ...cached, cachedHit: true };
+    }
+  }
+
+  // Gate 6 — synthesize.
+  const callerName = await fetchCallerFirstName(prisma, opts.callerId);
+  const transcript =
+    depth === "rich" && templated.lastCallId
+      ? await fetchTranscript(prisma, templated.lastCallId)
+      : null;
+
+  const result = await synthesizePriorCallRecap({
+    feedback: templated,
+    depth,
+    callerName,
+    transcript: transcript ? transcript.slice(0, RICH_TRANSCRIPT_SLICE_LIMIT) : null,
+    callId: opts.currentCallId ?? undefined,
+    callerId: opts.callerId,
+    playbookId,
+  });
+
+  // Audit log — every synthesis (cache-miss).
+  await prisma.auditLog.create({
+    data: {
+      action: PRIOR_CALL_RECAP_ACTIONS.synthesized,
+      entityType: "Call",
+      entityId: opts.currentCallId ?? "",
+      metadata: {
+        callId: opts.currentCallId ?? null,
+        depth,
+        playbookId,
+        cachedHit: false,
+        tokensUsed: result.tokensUsed,
+        latencyMs: result.latencyMs,
+        outputText: result.text,
+      },
+    },
+  });
+
+  return {
+    depth,
+    text: result.text,
+    cachedAt: (opts.now ?? new Date()).toISOString(),
+    cachedHit: false,
+  };
+}
+
+interface AllowlistResult {
+  allowed: boolean;
+  cause?: "row-absent" | "empty-array" | "not-in-list";
+}
+
+async function checkAllowlist(
+  prisma: PrismaForLoader,
+  playbookId: string,
+): Promise<AllowlistResult> {
+  const row = await prisma.systemSetting.findUnique({
+    where: { key: PRIOR_CALL_RECAP_ALLOWLIST_KEY },
+    select: { value: true },
+  });
+  if (!row) return { allowed: false, cause: "row-absent" };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(row.value);
+  } catch {
+    return { allowed: false, cause: "empty-array" };
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    return { allowed: false, cause: "empty-array" };
+  }
+  if (!parsed.includes(playbookId)) {
+    return { allowed: false, cause: "not-in-list" };
+  }
+  return { allowed: true };
+}
+
+async function countSynthesisUsageToday(
+  prisma: PrismaForLoader,
+  playbookId: string,
+  now: Date,
+): Promise<number> {
+  const startOfUtcDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const rows = await prisma.usageEvent.findMany({
+    where: {
+      sourceOp: PRIOR_CALL_RECAP_SOURCE_OP,
+      createdAt: { gte: startOfUtcDay },
+    },
+    select: { metadata: true },
+  });
+  return rows.filter((r) => {
+    const md = (r.metadata ?? {}) as Record<string, unknown>;
+    return md.playbookId === playbookId;
+  }).length;
+}
+
+interface CachedRecapKey {
+  callerId: string;
+  triggerCallId: string;
+  playbookId: string;
+  depth: PriorCallRecapDepth;
+}
+
+async function readCachedRecap(
+  prisma: PrismaForLoader,
+  key: CachedRecapKey,
+): Promise<PriorCallRecapCacheEntry | null> {
+  const row = await prisma.composedPrompt.findFirst({
+    where: {
+      callerId: key.callerId,
+      triggerCallId: key.triggerCallId,
+      playbookId: key.playbookId,
+    },
+    orderBy: { composedAt: "desc" },
+    select: { recapSynthesisCache: true },
+  });
+  if (!row?.recapSynthesisCache) return null;
+  const cache = row.recapSynthesisCache as unknown as PriorCallRecapCacheEntry;
+  if (
+    !cache ||
+    typeof cache !== "object" ||
+    cache.depth !== key.depth ||
+    typeof cache.text !== "string"
+  ) {
+    return null;
+  }
+  return cache;
+}
+
+async function maybeWriteOncePerDayAudit(
+  prisma: PrismaForLoader,
+  action: string,
+  playbookId: string,
+  metadata: Record<string, unknown>,
+  now: Date,
+): Promise<void> {
+  const startOfUtcDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const existing = await prisma.auditLog.findFirst({
+    where: {
+      action,
+      entityType: "Playbook",
+      entityId: playbookId,
+      createdAt: { gte: startOfUtcDay },
+    },
+    select: { id: true },
+  });
+  if (existing) return;
+  await prisma.auditLog.create({
+    data: {
+      action,
+      entityType: "Playbook",
+      entityId: playbookId,
+      metadata: { playbookId, ...metadata },
+    },
+  });
+}
+
+async function fetchCallerFirstName(
+  prisma: PrismaForLoader,
+  callerId: string,
+): Promise<string | null> {
+  const caller = await prisma.caller.findUnique({
+    where: { id: callerId },
+    select: { name: true },
+  });
+  if (!caller?.name) return null;
+  return caller.name.split(/\s+/)[0] ?? null;
+}
+
+async function fetchTranscript(
+  prisma: PrismaForLoader,
+  callId: string,
+): Promise<string | null> {
+  const call = await prisma.call.findUnique({
+    where: { id: callId },
+    select: { transcript: true },
+  });
+  return call?.transcript ?? null;
 }
 
 // =============================================================

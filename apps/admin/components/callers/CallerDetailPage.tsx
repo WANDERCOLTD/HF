@@ -1144,6 +1144,20 @@ export default function CallerDetailPage() {
                       ? selectedPlaybookId
                       : (data.publishedPlaybookId ?? null)
                   }
+                  // #911 — thread the friendly playbook name through so the
+                  // pending-changes tray reads `Course <name>` rather than
+                  // `Course <uuid-prefix>`. Resolve from enrollments where
+                  // both the playbookId and a name are co-located; for the
+                  // "all" selector we look up the published-playbook id in
+                  // the same enrollments list.
+                  playbookName={(() => {
+                    const targetId =
+                      selectedPlaybookId !== "all"
+                        ? selectedPlaybookId
+                        : (data.publishedPlaybookId ?? null);
+                    if (!targetId) return null;
+                    return enrollments.find((e) => e.playbookId === targetId)?.playbook.name ?? null;
+                  })()}
                   onApplied={(changes) => {
                     setAppliedChanges(changes.map((c) => ({
                       label: c.label,

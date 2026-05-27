@@ -325,6 +325,73 @@ const counters: CounterDefinition[] = [
     },
   },
 
+  /* #910 — authoring-side cascade-read bypass (epic #909)
+   *
+   * Components that fetch both /api/playbooks/[id]/targets AND
+   * /api/callers/[id]/behavior-targets (or .../effective-behavior-targets)
+   * and then merge the cascade layers in-component, without importing
+   * the canonical resolver in lib/tolerance/resolve-tolerance.ts (or the
+   * bulk wrapper getEffectiveBehaviorTargetsForCaller landing in #911).
+   *
+   * Static grep, not a DB query. Matches the chain-contracts Link 3a
+   * invariant and arch-checker Check F.
+   *
+   * Expected today (post-#910): 1 (PromptTunerSidebar.tsx — fixed by
+   * #911). Expected after #911 lands: 0.
+   *
+   * Soft contract: the symptom is "Tune sidebar shows stale course-level
+   * value after a learner-scope save because the in-component merge
+   * never re-ran". Caught empirically 2026-05-26.
+   */
+  {
+    key: "authoringBehTargetBypassCount",
+    story: "#910",
+    kind: "invariant",
+    target: 0,
+    description:
+      "Components under apps/admin/components/** that fetch both /api/playbooks/[id]/targets AND /api/callers/[id]/behavior-targets (or /effective-behavior-targets) WITHOUT importing from @/lib/tolerance/resolve-tolerance or @/lib/tolerance/getEffectiveBehaviorTargetsForCaller. Chain-contracts Link 3a — authoring-side cascade reads must go through the canonical resolver. Today: 1 (PromptTunerSidebar, fixed by #911). Target after #911: 0.",
+    query: async () => {
+      const componentsDir = path.resolve(__dirname, "..", "components");
+      if (!fs.existsSync(componentsDir)) return 0;
+
+      const PLAYBOOK_TARGETS_PATTERN = /\/api\/playbooks\/[^\s"'`]*\/targets/;
+      const CALLER_BEH_TARGETS_PATTERN =
+        /\/api\/callers\/[^\s"'`]*\/(behavior-targets|effective-behavior-targets)/;
+      const RESOLVER_IMPORT_PATTERNS = [
+        /from\s+["']@\/lib\/tolerance\/resolve-tolerance["']/,
+        /from\s+["']@\/lib\/tolerance\/getEffectiveBehaviorTargetsForCaller["']/,
+      ];
+
+      const walk = (dir: string): string[] => {
+        const out: string[] = [];
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            out.push(...walk(full));
+          } else if (
+            entry.isFile() &&
+            (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))
+          ) {
+            out.push(full);
+          }
+        }
+        return out;
+      };
+
+      let count = 0;
+      for (const file of walk(componentsDir)) {
+        const contents = fs.readFileSync(file, "utf8");
+        const hasPlaybookTargets = PLAYBOOK_TARGETS_PATTERN.test(contents);
+        const hasCallerBehTargets = CALLER_BEH_TARGETS_PATTERN.test(contents);
+        if (!hasPlaybookTargets || !hasCallerBehTargets) continue;
+        const importsResolver = RESOLVER_IMPORT_PATTERNS.some((p) => p.test(contents));
+        if (importsResolver) continue;
+        count++;
+      }
+      return count;
+    },
+  },
+
   /* #610 — hardcoded behavioural strings remaining in composition transforms */
   {
     key: "hardcodedRulesRemainingInTransforms",

@@ -33,6 +33,14 @@ export interface MeteringContext {
   entityLabel?: string;
   wizardName?: string;
   wizardStep?: string;
+  /**
+   * Extra key/value pairs merged into the `UsageEvent.metadata` JSON column
+   * when the auto-metering fires. Used by features that need to filter
+   * usage rows by a specific attribute (e.g. #599 daily cap query filters
+   * `metadata->>'playbookId'`). Cache-token keys, if present, are layered
+   * on top by the metering helper and take precedence on conflict.
+   */
+  extraMetadata?: Record<string, unknown>;
 }
 
 /**
@@ -58,12 +66,18 @@ export async function getMeteredAICompletion(
       callerId: context?.callerId,
       callId: context?.callId,
       sourceOp: context?.sourceOp,
-      metadata: result.usage.cacheReadTokens || result.usage.cacheCreationTokens
-        ? {
-            cacheReadTokens: result.usage.cacheReadTokens,
-            cacheCreationTokens: result.usage.cacheCreationTokens,
-          }
-        : undefined,
+      metadata:
+        context?.extraMetadata || result.usage.cacheReadTokens || result.usage.cacheCreationTokens
+          ? {
+              ...(context?.extraMetadata ?? {}),
+              ...(result.usage.cacheReadTokens || result.usage.cacheCreationTokens
+                ? {
+                    cacheReadTokens: result.usage.cacheReadTokens,
+                    cacheCreationTokens: result.usage.cacheCreationTokens,
+                  }
+                : {}),
+            }
+          : undefined,
     }).catch((error) => {
       console.error("[metering] Failed to log AI usage:", error);
     });

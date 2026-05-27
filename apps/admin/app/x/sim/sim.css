@@ -1697,6 +1697,33 @@
   color: var(--wa-text-secondary);
 }
 
+/* #917 Slice 2 — "Today's call" panel (above Journey). */
+.wa-progress-today-call {
+  gap: 6px;
+}
+.wa-progress-today-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.wa-progress-today-mode {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+  color: var(--accent-primary);
+}
+.wa-progress-today-countdown {
+  font-size: 12px;
+  color: var(--wa-text-secondary);
+}
+.wa-progress-today-reason {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--wa-text-secondary);
+}
+
 /* Journey bar */
 .wa-progress-journey {
   display: flex;

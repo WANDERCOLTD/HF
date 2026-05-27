@@ -310,6 +310,21 @@ export const DEFAULT_OFFBOARDING_CONFIG: OffboardingConfig = {
 export type WelcomeToggles = IntakeConfig;
 
 /**
+ * #599 Slice 1 — depth picker for the AI-synthesized prior-call recap.
+ *
+ * - `minimal` — no AI call; returns the existing templated summary from
+ *   `loadPriorCallFeedback` (the #492 Slice 3.5 path). Byte-identical to
+ *   today's output.
+ * - `standard` — 2–3 sentences: score + likely cause + re-entry suggestion.
+ *   No raw numeric scores in the output text.
+ * - `rich` — 3–4 sentences + one transcript-grounded observation. Sliced
+ *   from `call.transcript[0..6000]` to bound the AI input.
+ *
+ * See `lib/prompt/composition/loaders/synthesizePriorCallRecap.ts`.
+ */
+export type PriorCallRecapDepth = "minimal" | "standard" | "rich";
+
+/**
  * Tunable course-level configuration for a Playbook.
  *
  * **Tolerance placement contract:** every new field on this interface MUST be
@@ -510,6 +525,11 @@ export interface PlaybookConfig {
    * - `memoryDecayScale` — @bucket 1 only. 0.1–1.0 multiplier applied to
    *   `CATEGORY_DECAY_DEFAULTS` in `transforms/memories.ts::applyDecay`.
    *   Per-learner override intentionally NOT in scope (course-wide rhythm).
+   * - `carryForwardBoost` — @bucket 1 only. #918. Magnitude of the priority
+   *   bump given to TPs that were planned in the prior call but never
+   *   covered (learner hangup, time ran out, etc.). 0 disables the feature.
+   *   Default `0.5` in `selectWorkingSet`. Per-learner override NOT in scope —
+   *   carry-forward is a course-wide pacing decision.
    *
    * @see docs/decisions/2026-05-22-tolerance-placement.md
    */
@@ -517,6 +537,7 @@ export interface PlaybookConfig {
     masteryThreshold?: number;
     retrievalCadenceOverride?: number;
     memoryDecayScale?: number;
+    carryForwardBoost?: number;
   };
   /**
    * #598 Slice 1 — Additional first-call overrides. Companion to
@@ -534,6 +555,39 @@ export interface PlaybookConfig {
   firstCall?: {
     durationMinsOverride?: number;
     introducePedagogy?: boolean;
+  };
+  /**
+   * #599 Slice 1 — AI-synthesized prior-call recap (`priorCallFeedback` v2).
+   *
+   * @bucket 1 — Course parameter. No per-learner override (the recap is
+   * derived per-(caller,module) but the *depth choice* is course-wide; a
+   * per-learner depth would defeat predictable cost behaviour).
+   *
+   * - `enabled` — required when the field is present. Defaults to `false`
+   *   when the whole key is absent. When false, loader returns the
+   *   templated minimal path (#492 Slice 3.5 behaviour) — no AI call.
+   * - `depth` — picker for synthesis depth. See {@link PriorCallRecapDepth}.
+   *   When absent on `enabled: true`, defaults to `"minimal"` (still no
+   *   AI call — explicit opt-in to standard/rich required).
+   * - `dailyCap` — per-playbook per-UTC-day cap on synthesis calls. Default
+   *   50. Server-side clamp at 500 (see `update_playbook_config` handler).
+   *   When the cap is hit, the loader falls back to the templated path and
+   *   writes an `AuditLog` row `action: "prior-call-recap-cap-exceeded"`.
+   *
+   * **Allowlist authority lives in `SystemSetting`**, NOT on this config.
+   * The allowlist is admin-only (no AI tool writes it) — see
+   * `lib/chat/ai-forbidden-fields.ts` for the structural guard.
+   *
+   * **Kill switch** is `process.env.PRIOR_CALL_RECAP_SYNTHESIS_ENABLED`
+   * (strict `=== "true"`). Absent or any other value → templated path.
+   *
+   * @see docs/decisions/2026-05-22-tolerance-placement.md
+   * @see lib/prompt/composition/loaders/synthesizePriorCallRecap.ts
+   */
+  priorCallRecap?: {
+    enabled: boolean;
+    depth?: PriorCallRecapDepth;
+    dailyCap?: number;
   };
   /**
    * #494 E2 Slice 2.3 — when the picker should hard-lock terminal modules with

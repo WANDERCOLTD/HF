@@ -147,6 +147,18 @@ export interface PriorCallFeedbackData {
   weakestParameterScore: number | null;
   overallScore: number | null;
   summary: string | null;
+  /**
+   * #599 Slice 1 — when the AI synthesis path produced (or cache-hit) a
+   * recap, the resolved depth + text. Null on every gate-blocked /
+   * templated-path scenario. `persistComposedPrompt` reads this and writes
+   * it to `ComposedPrompt.recapSynthesisCache`.
+   */
+  synthesizedRecap?: {
+    depth: "minimal" | "standard" | "rich";
+    text: string;
+    cachedAt: string;
+    cachedHit: boolean;
+  } | null;
 }
 
 /** Mock diagnostic module ref (#492 Slice 3.6) */

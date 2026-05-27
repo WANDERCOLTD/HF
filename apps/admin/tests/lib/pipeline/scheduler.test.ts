@@ -10,6 +10,7 @@ import {
   ALL_PRESETS,
   getPresetForPlaybook,
 } from "@/lib/pipeline/scheduler-presets";
+import { SCHEDULER_REASONS, SCHEDULER_MODE_REASONS } from "@/lib/pipeline/scheduler-reasons";
 import type { WorkingSetInput } from "@/lib/curriculum/working-set-selector";
 
 function makeAssertion(id: string, loId: string, order = 0) {
@@ -157,14 +158,16 @@ describe("selectNextExchange — fallbacks", () => {
     expect(decision.mode).toBe("teach");
     expect(decision.outcomeId).toBeNull();
     expect(decision.workingSetAssertionIds).toEqual([]);
-    expect(decision.reason).toMatch(/empty working set/);
+    // #923 — empty-set fallback emits learner-facing copy, not dev jargon.
+    expect(decision.reason).toBe(SCHEDULER_REASONS.emptyWorkingSetFallback);
   });
 
-  it("emits a reason trace on every decision", () => {
+  it("emits learner-facing reason copy keyed by mode (#923)", () => {
     const { decision } = selectNextExchange(makeState(), BALANCED);
-    expect(decision.reason).toMatch(/scheduler:balanced/);
-    expect(decision.reason).toMatch(/mode=/);
-    expect(decision.reason).toMatch(/outcome=/);
+    // The reason must be the learner-facing string for the chosen mode —
+    // not a debugger-style log line. Regression guard for #923.
+    expect(decision.reason).toBe(SCHEDULER_MODE_REASONS[decision.mode]);
+    expect(decision.reason).not.toMatch(/^[a-z][a-z_-]*:\s/);
   });
 
   it("contentSourceId is null in v1", () => {

@@ -4,7 +4,7 @@
 
 This mirrors what the AI sees at every chat turn across all three AI surfaces. "Live" tools execute real handlers. "Roadmap stubs" return a friendly refusal that points the user at the UI surface to use today.
 
-> Last generated: 2026-05-26T09:54:18.456Z
+> Last generated: 2026-05-26T16:25:17.737Z
 > Surfaces: 3
 > Total tools: 48 (42 live, 6 roadmap stubs)
 
@@ -47,7 +47,7 @@ Source: `apps/admin/lib/chat/admin-tools.ts`
 | `system_ini_check` | SUPERADMIN | — | — | Run a full system initialization check. |
 | `update_assertion_lo_link` | OPERATOR | `assertion_id`, `reason` | `learning_objective_id` | Link (or clear) the LearningObjective FK on a ContentAssertion. |
 | `update_behavior_target` | OPERATOR | `scope`, `parameter_id`, `target_value`, `reason` | `playbook_id`, `caller_id` | Set a behaviour target at one of two scopes: LEARNER (only this caller) or PLAYBOOK (every learner on the course). |
-| `update_caller` | OPERATOR | `caller_id`, `reason` | `name`, `email`, `phone`, `externalId`, `role`, `domainId`, `cohortGroupId`, `archive` | Update a caller's profile fields by merging values. |
+| `update_caller` | OPERATOR | `caller_id`, `reason` | `name`, `email`, `phone`, `externalId`, `cohortGroupId`, `archive` | Update a caller's profile fields by merging values. |
 | `update_curriculum_metadata` | OPERATOR | `curriculum_id`, `reason` | `name`, `description`, `sourceTitle`, `sourceYear`, `authors` | Update Curriculum top-level metadata (NOT modules/LOs/assertions — use the dedicated tools for those, or lesson-plan editing via UI). |
 | `update_curriculum_module` | OPERATOR | `module_id`, `reason` | `title`, `description`, `sortOrder`, `estimatedDurationMinutes`, `masteryThreshold`, `prerequisites`, `keyTerms`, `assessmentCriteria`, `isActive` | Update an existing CurriculumModule's editable fields. |
 | `update_domain` | OPERATOR | `domain_id`, `reason` | `name`, `slug`, `description`, `isActive`, `config_updates`, `onboardingFlowPhases`, `onboardingDefaultTargets`, `onboardingWelcome`, `onboardingIdentitySpecId` | Update a domain's (institution's) fields. |
@@ -60,7 +60,7 @@ Source: `apps/admin/lib/chat/admin-tools.ts`
 
 | Tool | Min role | Required | Optional | Summary |
 |------|----------|----------|----------|---------|
-| `add_curriculum_module` | OPERATOR | `curriculum_id`, `title`, `reason` | `description`, `sortOrder`, `slug` | add a single new CurriculumModule (without rebuilding the whole curriculum). |
+| `add_curriculum_module` | OPERATOR | `curriculum_id`, `title`, `reason` | `description`, `sortOrder` | add a single new CurriculumModule (without rebuilding the whole curriculum). |
 | `create_goal` | OPERATOR | `caller_id`, `name`, `type`, `reason` | `priority`, `isAssessmentTarget` | directly add a single Goal for a caller (type, name, priority, isAssessmentTarget). |
 | `list_caller_memories` | OPERATOR | `caller_id` | `category` | list a caller's CallerMemory rows by category (personality, preferences, key_facts, behaviour_pattern). |
 | `rename_subject` | OPERATOR | `subject_id`, `reason` | `name`, `description`, `defaultTrustLevel`, `teachingProfile` | rename a Subject (name, description, defaultTrustLevel, teachingProfile). |

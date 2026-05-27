@@ -1,0 +1,165 @@
+description: "Prior-Call Recap v2 — AI-synthesized depth picker (#599 Slice 1)"
+
+# Mirrors the system prompt in
+# `apps/admin/lib/prompt/composition/loaders/synthesizePriorCallRecap.ts`.
+# Validates that:
+#   - `standard` produces 2-3 sentences, no raw numeric scores, encouraging
+#   - `rich` produces 3-4 sentences and references the transcript moment
+#   - `minimal` fallback is byte-equivalent to the templated baseline (no AI)
+#   - Daily-cap fallback returns the templated baseline verbatim
+
+prompts:
+  - id: recap-standard
+    label: "Standard depth — 2-3 sentence diagnosis + re-entry angle"
+    raw: |
+      You are a coaching consultant briefing a 1:1 tutor on a returning learner.
+      Your job is to write a brief, encouraging diagnosis of the learner's last attempt that the tutor will read just before greeting the learner.
+      Speak about the learner in the third person. Be specific, kind, and forward-looking.
+
+      Hard rules:
+      - Do NOT include raw numeric scores or fractions (e.g. '5.2/9', '0.4'). Translate to qualitative language.
+      - Do NOT congratulate or commiserate excessively. One light affective beat at most.
+      - Do NOT speculate about the learner's emotions beyond what the evidence supports.
+      - Output plain prose. No bullets, no headers, no markdown.
+      - Produce 2 to 3 sentences. Cover: what they struggled with, the likely cause in plain language, and one concrete re-entry angle the tutor can use.
+
+      Learner: {{callerName}}
+      Weakest area on last attempt: {{weakestArea}}
+      Last attempt at: {{lastCallAt}}
+      Templated baseline summary: {{templatedSummary}}
+
+  - id: recap-rich
+    label: "Rich depth — 3-4 sentences + transcript observation"
+    raw: |
+      You are a coaching consultant briefing a 1:1 tutor on a returning learner.
+      Your job is to write a brief, encouraging diagnosis of the learner's last attempt that the tutor will read just before greeting the learner.
+      Speak about the learner in the third person. Be specific, kind, and forward-looking.
+
+      Hard rules:
+      - Do NOT include raw numeric scores or fractions (e.g. '5.2/9', '0.4'). Translate to qualitative language.
+      - Do NOT congratulate or commiserate excessively. One light affective beat at most.
+      - Do NOT speculate about the learner's emotions beyond what the evidence supports.
+      - Output plain prose. No bullets, no headers, no markdown.
+      - Produce 3 to 4 sentences. Cover: what they struggled with, the likely cause, one transcript-grounded observation (cite the moment without quoting at length), and one concrete re-entry angle.
+
+      Learner: {{callerName}}
+      Weakest area on last attempt: {{weakestArea}}
+      Last attempt at: {{lastCallAt}}
+      Templated baseline summary: {{templatedSummary}}
+
+      Transcript excerpt (most recent first ~6000 chars):
+      {{transcript}}
+
+providers:
+  - id: anthropic:messages:claude-haiku-4-5-20251001
+    config:
+      max_tokens: 600
+      temperature: 0.4
+
+tests:
+  # ── Fixture 1: Standard IELTS fluency struggle ───────────────────────────
+  - description: "Standard — IELTS fluency miss with templated baseline"
+    prompts: [recap-standard]
+    vars:
+      callerName: "Aria"
+      weakestArea: "Fluency"
+      lastCallAt: "2026-05-25T09:00:00Z"
+      templatedSummary: "On your last attempt yesterday, your weakest area was Fluency."
+    assert:
+      - type: javascript
+        value: |
+          const text = String(output).trim();
+          // 2-3 sentences. Counted by terminal punctuation.
+          const sentences = (text.match(/[.!?](?:\s|$)/g) || []).length;
+          if (sentences < 2 || sentences > 3) {
+            return { pass: false, score: 0, reason: `Expected 2-3 sentences, got ${sentences}: ${text}` };
+          }
+          // No raw numeric scores like 5.2/9 or 0.4
+          if (/\d+\.\d+/.test(text)) {
+            return { pass: false, score: 0, reason: `Raw numeric score detected: ${text}` };
+          }
+          return true;
+      - type: llm-rubric
+        value: "Names fluency as the area to focus on, suggests a likely cause in plain language, and offers one concrete re-entry angle for the tutor (e.g. start with a low-stakes warmup). Encouraging tone, not punitive."
+
+  # ── Fixture 2: Rich vocab miss with transcript ───────────────────────────
+  - description: "Rich — vocabulary miss with transcript-grounded observation"
+    prompts: [recap-rich]
+    vars:
+      callerName: "Bryn"
+      weakestArea: "Vocabulary"
+      lastCallAt: "2026-05-24T14:00:00Z"
+      templatedSummary: "On your last attempt 2 days ago, your weakest area was Vocabulary."
+      transcript: |
+        Tutor: Tell me about a memorable journey.
+        Learner: I went to Cornwall. It was nice. We had a... a... I can't remember the word. The big rocks by the sea?
+        Tutor: Cliffs?
+        Learner: Yes, cliffs. The cliffs were big. And the sea was blue.
+        Tutor: What made the trip memorable?
+        Learner: I don't know how to say it. It was a feeling. Quiet but happy.
+        Tutor: Serene? Peaceful?
+        Learner: Peaceful. Yes. The day was peaceful.
+    assert:
+      - type: javascript
+        value: |
+          const text = String(output).trim();
+          // 3-4 sentences. (Allow up to 5 — generation variance.)
+          const sentences = (text.match(/[.!?](?:\s|$)/g) || []).length;
+          if (sentences < 3 || sentences > 5) {
+            return { pass: false, score: 0, reason: `Expected 3-5 sentences, got ${sentences}: ${text}` };
+          }
+          if (/\d+\.\d+/.test(text)) {
+            return { pass: false, score: 0, reason: `Raw numeric score detected: ${text}` };
+          }
+          return true;
+      - type: llm-rubric
+        value: "References a concrete moment from the transcript (e.g. struggling to recall 'cliffs' or 'peaceful'), names a likely cause (word retrieval / range), and offers a re-entry angle that uses the moment as a bridge. Names Bryn or 'the learner' consistently."
+
+  # ── Fixture 3: Minimal fallback — templated baseline only (no AI call) ───
+  - description: "Minimal fallback — templated baseline returned verbatim, no AI"
+    prompts: [recap-standard]
+    vars:
+      callerName: "Tess"
+      weakestArea: "(none — no scores yet)"
+      lastCallAt: "2026-05-26T08:00:00Z"
+      templatedSummary: "On your last attempt earlier today we didn't have clear score signals to learn from — let's pick up where we left off."
+    assert:
+      # The synthesizer's `minimal` depth short-circuits to the templated path
+      # without calling the model. This fixture is here to lock in the
+      # *expectation* that the runtime never invokes synthesis at minimal —
+      # the model output (if the eval ran anyway) should still NOT introduce
+      # raw scores or contradict the templated baseline.
+      - type: javascript
+        value: |
+          const text = String(output).trim();
+          if (/\d+\.\d+/.test(text)) {
+            return { pass: false, score: 0, reason: `Numeric score introduced in minimal fallback: ${text}` };
+          }
+          return true;
+      - type: llm-rubric
+        value: "Either echoes the templated baseline or produces something gently encouraging that does NOT invent a weakness when none is in the evidence."
+
+  # ── Fixture 4: Daily-cap fallback — templated output ─────────────────────
+  - description: "Daily-cap fallback — would return templated baseline at runtime"
+    prompts: [recap-standard]
+    vars:
+      callerName: "Otto"
+      weakestArea: "Grammar"
+      lastCallAt: "2026-05-24T11:00:00Z"
+      templatedSummary: "On your last attempt 2 days ago, your weakest area was Grammar."
+    assert:
+      # When the per-playbook daily cap is hit at runtime, the loader falls
+      # back to the templated baseline — no AI call fires. This fixture
+      # exercises the *content* the templated baseline would produce so
+      # changes to the template surface in the eval rather than at compose-
+      # time. (The fall-back behaviour itself is covered by the vitest
+      # gate tests in `prior-call-feedback-synthesis.test.ts`.)
+      - type: javascript
+        value: |
+          const text = String(output).trim();
+          if (/\d+\.\d+/.test(text)) {
+            return { pass: false, score: 0, reason: `Raw numeric score in cap-fallback path: ${text}` };
+          }
+          return true;
+      - type: llm-rubric
+        value: "Names grammar as the area to focus on without inventing numbers; offers an actionable re-entry angle the tutor could use."

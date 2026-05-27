@@ -123,6 +123,20 @@ Format per link:
 | **Reinforced by** | #819 (initial fan-out attempt, superseded); #825 (foundation: schema + staleness check + autoComposeForCaller + compose-prompt wire-in); #826 (Playbook.config helper pivot); #827 (8 Playbook.config writers); #828 (Domain); #829 (AnalysisSpec); #830 (BehaviorTarget + CallerTarget + Caller identity); #831 (StalePromptPill UI); #834 (curriculum / LO / assertion writers). |
 | **FK invariant — `BehaviorTarget(scope=CALLER)`** | `BehaviorTarget.callerIdentityId` references **`CallerIdentity.id`**, NOT `Caller.id`. (`prisma/schema.prisma:549` aliases this column via `@map("callerId")` — the original tripwire. See `docs/ENTITIES.md` invariant I10.) Resolvers and writers operating on per-learner BehaviorTarget rows MUST fan out via `prisma.caller.findUnique({ select: { callerIdentities } })` (or the dedicated helper `lib/agent-tuner/write-target.ts::resolveCallerIdentityIds`) and query with `callerIdentityId: { in: identityIds }`. Multi-identity tie-break is **MAX `targetValue`** so a higher per-identity override is never silently undercut. Canonical readers: `lib/tolerance/resolve-tolerance.ts::readCallerBehaviorTargetValue`. Canonical writer: `lib/agent-tuner/write-target.ts::writeCallerBehaviorTarget`. Caught by empirical repro (#836) — pre-fix, layer 1 of the mastery cascade was dead in prod. |
 
+#### Link 3a — Authoring-side read parity for cascaded values
+
+**Sister contract to Link 3's FK invariant: the runtime resolver is canonical; the authoring UI must read through it too.**
+
+| Field | Value |
+|---|---|
+| **Producer** | The cascade layers themselves: `BehaviorTarget(scope=PLAYBOOK)` + `Playbook.config` (Bucket 1, course-level), `BehaviorTarget(scope=CALLER)` + `CallerAttribute(scope=TOLERANCE)` (Bucket 3, per-learner). Written by `lib/agent-tuner/write-target.ts`, `lib/playbook/update-playbook-config.ts`, etc. |
+| **Consumer** | Any UI surface that *displays* a scope-cascaded value for a SYSTEM→PLAYBOOK→CALLER pipeline parameter. Today: `apps/admin/components/callers/caller-detail/PromptTunerSidebar.tsx` (#911 target). |
+| **Invariant** | Authoring surfaces MUST read via the canonical resolver in `lib/tolerance/resolve-tolerance.ts` (or a thin bulk wrapper composed against the same primitives — `lib/tolerance/getEffectiveBehaviorTargetsForCaller`, landing in #911). Ad-hoc two-endpoint fetches that merge cascade layers in-component are forbidden. The runtime adaptive loop already reads through `resolve-tolerance.ts`; the authoring UI deviating means the educator can see a stale value while the loop reads the correct one. |
+| **Enforcement** | (1) `apps/admin/scripts/audit-epic-100.ts` counter `authoringBehTargetBypassCount` — static grep over `apps/admin/components/**/*.{ts,tsx}` for files containing BOTH `/api/playbooks/[id]/targets` AND `/api/callers/[id]/behavior-targets` (or `/effective-behavior-targets`) patterns AND not importing from `@/lib/tolerance/resolve-tolerance` or `@/lib/tolerance/getEffectiveBehaviorTargetsForCaller`. Today: 1 (Tune sidebar). After #911 lands: 0. (2) `.claude/agents/arch-checker.md` Check F — same condition surfaced at review time. Soft warning until #911 fixes the existing violation; promote to error once counter reads 0. |
+| **Test** | `tests/scripts/audit-epic-100-authoring-bypass.test.ts` (smoke test confirming the counter surfaces a numeric value and respects the import-allowlist) — landing with the counter in this PR. Resolver-parity vitest lands with #911. |
+| **Memory doc** | This row; `docs/decisions/2026-05-22-tolerance-placement.md` (cascade resolution order — Section 'Cascade resolution order'); `docs/decisions/2026-05-26-tray-model-a-semantics.md` (sibling Model A ADR — surfaced in same debugging session). |
+| **Reinforced by** | Empirical 2026-05-26 — `PromptTunerSidebar.tsx:940` rendered `p.effectiveValue` from `/api/playbooks/[id]/targets` and ignored the separately-fetched `learnerOverrides`. After a learner-scope save the sidebar continued to show the course-level value because the in-component merge never re-ran. Epic #909, PR 1 (#910) lands the contract + audit + arch-checker rule; PR 2 (#911) fixes the violation; PR 3 (#912) renames the tray labels under the sibling ADR. |
+
 #### Link 3 sub-contract — AI write paths (registry + capability inventory)
 
 **Every AI surface that can mutate compose-affecting state MUST declare its tools in a registry; the human-readable index is auto-derived and CI-gated.**
@@ -188,6 +202,20 @@ Format per link:
 | **Audit counter** | `dualLoMasteryKeysSameLO` (informational), `callerAttributeOldKeyFormCount` (target 0 after #614). |
 | **Reinforced by** | #614 + reader-tightening follow-on (post-drain). |
 
+#### Link 6.a — COMPOSE → COMPOSE (carry-forward, #918)
+
+| Field | Value |
+|---|---|
+| **Producer** | COMPOSE writes `SchedulerDecision.workingSetAssertionIds` to `CallerAttribute(scope=CURRICULUM, key="scheduler:last_decision")` via `persistSchedulerDecision` (Scheduler v1 Slice 1, #155). |
+| **Consumer** | Next COMPOSE call's `transforms/modules.ts` — reads `priorDecision.workingSetAssertionIds`, diffs against `tpProgress` to compute `priorPlannedAssertionIds` (TPs the prior call planned but never moved past `not_started`), passes into `selectWorkingSet` as `WorkingSetInput.priorPlannedAssertionIds`. **This is the first bi-directional contract on the loop closure link** — same producer + consumer stage. |
+| **Data shape** | `SchedulerDecision.workingSetAssertionIds: string[]` (assertion IDs only, no LO refs); diff result is a subset. |
+| **DataContract slug** | None — uses the existing `scheduler:last_decision` CallerAttribute payload. |
+| **Enforcement** | `tpProgress` filter at the diff site uses `status === undefined \|\| status === "not_started"` (conservative — any progress signal counts as "covered"). Picker-locked path at `modules.ts:929+` deliberately writes `workingSetAssertionIds: []`, suppressing carry-forward for educator/learner-driven sessions. |
+| **Test** | `tests/lib/working-set-selector.test.ts` `#918 carry-forward` describe block — 8 cases incl. picker-locked-suppression + first-call-no-crash + boost-off-regression. |
+| **Memory doc** | `docs/PIPELINE.md` §4.2 COMPOSE; `lib/curriculum/working-set-selector.ts::WorkingSetInput` JSDoc. |
+| **Audit counter** | None added — `effectiveBoost > 0 && priorPlannedAssertionIds.length > 0` fires a structured `console.log` from `modules.ts` instead. Add a counter to `scripts/audit-epic-100.ts` only if the loop produces miscount evidence in production. |
+| **Reinforced by** | #918. Tolerance entry at `Playbook.config.tolerances.carryForwardBoost` follows the #598 Slice 1 ADR placement (`@bucket 1 — Course parameter`, no per-learner override). |
+
 ---
 
 ## 3a. Authoring-time contracts
@@ -217,6 +245,38 @@ The links above cover the runtime adaptive loop (CALL → … → COMPOSE). The 
 | **Test** | `tests/hooks/use-pending-changes-tray.test.tsx` — reducer invariants (stickiness, frozen beforeValue). `tests/api/recompose-apply.test.ts` — server-side `aiSuggested + toggleAll` rejection + audit shape. ESLint rule self-tests at lint time. |
 | **Memory doc** | `.claude/rules/ai-to-db-guard.md` ("Pending-changes tray + apply route" guard row, added 2026-05-26). |
 | **Reinforced by** | Epic #854 / Stories #856 / #857 / #874 / #877 / #878. Safety property: **no AI surface, anywhere, can trigger a cohort fan-out** — only an explicit human Toggle 2 click on a batch with zero `aiSuggested:true` entries can. |
+
+### Link A2-extension — Tray label honesty (Model A semantics)
+
+| Field | Value |
+|---|---|
+| **Producer** | Tray push sites (same as Link A2 producer). Every push has *already written to the DB* by the time the entry appears — Model A semantics (see ADR `2026-05-26-tray-model-a-semantics.md`). |
+| **Consumer** | The educator reading the tray + the human-readable button labels on `PendingChangesTray.tsx`. |
+| **Invariant** | Tray entry CTAs must not promise rollback (`"Discard all"`) or imply that writes happen at apply time (`"Save & apply"`). Underlying writes are immediate at push time — `hooks/use-pending-changes-tray.tsx:264-266` `clear()` is `setEntries([])`, no DB call. Per-row dismiss clears visualisation only. Recompose-trigger buttons must say what they do (e.g. `"Recompose now"` or split CTAs `"Recompose this learner"` / `"Recompose cohort"`). |
+| **Enforcement** | Code review against ADR `2026-05-26-tray-model-a-semantics.md` for any PR touching `PendingChangesTray.tsx` / `use-pending-changes-tray.tsx`. No audit counter — label honesty is verified at review time. The structural invariants under it (sticky `aiSuggested`, runtime `aiSuggested + toggleAll` rejection, ESLint `hf-recompose/no-ai-fanout-all`) are covered by Link A2 above. |
+| **Test** | Snapshot test on the rendered tray button labels lands with the rename in #912. |
+| **Memory doc** | `docs/decisions/2026-05-26-tray-model-a-semantics.md` (the ADR); `.claude/rules/ai-to-db-guard.md` Pending-changes tray guard row (existing, references this contract). |
+| **Reinforced by** | Empirical 2026-05-26 — `"Save & apply"` and `"Discard all"` were UX contract violations under Model A. Epic #909 PR 1 (#910) documents the contract; PR 3 (#912) does the rename. |
+
+---
+
+## 3c. Learner-surfacing contracts
+
+The links above cover pipeline-internal (3) and authoring-time (3a) boundaries. The contracts below cover **learner-facing read-outs** — when pipeline-written state is surfaced via a student-scoped API to the SimProgressPanel or other learner UI. Same shape (producer → consumer, enforced, tested, doc-linked), different audience: a human learner reads the result, so the contract has copy/sanitization requirements that pipeline-internal boundaries don't.
+
+### Link L1 — SCHEDULER → LEARNER (Today's call panel)
+
+| Field | Value |
+|---|---|
+| **Producer** | `lib/pipeline/scheduler.ts` + `lib/prompt/composition/transforms/modules.ts` (3 write sites total — empty-set fallback, happy-path, picker-locked from #538). All go through `persistSchedulerDecision()` → `CallerAttribute` (key `scheduler:last_decision`, scope `CURRICULUM`). |
+| **Consumer** | `GET /api/student/scheduler-decision` (uses `readSchedulerDecision()` helper) → `useSchedulerDecision` hook → `SimProgressPanel` "Today's call" section. |
+| **Data shape** | `reason` must be a complete learner-facing sentence; no log prefix (`/^[a-z][a-z_-]*:\s/` forbidden); no internal counts in parens; no internal jargon (`fallback`, `gate`, `working set`, `weight`); ≤100 chars at write-time (sanitizer caps at 137). Internal fields (`outcomeId`, `contentSourceId`, `workingSetAssertionIds`) MUST never reach the learner — stripped at the route boundary. |
+| **DataContract slug** | implicit — copy contract enforced via `SCHEDULER_REASONS` constants module (`lib/pipeline/scheduler-reasons.ts`) + regression test, not via a `DataContract` row. (Candidate for `SCHEDULER_DECISION_V1` if a third writer appears.) |
+| **Enforcement** | Five layers: (1) **Writer-side copy constants** — all reason strings come from `SCHEDULER_REASONS` (no inline literals). (2) **Build-time regression** — `tests/lib/pipeline/scheduler-reasons.test.ts` greps source files for `reason: '<lowercase-prefix>:'` patterns and fails CI. (3) **Route-side sanitizer** — `lib/scheduler/sanitize-reason.ts` strips HTML tags / UUIDs / spec slugs / collapses whitespace / truncates at word boundary / returns `null` below 20-char threshold. (4) **Route-side strict shape** — internal fields stripped, response schema is `{ mode, reason, callsSinceAssess, writtenAt }` only. (5) **Defensive guards** — multi-curriculum (`>1 active CallerPlaybook` → null; until #919 fixes the writer key shape) + stale (`writtenAt < lastCall.endedAt` → null). |
+| **Test** | `tests/lib/pipeline/scheduler-reasons.test.ts` (writer copy contract). `tests/lib/scheduler/sanitize-reason.test.ts` (route sanitizer, 9 cases). `tests/lib/scheduler/mode-labels.test.ts` (4 modes). `tests/api/student-scheduler-decision.test.ts` (route end-to-end: auth, cold-start, multi-curriculum, stale, internal-field strip, sub-threshold reason). |
+| **Memory doc** | `.claude/rules/ai-to-db-guard.md` (consider adding row — AI-written `reason` field is now a learner-facing surface). JSDoc on `SCHEDULER_REASONS` + the API route. |
+| **Known gap** | **#919** — `CallerAttribute` unique constraint `(callerId, key, scope)` has no curriculumId; a learner in 2+ active playbooks races to overwrite a single row. Defended at read-time (multi-curriculum guard) until writer-side fix lands. |
+| **Reinforced by** | #917 / PR #920 (Slice 2 panel + sanitizer + guards) + #923 / PR #924 (writer copy constants + regression test). 2026-05-27. |
 
 ---
 
@@ -261,6 +321,8 @@ If a chain row above references "DataContract slug: implicit" and the contract i
 | #671 | #608-A | 3 | `AnalysisSpec.isArchetype` schema field + loader filter |
 | #672 | #616 | (this doc) | Single inventory of chain contracts |
 | TBD  | #819 | 3 (sub-contract) | PUT /api/courses/[id]/design fans out recompose-all when COMPOSE-affecting namespaces change — closes the stale-prompt-after-tuner-save gap |
+| #920 | #917 | 3c | New learner-facing API + SimProgressPanel "Today's call" section; sanitizer + multi-curriculum + stale guards |
+| #924 | #923 | 3c | Scheduler reason copy constants module + regression test against log-prefixed reasons |
 
 ---
 
@@ -289,7 +351,10 @@ If a chain row above references "DataContract slug: implicit" and the contract i
 
 | Date | Change |
 |---|---|
+| 2026-05-27 | **Section 3c added — learner-surfacing contracts. Link L1: scheduler → learner (PRs #920 (#917 Slice 2) + #924 (#923 writer copy)).** First pipeline→learner contract boundary: scheduler `reason` field, written to `CallerAttribute` during COMPOSE, exposed via `GET /api/student/scheduler-decision` and rendered in SimProgressPanel. Five-layer enforcement (writer copy constants + build-time regression + route sanitizer + strict response shape + multi-curriculum/stale guards). Known gap #919 (multi-curriculum writer key shape) documented at read-time guard, pending writer-side fix. |
 | 2026-05-23 | Initial canonical inventory created post-Epic 100 (#616). Captures the 6 chain links + active DataContract slugs + the 13 Epic 100 PRs that reinforced them. |
+| 2026-05-26 | **Link 3a added — authoring-side read parity (#910 / epic #909).** Sister contract to Link 3 FK invariant. Any UI surface displaying a scope-cascaded value must read through `lib/tolerance/resolve-tolerance.ts` (or the bulk wrapper landing in #911). Ad-hoc two-endpoint cascade-merge in components is forbidden. New audit counter `authoringBehTargetBypassCount` (CI step 6) — today 1 (`PromptTunerSidebar.tsx`, fixed by #911); target 0. Arch-checker Check F enforces at review time (soft warning, promoted to error once #911 lands). Caught empirically 2026-05-26 — sidebar showed course-level value after a learner-scope save because the in-component merge ignored the separately-fetched learner overrides. |
+| 2026-05-26 | **Link A2-extension added — tray label honesty (#910 / epic #909).** Tray operates under Model A — writes immediate at push time, tray is a visualisation + recompose gate. `clear()` does not roll back. `"Save & apply"` / `"Discard all"` labels were UX contract violations and are forbidden. See ADR `docs/decisions/2026-05-26-tray-model-a-semantics.md`. Rename lands with #912. |
 | 2026-05-26 | **Link 3 sub-contract — AI write paths now structural (3-surface registry + central inventory).** Promoted the AI-CAPABILITIES.md / registry / RBAC / stub model from change-log to a proper sub-contract under Link 3. `apps/admin/scripts/generate-ai-capabilities.ts` extended to walk all THREE registries (`admin-tools.ts` = Cmd+K, `conversational-wizard-tools.ts` = Wizard, `course-ref-tools.ts` = Course-Ref) rather than just Cmd+K. Single doc, three sections, one CI guard. Output: 48 tools across 3 surfaces (42 live, 6 stubs). Verified that all three surfaces converge on the same compose-stamping helpers — a change to any helper benefits every AI surface automatically. Audit found only ONE non-test eslint-disable on the hf-* rules (`patchContentSpecForContract` — TxClient enlist limitation, TODO(#834)); every other AI writer routes correctly. |
 | 2026-05-26 | **Link 3 — `docs/AI-CAPABILITIES.md` auto-derived from `ADMIN_TOOLS[]`.** Closes the SPoT loop opened by the stubs PR (#862). `apps/admin/scripts/generate-ai-capabilities.ts` walks the registry + parses `TOOL_MIN_ROLE` and `NOT_YET_AVAILABLE_TOOLS` from `admin-tool-handlers.ts`, then writes `docs/AI-CAPABILITIES.md` — one row per tool with name, min role, required/optional params, and a one-sentence summary. `npm run docs:ai-capabilities` regenerates; `npm run docs:ai-capabilities:check` exits 1 when the doc drifts from the registry (CI guard, parallels `docs:health:ci` / `docs:citations:ci` / `docs:knowledge-map:ci`). Initial output: 33 tools, 27 live, 6 stubs. **The contract is now physical**: every promised AI capability is in `ADMIN_TOOLS[]`, every entry has an RBAC level, every stub is marked, and the human-readable index cannot lie because it's generated from code. |
 | 2026-05-26 | **Link 3 — Cmd+K roadmap stubs (NOT YET AVAILABLE) added.** Six tools declared as roadmap stubs so the AI never silently invents them: `list_caller_memories`, `create_goal`, `rename_subject`, `replace_lesson_plan`, `add_curriculum_module`, `reset_caller`. Each stub's schema lives in `lib/chat/admin-tools.ts` with a description that starts `NOT YET AVAILABLE — ...` and tells the AI exactly what to say to the user + which UI surface to point at. All six dispatch through a single `handleNotYetAvailable(toolName)` handler that returns `{ ok: false, not_yet_available: true, tool, message }`. RBAC gates them at OPERATOR so STUDENT/VIEWER hit the auth refusal *before* the stub message — promoting a stub later does not change the auth posture. Promotion checklist documented inline in `admin-tools.ts`. 25 new unit tests verify schema presence, the `NOT YET AVAILABLE` prefix, the stub payload shape, RBAC ordering, and that unknown tool names still get "Unknown tool" rather than the stub copy. **Single source of truth:** `lib/chat/admin-tools.ts` is the canonical Cmd+K tool registry. CHAIN-CONTRACTS records the *contract* (every educator-facing write must bump compose timestamps + every promised tool must be declared so the AI cannot invent capabilities); the registry itself stays in code where the AI actually reads it. Follow-up: auto-derive `docs/AI-CAPABILITIES.md` from `ADMIN_TOOLS[]` at build time for a human-readable view. |
