@@ -716,19 +716,26 @@ export async function computeSharedState(
 
         // Build LO mastery map from existing CallerAttributes.
         //
-        // #611 GRACE WINDOW — the `includes(':lo_mastery:')` match is
-        // INTENTIONALLY tolerant. After Fix A landed, new writes always use
-        // canonical slug-form keys (`curriculum:<spec>:lo_mastery:<slug>:<loRef>`),
-        // but historical rows still carry the broken name-form key
-        // (`...:lo_mastery:Part 1: Familiar Topics:OUT-01`). A stricter
-        // matcher here would silently drop those legacy rows from the
-        // prompt — that's a regression worse than the dual-key bug.
+        // #928 — Scope the read to the CURRENT curriculum spec slug. The
+        // loader at SectionDataLoader fetches all CURRICULUM-scope rows for
+        // the caller with no per-playbook filter, so a learner enrolled in
+        // multiple courses would otherwise bleed mastery rows from a sibling
+        // course into this prompt (key form: `curriculum:<spec>:lo_mastery:...`).
+        // The `specSlug` local is guaranteed truthy here by the enclosing
+        // `if (modules.length > 0 && specSlug && curriculumId && !lockedModule)`
+        // gate at line ~684.
         //
-        // Reader-tightening is a follow-on story (#614 historical key
-        // migration → then reader switch). Until that migration completes,
-        // this match stays tolerant. Do NOT tighten without first verifying
-        // `callerAttributeOldKeyFormCount` audit counter is 0 across all
-        // environments.
+        // #611 GRACE WINDOW — the post-prefix `split(':lo_mastery:')[1]`
+        // suffix extraction stays INTENTIONALLY tolerant. After Fix A
+        // landed, new writes use canonical slug-form keys
+        // (`curriculum:<spec>:lo_mastery:<slug>:<loRef>`), but historical
+        // rows still carry the broken name-form key
+        // (`curriculum:<spec>:lo_mastery:Part 1: Familiar Topics:OUT-01`).
+        // The prefix tightening below still captures both shapes — they
+        // share the same `curriculum:<spec>:lo_mastery:` prefix and only
+        // differ in the module-segment form. Do NOT tighten the suffix
+        // split without first verifying `callerAttributeOldKeyFormCount`
+        // audit counter (audit-epic-100.ts) is 0 across all environments.
         //
         // #614 status: drain script lives at
         // `scripts/migrate-caller-attribute-lo-mastery-keys.ts`
@@ -736,12 +743,13 @@ export async function computeSharedState(
         // rows via `validUntil = NOW()` after inserting the canonical row
         // (or merging max-value when the canonical row already exists).
         // Once `callerAttributeOldKeyFormCount` reads 0 in dev/test/prod,
-        // open the reader-tightening follow-on to switch this match to a
-        // slug-only regex and to mirror the change in
-        // `transforms/retrieval-practice.ts:71`.
+        // open the reader-tightening follow-on to drop the suffix
+        // tolerance and mirror the change in
+        // `transforms/retrieval-practice.ts` + `transforms/progress-narrative.ts`.
+        const loMasteryPrefix = `curriculum:${specSlug}:lo_mastery:`;
         const loMasteryMap: Record<string, number> = {};
         for (const attr of data.callerAttributes) {
-          if (attr.key.includes(':lo_mastery:') && attr.scope === 'CURRICULUM') {
+          if (attr.key.startsWith(loMasteryPrefix) && attr.scope === 'CURRICULUM') {
             const suffix = attr.key.split(':lo_mastery:')[1];
             if (suffix && suffix.length > 0 && attr.numberValue != null) {
               loMasteryMap[suffix] = attr.numberValue;

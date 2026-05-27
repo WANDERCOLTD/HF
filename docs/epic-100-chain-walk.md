@@ -171,6 +171,10 @@ If `old_name_form` count > 0: migration script `scripts/migrate-caller-attribute
 
 **Status:** 🟡 partial — covered by #614 (queued, CRITICAL priority)
 
+**Read-site scoping (#928, 2026-05-27):** the three COMPOSE-stage transforms that rebuild `loMasteryMap` from `CallerAttributes` (`transforms/modules.ts`, `transforms/retrieval-practice.ts`, `transforms/progress-narrative.ts`) now filter with `attr.key.startsWith('curriculum:<currentSpecSlug>:lo_mastery:')` instead of a plain `.includes(':lo_mastery:')` substring match. This prevents cross-course bleed when a learner is enrolled in multiple playbooks with different curriculum specs. The post-prefix suffix split stays tolerant during the #614 grace window — legacy name-form rows share the same `curriculum:<spec>:lo_mastery:` prefix, so the tightening preserves them.
+
+**Residual:** same-spec bleed (two playbooks sharing one curriculum spec slug) is still possible. The structural fix — re-key to `playbook:<playbookId>:lo_mastery:*` with a #614-style drain — is deferred to the planned "Curriculum→Playbook collapse" epic.
+
 ---
 
 ## Summary table

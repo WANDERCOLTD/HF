@@ -66,16 +66,35 @@ registerTransform(
     const minQuestions = (retrievalConfig?.minQuestions as number) ?? 1;
 
     // ── Compute information need (v1: coverage gap only) ──
+    //
+    // #928 — Scope the read to the CURRENT curriculum spec slug to prevent
+    // cross-course bleed (loader fetches all CURRICULUM-scope rows for the
+    // caller). When `curriculumSpecSlug` is unset (legacy spec without a
+    // DB Curriculum row), the map degrades to empty — same behaviour as a
+    // caller with zero recorded mastery.
+    //
+    // #611 GRACE WINDOW — the post-prefix `split(":lo_mastery:")` suffix
+    // extraction remains tolerant of legacy name-form module segments.
+    // Both shapes share the `curriculum:<spec>:lo_mastery:` prefix, so the
+    // tightening preserves legacy rows from this curriculum. Drain pending
+    // via `scripts/migrate-caller-attribute-lo-mastery-keys.ts` (#614);
+    // remove the suffix tolerance in the follow-on once
+    // `callerAttributeOldKeyFormCount` audit counter reads 0 everywhere.
+    const curriculumSpecSlug = sharedState.curriculumSpecSlug ?? "";
+    const loMasteryPrefix = curriculumSpecSlug
+      ? `curriculum:${curriculumSpecSlug}:lo_mastery:`
+      : "";
     const loMasteryMap = {} as Record<string, number>;
-    for (const attr of loadedData.callerAttributes) {
-      // #611 GRACE WINDOW — mirrors the tolerant matcher in
-      // `transforms/modules.ts:702` (see that block's long comment).
-      // Drain pending via `scripts/migrate-caller-attribute-lo-mastery-keys.ts`
-      // (#614); tighten this matcher in the follow-on once
-      // `callerAttributeOldKeyFormCount` audit counter reads 0 everywhere.
-      if (attr.key.includes(":lo_mastery:") && attr.scope === "CURRICULUM" && attr.numberValue != null) {
-        const suffix = attr.key.split(":lo_mastery:")[1];
-        if (suffix) loMasteryMap[suffix] = attr.numberValue;
+    if (loMasteryPrefix) {
+      for (const attr of loadedData.callerAttributes) {
+        if (
+          attr.key.startsWith(loMasteryPrefix) &&
+          attr.scope === "CURRICULUM" &&
+          attr.numberValue != null
+        ) {
+          const suffix = attr.key.split(":lo_mastery:")[1];
+          if (suffix) loMasteryMap[suffix] = attr.numberValue;
+        }
       }
     }
     const totalLOs = sharedState.workingSet?.selectedLOs?.length

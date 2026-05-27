@@ -38,6 +38,11 @@ function makeSharedState(overrides: Partial<SharedComputedState> = {}): SharedCo
     thresholds: { high: 0.65, low: 0.35 },
     isFinalSession: false,
     callNumber: 2,
+    // #928 — every CallerAttribute lo_mastery row carries a curriculum-spec
+    // prefix; the reader scopes by sharedState.curriculumSpecSlug. Default
+    // to the slug used by the `attr` helper below so the existing tests
+    // (which exercise gating logic, not scoping) keep passing.
+    curriculumSpecSlug: "IELTS-SPEAKING",
     ...overrides,
   };
 }
@@ -52,9 +57,14 @@ function makeContext(opts: {
   callNumber?: number;
   attributes?: AttrLike[];
   config?: PlaybookConfig["progressNarrative"];
+  curriculumSpecSlug?: string | undefined;
 }): AssembledContext {
+  const sharedOverrides: Partial<SharedComputedState> = { callNumber: opts.callNumber ?? 2 };
+  if (Object.prototype.hasOwnProperty.call(opts, "curriculumSpecSlug")) {
+    sharedOverrides.curriculumSpecSlug = opts.curriculumSpecSlug;
+  }
   return {
-    sharedState: makeSharedState({ callNumber: opts.callNumber ?? 2 }),
+    sharedState: makeSharedState(sharedOverrides),
     sections: {},
     loadedData: {
       caller: null,
@@ -234,5 +244,44 @@ describe("computeProgressNarrative", () => {
       ],
     });
     expect(transform!(null, ctx, STUB_SECTION)).toBeNull();
+  });
+
+  describe("#928 — cross-course scoping by curriculumSpecSlug", () => {
+    it("ignores lo_mastery rows whose key prefix names a different curriculum spec", () => {
+      // Caller is enrolled in both spec-A (IELTS-SPEAKING — current) and
+      // spec-B (WNF). Rows tagged with spec-B must not pollute the prompt
+      // composed for spec-A.
+      const ctx = makeContext({
+        // currentSpec defaults to IELTS-SPEAKING via makeSharedState
+        attributes: [
+          // Sibling course — must be filtered out
+          {
+            key: "curriculum:WNF:lo_mastery:part1:OUT-01",
+            scope: "CURRICULUM",
+            numberValue: 0.95,
+          },
+          // Current course — must surface
+          attr("part1:OUT-02", 0.6),
+        ],
+      });
+      const result = transform!(null, ctx, STUB_SECTION) as {
+        observations: Array<{ loRef: string; score: number }>;
+      } | null;
+      expect(result).not.toBeNull();
+      // Only the current-curriculum row survives. The sibling-course row's
+      // score (0.95) would have outranked the local 0.6 if it bled through.
+      expect(result!.observations).toHaveLength(1);
+      expect(result!.observations[0].loRef).toBe("OUT-02");
+      expect(result!.observations[0].score).toBeCloseTo(0.6);
+    });
+
+    it("returns null when curriculumSpecSlug is undefined (graceful degrade, no throw)", () => {
+      const ctx = makeContext({
+        curriculumSpecSlug: undefined,
+        attributes: [attr("part1:OUT-01", 0.9)],
+      });
+      // No throw, no observations — same shape as a caller with zero mastery.
+      expect(transform!(null, ctx, STUB_SECTION)).toBeNull();
+    });
   });
 });
