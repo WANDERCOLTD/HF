@@ -260,6 +260,26 @@ The links above cover the runtime adaptive loop (CALL → … → COMPOSE). The 
 
 ---
 
+## 3c. Learner-surfacing contracts
+
+The links above cover pipeline-internal (3) and authoring-time (3a) boundaries. The contracts below cover **learner-facing read-outs** — when pipeline-written state is surfaced via a student-scoped API to the SimProgressPanel or other learner UI. Same shape (producer → consumer, enforced, tested, doc-linked), different audience: a human learner reads the result, so the contract has copy/sanitization requirements that pipeline-internal boundaries don't.
+
+### Link L1 — SCHEDULER → LEARNER (Today's call panel)
+
+| Field | Value |
+|---|---|
+| **Producer** | `lib/pipeline/scheduler.ts` + `lib/prompt/composition/transforms/modules.ts` (3 write sites total — empty-set fallback, happy-path, picker-locked from #538). All go through `persistSchedulerDecision()` → `CallerAttribute` (key `scheduler:last_decision`, scope `CURRICULUM`). |
+| **Consumer** | `GET /api/student/scheduler-decision` (uses `readSchedulerDecision()` helper) → `useSchedulerDecision` hook → `SimProgressPanel` "Today's call" section. |
+| **Data shape** | `reason` must be a complete learner-facing sentence; no log prefix (`/^[a-z][a-z_-]*:\s/` forbidden); no internal counts in parens; no internal jargon (`fallback`, `gate`, `working set`, `weight`); ≤100 chars at write-time (sanitizer caps at 137). Internal fields (`outcomeId`, `contentSourceId`, `workingSetAssertionIds`) MUST never reach the learner — stripped at the route boundary. |
+| **DataContract slug** | implicit — copy contract enforced via `SCHEDULER_REASONS` constants module (`lib/pipeline/scheduler-reasons.ts`) + regression test, not via a `DataContract` row. (Candidate for `SCHEDULER_DECISION_V1` if a third writer appears.) |
+| **Enforcement** | Five layers: (1) **Writer-side copy constants** — all reason strings come from `SCHEDULER_REASONS` (no inline literals). (2) **Build-time regression** — `tests/lib/pipeline/scheduler-reasons.test.ts` greps source files for `reason: '<lowercase-prefix>:'` patterns and fails CI. (3) **Route-side sanitizer** — `lib/scheduler/sanitize-reason.ts` strips HTML tags / UUIDs / spec slugs / collapses whitespace / truncates at word boundary / returns `null` below 20-char threshold. (4) **Route-side strict shape** — internal fields stripped, response schema is `{ mode, reason, callsSinceAssess, writtenAt }` only. (5) **Defensive guards** — multi-curriculum (`>1 active CallerPlaybook` → null; until #919 fixes the writer key shape) + stale (`writtenAt < lastCall.endedAt` → null). |
+| **Test** | `tests/lib/pipeline/scheduler-reasons.test.ts` (writer copy contract). `tests/lib/scheduler/sanitize-reason.test.ts` (route sanitizer, 9 cases). `tests/lib/scheduler/mode-labels.test.ts` (4 modes). `tests/api/student-scheduler-decision.test.ts` (route end-to-end: auth, cold-start, multi-curriculum, stale, internal-field strip, sub-threshold reason). |
+| **Memory doc** | `.claude/rules/ai-to-db-guard.md` (consider adding row — AI-written `reason` field is now a learner-facing surface). JSDoc on `SCHEDULER_REASONS` + the API route. |
+| **Known gap** | **#919** — `CallerAttribute` unique constraint `(callerId, key, scope)` has no curriculumId; a learner in 2+ active playbooks races to overwrite a single row. Defended at read-time (multi-curriculum guard) until writer-side fix lands. |
+| **Reinforced by** | #917 / PR #920 (Slice 2 panel + sanitizer + guards) + #923 / PR #924 (writer copy constants + regression test). 2026-05-27. |
+
+---
+
 ## 4. DataContract registry
 
 The runtime DataContract registry (`lib/contracts/`) is the DB-backed source of truth for storage-key patterns. Contract files live in `apps/admin/docs-archive/bdd-specs/contracts/` and are seeded into `DataContract` rows on `db:seed`.
@@ -301,6 +321,8 @@ If a chain row above references "DataContract slug: implicit" and the contract i
 | #671 | #608-A | 3 | `AnalysisSpec.isArchetype` schema field + loader filter |
 | #672 | #616 | (this doc) | Single inventory of chain contracts |
 | TBD  | #819 | 3 (sub-contract) | PUT /api/courses/[id]/design fans out recompose-all when COMPOSE-affecting namespaces change — closes the stale-prompt-after-tuner-save gap |
+| #920 | #917 | 3c | New learner-facing API + SimProgressPanel "Today's call" section; sanitizer + multi-curriculum + stale guards |
+| #924 | #923 | 3c | Scheduler reason copy constants module + regression test against log-prefixed reasons |
 
 ---
 
@@ -329,6 +351,7 @@ If a chain row above references "DataContract slug: implicit" and the contract i
 
 | Date | Change |
 |---|---|
+| 2026-05-27 | **Section 3c added — learner-surfacing contracts. Link L1: scheduler → learner (PRs #920 (#917 Slice 2) + #924 (#923 writer copy)).** First pipeline→learner contract boundary: scheduler `reason` field, written to `CallerAttribute` during COMPOSE, exposed via `GET /api/student/scheduler-decision` and rendered in SimProgressPanel. Five-layer enforcement (writer copy constants + build-time regression + route sanitizer + strict response shape + multi-curriculum/stale guards). Known gap #919 (multi-curriculum writer key shape) documented at read-time guard, pending writer-side fix. |
 | 2026-05-23 | Initial canonical inventory created post-Epic 100 (#616). Captures the 6 chain links + active DataContract slugs + the 13 Epic 100 PRs that reinforced them. |
 | 2026-05-26 | **Link 3a added — authoring-side read parity (#910 / epic #909).** Sister contract to Link 3 FK invariant. Any UI surface displaying a scope-cascaded value must read through `lib/tolerance/resolve-tolerance.ts` (or the bulk wrapper landing in #911). Ad-hoc two-endpoint cascade-merge in components is forbidden. New audit counter `authoringBehTargetBypassCount` (CI step 6) — today 1 (`PromptTunerSidebar.tsx`, fixed by #911); target 0. Arch-checker Check F enforces at review time (soft warning, promoted to error once #911 lands). Caught empirically 2026-05-26 — sidebar showed course-level value after a learner-scope save because the in-component merge ignored the separately-fetched learner overrides. |
 | 2026-05-26 | **Link A2-extension added — tray label honesty (#910 / epic #909).** Tray operates under Model A — writes immediate at push time, tray is a visualisation + recompose gate. `clear()` does not roll back. `"Save & apply"` / `"Discard all"` labels were UX contract violations and are forbidden. See ADR `docs/decisions/2026-05-26-tray-model-a-semantics.md`. Rename lands with #912. |
