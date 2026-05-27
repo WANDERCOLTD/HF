@@ -62,9 +62,11 @@ describe("applyDecay with memoryDecayScale", () => {
 
   it("rejects non-finite / out-of-range scales by clamping to [0.1, 1.0]", () => {
     const m = mem();
-    expect(applyDecay(m, Number.NaN)).toBe(applyDecay(m, 1.0));
-    expect(applyDecay(m, 2.0)).toBe(applyDecay(m, 1.0));
-    expect(applyDecay(m, 0)).toBe(applyDecay(m, 0.1));
+    expect(applyDecay(m, Number.NaN)).toBeCloseTo(applyDecay(m, 1.0), 5);
+    expect(applyDecay(m, 2.0)).toBeCloseTo(applyDecay(m, 1.0), 5);
+    // FP-noise robust comparison: clamp(0)=0.1 and clamp(0.1)=0.1 both pipe
+    // through Math.pow with `daysSince/30` — sub-ε differences are expected.
+    expect(applyDecay(m, 0)).toBeCloseTo(applyDecay(m, 0.1), 5);
   });
 
   it("memory with no extractedAt is unaffected by any scale", () => {

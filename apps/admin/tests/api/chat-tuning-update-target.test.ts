@@ -135,7 +135,15 @@ describe("update_behavior_target chat tool handler", () => {
   });
 
   it("returns a 'playbook not found' error for an unknown playbookId", async () => {
-    mockPrisma.playbook.findUnique.mockResolvedValueOnce(null);
+    // #925 — the handler now calls `prisma.playbook.findUnique` TWICE for a
+    // PLAYBOOK-scope write: once at the top of the handler to populate the
+    // tray entry's friendly scopeLabel, then again inside `writeBehaviorTarget`
+    // to validate the FK before the write. `mockResolvedValueOnce(null)` only
+    // covers the first call, so the second one falls back to the default
+    // `{ id: "pb-1" }` from beforeEach and the write actually succeeds —
+    // hiding the missing-playbook error. Use `mockResolvedValue` so BOTH
+    // lookups see the row as missing.
+    mockPrisma.playbook.findUnique.mockResolvedValue(null);
 
     const raw = await executeAdminTool(
       "update_behavior_target",

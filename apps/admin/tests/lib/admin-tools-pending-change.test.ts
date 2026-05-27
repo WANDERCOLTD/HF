@@ -59,6 +59,16 @@ describe("Admin tool handlers — pendingChange emission (#873 follow-up)", () =
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    // #925 added cheap-lookup `prisma.caller.findUnique` and
+    // `prisma.playbook.findUnique` calls inside `handleUpdateBehaviorTarget`
+    // to populate the tray entry's friendly scopeLabel (`Learner <name>` /
+    // `Course <name>`). The lookup is `.catch(() => null)`-guarded but the
+    // mock still has to return a Promise — bare `vi.fn()` resolves to
+    // `undefined`, and `undefined.catch` throws synchronously before the
+    // catch handler fires. Each test that needs a specific name can override
+    // these in its own body.
+    mockPrisma.caller.findUnique.mockResolvedValue(null);
+    mockPrisma.playbook.findUnique.mockResolvedValue(null);
     const mod = await import("@/lib/chat/admin-tool-handlers");
     executeAdminTool = mod.executeAdminTool;
   });

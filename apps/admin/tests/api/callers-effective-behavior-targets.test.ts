@@ -49,10 +49,8 @@ function makeParams() {
   return Promise.resolve({ callerId: GOLDEN_CALLER_ID });
 }
 
-type RouteHandler = (req: unknown, ctx: { params: Promise<{ callerId: string }> }) => Promise<Response>;
-
 describe("/api/callers/[callerId]/effective-behavior-targets — GET (#911)", () => {
-  let GET: RouteHandler;
+  let GET: typeof import("../../app/api/callers/[callerId]/effective-behavior-targets/route").GET;
 
   beforeEach(async () => {
     vi.clearAllMocks();
