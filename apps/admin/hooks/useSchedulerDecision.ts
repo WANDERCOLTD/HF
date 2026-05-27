@@ -33,7 +33,13 @@ export function useSchedulerDecision(callerId: string): UseSchedulerDecisionResu
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/student/scheduler-decision`);
+      // Both STUDENT (callerId from session) and OPERATOR+ (callerId from query)
+      // paths are supported by /api/student/* routes via requireStudentOrAdmin.
+      // The query param IS required for OPERATOR — see lib/student-access.ts:151.
+      // (Previously stripped in #917 cleanup; restored in this fix.)
+      const res = await fetch(
+        `/api/student/scheduler-decision?callerId=${encodeURIComponent(callerId)}`,
+      );
       if (!res.ok) {
         setError(`Failed to load scheduler decision (${res.status})`);
         return;
