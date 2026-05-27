@@ -207,11 +207,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       // learner to the picker before each session instead of straight to /x/sim.
       // returnTo includes the caller's specific conversation so the learner
       // lands back in their SIM session with ?requestedModuleId=… preserved.
+      // callerId is also passed through so the picker page's admin-no-callerId
+      // guard doesn't bounce admins simming a learner to /x/callers.
       const learningRedirect = pbConfig.modulesAuthored === true
         ? {
             type: "module_picker",
             session: 1,
-            redirect: `/x/student/${enrollment.playbook.id}/modules?returnTo=${encodeURIComponent(`/x/sim/${callerId}`)}`,
+            redirect: `/x/student/${enrollment.playbook.id}/modules?callerId=${callerId}&returnTo=${encodeURIComponent(`/x/sim/${callerId}`)}`,
           }
         : { type: "continuous", session: 1, redirect: "/x/sim" };
 
@@ -286,11 +288,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // #242 Slice 4: structured-mode courses with author-declared modules also
     // route through the picker before each session. Onboarding still gates
     // upstream — learners only reach the picker once onboarding is done.
+    // callerId is also passed through so the picker page's admin-no-callerId
+    // guard doesn't bounce admins simming a learner to /x/callers.
     const teachingRedirect = pbConfig.modulesAuthored === true
       ? {
           type: "module_picker" as const,
           session: 1,
-          redirect: `/x/student/${enrollment.playbook.id}/modules?returnTo=${encodeURIComponent(`/x/sim/${callerId}`)}`,
+          redirect: `/x/student/${enrollment.playbook.id}/modules?callerId=${callerId}&returnTo=${encodeURIComponent(`/x/sim/${callerId}`)}`,
         }
       : { type: "teaching" as const, session: 1, redirect: "/x/sim" };
 

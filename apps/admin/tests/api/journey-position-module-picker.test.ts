@@ -112,7 +112,13 @@ describe("journey-position — #242 Slice 4 picker routing", () => {
     expect(body.ok).toBe(true);
     expect(body.nextStop.type).toBe("module_picker");
     expect(body.nextStop.redirect).toBe(
-      `/x/student/${PLAYBOOK_ID}/modules?returnTo=${encodeURIComponent(`/x/sim/${CALLER_ID}`)}`,
+      `/x/student/${PLAYBOOK_ID}/modules?callerId=${CALLER_ID}&returnTo=${encodeURIComponent(`/x/sim/${CALLER_ID}`)}`,
+    );
+    // Admin-as-learner trap fix: callerId must be present so the picker page's
+    // admin-no-callerId guard doesn't bounce to /x/callers.
+    expect(body.nextStop.redirect).toContain(`callerId=${CALLER_ID}`);
+    expect(body.nextStop.redirect).toContain(
+      `returnTo=${encodeURIComponent(`/x/sim/${CALLER_ID}`)}`,
     );
   });
 
@@ -171,8 +177,11 @@ describe("journey-position — #242 Slice 4 picker routing", () => {
 
     expect(body.nextStop.type).toBe("module_picker");
     expect(body.nextStop.redirect).toBe(
-      `/x/student/${PLAYBOOK_ID}/modules?returnTo=${encodeURIComponent(`/x/sim/${CALLER_ID}`)}`,
+      `/x/student/${PLAYBOOK_ID}/modules?callerId=${CALLER_ID}&returnTo=${encodeURIComponent(`/x/sim/${CALLER_ID}`)}`,
     );
+    // Admin-as-learner trap fix: callerId must be present so the picker page's
+    // admin-no-callerId guard doesn't bounce to /x/callers.
+    expect(body.nextStop.redirect).toContain(`callerId=${CALLER_ID}`);
   });
 
   it("structured + modulesAuthored=true + onboarding NOT done → onboarding still gates picker", async () => {
