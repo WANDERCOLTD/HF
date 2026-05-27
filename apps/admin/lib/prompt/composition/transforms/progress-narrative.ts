@@ -60,16 +60,33 @@ registerTransform("computeProgressNarrative", (
   const minScoreDelta =
     typeof settings.minScoreDelta === "number" ? settings.minScoreDelta : DEFAULTS.minScoreDelta;
 
-  // Rebuild loMasteryMap from CallerAttributes. The tolerant ":lo_mastery:"
-  // match is intentional during the #611/#614 grace window — see the long
-  // explanatory comment at transforms/modules.ts ~line 687. Reader-tightening
-  // is gated on `callerAttributeOldKeyFormCount` audit counter reaching 0.
+  // Rebuild loMasteryMap from CallerAttributes.
+  //
+  // #928 — Scope the read to the CURRENT curriculum spec slug to prevent
+  // cross-course bleed (the loader fetches all CURRICULUM-scope rows for
+  // the caller with no per-playbook filter). When `curriculumSpecSlug` is
+  // unset (legacy spec without a DB Curriculum row), the map degrades to
+  // empty — same behaviour as a caller with no measured mastery in this
+  // course, so the narrative simply returns null below.
+  //
+  // The post-prefix `split(":lo_mastery:")` suffix extraction remains
+  // tolerant of legacy name-form module segments — both shapes share the
+  // `curriculum:<spec>:lo_mastery:` prefix. Reader-tightening of the
+  // suffix is gated on `callerAttributeOldKeyFormCount` audit counter
+  // reaching 0 across all environments. See the long comment at
+  // `transforms/modules.ts` (#928 / #611 block) for the full rationale.
+  const curriculumSpecSlug = sharedState.curriculumSpecSlug ?? "";
+  const loMasteryPrefix = curriculumSpecSlug
+    ? `curriculum:${curriculumSpecSlug}:lo_mastery:`
+    : "";
   const loMasteryMap: Record<string, number> = {};
-  for (const attr of loadedData.callerAttributes ?? []) {
-    if (attr.key.includes(":lo_mastery:") && attr.scope === "CURRICULUM") {
-      const suffix = attr.key.split(":lo_mastery:")[1];
-      if (suffix && suffix.length > 0 && attr.numberValue != null) {
-        loMasteryMap[suffix] = attr.numberValue;
+  if (loMasteryPrefix) {
+    for (const attr of loadedData.callerAttributes ?? []) {
+      if (attr.key.startsWith(loMasteryPrefix) && attr.scope === "CURRICULUM") {
+        const suffix = attr.key.split(":lo_mastery:")[1];
+        if (suffix && suffix.length > 0 && attr.numberValue != null) {
+          loMasteryMap[suffix] = attr.numberValue;
+        }
       }
     }
   }
