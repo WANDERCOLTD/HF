@@ -33,8 +33,16 @@ interface ChatState {
   isStreaming: boolean;
   streamingMessageId: string | null;
   error: string | null;
-  /** Tuning tab scope toggle. Persisted in settings. */
-  tuningScope: TuningScope;
+  /**
+   * Tuning tab scope toggle. Persisted in settings.
+   *
+   * #911 — widened to `TuningScope | null`. `null` means "no active scope —
+   * the AI should ask fresh on the next turn". Reset to null whenever the
+   * active entity's *type* changes (caller ↔ playbook ↔ neither) so a stale
+   * PLAYBOOK toggle from a previous course page never leaks onto a caller
+   * page and causes the AI to mis-attribute writes.
+   */
+  tuningScope: TuningScope | null;
   /**
    * #727 v1 — when set, every DATA-mode message includes this ticket's UUID
    * so the API can inject the ticket + comment thread into the system prompt.
@@ -51,7 +59,11 @@ interface ChatActions {
   closePanel: () => void;
   setMode: (mode: ChatMode) => void;
   setChatLayout: (layout: ChatLayout) => void;
-  setTuningScope: (scope: TuningScope) => void;
+  /**
+   * Set the tuning scope. Accepts `null` to clear the active toggle so the
+   * AI re-asks on the next turn (#911 — closes the stale-toggle hole).
+   */
+  setTuningScope: (scope: TuningScope | null) => void;
   /**
    * Set / clear the active ticket the Assistant should be discussing.
    * Pass `null` to clear (e.g. when closing the ticket detail panel).
@@ -155,21 +167,27 @@ function persistMessages(messages: Record<ChatMode, ChatMessage[]>, userId: stri
   }
 }
 
-function loadSettings(userId: string | undefined): { isOpen: boolean; mode: ChatMode; chatLayout: ChatLayout; tuningScope: TuningScope } {
-  const defaults = { isOpen: false, mode: "DATA" as ChatMode, chatLayout: "vertical" as ChatLayout, tuningScope: "PLAYBOOK" as TuningScope };
+function loadSettings(userId: string | undefined): { isOpen: boolean; mode: ChatMode; chatLayout: ChatLayout; tuningScope: TuningScope | null } {
+  const defaults = { isOpen: false, mode: "DATA" as ChatMode, chatLayout: "vertical" as ChatLayout, tuningScope: "PLAYBOOK" as TuningScope | null };
   if (typeof window === "undefined") return defaults;
   try {
     const stored = localStorage.getItem(getSettingsKey(userId));
     if (!stored) return defaults;
     const parsed = JSON.parse(stored);
-    const scope: TuningScope = parsed.tuningScope === "LEARNER" || parsed.tuningScope === "PLAYBOOK" ? parsed.tuningScope : "PLAYBOOK";
+    // #911 — persisted value may now be `null` (entity-type-transition reset).
+    const scope: TuningScope | null =
+      parsed.tuningScope === "LEARNER" || parsed.tuningScope === "PLAYBOOK"
+        ? parsed.tuningScope
+        : parsed.tuningScope === null
+          ? null
+          : "PLAYBOOK";
     return { isOpen: false, mode: "DATA", chatLayout: parsed.chatLayout || "vertical", tuningScope: scope };
   } catch {
     return defaults;
   }
 }
 
-function persistSettings(isOpen: boolean, mode: ChatMode, chatLayout: ChatLayout, tuningScope: TuningScope, userId: string | undefined): void {
+function persistSettings(isOpen: boolean, mode: ChatMode, chatLayout: ChatLayout, tuningScope: TuningScope | null, userId: string | undefined): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(getSettingsKey(userId), JSON.stringify({ isOpen, mode, chatLayout, tuningScope }));
@@ -185,7 +203,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setModeState] = useState<ChatMode>("DATA");
   const [chatLayout, setChatLayoutState] = useState<ChatLayout>("vertical");
-  const [tuningScope, setTuningScopeState] = useState<TuningScope>("PLAYBOOK");
+  const [tuningScope, setTuningScopeState] = useState<TuningScope | null>("PLAYBOOK");
   const [messages, setMessages] = useState<Record<ChatMode, ChatMessage[]>>(createEmptyMessages);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
@@ -245,6 +263,36 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isOpen, mode, chatLayout, tuningScope, initialized, userId]);
 
+  // #911 — reset the tuning scope toggle whenever the *type* of the active
+  // entity changes (caller → playbook, playbook → caller, either → none, or
+  // any other type transition). This closes the "stale PLAYBOOK toggle on a
+  // caller page" hole flagged in #911: without the reset, the AI carries the
+  // previous course's scope onto a learner page and can mis-attribute writes.
+  //
+  // Intentionally NOT triggered when the entity stays the same type but the
+  // entity id changes (caller A → caller B). That's a routine drill-down and
+  // shouldn't drop the educator's prior toggle choice.
+  const currentEntityType = entityContext.currentEntity?.type ?? null;
+  const previousEntityTypeRef = useRef<typeof currentEntityType>(currentEntityType);
+  useEffect(() => {
+    if (!initialized) {
+      // Don't fire during the initial hydration — `setTuningScopeState` on
+      // mount would reset the user's persisted choice before they ever
+      // toggled this session. We only react to *transitions* after settings
+      // load.
+      previousEntityTypeRef.current = currentEntityType;
+      return;
+    }
+    const prev = previousEntityTypeRef.current;
+    if (prev !== currentEntityType) {
+      previousEntityTypeRef.current = currentEntityType;
+      // Reset to null so the AI re-asks. We deliberately do NOT replace with
+      // "PLAYBOOK" — null is the honest signal that no toggle was made for
+      // this entity yet.
+      setTuningScopeState(null);
+    }
+  }, [currentEntityType, initialized]);
+
   // #873 follow-up — subscribe to tray decision events. Each event
   // is pushed into `trayReflectionsRef`; the next `sendMessage` flushes
   // the queue to `/api/chat` as `trayReflections` and clears it.
@@ -288,7 +336,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setChatLayoutState(layout);
   }, []);
 
-  const setTuningScope = useCallback((scope: TuningScope) => {
+  const setTuningScope = useCallback((scope: TuningScope | null) => {
     setTuningScopeState(scope);
   }, []);
 
@@ -403,7 +451,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               mode,
               entityContext: entityContext.breadcrumbs,
               isCommand: true,
-              ...(mode === "DATA" || mode === "TUNING" ? { tuningScope } : {}),
+              ...((mode === "DATA" || mode === "TUNING") && tuningScope ? { tuningScope } : {}),
               ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
               ...(pathname && (mode === "DATA" || mode === "TUNING") ? { pageHint: { route: pathname } } : {}),
               ...(mode === "DATA" && entityContext.pageContext?.page
@@ -466,7 +514,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               mode,
               entityContext: entityContext.breadcrumbs,
               conversationHistory: history,
-              ...(mode === "DATA" || mode === "TUNING" ? { tuningScope } : {}),
+              ...((mode === "DATA" || mode === "TUNING") && tuningScope ? { tuningScope } : {}),
               ...(mode === "DATA" && discussionTicketId ? { discussionTicketId } : {}),
               ...(pathname && (mode === "DATA" || mode === "TUNING") ? { pageHint: { route: pathname } } : {}),
               ...(mode === "DATA" && entityContext.pageContext?.page

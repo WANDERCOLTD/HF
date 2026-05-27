@@ -142,12 +142,19 @@ describe("audit-epic-100 — authoringBehTargetBypassCount counter (#910)", () =
     }
   });
 
-  it("reports exactly 1 violation in the real components tree today (PromptTunerSidebar) — #911 drives this to 0", () => {
-    // Empirical anchor: #910 is the contract PR, #911 is the fix PR.
-    // If this number changes unexpectedly, look at what new component
-    // dual-fetched or what change moved the existing violation —
-    // either way, the chain contract needs attention.
+  it("reports zero violations in the real components tree (post-#911 fix)", () => {
+    // Empirical anchor: #911 fixed the PromptTunerSidebar violation by
+    // routing the CALLER-layer read through the new endpoint
+    // `/api/callers/[id]/effective-behavior-targets` (backed by the
+    // canonical bulk helper at
+    // `lib/tolerance/getEffectiveBehaviorTargetsForCaller.ts`). A
+    // type-only import of that module satisfies the audit-script regex
+    // without pulling the server-only prisma import into the client
+    // bundle. If this count regresses above 0, look at what new
+    // component dual-fetched the cascade in-component without going
+    // through the canonical resolver — chain-contracts Link 3a needs
+    // attention.
     const count = countBypasses(COMPONENTS_DIR);
-    expect(count).toBe(1);
+    expect(count).toBe(0);
   });
 });

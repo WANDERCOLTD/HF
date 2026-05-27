@@ -785,6 +785,15 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
     console.log(
       `[chat-tools:tuning] update_behavior_target scope=LEARNER caller=${callerId} param=${parameterId} value=${rawValue}`,
     );
+    // #911 — look up the friendly caller name once so the tray entry's
+    // scopeLabel reads `Learner <name>` instead of a generic "Learner
+    // override". Cheap single-row fetch; if it fails for any reason we
+    // fall back to the caller id prefix so the label is never blank.
+    const callerRow = await prisma.caller
+      .findUnique({ where: { id: callerId }, select: { name: true } })
+      .catch(() => null);
+    const callerName = callerRow?.name?.trim() || callerId.slice(0, 8);
+
     const result = await writeCallerBehaviorTarget(callerId, parameterId, rawValue as number | null, {
       source: "TUNING_CHAT",
     });
@@ -808,7 +817,8 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
         ? buildPendingChangePayload({
             scope: "playbook",
             scopeId: null,
-            scopeLabel: `Learner override`,
+            // #911 — honest scope label, parity with the sidebar push.
+            scopeLabel: `Learner ${callerName}`,
             key: result.parameterId,
             label: result.parameterId,
             beforeValue: undefined,
@@ -843,6 +853,13 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
   console.log(
     `[chat-tools:tuning] update_behavior_target scope=PLAYBOOK playbook=${playbookId} param=${parameterId} value=${rawValue}`,
   );
+  // #911 — look up the friendly playbook name so the tray reads
+  // `Course <name>`. Same cheap-lookup pattern as the LEARNER branch above.
+  const playbookRow = await prisma.playbook
+    .findUnique({ where: { id: playbookId }, select: { name: true } })
+    .catch(() => null);
+  const playbookName = playbookRow?.name?.trim() || playbookId.slice(0, 8);
+
   const result = await writeBehaviorTarget(playbookId, parameterId, rawValue as number | null, {
     source: "TUNING_CHAT",
   });
@@ -864,7 +881,8 @@ async function handleUpdateBehaviorTarget(input: Record<string, any>) {
       ? buildPendingChangePayload({
           scope: "playbook",
           scopeId: playbookId,
-          scopeLabel: `Course override`,
+          // #911 — honest scope label, parity with the sidebar push.
+          scopeLabel: `Course ${playbookName}`,
           key: result.parameterId,
           label: result.parameterId,
           beforeValue: undefined,

@@ -2647,6 +2647,33 @@ Compose a personalized next-call prompt for a caller using the declarative compo
 
 ---
 
+### `GET` /api/callers/:callerId/effective-behavior-targets
+
+Return the fully-merged SYSTEM → PLAYBOOK → CALLER cascade for
+
+**Auth**: Session · **Scope**: `callers:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | path | string | Yes | Caller UUID |
+
+**Response** `200`
+```json
+{ ok: true, callerId, playbookId, parameters: Array<{ parameterId, effectiveValue, sourceScope, systemValue, playbookValue, callerValue }> }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: "playbookId is required" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: "..." }
+```
+
+---
+
 ### `GET` /api/callers/:callerId/enrollments
 
 List all playbook enrollments for a caller.
