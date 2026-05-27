@@ -293,7 +293,7 @@ export function FeltProgressSettings({
           onClick={save}
           disabled={saving}
         >
-          {saving ? "Saving…" : "Save Felt Progress"}
+          {saving ? "Saving…" : "Save Progress Signals"}
         </button>
         {success && <span className="hf-text-xs hf-text-success">Saved.</span>}
         {error && <span className="hf-text-xs hf-text-error">{error}</span>}

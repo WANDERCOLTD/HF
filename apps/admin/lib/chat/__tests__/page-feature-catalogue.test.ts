@@ -49,7 +49,7 @@ describe("buildPageFeatureCatalogue", () => {
 
   it("stays under ~700-token budget (2800 chars proxy) for every registered page", () => {
     // #810 raised the cap from ~500 tokens (2000 chars) to ~700 tokens (2800
-    // chars). The Design tab now exports 5 named `sections` (Felt Progress,
+    // chars). The Design tab now exports 5 named `sections` (Progress Signals,
     // Tolerances, etc.) so the AI can answer section-level questions, which
     // costs ~120 extra tokens per render. Cheap given DATA-mode runs Sonnet
     // 4.5 — the grounding wins are worth more than the bytes.
