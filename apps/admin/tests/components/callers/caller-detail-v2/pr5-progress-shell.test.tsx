@@ -11,10 +11,12 @@ import { render, fireEvent } from "@testing-library/react";
 
 import { ProgressV2Tab } from "@/components/callers/caller-detail/caller-detail-v2/ProgressV2Tab";
 import {
-  LENSES,
+  LENSES as LENSES_FOR_TESTS,
   LENS_ORDER,
   isLensId,
 } from "@/components/callers/caller-detail/caller-detail-v2/lenses/registry";
+
+const LENSES = LENSES_FOR_TESTS;
 
 const replaceSpy = vi.fn();
 let currentView: string | null = null;
@@ -55,12 +57,13 @@ describe("Progress v2 lens registry", () => {
 });
 
 describe("ProgressV2Tab shell", () => {
-  it("renders one nav item per lens with 'soon' badge when no Component", () => {
+  it("renders one nav item per lens; soon badge only on lenses without Component", () => {
     const { container } = render(<ProgressV2Tab callerId="c1" />);
     const items = container.querySelectorAll(".hf-progress-v2-nav-item");
     expect(items.length).toBe(LENS_ORDER.length);
+    const pendingCount = LENS_ORDER.filter((id) => !LENSES[id].Component).length;
     expect(container.querySelectorAll(".hf-progress-v2-nav-soon").length).toBe(
-      LENS_ORDER.length,
+      pendingCount,
     );
   });
 
@@ -75,7 +78,9 @@ describe("ProgressV2Tab shell", () => {
     const { container } = render(<ProgressV2Tab callerId="c1" />);
     const active = container.querySelector(".hf-progress-v2-nav-item--active");
     expect(active?.textContent).toContain("Adaptation");
-    expect(container.textContent).toContain("How the system has personalised");
+    // PR 6 mounts the real Adaptation lens (Component is defined); confirm
+    // the lens panel mounted (loading state is fine — fetch isn't mocked).
+    expect(container.querySelector(".hf-progress-v2-lens")).not.toBeNull();
   });
 
   it("falls back to overview + warns on unknown ?view=", () => {

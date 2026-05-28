@@ -10,6 +10,9 @@
  */
 
 import type { ComponentType, ReactNode } from "react";
+import { ParametersLens } from "./ParametersLens";
+import { AdaptationLens } from "./AdaptationLens";
+import { ModulesLens } from "./ModulesLens";
 
 export type LensId =
   | "overview"
@@ -58,16 +61,19 @@ export const LENSES: Record<LensId, LensDef> = {
     label: "Parameters",
     iconKey: "BarChart3",
     blurb: "Per-parameter EQ mixer — scores + behaviour, course-default vs current.",
+    Component: ParametersLens,
   },
   adaptation: {
     label: "Adaptation",
     iconKey: "Sliders",
     blurb: "How the system has personalised the experience, with reasons and tray-routed tuning chips.",
+    Component: AdaptationLens,
   },
   modules: {
     label: "Modules",
     iconKey: "BookOpen",
     blurb: "Module-mastery heatmap with drilldown to LO-level details.",
+    Component: ModulesLens,
   },
   goals: {
     label: "Goals",

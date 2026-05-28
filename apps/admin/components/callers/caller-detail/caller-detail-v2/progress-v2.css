@@ -121,6 +121,39 @@
   padding: 24px;
 }
 
+.hf-progress-v2-lens {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hf-progress-v2-lens--loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.hf-progress-v2-lens-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hf-progress-v2-lens-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hf-progress-v2-lens-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: ui-monospace, monospace;
+}
+
 .hf-progress-v2-panel-empty {
   display: flex;
   flex-direction: column;
