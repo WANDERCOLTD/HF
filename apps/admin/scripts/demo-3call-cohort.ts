@@ -534,7 +534,12 @@ async function main(): Promise<void> {
     }
   }
 
-  // (iii) For each module credited: mastery > 0 AND status === IN_PROGRESS.
+  // (iii) For each module credited: mastery > 0 AND status NOT stuck at
+  //       NOT_STARTED. The #950 invariant is "mastery > 0 implies the
+  //       status writer fired" — both IN_PROGRESS and COMPLETED satisfy it
+  //       (COMPLETED can legitimately happen when a module is credited
+  //       twice with high mastery before all 3 calls finish). The bug
+  //       #950 catches is the stuck row: mastery > 0 + status = NOT_STARTED.
   //       Modules that received no scorable turns may legitimately have no
   //       CallerModuleProgress row — we only assert against rows that exist
   //       AND are linked to one of the 3 modules we drove.
@@ -547,8 +552,10 @@ async function main(): Promise<void> {
     if (mp.mastery <= 0) {
       failures.push(`[${mp.module.slug}] mastery=${mp.mastery} (expected > 0)`);
     }
-    if (mp.status !== "IN_PROGRESS") {
-      failures.push(`[${mp.module.slug}] status=${mp.status} (expected IN_PROGRESS) — #950 invariant broken`);
+    if (mp.status === "NOT_STARTED") {
+      failures.push(
+        `[${mp.module.slug}] mastery=${mp.mastery.toFixed(2)} but status=NOT_STARTED — #950 status-promotion bug`,
+      );
     }
   }
 
