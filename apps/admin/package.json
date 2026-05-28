@@ -50,6 +50,8 @@
     "test:e2e:setup": "bash scripts/setup-test-db.sh",
     "test:hooks": "for t in ../../.claude/hooks/__tests__/test-*.sh; do echo \"--- $t ---\"; bash \"$t\" || exit 1; done",
     "test:all": "npm run test && npm run test:integration && npm run test:e2e",
+    "check:uplift": "tsx scripts/check-uplift-visual.ts",
+    "check:uplift:update": "tsx scripts/check-uplift-visual.ts --update",
     "playwright:install": "playwright install --with-deps",
     "db:reset": "tsx prisma/reset.ts",
     "db:seed": "tsx prisma/seed-clean.ts",

@@ -1,0 +1,3 @@
+# Per-run output — only baselines are tracked.
+current/
+diff/
