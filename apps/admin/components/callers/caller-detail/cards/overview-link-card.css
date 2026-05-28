@@ -1,0 +1,62 @@
+/* OverviewLinkCard — slim teaser + CTA used to replace cards whose detail
+   now lives on Uplift v2 / Progress v2. */
+
+.hf-overview-link-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hf-overview-link-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hf-overview-link-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hf-overview-link-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hf-overview-link-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.hf-overview-link-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 24%, transparent);
+  background: var(--surface-primary);
+  color: var(--accent-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.hf-overview-link-cta:hover {
+  background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+}
+
+.hf-overview-link-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}

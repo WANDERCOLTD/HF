@@ -4,14 +4,15 @@ import type { CallerInsights } from "../hooks/useCallerInsights";
 import type { CallerData, ParamConfig, SectionId } from "../types";
 import type { EnrollmentJourney } from "@/hooks/useEnrollmentJourney";
 import { AtAGlanceCard } from "../cards/AtAGlanceCard";
-import { SkillBandStripCard } from "../cards/SkillBandStripCard";
 import { MockResultCard } from "../cards/MockResultCard";
 import { TrustFooterCard } from "../cards/TrustFooterCard";
-import { ProgressStackCard } from "../cards/ProgressStackCard";
 import { FocusCard } from "../cards/FocusCard";
 import { WhoTheyAreCard } from "../cards/WhoTheyAreCard";
 import { RecentCallsCard } from "../cards/RecentCallsCard";
 import { AchievementsCard } from "../cards/AchievementsCard";
+import { OverviewLinkCard } from "../cards/OverviewLinkCard";
+import { StatTile } from "@/components/shared/display-primitives";
+import { count, pct } from "@/lib/caller-insights/formatNum";
 
 type GuideLensProps = {
   data: CallerData;
@@ -57,11 +58,12 @@ export function GuideLens({
       {/* At a Glance strip */}
       <AtAGlanceCard insights={insights} />
 
-      {/* Skill bands — per-criterion EMA (#417 + #564 + #575) */}
-      <SkillBandStripCard
-        callerTargets={(data.callerTargets ?? []) as never}
-        callScores={(data.scores ?? []) as never}
-        tierMapping={undefined}
+      {/* Skill growth — full trend lives on Uplift v2 now; Overview teases. */}
+      <OverviewLinkCard
+        title="Skill growth"
+        subtitle="Trend chart, target lines, and per-skill radar live on Uplift."
+        linkLabel="Open Uplift"
+        onClick={() => onNavigateToTab?.("uplift-v2")}
       />
 
       {/* Mock results — sub-module breakdown via #491 fan-out */}
@@ -71,8 +73,28 @@ export function GuideLens({
         tierMapping={undefined}
       />
 
-      {/* Progress Stack — the core innovation */}
-      <ProgressStackCard insights={insights} enrollmentJourneys={enrollmentJourneys} />
+      {/* Progress summary — full detail (goals + modules + plan) lives on
+          Progress v2. Overview shows just a 2-tile teaser and a link. */}
+      <OverviewLinkCard
+        title="Progress"
+        subtitle="Modules, goals, plan, exam readiness — full detail on Progress."
+        linkLabel="Open Progress"
+        onClick={() => onNavigateToTab?.("progress-v2")}
+        summary={
+          <>
+            <StatTile
+              value={count(insights.goals.count)}
+              label="Goals"
+              compact
+            />
+            <StatTile
+              value={pct(insights.courses.overallMastery)}
+              label="Mastery"
+              compact
+            />
+          </>
+        }
+      />
 
       {/* Focus Areas — diagnostic chains */}
       <FocusCard focusAreas={insights.focusAreas} />
