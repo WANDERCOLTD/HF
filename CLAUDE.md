@@ -109,25 +109,6 @@ Memory: [feedback_concurrent_claude_processes.md](~/.claude/projects/-Users-paul
 
 ---
 
-## ⚠️ MANDATORY: Test Bank first — every structural test must register
-
-[`docs/TEST-BANK.md`](docs/TEST-BANK.md) is the curated catalog of high-signal tests that defend named invariants (chain contracts, AI-to-DB guards, slug-scope rules, etc.). It is the **first place to look** when you need to know whether a property is already pinned, and the **only place a structural test counts as "done"**.
-
-**Two rules — both non-negotiable:**
-
-1. **Before designing or running any test plan, consult the Test Bank.** Search `docs/TEST-BANK.md` for entries tagged with the area you're touching. If an entry exists, run it first (single-file vitest is faster than the full suite and the docstring tells you the failure mode). If you propose new test cases, check whether they'd duplicate or extend an existing entry — extending wins over duplicating.
-
-2. **Every new structural test must add an entry to the Test Bank in the same PR.** "Structural" = defends a named invariant, a chain-contract link, an AI-to-DB guard, or pins a known landmine. Use the template at the bottom of `TEST-BANK.md`. Tag the `describe(...)` block with the issue number so `grep #NNN` finds both the entry and the test. PRs that ship structural tests without a bank entry are incomplete.
-
-**Exemptions:**
-
-- Pure unit tests for new helpers with no architectural invariant attached (e.g. testing a date-format util) don't need a bank entry.
-- Snapshot tests, e2e flows, and ad-hoc smoke checks are not bank-worthy by design (see `TEST-BANK.md` § "Not bank-worthy").
-
-**Why this rule exists:** without a curated catalog, structural tests rot — devs can't find them when triaging, can't tell what they defend, and write duplicates. The bank turns "the test exists" into "the test is *discoverable, named, and re-runnable*."
-
----
-
 ## ⚠️ MANDATORY: Use qmd and hf-graph — NOT grep, NOT glob
 
 **This is non-negotiable. Before searching, reading, or navigating any code in this repo:**
@@ -149,6 +130,30 @@ Memory: [feedback_concurrent_claude_processes.md](~/.claude/projects/-Users-paul
 Both configured in `.mcp.json` — auto-connect on project open.
 
 **qmd auto-sync (local only):** Git hooks keep qmd fresh — `pre-commit` updates before commit, `post-merge` after pull. Not needed on hf-dev VM.
+
+---
+
+## ⚠️ MANDATORY: You CAN hit authenticated API routes via the VM
+
+**Do not say "I can't authenticate"** — you can. The hf-dev VM has seeded SUPERADMIN credentials (`admin@test.com` / `admin123`) on the local DB and can mint a next-auth session cookie via curl. Use this whenever you need to verify a session-gated endpoint without asking the operator to load it in the browser.
+
+```bash
+# Run on hf-dev VM (via gcloud compute ssh or SSH command block).
+COOKIES=/tmp/hf-cookies.txt
+CSRF=$(curl -sS -c $COOKIES http://localhost:3000/api/auth/csrf | python3 -c 'import sys,json; print(json.load(sys.stdin)["csrfToken"])')
+curl -sS -b $COOKIES -c $COOKIES \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "email=admin@test.com&password=admin123&csrfToken=$CSRF&callbackUrl=http%3A%2F%2Flocalhost%3A3000%2F&json=true" \
+  -X POST http://localhost:3000/api/auth/callback/credentials -o /dev/null
+# Now $COOKIES contains authjs.session-token — reuse it for every subsequent curl.
+curl -sS -b $COOKIES http://localhost:3000/api/callers/<id>/learning-trajectory | python3 -m json.tool
+```
+
+The cookie is good for ~30 days (NextAuth default). Re-mint when an SSH session needs one.
+
+**For server-to-server routes** (those that handle `x-internal-secret` themselves — e.g. `/api/calls/[callId]/pipeline`, `/api/test-harness/run-sim`), use the `INTERNAL_API_SECRET` from the VM's `.env` as the `x-internal-secret` header — no session cookie needed. `scripts/sim-drive-call.ts` uses this pattern.
+
+If a route doesn't check `x-internal-secret` and isn't on the public allowlist, use the credentials-cookie flow above. Both paths bypass the "I can't access it" trap.
 
 ---
 
