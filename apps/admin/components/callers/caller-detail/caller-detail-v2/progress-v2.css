@@ -154,6 +154,67 @@
   font-family: ui-monospace, monospace;
 }
 
+/* ── ExamLens layout ───────────────────────────────────── */
+
+.hf-progress-v2-exam-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 24px;
+  align-items: center;
+  padding: 12px 0;
+}
+
+@media (max-width: 560px) {
+  .hf-progress-v2-exam-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hf-progress-v2-exam-donut {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hf-progress-v2-exam-donut-centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.hf-progress-v2-exam-donut-value {
+  font-size: 24px;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.hf-progress-v2-exam-donut-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.hf-progress-v2-exam-radar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-primary);
+  border-radius: 12px;
+  padding: 12px;
+  min-height: 220px;
+}
+
+.hf-progress-v2-exam-radar-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+}
+
 .hf-progress-v2-panel-empty {
   display: flex;
   flex-direction: column;

@@ -1096,7 +1096,10 @@ export default function CallerDetailPage() {
       )}
 
       {activeSection === "progress-v2" && (
-        <ProgressV2Tab callerId={callerId} />
+        <ProgressV2Tab
+          callerId={callerId}
+          memorySummary={data.memorySummary ?? null}
+        />
       )}
 
       {activeSection === "calls-prompts" && (

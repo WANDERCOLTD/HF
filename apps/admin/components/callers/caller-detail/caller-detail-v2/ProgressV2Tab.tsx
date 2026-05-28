@@ -33,6 +33,14 @@ import "./progress-v2.css";
 
 type Props = {
   callerId: string;
+  /** PR 7 — memory summary forwarded for the TopicsLens. */
+  memorySummary?: {
+    topTopics?: { topic: string; lastMentioned?: string }[];
+    topicCount?: number;
+    factCount?: number;
+    preferenceCount?: number;
+    eventCount?: number;
+  } | null;
 };
 
 const ICON_NODES: Record<string, React.ReactNode> = {
@@ -47,7 +55,10 @@ const ICON_NODES: Record<string, React.ReactNode> = {
   Compass: <Compass size={14} />,
 };
 
-export function ProgressV2Tab({ callerId }: Props): React.ReactElement {
+export function ProgressV2Tab({
+  callerId,
+  memorySummary,
+}: Props): React.ReactElement {
   useEffect(() => {
     trackTabLoad("progress-v2");
   }, []);
@@ -96,7 +107,12 @@ export function ProgressV2Tab({ callerId }: Props): React.ReactElement {
           className="hf-progress-v2-panel"
           aria-live="polite"
         >
-          <LensPanel id={view} def={activeDef} callerId={callerId} />
+          <LensPanel
+            id={view}
+            def={activeDef}
+            callerId={callerId}
+            memorySummary={memorySummary}
+          />
         </section>
       </div>
     </div>
@@ -107,14 +123,16 @@ function LensPanel({
   id,
   def,
   callerId,
+  memorySummary,
 }: {
   id: LensId;
   def: LensDef;
   callerId: string;
+  memorySummary?: Props["memorySummary"];
 }): React.ReactElement {
   if (def.Component) {
     const Component = def.Component;
-    return <Component callerId={callerId} />;
+    return <Component callerId={callerId} memorySummary={memorySummary} />;
   }
   return (
     <div className="hf-progress-v2-panel-empty">

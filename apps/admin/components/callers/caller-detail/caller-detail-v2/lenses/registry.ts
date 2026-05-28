@@ -13,6 +13,9 @@ import type { ComponentType, ReactNode } from "react";
 import { ParametersLens } from "./ParametersLens";
 import { AdaptationLens } from "./AdaptationLens";
 import { ModulesLens } from "./ModulesLens";
+import { GoalsLens } from "./GoalsLens";
+import { TopicsLens } from "./TopicsLens";
+import { ExamLens } from "./ExamLens";
 
 export type LensId =
   | "overview"
@@ -27,6 +30,14 @@ export type LensId =
 
 export type LensProps = {
   callerId: string;
+  /** PR 7 — memory summary forwarded from CallerDetailPage for the TopicsLens. */
+  memorySummary?: {
+    topTopics?: { topic: string; lastMentioned?: string }[];
+    topicCount?: number;
+    factCount?: number;
+    preferenceCount?: number;
+    eventCount?: number;
+  } | null;
 };
 
 export type LensDef = {
@@ -78,17 +89,20 @@ export const LENSES: Record<LensId, LensDef> = {
   goals: {
     label: "Goals",
     iconKey: "Target",
-    blurb: "Active + completed goals with confirm / dismiss action chips routed through the pending-changes tray.",
+    blurb: "Active + completed goals (action chips via the pending-changes tray ship in a follow-up).",
+    Component: GoalsLens,
   },
   topics: {
     label: "Topics",
     iconKey: "MessageSquare",
     blurb: "Topic cloud sourced from memory summaries.",
+    Component: TopicsLens,
   },
   exam: {
     label: "Exam readiness",
     iconKey: "ClipboardCheck",
     blurb: "Readiness donut + radar of weak modules + per-module heatmap.",
+    Component: ExamLens,
   },
   plan: {
     label: "Plan",
