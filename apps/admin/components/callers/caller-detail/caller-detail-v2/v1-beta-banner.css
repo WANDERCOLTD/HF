@@ -1,0 +1,45 @@
+/* V1BetaBanner extras — the design-system `hf-banner hf-banner-info` does the
+   container styling; this stylesheet adds the inline link + dismiss button. */
+
+.hf-v1-beta-banner {
+  justify-content: space-between;
+}
+
+.hf-v1-beta-banner-body {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hf-v1-beta-banner-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  margin-left: 4px;
+}
+
+.hf-v1-beta-banner-link:hover {
+  text-decoration: none;
+}
+
+.hf-v1-beta-banner-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.hf-v1-beta-banner-dismiss:hover {
+  opacity: 1;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}

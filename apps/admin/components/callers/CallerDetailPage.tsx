@@ -35,6 +35,9 @@ import { CallsPromptsTab, type BulkActions } from "./caller-detail/CallsPromptsT
 import { PromptTunerSidebar } from "./caller-detail/PromptTunerSidebar";
 import { StalePromptPill } from "./caller-detail/StalePromptPill";
 import { UpliftTab } from "./caller-detail/UpliftTab";
+import { UpliftV2Tab } from "./caller-detail/caller-detail-v2/UpliftV2Tab";
+import { ProgressV2Tab } from "./caller-detail/caller-detail-v2/ProgressV2Tab";
+import { V1BetaBanner } from "./caller-detail/caller-detail-v2/V1BetaBanner";
 
 // Overview lens (now rendered as the first section tab)
 import { useCallerInsights } from "./caller-detail/hooks/useCallerInsights";
@@ -74,7 +77,7 @@ export default function CallerDetailPage() {
     transcripts: "calls-prompts", prompt: "calls-prompts",
   };
   const rawTab = searchParams.get("tab");
-  const validTabs: SectionId[] = ["overview", "uplift", "calls-prompts", "tune", "how", "what", "artifacts", "ai-call"];
+  const validTabs: SectionId[] = ["overview", "uplift", "uplift-v2", "calls-prompts", "tune", "how", "what", "progress-v2", "artifacts", "ai-call"];
   const mappedTab = rawTab ? (tabRedirects[rawTab] || rawTab) as SectionId : null;
   const lastTabKey = `hf.caller-tab.${callerId}`;
   const savedTab = typeof window !== "undefined" ? window.localStorage.getItem(lastTabKey) as SectionId | null : null;
@@ -614,7 +617,7 @@ export default function CallerDetailPage() {
   // Sections organized to mirror Course WHAT | HOW | WHO from learner's perspective:
   // Journey (call history) | How (profile/traits) | What (scores/goals) | Artifacts | Call
   // Tabs affected by pipeline processing (will show pulsing indicator)
-  const processingTabs = new Set<SectionId>(["calls-prompts", "how", "what", "uplift", "artifacts"]);
+  const processingTabs = new Set<SectionId>(["calls-prompts", "how", "what", "uplift", "uplift-v2", "progress-v2", "artifacts"]);
 
   const sections: { id: SectionId; label: React.ReactNode; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
     { id: "overview", label: <TabWithHelp tabId="overview">Overview</TabWithHelp>, icon: <span aria-hidden>🧭</span>, group: "shared" },
@@ -624,6 +627,8 @@ export default function CallerDetailPage() {
     { id: "what", label: <TabWithHelp tabId="what">Progress</TabWithHelp>, icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
     { id: "artifacts", label: <TabWithHelp tabId="artifacts">Artifacts</TabWithHelp>, icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
     { id: "uplift", label: <TabWithHelp tabId="uplift">Uplift</TabWithHelp>, icon: <TrendingUp size={13} />, group: "shared" },
+    { id: "uplift-v2", label: <span className="cdp-tab-beta-wrap">Uplift <span className="cdp-tab-beta">BETA</span></span>, icon: <TrendingUp size={13} />, group: "shared" },
+    { id: "progress-v2", label: <span className="cdp-tab-beta-wrap">Progress <span className="cdp-tab-beta">BETA</span></span>, icon: <Gauge size={13} />, group: "shared" },
     { id: "session-flow", label: "Session Flow", icon: <SlidersHorizontal size={13} />, group: "shared" },
     { id: "ai-call", label: <TabWithHelp tabId="ai-call">Call</TabWithHelp>, icon: <PlayCircle size={13} />, special: true, group: "action" },
   ];
@@ -1070,12 +1075,23 @@ export default function CallerDetailPage() {
       )}
 
       {activeSection === "uplift" && (
-        <UpliftTab
-          callerId={callerId}
-          insights={insights}
-          scores={(data.scores ?? []) as never}
-          callerTargets={(data.callerTargets ?? []) as never}
-        />
+        <>
+          <V1BetaBanner surface="uplift" callerId={callerId} />
+          <UpliftTab
+            callerId={callerId}
+            insights={insights}
+            scores={(data.scores ?? []) as never}
+            callerTargets={(data.callerTargets ?? []) as never}
+          />
+        </>
+      )}
+
+      {activeSection === "uplift-v2" && (
+        <UpliftV2Tab callerId={callerId} />
+      )}
+
+      {activeSection === "progress-v2" && (
+        <ProgressV2Tab callerId={callerId} />
       )}
 
       {activeSection === "calls-prompts" && (
@@ -1237,6 +1253,7 @@ export default function CallerDetailPage() {
 
       {activeSection === "what" && (
         <>
+          <V1BetaBanner surface="progress" callerId={callerId} />
           {isProcessing && !data.scores?.length && !data.counts.measurements && (
             <ProcessingNotice message="Scores and behaviour data will appear here once analysis completes." />
           )}
