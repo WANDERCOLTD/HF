@@ -18,6 +18,7 @@ When the user says anything matching these patterns, **STOP and run the BA + Tec
 
 | User says | What to do |
 |-----------|-----------|
+| "Let's build a course on [topic]" / proposes a NEW COURSE topic | Run `course-architect` FIRST (upstream of BA/TL). Returns a brief; THEN run BA + Tech Lead with the brief as input. |
 | "I'm going to build / implement / add / create [X]" | Run BA + Tech Lead on X |
 | "Let's do [feature]" / "Time to work on [feature]" | Run BA + Tech Lead on feature |
 | "Can you build / code / write [X] for me" | Run BA + Tech Lead on X |
@@ -25,6 +26,8 @@ When the user says anything matching these patterns, **STOP and run the BA + Tec
 | Pastes a spec/doc and says "implement this" | Run BA + Tech Lead on the spec |
 
 **Exception:** If the user references an existing GitHub issue number (e.g. "work on #12"), skip BA/TL — it's already groomed.
+
+**Course Architect skip rules:** Skip `course-architect` if (a) the user already has an approved Course Architect brief in hand, (b) the work is editing an existing course's modules/LOs (BA + Tech Lead handle that), or (c) the work is engineering, not curriculum.
 
 ### The interception flow
 
