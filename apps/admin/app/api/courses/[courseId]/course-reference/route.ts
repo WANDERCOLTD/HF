@@ -19,7 +19,7 @@ export async function GET(
 ) {
   try {
     const user = await requireAuth("VIEWER");
-    if (isAuthError(user)) return user;
+    if (isAuthError(user)) return user.error;
 
     const { courseId } = await params;
 

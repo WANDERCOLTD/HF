@@ -14,7 +14,7 @@ import slugify from "slugify";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth("OPERATOR");
-  if (isAuthError(auth)) return auth;
+  if (isAuthError(auth)) return auth.error;
 
   const body = await req.json();
   const { institutionName } = body;
