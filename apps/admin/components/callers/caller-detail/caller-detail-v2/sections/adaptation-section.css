@@ -1,0 +1,37 @@
+/* AdaptationSection — "How we adapted for you" */
+
+.hf-uplift-v2-adaptation {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--surface-primary);
+}
+
+.hf-uplift-v2-adaptation-loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.hf-uplift-v2-adaptation-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hf-uplift-v2-adaptation-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hf-uplift-v2-adaptation-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: ui-monospace, monospace;
+}

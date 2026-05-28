@@ -259,11 +259,23 @@ export type SectionId = "overview" | "uplift" | "uplift-v2" | "calls-prompts" | 
 export type ScoreTrend = {
   parameterId: string;
   parameterName: string;
+  /** Parameter category — BEHAVIOR / TRAIT / STATE / etc. PR 2 (#963). */
+  parameterType?: string | null;
+  /** Holographic section the parameter belongs to. PR 2 (#963). */
+  sectionId?: string | null;
+  /** Plain-English definition for glossary tooltips. PR 2 (#963). */
+  definition?: string | null;
   scores: { callDate: string; score: number; confidence: number }[];
 };
 
 export type AdaptationItem = {
   parameterName: string;
+  /** Parameter category — drives EQ-mixer band grouping. PR 2 (#963). */
+  parameterType?: string | null;
+  /** Holographic section. PR 2 (#963). */
+  sectionId?: string | null;
+  /** Plain-English definition for per-track glossary tooltip. PR 2 (#963). */
+  definition?: string | null;
   defaultValue: number;
   currentValue: number;
   delta: number;

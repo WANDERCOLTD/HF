@@ -9,6 +9,8 @@
 import type { ComponentType } from "react";
 import { HeroSection } from "./HeroSection";
 import { ModulesSection } from "./ModulesSection";
+import { AdaptationSection } from "./AdaptationSection";
+import { ScoreTrendsSection } from "./ScoreTrendsSection";
 
 export type UpliftSectionId =
   | "hero"
@@ -53,6 +55,16 @@ export const UPLIFT_SECTIONS: Partial<Record<UpliftSectionId, SectionDef>> = {
     order: 30,
     span: 12,
     Component: ModulesSection,
+  },
+  "score-trends": {
+    order: 50,
+    span: 6,
+    Component: ScoreTrendsSection,
+  },
+  adaptation: {
+    order: 60,
+    span: 12,
+    Component: AdaptationSection,
   },
 };
 

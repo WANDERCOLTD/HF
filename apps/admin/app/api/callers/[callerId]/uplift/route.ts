@@ -57,20 +57,32 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
         score: true,
         confidence: true,
         scoredAt: true,
-        parameter: { select: { name: true } },
+        parameter: {
+          select: {
+            name: true,
+            parameterType: true,
+            sectionId: true,
+            definition: true,
+          },
+        },
         call: { select: { createdAt: true } },
       },
       orderBy: { scoredAt: "asc" },
       take: 500,
     }),
 
-    // 3. Caller targets + parameter names for adaptation evidence
+    // 3. Caller targets + parameter category for adaptation evidence
+    //    parameterType / sectionId drive EQ-mixer band grouping;
+    //    definition powers per-track plain-English tooltip on Uplift v2.
     prisma.callerTarget.findMany({
       where: { callerId },
       include: {
         parameter: {
           select: {
             name: true,
+            parameterType: true,
+            sectionId: true,
+            definition: true,
           },
         },
       },
@@ -172,10 +184,23 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
 
   // --- Score trends (group by parameter, chronological) ---
 
-  const trendMap = new Map<string, { parameterName: string; scores: { callDate: string; score: number; confidence: number }[] }>();
+  type TrendBucket = {
+    parameterName: string;
+    parameterType: string | null;
+    sectionId: string | null;
+    definition: string | null;
+    scores: { callDate: string; score: number; confidence: number }[];
+  };
+  const trendMap = new Map<string, TrendBucket>();
   for (const s of callScores) {
     if (!trendMap.has(s.parameterId)) {
-      trendMap.set(s.parameterId, { parameterName: s.parameter.name, scores: [] });
+      trendMap.set(s.parameterId, {
+        parameterName: s.parameter.name,
+        parameterType: s.parameter.parameterType ?? null,
+        sectionId: s.parameter.sectionId ?? null,
+        definition: s.parameter.definition ?? null,
+        scores: [],
+      });
     }
     trendMap.get(s.parameterId)!.scores.push({
       callDate: s.call.createdAt.toISOString(),
@@ -195,6 +220,9 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
   const adaptationEvidence = callerTargets
     .map((ct) => ({
       parameterName: ct.parameter.name,
+      parameterType: ct.parameter.parameterType ?? null,
+      sectionId: ct.parameter.sectionId ?? null,
+      definition: ct.parameter.definition ?? null,
       defaultValue: SYSTEM_DEFAULT,
       currentValue: ct.targetValue,
       delta: Math.round((ct.targetValue - SYSTEM_DEFAULT) * 1000) / 1000,
