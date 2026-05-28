@@ -2415,6 +2415,23 @@ Update a call action (status, notes, assignee, priority, dueAt).
 
 ---
 
+### `GET` /api/callers/:callerId/active-playbook
+
+Resolve the active playbookId for a caller via the canonical
+
+**Auth**: Session · **Scope**: `callers:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | path | string | Yes | The caller ID |
+
+**Response** `200`
+```json
+{ ok: true, playbookId: string | null }
+```
+
+---
+
 ### `GET` /api/callers/:callerId/aggregate
 
 Get available AGGREGATE specs for a caller. Returns all active specs with outputType AGGREGATE that can be run.
@@ -14554,8 +14571,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 456 |
-| Files with annotations | 455 |
+| Route files found | 457 |
+| Files with annotations | 456 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 

@@ -280,6 +280,31 @@ The links above cover pipeline-internal (3) and authoring-time (3a) boundaries. 
 
 ---
 
+### Link L9 — Learner-Facing Module Picker Reachability
+
+**Every learner-facing page that mounts a session on a Playbook with `config.modulesAuthored = true` MUST resolve the active `playbookId` before rendering the chat surface.** Resolution falls back through:
+
+1. `?playbookId=` URL param (deep-link from picker, wizard, etc.)
+2. The caller's single ACTIVE `CallerPlaybook` enrollment
+3. The caller's most-recently-enrolled ACTIVE playbook (`orderBy: enrolledAt desc`)
+
+A page that mounts without a resolved `playbookId` either renders a learner-readable "no enrollment" empty state OR is unreachable from learner navigation. **Never** a silent no-op (no banner, no picker, no error).
+
+| Field | Value |
+|---|---|
+| **Producer** | The fallback chain itself — implemented as the shared resolver `apps/admin/lib/caller/resolve-active-playbook.ts::resolveActivePlaybookId(callerId, urlOverride?)` and its API wrapper `app/api/callers/[callerId]/active-playbook/route.ts`. Single source of truth for the L9 pick rule. |
+| **Consumer** | Every learner-facing page that mounts a chat / call surface on a Playbook. Today: `apps/admin/app/x/sim/[callerId]/page.tsx`. Future: any new `/x/sim/**` or `/x/student/**` page that reads `?playbookId=` and renders module-aware UI. |
+| **Defends against** | The silent-reachability class of bug exemplified by #948 / PR #947: a learner deep-links into `/x/sim/[callerId]` without `?playbookId=`, the page reads URL only, `playbookId` stays `undefined`, the downstream playbook fetch never fires, `modulesAuthored` stays `false`, and the module-picker banner conditional silently no-ops — even though the learner has exactly one ACTIVE enrollment on a playbook with an authored module catalogue. No banner, no error, no entry to the picker. |
+| **Invariant** | A learner with at least one ACTIVE enrollment lands on a page that resolves `playbookId` from enrollments when the URL didn't pass one. A learner with zero ACTIVE enrollments lands on a page that renders an explicit empty state. There is no third "page silently mounts with no picker and no error" outcome. |
+| **Enforcement** | Three layers: (1) **Shared helper** — `lib/caller/resolve-active-playbook.ts::resolveActivePlaybookId` is the canonical pick rule; the admin-side `CallerDetailPage.tsx:386-401` carries an inline copy with a JSDoc note pinning it to the helper (must stay byte-identical). (2) **API wrapper** — `/api/callers/[callerId]/active-playbook` so client-side learner pages have a single endpoint instead of duplicating the resolver in React effects. (3) **`.claude/agents/arch-checker.md` Check G** — static check across `apps/admin/app/x/sim/**/page.tsx` + `apps/admin/app/x/student/**/page.tsx`: any file that reads `searchParams.get('playbookId')` MUST also use the helper or hit the endpoint. Soft warning today; promote to error once no violations remain. |
+| **Test** | `apps/admin/tests/lib/caller/resolve-active-playbook.test.ts` (13 cases — URL override always wins; 1/2+/0 ACTIVE branches; non-ACTIVE excluded; SQL shape pin; nullish-override fall-through). `apps/admin/tests/integration/journey/learner-picker-reachability.integration.test.ts` (live-DB end-to-end on 4 caller shapes). |
+| **DataContract slug** | None — the contract is the shape of the pick rule, not the shape of a DB row. (If a third learner-facing surface ever needs the rule with a different scope, this becomes a candidate for `LEARNER_SESSION_MOUNT_V1`.) |
+| **Memory doc** | This row; JSDoc at `lib/caller/resolve-active-playbook.ts`; `docs/TEST-BANK.md` entries D003 (unit) + D004 (integration). |
+| **Related** | #947 (the fix that exposed the gap) · #948 (this follow-up that pins the contract) · `docs/TEST-BANK.md` D003 + D004. |
+| **Reinforced by** | #948 — this PR. |
+
+---
+
 ## 4. DataContract registry
 
 The runtime DataContract registry (`lib/contracts/`) is the DB-backed source of truth for storage-key patterns. Contract files live in `apps/admin/docs-archive/bdd-specs/contracts/` and are seeded into `DataContract` rows on `db:seed`.
@@ -323,6 +348,8 @@ If a chain row above references "DataContract slug: implicit" and the contract i
 | TBD  | #819 | 3 (sub-contract) | PUT /api/courses/[id]/design fans out recompose-all when COMPOSE-affecting namespaces change — closes the stale-prompt-after-tuner-save gap |
 | #920 | #917 | 3c | New learner-facing API + SimProgressPanel "Today's call" section; sanitizer + multi-curriculum + stale guards |
 | #924 | #923 | 3c | Scheduler reason copy constants module + regression test against log-prefixed reasons |
+| #947 | #948 (fix) | L9 | `/x/sim/[callerId]` auto-resolves playbookId from caller's enrollments when URL has none |
+| TBD  | #948 (this PR) | L9 | Chain contract + shared `resolveActivePlaybookId` helper + `/api/callers/[id]/active-playbook` endpoint + arch-checker Check G + integration journey test |
 
 ---
 
@@ -351,6 +378,7 @@ If a chain row above references "DataContract slug: implicit" and the contract i
 
 | Date | Change |
 |---|---|
+| 2026-05-27 | **Link L9 added — learner-facing module-picker reachability (#948).** Pins the silent-reachability invariant exposed by PR #947's `/x/sim` fix. Every learner-facing page that mounts a session on a Playbook MUST resolve `playbookId` via the canonical fallback (URL → single ACTIVE enrollment → most-recently enrolled ACTIVE → empty state). Shared helper at `lib/caller/resolve-active-playbook.ts` + API wrapper at `/api/callers/[id]/active-playbook` + arch-checker Check G (soft warn) + integration journey test on 4 caller shapes + 13-case vitest. Defends against a learner deep-linking into the sim view, missing the picker silently, and being unable to focus a session. |
 | 2026-05-27 | **Section 3c added — learner-surfacing contracts. Link L1: scheduler → learner (PRs #920 (#917 Slice 2) + #924 (#923 writer copy)).** First pipeline→learner contract boundary: scheduler `reason` field, written to `CallerAttribute` during COMPOSE, exposed via `GET /api/student/scheduler-decision` and rendered in SimProgressPanel. Five-layer enforcement (writer copy constants + build-time regression + route sanitizer + strict response shape + multi-curriculum/stale guards). Known gap #919 (multi-curriculum writer key shape) documented at read-time guard, pending writer-side fix. |
 | 2026-05-23 | Initial canonical inventory created post-Epic 100 (#616). Captures the 6 chain links + active DataContract slugs + the 13 Epic 100 PRs that reinforced them. |
 | 2026-05-26 | **Link 3a added — authoring-side read parity (#910 / epic #909).** Sister contract to Link 3 FK invariant. Any UI surface displaying a scope-cascaded value must read through `lib/tolerance/resolve-tolerance.ts` (or the bulk wrapper landing in #911). Ad-hoc two-endpoint cascade-merge in components is forbidden. New audit counter `authoringBehTargetBypassCount` (CI step 6) — today 1 (`PromptTunerSidebar.tsx`, fixed by #911); target 0. Arch-checker Check F enforces at review time (soft warning, promoted to error once #911 lands). Caught empirically 2026-05-26 — sidebar showed course-level value after a learner-scope save because the in-component merge ignored the separately-fetched learner overrides. |
