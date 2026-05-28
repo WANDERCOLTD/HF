@@ -178,7 +178,7 @@ export async function GET(
         startedAt: true,
         completedAt: true,
         updatedAt: true,
-        module: { select: { id: true, slug: true, label: true } },
+        module: { select: { id: true, slug: true, title: true } },
       },
       orderBy: { updatedAt: "desc" },
     });
@@ -230,7 +230,7 @@ export async function GET(
           return {
             moduleId: mp.module?.id ?? mp.moduleId,
             slug,
-            label: mp.module?.label ?? slug ?? mp.moduleId.slice(0, 8),
+            label: mp.module?.title ?? slug ?? mp.moduleId.slice(0, 8),
             status: mp.status,
             mastery: mp.mastery,
             callCount: mp.callCount,
