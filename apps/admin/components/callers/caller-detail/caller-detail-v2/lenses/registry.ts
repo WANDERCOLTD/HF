@@ -16,6 +16,9 @@ import { ModulesLens } from "./ModulesLens";
 import { GoalsLens } from "./GoalsLens";
 import { TopicsLens } from "./TopicsLens";
 import { ExamLens } from "./ExamLens";
+import { OverviewLens } from "./OverviewLens";
+import { PlanLens } from "./PlanLens";
+import { TrajectoryLens } from "./TrajectoryLens";
 
 export type LensId =
   | "overview"
@@ -67,6 +70,7 @@ export const LENSES: Record<LensId, LensDef> = {
     label: "Overview",
     iconKey: "Gauge",
     blurb: "30-second read across this learner's whole progress picture.",
+    Component: OverviewLens,
   },
   parameters: {
     label: "Parameters",
@@ -107,12 +111,14 @@ export const LENSES: Record<LensId, LensDef> = {
   plan: {
     label: "Plan",
     iconKey: "CheckSquare",
-    blurb: "Session timeline ribbon with status + what's-next inline reason.",
+    blurb: "Session timeline ribbon — last 20 calls.",
+    Component: PlanLens,
   },
   trajectory: {
     label: "Trajectory",
     iconKey: "Compass",
     blurb: "Learning trajectory — single canonical home post-cutover.",
+    Component: TrajectoryLens,
   },
 };
 

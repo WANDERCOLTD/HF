@@ -118,13 +118,9 @@ describe("ExamLens", () => {
 });
 
 describe("LENSES registry (after PR 7)", () => {
-  it("Goals + Topics + Exam are wired; Overview / Plan / Trajectory land in PR 8", () => {
+  it("Goals + Topics + Exam are wired", () => {
     expect(LENSES.goals.Component).toBeDefined();
     expect(LENSES.topics.Component).toBeDefined();
     expect(LENSES.exam.Component).toBeDefined();
-    const pending = Object.entries(LENSES)
-      .filter(([, def]) => !def.Component)
-      .map(([id]) => id);
-    expect(pending.sort()).toEqual(["overview", "plan", "trajectory"]);
   });
 });
