@@ -208,13 +208,21 @@ async function captureTab(
   tabId: string,
 ): Promise<Buffer> {
   const page = await ctx.newPage();
+  // Cold dev-server compiles can take 30-60s on the first hit per page,
+  // so the per-page navigation budget needs to be generous.
+  page.setDefaultNavigationTimeout(90_000);
+  page.setDefaultTimeout(30_000);
   try {
+    // domcontentloaded is enough for screenshot purposes — networkidle gets
+    // wedged by Next.js dev-server long-poll connections in some routes.
     await page.goto(`${BASE_URL}${href}?tab=${tabId}`, {
-      waitUntil: "networkidle",
+      waitUntil: "domcontentloaded",
     });
+    // Let the client mount + the registry-driven sections issue their data
+    // fetches, then settle for a paint frame.
+    await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
     await page.addStyleTag({ content: FREEZE_CSS });
-    // Belt-and-braces — give one settle frame for fonts / late paints.
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(500);
     return await page.screenshot({ fullPage: true, type: "png" });
   } finally {
     await page.close();
