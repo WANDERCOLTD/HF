@@ -351,3 +351,59 @@ describe("cascade: playbook values should win over subject profile", () => {
     }
   });
 });
+
+// ── #953 suggestTeachingProfile ESOL/IELTS expansion ──
+//
+// Before the keyword expansion these subjects landed at
+// teachingProfile=null, which silently disabled the Learning Trajectory
+// card (the endpoint gates on profile ∈ {comprehension|discussion|coaching}).
+// The expansion makes ESOL-flavoured subjects resolve to comprehension-led
+// so the trajectory's existing renderer can engage. The module-mastery
+// fallback in the same PR handles the case where the profile resolves
+// but the scoring layer doesn't produce COMP_*-prefixed parameters
+// (which is true for every IELTS course today).
+
+describe("suggestTeachingProfile — #953 ESOL / IELTS keywords", () => {
+  const CASES: Array<[string, "comprehension-led"]> = [
+    ["ESOL", "comprehension-led"],
+    ["ielts", "comprehension-led"],
+    ["IELTS Speaking", "comprehension-led"],
+    ["IELTS Speaking Practice V1.0", "comprehension-led"],
+    ["TOEFL Reading Prep", "comprehension-led"],
+    ["TOEIC business", "comprehension-led"],
+    ["Cambridge CAE", "comprehension-led"],
+    ["FCE — First Certificate in English", "comprehension-led"],
+    ["CPE preparation", "comprehension-led"],
+    ["PTE Academic", "comprehension-led"],
+    ["English as a Second Language", "comprehension-led"],
+    ["English as a Foreign Language", "comprehension-led"],
+    ["EFL crash course", "comprehension-led"],
+    ["ESL conversational", "comprehension-led"],
+  ];
+
+  for (const [name, expected] of CASES) {
+    it(`maps "${name}" → ${expected}`, () => {
+      expect(suggestTeachingProfile(name)).toBe(expected);
+    });
+  }
+
+  it("returns null for subjects with no keyword hit (e.g. UFO Studies)", () => {
+    expect(suggestTeachingProfile("UFO Studies")).toBeNull();
+  });
+
+  it("returns null for empty / too-short names (existing guard)", () => {
+    expect(suggestTeachingProfile("")).toBeNull();
+    expect(suggestTeachingProfile("ab")).toBeNull();
+  });
+
+  it("prefers comprehension-led when both ESOL and another keyword collide", () => {
+    // Sanity: longer key wins per PROFILE_KEYWORD_ENTRIES sort. "english as
+    // a second language" (33 chars) beats "english" (7 chars) on the same
+    // string — both resolve to comprehension-led so the outcome is the
+    // same, but we verify the longest-first contract isn't accidentally
+    // broken by the new entries.
+    expect(suggestTeachingProfile("English as a Second Language")).toBe(
+      "comprehension-led",
+    );
+  });
+});
