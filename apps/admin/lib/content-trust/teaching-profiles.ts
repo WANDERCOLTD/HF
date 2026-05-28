@@ -222,6 +222,23 @@ const PROFILE_KEYWORDS: Record<string, TeachingProfileKey> = {
   comprehension: "comprehension-led",
   literacy: "comprehension-led",
   "creative writing": "comprehension-led",
+  // #953 — English-as-a-foreign-language exams. ESOL is the umbrella;
+  // IELTS / TOEFL / TOEIC / Cambridge (CAE/FCE/CPE) / PTE are the major
+  // brands. All map to comprehension-led: reading + close-analysis +
+  // dialogue is the right pedagogical bundle even for exams that score
+  // on speaking/writing bands. Lowercase substring match (line 295).
+  esol: "comprehension-led",
+  ielts: "comprehension-led",
+  toefl: "comprehension-led",
+  toeic: "comprehension-led",
+  cae: "comprehension-led",
+  fce: "comprehension-led",
+  cpe: "comprehension-led",
+  pte: "comprehension-led",
+  efl: "comprehension-led",
+  esl: "comprehension-led",
+  "english as a second language": "comprehension-led",
+  "english as a foreign language": "comprehension-led",
 
   // recall-led — fact-heavy subjects
   history: "recall-led",
