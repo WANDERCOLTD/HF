@@ -9,12 +9,83 @@
 }
 
 .hf-uplift-v2-beta-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 8px 14px;
   border-radius: 10px;
   background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
   color: var(--accent-primary);
   font-size: 12px;
   font-weight: 600;
+}
+
+.hf-uplift-v2-print-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 24%, transparent);
+  background: var(--surface-primary);
+  color: var(--accent-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hf-uplift-v2-print-btn:hover {
+  background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+}
+
+/* ── Print / Export PDF ──────────────────────────────────────────────
+   When the user prints the Uplift v2 page (`Cmd/Ctrl+P` or the Print
+   button), strip everything that isn't the Learner Proof Report itself —
+   the global nav, page header, tab bar, processing notices, footers.
+   Keep the report layout but stack single-column for an A4-friendly
+   read, hide the BETA strip + Print button (they're not part of the
+   report). Avoid page-break-inside on each section so cards don't
+   split mid-card. */
+
+@media print {
+  /* Hide global chrome */
+  body > nav,
+  body > header,
+  .cdp-header,
+  .cdp-tab-bar,
+  .cdp-roster-sidebar,
+  .cdp-status-bar,
+  .hf-uplift-v2-beta-strip {
+    display: none !important;
+  }
+
+  /* Single-column report so wide cards don't get cropped */
+  .hf-uplift-v2-grid {
+    display: block !important;
+  }
+  .hf-uplift-v2-section,
+  .hf-uplift-v2-section--span-4,
+  .hf-uplift-v2-section--span-6,
+  .hf-uplift-v2-section--span-8,
+  .hf-uplift-v2-section--span-12 {
+    grid-column: auto !important;
+    margin: 0 0 16px !important;
+    break-inside: avoid;
+  }
+
+  /* Coming-soon placeholders aren't worth printing */
+  .hf-uplift-v2-section--placeholder {
+    display: none !important;
+  }
+
+  /* Print on white, tighter type */
+  .hf-uplift-v2-root {
+    background: #fff !important;
+    color: #000 !important;
+    padding: 12px !important;
+  }
 }
 
 .hf-uplift-v2-grid {

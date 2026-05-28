@@ -9,7 +9,8 @@
  * UPLIFT_SECTIONS registry over PRs 1b–4.
  */
 
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback } from "react";
+import { Printer } from "lucide-react";
 import {
   UPLIFT_SECTIONS,
   UPLIFT_PLACEHOLDERS,
@@ -27,6 +28,10 @@ export function UpliftV2Tab({ callerId }: Props): React.ReactElement {
     trackTabLoad("uplift-v2");
   }, []);
 
+  const handlePrint = useCallback(() => {
+    if (typeof window !== "undefined") window.print();
+  }, []);
+
   const ids = Object.keys(UPLIFT_PLACEHOLDERS) as UpliftSectionId[];
   const ordered = ids.sort(
     (a, b) => UPLIFT_PLACEHOLDERS[a].order - UPLIFT_PLACEHOLDERS[b].order,
@@ -35,7 +40,18 @@ export function UpliftV2Tab({ callerId }: Props): React.ReactElement {
   return (
     <div className="hf-uplift-v2-root">
       <div className="hf-uplift-v2-beta-strip">
-        BETA — new Learner Proof Report. Sections fill in across the next few PRs.
+        <span>
+          BETA — new Learner Proof Report. Sections fill in across the next few PRs.
+        </span>
+        <button
+          type="button"
+          className="hf-uplift-v2-print-btn"
+          onClick={handlePrint}
+          aria-label="Print or export this report as PDF"
+        >
+          <Printer size={13} />
+          Print / Export PDF
+        </button>
       </div>
       <div className="hf-uplift-v2-grid">
         {ordered.map((id) => {

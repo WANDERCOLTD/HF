@@ -11,6 +11,8 @@ import { HeroSection } from "./HeroSection";
 import { ModulesSection } from "./ModulesSection";
 import { AdaptationSection } from "./AdaptationSection";
 import { ScoreTrendsSection } from "./ScoreTrendsSection";
+import { GoalsSection } from "./GoalsSection";
+import { EngagementSection } from "./EngagementSection";
 
 export type UpliftSectionId =
   | "hero"
@@ -56,6 +58,11 @@ export const UPLIFT_SECTIONS: Partial<Record<UpliftSectionId, SectionDef>> = {
     span: 12,
     Component: ModulesSection,
   },
+  goals: {
+    order: 40,
+    span: 6,
+    Component: GoalsSection,
+  },
   "score-trends": {
     order: 50,
     span: 6,
@@ -65,6 +72,11 @@ export const UPLIFT_SECTIONS: Partial<Record<UpliftSectionId, SectionDef>> = {
     order: 60,
     span: 12,
     Component: AdaptationSection,
+  },
+  engagement: {
+    order: 80,
+    span: 6,
+    Component: EngagementSection,
   },
 };
 

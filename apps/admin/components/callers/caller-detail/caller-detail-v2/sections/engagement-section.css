@@ -1,0 +1,115 @@
+/* EngagementSection — Memories slice donut + stat tiles */
+
+.hf-uplift-v2-engagement {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--surface-primary);
+}
+
+.hf-uplift-v2-engagement-loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.hf-uplift-v2-engagement-head {
+  display: flex;
+  align-items: baseline;
+}
+
+.hf-uplift-v2-engagement-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hf-uplift-v2-engagement-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+@media (max-width: 560px) {
+  .hf-uplift-v2-engagement-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hf-uplift-v2-engagement-memories {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hf-uplift-v2-engagement-donut-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.hf-uplift-v2-engagement-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  line-height: 1.1;
+}
+
+.hf-uplift-v2-engagement-center-value {
+  font-size: 22px;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  color: var(--text-primary);
+}
+
+.hf-uplift-v2-engagement-center-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.hf-uplift-v2-engagement-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hf-uplift-v2-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.hf-uplift-v2-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.hf-uplift-v2-legend-label {
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.hf-uplift-v2-legend-count {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.hf-uplift-v2-engagement-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
