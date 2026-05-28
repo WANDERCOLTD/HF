@@ -315,6 +315,12 @@ export type UpliftData = {
     total: number;
   };
   callFrequencyPerWeek: number;
+  /**
+   * Ordered ISO timestamps of every call, oldest first. Powers the
+   * Engagement section's CalendarStrip and any future daily-presence
+   * visualisations. PR 4 (#963).
+   */
+  callDates?: string[];
 };
 
 export type ComposedPrompt = {

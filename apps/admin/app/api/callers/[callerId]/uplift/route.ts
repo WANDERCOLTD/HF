@@ -237,6 +237,8 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
   const totalCalls = calls.length;
   const firstCallAt = calls.length > 0 ? calls[0].createdAt.toISOString() : null;
   const latestCallAt = calls.length > 0 ? calls[calls.length - 1].createdAt.toISOString() : null;
+  // Ordered ISO call dates for the CalendarStrip primitive (PR 4 / #963).
+  const callDates = calls.map((c) => c.createdAt.toISOString());
 
   const timeOnPlatformDays = firstCallAt
     ? Math.max(1, Math.ceil((Date.now() - new Date(firstCallAt).getTime()) / (1000 * 60 * 60 * 24)))
@@ -276,6 +278,7 @@ export async function GET(_req: Request, { params }: Params): Promise<NextRespon
       adaptationEvidence,
       memoryCounts,
       callFrequencyPerWeek,
+      callDates,
     },
   });
 }

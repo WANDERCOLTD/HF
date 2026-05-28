@@ -13,6 +13,8 @@ import { AdaptationSection } from "./AdaptationSection";
 import { ScoreTrendsSection } from "./ScoreTrendsSection";
 import { GoalsSection } from "./GoalsSection";
 import { EngagementSection } from "./EngagementSection";
+import { SkillChartSection } from "./SkillChartSection";
+import { TopicsSection } from "./TopicsSection";
 
 export type UpliftSectionId =
   | "hero"
@@ -26,6 +28,18 @@ export type UpliftSectionId =
 
 export type UpliftSectionProps = {
   callerId: string;
+  /** Raw per-call CallScore rows — needed by SkillChartSection (PR 4). */
+  scores?: unknown[];
+  /** CallerTarget rows including currentScore — also for SkillChartSection. */
+  callerTargets?: unknown[];
+  /** MemorySummary.topTopics + counts — feeds TopicsSection (PR 4). */
+  memorySummary?: {
+    topTopics?: { topic: string; lastMentioned?: string }[];
+    topicCount?: number;
+    factCount?: number;
+    preferenceCount?: number;
+    eventCount?: number;
+  } | null;
 };
 
 export type SectionDef = {
@@ -53,6 +67,11 @@ export const UPLIFT_SECTIONS: Partial<Record<UpliftSectionId, SectionDef>> = {
     span: 12,
     Component: HeroSection,
   },
+  "skill-chart": {
+    order: 20,
+    span: 12,
+    Component: SkillChartSection,
+  },
   modules: {
     order: 30,
     span: 12,
@@ -72,6 +91,11 @@ export const UPLIFT_SECTIONS: Partial<Record<UpliftSectionId, SectionDef>> = {
     order: 60,
     span: 12,
     Component: AdaptationSection,
+  },
+  topics: {
+    order: 70,
+    span: 6,
+    Component: TopicsSection,
   },
   engagement: {
     order: 80,

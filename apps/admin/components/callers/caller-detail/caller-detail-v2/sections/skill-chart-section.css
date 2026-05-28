@@ -1,0 +1,51 @@
+/* SkillChartSection — time series + radar pair */
+
+.hf-uplift-v2-skill-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--surface-primary);
+}
+
+.hf-uplift-v2-skill-chart-head {
+  display: flex;
+  align-items: baseline;
+}
+
+.hf-uplift-v2-skill-chart-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hf-uplift-v2-skill-chart-body {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 720px) {
+  .hf-uplift-v2-skill-chart-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hf-uplift-v2-skill-chart-radar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-secondary);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.hf-uplift-v2-skill-chart-radar-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+}

@@ -21,9 +21,26 @@ import "./uplift-v2.css";
 
 type Props = {
   callerId: string;
+  /** PR 4 — raw scores forwarded from CallerDetailPage for the SkillChartSection. */
+  scores?: unknown[];
+  /** PR 4 — caller targets forwarded for the SkillChartSection. */
+  callerTargets?: unknown[];
+  /** PR 4 — memory summary forwarded for the TopicsSection. */
+  memorySummary?: {
+    topTopics?: { topic: string; lastMentioned?: string }[];
+    topicCount?: number;
+    factCount?: number;
+    preferenceCount?: number;
+    eventCount?: number;
+  } | null;
 };
 
-export function UpliftV2Tab({ callerId }: Props): React.ReactElement {
+export function UpliftV2Tab({
+  callerId,
+  scores,
+  callerTargets,
+  memorySummary,
+}: Props): React.ReactElement {
   useEffect(() => {
     trackTabLoad("uplift-v2");
   }, []);
@@ -64,7 +81,12 @@ export function UpliftV2Tab({ callerId }: Props): React.ReactElement {
             const Section = def.Component;
             return (
               <div key={id} className={className}>
-                <Section callerId={callerId} />
+                <Section
+                  callerId={callerId}
+                  scores={scores}
+                  callerTargets={callerTargets}
+                  memorySummary={memorySummary}
+                />
               </div>
             );
           }

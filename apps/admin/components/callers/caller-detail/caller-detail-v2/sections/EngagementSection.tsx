@@ -3,6 +3,7 @@
 import React from "react";
 import { Activity, Brain } from "lucide-react";
 import {
+  CalendarStrip,
   SliceDonut,
   StatTile,
 } from "@/components/shared/display-primitives";
@@ -90,8 +91,35 @@ export function EngagementSection({ callerId }: Props): React.ReactElement {
           />
         </div>
       </div>
+      <div className="hf-uplift-v2-engagement-streak">
+        <span className="hf-uplift-v2-engagement-streak-label">Last 14 days</span>
+        <CalendarStrip
+          days={last14Days(data?.callDates)}
+          label="Call streak"
+        />
+      </div>
     </div>
   );
+}
+
+/**
+ * Build a 14-day boolean strip from the ordered ISO callDates array.
+ * Missing data → 14 hollow dots; the primitive handles the empty case.
+ */
+function last14Days(
+  callDates: string[] | undefined,
+): { date: string; active: boolean }[] {
+  const out: { date: string; active: boolean }[] = [];
+  if (!callDates) return out;
+  const callDays = new Set(callDates.map((iso) => iso.slice(0, 10)));
+  const today = new Date();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    out.push({ date: key, active: callDays.has(key) });
+  }
+  return out;
 }
 
 function LegendItem({

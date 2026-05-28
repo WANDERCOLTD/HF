@@ -1087,7 +1087,12 @@ export default function CallerDetailPage() {
       )}
 
       {activeSection === "uplift-v2" && (
-        <UpliftV2Tab callerId={callerId} />
+        <UpliftV2Tab
+          callerId={callerId}
+          scores={(data.scores ?? []) as never}
+          callerTargets={(data.callerTargets ?? []) as never}
+          memorySummary={data.memorySummary ?? null}
+        />
       )}
 
       {activeSection === "progress-v2" && (
