@@ -2833,7 +2833,7 @@ Returns per-enrollment journey progress for a caller. Scheduler owns pacing —
 
 ### `GET` /api/callers/:callerId/learning-trajectory
 
-Returns learning outcome trajectory for a caller — per-parameter scores across sessions, competency level, and checkpoint status. Only returns data for non-knowledge teaching profiles (comprehension-led, discussion-led, coaching-led).
+Returns learning trajectory for a caller. The shape adapts to
 
 **Auth**: Session · **Scope**: `callers:read`
 
@@ -2843,12 +2843,7 @@ Returns learning outcome trajectory for a caller — per-parameter scores across
 
 **Response** `200`
 ```json
-{ ok: true, data: { profile, profileLabel, competencyLevel, parameters, checkpoints } }
-```
-
-**Response** `200`
-```json
-{ ok: true, data: null } — No learning trajectory (knowledge profile or no scores)
+{ ok: true, data: SkillsTrajectory | ModuleMasteryTrajectory | null }
 ```
 
 ---
@@ -14105,6 +14100,14 @@ Get institutions the current user can access
 
 ---
 
+### `GET` /api/user/wizard-context
+
+Resolve the logged-in user's home institution + domain for the
+
+**Auth**: bearer (OPERATOR+) · **Scope**: `user:read`
+
+---
+
 ## Users
 
 ### `DELETE` /api/invites
@@ -14417,6 +14420,14 @@ Load wizard step definitions from a spec. Accepts either `wizard` (name resolved
 
 ---
 
+### `POST` /api/wizard/discard-draft
+
+Mark a partially-built wizard attempt as abandoned so the next
+
+**Auth**: bearer (OPERATOR+) · **Scope**: `wizard:write`
+
+---
+
 ## Workflow
 
 ### `POST` /api/ai/workflow/classify
@@ -14543,8 +14554,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 454 |
-| Files with annotations | 453 |
+| Route files found | 456 |
+| Files with annotations | 455 |
 | Files missing annotations | 1 |
 | Coverage | 99.8% |
 

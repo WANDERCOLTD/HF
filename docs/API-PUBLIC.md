@@ -886,7 +886,7 @@ Submit formative assessment results or record an exam result
 
 ### `GET` /api/v1/callers/:callerId/learning-trajectory
 
-Returns learning outcome trajectory for a caller — per-parameter scores across sessions, competency level, and checkpoint status. Only returns data for non-knowledge teaching profiles (comprehension-led, discussion-led, coaching-led).
+Returns learning trajectory for a caller. The shape adapts to
 
 **Auth**: Session · **Scope**: `callers:read`
 
@@ -896,12 +896,7 @@ Returns learning outcome trajectory for a caller — per-parameter scores across
 
 **Response** `200`
 ```json
-{ ok: true, data: { profile, profileLabel, competencyLevel, parameters, checkpoints } }
-```
-
-**Response** `200`
-```json
-{ ok: true, data: null } — No learning trajectory (knowledge profile or no scores)
+{ ok: true, data: SkillsTrajectory | ModuleMasteryTrajectory | null }
 ```
 
 ---

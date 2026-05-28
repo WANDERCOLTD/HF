@@ -8,7 +8,7 @@
  *     and what each one is for (static feature inventory)
  *
  * Together the assistant knows both *where* the user is and *what exists* on
- * the page, so questions like "tell me about Felt Progress" stop returning
+ * the page, so questions like "tell me about Progress Signals" stop returning
  * "I don't see that section" — the registry is the single source of truth.
  *
  * Token budget: stays under ~500 tokens (2000-char proxy) for any single page
@@ -17,10 +17,10 @@
  * pushed Course detail (7 tabs) over budget. The `about` field alone is
  * enough for the assistant to answer "what is the X tab?".
  *
- * #810: `tab.sections` (named `<CollapsibleCard>` blocks like Felt Progress on
- * the Design tab) are rendered as a nested bullet under their parent tab so
- * the assistant can answer "tell me about Felt Progress" the same way it
- * answers tab-level questions.
+ * #810: `tab.sections` (named `<CollapsibleCard>` blocks like Progress Signals
+ * on the Design tab) are rendered as a nested bullet under their parent tab
+ * so the assistant can answer "tell me about Progress Signals" the same way
+ * it answers tab-level questions.
  */
 
 import { getPageHelp } from "@/lib/help/page-help";

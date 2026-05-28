@@ -135,7 +135,7 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
       {
         id: "design",
         label: "Design",
-        about: "Welcome flow, session flow, Felt Progress acknowledgements, first-session behaviour, tolerances, and skill banding — the shape of how a learner experiences the course. Tolerances cover the mastery threshold (how high a learner has to score before the AI moves on), retrieval cadence (how often the AI fires recall questions), and memory decay scale (how fast prior-call memories fade).",
+        about: "Welcome flow, session flow, Progress Signals acknowledgements, first-session behaviour, tolerances, and skill banding — the shape of how a learner experiences the course. Tolerances cover the mastery threshold (how high a learner has to score before the AI moves on), retrieval cadence (how often the AI fires recall questions), and memory decay scale (how fast prior-call memories fade).",
         whenToUse: "When you want to change how sessions begin, what's acknowledged mid-call, how Call 1 behaves differently from later calls, who the course is for, or how strict the AI is about mastery before advancing.",
         sections: [
           {
@@ -143,8 +143,8 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
             about: "Canonical session-flow editor — before / during / after phases, intake, NPS, welcome. Absorbed from the retired Session Flow tab.",
           },
           {
-            title: "Felt Progress",
-            about: "Mid-call acknowledgement cues + structured offboarding summary. Lets the AI say 'here's what we covered today' before hanging up so learners feel forward motion. Shipped across #779, #780, #784, #790, #795.",
+            title: "Progress Signals",
+            about: "Mid-call acknowledgement cues + structured offboarding summary. Lets the AI say 'here's what we covered today' before hanging up so learners feel forward motion. Internally referred to as the Felt Progress epic (#779, #780, #784, #790, #795).",
           },
           {
             title: "Call 1 / First Session",

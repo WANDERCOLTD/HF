@@ -151,7 +151,11 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
   // `/x/callers`, trapping them. Sim/[callerId]/page.tsx already gives them a
   // banner CTA as the non-blocking entry — so the hook must not force the
   // redirect for them. Real students still get auto-routed to the picker.
-  const { data: session } = useSession();
+  // Wait for session hydration before deciding — initial `undefined` role
+  // would default to STUDENT and falsely trigger the non-operator redirect
+  // for admins. The init effect below holds off on resolveJourneyPosition
+  // until `sessionStatus !== 'loading'`.
+  const { data: session, status: sessionStatus } = useSession();
   const viewerRoleLevel = ROLE_LEVEL[(session?.user?.role ?? 'STUDENT') as UserRole] ?? 0;
   const viewerIsOperator = viewerRoleLevel >= 3;
 
@@ -633,6 +637,9 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
 
   // ── Init ──
   // Wait for callerRole before deciding. Only LEARNER callers have a journey.
+  // Also wait for session hydration: an unresolved session defaults the role
+  // to STUDENT, which makes `viewerIsOperator` false and trips the module_picker
+  // redirect for admins simming a learner — bouncing them to /x/callers.
   useEffect(() => {
     if (forceFirstCall) {
       setState('bypassed');
@@ -646,9 +653,14 @@ export function useJourneyChat({ callerId, forceFirstCall, callerRole }: UseJour
       setState('bypassed');
       return;
     }
+    if (sessionStatus === 'loading') {
+      // Don't make journey-position decisions while session is loading —
+      // viewer role is unknown until next-auth resolves.
+      return;
+    }
     resolveJourneyPosition();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [callerRole, forceFirstCall]);
+  }, [callerRole, forceFirstCall, sessionStatus]);
 
   return {
     items,

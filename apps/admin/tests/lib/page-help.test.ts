@@ -194,18 +194,18 @@ describe("page-help registry", () => {
       }
     });
 
-    it("Design tab `about` mentions Felt Progress so the Help modal surfaces it without HelpOverlay changes", () => {
+    it("Design tab `about` mentions Progress Signals so the Help modal surfaces it without HelpOverlay changes", () => {
       const entry = getPageHelp("/x/courses/abc-123");
       const designTab = entry?.tabs?.find((t) => t.id === "design");
-      expect(designTab?.about.toLowerCase()).toContain("felt progress");
+      expect(designTab?.about.toLowerCase()).toContain("progress signals");
     });
 
-    it("the Felt Progress section explicitly exists in the registry", () => {
+    it("the Progress Signals section explicitly exists in the registry", () => {
       const entry = getPageHelp("/x/courses/abc-123");
       const designTab = entry?.tabs?.find((t) => t.id === "design");
-      const feltProgress = designTab?.sections?.find((s) => s.title === "Felt Progress");
-      expect(feltProgress).toBeDefined();
-      expect(feltProgress?.about.length).toBeGreaterThan(20);
+      const progressSignals = designTab?.sections?.find((s) => s.title === "Progress Signals");
+      expect(progressSignals).toBeDefined();
+      expect(progressSignals?.about.length).toBeGreaterThan(20);
     });
   });
 
