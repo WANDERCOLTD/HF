@@ -1,0 +1,607 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * Display Primitives — shared visual vocabulary for caller insights
+ * (Overview, Uplift v2, Progress v2).
+ *
+ * Rules: CSS custom properties only — no hardcoded hex. `color-mix()` for
+ * alpha; classes for static styling; inline only for legitimately dynamic
+ * positions (heatmap fill width, EQ track positions, topic font size).
+ * ───────────────────────────────────────────────────────────────────── */
+
+/* ── Direction colour map ─────────────────────────────────────────── */
+
+.hf-direction-up {
+  --hf-direction-color: var(--status-success-text);
+  --hf-direction-bg: color-mix(in srgb, var(--status-success-text) 12%, transparent);
+}
+.hf-direction-down {
+  --hf-direction-color: var(--status-error-text);
+  --hf-direction-bg: color-mix(in srgb, var(--status-error-text) 12%, transparent);
+}
+.hf-direction-neutral {
+  --hf-direction-color: var(--text-muted);
+  --hf-direction-bg: color-mix(in srgb, var(--text-muted) 10%, transparent);
+}
+
+/* ── CardGrid ─────────────────────────────────────────────────────── */
+
+.hf-card-grid {
+  display: grid;
+}
+
+/* ── StatTile ─────────────────────────────────────────────────────── */
+
+.hf-stat-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--surface-secondary);
+  position: relative;
+}
+
+.hf-stat-tile--compact {
+  padding: 10px 12px;
+  gap: 2px;
+}
+
+.hf-stat-tile-icon {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hf-stat-tile-value {
+  font-size: 22px;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.hf-stat-tile--compact .hf-stat-tile-value {
+  font-size: 16px;
+}
+
+.hf-stat-tile-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.hf-stat-tile-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── DeltaPill ────────────────────────────────────────────────────── */
+
+.hf-delta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--hf-direction-bg);
+  color: var(--hf-direction-color);
+}
+
+/* ── Donut ────────────────────────────────────────────────────────── */
+
+.hf-donut {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hf-donut-track {
+  opacity: 0.12;
+}
+
+.hf-donut--empty .hf-donut-track {
+  opacity: 0.3;
+}
+
+.hf-donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  pointer-events: none;
+}
+
+/* ── SliceDonut ──────────────────────────────────────────────────── */
+
+.hf-slice-donut {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hf-slice-donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* ── HeatmapStrip ────────────────────────────────────────────────── */
+
+.hf-heatmap-strip {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.hf-heatmap-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--surface-secondary);
+  border: none;
+  color: var(--text-primary);
+  cursor: default;
+  text-align: left;
+  font: inherit;
+}
+
+.hf-heatmap-cell--clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hf-heatmap-cell--clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.hf-heatmap-cell-fill {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-primary);
+  position: relative;
+  overflow: hidden;
+}
+
+.hf-heatmap-cell-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent-primary);
+  opacity: 0;
+}
+
+.hf-heatmap-cell--t1 .hf-heatmap-cell-fill::after { opacity: 0.2; }
+.hf-heatmap-cell--t2 .hf-heatmap-cell-fill::after { opacity: 0.4; }
+.hf-heatmap-cell--t3 .hf-heatmap-cell-fill::after { opacity: 0.6; }
+.hf-heatmap-cell--t4 .hf-heatmap-cell-fill::after { opacity: 0.8; }
+.hf-heatmap-cell--t5 .hf-heatmap-cell-fill::after {
+  opacity: 1;
+  background: var(--status-success-text);
+}
+
+.hf-heatmap-cell--empty .hf-heatmap-cell-fill::after {
+  opacity: 0;
+}
+
+.hf-heatmap-cell-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hf-heatmap-cell-value {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  color: var(--text-primary);
+}
+
+.hf-heatmap-cell-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.hf-heatmap-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ── CalendarStrip ───────────────────────────────────────────────── */
+
+.hf-calendar-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hf-calendar-strip--empty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 11px;
+}
+
+.hf-calendar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid var(--text-muted);
+  display: inline-block;
+}
+
+.hf-calendar-dot--active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+/* ── SparklineCard ───────────────────────────────────────────────── */
+
+.hf-sparkline-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-secondary);
+  border-left: 3px solid var(--hf-direction-color, var(--text-muted));
+}
+
+.hf-sparkline-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hf-sparkline-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hf-sparkline-card-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+}
+
+.hf-sparkline-card-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.hf-sparkline-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  color: var(--text-muted);
+}
+
+.hf-sparkline-card-avg {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.hf-sparkline-card-target {
+  font-style: italic;
+}
+
+/* ── EQMixer ──────────────────────────────────────────────────────── */
+
+.hf-eq-mixer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hf-eq-mixer-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.hf-eq-mixer-band {
+  border-radius: 12px;
+  background: var(--surface-secondary);
+  border-left: 3px solid var(--hf-direction-color, var(--text-muted));
+}
+
+.hf-eq-mixer-band-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.hf-eq-mixer-band-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex: 1;
+}
+
+.hf-eq-mixer-band-count {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+  color: var(--text-muted);
+}
+
+.hf-eq-mixer-band-chevron {
+  color: var(--text-muted);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hf-eq-mixer-band-chevron--open {
+  transform: rotate(180deg);
+}
+
+.hf-eq-mixer-tracks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 14px 14px;
+  align-items: flex-end;
+}
+
+.hf-eq-mixer-track {
+  position: relative;
+  border-radius: 4px;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.hf-eq-mixer-track-rail {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--surface-primary);
+  border-radius: 1px;
+  transform: translateX(-50%);
+}
+
+.hf-eq-mixer-track-default {
+  position: absolute;
+  left: 50%;
+  width: 12px;
+  height: 2px;
+  background: var(--text-muted);
+  opacity: 0.6;
+  transform: translateX(-50%);
+}
+
+.hf-eq-mixer-track-current {
+  position: absolute;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--hf-direction-color, var(--accent-primary));
+  box-shadow: 0 0 6px color-mix(in srgb, var(--hf-direction-color, var(--accent-primary)) 40%, transparent);
+  transform: translate(-50%, 50%);
+}
+
+.hf-eq-mixer-track-delta {
+  position: absolute;
+  bottom: -22px;
+  font-size: 9px;
+}
+
+.hf-eq-mixer-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 240px;
+}
+
+.hf-eq-mixer-tooltip-label {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.hf-eq-mixer-tooltip-def {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.hf-eq-mixer-tooltip-values {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+
+/* ── TopicCloud ──────────────────────────────────────────────────── */
+
+.hf-topic-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: baseline;
+  padding: 12px 0;
+}
+
+.hf-topic-cloud-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.hf-topic-chip {
+  display: inline-block;
+  line-height: 1.2;
+  cursor: default;
+}
+
+.hf-topic-chip--fresh {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.hf-topic-chip--recent {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.hf-topic-chip--stale {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ── TimelineRibbon ──────────────────────────────────────────────── */
+
+.hf-timeline-ribbon-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hf-timeline-ribbon {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+}
+
+.hf-timeline-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0 14px;
+}
+
+.hf-timeline-rail {
+  position: absolute;
+  left: 0;
+  right: 50%;
+  top: 16px;
+  height: 2px;
+  background: var(--text-muted);
+  opacity: 0.4;
+}
+
+.hf-timeline-node--done .hf-timeline-rail {
+  background: var(--status-success-text);
+  opacity: 1;
+}
+
+.hf-timeline-node-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  cursor: default;
+  font: inherit;
+  color: var(--text-primary);
+}
+
+.hf-timeline-node-btn:not(:disabled) {
+  cursor: pointer;
+}
+
+.hf-timeline-node-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-secondary);
+  border: 2px solid var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  z-index: 1;
+}
+
+.hf-timeline-node--done .hf-timeline-node-dot {
+  background: var(--status-success-text);
+  border-color: var(--status-success-text);
+  color: var(--surface-primary);
+}
+
+.hf-timeline-node--current .hf-timeline-node-dot {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--surface-primary);
+}
+
+.hf-timeline-node--missed .hf-timeline-node-dot {
+  background: var(--status-error-text);
+  border-color: var(--status-error-text);
+  color: var(--surface-primary);
+}
+
+.hf-timeline-node-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.hf-timeline-ribbon-empty,
+.hf-timeline-foot {
+  padding: 8px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
