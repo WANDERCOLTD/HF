@@ -117,7 +117,7 @@ export async function GET() {
           : "No published analysis specs",
         count: publishedSpecCount,
         required: 1,
-        link: "/analysis-specs",
+        link: "/x/specs",
       },
       parameters: {
         ok: parameterCount > 0,
@@ -183,7 +183,7 @@ export async function GET() {
         priority: 1,
         action: "Create Analysis Specs",
         description: "Define how to measure personality traits and extract memories",
-        link: "/analysis-specs",
+        link: "/x/specs",
       });
     }
 

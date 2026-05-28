@@ -1078,17 +1078,12 @@ Find agents connected to a specific data node (as consumer, producer, or both) w
 
 **Response** `200`
 ```json
-{ ok: true, dataNode: string, agents: AgentInfo[] }
+{ ok: true, dataNode: string, agents: AgentInfo[] } - When manifest is missing, returns ok:true with empty agents array
 ```
 
 **Response** `400`
 ```json
 { ok: false, error: "dataNode query parameter is required" }
-```
-
-**Response** `404`
-```json
-{ ok: false, error: "Agents manifest not found" }
 ```
 
 **Response** `500`

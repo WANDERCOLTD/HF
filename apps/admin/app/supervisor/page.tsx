@@ -234,7 +234,7 @@ export default function SupervisorPage() {
                   <div className="text-right">
                     <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">Supervise Spec</div>
                     <Link
-                      href={`/analysis-specs?id=${data.superviseSpec.id}`}
+                      href={`/x/specs?id=${data.superviseSpec.id}`}
                       className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
                     >
                       {data.superviseSpec.slug}

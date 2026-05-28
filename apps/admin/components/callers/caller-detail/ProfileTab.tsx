@@ -690,7 +690,7 @@ function SlugSpecNode({
         </span>
         {spec.specSlug && (
           <Link
-            href={`/analysis-specs?slug=${spec.specSlug}`}
+            href={`/x/specs?id=${spec.id}`}
             onClick={(e) => e.stopPropagation()}
             className="hf-text-muted hf-text-xxs"
             style={{
