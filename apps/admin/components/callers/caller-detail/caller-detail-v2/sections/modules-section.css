@@ -1,0 +1,46 @@
+/* ModulesSection — heatmap of module mastery */
+
+.hf-uplift-v2-modules {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--surface-primary);
+}
+
+.hf-uplift-v2-modules-loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.hf-uplift-v2-modules-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hf-uplift-v2-modules-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hf-uplift-v2-modules-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.hf-uplift-v2-modules-tip-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.hf-uplift-v2-modules-tip-row {
+  font-size: 11px;
+  color: var(--text-muted);
+}

@@ -1,0 +1,93 @@
+/* HeroSection — Mastery / Confidence / Knowledge + Calls / Days */
+
+.hf-uplift-v2-hero {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 20px;
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--surface-primary);
+  align-items: start;
+}
+
+.hf-uplift-v2-hero--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.hf-uplift-v2-hero-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.hf-uplift-v2-hero-value {
+  font-size: 22px;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  color: var(--text-primary);
+}
+
+.hf-uplift-v2-hero-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.hf-uplift-v2-hero-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.hf-uplift-v2-hero-microspark {
+  margin-top: 2px;
+}
+
+.hf-uplift-v2-hero-prepost {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-family: ui-monospace, monospace;
+  line-height: 1.1;
+}
+
+.hf-uplift-v2-hero-prepost-pre {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.hf-uplift-v2-hero-prepost-arrow {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.hf-uplift-v2-hero-prepost-post {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hf-uplift-v2-hero-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-self: center;
+}
+
+.hf-uplift-v2-hero-awaiting {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}

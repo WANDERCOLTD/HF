@@ -7,6 +7,8 @@
  */
 
 import type { ComponentType } from "react";
+import { HeroSection } from "./HeroSection";
+import { ModulesSection } from "./ModulesSection";
 
 export type UpliftSectionId =
   | "hero"
@@ -38,10 +40,21 @@ export type SectionDef = {
  * shown as "Coming soon" placeholders so the layout is visible end-to-end
  * even while individual sections are still being built.
  *
- * PR 1a ships with an empty registry — the shell renders the "Coming soon"
- * matrix. PR 1b adds Hero and Modules. PRs 2–4 fill in the rest.
+ * PR 1a shipped with an empty registry. PR 1b adds Hero and Modules.
+ * PRs 2–4 fill in the rest.
  */
-export const UPLIFT_SECTIONS: Partial<Record<UpliftSectionId, SectionDef>> = {};
+export const UPLIFT_SECTIONS: Partial<Record<UpliftSectionId, SectionDef>> = {
+  hero: {
+    order: 10,
+    span: 12,
+    Component: HeroSection,
+  },
+  modules: {
+    order: 30,
+    span: 12,
+    Component: ModulesSection,
+  },
+};
 
 /**
  * Placeholder catalogue — used to render "Coming soon" tiles for sections
