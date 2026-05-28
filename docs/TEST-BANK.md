@@ -130,23 +130,39 @@ Mixing tags is fine. `describe("buildLoMasteryMap (#928 scoping helper)", ...)` 
 
 ---
 
-### 004 — `/x/sim/[callerId]` auto-resolves playbookId from enrollments
-
-> **Status:** ❌ NOT YET WRITTEN. Filed as part of #948 follow-up.
-> The fix shipped in #947 has no isolated test — the resolution lives in a React effect.
-> Tracking issue lists the work: extract `lib/caller/resolve-active-playbook.ts` helper, unit-test the pick rule, then this entry becomes a green unit-level proof.
+### 003 — `resolveActivePlaybookId` L9 fallback chain
 
 | Field | Value |
 |---|---|
-| **File** | `apps/admin/tests/lib/caller/resolve-active-playbook.test.ts` *(to be created)* |
-| **Subject** | `apps/admin/lib/caller/resolve-active-playbook.ts::resolveActivePlaybookId` *(to be extracted from `app/x/sim/[callerId]/page.tsx` + `CallerDetailPage:386-398`)* |
-| **Defends** | L9 — learner-facing module-picker reachability. Every page that mounts a session on a Playbook with `modulesAuthored=true` MUST resolve the active `playbookId` before rendering, falling back through: URL → caller's single ACTIVE enrollment → most-recently-enrolled ACTIVE. |
-| **Issue / origin** | [#948](https://github.com/WANDERCOLTD/HF/issues/948) — file-able follow-up to the `/x/sim` picker-missing bug fix (#947). |
-| **Failure mode it pins** | Brand-new learner enrolled in IELTS Speaking Practice (4 authored modules) opens `/x/sim/[callerId]` without `?playbookId=...`. Pre-fix: no banner, no header icon, no entry to the picker — learner silently routed to an unfocused session. |
-| **What it should prove** | 1 ACTIVE enrollment → that playbookId; 2+ ACTIVE → most-recently-enrolled (sorted desc by `enrolledAt`); 0 ACTIVE → null; URL override always wins over enrollment lookup; non-ACTIVE enrollments (PAUSED/ENDED) excluded from the candidate pool. |
-| **Status** | 🔴 not yet implemented |
+| **File** | `apps/admin/tests/lib/caller/resolve-active-playbook.test.ts` |
+| **Subject** | `apps/admin/lib/caller/resolve-active-playbook.ts::resolveActivePlaybookId` |
+| **Defends** | L9 — learner-facing module-picker reachability. Every page that mounts a session on a Playbook MUST resolve the active `playbookId` before rendering, falling back through: URL → caller's single ACTIVE enrollment → most-recently-enrolled ACTIVE → null (empty state, never silent no-op). |
+| **Issue / origin** | [#948](https://github.com/WANDERCOLTD/HF/issues/948) — pins the contract introduced in PR #947 (fix) as a reusable helper + unit test. |
+| **Failure mode it pins** | Brand-new learner enrolled in IELTS Speaking Practice (4 authored modules) opens `/x/sim/[callerId]` without `?playbookId=...`. Pre-fix: no banner, no header icon, no entry to the picker — learner silently routed to an unfocused session. The next learner-facing page that reads `searchParams.get('playbookId')` without the helper would re-open the trapdoor. |
+| **What it proves** | 13 properties: URL override always wins (1 ACTIVE / 2+ ACTIVE / 0 ACTIVE — all 3 cases); undefined/null/empty-string/omitted urlOverride falls through to enrollment branch (4 cases); SQL shape pin — findMany called with `where: { callerId, status: 'ACTIVE' }`, `orderBy: { enrolledAt: 'desc' }`, `select: { playbookId: true }`; 1 ACTIVE → that playbookId; 2+ ACTIVE → most-recently-enrolled (prisma returns DESC, helper picks index 0); 0 ACTIVE → null (not undefined, not crash); non-ACTIVE statuses excluded by SQL filter (PAUSED/COMPLETED/DROPPED don't reach the helper); empty result → null. |
+| **How to run** | `cd apps/admin && npx vitest run tests/lib/caller/resolve-active-playbook.test.ts` |
+| **When to re-run** | Any change to `lib/caller/resolve-active-playbook.ts`, the inline pick logic at `components/callers/CallerDetailPage.tsx:386-401` (must stay byte-identical to the helper), the active-playbook endpoint route, or the `/x/sim/[callerId]/page.tsx` resolver wiring. |
+| **Status** | ✅ green (13/13, 2026-05-27) |
 | **Owner area** | Caller / Sim / Learner-Facing UX |
-| **Related** | `#929` (separate Start Over fix) · `#940` (perpetrator that exposed the gap) · `arch-checker` rule pending |
+| **Related** | `#947` (the fix that exposed the gap) · `#948` (this contract pin) · entry 004 (live-DB integration sibling) · `docs/CHAIN-CONTRACTS.md` Link L9 · `.claude/agents/arch-checker.md` Check G (planned) · `docs/arch-check-g-learner-page-playbook-resolution.md` (Check G rule statement, written here because the agent file is currently write-protected) |
+
+---
+
+### 004 — Learner picker reachability — live-DB integration
+
+| Field | Value |
+|---|---|
+| **File** | `apps/admin/tests/integration/journey/learner-picker-reachability.integration.test.ts` |
+| **Subject** | `apps/admin/lib/caller/resolve-active-playbook.ts::resolveActivePlaybookId` against the live VM DB (DB-only, no server). |
+| **Defends** | L9 — learner-facing module-picker reachability, proved end-to-end on real DB rows. Sibling to bank entry 003 (unit-level proof). |
+| **Issue / origin** | [#948](https://github.com/WANDERCOLTD/HF/issues/948) — same contract as 003; this entry pins the integration view. |
+| **Failure mode it pins** | Same class as 003 — but proven against real Prisma + real DB rows (per-run unique prefix + FK-safe cleanup) rather than a mocked findMany. Defends against schema-level regressions that the unit test's mock wouldn't catch (e.g. an enum rename of `CallerPlaybook.status`, an `enrolledAt` semantic change, a FK constraint addition). |
+| **What it proves** | 5 properties on 4 caller shapes: (1) 1 ACTIVE on `modulesAuthored=true` playbook → resolver returns that playbookId AND playbook config carries `modulesAuthored=true` + 4 modules (banner-data invariant); (2) 2 ACTIVE enrollments with different `enrolledAt` (7d ago vs 1d ago) → resolver picks the newer; (3) 0 ACTIVE → resolver returns null (no crash); (4) 1 ACTIVE on `modulesAuthored=false` → resolver still returns playbookId, downstream config confirms `modulesAuthored=false` (resolver doesn't gate on it; page does); (5) URL override wins over enrollment even when the override targets a different playbook. |
+| **How to run** | `cd apps/admin && npm run test:integration -- tests/integration/journey/learner-picker-reachability.integration.test.ts` |
+| **When to re-run** | Same as entry 003, plus: any schema migration touching `Caller` / `CallerPlaybook` / `Playbook.config`; any change to FK constraints affecting `CallerPlaybook` rows. |
+| **Status** | 🟢 written, awaiting first live-DB run on hf-dev (2026-05-27) |
+| **Owner area** | Caller / Sim / Learner-Facing UX |
+| **Related** | Bank entry 003 (unit-level sibling) · `docs/CHAIN-CONTRACTS.md` Link L9 · `tests/integration/journey/fixtures.ts` (shared journey pattern) · `educator-journey.integration.test.ts:406` (FK landmine documented in the test file header) |
 
 ---
 

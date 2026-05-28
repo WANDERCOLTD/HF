@@ -82,30 +82,20 @@ export default function SimConversationPage() {
   const journey = useJourneyChat({ callerId, forceFirstCall, callerRole: caller?.role });
 
   // #948 — auto-resolve playbookId from the caller's active enrollments
-  // when the URL didn't pass one explicitly. Mirrors CallerDetailPage's
-  // auto-pick rule so the same caller behaves the same way on either page.
+  // when the URL didn't pass one explicitly. Delegates to the shared L9
+  // resolver via `/api/callers/[id]/active-playbook` so the pick rule lives
+  // in one place. See docs/CHAIN-CONTRACTS.md Link L9 + the helper at
+  // lib/caller/resolve-active-playbook.ts.
   useEffect(() => {
     if (urlPlaybookId) return; // URL already provided it — playbookId derives from it directly
     let cancelled = false;
-    fetch(`/api/callers/${callerId}/enrollments`)
+    fetch(`/api/callers/${callerId}/active-playbook`)
       .then((r) => r.json())
       .then((result) => {
         if (cancelled || !result?.ok) return;
-        const active = (result.enrollments || []).filter(
-          (e: { status?: string }) => e.status === 'ACTIVE',
-        );
-        if (active.length === 0) return; // no enrollments — nothing to resolve
-        if (active.length === 1) {
-          setEnrollmentPlaybookId(active[0].playbookId);
-          return;
+        if (result.playbookId) {
+          setEnrollmentPlaybookId(result.playbookId);
         }
-        // Multiple active enrollments — pick most-recently enrolled (same
-        // tie-break as CallerDetailPage:393-398).
-        const sorted = [...active].sort(
-          (a: { enrolledAt: string }, b: { enrolledAt: string }) =>
-            new Date(b.enrolledAt).getTime() - new Date(a.enrolledAt).getTime(),
-        );
-        setEnrollmentPlaybookId(sorted[0].playbookId);
       })
       .catch(() => { /* non-fatal: page still renders, just without module picker */ });
     return () => { cancelled = true; };

@@ -648,6 +648,23 @@ Update a call action (status, notes, assignee, priority, dueAt).
 
 ---
 
+### `GET` /api/v1/callers/:callerId/active-playbook
+
+Resolve the active playbookId for a caller via the canonical
+
+**Auth**: Session · **Scope**: `callers:read`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| callerId | path | string | Yes | The caller ID |
+
+**Response** `200`
+```json
+{ ok: true, playbookId: string | null }
+```
+
+---
+
 ### `GET` /api/v1/callers/:callerId/aggregate
 
 Get available AGGREGATE specs for a caller. Returns all active specs with outputType AGGREGATE that can be run.
