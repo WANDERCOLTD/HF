@@ -94,6 +94,60 @@ Mixing tags is fine. `describe("buildLoMasteryMap (#928 scoping helper)", ...)` 
 
 ---
 
+### 002 — Wizard Start Over re-anchors to user's home domain
+
+| Field | Value |
+|---|---|
+| **File** | `apps/admin/tests/api/user-wizard-context.test.ts` |
+| **Subject** | `apps/admin/app/api/user/wizard-context/route.ts::GET` |
+| **Defends** | Slice A of #929 — the wizard's Start Over button MUST re-anchor `initialContext.domainId` to the logged-in user's home domain (respecting `User.assignedDomainId` first, then institution's primary domain), not the picker's previous selection or an amendment-mode course's domain. |
+| **Issue / origin** | [#929](https://github.com/WANDERCOLTD/HF/issues/929) — Start Over locked to institution picker / kept stale amendment-mode course domain. |
+| **Failure mode it pins** | Non-SUPERADMIN educator opens the wizard via `?courseId=<existing>`. The amendment-mode course's domain seeds `existingDomainId`. They click Start Over, expecting a fresh attempt — but the wizard re-uses the SAME amendment-mode `initialContext`, so the next attempt is anchored to the WRONG domain. Real harm: the AI's domain-scoped tools (resolve-institution, course-by-name lookups) all operate against the prior course's domain rather than the educator's home tenant. |
+| **What it proves** | 5 properties: home domain returned when `assignedDomainId` is null (falls back to institution's primary, ordered by `createdAt` asc); `assignedDomainId` wins when set; SUPERADMIN-like sessions (no `institutionId`) get `context: null`; institutions with no active domains get `context: null`; missing/inactive institution gets `context: null`. |
+| **How to run** | `cd apps/admin && npx vitest run tests/api/user-wizard-context.test.ts` |
+| **When to re-run** | Any change to `/api/user/wizard-context/route.ts`, `V5WizardWithSelector.tsx`'s `handleStartOver`, `ConversationalWizard.tsx`'s `onStartOver` prop wiring, or the resolution chain in `app/x/get-started-v5/page.tsx:45-73` that this endpoint mirrors. |
+| **Status** | ✅ green (5/5, 2026-05-27) |
+| **Owner area** | Wizard / Build Course |
+| **Related** | `#929` epic · entry 003 (companion B2-slice draft cleanup) |
+
+---
+
+### 003 — Wizard discard-draft marks abandoned playbook without breaking resume
+
+| Field | Value |
+|---|---|
+| **File** | `apps/admin/tests/api/wizard-discard-draft.test.ts` |
+| **Subject** | `apps/admin/app/api/wizard/discard-draft/route.ts::POST` + `lib/chat/wizard-tool-executor.ts::resolveCourseByName` |
+| **Defends** | Slice B2 of #929 — Start Over fires-and-forgets a discard POST that marks the in-progress Playbook abandoned via `config.wizardAbandonedAt` + name suffix `[abandoned <ts>]`. `resolveCourseByName` must filter abandoned drafts so the next attempt with the same course name does NOT silently resume the half-built playbook. |
+| **Issue / origin** | [#929](https://github.com/WANDERCOLTD/HF/issues/929) Slice B2 — abandoned drafts resurfaced on the next attempt via partial-name match. |
+| **Failure mode it pins** | Educator starts "IELTS Speaking Practice", AI calls `create_course`, a `Playbook { status: DRAFT, modules: [] }` lands in the DB. Educator hits Start Over (didn't like the AI's choices). New attempt with the same course name. Pre-fix: `resolveCourseByName` finds the abandoned draft, returns it as an `autoCommit: true` exact match, the new attempt now amends a half-built playbook with no modules → `mark_complete` blocks on `_count.modules > 0`. Educator stuck. |
+| **What it proves** | 10 properties: DRAFT playbook gets name suffix + `config.wizardAbandonedAt` set; PUBLISHED/ARCHIVED skipped (defensive); non-SUPERADMIN blocked from discarding cross-tenant drafts (institutionId guard); SUPERADMIN bypasses the institutionId guard; CALLER + DEMO_CALLER rows soft-deleted via `archivedAt`; already-archived callers skipped; empty body → `discarded: null` (graceful, not an error); zod strict mode rejects unknown fields with 400; non-UUID rejected with 400; institution/domain rows NEVER touched. |
+| **How to run** | `cd apps/admin && npx vitest run tests/api/wizard-discard-draft.test.ts` |
+| **When to re-run** | Any change to `/api/wizard/discard-draft/route.ts`, `resolveCourseByName`'s abandoned-filter, `ConversationalWizard.handleStartOver`'s fire-and-forget POST, or the `wizardAbandonedAt` config key shape. |
+| **Status** | ✅ green (10/10, 2026-05-27) |
+| **Owner area** | Wizard / Build Course |
+| **Related** | `#929` epic · entry 002 (companion A-slice domain re-anchor) · `lib/chat/wizard-tool-executor.ts::resolveCourseByName` |
+
+---
+
+### 004 — `/x/sim/[callerId]` auto-resolves playbookId from enrollments
+
+> **Status:** ❌ NOT YET WRITTEN. Filed as part of #948 follow-up.
+> The fix shipped in #947 has no isolated test — the resolution lives in a React effect.
+> Tracking issue lists the work: extract `lib/caller/resolve-active-playbook.ts` helper, unit-test the pick rule, then this entry becomes a green unit-level proof.
+
+| Field | Value |
+|---|---|
+| **File** | `apps/admin/tests/lib/caller/resolve-active-playbook.test.ts` *(to be created)* |
+| **Subject** | `apps/admin/lib/caller/resolve-active-playbook.ts::resolveActivePlaybookId` *(to be extracted from `app/x/sim/[callerId]/page.tsx` + `CallerDetailPage:386-398`)* |
+| **Defends** | L9 — learner-facing module-picker reachability. Every page that mounts a session on a Playbook with `modulesAuthored=true` MUST resolve the active `playbookId` before rendering, falling back through: URL → caller's single ACTIVE enrollment → most-recently-enrolled ACTIVE. |
+| **Issue / origin** | [#948](https://github.com/WANDERCOLTD/HF/issues/948) — file-able follow-up to the `/x/sim` picker-missing bug fix (#947). |
+| **Failure mode it pins** | Brand-new learner enrolled in IELTS Speaking Practice (4 authored modules) opens `/x/sim/[callerId]` without `?playbookId=...`. Pre-fix: no banner, no header icon, no entry to the picker — learner silently routed to an unfocused session. |
+| **What it should prove** | 1 ACTIVE enrollment → that playbookId; 2+ ACTIVE → most-recently-enrolled (sorted desc by `enrolledAt`); 0 ACTIVE → null; URL override always wins over enrollment lookup; non-ACTIVE enrollments (PAUSED/ENDED) excluded from the candidate pool. |
+| **Status** | 🔴 not yet implemented |
+| **Owner area** | Caller / Sim / Learner-Facing UX |
+| **Related** | `#929` (separate Start Over fix) · `#940` (perpetrator that exposed the gap) · `arch-checker` rule pending |
+
 ---
 
 ## Live-DB Demos

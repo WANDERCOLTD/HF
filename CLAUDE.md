@@ -109,6 +109,25 @@ Memory: [feedback_concurrent_claude_processes.md](~/.claude/projects/-Users-paul
 
 ---
 
+## ⚠️ MANDATORY: Test Bank first — every structural test must register
+
+[`docs/TEST-BANK.md`](docs/TEST-BANK.md) is the curated catalog of high-signal tests that defend named invariants (chain contracts, AI-to-DB guards, slug-scope rules, etc.). It is the **first place to look** when you need to know whether a property is already pinned, and the **only place a structural test counts as "done"**.
+
+**Two rules — both non-negotiable:**
+
+1. **Before designing or running any test plan, consult the Test Bank.** Search `docs/TEST-BANK.md` for entries tagged with the area you're touching. If an entry exists, run it first (single-file vitest is faster than the full suite and the docstring tells you the failure mode). If you propose new test cases, check whether they'd duplicate or extend an existing entry — extending wins over duplicating.
+
+2. **Every new structural test must add an entry to the Test Bank in the same PR.** "Structural" = defends a named invariant, a chain-contract link, an AI-to-DB guard, or pins a known landmine. Use the template at the bottom of `TEST-BANK.md`. Tag the `describe(...)` block with the issue number so `grep #NNN` finds both the entry and the test. PRs that ship structural tests without a bank entry are incomplete.
+
+**Exemptions:**
+
+- Pure unit tests for new helpers with no architectural invariant attached (e.g. testing a date-format util) don't need a bank entry.
+- Snapshot tests, e2e flows, and ad-hoc smoke checks are not bank-worthy by design (see `TEST-BANK.md` § "Not bank-worthy").
+
+**Why this rule exists:** without a curated catalog, structural tests rot — devs can't find them when triaging, can't tell what they defend, and write duplicates. The bank turns "the test exists" into "the test is *discoverable, named, and re-runnable*."
+
+---
+
 ## ⚠️ MANDATORY: Use qmd and hf-graph — NOT grep, NOT glob
 
 **This is non-negotiable. Before searching, reading, or navigating any code in this repo:**
