@@ -250,7 +250,7 @@ export type CallerData = {
   };
 };
 
-export type SectionId = "overview" | "uplift" | "uplift-v2" | "calls-prompts" | "tune" | "how" | "what" | "progress-v2" | "artifacts" | "ai-call" | "session-flow";
+export type SectionId = "overview" | "overview-v2" | "uplift" | "uplift-v2" | "calls-prompts" | "tune" | "how" | "what" | "progress-v2" | "artifacts" | "ai-call" | "session-flow";
 
 // ---------------------------------------------------------------------------
 // Uplift tab types — computed from existing models, no new DB tables

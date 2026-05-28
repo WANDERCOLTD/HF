@@ -6,8 +6,20 @@ import "./v1-beta-banner.css";
 
 type Props = {
   /** Which v1 surface we're on — drives copy + link. */
-  surface: "uplift" | "progress";
+  surface: "uplift" | "progress" | "overview";
   callerId: string;
+};
+
+const V2_TAB: Record<Props["surface"], string> = {
+  uplift: "uplift-v2",
+  progress: "progress-v2",
+  overview: "overview-v2",
+};
+
+const SURFACE_LABEL: Record<Props["surface"], string> = {
+  uplift: "Uplift",
+  progress: "Progress",
+  overview: "Overview",
 };
 
 /**
@@ -28,8 +40,8 @@ export function V1BetaBanner({ surface, callerId }: Props): React.ReactElement |
 
   if (dismissed) return null;
 
-  const v2Tab = surface === "uplift" ? "uplift-v2" : "progress-v2";
-  const surfaceLabel = surface === "uplift" ? "Uplift" : "Progress";
+  const v2Tab = V2_TAB[surface];
+  const surfaceLabel = SURFACE_LABEL[surface];
   const v2Href = `/x/callers/${callerId}?tab=${v2Tab}`;
 
   const handleDismiss = (): void => {

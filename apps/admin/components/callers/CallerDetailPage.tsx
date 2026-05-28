@@ -38,6 +38,7 @@ import { UpliftTab } from "./caller-detail/UpliftTab";
 import { UpliftV2Tab } from "./caller-detail/caller-detail-v2/UpliftV2Tab";
 import { ProgressV2Tab } from "./caller-detail/caller-detail-v2/ProgressV2Tab";
 import { V1BetaBanner } from "./caller-detail/caller-detail-v2/V1BetaBanner";
+import { OverviewV2Tab } from "./caller-detail/caller-detail-v2/OverviewV2Tab";
 
 // Overview lens (now rendered as the first section tab)
 import { useCallerInsights } from "./caller-detail/hooks/useCallerInsights";
@@ -77,7 +78,7 @@ export default function CallerDetailPage() {
     transcripts: "calls-prompts", prompt: "calls-prompts",
   };
   const rawTab = searchParams.get("tab");
-  const validTabs: SectionId[] = ["overview", "uplift", "uplift-v2", "calls-prompts", "tune", "how", "what", "progress-v2", "artifacts", "ai-call"];
+  const validTabs: SectionId[] = ["overview", "overview-v2", "uplift", "uplift-v2", "calls-prompts", "tune", "how", "what", "progress-v2", "artifacts", "ai-call"];
   const mappedTab = rawTab ? (tabRedirects[rawTab] || rawTab) as SectionId : null;
   const lastTabKey = `hf.caller-tab.${callerId}`;
   const savedTab = typeof window !== "undefined" ? window.localStorage.getItem(lastTabKey) as SectionId | null : null;
@@ -617,10 +618,11 @@ export default function CallerDetailPage() {
   // Sections organized to mirror Course WHAT | HOW | WHO from learner's perspective:
   // Journey (call history) | How (profile/traits) | What (scores/goals) | Artifacts | Call
   // Tabs affected by pipeline processing (will show pulsing indicator)
-  const processingTabs = new Set<SectionId>(["calls-prompts", "how", "what", "uplift", "uplift-v2", "progress-v2", "artifacts"]);
+  const processingTabs = new Set<SectionId>(["calls-prompts", "how", "what", "uplift", "uplift-v2", "progress-v2", "overview-v2", "artifacts"]);
 
   const sections: { id: SectionId; label: React.ReactNode; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
     { id: "overview", label: <TabWithHelp tabId="overview">Overview</TabWithHelp>, icon: <span aria-hidden>🧭</span>, group: "shared" },
+    { id: "overview-v2", label: <span className="cdp-tab-beta-wrap">Overview <span className="cdp-tab-beta">BETA</span></span>, icon: <span aria-hidden>🧭</span>, group: "shared" },
     { id: "calls-prompts", label: <TabWithHelp tabId="calls-prompts">Calls</TabWithHelp>, icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
     { id: "tune", label: <TabWithHelp tabId="tune">Tune</TabWithHelp>, icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
     { id: "how", label: <TabWithHelp tabId="how">Profile</TabWithHelp>, icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
@@ -1019,6 +1021,7 @@ export default function CallerDetailPage() {
       <div className="cdp-content">
       {activeSection === "overview" && (
         <>
+          <V1BetaBanner surface="overview" callerId={callerId} />
           {/* Domain & Onboarding Section - Collapsible */}
           {showDomainSection && (
             <CallerDomainSection
@@ -1072,6 +1075,23 @@ export default function CallerDetailPage() {
             </div>
           )}
         </>
+      )}
+
+      {activeSection === "overview-v2" && insights && (
+        <OverviewV2Tab
+          callerId={callerId}
+          data={data}
+          insights={insights}
+          paramConfig={paramConfig}
+          enrollmentJourneys={enrollmentJourneys}
+          onNavigateToCall={(callId) => {
+            setActiveSection("calls-prompts");
+            setExpandedCall(callId);
+          }}
+          onNavigateToTab={(tab) => {
+            setActiveSection(tab);
+          }}
+        />
       )}
 
       {activeSection === "uplift" && (

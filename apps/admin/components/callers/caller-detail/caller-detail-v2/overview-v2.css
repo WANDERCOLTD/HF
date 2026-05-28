@@ -1,0 +1,306 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * Overview v2 — fully-buffed Overview tab. Card grammar matches v1 in
+ * shape; internals use the display-primitives catalogue.
+ * ───────────────────────────────────────────────────────────────────── */
+
+.hf-overview-v2-root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hf-overview-v2-beta-strip {
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  color: var(--accent-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hf-overview-v2-enrollment-meta {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.hf-overview-v2-caller-id {
+  display: none;
+}
+
+/* ── Card base ─────────────────────────────────────────── */
+
+.hf-overview-v2-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: var(--surface-primary);
+}
+
+.hf-overview-v2-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hf-overview-v2-card-title {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hf-overview-v2-card-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.hf-overview-v2-card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.hf-overview-v2-card-link:hover {
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+
+/* ── At a Glance ──────────────────────────────────────── */
+
+.hf-overview-v2-glance {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  align-items: center;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: var(--surface-primary);
+}
+
+@media (max-width: 600px) {
+  .hf-overview-v2-glance {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hf-overview-v2-glance-donut {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.hf-overview-v2-glance-donut-val {
+  font-size: 16px;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  color: var(--text-primary);
+}
+
+.hf-overview-v2-glance-donut-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.hf-overview-v2-glance-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+/* ── Mock Result ──────────────────────────────────────── */
+
+.hf-overview-v2-mock-body {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.hf-overview-v2-mock-val {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  color: var(--text-primary);
+}
+
+.hf-overview-v2-mock-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hf-overview-v2-mock-meta-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.hf-overview-v2-mock-meta-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── Focus ────────────────────────────────────────────── */
+
+.hf-overview-v2-focus-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hf-overview-v2-focus-group-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hf-overview-v2-focus-group--attention .hf-overview-v2-focus-group-label {
+  color: var(--status-warning-text);
+}
+
+.hf-overview-v2-focus-group--advance .hf-overview-v2-focus-group-label {
+  color: var(--status-success-text);
+}
+
+.hf-overview-v2-focus-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-secondary);
+  border-left: 3px solid var(--text-muted);
+}
+
+.hf-overview-v2-focus-card--attention {
+  border-left-color: var(--status-warning-text);
+}
+
+.hf-overview-v2-focus-card--advance {
+  border-left-color: var(--status-success-text);
+}
+
+.hf-overview-v2-focus-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hf-overview-v2-focus-card-detail {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Who They Are ─────────────────────────────────────── */
+
+.hf-overview-v2-who-traits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.hf-overview-v2-who-memories {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hf-overview-v2-who-memory {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-secondary);
+}
+
+.hf-overview-v2-who-memory-key {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.hf-overview-v2-who-memory-value {
+  font-size: 12px;
+  color: var(--text-primary);
+  font-style: italic;
+}
+
+/* ── Achievements ─────────────────────────────────────── */
+
+.hf-overview-v2-ach-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-secondary);
+}
+
+.hf-overview-v2-ach-icon {
+  font-size: 18px;
+}
+
+.hf-overview-v2-ach-label {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hf-overview-v2-ach-value {
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  color: var(--text-muted);
+}
+
+/* ── Trust footer ─────────────────────────────────────── */
+
+.hf-overview-v2-trust-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+@media (max-width: 560px) {
+  .hf-overview-v2-trust-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hf-overview-v2-trust-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
