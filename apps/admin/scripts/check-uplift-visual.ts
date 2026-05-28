@@ -48,6 +48,7 @@ const CALLER_OVERRIDE =
 
 const TABS: Array<{ id: string; file: string }> = [
   { id: "overview", file: "overview.png" },
+  { id: "overview-v2", file: "overview-v2.png" },
   { id: "uplift", file: "uplift-v1.png" },
   { id: "what", file: "progress-v1.png" },
   { id: "uplift-v2", file: "uplift-v2.png" },
