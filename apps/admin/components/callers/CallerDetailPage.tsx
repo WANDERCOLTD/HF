@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEntityContext } from "@/contexts/EntityContext";
@@ -67,21 +67,48 @@ export default function CallerDetailPage() {
   const backLink = isInXArea ? '/x/callers' : '/callers';
 
   // Get initial tab from URL param (e.g., ?tab=ai-call)
-  // Backwards compat: map old tab IDs to new consolidated tabs
+  // Backwards compat: map old tab IDs to new consolidated tabs.
+  // v1 → v2 retirement: any URL pointing at a v1 (or hidden) tab lands on
+  // its v2 equivalent so bookmarks keep working.
   const tabRedirects: Record<string, SectionId> = {
+    // v1 → v2
+    overview: "overview-v2",
+    uplift: "uplift-v2",
+    what: "progress-v2",
+    progress: "progress-v2",
     // Old consolidated tab IDs → new WHAT/HOW/WHO IDs
-    calls: "calls-prompts", profile: "how", progress: "what",
+    calls: "calls-prompts", profile: "how",
     journey: "calls-prompts",
     // Legacy sub-section IDs → new tabs
     memories: "how", traits: "how", personality: "how", slugs: "how",
-    scores: "what", "agent-behavior": "what", learning: "what", "exam-readiness": "what", goals: "what",
+    scores: "progress-v2", "agent-behavior": "progress-v2", learning: "progress-v2", "exam-readiness": "progress-v2", goals: "progress-v2",
     transcripts: "calls-prompts", prompt: "calls-prompts",
+    // Hidden tabs land on the new default Overview
+    artifacts: "overview-v2",
   };
   const rawTab = searchParams.get("tab");
-  const validTabs: SectionId[] = ["overview", "overview-v2", "uplift", "uplift-v2", "calls-prompts", "tune", "how", "what", "progress-v2", "artifacts", "ai-call"];
+  // Tabs that may render but DO NOT appear in the tab bar (legacy / hidden).
+  // The validTabs list keeps render branches reachable via ?tab=<id>; the
+  // tab bar itself is built from the VISIBLE_TABS subset below.
+  const validTabs: SectionId[] = ["overview", "overview-v2", "uplift", "uplift-v2", "calls-prompts", "tune", "how", "what", "progress-v2", "artifacts", "ai-call", "session-flow"];
+  const VISIBLE_TABS = new Set<SectionId>([
+    "overview-v2",
+    "calls-prompts",
+    "tune",
+    "progress-v2",
+    "uplift-v2",
+    "session-flow",
+    "how",
+    "ai-call",
+  ]);
   const mappedTab = rawTab ? (tabRedirects[rawTab] || rawTab) as SectionId : null;
   const lastTabKey = `hf.caller-tab.${callerId}`;
-  const savedTab = typeof window !== "undefined" ? window.localStorage.getItem(lastTabKey) as SectionId | null : null;
+  // Also redirect a v1 / hidden id from localStorage so returning users land
+  // on the new equivalent instead of a hidden tab they can no longer reach.
+  const savedTabRaw = typeof window !== "undefined" ? window.localStorage.getItem(lastTabKey) : null;
+  const savedTab = savedTabRaw
+    ? ((tabRedirects[savedTabRaw] || savedTabRaw) as SectionId)
+    : null;
   // #641: migrate from the old slide-out toggle (`hf.tuner.open.<callerId>`).
   // If the user had Tune open last visit AND no explicit ?tab= is set, send
   // them to the new Tune tab and drop the old key so we never honor it twice.
@@ -98,7 +125,7 @@ export default function CallerDetailPage() {
       ? "tune"
       : savedTab && validTabs.includes(savedTab)
         ? savedTab
-        : "what";
+        : "overview-v2";
 
   const [data, setData] = useState<CallerData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,8 +136,13 @@ export default function CallerDetailPage() {
   const { activePrefix: chordActivePrefix } = useChordShortcut(effectiveChords);
 
   const [activeSection, _setActiveSection] = useState<SectionId>(initialTab);
+  // Refs mirror the latest active tab + visible sections so the long-lived
+  // keydown listener below sees current values without re-binding.
+  const activeSectionRef = React.useRef<SectionId>(initialTab);
+  const sectionsRef = React.useRef<Array<{ id: SectionId }>>([]);
   const setActiveSection = (id: SectionId) => {
     _setActiveSection(id);
+    activeSectionRef.current = id;
     try { window.localStorage.setItem(lastTabKey, id); } catch {}
     // Mirror the active tab to the URL so reload restores it. Without
     // this the URL's stale ?tab= wins over localStorage on reload and the
@@ -605,6 +637,36 @@ export default function CallerDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageHelp]);
 
+  // Cmd+ArrowLeft / Cmd+ArrowRight cycle through the visible tabs.
+  // Skips when the user is typing in a form field so we don't hijack the
+  // cursor inside an input or contenteditable region.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!e.metaKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (
+          tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" ||
+          target.isContentEditable
+        ) {
+          return;
+        }
+      }
+      if (sectionsRef.current.length === 0) return;
+      e.preventDefault();
+      const ids = sectionsRef.current.map((s) => s.id);
+      const idx = ids.indexOf(activeSectionRef.current);
+      const next = e.key === "ArrowRight"
+        ? ids[(idx + 1 + ids.length) % ids.length]
+        : ids[(idx - 1 + ids.length) % ids.length];
+      setActiveSection(next);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const getCallerLabel = (caller: CallerProfile | undefined) => {
     if (!caller) return "Unknown";
     return caller.name || caller.email || caller.phone || caller.externalId || "Unknown";
@@ -631,20 +693,28 @@ export default function CallerDetailPage() {
   // Tabs affected by pipeline processing (will show pulsing indicator)
   const processingTabs = new Set<SectionId>(["calls-prompts", "how", "what", "uplift", "uplift-v2", "progress-v2", "overview-v2", "artifacts"]);
 
-  const sections: { id: SectionId; label: React.ReactNode; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
-    { id: "overview", label: <TabWithHelp tabId="overview">Overview</TabWithHelp>, icon: <span aria-hidden>🧭</span>, group: "shared" },
-    { id: "overview-v2", label: <span className="cdp-tab-beta-wrap">Overview <span className="cdp-tab-beta">BETA</span></span>, icon: <span aria-hidden>🧭</span>, group: "shared" },
+  // Tab order requested 2026-05-29: Overview · Calls · Tune · Progress ·
+  // Uplift · Session Flow · Profile · Call. v1 tabs and Artifacts are
+  // hidden via VISIBLE_TABS (URLs to them redirect to the v2 equivalent).
+  // BETA labels dropped — v2 is canonical now.
+  const allSections: { id: SectionId; label: React.ReactNode; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
+    { id: "overview-v2", label: <TabWithHelp tabId="overview">Overview</TabWithHelp>, icon: <span aria-hidden>🧭</span>, group: "shared" },
     { id: "calls-prompts", label: <TabWithHelp tabId="calls-prompts">Calls</TabWithHelp>, icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
     { id: "tune", label: <TabWithHelp tabId="tune">Tune</TabWithHelp>, icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
-    { id: "how", label: <TabWithHelp tabId="how">Profile</TabWithHelp>, icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
-    { id: "what", label: <TabWithHelp tabId="what">Progress</TabWithHelp>, icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
-    { id: "artifacts", label: <TabWithHelp tabId="artifacts">Artifacts</TabWithHelp>, icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
-    { id: "uplift", label: <TabWithHelp tabId="uplift">Uplift</TabWithHelp>, icon: <TrendingUp size={13} />, group: "shared" },
-    { id: "uplift-v2", label: <span className="cdp-tab-beta-wrap">Uplift <span className="cdp-tab-beta">BETA</span></span>, icon: <TrendingUp size={13} />, group: "shared" },
-    { id: "progress-v2", label: <span className="cdp-tab-beta-wrap">Progress <span className="cdp-tab-beta">BETA</span></span>, icon: <Gauge size={13} />, group: "shared" },
+    { id: "progress-v2", label: <TabWithHelp tabId="what">Progress</TabWithHelp>, icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
+    { id: "uplift-v2", label: <TabWithHelp tabId="uplift">Uplift</TabWithHelp>, icon: <TrendingUp size={13} />, group: "shared" },
     { id: "session-flow", label: "Session Flow", icon: <SlidersHorizontal size={13} />, group: "shared" },
+    { id: "how", label: <TabWithHelp tabId="how">Profile</TabWithHelp>, icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
     { id: "ai-call", label: <TabWithHelp tabId="ai-call">Call</TabWithHelp>, icon: <PlayCircle size={13} />, special: true, group: "action" },
+    // Retired (hidden) — kept here for URL-redirect fall-through and any
+    // legacy callers that haven't migrated their bookmarks yet.
+    { id: "overview", label: "Overview (v1)", icon: <span aria-hidden>🧭</span>, group: "shared" },
+    { id: "what", label: "Progress (v1)", icon: <Gauge size={13} />, group: "shared" },
+    { id: "uplift", label: "Uplift (v1)", icon: <TrendingUp size={13} />, group: "shared" },
+    { id: "artifacts", label: <TabWithHelp tabId="artifacts">Artifacts</TabWithHelp>, icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
   ];
+  const sections = allSections.filter((s) => VISIBLE_TABS.has(s.id));
+  sectionsRef.current = sections;
 
   return (
     <div className="cdp-root">
@@ -1032,7 +1102,6 @@ export default function CallerDetailPage() {
       <div className="cdp-content">
       {activeSection === "overview" && (
         <>
-          <V1BetaBanner surface="overview" callerId={callerId} />
           {/* Domain & Onboarding Section - Collapsible */}
           {showDomainSection && (
             <CallerDomainSection
@@ -1107,7 +1176,6 @@ export default function CallerDetailPage() {
 
       {activeSection === "uplift" && (
         <>
-          <V1BetaBanner surface="uplift" callerId={callerId} />
           <UpliftTab
             callerId={callerId}
             insights={insights}
@@ -1292,7 +1360,6 @@ export default function CallerDetailPage() {
 
       {activeSection === "what" && (
         <>
-          <V1BetaBanner surface="progress" callerId={callerId} />
           {isProcessing && !data.scores?.length && !data.counts.measurements && (
             <ProcessingNotice message="Scores and behaviour data will appear here once analysis completes." />
           )}

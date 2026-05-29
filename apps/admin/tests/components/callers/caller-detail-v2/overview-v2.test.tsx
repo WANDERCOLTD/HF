@@ -132,7 +132,7 @@ describe("WhoTheyAreV2", () => {
       { key: "extra", value: "should be hidden" },
     ];
     const { container, getByText } = render(
-      <WhoTheyAreV2 insights={i} paramConfig={{}} onViewProfile={onView} />,
+      <WhoTheyAreV2 insights={i} paramConfig={{ grouped: {}, params: {} } as never} onViewProfile={onView} />,
     );
     expect(container.querySelectorAll(".hf-stat-tile").length).toBe(3);
     expect(container.querySelectorAll(".hf-overview-v2-who-memory").length).toBe(2);
@@ -142,7 +142,7 @@ describe("WhoTheyAreV2", () => {
 
   it("self-hides with no traits + no memories", () => {
     const { container } = render(
-      <WhoTheyAreV2 insights={baseInsights()} paramConfig={{}} />,
+      <WhoTheyAreV2 insights={baseInsights()} paramConfig={{ grouped: {}, params: {} } as never} />,
     );
     expect(container.firstChild).toBeNull();
   });
