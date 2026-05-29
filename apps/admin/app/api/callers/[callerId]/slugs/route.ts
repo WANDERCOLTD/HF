@@ -81,7 +81,7 @@ export async function GET(
         scores: {
           include: {
             parameter: {
-              select: { name: true, parameterId: true },
+              select: { name: true, parameterId: true, sectionId: true },
             },
             analysisSpec: {
               select: { slug: true, name: true },
@@ -271,14 +271,22 @@ export async function GET(
 
     // === SCORES (latest call) ===
     if (latestCall && latestCall.scores.length > 0) {
-      // Group by spec
+      // Group by AnalysisSpec slug when present; otherwise derive a
+      // friendly category from the Parameter so the tree never shows
+      // "unknown (unknown)" for personality / VARK / conversational
+      // params that are scored outside the spec pipeline.
       const scoresBySpec = new Map<string, typeof latestCall.scores>();
+      const groupLabels = new Map<string, string>(); // group key → display name
       for (const score of latestCall.scores) {
-        const specSlug = score.analysisSpec?.slug || "unknown";
-        if (!scoresBySpec.has(specSlug)) {
-          scoresBySpec.set(specSlug, []);
-        }
-        scoresBySpec.get(specSlug)!.push(score);
+        const fromSpec = score.analysisSpec?.slug;
+        const groupKey = fromSpec
+          || categoryKeyForParameter(score.parameter?.parameterId, score.parameter?.sectionId);
+        const label = fromSpec
+          ? (score.analysisSpec?.name ?? fromSpec)
+          : categoryLabelFor(groupKey);
+        if (!scoresBySpec.has(groupKey)) scoresBySpec.set(groupKey, []);
+        scoresBySpec.get(groupKey)!.push(score);
+        if (!groupLabels.has(groupKey)) groupLabels.set(groupKey, label);
       }
 
       const scoresCategory: SlugNode = {
@@ -295,11 +303,14 @@ export async function GET(
       };
 
       for (const [specSlug, specScores] of scoresBySpec) {
+        const displayName = groupLabels.get(specSlug) ?? specSlug;
         const specNode: SlugNode = {
           id: `score-spec-${specSlug}`,
           type: "spec",
-          name: specScores[0]?.analysisSpec?.name || specSlug,
-          specSlug,
+          name: displayName,
+          // Skip the parenthesised slug suffix when it carries no new
+          // information (derived category groups have name === slug).
+          specSlug: displayName === specSlug ? undefined : specSlug,
           children: specScores.map((score) => ({
             id: score.id,
             type: "variable" as const,
@@ -440,4 +451,39 @@ export async function GET(
       { status: 500 }
     );
   }
+}
+
+/**
+ * Friendly category key for a Parameter that isn't owned by an AnalysisSpec
+ * (e.g. Big Five / VARK / personality / conversational params scored by
+ * `lib/ops/personality-analyze.ts`). Used by the slugs tree to label the
+ * sub-group instead of showing "unknown".
+ */
+function categoryKeyForParameter(
+  parameterId: string | null | undefined,
+  sectionId: string | null | undefined,
+): string {
+  if (sectionId && sectionId.trim().length > 0) return sectionId;
+  const pid = parameterId ?? "";
+  if (pid.startsWith("B5-")) return "big-five";
+  if (pid.startsWith("VARK-")) return "vark";
+  if (pid.startsWith("CP-")) return "personality";
+  if (pid.startsWith("CONV_") || pid.startsWith("conv_")) return "conversation";
+  if (pid.startsWith("TONE_") || pid.startsWith("tone_")) return "conversation";
+  if (pid.toLowerCase().includes("engagement")) return "engagement";
+  if (pid.toLowerCase().includes("pace")) return "conversation";
+  return "other";
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  "big-five": "Big Five",
+  vark: "VARK",
+  personality: "Personality",
+  conversation: "Conversation",
+  engagement: "Engagement",
+  other: "Other",
+};
+
+function categoryLabelFor(key: string): string {
+  return CATEGORY_LABELS[key] ?? key;
 }
