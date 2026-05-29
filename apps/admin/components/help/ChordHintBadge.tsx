@@ -3,10 +3,9 @@
 import React from "react";
 import "./chord-hint-badge.css";
 import type { ChordBinding } from "@/lib/help/page-help";
+import { useChordContext } from "@/contexts/ChordContext";
 
 interface ChordHintBadgeProps {
-  /** "H" or "G" while a chord is armed; null otherwise. */
-  activePrefix: string | null;
   /**
    * #752 — optional list of available chord bindings at the current location.
    * When provided, the badge renders each `[letter] — label` so users can
@@ -20,13 +19,17 @@ interface ChordHintBadgeProps {
  * Transient badge shown while a chord is armed (after H or G, before the
  * second key). Disappears when the chord completes, times out, or resets.
  *
+ * Reads `activePrefix` from `ChordContext` (provided globally by
+ * `ChordShortcutProvider` in `app/layout.tsx`). Pages that render this
+ * badge no longer need to mount `useChordShortcut` themselves (#966).
+ *
  * When `chords` is provided, shows the available follow-up letters as a
  * discoverable list — replaces the "press next key…" fallback.
  */
 export function ChordHintBadge({
-  activePrefix,
   chords,
 }: ChordHintBadgeProps): React.ReactElement | null {
+  const { activePrefix } = useChordContext();
   if (!activePrefix) return null;
 
   const hasChords = chords && chords.length > 0;
