@@ -522,6 +522,37 @@ export default function CourseDetailPage() {
     };
   }, [pageHelp, handleTabChange]);
 
+  // Secondary tab nav — Option+Shift+ArrowLeft / Option+Shift+ArrowRight
+  // cycle through the visible tabs. Mirrors CallerDetailPage. H+letter
+  // (registry chords) still jumps to a specific tab.
+  useEffect(() => {
+    const ids = tabs.map((t) => t.id);
+    function onKey(e: KeyboardEvent) {
+      if (!e.altKey || !e.shiftKey) return;
+      if (e.metaKey || e.ctrlKey) return;
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (
+          tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" ||
+          target.isContentEditable
+        ) {
+          return;
+        }
+      }
+      if (ids.length === 0) return;
+      e.preventDefault();
+      const idx = ids.indexOf(activeTab);
+      const next = e.key === "ArrowRight"
+        ? ids[(idx + 1 + ids.length) % ids.length]
+        : ids[(idx - 1 + ids.length) % ids.length];
+      handleTabChange(next);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tabs, activeTab, handleTabChange]);
+
   // ── Action Handlers ──────────────────────────────────
   const handlePublish = async () => {
     if (!detail) return;

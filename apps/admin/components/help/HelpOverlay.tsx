@@ -137,13 +137,24 @@ export function HelpOverlay() {
           <Section title="Shortcuts — on this page">
             <p className="help-overlay-chord-hint">
               Press <kbd>H</kbd> or <kbd>G</kbd> followed by the chord letter — either prefix works.
+              Or cycle tabs with <kbd>⌥</kbd>+<kbd>⇧</kbd>+<kbd>←</kbd> / <kbd>⌥</kbd>+<kbd>⇧</kbd>+<kbd>→</kbd>.
             </p>
             {pageHelp?.chords?.length ? (
               <ShortcutList
-                items={pageHelp.chords.map((c) => ({
-                  keys: `H/G + ${c.keys}`,
-                  description: c.label,
-                }))}
+                items={[
+                  ...pageHelp.chords.map((c) => ({
+                    keys: `H/G + ${c.keys}`,
+                    description: c.label,
+                  })),
+                  ...(pageHelp.tabs && pageHelp.tabs.length > 1
+                    ? [
+                        {
+                          keys: "⌥⇧←  /  ⌥⇧→",
+                          description: "Previous / next tab (cycles)",
+                        },
+                      ]
+                    : []),
+                ]}
               />
             ) : (
               <p className="help-overlay-empty">No page-specific shortcuts.</p>

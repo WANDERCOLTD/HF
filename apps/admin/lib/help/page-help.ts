@@ -217,19 +217,13 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
     match: /^\/x\/callers\/[^/]+/,
     title: "Learner detail",
     about:
-      "Everything about one learner: their journey position, recent calls and prompts, tuning overrides, what the AI knows about them, what they're working on, generated artifacts, and a live AI call surface.",
+      "Everything about one learner: a 30-second overview, recent calls and prompts, tuning overrides, progress + scores, uplift proof points, the session flow, profile memories + traits, and a live AI call surface.",
     tabs: [
       {
-        id: "overview",
+        id: "overview-v2",
         label: "Overview",
-        about: "At-a-glance summary — uplift, recent activity, and the next session.",
-        whenToUse: "When you just want to see how this learner is doing without drilling in.",
-      },
-      {
-        id: "uplift",
-        label: "Uplift",
-        about: "Score uplift over time — how much this learner has moved across the goals you're tracking.",
-        whenToUse: "When you want concrete evidence of progress (or stagnation).",
+        about: "30-second educator read — At a Glance, Mock Results, Focus areas, Who they are, Recent Calls, Achievements, Trust footer.",
+        whenToUse: "When you just want to see how this learner is doing without drilling in. The default landing tab.",
       },
       {
         id: "calls-prompts",
@@ -244,39 +238,49 @@ export const PAGE_HELP_REGISTRY: readonly PageHelp[] = [
         whenToUse: "When this learner needs something different from the cohort default — slower pace, gentler tone, a lower or higher mastery bar before advancing.",
       },
       {
+        id: "progress-v2",
+        label: "Progress",
+        about: "Operating console with a left-hand menu — Overview, Parameters, Adaptation, Modules, Goals, Topics, Exam readiness, Plan, Trajectory. Active lens lives in ?view=.",
+        whenToUse: "When you want to drill into scores, goals, module mastery, exam readiness or the session plan.",
+      },
+      {
+        id: "uplift-v2",
+        label: "Uplift",
+        about: "Learner proof report — Hero rings, How we adapted (EQ), Skill chart + radar, Module heatmap, Goals achieved, Score trends, Topics covered, Engagement. Printable.",
+        whenToUse: "When you want concrete evidence of progress (or stagnation) to share with the learner.",
+      },
+      {
+        id: "session-flow",
+        label: "Session Flow",
+        about: "Per-session flow for this learner — what the AI will lead with, mid-call signals, end-of-call wrap.",
+        whenToUse: "When you want to inspect or tune the flow this learner will see in their next session.",
+      },
+      {
         id: "how",
-        label: "How",
-        about: "Memories, traits, personality, and the slugs the AI uses to refer to this learner.",
+        label: "Profile",
+        about: "Memories, traits, personality, and the template-variable slugs (`{scores.X}`, `{memories.X}`) the AI sees when composing the prompt.",
         whenToUse: "When you want to see what the AI thinks it knows about the learner, or correct a wrong memory.",
       },
       {
-        id: "what",
-        label: "What",
-        about: "Scores, behaviour history, goal progress, and exam-readiness signal.",
-        whenToUse: "When you want to see numbers — current scores, change over time, exam predictions.",
-      },
-      {
-        id: "artifacts",
-        label: "Artifacts",
-        about: "Generated artifacts — composed prompts, lesson plans, content packs produced for this learner.",
-        whenToUse: "When you want to inspect or download something the system generated for this learner.",
-      },
-      {
         id: "ai-call",
-        label: "AI Call",
+        label: "Call",
         about: "Live AI call surface — start a session with this learner's exact prompt and persona right from this page.",
         whenToUse: "When you want to see what the learner sees, or test a tuning change end-to-end.",
       },
     ],
+    // Chord prefix is H (or G for global). Unique second letter per visible
+    // tab — first-letter where free, mnemonic where collided:
+    //   O Overview · C Calls · T Tune · P Progress · U Uplift ·
+    //   S Session Flow · R pRofile · A cAll
     chords: [
-      { keys: "O", action: "callback", callbackId: "tab:overview", label: "Overview tab" },
-      { keys: "U", action: "callback", callbackId: "tab:uplift", label: "Uplift tab" },
+      { keys: "O", action: "callback", callbackId: "tab:overview-v2", label: "Overview tab" },
       { keys: "C", action: "callback", callbackId: "tab:calls-prompts", label: "Calls tab" },
       { keys: "T", action: "callback", callbackId: "tab:tune", label: "Tune tab" },
-      { keys: "W", action: "callback", callbackId: "tab:how", label: "How tab (hoW — H is reserved as a chord prefix)" },
-      { keys: "A", action: "callback", callbackId: "tab:what", label: "What tab (whAt)" },
-      { keys: "R", action: "callback", callbackId: "tab:artifacts", label: "Artifacts tab (aRtifacts)" },
-      { keys: "I", action: "callback", callbackId: "tab:ai-call", label: "AI Call tab (aI call)" },
+      { keys: "P", action: "callback", callbackId: "tab:progress-v2", label: "Progress tab" },
+      { keys: "U", action: "callback", callbackId: "tab:uplift-v2", label: "Uplift tab" },
+      { keys: "S", action: "callback", callbackId: "tab:session-flow", label: "Session Flow tab" },
+      { keys: "R", action: "callback", callbackId: "tab:how", label: "Profile tab (pRofile — P is Progress)" },
+      { keys: "A", action: "callback", callbackId: "tab:ai-call", label: "Call tab (cAll)" },
     ],
   },
 ];

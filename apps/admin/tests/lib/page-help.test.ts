@@ -56,13 +56,13 @@ describe("page-help registry", () => {
       expect(entry?.tabs).toHaveLength(8);
       const ids = entry?.tabs?.map((t) => t.id);
       expect(ids).toEqual([
-        "overview",
-        "uplift",
+        "overview-v2",
         "calls-prompts",
         "tune",
+        "progress-v2",
+        "uplift-v2",
+        "session-flow",
         "how",
-        "what",
-        "artifacts",
         "ai-call",
       ]);
     });
@@ -108,22 +108,28 @@ describe("page-help registry", () => {
   });
 
   describe("Learner detail chord mapping", () => {
-    it("uses W for How (hoW — H is a chord prefix)", () => {
+    it("uses R for Profile (pRofile — P is Progress)", () => {
       const entry = getPageHelp("/x/callers/xyz-789");
       const how = entry?.chords?.find((c) => c.callbackId === "tab:how");
-      expect(how?.keys).toBe("W");
+      expect(how?.keys).toBe("R");
     });
 
-    it("uses A for What (whAt — W collides with How)", () => {
+    it("uses P for Progress (canonical first letter)", () => {
       const entry = getPageHelp("/x/callers/xyz-789");
-      const what = entry?.chords?.find((c) => c.callbackId === "tab:what");
-      expect(what?.keys).toBe("A");
+      const progress = entry?.chords?.find((c) => c.callbackId === "tab:progress-v2");
+      expect(progress?.keys).toBe("P");
     });
 
-    it("uses I for AI Call (aI call — A collides with What)", () => {
+    it("uses A for Call (cAll)", () => {
       const entry = getPageHelp("/x/callers/xyz-789");
-      const aiCall = entry?.chords?.find((c) => c.callbackId === "tab:ai-call");
-      expect(aiCall?.keys).toBe("I");
+      const call = entry?.chords?.find((c) => c.callbackId === "tab:ai-call");
+      expect(call?.keys).toBe("A");
+    });
+
+    it("uses S for Session Flow", () => {
+      const entry = getPageHelp("/x/callers/xyz-789");
+      const sf = entry?.chords?.find((c) => c.callbackId === "tab:session-flow");
+      expect(sf?.keys).toBe("S");
     });
 
     it("never assigns H or G as chord keys (those are prefixes)", () => {

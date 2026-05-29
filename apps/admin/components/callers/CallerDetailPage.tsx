@@ -637,12 +637,15 @@ export default function CallerDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageHelp]);
 
-  // Cmd+ArrowLeft / Cmd+ArrowRight cycle through the visible tabs.
-  // Skips when the user is typing in a form field so we don't hijack the
-  // cursor inside an input or contenteditable region.
+  // Secondary tab nav — Option+Shift+ArrowLeft / Option+Shift+ArrowRight
+  // cycle through the visible tabs. Bare Cmd+Arrow stays bound to browser
+  // back/forward; H+letter (registry) jumps to a specific tab. Skips inside
+  // text fields so the macOS "select word" shortcut keeps working.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (!e.metaKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+      if (!e.altKey || !e.shiftKey) return;
+      if (e.metaKey || e.ctrlKey) return;
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       const target = e.target as HTMLElement | null;
       if (target) {
         const tag = target.tagName;
@@ -696,14 +699,16 @@ export default function CallerDetailPage() {
   // Tab order requested 2026-05-29: Overview · Calls · Tune · Progress ·
   // Uplift · Session Flow · Profile · Call. v1 tabs and Artifacts are
   // hidden via VISIBLE_TABS (URLs to them redirect to the v2 equivalent).
-  // BETA labels dropped — v2 is canonical now.
+  // BETA labels dropped — v2 is canonical now. `tabId` props on TabWithHelp
+  // match the registry entry ids in `lib/help/page-help.ts` so the help
+  // popover + chord nav resolve to the right tab.
   const allSections: { id: SectionId; label: React.ReactNode; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
-    { id: "overview-v2", label: <TabWithHelp tabId="overview">Overview</TabWithHelp>, icon: <span aria-hidden>🧭</span>, group: "shared" },
+    { id: "overview-v2", label: <TabWithHelp tabId="overview-v2">Overview</TabWithHelp>, icon: <span aria-hidden>🧭</span>, group: "shared" },
     { id: "calls-prompts", label: <TabWithHelp tabId="calls-prompts">Calls</TabWithHelp>, icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
     { id: "tune", label: <TabWithHelp tabId="tune">Tune</TabWithHelp>, icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
-    { id: "progress-v2", label: <TabWithHelp tabId="what">Progress</TabWithHelp>, icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
-    { id: "uplift-v2", label: <TabWithHelp tabId="uplift">Uplift</TabWithHelp>, icon: <TrendingUp size={13} />, group: "shared" },
-    { id: "session-flow", label: "Session Flow", icon: <SlidersHorizontal size={13} />, group: "shared" },
+    { id: "progress-v2", label: <TabWithHelp tabId="progress-v2">Progress</TabWithHelp>, icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
+    { id: "uplift-v2", label: <TabWithHelp tabId="uplift-v2">Uplift</TabWithHelp>, icon: <TrendingUp size={13} />, group: "shared" },
+    { id: "session-flow", label: <TabWithHelp tabId="session-flow">Session Flow</TabWithHelp>, icon: <SlidersHorizontal size={13} />, group: "shared" },
     { id: "how", label: <TabWithHelp tabId="how">Profile</TabWithHelp>, icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
     { id: "ai-call", label: <TabWithHelp tabId="ai-call">Call</TabWithHelp>, icon: <PlayCircle size={13} />, special: true, group: "action" },
     // Retired (hidden) — kept here for URL-redirect fall-through and any
