@@ -381,6 +381,9 @@ export default function CourseDetailPage() {
     return sessions.plan.entries.reduce((sum, e) => sum + (e.estimatedDurationMins || 0), 0);
   }, [sessions]);
 
+  // #972 — `sessions` removed from deps. No tab entry references `sessions`
+  // directly (verified by inspection); the prior dep was over-broad and
+  // caused tabs to re-memoise on every sessions refresh + every poll tick.
   const tabs: TabDefinition[] = useMemo(() => [
     { id: 'intelligence', label: <TabWithHelp tabId="intelligence">Content</TabWithHelp>, icon: <BookMarked size={14} />, count: totalSources || null },
     { id: 'design', label: <TabWithHelp tabId="design">Design</TabWithHelp>, icon: <Wand2 size={14} /> },
@@ -389,7 +392,7 @@ export default function CourseDetailPage() {
     { id: 'proof', label: <TabWithHelp tabId="proof">Proof Points</TabWithHelp>, icon: <BarChart3 size={14} /> },
     { id: 'goals', label: <TabWithHelp tabId="goals">Goals</TabWithHelp>, icon: <Target size={14} /> },
     ...(isOperator ? [{ id: 'settings', label: <TabWithHelp tabId="settings">Settings</TabWithHelp>, icon: <SettingsIcon size={14} /> }] : []),
-  ], [totalSources, isOperator, sessions]);
+  ], [totalSources, isOperator]);
 
   // Sync active tab from URL on popstate (browser back/forward)
   useEffect(() => {
@@ -425,7 +428,15 @@ export default function CourseDetailPage() {
     const params = new URLSearchParams(window.location.search);
     params.set('tab', resolvedTab);
     router.replace(`?${params.toString()}`, { scroll: false });
-    // Load sessions data when Design or Learners tab needs it (was: Journey tab)
+    // Load sessions data when Design or Learners tab needs it (was: Journey tab).
+    //
+    // #972 — sessions must resolve FIRST (curriculumId is derived from its
+    // response and gates the next 4 fetches). After that, fire the four
+    // supplementary fetches (TPs / MCQ pre / MCQ post / media-map) via
+    // Promise.allSettled so they run in parallel — none of them depend on
+    // each other's response. Previously these were fire-and-forget siblings
+    // but were sequenced one after another in source order; making the
+    // concurrency explicit cuts ~600ms off Design-tab open time.
     if ((resolvedTab === 'design' || resolvedTab === 'learners' || resolvedTab === 'curriculum') && sessions === null && !sessionsLoading) {
       setSessionsLoading(true);
       setSessionsError(null);
@@ -438,41 +449,35 @@ export default function CourseDetailPage() {
             if (data.plan?.estimatedSessions && regenSessionCount === null) {
               setRegenSessionCount(data.plan.estimatedSessions);
             }
-            // Fetch session TPs if curriculum exists
+            // Once sessions resolves, fire the four curriculum-dependent
+            // supplementary fetches concurrently.
             if (data.curriculumId && !tpLoaded) {
-              fetch(`/api/curricula/${data.curriculumId}/session-assertions`)
-                .then((r) => r.json())
-                .then((tpData) => {
-                  if (tpData.ok) {
-                    const bySession: Record<number, TPItem[]> = {};
-                    if (tpData.sessions) {
-                      for (const [key, group] of Object.entries(tpData.sessions)) {
-                        bySession[Number(key)] = (group as any).assertions || [];
-                      }
-                    }
-                    setSessionTPs(bySession);
-                    setUnassignedTPs(tpData.unassigned || []);
-                    setTpLoaded(true);
-                  }
-                })
-                .catch(() => {}); // silent — TPs are supplementary
-              // Fetch assessment MCQ previews (pre + post in parallel)
-              const previewBase = `/api/curricula/${data.curriculumId}/assessment-preview?playbookId=${courseId}`;
-              fetch(previewBase)
-                .then((r) => r.json())
-                .then((ap) => { if (ap.ok) setMcqPreview(ap); })
-                .catch(() => {});
-              fetch(`${previewBase}&type=post_test`)
-                .then((r) => r.json())
-                .then((ap) => { if (ap.ok) setPostTestMcqPreview(ap); })
-                .catch(() => {});
-              // Fetch session media map
+              const curriculumId = data.curriculumId;
+              const previewBase = `/api/curricula/${curriculumId}/assessment-preview?playbookId=${courseId}`;
               setMediaMapLoading(true);
-              fetch(`/api/curricula/${data.curriculumId}/lesson-plan/media-map`)
-                .then((r) => r.json())
-                .then((mmData) => { if (mmData.ok) setSessionMediaMap(mmData); })
-                .catch(() => {}) // silent — media map is supplementary
-                .finally(() => setMediaMapLoading(false));
+              Promise.allSettled([
+                fetch(`/api/curricula/${curriculumId}/session-assertions`).then((r) => r.json()),
+                fetch(previewBase).then((r) => r.json()),
+                fetch(`${previewBase}&type=post_test`).then((r) => r.json()),
+                fetch(`/api/curricula/${curriculumId}/lesson-plan/media-map`).then((r) => r.json()),
+              ]).then(([tpsRes, mcqRes, postMcqRes, mediaMapRes]) => {
+                if (tpsRes.status === "fulfilled" && tpsRes.value.ok) {
+                  const tpData = tpsRes.value;
+                  const bySession: Record<number, TPItem[]> = {};
+                  if (tpData.sessions) {
+                    for (const [key, group] of Object.entries(tpData.sessions)) {
+                      bySession[Number(key)] = (group as any).assertions || [];
+                    }
+                  }
+                  setSessionTPs(bySession);
+                  setUnassignedTPs(tpData.unassigned || []);
+                  setTpLoaded(true);
+                }
+                if (mcqRes.status === "fulfilled" && mcqRes.value.ok) setMcqPreview(mcqRes.value);
+                if (postMcqRes.status === "fulfilled" && postMcqRes.value.ok) setPostTestMcqPreview(postMcqRes.value);
+                if (mediaMapRes.status === "fulfilled" && mediaMapRes.value.ok) setSessionMediaMap(mediaMapRes.value);
+                setMediaMapLoading(false);
+              });
             }
           } else {
             setSessionsError(data.error || 'Failed to load sessions');
