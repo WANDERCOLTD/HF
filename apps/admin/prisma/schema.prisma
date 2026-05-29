@@ -943,6 +943,9 @@ model Caller {
   @@index([role])
   @@index([cohortGroupId])
   @@index([supervisorCallerId])
+  // #974 — operator dashboards filter callers by (domain, role) — composite
+  // avoids merge join between the two single-column scans.
+  @@index([domainId, role])
 }
 
 // ExcludedCaller - Phone numbers/IDs to skip during transcript import
@@ -1200,6 +1203,11 @@ model CallerAttribute {
   @@index([key])
   @@index([scope])
   @@index([validUntil])
+  // #974 — composite for the (callerId, scope, key) hot path: cohort-learning
+  // fires this 3× per query (pre/post survey + competency); learning-trajectory
+  // fires the (callerId, scope) prefix for CHECKPOINT lookups. Leading-callerId
+  // + scope as second column lets both query shapes use this index.
+  @@index([callerId, scope, key])
 }
 
 // Goal - Represents a caller's objective (learn, achieve, connect, etc.)
@@ -1449,7 +1457,7 @@ model Call {
   vapiDurationSeconds   Float?
   vapiEndedReason       String?
   vapiCostUsd           Float?
-  vapiAnalysisSummary   String?  @db.Text
+  vapiAnalysisSummary   String? @db.Text
   vapiStructuredData    Json?
   vapiSuccessEvaluation String?
 
@@ -1461,6 +1469,10 @@ model Call {
   @@index([playbookId])
   @@index([curriculumModuleId])
   @@index([requestedModuleId])
+  // #974 — call history is paged reverse-chronologically per caller. The
+  // single-column callerId index requires a sort step; this composite
+  // serves the ORDER BY directly under load.
+  @@index([callerId, createdAt])
 }
 
 model CallMessage {
@@ -1513,7 +1525,7 @@ model CallScore {
   // evidenceQuality — 0..1 confidence in the evidence quantity/quality
   // (independent of confidence in the score itself).
   hasLearnerEvidence Boolean? // null = legacy path; true/false = scorer judged evidence
-  evidenceQuality    Float?   // 0..1, null when not assessed
+  evidenceQuality    Float? // 0..1, null when not assessed
 
   // Spec-driven scoring
   analysisSpecId String? // Which AnalysisSpec was used
@@ -1546,6 +1558,11 @@ model CallScore {
   @@index([analysisSpecId])
   @@index([scoredAt])
   @@index([moduleId])
+  // #974 — composite for the (callerId, parameterId) hot path: caller
+  // detail learning-trajectory, cohort-learning, and AGGREGATE stage all
+  // filter on this pair. Currently uses two single-column scans + merge
+  // join under load. Single biggest market-test perf win.
+  @@index([callerId, parameterId])
 }
 
 // =========================
@@ -2518,6 +2535,9 @@ model CallerModuleProgress {
   @@unique([callerId, moduleId])
   @@index([callerId, status])
   @@index([moduleId])
+  // #974 — learning-trajectory orders by updatedAt: desc; currently scans
+  // by callerId then sorts. Composite avoids the sort step under load.
+  @@index([callerId, updatedAt])
 }
 
 // Top-level spec: defines a category of analysis
