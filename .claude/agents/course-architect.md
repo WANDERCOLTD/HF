@@ -156,6 +156,8 @@ Run the candidate through the catalogue. Codify what you can; judgment-call what
 8. **Misconception density** — Topic without rich near-misses produces a flat tutor; topic *built* on misconceptions (biases, Dark Triad, attachment) lets the Socratic guardrail shine.
 9. **Cross-cultural validity** — Topic that varies dramatically by culture (e.g., social norms, attachment styles in collectivist cultures) → flag and decide whether to scope or address.
 
+10. **Dual-use risk** — Topic teaches mechanisms that work whether or not the deployer is honest (persuasion, negotiation tactics, dark-pattern design, social engineering, security exploits, propaganda techniques, behavioural-economic nudges). **Mitigation, codifiable:** the brief MUST require (a) an ethics LO present in **Module 1**, not deferred to a final module; (b) every principle / technique module's Edge Cases names the misuse pattern for that principle; (c) the Course Reference explicitly states the mechanisms are morally neutral but the application is morally loaded; (d) an operational truth-test is taught (e.g. "would the audience still be persuaded if they could see exactly what was being done and why?"). Surfaced first by the Seducing Strangers brief (2026-05-29) — see `docs/course-architect-precedents.md`. When the candidate topic has dual-use risk and these mitigations are absent, downgrade verdict to CONDITIONAL until they're added.
+
 ### Step 8 — Demo arc preview (call-by-call)
 
 Sketch what calls 1 through N feel like for the leading candidate. The format:

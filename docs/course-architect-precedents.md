@@ -61,6 +61,35 @@
 
 ---
 
+## Seducing Strangers (Persuasion & Sales) — **STRONG GO (with conditions)**
+
+- **Trust level:** `PUBLISHED_REFERENCE` (L3) via compound sourcing. Single-book Weltman alone would be `EXPERT_CURATED` (L2). The compound strategy (Cialdini spine + Weltman voice + Heath application + ELM/Prospect Theory) gets the course to L3.
+- **Teaching profile:** `recall-led` for principle naming + `discussion-led` overrides in Teaching Approach text for the ethics/misuse layer. Override `deliveryHints` to include "every module ends with the misuse pattern for that principle" and "use the learner's own recent purchase / pitch / ad as the example".
+- **Primary sources:**
+  - Cialdini, R. B. (2021) — *Influence: The Psychology of Persuasion* (New & Expanded). Harper Business. **Spine** (7 principles).
+  - Weltman, J. (2015) — *Seducing Strangers*. Workman Publishing. Voice + examples; not authority.
+  - Heath, C. & Heath, D. (2007) — *Made to Stick*. Random House. Application framework (SUCCESS).
+  - Petty, R. E. & Cacioppo, J. T. (1986) — ELM. Springer. Cognitive frame.
+  - Kahneman, D. & Tversky, A. (1979) — Prospect Theory (Econometrica). Loss / scarcity asymmetry.
+  - Cialdini, R. B. et al. (2006) — Managing social norms for persuasive impact (Social Influence). Social-proof boomerang case.
+- **Structure match:** **Partial.** Cialdini's seven principles map to the audience's "how do I sell better / spot persuasion?" demand. Translation tax is tone — academic Cialdini reads dry; Weltman's voice supplies the practitioner energy. Solve in Teaching Approach text, not in module structure.
+- **Audience fits:** Non-AI startup adult ✅ (high relevance — everyone gets sold to); founder / marketer / sales context ✅; B2B procurement / engineering audience moderate (peripheral cues weaken; the course teaches the audience-side recognition either way).
+- **Failure-mode flags:**
+  - LO count: 5 modules × ~3 LOs = **16** → passes EMA visibility
+  - Voice-native: ✅
+  - Misconception density: **very high** — every principle has documented misuses; perfect catch-and-correct surface
+  - Pop-folklore creep: **flag** — TikTok / Substack marketing-influencer content is everywhere. Strategy: name them as misconception material, not as competitors to the academic spine.
+  - Cross-cultural validity: **flag** — Cialdini's principles replicate cross-culturally but Authority + Reciprocity timing + Unity calibrate by Hofstede dimensions. Include cross-cultural LO in Module 4.
+  - **🆕 Dual-use risk: HIGH.** *First precedent in catalogue to surface this failure mode.* This topic teaches mechanisms that work whether or not the deployer is honest. Mitigation: ethics LO threaded through every module's Edge Cases — present from Module 1, not bolted on at the end.
+- **Conditions** (mandatory, not optional):
+  - Ethics LO (`pers.ethics_dual_use`) in Module 1, not deferred.
+  - Every principle module's Edge Cases names the misuse pattern for that principle.
+  - Course Reference explicitly states: "Cialdini's seven principles describe mechanisms that work whether or not the deployer is honest — this course teaches recognition of misuse alongside use."
+  - Truth-test taught operationally: "Would the audience still be persuaded if they could see exactly what was being done and why?"
+- **Demo wow line:** **Call 3** — "Last call you said you bought something because of a countdown timer. Close the tab on that site right now in another window and check — is the timer still going? When it resets, that's not scarcity, that's a credibility loan they took out at your expense. Cialdini calls this the most credibility-fragile of the seven principles for exactly this reason."
+
+---
+
 ## Sleep Science — **GO**
 
 - **Trust level:** `REGULATORY_STANDARD` (L5) for the AASM clinical practice guidelines; `PUBLISHED_REFERENCE` (L3) for the textbook layer.
