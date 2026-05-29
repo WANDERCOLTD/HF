@@ -18,9 +18,8 @@ import './caller-detail-page.css';
 import './caller-detail/lens.css';
 import './caller-detail/prompt-tuner.css';
 import { useAssistant, useAssistantKeyboardShortcut } from "@/hooks/useAssistant";
-import { ChordHintBadge } from "@/components/help/ChordHintBadge";
 import { TabWithHelp } from "@/components/help/TabWithHelp";
-import { getPageHelp, getEffectiveChords } from "@/lib/help/page-help";
+import { getPageHelp } from "@/lib/help/page-help";
 
 // Extracted sub-components
 import { ProcessingNotice } from "./caller-detail/CallsTab";
@@ -129,11 +128,9 @@ export default function CallerDetailPage() {
   const [data, setData] = useState<CallerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // #688 — chord shortcuts (H/G + key) for tab navigation + globals.
-  // Runner moved to ChordShortcutProvider in app/layout.tsx (#966); page only
-  // computes the displayable chord list for ChordHintBadge.
+  // #688 — page-help registry for tab tooltips. Chord runner + badge are
+  // global (ChordShortcutProvider + ChordHintBadge in app/layout.tsx, #966 / #970).
   const pageHelp = useMemo(() => getPageHelp(`/x/callers/${callerId}`), [callerId]);
-  const effectiveChords = useMemo(() => getEffectiveChords(`/x/callers/${callerId}`), [callerId]);
 
   const [activeSection, _setActiveSection] = useState<SectionId>(initialTab);
   // Refs mirror the latest active tab + visible sections so the long-lived
@@ -1464,7 +1461,6 @@ export default function CallerDetailPage() {
       )}
       </div>{/* cdp-content */}
       </div>{/* cdp-body */}
-      <ChordHintBadge chords={effectiveChords} />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { PendingChangesTray } from '@/components/shared/PendingChangesTray';
 import { HelpProvider } from '@/contexts/HelpContext';
 import { HelpOverlay } from '@/components/help/HelpOverlay';
 import { ChordShortcutProvider } from '@/contexts/ChordContext';
+import { ChordHintBadge } from '@/components/help/ChordHintBadge';
 import { ContentJobQueueProvider, ContentJobQueue } from '@/components/shared/ContentJobQueue';
 import EnvironmentBanner from '@/components/shared/EnvironmentBanner';
 import DynamicFavicon from '@/components/shared/DynamicFavicon';
@@ -418,16 +419,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         <ContentJobQueueProvider>
                           <TourOverlay />
                           {/* ChordShortcutProvider wraps the page tree so
-                              ChordHintBadge consumers anywhere downstream can
-                              read activePrefix from context. Floating widgets
-                              are deliberately outside — they don't render
-                              ChordHintBadge. (#966) */}
+                              ChordHintBadge can read activePrefix + chords
+                              from context. ChordHintBadge mounted inside the
+                              provider as a sibling of {children} — appears
+                              globally whenever a chord is armed (#966, #970). */}
                           <ChordShortcutProvider>
                             <PageErrorBoundary>
                               <Suspense fallback={null}>
                                 <LayoutInner>{children}</LayoutInner>
                               </Suspense>
                             </PageErrorBoundary>
+                            <ChordHintBadge />
                           </ChordShortcutProvider>
                           {/* Floating widgets — outside PageErrorBoundary so they survive page crashes */}
                           <GlobalAssistant />

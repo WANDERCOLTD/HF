@@ -2,37 +2,24 @@
 
 import React from "react";
 import "./chord-hint-badge.css";
-import type { ChordBinding } from "@/lib/help/page-help";
 import { useChordContext } from "@/contexts/ChordContext";
-
-interface ChordHintBadgeProps {
-  /**
-   * #752 — optional list of available chord bindings at the current location.
-   * When provided, the badge renders each `[letter] — label` so users can
-   * discover what's reachable. When omitted (back-compat for callers not yet
-   * wired), falls back to the original "press next key…" hint.
-   */
-  chords?: readonly ChordBinding[];
-}
 
 /**
  * Transient badge shown while a chord is armed (after H or G, before the
  * second key). Disappears when the chord completes, times out, or resets.
  *
- * Reads `activePrefix` from `ChordContext` (provided globally by
- * `ChordShortcutProvider` in `app/layout.tsx`). Pages that render this
- * badge no longer need to mount `useChordShortcut` themselves (#966).
+ * Reads both `activePrefix` and `chords` from `ChordContext` (provided
+ * globally by `ChordShortcutProvider` in `app/layout.tsx`).
  *
- * When `chords` is provided, shows the available follow-up letters as a
- * discoverable list — replaces the "press next key…" fallback.
+ * Mounted once globally in `app/layout.tsx` alongside `HelpOverlay` (#970).
+ * No per-page wiring required — the badge appears anywhere the user is
+ * when they arm a chord with H or G.
  */
-export function ChordHintBadge({
-  chords,
-}: ChordHintBadgeProps): React.ReactElement | null {
-  const { activePrefix } = useChordContext();
+export function ChordHintBadge(): React.ReactElement | null {
+  const { activePrefix, chords } = useChordContext();
   if (!activePrefix) return null;
 
-  const hasChords = chords && chords.length > 0;
+  const hasChords = chords.length > 0;
 
   return (
     <div className="hf-chord-hint" role="status" aria-live="polite">
@@ -47,7 +34,7 @@ export function ChordHintBadge({
       </div>
       {hasChords && (
         <dl className="hf-chord-hint-list">
-          {chords!.map((c) => (
+          {chords.map((c) => (
             <div className="hf-chord-hint-item" key={c.keys}>
               <dt>
                 <kbd>{c.keys}</kbd>
