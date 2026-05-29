@@ -79,18 +79,21 @@ export const UPLIFT_SECTIONS: Partial<Record<UpliftSectionId, SectionDef>> = {
   },
   goals: {
     order: 40,
-    span: 6,
+    span: 12,
     Component: GoalsSection,
+  },
+  adaptation: {
+    // Promoted from order 60 → 45 so it sits right under Goals near the
+    // top of the report. Span 12 already; goals widened to 12 to give it
+    // a clean full-width neighbour.
+    order: 45,
+    span: 12,
+    Component: AdaptationSection,
   },
   "score-trends": {
     order: 50,
     span: 6,
     Component: ScoreTrendsSection,
-  },
-  adaptation: {
-    order: 60,
-    span: 12,
-    Component: AdaptationSection,
   },
   topics: {
     order: 70,
@@ -115,9 +118,9 @@ export const UPLIFT_PLACEHOLDERS: Record<
   hero: { order: 10, label: "Hero — Mastery / Confidence / Knowledge", span: 12 },
   "skill-chart": { order: 20, label: "Skill chart + radar", span: 12 },
   modules: { order: 30, label: "Module mastery (heatmap)", span: 12 },
-  goals: { order: 40, label: "Goals achieved", span: 6 },
+  goals: { order: 40, label: "Goals achieved", span: 12 },
+  adaptation: { order: 45, label: "How we adapted for you", span: 12 },
   "score-trends": { order: 50, label: "Score trends", span: 6 },
-  adaptation: { order: 60, label: "How we adapted for you", span: 12 },
   topics: { order: 70, label: "Topics covered", span: 6 },
   engagement: { order: 80, label: "Engagement", span: 6 },
 };
