@@ -330,13 +330,35 @@ export default function CallerDetailPage() {
   }, [callerId]);
 
 
-  const fetchData = useCallback(() => {
+  // #972 — five init endpoints fire in parallel via Promise.allSettled.
+  // Why allSettled (not all): each fetch has independent error handling;
+  // a 500 on /api/domains must NOT prevent the caller from rendering. all()
+  // would short-circuit on first failure and hide everything.
+  //
+  // AbortController cleanup is mandatory — if the user navigates away mid-
+  // load, abandoned resolutions would setState on an unmounted component
+  // (React 18 swallows the warning; React 19 may throw). The signal is wired
+  // through every fetch and the cleanup function returned from useEffect
+  // calls abort() to short-circuit any pending resolution.
+  //
+  // React 18 batches all setState calls inside the allSettled .then() into a
+  // single re-render automatically — so mount goes from 5+ renders (one per
+  // sequential fetch) down to 2 (loading → loaded).
+  const fetchData = useCallback((signal?: AbortSignal) => {
     if (!callerId) return;
 
-    // Fetch caller data
-    fetch(`/api/callers/${callerId}`)
-      .then((r) => r.json())
-      .then((result) => {
+    Promise.allSettled([
+      fetch(`/api/callers/${callerId}`, { signal }).then((r) => r.json()),
+      fetch("/api/domains", { signal }).then((r) => r.json()),
+      fetch(`/api/callers/${callerId}/compose-prompt?limit=50`, { signal }).then((r) => r.json()),
+      fetch(`/api/callers/${callerId}/enrollments`, { signal }).then((r) => r.json()),
+      fetch("/api/parameters/display-config", { signal }).then((r) => r.json()),
+    ]).then(([callerRes, domainsRes, promptsRes, enrollmentsRes, paramConfigRes]) => {
+      if (signal?.aborted) return;
+
+      // Caller (critical path — unblocks main render)
+      if (callerRes.status === "fulfilled") {
+        const result = callerRes.value;
         if (result.ok) {
           // Map personalityProfile -> personality for backward compatibility
           setData({
@@ -385,53 +407,48 @@ export default function CallerDetailPage() {
         } else {
           setError(result.error || "Failed to load caller");
         }
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-
-    // Fetch domains for dropdown
-    fetch("/api/domains")
-      .then((r) => r.json())
-      .then((result) => {
-        if (result.ok) {
-          setDomains(result.domains || []);
+      } else {
+        // Caller fetch outright rejected — only path that surfaces an error
+        // (others degrade silently per original behaviour).
+        if ((callerRes.reason as { name?: string })?.name !== "AbortError") {
+          setError((callerRes.reason as Error)?.message || "Failed to load caller");
         }
-      })
-      .catch((e) => console.warn("[CallerDetail] Failed to load domains:", e));
+      }
+      setLoading(false);
 
-    // Fetch prompts for count pill (lightweight, just need the count)
-    fetch(`/api/callers/${callerId}/compose-prompt?limit=50`)
-      .then((r) => r.json())
-      .then((result) => {
-        if (result.ok) {
-          setComposedPrompts(result.prompts || []);
-        }
-      })
-      .catch((e) => console.warn("[CallerDetail] Failed to load prompts:", e));
+      // Supplementary data — each degrades independently per original behaviour
+      if (domainsRes.status === "fulfilled") {
+        const result = domainsRes.value;
+        if (result.ok) setDomains(result.domains || []);
+      } else if ((domainsRes.reason as { name?: string })?.name !== "AbortError") {
+        console.warn("[CallerDetail] Failed to load domains:", domainsRes.reason);
+      }
 
-    // Fetch enrollments for course filter
-    //
-    // NOTE on divergence from the L9 chain contract (docs/CHAIN-CONTRACTS.md):
-    // this page needs the FULL enrollment list (rendered as a course-filter
-    // dropdown elsewhere on the page), not just the resolved playbookId — so
-    // it can't reduce to a `/active-playbook` call without losing the list.
-    // The auto-pick rule below MUST stay byte-identical to
-    // `lib/caller/resolve-active-playbook.ts::resolveActivePlaybookId` —
-    // any drift breaks the L9 invariant ("same caller behaves the same way
-    // on either page"). This admin page is out of scope for the arch-checker
-    // Check G (learner-facing only); the lint rule does not catch this site.
-    fetch(`/api/callers/${callerId}/enrollments`)
-      .then((r) => r.json())
-      .then((result) => {
+      if (promptsRes.status === "fulfilled") {
+        const result = promptsRes.value;
+        if (result.ok) setComposedPrompts(result.prompts || []);
+      } else if ((promptsRes.reason as { name?: string })?.name !== "AbortError") {
+        console.warn("[CallerDetail] Failed to load prompts:", promptsRes.reason);
+      }
+
+      if (enrollmentsRes.status === "fulfilled") {
+        const result = enrollmentsRes.value;
         if (result.ok) {
           const active = (result.enrollments || []).filter((e: Enrollment) => e.status === "ACTIVE");
           setEnrollments(active);
           setEnrollmentCount(active.length);
           // Auto-select: 1 course → that course; 2+ → most recent by enrolledAt.
           // MUST match resolveActivePlaybookId() — keep these branches in sync.
+          //
+          // NOTE on divergence from the L9 chain contract (docs/CHAIN-CONTRACTS.md):
+          // this page needs the FULL enrollment list (rendered as a course-filter
+          // dropdown elsewhere on the page), not just the resolved playbookId — so
+          // it can't reduce to a `/active-playbook` call without losing the list.
+          // The auto-pick rule below MUST stay byte-identical to
+          // `lib/caller/resolve-active-playbook.ts::resolveActivePlaybookId` —
+          // any drift breaks the L9 invariant ("same caller behaves the same way
+          // on either page"). This admin page is out of scope for the arch-checker
+          // Check G (learner-facing only); the lint rule does not catch this site.
           if (active.length === 1) {
             setSelectedPlaybookId(active[0].playbookId);
           } else if (active.length > 1) {
@@ -441,27 +458,28 @@ export default function CallerDetailPage() {
             setSelectedPlaybookId(sorted[0].playbookId);
           }
         }
-      })
-      .catch((e) => console.warn("[CallerDetail] Failed to load enrollments:", e));
+      } else if ((enrollmentsRes.reason as { name?: string })?.name !== "AbortError") {
+        console.warn("[CallerDetail] Failed to load enrollments:", enrollmentsRes.reason);
+      }
 
-    // Fetch dynamic parameter display configuration (NO HARDCODING)
-    fetch("/api/parameters/display-config")
-      .then((r) => r.json())
-      .then((result) => {
+      if (paramConfigRes.status === "fulfilled") {
+        const result = paramConfigRes.value;
         if (result.ok) {
           setParamConfig({
             grouped: result.grouped,
             params: result.params,
           });
         }
-      })
-      .catch((err) => {
-        console.error("Failed to load parameter display config:", err);
-      });
+      } else if ((paramConfigRes.reason as { name?: string })?.name !== "AbortError") {
+        console.error("Failed to load parameter display config:", paramConfigRes.reason);
+      }
+    });
   }, [callerId, pushEntity, isInXArea]);
 
   useEffect(() => {
-    fetchData();
+    const controller = new AbortController();
+    fetchData(controller.signal);
+    return () => controller.abort();
   }, [fetchData]);
 
   // ── Course filter options + filtered data ──────────────
@@ -699,7 +717,13 @@ export default function CallerDetailPage() {
   // BETA labels dropped — v2 is canonical now. `tabId` props on TabWithHelp
   // match the registry entry ids in `lib/help/page-help.ts` so the help
   // popover + chord nav resolve to the right tab.
-  const allSections: { id: SectionId; label: React.ReactNode; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[] = [
+  // #972 — useMemo with narrow deps (data?.counts + data?.scores). The full
+  // `data` identity changes on every successful fetch (including poll
+  // refreshes), but counts/scores only change when there's actual new
+  // data — narrow deps prevent re-allocation on identity-only refreshes,
+  // which in turn lets downstream consumers (React tree, sectionsRef
+  // mirror) keep stable references between renders.
+  const allSections = useMemo<{ id: SectionId; label: React.ReactNode; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[]>(() => [
     { id: "overview-v2", label: <TabWithHelp tabId="overview-v2">Overview</TabWithHelp>, icon: <span aria-hidden>🧭</span>, group: "shared" },
     { id: "calls-prompts", label: <TabWithHelp tabId="calls-prompts">Calls</TabWithHelp>, icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
     { id: "tune", label: <TabWithHelp tabId="tune">Tune</TabWithHelp>, icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
@@ -714,8 +738,8 @@ export default function CallerDetailPage() {
     { id: "what", label: "Progress (v1)", icon: <Gauge size={13} />, group: "shared" },
     { id: "uplift", label: "Uplift (v1)", icon: <TrendingUp size={13} />, group: "shared" },
     { id: "artifacts", label: <TabWithHelp tabId="artifacts">Artifacts</TabWithHelp>, icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
-  ];
-  const sections = allSections.filter((s) => VISIBLE_TABS.has(s.id));
+  ], [data?.counts, data?.scores]);
+  const sections = useMemo(() => allSections.filter((s) => VISIBLE_TABS.has(s.id)), [allSections]);
   sectionsRef.current = sections;
 
   return (
