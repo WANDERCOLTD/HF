@@ -30,9 +30,8 @@ import { useEntityContext } from '@/contexts/EntityContext';
 import { EditableTitle } from '@/components/shared/EditableTitle';
 import { StatusBadge, DomainPill } from '@/src/components/shared/EntityPill';
 import { DraggableTabs, type TabDefinition } from '@/components/shared/DraggableTabs';
-import { ChordHintBadge } from '@/components/help/ChordHintBadge';
 import { TabWithHelp } from '@/components/help/TabWithHelp';
-import { getPageHelp, getEffectiveChords } from '@/lib/help/page-help';
+import { getPageHelp } from '@/lib/help/page-help';
 import { type TPItem, type SessionOption } from '@/components/shared/SessionTPList';
 import {
   groupSpecs,
@@ -161,13 +160,9 @@ export default function CourseDetailPage() {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   // #688 — chord shortcuts (H/G + key) for tab navigation.
-  // #global-chords — getEffectiveChords merges page bindings with the
-  // global nav chords (page wins on key collision). Lookup is route-
-  // templated; pathname not needed.
-  // Runner moved to ChordShortcutProvider in app/layout.tsx (#966); page only
-  // computes the displayable chord list for ChordHintBadge.
+  // Page-help registry for tab tooltips. Chord runner + badge are global
+  // (ChordShortcutProvider + ChordHintBadge in app/layout.tsx, #966 / #970).
   const pageHelp = useMemo(() => getPageHelp(`/x/courses/${courseId || ""}`), [courseId]);
-  const effectiveChords = useMemo(() => getEffectiveChords(`/x/courses/${courseId || ""}`), [courseId]);
   const isOperator = ['OPERATOR', 'EDUCATOR', 'ADMIN', 'SUPERADMIN'].includes((session?.user?.role as string) || '');
   const { pushEntity, setPageContext } = useEntityContext();
   const { plural } = useTerminology();
@@ -1786,7 +1781,6 @@ export default function CourseDetailPage() {
           }}
         />
       )}
-      <ChordHintBadge chords={effectiveChords} />
     </div>
   );
 }

@@ -13,12 +13,17 @@ import {
 interface ChordContextValue {
   /** "H" or "G" while a chord is armed; null otherwise. */
   activePrefix: string | null;
+  /** The chord bindings available at the current pathname, post operator-filter. */
+  chords: readonly ChordBinding[];
 }
 
-const ChordContext = createContext<ChordContextValue>({ activePrefix: null });
+const ChordContext = createContext<ChordContextValue>({
+  activePrefix: null,
+  chords: [],
+});
 
 /**
- * Global H+letter / G+letter chord runner + context provider (#966).
+ * Global H+letter / G+letter chord runner + context provider (#966, #970).
  *
  * Mounted once in `app/layout.tsx` wrapping the page tree. Drives the
  * `useChordShortcut` engine against the active pathname's `PAGE_HELP_REGISTRY`
@@ -26,14 +31,12 @@ const ChordContext = createContext<ChordContextValue>({ activePrefix: null });
  * `requiresOperator` chords by session role using `canSeeOperatorOnly`
  * — same gate the help overlay already applies for display.
  *
- * Exposes `activePrefix` via context so `ChordHintBadge` consumers anywhere
- * in the page tree can react to chord-armed state without prop-drilling
- * through every layer.
+ * Exposes both `activePrefix` and the current `chords` list via context so
+ * `ChordHintBadge` (also globally mounted, #970) can render its hint UI
+ * anywhere in the page tree without per-page wiring.
  *
- * Replaces the 3 per-page mounts that lived in CallerDetailPage,
- * courses/[courseId]/page, and V5WizardWithSelector — those pages now
- * register their bindings via PAGE_HELP_REGISTRY only, with no
- * useChordShortcut call of their own.
+ * Replaces the 3 per-page runner mounts that previously lived in
+ * CallerDetailPage, courses/[courseId]/page, and V5WizardWithSelector.
  */
 export function ChordShortcutProvider({
   children,
@@ -55,17 +58,21 @@ export function ChordShortcutProvider({
     [pathname, isOperator],
   );
   const { activePrefix } = useChordShortcut(effectiveChords);
+  // Stable context value so consumers (e.g. ChordHintBadge) only re-render on
+  // meaningful state changes — not on every parent re-render.
+  const value = useMemo<ChordContextValue>(
+    () => ({ activePrefix, chords: effectiveChords }),
+    [activePrefix, effectiveChords],
+  );
   return (
-    <ChordContext.Provider value={{ activePrefix }}>
-      {children}
-    </ChordContext.Provider>
+    <ChordContext.Provider value={value}>{children}</ChordContext.Provider>
   );
 }
 
 /**
  * Subscribe to the global chord state. Safe to call outside the provider —
- * returns `{ activePrefix: null }` by default so badges in detached test
- * harnesses don't throw.
+ * returns `{ activePrefix: null, chords: [] }` by default so badges in
+ * detached test harnesses don't throw.
  */
 export function useChordContext(): ChordContextValue {
   return useContext(ChordContext);
