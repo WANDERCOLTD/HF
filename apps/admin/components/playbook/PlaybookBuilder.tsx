@@ -2423,7 +2423,7 @@ export function PlaybookBuilder({ playbookId, routePrefix = "" }: PlaybookBuilde
                     <div className="hf-flex hf-gap-sm" onClick={(e) => e.stopPropagation()}>
                       {item.spec && (
                         <Link
-                          href={`/analysis-specs?scope=${item.spec.scope}&select=${item.spec.id}`}
+                          href={`/x/specs?id=${item.spec.id}`}
                           className="hf-btn hf-btn-secondary hf-btn-xs hf-link-plain"
                         >
                           Edit →

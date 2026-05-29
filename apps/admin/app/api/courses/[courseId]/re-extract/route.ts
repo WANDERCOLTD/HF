@@ -30,7 +30,7 @@ export async function POST(
 ) {
   try {
     const user = await requireAuth("OPERATOR");
-    if (isAuthError(user)) return user;
+    if (isAuthError(user)) return user.error;
 
     const { courseId } = await params;
     const body = await req.json();

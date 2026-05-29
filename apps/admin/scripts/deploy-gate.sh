@@ -272,7 +272,7 @@ fi
 # tests has grown above its baseline in `.ratchet.json` at repo root.
 # Hints at "lock the win" when a count drops below baseline. See
 # scripts/check-ratchet.sh for measurement details.
-section "Gate 6/6 — Ratchet (count-cap)"
+section "Gate 6/7 — Ratchet (count-cap)"
 if bash "$SCRIPT_DIR/check-ratchet.sh"; then
   echo "  PASS  no metric over baseline"
 else
@@ -280,9 +280,59 @@ else
   gate_fail "ratchet"
 fi
 
+# ─── Gate 7: package.json version bump since last deploy ─────
+# Catches the silent-version-collision class of bug: two different commits
+# both reporting `0.7.379` in the footer because nobody bumped between
+# them. Surfaced 2026-05-27 when staging showed "0.7.379" identical to
+# main but was actually 6 PRs behind.
+#
+# Rule: if there are commits between the last deploy tag and HEAD, the
+# `package.json` version MUST differ. Same-version re-deploy (no commits)
+# is allowed (e.g. env var swap, image retag).
+#
+# Bypass: first-ever deploy for this env (no `deploy-<env>-latest` tag).
+section "Gate 7/7 — Version bumped since last deploy to $ENV"
+# Map canonical names to legacy tag prefix (we tag as deploy-dev-* historically
+# during the #726 transition; canonical staging/pilot/prod aliases here).
+case "$ENV" in
+  staging|dev) TAG_NAME="deploy-dev-latest" ;;
+  pilot|test)  TAG_NAME="deploy-test-latest" ;;
+  prod)        TAG_NAME="deploy-prod-latest" ;;
+  *)           TAG_NAME="deploy-${ENV}-latest" ;;
+esac
+
+if ! git rev-parse --verify "refs/tags/$TAG_NAME" >/dev/null 2>&1; then
+  # Fetch in case the tag exists on origin but not locally.
+  git fetch origin "refs/tags/$TAG_NAME:refs/tags/$TAG_NAME" --quiet 2>/dev/null || true
+fi
+
+if ! git rev-parse --verify "refs/tags/$TAG_NAME" >/dev/null 2>&1; then
+  echo "  SKIP  no $TAG_NAME tag — first deploy to $ENV (gate is informational)"
+else
+  TAG_COMMIT="$(git rev-parse "refs/tags/$TAG_NAME")"
+  HEAD_COMMIT="$(git rev-parse HEAD)"
+  COMMITS_SINCE="$(git rev-list --count "$TAG_COMMIT..HEAD" 2>/dev/null || echo 0)"
+  TAG_VERSION="$(git show "$TAG_COMMIT:apps/admin/package.json" 2>/dev/null | grep -oE '"version"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed -E 's/.*"version"[^"]*"([^"]+)".*/\1/')"
+  HEAD_VERSION="$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[^"]+"' "$APP_DIR/package.json" | head -1 | sed -E 's/.*"version"[^"]*"([^"]+)".*/\1/')"
+  echo "  Last deploy ($TAG_NAME): $TAG_VERSION @ ${TAG_COMMIT:0:8}"
+  echo "  Current HEAD:            $HEAD_VERSION @ ${HEAD_COMMIT:0:8}  ($COMMITS_SINCE commit(s) since tag)"
+  if [[ "$COMMITS_SINCE" == "0" ]]; then
+    echo "  PASS  no new commits since last deploy — re-deploy allowed without bump"
+  elif [[ -z "$TAG_VERSION" || -z "$HEAD_VERSION" ]]; then
+    echo "  FAIL  could not read package.json version on one side (tag='$TAG_VERSION' head='$HEAD_VERSION')" >&2
+    gate_fail "version-read"
+  elif [[ "$TAG_VERSION" == "$HEAD_VERSION" ]]; then
+    echo "  FAIL  package.json version still $HEAD_VERSION after $COMMITS_SINCE commit(s) since last deploy — bump before deploying." >&2
+    echo "        Fix: (cd apps/admin && npx tsx scripts/bump-version.ts) then commit + push." >&2
+    gate_fail "version-not-bumped"
+  else
+    echo "  PASS  version bumped $TAG_VERSION → $HEAD_VERSION"
+  fi
+fi
+
 # ─── Summary ────────────────────────────────────────────────
 section "Summary"
-total=6
+total=7
 if [[ ${#failed_gates[@]} -eq 0 ]]; then
   echo "  ✅ All $total gates PASSED — safe to deploy to $ENV"
   exit 0

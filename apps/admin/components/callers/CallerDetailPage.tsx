@@ -384,6 +384,16 @@ export default function CallerDetailPage() {
       .catch((e) => console.warn("[CallerDetail] Failed to load prompts:", e));
 
     // Fetch enrollments for course filter
+    //
+    // NOTE on divergence from the L9 chain contract (docs/CHAIN-CONTRACTS.md):
+    // this page needs the FULL enrollment list (rendered as a course-filter
+    // dropdown elsewhere on the page), not just the resolved playbookId — so
+    // it can't reduce to a `/active-playbook` call without losing the list.
+    // The auto-pick rule below MUST stay byte-identical to
+    // `lib/caller/resolve-active-playbook.ts::resolveActivePlaybookId` —
+    // any drift breaks the L9 invariant ("same caller behaves the same way
+    // on either page"). This admin page is out of scope for the arch-checker
+    // Check G (learner-facing only); the lint rule does not catch this site.
     fetch(`/api/callers/${callerId}/enrollments`)
       .then((r) => r.json())
       .then((result) => {
@@ -391,7 +401,8 @@ export default function CallerDetailPage() {
           const active = (result.enrollments || []).filter((e: Enrollment) => e.status === "ACTIVE");
           setEnrollments(active);
           setEnrollmentCount(active.length);
-          // Auto-select: 1 course → that course; 2+ → most recent by enrolledAt
+          // Auto-select: 1 course → that course; 2+ → most recent by enrolledAt.
+          // MUST match resolveActivePlaybookId() — keep these branches in sync.
           if (active.length === 1) {
             setSelectedPlaybookId(active[0].playbookId);
           } else if (active.length > 1) {

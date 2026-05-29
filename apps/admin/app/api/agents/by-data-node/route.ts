@@ -108,9 +108,8 @@ type AgentManifest = {
  * @tags agents
  * @description Find agents connected to a specific data node (as consumer, producer, or both) with recent run status
  * @query dataNode string - The data node identifier (e.g. "data:knowledge")
- * @response 200 { ok: true, dataNode: string, agents: AgentInfo[] }
+ * @response 200 { ok: true, dataNode: string, agents: AgentInfo[] } - When manifest is missing, returns ok:true with empty agents array
  * @response 400 { ok: false, error: "dataNode query parameter is required" }
- * @response 404 { ok: false, error: "Agents manifest not found" }
  * @response 500 { ok: false, error: "..." }
  */
 export async function GET(req: Request) {
@@ -141,10 +140,10 @@ export async function GET(req: Request) {
     }
 
     if (!manifest || !Array.isArray(manifest.agents)) {
-      return NextResponse.json(
-        { ok: false, error: "Agents manifest not found" },
-        { status: 404 }
-      );
+      // Manifest isn't packaged into every runner image. Treat missing
+      // manifest as "no agents wired to this node" rather than a hard 404
+      // so caller UIs (SourcePageHeader) don't surface console errors.
+      return NextResponse.json({ ok: true, dataNode, agents: [] });
     }
 
     // Find agents with this data node in inputs or outputs

@@ -1722,8 +1722,15 @@ export async function writeModuleMastery(
   const shouldFlipToCompleted =
     shouldMarkCompleted && existing.status !== "COMPLETED";
   const masteryUnchanged = existing.mastery === mastery;
+  // #950 — also need to write when mastery is unchanged but the row is
+  // stuck at NOT_STARTED with a non-zero mastery (the dirty state this
+  // helper now repairs). Without this, a re-run of the pipeline on a
+  // call that produced the stuck state would short-circuit before the
+  // promotion below ever fires.
+  const stuckNotStartedRepairNeeded =
+    existing.status === "NOT_STARTED" && mastery > 0;
 
-  if (masteryUnchanged && !shouldFlipToCompleted) {
+  if (masteryUnchanged && !shouldFlipToCompleted && !stuckNotStartedRepairNeeded) {
     log.debug("writeModuleMastery skipped: no change", {
       callerId,
       moduleId,
@@ -1739,13 +1746,28 @@ export async function writeModuleMastery(
     };
   }
 
+  // #950 — promote NOT_STARTED → IN_PROGRESS when mastery rises above 0.
+  // `incrementModuleEvidence` is the canonical status writer, but it can
+  // be beaten to the row by the legacy `updateModuleMastery` path
+  // (`lib/curriculum/track-progress.ts`) when the AI's learningAssessment
+  // returns all-zero LO scores — that path computes finalMastery=0 →
+  // status=NOT_STARTED. Then this helper runs with the non-zero EMA-derived
+  // mastery and leaves status stuck. Without this promotion, any single-
+  // call module with bad initial LO scoring reports `mastery > 0` +
+  // `status = NOT_STARTED` indefinitely. Preserve COMPLETED (the existing
+  // flip wins); only repair the NOT_STARTED case.
+  const shouldPromoteToInProgress =
+    existing.status === "NOT_STARTED" && mastery > 0 && !shouldFlipToCompleted;
+
   await prisma.callerModuleProgress.update({
     where: { id: existing.id },
     data: {
       mastery,
       ...(shouldFlipToCompleted
         ? { status: "COMPLETED", completedAt: new Date() }
-        : {}),
+        : shouldPromoteToInProgress
+          ? { status: "IN_PROGRESS", startedAt: new Date() }
+          : {}),
     },
   });
 

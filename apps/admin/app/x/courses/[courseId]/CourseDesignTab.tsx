@@ -137,9 +137,10 @@ export function CourseDesignTab({
         <SessionFlowEditor courseId={courseId} />
       </CollapsibleCard>
 
-      {/* ── Felt Progress controls (#784 S6 Section 1 — #779 + #780 namespaces) ── */}
+      {/* ── Progress Signals controls (#784 S6 Section 1 — #779 + #780 namespaces;
+          internally still the "Felt Progress" epic) ── */}
       <CollapsibleCard
-        title="Felt Progress"
+        title="Progress Signals"
         hint="Mid-call acknowledgement + structured offboarding summary"
         className="hf-mb-lg"
       >

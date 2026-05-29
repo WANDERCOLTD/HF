@@ -144,7 +144,7 @@ describe("/api/system/readiness", () => {
         },
         {
           label: expect.stringContaining("Analysis"),
-          href: "/analysis-specs",
+          href: "/x/specs",
           priority: expect.any(Number),
         },
         {

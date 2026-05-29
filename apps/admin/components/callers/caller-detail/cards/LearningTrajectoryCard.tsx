@@ -17,7 +17,8 @@ interface CheckpointStatus {
   score: number | null;
 }
 
-interface TrajectoryData {
+interface SkillsTrajectory {
+  kind: 'skills';
   profile: string;
   profileLabel: string;
   competencyLevel: string | null;
@@ -25,11 +26,33 @@ interface TrajectoryData {
   checkpoints: CheckpointStatus[];
 }
 
-const PROFILE_LABELS: Record<string, string> = {
-  'comprehension-led': 'Comprehension Skills',
-  'discussion-led': 'Discussion Skills',
-  'coaching-led': 'Coaching Progress',
-};
+interface ModuleLearningOutcome {
+  loRef: string;
+  mastery: number;
+  updatedAt: string;
+}
+
+interface ModuleProgressView {
+  moduleId: string;
+  slug: string | null;
+  label: string;
+  status: string;
+  mastery: number;
+  callCount: number;
+  startedAt: string | null;
+  completedAt: string | null;
+  updatedAt: string;
+  learningOutcomes: ModuleLearningOutcome[];
+}
+
+interface ModuleMasteryTrajectory {
+  kind: 'module-mastery';
+  playbookId: string;
+  playbookName: string | null;
+  modules: ModuleProgressView[];
+}
+
+type TrajectoryData = SkillsTrajectory | ModuleMasteryTrajectory;
 
 const PARAM_LABELS: Record<string, string> = {
   COMP_RETRIEVAL: 'Retrieval',
@@ -56,6 +79,14 @@ const BAND_COLORS: Record<string, string> = {
   no_evidence: 'var(--text-muted)',
 };
 
+// #953 — map module status to badge color. Mirrors BAND_COLORS so the two
+// trajectory kinds feel consistent in the same card slot.
+const MODULE_STATUS_COLORS: Record<string, string> = {
+  COMPLETED: 'var(--status-success-text)',
+  IN_PROGRESS: 'var(--accent-primary)',
+  NOT_STARTED: 'var(--text-muted)',
+};
+
 export function LearningTrajectoryCard({ callerId }: { callerId: string }): JSX.Element | null {
   const [data, setData] = useState<TrajectoryData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,7 +108,16 @@ export function LearningTrajectoryCard({ callerId }: { callerId: string }): JSX.
     return () => { cancelled = true; };
   }, [callerId]);
 
-  if (loading || !data || data.parameters.length === 0) return null;
+  if (loading || !data) return null;
+
+  // ── #953 module-mastery variant ──────────────────────────────────────────
+  if (data.kind === 'module-mastery') {
+    if (data.modules.length === 0) return null;
+    return <ModuleMasteryView data={data} />;
+  }
+
+  // ── Skills variant (existing) ────────────────────────────────────────────
+  if (data.parameters.length === 0) return null;
 
   const bandColor = BAND_COLORS[data.competencyLevel ?? 'no_evidence'] ?? 'var(--text-muted)';
 
@@ -146,6 +186,113 @@ export function LearningTrajectoryCard({ callerId }: { callerId: string }): JSX.
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// #953 — Module-mastery variant. Surfaced for courses whose authored
+// module catalogue drives scoring (IELTS Speaking, language exam prep)
+// where the skills-trajectory parameter prefix never matches.
+function ModuleMasteryView({ data }: { data: ModuleMasteryTrajectory }): JSX.Element {
+  return (
+    <div className="hf-card" style={{ marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h3 className="hf-section-title" style={{ margin: 0 }}>Module Mastery</h3>
+        {data.playbookName && (
+          <span className="hf-text-xs hf-text-muted" style={{ fontWeight: 500 }}>
+            {data.playbookName}
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {data.modules.map((m) => {
+          const statusColor = MODULE_STATUS_COLORS[m.status] ?? 'var(--text-muted)';
+          const masteryPct = Math.round(m.mastery * 100);
+          return (
+            <div key={m.moduleId} style={{
+              padding: '10px 12px',
+              border: '1px solid var(--border-default)',
+              borderRadius: 10,
+              background: 'var(--surface-secondary)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {m.label}
+                  </span>
+                  <span className="hf-text-xs hf-text-muted">
+                    {m.callCount} call{m.callCount === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <span style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: 10,
+                  background: `color-mix(in srgb, ${statusColor} 15%, transparent)`,
+                  color: statusColor,
+                  textTransform: 'capitalize',
+                }}>
+                  {m.status.replace(/_/g, ' ').toLowerCase()}
+                </span>
+              </div>
+
+              {/* Mastery progress bar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  flex: 1,
+                  height: 8,
+                  borderRadius: 4,
+                  background: 'var(--border-default)',
+                  overflow: 'hidden',
+                }}>
+                  <div style={{
+                    width: `${masteryPct}%`,
+                    height: '100%',
+                    background: statusColor,
+                    transition: 'width 200ms ease-out',
+                  }} />
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', minWidth: 38, textAlign: 'right' }}>
+                  {masteryPct}%
+                </span>
+              </div>
+
+              {/* LO sub-list when present */}
+              {m.learningOutcomes.length > 0 && (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed var(--border-default)' }}>
+                  <div className="hf-text-xs hf-text-muted" style={{ marginBottom: 4 }}>
+                    Learning outcomes
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {m.learningOutcomes.map((lo) => {
+                      const loPct = Math.round(lo.mastery * 100);
+                      const loColor = lo.mastery >= 0.7
+                        ? 'var(--status-success-text)'
+                        : lo.mastery > 0
+                          ? 'var(--accent-primary)'
+                          : 'var(--text-muted)';
+                      return (
+                        <span key={lo.loRef} style={{
+                          fontSize: 11,
+                          padding: '2px 8px',
+                          borderRadius: 8,
+                          background: `color-mix(in srgb, ${loColor} 12%, transparent)`,
+                          color: loColor,
+                          fontWeight: 500,
+                        }}>
+                          {lo.loRef} {loPct}%
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

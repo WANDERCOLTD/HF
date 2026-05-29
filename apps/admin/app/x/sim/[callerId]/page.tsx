@@ -33,7 +33,19 @@ export default function SimConversationPage() {
   const isStudent = session?.user?.role === 'STUDENT';
   const sessionGoal = searchParams.get('goal') || undefined;
   const expectedDomainId = searchParams.get('domainId') || undefined;
-  const playbookId = searchParams.get('playbookId') || undefined;
+  // #948 — `playbookId` may be missing from the URL when a learner lands
+  // directly on /x/sim/[callerId]. Without it the playbook fetch below
+  // never fires, so `modulesAuthored` stays false and the module-picker
+  // banner never renders even for a caller enrolled on a course with an
+  // authored module catalogue. Resolve it from enrollments instead — same
+  // logic as `CallerDetailPage:386-398`: single active enrollment → that
+  // playbook; multiple → most-recently enrolled.
+  //
+  // URL wins (deep-link from elsewhere); enrollment-resolved fallback only
+  // applies when URL has nothing. Derived sync, so no setState-in-effect.
+  const urlPlaybookId = searchParams.get('playbookId') || undefined;
+  const [enrollmentPlaybookId, setEnrollmentPlaybookId] = useState<string | undefined>(undefined);
+  const playbookId = urlPlaybookId ?? enrollmentPlaybookId;
   const communityName = searchParams.get('communityName') || undefined;
   const forceFirstCall = searchParams.get('forceFirstCall') === 'true';
   // #242 Slice 2 placeholder: surface the moduleId chosen in the picker.
@@ -68,6 +80,26 @@ export default function SimConversationPage() {
   // Journey chat — unified WhatsApp-style survey/onboarding/teaching flow
   // Only runs for LEARNER callers; waits for caller data before deciding.
   const journey = useJourneyChat({ callerId, forceFirstCall, callerRole: caller?.role });
+
+  // #948 — auto-resolve playbookId from the caller's active enrollments
+  // when the URL didn't pass one explicitly. Delegates to the shared L9
+  // resolver via `/api/callers/[id]/active-playbook` so the pick rule lives
+  // in one place. See docs/CHAIN-CONTRACTS.md Link L9 + the helper at
+  // lib/caller/resolve-active-playbook.ts.
+  useEffect(() => {
+    if (urlPlaybookId) return; // URL already provided it — playbookId derives from it directly
+    let cancelled = false;
+    fetch(`/api/callers/${callerId}/active-playbook`)
+      .then((r) => r.json())
+      .then((result) => {
+        if (cancelled || !result?.ok) return;
+        if (result.playbookId) {
+          setEnrollmentPlaybookId(result.playbookId);
+        }
+      })
+      .catch(() => { /* non-fatal: page still renders, just without module picker */ });
+    return () => { cancelled = true; };
+  }, [callerId, urlPlaybookId]);
 
   useEffect(() => {
     let cancelled = false;

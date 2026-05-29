@@ -40,9 +40,12 @@ Not bank-worthy:
 
 - Tests that mostly exercise framework or library behaviour
 - Snapshot tests with no narrative in the docstring
-- Anything that needs a live DB, a network call, or a running dev server
-  (these are integration tests — track them in `docs/INTEGRATION-TESTS.md`
-  when we have one)
+
+**Live-DB integration demos** are tracked separately in the **Live-DB Demos**
+section below. These are evidence-gathering scripts (not pass/fail gates run
+in CI) — they hit the dev VM database, inject synthetic rows, prove a
+property, and clean up after themselves. Use a `D###` prefix to distinguish
+from unit-test entries.
 
 ## Running the bank
 
@@ -88,6 +91,121 @@ Mixing tags is fine. `describe("buildLoMasteryMap (#928 scoping helper)", ...)` 
 | **Status** | ✅ green (13/13, 2026-05-27) |
 | **Owner area** | Composition / Adaptive Loop |
 | **Related** | `#611` canonical-slug write path · `#614` legacy-key drain · `#615` FK consistency audit · `docs/epic-100-chain-walk.md` Link 6 |
+
+---
+
+### 002 — Wizard Start Over re-anchors to user's home domain
+
+| Field | Value |
+|---|---|
+| **File** | `apps/admin/tests/api/user-wizard-context.test.ts` |
+| **Subject** | `apps/admin/app/api/user/wizard-context/route.ts::GET` |
+| **Defends** | Slice A of #929 — the wizard's Start Over button MUST re-anchor `initialContext.domainId` to the logged-in user's home domain (respecting `User.assignedDomainId` first, then institution's primary domain), not the picker's previous selection or an amendment-mode course's domain. |
+| **Issue / origin** | [#929](https://github.com/WANDERCOLTD/HF/issues/929) — Start Over locked to institution picker / kept stale amendment-mode course domain. |
+| **Failure mode it pins** | Non-SUPERADMIN educator opens the wizard via `?courseId=<existing>`. The amendment-mode course's domain seeds `existingDomainId`. They click Start Over, expecting a fresh attempt — but the wizard re-uses the SAME amendment-mode `initialContext`, so the next attempt is anchored to the WRONG domain. Real harm: the AI's domain-scoped tools (resolve-institution, course-by-name lookups) all operate against the prior course's domain rather than the educator's home tenant. |
+| **What it proves** | 5 properties: home domain returned when `assignedDomainId` is null (falls back to institution's primary, ordered by `createdAt` asc); `assignedDomainId` wins when set; SUPERADMIN-like sessions (no `institutionId`) get `context: null`; institutions with no active domains get `context: null`; missing/inactive institution gets `context: null`. |
+| **How to run** | `cd apps/admin && npx vitest run tests/api/user-wizard-context.test.ts` |
+| **When to re-run** | Any change to `/api/user/wizard-context/route.ts`, `V5WizardWithSelector.tsx`'s `handleStartOver`, `ConversationalWizard.tsx`'s `onStartOver` prop wiring, or the resolution chain in `app/x/get-started-v5/page.tsx:45-73` that this endpoint mirrors. |
+| **Status** | ✅ green (5/5, 2026-05-27) |
+| **Owner area** | Wizard / Build Course |
+| **Related** | `#929` epic · entry 003 (companion B2-slice draft cleanup) |
+
+---
+
+### 003 — Wizard discard-draft marks abandoned playbook without breaking resume
+
+| Field | Value |
+|---|---|
+| **File** | `apps/admin/tests/api/wizard-discard-draft.test.ts` |
+| **Subject** | `apps/admin/app/api/wizard/discard-draft/route.ts::POST` + `lib/chat/wizard-tool-executor.ts::resolveCourseByName` |
+| **Defends** | Slice B2 of #929 — Start Over fires-and-forgets a discard POST that marks the in-progress Playbook abandoned via `config.wizardAbandonedAt` + name suffix `[abandoned <ts>]`. `resolveCourseByName` must filter abandoned drafts so the next attempt with the same course name does NOT silently resume the half-built playbook. |
+| **Issue / origin** | [#929](https://github.com/WANDERCOLTD/HF/issues/929) Slice B2 — abandoned drafts resurfaced on the next attempt via partial-name match. |
+| **Failure mode it pins** | Educator starts "IELTS Speaking Practice", AI calls `create_course`, a `Playbook { status: DRAFT, modules: [] }` lands in the DB. Educator hits Start Over (didn't like the AI's choices). New attempt with the same course name. Pre-fix: `resolveCourseByName` finds the abandoned draft, returns it as an `autoCommit: true` exact match, the new attempt now amends a half-built playbook with no modules → `mark_complete` blocks on `_count.modules > 0`. Educator stuck. |
+| **What it proves** | 10 properties: DRAFT playbook gets name suffix + `config.wizardAbandonedAt` set; PUBLISHED/ARCHIVED skipped (defensive); non-SUPERADMIN blocked from discarding cross-tenant drafts (institutionId guard); SUPERADMIN bypasses the institutionId guard; CALLER + DEMO_CALLER rows soft-deleted via `archivedAt`; already-archived callers skipped; empty body → `discarded: null` (graceful, not an error); zod strict mode rejects unknown fields with 400; non-UUID rejected with 400; institution/domain rows NEVER touched. |
+| **How to run** | `cd apps/admin && npx vitest run tests/api/wizard-discard-draft.test.ts` |
+| **When to re-run** | Any change to `/api/wizard/discard-draft/route.ts`, `resolveCourseByName`'s abandoned-filter, `ConversationalWizard.handleStartOver`'s fire-and-forget POST, or the `wizardAbandonedAt` config key shape. |
+| **Status** | ✅ green (10/10, 2026-05-27) |
+| **Owner area** | Wizard / Build Course |
+| **Related** | `#929` epic · entry 002 (companion A-slice domain re-anchor) · `lib/chat/wizard-tool-executor.ts::resolveCourseByName` |
+
+---
+
+### 003 — `resolveActivePlaybookId` L9 fallback chain
+
+| Field | Value |
+|---|---|
+| **File** | `apps/admin/tests/lib/caller/resolve-active-playbook.test.ts` |
+| **Subject** | `apps/admin/lib/caller/resolve-active-playbook.ts::resolveActivePlaybookId` |
+| **Defends** | L9 — learner-facing module-picker reachability. Every page that mounts a session on a Playbook MUST resolve the active `playbookId` before rendering, falling back through: URL → caller's single ACTIVE enrollment → most-recently-enrolled ACTIVE → null (empty state, never silent no-op). |
+| **Issue / origin** | [#948](https://github.com/WANDERCOLTD/HF/issues/948) — pins the contract introduced in PR #947 (fix) as a reusable helper + unit test. |
+| **Failure mode it pins** | Brand-new learner enrolled in IELTS Speaking Practice (4 authored modules) opens `/x/sim/[callerId]` without `?playbookId=...`. Pre-fix: no banner, no header icon, no entry to the picker — learner silently routed to an unfocused session. The next learner-facing page that reads `searchParams.get('playbookId')` without the helper would re-open the trapdoor. |
+| **What it proves** | 13 properties: URL override always wins (1 ACTIVE / 2+ ACTIVE / 0 ACTIVE — all 3 cases); undefined/null/empty-string/omitted urlOverride falls through to enrollment branch (4 cases); SQL shape pin — findMany called with `where: { callerId, status: 'ACTIVE' }`, `orderBy: { enrolledAt: 'desc' }`, `select: { playbookId: true }`; 1 ACTIVE → that playbookId; 2+ ACTIVE → most-recently-enrolled (prisma returns DESC, helper picks index 0); 0 ACTIVE → null (not undefined, not crash); non-ACTIVE statuses excluded by SQL filter (PAUSED/COMPLETED/DROPPED don't reach the helper); empty result → null. |
+| **How to run** | `cd apps/admin && npx vitest run tests/lib/caller/resolve-active-playbook.test.ts` |
+| **When to re-run** | Any change to `lib/caller/resolve-active-playbook.ts`, the inline pick logic at `components/callers/CallerDetailPage.tsx:386-401` (must stay byte-identical to the helper), the active-playbook endpoint route, or the `/x/sim/[callerId]/page.tsx` resolver wiring. |
+| **Status** | ✅ green (13/13, 2026-05-27) |
+| **Owner area** | Caller / Sim / Learner-Facing UX |
+| **Related** | `#947` (the fix that exposed the gap) · `#948` (this contract pin) · entry 004 (live-DB integration sibling) · `docs/CHAIN-CONTRACTS.md` Link L9 · `.claude/agents/arch-checker.md` Check G (planned) · `docs/arch-check-g-learner-page-playbook-resolution.md` (Check G rule statement, written here because the agent file is currently write-protected) |
+
+---
+
+### 004 — Learner picker reachability — live-DB integration
+
+| Field | Value |
+|---|---|
+| **File** | `apps/admin/tests/integration/journey/learner-picker-reachability.integration.test.ts` |
+| **Subject** | `apps/admin/lib/caller/resolve-active-playbook.ts::resolveActivePlaybookId` against the live VM DB (DB-only, no server). |
+| **Defends** | L9 — learner-facing module-picker reachability, proved end-to-end on real DB rows. Sibling to bank entry 003 (unit-level proof). |
+| **Issue / origin** | [#948](https://github.com/WANDERCOLTD/HF/issues/948) — same contract as 003; this entry pins the integration view. |
+| **Failure mode it pins** | Same class as 003 — but proven against real Prisma + real DB rows (per-run unique prefix + FK-safe cleanup) rather than a mocked findMany. Defends against schema-level regressions that the unit test's mock wouldn't catch (e.g. an enum rename of `CallerPlaybook.status`, an `enrolledAt` semantic change, a FK constraint addition). |
+| **What it proves** | 5 properties on 4 caller shapes: (1) 1 ACTIVE on `modulesAuthored=true` playbook → resolver returns that playbookId AND playbook config carries `modulesAuthored=true` + 4 modules (banner-data invariant); (2) 2 ACTIVE enrollments with different `enrolledAt` (7d ago vs 1d ago) → resolver picks the newer; (3) 0 ACTIVE → resolver returns null (no crash); (4) 1 ACTIVE on `modulesAuthored=false` → resolver still returns playbookId, downstream config confirms `modulesAuthored=false` (resolver doesn't gate on it; page does); (5) URL override wins over enrollment even when the override targets a different playbook. |
+| **How to run** | `cd apps/admin && npm run test:integration -- tests/integration/journey/learner-picker-reachability.integration.test.ts` |
+| **When to re-run** | Same as entry 003, plus: any schema migration touching `Caller` / `CallerPlaybook` / `Playbook.config`; any change to FK constraints affecting `CallerPlaybook` rows. |
+| **Status** | 🟢 written, awaiting first live-DB run on hf-dev (2026-05-27) |
+| **Owner area** | Caller / Sim / Learner-Facing UX |
+| **Related** | Bank entry 003 (unit-level sibling) · `docs/CHAIN-CONTRACTS.md` Link L9 · `tests/integration/journey/fixtures.ts` (shared journey pattern) · `educator-journey.integration.test.ts:406` (FK landmine documented in the test file header) |
+
+---
+
+## Live-DB Demos
+
+These run against the dev VM database (not in CI). They prove a property
+holds against **real** data by injecting a synthetic condition, observing
+the system's response, and cleaning up. Run them manually when you need
+field evidence that a fix is live.
+
+### D001 — #928 cross-course bleed prevention against live DB
+
+| Field | Value |
+|---|---|
+| **Script** | `apps/admin/scripts/demo-928-bleed-prevention.ts` |
+| **Subject** | `buildLoMasteryMap` against live `CallerAttribute` rows on hf-dev VM |
+| **Defends** | Same property as bank entry 001 — but proved on real data, not a synthetic test fixture. |
+| **What it does** | Picks the caller with the most `lo_mastery` rows in dev. Captures the helper's BEFORE output. Injects 3 synthetic foreign-spec rows under that callerId (marked with `sourceSpecSlug = 'demo-928-bleed-marker'`). Re-runs the helper. Verifies AFTER === BEFORE — foreign rows live in the raw query result but the helper scopes them out. Cleans up the synthetic rows. |
+| **Pass / fail signal** | `✓ PASS — foreign rows scoped out` vs `✗ FAIL — fix broken`. Also exits with code 0/1. |
+| **How to run** | `gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- "cd ~/HF/apps/admin && npx tsx scripts/demo-928-bleed-prevention.ts"` |
+| **When to re-run** | After any change to the helper, the three transforms that consume it, the `SectionDataLoader` `callerAttributes` loader, or before flipping the `callerAttributeOldKeyFormCount` audit gate. Also useful as a post-deploy smoke check on staging/pilot. |
+| **Safety** | Idempotent. Synthetic rows carry a unique `sourceSpecSlug` marker so cleanup is deterministic even if the script crashes mid-run (re-run will overwrite + clean up). Never touches non-synthetic rows. |
+| **Last verified** | 2026-05-27 — ran against hf-dev, 12 mastery rows for caller `f17d8616…` (Freddy Starr), 3 foreign rows injected and ignored, verdict ✓ PASS. |
+| **Related** | Bank entry 001 (unit-level proof) · #928 / #936 / #939 |
+
+---
+
+### D002 — 3-call learner progression smoke (IELTS, real pipeline)
+
+| Field | Value |
+|---|---|
+| **Script** | `apps/admin/scripts/demo-3call-cohort.ts` |
+| **Subject** | End-to-end adaptive loop: pre-call composer → AI-vs-AI sim → 7-stage pipeline (EXTRACT → AGGREGATE → REWARD → ADAPT → SUPERVISE → COMPOSE) → next-call composer. |
+| **Defends** | Three chain properties at once: (1) call sequencing — each completed call receives `callSequence` and links to `previousCallId` (loop-edge integrity); (2) ComposedPrompt freshness — each pipeline run produces a new `ComposedPrompt` with `triggerType=pipeline` whose `triggerCallId` points at the call that produced it; (3) learning progression — `CallerAttribute lo_mastery:*` accumulates non-zero values across calls AND `CallerModuleProgress.mastery` rises in lockstep on EMA-derived modules. |
+| **Issue / origin** | [#950](https://github.com/WANDERCOLTD/HF/issues/950) (surfaced the `writeModuleMastery` status-promotion bug). Originally a manual operator request 2026-05-27 to verify the full adaptive loop end-to-end on freshly-merged code (post-#929 / post-#945 / post-#947). |
+| **Failure mode it pins** | (a) Pipeline silently fails for one of the three stages and the next call composes against stale state. (b) `triggerCallId` mis-links or the chain breaks mid-cohort. (c) Mastery numbers never move — adaptive loop is a no-op. (d) Status writers race producing a "mastery > 0 + status = NOT_STARTED" stuck row (the exact bug #950 catches). |
+| **What it proves** | 1 fresh learner created + enrolled in IELTS Speaking Practice V1.0 (playbook UUID `eb6bc79e-…`); bootstrap ComposedPrompt persisted via `autoComposeForCaller`; 3 calls run via `sim-drive-call.ts` with `--module=part1,part2,part3` and 5 turns each; between each call, the script polls (3s interval, 90s timeout) for a new `ComposedPrompt` whose `triggerCallId === <just-ended call.id>` AND `status === 'active'` (next call refuses to run until COMPOSE lands); after all 3 calls, snapshots state and asserts: (i) 3 `Call` rows with `endedAt` set, (ii) 3 pipeline-triggered `ComposedPrompt` rows whose `triggerCallId`s match the 3 calls in order, (iii) per-module `CallerModuleProgress.mastery > 0` AND `status !== 'NOT_STARTED'` (the #950 invariant — `IN_PROGRESS` and `COMPLETED` both pass; only a stuck `NOT_STARTED` row with non-zero mastery fails), (iv) at least one `CallerAttribute lo_mastery:*` row per module that received scorable turns. |
+| **How to run** | `gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- "cd ~/HF/apps/admin && npx tsx scripts/demo-3call-cohort.ts"` |
+| **Known transient failures** | Anthropic API 529 "overloaded" mid-stream — the script retries each call up to 2 times when stderr matches the 529 + "overloaded" pattern (30s backoff between retries). Other failures abort the cohort with the failing call's stderr tail. |
+| **Safety** | Creates a fresh caller per run with `externalId = e2e-demo-d002-<unix-ts>`. Each run is isolated — no row from a prior run is ever overwritten or queried. Old runs accumulate as garbage rows but are harmless (no FK pressure, no UI surface). Manual cleanup by `externalId` prefix if storage gets tight. |
+| **Last verified** | 2026-05-28 — ran against hf-dev, full cohort green: 3 calls each ended cleanly, 3 pipeline-trigger ComposedPrompts in order, mastery moved on all driven modules with IN_PROGRESS status, verdict ✓ PASS. |
+| **Owner area** | Adaptive Loop / Pipeline |
+| **Related** | #950 (status-promotion bug surfaced by this demo) · #948 (learner-page reachability — separate trapdoor) · `lib/test-harness/sim-runner.ts` (in-process UI sim) · `scripts/sim-cohort.ts` (generic multi-call orchestrator) · `flow-call-lifecycle.md` (the chain this defends) |
 
 ---
 

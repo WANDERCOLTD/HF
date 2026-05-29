@@ -18,6 +18,7 @@ When the user says anything matching these patterns, **STOP and run the BA + Tec
 
 | User says | What to do |
 |-----------|-----------|
+| "Let's build a course on [topic]" / proposes a NEW COURSE topic | Run `course-architect` FIRST (upstream of BA/TL). Returns a brief; THEN run BA + Tech Lead with the brief as input. |
 | "I'm going to build / implement / add / create [X]" | Run BA + Tech Lead on X |
 | "Let's do [feature]" / "Time to work on [feature]" | Run BA + Tech Lead on feature |
 | "Can you build / code / write [X] for me" | Run BA + Tech Lead on X |
@@ -25,6 +26,8 @@ When the user says anything matching these patterns, **STOP and run the BA + Tec
 | Pastes a spec/doc and says "implement this" | Run BA + Tech Lead on the spec |
 
 **Exception:** If the user references an existing GitHub issue number (e.g. "work on #12"), skip BA/TL — it's already groomed.
+
+**Course Architect skip rules:** Skip `course-architect` if (a) the user already has an approved Course Architect brief in hand, (b) the work is editing an existing course's modules/LOs (BA + Tech Lead handle that), or (c) the work is engineering, not curriculum.
 
 ### The interception flow
 
@@ -130,6 +133,30 @@ Memory: [feedback_concurrent_claude_processes.md](~/.claude/projects/-Users-paul
 Both configured in `.mcp.json` — auto-connect on project open.
 
 **qmd auto-sync (local only):** Git hooks keep qmd fresh — `pre-commit` updates before commit, `post-merge` after pull. Not needed on hf-dev VM.
+
+---
+
+## ⚠️ MANDATORY: You CAN hit authenticated API routes via the VM
+
+**Do not say "I can't authenticate"** — you can. The hf-dev VM has seeded SUPERADMIN credentials (`admin@test.com` / `admin123`) on the local DB and can mint a next-auth session cookie via curl. Use this whenever you need to verify a session-gated endpoint without asking the operator to load it in the browser.
+
+```bash
+# Run on hf-dev VM (via gcloud compute ssh or SSH command block).
+COOKIES=/tmp/hf-cookies.txt
+CSRF=$(curl -sS -c $COOKIES http://localhost:3000/api/auth/csrf | python3 -c 'import sys,json; print(json.load(sys.stdin)["csrfToken"])')
+curl -sS -b $COOKIES -c $COOKIES \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "email=admin@test.com&password=admin123&csrfToken=$CSRF&callbackUrl=http%3A%2F%2Flocalhost%3A3000%2F&json=true" \
+  -X POST http://localhost:3000/api/auth/callback/credentials -o /dev/null
+# Now $COOKIES contains authjs.session-token — reuse it for every subsequent curl.
+curl -sS -b $COOKIES http://localhost:3000/api/callers/<id>/learning-trajectory | python3 -m json.tool
+```
+
+The cookie is good for ~30 days (NextAuth default). Re-mint when an SSH session needs one.
+
+**For server-to-server routes** (those that handle `x-internal-secret` themselves — e.g. `/api/calls/[callId]/pipeline`, `/api/test-harness/run-sim`), use the `INTERNAL_API_SECRET` from the VM's `.env` as the `x-internal-secret` header — no session cookie needed. `scripts/sim-drive-call.ts` uses this pattern.
+
+If a route doesn't check `x-internal-secret` and isn't on the public allowlist, use the credentials-cookie flow above. Both paths bypass the "I can't access it" trap.
 
 ---
 

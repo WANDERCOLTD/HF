@@ -258,4 +258,118 @@ describe("writeModuleMastery (#494 E2 Slice 2.2)", () => {
     expect(result.skipped).toBe(true);
     expect(mockPrisma.callerModuleProgress.update).not.toHaveBeenCalled();
   });
+
+  // ── #950: NOT_STARTED → IN_PROGRESS promotion ──────────────
+
+  it("#950 — promotes NOT_STARTED → IN_PROGRESS when mastery rises above 0", async () => {
+    // Reproduces the dirty state: row exists at NOT_STARTED with mastery=0
+    // (legacy updateModuleMastery wrote it that way after all-zero LO
+    // scores), then a re-aggregate produces non-zero EMA mastery.
+    mockPrisma.callerModuleProgress.findUnique.mockResolvedValue({
+      id: "prog-stuck",
+      mastery: 0,
+      status: "NOT_STARTED",
+      completedAt: null,
+    });
+    mockComputeModuleMastery.mockResolvedValue({
+      mastery: 0.62,
+      evidenceCount: 2,
+      shouldMarkCompleted: false,
+    });
+    mockPrisma.callerModuleProgress.update.mockResolvedValue({});
+
+    const log = makeLogger();
+    const result = await writeModuleMastery(CALLER_ID, MODULE_ID, {}, log as any);
+
+    expect(result.mastery).toBe(0.62);
+    expect(result.skipped).toBe(false);
+    const updateArg = mockPrisma.callerModuleProgress.update.mock.calls[0][0];
+    expect(updateArg.data.mastery).toBe(0.62);
+    expect(updateArg.data.status).toBe("IN_PROGRESS");
+    expect(updateArg.data.startedAt).toBeInstanceOf(Date);
+    // COMPLETED transition must NOT fire — non-zero but below threshold.
+    expect(updateArg.data.completedAt).toBeUndefined();
+  });
+
+  it("#950 — repairs the stuck state even when EMA mastery is unchanged", async () => {
+    // Pipeline force-re-runs after the row was already left in the dirty
+    // NOT_STARTED+mastery>0 state. Mastery EMA recomputes to the same
+    // value (no new CallScore rows). Without the targeted repair this
+    // would short-circuit at the idempotency guard and the stuck row
+    // would never recover. With #950 the repair path detects the dirty
+    // state and writes the promotion through.
+    mockPrisma.callerModuleProgress.findUnique.mockResolvedValue({
+      id: "prog-stuck",
+      mastery: 0.62,
+      status: "NOT_STARTED",
+      completedAt: null,
+    });
+    mockComputeModuleMastery.mockResolvedValue({
+      mastery: 0.62,
+      evidenceCount: 2,
+      shouldMarkCompleted: false,
+    });
+    mockPrisma.callerModuleProgress.update.mockResolvedValue({});
+
+    const log = makeLogger();
+    const result = await writeModuleMastery(CALLER_ID, MODULE_ID, {}, log as any);
+
+    expect(result.skipped).toBe(false);
+    expect(mockPrisma.callerModuleProgress.update).toHaveBeenCalledTimes(1);
+    const updateArg = mockPrisma.callerModuleProgress.update.mock.calls[0][0];
+    expect(updateArg.data.status).toBe("IN_PROGRESS");
+    expect(updateArg.data.startedAt).toBeInstanceOf(Date);
+  });
+
+  it("#950 — does NOT promote when mastery stays at 0 (status legitimately NOT_STARTED)", async () => {
+    // A first-ever recompute on a brand-new caller before any scoring has
+    // landed should not invent IN_PROGRESS out of thin air. The promotion
+    // is gated on mastery > 0.
+    mockPrisma.callerModuleProgress.findUnique.mockResolvedValue({
+      id: "prog-new",
+      mastery: 0,
+      status: "NOT_STARTED",
+      completedAt: null,
+    });
+    mockComputeModuleMastery.mockResolvedValue({
+      mastery: 0,
+      evidenceCount: 0,
+      shouldMarkCompleted: false,
+    });
+
+    const log = makeLogger();
+    const result = await writeModuleMastery(CALLER_ID, MODULE_ID, {}, log as any);
+
+    expect(result.skipped).toBe(true);
+    expect(mockPrisma.callerModuleProgress.update).not.toHaveBeenCalled();
+  });
+
+  it("#950 — preserves COMPLETED transition over the new NOT_STARTED repair", async () => {
+    // Belt-and-braces: if shouldFlipToCompleted fires AND the row happens
+    // to be NOT_STARTED (corrupted state recovered all the way to
+    // COMPLETED in one go), the COMPLETED flip wins. status must be
+    // COMPLETED, not IN_PROGRESS.
+    mockPrisma.callerModuleProgress.findUnique.mockResolvedValue({
+      id: "prog-jump",
+      mastery: 0.3,
+      status: "NOT_STARTED",
+      completedAt: null,
+    });
+    mockComputeModuleMastery.mockResolvedValue({
+      mastery: 0.95,
+      evidenceCount: 5,
+      shouldMarkCompleted: true,
+    });
+    mockPrisma.callerModuleProgress.update.mockResolvedValue({});
+
+    const log = makeLogger();
+    const result = await writeModuleMastery(CALLER_ID, MODULE_ID, {}, log as any);
+
+    expect(result.statusFlipped).toBe(true);
+    const updateArg = mockPrisma.callerModuleProgress.update.mock.calls[0][0];
+    expect(updateArg.data.status).toBe("COMPLETED");
+    expect(updateArg.data.completedAt).toBeInstanceOf(Date);
+    // startedAt must NOT be set when going straight to COMPLETED.
+    expect(updateArg.data.startedAt).toBeUndefined();
+  });
 });
