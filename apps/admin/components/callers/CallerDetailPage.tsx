@@ -690,6 +690,34 @@ export default function CallerDetailPage() {
     return caller.name || caller.email || caller.phone || caller.externalId || "Unknown";
   };
 
+  // #972 follow-up — hooks BEFORE early returns to satisfy rules-of-hooks.
+  // The original placement after the loading/error guards would skip the
+  // useMemo calls on early-return code paths, violating the hook ordering
+  // invariant. The useMemo body is now null-safe via the early `if (!data)`
+  // check so it stays the same shape on every render.
+  const allSections = useMemo<{ id: SectionId; label: React.ReactNode; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[]>(() => {
+    if (!data) return [];
+    return [
+      { id: "overview-v2", label: <TabWithHelp tabId="overview-v2">Overview</TabWithHelp>, icon: <span aria-hidden>🧭</span>, group: "shared" },
+      { id: "calls-prompts", label: <TabWithHelp tabId="calls-prompts">Calls</TabWithHelp>, icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
+      { id: "tune", label: <TabWithHelp tabId="tune">Tune</TabWithHelp>, icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
+      { id: "progress-v2", label: <TabWithHelp tabId="progress-v2">Progress</TabWithHelp>, icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
+      { id: "uplift-v2", label: <TabWithHelp tabId="uplift-v2">Uplift</TabWithHelp>, icon: <TrendingUp size={13} />, group: "shared" },
+      { id: "session-flow", label: <TabWithHelp tabId="session-flow">Session Flow</TabWithHelp>, icon: <SlidersHorizontal size={13} />, group: "shared" },
+      { id: "how", label: <TabWithHelp tabId="how">Profile</TabWithHelp>, icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
+      { id: "ai-call", label: <TabWithHelp tabId="ai-call">Call</TabWithHelp>, icon: <PlayCircle size={13} />, special: true, group: "action" },
+      // Retired (hidden) — kept here for URL-redirect fall-through and any
+      // legacy callers that haven't migrated their bookmarks yet.
+      { id: "overview", label: "Overview (v1)", icon: <span aria-hidden>🧭</span>, group: "shared" },
+      { id: "what", label: "Progress (v1)", icon: <Gauge size={13} />, group: "shared" },
+      { id: "uplift", label: "Uplift (v1)", icon: <TrendingUp size={13} />, group: "shared" },
+      { id: "artifacts", label: <TabWithHelp tabId="artifacts">Artifacts</TabWithHelp>, icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.counts, data?.scores]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const sections = useMemo(() => allSections.filter((s) => VISIBLE_TABS.has(s.id)), [allSections]);
+
   if (loading) {
     return (
       <div className="cdp-loading">Loading caller profile...</div>
@@ -717,29 +745,8 @@ export default function CallerDetailPage() {
   // BETA labels dropped — v2 is canonical now. `tabId` props on TabWithHelp
   // match the registry entry ids in `lib/help/page-help.ts` so the help
   // popover + chord nav resolve to the right tab.
-  // #972 — useMemo with narrow deps (data?.counts + data?.scores). The full
-  // `data` identity changes on every successful fetch (including poll
-  // refreshes), but counts/scores only change when there's actual new
-  // data — narrow deps prevent re-allocation on identity-only refreshes,
-  // which in turn lets downstream consumers (React tree, sectionsRef
-  // mirror) keep stable references between renders.
-  const allSections = useMemo<{ id: SectionId; label: React.ReactNode; icon: React.ReactNode; count?: number; special?: boolean; group: "history" | "caller" | "shared" | "action" }[]>(() => [
-    { id: "overview-v2", label: <TabWithHelp tabId="overview-v2">Overview</TabWithHelp>, icon: <span aria-hidden>🧭</span>, group: "shared" },
-    { id: "calls-prompts", label: <TabWithHelp tabId="calls-prompts">Calls</TabWithHelp>, icon: <Phone size={13} />, count: data.counts.calls, group: "history" },
-    { id: "tune", label: <TabWithHelp tabId="tune">Tune</TabWithHelp>, icon: <SlidersHorizontal size={13} />, count: data.counts.prompts || undefined, group: "caller" },
-    { id: "progress-v2", label: <TabWithHelp tabId="progress-v2">Progress</TabWithHelp>, icon: <Gauge size={13} />, count: (new Set(data.scores?.map((s: any) => s.parameterId)).size || 0) + (data.counts.callerTargets || 0) + (data.counts.measurements || 0), group: "shared" },
-    { id: "uplift-v2", label: <TabWithHelp tabId="uplift-v2">Uplift</TabWithHelp>, icon: <TrendingUp size={13} />, group: "shared" },
-    { id: "session-flow", label: <TabWithHelp tabId="session-flow">Session Flow</TabWithHelp>, icon: <SlidersHorizontal size={13} />, group: "shared" },
-    { id: "how", label: <TabWithHelp tabId="how">Profile</TabWithHelp>, icon: <User size={13} />, count: (data.counts.memories || 0) + (data.counts.observations || 0), group: "caller" },
-    { id: "ai-call", label: <TabWithHelp tabId="ai-call">Call</TabWithHelp>, icon: <PlayCircle size={13} />, special: true, group: "action" },
-    // Retired (hidden) — kept here for URL-redirect fall-through and any
-    // legacy callers that haven't migrated their bookmarks yet.
-    { id: "overview", label: "Overview (v1)", icon: <span aria-hidden>🧭</span>, group: "shared" },
-    { id: "what", label: "Progress (v1)", icon: <Gauge size={13} />, group: "shared" },
-    { id: "uplift", label: "Uplift (v1)", icon: <TrendingUp size={13} />, group: "shared" },
-    { id: "artifacts", label: <TabWithHelp tabId="artifacts">Artifacts</TabWithHelp>, icon: <BookMarked size={13} />, count: (data.counts.artifacts || 0) + (data.counts.actions || 0), group: "shared" },
-  ], [data?.counts, data?.scores]);
-  const sections = useMemo(() => allSections.filter((s) => VISIBLE_TABS.has(s.id)), [allSections]);
+  // (allSections + sections useMemo declared above the early returns for
+  // rules-of-hooks compliance — see #972 follow-up comment.)
   sectionsRef.current = sections;
 
   return (
