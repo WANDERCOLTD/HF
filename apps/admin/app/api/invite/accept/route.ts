@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { encode } from "next-auth/jwt";
 import { validateBody, inviteAcceptSchema } from "@/lib/validation";
 import { checkRateLimit, getClientIP } from "@/lib/rate-limit";
 import { enrollCaller, enrollCallerInCohortPlaybooks, resolveAndEnrollSingle } from "@/lib/enrollment";
+import { mintAndSetSessionCookie } from "@/lib/auth-session-cookie";
 
 /**
  * @api POST /api/invite/accept
@@ -107,29 +107,6 @@ export async function POST(request: NextRequest) {
       return newUser;
     });
 
-    // Generate JWT session token matching auth.ts jwt callback shape
-    const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-    if (!secret) {
-      console.error("[Invite Accept] No NEXTAUTH_SECRET configured");
-      return NextResponse.json(
-        { ok: false, error: "Server configuration error" },
-        { status: 500 }
-      );
-    }
-
-    const jwtToken = await encode({
-      token: {
-        sub: user.id,
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-      secret,
-      salt: "authjs.session-token",
-      maxAge: 30 * 24 * 60 * 60, // 30 days
-    });
-
     const response = NextResponse.json({
       ok: true,
       user: {
@@ -140,19 +117,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Set session cookie matching NextAuth cookie name
-    const isProduction = process.env.NODE_ENV === "production";
-    const cookieName = isProduction
-      ? "__Secure-authjs.session-token"
-      : "authjs.session-token";
-
-    response.cookies.set(cookieName, jwtToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60,
-    });
+    try {
+      await mintAndSetSessionCookie(response, user);
+    } catch {
+      console.error("[Invite Accept] No NEXTAUTH_SECRET configured");
+      return NextResponse.json(
+        { ok: false, error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
 
     return response;
   } catch (error: unknown) {

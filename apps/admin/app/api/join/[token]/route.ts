@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { encode, decode } from "next-auth/jwt";
+import { decode } from "next-auth/jwt";
 import { validateBody, joinPostSchema } from "@/lib/validation";
 import { checkRateLimit, getClientIP } from "@/lib/rate-limit";
 import { enrollCaller, enrollCallerInCohortPlaybooks } from "@/lib/enrollment";
 import { applySkipOnboarding } from "@/lib/enrollment/skip-onboarding";
+import { mintAndSetSessionCookie } from "@/lib/auth-session-cookie";
 import { ROLE_LEVEL } from "@/lib/roles";
 import type { UserRole } from "@prisma/client";
 
@@ -31,25 +32,11 @@ async function hasHigherRoleSession(request: NextRequest): Promise<boolean> {
   return false;
 }
 
-/** Set session cookie on response — only if caller doesn't already have a higher-role session */
-function setSessionCookie(
-  response: NextResponse,
-  jwt: string,
-  skipCookie: boolean,
-): NextResponse {
-  if (skipCookie) return response;
-  const isProduction = process.env.NODE_ENV === "production";
-  const cookieName = isProduction
-    ? "__Secure-authjs.session-token"
-    : "authjs.session-token";
-  response.cookies.set(cookieName, jwt, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 30 * 24 * 60 * 60,
-  });
-  return response;
+function missingSecretResponse(): NextResponse {
+  return NextResponse.json(
+    { ok: false, error: "Server configuration error" },
+    { status: 500 },
+  );
 }
 
 /** Separate rate-limit key for GET (token probing) vs POST (account creation) */
@@ -226,27 +213,10 @@ export async function POST(
         redirect: `/x/sim/${returningCallerId}`,
       });
 
-      if (!skipCookie) {
-        const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-        if (!secret) {
-          return NextResponse.json(
-            { ok: false, error: "Server configuration error" },
-            { status: 500 }
-          );
-        }
-        const returningJwt = await encode({
-          token: {
-            sub: existingUser.id,
-            id: existingUser.id,
-            email: existingUser.email,
-            name: existingUser.name,
-            role: existingUser.role,
-          },
-          secret,
-          salt: "authjs.session-token",
-          maxAge: 30 * 24 * 60 * 60,
-        });
-        setSessionCookie(returningResponse, returningJwt, false);
+      try {
+        await mintAndSetSessionCookie(returningResponse, existingUser, { skipCookie });
+      } catch {
+        return missingSecretResponse();
       }
 
       return returningResponse;
@@ -291,27 +261,10 @@ export async function POST(
       redirect: `/x/sim/${newCaller.id}`,
     });
 
-    if (!skipCookie) {
-      const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-      if (!secret) {
-        return NextResponse.json(
-          { ok: false, error: "Server configuration error" },
-          { status: 500 }
-        );
-      }
-      const existingJwt = await encode({
-        token: {
-          sub: existingUser.id,
-          id: existingUser.id,
-          email: existingUser.email,
-          name: existingUser.name,
-          role: existingUser.role,
-        },
-        secret,
-        salt: "authjs.session-token",
-        maxAge: 30 * 24 * 60 * 60,
-      });
-      setSessionCookie(existingResponse, existingJwt, false);
+    try {
+      await mintAndSetSessionCookie(existingResponse, existingUser, { skipCookie });
+    } catch {
+      return missingSecretResponse();
     }
 
     return existingResponse;
@@ -373,27 +326,10 @@ export async function POST(
     redirect: `/x/sim/${result.newCallerId}`,
   });
 
-  if (!skipCookie) {
-    const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-    if (!secret) {
-      return NextResponse.json(
-        { ok: false, error: "Server configuration error" },
-        { status: 500 }
-      );
-    }
-    const jwtToken = await encode({
-      token: {
-        sub: result.newUser.id,
-        id: result.newUser.id,
-        email: result.newUser.email,
-        name: result.newUser.name,
-        role: result.newUser.role,
-      },
-      secret,
-      salt: "authjs.session-token",
-      maxAge: 30 * 24 * 60 * 60,
-    });
-    setSessionCookie(response, jwtToken, false);
+  try {
+    await mintAndSetSessionCookie(response, result.newUser, { skipCookie });
+  } catch {
+    return missingSecretResponse();
   }
 
   return response;

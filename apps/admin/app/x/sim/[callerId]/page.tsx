@@ -107,6 +107,12 @@ export default function SimConversationPage() {
     async function fetchCaller() {
       try {
         const res = await fetch(`/api/callers/${callerId}`);
+        if (res.status === 401) {
+          if (!cancelled) {
+            router.push(`/login?callbackUrl=${encodeURIComponent(`/x/sim/${callerId}`)}`);
+          }
+          return;
+        }
         const data = await res.json();
         if (!res.ok || !data.ok) {
           if (!cancelled) setError('Caller not found');
@@ -162,7 +168,7 @@ export default function SimConversationPage() {
 
     fetchCaller();
     return () => { cancelled = true; };
-  }, [callerId, expectedDomainId, playbookId]);
+  }, [callerId, expectedDomainId, playbookId, router]);
 
   const handleStudentCallEnd = useCallback(() => {
     if (isStudent) {
