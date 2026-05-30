@@ -17,7 +17,7 @@ const mockCallerFindFirst = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     caller: {
-      findFirst: (...args: any[]) => mockCallerFindFirst(...args),
+      findFirst: (...args: unknown[]) => mockCallerFindFirst(...args),
     },
   },
 }));
