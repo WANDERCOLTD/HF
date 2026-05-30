@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { resolveCallerScopeForReading, isScopeError } from "@/lib/learner-scope";
 import { GoalType } from "@prisma/client";
 
 /**
@@ -25,8 +26,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const type = searchParams.get("type");
-    const callerId = searchParams.get("callerId");
+    const requestedCallerId = searchParams.get("callerId");
     const playbookId = searchParams.get("playbookId");
+
+    const scope = await resolveCallerScopeForReading(authResult.session, requestedCallerId);
+    if (isScopeError(scope)) return scope.error;
+    const callerId = scope.scopedCallerId;
 
     // Build where clause
     const where: any = {};

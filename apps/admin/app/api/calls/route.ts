@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { resolveCallerScopeForReading, isScopeError } from "@/lib/learner-scope";
 
 /**
  * @api GET /api/calls
@@ -21,7 +22,11 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const limit = parseInt(url.searchParams.get("limit") || "100");
-    const callerId = url.searchParams.get("callerId");
+    const requestedCallerId = url.searchParams.get("callerId");
+
+    const scope = await resolveCallerScopeForReading(authResult.session, requestedCallerId);
+    if (isScopeError(scope)) return scope.error;
+    const callerId = scope.scopedCallerId;
 
     const calls = await prisma.call.findMany({
       where: callerId ? { callerId } : undefined,

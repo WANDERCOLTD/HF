@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { MemoryCategory } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, isAuthError } from "@/lib/permissions";
+import { resolveCallerScopeForReading, isScopeError } from "@/lib/learner-scope";
 import { parsePagination } from "@/lib/api-utils";
 
 /**
@@ -26,11 +27,15 @@ export async function GET(req: Request) {
     if (isAuthError(authResult)) return authResult.error;
 
     const url = new URL(req.url);
-    const callerId = url.searchParams.get("callerId");
+    const requestedCallerId = url.searchParams.get("callerId");
     const category = url.searchParams.get("category");
     const search = url.searchParams.get("search");
     const includeSuperseded = url.searchParams.get("includeSuperseded") === "true";
     const { limit, offset } = parsePagination(url.searchParams);
+
+    const scope = await resolveCallerScopeForReading(authResult.session, requestedCallerId);
+    if (isScopeError(scope)) return scope.error;
+    const callerId = scope.scopedCallerId;
 
     const where: any = {};
 
