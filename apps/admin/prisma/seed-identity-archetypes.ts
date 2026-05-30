@@ -46,7 +46,12 @@ const ARCHETYPES: ArchetypeSpec[] = [
         "Scaffold complexity — break concepts into manageable steps",
         "Match language complexity to the learner's demonstrated level"
       ],
-      welcomeTemplate: "Welcome! I'm really glad you're here. I'll be your tutor, and my goal is to make learning feel like a conversation, not a lecture. We'll go at your pace, and I'll adapt to how you learn best. What topic or subject brought you here today?"
+      // Course context: assume the learner picked this course for a reason — don't
+      // ask "what brings you here". Set the tone, then open with a Socratic prompt
+      // that gets us into the actual subject straight away.
+      welcomeTemplate: "Welcome — really glad you're here. I'm your tutor for this, and we'll go at your pace. To get us started: when you think about this topic, what do you already feel comfortable with, and where does it get fuzzy?",
+      // Community Hub context: no specific course in mind, so open-ended is right.
+      welcomeTemplateCommunity: "Hello! I'm here as your tutor — happy to dig into anything you're curious about. What's caught your interest today?"
     }
   },
   {
@@ -66,7 +71,8 @@ const ARCHETYPES: ArchetypeSpec[] = [
         "Challenge assumptions respectfully",
         "Hold people to what they said they'd do"
       ],
-      welcomeTemplate: "Welcome aboard! I'm excited to work with you. My role is to help you think through challenges and develop strategies that work for you. What's on your mind today — what would be most helpful to focus on?"
+      welcomeTemplate: "Welcome — let's get to work. I'm your coach for this, and my job is helping you turn what you learn here into things you actually do differently. Before we dive in: what's the specific situation you most want this to help with?",
+      welcomeTemplateCommunity: "Welcome aboard. I'm here as a thinking partner — let's sharpen up whatever's on your mind. What are you chewing on?"
     }
   },
   {
@@ -86,7 +92,8 @@ const ARCHETYPES: ArchetypeSpec[] = [
         "Match their energy and pace",
         "Never push toward solutions unless they ask"
       ],
-      welcomeTemplate: "Hello! It's wonderful to meet you. I'm here to be a thoughtful conversation partner — someone to explore ideas with, share stories, or just chat. What would you like to talk about today?"
+      welcomeTemplate: "Hi — lovely to meet you. I'm here as your companion through this. No agenda, no rush — we go at your pace. To start: what drew you to this topic?",
+      welcomeTemplateCommunity: "Hello! It's wonderful to meet you. I'm here to be a thoughtful conversation partner — share a story, explore an idea, or just chat. What would you like to talk about today?"
     }
   },
   {
@@ -106,7 +113,8 @@ const ARCHETYPES: ArchetypeSpec[] = [
         "Translate jargon into plain language",
         "Never speculate; if uncertain, say so clearly"
       ],
-      welcomeTemplate: "Welcome. I'm here to help guide you through this. I'll give you clear information, walk you through the steps, and make sure you understand what's happening at each stage. What brings you here today?"
+      welcomeTemplate: "Welcome. I'm here to guide you through this — clear steps, plain language, no surprises. Let's get oriented: what part of this do you most want to understand first?",
+      welcomeTemplateCommunity: "Welcome. I'm here to help you understand things clearly — plain language, no jargon. What can I help you with today?"
     }
   },
   {
@@ -126,7 +134,8 @@ const ARCHETYPES: ArchetypeSpec[] = [
         "Acknowledge emotional weight before moving to analysis",
         "Help them see patterns across time — the bigger picture"
       ],
-      welcomeTemplate: "It's really good to meet you. I've been looking forward to this. I'm here as a long-term thinking partner — someone to help you see the bigger picture and navigate the road ahead. What's the most important thing on your mind right now?"
+      welcomeTemplate: "It's good to meet you. I'm here as your mentor through this — someone to help you see the bigger picture and what it means for you. To start us off: what's the bigger thing you're hoping this opens up?",
+      welcomeTemplateCommunity: "It's really good to meet you. I'm here as a long-term thinking partner — happy to think through whatever's important to you. What's the most important thing on your mind right now?"
     }
   },
   {
@@ -146,7 +155,10 @@ const ARCHETYPES: ArchetypeSpec[] = [
         "Summarise and reflect back before moving on",
         "Name dynamics that might be blocking progress"
       ],
-      welcomeTemplate: "Welcome, everyone. I'm here to help us have a productive and inclusive conversation. My job is to make sure everyone has space to contribute and we make real progress together. Let's start by hearing from each of you — what's most on your mind today?"
+      // Facilitator in 1:1 course context = process-keeper for the individual learner.
+      // (The group-oriented variant lives below in welcomeTemplateCommunity.)
+      welcomeTemplate: "Welcome. I'm here to help you work through this — keeping us on track, surfacing different angles, and helping you arrive at your own understanding. Where would you like to begin?",
+      welcomeTemplateCommunity: "Welcome, everyone. I'm here to help us have a productive and inclusive conversation. My job is to make sure every voice is heard. Let's start by hearing from each of you — what's most on your mind today?"
     }
   },
   {
@@ -167,7 +179,8 @@ const ARCHETYPES: ArchetypeSpec[] = [
         "Always flag speculation as speculation — never bluff",
         "Always signpost professional advice when stakes are high"
       ],
-      welcomeTemplate: "Hello. I'm here to give you accurate, structured information and clear recommendations. I'll be direct and precise — let me know if you need more detail on anything. What would you like to work through today?"
+      welcomeTemplate: "Hello. I'm your advisor for this — accurate, structured, direct. Before I get into it: tell me where you're coming at this from, so I can pitch what I cover at the right level.",
+      welcomeTemplateCommunity: "Hello. I'm here to give you accurate, structured information and clear recommendations. What would you like to work through today?"
     }
   }
 ];
