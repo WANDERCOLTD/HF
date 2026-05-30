@@ -782,7 +782,15 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
       const postExtras = filteredExtras.filter((m) => m.systemType === "success-card");
 
       let finalMessages = [...newMessages, ...preExtras];
-      if (response.content) {
+      // #978 Slice 1 — when this turn emits a stream-form picker (OptionsCard),
+      // suppress the redundant assistant text bubble. The picker already carries
+      // the question + options + Confirm/Skip footer; the bubble was restating
+      // the same prompt word-for-word. FieldPicker mode (renders above input
+      // bar) is explicitly out of scope per AC-FieldPicker-Scope.
+      const hasStreamFormPicker = preExtras.some(
+        (m) => m.systemType === "options" && m.optionsPanel?.fieldPicker !== true,
+      );
+      if (response.content && !hasStreamFormPicker) {
         finalMessages = [...finalMessages, {
           id: uid(),
           role: "assistant" as const,
