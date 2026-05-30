@@ -1195,6 +1195,25 @@
   background: var(--surface-secondary);
 }
 
+/* #978 Slice 2 — co-located suggestion chips below the picker footer. */
+.cv4-options-suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 16px 10px;
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+}
+
+/* #978 Slice 3 — footer-right wrapper holds the keyboard hints + the
+   ... actions menu trigger. Keeps both on the same line as the existing
+   footer-left controls (Confirm / Something else / Skip). */
+.cv4-options-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .cv4-options-footer-left {
   display: flex;
   align-items: center;
