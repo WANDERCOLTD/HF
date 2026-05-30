@@ -16,11 +16,22 @@ export interface MessageActionsMessage {
   content: string;
 }
 
+export type MessageActionId = "correct" | "more" | "skip" | "copy" | "quote";
+
 interface MessageActionsProps {
   message: MessageActionsMessage;
   onSend: (text: string) => void;
   onPrefill: (text: string) => void;
   onFocusInput: () => void;
+  /**
+   * #978 Slice 3 — when the actions menu mounts on an OptionsCard picker
+   * (not on an assistant bubble), the available actions are limited. Copy
+   * and Quote would operate on `message.content` (the picker's question text)
+   * which isn't sensible UX. Pass `["correct", "more", "skip"]` to scope to
+   * decision-shaped actions only.
+   * Default (undefined) preserves the legacy full menu on assistant bubbles.
+   */
+  actionsSubset?: MessageActionId[];
 }
 
 // ── Helpers ───────────────────────────────────────────────
@@ -34,7 +45,7 @@ const COPY_FEEDBACK_MS = 1800;
 
 // ── Component ─────────────────────────────────────────────
 
-export function MessageActions({ message, onSend, onPrefill, onFocusInput }: MessageActionsProps) {
+export function MessageActions({ message, onSend, onPrefill, onFocusInput, actionsSubset }: MessageActionsProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -42,7 +53,7 @@ export function MessageActions({ message, onSend, onPrefill, onFocusInput }: Mes
   const menuRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
-  const actions = [
+  const allActions = [
     { id: "correct", label: "That's not right", icon: AlertCircle },
     { id: "more", label: "Tell me more", icon: HelpCircle },
     { id: "skip", label: "Move on", icon: ChevronsRight },
@@ -50,6 +61,12 @@ export function MessageActions({ message, onSend, onPrefill, onFocusInput }: Mes
     { id: "copy", label: "Copy", icon: Copy },
     { id: "quote", label: "Quote & reply", icon: Quote },
   ] as const;
+
+  // #978 Slice 3 — filter to subset when provided. Drop the divider if both
+  // sides become empty after filtering.
+  const actions = actionsSubset
+    ? allActions.filter((a) => a.id !== "divider" && (actionsSubset as readonly string[]).includes(a.id))
+    : allActions;
 
   const actionItems = actions.filter((a) => a.id !== "divider") as Array<{ id: string; label: string; icon: React.ComponentType<{ size?: number }> }>;
 

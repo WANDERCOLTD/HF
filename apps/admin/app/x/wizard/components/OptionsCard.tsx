@@ -9,7 +9,7 @@
  * Full keyboard navigation: ↑↓ navigate, Space toggle, Enter confirm, Esc dismiss.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { Pencil, ChevronLeft, ChevronRight } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────
@@ -45,13 +45,20 @@ interface OptionsCardProps {
   onSomethingElse: () => void;
   /** #978 Slice 2 — invoked when the user clicks a co-located suggestion chip. */
   onChipClick?: (label: string) => void;
+  /**
+   * #978 Slice 3 — optional ... actions menu rendered in the footer right
+   * slot. Caller fully constructs the element (typically a `<MessageActions>`
+   * with `actionsSubset={["correct","more","skip"]}`) so OptionsCard stays
+   * decoupled from MessageActions and its onSend/onPrefill plumbing.
+   */
+  messageActions?: ReactNode;
 }
 
 const PAGE_SIZE = 6;
 
 // ── Component ────────────────────────────────────────────
 
-export function OptionsCard({ panel, onSelect, onSkip, onSomethingElse, onChipClick }: OptionsCardProps) {
+export function OptionsCard({ panel, onSelect, onSkip, onSomethingElse, onChipClick, messageActions }: OptionsCardProps) {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
@@ -293,12 +300,16 @@ export function OptionsCard({ panel, onSelect, onSkip, onSomethingElse, onChipCl
               </button>
             )}
           </div>
-          <div className="cv4-options-hints">
-            <span>↑↓ navigate</span>
-            <span>·</span>
-            <span>{panel.mode === "checklist" ? "Space toggle" : "Enter select"}</span>
-            <span>·</span>
-            <span>Esc dismiss</span>
+          <div className="cv4-options-footer-right">
+            <div className="cv4-options-hints">
+              <span>↑↓ navigate</span>
+              <span>·</span>
+              <span>{panel.mode === "checklist" ? "Space toggle" : "Enter select"}</span>
+              <span>·</span>
+              <span>Esc dismiss</span>
+            </div>
+            {/* #978 Slice 3 — ... actions menu (subset). */}
+            {messageActions}
           </div>
         </div>
       )}

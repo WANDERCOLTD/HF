@@ -1205,6 +1205,15 @@
   background: var(--surface-secondary);
 }
 
+/* #978 Slice 3 — footer-right wrapper holds the keyboard hints + the
+   ... actions menu trigger. Keeps both on the same line as the existing
+   footer-left controls (Confirm / Something else / Skip). */
+.cv4-options-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .cv4-options-footer-left {
   display: flex;
   align-items: center;

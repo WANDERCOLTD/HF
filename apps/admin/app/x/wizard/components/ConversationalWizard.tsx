@@ -1674,6 +1674,19 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
                       // still pick an option from the same picker.
                       handleSend(label);
                     }}
+                    // #978 Slice 3 — ... actions menu mounted on picker with
+                    // a subset of decision-shaped actions only. Copy/Quote are
+                    // intentionally excluded — they would operate on the
+                    // picker's question text, which is not sensible UX.
+                    messageActions={
+                      <MessageActions
+                        message={{ content: msg.optionsPanel.question }}
+                        onSend={(t) => handleSend(t)}
+                        onPrefill={(t) => setInputValue(t)}
+                        onFocusInput={() => inputRef.current?.focus()}
+                        actionsSubset={["correct", "more", "skip"]}
+                      />
+                    }
                   />
                 </div>
               );

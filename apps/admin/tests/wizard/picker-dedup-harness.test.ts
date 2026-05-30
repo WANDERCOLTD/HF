@@ -180,6 +180,12 @@ interface RenderPlan {
   pickerChips: string[] | null;
   /** Whether ... MessageActions menu would render alongside assistant bubble */
   messageActionsOnAssistantBubble: boolean;
+  /**
+   * #978 Slice 3 — ... MessageActions menu mounted on stream-form pickers
+   * with a subset (`correct`, `more`, `skip` only). Null when no picker or
+   * fieldPicker (out of scope for this story).
+   */
+  messageActionsOnPicker: ("correct" | "more" | "skip")[] | null;
 }
 
 // ─── PREDICTOR (mirrors handleSend assembly + processToolCalls — TODAY) ───
@@ -245,12 +251,18 @@ function predictRenderPlan(api: ApiResponse): RenderPlan {
   const hasStreamFormPicker = streamOptionsCall !== undefined;
   const hasAssistantBubble = api.content.length > 0 && !hasStreamFormPicker;
 
+  // SLICE 3: when a stream-form picker is on the turn, the OptionsCard mounts
+  // MessageActions with the decision subset. FieldPicker is out of scope.
+  const messageActionsOnPicker: RenderPlan["messageActionsOnPicker"] =
+    hasStreamFormPicker ? ["correct", "more", "skip"] : null;
+
   return {
     hasAssistantBubble,
     picker,
     suggestionChips,
     pickerChips,
     messageActionsOnAssistantBubble: hasAssistantBubble,
+    messageActionsOnPicker,
   };
 }
 
@@ -544,9 +556,10 @@ describe("Wizard picker dedup harness — #978 baseline (pre-slice-1)", () => {
       expect.any(Object),
     );
 
-    // ── ASSERT: render-plan after slices 1 + 2 ───────────────────────
+    // ── ASSERT: render-plan after slices 1 + 2 + 3 ───────────────────
 
-    // Turn 1: picker present → assistant bubble SUPPRESSED (slice 1)
+    // Turn 1: picker present → assistant bubble SUPPRESSED (slice 1),
+    // ... menu mounted on picker with subset (slice 3)
     expect(turnLog[0].render).toEqual({
       hasAssistantBubble: false,
       picker: expect.objectContaining({
@@ -556,10 +569,13 @@ describe("Wizard picker dedup harness — #978 baseline (pre-slice-1)", () => {
       suggestionChips: null,
       pickerChips: null,
       messageActionsOnAssistantBubble: false,
+      messageActionsOnPicker: ["correct", "more", "skip"],
     });
 
-    // Turn 4: THE picker turn — bubble suppressed (slice 1), chips moved
-    // under picker (slice 2) — floating rail empty
+    // Turn 4: THE picker turn — all three slices visible together:
+    // - bubble suppressed (slice 1)
+    // - chips under picker (slice 2)
+    // - ... menu subset on picker (slice 3)
     expect(turnLog[3].render).toEqual({
       hasAssistantBubble: false,
       picker: expect.objectContaining({
@@ -571,15 +587,17 @@ describe("Wizard picker dedup harness — #978 baseline (pre-slice-1)", () => {
       suggestionChips: null,
       pickerChips: ["Continue", "I have a question", "Something else"],
       messageActionsOnAssistantBubble: false,
+      messageActionsOnPicker: ["correct", "more", "skip"],
     });
 
-    // Turn 5: no picker — assistant bubble RENDERS (regression check)
+    // Turn 5: no picker — assistant bubble RENDERS, ... menu on bubble (legacy)
     expect(turnLog[4].render).toEqual({
       hasAssistantBubble: true,
       picker: null,
       suggestionChips: null,
       pickerChips: null,
       messageActionsOnAssistantBubble: true,
+      messageActionsOnPicker: null,
     });
   });
 
