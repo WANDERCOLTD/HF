@@ -518,6 +518,24 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           && (t.input as { mode?: string; dataKey?: string })?.dataKey === "_welcomePhases",
       );
 
+      // #978 Slice 2 — when a stream-form picker (non-fieldPicker, non-welcomePhases)
+      // co-emits with show_suggestions on the same turn, the chip rail attaches to
+      // the picker footer instead of floating below the chat. The welcome-phases
+      // guard above is respected: that checklist intentionally drops chips and that
+      // precedent stays untouched.
+      const streamFormPickerCall = toolCalls.find(
+        (t) => t.name === "show_options"
+          && (t.input as { fieldPicker?: boolean; dataKey?: string })?.fieldPicker !== true
+          && (t.input as { fieldPicker?: boolean; dataKey?: string })?.dataKey !== "_welcomePhases",
+      );
+      const coEmittedSuggestionsCall = streamFormPickerCall
+        ? toolCalls.find((t) => t.name === "show_suggestions")
+        : undefined;
+      const chipsAttachedToPicker: string[] | null =
+        coEmittedSuggestionsCall && !hasWelcomePhasesChecklist
+          ? ((coEmittedSuggestionsCall.input as { suggestions?: string[] })?.suggestions ?? null)
+          : null;
+
       for (const tc of toolCalls) {
         switch (tc.name) {
           case "update_setup": {
@@ -558,6 +576,9 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
           case "show_suggestions": {
             // welcome-flow checklist owns the decision surface — drop redundant chips
             if (hasWelcomePhasesChecklist) break;
+            // #978 Slice 2 — if these chips were attached to a co-emitted picker
+            // above, skip the floating rail so they don't render twice.
+            if (chipsAttachedToPicker) break;
             const items = tc.input.suggestions as string[];
             const question = tc.input.question as string | undefined;
             if (items?.length) setSuggestions({ question, items });
@@ -605,12 +626,20 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
               // Field picker renders above the input bar, not in the message stream
               setFieldPickerPanel(tc.input as unknown as OptionsPanel);
             } else {
+              // #978 Slice 2 — attach co-emitted suggestion chips to the panel so
+              // they render inside the picker footer (vs. floating rail). Only
+              // fires for non-welcomePhases stream-form pickers.
+              const rawPanel = tc.input as unknown as OptionsPanel;
+              const panelWithChips: OptionsPanel =
+                chipsAttachedToPicker && rawPanel.dataKey !== "_welcomePhases"
+                  ? { ...rawPanel, suggestionChips: chipsAttachedToPicker }
+                  : rawPanel;
               extras.push({
                 id: uid(),
                 role: "system",
                 systemType: "options",
                 content: tc.input.question as string,
-                optionsPanel: tc.input as unknown as OptionsPanel,
+                optionsPanel: panelWithChips,
               });
             }
             break;
@@ -1637,6 +1666,13 @@ export function ConversationalWizard({ initialContext, userRole, wizardVersion =
                         prev.map((m) => m.id === msg.id ? { ...m, resolved: true } : m),
                       );
                       setTimeout(() => inputRef.current?.focus(), 50);
+                    }}
+                    onChipClick={(label) => {
+                      // #978 Slice 2 — chip click sends label to AI, same as the
+                      // legacy floating rail. Picker is NOT marked resolved so a
+                      // user who clicks a chip and then changes their mind can
+                      // still pick an option from the same picker.
+                      handleSend(label);
                     }}
                   />
                 </div>

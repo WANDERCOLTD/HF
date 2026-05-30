@@ -1195,6 +1195,16 @@
   background: var(--surface-secondary);
 }
 
+/* #978 Slice 2 — co-located suggestion chips below the picker footer. */
+.cv4-options-suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 16px 10px;
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-secondary);
+}
+
 .cv4-options-footer-left {
   display: flex;
   align-items: center;

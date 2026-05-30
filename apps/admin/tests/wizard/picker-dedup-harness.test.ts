@@ -174,8 +174,10 @@ interface RenderPlan {
     fieldPicker: boolean;
     optionCount: number;
   } | null;
-  /** Suggestion chips on this turn */
+  /** Suggestion chips floating rail at bottom of chat (legacy location). */
   suggestionChips: string[] | null;
+  /** #978 Slice 2 — chips attached to the picker footer (new location). */
+  pickerChips: string[] | null;
   /** Whether ... MessageActions menu would render alongside assistant bubble */
   messageActionsOnAssistantBubble: boolean;
 }
@@ -185,17 +187,18 @@ interface RenderPlan {
 /**
  * Mirrors `ConversationalWizard.tsx` `handleSend` assembly + `processToolCalls`.
  *
- * Current state: slice 1 applied (assistant bubble suppressed when a stream-form
- * picker is present on the same turn). Slice 2 (chip rail under picker) and
- * slice 3 (MessageActions on picker) update this function further.
+ * Current state: slices 1 + 2 applied. Slice 3 (MessageActions on picker)
+ * updates this function further.
  *
  * Rules in force:
  *   - show_options with fieldPicker=true → fieldPickerPanel (NOT in stream)
  *   - show_options without fieldPicker → systemType:"options" in stream
  *   - response.content non-empty AND no stream-form picker → assistant bubble (SLICE 1)
- *   - show_suggestions → bottom-of-stream rail (suggestions state)
- *   - _welcomePhases checklist → drops co-emitted show_suggestions
- *   - MessageActions menu renders on assistant bubble
+ *   - _welcomePhases checklist → drops co-emitted show_suggestions (precedent)
+ *   - Stream-form non-welcomePhases picker + co-emitted show_suggestions →
+ *     chips attach to picker footer (pickerChips); floating rail suppressed (SLICE 2)
+ *   - All other show_suggestions → floating rail (suggestionChips)
+ *   - MessageActions menu renders on assistant bubble (today; slice 3 will add to picker)
  */
 function predictRenderPlan(api: ApiResponse): RenderPlan {
   const optionsCalls = api.toolCalls.filter((t) => t.name === "show_options");
@@ -209,6 +212,16 @@ function predictRenderPlan(api: ApiResponse): RenderPlan {
 
   // Pick the picker that surfaces this turn — stream-form preferred.
   const pickerSource = streamOptionsCall ?? fieldPickerCall;
+
+  // SLICE 2 — chips attach to picker iff: stream-form picker present, NOT
+  // welcome-phases, AND show_suggestions co-emitted this turn.
+  const streamFormPickerNonWelcome =
+    streamOptionsCall && streamOptionsCall.input.dataKey !== "_welcomePhases";
+  const pickerChips: string[] | null =
+    streamFormPickerNonWelcome && suggestionsCall && !hasWelcomePhasesChecklist
+      ? (suggestionsCall.input.suggestions as string[] | undefined) ?? null
+      : null;
+
   const picker: RenderPlan["picker"] = pickerSource
     ? {
         question: String(pickerSource.input.question ?? ""),
@@ -220,8 +233,10 @@ function predictRenderPlan(api: ApiResponse): RenderPlan {
       }
     : null;
 
+  // Floating rail: chips suppressed when attached to a picker, or when
+  // welcome-phases dropped them.
   const suggestionChips =
-    suggestionsCall && !hasWelcomePhasesChecklist
+    suggestionsCall && !hasWelcomePhasesChecklist && !pickerChips
       ? (suggestionsCall.input.suggestions as string[] | undefined) ?? null
       : null;
 
@@ -234,6 +249,7 @@ function predictRenderPlan(api: ApiResponse): RenderPlan {
     hasAssistantBubble,
     picker,
     suggestionChips,
+    pickerChips,
     messageActionsOnAssistantBubble: hasAssistantBubble,
   };
 }
@@ -528,9 +544,9 @@ describe("Wizard picker dedup harness — #978 baseline (pre-slice-1)", () => {
       expect.any(Object),
     );
 
-    // ── ASSERT: render-plan after slice 1 (assistant bubble suppressed) ──
+    // ── ASSERT: render-plan after slices 1 + 2 ───────────────────────
 
-    // Turn 1: picker present → assistant bubble SUPPRESSED (was duplicated)
+    // Turn 1: picker present → assistant bubble SUPPRESSED (slice 1)
     expect(turnLog[0].render).toEqual({
       hasAssistantBubble: false,
       picker: expect.objectContaining({
@@ -538,11 +554,12 @@ describe("Wizard picker dedup harness — #978 baseline (pre-slice-1)", () => {
         fieldPicker: false,
       }),
       suggestionChips: null,
+      pickerChips: null,
       messageActionsOnAssistantBubble: false,
     });
 
-    // Turn 4: THE picker turn — bubble suppressed; chip rail stays for now
-    // (slice 2 will move it under the picker)
+    // Turn 4: THE picker turn — bubble suppressed (slice 1), chips moved
+    // under picker (slice 2) — floating rail empty
     expect(turnLog[3].render).toEqual({
       hasAssistantBubble: false,
       picker: expect.objectContaining({
@@ -551,7 +568,8 @@ describe("Wizard picker dedup harness — #978 baseline (pre-slice-1)", () => {
         mode: "radio",
         optionCount: 2,
       }),
-      suggestionChips: ["Continue", "I have a question", "Something else"],
+      suggestionChips: null,
+      pickerChips: ["Continue", "I have a question", "Something else"],
       messageActionsOnAssistantBubble: false,
     });
 
@@ -560,10 +578,12 @@ describe("Wizard picker dedup harness — #978 baseline (pre-slice-1)", () => {
       hasAssistantBubble: true,
       picker: null,
       suggestionChips: null,
+      pickerChips: null,
       messageActionsOnAssistantBubble: true,
     });
   });
 
+  // Slice 2 — chips under picker
   it("welcome-phases checklist drops co-emitted chips (existing precedent)", async () => {
     queueCompletions([
       {
@@ -594,9 +614,11 @@ describe("Wizard picker dedup harness — #978 baseline (pre-slice-1)", () => {
     const api = await postChat("Tell me about welcome", [], {});
     const render = predictRenderPlan(api);
 
-    // Picker present, chips suppressed by _welcomePhases guard
+    // Picker present, chips suppressed by _welcomePhases guard (slice 2
+    // must NOT reintroduce chips on this turn — AC-WelcomePhases-Preservation).
     expect(render.picker).not.toBeNull();
     expect(render.suggestionChips).toBeNull();
+    expect(render.pickerChips).toBeNull();
   });
 
   it("fieldPicker=true panel renders above input bar (not in stream-form preExtras)", async () => {
@@ -705,6 +727,117 @@ describe("Wizard picker dedup — slice 1 (assistant bubble suppression)", () =>
     const render = predictRenderPlan(api);
     expect(render.hasAssistantBubble).toBe(false);
     expect(render.picker).not.toBeNull();
+    expect(render.pickerChips).toBeNull();
     expect(render.messageActionsOnAssistantBubble).toBe(false);
+  });
+});
+
+describe("Wizard picker dedup — slice 2 (chip rail under picker)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAIConfig.mockResolvedValue({
+      engine: "claude",
+      model: "claude-sonnet-4-5-20250929",
+      maxTokens: 4096,
+      temperature: 0.7,
+    });
+    mockEvaluateGraph.mockResolvedValue({
+      promptSection: "",
+      blockedFields: [],
+      completedFields: [],
+    });
+    mockBuildSystemPrompt.mockResolvedValue("V5 SYSTEM PROMPT");
+    mockGetSubjects.mockResolvedValue([]);
+    mockExecuteWizardTool.mockResolvedValue({
+      tool_use_id: "x",
+      content: "ok",
+      is_error: false,
+    });
+  });
+
+  it("stream-form picker + co-emitted chips: chips ATTACH to picker, floating rail empty", async () => {
+    queueCompletions([
+      {
+        content: "Pick progression mode",
+        toolUses: [
+          {
+            id: "p-1",
+            name: "show_options",
+            input: {
+              question: "How should learners progress?",
+              dataKey: "progressionMode",
+              mode: "radio",
+              fieldPicker: false,
+              options: [
+                { value: "learner-picks", label: "Let learners pick", description: "" },
+                { value: "ai-led", label: "AI directs", description: "" },
+              ],
+            },
+          },
+          {
+            id: "s-1",
+            name: "show_suggestions",
+            input: { suggestions: ["Continue", "Something else"] },
+          },
+        ],
+      },
+    ]);
+    const api = await postChat("ready", [], {});
+    const render = predictRenderPlan(api);
+    expect(render.picker).not.toBeNull();
+    expect(render.pickerChips).toEqual(["Continue", "Something else"]);
+    expect(render.suggestionChips).toBeNull();
+  });
+
+  it("show_suggestions WITHOUT picker: floating rail renders normally (regression)", async () => {
+    queueCompletions([
+      {
+        content: "What next?",
+        toolUses: [
+          {
+            id: "s-1",
+            name: "show_suggestions",
+            input: { suggestions: ["A", "B"] },
+          },
+        ],
+      },
+    ]);
+    const api = await postChat("hi", [], {});
+    const render = predictRenderPlan(api);
+    expect(render.picker).toBeNull();
+    expect(render.suggestionChips).toEqual(["A", "B"]);
+    expect(render.pickerChips).toBeNull();
+  });
+
+  it("fieldPicker + chips: chips do NOT attach to picker (out of scope)", async () => {
+    queueCompletions([
+      {
+        content: "Pick something",
+        toolUses: [
+          {
+            id: "fp-1",
+            name: "show_options",
+            input: {
+              question: "Pick",
+              dataKey: "typeSlug",
+              mode: "radio",
+              fieldPicker: true,
+              options: [{ value: "a", label: "A", description: "" }],
+            },
+          },
+          {
+            id: "s-1",
+            name: "show_suggestions",
+            input: { suggestions: ["Continue"] },
+          },
+        ],
+      },
+    ]);
+    const api = await postChat("hi", [], {});
+    const render = predictRenderPlan(api);
+    // FieldPicker is out of scope for slice 2 — chips stay as floating rail
+    expect(render.picker?.fieldPicker).toBe(true);
+    expect(render.pickerChips).toBeNull();
+    expect(render.suggestionChips).toEqual(["Continue"]);
   });
 });
