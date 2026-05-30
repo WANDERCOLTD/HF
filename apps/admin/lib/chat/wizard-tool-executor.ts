@@ -2482,10 +2482,16 @@ export async function executeWizardTool(
       const subjectClause = subjectDiscipline ? ` in ${subjectDiscipline}` : "";
       const materialsClause = physicalMaterials ? ` Have your ${physicalMaterials} nearby if you can.` : "";
 
+      // Voice principle: assume the learner picked this course for a reason.
+      // Don't ask "what brings you here" / "what would you like to start with" —
+      // they're here to learn the named subject. The course-context branch opens
+      // with a calibration question that gets us into the subject; the open
+      // (conversational-guide) branch keeps the chatty no-agenda framing for
+      // Community Hub-style routes.
       const isConvGuide = interactionPattern === "conversational-guide";
       const suggestion = isConvGuide
-        ? `Hi! I'm really glad you called. I'm here to ${stylePhrase}. No agenda, no pressure — just a good chat. What's been on your mind lately?`
-        : `Hi! I'm your tutor for ${courseName}${subjectClause}. I'm here to ${stylePhrase}.${materialsClause} What would you like to start with today?`;
+        ? `Hi — really glad you called. I'm here to ${stylePhrase}. No agenda, no rush — let's just see where the conversation goes. What's been on your mind lately?`
+        : `Hi — I'm your tutor for ${courseName}${subjectClause}. I'm here to ${stylePhrase}.${materialsClause} To get us started: when you think about this, what do you already feel comfortable with, and where does it get fuzzy?`;
 
       return {
         ...base,
