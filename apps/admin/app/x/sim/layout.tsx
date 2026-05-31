@@ -15,9 +15,22 @@ export default function SimLayout({ children }: { children: React.ReactNode }) {
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
-    }
+    if (!('serviceWorker' in navigator)) return;
+    // #989 — clean up any prior root-scoped registration from when sw.js was
+    // registered without `scope`. Without this, existing browsers keep the
+    // wide-scope SW intercepting fetches across the admin chrome (e.g. the
+    // /x/courses status-bar chip ended up serving stale JS for hours).
+    navigator.serviceWorker.getRegistrations()
+      .then((regs) => {
+        regs.forEach((reg) => {
+          if (!reg.scope.includes('/x/sim/')) {
+            reg.unregister().catch(() => {});
+          }
+        });
+      })
+      .catch(() => { /* non-fatal */ });
+    navigator.serviceWorker.register('/sw.js', { scope: '/x/sim/' })
+      .catch(() => {});
   }, []);
 
   function onResizeMouseDown(e: React.MouseEvent) {
