@@ -26,6 +26,7 @@ const PUBLIC_ROUTES = new Set([
   "app/api/health/route.ts",
   "app/api/ready/route.ts",
   "app/api/system/readiness/route.ts",
+  "app/api/system/db-target/route.ts",  // Returns live runtime DATABASE_URL target — used by status-bar chip + /db-route verification (#986)
   "app/api/invite/route.ts",         // Accept invite (token-based, not session)
   "app/api/invite/accept/route.ts",
   "app/api/invite/verify/route.ts",  // Token-based invite verification (no session)
