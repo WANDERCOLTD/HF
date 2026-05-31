@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { envDbTarget, dbTargetColor, envCanonical } from "./EnvironmentBanner";
+import { dbTargetColor, useDbState } from "./EnvironmentBanner";
 
 export const ROLE_COLORS: Record<string, string> = {
   SUPERADMIN: "var(--status-error-text)",
@@ -68,6 +68,8 @@ export function UserAvatar({
   className,
   style,
 }: UserAvatarProps) {
+  const { dbTarget: liveDbTarget, isDbSwitched } = useDbState();
+
   // Custom initials take priority, then auto-compute from name
   const displayInitials = initials?.trim() || computeInitials(name);
 
@@ -86,10 +88,7 @@ export function UserAvatar({
   // DB-target ring: when sandbox VM is pointed at a non-sandbox DB (staging/pilot),
   // ring color matches that env. When DB matches env (default), no ring.
   // The ring is the loaded-gun guard — visible on every avatar instance, can't be missed.
-  const ringTarget =
-    envDbTarget && envDbTarget.toUpperCase() !== envCanonical
-      ? envDbTarget
-      : null;
+  const ringTarget = isDbSwitched ? liveDbTarget : null;
   const ringColor = dbTargetColor(ringTarget);
   const ringShadow = ringColor
     ? `0 0 0 2px var(--surface-primary), 0 0 0 4px ${ringColor}`
