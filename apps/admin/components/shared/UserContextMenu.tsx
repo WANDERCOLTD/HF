@@ -28,7 +28,7 @@ import { useMasquerade } from "@/contexts/MasqueradeContext";
 import { useDomainScope } from "@/contexts/DomainScopeContext";
 import { ROLE_LEVEL } from "@/lib/roles";
 import { UserAvatar, ROLE_COLORS } from "./UserAvatar";
-import { envLabel, envSidebarColor, envTextColor, showEnvBanner, envDbEffective, isDbSwitched, dbTargetColor } from "./EnvironmentBanner";
+import { envLabel, envSidebarColor, envTextColor, showEnvBanner, dbTargetColor, useDbState } from "./EnvironmentBanner";
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION;
 
@@ -66,6 +66,7 @@ export function UserContextMenu({
 }: UserContextMenuProps) {
   const { data: session } = useSession();
   const { preference: theme, setPreference: setTheme } = useTheme();
+  const { dbEffective, isDbSwitched } = useDbState();
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [stepInOpen, setStepInOpen] = useState(false);
   const [stepInSearch, setStepInSearch] = useState("");
@@ -445,7 +446,7 @@ export function UserContextMenu({
                   alignItems: "center",
                   gap: 4,
                 }}
-                title={isDbSwitched ? `${envLabel} code, DB pointed at ${envDbEffective.toUpperCase()}` : `${envLabel} · DB:${envDbEffective}`}
+                title={isDbSwitched ? `${envLabel} code, DB pointed at ${dbEffective.toUpperCase()}` : `${envLabel} · DB:${dbEffective}`}
               >
                 {envLabel}
                 <span aria-hidden="true" style={{ opacity: 0.5 }}>·</span>
@@ -453,7 +454,7 @@ export function UserContextMenu({
                   style={
                     isDbSwitched
                       ? {
-                          background: dbTargetColor(envDbEffective) || undefined,
+                          background: dbTargetColor(dbEffective) || undefined,
                           color: "var(--surface-primary)",
                           borderRadius: 3,
                           padding: "0 4px",
@@ -461,7 +462,7 @@ export function UserContextMenu({
                       : { opacity: 0.85 }
                   }
                 >
-                  {isDbSwitched ? `DB→${envDbEffective.toUpperCase()}` : `DB:${envDbEffective}`}
+                  {isDbSwitched ? `DB→${dbEffective.toUpperCase()}` : `DB:${dbEffective}`}
                 </span>
               </span>
             )}

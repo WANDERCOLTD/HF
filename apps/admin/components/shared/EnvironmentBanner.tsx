@@ -7,7 +7,7 @@
  * Exports env color/label for StatusBar badge, AccountPanel, and login page.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
  * Environment detection — set via NEXT_PUBLIC_APP_ENV in .env/.env.local
@@ -96,6 +96,40 @@ export function dbTargetColor(target: string | null): string | null {
   if (!target) return null;
   const key = target.toUpperCase();
   return ENV_COLORS[key]?.sidebar ?? null;
+}
+
+/**
+ * Hook: read the DB target from /api/system/db-target (runtime DATABASE_URL).
+ * Falls back to the build-baked NEXT_PUBLIC_DB_TARGET / NEXT_PUBLIC_APP_ENV
+ * for the initial render so server-rendered HTML doesn't flicker.
+ *
+ * Use this instead of the build-baked `envDbTarget` / `envDbEffective` /
+ * `isDbSwitched` constants when the value needs to follow a live
+ * `/db-route` secret-rebind. The constants are still exported for callers
+ * that don't care about live updates (e.g. analytics).
+ */
+export function useDbState(): {
+  dbTarget: string | null;
+  dbEffective: string;
+  isDbSwitched: boolean;
+} {
+  const [dbTarget, setDbTarget] = useState<string | null>(envDbTarget);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/system/db-target')
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        if (d?.ok && typeof d.dbTarget === 'string') setDbTarget(d.dbTarget);
+      })
+      .catch(() => { /* non-fatal — falls back to build-baked value */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const dbEffective = (dbTarget || ENV_CANONICAL).toLowerCase();
+  const isDbSwitched = !!dbTarget && dbTarget.toUpperCase() !== ENV_CANONICAL;
+  return { dbTarget, dbEffective, isDbSwitched };
 }
 
 /** Whether we're running on localhost/VM (vs Cloud Run) — detected at runtime */

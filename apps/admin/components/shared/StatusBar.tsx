@@ -26,7 +26,7 @@ import { ROLE_LEVEL } from '@/lib/roles';
 import { useBranding } from '@/contexts/BrandingContext';
 import { useMasquerade } from '@/contexts/MasqueradeContext';
 import { useErrorCapture } from '@/contexts/ErrorCaptureContext';
-import { envLabel, envSidebarColor, envTextColor, showEnvBanner, envDbEffective, isDbSwitched, dbTargetColor } from './EnvironmentBanner';
+import { envLabel, envSidebarColor, envTextColor, showEnvBanner, dbTargetColor, useDbState } from './EnvironmentBanner';
 import { JobsPopup } from './JobsPopup';
 import { HealthPopup } from './HealthPopup';
 import type { IniResult } from './HealthPopup';
@@ -77,6 +77,7 @@ export function StatusBar() {
   const { branding, loading: brandingLoading } = useBranding();
   const { isMasquerading, masquerade, stopMasquerade } = useMasquerade();
   const { errorCount } = useErrorCapture();
+  const { dbEffective, isDbSwitched } = useDbState();
 
   const router = useRouter();
 
@@ -301,8 +302,8 @@ export function StatusBar() {
             Default (matched):  "SANDBOX · DB:sandbox"
             Switched (loaded gun): "SANDBOX · DB→PILOT" with right half tinted target color */}
         {showEnvBanner && envLabel && envSidebarColor && (() => {
-          const dbColor = isDbSwitched ? dbTargetColor(envDbEffective) : null;
-          const dbLabel = isDbSwitched ? `DB→${envDbEffective.toUpperCase()}` : `DB:${envDbEffective}`;
+          const dbColor = isDbSwitched ? dbTargetColor(dbEffective) : null;
+          const dbLabel = isDbSwitched ? `DB→${dbEffective.toUpperCase()}` : `DB:${dbEffective}`;
           return (
             <span
               className="hf-status-env-badge hf-status-clickable"
@@ -311,7 +312,7 @@ export function StatusBar() {
                 ...(envTextColor ? { color: envTextColor } : {}),
               }}
               onClick={() => router.push('/x/settings')}
-              title={isDbSwitched ? `${envLabel} code, DB pointed at ${envDbEffective.toUpperCase()}` : `${envLabel} · DB:${envDbEffective}`}
+              title={isDbSwitched ? `${envLabel} code, DB pointed at ${dbEffective.toUpperCase()}` : `${envLabel} · DB:${dbEffective}`}
             >
               {envLabel}
               <span aria-hidden="true" style={{ opacity: 0.5, marginInline: 4 }}>·</span>
