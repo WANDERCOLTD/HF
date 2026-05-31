@@ -9,7 +9,7 @@ import { getRequiredRole, hasRequiredRole } from "@/lib/page-roles";
 
 const publicRoutes = ["/login", "/login/verify", "/login/error", "/invite", "/join"];
 // Routes that handle their own auth (webhooks, external APIs)
-const apiTokenRoutes = ["/api/auth", "/api/vapi", "/api/webhook", "/api/invite", "/api/join", "/api/health", "/api/ready", "/api/system/readiness"];
+const apiTokenRoutes = ["/api/auth", "/api/vapi", "/api/webhook", "/api/invite", "/api/join", "/api/health", "/api/ready", "/api/system/readiness", "/api/system/db-target"];
 
 // Internal API secret for server-to-server calls (bypasses session check)
 // No fallback — if unset, internal-secret bypass is disabled (fail-closed)
