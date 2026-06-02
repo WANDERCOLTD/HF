@@ -52,7 +52,19 @@ export interface IntakeSession {
   updatedAt: Date;
 }
 
-const sessions = new Map<IntentId, IntakeSession>();
+// Pin the Map to globalThis so Next.js dev-server HMR doesn't wipe
+// session state between module reloads. Mirrors the lib/prisma.ts
+// global-singleton pattern HF already uses. In production (no HMR)
+// this is just `new Map()`; in dev the existing Map survives every
+// file change.
+const globalForIntake = globalThis as unknown as {
+  __hfIntakeSessions?: Map<IntentId, IntakeSession>;
+};
+const sessions: Map<IntentId, IntakeSession> =
+  globalForIntake.__hfIntakeSessions ?? new Map<IntentId, IntakeSession>();
+if (process.env.NODE_ENV !== "production") {
+  globalForIntake.__hfIntakeSessions = sessions;
+}
 
 export interface OpenSessionInput {
   readonly tenant: Tenant;
