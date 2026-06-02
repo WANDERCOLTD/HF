@@ -1,0 +1,105 @@
+// POST /api/intake/bootstrap
+//
+// Phase 1 bootstrap — opens a new IntakeSession for the
+// EnrollmentIntake spec. Emits the two required Disclosures (GDPR
+// Art 13 + EU AI Act Art 50) as DisclosureDelivered events. Returns
+// initial session state for the chat UI to render.
+//
+// Phase 1 storage: in-memory session-store (see lib/intake/session-store.ts).
+// PrismaEventStore wiring is Phase 1.5 (lib/intake/hf-adapter/event-store.ts).
+
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { resolveTenantCtx } from "@/lib/intake/hf-adapter/auth";
+import { loadDisclosureCopy } from "@/lib/intake/hf-adapter/disclosure-content";
+import {
+  openSession,
+  appendEvent,
+  appendMessage,
+} from "@/lib/intake/session-store";
+import type {
+  IntentKey,
+  ProjectionName,
+  SubjectId,
+} from "@/lib/intake/tallyseal";
+
+export const dynamic = "force-dynamic";
+
+const BodySchema = z.object({
+  chatSessionId: z.string().min(1).max(120),
+  specKey: z.literal("EnrollmentIntake"),
+});
+
+const INTAKE_KEY = "EnrollmentIntake" as IntentKey;
+const PROJECTION = "IntakeApplication" as ProjectionName;
+
+const ART13_REQUIREMENT_ID = "gdpr.art13.privacy-notice";
+const ART50_REQUIREMENT_ID = "eu-ai-act.art50.ai-interaction-disclosure";
+
+export async function POST(req: NextRequest) {
+  let body: z.infer<typeof BodySchema>;
+  try {
+    body = BodySchema.parse(await req.json());
+  } catch {
+    return NextResponse.json({ error: "invalid body" }, { status: 400 });
+  }
+
+  const ctx = await resolveTenantCtx(body.chatSessionId);
+  const session = openSession({
+    tenant: ctx.tenant,
+    actor: ctx.actor,
+    key: INTAKE_KEY,
+    projection: PROJECTION,
+  });
+
+  // The chat session ID becomes the SubjectId for events fired during
+  // this intake — it's stable across the conversation and lets the
+  // audit bundle attribute disclosures + consents to one data subject.
+  const subjectId = `intake-subject-${body.chatSessionId}` as SubjectId;
+
+  // Deliver the two required disclosures. Each fires a
+  // DisclosureDelivered event referencing the requirementId + the
+  // copy's contentHash. The runtime safety belt in
+  // disclosure-content.ts throws DraftCopyInProductionError if any
+  // copy is status=DRAFT and NODE_ENV=production.
+  for (const requirementId of [ART13_REQUIREMENT_ID, ART50_REQUIREMENT_ID]) {
+    let copy;
+    try {
+      copy = await loadDisclosureCopy(requirementId);
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "disclosure copy missing" },
+        { status: 500 },
+      );
+    }
+    appendEvent(session, {
+      kind: "DisclosureDelivered",
+      payload: {
+        requirementId,
+        contentHash: copy.contentHash,
+        version: copy.meta.version,
+        status: copy.meta.status,
+        locale: copy.meta.locale,
+        controller: copy.meta.controller,
+        deliveredAt: new Date().toISOString(),
+      },
+      lawfulBasis: "contract",
+      purpose: "course-delivery",
+      dataSubjectIds: [subjectId],
+    });
+  }
+
+  appendMessage(
+    session,
+    "system",
+    "Welcome. I'll walk you through enrolment — happy for me to start?",
+  );
+
+  return NextResponse.json({
+    intentId: session.intentId,
+    events: session.events,
+    suggestions: [],
+    values: session.values,
+    messages: session.messages,
+  });
+}
