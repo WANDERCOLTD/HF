@@ -54,28 +54,44 @@ export class DraftCopyInProductionError extends Error {
 // ── Public port ─────────────────────────────────────────────────────
 
 /**
- * Load a single disclosure copy entry by its `requirementId`. Looks
- * for the highest-version matching file in lib/intake/copy/.
+ * Load a single disclosure copy entry by its `requirementId`. Reads
+ * every .mdx file's frontmatter to find matches (robust to differences
+ * between filename slugs and requirementId values).
  */
 export async function loadDisclosureCopy(
   requirementId: string,
   locale = "en",
 ): Promise<DisclosureCopyEntry> {
   const allFiles = await readdir(COPY_DIR);
-  const matches = allFiles
-    .filter((f) => f.endsWith(".mdx") && fileMatchesRequirement(f, requirementId));
+  const candidates = allFiles.filter((f) => f.endsWith(".mdx"));
+  const matches: DisclosureCopyEntry[] = [];
+  for (const filename of candidates) {
+    try {
+      const entry = await loadDisclosureCopyFile(filename, locale);
+      if (
+        entry.meta.requirementId === requirementId &&
+        entry.meta.locale === locale
+      ) {
+        matches.push(entry);
+      }
+    } catch (e) {
+      // DRAFT-in-production refusal must propagate — that's the
+      // safety belt, not a "file unsuitable" condition.
+      if (e instanceof DraftCopyInProductionError) throw e;
+      // Skip files whose frontmatter doesn't parse — they're either
+      // README.md (no frontmatter) or malformed. The strict matcher
+      // ignores them.
+      continue;
+    }
+  }
   if (matches.length === 0) {
     throw new Error(
       `No disclosure copy file found for requirementId="${requirementId}" in ${COPY_DIR}`,
     );
   }
-  // Pick the highest-version file (lexicographic on filename is enough
-  // for the spike — semver-aware ordering belongs in a Phase 2 pointer
-  // store). Tied versions: "-rc.N" > "-DRAFT" alphabetically, which is
-  // also the right precedence.
-  matches.sort();
-  const filename = matches[matches.length - 1];
-  return loadDisclosureCopyFile(filename, locale);
+  // Pick the highest-version match.
+  matches.sort((a, b) => a.meta.version.localeCompare(b.meta.version));
+  return matches[matches.length - 1];
 }
 
 /**
@@ -117,14 +133,6 @@ function hashCopy(body: string, meta: DisclosureCopyMeta): string {
 }
 
 // ── Internals ──────────────────────────────────────────────────────
-
-function fileMatchesRequirement(filename: string, requirementId: string): boolean {
-  // Filename convention: <slug>.<semver>(-DRAFT|-rc.N)?.mdx where slug
-  // is the requirementId with dots → dashes (e.g. gdpr.art13.privacy →
-  // gdpr-art13-privacy). We accept that exact transform here.
-  const slug = requirementId.replace(/\./g, "-");
-  return filename.startsWith(`${slug}.`);
-}
 
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
 
