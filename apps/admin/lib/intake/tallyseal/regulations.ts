@@ -23,6 +23,9 @@ export {
   contractNecessityException,
   explicitConsentException,
   humanInterventionSafeguards,
+  // Compliance-manifest field defaults — reduces boilerplate
+  gdprPersonalDataDefaults,
+  gdprSpecialCategoryDefaults,
 } from "@tallyseal/regulations-gdpr";
 
 // ── EU AI Act ───────────────────────────────────────────────────────
