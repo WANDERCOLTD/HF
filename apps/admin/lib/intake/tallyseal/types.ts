@@ -50,6 +50,11 @@ export type {
   ActorId,
   SubjectId,
 
+  // Suggestion lifecycle (Art 14 surface)
+  Suggestion,
+  SuggestionId,
+  SuggestionState,
+
   // Disclosure / consent / lineage / oversight (v0.1.0 audit-bundle sections)
   Disclosure,
   DisclosureContent,
