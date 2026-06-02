@@ -10,8 +10,9 @@
 // version" pointer per ADR § "Copy + version storage management".
 
 import { readFile, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
-import { computeContentHash } from "../tallyseal";
+import { canonicalJSON } from "../tallyseal";
 import type { DisclosureContent } from "../tallyseal";
 
 const COPY_DIR = join(process.cwd(), "lib", "intake", "copy");
@@ -100,8 +101,19 @@ export async function loadDisclosureCopyFile(
     format: "markdown",
     locale: meta.locale,
   };
-  const contentHash = computeContentHash(canonicaliseForHash(body, meta));
+  const contentHash = hashCopy(body, meta);
   return { meta, body, content, contentHash };
+}
+
+/**
+ * Stable SHA-256 over canonical-JSON of (body + version + locale).
+ * Distinct from tallyseal's `computeContentHash` (which is shaped for
+ * tallyseal Event records). We use canonical-JSON canonicalisation
+ * for byte-stable hashing across platforms.
+ */
+function hashCopy(body: string, meta: DisclosureCopyMeta): string {
+  const canon = canonicalJSON(canonicaliseForHash(body, meta));
+  return createHash("sha256").update(canon).digest("hex");
 }
 
 // ── Internals ──────────────────────────────────────────────────────
@@ -190,7 +202,10 @@ function stripQuotes(s: string): string {
   return t;
 }
 
-function canonicaliseForHash(body: string, meta: DisclosureCopyMeta): unknown {
+function canonicaliseForHash(
+  body: string,
+  meta: DisclosureCopyMeta,
+): Record<string, string> {
   // Hash binds (body + version + locale). Bumping version forces a new
   // hash even when body is identical — that's intentional: callers
   // verifying consent receipts should see the hash change on version
