@@ -114,6 +114,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
+    "@assistant-ui/react": "^0.14.13",
     "@auth/prisma-adapter": "^2.11.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
