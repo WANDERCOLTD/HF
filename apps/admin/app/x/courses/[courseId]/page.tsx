@@ -179,6 +179,7 @@ export default function CourseDetailPage() {
   const [showDryRun, setShowDryRun] = useState(false);
   const [joinToken, setJoinToken] = useState<string | null>(null);
   const [joinCopied, setJoinCopied] = useState(false);
+  const [chatJoinCopied, setChatJoinCopied] = useState(false);
 
   // Content breakdown
   const [contentMethods, setContentMethods] = useState<MethodBreakdown[]>([]);
@@ -1187,23 +1188,40 @@ export default function CourseDetailPage() {
         </button>
       ) : null}
 
-      {/* Enrol link */}
+      {/* Enrol links — short form + chat variant */}
       {joinToken && (
-        <div className="hf-banner hf-banner-success hf-mb-md hf-flex hf-items-center hf-gap-sm">
-          <Link2 size={14} />
-          <code className="hf-text-xs" style={{ flex: 1 }}>{`${typeof window !== 'undefined' ? window.location.origin : ''}/join/${joinToken}`}</code>
-          <button
-            className="hf-btn hf-btn-xs"
-            onClick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/join/${joinToken}`);
-              setJoinCopied(true);
-              setTimeout(() => setJoinCopied(false), 2000);
-            }}
-          >
-            <Copy size={12} />
-            {joinCopied ? 'Copied!' : 'Copy enrol link'}
-          </button>
-        </div>
+        <>
+          <div className="hf-banner hf-banner-success hf-mb-sm hf-flex hf-items-center hf-gap-sm">
+            <Link2 size={14} />
+            <code className="hf-text-xs" style={{ flex: 1 }}>{`${typeof window !== 'undefined' ? window.location.origin : ''}/join/${joinToken}`}</code>
+            <button
+              className="hf-btn hf-btn-xs"
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/join/${joinToken}`);
+                setJoinCopied(true);
+                setTimeout(() => setJoinCopied(false), 2000);
+              }}
+            >
+              <Copy size={12} />
+              {joinCopied ? 'Copied!' : 'Copy enrol link'}
+            </button>
+          </div>
+          <div className="hf-banner hf-banner-info hf-mb-md hf-flex hf-items-center hf-gap-sm">
+            <Link2 size={14} />
+            <code className="hf-text-xs" style={{ flex: 1 }}>{`${typeof window !== 'undefined' ? window.location.origin : ''}/intake/enrollment-crawcus/${joinToken}`}</code>
+            <button
+              className="hf-btn hf-btn-xs"
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/intake/enrollment-crawcus/${joinToken}`);
+                setChatJoinCopied(true);
+                setTimeout(() => setChatJoinCopied(false), 2000);
+              }}
+            >
+              <Copy size={12} />
+              {chatJoinCopied ? 'Copied!' : 'Copy chat enrol link'}
+            </button>
+          </div>
+        </>
       )}
 
       {/* ── Tabs ──────────────────────────────────────── */}
