@@ -222,7 +222,10 @@ describe("setup-status — activeCurriculumMode (issue #418)", () => {
 describe("setup-status — auth and 404 still behave (regression)", () => {
   it("returns the auth error when requireAuth fails", async () => {
     const errorResponse = NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    mockRequireAuth.mockResolvedValue(errorResponse);
+    // requireAuth returns an AuthFailure shape `{ error: NextResponse }` on
+    // failure — NOT the bare response. The route handler does
+    // `return user.error;`, so the mock must mirror the wrapped shape.
+    mockRequireAuth.mockResolvedValue({ error: errorResponse });
     mockIsAuthError.mockReturnValue(true);
 
     const res = (await GET(makeReq(), { params })) as NextResponse;

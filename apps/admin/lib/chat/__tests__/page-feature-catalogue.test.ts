@@ -29,7 +29,20 @@ describe("buildPageFeatureCatalogue", () => {
 
   it("lists every tab label registered for Learner detail", () => {
     const out = buildPageFeatureCatalogue("/x/callers/caller-xyz");
-    for (const label of ["Overview", "Uplift", "Calls", "Tune", "How", "What", "Artifacts", "AI Call"]) {
+    // Source of truth: lib/help/page-help.ts → Learner detail entry. The
+    // older labels {How, What, Artifacts, AI Call} were renamed/merged
+    // into {Profile, Call} (ids `how`, `ai-call`); What + Artifacts were
+    // removed. Keep this list in step with the registry's `label` fields.
+    for (const label of [
+      "Overview",
+      "Calls",
+      "Tune",
+      "Progress",
+      "Uplift",
+      "Session Flow",
+      "Profile",
+      "Call",
+    ]) {
       expect(out).toContain(label);
     }
   });
