@@ -95,12 +95,24 @@ interface StepResult {
   readonly commit: boolean;
 }
 
+// Crude affirmation detector — when the welcome message just asked
+// "what's your first name?" but the user replied with a greeting
+// ("hi", "ok", "yes", etc.), we don't want to capture that as their
+// name. Re-prompt instead.
+const AFFIRMATION_RE = /^(hi|hello|hey|yo|ok|okay|sure|yes|yeah|yep|y|n|no|nope|start)\b[!.,? ]*$/i;
+
 function stepInterview(
   session: { values: Record<string, unknown> },
   userMessage: string,
 ): StepResult {
   const v = session.values;
   if (!v.firstName) {
+    if (AFFIRMATION_RE.test(userMessage.trim())) {
+      return {
+        content: "Great — what's your first name?",
+        commit: false,
+      };
+    }
     setOnSession(session, "firstName", userMessage.split(/\s+/)[0] ?? userMessage);
     return { content: "Thanks. And your last name?", commit: false };
   }

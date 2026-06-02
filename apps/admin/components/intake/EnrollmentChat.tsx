@@ -223,6 +223,7 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
         </form>
       </section>
       <aside className="flex flex-col gap-4">
+        <ValuesPanel values={boot.values} />
         <TallysealIntentForm
           spec={EnrollmentIntake}
           suggestions={[...boot.suggestions]}
@@ -230,6 +231,59 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
         />
         <TallysealActivityTray events={[...boot.events]} limit={20} />
       </aside>
+    </div>
+  );
+}
+
+// Captured values display. TallysealIntentForm@0.1.0 renders rows
+// without values — per the docs, "Field-input widgets remain the
+// consumer's concern". Until v0.2 ships a values slot, we render a
+// compact summary here so the form filling is visible.
+const FIELD_LABELS: Record<string, string> = {
+  firstName: "First name",
+  lastName: "Last name",
+  email: "Email",
+  displayName: "Display name",
+  timezone: "Timezone",
+  preferredContactMethod: "Preferred contact",
+  marketingOptIn: "Marketing opt-in",
+  accessibilityNote: "Accessibility note",
+  ageRange: "Age range",
+  classroomName: "Course",
+};
+
+const VALUE_FIELD_ORDER = [
+  "classroomName",
+  "firstName",
+  "lastName",
+  "email",
+  "displayName",
+  "timezone",
+  "preferredContactMethod",
+  "marketingOptIn",
+  "accessibilityNote",
+  "ageRange",
+];
+
+function ValuesPanel({ values }: { values: Readonly<Record<string, unknown>> }) {
+  const populated = VALUE_FIELD_ORDER.filter((k) => values[k] !== undefined && values[k] !== "");
+  return (
+    <div className="rounded border bg-card p-3 text-sm" data-testid="enrollment-values-panel">
+      <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Captured so far
+      </h3>
+      {populated.length === 0 ? (
+        <p className="text-muted-foreground">Nothing captured yet.</p>
+      ) : (
+        <dl className="space-y-1">
+          {populated.map((k) => (
+            <div key={k} className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">{FIELD_LABELS[k] ?? k}</dt>
+              <dd className="font-medium text-foreground">{String(values[k])}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
     </div>
   );
 }
