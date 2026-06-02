@@ -90,6 +90,40 @@ describe("enrollment.pre.privacy-notice-delivered Contract", () => {
   });
 });
 
+describe("enrollment.classroom-resolved Contract", () => {
+  const predicate = predicateById("enrollment.classroom-resolved");
+
+  it("accepts when classroomToken is unset (platform demo path)", () => {
+    const ctx = mkCtx({});
+    expect(predicate(ctx)).toBe(true);
+  });
+
+  it("rejects when classroomToken set but no ClassroomResolved event", () => {
+    const ctx = mkCtx({ classroomToken: "abc-123" });
+    expect(predicate(ctx)).toBe(false);
+  });
+
+  it("accepts when classroomToken set AND ClassroomResolved event matches", () => {
+    const ctx = mkCtx({ classroomToken: "abc-123" }, [
+      mkEvent("ClassroomResolved", {
+        classroomToken: "abc-123",
+        classroomName: "Year 9 English",
+      }),
+    ]);
+    expect(predicate(ctx)).toBe(true);
+  });
+
+  it("rejects when ClassroomResolved event has the WRONG token", () => {
+    const ctx = mkCtx({ classroomToken: "abc-123" }, [
+      mkEvent("ClassroomResolved", {
+        classroomToken: "different-token",
+        classroomName: "Year 9 English",
+      }),
+    ]);
+    expect(predicate(ctx)).toBe(false);
+  });
+});
+
 // ── Helpers ────────────────────────────────────────────────────────
 
 interface Event {

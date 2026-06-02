@@ -47,7 +47,17 @@ function newChatSessionId(): string {
   return `cs-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function EnrollmentChat() {
+export interface EnrollmentChatProps {
+  /**
+   * Classroom join token from /intake/enrollment-crawcus/[token]. When
+   * present, bootstrap resolves it via /api/join/:token and binds the
+   * enrolment to that classroom. When absent, the chat runs as a
+   * platform-level demo with no classroom binding.
+   */
+  readonly classroomToken?: string;
+}
+
+export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
   const [boot, setBoot] = useState<BootstrapState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -62,7 +72,11 @@ export function EnrollmentChat() {
         const res = await fetch("/api/intake/bootstrap", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ chatSessionId, specKey: "EnrollmentIntake" }),
+          body: JSON.stringify({
+            chatSessionId,
+            specKey: "EnrollmentIntake",
+            classroomToken,
+          }),
         });
         if (!res.ok) {
           const text = await res.text().catch(() => `${res.status}`);
@@ -86,7 +100,7 @@ export function EnrollmentChat() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [classroomToken]);
 
   useEffect(() => {
     if (scrollRef.current) {

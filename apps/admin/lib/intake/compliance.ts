@@ -53,6 +53,10 @@ export const compliance: ComplianceManifest = defineCompliance({
     // Internal fields for the Art 22/9 contract gate
     [`${PROJECTION}.processesArt9`]: { pii: "none" },
     [`${PROJECTION}.art9Exemption`]: { pii: "none" },
+
+    // Course routing
+    [`${PROJECTION}.classroomToken`]: { pii: "none" },
+    [`${PROJECTION}.classroomName`]: { pii: "none" },
   },
 
   retention: {

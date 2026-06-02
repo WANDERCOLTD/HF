@@ -16,6 +16,7 @@ import {
   openSession,
   appendEvent,
   appendMessage,
+  setValue,
   PURPOSE,
 } from "@/lib/intake/session-store";
 import type {
@@ -29,6 +30,7 @@ export const dynamic = "force-dynamic";
 const BodySchema = z.object({
   chatSessionId: z.string().min(1).max(120),
   specKey: z.literal("EnrollmentIntake"),
+  classroomToken: z.string().min(1).max(120).optional(),
 });
 
 const INTAKE_KEY = "EnrollmentIntake" as IntentKey;
@@ -90,11 +92,46 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  appendMessage(
-    session,
-    "system",
-    "Welcome. I'll walk you through enrolment — happy for me to start?",
-  );
+  // Resolve classroomToken (Option B routing): call the existing
+  // /api/join/:token endpoint, write classroomToken + classroomName
+  // into session values, emit a ClassroomResolved custom event so the
+  // enrollment.classroom-resolved post-Contract is satisfied.
+  let welcomeMessage =
+    "Welcome. I'll walk you through enrolment — happy for me to start?";
+  if (body.classroomToken) {
+    const origin = req.nextUrl.origin;
+    const joinRes = await fetch(`${origin}/api/join/${body.classroomToken}`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    if (!joinRes.ok) {
+      return NextResponse.json(
+        { error: "Invalid or expired classroom token" },
+        { status: 404 },
+      );
+    }
+    const joinData = (await joinRes.json()) as {
+      ok?: boolean;
+      classroom?: { name?: string; domain?: string };
+    };
+    const classroomName = joinData.classroom?.name ?? body.classroomToken;
+    setValue(session, "classroomToken", body.classroomToken);
+    setValue(session, "classroomName", classroomName);
+    appendEvent(session, {
+      kind: "ClassroomResolved" as never,
+      payload: {
+        classroomToken: body.classroomToken,
+        classroomName,
+        resolvedAt: new Date().toISOString(),
+      },
+      lawfulBasis: "contract",
+      purpose: PURPOSE.courseDelivery,
+      dataSubjectIds: [subjectId],
+    });
+    welcomeMessage = `Welcome — you're enrolling in "${classroomName}". I'll walk you through the rest. Happy for me to start?`;
+  }
+
+  appendMessage(session, "system", welcomeMessage);
 
   return NextResponse.json({
     intentId: session.intentId,

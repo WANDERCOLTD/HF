@@ -8,10 +8,11 @@ import { describe, it, expect } from "vitest";
 import { EnrollmentIntake } from "@/lib/intake/specs/enrollment.intent";
 
 describe("EnrollmentIntake spec", () => {
-  it("declares the locked taxonomy of 9 fields", () => {
+  it("declares the locked taxonomy of 9 user fields + Art 9 + classroom internals", () => {
     const keys = Object.keys(EnrollmentIntake.fields).sort();
     expect(keys).toEqual(
       [
+        // 9 user-facing
         "firstName",
         "lastName",
         "email",
@@ -21,8 +22,12 @@ describe("EnrollmentIntake spec", () => {
         "marketingOptIn",
         "accessibilityNote",
         "ageRange",
+        // Art 9 gate machinery (internal)
         "processesArt9",
         "art9Exemption",
+        // Classroom routing (internal — populated by bootstrap)
+        "classroomToken",
+        "classroomName",
       ].sort(),
     );
   });
@@ -43,10 +48,10 @@ describe("EnrollmentIntake spec", () => {
     expect(EnrollmentIntake.readiness(ctx)).toBe(false);
   });
 
-  it("declares 3 pre + 2 invariant + 1 post Contracts (per AC #4)", () => {
+  it("declares 3 pre + 2 invariant + 2 post Contracts (post #7 added for classroom routing)", () => {
     expect(EnrollmentIntake.contracts?.pre?.length).toBe(3);
     expect(EnrollmentIntake.contracts?.invariants?.length).toBe(2);
-    expect(EnrollmentIntake.contracts?.post?.length).toBe(1);
+    expect(EnrollmentIntake.contracts?.post?.length).toBe(2);
   });
 
   it("Contract ids include the locked Phase 1 set", () => {

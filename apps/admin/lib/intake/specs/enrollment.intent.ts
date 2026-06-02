@@ -131,6 +131,15 @@ export const EnrollmentIntake: CrawcusSpec = defineCrawcusSpec({
     // when `accessibilityNote` is non-empty.
     processesArt9: field.boolean().optional().defaultValue(false),
     art9Exemption: field.string().optional(),
+
+    // ── Course routing (Option B from PR-993 thread) ──────────────
+    // classroomToken comes from the URL path (/intake/enrollment-crawcus/[token]).
+    // Bootstrap resolves it via /api/join/:token and writes classroomName.
+    // Enrolment without a token is permitted (platform-level demo) — the
+    // enrollment.classroom-resolved Contract is post-condition and only
+    // fires when classroomToken is set.
+    classroomToken: field.string().optional(),
+    classroomName: field.string().optional(),
   },
 
   readiness: (ctx: unknown) => {
@@ -204,6 +213,25 @@ export const EnrollmentIntake: CrawcusSpec = defineCrawcusSpec({
       //    Art 14 implementation; the post-Contract asserts oversight
       //    happened on the AI-mediated events.
       humanOversight(),
+
+      // 7. Classroom-resolved — IF classroomToken is set, a
+      //    ClassroomResolved custom event must exist on the log
+      //    (proves the token was validated via /api/join/:token).
+      defineContract({
+        id: "enrollment.classroom-resolved",
+        description: {
+          en: "If classroomToken is set, the token must have been validated and a ClassroomResolved event written.",
+        },
+        predicate: ({ value, eventsOfKind }) => {
+          const token = value<string>("classroomToken");
+          if (!token) return true; // platform-level demo path
+          const resolved = eventsOfKind("ClassroomResolved" as never);
+          return resolved.some((e) => {
+            const payload = e.payload as { classroomToken?: string } | undefined;
+            return payload?.classroomToken === token;
+          });
+        },
+      }),
     ],
   },
 });
