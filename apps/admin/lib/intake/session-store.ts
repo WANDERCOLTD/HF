@@ -33,7 +33,6 @@ import type {
   ProjectionName,
   Purpose,
   SubjectId,
-  TenantId,
   Tenant,
   Actor,
 } from "./tallyseal";

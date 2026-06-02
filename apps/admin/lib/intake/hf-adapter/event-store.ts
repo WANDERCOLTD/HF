@@ -42,7 +42,6 @@ export async function ensureMigrated(): Promise<void> {
     const result = await applyMigrations(prisma as unknown as PrismaClientLike);
     migrationsAppliedAt = new Date();
     if (process.env.NODE_ENV !== "production") {
-      // eslint-disable-next-line no-console
       console.log(
         `[intake] tallyseal migrations: ${result.applied.length} applied, ${result.skipped.length} skipped`,
       );

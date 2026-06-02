@@ -18,8 +18,6 @@ function predicateById(id: string): (ctx: unknown) => boolean {
   return c.predicate as (ctx: unknown) => boolean;
 }
 
-const noEvents = () => [];
-
 describe("enrollment.adult-only Contract", () => {
   const predicate = predicateById("enrollment.adult-only");
 
