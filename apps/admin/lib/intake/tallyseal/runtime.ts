@@ -38,6 +38,7 @@ export {
 } from "@tallyseal/core";
 
 export type {
+  AIPolicy,
   AIPort,
   AIRequest,
   AIResponse,
