@@ -1,0 +1,412 @@
+{
+    "bundleVersion": "0.1.0",
+    "chainProof": {
+        "entries": [
+            {
+                "contentHash": "ed07830a43409e961e8f89889899ec42d2c7dfd05c495f56e96384243c227be2",
+                "eventId": "evt-d7af35c4-ba5f-46e3-9fa5-920e7b915d79",
+                "prevHash": "0000000000000000000000000000000000000000000000000000000000000000",
+                "version": 1
+            },
+            {
+                "contentHash": "d4cda0fec0ecca2600bfd59805ac599000e7bdf8d405d958ac8e07a5116c0abd",
+                "eventId": "evt-1e601017-f00a-43f1-afcc-467035c0cfe0",
+                "prevHash": "ed07830a43409e961e8f89889899ec42d2c7dfd05c495f56e96384243c227be2",
+                "version": 2
+            },
+            {
+                "contentHash": "b7a2411151d9ec73cefae64d36a1489c0ca81924d695c3ac10b13b4525545dbf",
+                "eventId": "evt-028d1b68-9602-4e03-bb46-149387b85d7b",
+                "prevHash": "d4cda0fec0ecca2600bfd59805ac599000e7bdf8d405d958ac8e07a5116c0abd",
+                "version": 3
+            },
+            {
+                "contentHash": "6f6721e34d08b86fdbcdcb5d65733c110c41a4b5707da13aaf3c8f1ae0b28966",
+                "eventId": "evt-237d8ba9-8ea7-451f-b9fd-797f98b9a8c7",
+                "prevHash": "b7a2411151d9ec73cefae64d36a1489c0ca81924d695c3ac10b13b4525545dbf",
+                "version": 4
+            },
+            {
+                "contentHash": "53ef0d99017dcab841faa32139b82eaa9e9240cb38d47ec0b660a74574046811",
+                "eventId": "evt-870b4e1a-5de7-40a3-b6c3-9aac88183459",
+                "prevHash": "6f6721e34d08b86fdbcdcb5d65733c110c41a4b5707da13aaf3c8f1ae0b28966",
+                "version": 5
+            },
+            {
+                "contentHash": "24847293eb45eef51c78ec178339e5ebeeb82808f3bc015cc2d6e69a7d011279",
+                "eventId": "evt-5cdd727a-762c-4e1d-a55b-1f07aeda5d0e",
+                "prevHash": "53ef0d99017dcab841faa32139b82eaa9e9240cb38d47ec0b660a74574046811",
+                "version": 6
+            },
+            {
+                "contentHash": "011ec193ec721c9d969adaa7c04bc47aa84c6595d99e109e125d51e588d9512a",
+                "eventId": "evt-073fa12b-7332-468d-96d7-ea0fc6a9c302",
+                "prevHash": "24847293eb45eef51c78ec178339e5ebeeb82808f3bc015cc2d6e69a7d011279",
+                "version": 7
+            },
+            {
+                "contentHash": "35056a5acc03d7a5f376e06a4b0acdcd5f843fb1324fde0921ca6f5b85f17327",
+                "eventId": "evt-c4ed4450-ac9f-4794-b471-09dc21b42ed3",
+                "prevHash": "011ec193ec721c9d969adaa7c04bc47aa84c6595d99e109e125d51e588d9512a",
+                "version": 8
+            },
+            {
+                "contentHash": "2f5b4097c024e911b840f7f1f747f6bac455e5b884fca3a14d31d52be720b124",
+                "eventId": "evt-ee0e15cc-abb9-4a24-8125-69cceb7e76ea",
+                "prevHash": "35056a5acc03d7a5f376e06a4b0acdcd5f843fb1324fde0921ca6f5b85f17327",
+                "version": 9
+            }
+        ],
+        "genesisPrevHash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "intentId": "intent-7cf267d7-d5d5-439d-8d51-f0d000e82d34",
+        "length": 9
+    },
+    "compliance": {
+        "ai": {
+            "allowedModels": [
+                "claude-opus-4-7",
+                "claude-sonnet-4-6"
+            ],
+            "costCeilingPerIntent": {
+                "amount": 0.5,
+                "currency": "usd"
+            },
+            "promptTemplateVersion": "v0.1.0-DRAFT"
+        },
+        "dpoContact": "dpo@humanfirstfoundation.com",
+        "fields": {
+            "IntakeApplication.accessibilityNote": {
+                "pii": "sensitive",
+                "retention": "P3Y"
+            },
+            "IntakeApplication.address": {
+                "pii": "personal",
+                "retention": "P7Y"
+            },
+            "IntakeApplication.ageRange": {
+                "pii": "personal"
+            },
+            "IntakeApplication.art9Exemption": {
+                "pii": "none"
+            },
+            "IntakeApplication.classroomName": {
+                "pii": "none"
+            },
+            "IntakeApplication.classroomToken": {
+                "pii": "none"
+            },
+            "IntakeApplication.dateOfBirth": {
+                "pii": "personal",
+                "retention": "P7Y"
+            },
+            "IntakeApplication.email": {
+                "pii": "personal",
+                "retention": "P7Y"
+            },
+            "IntakeApplication.fullName": {
+                "pii": "personal",
+                "retention": "P7Y"
+            },
+            "IntakeApplication.ipAddress": {
+                "pii": "personal",
+                "retention": "P1Y"
+            },
+            "IntakeApplication.marketingOptIn": {
+                "pii": "none"
+            },
+            "IntakeApplication.phone": {
+                "pii": "personal",
+                "retention": "P7Y"
+            },
+            "IntakeApplication.preferredContactMethod": {
+                "pii": "none"
+            },
+            "IntakeApplication.processesArt9": {
+                "pii": "none"
+            },
+            "IntakeApplication.timezone": {
+                "pii": "none"
+            }
+        },
+        "lawfulBasis": {
+            "default": "contract",
+            "perPurpose": {
+                "ai-tutor-mediation": "contract",
+                "art9-disability-disclosure": "consent",
+                "course-delivery": "contract",
+                "marketing-opt-in": "consent",
+                "tos-acceptance": "contract"
+            }
+        },
+        "regulations": [
+            "gdpr@2025-Q1",
+            "eu-ai-act@2026-Q2"
+        ],
+        "residency": {
+            "aiProvider": {
+                "endpoint": "https://api.anthropic.com",
+                "provider": "anthropic"
+            },
+            "crossBorderTransfers": "permit-with-log",
+            "eventStore": "europe-west2",
+            "piiVault": "europe-west2",
+            "region": "europe-west2"
+        },
+        "retention": {
+            "default": "P7Y",
+            "events": "P10Y",
+            "pii": {
+                "personal": "P7Y",
+                "sensitive": "P3Y",
+                "special": "P1Y"
+            }
+        }
+    },
+    "events": [
+        {
+            "actor": {
+                "id": "intake-anon-fixture-2026-06-02",
+                "kind": "human"
+            },
+            "contentHash": "ed07830a43409e961e8f89889899ec42d2c7dfd05c495f56e96384243c227be2",
+            "dataSubjectIds": [
+                "intake-subject-fixture-2026-06-02"
+            ],
+            "id": "evt-d7af35c4-ba5f-46e3-9fa5-920e7b915d79",
+            "intentId": "intent-7cf267d7-d5d5-439d-8d51-f0d000e82d34",
+            "kind": "DisclosureDelivered",
+            "lawfulBasis": "contract",
+            "payload": {
+                "contentHash": "2a392c272f09678e9d98aea311cd9cf208379b6451d998e77c5af5e6016c3c8a",
+                "controller": "HumanFirst Foundation",
+                "deliveredAt": "2026-06-02T21:10:32.172Z",
+                "locale": "en",
+                "requirementId": "gdpr.art13.privacy-notice",
+                "status": "DRAFT",
+                "version": "0.1.0"
+            },
+            "prevHash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "purpose": "course-delivery",
+            "tenantId": "hf-default",
+            "timestamp": "2026-06-02T21:10:32.172Z",
+            "version": 1
+        },
+        {
+            "actor": {
+                "id": "intake-anon-fixture-2026-06-02",
+                "kind": "human"
+            },
+            "contentHash": "d4cda0fec0ecca2600bfd59805ac599000e7bdf8d405d958ac8e07a5116c0abd",
+            "dataSubjectIds": [
+                "intake-subject-fixture-2026-06-02"
+            ],
+            "id": "evt-1e601017-f00a-43f1-afcc-467035c0cfe0",
+            "intentId": "intent-7cf267d7-d5d5-439d-8d51-f0d000e82d34",
+            "kind": "DisclosureDelivered",
+            "lawfulBasis": "contract",
+            "payload": {
+                "contentHash": "5fd1f97248103252c4a14c3737202e22f32a14b11aace298ece61361c95dcac9",
+                "controller": "HumanFirst Foundation",
+                "deliveredAt": "2026-06-02T21:10:32.184Z",
+                "locale": "en",
+                "requirementId": "eu-ai-act.art50.ai-interaction-disclosure",
+                "status": "DRAFT",
+                "version": "0.1.0"
+            },
+            "prevHash": "ed07830a43409e961e8f89889899ec42d2c7dfd05c495f56e96384243c227be2",
+            "purpose": "course-delivery",
+            "tenantId": "hf-default",
+            "timestamp": "2026-06-02T21:10:32.184Z",
+            "version": 2
+        },
+        {
+            "actor": {
+                "id": "intake-anon-fixture-2026-06-02",
+                "kind": "human"
+            },
+            "contentHash": "b7a2411151d9ec73cefae64d36a1489c0ca81924d695c3ac10b13b4525545dbf",
+            "dataSubjectIds": [
+                "intake-subject-fixture-2026-06-02"
+            ],
+            "id": "evt-028d1b68-9602-4e03-bb46-149387b85d7b",
+            "intentId": "intent-7cf267d7-d5d5-439d-8d51-f0d000e82d34",
+            "kind": "CapturedTurn",
+            "lawfulBasis": "contract",
+            "payload": {
+                "content": "Sarah",
+                "role": "user"
+            },
+            "prevHash": "d4cda0fec0ecca2600bfd59805ac599000e7bdf8d405d958ac8e07a5116c0abd",
+            "purpose": "course-delivery",
+            "tenantId": "hf-default",
+            "timestamp": "2026-06-02T21:10:32.253Z",
+            "version": 3
+        },
+        {
+            "actor": {
+                "id": "intake-anon-fixture-2026-06-02",
+                "kind": "human"
+            },
+            "contentHash": "6f6721e34d08b86fdbcdcb5d65733c110c41a4b5707da13aaf3c8f1ae0b28966",
+            "dataSubjectIds": [
+                "intake-subject-fixture-2026-06-02"
+            ],
+            "id": "evt-237d8ba9-8ea7-451f-b9fd-797f98b9a8c7",
+            "intentId": "intent-7cf267d7-d5d5-439d-8d51-f0d000e82d34",
+            "kind": "CapturedTurn",
+            "lawfulBasis": "contract",
+            "payload": {
+                "content": "Thanks. And your last name?",
+                "role": "assistant"
+            },
+            "prevHash": "b7a2411151d9ec73cefae64d36a1489c0ca81924d695c3ac10b13b4525545dbf",
+            "purpose": "course-delivery",
+            "tenantId": "hf-default",
+            "timestamp": "2026-06-02T21:10:32.254Z",
+            "version": 4
+        },
+        {
+            "actor": {
+                "id": "intake-anon-fixture-2026-06-02",
+                "kind": "human"
+            },
+            "contentHash": "53ef0d99017dcab841faa32139b82eaa9e9240cb38d47ec0b660a74574046811",
+            "dataSubjectIds": [
+                "intake-subject-fixture-2026-06-02"
+            ],
+            "id": "evt-870b4e1a-5de7-40a3-b6c3-9aac88183459",
+            "intentId": "intent-7cf267d7-d5d5-439d-8d51-f0d000e82d34",
+            "kind": "CapturedTurn",
+            "lawfulBasis": "contract",
+            "payload": {
+                "content": "Wright",
+                "role": "user"
+            },
+            "prevHash": "6f6721e34d08b86fdbcdcb5d65733c110c41a4b5707da13aaf3c8f1ae0b28966",
+            "purpose": "course-delivery",
+            "tenantId": "hf-default",
+            "timestamp": "2026-06-02T21:10:32.323Z",
+            "version": 5
+        },
+        {
+            "actor": {
+                "id": "intake-anon-fixture-2026-06-02",
+                "kind": "human"
+            },
+            "contentHash": "24847293eb45eef51c78ec178339e5ebeeb82808f3bc015cc2d6e69a7d011279",
+            "dataSubjectIds": [
+                "intake-subject-fixture-2026-06-02"
+            ],
+            "id": "evt-5cdd727a-762c-4e1d-a55b-1f07aeda5d0e",
+            "intentId": "intent-7cf267d7-d5d5-439d-8d51-f0d000e82d34",
+            "kind": "CapturedTurn",
+            "lawfulBasis": "contract",
+            "payload": {
+                "content": "What email should we use for this enrolment?",
+                "role": "assistant"
+            },
+            "prevHash": "53ef0d99017dcab841faa32139b82eaa9e9240cb38d47ec0b660a74574046811",
+            "purpose": "course-delivery",
+            "tenantId": "hf-default",
+            "timestamp": "2026-06-02T21:10:32.323Z",
+            "version": 6
+        },
+        {
+            "actor": {
+                "id": "intake-anon-fixture-2026-06-02",
+                "kind": "human"
+            },
+            "contentHash": "011ec193ec721c9d969adaa7c04bc47aa84c6595d99e109e125d51e588d9512a",
+            "dataSubjectIds": [
+                "intake-subject-fixture-2026-06-02"
+            ],
+            "id": "evt-073fa12b-7332-468d-96d7-ea0fc6a9c302",
+            "intentId": "intent-7cf267d7-d5d5-439d-8d51-f0d000e82d34",
+            "kind": "CapturedTurn",
+            "lawfulBasis": "contract",
+            "payload": {
+                "content": "sarah@example.com",
+                "role": "user"
+            },
+            "prevHash": "24847293eb45eef51c78ec178339e5ebeeb82808f3bc015cc2d6e69a7d011279",
+            "purpose": "course-delivery",
+            "tenantId": "hf-default",
+            "timestamp": "2026-06-02T21:10:32.382Z",
+            "version": 7
+        },
+        {
+            "actor": {
+                "id": "intake-anon-fixture-2026-06-02",
+                "kind": "human"
+            },
+            "contentHash": "35056a5acc03d7a5f376e06a4b0acdcd5f843fb1324fde0921ca6f5b85f17327",
+            "dataSubjectIds": [
+                "intake-subject-fixture-2026-06-02"
+            ],
+            "id": "evt-c4ed4450-ac9f-4794-b471-09dc21b42ed3",
+            "intentId": "intent-7cf267d7-d5d5-439d-8d51-f0d000e82d34",
+            "kind": "CapturedTurn",
+            "lawfulBasis": "contract",
+            "payload": {
+                "content": "Got it. That's everything I need \u2014 submitting your enrolment now. You'll get a confirmation email shortly.",
+                "role": "assistant"
+            },
+            "prevHash": "011ec193ec721c9d969adaa7c04bc47aa84c6595d99e109e125d51e588d9512a",
+            "purpose": "course-delivery",
+            "tenantId": "hf-default",
+            "timestamp": "2026-06-02T21:10:32.382Z",
+            "version": 8
+        },
+        {
+            "actor": {
+                "id": "intake-anon-fixture-2026-06-02",
+                "kind": "human"
+            },
+            "contentHash": "2f5b4097c024e911b840f7f1f747f6bac455e5b884fca3a14d31d52be720b124",
+            "dataSubjectIds": [
+                "intake-subject-fixture-2026-06-02"
+            ],
+            "id": "evt-ee0e15cc-abb9-4a24-8125-69cceb7e76ea",
+            "intentId": "intent-7cf267d7-d5d5-439d-8d51-f0d000e82d34",
+            "kind": "ProjectionCommit",
+            "lawfulBasis": "contract",
+            "payload": {
+                "projection": "IntakeApplication",
+                "snapshot": {
+                    "email": "sarah@example.com",
+                    "firstName": "Sarah",
+                    "lastName": "Wright"
+                }
+            },
+            "prevHash": "35056a5acc03d7a5f376e06a4b0acdcd5f843fb1324fde0921ca6f5b85f17327",
+            "purpose": "course-delivery",
+            "tenantId": "hf-default",
+            "timestamp": "2026-06-02T21:10:32.382Z",
+            "version": 9
+        }
+    ],
+    "generatedAt": "2026-06-02T21:10:32.574Z",
+    "intent": {
+        "createdAt": "2026-06-02T21:10:32.162Z",
+        "id": "intent-7cf267d7-d5d5-439d-8d51-f0d000e82d34",
+        "key": "EnrollmentIntake",
+        "snapshot": {
+            "email": "sarah@example.com",
+            "firstName": "Sarah",
+            "lastName": "Wright"
+        },
+        "specVersion": 1,
+        "state": "committed",
+        "tenantId": "hf-default",
+        "updatedAt": "2026-06-02T21:10:32.382Z"
+    },
+    "spec": {
+        "classification": "standard",
+        "key": "EnrollmentIntake",
+        "version": 1
+    },
+    "tenant": {
+        "id": "hf-default",
+        "region": "europe-west2"
+    }
+}

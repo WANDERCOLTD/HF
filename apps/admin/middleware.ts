@@ -7,9 +7,9 @@ import { getRequiredRole, hasRequiredRole } from "@/lib/page-roles";
 // For database sessions, we can only check cookie existence here
 // Full session validation happens in server components via auth()
 
-const publicRoutes = ["/login", "/login/verify", "/login/error", "/invite", "/join"];
+const publicRoutes = ["/login", "/login/verify", "/login/error", "/invite", "/join", "/intake"];
 // Routes that handle their own auth (webhooks, external APIs)
-const apiTokenRoutes = ["/api/auth", "/api/vapi", "/api/webhook", "/api/invite", "/api/join", "/api/health", "/api/ready", "/api/system/readiness", "/api/system/db-target"];
+const apiTokenRoutes = ["/api/auth", "/api/vapi", "/api/webhook", "/api/invite", "/api/join", "/api/health", "/api/ready", "/api/system/readiness", "/api/system/db-target", "/api/intake"];
 
 // Internal API secret for server-to-server calls (bypasses session check)
 // No fallback — if unset, internal-secret bypass is disabled (fail-closed)
