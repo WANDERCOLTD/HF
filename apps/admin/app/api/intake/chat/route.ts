@@ -114,7 +114,15 @@ export async function POST(req: NextRequest) {
   });
   appendMessage(session, "assistant", assistantReply);
 
-  // 4. If interview reached terminal state, emit ProjectionCommit.
+  // 4. If interview reached terminal state, emit ProjectionCommit + (if
+  //    classroomToken set) compute a redirectUrl that hands the learner
+  //    off to HF's existing /join/[token] page with the captured values
+  //    pre-filled. That page auto-submits when URL params include all
+  //    three fields → calls /api/join POST → mints session → creates
+  //    Caller + CallerPlaybook → redirects to the student dashboard.
+  //    Zero new auth/cookie-mint logic; reuses the battle-tested join
+  //    flow.
+  let redirectUrl: string | null = null;
   if (extraction.commit) {
     appendEvent(session, {
       kind: "ProjectionCommit",
@@ -124,6 +132,17 @@ export async function POST(req: NextRequest) {
       dataSubjectIds: [subjectId],
     });
     session.state = "committed";
+
+    const classroomToken = session.values.classroomToken as string | undefined;
+    if (classroomToken) {
+      const firstName = session.values.firstName as string | undefined;
+      const lastName = session.values.lastName as string | undefined;
+      const email = session.values.email as string | undefined;
+      if (firstName && lastName && email) {
+        const params = new URLSearchParams({ firstName, lastName, email });
+        redirectUrl = `/join/${classroomToken}?${params.toString()}`;
+      }
+    }
   }
 
   return NextResponse.json({
@@ -131,6 +150,7 @@ export async function POST(req: NextRequest) {
     suggestions: [],
     values: session.values,
     messages: session.messages,
+    redirectUrl,
   });
 }
 

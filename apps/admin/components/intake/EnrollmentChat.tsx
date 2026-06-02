@@ -152,6 +152,15 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
             }
           : b,
       );
+      // On commit with a classroom-bound URL, hand off to HF's existing
+      // /join/[token] page which auto-submits when firstName + lastName +
+      // email are URL params. That path mints the session + creates the
+      // Caller + redirects to the student dashboard — zero new auth
+      // logic in this component.
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+        return;
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to send message");
     } finally {
@@ -315,4 +324,5 @@ interface ChatTurnPayload {
   readonly suggestions: readonly Suggestion[];
   readonly values: Readonly<Record<string, unknown>>;
   readonly messages: readonly ChatMessage[];
+  readonly redirectUrl?: string | null;
 }
