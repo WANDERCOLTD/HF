@@ -133,8 +133,10 @@ export const EnrollmentIntake: CrawcusSpec = defineCrawcusSpec({
     art9Exemption: field.string().optional(),
   },
 
-  readiness: ({ has }: { has: (...keys: string[]) => boolean }) =>
-    has("firstName", "lastName", "email"),
+  readiness: (ctx: unknown) => {
+    const { has } = ctx as { has: (...keys: string[]) => boolean };
+    return has("firstName", "lastName", "email");
+  },
 
   contracts: {
     pre: [
