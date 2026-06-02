@@ -16,6 +16,7 @@ import {
   openSession,
   appendEvent,
   appendMessage,
+  PURPOSE,
 } from "@/lib/intake/session-store";
 import type {
   IntentKey,
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
         deliveredAt: new Date().toISOString(),
       },
       lawfulBasis: "contract",
-      purpose: "course-delivery",
+      purpose: PURPOSE.courseDelivery,
       dataSubjectIds: [subjectId],
     });
   }

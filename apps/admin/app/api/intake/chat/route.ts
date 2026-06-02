@@ -16,6 +16,7 @@ import {
   appendEvent,
   appendMessage,
   setValue,
+  PURPOSE,
 } from "@/lib/intake/session-store";
 import type {
   IntentId,
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     kind: "CapturedTurn",
     payload: { role: "user", content: userMessage },
     lawfulBasis: "contract",
-    purpose: "course-delivery",
+    purpose: PURPOSE.courseDelivery,
     dataSubjectIds: [subjectId],
   });
   appendMessage(session, "user", userMessage);
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
     kind: "CapturedTurn",
     payload: { role: "assistant", content: assistantReply.content },
     lawfulBasis: "contract",
-    purpose: "course-delivery",
+    purpose: PURPOSE.courseDelivery,
     dataSubjectIds: [subjectId],
   });
   appendMessage(session, "assistant", assistantReply.content);
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
       kind: "ProjectionCommit",
       payload: { projection: session.projection, snapshot: session.values },
       lawfulBasis: "contract",
-      purpose: "course-delivery",
+      purpose: PURPOSE.courseDelivery,
       dataSubjectIds: [subjectId],
     });
     session.state = "committed";

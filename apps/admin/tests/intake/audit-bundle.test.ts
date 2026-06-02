@@ -40,6 +40,7 @@ import {
   appendEvent,
   appendMessage,
   setValue,
+  PURPOSE,
   __resetSessionStore,
 } from "@/lib/intake/session-store";
 import { composeBundleFromSession } from "@/lib/intake/audit-bundle";
@@ -82,14 +83,14 @@ describe("End-to-end audit bundle composition", () => {
       kind: "DisclosureDelivered",
       payload: { requirementId: "gdpr.art13.privacy-notice" },
       lawfulBasis: "contract",
-      purpose: "course-delivery",
+      purpose: PURPOSE.courseDelivery,
       dataSubjectIds: [SUBJECT],
     });
     appendEvent(session, {
       kind: "DisclosureDelivered",
       payload: { requirementId: "eu-ai-act.art50.ai-interaction-disclosure" },
       lawfulBasis: "contract",
-      purpose: "ai-tutor-mediation",
+      purpose: PURPOSE.aiTutorMediation,
       dataSubjectIds: [SUBJECT],
     });
 
@@ -97,7 +98,7 @@ describe("End-to-end audit bundle composition", () => {
       kind: "CapturedTurn",
       payload: { role: "user", content: "Sarah" },
       lawfulBasis: "contract",
-      purpose: "course-delivery",
+      purpose: PURPOSE.courseDelivery,
       dataSubjectIds: [SUBJECT],
     });
     setValue(session, "firstName", "Sarah");
@@ -107,7 +108,7 @@ describe("End-to-end audit bundle composition", () => {
       kind: "CapturedTurn",
       payload: { role: "user", content: "Wright" },
       lawfulBasis: "contract",
-      purpose: "course-delivery",
+      purpose: PURPOSE.courseDelivery,
       dataSubjectIds: [SUBJECT],
     });
     setValue(session, "lastName", "Wright");
@@ -117,7 +118,7 @@ describe("End-to-end audit bundle composition", () => {
       kind: "CapturedTurn",
       payload: { role: "user", content: "sarah@example.com" },
       lawfulBasis: "contract",
-      purpose: "course-delivery",
+      purpose: PURPOSE.courseDelivery,
       dataSubjectIds: [SUBJECT],
     });
     setValue(session, "email", "sarah@example.com");
@@ -130,7 +131,7 @@ describe("End-to-end audit bundle composition", () => {
         snapshot: { firstName: "Sarah", lastName: "Wright", email: "sarah@example.com" },
       },
       lawfulBasis: "contract",
-      purpose: "course-delivery",
+      purpose: PURPOSE.courseDelivery,
       dataSubjectIds: [SUBJECT],
     });
     session.state = "committed";
@@ -167,7 +168,7 @@ describe("End-to-end audit bundle composition", () => {
         kind: "CapturedTurn",
         payload: { role: "user", content: `message ${i}` },
         lawfulBasis: "contract",
-        purpose: "course-delivery",
+        purpose: PURPOSE.courseDelivery,
         dataSubjectIds: [SUBJECT],
       });
     }

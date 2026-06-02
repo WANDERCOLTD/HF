@@ -23,17 +23,21 @@ import {
 
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 
+// process.env.NODE_ENV is typed readonly under recent TS; mutate via
+// the parent object cast so we can flip envs in tests.
+const ENV = process.env as Record<string, string | undefined>;
+
 afterEach(() => {
   if (ORIGINAL_NODE_ENV === undefined) {
-    delete process.env.NODE_ENV;
+    delete ENV.NODE_ENV;
   } else {
-    process.env.NODE_ENV = ORIGINAL_NODE_ENV;
+    ENV.NODE_ENV = ORIGINAL_NODE_ENV;
   }
 });
 
 describe("DisclosureContentPort — production safety belt", () => {
   beforeEach(() => {
-    process.env.NODE_ENV = "test";
+    ENV.NODE_ENV = "test";
   });
 
   it("loads the GDPR Art 13 placeholder in dev/test", async () => {
@@ -57,7 +61,7 @@ describe("DisclosureContentPort — production safety belt", () => {
   });
 
   it("REFUSES to deliver DRAFT copy when NODE_ENV=production", async () => {
-    process.env.NODE_ENV = "production";
+    ENV.NODE_ENV = "production";
     await expect(
       loadDisclosureCopy("gdpr.art13.privacy-notice"),
     ).rejects.toBeInstanceOf(DraftCopyInProductionError);

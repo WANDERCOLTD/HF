@@ -102,6 +102,16 @@ export interface AppendInput<TPayload> {
   readonly consentEventId?: EventId;
 }
 
+// Phase 1 Purpose constants — brand-cast once here, callers consume.
+// Keeps the `as Purpose` cast in a single location.
+export const PURPOSE = {
+  courseDelivery: "course-delivery" as Purpose,
+  aiTutorMediation: "ai-tutor-mediation" as Purpose,
+  marketingOptIn: "marketing-opt-in" as Purpose,
+  tosAcceptance: "tos-acceptance" as Purpose,
+  art9DisabilityDisclosure: "art9-disability-disclosure" as Purpose,
+} as const;
+
 /**
  * Append a tallyseal Event to the session log with valid hash-chain
  * linkage. This is a simplified analog of @tallyseal/core's
