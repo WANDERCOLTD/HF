@@ -47,6 +47,18 @@ function newChatSessionId(): string {
   return `cs-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+// Date round-trip: JSON.stringify turns Date → ISO string, so events
+// arrive at the client with timestamp:string. The tallyseal components
+// (TallysealActivityTray, etc.) call `event.timestamp.getTime()`, so
+// we rehydrate before storing in state.
+function rehydrateEvents(events: readonly Event[]): Event[] {
+  return events.map((e) => {
+    const ts = (e as unknown as { timestamp: unknown }).timestamp;
+    if (ts instanceof Date) return e as Event;
+    return { ...e, timestamp: new Date(ts as string | number) } as Event;
+  });
+}
+
 export interface EnrollmentChatProps {
   /**
    * Classroom join token from /intake/enrollment-crawcus/[token]. When
@@ -87,7 +99,7 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
         setBoot({
           intentId: data.intentId,
           chatSessionId,
-          events: data.events,
+          events: rehydrateEvents(data.events),
           suggestions: data.suggestions,
           values: data.values,
           messages: data.messages ?? [],
@@ -133,7 +145,7 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
         b
           ? {
               ...b,
-              events: data.events,
+              events: rehydrateEvents(data.events),
               suggestions: data.suggestions,
               values: data.values,
               messages: data.messages,
