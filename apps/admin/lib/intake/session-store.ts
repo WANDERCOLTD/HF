@@ -23,6 +23,7 @@ import type {
   ActorId,
   ContentHash,
   Event,
+  EventAIProvenance,
   EventId,
   EventKind,
   HashChainProof,
@@ -111,6 +112,8 @@ export interface AppendInput<TPayload> {
   readonly purpose: Purpose;
   readonly dataSubjectIds: readonly SubjectId[];
   readonly consentEventId?: EventId;
+  /** AI provenance — attach to events that result from an AI call. */
+  readonly ai?: EventAIProvenance;
 }
 
 // Phase 1 Purpose constants — brand-cast once here, callers consume.
@@ -155,6 +158,7 @@ export function appendEvent<TPayload>(
     consentEventId: input.consentEventId ?? null,
     prevHash,
     payload: input.payload,
+    ai: input.ai ?? null,
   };
   const contentHash = sha256Hex(canonicalJSON(hashable)) as ContentHash;
 
@@ -174,7 +178,7 @@ export function appendEvent<TPayload>(
     prevHash,
     contentHash,
     payload: input.payload,
-    ai: undefined,
+    ai: input.ai,
     correlationId: undefined,
     causationId: undefined,
   } as unknown as Event;
