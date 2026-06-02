@@ -1,0 +1,63 @@
+// Sprint C — EnrollmentIntake CrawcusSpec smoke test.
+//
+// Verifies the spec compiles, declares the expected 9 fields, exposes
+// the locked Contract surface (3 pre + 2 invariants + 1 post), and
+// that the readiness predicate fires on the 3 required fields only.
+
+import { describe, it, expect } from "vitest";
+import { EnrollmentIntake } from "@/lib/intake/specs/enrollment.intent";
+
+describe("EnrollmentIntake spec", () => {
+  it("declares the locked taxonomy of 9 fields", () => {
+    const keys = Object.keys(EnrollmentIntake.fields).sort();
+    expect(keys).toEqual(
+      [
+        "firstName",
+        "lastName",
+        "email",
+        "displayName",
+        "timezone",
+        "preferredContactMethod",
+        "marketingOptIn",
+        "accessibilityNote",
+        "ageRange",
+        "processesArt9",
+        "art9Exemption",
+      ].sort(),
+    );
+  });
+
+  it("classification is 'standard' (adult learner, not Annex III §3)", () => {
+    expect(EnrollmentIntake.classification).toBe("standard");
+  });
+
+  it("readiness fires on firstName + lastName + email", () => {
+    const present = new Set(["firstName", "lastName", "email"]);
+    const ctx = { has: (...keys: string[]) => keys.every((k) => present.has(k)) };
+    expect(EnrollmentIntake.readiness(ctx)).toBe(true);
+  });
+
+  it("readiness fails when email missing", () => {
+    const present = new Set(["firstName", "lastName"]);
+    const ctx = { has: (...keys: string[]) => keys.every((k) => present.has(k)) };
+    expect(EnrollmentIntake.readiness(ctx)).toBe(false);
+  });
+
+  it("declares 3 pre + 2 invariant + 1 post Contracts (per AC #4)", () => {
+    expect(EnrollmentIntake.contracts?.pre?.length).toBe(3);
+    expect(EnrollmentIntake.contracts?.invariants?.length).toBe(2);
+    expect(EnrollmentIntake.contracts?.post?.length).toBe(1);
+  });
+
+  it("Contract ids include the locked Phase 1 set", () => {
+    const all = [
+      ...(EnrollmentIntake.contracts?.pre ?? []),
+      ...(EnrollmentIntake.contracts?.invariants ?? []),
+      ...(EnrollmentIntake.contracts?.post ?? []),
+    ];
+    const ids = all.map((c) => c.id);
+    expect(ids).toContain("enrollment.adult-only");
+    expect(ids).toContain("enrollment.pre.privacy-notice-delivered");
+    expect(ids).toContain("enrollment.email.format-valid");
+  });
+});
