@@ -520,7 +520,15 @@ export async function computeSharedState(
   const sessionCount = pbConfig.sessionCount as number | undefined;
   let moduleAttemptCounts: SharedComputedState["moduleAttemptCounts"] = undefined;
   let hasAttemptData = false;
-  if (pbConfig.modulesAuthored === true && curriculumId && data.caller?.id) {
+  // #1008 (I-C5) — pre-fix, this branch was gated on `pbConfig.modulesAuthored === true`,
+  // which silently downgraded every course without that authoring-era flag to
+  // the `estimatedProgress = recentCalls.length / 2` heuristic below — even
+  // when CallerModuleProgress rows existed. Courses created via the
+  // quickstart/analyze lane (and any pre-mirror courses) never had the flag
+  // set, so the actual learner state was invisible to the composer. Now reads
+  // whenever a curriculumId is in scope; the heuristic at line ~558 stays as
+  // debug-only state.
+  if (curriculumId && data.caller?.id) {
     try {
       const rows = await prisma.callerModuleProgress.findMany({
         where: {
@@ -544,24 +552,49 @@ export async function computeSharedState(
         if (row.callCount > 0) hasAttemptData = true;
       }
       console.log(
-        `[modules] #266: loaded ${rows.length} CallerModuleProgress rows; hasAttemptData=${hasAttemptData}`,
+        `[modules] #266 + #1008: loaded ${rows.length} CallerModuleProgress rows; hasAttemptData=${hasAttemptData}`,
       );
     } catch (err) {
       console.warn("[modules] #266: callerModuleProgress query failed (non-blocking):", err);
     }
   }
 
-  // Estimate progress: if no explicit tracking, assume ~1 module per 2 calls
+  // #1008 (I-C5) — `estimatedProgress` is the legacy call-count heuristic.
+  // Retained for trace-debugging and the `coveredModules` legacy consumer in
+  // computeModuleProgress, but it is NO LONGER the primary driver of
+  // `lastCompletedIndex`. The Maya case (#1006) is exactly the failure:
+  // 2 prior calls → estimatedProgress=1 → lastCompletedIndex=0 → modules[0]
+  // = Part 1, even though her single CallerModuleProgress row is on Part 2.
   const estimatedProgress = completedModules.size > 0
     ? completedModules.size
     : Math.min(Math.floor(data.recentCalls.length / 2), modules.length - 1);
 
-  // Find last completed module index
-  const lastCompletedIndex = completedModules.size > 0
-    ? Math.max(...modules.map((m: ModuleData, i: number) =>
-        completedModules.has(m.slug || m.id || '') ? i : -1
-      ))
-    : Math.max(0, estimatedProgress - 1);
+  // #1008 — three-layer derivation, in priority order:
+  //   1. If any module passed the mastery gate (`completedModules`), pick the
+  //      highest such index. Same as before.
+  //   2. Else if `moduleAttemptCounts` has any row with callCount > 0, pick
+  //      the highest index among modules the learner has actually touched —
+  //      irrespective of whether that row hit the mastery threshold yet.
+  //      This is the Maya path: she has a CallerModuleProgress on part2
+  //      (mastery 0.59, callCount 6) below threshold but the lock must point
+  //      there, not back to part1.
+  //   3. Else fall through to the heuristic (legacy behaviour for callers
+  //      with no DB rows at all).
+  let lastCompletedIndex: number;
+  if (completedModules.size > 0) {
+    lastCompletedIndex = Math.max(...modules.map((m: ModuleData, i: number) =>
+      completedModules.has(m.slug || m.id || '') ? i : -1
+    ));
+  } else if (moduleAttemptCounts) {
+    const touchedIndex = Math.max(...modules.map((m: ModuleData, i: number) => {
+      const key = m.slug || m.id || '';
+      const counts = moduleAttemptCounts?.[key];
+      return counts && counts.callCount > 0 ? i : -1;
+    }));
+    lastCompletedIndex = touchedIndex >= 0 ? touchedIndex : Math.max(0, estimatedProgress - 1);
+  } else {
+    lastCompletedIndex = Math.max(0, estimatedProgress - 1);
+  }
 
   // Module to review — gated on real evidence of prior activity (any of:
   // a completed module, a CallerModuleProgress row with callCount > 0, or any
@@ -679,6 +712,19 @@ export async function computeSharedState(
         `[modules] #274: requestedModuleId "${requestedModuleId}" not found in Playbook.config.modules — falling back to scheduler.`,
       );
     }
+  }
+
+  // #1008 (I-C1) — Module-lock honoured.
+  // When `lockedModule` is set (either DB-id or authored-id path above), it
+  // MUST drive every downstream "what session is this?" decision — including
+  // `moduleToReview`. Pre-fix, `moduleToReview` was assigned 100 lines above
+  // from `modules[lastCompletedIndex]` and never re-evaluated against the
+  // lock. Maya's #1006 hallucination is exactly that: lockedModule=part2 but
+  // moduleToReview still pointed at modules[0]=part1, so pedagogy.flow told
+  // the AI to spaced-retrieve a module the learner had never touched.
+  let moduleToReviewFinal: ModuleData | null = moduleToReview;
+  if (lockedModule) {
+    moduleToReviewFinal = lockedModule;
   }
 
   // Run scheduler ONLY when no locked module is in effect.
@@ -996,7 +1042,8 @@ export async function computeSharedState(
     completedModules,
     estimatedProgress,
     lastCompletedIndex,
-    moduleToReview,
+    // #1008 (I-C1) — emit the lock-aware value, not the heuristic-driven one.
+    moduleToReview: moduleToReviewFinal,
     nextModule,
     reviewType,
     reviewReason,

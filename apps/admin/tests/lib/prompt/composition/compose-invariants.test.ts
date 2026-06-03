@@ -317,11 +317,15 @@ describe("Compose invariants — Maya IELTS hallucination fixture (#1006 / #1008
   // I-C4 No generic-noun fallback in instructions
   // ---------------------------------------------------
   describe("I-C4 No generic-noun fallback in instructions", () => {
+    // Only phrases that EXCLUSIVELY appear as fallbacks for missing module
+    // names. Legitimate principle text like "review before new material" is
+    // out of scope for the runtime check — the ESLint rule
+    // hf-compose/no-orphan-instruction-fallback pins the build-time pattern
+    // (`${x?.name || "..."}`) regardless of context.
     const FORBIDDEN_FALLBACKS = [
       "previous concept",
       "next concept",
       "first concept",
-      "new material",
     ];
 
     it("computeSessionPedagogy emits no generic-noun fallback strings", async () => {
