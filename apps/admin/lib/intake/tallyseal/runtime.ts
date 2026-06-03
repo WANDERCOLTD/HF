@@ -37,6 +37,18 @@ export {
   PII_MARKER_PATTERN,
 } from "@tallyseal/core";
 
+// AI tool-use runtime helpers (items 12+13). Imported directly from
+// crawcus-spec — @tallyseal/core does not re-export these.
+export {
+  computeJsonHash,
+  validateToolName,
+  isValidToolName,
+  validateJsonSchemaShape,
+  STOP_REASONS,
+  MAX_TOOL_NAME_LENGTH,
+  RESERVED_TOOL_NAME_PREFIXES,
+} from "@tallyseal/crawcus-spec";
+
 export type {
   AIPolicy,
   AIPort,
