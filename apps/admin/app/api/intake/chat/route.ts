@@ -125,16 +125,14 @@ export async function POST(req: NextRequest) {
   const aiPort = getIntakeAIPort();
   let assistantReply: string;
   let provenance: EventAIProvenance | undefined;
-  let captured: readonly CapturedField[] = [];
   if (aiPort) {
     const result = await callAI(aiPort, session, userMessage);
     assistantReply = result.text;
     provenance = result.provenance;
-    captured = applyToolCalls(session, result.toolCalls);
+    applyToolCalls(session, result.toolCalls);
   } else {
     const stubResult = stubExtractAndReply(session, userMessage);
     assistantReply = stubResult.reply;
-    captured = stubResult.captured;
   }
 
   appendEvent(session, {
