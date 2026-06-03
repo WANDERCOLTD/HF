@@ -133,10 +133,41 @@ describe("computeSessionPedagogy — #790 firstCallMode branching", () => {
     });
     const plan = transform(null, ctx, STUB_SECTION) as PedagogyPlan;
     expect(plan.sessionType).toBe("RETURNING_CALLER");
-    // Flow is from the returning-caller branch ("Reconnect - reference last session...")
-    expect(plan.flow.join("\n")).toMatch(/reconnect/i);
+    // #1008 (I-C3) — fixture has `memories: []` and no priorCallFeedback, so
+    // the "Reconnect — reference last session" step is suppressed by the
+    // memory-less reminisce gate (no prior session exists to reference).
+    // The branch-selection signal we actually want to pin here is
+    // sessionType + the absence of FIRST_CALL onboarding markers, not the
+    // word "Reconnect". See chain-contracts.md Link 3 sub-contract
+    // COMPOSE→LLM I-C3.
+    const flowText = plan.flow.join("\n");
+    expect(flowText).not.toMatch(/welcome & set expectations/i);
+    expect(flowText).not.toMatch(/probe existing knowledge/i);
+    expect(flowText.length).toBeGreaterThan(0);
     // ONBOARDING MODE phases must NOT be populated.
     expect(plan.firstCallPhases).toBeUndefined();
+  });
+
+  it("'teach_immediately' mode WITH prior memories → keeps Reconnect step", () => {
+    // #1008 (I-C3) — when the educator opts call 1 into returning-caller
+    // mode AND there is real evidence (CallerMemory rows or
+    // priorCallFeedback.hasFeedback), the Reconnect step IS emitted.
+    // Evidence is the gate, not session number.
+    const ctx = makeContext({
+      firstCallMode: "teach_immediately",
+      hasCurriculum: true,
+    });
+    ctx.loadedData.memories = [
+      {
+        id: "mem-1",
+        type: "CONTEXT",
+        content: "Prior context fragment.",
+        createdAt: new Date(),
+      },
+    ] as unknown as typeof ctx.loadedData.memories;
+    const plan = transform(null, ctx, STUB_SECTION) as PedagogyPlan;
+    expect(plan.sessionType).toBe("RETURNING_CALLER");
+    expect(plan.flow.join("\n")).toMatch(/reconnect/i);
   });
 
   it("'baseline_assessment' mode → sessionType=BASELINE with diagnostic flow", () => {

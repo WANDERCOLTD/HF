@@ -429,6 +429,85 @@ const counters: CounterDefinition[] = [
       return count;
     },
   },
+
+  /* #1006 / #1008 — generic-noun fallbacks reaching the ComposedPrompt body */
+  {
+    key: "composeGenericNounFallbackCount",
+    story: "#1008",
+    kind: "invariant",
+    target: 0,
+    description:
+      "Count of ACTIVE ComposedPrompt rows whose `prompt` markdown contains a generic-noun fallback phrase ('previous concept' / 'next concept' / 'first concept'). Catches the I-C4 anti-pattern (chain-contracts.md Link 3 → COMPOSE→LLM). The build-time ESLint rule hf-compose/no-orphan-instruction-fallback prevents new sites; this counter measures how many already-composed prompts in the DB still carry the pattern. When this reads 0 for ≥7 days, the ESLint rule severity escalates from `warn` to `error`.",
+    query: async () => {
+      const rows = await prisma.$queryRaw<Array<{ count: bigint }>>`
+        SELECT COUNT(*)::bigint AS count
+        FROM "ComposedPrompt"
+        WHERE status = 'active'
+          AND (
+            prompt ILIKE '%previous concept%'
+            OR prompt ILIKE '%next concept%'
+            OR prompt ILIKE '%first concept%'
+          )
+      `;
+      return Number(rows[0]?.count ?? 0);
+    },
+  },
+
+  /* #1006 / #1008 — memory-less reminisce reaching the ComposedPrompt body */
+  {
+    key: "composeMemorylessReminisceCount",
+    story: "#1008",
+    kind: "invariant",
+    target: 0,
+    description:
+      "Count of ACTIVE ComposedPrompt rows where the prompt markdown contains a reminisce-class imperative ('reference last session', 'as we covered', 'pick up where we left off', 'remember from before', 'reference the learning journey so far') AND the caller has zero CallerMemory rows in the playbook's domain. Catches the I-C3 anti-pattern (#1006 Maya): the AI is told to reference history that doesn't exist, so it fabricates. When this reads 0 for ≥7 days, the runtime invariant runner's I-C3 severity escalates from `warn` to `error`.",
+    query: async () => {
+      const rows = await prisma.$queryRaw<Array<{ count: bigint }>>`
+        SELECT COUNT(*)::bigint AS count
+        FROM "ComposedPrompt" cp
+        WHERE cp.status = 'active'
+          AND (
+            cp.prompt ILIKE '%reference last session%'
+            OR cp.prompt ILIKE '%as we covered%'
+            OR cp.prompt ILIKE '%pick up where we left off%'
+            OR cp.prompt ILIKE '%remember from before%'
+            OR cp.prompt ILIKE '%reference the learning journey so far%'
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM "CallerMemory" cm WHERE cm."callerId" = cp."callerId"
+          )
+      `;
+      return Number(rows[0]?.count ?? 0);
+    },
+  },
+
+  /* #1006 / #1008 — call-counter incoherence within a single prompt */
+  {
+    key: "composeCallCounterIncoherent",
+    story: "#1008",
+    kind: "invariant",
+    target: 0,
+    description:
+      "Count of ACTIVE ComposedPrompt rows whose `prompt` body contains two or more DIFFERENT `(call #N)` references. Catches the I-C2 anti-pattern: quickstart.this_caller and offboarding/session_pedagogy disagree about which call this is (Maya #1006: prompt labelled itself '(call #2)' while being used inside call 3). Implemented via a regex scan in Node rather than SQL because Postgres regex extraction is verbose; this counter therefore loads the prompt column. Safe at the current scale (low thousands of active prompts); revisit if total grows past ~50k.",
+    query: async () => {
+      const rows = await prisma.$queryRaw<Array<{ prompt: string }>>`
+        SELECT prompt FROM "ComposedPrompt" WHERE status = 'active' AND prompt IS NOT NULL
+      `;
+      const callRefRegex = /\bcall\s*#\s*(\d+)\b/gi;
+      let count = 0;
+      for (const row of rows) {
+        if (!row.prompt) continue;
+        const distinct = new Set<number>();
+        let m: RegExpExecArray | null;
+        while ((m = callRefRegex.exec(row.prompt))) {
+          const n = Number(m[1]);
+          if (Number.isFinite(n)) distinct.add(n);
+        }
+        if (distinct.size > 1) count++;
+      }
+      return count;
+    },
+  },
 ];
 
 /* ---------------------------------------------------------------------- */

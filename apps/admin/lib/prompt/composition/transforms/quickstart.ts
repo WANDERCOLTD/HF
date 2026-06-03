@@ -253,7 +253,15 @@ registerTransform("computeQuickStart", (
           : "Light assessment: occasional check-in questions and gentle comprehension checks"
       : null,
 
-    this_caller: `${caller?.name ?? caller?.id ?? "anonymous"} (call #${loadedData.callCount || 1})`,
+    // #1008 (I-C2) — Call-counter coherence. Pre-fix used `loadedData.callCount || 1`,
+    // which (a) read the count of ENDED prior calls (so the prompt-used-in-call-N
+    // labelled itself "(call #N-1)" — Maya's #1006 had "(call #2)" inside her call 3),
+    // and (b) used `|| 1` so callCount=0 collapsed into "(call #1)" indistinguishable
+    // from a genuine first call. `sharedState.callNumber` is the canonical value
+    // (= data.callCount + 1) and is used everywhere else in the prompt — this line
+    // now matches, eliminating the same-prompt drift between this_caller and the
+    // offboarding_guidance "This is call N" string.
+    this_caller: `${caller?.name ?? caller?.id ?? "anonymous"} (call #${callNumber ?? 1})`,
 
     cohort_context: (() => {
       // Prefer multi-cohort memberships, fall back to legacy single cohort

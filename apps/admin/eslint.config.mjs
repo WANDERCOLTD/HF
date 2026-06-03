@@ -7,6 +7,7 @@ import noDirectDomainOnboardingWrite from "./eslint-rules/no-direct-domain-onboa
 import noDirectSpecConfigWrite from "./eslint-rules/no-direct-spec-config-write.mjs";
 import noAiFanoutAll from "./eslint-rules/no-ai-fanout-all.mjs";
 import noAiForbiddenFields from "./eslint-rules/no-ai-forbidden-fields.mjs";
+import noOrphanInstructionFallback from "./eslint-rules/no-orphan-instruction-fallback.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -96,6 +97,16 @@ const eslintConfig = defineConfig([
           "no-forbidden-fields": noAiForbiddenFields,
         },
       },
+      // #1006 / #1008 — block generic-noun fallbacks for missing module/LO
+      // names in prompt-composition transforms (Maya IELTS hallucination
+      // class). Drop the line via conditional spread instead of emitting
+      // "previous concept" / "next concept" / "first concept" etc. See
+      // chain-contracts.md Link 3 → COMPOSE→LLM I-C4.
+      "hf-compose": {
+        rules: {
+          "no-orphan-instruction-fallback": noOrphanInstructionFallback,
+        },
+      },
     },
     rules: {
       "hf-curriculum/no-unscoped-slug-lookup": "error",
@@ -104,6 +115,10 @@ const eslintConfig = defineConfig([
       "hf-spec/no-direct-config-write": "error",
       "hf-recompose/no-ai-fanout-all": "error",
       "hf-ai-tools/no-forbidden-fields": "error",
+      // Lands as `warn` so commits 4-6 land cleanly. Promoted to `error`
+      // once `composeGenericNounFallbackCount` reads 0 in dev/test/prod for
+      // ≥7 days (per the chain-contract severity-escalation path).
+      "hf-compose/no-orphan-instruction-fallback": "warn",
     },
   },
   // Enforce config+metering for ALL AI calls (no raw client usage)
