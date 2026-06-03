@@ -132,9 +132,9 @@ export const EnrollmentIntake: CrawcusSpec = defineCrawcusSpec({
 
     ageRange: field
       .enum(AGE_BAND_VALUES)
-      .optional()
+      .required()
       .label({ en: "Age range" })
-      .askHint({ en: "Roughly what age band are you in?" }),
+      .askHint({ en: "Roughly what age band are you in? (You can say 'prefer not to say'.)" }),
 
     // ── Internal — Art 9 gate machinery ───────────────────────────
     // Populated by the spec's reducer / AI tool layer (not user input)
@@ -154,7 +154,7 @@ export const EnrollmentIntake: CrawcusSpec = defineCrawcusSpec({
 
   readiness: (ctx: unknown) => {
     const { has } = ctx as { has: (...keys: string[]) => boolean };
-    return has("firstName", "lastName", "email");
+    return has("firstName", "lastName", "email", "ageRange");
   },
 
   contracts: {

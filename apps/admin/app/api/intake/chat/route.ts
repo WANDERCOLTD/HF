@@ -55,28 +55,28 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // claude-opus-4-7 + claude-sonnet-4-6 — keep this list in step with
 // lib/intake/compliance.ts ai.allowedModels.
 const INTAKE_MODEL = "claude-sonnet-4-6";
-const INTAKE_PROMPT_VERSION = "intake/v0.3.0-DRAFT";
+const INTAKE_PROMPT_VERSION = "intake/v0.4.0-DRAFT";
 const INTAKE_MAX_COST_USD = 0.5; // == compliance.ai.costCeilingPerIntent
 
 const UPDATE_SETUP_TOOL: ToolDefinition = specToUpdateSetupTool(EnrollmentIntake, {
   excludeFields: INTERNAL_FIELDS,
 });
 
-const SYSTEM_PROMPT = `You are HumanFirst Foundation's enrolment assistant. Politely capture the learner's first name, last name, and email address — and once those are in, optionally collect their age range.
+const SYSTEM_PROMPT = `You are HumanFirst Foundation's enrolment assistant. Politely capture FOUR required values from the learner: first name, last name, age range, and email.
 
 How to capture:
-- When the learner shares one or more field values — even multiple in a single message — call the \`update-setup\` tool with every value they provided. Pass each value under its field key (firstName / lastName / email / displayName / preferredContactMethod / marketingOptIn / accessibilityNote / ageRange / timezone). Omit fields they did not share.
+- When the learner shares one or more field values — even multiple in a single message — call the \`update-setup\` tool with every value they provided. Pass each value under its field key (firstName / lastName / email / ageRange / displayName / preferredContactMethod / marketingOptIn / accessibilityNote / timezone). Omit fields they did not share.
 - Never invent values. Only capture what the learner explicitly stated.
 - Email must look like X@Y.Z. If it doesn't, do not capture it — ask them to try again.
-- For ageRange, accept ONLY one of these exact values: '18-24' / '25-34' / '35-44' / '45-54' / '55-64' / '65-plus' / 'prefer-not-to-say'. (HumanFirst is adult-only; 'under-18' is not valid and the system will reject it.) If the learner gives a specific age (e.g. "I'm 32"), map it to the right band. If they decline or say "prefer not to say", capture 'prefer-not-to-say'.
+- For ageRange, accept ONLY one of these exact values: '18-24' / '25-34' / '35-44' / '45-54' / '55-64' / '65-plus' / 'prefer-not-to-say'. (HumanFirst is adult-only; 'under-18' is not valid and the system will reject it.) If the learner gives a specific age (e.g. "I'm 32"), map it to the right band. If they decline, refuse to say, or ask why, capture 'prefer-not-to-say'.
 
 How to reply (in the same turn as the tool call, when applicable):
 - Be warm, concise, professional. No emoji. No filler.
 - One short sentence per reply.
-- Ask in this order, one field at a time: firstName → lastName → ageRange → email. (Email is asked LAST because the enrolment commits as soon as it's captured.)
+- Ask in this STRICT order, one field at a time: firstName → lastName → ageRange → email. (Email is asked LAST because the enrolment commits as soon as all four required values are in.)
 - If a greeting or affirmation ("hi", "ok", "yes") arrives in place of a name, re-prompt for that name. Do not capture greetings.
-- ageRange is optional. Ask once after lastName; if the learner skips, declines, or asks why, accept it gracefully and move on to email.
-- When all three required fields (firstName, lastName, email) are captured, confirm the enrolment is being submitted and that a confirmation email will follow.`;
+- ageRange is REQUIRED. Do not skip it. After capturing lastName, your next reply MUST ask for the learner's age range. If they decline, capture 'prefer-not-to-say' and then move to email. Do not ask for email before ageRange has a value.
+- When all four required fields (firstName, lastName, ageRange, email) are captured, confirm the enrolment is being submitted and that a confirmation email will follow.`;
 
 const AFFIRMATION_RE = /^(hi|hello|hey|yo|ok|okay|sure|yes|yeah|yep|y|n|no|nope|start)\b[!.,? ]*$/i;
 
@@ -192,7 +192,7 @@ function isReady(values: Record<string, unknown>): boolean {
     const v = values[k];
     return v !== undefined && v !== null && v !== "";
   };
-  return has("firstName") && has("lastName") && has("email");
+  return has("firstName") && has("lastName") && has("email") && has("ageRange");
 }
 
 // ── AI call — passes the `update-setup` tool ───────────────────────

@@ -36,14 +36,20 @@ describe("EnrollmentIntake spec", () => {
     expect(EnrollmentIntake.classification).toBe("standard");
   });
 
-  it("readiness fires on firstName + lastName + email", () => {
-    const present = new Set(["firstName", "lastName", "email"]);
+  it("readiness fires on firstName + lastName + email + ageRange", () => {
+    const present = new Set(["firstName", "lastName", "email", "ageRange"]);
     const ctx = { has: (...keys: string[]) => keys.every((k) => present.has(k)) };
     expect(EnrollmentIntake.readiness(ctx)).toBe(true);
   });
 
   it("readiness fails when email missing", () => {
-    const present = new Set(["firstName", "lastName"]);
+    const present = new Set(["firstName", "lastName", "ageRange"]);
+    const ctx = { has: (...keys: string[]) => keys.every((k) => present.has(k)) };
+    expect(EnrollmentIntake.readiness(ctx)).toBe(false);
+  });
+
+  it("readiness fails when ageRange missing — required so AI must ask", () => {
+    const present = new Set(["firstName", "lastName", "email"]);
     const ctx = { has: (...keys: string[]) => keys.every((k) => present.has(k)) };
     expect(EnrollmentIntake.readiness(ctx)).toBe(false);
   });
