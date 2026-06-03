@@ -17,6 +17,13 @@ export {
   GDPR_VERSION,
   // Article 8 — child consent
   minorConsent,
+  // Age-band invariant factories (regulations-gdpr 0.3.x).
+  // ageBand.adultOnly rejects 'under-18' as snapshot invariant.
+  // AGE_BAND_VALUES is the canonical 8-value tuple to feed field.enum.
+  ageBand,
+  ageBandField,
+  AGE_BAND_VALUES,
+  isMinorBand,
   // Article 22 — solely automated decision-making + Art 9 special-category
   specialCategoryProhibition,
   solelyAutomatedDecision,
@@ -27,6 +34,7 @@ export {
   gdprPersonalDataDefaults,
   gdprSpecialCategoryDefaults,
 } from "@tallyseal/regulations-gdpr";
+export type { AgeBandValue } from "@tallyseal/regulations-gdpr";
 
 // ── EU AI Act ───────────────────────────────────────────────────────
 export {
