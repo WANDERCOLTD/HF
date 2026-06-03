@@ -95,9 +95,25 @@ registerTransform("computeSessionPedagogy", (
     isFirstCall, isFirstCallInDomain,
     modules, moduleToReview, nextModule, reviewType, reviewReason,
     schedulerDecision, callNumber,
+    // #1008 (I-C1) — pedagogy must honour the module lock. When set, the
+    // generic returning-caller flow below switches to a lock-focused branch
+    // that targets the locked module rather than spaced-retrieving an
+    // unrelated module the learner has never touched (Maya #1006).
+    lockedModule,
   } = context.sharedState;
   const domain = context.loadedData.caller?.domain;
   const onboardingSpec = context.loadedData.onboardingSpec;
+
+  // #1008 (I-C3) — evidence gate for memory-less reminisce. When the learner
+  // has no CallerMemory rows AND no prior-call feedback, the AI has nothing
+  // factual to anchor a "reference last session" directive against. Without
+  // this gate, the model fabricates plausible-sounding history (Maya #1006:
+  // "from one minute panic to past 90 seconds").
+  const memoryCount = context.loadedData.memories?.length ?? 0;
+  const priorCallFeedback = (context.sections as Record<string, unknown> | undefined)?.priorCallFeedback as
+    | { hasFeedback?: boolean }
+    | undefined;
+  const hasPriorEvidence = memoryCount > 0 || priorCallFeedback?.hasFeedback === true;
 
   // Detect whether this caller has any curriculum to work with
   const hasTeachingContent = context.sections.teachingContent?.hasTeachingContent === true;
@@ -339,20 +355,27 @@ registerTransform("computeSessionPedagogy", (
       const fbAskKnowledge =
         primaryPlaybook?.config?.welcome?.knowledgeCheck?.enabled ?? true;
 
+      // #1008 (I-C4) — drop the "Introduce foundation" step when there is no
+      // first module to anchor it to. Generic noun "first concept" is a
+      // fabrication invitation.
       if (!fbAskKnowledge) {
         plan.flow = [
           "1. Welcome & set expectations",
-          `2. Introduce foundation: ${firstModule?.name || "first concept"}`,
-          "3. Check understanding with application question",
-          "4. Summarize & preview next session",
+          ...(firstModule
+            ? [`2. Introduce foundation: ${firstModule.name}`]
+            : []),
+          `${firstModule ? 3 : 2}. Check understanding with application question`,
+          `${firstModule ? 4 : 3}. Summarize & preview next session`,
         ];
       } else {
         plan.flow = [
           "1. Welcome & set expectations",
           "2. Probe existing knowledge with open questions",
-          `3. Introduce foundation: ${firstModule?.name || "first concept"}`,
-          "4. Check understanding with application question",
-          "5. Summarize & preview next session",
+          ...(firstModule
+            ? [`3. Introduce foundation: ${firstModule.name}`]
+            : []),
+          `${firstModule ? 4 : 3}. Check understanding with application question`,
+          `${firstModule ? 5 : 4}. Summarize & preview next session`,
         ];
       }
     }
@@ -374,15 +397,26 @@ registerTransform("computeSessionPedagogy", (
       label: `Scheduler: ${mode}`,
     };
 
+    // #1008 (I-C3, I-C4) — local helpers for the scheduler-mode branches:
+    //   • reconnectStep drops "reference last session" when no evidence
+    //   • orStart is used for graceful first-step substitution
+    const reconnectStep = (variant: string): string[] =>
+      hasPriorEvidence ? [`1. Reconnect - ${variant}`] : [];
+    const renumber = (steps: string[]): string[] =>
+      steps.map((s, i) => s.replace(/^\d+\./, `${i + 1}.`));
+
     switch (mode) {
-      case "teach":
-        plan.flow = [
-          "1. Reconnect - reference last session briefly",
-          `2. Preview - orient to today's topic: ${nextModule?.name || "next concept"}`,
-          "3. Introduce - start with concrete examples, build to concepts",
-          "4. Check understanding - application question on new material",
-          "5. Summarize key takeaways",
+      case "teach": {
+        // #1008 (I-C4) — drop the "Preview ${nextModule.name}" step rather
+        // than emit "${... || "next concept"}". Renumber the rest.
+        const steps = [
+          ...reconnectStep("reference last session briefly"),
+          ...(nextModule ? [`Preview - orient to today's topic: ${nextModule.name}`] : []),
+          "Introduce - start with concrete examples, build to concepts",
+          "Check understanding - application question on new material",
+          "Summarize key takeaways",
         ];
+        plan.flow = renumber(steps.map((s, i) => `${i + 1}. ${s}`));
         if (nextModule) {
           plan.newMaterial = {
             module: nextModule.name,
@@ -399,15 +433,17 @@ registerTransform("computeSessionPedagogy", (
           };
         }
         break;
+      }
 
-      case "review":
-        plan.flow = [
-          "1. Reconnect - reference gap since last session",
-          `2. Spaced retrieval (${reviewType}) - recall questions on covered material`,
-          "3. Reinforce or correct based on their responses",
-          "4. Application - use multiple concepts together",
-          "5. Preview what comes next",
+      case "review": {
+        const steps = [
+          ...reconnectStep("reference gap since last session"),
+          `Spaced retrieval (${reviewType}) - recall questions on covered material`,
+          "Reinforce or correct based on their responses",
+          "Application - use multiple concepts together",
+          "Preview what comes next",
         ];
+        plan.flow = renumber(steps.map((s, i) => `${i + 1}. ${s}`));
         if (moduleToReview) {
           plan.reviewFirst = {
             module: moduleToReview.name,
@@ -418,6 +454,7 @@ registerTransform("computeSessionPedagogy", (
           };
         }
         break;
+      }
 
       case "assess":
         plan.flow = [
@@ -429,38 +466,85 @@ registerTransform("computeSessionPedagogy", (
         ];
         break;
 
-      case "practice":
-        plan.flow = [
-          "1. Reconnect - reference the learning journey so far",
-          "2. Synthesize - how do the concepts connect across modules?",
-          "3. Application - integrate multiple concepts in a scenario",
-          "4. Practice harder scenarios and real-world problems",
-          "5. Reflect - learner articulates their own understanding",
+      case "practice": {
+        // #1008 (I-C3) — "reference the learning journey so far" requires
+        // prior evidence to anchor; without it, drop the line.
+        const steps = [
+          ...reconnectStep("reference the learning journey so far"),
+          "Synthesize - how do the concepts connect across modules?",
+          "Application - integrate multiple concepts in a scenario",
+          "Practice harder scenarios and real-world problems",
+          "Reflect - learner articulates their own understanding",
         ];
+        plan.flow = renumber(steps.map((s, i) => `${i + 1}. ${s}`));
         break;
+      }
 
-      default:
-        plan.flow = [
-          "1. Reconnect - reference last session",
-          `2. Review - recall on ${moduleToReview?.name || "previous concept"}`,
-          `3. New material - ${nextModule?.name || "next concept"}`,
-          "4. Integrate old and new",
-          "5. Close with summary and preview",
+      default: {
+        // #1008 (I-C4) — drop the "Review on previous concept" and
+        // "New material - next concept" steps when the data is missing,
+        // rather than emit generic nouns.
+        const steps = [
+          ...reconnectStep("reference last session"),
+          ...(moduleToReview ? [`Review - recall on ${moduleToReview.name}`] : []),
+          ...(nextModule ? [`New material - ${nextModule.name}`] : []),
+          "Integrate old and new",
+          "Close with summary and preview",
         ];
+        plan.flow = renumber(steps.map((s, i) => `${i + 1}. ${s}`));
+      }
     }
 
     console.log(`[pedagogy] Scheduler call ${callNumber}: ${mode}`);
+  } else if (hasCurriculum && lockedModule) {
+    // === LOCKED-MODULE MODE (Maya #1006 path) ===
+    // #1008 (I-C1) — the learner explicitly picked a module to work on, and
+    // the scheduler was bypassed at compose time. We MUST NOT spaced-retrieve
+    // a different module from catalogue order. Focus the flow on the locked
+    // module; only emit reminisce text when there is evidence.
+    plan.sessionType = "LOCKED_MODULE";
+    const lockSteps = [
+      ...(hasPriorEvidence ? ["Reconnect - reference the prior session(s) on this module"] : []),
+      `Anchor - re-establish the goal for ${lockedModule.name}`,
+      `Engage - learner-led attempt on a representative ${lockedModule.name} task`,
+      "Feedback - confirm, refine, or correct based on the attempt",
+      "Close with one specific takeaway and a preview of the next attempt",
+    ];
+    plan.flow = lockSteps.map((s, i) => `${i + 1}. ${s}`);
+
+    if (moduleToReview && moduleToReview.name === lockedModule.name) {
+      plan.reviewFirst = {
+        module: lockedModule.name,
+        reason: reviewReason || "Continuing focused practice on this module",
+        technique: reviewType === "quick_recall"
+          ? "Ask one recall question on the locked module before the attempt"
+          : reviewType === "application"
+            ? "Give a scenario tied to the locked module"
+            : "Re-state the locked module's goal in plain language",
+      };
+    }
+    if (lockedModule.description) {
+      plan.newMaterial = {
+        module: lockedModule.name,
+        approach: `Stay inside ${lockedModule.name}. ${lockedModule.description}`,
+      };
+    }
   } else if (hasCurriculum) {
     // === GENERIC RETURNING CALLER MODE (with curriculum) ===
-    plan.flow = [
-      "1. Reconnect - reference last session specifically",
-      `2. Spaced retrieval (${reviewType}) - recall question on ${moduleToReview?.name || "previous concept"}`,
-      "3. Reinforce or correct based on their recall",
-      `4. Bridge - connect ${moduleToReview?.name || "old"} to ${nextModule?.name || "new material"}`,
-      `5. New material - introduce ${nextModule?.name || "next concept"}`,
-      "6. Integrate - question using both old and new",
-      "7. Close with summary and preview",
+    // #1008 (I-C3, I-C4) — every step here is conditional on real data.
+    // Generic-noun fallbacks dropped; reminisce gated on hasPriorEvidence.
+    const steps = [
+      ...(hasPriorEvidence ? ["Reconnect - reference last session specifically"] : []),
+      ...(moduleToReview ? [`Spaced retrieval (${reviewType}) - recall question on ${moduleToReview.name}`] : []),
+      ...(moduleToReview ? ["Reinforce or correct based on their recall"] : []),
+      ...(moduleToReview && nextModule
+        ? [`Bridge - connect ${moduleToReview.name} to ${nextModule.name}`]
+        : []),
+      ...(nextModule ? [`New material - introduce ${nextModule.name}`] : []),
+      "Integrate - question using available material",
+      "Close with summary and preview",
     ];
+    plan.flow = steps.map((s, i) => `${i + 1}. ${s}`);
 
     if (moduleToReview) {
       plan.reviewFirst = {
@@ -477,14 +561,20 @@ registerTransform("computeSessionPedagogy", (
     if (nextModule) {
       plan.newMaterial = {
         module: nextModule.name,
-        approach: `After confirming ${moduleToReview?.name || "previous"} understanding, introduce ${nextModule.description || "new concepts"}`,
+        // #1008 (I-C4) — when there is no moduleToReview, "previous understanding"
+        // is removed rather than fabricated via a "previous" placeholder.
+        approach: moduleToReview
+          ? `After confirming ${moduleToReview.name} understanding, introduce ${nextModule.description || "new concepts"}`
+          : `Introduce ${nextModule.description || "new concepts"}`,
       };
     }
   } else {
     // === NO CURRICULUM MODE — open conversation, do NOT invent topics ===
     plan.sessionType = "OPEN_CONVERSATION";
     plan.flow = [
-      "1. Reconnect - warmly reference the previous conversation",
+      ...(hasPriorEvidence
+        ? ["1. Reconnect - warmly reference the previous conversation"]
+        : ["1. Welcome - start a fresh conversation"]),
       "2. Ask what they'd like to talk about or work on today",
       "3. Follow the caller's lead - explore their chosen topic",
       "4. Use open questions to deepen the conversation",
