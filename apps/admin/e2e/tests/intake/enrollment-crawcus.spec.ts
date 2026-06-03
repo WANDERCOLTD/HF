@@ -43,7 +43,7 @@ function makeEmail(): string {
 }
 
 test.describe("intake/enrollment-crawcus", () => {
-  test("captures firstName + lastName + email from a single multi-field paste", async ({ page }) => {
+  test("captures all 4 required fields from a single multi-field paste", async ({ page }) => {
     const email = makeEmail();
 
     await page.goto(ROUTE);
@@ -57,21 +57,64 @@ test.describe("intake/enrollment-crawcus", () => {
     await expect(input).toBeEnabled();
     await expect(page.getByTestId("enrollment-chat-thread")).toBeVisible();
 
-    // 3. Send the multi-field paste in one message. With items 12+13
-    //    spec-driven tool calling, the AI should call `update-setup`
-    //    with all three fields populated atomically.
+    // 3. Multi-field paste including ageRange (required after the
+    //    .required() flip). The AI must call update-setup with all
+    //    four required values atomically.
     const sendBtn = page.getByTestId("enrollment-chat-send");
-    await input.fill(`Hello — I'm Peter Jones and my email is ${email}.`);
+    await input.fill(`Hi — I'm Peter Jones, age 32, email ${email}.`);
     await sendBtn.click();
 
-    // 4. Wait for the assistant turn to land + the values panel to
-    //    reflect all three captured fields. We poll the page text
-    //    rather than a specific element because ValuesPanel renders
-    //    captured values as a compact summary list.
+    // 4. Values panel reflects all 4 captured fields. age 32 → '25-34'.
     const valuesPanel = page.locator("body");
     await expect(valuesPanel).toContainText("Peter", { timeout: 30_000 });
     await expect(valuesPanel).toContainText("Jones", { timeout: 30_000 });
     await expect(valuesPanel).toContainText(email, { timeout: 30_000 });
+    await expect(valuesPanel).toContainText("25-34", { timeout: 30_000 });
+  });
+
+  test("step-by-step flow — AI asks for age range after lastName, before email", async ({ page }) => {
+    // This is the test that catches the class of bug "the AI ignored
+    // the system prompt's ask-order instruction". A pure multi-field
+    // paste test would never surface it because the user does the
+    // ordering work itself.
+    const email = makeEmail();
+    await page.goto(ROUTE);
+
+    const input = page.getByTestId("enrollment-chat-input");
+    const sendBtn = page.getByTestId("enrollment-chat-send");
+    await expect(input).toBeEnabled({ timeout: 15_000 });
+
+    // Turn 1 — firstName only.
+    await input.fill("Peter");
+    await sendBtn.click();
+    await expect(page.locator("body")).toContainText("Peter", { timeout: 20_000 });
+
+    // Turn 2 — lastName only. The AI's NEXT reply must mention "age"
+    // (per system prompt v0.4 + bootstrap welcome v0.8.13 onwards) or
+    // ageRange is silently being skipped — the regression class.
+    await expect(input).toBeEnabled({ timeout: 20_000 });
+    await input.fill("Jones");
+    await sendBtn.click();
+    await expect(page.locator("body")).toContainText("Jones", { timeout: 20_000 });
+    // Look for "age" in the assistant's reply. Case-insensitive so
+    // "Age range", "your age band", etc. all match.
+    await expect(page.locator('[data-role="assistant"]').last()).toContainText(/age/i, {
+      timeout: 30_000,
+    });
+
+    // Turn 3 — decline ageRange ("prefer not to say"). The AI should
+    // capture 'prefer-not-to-say' and move to email.
+    await expect(input).toBeEnabled({ timeout: 20_000 });
+    await input.fill("prefer not to say");
+    await sendBtn.click();
+    await expect(page.locator("body")).toContainText("prefer-not-to-say", { timeout: 30_000 });
+
+    // Turn 4 — email. Commit + redirect to /intake/done.
+    await expect(input).toBeEnabled({ timeout: 20_000 });
+    await input.fill(email);
+    await sendBtn.click();
+    await page.waitForURL(/\/intake\/done\?intentId=/, { timeout: 30_000 });
+    await expect(page.locator("body")).toContainText(email);
   });
 
   test("renders the Art 13 disclosure banner with notice text", async ({ page }) => {
@@ -90,7 +133,7 @@ test.describe("intake/enrollment-crawcus", () => {
     await page.goto(ROUTE);
     const input = page.getByTestId("enrollment-chat-input");
     await expect(input).toBeEnabled({ timeout: 15_000 });
-    await input.fill(`I'm Peter Jones and my email is ${email}.`);
+    await input.fill(`I'm Peter Jones, age 32, email ${email}.`);
     await page.getByTestId("enrollment-chat-send").click();
 
     // Wait for the chat client to follow data.redirectUrl → /intake/done?…
