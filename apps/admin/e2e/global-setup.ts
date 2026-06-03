@@ -52,8 +52,10 @@ async function globalSetup(config: FullConfig) {
     await page.locator('#email').fill('admin@test.com');
     await page.locator('#password').fill(password);
 
-    // Submit login form
-    await page.locator('button[type="submit"]').click();
+    // Submit login form — scope to the login form so a stray
+    // chat-send button elsewhere on the page (e.g. intake preview)
+    // doesn't trigger a strict-mode collision.
+    await page.locator('button.login-btn[type="submit"]').click();
     console.log('[Global Setup] Form submitted, waiting for redirect...');
 
     // Wait a moment then check URL
