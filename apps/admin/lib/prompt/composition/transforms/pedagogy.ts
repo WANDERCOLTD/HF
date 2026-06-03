@@ -383,7 +383,11 @@ registerTransform("computeSessionPedagogy", (
     if (firstModule) {
       plan.newMaterial = {
         module: firstModule.name,
-        approach: `Start with ${firstModule.description || "foundational concepts"}. Use concrete examples before abstractions.`,
+        // #1008 (I-C4) — anchor on the module name when description is null;
+        // never emit the generic "foundational concepts" placeholder.
+        approach: firstModule.description
+          ? `Start with ${firstModule.description}. Use concrete examples before abstractions.`
+          : `Start with ${firstModule.name}. Use concrete examples before abstractions.`,
       };
     }
   } else if (schedulerDecision && hasCurriculum) {
@@ -420,7 +424,10 @@ registerTransform("computeSessionPedagogy", (
         if (nextModule) {
           plan.newMaterial = {
             module: nextModule.name,
-            approach: `Introduce ${nextModule.description || "new concepts"}. Lead with examples before definitions.`,
+            // #1008 (I-C4) — anchor on the module name when description is null.
+            approach: nextModule.description
+              ? `Introduce ${nextModule.description}. Lead with examples before definitions.`
+              : `Introduce ${nextModule.name}. Lead with examples before definitions.`,
           };
         }
         if (moduleToReview && nextModule?.name !== moduleToReview.name) {
@@ -561,11 +568,16 @@ registerTransform("computeSessionPedagogy", (
     if (nextModule) {
       plan.newMaterial = {
         module: nextModule.name,
-        // #1008 (I-C4) — when there is no moduleToReview, "previous understanding"
-        // is removed rather than fabricated via a "previous" placeholder.
+        // #1008 (I-C4) — anchor on names when description is null, and drop
+        // the "previous understanding" clause when moduleToReview is null
+        // rather than fabricating a "previous" placeholder.
         approach: moduleToReview
-          ? `After confirming ${moduleToReview.name} understanding, introduce ${nextModule.description || "new concepts"}`
-          : `Introduce ${nextModule.description || "new concepts"}`,
+          ? nextModule.description
+            ? `After confirming ${moduleToReview.name} understanding, introduce ${nextModule.description}`
+            : `After confirming ${moduleToReview.name} understanding, introduce ${nextModule.name}`
+          : nextModule.description
+            ? `Introduce ${nextModule.description}`
+            : `Introduce ${nextModule.name}`,
       };
     }
   } else {
