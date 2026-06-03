@@ -41,6 +41,20 @@ const ART50_REQUIREMENT_ID = "eu-ai-act.art50.ai-interaction-disclosure";
 // value set so ageBand.adultOnly accepts it without coercion.
 const CONTACT_METHOD_VALUES = ["email", "in-app"] as const;
 
+/**
+ * Field keys the learner must NEVER see + the AI must NEVER set —
+ * set by code paths (URL token, bootstrap resolution, derived from
+ * other fields). Single source of truth: imported by the chat route
+ * (excludes from the AI `update-setup` tool) and the chat UI
+ * (filters the IntentForm + ValuesPanel).
+ */
+export const INTERNAL_FIELDS = [
+  "processesArt9",
+  "art9Exemption",
+  "classroomToken",
+  "classroomName",
+] as const;
+
 // Adult-learner basic email pattern. NOT RFC-5322 complete — we use a
 // pragmatic check matching the join form's existing behaviour. Real
 // validation happens server-side via deliverability check (deferred).
