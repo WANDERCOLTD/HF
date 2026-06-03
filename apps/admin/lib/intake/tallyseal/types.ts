@@ -33,6 +33,7 @@ export type {
   ReadinessCtx,
   ReadinessResult,
 
+
   // Events
   Event,
   EventId,
@@ -91,3 +92,31 @@ export type {
   Untainted,
   Brand,
 } from "@tallyseal/core";
+
+// AI tool-use surface (items 12+13, crawcus-spec 0.8.0). Imported
+// directly from crawcus-spec because @tallyseal/core does not
+// re-export the spec-level tool primitives.
+export type {
+  ToolDefinition,
+  ToolCall,
+  ToolCallId,
+  ToolName,
+  ToolResult,
+  ToolResultOk,
+  ToolResultErr,
+  ToolNameValidationError,
+  StopReason,
+  JsonValue,
+  JsonObject,
+  JsonArray,
+  JsonPrimitive,
+  JsonSchema,
+  JsonSchemaNode,
+  JsonSchemaObject,
+  JsonSchemaString,
+  JsonSchemaNumber,
+  JsonSchemaInteger,
+  JsonSchemaBoolean,
+  JsonSchemaArray,
+  JsonSchemaEnum,
+} from "@tallyseal/crawcus-spec";
