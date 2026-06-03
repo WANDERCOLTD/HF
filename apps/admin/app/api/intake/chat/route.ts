@@ -159,16 +159,15 @@ export async function POST(req: NextRequest) {
     });
     session.state = "committed";
 
+    // Always route through /intake/done so the learner can review
+    // the audit trail before continuing. /intake/done passes the
+    // captured fields on to /join/[token] when a token is present
+    // (preserving the existing join flow); the platform-level demo
+    // path (no token) stops at /intake/done with bundle download.
+    const doneParams = new URLSearchParams({ intentId: session.intentId });
     const classroomToken = session.values.classroomToken as string | undefined;
-    if (classroomToken) {
-      const firstName = session.values.firstName as string | undefined;
-      const lastName = session.values.lastName as string | undefined;
-      const email = session.values.email as string | undefined;
-      if (firstName && lastName && email) {
-        const params = new URLSearchParams({ firstName, lastName, email });
-        redirectUrl = `/join/${classroomToken}?${params.toString()}`;
-      }
-    }
+    if (classroomToken) doneParams.set("token", classroomToken);
+    redirectUrl = `/intake/done?${doneParams.toString()}`;
   }
 
   return NextResponse.json({
