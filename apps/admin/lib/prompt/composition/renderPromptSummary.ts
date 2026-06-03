@@ -815,10 +815,17 @@ export function renderPromptSummary(llmPrompt: LLMPrompt): string {
     parts.push("");
   }
 
-  // Call History
+  // Call History — #1010 follow-up (I-C2): use `callHistory.callNumber`
+  // (= callCount + 1, sharedState.callNumber) rather than the ENDED-calls
+  // raw `totalCalls`, so this footer matches the `(call #N)` label in
+  // Quick Start. The `||` was the same off-by-one shape as the original
+  // bug; `?? 1` is the safer nullish-coalesce.
   const history = llmPrompt.callHistory;
   if (history) {
-    parts.push(`---\n*Call #${history.totalCalls || 1} with this caller*`);
+    const footerCallNumber =
+      (history as { callNumber?: number }).callNumber ??
+      (typeof history.totalCalls === "number" ? history.totalCalls + 1 : 1);
+    parts.push(`---\n*Call #${footerCallNumber} with this caller*`);
   }
 
   return parts.join("\n");
