@@ -15,16 +15,31 @@
 // C5 discipline: server-side route handlers do all Anthropic SDK work.
 // This component talks only to /api/intake/* over fetch.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   TallysealBanner,
   TallysealSuggestionRail,
   TallysealIntentForm,
   TallysealActivityTray,
+  type CrawcusSpec,
   type Event,
   type Suggestion,
 } from "@/lib/intake/tallyseal";
-import { EnrollmentIntake } from "@/lib/intake/specs/enrollment.intent";
+import { EnrollmentIntake, INTERNAL_FIELDS } from "@/lib/intake/specs/enrollment.intent";
+
+const ART13_REQUIREMENT_ID = "gdpr.art13.privacy-notice";
+
+// Inline Article 13 notice — minimal DRAFT text. Production should
+// load + render the full mdx from lib/intake/copy/gdpr-art13-privacy.*
+// (which is what the DRAFT-in-production guard refuses), but for the
+// scroll-signal flow we need the SAME text on screen as is hashed.
+const ART13_NOTICE_BODY = `Privacy Notice — Enrolment (DRAFT)
+
+HumanFirst Foundation is the data controller. We collect your name and email so we can identify your account and contact you about the course you're enrolling in (GDPR Art. 6(1)(b) — contract).
+
+We process this information for the purposes of adult-learner enrolment and AI-mediated tutoring. Sub-processor: Anthropic (EU). Retention: 7 years by default.
+
+You can contact our Data Protection Officer at dpo@humanfirstfoundation.com. You have the right to access, rectify, erase, restrict, port, and object to processing of your data, and to lodge a complaint with the ICO.`;
 
 interface ChatMessage {
   readonly role: "user" | "assistant" | "system";
@@ -75,6 +90,18 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
   const [pending, setPending] = useState(false);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Spec passed to TallysealIntentForm + ValuesPanel — drop the 4
+  // internal fields (compliance bookkeeping + classroom routing) so
+  // the learner only sees fields they can populate.
+  const learnerFacingSpec = useMemo<CrawcusSpec>(() => {
+    const filteredFields = Object.fromEntries(
+      Object.entries(EnrollmentIntake.fields).filter(
+        ([k]) => !INTERNAL_FIELDS.includes(k as (typeof INTERNAL_FIELDS)[number]),
+      ),
+    );
+    return { ...EnrollmentIntake, fields: filteredFields };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,7 +210,23 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
   return (
     <div className="intake-grid">
       <section className="hf-flex hf-flex-col hf-gap-md">
-        <TallysealBanner events={[...boot.events]} />
+        <TallysealBanner
+          events={[...boot.events]}
+          requirementId={ART13_REQUIREMENT_ID as never}
+          noticeText={ART13_NOTICE_BODY}
+          onReadSignal={(signal) => {
+            // Fire-and-forget — SIGNAL not gate. Best-effort POST;
+            // failure does not block enrolment progress.
+            void fetch("/api/intake/disclosure-signal", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                intentId: boot.intentId,
+                signal,
+              }),
+            }).catch(() => {});
+          }}
+        />
         <div
           ref={scrollRef}
           className="intake-thread"
@@ -234,7 +277,7 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
       <aside className="hf-flex hf-flex-col hf-gap-md">
         <ValuesPanel values={boot.values} />
         <TallysealIntentForm
-          spec={EnrollmentIntake}
+          spec={learnerFacingSpec}
           suggestions={[...boot.suggestions]}
           values={boot.values}
         />

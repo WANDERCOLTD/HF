@@ -30,7 +30,7 @@ import {
   specToUpdateSetupTool,
   UPDATE_SETUP_TOOL_NAME,
 } from "@/lib/intake/spec-tools";
-import { EnrollmentIntake } from "@/lib/intake/specs/enrollment.intent";
+import { EnrollmentIntake, INTERNAL_FIELDS } from "@/lib/intake/specs/enrollment.intent";
 import type {
   AIPort,
   EventAIProvenance,
@@ -57,16 +57,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const INTAKE_MODEL = "claude-sonnet-4-6";
 const INTAKE_PROMPT_VERSION = "intake/v0.2.0-DRAFT";
 const INTAKE_MAX_COST_USD = 0.5; // == compliance.ai.costCeilingPerIntent
-
-// Fields the AI must NOT propose values for — set by code paths (URL
-// param, bootstrap, derived from other fields) and never by the
-// learner via chat.
-const INTERNAL_FIELDS = [
-  "processesArt9",
-  "art9Exemption",
-  "classroomToken",
-  "classroomName",
-] as const;
 
 const UPDATE_SETUP_TOOL: ToolDefinition = specToUpdateSetupTool(EnrollmentIntake, {
   excludeFields: INTERNAL_FIELDS,
