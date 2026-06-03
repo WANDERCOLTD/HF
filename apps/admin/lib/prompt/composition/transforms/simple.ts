@@ -17,7 +17,7 @@ registerTransform("computeCallHistory", (
   context: AssembledContext,
 ) => {
   const { recentCalls, callCount } = rawData;
-  const { thresholds } = context.sharedState;
+  const { thresholds, callNumber } = context.sharedState;
 
   const callHistory = recentCalls.map((call) => ({
     callId: call.id,
@@ -30,7 +30,13 @@ registerTransform("computeCallHistory", (
   }));
 
   return {
+    // #1010 follow-up (I-C2) — expose the canonical compose-time
+    // call number alongside the raw ENDED-calls total. Footer
+    // renderers (renderPromptSummary.ts) prefer `callNumber` so the
+    // `*Call #N with this caller*` line matches Quick Start's
+    // `(call #N)` label. `totalCalls` retained for back-compat.
     totalCalls: callCount,
+    callNumber: callNumber ?? callCount + 1,
     mostRecent: callHistory[0] || null,
     recent: callHistory.slice(0, 3),
   };
