@@ -227,6 +227,15 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
             }).catch(() => {});
           }}
         />
+        {/* Disclosure body — kept in step with TallysealBanner.noticeText
+            so the SHA-256 contentHash on the emitted DisclosureSignal
+            matches what the learner reads. TallysealBanner renders
+            event-chips only; the actual notice text must be surfaced
+            here for the read-signal to mean anything. */}
+        <details className="intake-notice" data-testid="intake-art13-notice">
+          <summary>Privacy Notice (GDPR Art. 13) — click to expand</summary>
+          <pre className="intake-notice-body">{ART13_NOTICE_BODY}</pre>
+        </details>
         <div
           ref={scrollRef}
           className="intake-thread"
