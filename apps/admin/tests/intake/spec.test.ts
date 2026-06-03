@@ -48,9 +48,9 @@ describe("EnrollmentIntake spec", () => {
     expect(EnrollmentIntake.readiness(ctx)).toBe(false);
   });
 
-  it("declares 3 pre + 2 invariant + 2 post Contracts (post #7 added for classroom routing)", () => {
-    expect(EnrollmentIntake.contracts?.pre?.length).toBe(3);
-    expect(EnrollmentIntake.contracts?.invariants?.length).toBe(2);
+  it("declares 2 pre + 3 invariant + 2 post Contracts (adult-only moved to invariants via regulations-gdpr 0.3.x ageBand.adultOnly)", () => {
+    expect(EnrollmentIntake.contracts?.pre?.length).toBe(2);
+    expect(EnrollmentIntake.contracts?.invariants?.length).toBe(3);
     expect(EnrollmentIntake.contracts?.post?.length).toBe(2);
   });
 
@@ -61,7 +61,7 @@ describe("EnrollmentIntake spec", () => {
       ...(EnrollmentIntake.contracts?.post ?? []),
     ];
     const ids = all.map((c) => c.id);
-    expect(ids).toContain("enrollment.adult-only");
+    expect(ids).toContain("gdpr.ageBand.adultOnly");
     expect(ids).toContain("enrollment.pre.privacy-notice-delivered");
     expect(ids).toContain("enrollment.email.format-valid");
   });

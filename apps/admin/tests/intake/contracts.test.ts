@@ -1,7 +1,8 @@
 // Sprint C — Contract predicate behaviour tests.
 //
 // Each test exercises ONE Contract by constructing the minimal ctx
-// it needs. Reads adult-only, privacy-notice-delivered, email-format
+// it needs. Reads gdpr.ageBand.adultOnly (regulations-gdpr 0.3.x),
+// enrollment.pre.privacy-notice-delivered, enrollment.email.format-valid
 // from EnrollmentIntake.
 
 import { describe, it, expect } from "vitest";
@@ -18,8 +19,8 @@ function predicateById(id: string): (ctx: unknown) => boolean {
   return c.predicate as (ctx: unknown) => boolean;
 }
 
-describe("enrollment.adult-only Contract", () => {
-  const predicate = predicateById("enrollment.adult-only");
+describe("gdpr.ageBand.adultOnly Contract", () => {
+  const predicate = predicateById("gdpr.ageBand.adultOnly");
 
   it("rejects ageRange='under-18'", () => {
     const ctx = mkCtx({ ageRange: "under-18" });

@@ -15,6 +15,8 @@ import {
   defineContract,
   field,
   // GDPR
+  ageBand,
+  AGE_BAND_VALUES,
   specialCategoryProhibition,
   // EU AI Act
   humanOversight,
@@ -32,17 +34,11 @@ const PROJECTION = "IntakeApplication" as ProjectionName;
 const ART13_REQUIREMENT_ID = "gdpr.art13.privacy-notice";
 const ART50_REQUIREMENT_ID = "eu-ai-act.art50.ai-interaction-disclosure";
 
-const AGE_RANGE_VALUES = [
-  "under-18",
-  "18-24",
-  "25-34",
-  "35-44",
-  "45-54",
-  "55-64",
-  "65-plus",
-  "prefer-not-to-say",
-] as const;
-
+// AGE_BAND_VALUES is re-exported from @tallyseal/regulations-gdpr via
+// the boundary facade. Identical tuple shape to the prior local
+// AGE_RANGE_VALUES — kept the `ageRange` field name to avoid
+// disturbing existing data, but bound to the canonical regulation
+// value set so ageBand.adultOnly accepts it without coercion.
 const CONTACT_METHOD_VALUES = ["email", "in-app"] as const;
 
 // Adult-learner basic email pattern. NOT RFC-5322 complete — we use a
@@ -121,7 +117,7 @@ export const EnrollmentIntake: CrawcusSpec = defineCrawcusSpec({
       }),
 
     ageRange: field
-      .enum(AGE_RANGE_VALUES)
+      .enum(AGE_BAND_VALUES)
       .optional()
       .label({ en: "Age range" })
       .askHint({ en: "Roughly what age band are you in?" }),
@@ -149,20 +145,7 @@ export const EnrollmentIntake: CrawcusSpec = defineCrawcusSpec({
 
   contracts: {
     pre: [
-      // 1. Adult-only — rejects under-18 selection. Provides Phase 1
-      //    rejection-path coverage; emits ContractViolation event.
-      defineContract({
-        id: "enrollment.adult-only",
-        description: {
-          en: "Enrolment is restricted to learners 18 and over. Selecting 'under-18' rejects the application before commit.",
-        },
-        predicate: ({ value }) => {
-          const age = value<string>("ageRange");
-          return age !== "under-18";
-        },
-      }),
-
-      // 2. GDPR Art 13 — privacy notice must be delivered before any
+      // 1. GDPR Art 13 — privacy notice must be delivered before any
       //    field-capturing turn fires.
       defineContract({
         id: "enrollment.pre.privacy-notice-delivered",
@@ -178,7 +161,7 @@ export const EnrollmentIntake: CrawcusSpec = defineCrawcusSpec({
         },
       }),
 
-      // 3. EU AI Act Art 50(1) — AI-interaction disclosure must be
+      // 2. EU AI Act Art 50(1) — AI-interaction disclosure must be
       //    delivered before any AI-mediated turn fires.
       aiInteractionDisclosure({
         disclosureRequirementId: ART50_REQUIREMENT_ID,
@@ -186,6 +169,17 @@ export const EnrollmentIntake: CrawcusSpec = defineCrawcusSpec({
     ],
 
     invariants: [
+      // 3. Adult-only — snapshot must never contain ageRange === 'under-18'.
+      //    Regulation-pack factory (regulations-gdpr 0.3.x ageBand.adultOnly)
+      //    replaces the prior home-grown enrollment.adult-only contract:
+      //    same semantic, plus regulation-pack provenance + held as an
+      //    invariant rather than a pre-condition (so a post-capture write
+      //    of 'under-18' cannot slip past). Permits 'prefer-not-to-say'
+      //    as defensible adult-only posture. Spread because adultOnly()
+      //    returns Contract[] (sibling factories return a single Contract
+      //    — inconsistency tracked for tallyseal feedback).
+      ...ageBand.adultOnly({ ageBandField: "ageRange" }),
+
       // 4. email format invariant — distinct from .validates() because
       //    it is named, citable, and recorded as a ContractEvaluationResult.
       defineContract({
