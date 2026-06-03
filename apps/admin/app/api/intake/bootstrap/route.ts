@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
   // into session values, emit a ClassroomResolved custom event so the
   // enrollment.classroom-resolved post-Contract is satisfied.
   let welcomeMessage =
-    "Welcome — I'll get you enrolled. I'll need your first name, last name, age range (optional) and email. What's your first name?";
+    "Welcome — I'll get you enrolled. I'll need four things: your first name, last name, age range, and email. What's your first name?";
   if (body.classroomToken) {
     const origin = req.nextUrl.origin;
     const joinRes = await fetch(`${origin}/api/join/${body.classroomToken}`, {
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
       purpose: PURPOSE.courseDelivery,
       dataSubjectIds: [subjectId],
     });
-    welcomeMessage = `Welcome — you're enrolling in "${classroomName}". I'll need your first name, last name, age range (optional) and email. What's your first name?`;
+    welcomeMessage = `Welcome — you're enrolling in "${classroomName}". I'll need four things: your first name, last name, age range, and email. What's your first name?`;
   }
 
   appendMessage(session, "system", welcomeMessage);
