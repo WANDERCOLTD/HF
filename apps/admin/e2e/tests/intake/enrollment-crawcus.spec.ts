@@ -103,6 +103,17 @@ test.describe("intake/enrollment-crawcus", () => {
     await expect(page.locator("body")).toContainText(email);
   });
 
+  test("acknowledge button emits DisclosureAcknowledged + flips to confirmation pill", async ({ page }) => {
+    await page.goto(ROUTE);
+    const btn = page.getByTestId("intake-art13-ack-btn");
+    await expect(btn).toBeVisible({ timeout: 15_000 });
+    await btn.click();
+    await expect(page.getByTestId("intake-art13-acked")).toBeVisible({ timeout: 10_000 });
+    // Re-acknowledging is idempotent — the button is gone, no error
+    // banner appears.
+    await expect(page.getByTestId("intake-art13-ack-btn")).toHaveCount(0);
+  });
+
   test("does not render the 4 internal field keys on the learner form", async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page.getByTestId("enrollment-chat-input")).toBeVisible({ timeout: 15_000 });
