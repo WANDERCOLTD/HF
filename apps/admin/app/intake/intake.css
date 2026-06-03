@@ -1,0 +1,79 @@
+/* Intake-surface chat styles.
+ *
+ * Consumes HF design-system tokens (CSS custom properties) — no
+ * hardcoded hex, no inline styles. Provides chat-bubble + thread
+ * primitives that aren't in the global `hf-*` catalogue because the
+ * intake is the only surface that needs them today. If/when V6
+ * wizard ships a chat thread, lift these into globals.css.
+ */
+
+.intake-page {
+  min-height: 100vh;
+  background: var(--surface-primary);
+}
+
+.intake-container {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 72rem;
+  padding: 32px 16px;
+}
+
+.intake-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 1024px) {
+  .intake-grid {
+    grid-template-columns: 1fr 22rem;
+  }
+}
+
+.intake-thread {
+  min-height: 420px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.intake-bubble {
+  max-width: 80%;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.intake-bubble--user {
+  margin-left: auto;
+  background: var(--accent-primary);
+  color: var(--surface-primary);
+}
+
+.intake-bubble--assistant {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.intake-bubble--system {
+  background: color-mix(in srgb, var(--surface-secondary) 60%, transparent);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.intake-composer {
+  display: flex;
+  gap: 8px;
+}
+
+.intake-composer-input {
+  flex: 1;
+}

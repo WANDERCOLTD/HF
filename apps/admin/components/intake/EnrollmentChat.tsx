@@ -170,27 +170,27 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
 
   if (error) {
     return (
-      <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+      <div className="hf-banner hf-banner-error">
         Couldn&rsquo;t start enrolment: {error}
       </div>
     );
   }
 
   if (!boot) {
-    return <div className="text-sm text-muted-foreground">Starting&hellip;</div>;
+    return <div className="hf-section-desc">Starting&hellip;</div>;
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_22rem]">
-      <section className="flex flex-col gap-4">
+    <div className="intake-grid">
+      <section className="hf-flex hf-flex-col hf-gap-md">
         <TallysealBanner events={[...boot.events]} />
         <div
           ref={scrollRef}
-          className="min-h-[420px] max-h-[60vh] overflow-y-auto rounded border bg-card p-4 space-y-3"
+          className="intake-thread"
           data-testid="enrollment-chat-thread"
         >
           {boot.messages.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="hf-section-desc">
               The assistant will start the conversation when ready.
             </p>
           ) : (
@@ -206,7 +206,7 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
           }
         />
         <form
-          className="flex gap-2"
+          className="intake-composer"
           onSubmit={(e) => {
             e.preventDefault();
             send(input);
@@ -218,20 +218,20 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
             onChange={(e) => setInput(e.target.value)}
             disabled={pending}
             placeholder="Type your message…"
-            className="flex-1 rounded border px-3 py-2 text-sm"
+            className="hf-input intake-composer-input"
             data-testid="enrollment-chat-input"
           />
           <button
             type="submit"
             disabled={pending || !input.trim()}
-            className="rounded bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+            className="hf-btn hf-btn-primary"
             data-testid="enrollment-chat-send"
           >
             {pending ? "Sending…" : "Send"}
           </button>
         </form>
       </section>
-      <aside className="flex flex-col gap-4">
+      <aside className="hf-flex hf-flex-col hf-gap-md">
         <ValuesPanel values={boot.values} />
         <TallysealIntentForm
           spec={EnrollmentIntake}
@@ -277,18 +277,16 @@ const VALUE_FIELD_ORDER = [
 function ValuesPanel({ values }: { values: Readonly<Record<string, unknown>> }) {
   const populated = VALUE_FIELD_ORDER.filter((k) => values[k] !== undefined && values[k] !== "");
   return (
-    <div className="rounded border bg-card p-3 text-sm" data-testid="enrollment-values-panel">
-      <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Captured so far
-      </h3>
+    <div className="hf-card-compact" data-testid="enrollment-values-panel">
+      <h3 className="hf-category-label hf-mb-sm">Captured so far</h3>
       {populated.length === 0 ? (
-        <p className="text-muted-foreground">Nothing captured yet.</p>
+        <p className="hf-section-desc">Nothing captured yet.</p>
       ) : (
-        <dl className="space-y-1">
+        <dl className="hf-flex hf-flex-col hf-gap-xs">
           {populated.map((k) => (
-            <div key={k} className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">{FIELD_LABELS[k] ?? k}</dt>
-              <dd className="font-medium text-foreground">{String(values[k])}</dd>
+            <div key={k} className="hf-flex hf-flex-between hf-gap-sm">
+              <dt className="hf-section-desc">{FIELD_LABELS[k] ?? k}</dt>
+              <dd>{String(values[k])}</dd>
             </div>
           ))}
         </dl>
@@ -298,14 +296,14 @@ function ValuesPanel({ values }: { values: Readonly<Record<string, unknown>> }) 
 }
 
 function ChatBubble({ role, content }: ChatMessage) {
-  const isUser = role === "user";
+  const variantClass =
+    role === "user"
+      ? "intake-bubble--user"
+      : role === "assistant"
+      ? "intake-bubble--assistant"
+      : "intake-bubble--system";
   return (
-    <div
-      data-role={role}
-      className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-        isUser ? "ml-auto bg-primary text-primary-foreground" : "bg-muted"
-      }`}
-    >
+    <div data-role={role} className={`intake-bubble ${variantClass}`}>
       {content}
     </div>
   );
