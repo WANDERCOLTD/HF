@@ -232,10 +232,24 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
             matches what the learner reads. TallysealBanner renders
             event-chips only; the actual notice text must be surfaced
             here for the read-signal to mean anything. */}
-        <details className="intake-notice" data-testid="intake-art13-notice">
-          <summary>Privacy Notice (GDPR Art. 13) — click to expand</summary>
-          <pre className="intake-notice-body">{ART13_NOTICE_BODY}</pre>
-        </details>
+        <DisclosureNoticeCard
+          intentId={boot.intentId}
+          chatSessionId={boot.chatSessionId}
+          requirementId={ART13_REQUIREMENT_ID}
+          body={ART13_NOTICE_BODY}
+          acknowledged={hasAcknowledgement(boot.events, ART13_REQUIREMENT_ID)}
+          onAcknowledged={() => {
+            // Optimistic refresh — re-fetch the snapshot via the next
+            // chat turn or by re-bootstrapping the events. Cheapest:
+            // refetch session events directly.
+            void fetch(`/api/intake/session/${encodeURIComponent(boot.intentId)}`)
+              .then((r) => r.json())
+              .then((data) => {
+                setBoot((b) => (b ? { ...b, events: rehydrateEvents(data.events) } : b));
+              })
+              .catch(() => {});
+          }}
+        />
         <div
           ref={scrollRef}
           className="intake-thread"
@@ -345,6 +359,99 @@ function ValuesPanel({ values }: { values: Readonly<Record<string, unknown>> }) 
       )}
     </div>
   );
+}
+
+interface DisclosureNoticeCardProps {
+  readonly intentId: string;
+  readonly chatSessionId: string;
+  readonly requirementId: string;
+  readonly body: string;
+  readonly acknowledged: boolean;
+  readonly onAcknowledged: () => void;
+}
+
+function DisclosureNoticeCard({
+  intentId,
+  chatSessionId,
+  requirementId,
+  body,
+  acknowledged,
+  onAcknowledged,
+}: DisclosureNoticeCardProps) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function ack() {
+    if (pending || acknowledged) return;
+    setPending(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/intake/disclosure-acknowledge", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ intentId, chatSessionId, requirementId }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => `${res.status}`);
+        throw new Error(text);
+      }
+      onAcknowledged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "acknowledge failed");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <section className="intake-notice-card" data-testid="intake-art13-notice">
+      <header className="intake-notice-card-head">
+        <span className="intake-notice-card-title">Privacy Notice (GDPR Art. 13)</span>
+      </header>
+      <pre className="intake-notice-body">{body}</pre>
+      <footer className="intake-notice-card-foot">
+        {acknowledged ? (
+          <span className="intake-notice-acked" data-testid="intake-art13-acked">
+            ✓ You confirmed you read this notice
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="hf-btn hf-btn-secondary"
+            onClick={ack}
+            disabled={pending}
+            data-testid="intake-art13-ack-btn"
+          >
+            {pending ? "Confirming…" : "I have read this notice"}
+          </button>
+        )}
+        {error ? <span className="hf-banner hf-banner-error">{error}</span> : null}
+      </footer>
+    </section>
+  );
+}
+
+function hasAcknowledgement(events: readonly Event[], requirementId: string): boolean {
+  // Walk events for a DisclosureAcknowledged whose `acknowledges`
+  // EventId points to a DisclosureDelivered carrying this
+  // requirementId. Avoids assuming any particular event order.
+  const deliveredIds = new Set<string>();
+  for (const e of events) {
+    if (e.kind === "DisclosureDelivered") {
+      const payload = (e as { payload?: { requirementId?: string } }).payload;
+      if (payload?.requirementId === requirementId) {
+        const id = (e as { id?: string }).id;
+        if (id) deliveredIds.add(id);
+      }
+    }
+  }
+  for (const e of events) {
+    if (e.kind === "DisclosureAcknowledged") {
+      const payload = (e as { payload?: { acknowledges?: string } }).payload;
+      if (payload?.acknowledges && deliveredIds.has(payload.acknowledges)) return true;
+    }
+  }
+  return false;
 }
 
 function ChatBubble({ role, content }: ChatMessage) {
