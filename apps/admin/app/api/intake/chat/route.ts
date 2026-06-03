@@ -1,18 +1,19 @@
 // POST /api/intake/chat
 //
 // Phase 1.5 chat turn — appends a CapturedTurn for the user's message,
-// calls the Anthropic AIPort for the assistant reply, records the
-// assistant turn with full AIProvenance (model + token counts + cost
-// + input/output hashes), and updates the session snapshot.
+// calls the Anthropic AIPort (with the `update-setup` tool from items
+// 12+13) for the assistant reply, records the assistant turn with
+// full AIProvenance, applies any tool calls back into the snapshot,
+// and decides commit via the spec's readiness predicate.
 //
-// Value extraction (firstName / lastName / email) stays deterministic
-// so the contract gates are preserved: the AI handles conversation
-// quality + politeness while the state machine guarantees field-key
-// integrity. A later iteration can move extraction to AI tool-use.
+// Spec-driven tool calling means the AI captures fields atomically
+// (multi-field paste captured in one tool call) instead of being
+// regexed out of the assistant's free-text reply turn-by-turn.
 //
 // When ANTHROPIC_API_KEY is missing (CI / tests / no-key dev),
-// getIntakeAIPort() returns null and the route falls back to the
-// deterministic interview stub — same behaviour as Phase 1 ship.
+// getIntakeAIPort() returns null and the route falls back to a
+// deterministic interview stub — preserves Phase 1 behaviour for
+// the audit-bundle fixture + offline tests.
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -20,16 +21,23 @@ import {
   getSession,
   appendEvent,
   appendMessage,
-  setValue,
   PURPOSE,
   type IntakeSession,
 } from "@/lib/intake/session-store";
 import { getIntakeAIPort } from "@/lib/intake/hf-adapter/ai";
+import {
+  applyUpdateSetup,
+  specToUpdateSetupTool,
+  UPDATE_SETUP_TOOL_NAME,
+} from "@/lib/intake/spec-tools";
+import { EnrollmentIntake } from "@/lib/intake/specs/enrollment.intent";
 import type {
   AIPort,
   EventAIProvenance,
   IntentId,
   SubjectId,
+  ToolCall,
+  ToolDefinition,
 } from "@/lib/intake/tallyseal";
 
 export const dynamic = "force-dynamic";
@@ -47,22 +55,43 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // claude-opus-4-7 + claude-sonnet-4-6 — keep this list in step with
 // lib/intake/compliance.ts ai.allowedModels.
 const INTAKE_MODEL = "claude-sonnet-4-6";
-const INTAKE_PROMPT_VERSION = "intake/v0.1.0-DRAFT";
+const INTAKE_PROMPT_VERSION = "intake/v0.2.0-DRAFT";
 const INTAKE_MAX_COST_USD = 0.5; // == compliance.ai.costCeilingPerIntent
 
-const SYSTEM_PROMPT = `You are HumanFirst Foundation's enrolment assistant. Your only job is to politely capture three details from the learner: first name, last name, and email address.
+// Fields the AI must NOT propose values for — set by code paths (URL
+// param, bootstrap, derived from other fields) and never by the
+// learner via chat.
+const INTERNAL_FIELDS = [
+  "processesArt9",
+  "art9Exemption",
+  "classroomToken",
+  "classroomName",
+] as const;
 
-Rules:
-- Ask one thing at a time. Be brief — one short sentence per reply.
-- Order: first name, then last name, then email.
-- If the learner replies with a greeting or affirmation ("hi", "ok", "yes") when you have just asked for a name, re-prompt for that name. Do not capture greetings as names.
-- When the learner provides what looks like an email, validate it has the basic shape X@Y.Z. If it doesn't, ask them to try again.
-- Once you have all three details, confirm the enrolment is submitted and tell them they'll get a confirmation email shortly.
-- Never say "submitted" until you have a valid email.
+const UPDATE_SETUP_TOOL: ToolDefinition = specToUpdateSetupTool(EnrollmentIntake, {
+  excludeFields: INTERNAL_FIELDS,
+});
 
-Tone: warm, concise, professional. No emoji. No filler.`;
+const SYSTEM_PROMPT = `You are HumanFirst Foundation's enrolment assistant. Politely capture the learner's first name, last name, and email address.
+
+How to capture:
+- When the learner shares one or more field values — even multiple in a single message — call the \`update-setup\` tool with every value they provided. Pass each value under its field key (firstName / lastName / email / displayName / preferredContactMethod / marketingOptIn / accessibilityNote / ageRange / timezone). Omit fields they did not share.
+- Never invent values. Only capture what the learner explicitly stated.
+- Email must look like X@Y.Z. If it doesn't, do not capture it — ask them to try again.
+
+How to reply (in the same turn as the tool call, when applicable):
+- Be warm, concise, professional. No emoji. No filler.
+- One short sentence per reply.
+- If you still need fields: prompt for the next missing one (firstName → lastName → email).
+- If a greeting or affirmation ("hi", "ok", "yes") arrives in place of a name, re-prompt for that name. Do not capture greetings.
+- When all three required fields (firstName, lastName, email) are captured, confirm the enrolment is being submitted and that a confirmation email will follow.`;
 
 const AFFIRMATION_RE = /^(hi|hello|hey|yo|ok|okay|sure|yes|yeah|yep|y|n|no|nope|start)\b[!.,? ]*$/i;
+
+interface CapturedField {
+  readonly field: string;
+  readonly value: unknown;
+}
 
 export async function POST(req: NextRequest) {
   let body: z.infer<typeof BodySchema>;
@@ -87,21 +116,25 @@ export async function POST(req: NextRequest) {
   });
   appendMessage(session, "user", userMessage);
 
-  // 2. Deterministic value extraction — runs BEFORE the AI call so
-  //    the session.values snapshot is current. Keeps the contract
-  //    gates honest regardless of what the AI says.
-  const extraction = extractValues(session, userMessage);
-
-  // 3. Assistant reply — AIPort if key present, deterministic stub otherwise.
+  // 2. Assistant reply + spec-driven tool calls.
+  //    AIPort path (with tools): the AI calls `update-setup` to
+  //    capture any fields the learner shared. Tool calls are applied
+  //    via spec validation BEFORE we decide commit.
+  //    Stub path (no API key): deterministic FSM kept for offline
+  //    tests + audit-bundle fixture reproducibility.
   const aiPort = getIntakeAIPort();
   let assistantReply: string;
   let provenance: EventAIProvenance | undefined;
+  let captured: readonly CapturedField[] = [];
   if (aiPort) {
     const result = await callAI(aiPort, session, userMessage);
     assistantReply = result.text;
     provenance = result.provenance;
+    captured = applyToolCalls(session, result.toolCalls);
   } else {
-    assistantReply = stubReply(session.values, userMessage, extraction);
+    const stubResult = stubExtractAndReply(session, userMessage);
+    assistantReply = stubResult.reply;
+    captured = stubResult.captured;
   }
 
   appendEvent(session, {
@@ -114,6 +147,11 @@ export async function POST(req: NextRequest) {
   });
   appendMessage(session, "assistant", assistantReply);
 
+  // 3. Commit gate — use the spec's readiness predicate, not inline
+  //    field checks. EnrollmentIntake.readiness() returns true when
+  //    firstName + lastName + email are all populated.
+  const commit = isReady(session.values);
+
   // 4. If interview reached terminal state, emit ProjectionCommit + (if
   //    classroomToken set) compute a redirectUrl that hands the learner
   //    off to HF's existing /join/[token] page with the captured values
@@ -123,7 +161,7 @@ export async function POST(req: NextRequest) {
   //    Zero new auth/cookie-mint logic; reuses the battle-tested join
   //    flow.
   let redirectUrl: string | null = null;
-  if (extraction.commit) {
+  if (commit) {
     appendEvent(session, {
       kind: "ProjectionCommit",
       payload: { projection: session.projection, snapshot: session.values },
@@ -154,51 +192,26 @@ export async function POST(req: NextRequest) {
   });
 }
 
-// ── Extraction state machine — deterministic, contract-honest ───────
+// ── Readiness gate ─────────────────────────────────────────────────
 
-interface ExtractionResult {
-  readonly captured: ReadonlyArray<{ field: string; value: unknown }>;
-  readonly commit: boolean;
+function isReady(values: Record<string, unknown>): boolean {
+  // Inline mirror of EnrollmentIntake.readiness — kept inline (rather
+  // than calling spec.readiness) because the spec predicate expects a
+  // materialised ReadinessCtx and we have only the values snapshot.
+  // The two stay in step by virtue of the field-key set being short.
+  const has = (k: string): boolean => {
+    const v = values[k];
+    return v !== undefined && v !== null && v !== "";
+  };
+  return has("firstName") && has("lastName") && has("email");
 }
 
-function extractValues(
-  session: { values: Record<string, unknown> },
-  userMessage: string,
-): ExtractionResult {
-  const v = session.values;
-  const captured: Array<{ field: string; value: unknown }> = [];
-
-  if (!v.firstName) {
-    if (AFFIRMATION_RE.test(userMessage)) {
-      return { captured: [], commit: false };
-    }
-    const firstName = userMessage.split(/\s+/)[0] ?? userMessage;
-    setValue(session as unknown as IntakeSession, "firstName", firstName);
-    captured.push({ field: "firstName", value: firstName });
-    return { captured, commit: false };
-  }
-  if (!v.lastName) {
-    const lastName = userMessage.split(/\s+/)[0] ?? userMessage;
-    setValue(session as unknown as IntakeSession, "lastName", lastName);
-    captured.push({ field: "lastName", value: lastName });
-    return { captured, commit: false };
-  }
-  if (!v.email) {
-    if (!EMAIL_RE.test(userMessage)) {
-      return { captured: [], commit: false };
-    }
-    setValue(session as unknown as IntakeSession, "email", userMessage);
-    captured.push({ field: "email", value: userMessage });
-    return { captured, commit: true };
-  }
-  return { captured, commit: false };
-}
-
-// ── AI call ────────────────────────────────────────────────────────
+// ── AI call — passes the `update-setup` tool ───────────────────────
 
 interface AICallResult {
   readonly text: string;
   readonly provenance: EventAIProvenance;
+  readonly toolCalls: readonly ToolCall[];
 }
 
 async function callAI(
@@ -224,8 +237,6 @@ async function callAI(
     transcript,
     "",
     `Learner just said: "${latestUserMessage}"`,
-    "",
-    "Your reply (one sentence):",
   ].join("\n");
 
   const response = await aiPort.call(
@@ -235,6 +246,7 @@ async function callAI(
       promptTemplateVersion: INTAKE_PROMPT_VERSION,
       purpose: PURPOSE.courseDelivery,
       maxCostUsd: INTAKE_MAX_COST_USD,
+      tools: [UPDATE_SETUP_TOOL],
     },
     {
       tenant: session.tenant,
@@ -244,6 +256,7 @@ async function callAI(
 
   return {
     text: response.text.trim(),
+    toolCalls: response.toolCalls ?? [],
     provenance: {
       model: response.model,
       promptTemplateVersion: INTAKE_PROMPT_VERSION,
@@ -255,6 +268,22 @@ async function callAI(
       costUsd: response.costUsd,
     },
   };
+}
+
+function applyToolCalls(
+  session: IntakeSession,
+  toolCalls: readonly ToolCall[],
+): readonly CapturedField[] {
+  if (toolCalls.length === 0) return [];
+  const captured: CapturedField[] = [];
+  for (const call of toolCalls) {
+    if (call.name !== UPDATE_SETUP_TOOL_NAME) continue;
+    const applied = applyUpdateSetup(session, call, EnrollmentIntake, {
+      excludeFields: INTERNAL_FIELDS,
+    });
+    captured.push(...applied);
+  }
+  return captured;
 }
 
 function roleLabel(role: "user" | "assistant" | "system"): string {
@@ -279,32 +308,66 @@ function summariseValues(values: Record<string, unknown>): string {
 
 // ── Stub fallback — used when ANTHROPIC_API_KEY is missing ─────────
 
-function stubReply(
-  values: Record<string, unknown>,
-  userMessage: string,
-  extraction: ExtractionResult,
-): string {
-  // Mirror the prior Phase 1 deterministic-stub flow so behaviour with
-  // no API key is identical to the original ship — keeps tests +
-  // audit-bundle fixture reproducible.
-  if (extraction.commit) {
-    return "Got it. That's everything I need — submitting your enrolment now. You'll get a confirmation email shortly.";
-  }
-  if (!values.firstName) {
+interface StubResult {
+  readonly reply: string;
+  readonly captured: readonly CapturedField[];
+}
+
+function stubExtractAndReply(session: IntakeSession, userMessage: string): StubResult {
+  // Deterministic FSM preserved for offline / no-API-key paths so the
+  // audit-bundle fixture remains reproducible and CI tests don't need
+  // network. Uses setValue (via spec-tools' applyUpdateSetup) to keep
+  // the same write path as the AI tool branch — only the source of
+  // the values differs.
+  const v = session.values;
+  const captured: CapturedField[] = [];
+
+  if (!v.firstName) {
     if (AFFIRMATION_RE.test(userMessage)) {
-      return "Great — what's your first name?";
+      return { reply: "Great — what's your first name?", captured };
     }
-    // shouldn't reach here — extraction would have captured firstName
-    return "Thanks. And your last name?";
+    const firstName = userMessage.split(/\s+/)[0] ?? userMessage;
+    applyStubArgs(session, { firstName }, captured);
+    return { reply: "Thanks. And your last name?", captured };
   }
-  if (!values.lastName) {
-    return "What email should we use for this enrolment?";
+  if (!v.lastName) {
+    const lastName = userMessage.split(/\s+/)[0] ?? userMessage;
+    applyStubArgs(session, { lastName }, captured);
+    return { reply: "What email should we use for this enrolment?", captured };
   }
-  if (!values.email) {
+  if (!v.email) {
     if (!EMAIL_RE.test(userMessage)) {
-      return "That doesn't look like an email. Could you try again?";
+      return { reply: "That doesn't look like an email. Could you try again?", captured };
     }
-    return "Got it. That's everything I need — submitting your enrolment now. You'll get a confirmation email shortly.";
+    applyStubArgs(session, { email: userMessage }, captured);
+    return {
+      reply:
+        "Got it. That's everything I need — submitting your enrolment now. You'll get a confirmation email shortly.",
+      captured,
+    };
   }
-  return "Your enrolment is already submitted. If you need to update anything, please contact support.";
+  return {
+    reply: "Your enrolment is already submitted. If you need to update anything, please contact support.",
+    captured,
+  };
+}
+
+function applyStubArgs(
+  session: IntakeSession,
+  args: Record<string, string>,
+  out: CapturedField[],
+): void {
+  // Synthesise a ToolCall locally so the stub path uses the same
+  // applyUpdateSetup validation as the AI path — single write path,
+  // no second guard to drift.
+  const stubCall: ToolCall = {
+    id: `stub-${Date.now()}` as ToolCall["id"],
+    name: UPDATE_SETUP_TOOL_NAME,
+    args: args as unknown as ToolCall["args"],
+    argsHash: "stub" as ToolCall["argsHash"],
+  };
+  const applied = applyUpdateSetup(session, stubCall, EnrollmentIntake, {
+    excludeFields: INTERNAL_FIELDS,
+  });
+  out.push(...applied);
 }
