@@ -1134,8 +1134,19 @@ registerTransform("computeModuleProgress", (
 
   const getModuleKey = (m: ModuleData): string => m.slug || m.id || '';
 
+  // #1010 follow-up (I-C1) — when a `lockedModule` is set, ONLY that module
+  // is "in_progress". Other modules get their natural status (completed if
+  // mastered, otherwise not_started). Pre-fix, the call-count heuristic
+  // marked everything up to lastCompletedIndex as "in_progress" — which
+  // meant Part 1 AND Part 2 both rendered as in_progress, and
+  // renderPromptSummary's `.find(m => m.status === "in_progress")` picked
+  // the FIRST in catalogue order (Part 1) for the "Current" line.
+  const lockedKey = lockedModule ? getModuleKey(lockedModule) : null;
   const getModuleStatus = (m: ModuleData, idx: number): "completed" | "in_progress" | "not_started" => {
     if (completedModules.has(getModuleKey(m))) return "completed";
+    if (lockedKey) {
+      return getModuleKey(m) === lockedKey ? "in_progress" : "not_started";
+    }
     if (idx <= lastCompletedIndex && totalCallCount > 0) return "in_progress";
     return "not_started";
   };
