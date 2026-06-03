@@ -84,7 +84,7 @@
 }
 
 .intake-notice-body {
-  margin-top: 12px;
+  margin-top: 0;
   max-height: 240px;
   overflow-y: auto;
   white-space: pre-wrap;
@@ -92,6 +92,40 @@
   font-size: 0.875rem;
   line-height: 1.5;
   color: var(--text-primary);
+}
+
+.intake-notice-card {
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  background: var(--surface-secondary);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.intake-notice-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.intake-notice-card-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.intake-notice-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.intake-notice-acked {
+  color: var(--status-success-text);
+  font-weight: 600;
+  font-size: 0.875rem;
 }
 
 .intake-composer {

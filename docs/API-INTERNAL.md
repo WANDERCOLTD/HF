@@ -14584,10 +14584,10 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 464 |
+| Route files found | 465 |
 | Files with annotations | 457 |
-| Files missing annotations | 7 |
-| Coverage | 98.5% |
+| Files missing annotations | 8 |
+| Coverage | 98.3% |
 
 ### Files missing `@api` annotations
 
@@ -14596,5 +14596,6 @@ orchestration between services) and are never exposed externally.
 - `app/api/intake/audit-bundle/route.ts`
 - `app/api/intake/bootstrap/route.ts`
 - `app/api/intake/chat/route.ts`
+- `app/api/intake/disclosure-acknowledge/route.ts`
 - `app/api/intake/disclosure-signal/route.ts`
 - `app/api/intake/session/[intentId]/route.ts`
