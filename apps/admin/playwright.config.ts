@@ -68,7 +68,7 @@ export default defineConfig({
     /* Authenticated tests - run with pre-established session */
     {
       name: 'authenticated',
-      testMatch: /tests\/(?!cloud\/|_archived\/).+\.spec\.ts/,
+      testMatch: /tests\/(?!cloud\/|_archived\/|intake\/).+\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         storageState: AUTH_FILE,
@@ -85,10 +85,23 @@ export default defineConfig({
       },
     },
 
+    /* Intake tests — public learner-facing surface; no auth, no
+     * cookie. Excluded from authenticated + mobile so AUTH_FILE
+     * doesn't bleed in. Run against the hf-dev VM via tunnel with
+     * `CLOUD_E2E=1` (default port 3000 + longer timeouts). */
+    {
+      name: 'intake',
+      testMatch: /tests\/intake\/.+\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: undefined,
+      },
+    },
+
     /* Mobile viewport tests */
     {
       name: 'mobile',
-      testMatch: /tests\/(?!cloud\/|_archived\/).+\.spec\.ts/,
+      testMatch: /tests\/(?!cloud\/|_archived\/|intake\/).+\.spec\.ts/,
       use: {
         ...devices['Pixel 5'],
         storageState: AUTH_FILE,
