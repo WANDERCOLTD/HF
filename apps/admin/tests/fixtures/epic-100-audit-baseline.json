@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-05-22T22:12:56.733Z",
-  "_note": "Baseline snapshot of Epic 100 audit counters. INVARIANTS block CI when above target (exit 1). INFORMATIONAL counters report leak surface / historical drift and never fail the build. Re-snap on VM after each story merges via `npx tsx scripts/audit-epic-100.ts --json > tests/fixtures/epic-100-audit-baseline.json`.",
+  "generatedAt": "2026-06-03T21:30:00.000Z",
+  "_note": "Baseline snapshot of Epic 100 audit counters. INVARIANTS block CI when above target (exit 1). INFORMATIONAL counters report leak surface / historical drift and never fail the build. Re-snap on VM after each story merges via `npx tsx scripts/audit-epic-100.ts --json > tests/fixtures/epic-100-audit-baseline.json`. #1008: added composeGenericNounFallbackCount, composeMemorylessReminisceCount, composeCallCounterIncoherent (target 0 each). Initial baseline=0 pending re-snap on DEV after deploy.",
   "counters": [
     {
       "key": "duplicatePlaybookSubjects",
@@ -9,7 +9,7 @@
       "count": 0,
       "target": 0,
       "status": "pass",
-      "description": "PlaybookSubject rows where (playbookId, subjectId) has duplicates — same subject linked twice to same playbook."
+      "description": "PlaybookSubject rows where (playbookId, subjectId) has duplicates \u2014 same subject linked twice to same playbook."
     },
     {
       "key": "recallQuizOnInstructionCategories",
@@ -45,7 +45,7 @@
       "count": 5,
       "target": 0,
       "status": "info",
-      "description": "INFORMATIONAL (historical drift). Calls with >40 CallScore rows all scored exactly 0 — symptom of the missing evidence-gate on AGGREGATE writes. #611 Fix B added the gate for all NEW writes; this count reflects pre-#611 historical state and only drains via a future CallScore cleanup migration."
+      "description": "INFORMATIONAL (historical drift). Calls with >40 CallScore rows all scored exactly 0 \u2014 symptom of the missing evidence-gate on AGGREGATE writes. #611 Fix B added the gate for all NEW writes; this count reflects pre-#611 historical state and only drains via a future CallScore cleanup migration."
     },
     {
       "key": "orphanLearningObjectives",
@@ -81,7 +81,7 @@
       "count": 10,
       "target": 0,
       "status": "fail",
-      "description": "CallerAttribute rows whose lo_mastery key contains uppercase letters or spaces in the module token — old name-form, awaiting migration to slug-form."
+      "description": "CallerAttribute rows whose lo_mastery key contains uppercase letters or spaces in the module token \u2014 old name-form, awaiting migration to slug-form."
     },
     {
       "key": "playbooksWithoutTeachingMode",
@@ -90,7 +90,7 @@
       "count": 1,
       "target": 0,
       "status": "fail",
-      "description": "Playbook rows with no teachingMode set — #604's archetype-aware criticalRules needs this populated to take effect."
+      "description": "Playbook rows with no teachingMode set \u2014 #604's archetype-aware criticalRules needs this populated to take effect."
     },
     {
       "key": "hardcodedRulesRemainingInTransforms",
@@ -100,6 +100,33 @@
       "target": 0,
       "status": "fail",
       "description": "Count of files under lib/prompt/composition/transforms/ that still contain hardcoded behavioural strings (e.g. 'ALWAYS review', 'If RETURNING_CALLER'). Static grep, not a DB query."
+    },
+    {
+      "key": "composeGenericNounFallbackCount",
+      "story": "#1008",
+      "kind": "invariant",
+      "count": 0,
+      "target": 0,
+      "status": "pass",
+      "description": "Count of ACTIVE ComposedPrompt rows whose `prompt` markdown contains a generic-noun fallback phrase ('previous concept' / 'next concept' / 'first concept'). Catches the I-C4 anti-pattern (chain-contracts.md Link 3 \u2192 COMPOSE\u2192LLM). Build-time ESLint rule hf-compose/no-orphan-instruction-fallback prevents new sites; this counter measures legacy prompts in the DB. Initial baseline=0; re-snap on DEV after deploy to capture the real count."
+    },
+    {
+      "key": "composeMemorylessReminisceCount",
+      "story": "#1008",
+      "kind": "invariant",
+      "count": 0,
+      "target": 0,
+      "status": "pass",
+      "description": "Count of ACTIVE ComposedPrompt rows where the prompt contains a reminisce-class imperative AND the caller has zero CallerMemory rows. Catches the I-C3 anti-pattern (#1006 Maya class)."
+    },
+    {
+      "key": "composeCallCounterIncoherent",
+      "story": "#1008",
+      "kind": "invariant",
+      "count": 0,
+      "target": 0,
+      "status": "pass",
+      "description": "Count of ACTIVE ComposedPrompt rows whose prompt body contains two or more DIFFERENT `(call #N)` references. Catches the I-C2 anti-pattern (#1006 Maya class)."
     }
   ]
 }

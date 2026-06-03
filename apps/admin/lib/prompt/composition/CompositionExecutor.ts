@@ -16,6 +16,9 @@ import { getTransform } from "./TransformRegistry";
 import { resolveSpecs, resolveVoiceSpecFallback, mergeIdentitySpec, applyGroupToneOverride } from "./transforms/identity";
 import { computeSharedState } from "./transforms/modules";
 import { buildComposeTrace, renderComposeTraceLog } from "./buildComposeTrace";
+// #1008 — runtime guard for the five COMPOSE → LLM output invariants
+// (chain-contracts.md Link 3 sub-contract).
+import { runComposeInvariants } from "./compose-invariants";
 import type {
   AssembledContext,
   CompositionResult,
@@ -269,6 +272,39 @@ export async function executeComposition(
     console.log(renderComposeTraceLog(composeTrace));
   } catch (err) {
     console.warn("[compose-trace] failed to build trace:", err);
+  }
+
+  // #1008 — pre-persist invariant check. Runs against the assembled
+  // markdown (callerContext) + structured llmPrompt. ERROR-severity
+  // violations (I-C1, I-C2) throw before persistComposedPrompt — the
+  // caller (pipeline COMPOSE or out-of-band compose-prompt route)
+  // surfaces them as a stageErrors entry per docs/PIPELINE.md §3.1.
+  // WARN-severity violations (I-C3) log structured JSON and the prompt
+  // proceeds to persist. The audit counters in scripts/audit-epic-100.ts
+  // measure violation rate; severity escalates to ERROR once the counter
+  // reads 0 across dev/test/prod for ≥7 days.
+  try {
+    runComposeInvariants({
+      callerId,
+      requestedModuleId,
+      lockedModuleName: sharedState.lockedModule?.name ?? null,
+      callNumber: sharedState.callNumber ?? 1,
+      memoryCount: loadedData.memories?.length ?? 0,
+      priorCallFeedbackPresent: Boolean(
+        (context.sections as Record<string, unknown>).priorCallFeedback &&
+          typeof (context.sections as Record<string, { hasFeedback?: boolean }>)
+            .priorCallFeedback?.hasFeedback === "boolean"
+          ? (context.sections as Record<string, { hasFeedback?: boolean }>)
+              .priorCallFeedback?.hasFeedback
+          : false,
+      ),
+      callerContextMarkdown: callerContext,
+      llmPrompt,
+    });
+  } catch (err) {
+    // Re-throw — ERROR-severity invariants must reach the caller.
+    // (WARN-severity violations don't throw; they only log inside the runner.)
+    throw err;
   }
 
   return {
