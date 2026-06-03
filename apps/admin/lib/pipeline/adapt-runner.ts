@@ -156,7 +156,13 @@ export async function runAdaptSpecs(callerId: string): Promise<{
       try {
         const config = spec.config as SpecConfig;
         const parameters: AdaptParameter[] = config?.parameters || [];
-        // Read confidence from spec config (not hardcoded)
+        // Read confidence from spec config (not hardcoded).
+        // TODO(ai-guard) — #1008: the `?? 0.8` fires when an ADAPT-* spec
+        // omits `defaultAdaptConfidence`. Educators authoring new specs may
+        // assume the default is sourced from GUARD-001 confidenceBounds;
+        // it is not. Either route through `guardrails.confidenceBounds.
+        // defaultConfidence` for cross-spec consistency, or document that
+        // ADAPT confidence is opt-out per-spec.
         const defaultConfidence = config?.defaultAdaptConfidence ?? 0.8;
 
         // Find parameters with adaptationRules
@@ -251,7 +257,20 @@ async function applyAdaptationRules(
           },
         });
 
-        // Compute target value based on adjustment method
+        // Compute target value based on adjustment method.
+        //
+        // TODO(ai-guard) — #1008 Finding A (TL audit): the four `?? 0.5` /
+        // `?? 0.1` fallbacks below silently write fabricated values to
+        // `CallerTarget.targetValue` whenever the ADAPT-* spec author omits
+        // `action.value` or `action.delta`. Same anti-pattern class as the
+        // pipeline-route `masteryThreshold: 0.7` literals (fixed in this
+        // PR) and #605 `categoryToTeachMethod`'s `recall_quiz` fallback.
+        // Risk: corrupt per-caller targets propagate into the next compose
+        // → next call → next AGGREGATE → next adaptation cycle, invisible
+        // to the educator. Proper fix: validate the rule shape at spec
+        // load time and refuse to fire actions that don't declare the
+        // required field for their adjustment method. See child issue
+        // linked from #1008.
         let targetValue: number;
         if (action.adjustment === "set") {
           targetValue = action.value ?? 0.5;
