@@ -184,7 +184,8 @@ async function loadCurrentModuleContext(
         moduleId: match.id,
         moduleName: match.label || match.id,
         learningOutcomes: filteredRefs,
-        masteryThreshold: 0.7,
+        // #1008 — read CURRICULUM_PROGRESS_V1 contract (matches Path 3's pattern below).
+        masteryThreshold: (await ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1'))?.masteryComplete ?? 0.7,
         allModuleIds: authored.map((m: any) => m?.id).filter(Boolean),
       };
     }
@@ -230,7 +231,8 @@ async function loadCurrentModuleContext(
         select: { moduleId: true, mastery: true },
       });
       const masteryByModuleId = new Map(cmps.map((c) => [c.moduleId, c.mastery]));
-      const masteryThreshold = 0.7;
+      // #1008 — read CURRICULUM_PROGRESS_V1 contract instead of bare 0.7 (Finding D).
+      const masteryThreshold = (await ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1'))?.masteryComplete ?? 0.7;
       const next =
         authored.find((m: any) => (masteryByModuleId.get(m?.id) ?? 0) < masteryThreshold) ??
         authored[0];
@@ -314,7 +316,11 @@ async function loadCurrentModuleContext(
           moduleId: currentModule.id || currentModule.slug,
           moduleName: currentModule.name || currentModule.title || currentModule.id,
           learningOutcomes: currentModule.learningOutcomes || [],
-          masteryThreshold: specConfig.metadata?.curriculum?.masteryThreshold ?? 0.7,
+          // #1008 — spec-first; ContractRegistry-second; hard fallback 0.7.
+          masteryThreshold:
+            specConfig.metadata?.curriculum?.masteryThreshold ??
+            (await ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1'))?.masteryComplete ??
+            0.7,
           allModuleIds: modules.map((m: any) => m.id || m.slug),
         };
       }
@@ -340,7 +346,8 @@ async function loadCurrentModuleContext(
             moduleId: currentModule.id,
             moduleName: currentModule.name || currentModule.title || currentModule.id,
             learningOutcomes: currentModule.learningOutcomes || [],
-            masteryThreshold: 0.7,
+            // #1008 — read CURRICULUM_PROGRESS_V1 contract (matches Path 3's pattern below).
+            masteryThreshold: (await ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1'))?.masteryComplete ?? 0.7,
             allModuleIds: rawModules.map((m: any) => m.id),
           };
         }
@@ -901,7 +908,12 @@ async function runBatchedCallerAnalysis(
   } | null = null;
 
   if (engine === "mock") {
-    // Mock: generate random scores and no memories
+    // Mock: generate random scores and no memories.
+    // #1008 (Finding F) — load GUARD-001 once so educators can override the
+    // mock-confidence default via spec without touching code. Default value
+    // unchanged (0.7) when no override exists.
+    const mockGuardrails = await loadGuardrails(log);
+    const mockConfidence = mockGuardrails.confidenceBounds.defaultConfidence;
     for (const param of measureParams) {
       const score = 0.4 + Math.random() * 0.4;
       // Check if score already exists for this call+parameter
@@ -913,7 +925,7 @@ async function runBatchedCallerAnalysis(
           where: { id: existing.id },
           data: {
             score,
-            confidence: 0.7,
+            confidence: mockConfidence,
             evidence: ["Mock batched scoring"],
             scoredBy: "mock_batched_v1",
             scoredAt: new Date(),
@@ -934,7 +946,7 @@ async function runBatchedCallerAnalysis(
             // unique index keeps one-score-per-(callId, parameterId) in that case.
             ...(call.curriculumModuleId ? { moduleId: call.curriculumModuleId } : {}),
             score,
-            confidence: 0.7,
+            confidence: mockConfidence,
             evidence: ["Mock batched scoring"],
             scoredBy: "mock_batched_v1",
             // #566 Step 1 — null sentinels (see above).
@@ -2920,7 +2932,12 @@ async function updateTpMasteryAfterCall(
       select: { slug: true },
     });
     if (pbCurr) {
-      const threshold = learningAssessment.masteryThreshold || 0.7;
+      // #1008 (Finding C) — AI-returned masteryThreshold is authoritative when present;
+      // fall back to CURRICULUM_PROGRESS_V1 contract, hard literal only if registry empty.
+      const threshold =
+        learningAssessment.masteryThreshold ||
+        (await ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1'))?.masteryComplete ||
+        0.7;
       const assessedLoRefs = Object.keys(learningAssessment.outcomes);
       const loRows = await prisma.learningObjective.findMany({
         where: {
@@ -2965,7 +2982,12 @@ async function updateTpMasteryAfterCall(
     const curriculum = sd.subject.curricula[0];
     if (!curriculum) continue;
 
-    const threshold = learningAssessment.masteryThreshold || 0.7;
+    // #1008 (Finding C) — AI-returned masteryThreshold is authoritative when present;
+    // fall back to CURRICULUM_PROGRESS_V1 contract, hard literal only if registry empty.
+    const threshold =
+      learningAssessment.masteryThreshold ||
+      (await ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1'))?.masteryComplete ||
+      0.7;
 
     // Resolve LO ref strings → IDs, then query assertions by FK
     const assessedLoRefs = Object.keys(learningAssessment.outcomes);
