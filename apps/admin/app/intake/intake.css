@@ -107,3 +107,162 @@
 .intake-composer button[type="submit"] {
   align-self: flex-end;
 }
+
+/* ── Post-commit recap (/intake/done) ──────────────────────────── */
+
+.intake-done-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 1024px) {
+  .intake-done-grid {
+    grid-template-columns: 22rem 1fr;
+  }
+}
+
+.intake-done-values {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.intake-done-value-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.intake-done-value-row:last-child {
+  border-bottom: none;
+}
+
+.intake-done-value-row dt {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.intake-done-value-row dd {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.intake-done-actions {
+  flex-wrap: wrap;
+}
+
+/* ── Chain-of-Custody panel ────────────────────────────────────── */
+
+.intake-coc {
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  background: var(--surface-primary);
+  padding: 16px;
+}
+
+.intake-coc-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.intake-coc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.intake-coc-empty {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: 12px 0;
+}
+
+.intake-coc-row {
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--surface-secondary);
+}
+
+.intake-coc-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.intake-coc-kind {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.intake-coc-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.intake-coc-dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px 12px;
+  margin: 0 0 6px;
+}
+
+.intake-coc-field {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.75rem;
+}
+
+.intake-coc-field dt {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.intake-coc-field dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-primary);
+}
+
+.intake-coc-field[data-status="broken"] dd {
+  color: var(--status-error-text);
+  font-weight: 600;
+}
+
+.intake-coc-payload {
+  margin-top: 8px;
+  font-size: 0.75rem;
+}
+
+.intake-coc-payload summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.intake-coc-payload pre {
+  margin-top: 6px;
+  padding: 8px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 0.7rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
