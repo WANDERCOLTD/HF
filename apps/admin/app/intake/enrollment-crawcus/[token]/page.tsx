@@ -11,6 +11,7 @@
 // circuits on the absent token.
 
 import { EnrollmentChat } from "@/components/intake/EnrollmentChat";
+import "../../intake.css";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +23,11 @@ export default async function EnrollmentIntakeWithTokenPage({
   const { token } = await params;
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        <header className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">Enrolment</h1>
-          <p className="text-sm text-muted-foreground">
+    <main className="intake-page">
+      <div className="intake-container">
+        <header className="hf-mb-lg">
+          <h1 className="hf-page-title">Enrolment</h1>
+          <p className="hf-section-desc">
             Chat-driven enrolment for HumanFirst Foundation. Conversation on
             the left fills the form on the right as you go.
           </p>
