@@ -85,6 +85,24 @@ test.describe("intake/enrollment-crawcus", () => {
     await expect(page.locator("body")).toContainText("Privacy Notice", { timeout: 5_000 });
   });
 
+  test("redirects to /intake/done with intentId after enrolment completes", async ({ page }) => {
+    const email = makeEmail();
+    await page.goto(ROUTE);
+    const input = page.getByTestId("enrollment-chat-input");
+    await expect(input).toBeEnabled({ timeout: 15_000 });
+    await input.fill(`I'm Peter Jones and my email is ${email}.`);
+    await page.getByTestId("enrollment-chat-send").click();
+
+    // Wait for the chat client to follow data.redirectUrl → /intake/done?…
+    await page.waitForURL(/\/intake\/done\?intentId=/, { timeout: 30_000 });
+
+    // The recap page renders the captured values + actions + CoC.
+    await expect(page.getByTestId("intake-done-summary")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("intake-coc-panel")).toBeVisible();
+    await expect(page.getByTestId("intake-done-download")).toBeVisible();
+    await expect(page.locator("body")).toContainText(email);
+  });
+
   test("does not render the 4 internal field keys on the learner form", async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page.getByTestId("enrollment-chat-input")).toBeVisible({ timeout: 15_000 });
