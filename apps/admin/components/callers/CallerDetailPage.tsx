@@ -10,6 +10,7 @@ import { EditableTitle } from "@/components/shared/EditableTitle";
 import { FancySelect, type FancySelectOption } from "@/components/shared/FancySelect";
 import { SectionSelector, useSectionVisibility } from "@/components/shared/SectionSelector";
 import { CallerDomainSection } from "@/components/callers/CallerDomainSection";
+import { VoiceProviderOverride } from "@/components/callers/VoiceProviderOverride";
 import { SimChat } from "@/components/sim/SimChat";
 import { ModulePickerSelectionBanner, ModulePickerInviteBanner } from "@/components/sim/ModulePickerBanners";
 import { SimStateBreadcrumb } from "@/components/sim/SimStateBreadcrumb";
@@ -1153,6 +1154,11 @@ export default function CallerDetailPage() {
               }}
             />
           )}
+
+          {/* Per-caller voice provider override (AnyVoice #1027). */}
+          {showDomainSection && data.caller.id ? (
+            <VoiceProviderOverride callerId={data.caller.id} />
+          ) : null}
 
           {insights ? (
             <GuideLens

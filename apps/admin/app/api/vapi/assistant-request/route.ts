@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
 import { renderProviderPrompt } from "@/lib/prompt/composition/renderPromptSummary";
 import { getVoiceProvider } from "@/lib/voice/provider-factory";
+import { resolveVoiceProviderForCaller } from "@/lib/voice/resolve-voice-provider";
 import { getVoiceCallSettings } from "@/lib/system-settings";
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
 import { VAPI_TOOL_DEFINITIONS, TOOL_SETTING_KEYS } from "../tools/route";
@@ -27,8 +28,13 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
-    const provider = await getVoiceProvider("vapi");
-    const authError = provider.verifyInboundRequest(request, rawBody);
+
+    // Auth is URL-bound: this route lives under /api/vapi/*, so the
+    // inbound signature MUST verify against the VAPI provider regardless
+    // of what the per-caller resolver returns later (which speaks to
+    // OUTBOUND routing, not which provider's HMAC the inbound carries).
+    const vapiInbound = await getVoiceProvider("vapi");
+    const authError = vapiInbound.verifyInboundRequest(request, rawBody);
     if (authError) return authError;
 
     const body = JSON.parse(rawBody);
@@ -81,7 +87,8 @@ export async function POST(request: NextRequest) {
 
     if (!caller) {
       console.warn(`[vapi/assistant-request] No caller found for phone: ***${normalizedPhone.slice(-4)}`);
-      const unknownCallerAssistant = provider.buildAssistantConfig({
+      // No caller → no per-caller routing. Use the URL-bound vapi adapter.
+      const unknownCallerAssistant = vapiInbound.buildAssistantConfig({
         callerId: null,
         callerName: null,
         customerPhone: normalizedPhone,
@@ -95,6 +102,29 @@ export async function POST(request: NextRequest) {
         noActivePromptFallback: vs.noActivePromptFallback,
       });
       return NextResponse.json(unknownCallerAssistant);
+    }
+
+    // Resolve per-caller voice provider via the cascade (#1027).
+    // For an INBOUND call already on /api/vapi/*, the response shape is
+    // URL-bound to VAPI — if the resolver returns a non-vapi slug, log a
+    // warning (admin set a per-caller override for an outbound-routing
+    // future, but the call is already in flight via VAPI) and fall back
+    // to the vapiInbound adapter to keep this call working. The resolver
+    // result still matters for outbound dial paths added in later stories.
+    const resolved = await resolveVoiceProviderForCaller(caller.id);
+    let responseProvider = vapiInbound;
+    if (resolved.slug !== "vapi") {
+      console.warn(
+        `[vapi/assistant-request] Caller ${caller.id} configured for provider "${resolved.slug}" (source=${resolved.source}) but inbound is via /api/vapi/*; serving via VAPI adapter to keep the in-flight call working. Per-caller routing matters at outbound-dial time.`,
+      );
+    } else {
+      // Even when resolved.slug === "vapi", round-trip through the factory
+      // so per-caller credential variants (future) and the resolver's
+      // source tag are observable in logs.
+      responseProvider = await getVoiceProvider(resolved.slug);
+      console.log(
+        `[vapi/assistant-request] Provider for caller ${caller.id}: ${resolved.slug} (source=${resolved.source})`,
+      );
     }
 
     // Resolve default playbook for course-scoped prompt lookup
@@ -118,7 +148,7 @@ export async function POST(request: NextRequest) {
     if (!composedPrompt?.llmPrompt) {
       console.warn(`[vapi/assistant-request] No active prompt for caller: ${caller.id}`);
       const callerLabel = caller.name || "a returning caller";
-      const fallbackAssistant = provider.buildAssistantConfig({
+      const fallbackAssistant = responseProvider.buildAssistantConfig({
         callerId: caller.id,
         callerName: caller.name,
         customerPhone: normalizedPhone,
@@ -142,7 +172,7 @@ export async function POST(request: NextRequest) {
       `[vapi/assistant-request] Serving prompt for caller ${caller.id}: ${voicePrompt.length} chars (provider: ${vs.provider}, model: ${vs.model}, rag: ${vs.knowledgePlanEnabled})`,
     );
 
-    const assistantConfig = provider.buildAssistantConfig({
+    const assistantConfig = responseProvider.buildAssistantConfig({
       callerId: caller.id,
       callerName: caller.name,
       customerPhone: normalizedPhone,
