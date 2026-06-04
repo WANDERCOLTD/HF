@@ -142,6 +142,21 @@ export interface KnowledgeResult {
   similarity: number;
 }
 
+/** Canonical knowledge-base request normalised from a provider's per-turn
+ *  RAG callback (#1022). Different providers shape the inbound payload
+ *  differently — the adapter parses to this canonical shape so the
+ *  retrieval logic in the route stays provider-agnostic. */
+export interface KnowledgeBaseRequest {
+  /** Conversation messages so far. Route extracts the last N user
+   *  messages for query context per knowledge-retrieval settings. */
+  messages: Array<{ role: string; content: string }>;
+  /** Provider's call id (matches Call.externalId). Used for logging. */
+  callId: string | null;
+  /** Caller phone from the customer block, normalised. Used to resolve
+   *  per-caller scope (course/playbook sources). */
+  customerPhone: string | null;
+}
+
 /**
  * The adapter contract. Each method is one transport seam.
  *
@@ -179,6 +194,17 @@ export interface VoiceProvider {
    * payload. Returns an empty batch when no tool calls are present.
    */
   normaliseToolCallList(body: unknown): NormalisedToolCallBatch;
+
+  /**
+   * Parse the provider's per-turn knowledge-base callback into a
+   * canonical {messages, callId, customerPhone} shape. Returns null
+   * when the body doesn't match this provider's knowledge-request
+   * contract (e.g. wrong message type) — route returns 400.
+   *
+   * Added in #1022; pairs with buildKnowledgeResponse below so the
+   * knowledge route owns retrieval, not transport shape.
+   */
+  parseKnowledgeBaseRequest(body: unknown): KnowledgeBaseRequest | null;
 
   /**
    * Wrap RAG results in the provider's expected response shape.

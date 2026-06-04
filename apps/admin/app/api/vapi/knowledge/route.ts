@@ -48,11 +48,15 @@ export async function POST(request: NextRequest) {
     if (authError) return authError;
 
     const body = JSON.parse(rawBody);
-    const messages = body.message?.messages || body.messages || [];
-    const callId = body.message?.call?.id || body.call?.id;
-    const customerPhone =
-      body.message?.call?.customer?.number ||
-      body.call?.customer?.number;
+
+    // Delegate VAPI-shape parsing to the adapter (#1022). The retrieval
+    // logic below is provider-agnostic; only the inbound request shape
+    // and outbound response envelope are provider-specific.
+    const parsed = provider.parseKnowledgeBaseRequest(body);
+    if (!parsed) {
+      return NextResponse.json(provider.buildKnowledgeResponse([]));
+    }
+    const { messages, callId, customerPhone } = parsed;
 
     // Load retrieval settings (30s cache)
     const ks = await getKnowledgeRetrievalSettings();

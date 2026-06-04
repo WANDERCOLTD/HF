@@ -22,6 +22,7 @@
 import type { NextRequest, NextResponse } from "next/server";
 import type {
   AssistantRequestContext,
+  KnowledgeBaseRequest,
   KnowledgeResult,
   NormalisedEndOfCallCapture,
   NormalisedEndOfCallEvent,
@@ -199,6 +200,37 @@ export class VapiProvider implements VoiceProvider {
     }
 
     return { toolCalls, customerPhone };
+  }
+
+  parseKnowledgeBaseRequest(body: unknown): KnowledgeBaseRequest | null {
+    if (!body || typeof body !== "object") return null;
+    const root = body as Record<string, unknown>;
+    const message = (root.message ?? root) as Record<string, unknown>;
+
+    // VAPI's Custom KB callback uses type === "knowledge-base-request".
+    // When the type is missing or mismatched, fall through to null so
+    // the route can 400; we still tolerate either nesting (root vs
+    // root.message) per VAPI's actual delivery quirks.
+    const type = (message.type ?? root.type) as string | undefined;
+    if (type !== undefined && type !== "knowledge-base-request") {
+      return null;
+    }
+
+    const rawMessages =
+      (message.messages as unknown) ??
+      (root.messages as unknown);
+    if (!Array.isArray(rawMessages)) return null;
+
+    const messages = (rawMessages as Array<Record<string, unknown>>)
+      .filter((m) => typeof m.role === "string" && typeof m.content === "string")
+      .map((m) => ({ role: m.role as string, content: m.content as string }));
+
+    const call = (message.call ?? root.call) as Record<string, unknown> | undefined;
+    const callId = (call?.id as string | undefined) ?? null;
+    const customer = call?.customer as Record<string, unknown> | undefined;
+    const customerPhone = (customer?.number as string | undefined) ?? null;
+
+    return { messages, callId, customerPhone };
   }
 
   buildKnowledgeResponse(results: KnowledgeResult[]): unknown {
