@@ -438,42 +438,65 @@ async function checkAIServices(): Promise<IniCheck> {
 }
 
 async function checkVAPI(): Promise<IniCheck> {
-  const apiKeySet = !!config.vapi.apiKey;
-  const webhookSecretSet = !!config.vapi.webhookSecret;
-
-  if (!apiKeySet && !webhookSecretSet) {
+  // AnyVoice #1031: credentials live on VoiceProvider DB row, not env.
+  // Check the seeded row instead of env vars. Empty / missing credentials
+  // surface as a warn so operators see the cutover gap.
+  try {
+    const row = await prisma.voiceProvider.findUnique({
+      where: { slug: "vapi" },
+      select: { credentials: true, enabled: true, isDefault: true },
+    });
+    if (!row) {
+      return {
+        status: "warn",
+        label: "VAPI Integration",
+        severity: "optional",
+        message: "VoiceProvider row for slug=vapi not found",
+        remediation:
+          "Run the voice-providers seed (npx tsx prisma/seeds/voice-providers.ts) or visit /x/settings/voice-providers.",
+      };
+    }
+    if (!row.enabled) {
+      return {
+        status: "warn",
+        label: "VAPI Integration",
+        severity: "optional",
+        message: "VoiceProvider vapi is disabled",
+        remediation: "Enable in /x/settings/voice-providers.",
+      };
+    }
+    const creds = (row.credentials as Record<string, unknown>) ?? {};
+    const apiKeySet = typeof creds.apiKey === "string" && creds.apiKey.length > 0;
+    const webhookSecretSet =
+      typeof creds.webhookSecret === "string" && creds.webhookSecret.length > 0;
+    const issues: string[] = [];
+    if (!apiKeySet) issues.push("apiKey missing");
+    if (!webhookSecretSet) issues.push("webhookSecret missing");
+    if (issues.length > 0) {
+      return {
+        status: "warn",
+        label: "VAPI Integration",
+        severity: "optional",
+        message: `Partial: ${issues.join(", ")}`,
+        remediation:
+          "Edit credentials in /x/settings/voice-providers/vapi (admin only).",
+      };
+    }
+    return {
+      status: "pass",
+      label: "VAPI Integration",
+      severity: "optional",
+      message: `Both apiKey and webhookSecret set${row.isDefault ? " (default provider)" : ""}`,
+    };
+  } catch (err) {
     return {
       status: "warn",
       label: "VAPI Integration",
       severity: "optional",
-      message:
-        "VAPI not configured (VAPI_API_KEY and VAPI_WEBHOOK_SECRET both missing)",
-      remediation:
-        "Set VAPI_API_KEY and VAPI_WEBHOOK_SECRET if voice calls are needed.",
+      message: `Check failed: ${err instanceof Error ? err.message : String(err)}`,
+      remediation: "Verify the VoiceProvider table exists (migration #1031).",
     };
   }
-
-  const issues: string[] = [];
-  if (!apiKeySet) issues.push("VAPI_API_KEY missing");
-  if (!webhookSecretSet) issues.push("VAPI_WEBHOOK_SECRET missing");
-
-  if (issues.length > 0) {
-    return {
-      status: "warn",
-      label: "VAPI Integration",
-      severity: "optional",
-      message: `Partial: ${issues.join(", ")}`,
-      remediation:
-        "Set both VAPI_API_KEY and VAPI_WEBHOOK_SECRET for full voice integration.",
-    };
-  }
-
-  return {
-    status: "pass",
-    label: "VAPI Integration",
-    severity: "optional",
-    message: "Both VAPI_API_KEY and VAPI_WEBHOOK_SECRET are set",
-  };
 }
 
 async function checkStorage(): Promise<IniCheck> {

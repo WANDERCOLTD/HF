@@ -14,21 +14,28 @@
  * implement the same interface confidently.
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 import crypto from "node:crypto";
 
 // The tools/route module imports a wide dep graph; mock it to a minimal
 // shape so the test only loads what it needs.
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 
-import { VapiProvider, vapiProvider, extractVapiCapture } from "@/lib/voice/providers/vapi";
+import { VapiProvider, extractVapiCapture } from "@/lib/voice/providers/vapi";
 import type { AssistantRequestContext, KnowledgeResult } from "@/lib/voice/types";
 
+// Tests construct fresh instances. The singleton export from #1017 was
+// dropped in #1031 because the factory now instantiates per slug-cache-
+// window with DB-stored credentials/config. Passing {} for both args
+// works for the pure-function methods (build*, normalise*) which don't
+// touch credentials; HMAC tests pass an explicit secret.
+const provider = new VapiProvider({}, {});
+
 describe("VapiProvider", () => {
-  describe("slug + singleton", () => {
+  describe("slug + instance", () => {
     it("exposes the canonical slug", () => {
-      expect(vapiProvider.slug).toBe("vapi");
-      expect(new VapiProvider().slug).toBe("vapi");
+      expect(provider.slug).toBe("vapi");
+      expect(new VapiProvider({}, {}).slug).toBe("vapi");
     });
   });
 
@@ -48,7 +55,7 @@ describe("VapiProvider", () => {
     };
 
     it("returns a VAPI-shaped assistant config wrapped in `assistant`", () => {
-      const result = vapiProvider.buildAssistantConfig(baseCtx) as any;
+      const result = provider.buildAssistantConfig(baseCtx) as any;
       expect(result.assistant).toBeDefined();
       expect(result.assistant.model.provider).toBe("openai");
       expect(result.assistant.model.model).toBe("gpt-4o");
@@ -58,12 +65,12 @@ describe("VapiProvider", () => {
     });
 
     it("omits tools key when no tool definitions provided", () => {
-      const result = vapiProvider.buildAssistantConfig(baseCtx) as any;
+      const result = provider.buildAssistantConfig(baseCtx) as any;
       expect(result.assistant.model.tools).toBeUndefined();
     });
 
     it("attaches per-tool server URL when tools are present", () => {
-      const result = vapiProvider.buildAssistantConfig({
+      const result = provider.buildAssistantConfig({
         ...baseCtx,
         toolDefinitions: [
           {
@@ -82,7 +89,7 @@ describe("VapiProvider", () => {
     });
 
     it("includes knowledgePlan when RAG is enabled", () => {
-      const result = vapiProvider.buildAssistantConfig({
+      const result = provider.buildAssistantConfig({
         ...baseCtx,
         knowledgePlanEnabled: true,
       }) as any;
@@ -93,7 +100,7 @@ describe("VapiProvider", () => {
     });
 
     it("omits firstMessage when firstLine is null", () => {
-      const result = vapiProvider.buildAssistantConfig({
+      const result = provider.buildAssistantConfig({
         ...baseCtx,
         firstLine: null,
       }) as any;
@@ -103,7 +110,7 @@ describe("VapiProvider", () => {
 
   describe("normaliseEndOfCallEvent", () => {
     it("extracts canonical fields from a full payload", () => {
-      const result = vapiProvider.normaliseEndOfCallEvent({
+      const result = provider.normaliseEndOfCallEvent({
         message: {
           type: "end-of-call-report",
           endedReason: "customer-ended-call",
@@ -130,14 +137,14 @@ describe("VapiProvider", () => {
     });
 
     it("returns null when the payload lacks a call id", () => {
-      expect(vapiProvider.normaliseEndOfCallEvent({})).toBeNull();
-      expect(vapiProvider.normaliseEndOfCallEvent({ message: {} })).toBeNull();
-      expect(vapiProvider.normaliseEndOfCallEvent({ message: { call: {} } })).toBeNull();
-      expect(vapiProvider.normaliseEndOfCallEvent(null)).toBeNull();
+      expect(provider.normaliseEndOfCallEvent({})).toBeNull();
+      expect(provider.normaliseEndOfCallEvent({ message: {} })).toBeNull();
+      expect(provider.normaliseEndOfCallEvent({ message: { call: {} } })).toBeNull();
+      expect(provider.normaliseEndOfCallEvent(null)).toBeNull();
     });
 
     it("builds transcript from messages array when transcript field is empty", () => {
-      const result = vapiProvider.normaliseEndOfCallEvent({
+      const result = provider.normaliseEndOfCallEvent({
         message: {
           call: {
             id: "vapi-call-2",
@@ -152,7 +159,7 @@ describe("VapiProvider", () => {
     });
 
     it("handles minimal payload (id only)", () => {
-      const result = vapiProvider.normaliseEndOfCallEvent({
+      const result = provider.normaliseEndOfCallEvent({
         message: { call: { id: "vapi-call-3" } },
       });
       expect(result).not.toBeNull();
@@ -166,13 +173,13 @@ describe("VapiProvider", () => {
 
   describe("normaliseToolCallList", () => {
     it("returns an empty batch for a payload without toolCallList", () => {
-      const result = vapiProvider.normaliseToolCallList({});
+      const result = provider.normaliseToolCallList({});
       expect(result.toolCalls).toEqual([]);
       expect(result.customerPhone).toBeNull();
     });
 
     it("extracts a single tool call in VAPI's current function shape", () => {
-      const result = vapiProvider.normaliseToolCallList({
+      const result = provider.normaliseToolCallList({
         message: {
           call: { customer: { number: "+447700900123" } },
           toolCallList: [
@@ -196,7 +203,7 @@ describe("VapiProvider", () => {
     });
 
     it("extracts multiple tool calls and tolerates legacy functionCall shape", () => {
-      const result = vapiProvider.normaliseToolCallList({
+      const result = provider.normaliseToolCallList({
         message: {
           toolCallList: [
             {
@@ -219,7 +226,7 @@ describe("VapiProvider", () => {
     });
 
     it("skips entries without a function name (defensive)", () => {
-      const result = vapiProvider.normaliseToolCallList({
+      const result = provider.normaliseToolCallList({
         message: { toolCallList: [{ id: "tc-bad" }, { id: "tc-ok", function: { name: "check_mastery", arguments: {} } }] },
       });
       expect(result.toolCalls).toHaveLength(1);
@@ -233,11 +240,11 @@ describe("VapiProvider", () => {
         { content: "Part 2 is a 2-minute long-turn task.", similarity: 0.91 },
         { content: "Use connectives like 'firstly' and 'in conclusion'.", similarity: 0.78 },
       ];
-      expect(vapiProvider.buildKnowledgeResponse(results)).toEqual({ results });
+      expect(provider.buildKnowledgeResponse(results)).toEqual({ results });
     });
 
     it("returns an empty envelope for empty results", () => {
-      expect(vapiProvider.buildKnowledgeResponse([])).toEqual({ results: [] });
+      expect(provider.buildKnowledgeResponse([])).toEqual({ results: [] });
     });
   });
 
@@ -255,38 +262,53 @@ describe("VapiProvider", () => {
       } as unknown as import("next/server").NextRequest;
     }
 
-    it("returns null (pass-through) when no secret is configured", async () => {
-      vi.resetModules();
-      vi.doMock("@/lib/config", () => ({ config: { vapi: { webhookSecret: undefined } } }));
-      const { VapiProvider: P } = await import("@/lib/voice/providers/vapi");
-      const p = new P();
-      const req = makeRequestStub("{}", null);
-      expect(p.verifyInboundRequest(req, "{}")).toBeNull();
-      vi.resetModules();
+    // After #1031 the secret comes from constructor credentials (the DB
+    // row), not from lib/config. Tests instantiate with explicit args and
+    // unset VAPI_WEBHOOK_SECRET so the env fallback can't mask the test.
+    const origEnv = process.env.VAPI_WEBHOOK_SECRET;
+    beforeEach(() => {
+      delete process.env.VAPI_WEBHOOK_SECRET;
+    });
+    afterAll(() => {
+      if (origEnv !== undefined) process.env.VAPI_WEBHOOK_SECRET = origEnv;
     });
 
-    it("rejects when secret is configured but signature header is missing", async () => {
-      vi.resetModules();
-      vi.doMock("@/lib/config", () => ({ config: { vapi: { webhookSecret: SECRET } } }));
-      const { VapiProvider: P } = await import("@/lib/voice/providers/vapi");
-      const p = new P();
+    it("returns null (pass-through) when no secret is configured", () => {
+      const p = new VapiProvider({}, {});
+      const req = makeRequestStub("{}", null);
+      expect(p.verifyInboundRequest(req, "{}")).toBeNull();
+    });
+
+    it("rejects when secret is configured but signature header is missing", () => {
+      const p = new VapiProvider({ webhookSecret: SECRET }, {});
       const req = makeRequestStub("{}", null);
       const result = p.verifyInboundRequest(req, "{}") as any;
       expect(result).not.toBeNull();
       expect(result.status).toBe(401);
-      vi.resetModules();
     });
 
-    it("accepts a request with a valid HMAC signature", async () => {
-      vi.resetModules();
-      vi.doMock("@/lib/config", () => ({ config: { vapi: { webhookSecret: SECRET } } }));
-      const { VapiProvider: P } = await import("@/lib/voice/providers/vapi");
-      const p = new P();
+    it("accepts a request with a valid HMAC signature", () => {
+      const p = new VapiProvider({ webhookSecret: SECRET }, {});
       const body = '{"hello":"world"}';
       const sig = crypto.createHmac("sha256", SECRET).update(body).digest("hex");
       const req = makeRequestStub(body, sig);
       expect(p.verifyInboundRequest(req, body)).toBeNull();
-      vi.resetModules();
+    });
+
+    it("falls back to VAPI_WEBHOOK_SECRET env var with a console.warn (cutover-window safety)", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      process.env.VAPI_WEBHOOK_SECRET = SECRET;
+      const p = new VapiProvider({}, {});
+      // Warn fires at constructor time
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("falling back to env var"),
+      );
+      // And the env-resolved secret still verifies
+      const body = '{"x":1}';
+      const sig = crypto.createHmac("sha256", SECRET).update(body).digest("hex");
+      const req = makeRequestStub(body, sig);
+      expect(p.verifyInboundRequest(req, body)).toBeNull();
+      warnSpy.mockRestore();
     });
   });
 

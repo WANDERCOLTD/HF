@@ -1,14 +1,17 @@
 /**
- * VapiProvider — VoiceProvider adapter for vapi.ai (AnyVoice #1017).
+ * VapiProvider — VoiceProvider adapter for vapi.ai
+ * (introduced #1017, made data-driven #1031).
  *
  * Wraps every VAPI-specific transport concern so the four routes under
- * app/api/vapi/* contain no VAPI wire-format logic of their own. Routes
- * delegate to:
- *   - verifyInboundRequest      → app/api/vapi/{webhook,tools,knowledge}/route.ts
- *   - buildAssistantConfig      → app/api/vapi/assistant-request/route.ts
- *   - normaliseEndOfCallEvent   → app/api/vapi/webhook/route.ts
- *   - normaliseToolCallList     → app/api/vapi/tools/route.ts
- *   - buildKnowledgeResponse    → app/api/vapi/knowledge/route.ts
+ * app/api/vapi/* contain no VAPI wire-format logic of their own. The
+ * factory (`lib/voice/provider-factory.ts`) instantiates one of these
+ * per slug-cache-window with credentials + config from the matching
+ * `VoiceProvider` DB row.
+ *
+ * Constructor seam (#1031): credentials.webhookSecret + config.* come
+ * from the DB row, not env vars. A transient env-var fallback for
+ * webhookSecret exists for the deploy-window before the seed has run;
+ * it console.warns so operators see the cutover gap.
  *
  * VAPI HTTP contract reference:
  *   https://docs.vapi.ai/server-url/events
@@ -29,14 +32,53 @@ import type {
 } from "../../types";
 import { verifyVapiRequest } from "./auth";
 
+interface VapiCredentials {
+  apiKey?: string;
+  webhookSecret?: string;
+}
+
 export class VapiProvider implements VoiceProvider {
   readonly slug = "vapi";
+
+  private readonly webhookSecret: string | undefined;
+
+  /**
+   * Construct from DB-stored credentials + config. The factory passes
+   * `VoiceProvider.credentials` (Json) and `VoiceProvider.config` (Json)
+   * unchanged. Keep this cheap — no DB calls, no IO — since the factory
+   * may construct one per slug per cache window.
+   *
+   * Transient env-var fallback for `webhookSecret`: fires only when the
+   * DB row's credentials.webhookSecret is unset, which should only
+   * happen in the deploy window between code deploy and seed completion.
+   * Logs a console.warn so operators see the cutover gap. Remove the
+   * fallback once `VAPI_WEBHOOK_SECRET` is gone from every environment
+   * (the env-var line is already removed from `lib/config.ts`).
+   */
+  constructor(
+    credentials: Record<string, unknown>,
+    _config: Record<string, unknown>,
+  ) {
+    const creds = credentials as VapiCredentials;
+    if (creds.webhookSecret) {
+      this.webhookSecret = creds.webhookSecret;
+    } else if (process.env.VAPI_WEBHOOK_SECRET) {
+      console.warn(
+        "[vapi] VoiceProvider.credentials.webhookSecret not set — falling back to env var. Seed not yet run.",
+      );
+      this.webhookSecret = process.env.VAPI_WEBHOOK_SECRET;
+    } else {
+      // Local-dev with no secret: leave undefined; verifyVapiRequest
+      // pass-through preserves the existing no-secret ergonomics.
+      this.webhookSecret = undefined;
+    }
+  }
 
   verifyInboundRequest(
     req: NextRequest,
     rawBody: string,
   ): NextResponse | null {
-    return verifyVapiRequest(req, rawBody);
+    return verifyVapiRequest(req, rawBody, this.webhookSecret);
   }
 
   buildAssistantConfig(ctx: AssistantRequestContext): ProviderAssistantConfig {
@@ -215,5 +257,7 @@ export function extractVapiCapture(message: unknown): NormalisedEndOfCallCapture
   return out;
 }
 
-/** Singleton instance — the factory returns this directly. */
-export const vapiProvider = new VapiProvider();
+// Singleton export from #1017 removed in #1031 — the factory now
+// constructs per-request from DB credentials via VOICE_ADAPTERS. Tests
+// that need a standalone instance instantiate with explicit args:
+//   new VapiProvider({ webhookSecret: "..." }, {})
