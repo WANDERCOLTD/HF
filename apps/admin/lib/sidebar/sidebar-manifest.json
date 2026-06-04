@@ -10,5 +10,12 @@
       { "id": "demo-feedback", "href": "/x/feedback", "label": "Feedback", "icon": "MessageSquarePlus" },
       { "id": "demo-cohorts", "href": "/x/cohorts", "label": "Cohorts", "icon": "School" }
     ]
+  },
+  {
+    "id": "admin-bottom",
+    "requiredRole": "ADMIN",
+    "items": [
+      { "id": "admin-settings", "href": "/x/settings", "label": "Settings", "icon": "Settings", "shortcutHint": "⌘," }
+    ]
   }
 ]

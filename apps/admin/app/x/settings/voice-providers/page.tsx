@@ -39,6 +39,7 @@ export default function VoiceProvidersPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [pingResults, setPingResults] = useState<Record<string, PingResult | "loading">>({});
+  const [showArchived, setShowArchived] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -101,6 +102,22 @@ export default function VoiceProvidersPage() {
     }
   }
 
+  async function setEnabled(id: string, enabled: boolean, displayName: string) {
+    if (!enabled && !confirm(`Archive "${displayName}"? It will stop serving calls but can be restored from "Show archived".`)) return;
+    try {
+      const res = await fetch(`/api/voice-providers/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   return (
     <main className="hf-page">
       <h1 className="hf-page-title">Voice providers</h1>
@@ -125,8 +142,25 @@ export default function VoiceProvidersPage() {
           No providers registered. <Link href="/x/settings/voice-providers/new">Add one</Link> to start.
         </div>
       ) : (
-        <ul className="hf-card-list">
-          {rows.map((row) => {
+        (() => {
+          const visible = showArchived ? rows : rows.filter((r) => r.enabled);
+          const archivedCount = rows.filter((r) => !r.enabled).length;
+          return (
+            <>
+              {archivedCount > 0 ? (
+                <div className="hf-card-footer" style={{ justifyContent: "flex-end", marginBottom: 12 }}>
+                  <label className="hf-label" style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={showArchived}
+                      onChange={(e) => setShowArchived(e.target.checked)}
+                    />
+                    Show archived ({archivedCount})
+                  </label>
+                </div>
+              ) : null}
+              <ul className="hf-card-list">
+                {visible.map((row) => {
             const credKeys = Object.keys(row.credentials);
             const ping = pingResults[row.id];
             return (
@@ -187,7 +221,7 @@ export default function VoiceProvidersPage() {
                   <Link href={`/x/settings/voice-providers/${row.id}`} className="hf-btn hf-btn-secondary">
                     Edit
                   </Link>
-                  {!row.isDefault ? (
+                  {!row.isDefault && row.enabled ? (
                     <button
                       type="button"
                       className="hf-btn hf-btn-secondary"
@@ -195,6 +229,25 @@ export default function VoiceProvidersPage() {
                     >
                       Set as default
                     </button>
+                  ) : null}
+                  {!row.isDefault ? (
+                    row.enabled ? (
+                      <button
+                        type="button"
+                        className="hf-btn hf-btn-secondary"
+                        onClick={() => setEnabled(row.id, false, row.displayName)}
+                      >
+                        Archive
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="hf-btn hf-btn-secondary"
+                        onClick={() => setEnabled(row.id, true, row.displayName)}
+                      >
+                        Unarchive
+                      </button>
+                    )
                   ) : null}
                   {!row.isDefault ? (
                     <button
@@ -208,8 +261,11 @@ export default function VoiceProvidersPage() {
                 </footer>
               </li>
             );
-          })}
-        </ul>
+                })}
+              </ul>
+            </>
+          );
+        })()
       )}
 
       <div className="hf-card-footer">
