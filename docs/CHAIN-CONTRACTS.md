@@ -326,6 +326,99 @@ A page that mounts without a resolved `playbookId` either renders a learner-read
 
 ---
 
+## 3d. Course Variant product line (#1034)
+
+The Variant product line lets one Curriculum back N sibling Playbooks (Pop Quiz, Revision Aid, Exam Assessment) — same content authority, different teaching profile. CallerModuleProgress and `lo_mastery:*` flow naturally across siblings for the same Caller; the funnel (Pop Quiz finds gap → Revision Aid teaches → Exam Assessment certifies) is a runtime emergent of the shared CurriculumModule UUIDs.
+
+This section documents the six producer→consumer contracts that the variant work introduced. Treat each row as load-bearing for the funnel: violation means a sibling silently sees stale content or a foreign mastery state.
+
+### CC-A — Playbook → Curriculum linkage (PlaybookCurriculum)
+
+| Field | Value |
+|---|---|
+| **Producer** | `lib/wizard/apply-projection.ts::ensureCurriculum`, `lib/wizard/sync-authored-modules-to-curriculum.ts`, `lib/playbooks/create-variant.ts::createPlaybookVariant` |
+| **Consumer** | `lib/curriculum/resolve-module.ts::resolveCurriculumIdForPlaybook` (called by pipeline `route.ts:148`, COMPOSE loaders, admin tools); `lib/curriculum/resolve-playbook-for-curriculum.ts::resolvePlaybookIdForCurriculum` (called by curriculum-side writes for CC-B) |
+| **Data shape** | `PlaybookCurriculum{playbookId, curriculumId, role}` where `role ∈ {primary, linked}`. `@@unique([playbookId, curriculumId])`. Exactly one `primary` row per Curriculum (backfilled 1:1 from legacy `Curriculum.playbookId`). N `linked` rows per Curriculum allowed — that's the variant count. |
+| **DataContract slug** | implicit |
+| **Enforcement** | DB `@@unique` constraint; `createPlaybookVariant` writes `role='linked'` (never `primary`); wizard write sites dual-write `Curriculum.playbookId` (deprecated owner ptr) + `PlaybookCurriculum{role:'primary'}` row in the same `prisma.$transaction`. `resolveCurriculumIdForPlaybook` reads the join first and falls back to the deprecated column for transition safety. |
+| **Test** | `tests/lib/curriculum/resolve-curriculum-for-playbook.test.ts` (5 cases — pins TL hard-block #1 regression: variant Playbook's `linked` row resolves to PARENT's Curriculum); `tests/lib/playbooks/create-variant.test.ts` (10 cases — pins CC-A invariants: writes `role:'linked'`, NEVER writes CurriculumModule or Curriculum). |
+| **Memory doc** | `docs/ENTITIES.md` (Playbook + Curriculum relations); follow-up `#1038` drops the deprecated `Curriculum.playbookId` column once readers complete migration. |
+| **Audit counter** | TBD — propose `variantSiblingsWithoutPrimary` once #1038 lands (target 0). |
+| **Reinforced by** | #1034 (this story). |
+
+### CC-B — Curriculum mutation fanout (composeInputsUpdatedAt across siblings)
+
+| Field | Value |
+|---|---|
+| **Producer** | Any helper that mutates a Curriculum-scope compose-affecting field (LO write, module rename, lesson plan replace, assertion → LO link). Wired in: `app/api/curricula/[curriculumId]/lesson-plan/route.ts`, `app/api/curricula/[curriculumId]/modules/[moduleId]/route.ts` (PATCH + DELETE), `app/api/curricula/[curriculumId]/modules/route.ts` (POST + PUT), `lib/chat/admin-tool-handlers.ts` (3 sites). |
+| **Consumer** | `lib/compose/staleness.ts::isPromptStale` at every sibling Playbook's COMPOSE call-start. |
+| **Data shape** | `Playbook.composeInputsUpdatedAt` (DateTime) — one bump per sibling per Curriculum mutation. Driven by `resolvePlaybookIdForCurriculum(curriculumId) → string[]` (the array of every sibling) iterated through `bumpPlaybookComposeTimestamp(playbookId)`. |
+| **Invariant** | Every sibling Playbook sharing the mutated Curriculum MUST have its `composeInputsUpdatedAt` bumped before the next call. Variant Courses become stale TOGETHER when the teacher edits an LO. |
+| **Enforcement** | `resolvePlaybookIdForCurriculum` and `resolvePlaybookIdForCurriculumModule` return `string[]` (changed from `string|null` in #1034). Inline loops at the 7 caller sites + the canonical helper `lib/compose/bump-curriculum-fanout.ts::bumpCurriculumComposeFanout` for new write sites. |
+| **Pipeline carve-out** | Inherits the #825 carve-out: pipeline-internal writes do NOT bump (the unconditional pipeline COMPOSE handles them). Fanout only fires for teacher / wizard / admin mutations. |
+| **Test** | `tests/lib/curriculum/resolve-playbook-for-curriculum.test.ts` (signature change + multi-sibling resolution); `tests/lib/compose/bump-curriculum-fanout.test.ts` (5 cases — multi-sibling bump, empty-siblings no-op, single-sibling, module-walk variant). |
+| **Memory doc** | This sub-section + `lib/compose/bump-curriculum-fanout.ts` header. |
+| **Audit counter** | TBD — propose `curriculumMutationMissedSiblings` once #1038 lands (target 0). |
+| **Reinforced by** | #1034 (extends #825 / #834). |
+
+### CC-C — Enrollment → Call.playbookId scoping (per-Course entry surfaces)
+
+| Field | Value |
+|---|---|
+| **Producer** | Enrollment surfaces — `Invite.playbookId` non-null FK (existing). Each sibling Course gets its own join URL (`/join/[token]`), its own dashboard card, its own Quick-Launch deep link. |
+| **Consumer** | Call start (Sim, VAPI, web voice, phone) → sets `Call.playbookId` to the entry-surface's Playbook. Pipeline reads `Call.playbookId` for all downstream stages. |
+| **Data shape** | `Call.playbookId` (existing FK). One Call belongs to exactly one Playbook for its entire lifetime — no mid-call mode switching in v1. |
+| **Invariant** | The entry point selects the sibling; the learner does not "pick a Course mid-call". Mode-switching (Pop Quiz → Revision Aid for the same learner) requires end-call + start-call. |
+| **Enforcement** | Existing FK; Story A3 (#1040) adds the post-join landing page that lets a multi-Playbook-cohort learner pick which sibling to start. Out-of-scope tightening (`Invite.playbookId` mandatory) deferred to a separate story per #1034 TL review. |
+| **Test** | E2E (per Story A3 scope when built) — same Caller enrolled in N siblings, click sibling A's "Start" card → `Call.playbookId == A`. |
+| **Memory doc** | `docs/flow-call-lifecycle.md`; #1040 Story body. |
+| **Audit counter** | n/a (existing FK is the surface). |
+| **Reinforced by** | #1034 (groundwork) + #1040 (learner UI). |
+
+### CC-D — Call → COMPOSE Curriculum resolution
+
+| Field | Value |
+|---|---|
+| **Producer** | Call start (`Call.playbookId` is the input). |
+| **Consumer** | Pipeline COMPOSE — `lib/curriculum/resolve-module.ts::resolveCurriculumIdForPlaybook(playbookId)` returns the shared Curriculum id. Used by `app/api/calls/[callId]/pipeline/route.ts:148`, `lib/prompt/composition/SectionDataLoader.ts:1128`, `lib/prompt/compose-content-section.ts:374` and `:564`. |
+| **Data shape** | `resolveCurriculumIdForPlaybook(playbookId) → curriculumId | null` — reads PlaybookCurriculum first (any role, primary before linked, oldest createdAt within role), falls back to the deprecated `Curriculum.playbookId` column only when no join row exists. |
+| **Invariant** | Variant Playbooks MUST resolve to the parent's shared Curriculum, not null. The pre-#1034 implementation queried the deprecated column directly and silently returned null for variants → pipeline skipped module-aware composition for every variant Call. Pinning this invariant is the TL hard-block resolution. |
+| **Enforcement** | The resolver itself + 5 hot-reader migrations (Task 3 of #1034). Each hot reader keeps the deprecated-column fallback path for transition rollback safety; the fallback is removed in #1038. |
+| **Test** | `tests/lib/curriculum/resolve-curriculum-for-playbook.test.ts` includes the explicit "REGRESSION (TL block #1): variant Playbook's linked row resolves to PARENT's Curriculum" case. Future: integration test that runs a variant Call through pipeline COMPOSE and asserts module-aware section renders. |
+| **Memory doc** | `docs/flow-prompt-composition.md` + `lib/curriculum/resolve-module.ts` header. |
+| **Audit counter** | Propose `variantCallsWithNullCurriculum` (target 0) once the variant flow is in production. |
+| **Reinforced by** | #1034 (Task 2 + Task 3). |
+
+### CC-E — AGGREGATE → cross-Playbook mastery scope (INTENTIONAL)
+
+| Field | Value |
+|---|---|
+| **Producer** | AGGREGATE-stage writes — `CallerAttribute.lo_mastery:{moduleSlug}:{loRef}` (#611 canonical slug form) and `CallerModuleProgress` rows. |
+| **Consumer** | COMPOSE on every sibling Playbook's next Call for the same Caller. Mastery flows naturally because: (a) `lo_mastery` keys are slug-keyed and the variant shares the parent's CurriculumModule slugs; (b) `CallerModuleProgress @@unique([callerId, moduleId])` shares one row across siblings because moduleId UUIDs ARE shared. |
+| **Data shape** | Existing — no schema change. The new fact is that the rows are now CROSS-PLAYBOOK scoped by *design* for a given Caller. |
+| **Invariant** | **Intentional cross-Playbook scope.** A Caller doing Pop Quiz → Revision Aid → Exam Assessment writes and reads the same mastery rows. Variants compose against the same EMA. This is the funnel mechanism and must not be "fixed" as a bug. |
+| **Enforcement** | Documented here. Future test (Story A test bank): triple-enroll a Caller, run a Call against sibling A, assert sibling B's pipeline reads the same `lo_mastery:M3:LO2.3` row. |
+| **Test** | Pending integration test for the triple-sibling funnel. Existing AGGREGATE unit tests (`tests/lib/pipeline/aggregate-*`) implicitly cover the write side; cross-sibling READ is the new assertion class. |
+| **Memory doc** | `docs/ENTITIES.md` (CallerAttribute + CallerModuleProgress); this row. |
+| **Audit counter** | TBD — `crossSiblingMasteryDivergence` (target 0) — non-trivial to compute, defer until needed. |
+| **Reinforced by** | #1034 (documentation only — the mechanism is pre-existing). |
+
+### CC-F — SIM playbook-curriculum precondition
+
+| Field | Value |
+|---|---|
+| **Producer** | `scripts/sim-drive-call.ts` (and any future sim runner). |
+| **Consumer** | Pipeline COMPOSE during the simulated Call. |
+| **Data shape** | `(playbookId, curriculumId)` linkage MUST exist before sim runs. Pre-flight: `await prisma.playbookCurriculum.findFirst({where:{playbookId}})` returns a row OR `Curriculum.playbookId === playbookId` (transition fallback). |
+| **Invariant** | A sim launched against a Playbook with no shared Curriculum MUST fail fast with a clear error, not proceed silently and produce a malformed Call. |
+| **Enforcement** | Pre-flight check in `sim-drive-call.ts` (added per #1034 Task 9 scope). Future: shared precondition helper in `lib/sim/preflight.ts` so other sim runners pick it up automatically. |
+| **Test** | `tests/scripts/sim-drive-call-preflight.test.ts` (new — pending Task 9): sim with un-linked Playbook exits non-zero; sim with primary or linked Curriculum proceeds. |
+| **Memory doc** | `scripts/sim-drive-call.ts` header + this row. |
+| **Audit counter** | n/a (sim is a CI/dev surface). |
+| **Reinforced by** | #1034 (Task 9 — pre/post-snapshot CHAIN tests). |
+
+---
+
 ## 4. DataContract registry
 
 The runtime DataContract registry (`lib/contracts/`) is the DB-backed source of truth for storage-key patterns. Contract files live in `apps/admin/docs-archive/bdd-specs/contracts/` and are seeded into `DataContract` rows on `db:seed`.
@@ -400,6 +493,7 @@ If a chain row above references "DataContract slug: implicit" and the contract i
 
 | Date | Change |
 |---|---|
+| 2026-06-04 | **Section 3d added — Course Variant product line (#1034).** Six new contracts (CC-A through CC-F) covering: PlaybookCurriculum join-table linkage; curriculum mutation fanout across siblings (`resolvePlaybookIdForCurriculum` signature changed from `string\|null` to `string[]`); Enrollment → Call.playbookId scoping (per-Course entry surfaces, no mid-call switching in v1 — Story A3 #1040 closes the learner-side UI); Call → COMPOSE Curriculum resolution (closes TL hard-block: pre-#1034 variants silently skipped module-aware composition because the resolver queried the deprecated `Curriculum.playbookId` column directly); AGGREGATE → cross-Playbook mastery scope (INTENTIONAL — slug-keyed `lo_mastery:*` and shared `CallerModuleProgress` rows are the funnel mechanism); SIM playbook-curriculum precondition (pre-flight in `sim-drive-call.ts`). Deprecated `Curriculum.playbookId` column stays for one release as a primary-owner pointer + transition fallback; dropped in #1038. Wizard write sites dual-write column + `PlaybookCurriculum{role:'primary'}` row in the same `prisma.$transaction` to prevent two-write divergence. Five preset config keys (`teachingProfile`, `welcomeMessage`, `maxCallDurationSeconds`, `modelTier`, `bloomLevelOverride`, `useFreshMastery`) on `Playbook.config` are forward-declared per the TL re-review — stored as JSON, no runtime effect today. Cost tiering (`modelTier`) and Bloom override ship in follow-up stories. Variant route NEVER writes `CurriculumModule` or `Curriculum` rows — the funnel depends on shared UUIDs (CC-A invariant pinned by `tests/lib/playbooks/create-variant.test.ts`). |
 | 2026-06-03 | **Link 3 sub-contract added — COMPOSE → LLM output invariants (#1008 / closes #1006).** Five output invariants enforced inside `executeComposition` before `persistComposedPrompt`: I-C1 module-lock honoured; I-C2 call-counter coherence; I-C3 no memory-less reminisce; I-C4 no generic-noun fallback in instructions (ESLint-enforced); I-C5 `estimatedProgress` heuristic is debug-only. Source: confirmed hallucination on caller `e1df05fa-9c85-4972-9bbe-b13e52784841` (Maya, IELTS Prep Lab) — `ComposedPrompt cd8e2995` simultaneously locked Part 2, asked the AI to spaced-retrieve Part 1, and supplied `key_memories: null`, so the model fabricated Part 2 progress specifics ("from one-minute panic to past 90 seconds") to maintain conversational coherence. Same anti-pattern class as #605 (categoryToTeachMethod fallback) and #608 (SYSTEM IDENTITY fallback) — silent code-side defaults masking missing data. **I-C1 + I-C2 land as `severity: "error"` from day 1** (binary invariants; Maya's vitest fixture is the reproducer). **I-C3 / I-C4 / I-C5 land as `"warn"`** and promote per-invariant to `"error"` after the matching audit counter reads 0 across dev/test/prod for ≥7 days. New ESLint rule `hf-compose/no-orphan-instruction-fallback` blocks the `${x?.name \|\| "previous concept"}` pattern class in `lib/prompt/composition/transforms/**` (rule-family pattern, sibling to `hf-curriculum/no-unscoped-slug-lookup`). **Co-landing spec-driven mutation hardcoding sweep:** replaces bare `masteryThreshold: 0.7` literals in `app/api/calls/[callId]/pipeline/route.ts` authored-module paths and `runLearningAssessmentFallback` with `DEFAULT_MASTERY_THRESHOLD` / `ContractRegistry.getThresholds('CURRICULUM_PROGRESS_V1')?.masteryComplete` (the registry call is already correctly used at line 397 of the same file then bypassed two functions later — exact same miss class as #605). Mock-engine `confidence: 0.7` → `guardrails.confidenceBounds.defaultConfidence`. `lib/pipeline/adapt-runner.ts::applyAdaptationAction`'s silent-fallback `targetValue ?? 0.5` writes get `// TODO(ai-guard):` markers and a child issue for the proper fix. Five new audit counters: `composeLockedModuleMismatch`, `composeCallCounterIncoherent`, `composeMemorylessReminisceCount`, `composeGenericNounFallbackCount`, `composeHeuristicProgressFallback` — all `kind: "invariant"`, target 0, baseline JSON updated in the same commit. Also fixed stale path in the TUNER → COMPOSE row (`lib/playbook/bump-timestamp.ts` → `lib/compose/bump-timestamp.ts`) — the file lives in `lib/compose/`, never `lib/playbook/`. |
 | 2026-05-27 | **Link L9 added — learner-facing module-picker reachability (#948).** Pins the silent-reachability invariant exposed by PR #947's `/x/sim` fix. Every learner-facing page that mounts a session on a Playbook MUST resolve `playbookId` via the canonical fallback (URL → single ACTIVE enrollment → most-recently enrolled ACTIVE → empty state). Shared helper at `lib/caller/resolve-active-playbook.ts` + API wrapper at `/api/callers/[id]/active-playbook` + arch-checker Check G (soft warn) + integration journey test on 4 caller shapes + 13-case vitest. Defends against a learner deep-linking into the sim view, missing the picker silently, and being unable to focus a session. |
 | 2026-05-27 | **Section 3c added — learner-surfacing contracts. Link L1: scheduler → learner (PRs #920 (#917 Slice 2) + #924 (#923 writer copy)).** First pipeline→learner contract boundary: scheduler `reason` field, written to `CallerAttribute` during COMPOSE, exposed via `GET /api/student/scheduler-decision` and rendered in SimProgressPanel. Five-layer enforcement (writer copy constants + build-time regression + route sanitizer + strict response shape + multi-curriculum/stale guards). Known gap #919 (multi-curriculum writer key shape) documented at read-time guard, pending writer-side fix. |

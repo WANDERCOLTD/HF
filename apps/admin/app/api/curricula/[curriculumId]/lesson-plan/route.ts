@@ -257,8 +257,9 @@ export async function PUT(
 
     // #834 — lesson plan flows into compose via the modules / curriculum
     // loaders (session bucketing, target LOs, assertion routing). Bump.
-    const playbookId = await resolvePlaybookIdForCurriculum(curriculumId);
-    if (playbookId) await bumpPlaybookComposeTimestamp(playbookId);
+    // #1034 — CC-B fanout: bump every sibling Playbook sharing this Curriculum.
+    const playbookIds = await resolvePlaybookIdForCurriculum(curriculumId);
+    for (const pbId of playbookIds) await bumpPlaybookComposeTimestamp(pbId);
 
     return NextResponse.json({ ok: true, plan, entries: plan.entries, ...(staleWarning ? { warning: staleWarning } : {}) });
   } catch (error: any) {

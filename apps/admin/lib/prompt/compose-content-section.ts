@@ -370,15 +370,25 @@ async function loadCallerProgress(
     // Prefer playbookId lookup — wizard-generated curricula use slugs like
     // `course-<playbookId>-<timestamp>` that don't match the content spec slug.
     // Fall back to spec slug for content-spec-seeded curricula.
-    const curriculum = playbookId
-      ? await prisma.curriculum.findFirst({
-          where: { playbookId },
-          select: { id: true },
-        })
-      : await prisma.curriculum.findFirst({
-          where: { slug: specSlug },
-          select: { id: true },
-        });
+    // #1034 — playbookId path reads PlaybookCurriculum first (variant
+    // Playbooks share the parent's Curriculum), falls back to deprecated column.
+    let curriculum: { id: string } | null = null;
+    if (playbookId) {
+      const pbcLink = await prisma.playbookCurriculum.findFirst({
+        where: { playbookId },
+        orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+        select: { curriculum: { select: { id: true } } },
+      });
+      curriculum = pbcLink?.curriculum ?? await prisma.curriculum.findFirst({
+        where: { playbookId },
+        select: { id: true },
+      });
+    } else {
+      curriculum = await prisma.curriculum.findFirst({
+        where: { slug: specSlug },
+        select: { id: true },
+      });
+    }
     if (curriculum) {
       const moduleRows = await prisma.curriculumModule.findMany({
         where: { curriculumId: curriculum.id },
@@ -561,24 +571,31 @@ async function composeContentFromSubject(
   const { resolvePlaybookId } = await import("@/lib/enrollment/resolve-playbook");
   const enrolledPbId = await resolvePlaybookId(callerId);
   if (enrolledPbId) {
-    const pbCurr = await prisma.curriculum.findFirst({
-      where: { playbookId: enrolledPbId },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        slug: true,
-        name: true,
-        notableInfo: true,
-        modules: {
-          orderBy: { sortOrder: "asc" },
-          select: {
-            id: true,
-            slug: true,
-            title: true,
-            description: true,
-            sortOrder: true,
-          },
+    // #1034 — PlaybookCurriculum-first read with deprecated-column fallback.
+    const pbCurrSelect = {
+      slug: true,
+      name: true,
+      notableInfo: true,
+      modules: {
+        orderBy: { sortOrder: "asc" as const },
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          description: true,
+          sortOrder: true,
         },
       },
+    };
+    const pbcLink = await prisma.playbookCurriculum.findFirst({
+      where: { playbookId: enrolledPbId },
+      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+      select: { curriculum: { select: pbCurrSelect } },
+    });
+    const pbCurr = pbcLink?.curriculum ?? await prisma.curriculum.findFirst({
+      where: { playbookId: enrolledPbId },
+      orderBy: { updatedAt: "desc" },
+      select: pbCurrSelect,
     });
 
     if (pbCurr) {

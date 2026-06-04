@@ -225,8 +225,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     // #834 — CurriculumModule + LearningObjective flow into the composed
     // prompt via the curriculum / modules loaders. Bump the owning
     // Playbook so the staleness check picks this up on next call.
-    const playbookId = await resolvePlaybookIdForCurriculum(curriculumId);
-    if (playbookId) await bumpPlaybookComposeTimestamp(playbookId);
+    // #1034 — CC-B fanout: bump every sibling Playbook sharing this Curriculum.
+    const playbookIds = await resolvePlaybookIdForCurriculum(curriculumId);
+    for (const pbId of playbookIds) await bumpPlaybookComposeTimestamp(pbId);
 
     return NextResponse.json({ ok: true, module: result });
   } catch (error: any) {
@@ -258,8 +259,9 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     await prisma.curriculumModule.delete({ where: { id: moduleId } });
 
     // #834 — deletion changes which modules feed into compose.
-    const playbookId = await resolvePlaybookIdForCurriculum(curriculumId);
-    if (playbookId) await bumpPlaybookComposeTimestamp(playbookId);
+    // #1034 — CC-B fanout: bump every sibling Playbook sharing this Curriculum.
+    const playbookIds = await resolvePlaybookIdForCurriculum(curriculumId);
+    for (const pbId of playbookIds) await bumpPlaybookComposeTimestamp(pbId);
 
     return NextResponse.json({ ok: true });
   } catch (error: any) {
