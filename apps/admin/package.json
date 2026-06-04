@@ -33,6 +33,7 @@
     "prisma:generate": "npx prisma generate",
     "prisma:seed": "npx prisma db seed",
     "prisma:studio": "npx prisma studio",
+    "tallyseal:migrate": "tsx scripts/apply-tallyseal-migrations.ts",
     "registry:generate": "tsx scripts/generate-registry.ts",
     "registry:validate": "tsx scripts/validate-registry.ts",
     "generate:constants": "tsx scripts/generate-constants-manifest.ts",
