@@ -3129,6 +3129,24 @@ Compute uplift metrics for a learner — survey deltas, score trends, adaptation
 
 ---
 
+### `GET` /api/callers/[callerId]/voice-provider
+
+Returns the caller's voice-provider override (the raw
+
+**Auth**: Session · **Scope**: `callers:read`
+
+**Response** `200`
+```json
+{ ok: true, override: string | null, resolved: { slug, source }, options: { slug, displayName }[] }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Caller not found" }
+```
+
+---
+
 ### `POST` /api/callers/merge
 
 Merge multiple source callers into a single target caller. Moves all data (calls, memories, observations, scores, identities, composed prompts, slug selections) from source callers to the target. Handles unique constraints by merging personality, personality profiles, memory summaries, caller targets, and caller attributes using weighted averages. Re-sequences calls chronologically. Deletes source callers after merge.
@@ -14705,8 +14723,8 @@ orchestration between services) and are never exposed externally.
 
 | Metric | Value |
 |--------|-------|
-| Route files found | 468 |
-| Files with annotations | 460 |
+| Route files found | 469 |
+| Files with annotations | 461 |
 | Files missing annotations | 8 |
 | Coverage | 98.3% |
 
