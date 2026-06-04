@@ -28,16 +28,23 @@ HF_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENDOR_DIR="${HF_ROOT}/apps/admin/vendor/tallyseal"
 
 # Topological order — deps first. See vendor/README.md for the graph.
+# 2026-06-04 (items 14+15 pickup): added regulations-ferpa, generator,
+# extractor, server per
+# ~/projects/tallyseal/docs/notebook/09-operating/hf-tarball-pickup-20260603-items-14-15.md.
 PACKAGES=(
   crawcus-spec
   crawcus-tck
   core
   react
   regulations-gdpr
+  regulations-ferpa
   regulations-eu-ai-act
   prisma-adapter
   ai-anthropic
   react-assistant-ui
+  generator
+  extractor
+  server
 )
 
 if [[ ! -d "${TALLYSEAL_ROOT}" ]]; then
