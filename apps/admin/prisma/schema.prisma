@@ -185,6 +185,15 @@ enum CallActionSource {
   MANUAL // Operator/admin created
 }
 
+// Identifies which voice provider served a given Call. Adapter dispatch and
+// per-caller routing read this field; the implicit `!!externalId` check it
+// replaces silently coupled "is this VAPI?" to a column shared by every
+// provider. Add new providers as enum values (e.g. RETELL, TWILIO) — never
+// branch on raw `source` strings outside the channel normaliser. (#1025)
+enum VoiceProviderSlug {
+  VAPI
+}
+
 // Goal lifecycle status
 enum GoalStatus {
   ACTIVE // Currently being pursued
@@ -1445,6 +1454,12 @@ model Call {
   // Live observation
   endedAt  DateTime? // null = call may still be active (or pre-feature calls)
   messages CallMessage[]
+
+  // Voice provider that served this call. Default VAPI covers every historical
+  // row and every new row written before per-caller routing (#1027) ships.
+  // Adapter dispatch reads this; do not infer provider identity from other
+  // columns. (#1025)
+  voiceProvider VoiceProviderSlug @default(VAPI)
 
   // VAPI end-of-call payload capture (Phase 0 of plan-voice-analysis.md). Captured
   // verbatim from VAPI's `end-of-call-report` message body — see
