@@ -113,7 +113,10 @@ export async function POST(req: NextRequest) {
         content: copy.content,
         contentHash: copy.contentHash,
         deliveredAt,
-        deliveryMethod: "banner",
+        // 'in-app' per the SDK CHECK constraint
+        // (delivery_method IN 'in-app','email','sms','mail','api').
+        // HF delivers via TallysealBanner — closest semantic match.
+        deliveryMethod: "in-app",
         acknowledgedAt: null,
         retractedAt: null,
       } as never);
