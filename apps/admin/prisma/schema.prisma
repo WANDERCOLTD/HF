@@ -1478,13 +1478,13 @@ model Call {
   // leaked VAPI vocabulary into a model meant to span every provider —
   // direct violation of the I-VP3 invariant in CHAIN-CONTRACTS.md Link
   // 3 sub-contract (COMPOSE → VOICE PROVIDER).
-  recordingUrl          String?
-  stereoRecordingUrl    String?
-  voiceDurationSeconds  Float?
-  voiceEndedReason      String?
-  voiceCostUsd          Float?
-  voiceAnalysisSummary  String? @db.Text
-  voiceStructuredData   Json?
+  recordingUrl           String?
+  stereoRecordingUrl     String?
+  voiceDurationSeconds   Float?
+  voiceEndedReason       String?
+  voiceCostUsd           Float?
+  voiceAnalysisSummary   String? @db.Text
+  voiceStructuredData    Json?
   voiceSuccessEvaluation String?
   /// Provider-specific extras the adapter wants to stash that don't
   /// fit a canonical column. Anything in here is opaque to HF —
@@ -1492,7 +1492,7 @@ model Call {
   /// or index fields inside this blob in shared code; if a field
   /// is read by anything other than its provider's own adapter,
   /// promote it to a canonical column.
-  voiceProviderRaw      Json?
+  voiceProviderRaw       Json?
 
   @@index([source])
   @@index([externalId])
@@ -2387,7 +2387,9 @@ model Curriculum {
   subjectId String?
   subject   Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
 
-  // Course linkage (replaces Subject → Curriculum chain)
+  /// @deprecated #1034 — kept as primary-owner pointer during PlaybookCurriculum
+  /// rollout. Readers MUST prefer PlaybookCurriculum (any role) and only fall
+  /// back to this column if the join table returns nothing. Dropped in #1038.
   playbookId String?
   playbook   Playbook? @relation("PlaybookCurricula", fields: [playbookId], references: [id], onDelete: SetNull)
 
@@ -2396,6 +2398,11 @@ model Curriculum {
 
   // First-class modules (replaces JSON notableInfo.modules)
   modules CurriculumModule[]
+
+  // #1034 — many-to-many link to Playbooks (primary owner + linked siblings).
+  // Source-of-truth for the variant Course product line. Replaces direct
+  // Curriculum.playbookId read on the hot Call path.
+  playbookLinks PlaybookCurriculum[]
 
   @@index([slug])
   @@index([sourceSpecId])
@@ -2865,8 +2872,14 @@ model Playbook {
   // Direct content scoping — which content sources belong to this course
   playbookSources PlaybookSource[]
 
-  // Curricula owned by this course (replaces Subject → Curriculum chain)
+  /// @deprecated #1034 — direct Curriculum.playbookId is the legacy
+  /// primary-owner pointer. Prefer reading via playbookCurricula. Dropped in #1038.
   curricula Curriculum[] @relation("PlaybookCurricula")
+
+  // #1034 — many-to-many link to Curricula. Variant Playbooks share a
+  // Curriculum with their parent via a `linked` row; the parent owns a
+  // `primary` row. Required for the variant Course product line.
+  playbookCurricula PlaybookCurriculum[]
 
   // Inverse relations for course scoping
   calls           Call[]           @relation("PlaybookCalls")
@@ -4288,6 +4301,38 @@ model PlaybookSource {
   @@unique([playbookId, sourceId])
   @@index([playbookId])
   @@index([sourceId])
+}
+
+// #1034 — Role of a PlaybookCurriculum link.
+//   primary — the owning Playbook of this Curriculum (one per Curriculum).
+//             Backfilled from the legacy Curriculum.playbookId column.
+//   linked  — a sibling Variant Playbook sharing the primary's Curriculum.
+//             Multiple per Curriculum allowed. Mastery flows across all
+//             linked + primary siblings for the same Caller because
+//             CallerModuleProgress is keyed on (callerId, moduleId UUID).
+enum PlaybookCurriculumRole {
+  primary
+  linked
+}
+
+// #1034 — Many-to-many between Playbook and Curriculum.
+// Replaces the direct Curriculum.playbookId FK on the hot Call path.
+// Primary row backfilled per existing Curriculum.playbookId on migration.
+// Variant route writes a `linked` row pointing at the parent's Curriculum.
+model PlaybookCurriculum {
+  id           String     @id @default(uuid())
+  playbookId   String
+  playbook     Playbook   @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+  curriculumId String
+  curriculum   Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Restrict)
+
+  role PlaybookCurriculumRole @default(primary)
+
+  createdAt DateTime @default(now())
+
+  @@unique([playbookId, curriculumId])
+  @@index([curriculumId]) // CC-B fanout: bump all sibling Playbooks for a Curriculum
+  @@index([playbookId]) // variant lookup: which Curriculum does this Playbook read?
 }
 
 // =============================================================================

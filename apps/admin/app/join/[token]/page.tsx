@@ -109,6 +109,7 @@ export default function JoinPage() {
           firstName,
           lastName,
           email,
+          ...(searchParams.get("ageRange") ? { ageRange: searchParams.get("ageRange") } : {}),
           ...(searchParams.get("course") ? { playbookId: searchParams.get("course") } : {}),
           ...(searchParams.get("skipOnboarding") === "true" ? { skipOnboarding: true } : {}),
         }),

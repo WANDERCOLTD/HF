@@ -30,6 +30,18 @@ import * as path from "path";
 import { ADMIN_TOOLS } from "../lib/chat/admin-tools";
 import { CONVERSATIONAL_TOOLS } from "../lib/chat/conversational-wizard-tools";
 import { COURSE_REF_TOOLS } from "../lib/chat/course-ref-tools";
+// AnyVoice #1026 originally imported VAPI_TOOL_DEFINITIONS from the
+// tools route. #1019 moved tool defs into the TOOLS-001 spec JSON; this
+// scraper now reads the spec file directly so the CI drift gate still
+// covers the 4th voice-tools surface. The spec is the source of truth;
+// loadToolDefinitions() (at runtime) and this generator both read it.
+import voiceToolsSpec from "../docs-archive/bdd-specs/TOOLS-001-voice-tool-definitions.spec.json" assert { type: "json" };
+
+interface OpenAIToolDef {
+  type: string;
+  function: { name: string; description: string; parameters: unknown };
+}
+const VAPI_TOOL_DEFINITIONS = (voiceToolsSpec as { config: { tools: OpenAIToolDef[] } }).config.tools;
 
 const ROOT = path.resolve(__dirname, "../../..");
 const DOC_PATH = path.resolve(ROOT, "docs/AI-CAPABILITIES.md");
@@ -68,6 +80,25 @@ const REGISTRIES: RegistrySpec[] = [
     schemaFile: "apps/admin/lib/chat/course-ref-tools.ts",
     tools: COURSE_REF_TOOLS,
     handlerFile: path.resolve(ROOT, "apps/admin/lib/chat/course-ref-tool-handlers.ts"),
+  },
+  {
+    // AnyVoice #1026 + #1019. Tool defs come from the TOOLS-001 spec
+    // (`docs-archive/bdd-specs/TOOLS-001-voice-tool-definitions.spec.json`),
+    // the same source loadToolDefinitions() reads at runtime. The spec
+    // uses the OpenAI tool-call shape (`{ type, function: { name,
+    // description, parameters } }`); adapt to the internal RegistrySpec
+    // flat shape so the same renderer covers all four surfaces. Auth
+    // is webhook-secret (see verifyVapiRequest in
+    // app/api/vapi/tools/route.ts), not session role — TOOL_MIN_ROLE
+    // is empty and the doc shows "(route-level)".
+    surface: "Voice (VAPI custom tools)",
+    schemaFile: "apps/admin/docs-archive/bdd-specs/TOOLS-001-voice-tool-definitions.spec.json",
+    tools: VAPI_TOOL_DEFINITIONS.map((t) => ({
+      name: t.function.name,
+      description: t.function.description,
+      input_schema: t.function.parameters as Record<string, unknown>,
+    })),
+    handlerFile: path.resolve(ROOT, "apps/admin/app/api/vapi/tools/route.ts"),
   },
 ];
 

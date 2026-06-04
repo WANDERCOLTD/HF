@@ -61,14 +61,20 @@ export async function syncAuthoredModulesToCurriculum(
    */
   outcomes?: Record<string, string>,
 ): Promise<SyncResult> {
-  // Pick or create the primary curriculum for this course. "Primary" =
-  // earliest by createdAt; explicit primary-curriculum support is a
-  // separate ticket per #245's out-of-scope list.
+  // Pick or create the primary curriculum for this course.
+  // #1034 — Read PlaybookCurriculum first (variant Playbooks share the
+  // parent's Curriculum via a `linked` row). Falls back to the deprecated
+  // Curriculum.playbookId relation for transition safety.
   const playbook = await tx.playbook.findUnique({
     where: { id: playbookId },
     select: {
       id: true,
       name: true,
+      playbookCurricula: {
+        orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+        take: 1,
+        select: { curriculumId: true },
+      },
       curricula: {
         orderBy: { createdAt: "asc" },
         take: 1,
@@ -80,15 +86,27 @@ export async function syncAuthoredModulesToCurriculum(
     throw new Error(`Playbook ${playbookId} not found`);
   }
 
-  let curriculumId = playbook.curricula[0]?.id ?? null;
+  let curriculumId: string | null =
+    playbook.playbookCurricula[0]?.curriculumId ??
+    playbook.curricula[0]?.id ??
+    null;
   if (!curriculumId) {
     const created = await tx.curriculum.create({
       data: {
         name: `${playbook.name} — Modules`,
         slug: `playbook-${playbookId.slice(0, 8)}-modules`,
+        // #1034 — Keep deprecated owner pointer in sync with PlaybookCurriculum
+        // for one release (dropped in #1038). Same-tx dual-write.
         playbookId,
       },
       select: { id: true },
+    });
+    await tx.playbookCurriculum.create({
+      data: {
+        playbookId,
+        curriculumId: created.id,
+        role: "primary",
+      },
     });
     curriculumId = created.id;
   }

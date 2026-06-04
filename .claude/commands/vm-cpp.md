@@ -78,6 +78,12 @@ gcloud compute ssh hf-dev --zone=europe-west2-a --tunnel-through-iap -- bash <<'
   echo "==> Regenerating Prisma client..."
   npx prisma generate
 
+  echo "==> Running tallyseal migrations..."
+  # Applies @tallyseal/prisma-adapter raw-SQL migrations (idempotent +
+  # checksum-pinned per ratchet #4). Runs AFTER `prisma generate` so the
+  # freshly-regenerated Prisma client is used by the runner. See #1045.
+  npm run tallyseal:migrate
+
   # ONLY if seed files changed — include this block:
   # echo "==> Seeding..."
   # npx tsx prisma/seed-full.ts

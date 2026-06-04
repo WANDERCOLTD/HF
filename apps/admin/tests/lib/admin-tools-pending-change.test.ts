@@ -33,8 +33,9 @@ vi.mock("@/lib/compose/bump-timestamp", () => ({
 
 // Resolve helpers — stub to return predictable playbook IDs.
 // Both helpers live in lib/curriculum/resolve-playbook-for-curriculum.ts.
+// #1034 — `resolvePlaybookIdForCurriculum` now returns `string[]` for CC-B fanout.
 vi.mock("@/lib/curriculum/resolve-playbook-for-curriculum", () => ({
-  resolvePlaybookIdForCurriculum: vi.fn(async () => "pb-1"),
+  resolvePlaybookIdForCurriculum: vi.fn(async () => ["pb-1"]),
   resolvePlaybookIdsForContentSource: vi.fn(async () => ["pb-1", "pb-2"]),
 }));
 
@@ -218,11 +219,13 @@ describe("Admin tool handlers — pendingChange emission (#873 follow-up)", () =
     });
   });
 
-  it("update_curriculum_metadata emits pendingChange with playbookId from curriculum", async () => {
+  it("update_curriculum_metadata emits pendingChange with the representative sibling Playbook (#1034)", async () => {
+    // #1034 — handler now resolves sibling Playbooks via resolvePlaybookIdForCurriculum
+    // instead of reading the deprecated Curriculum.playbookId column directly.
+    // pendingChange.scopeId is the representative (first = primary by ordering).
     mockPrisma.curriculum.findUnique.mockResolvedValue({
       id: "cur-1",
       name: "Old",
-      playbookId: "pb-9",
     });
     mockPrisma.curriculum.update.mockResolvedValue({
       id: "cur-1",
@@ -232,6 +235,11 @@ describe("Admin tool handlers — pendingChange emission (#873 follow-up)", () =
       sourceYear: null,
       authors: [],
     });
+    const { resolvePlaybookIdForCurriculum } = await import(
+      "@/lib/curriculum/resolve-playbook-for-curriculum"
+    );
+    (resolvePlaybookIdForCurriculum as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(["pb-9", "pb-variant-1", "pb-variant-2"]);
     const raw = await executeAdminTool(
       "update_curriculum_metadata",
       { curriculum_id: "cur-1", name: "New" },
@@ -252,11 +260,12 @@ describe("Admin tool handlers — pendingChange emission (#873 follow-up)", () =
       title: "Intro",
       curriculumId: "cur-orphan",
     });
-    // Override the resolve mock to return null (no playbook linked).
+    // Override the resolve mock to return [] (no playbook linked).
+    // #1034 — empty array = no siblings to fan out to.
     const { resolvePlaybookIdForCurriculum } = await import(
       "@/lib/curriculum/resolve-playbook-for-curriculum"
     );
-    (resolvePlaybookIdForCurriculum as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+    (resolvePlaybookIdForCurriculum as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
     mockPrisma.curriculumModule.update.mockResolvedValue({
       id: "mod-1",
       slug: "intro",

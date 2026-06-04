@@ -508,6 +508,87 @@ const counters: CounterDefinition[] = [
       return count;
     },
   },
+
+  /* #1016 — AnyVoice transport-adapter contract (chain-contracts Link 3 sub)
+   *
+   * Static counters. Both target 0 by epic completion:
+   *   - vapiNamedColumnsOnCallModel  → 0 after #1020 renames vapi* → voice*.
+   *   - vapiToolDefinitionsConstantPresent → 0 after #1019 migrates the
+   *     constant into the TOOLS-001 spec.
+   *
+   * These read the source tree, not the database — they verify the code
+   * shape promised by the I-VP2 / I-VP3 invariants in
+   * docs/CHAIN-CONTRACTS.md "Link 3 sub-contract — COMPOSE → VOICE PROVIDER
+   * (transport adapter)". Filesystem-only so they work on CI without DB.
+   */
+  {
+    key: "vapiNamedColumnsOnCallModel",
+    story: "#1016",
+    kind: "invariant",
+    target: 0,
+    description:
+      "Count of vapi-prefixed columns on the Call model in prisma/schema.prisma. Catches the I-VP3 anti-pattern (provider-specific column names leaking into the canonical Call schema). #1020 renames vapi* → voice* + voiceProviderRaw Json; this counter drives that work. Static grep over the Call model block.",
+    query: async () => {
+      const schemaPath = path.resolve(__dirname, "..", "prisma", "schema.prisma");
+      if (!fs.existsSync(schemaPath)) return 0;
+      const src = fs.readFileSync(schemaPath, "utf8");
+      // Isolate the Call model body so vapi-named fields on other models
+      // (none today, but defensive) don't get counted here.
+      const start = src.indexOf("model Call {");
+      if (start === -1) return 0;
+      const end = src.indexOf("\n}", start);
+      if (end === -1) return 0;
+      const body = src.slice(start, end);
+      // Field declarations start at column 0 of a line after indentation,
+      // shape: `  vapiSomething   Type ...`. Match identifiers starting
+      // with lowercase `vapi` to avoid false-positives in comments.
+      const matches = body.match(/^\s+vapi[A-Z]\w*\s+/gm);
+      return matches ? matches.length : 0;
+    },
+  },
+  {
+    key: "vapiToolDefinitionsConstantPresent",
+    story: "#1016",
+    kind: "invariant",
+    target: 0,
+    description:
+      "Presence (0 or 1) of the VAPI_TOOL_DEFINITIONS TypeScript constant outside _archived/. Catches the I-VP2 anti-pattern (tool list lives as code, not as a spec). #1019 migrates the array into the TOOLS-001 spec and removes the constant; this counter drives that work. Static grep over the source tree.",
+    query: async () => {
+      // The constant lives in app/api/vapi/tools/route.ts today; the
+      // generator script at scripts/generate-ai-capabilities.ts imports
+      // it. Either presence trips this counter. Counting presence (0/1)
+      // rather than occurrences so a future #1019-stub that re-imports
+      // briefly during migration doesn't double-count.
+      const roots = [
+        path.resolve(__dirname, "..", "app"),
+        path.resolve(__dirname, "..", "lib"),
+        path.resolve(__dirname, "..", "scripts"),
+      ];
+      const skipDirs = new Set(["node_modules", "_archived", ".next"]);
+      const walk = (dir: string): string[] => {
+        if (!fs.existsSync(dir)) return [];
+        const out: string[] = [];
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          if (skipDirs.has(entry.name)) continue;
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) out.push(...walk(full));
+          else if (entry.isFile() && /\.tsx?$/.test(entry.name)) out.push(full);
+        }
+        return out;
+      };
+      for (const root of roots) {
+        for (const file of walk(root)) {
+          const src = fs.readFileSync(file, "utf8");
+          // The DECLARATION shape, not the import — `export const
+          // VAPI_TOOL_DEFINITIONS` is the SoT we want to drive to 0.
+          if (/\bexport\s+const\s+VAPI_TOOL_DEFINITIONS\b/.test(src)) {
+            return 1;
+          }
+        }
+      }
+      return 0;
+    },
+  },
 ];
 
 /* ---------------------------------------------------------------------- */

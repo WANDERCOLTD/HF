@@ -118,6 +118,21 @@ async function main() {
   }
   const playbookId = cp.playbookId;
 
+  // #1034 CC-F — fail-fast pre-flight: confirm the Playbook is linked to
+  // a Curriculum (via PlaybookCurriculum or the deprecated
+  // Curriculum.playbookId column). A sim against an un-linked Playbook
+  // would silently produce a malformed Call (no module context). Better
+  // to refuse early with a clear error than to record a misleading run.
+  const preflightCurriculumId = await resolveCurriculumIdForPlaybook(playbookId);
+  if (!preflightCurriculumId) {
+    console.error(
+      `[sim-drive] PREFLIGHT FAIL — playbook ${playbookId} is not linked to a Curriculum ` +
+      `(neither via PlaybookCurriculum nor the deprecated Curriculum.playbookId column). ` +
+      `Wire a Curriculum to this Playbook before running a sim. See docs/chain-contracts.md CC-F.`,
+    );
+    process.exit(2);
+  }
+
   console.log(`\n=== SIM: ${label} → ${caller.name} (${caller.id.slice(0, 8)}) ===`);
   if (moduleSlug) console.log(`Pre-call module pick: ${moduleSlug}`);
 
@@ -142,10 +157,9 @@ async function main() {
   //    the VAPI / normal call-create path does in production.
   let curriculumModuleId: string | null = null;
   if (moduleSlug) {
-    const curriculumId = await resolveCurriculumIdForPlaybook(playbookId);
-    if (!curriculumId) {
-      console.warn(`[sim-drive] playbook ${playbookId} has no curriculum — leaving curriculumModuleId null`);
-    } else {
+    // Reuse the preflight result — already non-null thanks to CC-F above.
+    const curriculumId = preflightCurriculumId;
+    {
       const resolved = await resolveModuleByLogicalId(curriculumId, moduleSlug);
       if (!resolved) {
         console.warn(`[sim-drive] module slug "${moduleSlug}" not found in curriculum ${curriculumId.slice(0, 8)} — leaving curriculumModuleId null`);

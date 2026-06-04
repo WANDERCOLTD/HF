@@ -11,6 +11,7 @@
  * @canonical-doc docs/ENTITIES.md §4
  */
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
 import { getLearnerProfile } from "@/lib/learner/profile";
@@ -1123,37 +1124,47 @@ registerLoader("subjectSources", async (callerId, loaderConfig) => {
 
   if (subjects.length === 0) return null;
 
-  // Prefer curriculum from playbook (direct link) over subject.curricula
-  const playbookCurriculum = scope.playbookId
-    ? await prisma.curriculum.findFirst({
-        where: { playbookId: scope.playbookId },
-        orderBy: { updatedAt: "desc" },
-        select: {
-          id: true,
-          slug: true,
-          name: true,
-          description: true,
-          notableInfo: true,
-          deliveryConfig: true,
-          trustLevel: true,
-          qualificationBody: true,
-          qualificationNumber: true,
-          qualificationLevel: true,
-          modules: {
-            orderBy: { sortOrder: "asc" },
-            select: {
-              id: true,
-              slug: true,
-              title: true,
-              learningObjectives: {
-                orderBy: { ref: "asc" },
-                select: { ref: true, description: true },
-              },
-            },
-          },
+  // Prefer curriculum from playbook (direct link) over subject.curricula.
+  // #1034 — PlaybookCurriculum-first read; variant Playbooks share the
+  // parent's Curriculum via a `linked` row. Falls back to the deprecated
+  // Curriculum.playbookId column for transition safety.
+  const curriculumSelect = {
+    id: true,
+    slug: true,
+    name: true,
+    description: true,
+    notableInfo: true,
+    deliveryConfig: true,
+    trustLevel: true,
+    qualificationBody: true,
+    qualificationNumber: true,
+    qualificationLevel: true,
+    modules: {
+      orderBy: { sortOrder: "asc" as const },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        learningObjectives: {
+          orderBy: { ref: "asc" as const },
+          select: { ref: true, description: true },
         },
-      })
-    : null;
+      },
+    },
+  };
+  let playbookCurriculum = null as Prisma.CurriculumGetPayload<{ select: typeof curriculumSelect }> | null;
+  if (scope.playbookId) {
+    const pbcLink = await prisma.playbookCurriculum.findFirst({
+      where: { playbookId: scope.playbookId },
+      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+      select: { curriculum: { select: curriculumSelect } },
+    });
+    playbookCurriculum = pbcLink?.curriculum ?? await prisma.curriculum.findFirst({
+      where: { playbookId: scope.playbookId },
+      orderBy: { updatedAt: "desc" },
+      select: curriculumSelect,
+    });
+  }
 
   return {
     subjects: subjects.map((subject) => ({

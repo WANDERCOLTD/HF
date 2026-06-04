@@ -139,6 +139,24 @@ export async function resolveCurriculumIdForPlaybook(
   playbookId: string | null | undefined,
 ): Promise<string | null> {
   if (!playbookId) return null;
+
+  // #1034 — Prefer PlaybookCurriculum (join table). A variant Playbook has a
+  // `linked` row pointing at the parent's Curriculum; reading the deprecated
+  // Curriculum.playbookId column would silently miss it and the pipeline
+  // would skip module-aware composition for every variant Call.
+  // Order: primary before linked, then oldest first — matches the
+  // pre-#1034 convention of "the oldest Curriculum for this Playbook."
+  const join = await prisma.playbookCurriculum.findFirst({
+    where: { playbookId },
+    orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+    select: { curriculumId: true },
+  });
+  if (join) return join.curriculumId;
+
+  // Fallback: deprecated Curriculum.playbookId column. Rollback safety
+  // during the #1034 → #1038 transition window — covers the narrow case
+  // where a Curriculum write site hasn't yet been updated to dual-write.
+  // Dropped in #1038.
   const row = await prisma.curriculum.findFirst({
     where: { playbookId },
     orderBy: { createdAt: "asc" },

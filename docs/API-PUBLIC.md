@@ -4141,6 +4141,45 @@ Returns a hierarchical tree structure of the playbook including domain,
 
 ---
 
+### `POST` /api/v1/playbooks/:playbookId/variant
+
+Create a sibling Variant Playbook against the parent's
+
+**Auth**: session (OPERATOR or higher) · **Scope**: `playbook:write`
+
+| Parameter | In | Type | Required | Description |
+|-----------|-----|------|----------|-------------|
+| playbookId | path | string | Yes | The PARENT Playbook to sibling-clone. |
+| name | body | string | No | Display name for the new variant Course (required, max 200). |
+| reason | body | string | No | Free-form audit trail note (optional). |
+
+**Response** `201`
+```json
+{ ok: true, variantPlaybookId: string, sharedCurriculumId: string|null, subjectLinks: number, sourceLinks: number, unlinkedDuplicateSubjects: number }
+```
+
+**Response** `400`
+```json
+{ ok: false, error: string }
+```
+
+**Response** `401`
+```json
+{ ok: false, error: "Unauthorized" }
+```
+
+**Response** `404`
+```json
+{ ok: false, error: "Parent Playbook not found" }
+```
+
+**Response** `500`
+```json
+{ ok: false, error: string }
+```
+
+---
+
 ## Prompts
 
 ### `GET` /api/v1/prompt/compose-from-specs
