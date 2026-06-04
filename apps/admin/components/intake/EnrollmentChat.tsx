@@ -28,6 +28,7 @@ import {
 import { EnrollmentIntake, INTERNAL_FIELDS } from "@/lib/intake/specs/enrollment.intent";
 
 const ART13_REQUIREMENT_ID = "gdpr.art13.privacy-notice";
+const ART50_REQUIREMENT_ID = "eu-ai-act.art50.ai-interaction-disclosure";
 
 // Inline Article 13 notice — minimal DRAFT text. Production should
 // load + render the full mdx from lib/intake/copy/gdpr-art13-privacy.*
@@ -40,6 +41,17 @@ HumanFirst Foundation is the data controller. We collect your name and email so 
 We process this information for the purposes of adult-learner enrolment and AI-mediated tutoring. Sub-processor: Anthropic (EU). Retention: 7 years by default.
 
 You can contact our Data Protection Officer at dpo@humanfirstfoundation.com. You have the right to access, rectify, erase, restrict, port, and object to processing of your data, and to lodge a complaint with the ICO.`;
+
+// Inline EU AI Act Art 50 notice — same DRAFT-vs-production caveat as
+// ART13_NOTICE_BODY above. Surfaced so the learner can scroll-signal
+// against the body that was hashed at delivery time.
+const ART50_NOTICE_BODY = `AI Interaction Disclosure (DRAFT)
+
+You're interacting with an AI assistant powered by Anthropic Claude. EU AI Act Article 50 requires us to tell you when an AI system is in use.
+
+The assistant captures the values you provide and submits them to a human-reviewed enrolment pipeline. It does NOT make enrolment decisions about you and it cannot grant or deny your access on its own.
+
+You can request a human handover at any time by typing "human please" in the chat, or by emailing dpo@humanfirstfoundation.com.`;
 
 interface ChatMessage {
   readonly role: "user" | "assistant" | "system";
@@ -242,6 +254,40 @@ export function EnrollmentChat({ classroomToken }: EnrollmentChatProps = {}) {
             // Optimistic refresh — re-fetch the snapshot via the next
             // chat turn or by re-bootstrapping the events. Cheapest:
             // refetch session events directly.
+            void fetch(`/api/intake/session/${encodeURIComponent(boot.intentId)}`)
+              .then((r) => r.json())
+              .then((data) => {
+                setBoot((b) => (b ? { ...b, events: rehydrateEvents(data.events) } : b));
+              })
+              .catch(() => {});
+          }}
+        />
+        {/* EU AI Act Art 50 — parallel surface to ART13 so the audit
+            bundle carries delivery + acknowledgement for BOTH notices.
+            Same TallysealBanner scroll-signal contract + same
+            DisclosureNoticeCard acknowledge contract. */}
+        <TallysealBanner
+          events={[...boot.events]}
+          requirementId={ART50_REQUIREMENT_ID as never}
+          noticeText={ART50_NOTICE_BODY}
+          onReadSignal={(signal) => {
+            void fetch("/api/intake/disclosure-signal", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                intentId: boot.intentId,
+                signal,
+              }),
+            }).catch(() => {});
+          }}
+        />
+        <DisclosureNoticeCard
+          intentId={boot.intentId}
+          chatSessionId={boot.chatSessionId}
+          requirementId={ART50_REQUIREMENT_ID}
+          body={ART50_NOTICE_BODY}
+          acknowledged={hasAcknowledgement(boot.events, ART50_REQUIREMENT_ID)}
+          onAcknowledged={() => {
             void fetch(`/api/intake/session/${encodeURIComponent(boot.intentId)}`)
               .then((r) => r.json())
               .then((data) => {

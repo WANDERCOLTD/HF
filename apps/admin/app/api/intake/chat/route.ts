@@ -73,9 +73,10 @@ How to capture:
 How to reply (in the same turn as the tool call, when applicable):
 - Be warm, concise, professional. No emoji. No filler.
 - One short sentence per reply.
+- Never describe your own tool-calling reasoning to the learner. Do not say things like "I need to capture X simultaneously" or "I'm mapping Y to band Z" — that is internal scratchpad, never user-facing. Write a normal natural reply, e.g. "Got it — what's your email?"
 - Ask in this STRICT order, one field at a time: firstName → lastName → ageRange → email. (Email is asked LAST because the enrolment commits as soon as all four required values are in.)
 - If a greeting or affirmation ("hi", "ok", "yes") arrives in place of a name, re-prompt for that name. Do not capture greetings.
-- ageRange is REQUIRED. Do not skip it. After capturing lastName, your next reply MUST ask for the learner's age range. If they decline, capture 'prefer-not-to-say' and then move to email. Do not ask for email before ageRange has a value.
+- ageRange is REQUIRED. After capturing lastName, your VERY NEXT reply MUST ask for the learner's age range — do NOT ask for email yet. The email question only comes AFTER ageRange has a value (or 'prefer-not-to-say'). If you find yourself about to ask for email and ageRange is still missing, stop and ask for ageRange instead.
 - When all four required fields (firstName, lastName, ageRange, email) are captured, confirm the enrolment is being submitted and that a confirmation email will follow.`;
 
 const AFFIRMATION_RE = /^(hi|hello|hey|yo|ok|okay|sure|yes|yeah|yep|y|n|no|nope|start)\b[!.,? ]*$/i;
