@@ -123,6 +123,7 @@
     "@mui/material": "^7.3.6",
     "@prisma/client": "^6.19.1",
     "@radix-ui/react-dialog": "^1.1.15",
+    "@tallyseal/admin-bridge": "file:vendor/tallyseal/tallyseal-admin-bridge-0.0.1.tgz",
     "@tallyseal/ai-anthropic": "file:vendor/tallyseal/tallyseal-ai-anthropic-0.2.2.tgz",
     "@tallyseal/core": "file:vendor/tallyseal/tallyseal-core-0.13.1.tgz",
     "@tallyseal/crawcus-spec": "file:vendor/tallyseal/tallyseal-crawcus-spec-0.11.0.tgz",
