@@ -4,7 +4,7 @@
 
 This mirrors what the AI sees at every chat turn across all three AI surfaces. "Live" tools execute real handlers. "Roadmap stubs" return a friendly refusal that points the user at the UI surface to use today.
 
-> Last generated: 2026-06-04T15:47:40.485Z
+> Last generated: 2026-06-04T21:42:08.998Z
 > Surfaces: 4
 > Total tools: 58 (52 live, 6 roadmap stubs)
 
@@ -106,7 +106,7 @@ Source: `apps/admin/lib/chat/course-ref-tools.ts`
 
 ## Voice (VAPI custom tools)
 
-Source: `apps/admin/app/api/vapi/tools/route.ts`
+Source: `apps/admin/docs-archive/bdd-specs/TOOLS-001-voice-tool-definitions.spec.json`
 
 10 live, 0 stubs.
 

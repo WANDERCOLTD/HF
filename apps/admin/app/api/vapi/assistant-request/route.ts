@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { config } from "@/lib/config";
-import { renderVoicePrompt } from "@/lib/prompt/composition/renderPromptSummary";
-import { verifyVapiRequest } from "@/lib/vapi/auth";
+import { renderProviderPrompt } from "@/lib/prompt/composition/renderPromptSummary";
+import { getVoiceProvider } from "@/lib/voice/provider-factory";
+import { resolveVoiceProviderForCaller } from "@/lib/voice/resolve-voice-provider";
 import { getVoiceCallSettings } from "@/lib/system-settings";
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
-import { VAPI_TOOL_DEFINITIONS, TOOL_SETTING_KEYS } from "../tools/route";
+import { TOOL_SETTING_KEYS } from "../tools/route";
+import { loadToolDefinitions } from "@/lib/voice/load-tool-definitions";
 
 export const runtime = "nodejs";
 
@@ -15,9 +17,10 @@ export const runtime = "nodejs";
  * @scope vapi:assistant
  * @auth webhook-secret
  * @tags vapi, composition, calls
- * @description VAPI calls this at call start to get a per-caller assistant config.
- *   Identifies caller by phone number, loads their active ComposedPrompt,
- *   renders a voice-optimized system prompt, and returns full assistant config.
+ * @description VAPI calls this at call start to get a per-caller assistant
+ *   config. Route identifies caller by phone number and loads their active
+ *   ComposedPrompt; the VapiProvider adapter (#1017) renders the provider-
+ *   shaped assistant payload (model + tools + serverUrl + knowledgePlan).
  *   Must respond within 7.5 seconds.
  *
  *   VAPI Server URL event: "assistant-request"
@@ -26,7 +29,13 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
-    const authError = verifyVapiRequest(request, rawBody);
+
+    // Auth is URL-bound: this route lives under /api/vapi/*, so the
+    // inbound signature MUST verify against the VAPI provider regardless
+    // of what the per-caller resolver returns later (which speaks to
+    // OUTBOUND routing, not which provider's HMAC the inbound carries).
+    const vapiInbound = await getVoiceProvider("vapi");
+    const authError = vapiInbound.verifyInboundRequest(request, rawBody);
     if (authError) return authError;
 
     const body = JSON.parse(rawBody);
@@ -55,6 +64,17 @@ export async function POST(request: NextRequest) {
 
     // Load voice call settings (30s cache — hot-configurable via Settings UI)
     const vs = await getVoiceCallSettings();
+    const serverUrlBase = `${config.app.url}/api/vapi`;
+
+    // Build tool definitions. Source: TOOLS-001 spec (#1019, supersedes
+    // the hardcoded VAPI_TOOL_DEFINITIONS constant). Filter by per-tool
+    // enablement in VoiceCallSettings — that mapping stays in code because
+    // it's a settings concern, not a content concern.
+    const allTools = await loadToolDefinitions();
+    const enabledTools = allTools.filter((tool) => {
+      const settingKey = TOOL_SETTING_KEYS[tool.function.name];
+      return settingKey ? (vs as any)[settingKey] : true;
+    });
 
     // Normalize phone (strip spaces, ensure +)
     const normalizedPhone = customerPhone.replace(/\s+/g, "");
@@ -67,21 +87,44 @@ export async function POST(request: NextRequest) {
 
     if (!caller) {
       console.warn(`[vapi/assistant-request] No caller found for phone: ***${normalizedPhone.slice(-4)}`);
-      return NextResponse.json({
-        assistant: {
-          model: {
-            provider: vs.provider,
-            model: vs.model,
-            messages: [
-              {
-                role: "system",
-                content: vs.unknownCallerPrompt,
-              },
-            ],
-          },
-          firstMessage: "Hello! I don't think we've spoken before. What's your name?",
-        },
+      // No caller → no per-caller routing. Use the URL-bound vapi adapter.
+      const unknownCallerAssistant = vapiInbound.buildAssistantConfig({
+        callerId: null,
+        callerName: null,
+        customerPhone: normalizedPhone,
+        voicePrompt: vs.unknownCallerPrompt,
+        firstLine: "Hello! I don't think we've spoken before. What's your name?",
+        toolDefinitions: [],
+        knowledgePlanEnabled: false,
+        serverUrlBase,
+        modelConfig: { provider: vs.provider, model: vs.model },
+        unknownCallerPrompt: vs.unknownCallerPrompt,
+        noActivePromptFallback: vs.noActivePromptFallback,
       });
+      return NextResponse.json(unknownCallerAssistant);
+    }
+
+    // Resolve per-caller voice provider via the cascade (#1027).
+    // For an INBOUND call already on /api/vapi/*, the response shape is
+    // URL-bound to VAPI — if the resolver returns a non-vapi slug, log a
+    // warning (admin set a per-caller override for an outbound-routing
+    // future, but the call is already in flight via VAPI) and fall back
+    // to the vapiInbound adapter to keep this call working. The resolver
+    // result still matters for outbound dial paths added in later stories.
+    const resolved = await resolveVoiceProviderForCaller(caller.id);
+    let responseProvider = vapiInbound;
+    if (resolved.slug !== "vapi") {
+      console.warn(
+        `[vapi/assistant-request] Caller ${caller.id} configured for provider "${resolved.slug}" (source=${resolved.source}) but inbound is via /api/vapi/*; serving via VAPI adapter to keep the in-flight call working. Per-caller routing matters at outbound-dial time.`,
+      );
+    } else {
+      // Even when resolved.slug === "vapi", round-trip through the factory
+      // so per-caller credential variants (future) and the resolver's
+      // source tag are observable in logs.
+      responseProvider = await getVoiceProvider(resolved.slug);
+      console.log(
+        `[vapi/assistant-request] Provider for caller ${caller.id}: ${resolved.slug} (source=${resolved.source})`,
+      );
     }
 
     // Resolve default playbook for course-scoped prompt lookup
@@ -105,71 +148,45 @@ export async function POST(request: NextRequest) {
     if (!composedPrompt?.llmPrompt) {
       console.warn(`[vapi/assistant-request] No active prompt for caller: ${caller.id}`);
       const callerLabel = caller.name || "a returning caller";
-      return NextResponse.json({
-        assistant: {
-          model: {
-            provider: vs.provider,
-            model: vs.model,
-            messages: [
-              {
-                role: "system",
-                content: `${vs.noActivePromptFallback} The caller is ${callerLabel}.`,
-              },
-            ],
-          },
-          firstMessage: `Hi${caller.name ? ` ${caller.name}` : ""}! Good to hear from you.`,
-        },
+      const fallbackAssistant = responseProvider.buildAssistantConfig({
+        callerId: caller.id,
+        callerName: caller.name,
+        customerPhone: normalizedPhone,
+        voicePrompt: `${vs.noActivePromptFallback} The caller is ${callerLabel}.`,
+        firstLine: `Hi${caller.name ? ` ${caller.name}` : ""}! Good to hear from you.`,
+        toolDefinitions: [],
+        knowledgePlanEnabled: false,
+        serverUrlBase,
+        modelConfig: { provider: vs.provider, model: vs.model },
+        unknownCallerPrompt: vs.unknownCallerPrompt,
+        noActivePromptFallback: vs.noActivePromptFallback,
       });
+      return NextResponse.json(fallbackAssistant);
     }
 
     // Render voice-optimized prompt from the stored llmPrompt
-    const voicePrompt = renderVoicePrompt(composedPrompt.llmPrompt as any);
-    const firstLine = (composedPrompt.llmPrompt as any)?._quickStart?.first_line;
+    const voicePrompt = renderProviderPrompt(composedPrompt.llmPrompt as any);
+    const firstLine = (composedPrompt.llmPrompt as any)?._quickStart?.first_line ?? null;
 
     console.log(
       `[vapi/assistant-request] Serving prompt for caller ${caller.id}: ${voicePrompt.length} chars (provider: ${vs.provider}, model: ${vs.model}, rag: ${vs.knowledgePlanEnabled})`,
     );
 
-    // Build tool definitions — only include tools enabled in settings
-    const serverUrl = `${config.app.url}/api/vapi`;
-    const enabledTools = VAPI_TOOL_DEFINITIONS
-      .filter((tool) => {
-        const settingKey = TOOL_SETTING_KEYS[tool.function.name];
-        return settingKey ? (vs as any)[settingKey] : true;
-      })
-      .map((tool) => ({
-        ...tool,
-        server: { url: `${serverUrl}/tools` },
-      }));
+    const assistantConfig = responseProvider.buildAssistantConfig({
+      callerId: caller.id,
+      callerName: caller.name,
+      customerPhone: normalizedPhone,
+      voicePrompt,
+      firstLine,
+      toolDefinitions: enabledTools,
+      knowledgePlanEnabled: vs.knowledgePlanEnabled,
+      serverUrlBase,
+      modelConfig: { provider: vs.provider, model: vs.model },
+      unknownCallerPrompt: vs.unknownCallerPrompt,
+      noActivePromptFallback: vs.noActivePromptFallback,
+    });
 
-    // Build assistant response
-    const assistant: Record<string, any> = {
-      model: {
-        provider: vs.provider,
-        model: vs.model,
-        messages: [
-          {
-            role: "system",
-            content: voicePrompt,
-          },
-        ],
-        ...(enabledTools.length > 0 ? { tools: enabledTools } : {}),
-      },
-      ...(firstLine ? { firstMessage: firstLine } : {}),
-      serverUrl: `${serverUrl}/webhook`,
-    };
-
-    // Per-turn RAG — only include knowledgePlan if enabled in settings
-    if (vs.knowledgePlanEnabled) {
-      assistant.knowledgePlan = {
-        provider: "custom-knowledge-base",
-        server: {
-          url: `${serverUrl}/knowledge`,
-        },
-      };
-    }
-
-    return NextResponse.json({ assistant });
+    return NextResponse.json(assistantConfig);
   } catch (error: any) {
     console.error("[vapi/assistant-request] Error:", error);
     return NextResponse.json(

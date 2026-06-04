@@ -1061,7 +1061,7 @@ export const SETTINGS_REGISTRY: SettingGroup[] = [
     id: "knowledge",
     label: "Knowledge Retrieval",
     icon: "Search",
-    description: "Per-turn RAG retrieval for VAPI and sim calls (vector + keyword hybrid)",
+    description: "Per-turn RAG retrieval for voice and sim calls (vector + keyword hybrid)",
     settings: [
       { key: "knowledge.query_message_count", label: "Query message count", description: "Number of recent user messages used as search context", type: "int", default: 3, min: 1, max: 10 },
       { key: "knowledge.top_results", label: "Top results", description: "Max results returned per retrieval turn", type: "int", default: 10, min: 1, max: 30 },

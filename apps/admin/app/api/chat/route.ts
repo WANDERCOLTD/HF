@@ -306,7 +306,7 @@ export async function POST(request: NextRequest) {
       return await handleDataModeWithTools(messages, callPoint, engine, selectedEngine, mode, message, entityContext, conversationHistory, userRole, userId);
     }
 
-    // CALL mode: per-turn knowledge retrieval (matches what VAPI does live)
+    // CALL mode: per-turn knowledge retrieval (matches what the voice provider does live)
     if (mode === "CALL") {
       const callerEntity = entityContext.find((e) => e.type === "caller");
 
@@ -1160,7 +1160,7 @@ async function handleWizardModeWithTools(
 
 /**
  * Per-turn knowledge retrieval for sim calls.
- * Mirrors what VAPI gets via /api/vapi/knowledge on every conversation turn.
+ * Mirrors what the voice provider gets via /api/vapi/knowledge on every conversation turn.
  * Returns a formatted text block to append to the system prompt, or null.
  */
 async function retrieveSimKnowledge(
@@ -1172,7 +1172,7 @@ async function retrieveSimKnowledge(
     // Load retrieval settings (30s cache)
     const ks = await getKnowledgeRetrievalSettings();
 
-    // Build query from last N user messages (same as VAPI endpoint)
+    // Build query from last N user messages (same as voice knowledge endpoint)
     const recentUserMessages = conversationHistory
       .filter((m) => m.role === "user")
       .slice(-(ks.queryMessageCount - 1))

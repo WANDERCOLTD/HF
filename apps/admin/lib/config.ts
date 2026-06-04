@@ -306,6 +306,18 @@ export const config = {
     },
 
     /**
+     * Voice Tools spec slug (default: TOOLS-001) — AnyVoice #1019.
+     * Identifies the AnalysisSpec whose config.tools array carries the
+     * voice-call custom tool definitions. The VapiProvider adapter
+     * reads this at call-start; missing/empty spec falls back to no
+     * tools (call continues without RAG / mid-call actions). Override
+     * via VOICE_TOOLS_SPEC_SLUG when seeding a custom tool catalogue.
+     */
+    get voiceTools(): string {
+      return optional("VOICE_TOOLS_SPEC_SLUG", "TOOLS-001");
+    },
+
+    /**
      * Onboarding prompt slug prefix (default: init.)
      * Used to generate welcome/phase slug names for personas.
      * Can be overridden via ONBOARDING_SLUG_PREFIX env var.
@@ -680,22 +692,19 @@ export const config = {
   },
 
   // ---------------------------------------------------------------------------
-  // VAPI Integration
+  // VAPI Integration — credentials moved to VoiceProvider DB table in #1031.
+  // VAPI_API_KEY / VAPI_WEBHOOK_SECRET are no longer read from env vars in
+  // production code; VapiProvider (lib/voice/providers/vapi/index.ts) keeps
+  // a transient env-var fallback for the deploy-window between code deploy
+  // and seed completion, behind a console.warn. Once the seed has run on
+  // every environment, the env vars can be removed from secrets too.
+  //
+  // autoPipeline stays as an env-var-controlled feature flag — it's a
+  // behaviour switch, not a credential, so it doesn't belong in the
+  // provider row. Lives on its own.
   // ---------------------------------------------------------------------------
   vapi: {
-    /** VAPI API key for updating assistants */
-    get apiKey(): string | undefined {
-      return process.env.VAPI_API_KEY;
-    },
-    /** Webhook secret for verifying VAPI signatures */
-    get webhookSecret(): string | undefined {
-      return process.env.VAPI_WEBHOOK_SECRET;
-    },
-    /** Whether VAPI integration is configured */
-    get isConfigured(): boolean {
-      return !!process.env.VAPI_API_KEY;
-    },
-    /** Auto-run pipeline on call ingest */
+    /** Auto-run pipeline on call ingest. Feature flag, not a credential. */
     get autoPipeline(): boolean {
       return optionalBool("VAPI_AUTO_PIPELINE", true);
     },

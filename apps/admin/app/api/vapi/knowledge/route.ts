@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { retrieveKnowledgeForPrompt } from "@/lib/knowledge/retriever";
-import { verifyVapiRequest } from "@/lib/vapi/auth";
+import { getVoiceProvider } from "@/lib/voice/provider-factory";
 import { embedText } from "@/lib/embeddings";
 import { getKnowledgeRetrievalSettings } from "@/lib/system-settings";
 import { getTeachingSourceIdsForDomain, getTeachingSourceIdsForPlaybook } from "@/lib/knowledge/domain-sources";
@@ -43,15 +43,20 @@ export async function POST(request: NextRequest) {
 
   try {
     const rawBody = await request.text();
-    const authError = verifyVapiRequest(request, rawBody);
+    const provider = await getVoiceProvider("vapi");
+    const authError = provider.verifyInboundRequest(request, rawBody);
     if (authError) return authError;
 
     const body = JSON.parse(rawBody);
-    const messages = body.message?.messages || body.messages || [];
-    const callId = body.message?.call?.id || body.call?.id;
-    const customerPhone =
-      body.message?.call?.customer?.number ||
-      body.call?.customer?.number;
+
+    // Delegate VAPI-shape parsing to the adapter (#1022). The retrieval
+    // logic below is provider-agnostic; only the inbound request shape
+    // and outbound response envelope are provider-specific.
+    const parsed = provider.parseKnowledgeBaseRequest(body);
+    if (!parsed) {
+      return NextResponse.json(provider.buildKnowledgeResponse([]));
+    }
+    const { messages, callId, customerPhone } = parsed;
 
     // Load retrieval settings (30s cache)
     const ks = await getKnowledgeRetrievalSettings();
@@ -64,7 +69,7 @@ export async function POST(request: NextRequest) {
     const queryText = userMessages.map((m: any) => m.content).join(" ");
 
     if (!queryText) {
-      return NextResponse.json({ results: [] });
+      return NextResponse.json(provider.buildKnowledgeResponse([]));
     }
 
     // Find caller for personalized retrieval + course-scoped content
@@ -177,10 +182,12 @@ export async function POST(request: NextRequest) {
         `(assertions: ${assertionResults.length}, chunks: ${knowledgeResults.length}, memories: ${memoryResults.length}, questions: ${questionResults.length}, vocab: ${vocabularyResults.length}, vector: ${!!queryEmbedding})`,
     );
 
-    return NextResponse.json({ results: topResults });
+    return NextResponse.json(provider.buildKnowledgeResponse(topResults));
   } catch (error: any) {
     console.error("[vapi/knowledge] Error:", error);
-    // Return empty results on error — don't break the call
-    return NextResponse.json({ results: [] });
+    // Return empty results on error — don't break the call.
+    // Use a fresh provider lookup since the outer try-block may have failed
+    // before `provider` was assigned (very unlikely but defensive).
+    return NextResponse.json((await getVoiceProvider("vapi")).buildKnowledgeResponse([]));
   }
 }

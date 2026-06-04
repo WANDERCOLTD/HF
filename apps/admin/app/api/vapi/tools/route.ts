@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyVapiRequest } from "@/lib/vapi/auth";
+import { getVoiceProvider } from "@/lib/voice/provider-factory";
 import { getActivitiesConfig } from "@/lib/fallback-settings";
 import { resolveChannel } from "@/lib/channels/router";
 import { dispatchMedia } from "@/lib/channels/dispatch";
@@ -29,18 +29,12 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
-    const authError = verifyVapiRequest(request, rawBody);
+    const provider = await getVoiceProvider("vapi");
+    const authError = provider.verifyInboundRequest(request, rawBody);
     if (authError) return authError;
 
     const body = JSON.parse(rawBody);
-    const toolCalls =
-      body.message?.toolCallList ||
-      body.toolCallList ||
-      [];
-
-    const customerPhone =
-      body.message?.call?.customer?.number ||
-      body.call?.customer?.number;
+    const { toolCalls, customerPhone } = provider.normaliseToolCallList(body);
 
     // Resolve caller
     let callerId: string | null = null;
@@ -55,19 +49,11 @@ export async function POST(request: NextRequest) {
     const results = [];
 
     for (const toolCall of toolCalls) {
-      const funcName =
-        toolCall.function?.name ||
-        toolCall.functionCall?.name ||
-        toolCall.name;
-      const params =
-        toolCall.function?.arguments ||
-        toolCall.functionCall?.parameters ||
-        toolCall.parameters ||
-        {};
-      const toolCallId = toolCall.id || toolCall.toolCallId;
-
-      // Parse arguments if string
-      const args = typeof params === "string" ? JSON.parse(params) : params;
+      const { funcName, args: rawArgs, toolCallId } = toolCall;
+      // Cast args narrowly per handler — each handle* function declares its
+      // own argument shape. The adapter has already parsed JSON-string args
+      // into plain objects.
+      const args = rawArgs as any;
 
       let result: any;
 
@@ -133,7 +119,7 @@ export async function POST(request: NextRequest) {
  * Look up teaching content by topic keyword.
  * Course-scoped: only returns content from the caller's enrolled course/domain.
  */
-async function handleLookupTeachingPoint(
+export async function handleLookupTeachingPoint(
   args: { topic: string; limit?: number },
   callerId: string | null,
 ) {
@@ -190,7 +176,7 @@ async function handleLookupTeachingPoint(
  * remains opt-in via LEGACY_MASTERY_FALLBACK_ENABLED (default off) — see
  * apps/admin/docs/mastery-store-migration.md.
  */
-async function handleCheckMastery(
+export async function handleCheckMastery(
   args: { module: string },
   callerId: string | null,
 ) {
@@ -290,7 +276,7 @@ async function handleCheckMastery(
 /**
  * Record an observation about the caller in real-time.
  */
-async function handleRecordObservation(
+export async function handleRecordObservation(
   args: { key: string; value: string; category?: string },
   callerId: string | null,
 ) {
@@ -322,7 +308,7 @@ async function handleRecordObservation(
  * Searches ContentQuestion first (real extracted questions with answers),
  * falls back to assertion-based suggestion if none found.
  */
-async function handleGetPracticeQuestion(
+export async function handleGetPracticeQuestion(
   args: { topic: string },
   callerId: string | null,
 ) {
@@ -402,7 +388,7 @@ async function handleGetPracticeQuestion(
 /**
  * Get the next module the caller should study.
  */
-async function handleGetNextModule(
+export async function handleGetNextModule(
   args: Record<string, any>,
   callerId: string | null,
 ) {
@@ -444,7 +430,7 @@ async function handleGetNextModule(
  * Log the result of an interactive activity (pop quiz, MCQ, scenario, etc.).
  * Creates a CallerMemory and optionally updates CallerAttribute for tracking.
  */
-async function handleLogActivityResult(
+export async function handleLogActivityResult(
   args: {
     activity_id: string;
     outcome: "correct" | "incorrect" | "partial" | "completed" | "skipped";
@@ -516,7 +502,7 @@ async function handleLogActivityResult(
  *
  * Switching provider = change the setting. Zero code changes.
  */
-async function handleSendTextToCaller(
+export async function handleSendTextToCaller(
   args: { message: string; purpose?: string },
   callerId: string | null,
   customerPhone: string | null,
@@ -626,7 +612,7 @@ async function sendViaTwilio(
  * Request an artifact be created for the caller after the call ends.
  * Creates a CallAction that the pipeline picks up during EXTRACT.
  */
-async function handleRequestArtifact(
+export async function handleRequestArtifact(
   args: { type: string; title: string; content: string; reason?: string },
   callerId: string | null,
 ) {
@@ -684,7 +670,7 @@ async function handleRequestArtifact(
  * The AI's voice prompt lists available visual aids with media IDs.
  * This tool lets the AI push any of those to the caller mid-conversation.
  */
-async function handleShareContent(
+export async function handleShareContent(
   args: { media_id: string; caption?: string; context?: string },
   callerId: string | null,
   customerPhone: string | null,
@@ -842,7 +828,7 @@ async function handleShareContent(
  * Searches ContentVocabulary — extracted terms with definitions,
  * part of speech, and source context.
  */
-async function handleLookupVocabulary(
+export async function handleLookupVocabulary(
   args: { term: string },
   callerId: string | null,
 ) {
@@ -911,233 +897,10 @@ export const TOOL_SETTING_KEYS: Record<string, keyof import("@/lib/system-settin
   lookup_vocabulary: "toolLookupVocabulary",
 };
 
-/**
- * Tool definitions for voice assistant configuration.
- * These are included in the assistant-request response.
- */
-export const VAPI_TOOL_DEFINITIONS = [
-  {
-    type: "function",
-    function: {
-      name: "lookup_teaching_point",
-      description:
-        "Look up specific teaching content or facts about a topic. Use when the caller asks about a specific concept, rule, threshold, or definition.",
-      parameters: {
-        type: "object",
-        properties: {
-          topic: {
-            type: "string",
-            description: "The topic or concept to look up",
-          },
-          limit: {
-            type: "number",
-            description: "Maximum results to return (default 3)",
-          },
-        },
-        required: ["topic"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "check_mastery",
-      description:
-        "Check if the caller has mastered a specific module or concept. Use before deciding whether to teach new material or review.",
-      parameters: {
-        type: "object",
-        properties: {
-          module: {
-            type: "string",
-            description: "The module or concept name to check",
-          },
-        },
-        required: ["module"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "record_observation",
-      description:
-        "Record an important observation about the caller during the conversation. Use when the caller reveals something significant about their knowledge, preferences, or situation.",
-      parameters: {
-        type: "object",
-        properties: {
-          key: {
-            type: "string",
-            description: "Short key for the observation (e.g., 'prefers_examples', 'nervous_about_exam')",
-          },
-          value: {
-            type: "string",
-            description: "The observation value/detail",
-          },
-          category: {
-            type: "string",
-            enum: ["FACT", "PREFERENCE", "TOPIC", "CONTEXT", "RELATIONSHIP"],
-            description: "Category of the observation (default: CONTEXT)",
-          },
-        },
-        required: ["key", "value"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_practice_question",
-      description:
-        "Get a practice question or scenario for the current topic. Use when transitioning to practice or assessment.",
-      parameters: {
-        type: "object",
-        properties: {
-          topic: {
-            type: "string",
-            description: "The topic to get a practice question for",
-          },
-        },
-        required: ["topic"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_next_module",
-      description:
-        "Find out what the next module or topic is in the caller's curriculum. Use when the current topic is mastered and you need to move on.",
-      parameters: {
-        type: "object",
-        properties: {},
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "log_activity_result",
-      description:
-        "Log the result of an interactive activity (pop quiz, MCQ, scenario, teach-back, etc.). Call this after completing any structured activity to track the outcome.",
-      parameters: {
-        type: "object",
-        properties: {
-          activity_id: {
-            type: "string",
-            description: "The activity type ID (e.g., 'pop_quiz', 'mcq_voice', 'scenario', 'teach_back', 'rapid_fire')",
-          },
-          outcome: {
-            type: "string",
-            enum: ["correct", "incorrect", "partial", "completed", "skipped"],
-            description: "The outcome of the activity",
-          },
-          topic: {
-            type: "string",
-            description: "The topic or concept the activity was about",
-          },
-          notes: {
-            type: "string",
-            description: "Brief notes on how the caller performed (e.g., 'got 4/5 in rapid fire', 'struggled with distinction between X and Y')",
-          },
-        },
-        required: ["activity_id", "outcome"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "send_text_to_caller",
-      description:
-        "Send a text message (SMS) to the caller. Use for multiple-choice questions with complex options, reflection prompts, follow-up resources, or anything better read than heard.",
-      parameters: {
-        type: "object",
-        properties: {
-          message: {
-            type: "string",
-            description: "The text message content to send. Format with line breaks for readability.",
-          },
-          purpose: {
-            type: "string",
-            enum: ["mcq", "reflection", "resource", "recap", "practice"],
-            description: "The purpose of the text message",
-          },
-        },
-        required: ["message"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "request_artifact",
-      description:
-        "Request that a study artifact be sent to the caller after the call. Use when you want to share a summary, formula, exercise, study note, or resource with the learner. The artifact will be delivered after the call ends.",
-      parameters: {
-        type: "object",
-        properties: {
-          type: {
-            type: "string",
-            enum: ["SUMMARY", "KEY_FACT", "FORMULA", "EXERCISE", "RESOURCE_LINK", "STUDY_NOTE", "REMINDER", "MEDIA"],
-            description: "The type of artifact to send",
-          },
-          title: {
-            type: "string",
-            description: "A short descriptive title for the artifact (max 60 chars)",
-          },
-          content: {
-            type: "string",
-            description: "The content of the artifact in markdown format",
-          },
-          reason: {
-            type: "string",
-            description: "Why this artifact is being sent (for pipeline context)",
-          },
-        },
-        required: ["type", "title", "content"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "share_content",
-      description:
-        "Share a visual aid (image, diagram, PDF) with the caller. In text sim sessions, the content appears inline in the chat. In voice calls, the content is sent to the caller's phone via their preferred channel (WhatsApp, MMS, or SMS link). Use when discussing a figure, diagram, or document listed in your visual aids that the caller should see. Always describe the content verbally too.",
-      parameters: {
-        type: "object",
-        properties: {
-          media_id: {
-            type: "string",
-            description:
-              "The media ID from the visual aids list in your instructions",
-          },
-          caption: {
-            type: "string",
-            description:
-              "Brief description of what the content shows and why you are sharing it",
-          },
-        },
-        required: ["media_id"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "lookup_vocabulary",
-      description:
-        "Look up the definition of a word or term from the course materials. Use when the caller asks \"what does X mean?\", encounters an unfamiliar word, or when you want to introduce key vocabulary. Returns the contextual definition from the source text, not a generic dictionary definition.",
-      parameters: {
-        type: "object",
-        properties: {
-          term: {
-            type: "string",
-            description: "The word or term to look up",
-          },
-        },
-        required: ["term"],
-      },
-    },
-  },
-];
+// VAPI_TOOL_DEFINITIONS constant removed in AnyVoice #1019 — tool
+// definitions moved to the TOOLS-001 AnalysisSpec. The
+// assistant-request route reads them via loadToolDefinitions() in
+// lib/voice/load-tool-definitions.ts; this file keeps the per-tool
+// handler implementations below and the TOOL_SETTING_KEYS settings
+// map above. The audit counter vapiToolDefinitionsConstantPresent
+// (#1016) now reads 0.

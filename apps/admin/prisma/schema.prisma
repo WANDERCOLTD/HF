@@ -185,15 +185,6 @@ enum CallActionSource {
   MANUAL // Operator/admin created
 }
 
-// Identifies which voice provider served a given Call. Adapter dispatch and
-// per-caller routing read this field; the implicit `!!externalId` check it
-// replaces silently coupled "is this VAPI?" to a column shared by every
-// provider. Add new providers as enum values (e.g. RETELL, TWILIO) — never
-// branch on raw `source` strings outside the channel normaliser. (#1025)
-enum VoiceProviderSlug {
-  VAPI
-}
-
 // Goal lifecycle status
 enum GoalStatus {
   ACTIVE // Currently being pursued
@@ -870,6 +861,15 @@ model Caller {
   userId String?
   user   User?   @relation(fields: [userId], references: [id])
 
+  // Per-caller voice provider override (AnyVoice #1027 / #1031). Nullable =
+  // inherit from the system default via the cascade resolver at
+  // lib/voice/resolve-voice-provider.ts (caller → cohort → playbook → SYSTEM).
+  // String references VoiceProvider.slug — admins manage the provider set
+  // via /x/settings/voice-providers (#1031). Educators set this to route a
+  // single learner to a different provider for cost/quality/experimental
+  // reasons without changing system config.
+  voiceProvider String?
+
   // Domain assignment - each caller belongs to exactly one domain
   domainId          String?
   domain            Domain? @relation(fields: [domainId], references: [id])
@@ -1455,26 +1455,44 @@ model Call {
   endedAt  DateTime? // null = call may still be active (or pre-feature calls)
   messages CallMessage[]
 
-  // Voice provider that served this call. Default VAPI covers every historical
-  // row and every new row written before per-caller routing (#1027) ships.
+  // Voice provider slug that served this call. References VoiceProvider.slug
+  // (data-driven — admins manage providers via /x/settings/voice-providers
+  // per #1031). Default "vapi" covers historical rows; per-caller routing
+  // (#1027) selects a different slug when Caller.voiceProvider is set.
   // Adapter dispatch reads this; do not infer provider identity from other
-  // columns. (#1025)
-  voiceProvider VoiceProviderSlug @default(VAPI)
+  // columns. (#1025 shipped this as an enum; #1031 supersedes with a string
+  // referencing the VoiceProvider table.)
+  voiceProvider String @default("vapi")
 
-  // VAPI end-of-call payload capture (Phase 0 of plan-voice-analysis.md). Captured
-  // verbatim from VAPI's `end-of-call-report` message body — see
-  // https://docs.vapi.ai/server-url/events. All nullable so SIM, manual, and
-  // legacy paths continue to create Call rows with these fields unset.
-  // No consumer reads them today; AssemblyAI / voice-analysis pipeline (deferred)
-  // will be the first reader.
-  recordingUrl          String?
-  stereoRecordingUrl    String?
-  vapiDurationSeconds   Float?
-  vapiEndedReason       String?
-  vapiCostUsd           Float?
-  vapiAnalysisSummary   String? @db.Text
-  vapiStructuredData    Json?
-  vapiSuccessEvaluation String?
+  // Voice end-of-call capture — canonical, provider-neutral columns
+  // populated by the adapter's normaliseEndOfCallEvent (#1017 / #1020).
+  // Canonical typed columns for fields every voice provider has an
+  // analogue for (duration, cost, ended-reason, analysis summary,
+  // success evaluation). Provider-specific extras land in
+  // voiceProviderRaw Json so the typed surface stays portable.
+  //
+  // recordingUrl / stereoRecordingUrl predate the rename and were
+  // already neutral, so they keep their names.
+  //
+  // Renamed from vapi*-prefixed columns in #1020. Pre-rename the names
+  // leaked VAPI vocabulary into a model meant to span every provider —
+  // direct violation of the I-VP3 invariant in CHAIN-CONTRACTS.md Link
+  // 3 sub-contract (COMPOSE → VOICE PROVIDER).
+  recordingUrl           String?
+  stereoRecordingUrl     String?
+  voiceDurationSeconds   Float?
+  voiceEndedReason       String?
+  voiceCostUsd           Float?
+  voiceAnalysisSummary   String? @db.Text
+  voiceStructuredData    Json?
+  voiceSuccessEvaluation String?
+  /// Provider-specific extras the adapter wants to stash that don't
+  /// fit a canonical column. Anything in here is opaque to HF —
+  /// only the provider that wrote it knows the shape. Do NOT query
+  /// or index fields inside this blob in shared code; if a field
+  /// is read by anything other than its provider's own adapter,
+  /// promote it to a canonical column.
+  voiceProviderRaw       Json?
 
   @@index([source])
   @@index([externalId])
@@ -3264,6 +3282,12 @@ enum UsageCategory {
   COMPUTE // CPU-intensive operations (pipeline runs, analysis)
   STORAGE // File storage operations
   EXTERNAL // Third-party API calls (webhooks, external services)
+  // AnyVoice #1028 — voice call usage (per-minute billing). Distinct
+  // from EXTERNAL because providers bill by minutes/seconds, not per-
+  // call counts. calculateCost has a "minutes"/"seconds" arm for this
+  // category. Do NOT log voice calls under EXTERNAL:vapi — that rate is
+  // per-call count, would corrupt minute-based rollups.
+  VOICE
 }
 
 enum RollupPeriod {
@@ -4296,19 +4320,19 @@ enum PlaybookCurriculumRole {
 // Primary row backfilled per existing Curriculum.playbookId on migration.
 // Variant route writes a `linked` row pointing at the parent's Curriculum.
 model PlaybookCurriculum {
-  id           String @id @default(uuid())
+  id           String     @id @default(uuid())
   playbookId   String
-  playbook     Playbook @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+  playbook     Playbook   @relation(fields: [playbookId], references: [id], onDelete: Cascade)
   curriculumId String
   curriculum   Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Restrict)
 
-  role         PlaybookCurriculumRole @default(primary)
+  role PlaybookCurriculumRole @default(primary)
 
   createdAt DateTime @default(now())
 
   @@unique([playbookId, curriculumId])
   @@index([curriculumId]) // CC-B fanout: bump all sibling Playbooks for a Curriculum
-  @@index([playbookId])   // variant lookup: which Curriculum does this Playbook read?
+  @@index([playbookId]) // variant lookup: which Curriculum does this Playbook read?
 }
 
 // =============================================================================
@@ -4538,4 +4562,38 @@ model ChannelConfig {
 
   @@unique([domainId, channelType])
   @@index([channelType])
+}
+
+// Voice call provider registration (AnyVoice #1031). Replaces the previously
+// hardcoded `VoiceProviderSlug` enum + factory map from #1025/#1017 — adapters
+// register themselves as data, not code, per CLAUDE.md "Configuration over
+// Code / Database over Filesystem". Pattern mirrors VoiceAnalysisProvider in
+// docs/PLAN-voice-analysis.md (kept separate — different lifecycle: call-time
+// real-time vs analysis-time async; credential shapes differ).
+//
+// `adapterKey` maps to a class in lib/voice/adapter-registry.ts (the one
+// unavoidable code seam — adding a class = one new entry there).
+//
+// `credentials` stores plaintext per-provider secrets ({apiKey, webhookSecret,
+// ...}). Masked in every GET response by lib/voice/mask-credentials.ts (suffix
+// match: *Key / *Secret / *Token / *Password). Encryption-at-rest is tracked
+// tech debt (see R1 in #1031 — non-blocking, post-market-test follow-up).
+//
+// "One default" is enforced in application logic (PATCH isDefault: true sets
+// all others to false in the same transaction). Prisma can't express this as
+// a partial unique index on a boolean cleanly.
+model VoiceProvider {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  displayName String
+  adapterKey  String
+  credentials Json     @default("{}")
+  config      Json     @default("{}")
+  isDefault   Boolean  @default(false)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isDefault])
 }

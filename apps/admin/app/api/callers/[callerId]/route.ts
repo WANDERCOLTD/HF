@@ -813,7 +813,7 @@ export async function PATCH(
     const body = await req.json();
 
     // Allowed fields to update
-    const { name, email, phone, domainId, role, archive } = body;
+    const { name, email, phone, domainId, role, archive, voiceProvider } = body;
 
     // Check if domain is changing (for domain-switch logic)
     const currentCaller = await prisma.caller.findUnique({
@@ -840,6 +840,7 @@ export async function PATCH(
       previousDomainId?: string | null;
       domainSwitchCount?: number;
       archivedAt?: Date | null;
+      voiceProvider?: string | null;
     } = {};
 
     if (name !== undefined) updateData.name = name;
@@ -848,6 +849,14 @@ export async function PATCH(
     if (role !== undefined) updateData.role = role;
     if (domainId !== undefined) updateData.domainId = domainId;
     if (archive !== undefined) updateData.archivedAt = archive ? new Date() : null;
+    // Per-caller voice-provider override (AnyVoice #1027). Empty string
+    // or null clears the override; any other value sets it. The string
+    // must match a VoiceProvider.slug — validated at compose time by
+    // resolveVoiceProviderForCaller throwing via the factory if absent.
+    if (voiceProvider !== undefined) {
+      updateData.voiceProvider =
+        voiceProvider === "" || voiceProvider === null ? null : String(voiceProvider);
+    }
 
     // Track domain switches
     if (isDomainSwitch) {

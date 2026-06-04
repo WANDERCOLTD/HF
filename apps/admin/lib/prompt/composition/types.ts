@@ -349,7 +349,7 @@ export interface CurriculumMetadata {
 }
 
 export interface SharedComputedState {
-  /** Delivery channel — 'text' for sim chat, 'voice' for VAPI/phone */
+  /** Delivery channel — 'text' for sim chat, 'voice' for phone (any voice provider) */
   channel: 'text' | 'voice';
   modules: ModuleData[];
   isFirstCall: boolean;

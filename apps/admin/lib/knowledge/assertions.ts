@@ -1,5 +1,5 @@
 /**
- * Shared assertion search functions — used by both VAPI knowledge endpoint
+ * Shared assertion search functions — used by both voice knowledge endpoint
  * and sim call per-turn retrieval.
  *
  * Supports hybrid search (pgvector cosine similarity + keyword fallback).
@@ -381,7 +381,7 @@ export type QuestionResult = {
 
 /**
  * Search ContentQuestions by keyword matching.
- * Used by VAPI knowledge endpoint when learner asks for practice/assessment.
+ * Used by voice knowledge endpoint when learner asks for practice/assessment.
  * @param sourceIds — when provided, only return questions from these content sources (domain scoping)
  */
 export async function searchQuestions(
@@ -431,7 +431,7 @@ export async function searchQuestions(
 }
 
 /**
- * Format a question for AI consumption (VAPI knowledge result).
+ * Format a question for AI consumption (voice knowledge result).
  */
 export function formatQuestion(q: QuestionResult): string {
   const parts = [`[QUESTION: ${q.questionType}]`];
@@ -455,7 +455,7 @@ export type VocabularyResult = {
 
 /**
  * Search ContentVocabulary by keyword matching.
- * Used by VAPI knowledge endpoint when learner asks "what does X mean?"
+ * Used by voice knowledge endpoint when learner asks "what does X mean?"
  * @param sourceIds — when provided, only return vocabulary from these content sources (domain scoping)
  */
 export async function searchVocabulary(
@@ -508,7 +508,7 @@ export async function searchVocabulary(
 }
 
 /**
- * Format a vocabulary item for AI consumption (VAPI knowledge result).
+ * Format a vocabulary item for AI consumption (voice knowledge result).
  */
 export function formatVocabulary(v: VocabularyResult): string {
   const pos = v.partOfSpeech ? ` (${v.partOfSpeech})` : "";

@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 // ── Mock VAPI auth ─────────────────────────────────
-vi.mock("@/lib/vapi/auth", () => ({
+vi.mock("@/lib/voice/providers/vapi/auth", () => ({
   verifyVapiRequest: vi.fn().mockReturnValue(null), // Auth passes
 }));
 

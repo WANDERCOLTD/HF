@@ -1,5 +1,8 @@
 /**
- * Tests for lib/vapi/auth.ts — VAPI Webhook Authentication
+ * Tests for lib/voice/providers/vapi/auth.ts — VAPI Webhook Authentication
+ * (moved from lib/vapi/auth.ts in #1017, refactored to take secret as
+ * argument in #1031 so the function is pure and the DB-driven factory
+ * can pass the credential through).
  *
  * Covers:
  * - No secret configured → pass through (local dev)
@@ -11,19 +14,10 @@
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import crypto from "node:crypto";
-
-// ── Mock config (vi.hoisted so the factory can reference it) ──
-const mockConfig = vi.hoisted(() => ({ vapi: { webhookSecret: "test-secret-key" } }));
-
-vi.mock("@/lib/config", () => ({
-  config: mockConfig,
-}));
-
-// ── Import after mocks ───────────────────────────────
-import { verifyVapiRequest } from "@/lib/vapi/auth";
+import { verifyVapiRequest } from "@/lib/voice/providers/vapi/auth";
 import { NextRequest } from "next/server";
 
-// ── Helpers ──────────────────────────────────────────
+const SECRET = "test-secret-key";
 
 function makeRequest(signature?: string): NextRequest {
   const req = new NextRequest("https://example.com/api/vapi/webhook", {
@@ -31,7 +25,6 @@ function makeRequest(signature?: string): NextRequest {
     body: JSON.stringify({ event: "call.completed" }),
   });
   if (signature !== undefined) {
-    // NextRequest headers are read-only — spy on .get()
     vi.spyOn(req.headers, "get").mockImplementation((name) => {
       if (name === "x-vapi-signature") return signature;
       return null;
@@ -50,20 +43,16 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ── Tests ────────────────────────────────────────────
-
 describe("verifyVapiRequest", () => {
   it("returns null (pass) when no webhook secret is configured", () => {
-    mockConfig.vapi.webhookSecret = "";
     const req = makeRequest();
-    const result = verifyVapiRequest(req, '{"event":"call.completed"}');
+    const result = verifyVapiRequest(req, '{"event":"call.completed"}', "");
     expect(result).toBeNull();
   });
 
   it("returns 401 when x-vapi-signature header is missing", async () => {
-    mockConfig.vapi.webhookSecret = "test-secret-key";
-    const req = makeRequest(undefined); // no signature header
-    const result = verifyVapiRequest(req, '{"event":"call.completed"}');
+    const req = makeRequest(undefined);
+    const result = verifyVapiRequest(req, '{"event":"call.completed"}', SECRET);
     expect(result).not.toBeNull();
     expect(result!.status).toBe(401);
     const body = await result!.json();
@@ -71,9 +60,8 @@ describe("verifyVapiRequest", () => {
   });
 
   it("returns 401 when signature length does not match expected HMAC", async () => {
-    mockConfig.vapi.webhookSecret = "test-secret-key";
     const req = makeRequest("tooshort");
-    const result = verifyVapiRequest(req, '{"event":"call.completed"}');
+    const result = verifyVapiRequest(req, '{"event":"call.completed"}', SECRET);
     expect(result).not.toBeNull();
     expect(result!.status).toBe(401);
     const body = await result!.json();
@@ -81,12 +69,10 @@ describe("verifyVapiRequest", () => {
   });
 
   it("returns 401 when signature is correct length but wrong value", async () => {
-    mockConfig.vapi.webhookSecret = "test-secret-key";
     const body = '{"event":"call.completed"}';
-    // Generate a valid-length hex but with wrong content
     const wrongSig = "a".repeat(64);
     const req = makeRequest(wrongSig);
-    const result = verifyVapiRequest(req, body);
+    const result = verifyVapiRequest(req, body, SECRET);
     expect(result).not.toBeNull();
     expect(result!.status).toBe(401);
     const resBody = await result!.json();
@@ -94,23 +80,19 @@ describe("verifyVapiRequest", () => {
   });
 
   it("returns null (pass) when HMAC-SHA256 signature is valid", () => {
-    const secret = "test-secret-key";
-    mockConfig.vapi.webhookSecret = secret;
     const body = '{"event":"call.completed","callId":"abc123"}';
-    const sig = makeSignature(secret, body);
+    const sig = makeSignature(SECRET, body);
     const req = makeRequest(sig);
-    const result = verifyVapiRequest(req, body);
+    const result = verifyVapiRequest(req, body, SECRET);
     expect(result).toBeNull();
   });
 
   it("returns 401 when body is tampered after signing", async () => {
-    const secret = "test-secret-key";
-    mockConfig.vapi.webhookSecret = secret;
     const originalBody = '{"event":"call.completed"}';
     const tamperedBody = '{"event":"call.ended"}';
-    const sig = makeSignature(secret, originalBody);
+    const sig = makeSignature(SECRET, originalBody);
     const req = makeRequest(sig);
-    const result = verifyVapiRequest(req, tamperedBody);
+    const result = verifyVapiRequest(req, tamperedBody, SECRET);
     expect(result).not.toBeNull();
     expect(result!.status).toBe(401);
   });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { executeComposition, loadComposeConfig } from "@/lib/prompt/composition";
-import { renderPromptSummary, renderVoicePrompt } from "@/lib/prompt/composition/renderPromptSummary";
+import { renderPromptSummary, renderProviderPrompt } from "@/lib/prompt/composition/renderPromptSummary";
 import { requireAuth, isAuthError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
@@ -92,7 +92,7 @@ export async function POST(
 
     // Render both prompt formats
     const promptSummary = renderPromptSummary(composition.llmPrompt);
-    const voicePrompt = renderVoicePrompt(composition.llmPrompt);
+    const voicePrompt = renderProviderPrompt(composition.llmPrompt);
 
     // Return WITHOUT persisting — this is a preview only
     return NextResponse.json({

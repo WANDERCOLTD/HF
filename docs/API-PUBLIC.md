@@ -4703,7 +4703,7 @@ Imports transcript files into the database. Supports three modes: JSON body with
 
 ### `POST` /api/v1/vapi/assistant-request
 
-VAPI calls this at call start to get a per-caller assistant config.
+VAPI calls this at call start to get a per-caller assistant
 
 **Auth**: webhook-secret · **Scope**: `vapi:assistant`
 
