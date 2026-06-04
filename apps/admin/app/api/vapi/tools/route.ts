@@ -710,20 +710,25 @@ async function handleShareContent(
     return { error: `Media asset not found: ${args.media_id}` };
   }
 
-  // Find active call for this caller (most recent non-ended call)
+  // Find active call for this caller (most recent non-ended call).
+  // voiceProvider is selected for upcoming adapter dispatch (#1017); the
+  // SIM/live branch here uses source because SIM rows inherit the schema
+  // default voiceProvider=VAPI — they are simulated, not provider-tagged.
   const activeCall = await prisma.call.findFirst({
     where: { callerId, endedAt: null },
     orderBy: { createdAt: "desc" },
-    select: { id: true, externalId: true },
+    select: { id: true, source: true, voiceProvider: true },
   });
 
-  const isVapiCall = !!activeCall?.externalId;
+  const isInlineSim = activeCall?.source === "sim";
   const caption = args.caption || media.captionText || media.title || media.fileName;
 
   // ── SIM PATH ──
-  // Sim calls don't have an externalId (VAPI call ID).
-  // Create a CallMessage with mediaId so SimChat renders it inline.
-  if (!isVapiCall && activeCall) {
+  // Sim calls render inline via SimChat (CallMessage row with mediaId).
+  // Distinguished by Call.source === "sim" — the explicit signal set by
+  // scripts/sim-drive-call.ts. Replaces the prior !!externalId proxy that
+  // implicitly coupled "is VAPI?" to a column shared with every provider.
+  if (isInlineSim && activeCall) {
     await prisma.callMessage.create({
       data: {
         callId: activeCall.id,
