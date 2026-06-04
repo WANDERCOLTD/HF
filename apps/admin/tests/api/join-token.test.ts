@@ -27,6 +27,9 @@ const mockPrisma = {
     findFirst: vi.fn(),
     create: vi.fn(),
   },
+  callerAttribute: {
+    upsert: vi.fn(),
+  },
   $transaction: vi.fn(),
 };
 
@@ -402,6 +405,106 @@ describe("/api/join/[token]", () => {
 
       expect(response.status).toBe(404);
       expect(data.error).toBe("Invalid or expired join link");
+    });
+
+    // ===================================================
+    // #1036 — ageRange propagation to CallerAttribute
+    // ===================================================
+    it("#1036 — writes intake.ageRange CallerAttribute when ageRange is provided (new-user path)", async () => {
+      mockPrisma.cohortGroup.findUnique.mockResolvedValue({
+        id: "cohort-1",
+        name: "Year 10",
+        isActive: true,
+        joinToken: "validtok",
+        domainId: "domain-1",
+        domain: { id: "domain-1" },
+      });
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({ id: "new-user-1", email: "tessa@example.com" });
+      mockPrisma.caller.create.mockResolvedValue({ id: "new-caller-1" });
+      mockPrisma.callerAttribute.upsert.mockResolvedValue({});
+      mockPrisma.callerCohortMembership.create.mockResolvedValue({});
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => unknown) => fn(mockPrisma));
+
+      const { POST } = await import("../../app/api/join/[token]/route");
+      const request = new Request("http://localhost/api/join/validtok", {
+        method: "POST",
+        body: JSON.stringify({
+          firstName: "Tessa",
+          lastName: "Bloom",
+          email: "tessa@example.com",
+          ageRange: "25-34",
+        }),
+        headers: { "Content-Type": "application/json" },
+      });
+      await POST(request as never, { params: Promise.resolve({ token: "validtok" }) });
+
+      expect(mockPrisma.callerAttribute.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { callerId_key_scope: { callerId: "new-caller-1", key: "intake.ageRange", scope: "GLOBAL" } },
+          create: expect.objectContaining({
+            callerId: "new-caller-1",
+            key: "intake.ageRange",
+            scope: "GLOBAL",
+            valueType: "STRING",
+            stringValue: "25-34",
+            sourceSpecSlug: "EnrollmentIntake",
+          }),
+          update: { stringValue: "25-34" },
+        }),
+      );
+    });
+
+    it("#1036 — returns 400 for ageRange=under-18 (defence-in-depth vs URL tampering)", async () => {
+      const { POST } = await import("../../app/api/join/[token]/route");
+      const request = new Request("http://localhost/api/join/validtok", {
+        method: "POST",
+        body: JSON.stringify({
+          firstName: "Tessa",
+          lastName: "Bloom",
+          email: "tessa@example.com",
+          ageRange: "under-18",
+        }),
+        headers: { "Content-Type": "application/json" },
+      });
+      const response = await POST(request as never, { params: Promise.resolve({ token: "validtok" }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain("Under-18");
+      // Defence-in-depth fires BEFORE any DB lookup — proves the gate runs early.
+      expect(mockPrisma.cohortGroup.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.callerAttribute.upsert).not.toHaveBeenCalled();
+    });
+
+    it("#1036 — skips CallerAttribute write when ageRange is omitted", async () => {
+      mockPrisma.cohortGroup.findUnique.mockResolvedValue({
+        id: "cohort-1",
+        name: "Year 10",
+        isActive: true,
+        joinToken: "validtok",
+        domainId: "domain-1",
+        domain: { id: "domain-1" },
+      });
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({ id: "new-user-1", email: "alice@school.com" });
+      mockPrisma.caller.create.mockResolvedValue({ id: "new-caller-1" });
+      mockPrisma.callerCohortMembership.create.mockResolvedValue({});
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => unknown) => fn(mockPrisma));
+
+      const { POST } = await import("../../app/api/join/[token]/route");
+      const request = new Request("http://localhost/api/join/validtok", {
+        method: "POST",
+        body: JSON.stringify({
+          firstName: "Alice",
+          lastName: "Smith",
+          email: "alice@school.com",
+        }),
+        headers: { "Content-Type": "application/json" },
+      });
+      await POST(request as never, { params: Promise.resolve({ token: "validtok" }) });
+
+      expect(mockPrisma.callerAttribute.upsert).not.toHaveBeenCalled();
     });
   });
 });

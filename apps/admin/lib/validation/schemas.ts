@@ -13,6 +13,24 @@ export const emailSchema = z.string().email("Invalid email address").max(254).tr
 export const nameSchema = z.string().min(1, "Name is required").max(100).trim();
 export const tokenSchema = z.string().min(1, "Token is required").max(256);
 
+/**
+ * GDPR age-band enum. Source of truth: `AGE_BAND_VALUES` from
+ * `@tallyseal/regulations-gdpr` (re-exported via `@/lib/intake/tallyseal`).
+ * Inlined here to keep `lib/validation/` free of intake/tallyseal coupling.
+ * Keep in sync if the upstream tuple changes.
+ */
+const AGE_BAND_VALUES = [
+  "under-18",
+  "18-24",
+  "25-34",
+  "35-44",
+  "45-54",
+  "55-64",
+  "65-plus",
+  "prefer-not-to-say",
+] as const;
+export const ageBandSchema = z.enum(AGE_BAND_VALUES);
+
 // ---------------------------------------------------------------------------
 // Route-specific schemas
 // ---------------------------------------------------------------------------
@@ -29,6 +47,16 @@ export const joinPostSchema = z.object({
   firstName: nameSchema,
   lastName: nameSchema,
   email: emailSchema,
+  /**
+   * Age band declared at intake. Propagated to `CallerAttribute` keyed
+   * `intake.ageRange` (scope `GLOBAL`) so the adult-only declaration
+   * has a persisted compliance trail post-handoff. `under-18` is the
+   * `ageBand.adultOnly()` rejected value — the intake spec gate
+   * (`isReady()` in `/api/intake/chat`) blocks it before the user
+   * reaches this endpoint; the route handler still defensively rejects
+   * it here against URL tampering. See #1036.
+   */
+  ageRange: ageBandSchema.optional(),
   /** Enroll in a specific course (playbook) instead of all cohort playbooks */
   playbookId: z.string().uuid().optional(),
   /** Skip onboarding wizard + surveys — go straight to teaching */

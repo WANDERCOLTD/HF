@@ -84,6 +84,49 @@ describe("lib/validation", () => {
         expect(result.data.email).toBe("jane@example.com");
       }
     });
+
+    // #1036 — ageRange propagation
+    it("accepts a valid GDPR age band", () => {
+      const result = validateBody(joinPostSchema, {
+        firstName: "Tessa",
+        lastName: "Bloom",
+        email: "tessa@example.com",
+        ageRange: "25-34",
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.data.ageRange).toBe("25-34");
+    });
+
+    it("treats ageRange as optional", () => {
+      const result = validateBody(joinPostSchema, {
+        firstName: "Tessa",
+        lastName: "Bloom",
+        email: "tessa@example.com",
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.data.ageRange).toBeUndefined();
+    });
+
+    it("rejects an invalid age-band string", () => {
+      const result = validateBody(joinPostSchema, {
+        firstName: "Tessa",
+        lastName: "Bloom",
+        email: "tessa@example.com",
+        ageRange: "twenty-something",
+      });
+      expect(result.ok).toBe(false);
+    });
+
+    it("accepts under-18 at schema level (route handler enforces the adult-only policy)", () => {
+      const result = validateBody(joinPostSchema, {
+        firstName: "Tessa",
+        lastName: "Bloom",
+        email: "tessa@example.com",
+        ageRange: "under-18",
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.data.ageRange).toBe("under-18");
+    });
   });
 
   describe("authLoginSchema", () => {
