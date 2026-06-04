@@ -30,6 +30,10 @@ import * as path from "path";
 import { ADMIN_TOOLS } from "../lib/chat/admin-tools";
 import { CONVERSATIONAL_TOOLS } from "../lib/chat/conversational-wizard-tools";
 import { COURSE_REF_TOOLS } from "../lib/chat/course-ref-tools";
+// AnyVoice #1026 — surface the voice (VAPI) tool definitions as a 4th
+// registry so the CI gate covers them. TODO(#1019): point this scraper at
+// the TOOLS-001 spec once VAPI_TOOL_DEFINITIONS is migrated to spec-driven.
+import { VAPI_TOOL_DEFINITIONS } from "../app/api/vapi/tools/route";
 
 const ROOT = path.resolve(__dirname, "../../..");
 const DOC_PATH = path.resolve(ROOT, "docs/AI-CAPABILITIES.md");
@@ -68,6 +72,23 @@ const REGISTRIES: RegistrySpec[] = [
     schemaFile: "apps/admin/lib/chat/course-ref-tools.ts",
     tools: COURSE_REF_TOOLS,
     handlerFile: path.resolve(ROOT, "apps/admin/lib/chat/course-ref-tool-handlers.ts"),
+  },
+  {
+    // AnyVoice #1026. VAPI_TOOL_DEFINITIONS uses the OpenAI tool-call
+    // shape (`{ type, function: { name, description, parameters } }`);
+    // the other three registries use the Anthropic-style flat shape.
+    // Adapt to the internal RegistrySpec shape so the same renderer
+    // covers all four surfaces. Auth is webhook-secret (see
+    // verifyVapiRequest in app/api/vapi/tools/route.ts), not session
+    // role — TOOL_MIN_ROLE will be empty and the doc shows "(route-level)".
+    surface: "Voice (VAPI custom tools)",
+    schemaFile: "apps/admin/app/api/vapi/tools/route.ts",
+    tools: VAPI_TOOL_DEFINITIONS.map((t) => ({
+      name: t.function.name,
+      description: t.function.description,
+      input_schema: t.function.parameters,
+    })),
+    handlerFile: path.resolve(ROOT, "apps/admin/app/api/vapi/tools/route.ts"),
   },
 ];
 

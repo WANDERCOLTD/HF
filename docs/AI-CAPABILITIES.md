@@ -4,9 +4,9 @@
 
 This mirrors what the AI sees at every chat turn across all three AI surfaces. "Live" tools execute real handlers. "Roadmap stubs" return a friendly refusal that points the user at the UI surface to use today.
 
-> Last generated: 2026-05-26T16:25:17.737Z
-> Surfaces: 3
-> Total tools: 48 (42 live, 6 roadmap stubs)
+> Last generated: 2026-06-04T15:47:40.485Z
+> Surfaces: 4
+> Total tools: 58 (52 live, 6 roadmap stubs)
 
 ## Contract
 
@@ -103,6 +103,27 @@ Source: `apps/admin/lib/chat/course-ref-tools.ts`
 | `show_ref_preview` | (route-level) | `sections` | — | Update the preview panel to show the current state of one or more sections. |
 | `show_suggestions` | (route-level) | `question`, `suggestions` | — | Show clickable quick-reply chips above the chat input. |
 | `update_ref` | (route-level) | `section`, `data` | — | Save or update a section of the course reference document. |
+
+## Voice (VAPI custom tools)
+
+Source: `apps/admin/app/api/vapi/tools/route.ts`
+
+10 live, 0 stubs.
+
+### Live tools
+
+| Tool | Min role | Required | Optional | Summary |
+|------|----------|----------|----------|---------|
+| `check_mastery` | (route-level) | `module` | — | Check if the caller has mastered a specific module or concept. |
+| `get_next_module` | (route-level) | — | — | Find out what the next module or topic is in the caller's curriculum. |
+| `get_practice_question` | (route-level) | `topic` | — | Get a practice question or scenario for the current topic. |
+| `log_activity_result` | (route-level) | `activity_id`, `outcome` | `topic`, `notes` | Log the result of an interactive activity (pop quiz, MCQ, scenario, teach-back, etc. |
+| `lookup_teaching_point` | (route-level) | `topic` | `limit` | Look up specific teaching content or facts about a topic. |
+| `lookup_vocabulary` | (route-level) | `term` | — | Look up the definition of a word or term from the course materials. |
+| `record_observation` | (route-level) | `key`, `value` | `category` | Record an important observation about the caller during the conversation. |
+| `request_artifact` | (route-level) | `type`, `title`, `content` | `reason` | Request that a study artifact be sent to the caller after the call. |
+| `send_text_to_caller` | (route-level) | `message` | `purpose` | Send a text message (SMS) to the caller. |
+| `share_content` | (route-level) | `media_id` | `caption` | Share a visual aid (image, diagram, PDF) with the caller. |
 
 ## Promoting a stub
 
