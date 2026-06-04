@@ -6,7 +6,8 @@ import { getVoiceProvider } from "@/lib/voice/provider-factory";
 import { resolveVoiceProviderForCaller } from "@/lib/voice/resolve-voice-provider";
 import { getVoiceCallSettings } from "@/lib/system-settings";
 import { resolvePlaybookId } from "@/lib/enrollment/resolve-playbook";
-import { VAPI_TOOL_DEFINITIONS, TOOL_SETTING_KEYS } from "../tools/route";
+import { TOOL_SETTING_KEYS } from "../tools/route";
+import { loadToolDefinitions } from "@/lib/voice/load-tool-definitions";
 
 export const runtime = "nodejs";
 
@@ -65,16 +66,15 @@ export async function POST(request: NextRequest) {
     const vs = await getVoiceCallSettings();
     const serverUrlBase = `${config.app.url}/api/vapi`;
 
-    // Build tool definitions — only include tools enabled in settings.
-    // Sourced from VAPI_TOOL_DEFINITIONS today; #1019 migrates the source
-    // to the TOOLS-001 spec without changing the AssistantRequestContext shape.
-    // Cast to ProviderToolDefinition[] — VAPI_TOOL_DEFINITIONS uses a wider
-    // `type: string` inference; the canonical type narrows to `"function"`.
-    const enabledTools = VAPI_TOOL_DEFINITIONS
-      .filter((tool) => {
-        const settingKey = TOOL_SETTING_KEYS[tool.function.name];
-        return settingKey ? (vs as any)[settingKey] : true;
-      }) as unknown as import("@/lib/voice/types").ProviderToolDefinition[];
+    // Build tool definitions. Source: TOOLS-001 spec (#1019, supersedes
+    // the hardcoded VAPI_TOOL_DEFINITIONS constant). Filter by per-tool
+    // enablement in VoiceCallSettings — that mapping stays in code because
+    // it's a settings concern, not a content concern.
+    const allTools = await loadToolDefinitions();
+    const enabledTools = allTools.filter((tool) => {
+      const settingKey = TOOL_SETTING_KEYS[tool.function.name];
+      return settingKey ? (vs as any)[settingKey] : true;
+    });
 
     // Normalize phone (strip spaces, ensure +)
     const normalizedPhone = customerPhone.replace(/\s+/g, "");

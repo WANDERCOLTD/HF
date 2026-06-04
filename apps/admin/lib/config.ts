@@ -306,6 +306,18 @@ export const config = {
     },
 
     /**
+     * Voice Tools spec slug (default: TOOLS-001) — AnyVoice #1019.
+     * Identifies the AnalysisSpec whose config.tools array carries the
+     * voice-call custom tool definitions. The VapiProvider adapter
+     * reads this at call-start; missing/empty spec falls back to no
+     * tools (call continues without RAG / mid-call actions). Override
+     * via VOICE_TOOLS_SPEC_SLUG when seeding a custom tool catalogue.
+     */
+    get voiceTools(): string {
+      return optional("VOICE_TOOLS_SPEC_SLUG", "TOOLS-001");
+    },
+
+    /**
      * Onboarding prompt slug prefix (default: init.)
      * Used to generate welcome/phase slug names for personas.
      * Can be overridden via ONBOARDING_SLUG_PREFIX env var.

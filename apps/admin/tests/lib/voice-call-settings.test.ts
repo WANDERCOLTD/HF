@@ -21,7 +21,13 @@ import {
   SETTINGS_REGISTRY,
   type VoiceCallSettings,
 } from "@/lib/system-settings";
-import { VAPI_TOOL_DEFINITIONS, TOOL_SETTING_KEYS } from "@/app/api/vapi/tools/route";
+import { TOOL_SETTING_KEYS } from "@/app/api/vapi/tools/route";
+// Post-#1019 the tool list lives in the TOOLS-001 spec JSON (not the
+// hardcoded VAPI_TOOL_DEFINITIONS constant, which was removed). The
+// test reads the spec file directly — it's the source of truth and
+// stays close to what the seeder loads at /vm-cpp time.
+import toolsSpec from "../../docs-archive/bdd-specs/TOOLS-001-voice-tool-definitions.spec.json";
+const TOOLS_SPEC_DEFINITIONS = toolsSpec.config.tools as Array<{ function: { name: string } }>;
 
 describe("VoiceCallSettings", () => {
   it("has defaults for all interface fields", () => {
@@ -63,8 +69,8 @@ describe("VoiceCallSettings", () => {
 });
 
 describe("TOOL_SETTING_KEYS", () => {
-  it("covers every tool in VAPI_TOOL_DEFINITIONS", () => {
-    for (const tool of VAPI_TOOL_DEFINITIONS) {
+  it("covers every tool in the TOOLS-001 spec", () => {
+    for (const tool of TOOLS_SPEC_DEFINITIONS) {
       const toolName = tool.function.name;
       expect(TOOL_SETTING_KEYS).toHaveProperty(toolName);
     }
