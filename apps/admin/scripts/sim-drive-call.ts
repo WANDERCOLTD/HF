@@ -49,6 +49,8 @@ import {
   resolveCurriculumIdForPlaybook,
   resolveModuleByLogicalId,
 } from "@/lib/curriculum/resolve-module";
+import { loadToolDefinitions } from "@/lib/voice/load-tool-definitions";
+import { routeToolCall } from "@/lib/voice/tool-router";
 
 interface Args {
   callerId: string;
@@ -256,7 +258,16 @@ End the conversation naturally when the tutor signals the session is winding dow
     await prisma.callMessage.create({ data: { callId: call.id, role: "user", content: userMsg } });
     history.push({ role: "user", content: userMsg });
 
-    // Tutor reply
+    // Tutor reply — passes TOOLS-001 definitions so the AI can invoke
+    // tools mid-turn (AnyVoice #1023). Adapts our OpenAI-shape tool
+    // definitions to AITool (Anthropic flat shape) for the wrapper.
+    const toolDefs = await loadToolDefinitions();
+    const aiTools = toolDefs.map((t) => ({
+      name: t.function.name,
+      description: t.function.description,
+      input_schema: t.function.parameters,
+    }));
+
     const aiMessages = [
       { role: "system" as const, content: promptText },
       ...history.map((h) => ({ role: h.role, content: h.content })),
@@ -266,6 +277,7 @@ End the conversation naturally when the tutor signals the session is winding dow
         callPoint: "test-harness.system",
         messages: aiMessages,
         maxRetries: 1,
+        ...(aiTools.length > 0 ? { tools: aiTools } : {}),
       },
       { sourceOp: "sim-drive", callerId, callId: call.id }
     );
@@ -273,6 +285,29 @@ End the conversation naturally when the tutor signals the session is winding dow
     console.log(`Tutor → ${tutorReply.slice(0, 200)}${tutorReply.length > 200 ? "..." : ""}`);
     await prisma.callMessage.create({ data: { callId: call.id, role: "assistant", content: tutorReply } });
     history.push({ role: "assistant", content: tutorReply });
+
+    // If the AI invoked any tools, route them through the canonical
+    // dispatcher (no VAPI wire-format involved) and log the results.
+    // SIM doesn't feed results back as further messages today — the
+    // test value is proving the tool surface is alive end-to-end.
+    if (result.toolUses && result.toolUses.length > 0) {
+      for (const tu of result.toolUses) {
+        const toolResult = await routeToolCall(
+          { toolCallId: tu.id, funcName: tu.name, args: tu.input },
+          { callerId, customerPhone: null },
+        );
+        console.log(
+          `  ↳ tool ${tu.name}: ${toolResult.content.slice(0, 200)}${toolResult.content.length > 200 ? "..." : ""}`,
+        );
+        await prisma.callMessage.create({
+          data: {
+            callId: call.id,
+            role: "assistant",
+            content: `[tool ${tu.name}] ${toolResult.content.slice(0, 500)}`,
+          },
+        });
+      }
+    }
   }
 
   // 4. Update Call with full transcript text

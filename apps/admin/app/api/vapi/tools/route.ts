@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
  * Look up teaching content by topic keyword.
  * Course-scoped: only returns content from the caller's enrolled course/domain.
  */
-async function handleLookupTeachingPoint(
+export async function handleLookupTeachingPoint(
   args: { topic: string; limit?: number },
   callerId: string | null,
 ) {
@@ -176,7 +176,7 @@ async function handleLookupTeachingPoint(
  * remains opt-in via LEGACY_MASTERY_FALLBACK_ENABLED (default off) — see
  * apps/admin/docs/mastery-store-migration.md.
  */
-async function handleCheckMastery(
+export async function handleCheckMastery(
   args: { module: string },
   callerId: string | null,
 ) {
@@ -276,7 +276,7 @@ async function handleCheckMastery(
 /**
  * Record an observation about the caller in real-time.
  */
-async function handleRecordObservation(
+export async function handleRecordObservation(
   args: { key: string; value: string; category?: string },
   callerId: string | null,
 ) {
@@ -308,7 +308,7 @@ async function handleRecordObservation(
  * Searches ContentQuestion first (real extracted questions with answers),
  * falls back to assertion-based suggestion if none found.
  */
-async function handleGetPracticeQuestion(
+export async function handleGetPracticeQuestion(
   args: { topic: string },
   callerId: string | null,
 ) {
@@ -388,7 +388,7 @@ async function handleGetPracticeQuestion(
 /**
  * Get the next module the caller should study.
  */
-async function handleGetNextModule(
+export async function handleGetNextModule(
   args: Record<string, any>,
   callerId: string | null,
 ) {
@@ -430,7 +430,7 @@ async function handleGetNextModule(
  * Log the result of an interactive activity (pop quiz, MCQ, scenario, etc.).
  * Creates a CallerMemory and optionally updates CallerAttribute for tracking.
  */
-async function handleLogActivityResult(
+export async function handleLogActivityResult(
   args: {
     activity_id: string;
     outcome: "correct" | "incorrect" | "partial" | "completed" | "skipped";
@@ -502,7 +502,7 @@ async function handleLogActivityResult(
  *
  * Switching provider = change the setting. Zero code changes.
  */
-async function handleSendTextToCaller(
+export async function handleSendTextToCaller(
   args: { message: string; purpose?: string },
   callerId: string | null,
   customerPhone: string | null,
@@ -612,7 +612,7 @@ async function sendViaTwilio(
  * Request an artifact be created for the caller after the call ends.
  * Creates a CallAction that the pipeline picks up during EXTRACT.
  */
-async function handleRequestArtifact(
+export async function handleRequestArtifact(
   args: { type: string; title: string; content: string; reason?: string },
   callerId: string | null,
 ) {
@@ -670,7 +670,7 @@ async function handleRequestArtifact(
  * The AI's voice prompt lists available visual aids with media IDs.
  * This tool lets the AI push any of those to the caller mid-conversation.
  */
-async function handleShareContent(
+export async function handleShareContent(
   args: { media_id: string; caption?: string; context?: string },
   callerId: string | null,
   customerPhone: string | null,
@@ -828,7 +828,7 @@ async function handleShareContent(
  * Searches ContentVocabulary — extracted terms with definitions,
  * part of speech, and source context.
  */
-async function handleLookupVocabulary(
+export async function handleLookupVocabulary(
   args: { term: string },
   callerId: string | null,
 ) {
