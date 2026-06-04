@@ -13,6 +13,10 @@ import { z } from "zod";
 import { resolveTenantCtx } from "@/lib/intake/hf-adapter/auth";
 import { loadDisclosureCopy } from "@/lib/intake/hf-adapter/disclosure-content";
 import {
+  getDisclosureStore,
+  deriveDisclosureId,
+} from "@/lib/intake/hf-adapter/disclosure-store";
+import {
   openSession,
   appendEvent,
   appendMessage,
@@ -75,6 +79,7 @@ export async function POST(req: NextRequest) {
         { status: 500 },
       );
     }
+    const deliveredAtIso = new Date().toISOString();
     appendEvent(session, {
       kind: "DisclosureDelivered",
       payload: {
@@ -84,12 +89,36 @@ export async function POST(req: NextRequest) {
         status: copy.meta.status,
         locale: copy.meta.locale,
         controller: copy.meta.controller,
-        deliveredAt: new Date().toISOString(),
+        deliveredAt: deliveredAtIso,
       },
       lawfulBasis: "contract",
       purpose: PURPOSE.courseDelivery,
       dataSubjectIds: [subjectId],
     });
+
+    // Q-CR9 write-path: populate tallyseal_disclosure alongside the
+    // in-memory event. Best-effort — failure logs but doesn't block
+    // intake (Q2 founder guidance; Q-BRIDGE-RECORDER-DURABILITY).
+    try {
+      const store = await getDisclosureStore();
+      await store.record({
+        id: deriveDisclosureId(session.intentId, requirementId),
+        tenantId: session.tenant.id,
+        subject: subjectId,
+        requirementId,
+        content: copy.content,
+        contentHash: copy.contentHash,
+        deliveredAt: deliveredAtIso,
+        deliveryMethod: "banner",
+        acknowledgedAt: null,
+        retractedAt: null,
+      } as never);
+    } catch (err) {
+      console.error(
+        "[intake/bootstrap] disclosureStore.record failed (continuing):",
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 
   // Resolve classroomToken (Option B routing): call the existing

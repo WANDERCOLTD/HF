@@ -19,6 +19,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import {
+  getDisclosureStore,
+  deriveDisclosureId,
+} from "@/lib/intake/hf-adapter/disclosure-store";
+import {
   appendEvent,
   getSession,
   PURPOSE,
@@ -75,10 +79,16 @@ export async function POST(req: NextRequest) {
   }
 
   const subjectId = `intake-subject-${body.chatSessionId}` as SubjectId;
+  // Derive the canonical disclosureId using the same algorithm as
+  // bootstrap (Q-CR9 write-path coherence; both routes must agree on
+  // the typed-table row identity).
+  const disclosureId = deriveDisclosureId(body.intentId, body.requirementId);
+  const acknowledgedAtIso = new Date().toISOString();
+
   appendEvent(session, {
     kind: "DisclosureAcknowledged",
     payload: {
-      disclosureId: `disc_${body.requirementId}`,
+      disclosureId,
       subject: subjectId,
       acknowledges: delivered.id,
     },
@@ -86,6 +96,23 @@ export async function POST(req: NextRequest) {
     purpose: PURPOSE.courseDelivery,
     dataSubjectIds: [subjectId],
   });
+
+  // Q-CR9 write-path: stamp tallyseal_disclosure.acknowledged_at
+  // alongside the in-memory event. Best-effort — failure logs but
+  // doesn't block the learner (Q2 founder guidance).
+  try {
+    const store = await getDisclosureStore();
+    await store.markAcknowledged(
+      session.tenant.id as never,
+      disclosureId as never,
+      acknowledgedAtIso as never,
+    );
+  } catch (err) {
+    console.error(
+      "[intake/disclosure-acknowledge] disclosureStore.markAcknowledged failed (continuing):",
+      err instanceof Error ? err.message : err,
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }
