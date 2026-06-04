@@ -127,6 +127,16 @@ export async function POST(req: NextRequest) {
     assistantReply = stubResult.reply;
   }
 
+  // Fallback narration. Claude commonly returns a tool call with no
+  // accompanying text after `update-setup` fires; an empty assistant
+  // reply makes the chat look stuck even though the fields were
+  // captured. If we have no text but a required field is still
+  // missing, ask for it deterministically. Idempotent — if the reply
+  // already has content, this is a no-op.
+  if (!assistantReply || assistantReply.trim() === "") {
+    assistantReply = nextQuestionFor(session.values);
+  }
+
   appendEvent(session, {
     kind: "CapturedTurn",
     payload: { role: "assistant", content: assistantReply },
@@ -193,6 +203,29 @@ function isReady(values: Record<string, unknown>): boolean {
     return v !== undefined && v !== null && v !== "";
   };
   return has("firstName") && has("lastName") && has("email") && has("ageRange");
+}
+
+/**
+ * Deterministic next-question fallback. Mirrors the field ordering in
+ * `isReady()`. Returns "" when readiness is already satisfied — the
+ * commit path will redirect and the chat doesn't need to say anything.
+ *
+ * Used when the AI call returns a tool call with no accompanying text
+ * (a common shape Claude produces after `update-setup` fires). Keeps
+ * the chat visibly flowing instead of showing a blank assistant turn.
+ */
+function nextQuestionFor(values: Record<string, unknown>): string {
+  const has = (k: string): boolean => {
+    const v = values[k];
+    return v !== undefined && v !== null && v !== "";
+  };
+  if (!has("firstName")) return "What's your first name?";
+  if (!has("lastName")) return "Thanks. What's your last name?";
+  if (!has("email")) return "Got it. What's your email?";
+  if (!has("ageRange")) {
+    return "Last one — which age band fits? Options: 18-24, 25-34, 35-44, 45-54, 55-64, 65-plus, or prefer-not-to-say. (Under-18 enrolment isn't supported via this flow.)";
+  }
+  return "";
 }
 
 // ── AI call — passes the `update-setup` tool ───────────────────────
